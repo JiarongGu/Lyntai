@@ -17,14 +17,15 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.2.0).** All of `tasks.md`, then a review/research hardening pass:
-`ILlmClient` front door (to a consumer, Lyntai behaves like ONE provider — keep new surface behind
-it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, amended §6 RateLimited
-(cool-host-and-advance), OTel GenAI telemetry (`LyntaiDiagnostics`), structured output
-(`CompleteJsonAsync`), `lyntai_`-prefixed SQLite objects. Tests/e2e green.
+**Implemented + hardened (v0.3.0).** All of `tasks.md`, a review/research hardening pass, then
+roadmap v0.3: `ILlmClient` front door (to a consumer, Lyntai behaves like ONE provider — keep new
+surface behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
+`RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel
+GenAI telemetry (`LyntaiDiagnostics`), structured output (`CompleteJsonAsync`), deferred SQLite
+migrations, `lyntai_`-prefixed SQLite objects, BenchmarkDotNet project. Tests/e2e green.
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
-  note the dated §6 amendments). Read it first.
-- `docs/ROADMAP.md` — the forward sequence (v0.3+ and standing maintenance policies).
+  note the dated §6 amendments; §6 is now the default `RoutingPolicy`). Read it first.
+- `docs/ROADMAP.md` — the forward sequence (v0.4+ and standing maintenance policies).
 - `CHANGELOG.md` — per-release detail; breaking changes called out.
 - `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
 
@@ -60,5 +61,6 @@ Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (rout
   deterministic provider-stub (`LYNTAI_PROVIDER_CMD`) over isolated `devtools/_e2e-*` data folders.
 - `node devtools/dev.mjs new-migration <name>` — scaffold the next FluentMigrator migration (unique number).
 - `node devtools/dev.mjs playground` — run the sample console app.
+- `node devtools/dev.mjs bench [-- --filter *X*]` — BenchmarkDotNet (Release) router/FTS benchmarks.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.
 - `node devtools/dev.mjs check-sensitive [--tree]` — leak scan.

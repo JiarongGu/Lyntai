@@ -15,21 +15,16 @@ Multi-agent code review (10 confirmed bugs fixed) + best-practices research pass
 `ILlmClient` front door + `AsChatClient()` reverse bridge, shared verdict classifier, finer verdict
 taxonomy (context-window / auth), amended RateLimited semantics (cool host, advance), ProcessRunner
 lifecycle correctness, OpenTelemetry GenAI spans/metrics, structured output (`CompleteJsonAsync`),
-trim/AOT analyzers, symbols + embedded sources.
+trim/AOT analyzers, symbols + embedded sources. Plus a second adversarial audit pass (streaming
+inactivity clocks in every provider, empty-content commit gate, env/telemetry/idempotency fixes).
+
+### v0.3.0 — routing & resilience depth (2026-07)
+Configurable `RoutingPolicy` (the §6 switch becomes the default policy): per-verdict action,
+retry-then-advance, per-(provider, model) cooldown granularity, sole-candidate exemption — all
+tunable via `ConfigureRouting` / `LYNTAI_*` env. Deferred migrations (`migrateOnFirstUse`).
+BenchmarkDotNet project (router overhead, FTS recall at scale).
 
 ## Planned
-
-### v0.3 — routing & resilience depth
-- **Retry-then-advance option**: LiteLLM-style — N retries on the current candidate before
-  escalating (immediate-advance stays the default; a single transient blip shouldn't fail over).
-- **Configurable verdict→action mapping**: let consumers override what advances / cools / surfaces
-  per verdict (the hard-coded defaults become just the default policy).
-- **Per-(provider, model) cooldown granularity**: today the dead-host key is the provider id; a
-  rate-limited model shouldn't bench its siblings on the same host.
-- **Single-candidate exemption**: never bench the only configured candidate (LiteLLM does this).
-- **Deferred migrations option**: `UseSqliteStorage(path, migrateOnFirstUse: true)` for hosts that
-  must not do I/O during DI composition.
-- Benchmarks (BenchmarkDotNet): router overhead per attempt, FTS recall latency at 10k/100k rows.
 
 ### v0.4 — LLM-ops depth
 - **Prompt registry versioning**: history + rollback for `lyntai.prompt.*` overrides (audit who

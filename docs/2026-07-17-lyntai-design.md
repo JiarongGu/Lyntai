@@ -181,9 +181,16 @@ provider + storage.
 
 ## 6. Data flow & error handling (the parts that matter)
 
-**Fallback router** (odysseus semantics):
+**Fallback router** (odysseus semantics). *As of v0.3 all of this is the **default** `RoutingPolicy`
+(`LyntaiOptions.Routing`); each rule below is a per-verdict `FallbackAction`, a same-candidate retry
+count, a cooldown-key scope, and a sole-candidate exemption — overridable via `ConfigureRouting` /
+`LYNTAI_*` env without changing the documented defaults.*
 - Dedup candidates by `(providerId, model)`, first wins — a misconfigured list that re-prepends the
-  primary won't retry it.
+  primary won't retry it. A **sole** candidate is never benched for cooldown (benching the only option
+  just yields a synthetic failure).
+- **Retry-then-advance** (default 0 retries): the same candidate may be retried on a transient fault
+  (Failed/Timeout) before advancing — a single blip shouldn't fail over. Cooled/refused/context-window
+  verdicts never retry the same host.
 - **Non-streaming:** try candidates in order; on `Failed`/`Timeout` move to the next; log each attempt
   with provider + reason. `RateLimited` = **cool the host immediately and advance** — a 429 is
   terminal for *that host's window* (immediate dead-host cooldown, never re-ask it) but transient for

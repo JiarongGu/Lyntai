@@ -12,7 +12,7 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.2.0 — production-hardened.** The v0.1.0 implementation (all of `tasks.md`) plus a multi-agent
+**v0.3.0 — routing depth on a production-hardened base.** The v0.1.0 implementation (all of `tasks.md`) plus a multi-agent
 code-review pass (10 confirmed bugs fixed — process lifecycle, verdict mapping, streaming fallback
 parity) and a best-practices research pass (amended 429 semantics, finer verdict taxonomy,
 OpenTelemetry GenAI telemetry, structured output, trim/AOT-ready packaging).
@@ -94,12 +94,24 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
 - **Streaming never falls back after the first token** — pre-content failures move to the next
   candidate, mid-stream errors pass through unchanged (your consumer never sees duplicated output).
 - **Dead-host cooldown** instead of exponential backoff; any success resets.
+- **All of the above is the default `RoutingPolicy` — tune it without a fork.** Retry a transient
+  fault on the same candidate before failing over, override what each verdict does, cool by
+  `(provider, model)` instead of whole-host, or keep the sole candidate always live:
+  ```csharp
+  cfg.ConfigureRouting(r =>
+  {
+      r.Retry(LlmVerdict.Failed, 1);                     // one retry before advancing
+      r.CooldownScope = CooldownScope.ProviderAndModel;  // per-model rate-limit cooldown
+      r.On(LlmVerdict.RateLimited, FallbackAction.Surface); // e.g. don't fall back on 429
+  });
+  ```
 - **Prompt overrides** live in the key-value store under `lyntai.prompt.<name>`; an override that
   drops a `{placeholder}` present in the default is rejected (falls back to the default, with a warning).
 - **Memory recall is bounded and fail-open:** FTS5 trigram match (works for CJK substrings), LIKE
   fallback, capped per (task, scope) — and it never throws into your prompt path.
 - **Env overrides beat code config:** `LYNTAI_TIMEOUT_SECONDS`, `LYNTAI_DEADHOST_THRESHOLD`,
   `LYNTAI_DEADHOST_COOLDOWN_SECONDS`, `LYNTAI_DEFAULT_CANDIDATES` (`providerId[:model],…`),
+  `LYNTAI_RETRY_FAILED`/`_TIMEOUT`/`_BACKOFF_SECONDS`, `LYNTAI_COOLDOWN_SCOPE`,
   `LYNTAI_PROVIDER_CMD` (point the CLI provider at a stub — how the tests/e2e spend zero tokens).
 - **Shared-database safe:** every SQLite object Lyntai creates is prefixed `lyntai_` (including the
   migration version table), so `UseSqliteStorage` can point at an existing app database.

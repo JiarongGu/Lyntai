@@ -3,12 +3,30 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
-## Unreleased
+## 0.3.0 — 2026-07-17
 
-A second independent audit pass (four adversarial reviewers over the router, providers, storage, and
-cortex) — findings the 0.2.0 review + 221 tests missed. No API breaks.
+Routing & resilience depth (the roadmap's v0.3), plus a second independent audit pass (four
+adversarial reviewers over the router, providers, storage, and cortex) — findings the 0.2.0 review +
+221 tests missed.
 
-### Fixed
+### Added
+- **Configurable `RoutingPolicy`** (`LyntaiOptions.Routing`, `LyntaiBuilder.ConfigureRouting`,
+  `LYNTAI_RETRY_*` / `LYNTAI_COOLDOWN_SCOPE` env). The hard-coded §6 router switch becomes the
+  *default* policy — every prior router test passes unchanged. Four routing items land at once:
+  - **Per-verdict action** (`FallbackAction`: Advance / PenalizeAndAdvance / CooldownAndAdvance /
+    Surface), overridable with `.On(verdict, action)`.
+  - **Retry-then-advance** — `.Retry(verdict, n)` retries the *same* candidate on a transient fault
+    (Failed/Timeout) before falling over; cooled/surfaced/context-window verdicts never retry the
+    same host. Optional `RetryBackoff`. Applies to complete + streaming pre-content.
+  - **Per-(provider, model) cooldown granularity** (`CooldownScope`) — a rate-limited model no longer
+    benches its siblings on the same host. Default `Provider` (unchanged).
+  - **Sole-candidate exemption** (default on, LiteLLM parity) — never bench the only candidate.
+- **Deferred migrations** — `UseSqliteStorage(path, migrateOnFirstUse: true)` migrates lazily on the
+  first store access (thread-safe) so DI composition does no I/O.
+- **`bench/Lyntai.Benchmarks`** (BenchmarkDotNet, `dev.mjs bench`) — router overhead per attempt,
+  FTS5 recall latency at 1k/10k/100k rows.
+
+### Fixed (audit pass — no API breaks)
 - **Streaming timeout is now an inactivity clock in every provider.** The ExtensionsAi and
   OpenAiCompatible streaming paths still armed a single wall-clock `CancelAfter` over the whole stream
   (0.2.0 fixed only the CLI/ProcessRunner path), so a slow-but-healthy stream or a slow consumer got
