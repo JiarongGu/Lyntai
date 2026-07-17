@@ -19,6 +19,10 @@
     <CodePage>65001</CodePage>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Trim/AOT readiness: turns on IsTrimmable + the trim/AOT/single-file analyzers for every
+         packable library. Lyntai.Storage.Sqlite opts OUT (Dapper/FluentMigrator materialize via
+         reflection — an honest package can't claim AOT-compat there); see its csproj. -->
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <!-- NuGet metadata shared by the packable src/* projects (each sets its own PackageId + description). -->

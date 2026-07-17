@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Lyntai.Cortex;
 using Lyntai.Llm;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,7 +23,8 @@ public sealed class LyntaiBuilder
     public LyntaiOptions Options { get; }
 
     /// <summary>Register an <see cref="ILlmProvider"/> into the router's provider collection.</summary>
-    public LyntaiBuilder AddProvider<T>() where T : class, ILlmProvider
+    public LyntaiBuilder AddProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, ILlmProvider
     {
         Services.AddSingleton<ILlmProvider, T>();
         return this;
@@ -36,7 +38,8 @@ public sealed class LyntaiBuilder
     }
 
     /// <summary>Register an eval dimension into the scoring collection.</summary>
-    public LyntaiBuilder AddScorer<T>() where T : class, IScorer
+    public LyntaiBuilder AddScorer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, IScorer
     {
         Services.AddSingleton<IScorer, T>();
         return this;

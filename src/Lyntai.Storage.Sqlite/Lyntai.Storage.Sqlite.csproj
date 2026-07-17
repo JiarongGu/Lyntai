@@ -4,6 +4,12 @@
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Storage.Sqlite</PackageId>
     <Description>SQLite implementations of the Lyntai storage domains (key-value, conversations, task-scoped memory with FTS5 trigram recall, scores, run traces) — Dapper + FluentMigrator, wired via builder.UseSqliteStorage(path).</Description>
+    <!-- Dapper + FluentMigrator materialize via reflection: this package cannot honestly claim
+         trim/AOT compatibility (their warnings are invisible to project-level analysis — consumers
+         AOT-publishing need a rooted self-contained test). Analyzer stays on for OUR code. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
   </PropertyGroup>
 
   <ItemGroup>

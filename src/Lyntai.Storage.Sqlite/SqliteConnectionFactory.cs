@@ -31,6 +31,11 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
     public DbConnection Open()
     {
         var conn = new SqliteConnection(_connectionString);
+        // Two INDEPENDENT lock-wait layers: PRAGMA busy_timeout (5s, inside SQLite) and the driver's
+        // own busy/locked retry loop bounded by the command timeout (Microsoft.Data.Sqlite retries
+        // until CommandTimeout — default 30s — regardless of busy_timeout). Set it deliberately so
+        // the worst-case wait ceiling is a documented choice, not an inherited default.
+        conn.DefaultTimeout = 30;
         conn.Open();
         using var cmd = conn.CreateCommand();
         // journal_mode persists in the db but is idempotent; busy_timeout + foreign_keys are per-connection
