@@ -1,7 +1,7 @@
 namespace Lyntai.Storage;
 
 /// <summary>One stored revision of a named prompt override. Versions are monotonic per name; exactly
-/// one is active at a time (the one <see cref="IPromptRegistry"/> renders).</summary>
+/// one is active at a time (the one the prompt registry renders).</summary>
 public sealed record PromptVersion(
     string Name,
     int Version,

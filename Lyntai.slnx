@@ -3,6 +3,7 @@
     <Project Path="src/Lyntai.Core/Lyntai.Core.csproj" />
     <Project Path="src/Lyntai.Storage.Sqlite/Lyntai.Storage.Sqlite.csproj" />
     <Project Path="src/Lyntai.Storage.InMemory/Lyntai.Storage.InMemory.csproj" />
+    <Project Path="src/Lyntai.Storage.Postgres/Lyntai.Storage.Postgres.csproj" />
     <Project Path="src/Lyntai.Providers.ClaudeCli/Lyntai.Providers.ClaudeCli.csproj" />
     <Project Path="src/Lyntai.Providers.OpenAiCompatible/Lyntai.Providers.OpenAiCompatible.csproj" />
     <Project Path="src/Lyntai.Providers.ExtensionsAi/Lyntai.Providers.ExtensionsAi.csproj" />

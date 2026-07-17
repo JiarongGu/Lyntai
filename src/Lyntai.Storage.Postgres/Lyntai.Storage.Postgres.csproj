@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Storage.Postgres</PackageId>
+    <Description>PostgreSQL implementations of the Lyntai storage domains (key-value, conversations, task-scoped memory with pg_trgm substring recall, scores, run traces, versioned prompts) — Npgsql + Dapper + FluentMigrator, wired via builder.UsePostgresStorage(connectionString). Every object is lyntai_-prefixed so it can share a consumer database.</Description>
+    <!-- Dapper materializes via reflection: same honest opt-out as Lyntai.Storage.Sqlite. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="FluentMigrator.Runner.Postgres" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+</Project>

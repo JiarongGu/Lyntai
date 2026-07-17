@@ -15,6 +15,7 @@
     <ProjectReference Include="..\..\src\Lyntai.Core\Lyntai.Core.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Storage.Sqlite\Lyntai.Storage.Sqlite.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Storage.Postgres\Lyntai.Storage.Postgres.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.ClaudeCli\Lyntai.Providers.ClaudeCli.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.OpenAiCompatible\Lyntai.Providers.OpenAiCompatible.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.ExtensionsAi\Lyntai.Providers.ExtensionsAi.csproj" />
@@ -25,6 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 
 </Project>

@@ -38,6 +38,7 @@ export default {
     'src/Lyntai.Core',
     'src/Lyntai.Storage.Sqlite',
     'src/Lyntai.Storage.InMemory',
+    'src/Lyntai.Storage.Postgres',
     'src/Lyntai.Providers.ClaudeCli',
     'src/Lyntai.Providers.OpenAiCompatible',
     'src/Lyntai.Providers.ExtensionsAi',

@@ -1,0 +1,57 @@
+static class Lyntai.PostgresStorageBuilderExtensions
+    UsePostgresStorage(LyntaiBuilder, String, Boolean=) : LyntaiBuilder
+class Lyntai.Storage.Postgres.MigratingConnectionFactory
+    .ctor(String)
+    Open() : DbConnection
+class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
+    .ctor()
+    AppliedOnColumnName : String
+    ColumnName : String
+    CreateWithPrimaryKey : Boolean
+    DescriptionColumnName : String
+    OwnsSchema : Boolean
+    SchemaName : String
+    TableName : String
+    UniqueIndexName : String
+class Lyntai.Storage.Postgres.Migrations.M202607170001_InitialSchema
+    .ctor()
+    Down() : Void
+    Up() : Void
+static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
+    MigrateUp(String) : Void
+class Lyntai.Storage.Postgres.PostgresConnectionFactory
+    .ctor(String)
+    Open() : DbConnection
+class Lyntai.Storage.Postgres.PostgresConversationStore
+    .ctor(IDbConnectionFactory)
+    AppendMessageAsync(String, String, String, CancellationToken=) : Task<ChatMessage>
+    CreateThreadAsync(String, String=, CancellationToken=) : Task<ChatThread>
+    DeleteThreadAsync(String, CancellationToken=) : Task
+    GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
+    GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
+    ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+class Lyntai.Storage.Postgres.PostgresKeyValueStore
+    .ctor(IDbConnectionFactory)
+    DeleteAsync(String, CancellationToken=) : Task
+    GetAsync(String, CancellationToken=) : Task<String>
+    SetAsync(String, String, CancellationToken=) : Task
+class Lyntai.Storage.Postgres.PostgresMemoryStore
+    .ctor(IDbConnectionFactory, LyntaiOptions, ILogger<PostgresMemoryStore>=, Func<DateTimeOffset>=)
+    ForgetAsync(String, String=, CancellationToken=) : Task
+    PruneAsync(String=, Nullable<TimeSpan>=, CancellationToken=) : Task<Int32>
+    RecallAsync(String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<MemoryEntry>>
+    RememberAsync(String, String, String, Nullable<TimeSpan>=, CancellationToken=) : Task
+class Lyntai.Storage.Postgres.PostgresPromptVersionStore
+    .ctor(IDbConnectionFactory)
+    GetActiveAsync(String, CancellationToken=) : Task<PromptVersion>
+    HistoryAsync(String, CancellationToken=) : Task<IReadOnlyList<PromptVersion>>
+    RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
+    SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
+class Lyntai.Storage.Postgres.PostgresScoreStore
+    .ctor(IDbConnectionFactory)
+    GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
+    SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
+class Lyntai.Storage.Postgres.PostgresTraceStore
+    .ctor(IDbConnectionFactory)
+    GetAsync(String, CancellationToken=) : Task<RunTrace>
+    SaveAsync(RunTrace, CancellationToken=) : Task
