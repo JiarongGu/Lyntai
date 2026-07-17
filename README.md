@@ -12,8 +12,9 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.12.0 — native tool-calling (HTTP + MEAI bridge) + an MCP tool source, in-process local inference,
-bring-your-own resources, three storage backends, LLM-ops depth, on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
+**v0.13.0 — native tool-calling (HTTP + MEAI bridge), an MCP tool source, proper CLI tool-calling,
+in-process local inference, bring-your-own resources, three storage backends, LLM-ops depth, on a
+production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
 multi-agent code-review + best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops
 depth (v0.4), public-API baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama
 validation (v0.6), IoC seams so the app owns its resource lifecycle — process execution, HttpClient, DB
@@ -38,6 +39,7 @@ tool-calling loop (v0.9), and native (structured) function-calling with a prompt
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
 | `Lyntai.Tools.Mcp` | Expose a Model Context Protocol (MCP) server's tools as Lyntai `ITool`s for the tool loop. |
+| `Lyntai.Providers.ClaudeCli.Mcp` | Give the claude CLI real tool-calling — hosts your `ITool`s over MCP so the CLI's agent calls them. |
 
 Each `src/*` is an independent NuGet package depending only on `Lyntai.Core` — add just what you need.
 
@@ -259,6 +261,23 @@ await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
 var mcpTools = await McpToolset.FromClientAsync(mcp);   // list + adapt the server's tools
 services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(mcpTools).DefaultCandidates("claude-cli"));
 ```
+
+**Tools for the claude CLI** (`Lyntai.Providers.ClaudeCli.Mcp`) — the CLI runs its own agent loop and
+reaches custom tools only over MCP, so this add-on hosts your registered `ITool`s as an ephemeral,
+localhost-only HTTP MCP server (started/stopped per CLI call) and wires `claude -p` to it. Opt in and a
+completion routed to the CLI lets its agent call your tools:
+
+```csharp
+services.AddLyntai(b => b
+    .AddClaudeCliProvider()
+    .AddTool(_ => new FunctionTool("get_weather", (a, ct) => Task.FromResult("""{"tempC":21}"""), "Current weather"))
+    .AddClaudeCliMcpTools()        // hosts the tools over MCP for the CLI
+    .DefaultCandidates("claude-cli"));
+// var reply = await llm.CompleteAsync(...);  → the CLI calls get_weather and answers
+```
+
+(This runs an ephemeral Kestrel listener on `127.0.0.1` only during each CLI call — a deliberate, scoped
+exception to Lyntai's otherwise host-free design, isolated in this opt-in package.)
 
 ## Dev loop
 

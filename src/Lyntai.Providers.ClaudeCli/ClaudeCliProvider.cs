@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Lyntai.Agents;
 using Lyntai.Llm;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
@@ -16,7 +17,8 @@ public sealed class ClaudeCliProvider(
     IProcessRunner runner,
     LyntaiOptions options,
     ILogger<ClaudeCliProvider>? logger = null,
-    string? command = null) : ILlmProvider
+    string? command = null,
+    ICliToolProvisioner? provisioner = null) : ILlmProvider
 {
     public const string ProviderId = "claude-cli";
 
@@ -48,8 +50,11 @@ public sealed class ClaudeCliProvider(
 
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
+        // when a provisioner is registered (the ClaudeCli.Mcp add-on), it stands up an MCP host exposing
+        // the app's tools and hands back the CLI args; the session tears it down after the process exits
+        await using var session = provisioner is null ? null : await provisioner.ProvisionAsync(ct).ConfigureAwait(false);
         var (exe, prefixArgs) = ResolveCommand();
-        var argv = prefixArgs.Concat(ClaudeArgs.Build(req.Model)).ToList();
+        var argv = prefixArgs.Concat(ClaudeArgs.Build(req.Model)).Concat(session?.ExtraArgs ?? []).ToList();
         var prompt = ClaudeArgs.BuildPrompt(req);
 
         ProcessResult result;
@@ -98,8 +103,11 @@ public sealed class ClaudeCliProvider(
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
+        // host lives for the whole stream (the CLI calls tools throughout); torn down when this iterator
+        // is disposed
+        await using var session = provisioner is null ? null : await provisioner.ProvisionAsync(ct).ConfigureAwait(false);
         var (exe, prefixArgs) = ResolveCommand();
-        var argv = prefixArgs.Concat(ClaudeArgs.Build(req.Model)).ToList();
+        var argv = prefixArgs.Concat(ClaudeArgs.Build(req.Model)).Concat(session?.ExtraArgs ?? []).ToList();
         var prompt = ClaudeArgs.BuildPrompt(req);
 
         var sawContent = false;

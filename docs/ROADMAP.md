@@ -87,7 +87,14 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
 - ✅ **`Lyntai.Tools.Mcp`** — expose a Model Context Protocol server's tools as Lyntai `ITool`s
   (`McpToolset.FromClientAsync` + `AddMcpTools`), so the loop can drive the whole MCP tool ecosystem.
   App owns the `McpClient` (BYO transport/connection); Lyntai adapts. Proven live against
-  `@modelcontextprotocol/server-everything`. **Remaining on the tool-calling track:** streaming
+  `@modelcontextprotocol/server-everything`.
+
+### v0.13.0 — proper tool-calling for the claude CLI (2026-07)
+- ✅ **`Lyntai.Providers.ClaudeCli.Mcp`** — the CLI runs its own agent loop and reaches custom tools only
+  over MCP, so this hosts the app's `ITool`s as an ephemeral, localhost-only HTTP MCP server (Kestrel)
+  and wires `claude -p` to it (`--mcp-config` + `--settings` allow-list). Opt-in `AddClaudeCliMcpTools()`;
+  a small Core seam (`ICliToolProvisioner`) keeps the host dependency out of the base provider. A
+  deliberate, scoped exception to "no host". **Remaining on the tool-calling track:** streaming
   tool-calls (lower value).
 
 ## Planned

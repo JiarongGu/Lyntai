@@ -3,6 +3,33 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.13.0 — 2026-07-18
+
+Proper tool-calling for the **claude CLI** provider, plus a test-stability fix. Additive.
+
+### Added
+- **`Lyntai.Providers.ClaudeCli.Mcp`** — gives the claude CLI provider real tool-calling. The CLI runs
+  its own agent loop and reaches custom tools only over MCP, so this hosts the app's registered
+  `ITool`s as an **in-process, localhost-only HTTP MCP server** (Kestrel, ephemeral port, started and
+  torn down per CLI call) and points `claude -p` at it via a temp `--mcp-config` + a `--settings`
+  allow-list (`mcp__lyntai__*`, so only our tools run, non-interactively). Opt-in:
+  `builder.AddClaudeCliProvider().AddTool(...).AddClaudeCliMcpTools()`; a completion routed to the CLI
+  then lets its agent call the app's tools and returns the tool-informed answer.
+  - A small Core seam (`ICliToolProvisioner` / `CliToolSession` in `Lyntai.Agents`) keeps the
+    host/ASP.NET dependency out of the base `ClaudeCli` provider — the provider gains an optional
+    provisioner and behaves exactly as before when the add-on isn't registered.
+  - Each `ITool` is exposed via an invocable `AIFunction` (its own JSON schema, not delegate-inferred).
+    Proven end-to-end by hosting the server and connecting with Lyntai's *own* MCP client (the exact
+    thing the CLI does) — no real CLI needed for the core test; a gated `LYNTAI_LIVE_CLI_TOOLS` test
+    covers the real binary.
+  - **Note:** this is a deliberate, scoped exception to the library's "no server/no host" principle —
+    an ephemeral localhost listener that exists only during a CLI call, isolated in this opt-in package.
+
+### Fixed
+- **Flaky router cooldown test** — the dead-host cooldown integration test depended on wall-clock timing
+  (under a saturated parallel runner, call 1's subprocess spawn could outlast the cooldown before call 2
+  ran). Rewritten to use `DeadHostTracker`'s injectable clock — fully deterministic. (No library change.)
+
 ## 0.12.0 — 2026-07-18
 
 New package **`Lyntai.Tools.Mcp`** — expose a Model Context Protocol (MCP) server's tools to the tool

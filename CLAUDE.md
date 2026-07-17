@@ -17,8 +17,8 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.12.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
-v0.3–v0.12 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
+**Implemented + hardened (v0.13.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
+v0.3–v0.13 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
 + `migrate:false`, provider presets — the app owns resource lifecycle, Lyntai provides the interface;
 v0.8 = `Lyntai.Providers.Local` in-process GGUF inference via LLamaSharp, managed-only so the app picks
 the backend; v0.9 = agentic tool-calling `Lyntai.Agents` — `IToolLoop` over `ILlmClient`, `ITool`/`AddTool`
@@ -26,7 +26,9 @@ DI collection, first platform-kit §9 cut; v0.10 = NATIVE tool-calling — `LlmR
 `SupportsToolCalls` capability, OpenAI/Ollama `tool_calls` parsed, loop prefers native + prompt
 fallback; v0.11 = native tool-calling through the MEAI bridge too, so any `IChatClient` gets it;
 v0.12 = `Lyntai.Tools.Mcp` — expose an MCP server's tools as `ITool`s via `AddMcpTools`, app owns the
-MCP client): `ILlmClient` front door (to a
+MCP client; v0.13 = `Lyntai.Providers.ClaudeCli.Mcp` — proper CLI tool-calling by hosting the app's
+`ITool`s as an ephemeral localhost MCP server for `claude -p` via the `ICliToolProvisioner` seam,
+a scoped opt-in exception to "no host"): `ILlmClient` front door (to a
 consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
 `RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel GenAI

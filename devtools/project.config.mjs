@@ -44,5 +44,6 @@ export default {
     'src/Lyntai.Providers.ExtensionsAi',
     'src/Lyntai.Providers.Local',
     'src/Lyntai.Tools.Mcp',
+    'src/Lyntai.Providers.ClaudeCli.Mcp',
   ],
 };

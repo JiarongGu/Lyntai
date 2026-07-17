@@ -29,6 +29,8 @@
 
     <!-- MCP (Model Context Protocol) client — for exposing an MCP server's tools as Lyntai ITools -->
     <PackageVersion Include="ModelContextProtocol.Core" Version="1.4.1" />
+    <!-- MCP HTTP server hosting (Kestrel) — to expose the app's ITools to the claude CLI over MCP -->
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.4.1" />
 
     <!-- tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />

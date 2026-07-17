@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Providers.ClaudeCli.Mcp</PackageId>
+    <Description>Gives the claude CLI provider proper tool-calling: hosts the app's registered Lyntai ITools as an in-process localhost HTTP MCP server and points the CLI at it (--mcp-config), so the CLI's agent calls them natively. Opt-in via builder.AddClaudeCliMcpTools(). Uses Kestrel (ASP.NET Core) for the ephemeral, per-call, localhost-only host.</Description>
+    <!-- Hosts Kestrel: needs the ASP.NET Core shared framework. Dynamic-JSON tool marshaling + hosting
+         mean this can't honestly claim trim/AOT. Analyzer stays on for our code. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+  <!-- Kestrel/hosting comes from the ASP.NET Core shared framework (no extra NuGet weight). -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
+</Project>

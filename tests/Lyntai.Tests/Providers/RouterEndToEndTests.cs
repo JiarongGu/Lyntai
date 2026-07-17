@@ -1,6 +1,7 @@
 using System.Net;
 using Lyntai;
 using Lyntai.Llm;
+using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -116,13 +117,24 @@ public class RouterEndToEndTests : IDisposable
     {
         _http.Enqueue(HttpStatusCode.InternalServerError, "boom");   // call 1: kills the host
         _http.Enqueue(HttpStatusCode.OK, HttpOkBody);                // call 3 (after cooldown): recovers
-        using var sp = BuildStack(o =>
+
+        // Deterministic clock — no wall-clock dependence. (Previously flaky: under a saturated parallel
+        // runner, call 1's node-subprocess spawn could outlast a real-time cooldown before call 2 ran,
+        // so the host was wrongly back in rotation.) Pre-registering the tracker wins over AddLyntai's
+        // TryAddSingleton, so the router uses this controllable clock.
+        var now = DateTimeOffset.UtcNow;
+        var cooldown = TimeSpan.FromSeconds(30);
+        var services = new ServiceCollection();
+        services.AddSingleton(new DeadHostTracker(threshold: 1, cooldown, clock: () => now));
+        services.AddLyntai(b =>
         {
-            o.DeadHostThreshold = 1;
-            // generous margin so the test is robust on a saturated parallel runner: call 2 lands
-            // immediately (well inside the window), call 3 after a delay that dwarfs the cooldown
-            o.DeadHostCooldown = TimeSpan.FromMilliseconds(200);
+            b.AddClaudeCliProvider();
+            b.AddOpenAiCompatibleProvider("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
+            b.DefaultCandidates("claude-cli", "openai");
         });
+        services.AddHttpClient(OpenAiCompatibleBuilderExtensions.HttpClientName("openai"))
+            .ConfigurePrimaryHttpMessageHandler(() => _http);
+        using var sp = services.BuildServiceProvider();
         var router = sp.GetRequiredService<ILlmRouter>();
         var candidates = new List<LlmCandidate> { new("openai"), new("claude-cli") };
 
@@ -131,10 +143,10 @@ public class RouterEndToEndTests : IDisposable
         Assert.Single(_http.Requests);
 
         var r2 = await router.CompleteAsync(candidates, Req("second"));
-        Assert.Equal("stub reply: second", r2.Text);  // openai dead → skipped without an HTTP call
+        Assert.Equal("stub reply: second", r2.Text);  // openai dead (clock unchanged) → skipped, no HTTP call
         Assert.Single(_http.Requests);
 
-        await Task.Delay(600); // let the cooldown (200ms) lapse with a wide margin
+        now += cooldown + TimeSpan.FromSeconds(1);     // advance past the cooldown deterministically
         var r3 = await router.CompleteAsync(candidates, Req("third"));
         Assert.Equal("served by http", r3.Text);      // back in rotation and healthy again
         Assert.Equal(2, _http.Requests.Count);

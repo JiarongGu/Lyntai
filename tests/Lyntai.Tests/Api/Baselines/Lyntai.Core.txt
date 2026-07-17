@@ -1,9 +1,15 @@
+class Lyntai.Agents.CliToolSession
+    .ctor(IReadOnlyList<String>, Func<ValueTask>=)
+    DisposeAsync() : ValueTask
+    ExtraArgs : IReadOnlyList<String>
 class Lyntai.Agents.FunctionTool
     .ctor(String, Func<String,CancellationToken,Task<String>>, String=, String=)
     Description : String
     InvokeAsync(String, CancellationToken=) : Task<String>
     Name : String
     ParametersJsonSchema : String
+interface Lyntai.Agents.ICliToolProvisioner
+    ProvisionAsync(CancellationToken=) : Task<CliToolSession>
 interface Lyntai.Agents.ITool
     Description : String
     InvokeAsync(String, CancellationToken=) : Task<String>
