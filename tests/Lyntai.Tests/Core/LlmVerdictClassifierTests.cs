@@ -20,6 +20,8 @@ public class LlmVerdictClassifierTests
     [InlineData("Incorrect API key provided", LlmVerdict.AuthFailed)]
     [InlineData("401 Unauthorized", LlmVerdict.AuthFailed)]
     [InlineData("authentication failed for this endpoint", LlmVerdict.AuthFailed)]
+    [InlineData("Unauthorized: invalid api key", LlmVerdict.AuthFailed)]      // auth context nearby
+    [InlineData("user is unauthorized to read file config.json", LlmVerdict.Failed)] // NOT a provider-auth failure
     [InlineData("something exploded", LlmVerdict.Failed)]
     [InlineData("", LlmVerdict.Failed)]
     [InlineData(null, LlmVerdict.Failed)]

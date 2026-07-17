@@ -47,7 +47,10 @@ public static partial class LlmVerdictClassifier
     [GeneratedRegex(@"context[\s_-]?(?:window|length)|maximum\s+context|context_length_exceeded|prompt\s+is\s+too\s+long|input\s+is\s+too\s+long|too\s+many\s+(?:input\s+)?tokens|exceeds\s+the\s+.{0,20}token", RegexOptions.IgnoreCase)]
     private static partial Regex ContextWindowPattern();
 
-    [GeneratedRegex(@"(?:invalid|incorrect|missing)\s+(?:api[\s_-]?key|token|credential)|api[\s_-]?key\s+(?:not\s+)?(?:valid|found|provided)|unauthorized|authentication\s+(?:failed|error|required)|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*40[13]\b", RegexOptions.IgnoreCase)]
+    // "unauthorized" alone is NOT enough (e.g. "user is unauthorized to read file X" is a tool/
+    // permission message, not a provider-auth failure) — since AuthFailed now cools the host, it needs
+    // auth context (a key/token/credential/401 nearby), mirroring how the rate-limit rule guards 429.
+    [GeneratedRegex(@"(?:invalid|incorrect|missing|expired)\s+(?:api[\s_-]?key|token|credential)|api[\s_-]?key\s+(?:not\s+)?(?:valid|found|provided)|authentication\s+(?:failed|error|required)|401\s+unauthorized|(?:api[\s_-]?key|token|credential|access|auth\w*)[\s\S]{0,40}unauthorized|unauthorized[\s\S]{0,40}(?:api[\s_-]?key|token|credential|access|client)|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*40[13]\b", RegexOptions.IgnoreCase)]
     private static partial Regex AuthPattern();
 
     [GeneratedRegex(@"content[\s_-]?(?:filter|policy)|policy\s+violation", RegexOptions.IgnoreCase)]

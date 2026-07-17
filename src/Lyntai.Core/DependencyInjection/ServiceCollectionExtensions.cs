@@ -19,6 +19,13 @@ public static class LyntaiServiceCollectionExtensions
     /// applied after the configure callback — env beats code config.</summary>
     public static IServiceCollection AddLyntai(this IServiceCollection services, Action<LyntaiBuilder> configure)
     {
+        // idempotency guard: a second AddLyntai would register a second LyntaiOptions (shadowing the
+        // first on resolution) while the providers/scorers from both calls pile into the DI collections,
+        // configured against the now-orphaned first options. Compose everything in one configure callback.
+        if (services.Any(d => d.ServiceType == typeof(LyntaiOptions)))
+            throw new InvalidOperationException(
+                "AddLyntai has already been called on this IServiceCollection. Call it once and compose all providers, storage, and scorers in the single configure callback.");
+
         var options = new LyntaiOptions();
         var builder = new LyntaiBuilder(services, options);
         configure(builder);

@@ -26,7 +26,8 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
     {
         using var conn = factory.Open();
         var rows = await conn.QueryAsync<ChatThread>(new CommandDefinition(
-            "SELECT id AS Id, title AS Title, created_at AS CreatedAt FROM lyntai_thread ORDER BY created_at DESC LIMIT @limit",
+            // id DESC is the deterministic tiebreaker when two threads share a created_at tick
+            "SELECT id AS Id, title AS Title, created_at AS CreatedAt FROM lyntai_thread ORDER BY created_at DESC, id DESC LIMIT @limit",
             new { limit }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }

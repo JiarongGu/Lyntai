@@ -70,6 +70,17 @@ public class AddLyntaiTests
     }
 
     [Fact]
+    public void Calling_AddLyntai_twice_throws_rather_than_shadowing_options()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("a")));
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("b"))));
+        Assert.Contains("already been called", ex.Message);
+    }
+
+    [Fact]
     public void Scorers_register_as_a_di_collection()
     {
         var services = new ServiceCollection();

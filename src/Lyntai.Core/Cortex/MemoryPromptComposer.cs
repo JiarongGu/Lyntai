@@ -9,7 +9,8 @@ namespace Lyntai.Cortex;
 /// <see cref="IMemoryStore"/>. Never throws — an outage yields the base prompt.</summary>
 public sealed class MemoryPromptComposer(
     IMemoryStore? memory = null,
-    ILogger<MemoryPromptComposer>? logger = null) : IPromptComposer
+    ILogger<MemoryPromptComposer>? logger = null,
+    int maxChars = 4000) : IPromptComposer
 {
     private readonly ILogger _logger = logger ?? NullLogger<MemoryPromptComposer>.Instance;
 
@@ -32,10 +33,22 @@ public sealed class MemoryPromptComposer(
         }
         if (entries.Count == 0) return basePrompt;
 
-        var sb = new StringBuilder(basePrompt);
-        sb.Append("\n\n## Learned facts (").Append(taskKey).Append(")\n");
+        // bound the appended section by BOTH entry count (via the recall limit) and a character budget,
+        // so a handful of multi-KB facts can't blow the context window (design §8: max entries / char cap).
+        var facts = new StringBuilder();
+        var budget = maxChars;
         foreach (var entry in entries)
-            sb.Append("- ").Append(entry.Content).Append('\n');
-        return sb.ToString().TrimEnd();
+        {
+            var line = $"- {entry.Content}\n";
+            if (line.Length > budget) break; // stop once the section budget is spent
+            facts.Append(line);
+            budget -= line.Length;
+        }
+        if (facts.Length == 0) return basePrompt; // even the first fact overflowed the budget
+
+        return new StringBuilder(basePrompt)
+            .Append("\n\n## Learned facts (").Append(taskKey).Append(")\n")
+            .Append(facts)
+            .ToString().TrimEnd();
     }
 }
