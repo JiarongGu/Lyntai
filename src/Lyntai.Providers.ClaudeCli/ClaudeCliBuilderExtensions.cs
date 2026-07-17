@@ -14,7 +14,7 @@ public static class ClaudeCliBuilderExtensions
     public static LyntaiBuilder AddClaudeCliProvider(this LyntaiBuilder builder)
     {
         builder.AddProvider(sp => new ClaudeCliProvider(
-            sp.GetRequiredService<ProcessRunner>(),
+            sp.GetRequiredService<IProcessRunner>(),
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<ClaudeCliProvider>>()));
         return builder;

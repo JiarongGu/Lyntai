@@ -1,5 +1,9 @@
 static class Lyntai.OpenAiCompatibleBuilderExtensions
-    AddOpenAiCompatibleProvider(LyntaiBuilder, String, Action<OpenAiCompatibleOptions>) : LyntaiBuilder
+    AddAzureOpenAiProvider(LyntaiBuilder, String, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    AddOllamaProvider(LyntaiBuilder, String=, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    AddOpenAiCompatibleProvider(LyntaiBuilder, String, Action<OpenAiCompatibleOptions>, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    AddOpenAiProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    AddOpenRouterProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
 class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
     .ctor()
     ApiKey : String

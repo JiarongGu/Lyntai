@@ -315,6 +315,9 @@ class Lyntai.LyntaiOptions
     ProviderTimeout : TimeSpan
     ResolveModel(String, String) : String
     Routing : RoutingPolicy
+interface Lyntai.Processes.IProcessRunner
+    RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
+    StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>
 class Lyntai.Processes.ProcessResult
     .ctor(Int32, String, String, Boolean)
     Deconstruct(Int32&, String&, String&, Boolean&) : Void

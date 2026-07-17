@@ -1,5 +1,6 @@
 static class Lyntai.SqliteStorageBuilderExtensions
-    UseSqliteStorage(LyntaiBuilder, String, Boolean=) : LyntaiBuilder
+    UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
+    UseSqliteStorage(LyntaiBuilder, String, Boolean=, Boolean=) : LyntaiBuilder
 class Lyntai.Storage.Sqlite.MigratingConnectionFactory
     .ctor(String)
     Open() : DbConnection

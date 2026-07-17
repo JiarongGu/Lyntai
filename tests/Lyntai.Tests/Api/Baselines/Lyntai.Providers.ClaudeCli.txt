@@ -4,7 +4,7 @@ static class Lyntai.Providers.ClaudeCli.ClaudeArgs
     Build(String) : IReadOnlyList<String>
     BuildPrompt(LlmRequest) : String
 class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
-    .ctor(ProcessRunner, LyntaiOptions, ILogger<ClaudeCliProvider>=, String=)
+    .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeCliProvider>=, String=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean

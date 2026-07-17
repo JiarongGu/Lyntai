@@ -1,5 +1,6 @@
 static class Lyntai.PostgresStorageBuilderExtensions
-    UsePostgresStorage(LyntaiBuilder, String, Boolean=) : LyntaiBuilder
+    UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
+    UsePostgresStorage(LyntaiBuilder, String, Boolean=, Boolean=) : LyntaiBuilder
 class Lyntai.Storage.Postgres.MigratingConnectionFactory
     .ctor(String)
     Open() : DbConnection

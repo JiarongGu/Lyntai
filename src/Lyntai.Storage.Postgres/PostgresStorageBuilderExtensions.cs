@@ -9,22 +9,39 @@ namespace Lyntai;
 
 public static class PostgresStorageBuilderExtensions
 {
-    /// <summary>Wire every storage domain to PostgreSQL. By default the migrations run now; set
-    /// <paramref name="migrateOnFirstUse"/> to defer them to the first store access so DI composition
-    /// does no I/O. Every object is <c>lyntai_</c>-prefixed, so the connection may target an existing
-    /// application database.</summary>
-    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, string connectionString, bool migrateOnFirstUse = false)
+    /// <summary>Wire every storage domain to PostgreSQL.
+    /// <para><paramref name="migrateOnFirstUse"/> defers migrations to the first store access so DI
+    /// composition does no I/O.</para>
+    /// <para><paramref name="migrate"/>=false makes the APP own the schema — Lyntai runs no migrations,
+    /// assuming the <c>lyntai_*</c> tables already exist. Every object is <c>lyntai_</c>-prefixed, so the
+    /// connection may target an existing application database.</para></summary>
+    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, string connectionString,
+        bool migrateOnFirstUse = false, bool migrate = true)
     {
-        if (migrateOnFirstUse)
+        IDbConnectionFactory factory;
+        if (!migrate)
         {
-            builder.Services.AddSingleton<IDbConnectionFactory>(new MigratingConnectionFactory(connectionString));
+            factory = new PostgresConnectionFactory(connectionString); // app owns the schema
+        }
+        else if (migrateOnFirstUse)
+        {
+            factory = new MigratingConnectionFactory(connectionString);
         }
         else
         {
             MigrationRunnerService.MigrateUp(connectionString);
-            builder.Services.AddSingleton<IDbConnectionFactory>(new PostgresConnectionFactory(connectionString));
+            factory = new PostgresConnectionFactory(connectionString);
         }
+        return builder.UsePostgresStorage(factory);
+    }
 
+    /// <summary>Wire every storage domain to PostgreSQL using an APP-SUPPLIED
+    /// <see cref="IDbConnectionFactory"/> — the app owns connection creation, pooling, and lifecycle.
+    /// Lyntai runs no migrations here; own the schema, or migrate beforehand. The SQL is Postgres-dialect,
+    /// so the factory must open Npgsql connections.</summary>
+    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, IDbConnectionFactory factory)
+    {
+        builder.Services.AddSingleton(factory);
         builder.Services.AddSingleton<IKeyValueStore, PostgresKeyValueStore>();
         builder.Services.AddSingleton<IPromptVersionStore, PostgresPromptVersionStore>();
         builder.Services.AddSingleton<IConversationStore, PostgresConversationStore>();

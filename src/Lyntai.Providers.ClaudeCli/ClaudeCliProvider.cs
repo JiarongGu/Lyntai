@@ -13,7 +13,7 @@ namespace Lyntai.Providers.ClaudeCli;
 /// <c>claude</c> from PATH — the env seams are what let tests/e2e point at the deterministic stub.
 /// </summary>
 public sealed class ClaudeCliProvider(
-    ProcessRunner runner,
+    IProcessRunner runner,
     LyntaiOptions options,
     ILogger<ClaudeCliProvider>? logger = null,
     string? command = null) : ILlmProvider

@@ -28,7 +28,7 @@ public sealed class ProcessTimeoutException(string command, TimeSpan timeout)
 /// directions, resolved-path cache (where.exe/which, prefer .cmd/.exe), Kill(entireProcessTree) on
 /// cancel/timeout.
 /// </summary>
-public sealed class ProcessRunner
+public sealed class ProcessRunner : IProcessRunner
 {
     private static readonly ConcurrentDictionary<string, string> PathCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);

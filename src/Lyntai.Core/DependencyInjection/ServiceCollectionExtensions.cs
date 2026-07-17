@@ -32,7 +32,7 @@ public static class LyntaiServiceCollectionExtensions
         options.ApplyEnvOverrides();
 
         services.AddSingleton(options);
-        services.TryAddSingleton<ProcessRunner>();
+        services.TryAddSingleton<IProcessRunner, ProcessRunner>(); // BYO: register your own IProcessRunner first to override spawning
         services.TryAddSingleton(sp => new DeadHostTracker(
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
         services.TryAddSingleton<ILlmRouter>(sp => new LlmRouter(
