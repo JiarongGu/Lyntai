@@ -50,11 +50,11 @@ var composer = sp.GetRequiredService<IPromptComposer>();
 var prompt = await composer.ComposeAsync(basePrompt, "playground", scope: "demo");
 recorder.Record(new TraceStep { Kind = "phase", Label = "compose" });
 
-// 2. completion through the router (default candidates: claude-cli, then ollama)
-var router = sp.GetRequiredService<ILlmRouter>();
-var options = sp.GetRequiredService<LyntaiOptions>();
+// 2. completion through the front door — Lyntai behaving like one provider
+//    (fallback across claude-cli → ollama happens invisibly behind ILlmClient)
+var llm = sp.GetRequiredService<ILlmClient>();
 var stopwatch = Stopwatch.StartNew();
-var reply = await router.CompleteAsync(options.DefaultCandidates,
+var reply = await llm.CompleteAsync(
     new LlmRequest { Messages = [LlmMessage.User(prompt)], Consumer = "playground" });
 recorder.Record(new TraceStep
 {

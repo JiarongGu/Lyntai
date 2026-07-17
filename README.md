@@ -53,11 +53,12 @@ services.AddLyntai(cfg =>
 });
 ```
 
-Then inject and use the seams:
+Then inject the front door. **To your app, Lyntai behaves like one LLM provider** — `ILlmClient` has
+`ILlmProvider`'s shape, and candidate order, fallback, and dead-host handling happen invisibly behind it:
 
 ```csharp
 public sealed class MyFeature(
-    ILlmRouter llm, LyntaiOptions options,
+    ILlmClient llm,
     IPromptRegistry prompts, IPromptComposer composer,
     IScoringService scoring, ITraceService traces, IMemoryStore memory)
 {
@@ -67,11 +68,20 @@ public sealed class MyFeature(
             "Answer briefly: {question}", new Dictionary<string, string> { ["question"] = question }, ct);
         prompt = await composer.ComposeAsync(prompt, taskKey: "myfeature", ct: ct); // + learned facts
 
-        var reply = await llm.CompleteAsync(options.DefaultCandidates,
+        var reply = await llm.CompleteAsync(
             new LlmRequest { Messages = [LlmMessage.User(prompt)], Consumer = "myfeature" }, ct);
         return reply.Verdict == LlmVerdict.Ok ? reply.Text : throw new InvalidOperationException(reply.Detail);
     }
 }
+```
+
+(`ILlmRouter` stays available for call sites that genuinely need their own candidate list.)
+
+And if your app already speaks `Microsoft.Extensions.AI`, consume Lyntai **as** an `IChatClient` —
+routing, fallback, and the ops layer come along silently:
+
+```csharp
+IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient();
 ```
 
 ### The semantics you're getting (design §6)
