@@ -87,8 +87,11 @@ public sealed class OpenAiCompatibleProvider(
         var model = req.Model ?? config.DefaultModel ?? "";
         using var http = httpFactory();
 
+        // the timeout is an INACTIVITY clock: it covers the connect and each line read, but is stopped
+        // while we and the consumer process a line — a slow-but-healthy stream isn't killed under a
+        // slow reader. Re-armed per read below (mirrors ProcessRunner.StreamLinesAsync).
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(options.ProviderTimeout);
+        timeoutCts.CancelAfter(options.ProviderTimeout); // arm for the connect (ResponseHeadersRead)
 
         HttpResponseMessage? response = null;
         LlmChunk? startupError = null;
@@ -134,7 +137,9 @@ public sealed class OpenAiCompatibleProvider(
             LlmChunk? error = null;
             try
             {
+                timeoutCts.CancelAfter(options.ProviderTimeout);            // arm: inactivity clock for this read
                 line = await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false);
+                timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan);          // stop the clock while we + the consumer work
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)

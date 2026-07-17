@@ -39,6 +39,27 @@ public class LlmRouterStreamTests
     }
 
     [Fact]
+    public async Task Empty_first_content_chunk_does_not_commit_so_a_following_error_falls_over()
+    {
+        // the router is the trust boundary: an empty/role-only Content chunk must NOT disable fallback
+        // (shipped providers guard this, but a third-party ILlmProvider may yield an empty first chunk)
+        var p1 = new FakeLlmProvider("p1")
+        {
+            StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Error(LlmVerdict.Failed, "empty then died")],
+        };
+        var p2 = new FakeLlmProvider("p2")
+        {
+            StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()],
+        };
+
+        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+
+        Assert.Equal("recovered",
+            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content && c.Text.Length > 0).Select(c => c.Text)));
+        Assert.Equal(1, p2.StreamCalls); // the empty chunk didn't commit, so it fell over
+    }
+
+    [Fact]
     public async Task Mid_stream_error_after_a_token_passes_through_no_second_candidate()
     {
         var p1 = new FakeLlmProvider("p1")

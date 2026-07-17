@@ -134,7 +134,10 @@ public sealed class LlmRouter(
                             break;
                         }
 
-                        if (chunk.Kind == LlmChunkKind.Content && !committed)
+                        // only REAL content commits the stream. An empty/role-only first Content chunk
+                        // must not disable fallback — the router is the trust boundary and can't assume
+                        // every third-party provider guards this itself.
+                        if (chunk.Kind == LlmChunkKind.Content && chunk.Text.Length > 0 && !committed)
                         {
                             committed = true;
                             deadHosts.RecordSuccess(provider.Id);

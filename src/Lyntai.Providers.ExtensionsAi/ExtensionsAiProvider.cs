@@ -56,8 +56,12 @@ public sealed class ExtensionsAiProvider(
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
+        // the timeout is an INACTIVITY clock on the provider (re-armed before each MoveNextAsync,
+        // stopped while we and the consumer work) — a slow-but-healthy stream or a slow reader is
+        // never killed under it. The single-shot CancelAfter this replaces counted consumer dwell
+        // time and killed healthy streams; ProcessRunner.StreamLinesAsync uses the same pattern.
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(options.ProviderTimeout);
+        timeoutCts.CancelAfter(options.ProviderTimeout); // arm for the initial connect
 
         LlmUsage? usage = null;
         var sawContent = false;
@@ -71,7 +75,10 @@ public sealed class ExtensionsAiProvider(
                 LlmChunk? error = null;
                 try
                 {
-                    update = await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null;
+                    timeoutCts.CancelAfter(options.ProviderTimeout);           // arm: inactivity clock for this read
+                    var moved = await enumerator.MoveNextAsync().ConfigureAwait(false);
+                    timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan);          // stop the clock while we + the consumer work
+                    update = moved ? enumerator.Current : null;
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (OperationCanceledException)
