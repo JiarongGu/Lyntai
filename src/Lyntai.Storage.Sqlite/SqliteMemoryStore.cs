@@ -102,8 +102,7 @@ public sealed class SqliteMemoryStore(
 
             if (!string.IsNullOrWhiteSpace(query))
             {
-                var pattern = "%" + query.Trim()
-                    .Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+                var pattern = LikePattern.Contains(query);
                 var likeHits = await conn.QueryAsync<MemoryEntry>(new CommandDefinition($"""
                     SELECT {SelectColumns}
                     FROM lyntai_memory_entry m

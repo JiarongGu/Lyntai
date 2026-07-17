@@ -18,6 +18,15 @@ public sealed class LlmRouter(
     private readonly ILogger _logger = logger ?? NullLogger<LlmRouter>.Instance;
     private RoutingPolicy Policy => options.Routing;
 
+    // provider lookup by id, built once — O(1) per candidate/retry instead of a linear scan. First
+    // registration wins on a duplicate id (preserving the prior FirstOrDefault semantics).
+    private readonly Lazy<IReadOnlyDictionary<string, ILlmProvider>> _byId = new(() =>
+    {
+        var map = new Dictionary<string, ILlmProvider>();
+        foreach (var p in providers) map.TryAdd(p.Id, p);
+        return map;
+    });
+
     public async Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default)
     {
         var deduped = CandidateDedup.Dedup(candidates);
@@ -239,8 +248,8 @@ public sealed class LlmRouter(
 
     private ILlmProvider? SelectLive(LlmCandidate candidate, string? effectiveModel, bool soleCandidate, out string skipReason)
     {
-        var provider = providers.FirstOrDefault(p => p.Id == candidate.ProviderId);
-        if (provider is null) { skipReason = "no provider with this id registered"; return null; }
+        if (!_byId.Value.TryGetValue(candidate.ProviderId, out var provider))
+        { skipReason = "no provider with this id registered"; return null; }
         if (!provider.IsAvailable) { skipReason = "provider reports unavailable"; return null; }
 
         // sole-candidate exemption: benching the only option just guarantees a synthetic failure —

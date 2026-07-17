@@ -60,8 +60,7 @@ public sealed class PostgresMemoryStore(
 
             if (!string.IsNullOrWhiteSpace(query))
             {
-                var pattern = "%" + query.Trim()
-                    .Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+                var pattern = LikePattern.Contains(query);
                 var hits = await conn.QueryAsync<Row>(new CommandDefinition($"""
                     SELECT {SelectColumns} FROM lyntai_memory_entry
                     WHERE task_key = @taskKey AND (@scope::text IS NULL OR scope = @scope)

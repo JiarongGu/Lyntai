@@ -400,6 +400,9 @@ interface Lyntai.Storage.IScoreStore
 interface Lyntai.Storage.ITraceStore
     GetAsync(String, CancellationToken=) : Task<RunTrace>
     SaveAsync(RunTrace, CancellationToken=) : Task
+static class Lyntai.Storage.LikePattern
+    Contains(String) : String
+    Escape(String) : String
 class Lyntai.Storage.MemoryEntry
     .ctor(Int64, String, String, String, DateTimeOffset)
     Content : String
