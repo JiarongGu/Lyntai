@@ -7,6 +7,7 @@ class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls : Boolean
 class Lyntai.Providers.ExtensionsAi.LyntaiChatClient
     .ctor(ILlmClient)
     Dispose() : Void

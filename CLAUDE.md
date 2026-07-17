@@ -24,7 +24,8 @@ v0.8 = `Lyntai.Providers.Local` in-process GGUF inference via LLamaSharp, manage
 the backend; v0.9 = agentic tool-calling `Lyntai.Agents` — `IToolLoop` over `ILlmClient`, `ITool`/`AddTool`
 DI collection, first platform-kit §9 cut; v0.10 = NATIVE tool-calling — `LlmReply.ToolCalls` +
 `SupportsToolCalls` capability, OpenAI/Ollama `tool_calls` parsed, loop prefers native + prompt
-fallback): `ILlmClient` front door (to a
+fallback; v0.11 = native tool-calling through the MEAI bridge too, so any `IChatClient` gets it):
+`ILlmClient` front door (to a
 consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
 `RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel GenAI

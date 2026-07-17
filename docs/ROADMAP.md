@@ -74,9 +74,15 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   `LlmReply.ToolCalls`, `LlmMessage.ToolResult`/`AssistantToolCalls`); `SupportsToolCalls` capability on
   provider/router/client (first-live-candidate) lets `IToolLoop` pick native vs. the prompt fallback
   transparently. `OpenAiCompatibleProvider` parses `tool_calls` (OpenAI + Ollama dialects) and
-  serializes tool/assistant turns. Proven end-to-end against a real Ollama. **Next on this track:**
-  native tool-calling through the MEAI bridge (`ExtensionsAiProvider` — a small argument-serialization
-  spike, deferred); then an MCP-client `ITool` (proxy an MCP server); streaming tool-calls.
+  serializes tool/assistant turns. Proven end-to-end against a real Ollama.
+
+### v0.11.0 — native tool-calling through the MEAI bridge (2026-07)
+- ✅ **`ExtensionsAiProvider` native tools** — every `Microsoft.Extensions.AI` `IChatClient` (OpenAI,
+  Azure, Anthropic API, …) now gets native function-calling. Declaration-only `AIFunctionDeclaration`s
+  on `ChatOptions.Tools` (Lyntai's loop still drives execution — no `FunctionInvokingChatClient`),
+  `FunctionCallContent`↔`LlmReply.ToolCalls`, `FunctionResultContent` for results; stays trim/AOT-clean
+  via `System.Text.Json.Nodes`. **Next on the tool-calling track:** an MCP-client `ITool` (proxy an MCP
+  server — makes the loop useful against that whole ecosystem); streaming tool-calls.
 
 ## Planned
 

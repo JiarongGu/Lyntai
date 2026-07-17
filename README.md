@@ -12,8 +12,8 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.10.0 — native tool-calling, in-process local inference, bring-your-own resources, three storage
-backends, LLM-ops depth, on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
+**v0.11.0 — native tool-calling (HTTP + MEAI bridge), in-process local inference, bring-your-own
+resources, three storage backends, LLM-ops depth, on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
 multi-agent code-review + best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops
 depth (v0.4), public-API baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama
 validation (v0.6), IoC seams so the app owns its resource lifecycle — process execution, HttpClient, DB
@@ -240,9 +240,10 @@ foreach (var step in result.Steps)         // every tool call it made, for traci
 
 The loop executes the tool the model chooses, feeds the result back, and repeats up to
 `ToolLoopMaxIterations` (default 8). It uses **native** provider function-calling when available
-(OpenAI-compatible / Ollama — structured `tool_calls`, parallel calls supported) and falls back to a
-**prompt protocol** over the text contract for providers without it (CLI, basic local models) — same
-`ITool`s either way, chosen transparently behind the front door (`ILlmClient.SupportsToolCalls`). An
+(OpenAI-compatible / Ollama and any `Microsoft.Extensions.AI` `IChatClient` via the bridge — structured
+`tool_calls`, parallel calls supported) and falls back to a **prompt protocol** over the text contract
+for providers without it (CLI, basic local models) — same `ITool`s either way, chosen transparently
+behind the front door (`ILlmClient.SupportsToolCalls`). An
 unknown or throwing tool becomes a recoverable `error: …` observation rather than a crash; a refusal or
 all-providers-down verdict surfaces on `result.Verdict`.
 

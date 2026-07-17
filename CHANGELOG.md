@@ -3,6 +3,22 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.11.0 — 2026-07-18
+
+Native tool-calling through the **MEAI bridge** — the follow-up deferred from v0.10. Now every
+`Microsoft.Extensions.AI` `IChatClient` (OpenAI, Azure, Anthropic API, Ollama-via-MEAI, …) gets native
+function-calling too, not just the OpenAI-compatible HTTP provider. Additive.
+
+### Added
+- **`ExtensionsAiProvider` bridges tools both directions.** `LlmRequest.Tools` map to declaration-only
+  `AIFunctionDeclaration`s on `ChatOptions.Tools` (a `LyntaiToolDeclaration` — Lyntai's tool loop drives
+  execution, so no invocable `AIFunction`/`FunctionInvokingChatClient` is used); the model's
+  `FunctionCallContent` surfaces on `LlmReply.ToolCalls` (empty-content tool-call turn → `Ok` before the
+  empty→Failed branch); tool-call/result turns map to `FunctionCallContent`/`FunctionResultContent`.
+  `SupportsToolCalls => true`. Proven end-to-end through the tool loop with a scripted `IChatClient`.
+- The bridge stays **trim/AOT-clean** (✅): the tool-argument round-trip uses `System.Text.Json.Nodes`
+  (no reflection-based `JsonSerializer`).
+
 ## 0.10.0 — 2026-07-18
 
 Native (structured) tool-calling — makes the v0.9 tool loop *actually work* over real provider

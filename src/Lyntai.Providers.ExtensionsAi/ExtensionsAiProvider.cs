@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Lyntai.Llm;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -11,7 +12,10 @@ namespace Lyntai.Providers.ExtensionsAi;
 /// Bridges any <see cref="IChatClient"/> (the whole Microsoft.Extensions.AI ecosystem — OpenAI,
 /// Azure, Ollama, Anthropic API, …) into a Lyntai <see cref="ILlmProvider"/>: request/option
 /// mapping, streaming, usage, and verdict classification from exceptions/finish reasons.
-/// Function tools are not bridged in this cut (a declaration-only tool has no invocable AIFunction).
+/// Native tool-calling is bridged: <see cref="LlmRequest.Tools"/> map to declaration-only
+/// <see cref="AIFunctionDeclaration"/>s on <see cref="ChatOptions.Tools"/>, the model's
+/// <see cref="FunctionCallContent"/> surfaces on <see cref="LlmReply.ToolCalls"/>, and tool-result
+/// turns map back to <see cref="FunctionResultContent"/> — Lyntai's tool loop drives execution.
 /// </summary>
 public sealed class ExtensionsAiProvider(
     string id,
@@ -24,6 +28,8 @@ public sealed class ExtensionsAiProvider(
     public string Id => id;
 
     public bool IsAvailable => true; // the client exists; real availability shows up as verdicts
+
+    public bool SupportsToolCalls => true;
 
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
@@ -38,6 +44,11 @@ public sealed class ExtensionsAiProvider(
             var usage = MapUsage(response.Usage);
             if (response.FinishReason == ChatFinishReason.ContentFilter)
                 return new LlmReply(text, LlmVerdict.Refused, usage, $"{id}: content filter");
+            // a tool-call turn is a SUCCESSFUL reply with (usually) empty text — surface it before the
+            // empty→Failed branch (the tool loop drives the next turn)
+            var toolCalls = ExtractToolCalls(response);
+            if (toolCalls is { Count: > 0 })
+                return new LlmReply(text, LlmVerdict.Ok, usage) { ToolCalls = toolCalls };
             if (string.IsNullOrEmpty(text))
                 return new LlmReply("", LlmVerdict.Failed, usage, $"{id}: empty response");
             return new LlmReply(text, LlmVerdict.Ok, usage);
@@ -116,8 +127,64 @@ public sealed class ExtensionsAiProvider(
             yield return LlmChunk.Final(usage);
     }
 
-    private static IList<ChatMessage> MapMessages(LlmRequest req) =>
-        [.. req.Messages.Select(m => new ChatMessage(new ChatRole(m.Role), m.Content))];
+    private static IList<ChatMessage> MapMessages(LlmRequest req) => [.. req.Messages.Select(ToChatMessage)];
+
+    /// <summary>One canonical message → MEAI <see cref="ChatMessage"/>. An assistant tool-call turn
+    /// becomes <see cref="FunctionCallContent"/>s; a tool-result turn becomes a
+    /// <see cref="FunctionResultContent"/> on the Tool role; everything else is plain text.</summary>
+    private static ChatMessage ToChatMessage(LlmMessage m)
+    {
+        if (m.ToolCalls is { Count: > 0 })
+            return new ChatMessage(ChatRole.Assistant,
+                [.. m.ToolCalls.Select(tc => (AIContent)new FunctionCallContent(tc.Id, tc.Name, ParseArgs(tc.ArgumentsJson)))]);
+        if (m.ToolCallId is not null)
+            return new ChatMessage(ChatRole.Tool, [new FunctionResultContent(m.ToolCallId, m.Content)]);
+        return new ChatMessage(new ChatRole(m.Role), m.Content);
+    }
+
+    /// <summary>Pull the model's <see cref="FunctionCallContent"/>s off a response into
+    /// <see cref="LlmToolCall"/>s (arguments serialized back to a JSON string for the tool loop). Uses
+    /// <see cref="JsonNode"/>, not reflection-based <c>JsonSerializer</c>, to keep the package AOT-clean.</summary>
+    private static IReadOnlyList<LlmToolCall>? ExtractToolCalls(ChatResponse response)
+    {
+        List<LlmToolCall>? calls = null;
+        foreach (var message in response.Messages)
+            foreach (var content in message.Contents)
+                if (content is FunctionCallContent fc)
+                    (calls ??= []).Add(new LlmToolCall(fc.CallId, fc.Name, SerializeArgs(fc.Arguments)));
+        return calls;
+    }
+
+    /// <summary>An argument dictionary (values are typically <see cref="JsonElement"/> as MEAI parsed
+    /// them off the wire, occasionally a <see cref="JsonNode"/>) → a JSON object string.</summary>
+    private static string SerializeArgs(IDictionary<string, object?>? args)
+    {
+        if (args is not { Count: > 0 }) return "{}";
+        var obj = new JsonObject();
+        foreach (var (key, value) in args)
+            obj[key] = value switch
+            {
+                null => null,
+                JsonNode n => n.DeepClone(),
+                JsonElement e => JsonNode.Parse(e.GetRawText()),
+                var other => JsonValue.Create(other.ToString()), // rare fallback — stringify, AOT-safe
+            };
+        return obj.ToJsonString();
+    }
+
+    /// <summary>A JSON arguments string → the dictionary <see cref="FunctionCallContent"/> wants. Values
+    /// stay as detached <see cref="JsonNode"/>s (reflection-free); MEAI serializes them on the wire.</summary>
+    private static IDictionary<string, object?>? ParseArgs(string argumentsJson)
+    {
+        if (string.IsNullOrWhiteSpace(argumentsJson)) return null;
+        try
+        {
+            return JsonNode.Parse(argumentsJson) is JsonObject obj
+                ? obj.ToDictionary(kv => kv.Key, kv => (object?)kv.Value?.DeepClone())
+                : null;
+        }
+        catch (JsonException) { return null; }
+    }
 
     private static ChatOptions MapOptions(LlmRequest req)
     {
@@ -127,6 +194,8 @@ public sealed class ExtensionsAiProvider(
             MaxOutputTokens = req.MaxTokens,
             Temperature = (float?)req.Temperature,
         };
+        if (req.Tools is { Count: > 0 })
+            chatOptions.Tools = [.. req.Tools.Select(t => (AITool)new LyntaiToolDeclaration(t))];
         if (!string.IsNullOrEmpty(req.JsonSchema))
         {
             try

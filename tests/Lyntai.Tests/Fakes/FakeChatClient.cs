@@ -8,6 +8,10 @@ public sealed class FakeChatClient : IChatClient
 {
     public ChatResponse Response { get; set; } = new(new ChatMessage(ChatRole.Assistant, "fake meai reply"));
 
+    /// <summary>Scripted multi-turn responses (dequeued in order); falls back to <see cref="Response"/>
+    /// when empty. Lets a test drive a tool-call turn then a final-answer turn.</summary>
+    public Queue<ChatResponse> Responses { get; } = new();
+
     public List<ChatResponseUpdate> Updates { get; } = [];
 
     public Exception? ThrowOnCall { get; set; }
@@ -19,7 +23,7 @@ public sealed class FakeChatClient : IChatClient
     {
         Calls.Add(([.. messages], options));
         if (ThrowOnCall is not null) throw ThrowOnCall;
-        return Task.FromResult(Response);
+        return Task.FromResult(Responses.Count > 0 ? Responses.Dequeue() : Response);
     }
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
