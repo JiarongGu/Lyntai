@@ -32,23 +32,33 @@ Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (rout
 `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Storage` / `Lyntai.Processes` /
 `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
 
-## Rules
+## Rules, knowledge & skills
 
-- **`.claude/rules/dev-conventions.md`** — the load-bearing patterns: package layout (interface in
-  `Lyntai.Core`, impl in an adapter package that depends only on Core; never adapter→adapter), async Dapper
-  + `snake_case` + `CAST(x AS REAL)`, FluentMigrator numbering, FTS5-trigram search, claude-CLI spawn
-  hygiene, DI-collection variation points (never if/else), the devtools loop.
-- **`.claude/rules/sensitive-info.md`** — no dev-machine absolute paths or private tokens in tracked files;
-  pre-commit guard (`devtools/scripts/check-sensitive.mjs`). Install once: `node devtools/dev.mjs install-hooks`.
+- **`.claude/rules/`** (always-on) — `dev-conventions.md` (package layout, async Dapper + `snake_case` +
+  `CAST(x AS REAL)`, FluentMigrator numbering, FTS5-trigram, spawn hygiene, DI-collection variation
+  points, the devtools loop) and `sensitive-info.md` (no dev-machine paths / private tokens; pre-commit
+  guard — install once with `node devtools/dev.mjs install-hooks`). See `.claude/rules/RULES_INDEX.md`.
+- **`.claude/knowledge/`** (on-demand deep dives — read the one you're touching):
+  `extending-lyntai.md` (the four extension points), `llm-and-router.md` (verdict taxonomy, fallback §6
+  amended, streaming-commit + inactivity-clock invariants, CLI hygiene), `storage.md` (Dapper/CAST/FTS5
+  trigram triggers/pragmas/`lyntai_` prefix), **`pitfalls.md` (traps that pass the build/tests while
+  being wrong — read before extending)**.
+- **`.claude/skills/`** — invoke for an extension task: `add-provider`, `add-storage-backend`,
+  `add-scorer`, `add-migration`.
 - **TDD** (failing test first) and **commit per task**. **Never commit without explicit user approval.**
 - Working files (probes, scratch) go under `devtools/_*` (gitignored), never OS temp.
+- **This machine's console is GBK** — write files with the Write/Edit tools or `-Encoding utf8`, never
+  `echo`/`Set-Content` UTF-8 through the console (it lossily mangles CJK/em-dashes). See `pitfalls.md`.
 
 ## Dev loop
 
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate: build → test → e2e → leak scan. Run before
+  claiming a change is complete.
 - `node devtools/dev.mjs build` — build the solution.
 - `node devtools/dev.mjs test [args]` — run the xUnit tests.
 - `node devtools/dev.mjs e2e [pN|all] [--build] [--parallel]` — boot `Lyntai.Playground` against the
   deterministic provider-stub (`LYNTAI_PROVIDER_CMD`) over isolated `devtools/_e2e-*` data folders.
+- `node devtools/dev.mjs new-migration <name>` — scaffold the next FluentMigrator migration (unique number).
 - `node devtools/dev.mjs playground` — run the sample console app.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.
 - `node devtools/dev.mjs check-sensitive [--tree]` — leak scan.

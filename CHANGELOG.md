@@ -3,6 +3,33 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## Unreleased
+
+A second independent audit pass (four adversarial reviewers over the router, providers, storage, and
+cortex) — findings the 0.2.0 review + 221 tests missed. No API breaks.
+
+### Fixed
+- **Streaming timeout is now an inactivity clock in every provider.** The ExtensionsAi and
+  OpenAiCompatible streaming paths still armed a single wall-clock `CancelAfter` over the whole stream
+  (0.2.0 fixed only the CLI/ProcessRunner path), so a slow-but-healthy stream or a slow consumer got
+  killed. Both now re-arm per read and stop the clock while the consumer works.
+- **Router won't commit a stream on an empty content chunk** — the commit gate requires non-empty text,
+  so a third-party provider yielding an empty/role-only first chunk can't disable fallback.
+- **`LYNTAI_MODEL_<CONSUMER>` env override is implemented** (was documented but silently ignored).
+- **OTel cost + cache-read tokens are recorded** on the client span (were dropped despite the 0.2.0
+  telemetry claim).
+- **`CompleteJsonAsync`'s retry now differs from the first attempt** (feeds back the bad reply + a
+  JSON-only instruction) instead of re-sending the identical request.
+- **`AddLyntai` throws on a second call** instead of shadowing `LyntaiOptions` + duplicating providers.
+- **`LlmVerdictClassifier` no longer treats a bare "unauthorized" as `AuthFailed`** (which cools the
+  host) — it needs auth context, mirroring the 429 guard.
+- **`MigrationRunnerService`** builds its connection string via `SqliteConnectionStringBuilder` (was raw
+  interpolation) and sets WAL + `busy_timeout` before migrating.
+- **`ConversationStore.ListThreadsAsync`** gets an `id DESC` tiebreaker (deterministic on `created_at`
+  ties).
+- **`MemoryPromptComposer`** bounds the appended section by a character budget, not just entry count.
+- `ILlmRouter` XML doc corrected to the amended fallback semantics.
+
 ## 0.2.0 — 2026-07-17
 
 Production-hardening release: everything surfaced by the multi-agent code review and the

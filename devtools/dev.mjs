@@ -148,7 +148,72 @@ switch (cmd) {
     break;
   }
 
+  case 'verify': {
+    // the single "am I done?" gate: build → test → e2e → leak scan, stopping at the first failure.
+    const steps = [['build', []], ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
+    let failed = null;
+    for (const [step, extra] of steps) {
+      console.log(`\n=== verify: ${step} ===`);
+      const r = spawnSync('node', [path.join(repo, 'devtools', 'dev.mjs'), step, ...extra], { stdio: 'inherit', cwd: repo });
+      if (r.status !== 0) { failed = step; process.exitCode = r.status ?? 1; break; }
+    }
+    if (failed) console.error(`\nverify: ✗ FAILED at ${failed}`);
+    else console.log('\nverify: ✓ all gates green (build · test · e2e · check-sensitive)');
+    break;
+  }
+
+  case 'new-migration': {
+    // scaffold the next FluentMigrator migration with a guaranteed-unique, monotonic YYYYMMDDNNNN
+    // number (reusing a number is silently skipped — the classic footgun the audit flagged).
+    const raw = args[0];
+    if (!raw || !/^[a-z][a-z0-9_-]*$/i.test(raw)) {
+      console.error('usage: node devtools/dev.mjs new-migration <name>   (e.g. add-jobs-table)');
+      process.exitCode = 1;
+      break;
+    }
+    const dir = path.join(repo, 'src', 'Lyntai.Storage.Sqlite', 'Migrations');
+    const nums = fs.readdirSync(dir).map((f) => (f.match(/^M(\d{12})_/) ?? [])[1]).filter(Boolean).map(Number);
+    const max = nums.length ? Math.max(...nums) : 0;
+    const d = new Date();
+    const today = Number(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`);
+    let num = today * 10000 + 1;
+    while (num <= max) num++; // strictly greater than every existing number — never reuse one
+    const pascal = raw.split(/[-_]/).filter(Boolean).map((s) => s[0].toUpperCase() + s.slice(1)).join('');
+    const cls = `M${num}_${pascal}`;
+    const file = path.join(dir, `${cls}.cs`);
+    if (fs.existsSync(file)) { console.error(`already exists: ${file}`); process.exitCode = 1; break; }
+    fs.writeFileSync(file, [
+      'using FluentMigrator;',
+      '',
+      'namespace Lyntai.Storage.Sqlite.Migrations;',
+      '',
+      '/// <summary>TODO: what this migration does.</summary>',
+      `[Migration(${num})]`,
+      `public sealed class ${cls} : Migration`,
+      '{',
+      '    public override void Up()',
+      '    {',
+      '        // TODO. Prefix every object lyntai_. snake_case columns. Composite PK + FK inline at',
+      "        // Create.Table (SQLite can't ALTER ADD CONSTRAINT). Wrap 0..1/double columns in",
+      '        // CAST(x AS REAL) when you SELECT them. Searchable text? add an FTS5 trigram',
+      "        // external-content mirror + AFTER INSERT/DELETE/UPDATE triggers (emit 'delete' rows on",
+      '        // delete AND update) + an in-migration backfill — see M202607170003_Memory and',
+      '        // .claude/knowledge/storage.md.',
+      '    }',
+      '',
+      '    public override void Down()',
+      '    {',
+      '        // TODO: reverse Up.',
+      '    }',
+      '}',
+      '',
+    ].join('\n'));
+    console.log(`created ${path.relative(repo, file).replaceAll('\\', '/')} — number ${num} (unique, monotonic).`);
+    console.log('Next: define the table, then a store + its I*Store impl. See .claude/skills/add-migration.');
+    break;
+  }
+
   default:
-    console.log('usage: node devtools/dev.mjs <build|test|e2e|playground|pack|install-hooks|check-sensitive>');
+    console.log('usage: node devtools/dev.mjs <build|test|e2e|verify|playground|pack|new-migration|install-hooks|check-sensitive>');
     process.exitCode = cmd ? 1 : 0;
 }
