@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Llm;
+namespace Lyntai.Llm.Routing;
 
 /// <summary>Fallback router over the DI collection of <see cref="ILlmProvider"/>s (design §6).</summary>
 public sealed class LlmRouter(

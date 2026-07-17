@@ -3,7 +3,7 @@ using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Prompt;
+namespace Lyntai.Prompts;
 
 /// <summary>
 /// Default registry. Documented decisions:

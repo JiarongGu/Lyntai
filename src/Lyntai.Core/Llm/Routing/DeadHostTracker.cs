@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Lyntai.Llm;
+namespace Lyntai.Llm.Routing;
 
 /// <summary>
 /// Dead-host cooldown (odysseus semantics, instead of exponential backoff): after

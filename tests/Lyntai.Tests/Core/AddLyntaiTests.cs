@@ -1,7 +1,7 @@
 using Lyntai;
 using Lyntai.Cortex;
 using Lyntai.Llm;
-using Lyntai.Prompt;
+using Lyntai.Prompts;
 using Lyntai.Storage;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,4 +1,4 @@
-namespace Lyntai.Llm;
+namespace Lyntai.Text;
 
 /// <summary>Tolerant JSON extraction from LLM prose (design §6): strips code fences, finds the
 /// first balanced <c>{…}</c> object. Parsing/validation stays with the caller.</summary>

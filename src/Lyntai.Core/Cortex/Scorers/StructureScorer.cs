@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Lyntai.Llm;
+using Lyntai.Text;
 
 namespace Lyntai.Cortex.Scorers;
 

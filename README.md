@@ -12,9 +12,13 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**Pre-implementation.** Design + build plan are done; the code is being written phase-by-phase.
+**Implemented** (v0.1.0). All phases of `tasks.md` are done: the router with the full fallback
+semantics, SQLite storage with FTS5-trigram memory recall, the claude-CLI / OpenAI-compatible / MEAI
+providers, the cortex layer (prompt registry, scorers incl. an LLM judge, traces, memory composition),
+the Playground full-stack sample, and the devtools e2e harness — all green.
+
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
-- `tasks.md` — the phased implementation plan.
+- `tasks.md` — the phased implementation plan (checked off).
 
 ## Packages
 
@@ -28,27 +32,72 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 Each `src/*` is an independent NuGet package depending only on `Lyntai.Core` — add just what you need.
 
-## Using it (target ergonomics)
+## Consuming Lyntai
+
+Install `Lyntai.Core` plus the provider/storage packages you want, then compose in DI:
 
 ```csharp
+using Lyntai;                       // the builder + Add*/Use* extensions
+using Lyntai.Cortex.Scorers;
+using Microsoft.Extensions.DependencyInjection;
+
 services.AddLyntai(cfg =>
 {
-    cfg.AddClaudeCliProvider();                                       // family default, no API key
+    cfg.AddClaudeCliProvider();                          // spawns the authenticated `claude` CLI, no API key
     cfg.AddOpenAiCompatibleProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
-    cfg.UseSqliteStorage("app.db");
-    cfg.DefaultCandidates("claude-cli", "ollama");                    // router fallback order
+    cfg.AddExtensionsAiProvider("openai", myChatClient); // bridge any Microsoft.Extensions.AI IChatClient
+    cfg.UseSqliteStorage("app.db");                      // all five storage domains, migrated on startup
+    cfg.AddScorer<OutcomeScorer>();                      // eval dimensions are DI registrations
+    cfg.AddScorer<RelevancyScorer>();                    // (this one is an LLM judge through the router)
+    cfg.DefaultCandidates("claude-cli", "ollama");       // router fallback order
 });
-
-// later, injected:
-public MyService(ILlmRouter llm, IMemoryStore memory, IScoringService scoring) { … }
 ```
+
+Then inject and use the seams:
+
+```csharp
+public sealed class MyFeature(
+    ILlmRouter llm, LyntaiOptions options,
+    IPromptRegistry prompts, IPromptComposer composer,
+    IScoringService scoring, ITraceService traces, IMemoryStore memory)
+{
+    public async Task<string> AskAsync(string question, CancellationToken ct)
+    {
+        var prompt = await prompts.RenderAsync("myfeature.ask",
+            "Answer briefly: {question}", new Dictionary<string, string> { ["question"] = question }, ct);
+        prompt = await composer.ComposeAsync(prompt, taskKey: "myfeature", ct: ct); // + learned facts
+
+        var reply = await llm.CompleteAsync(options.DefaultCandidates,
+            new LlmRequest { Messages = [LlmMessage.User(prompt)], Consumer = "myfeature" }, ct);
+        return reply.Verdict == LlmVerdict.Ok ? reply.Text : throw new InvalidOperationException(reply.Detail);
+    }
+}
+```
+
+### The semantics you're getting (design §6)
+
+- **Fallback router:** candidates are deduped and tried in order; `Failed`/`Timeout` advances,
+  `RateLimited` circuit-breaks (stop, surface), `Refused` surfaces (content policy is not availability).
+- **Streaming never falls back after the first token** — pre-content failures move to the next
+  candidate, mid-stream errors pass through unchanged (your consumer never sees duplicated output).
+- **Dead-host cooldown** instead of exponential backoff; any success resets.
+- **Prompt overrides** live in the key-value store under `lyntai.prompt.<name>`; an override that
+  drops a `{placeholder}` present in the default is rejected (falls back to the default, with a warning).
+- **Memory recall is bounded and fail-open:** FTS5 trigram match (works for CJK substrings), LIKE
+  fallback, capped per (task, scope) — and it never throws into your prompt path.
+- **Env overrides beat code config:** `LYNTAI_TIMEOUT_SECONDS`, `LYNTAI_DEADHOST_THRESHOLD`,
+  `LYNTAI_DEADHOST_COOLDOWN_SECONDS`, `LYNTAI_DEFAULT_CANDIDATES` (`providerId[:model],…`),
+  `LYNTAI_PROVIDER_CMD` (point the CLI provider at a stub — how the tests/e2e spend zero tokens).
+- **Shared-database safe:** every SQLite object Lyntai creates is prefixed `lyntai_` (including the
+  migration version table), so `UseSqliteStorage` can point at an existing app database.
 
 ## Dev loop
 
 ```
 node devtools/dev.mjs build            # build the solution
-node devtools/dev.mjs test             # xUnit tests
+node devtools/dev.mjs test             # xUnit tests (unit + integration, zero real tokens)
 node devtools/dev.mjs e2e --build      # Playground full-stack smoke against the provider-stub
+node devtools/dev.mjs playground       # run the sample console app yourself
 node devtools/dev.mjs pack             # dotnet pack → publish/packages/
 node devtools/dev.mjs install-hooks    # enable the pre-commit sensitive-info guard
 ```

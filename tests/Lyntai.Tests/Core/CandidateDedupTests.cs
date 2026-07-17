@@ -1,4 +1,5 @@
 using Lyntai.Llm;
+using Lyntai.Llm.Routing;
 
 namespace Lyntai.Tests.Core;
 

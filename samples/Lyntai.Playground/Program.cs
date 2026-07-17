@@ -8,7 +8,7 @@ using Lyntai;
 using Lyntai.Cortex;
 using Lyntai.Cortex.Scorers;
 using Lyntai.Llm;
-using Lyntai.Prompt;
+using Lyntai.Prompts;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
 

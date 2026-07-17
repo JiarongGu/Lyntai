@@ -1,5 +1,6 @@
 using Lyntai;
 using Lyntai.Llm;
+using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Core;

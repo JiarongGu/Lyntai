@@ -1,4 +1,4 @@
-using Lyntai.Prompt;
+using Lyntai.Prompts;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Core;
