@@ -89,16 +89,18 @@ public class ProcessRunnerTests
     [Fact]
     public async Task Slow_consumer_dwell_does_not_trip_the_stream_timeout()
     {
-        // the timeout is child inactivity, NOT wall clock: a consumer slower than the timeout
-        // between chunks must not get a healthy stream killed under it
+        // the timeout is child INACTIVITY, not wall clock: a consumer slower than the timeout between
+        // chunks must not get a healthy stream killed under it. The 4s budget is generous headroom for
+        // node's cold start under parallel test load (the timeout is armed before the child prints);
+        // the 4.5s dwell still exceeds it, so a (buggy) wall-clock timeout WOULD fire during the dwell.
         var lines = new List<string>();
         await foreach (var line in _runner.StreamLinesAsync("node",
             ["-e", "console.log('one'); console.log('two'); console.log('three')"],
-            timeout: TimeSpan.FromSeconds(2)))
+            timeout: TimeSpan.FromSeconds(4)))
         {
             lines.Add(line);
-            await Task.Delay(TimeSpan.FromSeconds(3)); // dwell longer than the timeout, twice over
-            if (lines.Count == 2) break;               // (also exercises early abandonment cleanup)
+            if (lines.Count == 2) break;                  // (also exercises early abandonment cleanup)
+            await Task.Delay(TimeSpan.FromSeconds(4.5));   // dwell > timeout: only an inactivity clock survives
         }
 
         Assert.Equal(["one", "two"], lines);
