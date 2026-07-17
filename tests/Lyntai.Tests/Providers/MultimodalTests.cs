@@ -46,6 +46,24 @@ public class MultimodalTests
     }
 
     [Fact]
+    public void Attachment_with_neither_data_nor_uri_throws_rather_than_send_empty()
+    {
+        Assert.Throws<InvalidOperationException>(() => new LlmAttachment("image/png").Url());
+    }
+
+    [Fact]
+    public void Openai_drops_images_on_a_non_user_role()
+    {
+        // OpenAI rejects image parts on assistant/system; the payload must fall back to plain text
+        var req = new LlmRequest
+        {
+            Messages = [new LlmMessage("assistant", "sure") { Attachments = [new LlmAttachment("image/png", Png)] }],
+        };
+        var content = OpenAiPayload.Build(req, "m", stream: false)["messages"]!.AsArray()[0]!["content"];
+        Assert.Equal("sure", (string)content!); // a plain string, not a parts array
+    }
+
+    [Fact]
     public async Task Meai_bridge_maps_attachments_to_image_content()
     {
         var client = new FakeChatClient();

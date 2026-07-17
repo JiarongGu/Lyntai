@@ -10,6 +10,10 @@ public sealed record LlmAttachment(string MediaType, byte[]? Data = null, string
     /// attachment is a remote <see cref="Uri"/> instead.</summary>
     public string DataUrl() => Data is null ? "" : $"data:{MediaType};base64,{Convert.ToBase64String(Data)}";
 
-    /// <summary>The URL to send: the remote <see cref="Uri"/> if set, else the inline <see cref="DataUrl"/>.</summary>
-    public string Url() => Uri ?? DataUrl();
+    /// <summary>The URL to send: the remote <see cref="Uri"/> if set, else the inline <see cref="DataUrl"/>.
+    /// Throws if the attachment has neither — better than silently sending an empty image URL.</summary>
+    public string Url() => Uri
+        ?? (Data is not null
+            ? DataUrl()
+            : throw new InvalidOperationException("LlmAttachment has neither inline Data nor a Uri — nothing to send."));
 }

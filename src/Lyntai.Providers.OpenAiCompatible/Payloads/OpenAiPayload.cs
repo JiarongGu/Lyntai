@@ -67,7 +67,7 @@ public static class OpenAiPayload
             };
         if (m.ToolCallId is not null)
             return new JsonObject { ["role"] = "tool", ["tool_call_id"] = m.ToolCallId, ["content"] = m.Content };
-        if (m.Attachments is { Count: > 0 })
+        if (m.Role == "user" && m.Attachments is { Count: > 0 }) // OpenAI accepts image parts only on user turns
         {
             // vision: content becomes an array of parts — the text, then one image_url per attachment
             var parts = new JsonArray { new JsonObject { ["type"] = "text", ["text"] = m.Content } };

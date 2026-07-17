@@ -146,6 +146,19 @@ public class JobRunnerTests
     }
 
     [Fact]
+    public async Task Global_cap_is_shared_fairly_across_lanes_no_starvation()
+    {
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var (runner, store, queue, _) = Build(o => { o.Jobs.DefaultLaneConcurrency = 10; o.Jobs.MaxConcurrency = 2; }, handler);
+        for (var i = 0; i < 3; i++) { await queue.EnqueueAsync("a", "t", "{}"); await queue.EnqueueAsync("b", "t", "{}"); }
+
+        // cap of 2 → round-robin takes ONE from 'a' and ONE from 'b' — not two from 'a' (which would starve 'b')
+        Assert.Equal(2, await runner.RunOnceAsync());
+        Assert.Equal(2, (await store.ListAsync(JobStatus.Pending, lane: "a")).Count);
+        Assert.Equal(2, (await store.ListAsync(JobStatus.Pending, lane: "b")).Count);
+    }
+
+    [Fact]
     public async Task A_lost_lease_outcome_is_abandoned_not_applied()
     {
         InMemoryJobStore? store = null;

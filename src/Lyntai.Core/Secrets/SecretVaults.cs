@@ -46,7 +46,9 @@ public sealed class InMemorySecretVault(ISecretProtector? protector = null, ISec
 public sealed class KeyValueSecretVault(IKeyValueStore kv, ISecretProtector protector, ISecretAccessPolicy? policy = null) : ISecretVault
 {
     private const string Prefix = "lyntai:secret:";
-    private const string IndexKey = "lyntai:secret:__names__";
+    // deliberately OUTSIDE the Prefix namespace ("lyntai:secret-" has a dash where a secret key has a
+    // colon) so no caller-chosen secret name can ever map onto the index key and corrupt it
+    private const string IndexKey = "lyntai:secret-names";
     private readonly SemaphoreSlim _indexLock = new(1, 1);
 
     public async Task<string?> GetAsync(string name, string? accessor = null, CancellationToken ct = default)

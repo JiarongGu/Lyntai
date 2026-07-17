@@ -23,29 +23,57 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
     private readonly IReadOnlyList<IGuard> _guards = [.. guards];
     private readonly ILogger _logger = logger ?? NullLogger<GuardRail>.Instance;
 
-    public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default) =>
-        RunAsync((g, c) => g.InspectRequestAsync(req, c), "request", ct);
-
-    public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
-        RunAsync((g, c) => g.InspectResponseAsync(reply, c), "response", ct);
-
-    private async Task<GuardOutcome> RunAsync(Func<IGuard, CancellationToken, Task<GuardOutcome>> inspect, string gate, CancellationToken ct)
+    public async Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default)
     {
+        var current = req;
         var effective = GuardOutcome.Allow;
         foreach (var guard in _guards)
         {
-            var outcome = await inspect(guard, ct).ConfigureAwait(false);
+            var outcome = await guard.InspectRequestAsync(current, ct).ConfigureAwait(false);
             if (outcome.Result == GuardOutcome.Kind.Block)
             {
-                _logger.LogInformation("guard '{Guard}' blocked the {Gate}: {Reason}", guard.Name, gate, outcome.Reason);
+                _logger.LogInformation("guard '{Guard}' blocked the request: {Reason}", guard.Name, outcome.Reason);
                 return outcome; // a block is terminal
             }
             if (outcome.Result == GuardOutcome.Kind.Replace)
             {
-                _logger.LogInformation("guard '{Guard}' rewrote the {Gate}", guard.Name, gate);
-                effective = outcome; // keep the latest replacement, let later guards inspect too
+                _logger.LogInformation("guard '{Guard}' rewrote the request", guard.Name);
+                effective = outcome;
+                current = RewriteLastUser(current, outcome.Replacement!); // re-thread so later guards see the rewrite
             }
         }
         return effective;
+    }
+
+    public async Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default)
+    {
+        var current = reply;
+        var effective = GuardOutcome.Allow;
+        foreach (var guard in _guards)
+        {
+            var outcome = await guard.InspectResponseAsync(current, ct).ConfigureAwait(false);
+            if (outcome.Result == GuardOutcome.Kind.Block)
+            {
+                _logger.LogInformation("guard '{Guard}' blocked the response: {Reason}", guard.Name, outcome.Reason);
+                return outcome;
+            }
+            if (outcome.Result == GuardOutcome.Kind.Replace)
+            {
+                _logger.LogInformation("guard '{Guard}' rewrote the response", guard.Name);
+                effective = outcome;
+                current = current with { Text = outcome.Replacement! }; // re-thread the rewritten text
+            }
+        }
+        return effective;
+    }
+
+    /// <summary>Rewrite the LAST user message's content (request-gate Replace only rewrites the last user
+    /// turn — a guard can't redact an earlier one through this contract).</summary>
+    internal static LlmRequest RewriteLastUser(LlmRequest req, string replacement)
+    {
+        var msgs = req.Messages.ToList();
+        for (var i = msgs.Count - 1; i >= 0; i--)
+            if (msgs[i].Role == "user") { msgs[i] = msgs[i] with { Content = replacement }; break; }
+        return req with { Messages = msgs };
     }
 }

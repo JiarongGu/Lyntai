@@ -17,11 +17,11 @@ public sealed class GuardedLlmClient(ILlmClient inner, IGuardRail rail) : ILlmCl
         var pre = await rail.InspectRequestAsync(req, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
             return new LlmReply("", LlmVerdict.Refused, Detail: $"blocked by guard: {pre.Reason}");
-        var effective = pre.Result == GuardOutcome.Kind.Replace ? WithRewrittenUser(req, pre.Replacement!) : req;
+        var effective = pre.Result == GuardOutcome.Kind.Replace ? GuardRail.RewriteLastUser(req, pre.Replacement!) : req;
 
         var reply = await inner.CompleteAsync(effective, ct).ConfigureAwait(false);
-        if (reply.Verdict != LlmVerdict.Ok) return reply; // only gate a real answer
 
+        // gate EVERY reply, not just Ok ones — an error reply's Detail (stderr/HTTP body) can echo content
         var post = await rail.InspectResponseAsync(reply, ct).ConfigureAwait(false);
         return post.Result switch
         {
@@ -39,18 +39,10 @@ public sealed class GuardedLlmClient(ILlmClient inner, IGuardRail rail) : ILlmCl
             yield return LlmChunk.Error(LlmVerdict.Refused, $"blocked by guard: {pre.Reason}");
             yield break;
         }
-        var effective = pre.Result == GuardOutcome.Kind.Replace ? WithRewrittenUser(req, pre.Replacement!) : req;
+        var effective = pre.Result == GuardOutcome.Kind.Replace ? GuardRail.RewriteLastUser(req, pre.Replacement!) : req;
         await foreach (var chunk in inner.StreamAsync(effective, ct).ConfigureAwait(false))
             yield return chunk;
     }
 
     public bool SupportsToolCalls(LlmRequest req) => inner.SupportsToolCalls(req);
-
-    private static LlmRequest WithRewrittenUser(LlmRequest req, string replacement)
-    {
-        var msgs = req.Messages.ToList();
-        for (var i = msgs.Count - 1; i >= 0; i--)
-            if (msgs[i].Role == "user") { msgs[i] = msgs[i] with { Content = replacement }; break; }
-        return req with { Messages = msgs };
-    }
 }

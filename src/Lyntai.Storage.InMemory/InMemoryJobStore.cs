@@ -102,7 +102,8 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
         lock (_lock)
         {
             IReadOnlyList<string> lanes =
-                [.. _jobs.Values.Where(j => j.Status is JobStatus.Pending or JobStatus.Running).Select(j => j.Lane).Distinct()];
+                [.. _jobs.Values.Where(j => j.Status is JobStatus.Pending or JobStatus.Running)
+                    .Select(j => j.Lane).Distinct().OrderBy(l => l, StringComparer.Ordinal)];
             return Task.FromResult(lanes);
         }
     }

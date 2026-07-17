@@ -10,9 +10,11 @@ public sealed class JobOptions
 
     public int DefaultLaneConcurrency { get; set; } = 1;
 
-    /// <summary>A global cap on how many jobs one runner runs at once, across ALL lanes (0 = unbounded,
-    /// i.e. the sum of the active lanes' limits). This is the top-level throttle for parallel work —
-    /// e.g. cap the number of concurrent agent runs a single process drives, regardless of lane spread.</summary>
+    /// <summary>A global cap on the size of one runner pass's concurrent batch, across ALL lanes (0 =
+    /// unbounded, i.e. the sum of the active lanes' limits). The top-level throttle for parallel work —
+    /// e.g. cap the concurrent agent runs a single process drives, regardless of lane spread; claiming is
+    /// round-robin across lanes so no lane starves the cap. (It bounds the per-pass batch, which the runner
+    /// awaits before the next pass — not a continuously-topped-up in-flight ceiling.)</summary>
     public int MaxConcurrency { get; set; }
 
     /// <summary>How long a claim stays valid; a Running job claimed longer ago than this is reclaimable

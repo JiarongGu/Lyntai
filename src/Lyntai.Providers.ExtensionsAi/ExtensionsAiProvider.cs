@@ -139,7 +139,7 @@ public sealed class ExtensionsAiProvider(
                 [.. m.ToolCalls.Select(tc => (AIContent)new FunctionCallContent(tc.Id, tc.Name, ParseArgs(tc.ArgumentsJson)))]);
         if (m.ToolCallId is not null)
             return new ChatMessage(ChatRole.Tool, [new FunctionResultContent(m.ToolCallId, m.Content)]);
-        if (m.Attachments is { Count: > 0 })
+        if (m.Role == "user" && m.Attachments is { Count: > 0 }) // images only make sense on a user turn
         {
             // vision: text + one image content per attachment (DataContent for bytes, UriContent for a URL)
             var contents = new List<AIContent> { new TextContent(m.Content) };

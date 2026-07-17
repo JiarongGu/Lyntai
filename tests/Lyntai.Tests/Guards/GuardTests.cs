@@ -19,6 +19,49 @@ public class GuardTests
             Task.FromResult(GuardOutcome.Replace("[redacted]"));
     }
 
+    private sealed class FnGuard(Func<LlmReply, GuardOutcome> onResp) : IGuard
+    {
+        public string Name => "fn";
+        public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
+            Task.FromResult(onResp(reply));
+    }
+
+    [Fact]
+    public async Task Denylist_scans_all_roles_not_just_user()
+    {
+        var rail = new GuardRail([new DenylistGuard(["forbidden"])]);
+        var req = new LlmRequest { Messages = [LlmMessage.System("never mention forbidden things"), LlmMessage.User("hi")] };
+
+        Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectRequestAsync(req)).Result); // caught in the system msg
+    }
+
+    [Fact]
+    public async Task Rail_chains_a_replacement_into_later_guards()
+    {
+        // guard A rewrites "a" → "b"; a denylist on "a" must then NOT fire, because it sees the rewrite
+        var rail = new GuardRail([
+            new FnGuard(r => r.Text == "a" ? GuardOutcome.Replace("b") : GuardOutcome.Allow),
+            new DenylistGuard(["a"]),
+        ]);
+
+        var outcome = await rail.InspectResponseAsync(new LlmReply("a", LlmVerdict.Ok));
+
+        Assert.Equal(GuardOutcome.Kind.Replace, outcome.Result);
+        Assert.Equal("b", outcome.Replacement); // the denylist saw "b" (not "a") and allowed it
+    }
+
+    [Fact]
+    public async Task Guarded_client_gates_error_reply_detail()
+    {
+        var inner = new FakeLlmClient();
+        inner.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "boom: leaked-path /etc/secret"));
+        var client = new GuardedLlmClient(inner, new GuardRail([new DenylistGuard(["leaked-path"])]));
+
+        var reply = await client.CompleteAsync(Ask("hi"));
+
+        Assert.Equal(LlmVerdict.Refused, reply.Verdict); // the error Detail was inspected and blocked, not passed through
+    }
+
     [Fact]
     public async Task Rail_returns_first_block_and_applies_replace()
     {

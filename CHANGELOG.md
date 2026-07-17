@@ -3,6 +3,36 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.15.1 — 2026-07-18
+
+Correctness + security fixes from a three-pass adversarial review of the v0.14–v0.15 code (the AES-GCM
+crypto was reviewed and confirmed correct — fresh per-call nonce, proper layout, tamper detection).
+
+### Fixed
+- **Secret vault index collision** — a secret named `__names__` mapped onto the vault's internal index
+  key and could corrupt/poison the name list. The index now lives outside the secret-name namespace.
+- **Denylist guard bypass** — it scanned only `user` messages, so a denied term in a system/assistant/
+  tool message (e.g. a tool result fed back mid-loop) slipped through. It now scans every message and the
+  reply's error `Detail` too.
+- **Guard rail Replace didn't compose** — a later guard saw the original text, not an earlier guard's
+  rewrite. Replacements are now re-threaded so each guard inspects the current effective text.
+- **Guarded client skipped non-Ok replies** — an error reply's `Detail` (stderr/HTTP body, which can echo
+  content) bypassed the output gate. Every reply is now gated.
+- **Job runner lane starvation** — under a global `MaxConcurrency` smaller than the sum of lane limits,
+  the first lane monopolized the cap and others starved. Claiming is now round-robin across lanes (with a
+  rotating start), and `ActiveLanes` is ordered deterministically.
+- **Vision edge cases** — an attachment with neither inline data nor a URL now throws instead of sending
+  an empty image URL; attachments on a non-`user` role are dropped (OpenAI rejects them) rather than sent.
+- **Orchestrator re-persisted redacted input** — when the input gate rewrote (redacted) the message, the
+  memory write stored the *raw* original, re-injecting it on the next recall. It now stores the redacted
+  text.
+
+### Docs
+- Clarified the deliberate boundaries: the chat orchestrator's two gates cover the turn's entry + final
+  answer (tool-loop intermediate turns aren't individually gated — use `GuardedLlmClient` for that);
+  `ISecretAccessPolicy` gates reads only; `MaxConcurrency` bounds the per-pass batch; streaming applies
+  only the input gate.
+
 ## 0.15.0 — 2026-07-18
 
 The rest of the design §9 platform kit, in one release: guards, two-gate chat orchestration, a secret

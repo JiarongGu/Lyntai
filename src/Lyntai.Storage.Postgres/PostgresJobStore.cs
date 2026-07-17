@@ -93,7 +93,7 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
     {
         using var conn = factory.Open();
         var lanes = await conn.QueryAsync<string>(new CommandDefinition(
-            "SELECT DISTINCT lane FROM lyntai_job WHERE status IN ('Pending','Running')",
+            "SELECT DISTINCT lane FROM lyntai_job WHERE status IN ('Pending','Running') ORDER BY lane",
             cancellationToken: ct)).ConfigureAwait(false);
         return [.. lanes];
     }

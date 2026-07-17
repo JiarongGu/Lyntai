@@ -13,12 +13,14 @@ public sealed class DenylistGuard(IReadOnlyList<string> terms, string? name = nu
 
     public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default)
     {
-        var text = string.Join("\n", req.Messages.Where(m => m.Role == "user").Select(m => m.Content));
+        // scan EVERY message role, not just "user" — a denied term hiding in a system/assistant/tool
+        // message (e.g. a tool result fed back mid-loop) must not slip past the jail
+        var text = string.Join("\n", req.Messages.Select(m => m.Content));
         return Task.FromResult(Check(text));
     }
 
     public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
-        Task.FromResult(Check(reply.Text));
+        Task.FromResult(Check(reply.Text + "\n" + (reply.Detail ?? ""))); // also scan error detail (may echo content)
 
     private GuardOutcome Check(string text)
     {

@@ -28,31 +28,43 @@ public sealed class JobRunner(
     private readonly ILogger _logger = logger ?? NullLogger<JobRunner>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly string _workerId = Guid.NewGuid().ToString("N");
+    private int _rotation; // rotates the lane start each pass so no lane is perpetually first under the cap
 
     private JobOptions Opts => options.Jobs;
 
     public async Task<int> RunOnceAsync(CancellationToken ct = default)
     {
-        // Claim a bounded set across ALL active lanes (each capped by its lane limit, the whole set capped
-        // by the global MaxConcurrency), then run every claimed job CONCURRENTLY — including across lanes,
-        // so parallel work (e.g. many agent runs) actually runs in parallel, with the per-lane + global
-        // limits as the control logic. Claims are quick; the atomic claim is the cross-worker mutual
-        // exclusion, so there's no count-then-claim race.
+        // Claim a bounded set across ALL active lanes and run them CONCURRENTLY — including across lanes —
+        // with the per-lane + global MaxConcurrency limits as the control logic. Claiming is ROUND-ROBIN
+        // (one job per lane per round, rotating the start each pass), so when the global cap binds no lane
+        // starves. Claims are quick; the atomic claim is the cross-worker mutual exclusion (no
+        // count-then-claim race).
         var lanes = await _store.ActiveLanesAsync(ct).ConfigureAwait(false);
+        if (lanes.Count == 0) return 0;
+
+        var offset = Interlocked.Increment(ref _rotation) % lanes.Count;
+        var ordered = offset == 0 ? lanes : [.. lanes.Skip(offset), .. lanes.Take(offset)];
+
         var cap = Opts.MaxConcurrency; // 0 = unbounded
+        var remaining = ordered.ToDictionary(l => l, Opts.LimitFor, StringComparer.Ordinal);
         var claimed = new List<JobRecord>();
-        foreach (var lane in lanes)
+        bool progressed;
+        do
         {
-            var laneLimit = Opts.LimitFor(lane);
-            for (var i = 0; i < laneLimit; i++)
+            progressed = false;
+            foreach (var lane in ordered)
             {
                 if (cap > 0 && claimed.Count >= cap) break;
+                if (remaining[lane] <= 0) continue;
                 var job = await _store.ClaimNextAsync(lane, _workerId, Opts.Lease, ct).ConfigureAwait(false);
-                if (job is null) break; // this lane is drained for now
+                if (job is null) { remaining[lane] = 0; continue; } // this lane is drained for now
                 claimed.Add(job);
+                remaining[lane]--;
+                progressed = true;
             }
-            if (cap > 0 && claimed.Count >= cap) break;
         }
+        while (progressed && (cap <= 0 || claimed.Count < cap));
+
         if (claimed.Count == 0) return 0;
         await Task.WhenAll(claimed.Select(j => RunJobAsync(j, ct))).ConfigureAwait(false);
         return claimed.Count;

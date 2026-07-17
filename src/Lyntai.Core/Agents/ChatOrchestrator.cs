@@ -35,8 +35,14 @@ public sealed class ChatOrchestrator(
         var pre = await guards.InspectRequestAsync(req, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
             return new ChatResult("", LlmVerdict.Refused, Blocked: true, pre.Reason, []);
+        // what we persist to memory: the REDACTED text when the gate rewrote it (never re-store the raw
+        // input a redaction guard just removed — that would re-inject the secret on the next recall)
+        var rememberedQuestion = turn.Message;
         if (pre.Result == GuardOutcome.Kind.Replace)
+        {
             req = req with { Messages = [.. messages[..^1], LlmMessage.User(pre.Replacement!)] };
+            rememberedQuestion = pre.Replacement!;
+        }
 
         // run: the tool loop (model can call tools) or a plain completion
         string answer;
@@ -66,7 +72,7 @@ public sealed class ChatOrchestrator(
         // remember the exchange (fail-open — a memory outage never breaks the chat)
         if (turn.Remember && turn.TaskKey is not null && memory is not null)
         {
-            try { await memory.RememberAsync(turn.TaskKey, turn.MemoryScope, $"Q: {turn.Message}\nA: {answer}", ct: ct).ConfigureAwait(false); }
+            try { await memory.RememberAsync(turn.TaskKey, turn.MemoryScope, $"Q: {rememberedQuestion}\nA: {answer}", ct: ct).ConfigureAwait(false); }
             catch (Exception ex) { _logger.LogWarning(ex, "chat: memory write failed (non-fatal)"); }
         }
 
