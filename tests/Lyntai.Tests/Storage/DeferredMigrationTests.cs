@@ -81,6 +81,6 @@ public class DeferredMigrationTests : IDisposable
             return Convert.ToInt64(cmd.ExecuteScalar());
         })));
 
-        Assert.All(opens, count => Assert.Equal(7L, count)); // all migrations applied, once
+        Assert.All(opens, count => Assert.Equal(8L, count)); // all migrations applied, once
     }
 }

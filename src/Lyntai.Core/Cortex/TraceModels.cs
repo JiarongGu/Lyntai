@@ -22,6 +22,12 @@ public sealed record RunTrace
     public required string Mode { get; init; }
     public DateTimeOffset StartedAt { get; init; }
     public DateTimeOffset? EndedAt { get; init; }
+
+    /// <summary>The W3C trace id (32-hex) of the ambient OpenTelemetry activity when the run began, or
+    /// null if none. This is the join key between a persisted run trace and the distributed trace in
+    /// an OTel backend — given one you can find the other.</summary>
+    public string? TraceId { get; init; }
+
     public IReadOnlyList<TraceStep> Steps { get; init; } = [];
 
     public long TotalInputTokens => Steps.Sum(s => s.InputTokens);

@@ -16,9 +16,9 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
             new { trace.SessionId }, tx, cancellationToken: ct)).ConfigureAwait(false);
 
         await conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO lyntai_run_trace (session_id, mode, started_at, ended_at)
-            VALUES (@SessionId, @Mode, @StartedAt, @EndedAt)
-            """, new { trace.SessionId, trace.Mode, trace.StartedAt, trace.EndedAt },
+            INSERT INTO lyntai_run_trace (session_id, mode, started_at, ended_at, trace_id)
+            VALUES (@SessionId, @Mode, @StartedAt, @EndedAt, @TraceId)
+            """, new { trace.SessionId, trace.Mode, trace.StartedAt, trace.EndedAt, trace.TraceId },
             tx, cancellationToken: ct)).ConfigureAwait(false);
 
         for (var seq = 0; seq < trace.Steps.Count; seq++)
@@ -38,7 +38,7 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
         using var conn = factory.Open();
 
         var header = await conn.QuerySingleOrDefaultAsync<TraceRow>(new CommandDefinition("""
-            SELECT session_id AS SessionId, mode AS Mode, started_at AS StartedAt, ended_at AS EndedAt
+            SELECT session_id AS SessionId, mode AS Mode, started_at AS StartedAt, ended_at AS EndedAt, trace_id AS TraceId
             FROM lyntai_run_trace WHERE session_id = @sessionId
             """, new { sessionId }, cancellationToken: ct)).ConfigureAwait(false);
         if (header is null) return null;
@@ -55,6 +55,7 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
             Mode = header.Mode,
             StartedAt = header.StartedAt,
             EndedAt = header.EndedAt,
+            TraceId = header.TraceId,
             Steps = [.. steps.Select(s => new TraceStep
             {
                 Kind = s.Kind,
@@ -75,6 +76,7 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
         public string Mode { get; set; } = "";
         public DateTimeOffset StartedAt { get; set; }
         public DateTimeOffset? EndedAt { get; set; }
+        public string? TraceId { get; set; }
     }
 
     private sealed class StepRow

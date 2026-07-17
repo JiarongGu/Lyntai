@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,7 +17,16 @@ public sealed class TraceService(
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly ILogger _logger = logger ?? NullLogger<TraceService>.Instance;
 
-    public ITraceRecorder Begin(string sessionId, string mode) => new Recorder(this, sessionId, mode, _clock());
+    public ITraceRecorder Begin(string sessionId, string mode) =>
+        // capture the ambient distributed-trace id NOW (at Begin), so the persisted run trace
+        // cross-references the OTel trace even after the activity has ended
+        new Recorder(this, sessionId, mode, _clock(), CurrentTraceId());
+
+    private static string? CurrentTraceId()
+    {
+        var traceId = Activity.Current?.TraceId.ToString();
+        return string.IsNullOrEmpty(traceId) || traceId == "00000000000000000000000000000000" ? null : traceId;
+    }
 
     public async Task<RunTrace?> GetAsync(string sessionId, CancellationToken ct = default)
     {
@@ -24,7 +34,7 @@ public sealed class TraceService(
         return await _store.GetAsync(sessionId, ct).ConfigureAwait(false);
     }
 
-    private sealed class Recorder(TraceService owner, string sessionId, string mode, DateTimeOffset startedAt) : ITraceRecorder
+    private sealed class Recorder(TraceService owner, string sessionId, string mode, DateTimeOffset startedAt, string? traceId) : ITraceRecorder
     {
         private readonly List<TraceStep> _steps = [];
         private readonly Lock _lock = new();
@@ -49,6 +59,7 @@ public sealed class TraceService(
                     Mode = mode,
                     StartedAt = startedAt,
                     EndedAt = owner._clock(),
+                    TraceId = traceId,
                     Steps = [.. _steps],
                 };
             }
