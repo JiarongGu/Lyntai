@@ -12,11 +12,11 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
 
         // saving a session again replaces its trace (steps cascade on delete)
         await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM run_trace WHERE session_id = @SessionId",
+            "DELETE FROM lyntai_run_trace WHERE session_id = @SessionId",
             new { trace.SessionId }, tx, cancellationToken: ct)).ConfigureAwait(false);
 
         await conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO run_trace (session_id, mode, started_at, ended_at)
+            INSERT INTO lyntai_run_trace (session_id, mode, started_at, ended_at)
             VALUES (@SessionId, @Mode, @StartedAt, @EndedAt)
             """, new { trace.SessionId, trace.Mode, trace.StartedAt, trace.EndedAt },
             tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -25,7 +25,7 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
         {
             var s = trace.Steps[seq];
             await conn.ExecuteAsync(new CommandDefinition("""
-                INSERT INTO trace_step (session_id, seq, kind, label, input_tokens, output_tokens, cost_usd, duration_ms, detail)
+                INSERT INTO lyntai_trace_step (session_id, seq, kind, label, input_tokens, output_tokens, cost_usd, duration_ms, detail)
                 VALUES (@SessionId, @seq, @Kind, @Label, @InputTokens, @OutputTokens, @CostUsd, @DurationMs, @Detail)
                 """, new { trace.SessionId, seq, s.Kind, s.Label, s.InputTokens, s.OutputTokens, s.CostUsd, s.DurationMs, s.Detail },
                 tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -39,14 +39,14 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
 
         var header = await conn.QuerySingleOrDefaultAsync<TraceRow>(new CommandDefinition("""
             SELECT session_id AS SessionId, mode AS Mode, started_at AS StartedAt, ended_at AS EndedAt
-            FROM run_trace WHERE session_id = @sessionId
+            FROM lyntai_run_trace WHERE session_id = @sessionId
             """, new { sessionId }, cancellationToken: ct)).ConfigureAwait(false);
         if (header is null) return null;
 
         var steps = await conn.QueryAsync<StepRow>(new CommandDefinition("""
             SELECT kind AS Kind, label AS Label, input_tokens AS InputTokens, output_tokens AS OutputTokens,
                    CAST(cost_usd AS REAL) AS CostUsd, duration_ms AS DurationMs, detail AS Detail
-            FROM trace_step WHERE session_id = @sessionId ORDER BY seq
+            FROM lyntai_trace_step WHERE session_id = @sessionId ORDER BY seq
             """, new { sessionId }, cancellationToken: ct)).ConfigureAwait(false);
 
         return new RunTrace

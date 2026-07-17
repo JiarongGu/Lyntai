@@ -14,7 +14,7 @@ public static class MigrationRunnerService
             .ConfigureRunner(rb => rb
                 .AddSQLite()
                 .WithGlobalConnectionString($"Data Source={dbPath}")
-                .ScanIn(typeof(MigrationRunnerService).Assembly).For.Migrations())
+                .ScanIn(typeof(MigrationRunnerService).Assembly).For.All()) // migrations + the lyntai_ version table
             .BuildServiceProvider(validateScopes: false);
 
         using var scope = provider.CreateScope();

@@ -7,16 +7,16 @@ public sealed class M202607170005_Trace : Migration
 {
     public override void Up()
     {
-        Create.Table("run_trace")
+        Create.Table("lyntai_run_trace")
             .WithColumn("session_id").AsString().PrimaryKey()
             .WithColumn("mode").AsString().NotNullable()
             .WithColumn("started_at").AsString().NotNullable()
             .WithColumn("ended_at").AsString().Nullable();
 
         Execute.Sql("""
-            CREATE TABLE trace_step (
+            CREATE TABLE lyntai_trace_step (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT NOT NULL REFERENCES run_trace(session_id) ON DELETE CASCADE,
+                session_id TEXT NOT NULL REFERENCES lyntai_run_trace(session_id) ON DELETE CASCADE,
                 seq INTEGER NOT NULL,
                 kind TEXT NOT NULL,
                 label TEXT NOT NULL,
@@ -27,12 +27,12 @@ public sealed class M202607170005_Trace : Migration
                 detail TEXT NULL
             )
             """);
-        Execute.Sql("CREATE INDEX ix_trace_step_session ON trace_step(session_id, seq)");
+        Execute.Sql("CREATE INDEX ix_lyntai_trace_step_session ON lyntai_trace_step(session_id, seq)");
     }
 
     public override void Down()
     {
-        Delete.Table("trace_step");
-        Delete.Table("run_trace");
+        Delete.Table("lyntai_trace_step");
+        Delete.Table("lyntai_run_trace");
     }
 }

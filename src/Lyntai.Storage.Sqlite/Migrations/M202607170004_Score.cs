@@ -9,7 +9,7 @@ public sealed class M202607170004_Score : Migration
     {
         // score_group instead of the "group" keyword; score is REAL but SELECTs still CAST (affinity trap)
         Execute.Sql("""
-            CREATE TABLE score_result (
+            CREATE TABLE lyntai_score_result (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
                 scorer_id TEXT NOT NULL,
@@ -21,11 +21,11 @@ public sealed class M202607170004_Score : Migration
                 created_at TEXT NOT NULL
             )
             """);
-        Execute.Sql("CREATE INDEX ix_score_session ON score_result(session_id)");
+        Execute.Sql("CREATE INDEX ix_lyntai_score_session ON lyntai_score_result(session_id)");
     }
 
     public override void Down()
     {
-        Delete.Table("score_result");
+        Delete.Table("lyntai_score_result");
     }
 }

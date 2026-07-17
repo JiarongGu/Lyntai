@@ -13,7 +13,7 @@ public sealed class SqliteScoreStore(IDbConnectionFactory factory) : IScoreStore
         foreach (var r in results)
         {
             await conn.ExecuteAsync(new CommandDefinition("""
-                INSERT INTO score_result (session_id, scorer_id, scorer_name, score_group, is_llm, score, reason, created_at)
+                INSERT INTO lyntai_score_result (session_id, scorer_id, scorer_name, score_group, is_llm, score, reason, created_at)
                 VALUES (@sessionId, @ScorerId, @ScorerName, @Group, @IsLlm, @Score, @Reason, @now)
                 """, new { sessionId, r.ScorerId, r.ScorerName, r.Group, r.IsLlm, r.Score, r.Reason, now },
                 tx, cancellationToken: ct)).ConfigureAwait(false);
@@ -30,7 +30,7 @@ public sealed class SqliteScoreStore(IDbConnectionFactory factory) : IScoreStore
         var rows = await conn.QueryAsync<ScoreRow>(new CommandDefinition("""
             SELECT scorer_id AS ScorerId, scorer_name AS ScorerName, score_group AS ScoreGroup,
                    is_llm AS IsLlm, CAST(score AS REAL) AS Score, reason AS Reason
-            FROM score_result WHERE session_id = @sessionId ORDER BY id
+            FROM lyntai_score_result WHERE session_id = @sessionId ORDER BY id
             """, new { sessionId }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => new ScoredResult(r.ScorerId, r.ScorerName, r.ScoreGroup, r.IsLlm, r.Score, r.Reason))];
     }

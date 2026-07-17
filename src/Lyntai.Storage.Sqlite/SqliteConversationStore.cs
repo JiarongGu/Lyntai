@@ -9,7 +9,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
         var thread = new ChatThread(id, title, DateTimeOffset.UtcNow);
         using var conn = factory.Open();
         await conn.ExecuteAsync(new CommandDefinition(
-            "INSERT INTO thread (id, title, created_at) VALUES (@Id, @Title, @CreatedAt)",
+            "INSERT INTO lyntai_thread (id, title, created_at) VALUES (@Id, @Title, @CreatedAt)",
             thread, cancellationToken: ct)).ConfigureAwait(false);
         return thread;
     }
@@ -18,7 +18,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
     {
         using var conn = factory.Open();
         return await conn.QuerySingleOrDefaultAsync<ChatThread>(new CommandDefinition(
-            "SELECT id AS Id, title AS Title, created_at AS CreatedAt FROM thread WHERE id = @id",
+            "SELECT id AS Id, title AS Title, created_at AS CreatedAt FROM lyntai_thread WHERE id = @id",
             new { id }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
@@ -26,7 +26,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
     {
         using var conn = factory.Open();
         var rows = await conn.QueryAsync<ChatThread>(new CommandDefinition(
-            "SELECT id AS Id, title AS Title, created_at AS CreatedAt FROM thread ORDER BY created_at DESC LIMIT @limit",
+            "SELECT id AS Id, title AS Title, created_at AS CreatedAt FROM lyntai_thread ORDER BY created_at DESC LIMIT @limit",
             new { limit }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }
@@ -36,7 +36,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
         var createdAt = DateTimeOffset.UtcNow;
         using var conn = factory.Open();
         var id = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
-            INSERT INTO message (thread_id, role, content, created_at) VALUES (@threadId, @role, @content, @createdAt)
+            INSERT INTO lyntai_message (thread_id, role, content, created_at) VALUES (@threadId, @role, @content, @createdAt)
             RETURNING id
             """, new { threadId, role, content, createdAt }, cancellationToken: ct)).ConfigureAwait(false);
         return new ChatMessage(id, threadId, role, content, createdAt);
@@ -47,7 +47,7 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
         using var conn = factory.Open();
         var rows = await conn.QueryAsync<ChatMessage>(new CommandDefinition("""
             SELECT id AS Id, thread_id AS ThreadId, role AS Role, content AS Content, created_at AS CreatedAt
-            FROM message WHERE thread_id = @threadId ORDER BY id
+            FROM lyntai_message WHERE thread_id = @threadId ORDER BY id
             """, new { threadId }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }
@@ -57,6 +57,6 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
         using var conn = factory.Open();
         // messages go with it via ON DELETE CASCADE (foreign_keys=ON from the factory)
         await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM thread WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
+            "DELETE FROM lyntai_thread WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
     }
 }

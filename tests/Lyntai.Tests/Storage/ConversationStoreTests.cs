@@ -50,7 +50,7 @@ public class ConversationStoreTests : IDisposable
 
         Assert.Null(await _store.GetThreadAsync("t1"));
         using var conn = _db.Factory.Open();
-        Assert.Equal(0L, conn.ExecuteScalar<long>("SELECT COUNT(*) FROM message"));
+        Assert.Equal(0L, conn.ExecuteScalar<long>("SELECT COUNT(*) FROM lyntai_message"));
     }
 
     [Fact]

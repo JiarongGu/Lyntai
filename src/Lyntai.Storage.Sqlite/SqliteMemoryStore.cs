@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Storage.Sqlite;
 
-/// <summary>Task-scoped memory over memory_entry + the trigram FTS index. Bounded (per-scope cap
+/// <summary>Task-scoped memory over lyntai_memory_entry + the trigram FTS index. Bounded (per-scope cap
 /// trimmed on write) and fail-open (recall degrades FTS → LIKE → recent, and returns empty on any
 /// storage fault rather than throwing).</summary>
 public sealed class SqliteMemoryStore(
@@ -22,14 +22,14 @@ public sealed class SqliteMemoryStore(
     {
         using var conn = factory.Open();
         await conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO memory_entry (task_key, scope, content, created_at) VALUES (@taskKey, @scope, @content, @now)
+            INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at) VALUES (@taskKey, @scope, @content, @now)
             """, new { taskKey, scope, content, now = DateTimeOffset.UtcNow }, cancellationToken: ct)).ConfigureAwait(false);
 
         // bounded: trim the oldest beyond the per-(task, scope) cap
         await conn.ExecuteAsync(new CommandDefinition("""
-            DELETE FROM memory_entry
+            DELETE FROM lyntai_memory_entry
             WHERE task_key = @taskKey AND scope = @scope AND id NOT IN (
-                SELECT id FROM memory_entry WHERE task_key = @taskKey AND scope = @scope
+                SELECT id FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
                 ORDER BY id DESC LIMIT @cap)
             """, new { taskKey, scope, cap = options.MemoryCapPerScope }, cancellationToken: ct)).ConfigureAwait(false);
     }
@@ -49,10 +49,10 @@ public sealed class SqliteMemoryStore(
                 {
                     var hits = await conn.QueryAsync<MemoryEntry>(new CommandDefinition($"""
                         SELECT {SelectColumns}
-                        FROM memory_fts JOIN memory_entry m ON m.id = memory_fts.rowid
-                        WHERE memory_fts MATCH @match AND m.task_key = @taskKey
+                        FROM lyntai_memory_fts JOIN lyntai_memory_entry m ON m.id = lyntai_memory_fts.rowid
+                        WHERE lyntai_memory_fts MATCH @match AND m.task_key = @taskKey
                           AND (@scope IS NULL OR m.scope = @scope)
-                        ORDER BY bm25(memory_fts) LIMIT @take
+                        ORDER BY bm25(lyntai_memory_fts) LIMIT @take
                         """, new { match, taskKey, scope, take }, cancellationToken: ct)).ConfigureAwait(false);
                     var list = hits.AsList();
                     if (list.Count > 0) return list;
@@ -70,7 +70,7 @@ public sealed class SqliteMemoryStore(
                     .Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
                 var likeHits = await conn.QueryAsync<MemoryEntry>(new CommandDefinition($"""
                     SELECT {SelectColumns}
-                    FROM memory_entry m
+                    FROM lyntai_memory_entry m
                     WHERE m.task_key = @taskKey AND (@scope IS NULL OR m.scope = @scope)
                       AND m.content LIKE @pattern ESCAPE '\'
                     ORDER BY m.id DESC LIMIT @take
@@ -80,7 +80,7 @@ public sealed class SqliteMemoryStore(
 
             var recent = await conn.QueryAsync<MemoryEntry>(new CommandDefinition($"""
                 SELECT {SelectColumns}
-                FROM memory_entry m
+                FROM lyntai_memory_entry m
                 WHERE m.task_key = @taskKey AND (@scope IS NULL OR m.scope = @scope)
                 ORDER BY m.id DESC LIMIT @take
                 """, new { taskKey, scope, take }, cancellationToken: ct)).ConfigureAwait(false);
@@ -98,7 +98,7 @@ public sealed class SqliteMemoryStore(
     {
         using var conn = factory.Open();
         await conn.ExecuteAsync(new CommandDefinition("""
-            DELETE FROM memory_entry WHERE task_key = @taskKey AND (@scope IS NULL OR scope = @scope)
+            DELETE FROM lyntai_memory_entry WHERE task_key = @taskKey AND (@scope IS NULL OR scope = @scope)
             """, new { taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
     }
 }
