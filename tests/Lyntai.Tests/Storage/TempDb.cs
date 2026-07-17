@@ -24,7 +24,11 @@ public sealed class TempDb : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        // Clear ONLY this db's pool. SqliteConnection.ClearAllPools() is process-global — under the
+        // parallel xUnit runner it evicts other concurrently-running tests' pooled connections mid-query,
+        // which surfaced as intermittent, unrelated storage-test failures (each green in isolation).
+        using (var c = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path }.ToString()))
+            SqliteConnection.ClearPool(c);
         foreach (var f in new[] { Path, Path + "-wal", Path + "-shm" })
         {
             try { File.Delete(f); } catch { /* still pooled somewhere — gitignored scratch anyway */ }

@@ -119,7 +119,9 @@ public class RouterEndToEndTests : IDisposable
         using var sp = BuildStack(o =>
         {
             o.DeadHostThreshold = 1;
-            o.DeadHostCooldown = TimeSpan.FromMilliseconds(300);
+            // generous margin so the test is robust on a saturated parallel runner: call 2 lands
+            // immediately (well inside the window), call 3 after a delay that dwarfs the cooldown
+            o.DeadHostCooldown = TimeSpan.FromMilliseconds(200);
         });
         var router = sp.GetRequiredService<ILlmRouter>();
         var candidates = new List<LlmCandidate> { new("openai"), new("claude-cli") };
@@ -132,7 +134,7 @@ public class RouterEndToEndTests : IDisposable
         Assert.Equal("stub reply: second", r2.Text);  // openai dead → skipped without an HTTP call
         Assert.Single(_http.Requests);
 
-        await Task.Delay(400); // let the cooldown lapse
+        await Task.Delay(600); // let the cooldown (200ms) lapse with a wide margin
         var r3 = await router.CompleteAsync(candidates, Req("third"));
         Assert.Equal("served by http", r3.Text);      // back in rotation and healthy again
         Assert.Equal(2, _http.Requests.Count);
