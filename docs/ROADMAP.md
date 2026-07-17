@@ -145,6 +145,12 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   swappable `IVectorStore` seam with a zero-dependency brute-force `InMemoryVectorStore` default (pgvector /
   sqlite-vec can follow as a backend package). First cut: no TTL, composer integration stays opt-in.
 
+### v0.20.0 — semantic memory wired into the chat path (2026-07)
+- ✅ **Hybrid recall + dual-write** — the `MemoryPromptComposer` now leads with semantic hits then fills in
+  lexical entries (deduped, fail-open across both) when embeddings are registered, and `ChatOrchestrator`
+  writes each remembered exchange to both stores. Semantic memory is registered only when an `IEmbedder`
+  is, so the chat path skips it cleanly otherwise. Closes the v0.19 "composer integration stays opt-in" note.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

@@ -70,6 +70,24 @@ public class ChatOrchestratorTests
     }
 
     [Fact]
+    public async Task Remembers_the_exchange_to_both_memory_stores_when_embeddings_are_wired()
+    {
+        var provider = new FakeLlmProvider("p");
+        provider.Replies.Enqueue(new LlmReply("cancel via account settings", LlmVerdict.Ok));
+        using var sp = Build(provider, b => b.AddEmbeddings(new FakeEmbedder()));
+
+        await sp.GetRequiredService<IChatOrchestrator>()
+            .ChatAsync(new ChatTurn { Message = "how do I cancel?", TaskKey = "t1", UseTools = false });
+
+        // the exchange landed in the lexical store...
+        var lexical = await sp.GetRequiredService<Lyntai.Storage.IMemoryStore>().RecallAsync("t1", scope: "chat");
+        Assert.Contains(lexical, m => m.Content.Contains("cancel via account settings"));
+        // ...and in semantic memory, recallable by meaning
+        var semantic = await sp.GetRequiredService<Lyntai.Memory.ISemanticMemory>().RecallAsync("t1", "chat", "cancel", k: 5);
+        Assert.Contains(semantic, h => h.Content.Contains("cancel via account settings"));
+    }
+
+    [Fact]
     public async Task Uses_the_tool_loop_when_tools_are_registered()
     {
         var provider = new FakeLlmProvider("p"); // no native tools → prompt-protocol tool loop

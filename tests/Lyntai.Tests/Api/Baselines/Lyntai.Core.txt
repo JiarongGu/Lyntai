@@ -1,5 +1,5 @@
 class Lyntai.Agents.ChatOrchestrator
-    .ctor(ILlmClient, IToolLoop, IToolRegistry, IGuardRail, IPromptComposer, IMemoryStore=, ILogger<ChatOrchestrator>=)
+    .ctor(ILlmClient, IToolLoop, IToolRegistry, IGuardRail, IPromptComposer, IMemoryStore=, ISemanticMemory=, ILogger<ChatOrchestrator>=)
     ChatAsync(ChatTurn, CancellationToken=) : Task<ChatResult>
 class Lyntai.Agents.ChatResult
     .ctor(String, LlmVerdict, Boolean, String, IReadOnlyList<ToolStep>)
@@ -142,7 +142,7 @@ class Lyntai.Cortex.LlmScorerBase
     Name : String
     ScoreAsync(ScoreContext, CancellationToken) : Task<ScoreResult>
 class Lyntai.Cortex.MemoryPromptComposer
-    .ctor(IMemoryStore=, ILogger<MemoryPromptComposer>=, Int32=)
+    .ctor(IMemoryStore=, ISemanticMemory=, ILogger<MemoryPromptComposer>=, Int32=)
     ComposeAsync(String, String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<String>
 class Lyntai.Cortex.PairwiseResult
     .ctor(PairwiseWinner, String=)

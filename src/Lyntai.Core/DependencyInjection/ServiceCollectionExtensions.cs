@@ -60,16 +60,21 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<ITraceService>(sp => new TraceService(
             sp.GetService<ITraceStore>(), logger: sp.GetService<ILogger<TraceService>>()));
         services.TryAddSingleton<IPromptComposer>(sp => new MemoryPromptComposer(
-            sp.GetService<IMemoryStore>(), sp.GetService<ILogger<MemoryPromptComposer>>()));
+            sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
+            sp.GetService<ILogger<MemoryPromptComposer>>()));
         services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ILlmClient>()));
 
-        // semantic memory: composes the app's IEmbedder (registered via AddEmbeddings) with a vector store
-        // (in-memory default; register your own IVectorStore for pgvector/etc.). Resolves always; a call
-        // throws a clear error if no embedder was registered.
-        services.TryAddSingleton<Lyntai.Memory.IVectorStore, Lyntai.Memory.InMemoryVectorStore>();
-        services.TryAddSingleton<Lyntai.Memory.ISemanticMemory>(sp => new Lyntai.Memory.SemanticMemory(
-            sp.GetService<Lyntai.Embeddings.IEmbedder>(), sp.GetRequiredService<Lyntai.Memory.IVectorStore>(),
-            sp.GetService<ILogger<Lyntai.Memory.SemanticMemory>>()));
+        // semantic memory — wired ONLY when an embedder is registered (AddEmbeddings). Composes the app's
+        // IEmbedder with a vector store (in-memory default; register your own IVectorStore for pgvector/
+        // etc.). Absent an embedder it isn't registered, so the composer/orchestrator resolve null and skip
+        // it — no accidental throws on every turn.
+        if (services.Any(d => d.ServiceType == typeof(Lyntai.Embeddings.IEmbedder)))
+        {
+            services.TryAddSingleton<Lyntai.Memory.IVectorStore, Lyntai.Memory.InMemoryVectorStore>();
+            services.TryAddSingleton<Lyntai.Memory.ISemanticMemory>(sp => new Lyntai.Memory.SemanticMemory(
+                sp.GetRequiredService<Lyntai.Embeddings.IEmbedder>(), sp.GetRequiredService<Lyntai.Memory.IVectorStore>(),
+                sp.GetService<ILogger<Lyntai.Memory.SemanticMemory>>()));
+        }
 
         // agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-
         // agnostically over the front door (works with zero tools too — it degenerates to one completion)
@@ -91,7 +96,8 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IChatOrchestrator>(sp => new ChatOrchestrator(
             sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolLoop>(), sp.GetRequiredService<IToolRegistry>(),
             sp.GetRequiredService<IGuardRail>(), sp.GetRequiredService<IPromptComposer>(),
-            sp.GetService<IMemoryStore>(), sp.GetService<ILogger<ChatOrchestrator>>()));
+            sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
+            sp.GetService<ILogger<ChatOrchestrator>>()));
 
         return services;
     }

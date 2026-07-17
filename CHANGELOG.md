@@ -3,6 +3,27 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.20.0 — 2026-07-18
+
+Semantic memory is now wired into the chat path — the composer and orchestrator use it automatically when
+embeddings are registered, closing the "opt-in only" gap from v0.19.
+
+### Changed
+- **Hybrid memory recall in `MemoryPromptComposer`** — when an `ISemanticMemory` is present (embeddings
+  registered), the composer leads the "Learned facts" section with meaning-based hits, then fills in
+  lexical `IMemoryStore` entries, deduped by content and bounded by the same char budget. Fail-open across
+  both sources: an outage in either yields whatever the other returned. Lexical-only behavior is unchanged
+  when no embedder is wired.
+- **`ChatOrchestrator` dual-writes memory** — a remembered exchange is written to both the lexical store
+  and semantic memory (when wired), so the next turn's hybrid recall can find it by meaning. Both writes
+  are fail-open.
+- **Semantic memory is registered only when an embedder is** (`AddEmbeddings`) — absent one, `ISemanticMemory`
+  isn't in the container, so the composer/orchestrator resolve null and skip it cleanly (no per-turn throws).
+
+### Breaking (pre-1.0)
+- `MemoryPromptComposer` and `ChatOrchestrator` constructors take an added optional `ISemanticMemory?`
+  parameter (source-compatible for named/DI use; binary signature changed). Both are normally DI-resolved.
+
 ## 0.19.0 — 2026-07-18
 
 Semantic memory — meaning-based recall to complement the lexical memory store. Facts are remembered by

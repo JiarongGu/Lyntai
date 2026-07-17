@@ -1,6 +1,7 @@
 using Lyntai.Cortex;
 using Lyntai.Guards;
 using Lyntai.Llm;
+using Lyntai.Memory;
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,6 +16,7 @@ public sealed class ChatOrchestrator(
     IGuardRail guards,
     IPromptComposer composer,
     IMemoryStore? memory = null,
+    ISemanticMemory? semantic = null,
     ILogger<ChatOrchestrator>? logger = null) : IChatOrchestrator
 {
     private readonly ILogger _logger = logger ?? NullLogger<ChatOrchestrator>.Instance;
@@ -69,11 +71,21 @@ public sealed class ChatOrchestrator(
         if (post.Result == GuardOutcome.Kind.Replace)
             answer = post.Replacement!;
 
-        // remember the exchange (fail-open — a memory outage never breaks the chat)
-        if (turn.Remember && turn.TaskKey is not null && memory is not null)
+        // remember the exchange into BOTH memory sources that are wired (fail-open — a memory outage never
+        // breaks the chat; the composer reads them back as a hybrid recall on the next turn)
+        if (turn.Remember && turn.TaskKey is not null)
         {
-            try { await memory.RememberAsync(turn.TaskKey, turn.MemoryScope, $"Q: {rememberedQuestion}\nA: {answer}", ct: ct).ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "chat: memory write failed (non-fatal)"); }
+            var record = $"Q: {rememberedQuestion}\nA: {answer}";
+            if (memory is not null)
+            {
+                try { await memory.RememberAsync(turn.TaskKey, turn.MemoryScope, record, ct: ct).ConfigureAwait(false); }
+                catch (Exception ex) { _logger.LogWarning(ex, "chat: lexical memory write failed (non-fatal)"); }
+            }
+            if (semantic is not null)
+            {
+                try { await semantic.RememberAsync(turn.TaskKey, turn.MemoryScope, record, ct).ConfigureAwait(false); }
+                catch (Exception ex) { _logger.LogWarning(ex, "chat: semantic memory write failed (non-fatal)"); }
+            }
         }
 
         return new ChatResult(answer, LlmVerdict.Ok, Blocked: false, null, steps);

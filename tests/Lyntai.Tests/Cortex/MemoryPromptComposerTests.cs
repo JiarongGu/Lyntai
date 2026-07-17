@@ -1,10 +1,64 @@
 using Lyntai.Cortex;
+using Lyntai.Memory;
 using Lyntai.Storage;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Cortex;
 
 public class MemoryPromptComposerTests
 {
+    // ---- hybrid recall (lexical + semantic) ----------------------------------------------------------
+
+    private static SemanticMemory SemanticWith(params string[] facts)
+    {
+        var mem = new SemanticMemory(new FakeEmbedder(), new InMemoryVectorStore());
+        foreach (var f in facts) mem.RememberAsync("trip", "s", f).GetAwaiter().GetResult();
+        return mem;
+    }
+
+    [Fact]
+    public async Task Hybrid_leads_with_semantic_hits_and_dedups_against_lexical()
+    {
+        var semantic = SemanticWith("cancel anytime");
+        var store = new FakeMemoryStore([Fact("cancel anytime"), Fact("lexical only fact")]);
+        var composer = new MemoryPromptComposer(store, semantic);
+
+        var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "how do I cancel");
+
+        Assert.Contains("- cancel anytime", composed);
+        Assert.Contains("- lexical only fact", composed);
+        // deduped: the shared fact appears once even though both sources returned it
+        Assert.Equal(composed.IndexOf("cancel anytime"), composed.LastIndexOf("cancel anytime"));
+        // semantic-first: the query-relevant hit precedes the lexical-only fact
+        Assert.True(composed.IndexOf("cancel anytime") < composed.IndexOf("lexical only fact"));
+    }
+
+    [Fact]
+    public async Task Semantic_only_composer_appends_recalled_hits()
+    {
+        var composer = new MemoryPromptComposer(memory: null, semantic: SemanticWith("embed me"));
+        var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "embed me");
+        Assert.Contains("- embed me", composed);
+    }
+
+    [Fact]
+    public async Task A_throwing_semantic_source_falls_through_to_lexical()
+    {
+        var store = new FakeMemoryStore([Fact("lexical fact")]);
+        var composer = new MemoryPromptComposer(store, new ThrowingSemanticMemory());
+        var composed = await composer.ComposeAsync("base", "trip", scope: "s", query: "q");
+        Assert.Contains("- lexical fact", composed); // semantic failure didn't sink the lexical facts
+    }
+
+    private sealed class ThrowingSemanticMemory : ISemanticMemory
+    {
+        public Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default) =>
+            Task.CompletedTask;
+        public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string scope, string query,
+            int k = 5, double minScore = 0, CancellationToken ct = default) => throw new InvalidOperationException("embedder down");
+        public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
     [Fact]
     public async Task No_store_returns_the_base_prompt_unchanged()
     {

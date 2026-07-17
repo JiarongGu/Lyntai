@@ -183,6 +183,11 @@ is the default; register your own before `AddLyntai` to back recall with pgvecto
 DB without changing the recall code. Scoped by (task, scope) like the lexical store; re-remembering
 identical content dedups.
 
+Registering an embedder also upgrades the **chat orchestration** automatically: `IChatOrchestrator`'s
+memory injection becomes **hybrid** (semantic hits lead, then lexical entries fill in, deduped) and each
+remembered exchange is written to both stores — so a later turn recalls earlier ones by meaning, not just
+keywords. With no embedder, the chat path stays purely lexical.
+
 ### Usage budgeting
 
 Cap spend. The budget meters token/cost usage across the front door and refuses further calls once a cap is
