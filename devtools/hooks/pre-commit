@@ -1,0 +1,6 @@
+#!/bin/sh
+# Sensitive-info guard (see .claude/rules/sensitive-info.md). Blocks a commit that would introduce a
+# dev-machine absolute path or a private token into this repo. Install with:
+#   git config core.hooksPath devtools/hooks   (or: node devtools/dev.mjs install-hooks)
+# Bypass intentionally with: git commit --no-verify
+node devtools/scripts/check-sensitive.mjs

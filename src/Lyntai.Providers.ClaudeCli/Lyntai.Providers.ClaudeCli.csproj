@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Providers.ClaudeCli</PackageId>
+    <Description>Lyntai LLM provider that spawns the authenticated `claude` CLI (stream-json over stdin/stdout, no API key) — wired via builder.AddClaudeCliProvider().</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+</Project>

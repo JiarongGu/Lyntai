@@ -1,0 +1,10 @@
+<Project>
+
+  <!--
+    Thin root shim: the real central package versions live in src/Directory.Packages.props (per the
+    design tree). NuGet resolves the NEAREST Directory.Packages.props walking up from each project, so
+    tests/ and samples/ land here — import the src file so the whole tree shares one version list.
+  -->
+  <Import Project="src/Directory.Packages.props" />
+
+</Project>

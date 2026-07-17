@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Lyntai.Core/Lyntai.Core.csproj" />
+    <Project Path="src/Lyntai.Storage.Sqlite/Lyntai.Storage.Sqlite.csproj" />
+    <Project Path="src/Lyntai.Providers.ClaudeCli/Lyntai.Providers.ClaudeCli.csproj" />
+    <Project Path="src/Lyntai.Providers.OpenAiCompatible/Lyntai.Providers.OpenAiCompatible.csproj" />
+    <Project Path="src/Lyntai.Providers.ExtensionsAi/Lyntai.Providers.ExtensionsAi.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Lyntai.Playground/Lyntai.Playground.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lyntai.Tests/Lyntai.Tests.csproj" />
+  </Folder>
+</Solution>

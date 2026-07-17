@@ -1,0 +1,31 @@
+<Project>
+
+  <!--
+    Central package versions for the whole tree (single source — never put a Version on a
+    PackageReference in a csproj). Projects under src/ find this file directly; tests/ and samples/
+    reach it through the thin root-level Directory.Packages.props that imports this one.
+  -->
+  <ItemGroup>
+    <!-- storage -->
+    <PackageVersion Include="Dapper" Version="2.1.79" />
+    <PackageVersion Include="FluentMigrator.Runner.SQLite" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+
+    <!-- abstractions / DI / http -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+
+    <!-- Microsoft.Extensions.AI bridge -->
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.0" />
+
+    <!-- tests -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+</Project>

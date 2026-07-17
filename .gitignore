@@ -1,0 +1,24 @@
+# .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+
+# Packages / publish output
+publish/
+*.nupkg
+artifacts/
+
+# devtools scratch (family convention: `_`-prefixed, never OS temp)
+devtools/_*
+devtools/screenshots/
+
+# Private sensitive-pattern tokens (loaded by check-sensitive at runtime; never tracked)
+local/
+
+# OS / editor
+.DS_Store
+Thumbs.db
