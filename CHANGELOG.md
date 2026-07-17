@@ -3,6 +3,25 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.12.0 — 2026-07-18
+
+New package **`Lyntai.Tools.Mcp`** — expose a Model Context Protocol (MCP) server's tools to the tool
+loop. Additive; new package only.
+
+### Added
+- **`Lyntai.Tools.Mcp`** (references `Lyntai.Core` + `ModelContextProtocol.Core`) — adapts each tool on
+  a connected MCP server into a Lyntai `ITool`, so the whole MCP tool ecosystem becomes callable from
+  `IToolLoop` (native or prompt path, same as any other tool).
+  - `McpToolset.FromClientAsync(mcpClient)` lists the server's tools and wraps each as an `McpTool`
+    (`ITool`); `builder.AddMcpTools(tools)` registers them into the tool collection. The **app owns the
+    `McpClient`** (transport, connection, lifecycle — BYO, consistent with Lyntai's IoC seams); Lyntai
+    only adapts. `McpTool` delegates the call through a `Func` seam so the SDK's concrete client stays
+    out of the contract and the adapter is unit-testable.
+  - Tool results flatten to the observation string the loop feeds back (text blocks joined, or
+    structured content as JSON; `error:`-prefixed when the server flags an error).
+  - Proven end-to-end against a real `@modelcontextprotocol/server-everything` over stdio (opt-in
+    `McpLiveTests`, gated on `LYNTAI_LIVE_MCP`).
+
 ## 0.11.0 — 2026-07-18
 
 Native tool-calling through the **MEAI bridge** — the follow-up deferred from v0.10. Now every

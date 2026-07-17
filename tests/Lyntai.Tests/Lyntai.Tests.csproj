@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\Lyntai.Providers.OpenAiCompatible\Lyntai.Providers.OpenAiCompatible.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.ExtensionsAi\Lyntai.Providers.ExtensionsAi.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.Local\Lyntai.Providers.Local.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
   </ItemGroup>
 
   <ItemGroup>

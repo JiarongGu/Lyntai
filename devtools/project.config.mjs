@@ -43,5 +43,6 @@ export default {
     'src/Lyntai.Providers.OpenAiCompatible',
     'src/Lyntai.Providers.ExtensionsAi',
     'src/Lyntai.Providers.Local',
+    'src/Lyntai.Tools.Mcp',
   ],
 };

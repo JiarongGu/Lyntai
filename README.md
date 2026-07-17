@@ -12,8 +12,8 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.11.0 — native tool-calling (HTTP + MEAI bridge), in-process local inference, bring-your-own
-resources, three storage backends, LLM-ops depth, on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
+**v0.12.0 — native tool-calling (HTTP + MEAI bridge) + an MCP tool source, in-process local inference,
+bring-your-own resources, three storage backends, LLM-ops depth, on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
 multi-agent code-review + best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops
 depth (v0.4), public-API baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama
 validation (v0.6), IoC seams so the app owns its resource lifecycle — process execution, HttpClient, DB
@@ -37,6 +37,7 @@ tool-calling loop (v0.9), and native (structured) function-calling with a prompt
 | `Lyntai.Providers.OpenAiCompatible` | OpenAI / Ollama / OpenRouter-style endpoints over HttpClient. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
+| `Lyntai.Tools.Mcp` | Expose a Model Context Protocol (MCP) server's tools as Lyntai `ITool`s for the tool loop. |
 
 Each `src/*` is an independent NuGet package depending only on `Lyntai.Core` — add just what you need.
 
@@ -246,6 +247,18 @@ for providers without it (CLI, basic local models) — same `ITool`s either way,
 behind the front door (`ILlmClient.SupportsToolCalls`). An
 unknown or throwing tool becomes a recoverable `error: …` observation rather than a crash; a refusal or
 all-providers-down verdict surfaces on `result.Verdict`.
+
+**MCP tools** (`Lyntai.Tools.Mcp`) — point the loop at a Model Context Protocol server and its tools
+become `ITool`s. Your app owns the MCP connection; Lyntai adapts:
+
+```csharp
+await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
+{
+    Command = "npx", Arguments = ["-y", "@modelcontextprotocol/server-everything"], Name = "everything",
+}));
+var mcpTools = await McpToolset.FromClientAsync(mcp);   // list + adapt the server's tools
+services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(mcpTools).DefaultCandidates("claude-cli"));
+```
 
 ## Dev loop
 

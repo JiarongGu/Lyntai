@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Tools.Mcp</PackageId>
+    <Description>Exposes a Model Context Protocol (MCP) server's tools as Lyntai ITools, so the tool loop can call them. The consuming app owns the MCP client/connection (BYO); this package adapts each MCP tool to ITool and registers them via builder.AddMcpTools(...).</Description>
+    <!-- MCP argument/result marshaling is dynamic JSON (reflection): can't honestly claim trim/AOT. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
+</Project>

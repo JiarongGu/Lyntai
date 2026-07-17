@@ -8,6 +8,7 @@
     <Project Path="src/Lyntai.Providers.OpenAiCompatible/Lyntai.Providers.OpenAiCompatible.csproj" />
     <Project Path="src/Lyntai.Providers.ExtensionsAi/Lyntai.Providers.ExtensionsAi.csproj" />
     <Project Path="src/Lyntai.Providers.Local/Lyntai.Providers.Local.csproj" />
+    <Project Path="src/Lyntai.Tools.Mcp/Lyntai.Tools.Mcp.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Lyntai.Playground/Lyntai.Playground.csproj" />

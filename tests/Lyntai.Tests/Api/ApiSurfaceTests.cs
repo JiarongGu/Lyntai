@@ -26,6 +26,7 @@ public class ApiSurfaceTests
         "Lyntai.Providers.OpenAiCompatible",
         "Lyntai.Providers.ExtensionsAi",
         "Lyntai.Providers.Local",
+        "Lyntai.Tools.Mcp",
     ];
 
     // anchor a known public type from each assembly so it's loaded + resolvable by simple name
@@ -39,6 +40,7 @@ public class ApiSurfaceTests
         ["Lyntai.Providers.OpenAiCompatible"] = typeof(Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider).Assembly,
         ["Lyntai.Providers.ExtensionsAi"] = typeof(Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider).Assembly,
         ["Lyntai.Providers.Local"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,
+        ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpTool).Assembly,
     };
 
     private static string BaselineDir => Path.GetFullPath(Path.Combine(

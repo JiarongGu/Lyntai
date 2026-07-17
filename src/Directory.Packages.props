@@ -27,6 +27,9 @@
     <!-- in-process local inference (managed only; the consumer app picks an LLamaSharp.Backend.*) -->
     <PackageVersion Include="LLamaSharp" Version="0.27.0" />
 
+    <!-- MCP (Model Context Protocol) client — for exposing an MCP server's tools as Lyntai ITools -->
+    <PackageVersion Include="ModelContextProtocol.Core" Version="1.4.1" />
+
     <!-- tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

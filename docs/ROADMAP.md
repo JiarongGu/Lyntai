@@ -81,8 +81,14 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   Azure, Anthropic API, …) now gets native function-calling. Declaration-only `AIFunctionDeclaration`s
   on `ChatOptions.Tools` (Lyntai's loop still drives execution — no `FunctionInvokingChatClient`),
   `FunctionCallContent`↔`LlmReply.ToolCalls`, `FunctionResultContent` for results; stays trim/AOT-clean
-  via `System.Text.Json.Nodes`. **Next on the tool-calling track:** an MCP-client `ITool` (proxy an MCP
-  server — makes the loop useful against that whole ecosystem); streaming tool-calls.
+  via `System.Text.Json.Nodes`.
+
+### v0.12.0 — MCP tool source (2026-07)
+- ✅ **`Lyntai.Tools.Mcp`** — expose a Model Context Protocol server's tools as Lyntai `ITool`s
+  (`McpToolset.FromClientAsync` + `AddMcpTools`), so the loop can drive the whole MCP tool ecosystem.
+  App owns the `McpClient` (BYO transport/connection); Lyntai adapts. Proven live against
+  `@modelcontextprotocol/server-everything`. **Remaining on the tool-calling track:** streaming
+  tool-calls (lower value).
 
 ## Planned
 
