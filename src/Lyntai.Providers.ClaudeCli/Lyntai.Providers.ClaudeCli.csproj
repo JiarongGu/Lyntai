@@ -10,4 +10,8 @@
     <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
 </Project>
