@@ -37,20 +37,24 @@ deterministic lifecycle primitives shipped; summarization has no settled recipe 
   registry): `UseInMemoryStorage()` stands alone or backfills gaps, and mixing is a per-domain
   override (last registration wins). Proven by tests.
 - ✅ **AOT story documented** — `docs/AOT.md`: Core + providers + InMemory are AOT-compatible;
-  `Lyntai.Storage.Sqlite` opts out honestly over Dapper/FluentMigrator reflection, with the
-  Dapper.AOT path noted.
+  `Lyntai.Storage.Sqlite`/`Postgres` opt out honestly over Dapper reflection, with the Dapper.AOT
+  path noted.
+
+### v0.6.0 — Postgres + live-provider validation (2026-07)
+- ✅ **`Lyntai.Storage.Postgres`** — the third real backend (Npgsql + Dapper + FluentMigrator, pg_trgm
+  memory recall incl. CJK), integration-tested against a real container via Testcontainers.
+- ✅ **Live Ollama test** — the OpenAI-compatible provider verified against a real endpoint (opt-in).
 
 ## Planned
 
 ### Blocked on user-provided infrastructure
 These need something only the maintainer can provision; the design admits them without breaking changes.
-- **`Lyntai.Storage.Postgres`** — needs a Postgres instance (Testcontainers/Docker or a live server)
-  to integration-test honestly; shipping it untested would violate the project's own testing bar.
 - **`Lyntai.Providers.Local`** (LLamaSharp, in-process, deferred §9) — heavy native dependency +
   multi-GB model downloads to verify.
-- **Docs site**, **real `PackageProjectUrl`/`RepositoryUrl`**, and **SourceLink activation** — all
-  gated on the repo being hosted. (Sources are already embedded in the PDBs via `EmbedAllSources`, so
-  step-into debugging works today; SourceLink is a one-package add once there's a remote to resolve.)
+- **Real `PackageProjectUrl`/`RepositoryUrl`** + **SourceLink activation** — gated on the repo being
+  hosted. Sources are already embedded in the PDBs via `EmbedAllSources`, so step-into debugging works
+  today; SourceLink is a one-package add once there's a remote to resolve. (Docs live in the repo —
+  README + `docs/` on GitHub — no separate docs site planned.)
 
 ### v1.0 — API freeze
 - ✅ **Public-API baseline** — an approval test (`ApiSurfaceTests`) snapshots every packable

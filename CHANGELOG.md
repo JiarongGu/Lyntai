@@ -3,6 +3,22 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.6.0 — 2026-07-17
+
+Second heavyweight backend + a real-endpoint provider test — the two items previously blocked on
+infrastructure, now that a Postgres-capable Docker and a local Ollama are available. Additive.
+
+### Added
+- **`Lyntai.Storage.Postgres`** — a full PostgreSQL backend for every storage domain (Npgsql + Dapper
+  + FluentMigrator). `lyntai_`-prefixed; memory recall uses `pg_trgm` (GIN trigram index) for ILIKE
+  substring search including CJK substrings; `timestamptz` ↔ `DateTimeOffset`; dedup/TTL/cap/prune;
+  `UsePostgresStorage(conn, migrateOnFirstUse)`. Integration-tested against a real container via
+  Testcontainers (skips when Docker is unavailable). Proves the domain-interface seam holds for a
+  heavyweight server DB — three backends now (SQLite, in-memory, Postgres).
+- **Opt-in live Ollama test** — validates the OpenAI-compatible provider (Ollama flavor) against a
+  real endpoint (completion with real usage, streaming, through the router). Gated on
+  `LYNTAI_LIVE_OLLAMA`; the default run stays fast and dependency-free.
+
 ## 0.5.0 — 2026-07-17
 
 Ecosystem & backends (roadmap v0.5) + v1.0 API-freeze groundwork. Additive; no behavioral change.

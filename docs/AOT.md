@@ -11,6 +11,7 @@ packable project, which turns on the trim, single-file, and AOT analyzers. Per-p
 | `Lyntai.Providers.OpenAiCompatible` | ✅ compatible | `HttpClient` + `JsonNode`/`JsonDocument`. |
 | `Lyntai.Providers.ExtensionsAi` | ✅ compatible | Thin bridge over `Microsoft.Extensions.AI.Abstractions`. |
 | `Lyntai.Storage.Sqlite` | ⚠️ **opts out** | `IsAotCompatible=false; IsTrimmable=false; EnableTrimAnalyzer=true`. Dapper and FluentMigrator materialize via reflection/IL-emit, which the project-level analyzer can't see through — claiming compatibility would be dishonest. The analyzer stays on for *our* code in this package. |
+| `Lyntai.Storage.Postgres` | ⚠️ **opts out** | Same as Sqlite — Npgsql + Dapper + FluentMigrator reflection. Analyzer on for our code. |
 
 ## Why the project-level analyzer isn't the whole story
 
