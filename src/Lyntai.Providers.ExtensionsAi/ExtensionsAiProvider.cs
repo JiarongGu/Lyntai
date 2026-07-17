@@ -50,7 +50,7 @@ public sealed class ExtensionsAiProvider(
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "{Id}: chat client faulted", id);
-            return new LlmReply("", ClassifyException(ex), Detail: $"{id}: {ex.Message}");
+            return new LlmReply("", LlmVerdictClassifier.FromException(ex), Detail: $"{id}: {ex.Message}");
         }
     }
 
@@ -60,6 +60,7 @@ public sealed class ExtensionsAiProvider(
         timeoutCts.CancelAfter(options.ProviderTimeout);
 
         LlmUsage? usage = null;
+        var sawContent = false;
         var enumerator = client.GetStreamingResponseAsync(MapMessages(req), MapOptions(req), timeoutCts.Token)
             .GetAsyncEnumerator(timeoutCts.Token);
         await using (enumerator.ConfigureAwait(false))
@@ -79,7 +80,7 @@ public sealed class ExtensionsAiProvider(
                 }
                 catch (Exception ex)
                 {
-                    error = LlmChunk.Error(ClassifyException(ex), $"{id}: {ex.Message}");
+                    error = LlmChunk.Error(LlmVerdictClassifier.FromException(ex), $"{id}: {ex.Message}");
                 }
                 if (error is not null)
                 {
@@ -93,10 +94,19 @@ public sealed class ExtensionsAiProvider(
                     if (content is UsageContent u) usage = MapUsage(u.Details);
                 }
                 if (update.Text is { Length: > 0 } text)
+                {
+                    sawContent = true;
                     yield return LlmChunk.Content(text);
+                }
             }
         }
-        yield return LlmChunk.Final(usage);
+
+        // the streaming twin of CompleteAsync's empty→Failed: a zero-content stream must surface an
+        // error the router can fall over on, not end as a clean empty Final
+        if (!sawContent)
+            yield return LlmChunk.Error(LlmVerdict.Failed, $"{id}: empty response");
+        else
+            yield return LlmChunk.Final(usage);
     }
 
     private static IList<ChatMessage> MapMessages(LlmRequest req) =>
@@ -126,17 +136,8 @@ public sealed class ExtensionsAiProvider(
     }
 
     private static LlmUsage? MapUsage(UsageDetails? usage) =>
-        usage is null ? null : new LlmUsage(usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0);
-
-    private static LlmVerdict ClassifyException(Exception ex)
-    {
-        var message = ex.Message;
-        if (message.Contains("429") || message.Contains("rate limit", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("rate_limit", StringComparison.OrdinalIgnoreCase))
-            return LlmVerdict.RateLimited;
-        if (message.Contains("content_filter", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("content policy", StringComparison.OrdinalIgnoreCase))
-            return LlmVerdict.Refused;
-        return LlmVerdict.Failed;
-    }
+        usage is null ? null : new LlmUsage(
+            usage.InputTokenCount ?? 0,
+            usage.OutputTokenCount ?? 0,
+            usage.CachedInputTokenCount ?? 0); // cached tokens bill at discounted rates — keep them
 }

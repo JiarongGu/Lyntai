@@ -71,6 +71,83 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public async Task Stdin_write_is_covered_by_the_timeout()
+    {
+        // a child that never reads stdin + a payload beyond the OS pipe buffer used to block the
+        // writer forever (the timeout was armed only AFTER the write)
+        var bigStdin = new string('x', 1_000_000);
+        var sw = Stopwatch.StartNew();
+
+        var result = await _runner.RunAsync("node", ["-e", "setTimeout(() => {}, 60000)"],
+            stdin: bigStdin, timeout: TimeSpan.FromSeconds(2));
+        sw.Stop();
+
+        Assert.True(result.TimedOut);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — stdin write escaped the timeout");
+    }
+
+    [Fact]
+    public async Task Slow_consumer_dwell_does_not_trip_the_stream_timeout()
+    {
+        // the timeout is child inactivity, NOT wall clock: a consumer slower than the timeout
+        // between chunks must not get a healthy stream killed under it
+        var lines = new List<string>();
+        await foreach (var line in _runner.StreamLinesAsync("node",
+            ["-e", "console.log('one'); console.log('two'); console.log('three')"],
+            timeout: TimeSpan.FromSeconds(2)))
+        {
+            lines.Add(line);
+            await Task.Delay(TimeSpan.FromSeconds(3)); // dwell longer than the timeout, twice over
+            if (lines.Count == 2) break;               // (also exercises early abandonment cleanup)
+        }
+
+        Assert.Equal(["one", "two"], lines);
+    }
+
+    [Fact]
+    public async Task Abandoning_the_stream_kills_the_child_process()
+    {
+        var dir = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-dbs"));
+        Directory.CreateDirectory(dir);
+        var heartbeat = Path.Combine(dir, $"heartbeat-{Guid.NewGuid():N}.txt");
+        try
+        {
+            // child appends a heartbeat every 100ms forever; the enumerator is abandoned after
+            // the first line — the child must die with it, not keep generating in the background
+            const string script = """
+                const fs = require('fs');
+                setInterval(() => { try { fs.appendFileSync(process.argv[1], 'x'); } catch {} console.log('beat'); }, 100);
+                """;
+            await foreach (var _ in _runner.StreamLinesAsync("node", ["-e", script, heartbeat]))
+                break; // abandon immediately
+
+            await Task.Delay(700); // room for the kill to land
+            var size1 = new FileInfo(heartbeat).Length;
+            await Task.Delay(800);
+            var size2 = new FileInfo(heartbeat).Length;
+
+            Assert.Equal(size1, size2); // no beats after abandonment → the child is dead
+        }
+        finally
+        {
+            try { File.Delete(heartbeat); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task Working_directory_is_honored()
+    {
+        var expected = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar);
+
+        var result = await _runner.RunAsync("node", ["-e", "console.log(process.cwd())"],
+            workingDirectory: Path.GetTempPath());
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(expected, result.StdOut.Trim().TrimEnd(Path.DirectorySeparatorChar), ignoreCase: true);
+    }
+
+    [Fact]
     public void Resolve_command_path_finds_node_and_caches()
     {
         var resolved = ProcessRunner.ResolveCommandPath("node");

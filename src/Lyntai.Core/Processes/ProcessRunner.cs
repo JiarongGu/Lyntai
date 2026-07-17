@@ -33,8 +33,10 @@ public sealed class ProcessRunner
     private static readonly ConcurrentDictionary<string, string> PathCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
-    /// <summary>Buffered run: returns exit code + full stdout/stderr. Timeout kills the process tree
-    /// and reports <c>TimedOut=true</c>; caller cancellation kills the tree and rethrows.</summary>
+    /// <summary>Buffered run: returns exit code + full stdout/stderr. The timeout covers the WHOLE
+    /// call including the stdin write (a child that never drains its pipe can otherwise block the
+    /// writer forever); on expiry the process tree is killed and <c>TimedOut=true</c> is reported.
+    /// Caller cancellation kills the tree and rethrows.</summary>
     public async Task<ProcessResult> RunAsync(
         string command,
         IReadOnlyList<string> args,
@@ -48,13 +50,15 @@ public sealed class ProcessRunner
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
         var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
-        await WriteStdinAsync(process, stdin).ConfigureAwait(false);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (timeout is not null) timeoutCts.CancelAfter(timeout.Value);
+        // killing the child breaks the pipes, so even a stalled stdin write gets unblocked
+        using var killOnCancel = timeoutCts.Token.Register(() => KillTree(process));
 
         try
         {
+            await WriteStdinAsync(process, stdin, timeoutCts.Token).ConfigureAwait(false);
             await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -68,9 +72,12 @@ public sealed class ProcessRunner
         return new ProcessResult(process.ExitCode, await stdoutTask.ConfigureAwait(false), await stderrTask.ConfigureAwait(false), TimedOut: false);
     }
 
-    /// <summary>Streamed run: yields stdout lines as they arrive. Throws
-    /// <see cref="ProcessTimeoutException"/> on timeout, <see cref="ProcessRunException"/> (with the
-    /// stderr tail) on nonzero exit — both after the lines produced so far have been yielded.</summary>
+    /// <summary>Streamed run: yields stdout lines as they arrive. The timeout is an INACTIVITY window
+    /// on the child (the stdin write and each stdout read) — it deliberately does NOT count time the
+    /// consumer spends between chunks, so a slow reader never gets a healthy stream killed under it.
+    /// Abandoning the enumerator early (breaking out of <c>await foreach</c>) kills the child process
+    /// tree. Throws <see cref="ProcessTimeoutException"/> on timeout, <see cref="ProcessRunException"/>
+    /// (with the stderr tail) on nonzero exit — both after the lines produced so far were yielded.</summary>
     public async IAsyncEnumerable<string> StreamLinesAsync(
         string command,
         IReadOnlyList<string> args,
@@ -83,36 +90,65 @@ public sealed class ProcessRunner
         using var process = Start(command, args, workingDirectory, environment);
 
         var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
-        await WriteStdinAsync(process, stdin).ConfigureAwait(false);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        if (timeout is not null) timeoutCts.CancelAfter(timeout.Value);
-        // killing the tree unblocks the pending ReadLineAsync with EOF — no cancellable read needed
+        // killing the tree unblocks a pending read/write with EOF/IOException — no cancellable read needed
         using var killOnCancel = timeoutCts.Token.Register(() => KillTree(process));
+        var timedOut = false;
 
-        while (true)
+        try
         {
-            string? line;
+            if (timeout is not null) timeoutCts.CancelAfter(timeout.Value); // arm for the stdin write
             try
             {
-                line = await process.StandardOutput.ReadLineAsync(CancellationToken.None).ConfigureAwait(false);
+                await WriteStdinAsync(process, stdin, timeoutCts.Token).ConfigureAwait(false);
             }
-            catch (Exception) when (timeoutCts.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
-                break; // killed under us — the epilogue below reports why
+                timedOut = !ct.IsCancellationRequested;
             }
-            if (line is null) break;
-            yield return line;
+
+            while (!timedOut && !timeoutCts.IsCancellationRequested)
+            {
+                string? line;
+                try
+                {
+                    if (timeout is not null) timeoutCts.CancelAfter(timeout.Value);            // arm for this read
+                    line = await process.StandardOutput.ReadLineAsync(CancellationToken.None).ConfigureAwait(false);
+                    if (timeout is not null) timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while the consumer works
+                }
+                catch (Exception) when (timeoutCts.IsCancellationRequested)
+                {
+                    timedOut = !ct.IsCancellationRequested;
+                    break;
+                }
+                if (line is null)
+                {
+                    // EOF right after our own kill still reports as the timeout that caused it
+                    if (timeoutCts.IsCancellationRequested) timedOut = !ct.IsCancellationRequested;
+                    break;
+                }
+                yield return line;
+            }
+
+            // bound the final reap too (a child that closed stdout but lingers)
+            if (timeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(timeout.Value);
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            var stderr = await stderrTask.ConfigureAwait(false);
+
+            ct.ThrowIfCancellationRequested();
+            if (timedOut)
+                throw new ProcessTimeoutException(command, timeout ?? TimeSpan.Zero);
+            if (process.ExitCode != 0)
+                throw new ProcessRunException(command, process.ExitCode, Tail(stderr));
         }
-
-        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-        var stderr = await stderrTask.ConfigureAwait(false);
-
-        ct.ThrowIfCancellationRequested();
-        if (timeoutCts.IsCancellationRequested)
-            throw new ProcessTimeoutException(command, timeout ?? TimeSpan.Zero);
-        if (process.ExitCode != 0)
-            throw new ProcessRunException(command, process.ExitCode, Tail(stderr));
+        finally
+        {
+            // early enumerator abandonment (consumer breaks out of await foreach) resumes HERE with
+            // the child still running: kill it, or it keeps generating with nothing left to reap it.
+            // On the normal path the process has already exited and this is a no-op.
+            try { if (!process.HasExited) KillTree(process); } catch { /* already gone */ }
+        }
     }
 
     /// <summary>Resolve a bare command name via where.exe/which (cached). Multiple hits prefer
@@ -178,11 +214,20 @@ public sealed class ProcessRunner
         return process;
     }
 
-    private static async Task WriteStdinAsync(System.Diagnostics.Process process, string? stdin)
+    private static async Task WriteStdinAsync(System.Diagnostics.Process process, string? stdin, CancellationToken ct)
     {
-        if (stdin is not null)
-            await process.StandardInput.WriteAsync(stdin).ConfigureAwait(false);
-        process.StandardInput.Close(); // always signal EOF — CLIs that read stdin would hang otherwise
+        try
+        {
+            if (stdin is not null)
+                await process.StandardInput.WriteAsync(stdin.AsMemory(), ct).ConfigureAwait(false);
+            process.StandardInput.Close(); // always signal EOF — CLIs that read stdin would hang otherwise
+        }
+        catch (IOException)
+        {
+            // broken pipe: the child exited (or was killed) before draining stdin — the exit-code /
+            // stderr path reports the real story; this is not a spawn failure
+            try { process.StandardInput.Close(); } catch (IOException) { }
+        }
     }
 
     private static void KillTree(System.Diagnostics.Process process)

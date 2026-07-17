@@ -20,6 +20,11 @@ public sealed class ClaudeCliProvider(
 {
     public const string ProviderId = "claude-cli";
 
+    /// <summary>Design §6 CLI hygiene: spawn from a NEUTRAL cwd — never the host app's inherited
+    /// working directory, whose project config (CLAUDE.md, hooks, memory) the claude CLI would
+    /// otherwise load into every library completion and judge call, silently skewing them.</summary>
+    internal static readonly string NeutralWorkingDirectory = Path.GetTempPath();
+
     private readonly ILogger _logger = logger ?? NullLogger<ClaudeCliProvider>.Instance;
 
     public string Id => ProviderId;
@@ -44,8 +49,8 @@ public sealed class ClaudeCliProvider(
         ProcessResult result;
         try
         {
-            result = await runner.RunAsync(exe, argv, stdin: prompt, timeout: options.ProviderTimeout, ct: ct)
-                .ConfigureAwait(false);
+            result = await runner.RunAsync(exe, argv, stdin: prompt, timeout: options.ProviderTimeout,
+                workingDirectory: NeutralWorkingDirectory, ct: ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -58,7 +63,7 @@ public sealed class ClaudeCliProvider(
 
         var stderrTail = Tail(result.StdErr);
         if (result.ExitCode != 0)
-            return new LlmReply("", ClassifyFailure(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
+            return new LlmReply("", LlmVerdictClassifier.FromErrorText(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
 
         string text = "", assistantText = "";
         LlmUsage? usage = null;
@@ -94,9 +99,9 @@ public sealed class ClaudeCliProvider(
         var sawContent = false;
         string resultText = "";
         LlmUsage? usage = null;
-        var sawResult = false;
 
-        var lines = runner.StreamLinesAsync(exe, argv, stdin: prompt, timeout: options.ProviderTimeout, ct: ct);
+        var lines = runner.StreamLinesAsync(exe, argv, stdin: prompt, timeout: options.ProviderTimeout,
+            workingDirectory: NeutralWorkingDirectory, ct: ct);
         var enumerator = lines.GetAsyncEnumerator(ct);
         await using (enumerator.ConfigureAwait(false))
         {
@@ -115,7 +120,7 @@ public sealed class ClaudeCliProvider(
                 }
                 catch (ProcessRunException ex)
                 {
-                    error = LlmChunk.Error(ClassifyFailure(ex.StdErrTail), $"exit {ex.ExitCode}: {ex.StdErrTail}");
+                    error = LlmChunk.Error(LlmVerdictClassifier.FromErrorText(ex.StdErrTail), $"exit {ex.ExitCode}: {ex.StdErrTail}");
                 }
                 catch (Exception ex)
                 {
@@ -136,7 +141,6 @@ public sealed class ClaudeCliProvider(
                 }
                 else if (evt.Kind == StreamJsonEventKind.Result)
                 {
-                    sawResult = true;
                     resultText = evt.Text;
                     usage = evt.Usage;
                 }
@@ -144,9 +148,14 @@ public sealed class ClaudeCliProvider(
         }
 
         if (!sawContent && resultText.Length > 0)
+        {
             yield return LlmChunk.Content(resultText); // result-only stream still delivers the text
+            sawContent = true;
+        }
 
-        if (sawResult && (sawContent || resultText.Length > 0))
+        // content that arrived without a terminal result event is still a successful stream — a
+        // trailing Error here would mark a fully-delivered answer as a failed run
+        if (sawContent)
             yield return LlmChunk.Final(usage);
         else
             yield return LlmChunk.Error(LlmVerdict.Failed, "no output produced");
@@ -182,11 +191,6 @@ public sealed class ClaudeCliProvider(
         if (current.Length > 0) tokens.Add(current.ToString());
         return tokens;
     }
-
-    private static LlmVerdict ClassifyFailure(string stderr) =>
-        stderr.Contains("rate limit", StringComparison.OrdinalIgnoreCase) || stderr.Contains("429")
-            ? LlmVerdict.RateLimited
-            : LlmVerdict.Failed;
 
     private static string Tail(string text, int max = 500)
     {
