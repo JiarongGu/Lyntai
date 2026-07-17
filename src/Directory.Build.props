@@ -6,7 +6,7 @@
     versions never drift from what the assemblies report. `dotnet pack -p:Version=X` overrides for a release.
   -->
   <PropertyGroup>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.2.0</VersionPrefix>
   </PropertyGroup>
 
   <!-- Shared build settings for the whole tree. -->
@@ -33,6 +33,19 @@
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>llm;ai;router;fallback;provider;sqlite;claude;openai;ollama;prompt-registry;evals;tracing;agent-memory</PackageTags>
+  </PropertyGroup>
+
+  <!-- Production packaging: XML docs ship in the package (missing-doc warnings suppressed — public
+       surface is documented where it matters), portable PDBs in a .snupkg, and sources embedded in
+       the PDB so consumers can step into library code without a hosted repo. -->
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <DebugType>portable</DebugType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedAllSources>true</EmbedAllSources>
   </PropertyGroup>
 
   <!-- The repo README ships inside every package (PackageReadmeFile above points at it). -->

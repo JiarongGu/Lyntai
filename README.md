@@ -12,13 +12,14 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**Implemented** (v0.1.0). All phases of `tasks.md` are done: the router with the full fallback
-semantics, SQLite storage with FTS5-trigram memory recall, the claude-CLI / OpenAI-compatible / MEAI
-providers, the cortex layer (prompt registry, scorers incl. an LLM judge, traces, memory composition),
-the Playground full-stack sample, and the devtools e2e harness — all green.
+**v0.2.0 — production-hardened.** The v0.1.0 implementation (all of `tasks.md`) plus a multi-agent
+code-review pass (10 confirmed bugs fixed — process lifecycle, verdict mapping, streaming fallback
+parity) and a best-practices research pass (amended 429 semantics, finer verdict taxonomy,
+OpenTelemetry GenAI telemetry, structured output, trim/AOT-ready packaging).
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
-- `tasks.md` — the phased implementation plan (checked off).
+- `docs/ROADMAP.md` — what ships next (v0.3 → v1.0 → platform kit) and the standing maintenance policies.
+- `CHANGELOG.md` — per-release detail, breaking changes called out.
 
 ## Packages
 
@@ -102,6 +103,34 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   `LYNTAI_PROVIDER_CMD` (point the CLI provider at a stub — how the tests/e2e spend zero tokens).
 - **Shared-database safe:** every SQLite object Lyntai creates is prefixed `lyntai_` (including the
   migration version table), so `UseSqliteStorage` can point at an existing app database.
+
+### Structured output
+
+```csharp
+var reply = await llm.CompleteJsonAsync(new LlmRequest
+{
+    Messages = [LlmMessage.User("Summarize as JSON.")],
+    JsonSchema = """{"type":"object","properties":{"summary":{"type":"string"}}}""",
+});
+// reply.Verdict == Ok guarantees reply.Text parses as a single JSON object
+// (tolerant extraction from prose/fences, one retry, else Failed — design §6)
+```
+
+### Observability
+
+Lyntai emits OpenTelemetry GenAI-convention telemetry from the router — the same schema
+`Microsoft.Extensions.AI`'s `OpenTelemetryChatClient` uses, so own-seam and bridged providers land
+in one backend. Nothing is emitted unless you subscribe:
+
+```csharp
+tracerProviderBuilder.AddSource(LyntaiDiagnostics.ActivitySourceName);   // "Lyntai.Llm" spans
+meterProviderBuilder.AddMeter(LyntaiDiagnostics.MeterName);              // duration, token usage,
+                                                                          // time_to_first_chunk
+```
+
+`chat {model}` client spans carry `gen_ai.system` (provider id), `gen_ai.request.model`, token
+usage, and `error.type` (the verdict) on failure. `time_to_first_chunk` marks the streaming
+fallback point of no return.
 
 ## Dev loop
 

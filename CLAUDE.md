@@ -17,12 +17,15 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented (v0.1.0).** All phases of `tasks.md` are done and checked off: router + fallback,
-SQLite storage (every table prefixed `lyntai_` — consumer dbs must never collide), the three provider
-packages, the cortex layer, the Playground, the e2e harness, and packaging — tests/e2e green.
-- `docs/2026-07-17-lyntai-design.md` — the **contract** (every interface, the two fork decisions, the
-  fallback + CLI-hygiene semantics, and what's explicitly out of scope). Read it first.
-- `tasks.md` — the **sequence** that was executed (Phases 0–7).
+**Implemented + hardened (v0.2.0).** All of `tasks.md`, then a review/research hardening pass:
+`ILlmClient` front door (to a consumer, Lyntai behaves like ONE provider — keep new surface behind
+it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, amended §6 RateLimited
+(cool-host-and-advance), OTel GenAI telemetry (`LyntaiDiagnostics`), structured output
+(`CompleteJsonAsync`), `lyntai_`-prefixed SQLite objects. Tests/e2e green.
+- `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
+  note the dated §6 amendments). Read it first.
+- `docs/ROADMAP.md` — the forward sequence (v0.3+ and standing maintenance policies).
+- `CHANGELOG.md` — per-release detail; breaking changes called out.
 - `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (router engine) /
