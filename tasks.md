@@ -1,4 +1,4 @@
-# Lyntai (闂佽绻樺褑銇? 闂?Implementation Plan / Task Backlog
+# Lyntai (闂備浇顕х换妯侯焽瑜戦妵? 闂?Implementation Plan / Task Backlog
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use `superpowers:subagent-driven-development` (recommended)
 > or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
@@ -15,7 +15,7 @@ packages that depend only on Core: `Lyntai.Storage.Sqlite`, `Lyntai.Providers.Cl
 `Lyntai.Providers.OpenAiCompatible`, `Lyntai.Providers.ExtensionsAi`. Composed via DI; no adapter
 references another. Verified by `tests/Lyntai.Tests` and the `samples/Lyntai.Playground` smoke.
 
-**Tech stack:** net10.0 閻?C# 13 閻?Dapper 閻?FluentMigrator 閻?Microsoft.Data.Sqlite 閻?FTS5 (trigram) 閻?Microsoft.Extensions.{DependencyInjection,Http,AI} 閻?xUnit 閻?Node-based devtools (`dev.mjs`).
+**Tech stack:** net10.0 闁?C# 13 闁?Dapper 闁?FluentMigrator 闁?Microsoft.Data.Sqlite 闁?FTS5 (trigram) 闁?Microsoft.Extensions.{DependencyInjection,Http,AI} 闁?xUnit 闁?Node-based devtools (`dev.mjs`).
 
 **Conventions (mirror the family 闂?see `.claude/rules/dev-conventions.md`):** modules = interface in Core
 + impl in adapter; async Dapper + `snake_case` columns + `CAST(x AS REAL)` for doubles; FluentMigrator
@@ -49,17 +49,17 @@ planning session 闂?verify, don't recreate.)
 
 ## Phase 1 闂?Core abstractions (`Lyntai.Core`)
 
-Goal: every interface/type from spec 闁? exists; the pure logic (router fallback, dedup, cooldown, prompt
+Goal: every interface/type from spec 闂? exists; the pure logic (router fallback, dedup, cooldown, prompt
 render + placeholder guard, scoring aggregation, `FtsQuery`, `ProcessRunner`) is unit-tested. No provider
 or DB yet 闂?router is tested against fake in-memory `ILlmProvider`s.
 
-- [x] **1.1 LLM value types** 闂?`Llm/LlmMessage.cs`, `LlmRequest.cs`, `LlmReply.cs`, `LlmChunk.cs`, `LlmUsage.cs`, `LlmTool.cs`, `LlmVerdict.cs`, `LlmCandidate.cs`. Records exactly as spec 闁?.1. Test: construction + record equality. Commit.
+- [x] **1.1 LLM value types** 闂?`Llm/LlmMessage.cs`, `LlmRequest.cs`, `LlmReply.cs`, `LlmChunk.cs`, `LlmUsage.cs`, `LlmTool.cs`, `LlmVerdict.cs`, `LlmCandidate.cs`. Records exactly as spec 闂?.1. Test: construction + record equality. Commit.
 - [x] **1.2 `ILlmProvider` / `ILlmRouter` interfaces** 闂?`Llm/ILlmProvider.cs`, `Llm/ILlmRouter.cs`. No impl yet. Commit.
 - [x] **1.3 `DeadHostTracker`** 闂?`Llm/DeadHostTracker.cs`: N consecutive fails 闂?cooldown window; any success resets; thread-safe (lock). **Inject a clock** (`Func<DateTimeOffset>` / `TimeProvider`) 闂?no `DateTime.Now` in logic, so tests are deterministic. Tests: fails-below-threshold stays live; hits-threshold goes dead; success resets; cooldown expiry re-lives. Commit.
 - [x] **1.4 Candidate dedup** 闂?`Llm/CandidateDedup.cs`: drop repeat `(providerId, model)`, first wins, preserve order. Tests: dup primary stripped; order preserved; empty 闂?empty. Commit.
-- [x] **1.5 `LlmRouter` (non-streaming fallback)** 闂?`Llm/LlmRouter.cs` implementing `ILlmRouter.CompleteAsync`. Semantics from spec 闁?: dedup 闂?try in order 闂?`Failed`/`Timeout` advances, `RateLimited` circuit-breaks (stop, surface), `Refused` surfaces (no fallback), skip dead hosts, log each attempt (`ILogger`). Tests (fake providers returning scripted verdicts): first-ok returns it; first-failed闂佹剚鍋呮慨鐪卌ond-ok; all-failed闂佹剚鍋呮慨顡t error; rate-limited stops immediately; refused stops immediately; dead provider skipped. Commit.
+- [x] **1.5 `LlmRouter` (non-streaming fallback)** 闂?`Llm/LlmRouter.cs` implementing `ILlmRouter.CompleteAsync`. Semantics from spec 闂?: dedup 闂?try in order 闂?`Failed`/`Timeout` advances, `RateLimited` circuit-breaks (stop, surface), `Refused` surfaces (no fallback), skip dead hosts, log each attempt (`ILogger`). Tests (fake providers returning scripted verdicts): first-ok returns it; first-failed闂備焦鍓氶崑鍛叏閻崒ond-ok; all-failed闂備焦鍓氶崑鍛叏椤☆湽t error; rate-limited stops immediately; refused stops immediately; dead provider skipped. Commit.
 - [x] **1.6 `LlmRouter` (streaming, no-fallback-after-token)** 闂?`StreamAsync`: pre-content error advances to next candidate; **once any content chunk is yielded, errors pass through unchanged**. Tests: pre-content failure falls over; mid-stream error after a token is passed through (no second candidate invoked); success streams straight through. Commit.
-- [x] **1.7 `ProcessRunner`** 闂?`Process/ProcessRunner.cs`: `UseShellExecute=false`, `ArgumentList` only, stdin write (BOM-less UTF-8), stdout/stderr capture (BOM-less UTF-8), per-call timeout, `Kill(entireProcessTree:true)` on cancel/timeout, resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`). Tests (spawn `dotnet --version` or a tiny node script): captures stdout; honors timeout闂佹剚鍋呮慨妾宭l; passes stdin through. Commit.
+- [x] **1.7 `ProcessRunner`** 闂?`Process/ProcessRunner.cs`: `UseShellExecute=false`, `ArgumentList` only, stdin write (BOM-less UTF-8), stdout/stderr capture (BOM-less UTF-8), per-call timeout, `Kill(entireProcessTree:true)` on cancel/timeout, resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`). Tests (spawn `dotnet --version` or a tiny node script): captures stdout; honors timeout闂備焦鍓氶崑鍛叏濡惧l; passes stdin through. Commit.
 - [x] **1.8 `IPromptRegistry` + `PromptRegistry`** 闂?`Prompt/IPromptRegistry.cs`, `Prompt/PromptRegistry.cs`: override key `lyntai.prompt.<name>` from `IKeyValueStore`, `{placeholder}` fill, **reject an override that drops a placeholder present in the default**. Tests: no-override renders default+vars; override wins; missing-placeholder override rejected (throws/falls back to default 闂?pick one, document it); unknown `{var}` left literal or errors (document). Commit.
 - [x] **1.9 Cortex interfaces** 闂?`Cortex/IScorer.cs`, `Cortex/LlmScorerBase.cs` (abstract; one-shot judge via `ILlmRouter`, parses `{score,reason}`), `Cortex/IScoringService.cs`, `Cortex/ScoreModels.cs` (`ScoreContext`, `ScoreResult`, `ScoredResult`), `Cortex/ITraceService.cs` + `TraceModels.cs` (`RunTrace`, `TraceStep` 闂?kind/label/tokens/cost/durationMs). Interfaces + models only. Commit.
 - [x] **1.10 `ScoringService`** 闂?`Cortex/ScoringService.cs`: iterate `IEnumerable<IScorer>`, skip `null` results, aggregate. Tests: two fake scorers both run; a scorer returning null is omitted; grouping preserved. Commit.
@@ -80,8 +80,8 @@ by integration tests against a temp db. `builder.UseSqliteStorage(path)` wires t
 - [x] **2.1 `SqliteConnectionFactory`** 闂?`IDbConnectionFactory` impl: `MatchNamesWithUnderscores=true` (static ctor), pooled `Open()` with `PRAGMA journal_mode=WAL; busy_timeout=5000; foreign_keys=ON`. Test: opens, pragmas applied, round-trips a scalar. Commit.
 - [x] **2.2 Migration runner + base** 闂?`Migrations/` with FluentMigrator wiring; `MigrationRunnerService` discovers + applies on `UseSqliteStorage`. Test: fresh temp db 闂?runner applies 闂?`VersionInfo` populated. Commit.
 - [x] **2.3 Migration `202607170001_KeyValue`** + `KeyValueStore` 闂?`app_config(key PK, value, updated_at)`. Tests: set/get/delete; overwrite updates `updated_at`; missing key 闂?null. Commit.
-- [x] **2.4 Migration `202607170002_Conversation`** + `ConversationStore` 闂?`thread`, `message` tables (FK message闂佹剚鍋呮慨鐬檙ead, `foreign_keys=ON`). Tests: create thread, append messages, list by thread ordered, delete cascades. Commit.
-- [x] **2.5 Migration `202607170003_Memory` (+ FTS5 trigram)** + `MemoryStore` 闂?`memory_entry` external-content `memory_fts` (trigram) kept in sync by AFTER INSERT/DELETE/UPDATE triggers, backfilled in-migration. Recall via `FtsQuery` MATCH + `bm25()`, LIKE fallback; task/scope filter; bounded (cap entries), fail-open (recall never throws on empty/short query). Tests: remember闂佹剚鍋呮慨鐧砪all by substring (incl. a CJK substring, proving trigram); scope filter; cap enforced; short-query LIKE fallback. Commit.
+- [x] **2.4 Migration `202607170002_Conversation`** + `ConversationStore` 闂?`thread`, `message` tables (FK message闂備焦鍓氶崑鍛叏閻獧ead, `foreign_keys=ON`). Tests: create thread, append messages, list by thread ordered, delete cascades. Commit.
+- [x] **2.5 Migration `202607170003_Memory` (+ FTS5 trigram)** + `MemoryStore` 闂?`memory_entry` external-content `memory_fts` (trigram) kept in sync by AFTER INSERT/DELETE/UPDATE triggers, backfilled in-migration. Recall via `FtsQuery` MATCH + `bm25()`, LIKE fallback; task/scope filter; bounded (cap entries), fail-open (recall never throws on empty/short query). Tests: remember闂備焦鍓氶崑鍛叏閻х牚all by substring (incl. a CJK substring, proving trigram); scope filter; cap enforced; short-query LIKE fallback. Commit.
 - [x] **2.6 Migration `202607170004_Score`** + `ScoreStore` 闂?persist `ScoredResult`s per session (`CAST(score AS REAL)` in SELECTs). Tests: save+load; double round-trips exactly (guards the affinity trap). Commit.
 - [x] **2.7 Migration `202607170005_Trace`** + `TraceStore` 闂?`run_trace` + `trace_step`. Tests: save trace with steps, load by session, token/cost totals preserved. Commit.
 - [x] **2.8 `UseSqliteStorage` extension** on `LyntaiBuilder` 闂?registers factory + all five stores + runs migrations. Test: `AddLyntai(b => b.UseSqliteStorage(tempDb))` resolves every store interface and each round-trips. Commit.
@@ -113,12 +113,12 @@ provider**.
 
 - [x] **4.1 Provider detection** 闂?`ProviderDetect.cs`: hostname/path shape 闂?`openai` | `ollama` | 闂? fail-open to OpenAI-compat. Host-match must be exact/subdomain (not substring 闂?guard `anthropic.com.evil.com`). Tests table-driven. Commit.
 - [x] **4.2 Payload builders** 闂?`Payloads/OpenAiPayload.cs`, `Payloads/OllamaPayload.cs`: canonical `LlmRequest` 闂?provider schema (Ollama tool `arguments` as object vs OpenAI string; `num_ctx`; `response_format` for structured output). Unit tests: message mapping; tool-arg normalization; schema round-trip. Commit.
-- [x] **4.3 `OpenAiCompatibleProvider.CompleteAsync`** 闂?`HttpClient` (from `IHttpClientFactory`), map HTTP status 闂?verdict (429闂佹剚鍋呮俊绂teLimited`, 5xx/timeout闂佹剚鍋呮俊绂檃iled`/`Timeout`, content-filter闂佹剚鍋呮俊绂fused`), tolerant JSON extraction. Tests against a stubbed `HttpMessageHandler`: 200闂佹剚鍋呮俊绂`+text; 429闂佹剚鍋呮俊绂teLimited`; 500闂佹剚鍋呮俊绂檃iled`; malformed闂佹剚鍋呮慨鐚瞖-retry闂佹剚鍋呮俊绂檃iled`. Commit.
+- [x] **4.3 `OpenAiCompatibleProvider.CompleteAsync`** 闂?`HttpClient` (from `IHttpClientFactory`), map HTTP status 闂?verdict (429闂備焦鍓氶崑鍛繆缁傤泧teLimited`, 5xx/timeout闂備焦鍓氶崑鍛繆缁傛獌iled`/`Timeout`, content-filter闂備焦鍓氶崑鍛繆缁傤泲fused`), tolerant JSON extraction. Tests against a stubbed `HttpMessageHandler`: 200闂備焦鍓氶崑鍛繆缁傤柋`+text; 429闂備焦鍓氶崑鍛繆缁傤泧teLimited`; 500闂備焦鍓氶崑鍛繆缁傛獌iled`; malformed闂備焦鍓氶崑鍛叏閻氱灃-retry闂備焦鍓氶崑鍛繆缁傛獌iled`. Commit.
 - [x] **4.4 `OpenAiCompatibleProvider.StreamAsync`** 闂?SSE parse (`data:` lines, `[DONE]`), first-token marks committed. Tests: chunks parsed in order; `[DONE]` terminates; pre-content 500 surfaces as error chunk (lets router fall over). Commit.
 - [x] **4.5 `AddOpenAiCompatibleProvider(id, cfg)`** extension (BaseUrl, apiKey, default model, dead-host wired to `DeadHostTracker`). Commit.
-- [x] **4.6 Router end-to-end integration** 闂?in Tests: `AddLyntai` with claude-cli (stub) + openai-compatible (stubbed handler) + `DefaultCandidates`. Tests: primary-fails闂佹剚鍋呮慨鐪卌ondary-serves; streaming never falls back after a token across the two real provider types; dead-host cooldown skips a downed provider then re-tries after expiry. Commit.
+- [x] **4.6 Router end-to-end integration** 闂?in Tests: `AddLyntai` with claude-cli (stub) + openai-compatible (stubbed handler) + `DefaultCandidates`. Tests: primary-fails闂備焦鍓氶崑鍛叏閻崒ondary-serves; streaming never falls back after a token across the two real provider types; dead-host cooldown skips a downed provider then re-tries after expiry. Commit.
 
-**Acceptance:** two heterogeneous providers behind one router; all 闁? fallback semantics proven end-to-end.
+**Acceptance:** two heterogeneous providers behind one router; all 闂? fallback semantics proven end-to-end.
 
 ---
 
@@ -127,12 +127,12 @@ provider**.
 Goal: prompt registry, scoring (incl. an LLM judge), traces, and task-scoped memory work end-to-end over
 the stores + router.
 
-- [ ] **5.1 Wire `PromptRegistry` to `IKeyValueStore`** (Phase 1.8 used a fake) 闂?integration test: override persisted in SQLite KV changes the rendered prompt. Commit.
-- [ ] **5.2 Two built-in deterministic scorers** 闂?e.g. `OutcomeScorer`, `StructureScorer` in `Cortex/Scorers/` (generic, no domain assumptions; document what each checks). Tests. Commit.
-- [ ] **5.3 One `LlmScorerBase` judge scorer** (e.g. `RelevancyScorer`) 闂?runs through the router; against the provider-stub's `SCORING TASK` path returns a deterministic `{score,reason}`. Integration test. Commit.
-- [ ] **5.4 `ScoringService` 闂?`IScoreStore`** 闂?evaluate persists results. Integration test: evaluate a context, results readable from the store. Commit.
-- [ ] **5.5 `TraceService` 闂?`ITraceStore`** 闂?`Begin`/record steps/token+cost totals persisted; `GetAsync` reads back. Integration test. Commit.
-- [ ] **5.6 `MemoryStore` composition helper** 闂?task-scoped recall bounded + appended to a prompt (the `IPromptComposer`-style helper from Sonora, fail-open). Integration test: remembered facts surface in a composed prompt; outage 闂?prompt still renders. Commit.
+- [x] **5.1 Wire `PromptRegistry` to `IKeyValueStore`** (Phase 1.8 used a fake) 闂?integration test: override persisted in SQLite KV changes the rendered prompt. Commit.
+- [x] **5.2 Two built-in deterministic scorers** 闂?e.g. `OutcomeScorer`, `StructureScorer` in `Cortex/Scorers/` (generic, no domain assumptions; document what each checks). Tests. Commit.
+- [x] **5.3 One `LlmScorerBase` judge scorer** (e.g. `RelevancyScorer`) 闂?runs through the router; against the provider-stub's `SCORING TASK` path returns a deterministic `{score,reason}`. Integration test. Commit.
+- [x] **5.4 `ScoringService` 闂?`IScoreStore`** 闂?evaluate persists results. Integration test: evaluate a context, results readable from the store. Commit.
+- [x] **5.5 `TraceService` 闂?`ITraceStore`** 闂?`Begin`/record steps/token+cost totals persisted; `GetAsync` reads back. Integration test. Commit.
+- [x] **5.6 `MemoryStore` composition helper** 闂?task-scoped recall bounded + appended to a prompt (the `IPromptComposer`-style helper from Sonora, fail-open). Integration test: remembered facts surface in a composed prompt; outage 闂?prompt still renders. Commit.
 
 **Acceptance:** the LLM-ops loop (prompt override 闂?run 闂?score 闂?trace 闂?remember) works against SQLite + the stubbed router.
 
@@ -143,7 +143,7 @@ the stores + router.
 Goal: any `Microsoft.Extensions.AI` `IChatClient` becomes a Lyntai provider; the Playground exercises the
 full stack; the devtools e2e harness is green.
 
-- [ ] **6.1 `ExtensionsAiProvider`** 闂?`Providers/ExtensionsAiProvider.cs`: adapt `IChatClient` 闂?`ILlmProvider` (map `LlmRequest`闂佹剚鍋呴幗绱篽atMessage`/`ChatOptions`, streaming via `GetStreamingResponseAsync`, usage, verdict from exceptions). Tests against a fake `IChatClient`. Commit.
+- [ ] **6.1 `ExtensionsAiProvider`** 闂?`Providers/ExtensionsAiProvider.cs`: adapt `IChatClient` 闂?`ILlmProvider` (map `LlmRequest`闂備焦鍓氶崑鍛村箺缁辩atMessage`/`ChatOptions`, streaming via `GetStreamingResponseAsync`, usage, verdict from exceptions). Tests against a fake `IChatClient`. Commit.
 - [ ] **6.2 `AddExtensionsAiProvider(id, IChatClient)`** extension. Test: a fake `IChatClient` serves through the router by id. Commit.
 - [ ] **6.3 `Lyntai.Playground`** 闂?console app: `AddLyntai` with SQLite + claude-cli + an openai-compatible endpoint + default candidates; run a completion, score it, persist a trace, recall memory; print results. Honors `LYNTAI_PROVIDER_CMD` so it runs against the stub with no real tokens. Commit.
 - [ ] **6.4 devtools e2e** 闂?`devtools/scripts/e2e/p1.mjs`: boot the Playground against a temp data dir with `LYNTAI_PROVIDER_CMD` = provider-stub, assert it completes + wrote a trace + a memory row. Wire into `dev.mjs e2e`. Commit.
@@ -158,8 +158,8 @@ Goal: the library is consumable as NuGet packages with a clean README.
 
 - [ ] **7.1 Package metadata** 闂?per `src/*` csproj: `PackageId` (`Lyntai.Core`, 闂?, description, authors, license, repo url, `PackageReadmeFile`. Version from `src/Directory.Build.props` (`VersionPrefix`).
 - [ ] **7.2 `dev.mjs pack`** 闂?`dotnet pack` all packable projects 闂?`publish/packages/*.nupkg`; print ids + sha256. Commit.
-- [ ] **7.3 README** 闂?the 闁?0 "consuming Lyntai" story: install, `AddLyntai(...)`, the four provider/storage add-ons, a minimal working snippet. Commit.
-- [ ] **7.4 Final self-review** 闂?`dev.mjs test` + `dev.mjs e2e` + `dev.mjs check-sensitive --tree` all green; spec 闁? interfaces all implemented; out-of-scope items (闁?) genuinely absent.
+- [ ] **7.3 README** 闂?the 闂?0 "consuming Lyntai" story: install, `AddLyntai(...)`, the four provider/storage add-ons, a minimal working snippet. Commit.
+- [ ] **7.4 Final self-review** 闂?`dev.mjs test` + `dev.mjs e2e` + `dev.mjs check-sensitive --tree` all green; spec 闂? interfaces all implemented; out-of-scope items (闂?) genuinely absent.
 
 **Acceptance:** `dev.mjs pack` produces restorable packages a throwaway consumer project can `AddLyntai` against and run a stubbed completion.
 
