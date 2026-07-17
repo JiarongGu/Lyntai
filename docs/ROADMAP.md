@@ -131,13 +131,22 @@ These need something only the maintainer can provision; the design admits them w
   deliberately, so pre-1.0 breaks are visible in review and post-1.0 gate a major bump.
 - ✅ **Semver policy** — stated in `CHANGELOG.md` and here: pre-1.0 minor versions may carry breaking
   changes (each called out in the changelog); 1.0 commits to SemVer 2.0.0 (no breaks without a major bump).
-- Remaining before tagging 1.0: host the repo (unblocks the SourceLink/URL items above), then a docs
-  pass and the SourceLink/URL wiring.
+- ✅ **Consolidation review** — two adversarial-review passes over the tool-calling and platform-kit code
+  (v0.10–v0.15), all confirmed defects fixed (the AES-GCM crypto reviewed and confirmed correct).
+- ✅ **Docs sweep** — README/CHANGELOG/ROADMAP/CLAUDE + the design §9 amendment reconciled to the shipped
+  surface.
+- Remaining before tagging 1.0: **host the repo** (the one blocker — unblocks SourceLink + the real
+  package/repo URLs, a one-package add once there's a remote), then tag 1.0 to freeze the public API
+  (`ApiSurfaceTests` already guards it).
 
-### Post-1.0 — the platform kit (design §9)
-Each as a separate package on the same seams: two-gate chat orchestration · scope-guard/jail hooks ·
-tool/MCP registry · durable jobs (lanes + checkpoint/resume) · security/access-gate + secret vault ·
-vision/multimodal.
+### The platform kit (design §9) — SHIPPED (v0.8–v0.15)
+Delivered additively on the existing seams, no breaking changes to the substrate: `Lyntai.Providers.Local`
+· the agentic tool loop + native tool-calling (HTTP/MEAI/CLI) + MCP-client tool source · durable jobs ·
+guards · two-gate chat orchestration · secret vault · vision/multimodal. The only §9 item still out of
+scope is the **server/host/launcher + auto-update** (an application concern — Lyntai stays host-free).
+Smaller per-feature deferrals remain open (each low priority): streaming tool-calls; native tool-calling
+through the MEAI bridge is done, but ClaudeCli/Local stay on the prompt fallback; durable-job cron/
+priorities/dead-letter-queue/cross-process-global-limits/running-job-cancellation.
 
 ## Standing maintenance policies
 - **MEAI churn watch**: Microsoft.Extensions.AI ships roughly monthly with breaks in

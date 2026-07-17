@@ -244,6 +244,17 @@ checkpoint/resume) · security/access-gate + secret vault · server/host/launche
 vision/multimodal · `Lyntai.Providers.Local` (LLamaSharp). The domain interfaces are shaped to admit
 these later without breaking changes.
 
+> **Amendment (2026-07-18): the platform kit is now SHIPPED** (v0.8–v0.15), exactly as §9 promised —
+> additively, no breaking changes to the substrate. `Lyntai.Providers.Local` (v0.8); the tool/MCP
+> registry as the agentic tool loop + native tool-calling + an MCP-client tool source + CLI tool-hosting
+> (v0.9–v0.13, `Lyntai.Agents` / `Lyntai.Tools.Mcp` / `Lyntai.Providers.ClaudeCli.Mcp`); durable jobs
+> (v0.14, `Lyntai.Jobs` + `IJobStore`); then guards (`Lyntai.Guards`), two-gate `IChatOrchestrator`,
+> the secret vault (`Lyntai.Secrets`), and vision/multimodal (`LlmMessage.Attachments`) in v0.15. See
+> `CHANGELOG.md` / `ROADMAP.md`. The **only** §9 item still deliberately out of scope is the
+> **server/host/launcher + auto-update** — that's an application concern, not a library's (Lyntai stays
+> host-free; the one scoped exception is the ephemeral, opt-in localhost MCP listener the ClaudeCli.Mcp
+> add-on runs during a CLI call).
+
 ## 10. Consuming Lyntai (target ergonomics)
 
 A new app adds package references to `Lyntai.Core` + the storage/provider packages it wants, calls
