@@ -11,19 +11,36 @@ namespace Lyntai.Storage.Sqlite;
 public sealed class SqliteMemoryStore(
     IDbConnectionFactory factory,
     LyntaiOptions options,
-    ILogger<SqliteMemoryStore>? logger = null) : IMemoryStore
+    ILogger<SqliteMemoryStore>? logger = null,
+    Func<DateTimeOffset>? clock = null) : IMemoryStore
 {
     private const string SelectColumns =
         "m.id AS Id, m.task_key AS TaskKey, m.scope AS Scope, m.content AS Content, m.created_at AS CreatedAt";
 
     private readonly ILogger _logger = logger ?? NullLogger<SqliteMemoryStore>.Instance;
+    // injectable so TTL/prune tests are deterministic — no DateTimeOffset.Now in the lifecycle logic
+    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
-    public async Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default)
+    public async Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default)
     {
+        var now = _clock();
+        var expiresAt = ttl is null ? (DateTimeOffset?)null : now + ttl.Value;
         using var conn = factory.Open();
-        await conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at) VALUES (@taskKey, @scope, @content, @now)
-            """, new { taskKey, scope, content, now = DateTimeOffset.UtcNow }, cancellationToken: ct)).ConfigureAwait(false);
+
+        // dedup: an identical fact in the same (task, scope) is refreshed (recency + TTL) rather than
+        // duplicated. The AFTER UPDATE trigger re-syncs FTS, so search stays correct.
+        var refreshed = await conn.ExecuteAsync(new CommandDefinition("""
+            UPDATE lyntai_memory_entry SET created_at = @now, expires_at = @expiresAt
+            WHERE task_key = @taskKey AND scope = @scope AND content = @content
+            """, new { taskKey, scope, content, now, expiresAt }, cancellationToken: ct)).ConfigureAwait(false);
+
+        if (refreshed == 0)
+        {
+            await conn.ExecuteAsync(new CommandDefinition("""
+                INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at, expires_at)
+                VALUES (@taskKey, @scope, @content, @now, @expiresAt)
+                """, new { taskKey, scope, content, now, expiresAt }, cancellationToken: ct)).ConfigureAwait(false);
+        }
 
         // bounded: trim the oldest beyond the per-(task, scope) cap
         await conn.ExecuteAsync(new CommandDefinition("""
@@ -34,10 +51,24 @@ public sealed class SqliteMemoryStore(
             """, new { taskKey, scope, cap = options.MemoryCapPerScope }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
+    public async Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default)
+    {
+        var now = _clock();
+        var cutoff = olderThan is null ? (DateTimeOffset?)null : now - olderThan.Value;
+        using var conn = factory.Open();
+        return await conn.ExecuteAsync(new CommandDefinition("""
+            DELETE FROM lyntai_memory_entry
+            WHERE (@taskKey IS NULL OR task_key = @taskKey)
+              AND ( (expires_at IS NOT NULL AND expires_at <= @now)
+                    OR (@cutoff IS NOT NULL AND created_at < @cutoff) )
+            """, new { taskKey, now, cutoff }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
         string? query = null, int? limit = null, CancellationToken ct = default)
     {
         var take = limit ?? options.MemoryRecallLimit;
+        var now = _clock(); // expired entries (@now past expires_at) are never returned
         try
         {
             using var conn = factory.Open();
@@ -52,8 +83,9 @@ public sealed class SqliteMemoryStore(
                         FROM lyntai_memory_fts JOIN lyntai_memory_entry m ON m.id = lyntai_memory_fts.rowid
                         WHERE lyntai_memory_fts MATCH @match AND m.task_key = @taskKey
                           AND (@scope IS NULL OR m.scope = @scope)
+                          AND (m.expires_at IS NULL OR m.expires_at > @now)
                         ORDER BY bm25(lyntai_memory_fts) LIMIT @take
-                        """, new { match, taskKey, scope, take }, cancellationToken: ct)).ConfigureAwait(false);
+                        """, new { match, taskKey, scope, take, now }, cancellationToken: ct)).ConfigureAwait(false);
                     var list = hits.AsList();
                     if (list.Count > 0) return list;
                     // no trigram hit → fall through to LIKE (covers punctuation-heavy queries)
@@ -72,9 +104,10 @@ public sealed class SqliteMemoryStore(
                     SELECT {SelectColumns}
                     FROM lyntai_memory_entry m
                     WHERE m.task_key = @taskKey AND (@scope IS NULL OR m.scope = @scope)
+                      AND (m.expires_at IS NULL OR m.expires_at > @now)
                       AND m.content LIKE @pattern ESCAPE '\'
                     ORDER BY m.id DESC LIMIT @take
-                    """, new { taskKey, scope, pattern, take }, cancellationToken: ct)).ConfigureAwait(false);
+                    """, new { taskKey, scope, pattern, take, now }, cancellationToken: ct)).ConfigureAwait(false);
                 return likeHits.AsList();
             }
 
@@ -82,8 +115,9 @@ public sealed class SqliteMemoryStore(
                 SELECT {SelectColumns}
                 FROM lyntai_memory_entry m
                 WHERE m.task_key = @taskKey AND (@scope IS NULL OR m.scope = @scope)
+                  AND (m.expires_at IS NULL OR m.expires_at > @now)
                 ORDER BY m.id DESC LIMIT @take
-                """, new { taskKey, scope, take }, cancellationToken: ct)).ConfigureAwait(false);
+                """, new { taskKey, scope, take, now }, cancellationToken: ct)).ConfigureAwait(false);
             return recent.AsList();
         }
         catch (OperationCanceledException) { throw; }

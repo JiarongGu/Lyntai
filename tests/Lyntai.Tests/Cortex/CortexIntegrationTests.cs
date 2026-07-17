@@ -149,12 +149,14 @@ public class CortexIntegrationTests : IDisposable
 
     private sealed class ThrowingMemoryStore : IMemoryStore
     {
-        public Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default) =>
+        public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default) =>
             throw new InvalidOperationException("db is gone");
         public Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
             string? query = null, int? limit = null, CancellationToken ct = default) =>
             throw new InvalidOperationException("db is gone");
         public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
+            throw new InvalidOperationException("db is gone");
+        public Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default) =>
             throw new InvalidOperationException("db is gone");
     }
 }
