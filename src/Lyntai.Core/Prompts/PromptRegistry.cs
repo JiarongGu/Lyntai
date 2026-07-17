@@ -10,9 +10,13 @@ namespace Lyntai.Prompts;
 /// - An override that drops a <c>{placeholder}</c> present in the default is REJECTED — the registry
 ///   logs a warning and falls back to the default template (fail-open; silent content loss otherwise).
 /// - A <c>{placeholder}</c> with no matching var is left literal (callers may fill it downstream).
-/// - No <see cref="IKeyValueStore"/> configured (or a store outage) → the default template renders.
+/// - Override precedence: the active <see cref="IPromptVersionStore"/> revision (if any) wins over
+///   the plain <see cref="IKeyValueStore"/> key; neither configured (or a store outage) → the default.
 /// </summary>
-public sealed partial class PromptRegistry(IKeyValueStore? kv = null, ILogger<PromptRegistry>? logger = null) : IPromptRegistry
+public sealed partial class PromptRegistry(
+    IKeyValueStore? kv = null,
+    IPromptVersionStore? versions = null,
+    ILogger<PromptRegistry>? logger = null) : IPromptRegistry
 {
     public const string KeyPrefix = "lyntai.prompt.";
 
@@ -42,10 +46,15 @@ public sealed partial class PromptRegistry(IKeyValueStore? kv = null, ILogger<Pr
 
     private async Task<string?> GetOverrideAsync(string name, CancellationToken ct)
     {
-        if (kv is null) return null;
         try
         {
-            return await kv.GetAsync(KeyPrefix + name, ct).ConfigureAwait(false);
+            // the versioned active revision wins over the plain KV key
+            if (versions is not null)
+            {
+                var active = await versions.GetActiveAsync(name, ct).ConfigureAwait(false);
+                if (active is not null) return active.Template;
+            }
+            return kv is null ? null : await kv.GetAsync(KeyPrefix + name, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)

@@ -43,7 +43,7 @@ public static class LyntaiServiceCollectionExtensions
         // The cortex services tolerate absent storage (null store → fail-open/no-op), so the minimal
         // setup — a provider and nothing else — still resolves everything.
         services.TryAddSingleton<IPromptRegistry>(sp => new PromptRegistry(
-            sp.GetService<IKeyValueStore>(), sp.GetService<ILogger<PromptRegistry>>()));
+            sp.GetService<IKeyValueStore>(), sp.GetService<IPromptVersionStore>(), sp.GetService<ILogger<PromptRegistry>>()));
         services.TryAddSingleton<IScoringService>(sp => new ScoringService(
             sp.GetServices<IScorer>(), sp.GetService<IScoreStore>(), sp.GetService<ILogger<ScoringService>>()));
         services.TryAddSingleton<ITraceService>(sp => new TraceService(

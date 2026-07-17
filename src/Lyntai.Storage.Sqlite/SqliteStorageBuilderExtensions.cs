@@ -28,6 +28,7 @@ public static class SqliteStorageBuilderExtensions
         }
 
         builder.Services.AddSingleton<IKeyValueStore, SqliteKeyValueStore>();
+        builder.Services.AddSingleton<IPromptVersionStore, SqlitePromptVersionStore>();
         builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
         builder.Services.AddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(
             sp.GetRequiredService<IDbConnectionFactory>(),
