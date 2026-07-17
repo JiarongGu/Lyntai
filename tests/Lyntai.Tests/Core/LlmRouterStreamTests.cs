@@ -71,19 +71,39 @@ public class LlmRouterStreamTests
     }
 
     [Fact]
-    public async Task Pre_content_rate_limit_surfaces_without_fallback()
+    public async Task Pre_content_rate_limit_cools_the_host_and_falls_over()
     {
+        // amended §6: RateLimited advances like Failed/Timeout (the host cools, the fleet serves)
         var p1 = new FakeLlmProvider("p1")
         {
             StreamScript = _ => [LlmChunk.Error(LlmVerdict.RateLimited, "429")],
+        };
+        var p2 = new FakeLlmProvider("p2")
+        {
+            StreamScript = _ => [LlmChunk.Content("fallback stream"), LlmChunk.Final()],
+        };
+
+        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+
+        Assert.Equal("fallback stream",
+            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal(1, p2.StreamCalls);
+    }
+
+    [Fact]
+    public async Task Pre_content_refusal_surfaces_without_fallback()
+    {
+        var p1 = new FakeLlmProvider("p1")
+        {
+            StreamScript = _ => [LlmChunk.Error(LlmVerdict.Refused, "content policy")],
         };
         var p2 = new FakeLlmProvider("p2");
 
         var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
 
         Assert.Single(chunks);
-        Assert.Equal(LlmVerdict.RateLimited, chunks[0].Verdict);
-        Assert.Equal(0, p2.StreamCalls);
+        Assert.Equal(LlmVerdict.Refused, chunks[0].Verdict);
+        Assert.Equal(0, p2.StreamCalls); // a refused prompt must never be re-submitted elsewhere
     }
 
     [Fact]

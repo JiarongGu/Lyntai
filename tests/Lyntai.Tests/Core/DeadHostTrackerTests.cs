@@ -42,6 +42,22 @@ public class DeadHostTrackerTests
     }
 
     [Fact]
+    public void Mark_dead_skips_the_threshold_entirely()
+    {
+        var t = Tracker(threshold: 3, cooldownSeconds: 30);
+
+        t.MarkDead("p"); // one backoff signal (429) → dead immediately
+        Assert.True(t.IsDead("p"));
+
+        _now += TimeSpan.FromSeconds(31);
+        Assert.False(t.IsDead("p")); // cooldown expires like any other
+
+        t.RecordSuccess("p");
+        t.RecordFailure("p");
+        Assert.False(t.IsDead("p")); // success fully reset the probation
+    }
+
+    [Fact]
     public void Cooldown_expiry_re_lives_the_host()
     {
         var t = Tracker(threshold: 2, cooldownSeconds: 30);

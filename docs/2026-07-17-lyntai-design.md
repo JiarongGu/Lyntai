@@ -185,8 +185,13 @@ provider + storage.
 - Dedup candidates by `(providerId, model)`, first wins — a misconfigured list that re-prepends the
   primary won't retry it.
 - **Non-streaming:** try candidates in order; on `Failed`/`Timeout` move to the next; log each attempt
-  with provider + reason. `RateLimited` = **circuit-break, hard stop** (resumable later, never retry
-  the same window). `Refused` = surface, don't fall back (content policy, not availability).
+  with provider + reason. `RateLimited` = **cool the host immediately and advance** — a 429 is
+  terminal for *that host's window* (immediate dead-host cooldown, never re-ask it) but transient for
+  the fleet: a different candidate has a different quota. *(Amended 2026-07-17 from "circuit-break,
+  hard stop": production routers treat 429 as fallback-eligible — LiteLLM shipped and fixed the
+  hard-stop variant as a bug, issue #22296 / PR #22375 — and circuit-break-only fails the whole
+  request even when a healthy fallback exists.)* `Refused` = surface, don't fall back (content policy
+  follows the prompt, not the host).
 - **Streaming:** once the first content token is emitted, **no fallback** — pass errors through
   unchanged (never duplicate output). Only pre-content failures move to the next candidate.
 - **Dead-host cooldown** (not exponential backoff): after N consecutive connection failures a

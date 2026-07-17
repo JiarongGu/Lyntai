@@ -56,16 +56,39 @@ public class LlmRouterCompleteTests
     }
 
     [Fact]
-    public async Task RateLimited_circuit_breaks_immediately()
+    public async Task RateLimited_cools_the_host_immediately_and_advances()
     {
+        // amended §6: a 429 is terminal for the host's window, transient for the fleet
+        var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
         var p1 = new FakeLlmProvider("p1");
         p1.Replies.Enqueue(new LlmReply("", LlmVerdict.RateLimited, Detail: "429"));
         var p2 = new FakeLlmProvider("p2");
+        p2.Replies.Enqueue(new LlmReply("served by fallback", LlmVerdict.Ok));
+
+        var router = Router(tracker, p1, p2);
+        var reply = await router.CompleteAsync([new("p1"), new("p2")], Req);
+
+        Assert.Equal("served by fallback", reply.Text);
+        Assert.True(tracker.IsDead("p1")); // ONE 429 → immediate cooldown, no threshold counting
+
+        // the next call must skip p1 entirely — never re-ask inside the rate-limit window
+        p2.Replies.Enqueue(new LlmReply("again", LlmVerdict.Ok));
+        await router.CompleteAsync([new("p1"), new("p2")], Req);
+        Assert.Single(p1.Calls);
+    }
+
+    [Fact]
+    public async Task All_candidates_rate_limited_surfaces_the_rate_limit()
+    {
+        var p1 = new FakeLlmProvider("p1");
+        p1.Replies.Enqueue(new LlmReply("", LlmVerdict.RateLimited, Detail: "429 p1"));
+        var p2 = new FakeLlmProvider("p2");
+        p2.Replies.Enqueue(new LlmReply("", LlmVerdict.RateLimited, Detail: "429 p2"));
 
         var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
 
         Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
-        Assert.Empty(p2.Calls); // hard stop — never retry the same window
+        Assert.Equal("429 p2", reply.Detail); // the last attempt's story, not a generic error
     }
 
     [Fact]

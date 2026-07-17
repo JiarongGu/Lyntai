@@ -43,10 +43,15 @@ public sealed class LlmRouter(
                     continue; // availability problem — try the next candidate
 
                 case LlmVerdict.RateLimited:
-                    return reply; // circuit-break: never retry the same window
+                    // §6 as amended 2026-07-17: a 429 is terminal for THIS host (immediate cooldown,
+                    // never re-ask the same window) but transient for the fleet — a different
+                    // candidate has a different quota, so advance instead of failing the request.
+                    deadHosts.MarkDead(provider.Id);
+                    last = reply;
+                    continue;
 
                 case LlmVerdict.Refused:
-                    return reply; // content policy, not availability — surface as-is
+                    return reply; // content policy follows the prompt, not the host — surface as-is
             }
         }
 
@@ -90,16 +95,19 @@ public sealed class LlmRouter(
                     if (chunk.Kind == LlmChunkKind.Error && !committed)
                     {
                         lastError = chunk;
-                        failedPreContent = chunk.Verdict is LlmVerdict.Failed or LlmVerdict.Timeout;
-                        if (!failedPreContent)
+                        if (chunk.Verdict == LlmVerdict.Refused)
                         {
-                            // RateLimited / Refused: surface immediately, no fallback (same as non-streaming)
+                            // content policy follows the prompt — no fallback (same as non-streaming)
                             yield return chunk;
                             yield break;
                         }
                         _logger.LogWarning("router: {Provider} failed pre-content ({Verdict} — {Detail}); trying next candidate",
                             provider.Id, chunk.Verdict, chunk.Detail);
-                        deadHosts.RecordFailure(provider.Id);
+                        if (chunk.Verdict == LlmVerdict.RateLimited)
+                            deadHosts.MarkDead(provider.Id); // amended §6: cool this host, advance
+                        else
+                            deadHosts.RecordFailure(provider.Id);
+                        failedPreContent = true;
                         break;
                     }
 

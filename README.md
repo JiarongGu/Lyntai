@@ -87,7 +87,9 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
 ### The semantics you're getting (design §6)
 
 - **Fallback router:** candidates are deduped and tried in order; `Failed`/`Timeout` advances,
-  `RateLimited` circuit-breaks (stop, surface), `Refused` surfaces (content policy is not availability).
+  `RateLimited` puts that host on immediate cooldown and advances to the next candidate (a 429 is
+  terminal for the host's window, not for the fleet), `Refused` surfaces with no fallback (content
+  policy follows the prompt, not the host).
 - **Streaming never falls back after the first token** — pre-content failures move to the next
   candidate, mid-stream errors pass through unchanged (your consumer never sees duplicated output).
 - **Dead-host cooldown** instead of exponential backoff; any success resets.

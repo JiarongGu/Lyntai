@@ -59,6 +59,22 @@ public sealed class DeadHostTracker(
         }
     }
 
+    /// <summary>Immediate cooldown regardless of the failure count — for signals where the host
+    /// explicitly told us to back off (rate limits): re-asking within the window is always wrong.</summary>
+    public void MarkDead(string key)
+    {
+        lock (_lock)
+        {
+            if (!_states.TryGetValue(key, out var s)) _states[key] = s = new State();
+            s.ConsecutiveFailures = Math.Max(s.ConsecutiveFailures, _threshold);
+            if (s.DeadUntil is null)
+            {
+                s.DeadUntil = _clock() + _cooldown;
+                _logger.LogWarning("{Key} marked dead immediately (backoff signal); cooldown {Cooldown}", key, _cooldown);
+            }
+        }
+    }
+
     public void RecordSuccess(string key)
     {
         lock (_lock)
