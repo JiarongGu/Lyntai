@@ -38,6 +38,8 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetServices<IScorer>(), sp.GetService<IScoreStore>(), sp.GetService<ILogger<ScoringService>>()));
         services.TryAddSingleton<ITraceService>(sp => new TraceService(
             sp.GetService<ITraceStore>(), logger: sp.GetService<ILogger<TraceService>>()));
+        services.TryAddSingleton<IPromptComposer>(sp => new MemoryPromptComposer(
+            sp.GetService<IMemoryStore>(), sp.GetService<ILogger<MemoryPromptComposer>>()));
 
         return services;
     }
