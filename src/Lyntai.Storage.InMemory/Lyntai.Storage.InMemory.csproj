@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Storage.InMemory</PackageId>
+    <Description>Zero-dependency in-memory implementations of the Lyntai storage domains — for tests, ephemeral/serverless use, and as the second backend proving the domain-interface seam (mix it with Lyntai.Storage.Sqlite per domain via DI). Wired via builder.UseInMemoryStorage().</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+</Project>

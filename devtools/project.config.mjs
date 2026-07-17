@@ -37,6 +37,7 @@ export default {
   packableProjects: [
     'src/Lyntai.Core',
     'src/Lyntai.Storage.Sqlite',
+    'src/Lyntai.Storage.InMemory',
     'src/Lyntai.Providers.ClaudeCli',
     'src/Lyntai.Providers.OpenAiCompatible',
     'src/Lyntai.Providers.ExtensionsAi',

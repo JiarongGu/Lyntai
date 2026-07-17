@@ -45,7 +45,7 @@ public class PromptVersionStoreTests : IDisposable
         var history = await _store.HistoryAsync("p");
 
         Assert.Equal([3, 2, 1], history.Select(h => h.Version));
-        Assert.Single(history.Where(h => h.IsActive));
+        Assert.Single(history, h => h.IsActive);
         Assert.Equal(3, history.Single(h => h.IsActive).Version);
     }
 
