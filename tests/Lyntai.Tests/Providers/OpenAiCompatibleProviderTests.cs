@@ -170,6 +170,56 @@ public class OpenAiCompatibleProviderTests
     }
 
     [Fact]
+    public async Task Empty_content_filter_200_maps_to_refused_without_retry()
+    {
+        // the common shape: HTTP 200, finish_reason=content_filter, EMPTY content — must be Refused
+        // (no fallback, and above all no re-submission of the flagged prompt via the retry path)
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
+            {"choices":[{"message":{"role":"assistant","content":""},"finish_reason":"content_filter"}]}
+            """);
+
+        var reply = await Provider(handler).CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+        Assert.Single(handler.Requests); // a refused prompt is never re-sent
+    }
+
+    [Fact]
+    public async Task Streamed_content_filter_ends_refused_not_final()
+    {
+        const string sse = """
+            data: {"choices":[{"delta":{"content":"par"}}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"content_filter"}]}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        Assert.Equal(LlmChunkKind.Error, chunks[^1].Kind);
+        Assert.Equal(LlmVerdict.Refused, chunks[^1].Verdict); // same verdict the non-streaming path gives
+    }
+
+    [Fact]
+    public async Task Zero_content_stream_yields_error_so_the_router_can_fall_over()
+    {
+        // proxy error page / warming model: 200 with nothing usable — the streaming twin of
+        // CompleteAsync's empty→Failed, instead of a clean empty Final that blocks fallback
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, "data: [DONE]\n\n", "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        Assert.Single(chunks);
+        Assert.Equal(LlmChunkKind.Error, chunks[0].Kind);
+        Assert.Equal(LlmVerdict.Failed, chunks[0].Verdict);
+    }
+
+    [Fact]
     public async Task Base_url_already_ending_in_v1_is_not_doubled()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);

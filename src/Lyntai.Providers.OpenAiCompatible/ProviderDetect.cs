@@ -17,7 +17,10 @@ public static class ProviderDetect
 
         if (IsHost(uri.Host, "openrouter.ai")) return OpenRouter;
         if (IsHost(uri.Host, "openai.com") || IsHost(uri.Host, "openai.azure.com")) return OpenAi;
-        if (uri.Port == 11434) return Ollama; // Ollama's well-known port wherever it's hosted
+        // Ollama's well-known port — but a /v1 base targets its OpenAI-COMPATIBLE surface, where the
+        // native /api/chat payload/endpoint would 404 on every call
+        if (uri.Port == 11434)
+            return uri.AbsolutePath.TrimEnd('/').EndsWith("/v1", StringComparison.OrdinalIgnoreCase) ? OpenAi : Ollama;
 
         return OpenAi; // fail-open to OpenAI-compat
     }

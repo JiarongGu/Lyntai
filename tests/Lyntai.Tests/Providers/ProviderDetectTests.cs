@@ -12,6 +12,8 @@ public class ProviderDetectTests
     [InlineData("http://localhost:11434", "ollama")]
     [InlineData("http://192.168.1.5:11434", "ollama")]
     [InlineData("http://gpu-box:11434", "ollama")]
+    [InlineData("http://localhost:11434/v1", "openai")]   // Ollama's OpenAI-compatible surface
+    [InlineData("http://localhost:11434/v1/", "openai")]
     [InlineData("https://my-own-gateway.example.com", "openai")]   // fail-open to OpenAI-compat
     [InlineData("not a url at all", "openai")]
     [InlineData("", "openai")]

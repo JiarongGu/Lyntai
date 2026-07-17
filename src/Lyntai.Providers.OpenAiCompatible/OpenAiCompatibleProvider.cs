@@ -64,17 +64,21 @@ public sealed class OpenAiCompatibleProvider(
 
             if (TryExtract(body, out var text, out var usage, out var finishReason))
             {
+                // a content filter often arrives as HTTP 200 + finish_reason with EMPTY content —
+                // it must classify as Refused (no fallback) before any empty-text handling
                 if (finishReason == "content_filter")
-                    return new LlmReply(text, LlmVerdict.Refused, usage, "content filter");
-                return new LlmReply(text, LlmVerdict.Ok, usage);
+                    return new LlmReply(text, LlmVerdict.Refused, usage, $"{id}: content filter");
+                if (text.Length > 0)
+                    return new LlmReply(text, LlmVerdict.Ok, usage);
+                // well-formed but empty and not filtered — same retry-once as a malformed body
             }
 
             if (attempt == 0)
             {
-                _logger.LogWarning("{Id}: malformed response body; retrying once", id);
-                continue; // one retry on a malformed body
+                _logger.LogWarning("{Id}: malformed or empty response body; retrying once", id);
+                continue; // one retry on a malformed/empty body
             }
-            return new LlmReply("", LlmVerdict.Failed, Detail: $"{id}: malformed response after retry");
+            return new LlmReply("", LlmVerdict.Failed, Detail: $"{id}: malformed or empty response after retry");
         }
     }
 
@@ -121,6 +125,8 @@ public sealed class OpenAiCompatibleProvider(
         using var reader = new StreamReader(stream, Encoding.UTF8);
 
         LlmUsage? usage = null;
+        string? finishReason = null;
+        var sawContent = false;
         var done = false;
         while (!done)
         {
@@ -151,12 +157,31 @@ public sealed class OpenAiCompatibleProvider(
             if (payload.Length == 0) continue;
             if (payload == "[DONE]") { done = true; continue; }
 
-            var (text, chunkUsage, isFinal) = ParseStreamLine(payload);
+            var (text, chunkUsage, isFinal, reason) = ParseStreamLine(payload);
             if (chunkUsage is not null) usage = chunkUsage;
-            if (text is { Length: > 0 }) yield return LlmChunk.Content(text);
+            if (reason is not null) finishReason = reason;
+            if (text is { Length: > 0 })
+            {
+                sawContent = true;
+                yield return LlmChunk.Content(text);
+            }
             if (isFinal) done = true;
         }
 
+        // a streamed content filter must end as Refused, not a benign Final — same verdict the
+        // non-streaming path gives the identical finish_reason
+        if (finishReason == "content_filter")
+        {
+            yield return LlmChunk.Error(LlmVerdict.Refused, $"{id}: content filter");
+            yield break;
+        }
+        // zero-content stream = the streaming twin of CompleteAsync's empty→Failed, so the router
+        // can fall over pre-content instead of reporting a clean empty answer
+        if (!sawContent)
+        {
+            yield return LlmChunk.Error(LlmVerdict.Failed, $"{id}: no output produced");
+            yield break;
+        }
         yield return LlmChunk.Final(usage);
     }
 
@@ -189,14 +214,11 @@ public sealed class OpenAiCompatibleProvider(
     private LlmReply MapHttpFailure(HttpStatusCode status, string body)
     {
         var detail = $"{id}: HTTP {(int)status} {Tail(body)}";
-        return status switch
-        {
-            HttpStatusCode.TooManyRequests => new LlmReply("", LlmVerdict.RateLimited, Detail: detail),
-            _ when body.Contains("content_filter", StringComparison.OrdinalIgnoreCase) ||
-                   body.Contains("content_policy", StringComparison.OrdinalIgnoreCase)
-                => new LlmReply("", LlmVerdict.Refused, Detail: detail),
-            _ => new LlmReply("", LlmVerdict.Failed, Detail: detail),
-        };
+        // typed status wins; body text goes through the ONE shared classifier (never local heuristics)
+        var verdict = status == HttpStatusCode.TooManyRequests
+            ? LlmVerdict.RateLimited
+            : LlmVerdictClassifier.FromErrorText(body);
+        return new LlmReply("", verdict, Detail: detail);
     }
 
     /// <summary>Tolerant extraction covering both response shapes:
@@ -226,13 +248,14 @@ public sealed class OpenAiCompatibleProvider(
             {
                 found = true; // Ollama shape
             }
-            if (!found || message.ValueKind != JsonValueKind.Object) return false;
-
-            if (message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
+            if (message.ValueKind == JsonValueKind.Object &&
+                message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
                 text = content.GetString() ?? "";
 
             usage = ExtractUsage(root);
-            return text.Length > 0;
+            // a recognized message OR a finish_reason is a well-formed reply, even with empty
+            // content (a content-filtered 200 has exactly that shape) — verdicts are the caller's job
+            return (found && message.ValueKind == JsonValueKind.Object) || finishReason is not null;
         }
         catch (JsonException)
         {
@@ -249,14 +272,16 @@ public sealed class OpenAiCompatibleProvider(
         return null;
     }
 
-    /// <summary>One streaming line → (delta text, usage if present, is-final).</summary>
-    internal static (string? Text, LlmUsage? Usage, bool IsFinal) ParseStreamLine(string payload)
+    /// <summary>One streaming line → (delta text, usage if present, is-final, finish reason). The
+    /// finish reason travels out so the stream can classify a content_filter as Refused — a string
+    /// finish_reason is a stream terminator, never automatically a benign one.</summary>
+    internal static (string? Text, LlmUsage? Usage, bool IsFinal, string? FinishReason) ParseStreamLine(string payload)
     {
         try
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return (null, null, false);
+            if (root.ValueKind != JsonValueKind.Object) return (null, null, false, null);
 
             // OpenAI SSE: choices[0].delta.content, finish_reason set on the last data line
             if (root.TryGetProperty("choices", out var choices) &&
@@ -267,8 +292,10 @@ public sealed class OpenAiCompatibleProvider(
                 if (choice.TryGetProperty("delta", out var delta) &&
                     delta.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
                     text = c.GetString();
-                var final = choice.TryGetProperty("finish_reason", out var fr) && fr.ValueKind == JsonValueKind.String;
-                return (text, ExtractUsage(root), final);
+                string? finishReason = null;
+                if (choice.TryGetProperty("finish_reason", out var fr) && fr.ValueKind == JsonValueKind.String)
+                    finishReason = fr.GetString();
+                return (text, ExtractUsage(root), finishReason is not null, finishReason);
             }
 
             // Ollama NDJSON: message.content per line, done:true on the last (with eval counts)
@@ -278,13 +305,13 @@ public sealed class OpenAiCompatibleProvider(
                 if (message.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
                     text = c.GetString();
                 var final = root.TryGetProperty("done", out var d) && d.ValueKind == JsonValueKind.True;
-                return (text, final ? ExtractUsage(root) : null, final);
+                return (text, final ? ExtractUsage(root) : null, final, null);
             }
-            return (null, null, false);
+            return (null, null, false, null);
         }
         catch (JsonException)
         {
-            return (null, null, false); // malformed stream line — skip it
+            return (null, null, false, null); // malformed stream line — skip it
         }
     }
 
