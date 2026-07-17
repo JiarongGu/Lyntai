@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Lyntai.Diagnostics;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -26,24 +27,39 @@ public sealed class ToolLoop(
 
     public async Task<ToolLoopResult> RunAsync(LlmRequest req, int? maxIterations = null, CancellationToken ct = default)
     {
+        using var activity = LyntaiDiagnostics.StartToolLoop(req.Consumer);
         var tools = registry.Tools;
         var steps = new List<ToolStep>();
 
+        ToolLoopResult result;
+        string mode;
         // No tools registered → the loop degenerates to a single plain completion (forcing the JSON
         // protocol would be pointless overhead and could mangle a direct answer).
         if (tools.Count == 0)
         {
             var direct = await client.CompleteAsync(req, ct).ConfigureAwait(false);
-            return new ToolLoopResult(direct.Verdict == LlmVerdict.Ok ? direct.Text : "", direct.Verdict, steps, direct.Detail);
+            result = new ToolLoopResult(direct.Verdict == LlmVerdict.Ok ? direct.Text : "", direct.Verdict, steps, direct.Detail);
+            mode = "none";
+        }
+        else
+        {
+            var budget = maxIterations ?? options.ToolLoopMaxIterations;
+            // Native tool-calling when the routing supports it for THIS request (robust, structured);
+            // otherwise the provider-agnostic prompt protocol. Both execute the same registered ITools.
+            if (client.SupportsToolCalls(req))
+            {
+                result = await RunNativeAsync(req, tools, budget, steps, ct).ConfigureAwait(false);
+                mode = "native";
+            }
+            else
+            {
+                result = await RunPromptAsync(req, tools, budget, steps, ct).ConfigureAwait(false);
+                mode = "prompt";
+            }
         }
 
-        var budget = maxIterations ?? options.ToolLoopMaxIterations;
-
-        // Native tool-calling when the routing supports it for THIS request (robust, structured);
-        // otherwise the provider-agnostic prompt protocol below. Both execute the same registered ITools.
-        return client.SupportsToolCalls(req)
-            ? await RunNativeAsync(req, tools, budget, steps, ct).ConfigureAwait(false)
-            : await RunPromptAsync(req, tools, budget, steps, ct).ConfigureAwait(false);
+        LyntaiDiagnostics.EndToolLoop(activity, mode, result.Steps.Count, result.Verdict);
+        return result;
     }
 
     /// <summary>Native path: send tool declarations, act on the model's structured
@@ -131,6 +147,8 @@ public sealed class ToolLoop(
             var available = string.Join(", ", registry.Tools.Select(t => t.Name));
             return $"error: unknown tool \"{name}\". Available tools: {available}";
         }
+        using var activity = LyntaiDiagnostics.StartToolCall(name);
+        var error = false;
         try
         {
             _logger.LogDebug("tool-loop: invoking {Tool} with {Args}", name, argumentsJson);
@@ -143,8 +161,13 @@ public sealed class ToolLoop(
         catch (Exception ex)
         {
             // a throwing tool is recoverable: report it back so the model can adjust, don't kill the loop
+            error = true;
             _logger.LogWarning(ex, "tool-loop: tool {Tool} threw", name);
             return $"error: {ex.Message}";
+        }
+        finally
+        {
+            LyntaiDiagnostics.EndToolCall(activity, name, error);
         }
     }
 

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Lyntai.Diagnostics;
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -95,46 +97,75 @@ public sealed class JobRunner(
 
     private async Task RunJobAsync(JobRecord job, CancellationToken ct)
     {
-        var handler = handlers.Find(job.Type);
-        if (handler is null)
-        {
-            _logger.LogWarning("no handler registered for job type '{Type}' (job {Id}) — failing it", job.Type, job.Id);
-            await _store.FailAsync(job.Id, _workerId, $"no handler registered for type '{job.Type}'", ct: ct).ConfigureAwait(false);
-            return;
-        }
-
-        var ctx = new JobContext(job.Id, job.Payload, job.Checkpoint, job.Attempts,
-            (cp, c) => _store.SaveCheckpointAsync(job.Id, _workerId, cp, c));
-
+        using var activity = LyntaiDiagnostics.StartJob(job.Lane, job.Type, job.Id, job.Attempts);
+        var start = Stopwatch.GetTimestamp();
+        var outcome = "failed"; // pessimistic default so an unexpected path is recorded as a failure
         try
         {
-            var outcome = await handler.HandleAsync(ctx, ct).ConfigureAwait(false);
-            await ApplyAsync(job, outcome, outcome.Error, ct).ConfigureAwait(false);
+            var handler = handlers.Find(job.Type);
+            if (handler is null)
+            {
+                _logger.LogWarning("no handler registered for job type '{Type}' (job {Id}) — failing it", job.Type, job.Id);
+                await _store.FailAsync(job.Id, _workerId, $"no handler registered for type '{job.Type}'", ct: ct).ConfigureAwait(false);
+                return;
+            }
+
+            var ctx = new JobContext(job.Id, job.Payload, job.Checkpoint, job.Attempts,
+                (cp, c) => _store.SaveCheckpointAsync(job.Id, _workerId, cp, c));
+
+            try
+            {
+                var result = await handler.HandleAsync(ctx, ct).ConfigureAwait(false);
+                outcome = await ApplyAsync(job, result, result.Error, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // shutdown mid-job: leave it Running; its lease lapses and another worker resumes it
+                outcome = "cancelled";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "job {Id} ('{Type}') threw; scheduling a retry", job.Id, job.Type);
+                outcome = await ApplyAsync(job, JobOutcome.Retry(), ex.Message, ct).ConfigureAwait(false); // a throw is transient
+            }
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        finally
         {
-            // shutdown mid-job: leave it Running; its lease lapses and another worker resumes it
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "job {Id} ('{Type}') threw; scheduling a retry", job.Id, job.Type);
-            await ApplyAsync(job, JobOutcome.Retry(), ex.Message, ct).ConfigureAwait(false); // a throw is transient
+            LyntaiDiagnostics.EndJob(activity, job.Lane, outcome, Stopwatch.GetElapsedTime(start).TotalSeconds);
         }
     }
 
-    private async Task ApplyAsync(JobRecord job, JobOutcome outcome, string? error, CancellationToken ct)
+    /// <summary>Maps the outcome onto the store and returns a telemetry label
+    /// (succeeded / retry / failed / lost_lease).</summary>
+    private async Task<string> ApplyAsync(JobRecord job, JobOutcome outcome, string? error, CancellationToken ct)
     {
-        var ok = outcome.Result switch
+        bool ok;
+        string label;
+        switch (outcome.Result)
         {
-            JobOutcome.Kind.Complete => await _store.CompleteAsync(job.Id, _workerId, ct).ConfigureAwait(false),
-            JobOutcome.Kind.Retry when job.Attempts < job.MaxAttempts =>
-                await _store.FailAsync(job.Id, _workerId, error ?? "retrying",
-                    _clock() + (outcome.RetryDelay ?? Opts.RetryBackoff), ct).ConfigureAwait(false),
-            JobOutcome.Kind.Retry => // attempts exhausted → terminal
-                await _store.FailAsync(job.Id, _workerId, error ?? "retries exhausted", ct: ct).ConfigureAwait(false),
-            _ => await _store.FailAsync(job.Id, _workerId, error ?? "failed", ct: ct).ConfigureAwait(false), // Fail
-        };
+            case JobOutcome.Kind.Complete:
+                ok = await _store.CompleteAsync(job.Id, _workerId, ct).ConfigureAwait(false);
+                label = "succeeded";
+                break;
+            case JobOutcome.Kind.Retry when job.Attempts < job.MaxAttempts:
+                ok = await _store.FailAsync(job.Id, _workerId, error ?? "retrying",
+                    _clock() + (outcome.RetryDelay ?? Opts.RetryBackoff), ct).ConfigureAwait(false);
+                label = "retry";
+                break;
+            case JobOutcome.Kind.Retry: // attempts exhausted → terminal
+                ok = await _store.FailAsync(job.Id, _workerId, error ?? "retries exhausted", ct: ct).ConfigureAwait(false);
+                label = "failed";
+                break;
+            default: // Fail
+                ok = await _store.FailAsync(job.Id, _workerId, error ?? "failed", ct: ct).ConfigureAwait(false);
+                label = "failed";
+                break;
+        }
         if (!ok)
+        {
             _logger.LogWarning("job {Id} outcome ignored — lease lost (re-claimed by another worker)", job.Id);
+            return "lost_lease";
+        }
+        return label;
     }
 }

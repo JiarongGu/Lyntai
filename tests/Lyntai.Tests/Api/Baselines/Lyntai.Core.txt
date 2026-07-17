@@ -228,6 +228,8 @@ class Lyntai.Cortex.TraceStep
     ToString() : String
 static class Lyntai.Diagnostics.LyntaiDiagnostics
     ActivitySourceName : String const
+    AgentActivitySourceName : String const
+    AgentMeterName : String const
     MeterName : String const
 class Lyntai.Guards.DenylistGuard
     .ctor(IReadOnlyList<String>, String=)

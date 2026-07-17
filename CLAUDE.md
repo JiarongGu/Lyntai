@@ -36,8 +36,9 @@ multi-agent parallel with per-lane + global `MaxConcurrency` control, app owns t
 `LlmMessage.Attachments`): `ILlmClient` front door (to a
 consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
-`RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel GenAI
-telemetry (`LyntaiDiagnostics`) + `RunTrace.TraceId` bridging, structured output (`CompleteJsonAsync`),
+`RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel
+telemetry (`LyntaiDiagnostics`: GenAI `Lyntai.Llm` + agentic `Lyntai.Agents` source/meter) +
+`RunTrace.TraceId` bridging, structured output (`CompleteJsonAsync`),
 versioned prompts (`IPromptVersionStore`), judge calibration (`JudgeAgreement`/`IPairwiseComparer`),
 memory lifecycle (dedup/TTL/`PruneAsync`), **three storage backends** (`Sqlite`, `InMemory`, `Postgres`
 — pg_trgm recall, Testcontainers-tested) mixable per-domain via DI, deferred migrations,

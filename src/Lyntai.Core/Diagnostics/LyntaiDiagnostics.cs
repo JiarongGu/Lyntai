@@ -104,4 +104,88 @@ public static class LyntaiDiagnostics
             { "gen_ai.request.model", model },
         });
     }
+
+    // ---- agentic telemetry (tool loop, durable jobs, guards) ----------------------------------------
+    // A SEPARATE source/meter from the GenAI one above — these aren't gen_ai.* operations. Subscribe with
+    // AddSource("Lyntai.Agents") / AddMeter("Lyntai.Agents") to see tool-loop runs, tool executions, job
+    // runs, and guard decisions alongside the LLM spans in one trace/metrics backend.
+
+    public const string AgentActivitySourceName = "Lyntai.Agents";
+    public const string AgentMeterName = "Lyntai.Agents";
+
+    internal static readonly ActivitySource AgentSource = new(AgentActivitySourceName);
+    internal static readonly Meter AgentMeter = new(AgentMeterName);
+
+    internal static readonly Counter<long> ToolInvocations =
+        AgentMeter.CreateCounter<long>("lyntai.tool.invocations", description: "Tool executions by the tool loop");
+    internal static readonly Counter<long> JobsProcessed =
+        AgentMeter.CreateCounter<long>("lyntai.jobs.processed", description: "Jobs processed, tagged by lane + outcome");
+    internal static readonly Histogram<double> JobDuration =
+        AgentMeter.CreateHistogram<double>("lyntai.job.duration", unit: "s", description: "Job handler execution time");
+    internal static readonly Counter<long> GuardDecisions =
+        AgentMeter.CreateCounter<long>("lyntai.guard.decisions", description: "Guard block/replace decisions, tagged by gate + result");
+
+    internal static Activity? StartToolLoop(string consumer)
+    {
+        var a = AgentSource.StartActivity("tool_loop", ActivityKind.Internal);
+        a?.SetTag("lyntai.consumer", consumer);
+        return a;
+    }
+
+    internal static void EndToolLoop(Activity? a, string mode, int steps, LlmVerdict verdict)
+    {
+        if (a is null) return;
+        a.SetTag("lyntai.tool_loop.mode", mode);
+        a.SetTag("lyntai.tool_loop.steps", steps);
+        if (verdict != LlmVerdict.Ok) a.SetStatus(ActivityStatusCode.Error, verdict.ToString());
+    }
+
+    internal static Activity? StartToolCall(string name)
+    {
+        var a = AgentSource.StartActivity($"execute_tool {name}", ActivityKind.Internal);
+        a?.SetTag("lyntai.tool.name", name);
+        return a;
+    }
+
+    internal static void EndToolCall(Activity? a, string name, bool error)
+    {
+        if (a is not null && error) a.SetStatus(ActivityStatusCode.Error);
+        if (ToolInvocations.Enabled)
+            ToolInvocations.Add(1, new TagList { { "lyntai.tool.name", name }, { "error", error } });
+    }
+
+    internal static Activity? StartJob(string lane, string type, Guid id, int attempt)
+    {
+        var a = AgentSource.StartActivity($"run_job {type}", ActivityKind.Consumer);
+        if (a is not null)
+        {
+            a.SetTag("lyntai.job.lane", lane);
+            a.SetTag("lyntai.job.type", type);
+            a.SetTag("lyntai.job.id", id.ToString());
+            a.SetTag("lyntai.job.attempt", attempt);
+        }
+        return a;
+    }
+
+    internal static void EndJob(Activity? a, string lane, string outcome, double elapsedSeconds)
+    {
+        if (a is not null)
+        {
+            a.SetTag("lyntai.job.outcome", outcome);
+            if (outcome is "failed" or "lost_lease") a.SetStatus(ActivityStatusCode.Error, outcome);
+        }
+        if (JobsProcessed.Enabled)
+            JobsProcessed.Add(1, new TagList { { "lyntai.job.lane", lane }, { "lyntai.job.outcome", outcome } });
+        if (JobDuration.Enabled)
+            JobDuration.Record(elapsedSeconds, new TagList { { "lyntai.job.lane", lane } });
+    }
+
+    internal static void RecordGuardDecision(string gate, string guard, string result)
+    {
+        if (GuardDecisions.Enabled)
+            GuardDecisions.Add(1, new TagList
+            {
+                { "lyntai.guard.gate", gate }, { "lyntai.guard.name", guard }, { "lyntai.guard.result", result },
+            });
+    }
 }

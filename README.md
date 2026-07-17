@@ -150,14 +150,20 @@ Lyntai emits OpenTelemetry GenAI-convention telemetry from the router — the sa
 in one backend. Nothing is emitted unless you subscribe:
 
 ```csharp
-tracerProviderBuilder.AddSource(LyntaiDiagnostics.ActivitySourceName);   // "Lyntai.Llm" spans
-meterProviderBuilder.AddMeter(LyntaiDiagnostics.MeterName);              // duration, token usage,
-                                                                          // time_to_first_chunk
+tracerProviderBuilder.AddSource(LyntaiDiagnostics.ActivitySourceName);        // "Lyntai.Llm" spans
+meterProviderBuilder.AddMeter(LyntaiDiagnostics.MeterName);                   // duration, token usage,
+                                                                              // time_to_first_chunk
+// the agentic subsystems (tool loop, durable jobs, guards) emit on a second source/meter:
+tracerProviderBuilder.AddSource(LyntaiDiagnostics.AgentActivitySourceName);   // "Lyntai.Agents" spans
+meterProviderBuilder.AddMeter(LyntaiDiagnostics.AgentMeterName);              // tool/job/guard metrics
 ```
 
 `chat {model}` client spans carry `gen_ai.system` (provider id), `gen_ai.request.model`, token
 usage, and `error.type` (the verdict) on failure. `time_to_first_chunk` marks the streaming
-fallback point of no return.
+fallback point of no return. On the `Lyntai.Agents` side, a `tool_loop` span nests one
+`execute_tool {name}` span per call, `run_job {type}` spans carry the lane/outcome (with
+processed/duration metrics), and a guard-decisions counter tags each block/replace by gate — so an
+agent run traces end-to-end next to its LLM calls.
 
 ### Bring your own resources
 

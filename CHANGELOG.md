@@ -3,6 +3,26 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.16.0 — 2026-07-18
+
+Observability for the agentic subsystems. The GenAI telemetry (v0.2) covered the LLM call path; this
+extends the same OpenTelemetry-native surface to the tool loop, durable jobs, and guards, so an agent run
+shows up end-to-end in one trace/metrics backend alongside the `chat` spans.
+
+### Added
+- **Agentic telemetry** — a second source/meter, `Lyntai.Agents` (constants
+  `LyntaiDiagnostics.AgentActivitySourceName` / `AgentMeterName`), separate from the `Lyntai.Llm` GenAI
+  one because these aren't `gen_ai.*` operations. Subscribe with `AddSource("Lyntai.Agents")` /
+  `AddMeter("Lyntai.Agents")`. Emits:
+  - `tool_loop` spans (tags: consumer, mode = `none`/`native`/`prompt`, step count; Error status on a
+    non-Ok verdict) with a child `execute_tool <name>` span per tool call, plus a
+    `lyntai.tool.invocations` counter tagged by tool name + error flag.
+  - `run_job <type>` spans (tags: lane, type, id, attempt, outcome; Error status on `failed`/`lost_lease`)
+    with a `lyntai.jobs.processed` counter (lane + outcome) and a `lyntai.job.duration` histogram (lane).
+  - a `lyntai.guard.decisions` counter (gate `input`/`output`, guard name, result `block`/`replace`).
+  Nothing is emitted unless a listener is attached — the overhead without observability wiring is a few
+  null/`Enabled` checks, matching the GenAI surface.
+
 ## 0.15.1 — 2026-07-18
 
 Correctness + security fixes from a three-pass adversarial review of the v0.14–v0.15 code (the AES-GCM

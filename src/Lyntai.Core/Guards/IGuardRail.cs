@@ -1,3 +1,4 @@
+using Lyntai.Diagnostics;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,11 +34,13 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
             if (outcome.Result == GuardOutcome.Kind.Block)
             {
                 _logger.LogInformation("guard '{Guard}' blocked the request: {Reason}", guard.Name, outcome.Reason);
+                LyntaiDiagnostics.RecordGuardDecision("input", guard.Name, "block");
                 return outcome; // a block is terminal
             }
             if (outcome.Result == GuardOutcome.Kind.Replace)
             {
                 _logger.LogInformation("guard '{Guard}' rewrote the request", guard.Name);
+                LyntaiDiagnostics.RecordGuardDecision("input", guard.Name, "replace");
                 effective = outcome;
                 current = RewriteLastUser(current, outcome.Replacement!); // re-thread so later guards see the rewrite
             }
@@ -55,11 +58,13 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
             if (outcome.Result == GuardOutcome.Kind.Block)
             {
                 _logger.LogInformation("guard '{Guard}' blocked the response: {Reason}", guard.Name, outcome.Reason);
+                LyntaiDiagnostics.RecordGuardDecision("output", guard.Name, "block");
                 return outcome;
             }
             if (outcome.Result == GuardOutcome.Kind.Replace)
             {
                 _logger.LogInformation("guard '{Guard}' rewrote the response", guard.Name);
+                LyntaiDiagnostics.RecordGuardDecision("output", guard.Name, "replace");
                 effective = outcome;
                 current = current with { Text = outcome.Replacement! }; // re-thread the rewritten text
             }

@@ -116,6 +116,13 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   `DataContent`/`UriContent`. This completes design §9 (the "platform kit") apart from the
   server/host/launcher, which is intentionally out of scope for a library.
 
+### v0.16.0 — agentic observability (2026-07)
+- ✅ **Agentic telemetry** — the v0.2 GenAI telemetry covered the LLM call path; this extends the same
+  OpenTelemetry-native surface to the agentic subsystems via a second source/meter `Lyntai.Agents`
+  (`AddSource`/`AddMeter`): `tool_loop` + child `execute_tool` spans and a tool-invocations counter; per-job
+  `run_job` spans with processed/duration metrics; a guard-decisions counter. An agent run now traces
+  end-to-end alongside the `chat` spans. Emits nothing without a listener attached.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure
