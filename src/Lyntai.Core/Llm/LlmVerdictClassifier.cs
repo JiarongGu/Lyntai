@@ -17,6 +17,8 @@ public static partial class LlmVerdictClassifier
     {
         if (string.IsNullOrWhiteSpace(text)) return fallback;
         if (RateLimitPattern().IsMatch(text)) return LlmVerdict.RateLimited;
+        if (ContextWindowPattern().IsMatch(text)) return LlmVerdict.ContextWindowExceeded;
+        if (AuthPattern().IsMatch(text)) return LlmVerdict.AuthFailed;
         if (RefusalPattern().IsMatch(text)) return LlmVerdict.Refused;
         return fallback;
     }
@@ -26,12 +28,27 @@ public static partial class LlmVerdictClassifier
     public static LlmVerdict FromException(Exception ex) => ex switch
     {
         HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } => LlmVerdict.RateLimited,
+        HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden } => LlmVerdict.AuthFailed,
         OperationCanceledException => LlmVerdict.Timeout,
         _ => FromErrorText(ex.Message),
     };
 
+    /// <summary>Classify a failed HTTP status + response body (typed status wins over body text).</summary>
+    public static LlmVerdict FromHttpFailure(HttpStatusCode status, string? body) => status switch
+    {
+        HttpStatusCode.TooManyRequests => LlmVerdict.RateLimited,
+        HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => LlmVerdict.AuthFailed,
+        _ => FromErrorText(body),
+    };
+
     [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
     private static partial Regex RateLimitPattern();
+
+    [GeneratedRegex(@"context[\s_-]?(?:window|length)|maximum\s+context|context_length_exceeded|prompt\s+is\s+too\s+long|input\s+is\s+too\s+long|too\s+many\s+(?:input\s+)?tokens|exceeds\s+the\s+.{0,20}token", RegexOptions.IgnoreCase)]
+    private static partial Regex ContextWindowPattern();
+
+    [GeneratedRegex(@"(?:invalid|incorrect|missing)\s+(?:api[\s_-]?key|token|credential)|api[\s_-]?key\s+(?:not\s+)?(?:valid|found|provided)|unauthorized|authentication\s+(?:failed|error|required)|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*40[13]\b", RegexOptions.IgnoreCase)]
+    private static partial Regex AuthPattern();
 
     [GeneratedRegex(@"content[\s_-]?(?:filter|policy)|policy\s+violation", RegexOptions.IgnoreCase)]
     private static partial Regex RefusalPattern();

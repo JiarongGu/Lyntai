@@ -14,6 +14,12 @@ public class LlmVerdictClassifierTests
     [InlineData("RESOURCE_EXHAUSTED", LlmVerdict.RateLimited)]
     [InlineData("blocked by content_filter", LlmVerdict.Refused)]
     [InlineData("violates our content policy", LlmVerdict.Refused)]
+    [InlineData("This model's maximum context length is 8192 tokens", LlmVerdict.ContextWindowExceeded)]
+    [InlineData("error code: context_length_exceeded", LlmVerdict.ContextWindowExceeded)]
+    [InlineData("prompt is too long: 210000 tokens", LlmVerdict.ContextWindowExceeded)]
+    [InlineData("Incorrect API key provided", LlmVerdict.AuthFailed)]
+    [InlineData("401 Unauthorized", LlmVerdict.AuthFailed)]
+    [InlineData("authentication failed for this endpoint", LlmVerdict.AuthFailed)]
     [InlineData("something exploded", LlmVerdict.Failed)]
     [InlineData("", LlmVerdict.Failed)]
     [InlineData(null, LlmVerdict.Failed)]
@@ -39,6 +45,14 @@ public class LlmVerdictClassifierTests
         var ex = new HttpRequestException("boom", null, HttpStatusCode.TooManyRequests);
 
         Assert.Equal(LlmVerdict.RateLimited, LlmVerdictClassifier.FromException(ex));
+    }
+
+    [Fact]
+    public void Typed_401_and_403_map_to_auth_failed()
+    {
+        Assert.Equal(LlmVerdict.AuthFailed, LlmVerdictClassifier.FromException(
+            new HttpRequestException("nope", null, HttpStatusCode.Unauthorized)));
+        Assert.Equal(LlmVerdict.AuthFailed, LlmVerdictClassifier.FromHttpFailure(HttpStatusCode.Forbidden, "denied"));
     }
 
     [Fact]

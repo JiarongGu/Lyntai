@@ -215,10 +215,7 @@ public sealed class OpenAiCompatibleProvider(
     {
         var detail = $"{id}: HTTP {(int)status} {Tail(body)}";
         // typed status wins; body text goes through the ONE shared classifier (never local heuristics)
-        var verdict = status == HttpStatusCode.TooManyRequests
-            ? LlmVerdict.RateLimited
-            : LlmVerdictClassifier.FromErrorText(body);
-        return new LlmReply("", verdict, Detail: detail);
+        return new LlmReply("", LlmVerdictClassifier.FromHttpFailure(status, body), Detail: detail);
     }
 
     /// <summary>Tolerant extraction covering both response shapes:

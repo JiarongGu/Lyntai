@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Lyntai.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -43,10 +45,17 @@ public sealed class LlmRouter(
                     continue; // availability problem — try the next candidate
 
                 case LlmVerdict.RateLimited:
-                    // §6 as amended 2026-07-17: a 429 is terminal for THIS host (immediate cooldown,
-                    // never re-ask the same window) but transient for the fleet — a different
-                    // candidate has a different quota, so advance instead of failing the request.
+                case LlmVerdict.AuthFailed:
+                    // §6 as amended 2026-07-17: terminal for THIS host (immediate cooldown — the
+                    // same window/credentials never recover by retrying) but transient for the
+                    // fleet: a different candidate has a different quota/key, so advance.
                     deadHosts.MarkDead(provider.Id);
+                    last = reply;
+                    continue;
+
+                case LlmVerdict.ContextWindowExceeded:
+                    // the request is too big for THIS model, not a host fault: no dead-host
+                    // penalty — a larger-context candidate is the correct remedy
                     last = reply;
                     continue;
 
@@ -75,57 +84,80 @@ public sealed class LlmRouter(
             var committed = false;   // once any content is yielded, no fallback — pass everything through
             var failedPreContent = false;
 
-            var enumerator = provider.StreamAsync(effective, ct).GetAsyncEnumerator(ct);
-            await using (enumerator.ConfigureAwait(false))
+            var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
+            var start = Stopwatch.GetTimestamp();
+            LlmVerdict outcome = LlmVerdict.Ok;
+            LlmUsage? usage = null;
+            string? outcomeDetail = null;
+            try
             {
-                while (true)
+                var enumerator = provider.StreamAsync(effective, ct).GetAsyncEnumerator(ct);
+                await using (enumerator.ConfigureAwait(false))
                 {
-                    LlmChunk? chunk;
-                    try
+                    while (true)
                     {
-                        chunk = await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null;
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        // a provider that throws mid-iteration behaves like an Error chunk
-                        chunk = LlmChunk.Error(LlmVerdict.Failed, ex.Message);
-                    }
-                    if (chunk is null) break;
-
-                    if (chunk.Kind == LlmChunkKind.Error && !committed)
-                    {
-                        lastError = chunk;
-                        if (chunk.Verdict == LlmVerdict.Refused)
+                        LlmChunk? chunk;
+                        try
                         {
-                            // content policy follows the prompt — no fallback (same as non-streaming)
-                            yield return chunk;
-                            yield break;
+                            chunk = await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null;
                         }
-                        _logger.LogWarning("router: {Provider} failed pre-content ({Verdict} — {Detail}); trying next candidate",
-                            provider.Id, chunk.Verdict, chunk.Detail);
-                        if (chunk.Verdict == LlmVerdict.RateLimited)
-                            deadHosts.MarkDead(provider.Id); // amended §6: cool this host, advance
-                        else
-                            deadHosts.RecordFailure(provider.Id);
-                        failedPreContent = true;
-                        break;
-                    }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            // a provider that throws mid-iteration behaves like an Error chunk
+                            chunk = LlmChunk.Error(LlmVerdict.Failed, ex.Message);
+                        }
+                        if (chunk is null) break;
 
-                    if (chunk.Kind == LlmChunkKind.Content && !committed)
-                    {
-                        committed = true;
-                        deadHosts.RecordSuccess(provider.Id);
-                        _logger.LogInformation("router: streaming from {Provider} (model {Model})",
-                            provider.Id, effective.Model ?? "(default)");
-                    }
+                        if (chunk.Kind == LlmChunkKind.Error)
+                        {
+                            outcome = chunk.Verdict;
+                            outcomeDetail = chunk.Detail;
+                        }
+                        if (chunk.Kind == LlmChunkKind.Final) usage = chunk.Usage;
 
-                    yield return chunk; // committed (or benign pre-content Final): pass through unchanged
-                    if (chunk.Kind is LlmChunkKind.Final or LlmChunkKind.Error) yield break;
+                        if (chunk.Kind == LlmChunkKind.Error && !committed)
+                        {
+                            lastError = chunk;
+                            if (chunk.Verdict == LlmVerdict.Refused)
+                            {
+                                // content policy follows the prompt — no fallback (same as non-streaming)
+                                yield return chunk;
+                                yield break;
+                            }
+                            _logger.LogWarning("router: {Provider} failed pre-content ({Verdict} — {Detail}); trying next candidate",
+                                provider.Id, chunk.Verdict, chunk.Detail);
+                            if (chunk.Verdict is LlmVerdict.RateLimited or LlmVerdict.AuthFailed)
+                                deadHosts.MarkDead(provider.Id); // amended §6: cool this host, advance
+                            else if (chunk.Verdict != LlmVerdict.ContextWindowExceeded)
+                                deadHosts.RecordFailure(provider.Id); // too-big-for-model is not a host fault
+                            failedPreContent = true;
+                            break;
+                        }
+
+                        if (chunk.Kind == LlmChunkKind.Content && !committed)
+                        {
+                            committed = true;
+                            deadHosts.RecordSuccess(provider.Id);
+                            LyntaiDiagnostics.RecordFirstChunk(provider.Id, effective.Model,
+                                Stopwatch.GetElapsedTime(start).TotalSeconds);
+                            _logger.LogInformation("router: streaming from {Provider} (model {Model})",
+                                provider.Id, effective.Model ?? "(default)");
+                        }
+
+                        yield return chunk; // committed (or benign pre-content Final): pass through unchanged
+                        if (chunk.Kind is LlmChunkKind.Final or LlmChunkKind.Error) yield break;
+                    }
                 }
-            }
 
-            if (committed) yield break;       // stream ended (however it ended) after content — done
-            if (!failedPreContent) yield break; // ended cleanly with no content (empty stream) — done
+                if (committed) yield break;       // stream ended (however it ended) after content — done
+                if (!failedPreContent) yield break; // ended cleanly with no content (empty stream) — done
+            }
+            finally
+            {
+                LyntaiDiagnostics.RecordOutcome(activity, provider.Id, effective.Model, outcome, usage,
+                    Stopwatch.GetElapsedTime(start).TotalSeconds, outcomeDetail);
+                activity?.Dispose();
+            }
         }
 
         yield return lastError ?? LlmChunk.Error(LlmVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
@@ -134,9 +166,12 @@ public sealed class LlmRouter(
     private async Task<LlmReply> TryCompleteAsync(ILlmProvider provider, LlmCandidate candidate, LlmRequest req, CancellationToken ct)
     {
         var effective = req with { Model = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model) };
+        using var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
+        var start = Stopwatch.GetTimestamp();
+        LlmReply reply;
         try
         {
-            return await provider.CompleteAsync(effective, ct).ConfigureAwait(false);
+            reply = await provider.CompleteAsync(effective, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -144,8 +179,11 @@ public sealed class LlmRouter(
         }
         catch (Exception ex)
         {
-            return new LlmReply("", LlmVerdict.Failed, Detail: $"{provider.Id}: {ex.Message}");
+            reply = new LlmReply("", LlmVerdict.Failed, Detail: $"{provider.Id}: {ex.Message}");
         }
+        LyntaiDiagnostics.RecordOutcome(activity, provider.Id, effective.Model, reply.Verdict, reply.Usage,
+            Stopwatch.GetElapsedTime(start).TotalSeconds, reply.Detail);
+        return reply;
     }
 
     private ILlmProvider? SelectLive(LlmCandidate candidate, out string skipReason)

@@ -78,6 +78,37 @@ public class LlmRouterCompleteTests
     }
 
     [Fact]
+    public async Task Context_window_exceeded_advances_without_penalizing_the_host()
+    {
+        // too-big-for-model is not a host fault: the correct remedy is a larger-context candidate
+        var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
+        var small = new FakeLlmProvider("small");
+        small.Replies.Enqueue(new LlmReply("", LlmVerdict.ContextWindowExceeded, Detail: "context_length_exceeded"));
+        var big = new FakeLlmProvider("big");
+        big.Replies.Enqueue(new LlmReply("handled by the big model", LlmVerdict.Ok));
+
+        var reply = await Router(tracker, small, big).CompleteAsync([new("small"), new("big")], Req);
+
+        Assert.Equal("handled by the big model", reply.Text);
+        Assert.False(tracker.IsDead("small")); // threshold is 1 — any recorded failure would kill it
+    }
+
+    [Fact]
+    public async Task Auth_failure_cools_the_host_and_advances()
+    {
+        var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
+        var badKey = new FakeLlmProvider("bad-key");
+        badKey.Replies.Enqueue(new LlmReply("", LlmVerdict.AuthFailed, Detail: "401"));
+        var goodKey = new FakeLlmProvider("good-key");
+        goodKey.Replies.Enqueue(new LlmReply("authorized", LlmVerdict.Ok));
+
+        var reply = await Router(tracker, badKey, goodKey).CompleteAsync([new("bad-key"), new("good-key")], Req);
+
+        Assert.Equal("authorized", reply.Text);
+        Assert.True(tracker.IsDead("bad-key")); // credentials won't fix themselves this window
+    }
+
+    [Fact]
     public async Task All_candidates_rate_limited_surfaces_the_rate_limit()
     {
         var p1 = new FakeLlmProvider("p1");
