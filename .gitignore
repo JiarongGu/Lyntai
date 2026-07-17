@@ -12,6 +12,9 @@ publish/
 *.nupkg
 artifacts/
 
+# BenchmarkDotNet output
+BenchmarkDotNet.Artifacts/
+
 # devtools scratch (family convention: `_`-prefixed, never OS temp)
 devtools/_*
 devtools/screenshots/

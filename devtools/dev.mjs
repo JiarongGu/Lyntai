@@ -35,6 +35,13 @@ switch (cmd) {
     run('dotnet', ['run', '--project', config.playgroundProject, ...args]);
     break;
 
+  case 'bench':
+    // BenchmarkDotNet refuses a Debug build — always Release. Extra args pass to the switcher
+    // (e.g. `node devtools/dev.mjs bench -- --filter *Router*`).
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', ...args]);
+    break;
+
   case 'install-hooks':
     run('git', ['config', 'core.hooksPath', 'devtools/hooks']);
     console.log('git hooks installed (core.hooksPath = devtools/hooks). Pre-commit runs check-sensitive.');
@@ -214,6 +221,6 @@ switch (cmd) {
   }
 
   default:
-    console.log('usage: node devtools/dev.mjs <build|test|e2e|verify|playground|pack|new-migration|install-hooks|check-sensitive>');
+    console.log('usage: node devtools/dev.mjs <build|test|e2e|verify|playground|bench|pack|new-migration|install-hooks|check-sensitive>');
     process.exitCode = cmd ? 1 : 0;
 }

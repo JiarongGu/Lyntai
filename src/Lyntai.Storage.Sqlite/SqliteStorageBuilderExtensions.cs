@@ -9,15 +9,24 @@ namespace Lyntai;
 
 public static class SqliteStorageBuilderExtensions
 {
-    /// <summary>Wire every storage domain to SQLite at <paramref name="dbPath"/>: runs the migrations
-    /// (creating the file/folder as needed) and registers the connection factory + all five stores.</summary>
-    public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, string dbPath)
+    /// <summary>Wire every storage domain to SQLite at <paramref name="dbPath"/>: registers the
+    /// connection factory + all five stores. By default the migrations run now (creating the
+    /// file/folder as needed); set <paramref name="migrateOnFirstUse"/> to defer them to the first
+    /// store access so DI composition does no I/O (AOT/startup-sensitive hosts, container health checks).</summary>
+    public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, string dbPath, bool migrateOnFirstUse = false)
     {
-        var dir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
-        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        MigrationRunnerService.MigrateUp(dbPath);
+        if (migrateOnFirstUse)
+        {
+            builder.Services.AddSingleton<IDbConnectionFactory>(new MigratingConnectionFactory(dbPath));
+        }
+        else
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            MigrationRunnerService.MigrateUp(dbPath);
+            builder.Services.AddSingleton<IDbConnectionFactory>(new SqliteConnectionFactory(dbPath));
+        }
 
-        builder.Services.AddSingleton<IDbConnectionFactory>(new SqliteConnectionFactory(dbPath));
         builder.Services.AddSingleton<IKeyValueStore, SqliteKeyValueStore>();
         builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
         builder.Services.AddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(

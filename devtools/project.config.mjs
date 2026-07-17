@@ -31,6 +31,8 @@ export default {
   testProject: 'tests/Lyntai.Tests',
   /** Sample console app the e2e harness boots against the provider-stub. */
   playgroundProject: 'samples/Lyntai.Playground',
+  /** BenchmarkDotNet project (`bench` runs it in Release; extra args pass to the switcher). */
+  benchProject: 'bench/Lyntai.Benchmarks',
   /** Packable library projects (`pack` runs `dotnet pack` over each → publish/packages/). */
   packableProjects: [
     'src/Lyntai.Core',

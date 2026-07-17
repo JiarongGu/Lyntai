@@ -12,4 +12,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Lyntai.Tests/Lyntai.Tests.csproj" />
   </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/Lyntai.Benchmarks/Lyntai.Benchmarks.csproj" />
+  </Folder>
 </Solution>
