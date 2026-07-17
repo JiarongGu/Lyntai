@@ -3,6 +3,23 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.5.0 — 2026-07-17
+
+Ecosystem & backends (roadmap v0.5) + v1.0 API-freeze groundwork. Additive; no behavioral change.
+
+### Added
+- **`Lyntai.Storage.InMemory`** — a zero-dependency in-memory backend for every storage domain
+  (KV, conversation, memory with dedup/TTL/cap, score, trace, prompt-version). Useful standalone
+  (tests, ephemeral/serverless, no file) and as the second real backend proving the domain-interface
+  seam. Wired via `builder.UseInMemoryStorage()`.
+- **Composite storage** — the mastra "one interface per domain, many backends" pattern expressed
+  through DI: mix backends per domain (SQLite for most, in-memory for one) via a per-domain override
+  (last registration wins); `UseInMemoryStorage()` uses `TryAdd` so it stands alone or backfills gaps.
+- **Public-API baseline** (`ApiSurfaceTests`) — snapshots every packable assembly's public/protected
+  surface against a checked-in baseline so API changes are deliberate (pre-1.0 visible in review;
+  post-1.0 gate a major bump).
+- **`docs/AOT.md`** — per-package trim/AOT status and the Dapper.AOT path for `Lyntai.Storage.Sqlite`.
+
 ## 0.4.0 — 2026-07-17
 
 LLM-ops depth (the roadmap's v0.4). No behavioral change to existing paths; all additive except the

@@ -12,13 +12,14 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.3.0 — routing depth on a production-hardened base.** The v0.1.0 implementation (all of `tasks.md`) plus a multi-agent
-code-review pass (10 confirmed bugs fixed — process lifecycle, verdict mapping, streaming fallback
-parity) and a best-practices research pass (amended 429 semantics, finer verdict taxonomy,
-OpenTelemetry GenAI telemetry, structured output, trim/AOT-ready packaging).
+**v0.5.0 — LLM-ops + ecosystem depth on a production-hardened base.** The v0.1.0 substrate (all of
+`tasks.md`), a multi-agent code-review pass and a best-practices research pass (v0.2), configurable
+routing (v0.3), LLM-ops depth — versioned prompts, judge calibration, memory lifecycle, trace↔span
+bridging (v0.4) — and a second storage backend + public-API baseline (v0.5).
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
-- `docs/ROADMAP.md` — what ships next (v0.3 → v1.0 → platform kit) and the standing maintenance policies.
+- `docs/ROADMAP.md` — what's shipped, what's next, and what's blocked on a hosted repo / DB / native deps.
+- `docs/AOT.md` — per-package trimming/Native-AOT status.
 - `CHANGELOG.md` — per-release detail, breaking changes called out.
 
 ## Packages
@@ -27,6 +28,7 @@ OpenTelemetry GenAI telemetry, structured output, trim/AOT-ready packaging).
 |---|---|
 | `Lyntai.Core` | Interfaces + the fallback router + cortex (prompt/scoring/trace) + DI. No heavy deps. |
 | `Lyntai.Storage.Sqlite` | SQLite implementation of every storage domain (Dapper + FluentMigrator + FTS5). |
+| `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain with SQLite. |
 | `Lyntai.Providers.ClaudeCli` | The authenticated `claude` CLI as a provider (no API key). |
 | `Lyntai.Providers.OpenAiCompatible` | OpenAI / Ollama / OpenRouter-style endpoints over HttpClient. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
@@ -115,6 +117,11 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   `LYNTAI_PROVIDER_CMD` (point the CLI provider at a stub — how the tests/e2e spend zero tokens).
 - **Shared-database safe:** every SQLite object Lyntai creates is prefixed `lyntai_` (including the
   migration version table), so `UseSqliteStorage` can point at an existing app database.
+- **Mix storage backends per domain:** the domain interfaces are independent, so the DI container is
+  the registry — `UseSqliteStorage(path)` for most domains, then override one
+  (`services.AddSingleton<IMemoryStore>(...)`, last registration wins). `UseInMemoryStorage()` stands
+  alone or backfills gaps. `UseSqliteStorage(path, migrateOnFirstUse: true)` defers migration I/O off
+  DI composition.
 
 ### Structured output
 

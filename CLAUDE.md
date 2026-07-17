@@ -17,12 +17,16 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.3.0).** All of `tasks.md`, a review/research hardening pass, then
-roadmap v0.3: `ILlmClient` front door (to a consumer, Lyntai behaves like ONE provider — keep new
-surface behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
-`RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel
-GenAI telemetry (`LyntaiDiagnostics`), structured output (`CompleteJsonAsync`), deferred SQLite
-migrations, `lyntai_`-prefixed SQLite objects, BenchmarkDotNet project. Tests/e2e green.
+**Implemented + hardened (v0.5.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
+v0.3–v0.5: `ILlmClient` front door (to a consumer, Lyntai behaves like ONE provider — keep new surface
+behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
+`RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel GenAI
+telemetry (`LyntaiDiagnostics`) + `RunTrace.TraceId` bridging, structured output (`CompleteJsonAsync`),
+versioned prompts (`IPromptVersionStore`), judge calibration (`JudgeAgreement`/`IPairwiseComparer`),
+memory lifecycle (dedup/TTL/`PruneAsync`), a second storage backend (`Lyntai.Storage.InMemory`) +
+composite-per-domain via DI, deferred SQLite migrations, `lyntai_`-prefixed SQLite objects,
+BenchmarkDotNet, and a public-API baseline (`ApiSurfaceTests` — update the baseline deliberately on any
+public-surface change). Tests/e2e green.
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
   note the dated §6 amendments; §6 is now the default `RoutingPolicy`). Read it first.
 - `docs/ROADMAP.md` — the forward sequence (v0.4+ and standing maintenance policies).
