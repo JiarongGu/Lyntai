@@ -124,6 +124,8 @@ public static class LyntaiDiagnostics
         AgentMeter.CreateHistogram<double>("lyntai.job.duration", unit: "s", description: "Job handler execution time");
     internal static readonly Counter<long> GuardDecisions =
         AgentMeter.CreateCounter<long>("lyntai.guard.decisions", description: "Guard block/replace decisions, tagged by gate + result");
+    internal static readonly Counter<long> CacheRequests =
+        AgentMeter.CreateCounter<long>("lyntai.cache.requests", description: "Response-cache lookups, tagged by result hit/miss");
 
     internal static Activity? StartToolLoop(string consumer)
     {
@@ -187,5 +189,11 @@ public static class LyntaiDiagnostics
             {
                 { "lyntai.guard.gate", gate }, { "lyntai.guard.name", guard }, { "lyntai.guard.result", result },
             });
+    }
+
+    internal static void RecordCacheAccess(bool hit)
+    {
+        if (CacheRequests.Enabled)
+            CacheRequests.Add(1, new TagList { { "lyntai.cache.result", hit ? "hit" : "miss" } });
     }
 }

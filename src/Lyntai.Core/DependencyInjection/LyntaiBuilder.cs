@@ -4,6 +4,8 @@ using Lyntai.Cortex;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Lyntai;
 
@@ -93,6 +95,26 @@ public sealed class LyntaiBuilder
     public LyntaiBuilder AddGuard(Func<IServiceProvider, Lyntai.Guards.IGuard> factory)
     {
         Services.AddSingleton(factory);
+        return this;
+    }
+
+    /// <summary>Enable read-through response caching on the front door: identical cacheable requests (same
+    /// messages / model / params) return a stored Ok completion instead of hitting a provider — cutting
+    /// cost + latency and making repeated runs deterministic. Uses the in-process
+    /// <see cref="Lyntai.Llm.Caching.InMemoryResponseCache"/> by default; register your own
+    /// <see cref="Lyntai.Llm.Caching.IResponseCache"/> before this to back it with a persistent/shared
+    /// store. Streaming, native tool requests, and non-Ok replies are never cached.</summary>
+    public LyntaiBuilder AddResponseCache(Action<CacheOptions>? configure = null)
+    {
+        configure?.Invoke(Options.Cache);
+        Services.TryAddSingleton<Lyntai.Llm.Caching.IResponseCache>(_ => new Lyntai.Llm.Caching.InMemoryResponseCache(Options));
+        // Decorate the front door: a fresh router-backed client wrapped in the cache. Registered here
+        // (during configure) with AddSingleton, so the base TryAddSingleton<ILlmClient> in AddLyntai is
+        // skipped and every ILlmClient resolution — tool loop, orchestrator, scorers — reads through it.
+        Services.AddSingleton<ILlmClient>(sp => new Lyntai.Llm.Caching.CachingLlmClient(
+            new LlmClient(sp.GetRequiredService<ILlmRouter>(), Options),
+            sp.GetRequiredService<Lyntai.Llm.Caching.IResponseCache>(), Options,
+            sp.GetService<ILogger<Lyntai.Llm.Caching.CachingLlmClient>>()));
         return this;
     }
 

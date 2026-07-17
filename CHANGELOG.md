@@ -3,6 +3,30 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.17.0 — 2026-07-18
+
+Read-through response caching on the front door — an opt-in decorator that turns identical repeated
+completions into a stored hit, cutting cost + latency and making repeated runs deterministic. On-brand:
+it wraps the single `ILlmClient` front door, so the whole library (tool loop, orchestrator, scorers,
+pairwise judge) reads through it once enabled, and the cache backend is a swappable seam.
+
+### Added
+- **`AddResponseCache([configure])`** — enables caching. Registers the built-in
+  `InMemoryResponseCache` (size-bounded, per-entry TTL) and decorates the front door with a
+  `CachingLlmClient`. Tunable via `CacheOptions` (`Ttl` default 1h, `MaxEntries` default 1000) or
+  `LYNTAI_CACHE_TTL_SECONDS` / `LYNTAI_CACHE_MAX_ENTRIES`.
+- **`IResponseCache`** (the seam) — register your own before `AddResponseCache` for a persistent or
+  shared backend (Redis, a distributed KV); the front door caches through it transparently.
+- **`ResponseCacheKey.For(req)`** — a stable, length-framed SHA-256 over the output-determining request
+  fields (messages incl. tool calls / tool-result ids / attachments, model, max tokens, temperature, JSON
+  schema). Deliberately excludes `Consumer` (a routing/telemetry tag) so two consumers share a hit.
+- A `lyntai.cache.requests` counter (result `hit`/`miss`) on the `Lyntai.Agents` meter.
+
+### Semantics
+- Cached: only clean `Ok` non-streaming completions. **Never** cached: streaming (delivered live),
+  requests carrying native `Tools` (the tool loop is stateful and its tools can side-effect), and non-Ok
+  replies (a transient failure must not stick). A non-positive `Ttl` disables storing entirely.
+
 ## 0.16.0 — 2026-07-18
 
 Observability for the agentic subsystems. The GenAI telemetry (v0.2) covered the LLM call path; this

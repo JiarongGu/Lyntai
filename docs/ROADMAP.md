@@ -123,6 +123,14 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   `run_job` spans with processed/duration metrics; a guard-decisions counter. An agent run now traces
   end-to-end alongside the `chat` spans. Emits nothing without a listener attached.
 
+### v0.17.0 — response caching (2026-07)
+- ✅ **Read-through response cache** (`AddResponseCache`) — an opt-in decorator over the `ILlmClient` front
+  door: identical cacheable completions return a stored `Ok` reply instead of hitting a provider. Built-in
+  `InMemoryResponseCache` (TTL + size cap) with a swappable `IResponseCache` seam (BYO Redis/distributed);
+  stable length-framed SHA-256 keying over output-determining fields (excludes `Consumer`); streaming,
+  native-tool, and non-Ok replies are never cached. A `lyntai.cache.requests` hit/miss counter. Because it
+  wraps the single front door, the tool loop / orchestrator / scorers all read through it once enabled.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

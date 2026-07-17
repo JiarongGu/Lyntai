@@ -52,6 +52,7 @@ Tests/e2e green.
 - `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (router engine) /
+`Lyntai.Llm.Caching` (response cache) /
 `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` (tool loop + chat orchestration) /
 `Lyntai.Jobs` (durable jobs) / `Lyntai.Guards` (guard rail) / `Lyntai.Secrets` (secret vault) /
 `Lyntai.Storage` / `Lyntai.Processes` / `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the

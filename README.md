@@ -143,6 +143,24 @@ var reply = await llm.CompleteJsonAsync(new LlmRequest
 // (tolerant extraction from prose/fences, one retry, else Failed — design §6)
 ```
 
+### Response caching
+
+Opt in and identical repeated completions come back from a cache instead of a provider — cutting cost and
+latency, and making repeated runs deterministic. It wraps the single front door, so the tool loop,
+orchestrator, and scorers all read through it once enabled.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .AddOpenAiProvider(/* … */)
+    .AddResponseCache(c => c.Ttl = TimeSpan.FromHours(6))); // defaults: 1h TTL, 1000 entries
+```
+
+Keyed by a stable hash of the output-determining request fields (messages, model, max tokens, temperature,
+JSON schema) — `Consumer` is excluded, so two consumers issuing the same request share a hit. Only clean
+`Ok`, non-streaming completions are cached; **streaming**, requests carrying **native tools** (the tool
+loop is stateful), and **non-Ok** replies never are. The in-memory cache is the default; register your own
+`IResponseCache` before `AddResponseCache` to back it with Redis or another shared/persistent store.
+
 ### Observability
 
 Lyntai emits OpenTelemetry GenAI-convention telemetry from the router — the same schema

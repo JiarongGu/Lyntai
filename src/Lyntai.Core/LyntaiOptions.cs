@@ -11,7 +11,7 @@ namespace Lyntai;
 /// <c>LYNTAI_DEFAULT_CANDIDATES</c> (comma-separated <c>providerId[:model]</c>), <c>LYNTAI_MODEL_&lt;CONSUMER&gt;</c>,
 /// <c>LYNTAI_RETRY_FAILED</c>, <c>LYNTAI_RETRY_TIMEOUT</c>, <c>LYNTAI_RETRY_BACKOFF_SECONDS</c>,
 /// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>),
-/// <c>LYNTAI_TOOL_LOOP_MAX_ITERATIONS</c>.
+/// <c>LYNTAI_TOOL_LOOP_MAX_ITERATIONS</c>, <c>LYNTAI_CACHE_TTL_SECONDS</c>, <c>LYNTAI_CACHE_MAX_ENTRIES</c>.
 /// </summary>
 public sealed class LyntaiOptions
 {
@@ -47,6 +47,9 @@ public sealed class LyntaiOptions
 
     /// <summary>Durable-job tuning (lanes, lease, poll interval, retries).</summary>
     public JobOptions Jobs { get; } = new();
+
+    /// <summary>Response-cache tuning (TTL, size cap) for the opt-in <c>AddResponseCache</c>.</summary>
+    public CacheOptions Cache { get; } = new();
 
     /// <summary>Resolve the model for a request: explicit request model wins, then the consumer's
     /// configured default, then the "default" consumer entry, then null (provider default).</summary>
@@ -92,6 +95,12 @@ public sealed class LyntaiOptions
             Jobs.RetryBackoff = TimeSpan.FromSeconds(jb);
         if (int.TryParse(getEnv("LYNTAI_JOBS_DEFAULT_CONCURRENCY"), out var jc) && jc > 0)
             Jobs.DefaultLaneConcurrency = jc;
+
+        // response-cache knobs
+        if (double.TryParse(getEnv("LYNTAI_CACHE_TTL_SECONDS"), out var ct) && ct >= 0)
+            Cache.Ttl = TimeSpan.FromSeconds(ct);
+        if (int.TryParse(getEnv("LYNTAI_CACHE_MAX_ENTRIES"), out var cm) && cm > 0)
+            Cache.MaxEntries = cm;
 
         // routing policy knobs (design §6 is the default; these tune it without code)
         if (int.TryParse(getEnv("LYNTAI_RETRY_FAILED"), out var rf) && rf >= 0)

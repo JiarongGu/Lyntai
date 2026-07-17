@@ -80,6 +80,10 @@ class Lyntai.Agents.ToolStep
     Result : String
     ToString() : String
     Tool : String
+class Lyntai.CacheOptions
+    .ctor()
+    MaxEntries : Int32
+    Ttl : TimeSpan
 class Lyntai.Cortex.AgreementReport
     .ctor(Int32, Double, Double, Nullable<Double>)
     Count : Int32
@@ -366,6 +370,20 @@ enum Lyntai.Jobs.JobStatus
     Running : JobStatus const
     Succeeded : JobStatus const
     value__ : Int32
+class Lyntai.Llm.Caching.CachingLlmClient
+    .ctor(ILlmClient, IResponseCache, LyntaiOptions, ILogger<CachingLlmClient>=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest) : Boolean
+interface Lyntai.Llm.Caching.IResponseCache
+    SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
+    TryGetAsync(String, CancellationToken=) : Task<LlmReply>
+class Lyntai.Llm.Caching.InMemoryResponseCache
+    .ctor(LyntaiOptions, Func<DateTimeOffset>=)
+    SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
+    TryGetAsync(String, CancellationToken=) : Task<LlmReply>
+static class Lyntai.Llm.Caching.ResponseCacheKey
+    For(LlmRequest) : String
 interface Lyntai.Llm.ILlmClient
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
@@ -554,6 +572,7 @@ class Lyntai.LyntaiBuilder
     AddJobHandler(Func<IServiceProvider,IJobHandler>) : LyntaiBuilder
     AddProvider() : LyntaiBuilder
     AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
+    AddResponseCache(Action<CacheOptions>=) : LyntaiBuilder
     AddScorer() : LyntaiBuilder
     AddTool() : LyntaiBuilder
     AddTool(Func<IServiceProvider,ITool>) : LyntaiBuilder
@@ -566,6 +585,7 @@ class Lyntai.LyntaiBuilder
 class Lyntai.LyntaiOptions
     .ctor()
     ApplyEnvOverrides(Func<String,String>=, IEnumerable<KeyValuePair<String,String>>=) : Void
+    Cache : CacheOptions
     DeadHostCooldown : TimeSpan
     DeadHostThreshold : Int32
     DefaultCandidates : List<LlmCandidate>
