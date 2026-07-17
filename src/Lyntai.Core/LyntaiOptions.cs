@@ -43,9 +43,15 @@ public sealed class LyntaiOptions
 
     /// <summary>Apply <c>LYNTAI_*</c> environment overrides. The env getter is injectable so tests
     /// are deterministic; production uses <see cref="Environment.GetEnvironmentVariable(string)"/>.</summary>
-    public void ApplyEnvOverrides(Func<string, string?>? getEnv = null)
+    public void ApplyEnvOverrides(Func<string, string?>? getEnv = null,
+        IEnumerable<KeyValuePair<string, string>>? allEnv = null)
     {
+        // production reads the real environment (both a single-key getter and a full enumeration for
+        // the LYNTAI_MODEL_<CONSUMER> prefix scan); a test that injects getEnv but no allEnv gets an
+        // empty enumeration so the real machine env can't leak into the assertion.
+        var production = getEnv is null;
         getEnv ??= Environment.GetEnvironmentVariable;
+        allEnv ??= production ? EnumerateEnv() : [];
 
         if (double.TryParse(getEnv("LYNTAI_TIMEOUT_SECONDS"), out var t) && t > 0)
             ProviderTimeout = TimeSpan.FromSeconds(t);
@@ -72,5 +78,25 @@ public sealed class LyntaiOptions
         var defaultModel = getEnv("LYNTAI_MODEL_DEFAULT") ?? getEnv("LYNTAI_DEFAULT_MODEL");
         if (!string.IsNullOrWhiteSpace(defaultModel))
             DefaultModelByConsumer["default"] = defaultModel;
+
+        // LYNTAI_MODEL_<CONSUMER> → per-consumer model (the dictionary is case-insensitive, so an
+        // upper-cased env suffix resolves a lower-cased consumer tag like "scoring"). DEFAULT handled above.
+        const string modelPrefix = "LYNTAI_MODEL_";
+        foreach (var (key, value) in allEnv)
+        {
+            if (!key.StartsWith(modelPrefix, StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(value))
+                continue;
+            var consumer = key[modelPrefix.Length..];
+            if (consumer.Length == 0 || consumer.Equals("DEFAULT", StringComparison.OrdinalIgnoreCase))
+                continue;
+            DefaultModelByConsumer[consumer] = value;
+        }
+    }
+
+    private static IEnumerable<KeyValuePair<string, string>> EnumerateEnv()
+    {
+        foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
+            if (e.Key is string k && e.Value is string v)
+                yield return new KeyValuePair<string, string>(k, v);
     }
 }

@@ -58,6 +58,32 @@ public class LyntaiOptionsTests
     }
 
     [Fact]
+    public void Per_consumer_model_env_override_resolves()
+    {
+        var options = new LyntaiOptions();
+        var env = new Dictionary<string, string>
+        {
+            ["LYNTAI_MODEL_SCORING"] = "judge-x",
+            ["LYNTAI_MODEL_DEFAULT"] = "base-x",
+            ["UNRELATED"] = "ignore-me",
+        };
+
+        options.ApplyEnvOverrides(k => env.GetValueOrDefault(k), env);
+
+        Assert.Equal("judge-x", options.ResolveModel("scoring", null)); // upper-cased suffix → lower-cased tag
+        Assert.Equal("base-x", options.ResolveModel("chat", null));     // falls through to "default"
+    }
+
+    [Fact]
+    public void Injected_env_getter_without_allEnv_does_not_scan_the_real_machine()
+    {
+        // a test passing only getEnv must be deterministic — the real machine env is NOT enumerated
+        var options = new LyntaiOptions();
+        options.ApplyEnvOverrides(_ => null);
+        Assert.Empty(options.DefaultModelByConsumer);
+    }
+
+    [Fact]
     public void Model_resolution_request_beats_consumer_beats_default()
     {
         var options = new LyntaiOptions();

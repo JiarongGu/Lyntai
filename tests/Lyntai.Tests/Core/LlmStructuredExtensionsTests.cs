@@ -60,6 +60,24 @@ public class LlmStructuredExtensionsTests
     }
 
     [Fact]
+    public async Task The_retry_appends_a_corrective_message_so_it_differs_from_the_first_shot()
+    {
+        // a deterministic provider re-sent the IDENTICAL request just repeats its prose — the retry
+        // must feed back the bad reply + a JSON-only instruction so the second attempt can differ
+        var p = new FakeLlmProvider("p");
+        p.Replies.Enqueue(new LlmReply("just prose, sorry", LlmVerdict.Ok));
+        p.Replies.Enqueue(new LlmReply("""{"ok":1}""", LlmVerdict.Ok));
+
+        await Client(p).CompleteJsonAsync(Req);
+
+        Assert.Equal(2, p.Calls.Count);
+        var retry = p.Calls[1].Messages;
+        Assert.True(retry.Count > Req.Messages.Count);                                        // strictly more than shot 1
+        Assert.Contains(retry, m => m.Role == "assistant" && m.Content == "just prose, sorry"); // bad reply fed back
+        Assert.Contains(retry, m => m.Role == "user" && m.Content.Contains("ONLY a single JSON object")); // corrective
+    }
+
+    [Fact]
     public async Task Non_ok_verdicts_pass_through_without_retry()
     {
         var p = new FakeLlmProvider("p");

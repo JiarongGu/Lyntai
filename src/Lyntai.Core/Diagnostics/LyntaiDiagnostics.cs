@@ -63,6 +63,10 @@ public static class LyntaiDiagnostics
             {
                 activity.SetTag("gen_ai.usage.input_tokens", usage.InputTokens);
                 activity.SetTag("gen_ai.usage.output_tokens", usage.OutputTokens);
+                if (usage.CacheReadTokens > 0) activity.SetTag("gen_ai.usage.cache_read_tokens", usage.CacheReadTokens);
+                // cost isn't a standard GenAI attribute yet, but a consumer wiring OTel to track spend
+                // has no other hook on the router path — the trace layer's CostUsd is separate.
+                if (usage.CostUsd is not null) activity.SetTag("gen_ai.usage.cost", usage.CostUsd);
             }
         }
 
