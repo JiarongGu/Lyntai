@@ -114,6 +114,34 @@ public class ExtensionsAiProviderTests
     }
 
     [Fact]
+    public async Task Empty_stream_yields_error_not_final_so_the_router_can_fall_over()
+    {
+        var client = new FakeChatClient(); // no updates scripted → zero-content stream
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(client).StreamAsync(Req)) chunks.Add(c);
+
+        Assert.Single(chunks);
+        Assert.Equal(LlmChunkKind.Error, chunks[0].Kind);
+        Assert.Equal(LlmVerdict.Failed, chunks[0].Verdict);
+    }
+
+    [Fact]
+    public async Task Typed_429_from_the_chat_client_maps_to_rate_limited()
+    {
+        var client = new FakeChatClient
+        {
+            // "Too Many Requests" carries the typed status, not "429" text — the old substring
+            // heuristic mapped this to Failed and re-hammered the rate-limited account
+            ThrowOnCall = new HttpRequestException("Too Many Requests", null, System.Net.HttpStatusCode.TooManyRequests),
+        };
+
+        var reply = await Provider(client).CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
+    }
+
+    [Fact]
     public async Task Streaming_exception_surfaces_as_error_chunk()
     {
         var client = new FakeChatClient { ThrowOnCall = new InvalidOperationException("no stream for you") };

@@ -72,6 +72,7 @@ public sealed class LyntaiChatClient(ILlmClient client) : IChatClient
         {
             InputTokenCount = usage.InputTokens,
             OutputTokenCount = usage.OutputTokens,
+            CachedInputTokenCount = usage.CacheReadTokens,
         };
 }
 
