@@ -138,6 +138,13 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   (checked before each call). Front-door decorators now compose deterministically (cache outermost), so a
   cached hit is free and never counts toward the budget. `lyntai.budget.refusals` counter.
 
+### v0.19.0 — semantic memory (2026-07)
+- ✅ **Semantic (embedding-based) memory recall** — an app-provided `IEmbedder` (`AddEmbeddings`) + an
+  `ISemanticMemory` service that remembers facts by embedding and recalls them by cosine similarity
+  (k / minScore), scoped by (task, scope) like the lexical store, dedup by content. Vector persistence is a
+  swappable `IVectorStore` seam with a zero-dependency brute-force `InMemoryVectorStore` default (pgvector /
+  sqlite-vec can follow as a backend package). First cut: no TTL, composer integration stays opt-in.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

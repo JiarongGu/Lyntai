@@ -3,6 +3,30 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.19.0 — 2026-07-18
+
+Semantic memory — meaning-based recall to complement the lexical memory store. Facts are remembered by
+their embedding and recalled by cosine similarity to a query, so retrieval finds relevant memories even
+without keyword overlap. Consistent with Lyntai's shape: the app brings the embedding model, Lyntai owns
+the recall machinery, and the vector backend is a swappable seam.
+
+### Added
+- **`IEmbedder`** (`Lyntai.Embeddings`) — the app-provided embedding model (BYO: an OpenAI/Ollama
+  embeddings endpoint, a local model, …), a batch `EmbedAsync` primitive + a single-text convenience.
+  Registered with **`builder.AddEmbeddings(...)`**.
+- **`ISemanticMemory`** (`Lyntai.Memory`) — `RememberAsync` / `RecallAsync(…, k, minScore)` / `ForgetAsync`,
+  scoped by (taskKey, scope) like the lexical store; re-remembering identical content dedups. Auto-wired
+  when an embedder is registered; a call throws a clear error if none is.
+- **`IVectorStore`** (the vector-persistence seam) with the built-in brute-force **`InMemoryVectorStore`**
+  (exact cosine, zero-dependency). Register your own before `AddLyntai` to back recall with pgvector /
+  sqlite-vec / a vector DB — the recall logic is unchanged.
+
+### Notes
+- The in-memory vector store is exact (brute-force) — fine for up to some thousands of entries per scope;
+  for larger corpora or persistence across restarts, plug in a real vector backend via `IVectorStore`.
+- First cut: no per-entry TTL on semantic memory (the lexical store keeps that); `ForgetAsync` clears a
+  whole scope. Composer/orchestrator integration stays opt-in (call `ISemanticMemory` directly) for now.
+
 ## 0.18.0 — 2026-07-18
 
 Usage budgeting — cost/token governance on the front door, the natural companion to the response cache.

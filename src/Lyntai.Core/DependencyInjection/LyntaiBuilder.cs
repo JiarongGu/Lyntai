@@ -145,6 +145,24 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register the app's embedding model, enabling semantic memory
+    /// (<see cref="Lyntai.Memory.ISemanticMemory"/>). BYO — an OpenAI/Ollama embeddings endpoint, a local
+    /// model, etc.; Lyntai owns the recall machinery. Pair with your own
+    /// <see cref="Lyntai.Memory.IVectorStore"/> (registered before <c>AddLyntai</c>) for a persistent/scaled
+    /// vector backend, or take the in-memory default.</summary>
+    public LyntaiBuilder AddEmbeddings(Lyntai.Embeddings.IEmbedder embedder)
+    {
+        Services.AddSingleton(embedder);
+        return this;
+    }
+
+    /// <summary>Register the embedder from the service provider (for config/dependency-parameterized ones).</summary>
+    public LyntaiBuilder AddEmbeddings(Func<IServiceProvider, Lyntai.Embeddings.IEmbedder> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.</summary>
     public LyntaiBuilder DefaultCandidates(params string[] providerIds) =>
         DefaultCandidates([.. providerIds.Select(id => new LlmCandidate(id))]);

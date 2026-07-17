@@ -63,6 +63,14 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetService<IMemoryStore>(), sp.GetService<ILogger<MemoryPromptComposer>>()));
         services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ILlmClient>()));
 
+        // semantic memory: composes the app's IEmbedder (registered via AddEmbeddings) with a vector store
+        // (in-memory default; register your own IVectorStore for pgvector/etc.). Resolves always; a call
+        // throws a clear error if no embedder was registered.
+        services.TryAddSingleton<Lyntai.Memory.IVectorStore, Lyntai.Memory.InMemoryVectorStore>();
+        services.TryAddSingleton<Lyntai.Memory.ISemanticMemory>(sp => new Lyntai.Memory.SemanticMemory(
+            sp.GetService<Lyntai.Embeddings.IEmbedder>(), sp.GetRequiredService<Lyntai.Memory.IVectorStore>(),
+            sp.GetService<ILogger<Lyntai.Memory.SemanticMemory>>()));
+
         // agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-
         // agnostically over the front door (works with zero tools too — it degenerates to one completion)
         services.TryAddSingleton<IToolRegistry>(sp => new ToolRegistry(sp.GetServices<ITool>()));

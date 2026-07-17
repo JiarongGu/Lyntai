@@ -249,6 +249,10 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
     AgentActivitySourceName : String const
     AgentMeterName : String const
     MeterName : String const
+static class Lyntai.Embeddings.EmbedderExtensions
+    EmbedAsync(IEmbedder, String, CancellationToken=) : Task<Single[]>
+interface Lyntai.Embeddings.IEmbedder
+    EmbedAsync(IReadOnlyList<String>, CancellationToken=) : Task<IReadOnlyList<Single[]>>
 class Lyntai.Guards.DenylistGuard
     .ctor(IReadOnlyList<String>, String=)
     InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
@@ -607,6 +611,8 @@ class Lyntai.Llm.Routing.RoutingPolicy
     Retry(LlmVerdict, Int32) : RoutingPolicy
     RetryBackoff : TimeSpan
 class Lyntai.LyntaiBuilder
+    AddEmbeddings(Func<IServiceProvider,IEmbedder>) : LyntaiBuilder
+    AddEmbeddings(IEmbedder) : LyntaiBuilder
     AddGuard() : LyntaiBuilder
     AddGuard(Func<IServiceProvider,IGuard>) : LyntaiBuilder
     AddJobHandler() : LyntaiBuilder
@@ -640,6 +646,43 @@ class Lyntai.LyntaiOptions
     ResolveModel(String, String) : String
     Routing : RoutingPolicy
     ToolLoopMaxIterations : Int32
+interface Lyntai.Memory.ISemanticMemory
+    ForgetAsync(String, String, CancellationToken=) : Task
+    RecallAsync(String, String, String, Int32=, Double=, CancellationToken=) : Task<IReadOnlyList<SemanticHit>>
+    RememberAsync(String, String, String, CancellationToken=) : Task
+interface Lyntai.Memory.IVectorStore
+    RemoveCollectionAsync(String, CancellationToken=) : Task
+    SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
+    UpsertAsync(String, String, Single[], String, CancellationToken=) : Task
+class Lyntai.Memory.InMemoryVectorStore
+    .ctor()
+    RemoveCollectionAsync(String, CancellationToken=) : Task
+    SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
+    UpsertAsync(String, String, Single[], String, CancellationToken=) : Task
+class Lyntai.Memory.SemanticHit
+    .ctor(String, Double)
+    Content : String
+    Deconstruct(String&, Double&) : Void
+    Equals(Object) : Boolean
+    Equals(SemanticHit) : Boolean
+    GetHashCode() : Int32
+    Score : Double
+    ToString() : String
+class Lyntai.Memory.SemanticMemory
+    .ctor(IEmbedder, IVectorStore, ILogger<SemanticMemory>=)
+    ForgetAsync(String, String, CancellationToken=) : Task
+    RecallAsync(String, String, String, Int32=, Double=, CancellationToken=) : Task<IReadOnlyList<SemanticHit>>
+    RememberAsync(String, String, String, CancellationToken=) : Task
+class Lyntai.Memory.VectorMatch
+    .ctor(String, String, Double)
+    Deconstruct(String&, String&, Double&) : Void
+    Equals(Object) : Boolean
+    Equals(VectorMatch) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    Payload : String
+    Score : Double
+    ToString() : String
 interface Lyntai.Processes.IProcessRunner
     RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
     StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>

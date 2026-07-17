@@ -161,6 +161,28 @@ JSON schema) — `Consumer` is excluded, so two consumers issuing the same reque
 loop is stateful), and **non-Ok** replies never are. The in-memory cache is the default; register your own
 `IResponseCache` before `AddResponseCache` to back it with Redis or another shared/persistent store.
 
+### Semantic memory
+
+The lexical memory store (`IMemoryStore`) recalls by keyword (FTS-trigram). For meaning-based recall, bring
+an embedding model and use `ISemanticMemory` — facts are remembered by their embedding and recalled by
+cosine similarity, so a query finds relevant memories without sharing keywords.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .AddOpenAiProvider(/* … */)
+    .AddEmbeddings(myEmbedder));   // your IEmbedder — an embeddings endpoint or local model
+
+var memory = sp.GetRequiredService<ISemanticMemory>();
+await memory.RememberAsync(task: "support", scope: "faq", "You can cancel your subscription anytime.");
+var hits = await memory.RecallAsync("support", "faq", query: "how do I stop paying?", k: 5);
+// hits ranked by similarity, each with a Content + cosine Score
+```
+
+Vectors live in a swappable `IVectorStore` — the built-in `InMemoryVectorStore` (exact brute-force cosine)
+is the default; register your own before `AddLyntai` to back recall with pgvector, sqlite-vec, or a vector
+DB without changing the recall code. Scoped by (task, scope) like the lexical store; re-remembering
+identical content dedups.
+
 ### Usage budgeting
 
 Cap spend. The budget meters token/cost usage across the front door and refuses further calls once a cap is
