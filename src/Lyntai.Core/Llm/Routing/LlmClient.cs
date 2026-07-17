@@ -9,5 +9,5 @@ public sealed class LlmClient(ILlmRouter router, LyntaiOptions options) : ILlmCl
     public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
         router.StreamAsync(options.DefaultCandidates, req, ct);
 
-    public bool SupportsToolCalls => router.SupportsToolCalls(options.DefaultCandidates);
+    public bool SupportsToolCalls(LlmRequest req) => router.SupportsToolCalls(options.DefaultCandidates, req);
 }

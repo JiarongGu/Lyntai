@@ -235,7 +235,7 @@ public class ExtensionsAiProviderTests
             .DefaultCandidates("meai"));
         using var sp = services.BuildServiceProvider();
 
-        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls); // bridge → router → client capability flows
+        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(Req)); // bridge → router → client capability flows
 
         var result = await sp.GetRequiredService<IToolLoop>()
             .RunAsync(new LlmRequest { Messages = [LlmMessage.User("shout hi")] });

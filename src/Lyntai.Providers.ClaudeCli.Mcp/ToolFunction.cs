@@ -33,15 +33,26 @@ internal sealed class ToolFunction(ITool tool) : AIFunction
     {
         var obj = new JsonObject();
         foreach (var (key, value) in arguments)
-            obj[key] = value switch
-            {
-                null => null,
-                JsonNode n => n.DeepClone(),
-                JsonElement e => JsonNode.Parse(e.GetRawText()),
-                var other => JsonValue.Create(other.ToString()),
-            };
+            obj[key] = ToNode(value);
         return obj.ToJsonString();
     }
+
+    /// <summary>An argument value → a JSON node, preserving type. Values arrive as <see cref="JsonElement"/>
+    /// from the wire but can be boxed CLR primitives; those must keep their JSON type (a <c>3</c> must not
+    /// become <c>"3"</c>). Reflection-free (typed <see cref="JsonValue.Create(bool)"/> etc.).</summary>
+    private static JsonNode? ToNode(object? value) => value switch
+    {
+        null => null,
+        JsonNode n => n.DeepClone(),
+        JsonElement e => JsonNode.Parse(e.GetRawText()),
+        bool b => JsonValue.Create(b),
+        int i => JsonValue.Create(i),
+        long l => JsonValue.Create(l),
+        double d => JsonValue.Create(d),
+        decimal m => JsonValue.Create(m),
+        string s => JsonValue.Create(s),
+        var other => JsonValue.Create(other.ToString()),
+    };
 
     private static JsonElement ParseSchema(string? json)
     {

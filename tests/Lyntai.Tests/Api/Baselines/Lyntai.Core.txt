@@ -201,7 +201,7 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
 interface Lyntai.Llm.ILlmClient
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls : Boolean
+    SupportsToolCalls(LlmRequest) : Boolean
 interface Lyntai.Llm.ILlmProvider
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
@@ -211,7 +211,7 @@ interface Lyntai.Llm.ILlmProvider
 interface Lyntai.Llm.ILlmRouter
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(IReadOnlyList<LlmCandidate>) : Boolean
+    SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
 class Lyntai.Llm.LlmCandidate
     .ctor(String, String=)
     Deconstruct(String&, String&) : Void
@@ -349,12 +349,12 @@ class Lyntai.Llm.Routing.LlmClient
     .ctor(ILlmRouter, LyntaiOptions)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls : Boolean
+    SupportsToolCalls(LlmRequest) : Boolean
 class Lyntai.Llm.Routing.LlmRouter
     .ctor(IEnumerable<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILogger<LlmRouter>=)
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(IReadOnlyList<LlmCandidate>) : Boolean
+    SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
 class Lyntai.Llm.Routing.RoutingPolicy
     .ctor()
     ActionFor(LlmVerdict) : FallbackAction

@@ -39,9 +39,9 @@ public sealed class ToolLoop(
 
         var budget = maxIterations ?? options.ToolLoopMaxIterations;
 
-        // Native tool-calling when the routing supports it (robust, structured); otherwise the
-        // provider-agnostic prompt protocol below. Both execute the same registered ITools.
-        return client.SupportsToolCalls
+        // Native tool-calling when the routing supports it for THIS request (robust, structured);
+        // otherwise the provider-agnostic prompt protocol below. Both execute the same registered ITools.
+        return client.SupportsToolCalls(req)
             ? await RunNativeAsync(req, tools, budget, steps, ct).ConfigureAwait(false)
             : await RunPromptAsync(req, tools, budget, steps, ct).ConfigureAwait(false);
     }
@@ -94,7 +94,11 @@ public sealed class ToolLoop(
 
         for (var iteration = 0; iteration < budget; iteration++)
         {
-            var reply = await client.CompleteJsonAsync(req with { Messages = [.. messages] }, ct).ConfigureAwait(false);
+            // Tools = null: the prompt protocol drives tool use over TEXT; a caller-supplied req.Tools
+            // must not also be sent as native declarations (the interface says tools come from the
+            // registry), or a partially-tool-aware model gets both and emits a native tool_calls turn
+            // this path never parses.
+            var reply = await client.CompleteJsonAsync(req with { Messages = [.. messages], Tools = null }, ct).ConfigureAwait(false);
             if (reply.Verdict != LlmVerdict.Ok)
                 return new ToolLoopResult("", reply.Verdict, steps, reply.Detail); // surface refusal / all-down as-is
 

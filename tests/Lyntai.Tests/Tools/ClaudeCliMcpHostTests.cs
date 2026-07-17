@@ -21,12 +21,17 @@ public class ClaudeCliMcpHostTests
             "echoes its message",
             """{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}""");
 
-        await using var host = await McpToolHost.StartAsync([echo]);
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync([echo], token);
         Assert.StartsWith("http://127.0.0.1:", host.Url);
         Assert.EndsWith("/mcp", host.Url);
 
-        // connect exactly as the CLI would: an MCP client over the hosted HTTP endpoint
-        var transport = new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri(host.Url) });
+        // connect exactly as the CLI would: an MCP client over the hosted HTTP endpoint, with the bearer
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
         await using var client = await McpClient.CreateAsync(transport);
         var tools = await McpToolset.FromClientAsync(client);
 
@@ -40,12 +45,28 @@ public class ClaudeCliMcpHostTests
     }
 
     [Fact]
-    public void McpConfig_points_the_cli_at_the_host_over_http()
+    public async Task Host_rejects_requests_without_the_bearer_token()
     {
-        var json = McpCliToolProvisioner.McpConfigJson("http://127.0.0.1:1234/mcp");
+        ITool echo = new FunctionTool("echo", (a, _) => Task.FromResult(a));
+        await using var host = await McpToolHost.StartAsync([echo], "the-real-token");
+
+        // no Authorization header → the MCP handshake must fail (401)
+        var transport = new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri(host.Url) });
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            await using var client = await McpClient.CreateAsync(transport);
+            await McpToolset.FromClientAsync(client);
+        });
+    }
+
+    [Fact]
+    public void McpConfig_points_the_cli_at_the_host_over_http_with_the_bearer()
+    {
+        var json = McpCliToolProvisioner.McpConfigJson("http://127.0.0.1:1234/mcp", "sekret");
         Assert.Contains("\"type\":\"http\"", json);
         Assert.Contains("http://127.0.0.1:1234/mcp", json);
         Assert.Contains("lyntai", json);
+        Assert.Contains("Bearer sekret", json); // the CLI is told the per-host token
     }
 
     [Fact]

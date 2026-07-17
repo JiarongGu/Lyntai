@@ -10,7 +10,10 @@ public sealed class FakeLlmClient : ILlmClient
     public Queue<LlmReply> Replies { get; } = new();
     public List<LlmRequest> Calls { get; } = [];
 
-    public bool SupportsToolCalls { get; set; }
+    /// <summary>Backs the <see cref="ILlmClient.SupportsToolCalls"/> method (a settable flag for tests).</summary>
+    public bool SupportsToolCallsResult { get; set; }
+
+    public bool SupportsToolCalls(LlmRequest req) => SupportsToolCallsResult;
 
     public Func<LlmRequest, IReadOnlyList<LlmChunk>>? StreamScript { get; set; }
 

@@ -220,15 +220,17 @@ public sealed class LlmRouter(
     /// <summary>Native tool support for a candidate list: the first live candidate (registered,
     /// available, not on cooldown) decides — matching how the router commits to the first working one.
     /// A tool-capable fallback that would never be reached must not flip this true.</summary>
-    public bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates)
+    public bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req)
     {
         var deduped = CandidateDedup.Dedup(candidates);
         var soleCandidate = deduped.Count == 1;
         foreach (var candidate in deduped)
         {
-            // the candidate's own model is fine for the availability/cooldown probe (it only keys the
-            // dead-host lookup); no request/consumer context is needed to answer "is it tool-capable"
-            var provider = SelectLive(candidate, candidate.Model, soleCandidate, out _);
+            // resolve the SAME effective model CompleteAsync would (so the cooldown key matches under
+            // ProviderAndModel scope) — else the probe could deem a candidate live that the completion
+            // then skips, silently dropping tools
+            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
+            var provider = SelectLive(candidate, effectiveModel, soleCandidate, out _);
             if (provider is not null) return provider.SupportsToolCalls; // first live candidate decides
         }
         return false;

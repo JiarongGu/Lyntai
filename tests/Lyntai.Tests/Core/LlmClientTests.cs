@@ -80,7 +80,7 @@ public class LlmClientTests
     public void SupportsToolCalls_is_false_when_the_default_provider_has_no_native_support()
     {
         using var sp = Build(new FakeLlmProvider("plain")); // DIM default false
-        Assert.False(sp.GetRequiredService<ILlmClient>().SupportsToolCalls);
+        Assert.False(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(Req));
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class LlmClientTests
         var native = new FakeLlmProvider("native") { SupportsToolCalls = true };
         var plain = new FakeLlmProvider("plain");
         using var sp = Build(native, plain);
-        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls);
+        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(Req));
     }
 
     [Fact]
@@ -99,6 +99,6 @@ public class LlmClientTests
         var down = new FakeLlmProvider("down") { IsAvailable = false, SupportsToolCalls = true };
         var plain = new FakeLlmProvider("plain");
         using var sp = Build(down, plain);
-        Assert.False(sp.GetRequiredService<ILlmClient>().SupportsToolCalls); // the reachable one isn't tool-capable
+        Assert.False(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(Req)); // the reachable one isn't tool-capable
     }
 }

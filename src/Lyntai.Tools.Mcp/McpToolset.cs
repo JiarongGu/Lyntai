@@ -38,7 +38,13 @@ public static class McpToolset
         var text = string.Join("\n", result.Content.OfType<TextContentBlock>().Select(b => b.Text));
         if (text.Length == 0 && result.StructuredContent is { } structured)
             text = structured.GetRawText();
-        return result.IsError == true ? $"error: {text}" : text;
+        // no text and no structured content, but non-text blocks (image/audio/resource) — don't feed an
+        // EMPTY observation back (the model would think the tool produced nothing); describe the blocks
+        if (text.Length == 0 && result.Content.Count > 0)
+            text = string.Join("\n", result.Content.Select(b => $"[{b.Type} content]"));
+        if (result.IsError == true)
+            return $"error: {(text.Length > 0 ? text : "tool reported an error with no message")}";
+        return text;
     }
 
     /// <summary>JSON arguments string → the dictionary the MCP call wants (values kept as detached

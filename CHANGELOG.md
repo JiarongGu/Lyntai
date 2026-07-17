@@ -3,6 +3,35 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.13.1 — 2026-07-18
+
+Correctness + resource-lifecycle fixes from an adversarial review of the v0.9–v0.13 tool-calling code
+(two independent review passes). One small API refinement (`SupportsToolCalls` now takes the request).
+
+### Fixed
+- **Kestrel host / `WebApplication` leaks** — the CLI MCP host (`McpToolHost.StartAsync`) and provisioner
+  (`McpCliToolProvisioner`) didn't dispose the started host if a later step threw (port-bind failure,
+  temp-file write failure, cancellation). Both now dispose on any failure path.
+- **`req.Tools` leaked into the prompt-fallback tool loop** — a caller-supplied `LlmRequest.Tools` was
+  sent as native declarations *alongside* the JSON protocol prompt, so a partially-tool-aware model could
+  emit a native tool-call turn the prompt path never parses. The prompt path now clears `Tools`.
+- **Typed tool arguments were stringified** — the MEAI bridge and CLI tool-host serialized boxed CLR
+  primitives (`3`, `true`) as JSON strings (`"3"`, `"true"`), so a tool with an `integer`/`boolean`
+  schema got the wrong type. Primitives now keep their JSON type (reflection-free).
+- **MCP tool results with only non-text blocks** (image/audio/resource) fed an *empty* observation back
+  to the model. `McpToolset.ToText` now describes non-text blocks instead of returning "".
+- **Capability-vs-routing mismatch** — `SupportsToolCalls` probed a candidate using its raw model while
+  `CompleteAsync` resolved a per-consumer/request model, so under `ProviderAndModel` cooldown scope the
+  loop could pick the native path while the router served a different (non-native) candidate, silently
+  dropping tools. The probe now takes the `LlmRequest` and resolves the identical model/cooldown key
+  (minor API change: `ILlmClient.SupportsToolCalls(req)` / `ILlmRouter.SupportsToolCalls(candidates, req)`).
+
+### Security
+- **The CLI tool-host now requires a per-call bearer token.** The localhost MCP endpoint *executes* the
+  app's tools; a random token is generated per host, passed to the CLI via the `--mcp-config` headers,
+  and required on every request (401 otherwise) — so another local process can't invoke the tools during
+  the call window. (Loopback-only binding remains the primary mitigation.)
+
 ## 0.13.0 — 2026-07-18
 
 Proper tool-calling for the **claude CLI** provider, plus a test-stability fix. Additive.

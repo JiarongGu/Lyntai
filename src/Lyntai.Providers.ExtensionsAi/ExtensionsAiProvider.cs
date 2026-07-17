@@ -167,7 +167,15 @@ public sealed class ExtensionsAiProvider(
                 null => null,
                 JsonNode n => n.DeepClone(),
                 JsonElement e => JsonNode.Parse(e.GetRawText()),
-                var other => JsonValue.Create(other.ToString()), // rare fallback — stringify, AOT-safe
+                // MEAI clients can hand back boxed CLR primitives — keep their JSON type (a 3 must not
+                // become "3"); typed JsonValue.Create overloads are reflection-free (stays AOT-clean)
+                bool b => JsonValue.Create(b),
+                int i => JsonValue.Create(i),
+                long l => JsonValue.Create(l),
+                double d => JsonValue.Create(d),
+                decimal m => JsonValue.Create(m),
+                string s => JsonValue.Create(s),
+                var other => JsonValue.Create(other.ToString()), // last-resort fallback
             };
         return obj.ToJsonString();
     }

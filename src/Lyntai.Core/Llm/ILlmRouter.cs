@@ -11,7 +11,9 @@ public interface ILlmRouter
 
     IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
 
-    /// <summary>Whether native tool-calling is available for <paramref name="candidates"/> — true iff
-    /// the first live (registered + available) candidate is a tool-capable provider. Default false.</summary>
-    bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates) => false;
+    /// <summary>Whether native tool-calling is available for <paramref name="candidates"/> serving
+    /// <paramref name="req"/> — true iff the first live (registered + available + not on cooldown)
+    /// candidate is a tool-capable provider. Takes the request so it resolves the SAME effective model /
+    /// cooldown key that <see cref="CompleteAsync"/> will, avoiding a probe-vs-serve mismatch. Default false.</summary>
+    bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) => false;
 }

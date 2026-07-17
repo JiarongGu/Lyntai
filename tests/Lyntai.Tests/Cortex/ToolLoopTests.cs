@@ -151,7 +151,7 @@ public class ToolLoopTests
 
     private static ToolLoop NativeLoop(FakeLlmClient client, params ITool[] tools)
     {
-        client.SupportsToolCalls = true;
+        client.SupportsToolCallsResult = true;
         return new ToolLoop(client, new ToolRegistry(tools), Options());
     }
 
@@ -226,7 +226,7 @@ public class ToolLoopTests
             client.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok)
             { ToolCalls = [new LlmToolCall($"call_{i}", "echo", "{}")] });
 
-        client.SupportsToolCalls = true;
+        client.SupportsToolCallsResult = true;
         var result = await new ToolLoop(client, new ToolRegistry([Echo()]), Options(max: 3)).RunAsync(Ask());
 
         Assert.Equal(LlmVerdict.Failed, result.Verdict);

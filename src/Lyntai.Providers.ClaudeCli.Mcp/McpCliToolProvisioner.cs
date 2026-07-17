@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Lyntai.Agents;
 
@@ -17,26 +18,44 @@ internal sealed class McpCliToolProvisioner(IEnumerable<ITool> tools) : ICliTool
         var toolList = tools.ToList();
         if (toolList.Count == 0) return new CliToolSession([]);
 
-        var host = await McpToolHost.StartAsync(toolList, ct).ConfigureAwait(false);
-        var mcpConfigPath = WriteTemp("mcp", McpConfigJson(host.Url));
-        var settingsPath = WriteTemp("settings", SettingsJson());
-
-        // allow-list ONLY our server's tools so they run non-interactively in print mode; built-ins stay off
-        string[] args = ["--mcp-config", mcpConfigPath, "--settings", settingsPath, "--allowedTools", $"mcp__{McpToolHost.ServerName}__*"];
-
-        return new CliToolSession(args, async () =>
+        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)); // per-host bearer
+        var host = await McpToolHost.StartAsync(toolList, token, ct).ConfigureAwait(false);
+        string? mcpConfigPath = null, settingsPath = null;
+        try
         {
+            mcpConfigPath = WriteTemp("mcp", McpConfigJson(host.Url, token));
+            settingsPath = WriteTemp("settings", SettingsJson());
+
+            // allow-list ONLY our server's tools so they run non-interactively in print mode; built-ins stay off
+            string[] args = ["--mcp-config", mcpConfigPath, "--settings", settingsPath, "--allowedTools", $"mcp__{McpToolHost.ServerName}__*"];
+
+            return new CliToolSession(args, async () =>
+            {
+                await host.DisposeAsync().ConfigureAwait(false);
+                TryDelete(mcpConfigPath);
+                TryDelete(settingsPath);
+            });
+        }
+        catch
+        {
+            // never leak the started host (or a half-written temp file) if writing config throws
             await host.DisposeAsync().ConfigureAwait(false);
-            TryDelete(mcpConfigPath);
-            TryDelete(settingsPath);
-        });
+            if (mcpConfigPath is not null) TryDelete(mcpConfigPath);
+            if (settingsPath is not null) TryDelete(settingsPath);
+            throw;
+        }
     }
 
-    internal static string McpConfigJson(string url) => new JsonObject
+    internal static string McpConfigJson(string url, string authToken) => new JsonObject
     {
         ["mcpServers"] = new JsonObject
         {
-            [McpToolHost.ServerName] = new JsonObject { ["type"] = "http", ["url"] = url },
+            [McpToolHost.ServerName] = new JsonObject
+            {
+                ["type"] = "http",
+                ["url"] = url,
+                ["headers"] = new JsonObject { ["Authorization"] = $"Bearer {authToken}" },
+            },
         },
     }.ToJsonString();
 
