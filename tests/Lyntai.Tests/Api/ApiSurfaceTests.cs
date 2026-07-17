@@ -25,6 +25,7 @@ public class ApiSurfaceTests
         "Lyntai.Providers.ClaudeCli",
         "Lyntai.Providers.OpenAiCompatible",
         "Lyntai.Providers.ExtensionsAi",
+        "Lyntai.Providers.Local",
     ];
 
     // anchor a known public type from each assembly so it's loaded + resolvable by simple name
@@ -37,6 +38,7 @@ public class ApiSurfaceTests
         ["Lyntai.Providers.ClaudeCli"] = typeof(Lyntai.Providers.ClaudeCli.ClaudeCliProvider).Assembly,
         ["Lyntai.Providers.OpenAiCompatible"] = typeof(Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider).Assembly,
         ["Lyntai.Providers.ExtensionsAi"] = typeof(Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider).Assembly,
+        ["Lyntai.Providers.Local"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,
     };
 
     private static string BaselineDir => Path.GetFullPath(Path.Combine(

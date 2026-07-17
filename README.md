@@ -12,11 +12,12 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.7.0 — bring-your-own resources, three storage backends, LLM-ops depth, on a production-hardened
-base.** The v0.1.0 substrate (all of `tasks.md`), a multi-agent code-review + best-practices research
-pass (v0.2), configurable routing (v0.3), LLM-ops depth (v0.4), public-API baseline + a second storage
-backend (v0.5), a PostgreSQL backend + live-Ollama validation (v0.6), and IoC seams so the app owns its
-resource lifecycle — process execution, HttpClient, DB connection/schema, provider presets (v0.7).
+**v0.8.0 — in-process local inference, bring-your-own resources, three storage backends, LLM-ops depth,
+on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a multi-agent code-review +
+best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops depth (v0.4), public-API
+baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama validation (v0.6), IoC
+seams so the app owns its resource lifecycle — process execution, HttpClient, DB connection/schema,
+provider presets (v0.7), and a local GGUF provider via LLamaSharp (v0.8).
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
 - `docs/ROADMAP.md` — what's shipped, what's next, and what's blocked on a hosted repo / DB / native deps.
@@ -34,6 +35,7 @@ resource lifecycle — process execution, HttpClient, DB connection/schema, prov
 | `Lyntai.Providers.ClaudeCli` | The authenticated `claude` CLI as a provider (no API key). |
 | `Lyntai.Providers.OpenAiCompatible` | OpenAI / Ollama / OpenRouter-style endpoints over HttpClient. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
+| `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
 
 Each `src/*` is an independent NuGet package depending only on `Lyntai.Core` — add just what you need.
 
@@ -180,6 +182,32 @@ services.AddSingleton<IProcessRunner>(new MySandboxedProcessRunner());
 
 Anything you register wins over Lyntai's default (the defaults use `TryAdd`), and every storage domain
 is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement wholesale.
+
+### Local in-process inference (`Lyntai.Providers.Local`)
+
+Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess. Reference the
+`LLamaSharp.Backend.*` that matches your hardware alongside `Lyntai.Providers.Local`:
+
+```xml
+<PackageReference Include="Lyntai.Providers.Local" Version="0.8.0" />
+<PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />  <!-- or .Cuda12 / .Vulkan / .Metal -->
+```
+
+```csharp
+services.AddLyntai(cfg =>
+{
+    cfg.AddLocalProvider("models/Phi-3-mini-4k-instruct-q4.gguf", o =>
+    {
+        o.GpuLayerCount = 0;      // 0 = CPU; raise to offload layers to the GPU
+        o.ContextSize = 4096;     // null = the model's own trained maximum
+    });
+    cfg.DefaultCandidates("local");
+});
+```
+
+The model loads lazily on first use and generations are serialized (one local model, one at a time).
+It's just another `ILlmProvider`, so it fits anywhere in a fallback candidate list — e.g. a hosted
+model first, `"local"` as an offline backstop.
 
 ## Dev loop
 

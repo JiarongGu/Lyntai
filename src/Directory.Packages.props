@@ -24,6 +24,9 @@
     <PackageVersion Include="Microsoft.Extensions.AI" Version="10.8.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.0" />
 
+    <!-- in-process local inference (managed only; the consumer app picks an LLamaSharp.Backend.*) -->
+    <PackageVersion Include="LLamaSharp" Version="0.27.0" />
+
     <!-- tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

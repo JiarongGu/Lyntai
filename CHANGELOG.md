@@ -3,6 +3,24 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.8.0 — 2026-07-17
+
+New provider package for in-process local inference. Additive — no changes to existing packages.
+
+### Added
+- **`Lyntai.Providers.Local`** — runs a local GGUF model in-process via LLamaSharp (llama.cpp), wired
+  with `builder.AddLocalProvider(modelPath, …)`. No network, no API key, no external process; the
+  model loads lazily and is reused, and generations are serialized (one local model, one at a time).
+  It classifies to the same verdicts the router expects (produced answer → `Ok`; empty generation or
+  a load/inference fault → `Failed` so the router falls over; inactivity → `Timeout`).
+  - **Managed-only on purpose:** the package references `LLamaSharp` but *not* a backend, so it isn't
+    nailed to one runtime — the consuming app adds the `LLamaSharp.Backend.*` (Cpu/Cuda/Vulkan/Metal)
+    that matches its hardware. A missing backend surfaces as a `Failed` verdict on the first call
+    (the router then falls over), not a startup crash.
+  - Applies each model's own chat template (from its GGUF metadata) so instruct-tuned models get the
+    prompt format they were trained on. Opt-in live tests gate on `LYNTAI_LIVE_LLAMA` +
+    `LYNTAI_LLAMA_MODEL` (like the Ollama live tests), so the default run stays native-dependency-free.
+
 ## 0.7.1 — 2026-07-17
 
 Correctness fixes from a high-effort multi-agent code review of the v0.3–v0.7 code. No API break

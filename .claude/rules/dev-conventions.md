@@ -9,7 +9,8 @@ Sonora — same family patterns); deviations need a reason. The design contract 
 - **Interface in Core, impl in an adapter.** Every abstraction (`ILlmProvider`, the storage domain
   interfaces, `IScorer`, …) lives in `Lyntai.Core`. Concrete implementations live in adapter packages
   (`Lyntai.Storage.Sqlite`, `Lyntai.Providers.ClaudeCli`, `Lyntai.Providers.OpenAiCompatible`,
-  `Lyntai.Providers.ExtensionsAi`) that depend **only on Core** — **never adapter→adapter**. Consumers
+  `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`) that depend **only on Core** —
+  **never adapter→adapter**. Consumers
   compose via DI. This is what lets a new backend/provider be a new package, not a fork.
 - **Each `src/*` is NuGet-packable** (`IsPackable=true`, `PackageId`, description). `samples/` and `tests/`
   are not. Version comes from `src/Directory.Build.props` (`VersionPrefix`) — the single source.

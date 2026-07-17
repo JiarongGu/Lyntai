@@ -52,12 +52,18 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   (`AddOpenAiProvider`/`AddOllamaProvider`/`AddOpenRouterProvider`/`AddAzureOpenAiProvider`) alongside
   the existing BYO `ILlmProvider` path.
 
+### v0.8.0 — in-process local inference (2026-07)
+- ✅ **`Lyntai.Providers.Local`** (LLamaSharp / llama.cpp, deferred §9) — runs a local GGUF model
+  in-process via `AddLocalProvider(modelPath)`; no network/key/subprocess. Ships **managed-only** so it
+  isn't nailed to one runtime — the consuming app picks the `LLamaSharp.Backend.*` for its hardware; a
+  missing backend degrades to a `Failed` verdict (router falls over), not a crash. Applies each model's
+  own GGUF chat template. Wiring is unit-tested; real inference gated behind opt-in live tests
+  (`LYNTAI_LIVE_LLAMA` + `LYNTAI_LLAMA_MODEL`), so the default run stays native-dependency-free.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure
 These need something only the maintainer can provision; the design admits them without breaking changes.
-- **`Lyntai.Providers.Local`** (LLamaSharp, in-process, deferred §9) — heavy native dependency +
-  multi-GB model downloads to verify.
 - **Real `PackageProjectUrl`/`RepositoryUrl`** + **SourceLink activation** — gated on the repo being
   hosted. Sources are already embedded in the PDBs via `EmbedAllSources`, so step-into debugging works
   today; SourceLink is a one-package add once there's a remote to resolve. (Docs live in the repo —
@@ -69,7 +75,7 @@ These need something only the maintainer can provision; the design admits them w
   deliberately, so pre-1.0 breaks are visible in review and post-1.0 gate a major bump.
 - ✅ **Semver policy** — stated in `CHANGELOG.md` and here: pre-1.0 minor versions may carry breaking
   changes (each called out in the changelog); 1.0 commits to SemVer 2.0.0 (no breaks without a major bump).
-- Remaining before tagging 1.0: host the repo (unblocks the three infra items above), then a docs
+- Remaining before tagging 1.0: host the repo (unblocks the SourceLink/URL items above), then a docs
   pass and the SourceLink/URL wiring.
 
 ### Post-1.0 — the platform kit (design §9)

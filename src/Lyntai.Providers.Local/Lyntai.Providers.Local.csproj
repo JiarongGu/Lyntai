@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Providers.Local</PackageId>
+    <Description>Lyntai LLM provider for in-process local inference of GGUF models via LLamaSharp (llama.cpp). References LLamaSharp managed only — the consuming app picks an LLamaSharp.Backend.* (Cpu/Cuda/Vulkan/Metal) matching its hardware. Wired via builder.AddLocalProvider(modelPath).</Description>
+    <!-- LLamaSharp is native interop + reflection-materialized options: this package cannot honestly
+         claim trim/AOT compatibility (the native llama.cpp backend is loaded dynamically). Analyzer
+         stays on for OUR code; consumers AOT-publishing need a rooted self-contained test. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <IsTrimmable>false</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Managed only, ON PURPOSE: no LLamaSharp.Backend.* here. Forcing a backend would nail the
+         package to one runtime (CPU vs CUDA vs Vulkan vs Metal); the consumer references the backend
+         that matches their machine, and it flows in transitively at their app's root. -->
+    <PackageReference Include="LLamaSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
+</Project>
