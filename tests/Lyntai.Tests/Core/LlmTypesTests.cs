@@ -1,0 +1,48 @@
+using Lyntai.Llm;
+
+namespace Lyntai.Tests.Core;
+
+public class LlmTypesTests
+{
+    [Fact]
+    public void Records_construct_with_expected_values()
+    {
+        var req = new LlmRequest
+        {
+            Messages = [LlmMessage.System("sys"), LlmMessage.User("hi")],
+            Model = "m1",
+            MaxTokens = 100,
+            Temperature = 0.2,
+        };
+
+        Assert.Equal(2, req.Messages.Count);
+        Assert.Equal("system", req.Messages[0].Role);
+        Assert.Equal("hi", req.Messages[1].Content);
+        Assert.Equal("default", req.Consumer);
+        Assert.Null(req.JsonSchema);
+        Assert.Null(req.Tools);
+    }
+
+    [Fact]
+    public void Records_have_value_equality()
+    {
+        Assert.Equal(LlmMessage.User("x"), new LlmMessage("user", "x"));
+        Assert.Equal(new LlmCandidate("p", "m"), new LlmCandidate("p", "m"));
+        Assert.NotEqual(new LlmCandidate("p", "m"), new LlmCandidate("p", null));
+        Assert.Equal(new LlmUsage(1, 2, 3, 0.5), new LlmUsage(1, 2, 3, 0.5));
+        Assert.Equal(new LlmReply("t", LlmVerdict.Ok), new LlmReply("t", LlmVerdict.Ok));
+    }
+
+    [Fact]
+    public void Chunk_factories_set_kind_and_verdict()
+    {
+        Assert.Equal(LlmChunkKind.Content, LlmChunk.Content("x").Kind);
+        Assert.Equal("x", LlmChunk.Content("x").Text);
+        Assert.Equal(LlmChunkKind.Final, LlmChunk.Final().Kind);
+        Assert.Equal(LlmVerdict.Ok, LlmChunk.Final().Verdict);
+        var err = LlmChunk.Error(LlmVerdict.Timeout, "slow");
+        Assert.Equal(LlmChunkKind.Error, err.Kind);
+        Assert.Equal(LlmVerdict.Timeout, err.Verdict);
+        Assert.Equal("slow", err.Detail);
+    }
+}
