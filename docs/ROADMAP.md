@@ -97,6 +97,14 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   deliberate, scoped exception to "no host". **Remaining on the tool-calling track:** streaming
   tool-calls (lower value).
 
+### v0.14.0 — durable jobs (2026-07)
+- ✅ **Durable jobs** (`Lyntai.Jobs` + `IJobStore`, design §9 "durable jobs — lanes + checkpoint/resume")
+  — enqueue → atomic per-lane claim → app handler → checkpoint → crash-resume, across SQLite/Postgres/
+  InMemory. Multi-agent parallelism with control: per-lane + global `MaxConcurrency` limits, all lanes run
+  concurrently per pass, multiple runner instances coordinate via the atomic claim. App owns the pump
+  (host-free). At-least-once (idempotent-from-checkpoint). **Deferred (noted):** cron/scheduling,
+  priorities, dead-letter queue, cross-process global limits, running-job cancellation.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

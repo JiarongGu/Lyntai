@@ -63,6 +63,22 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register an <see cref="Lyntai.Jobs.IJobHandler"/> into the durable-job handler collection
+    /// (keyed by its <c>Type</c>).</summary>
+    public LyntaiBuilder AddJobHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, Lyntai.Jobs.IJobHandler
+    {
+        Services.AddSingleton<Lyntai.Jobs.IJobHandler, T>();
+        return this;
+    }
+
+    /// <summary>Register a job handler built from the service provider.</summary>
+    public LyntaiBuilder AddJobHandler(Func<IServiceProvider, Lyntai.Jobs.IJobHandler> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.</summary>
     public LyntaiBuilder DefaultCandidates(params string[] providerIds) =>
         DefaultCandidates([.. providerIds.Select(id => new LlmCandidate(id))]);

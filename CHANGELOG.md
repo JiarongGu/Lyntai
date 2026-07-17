@@ -3,6 +3,32 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.14.0 — 2026-07-18
+
+Durable jobs (design §9): lanes + checkpoint/resume, built for running many agents in parallel with
+proper concurrency control. New storage domain across all three backends + a runner. Additive.
+
+### Added
+- **Durable job store** (`IJobStore` in `Lyntai.Storage`, over a `lyntai_job` table) — enqueue a job
+  (lane, type, JSON payload), a runner claims and runs it, the handler checkpoints, and a job whose
+  worker crashed is reclaimed and **resumed from its last checkpoint**. The claim is a single atomic
+  statement per backend (`UPDATE … RETURNING` on SQLite under the WAL single-writer; `… FOR UPDATE SKIP
+  LOCKED …` on Postgres), so multiple workers coordinate without double-claiming. Writes are fenced by
+  worker id (a lost lease is abandoned, not clobbered). Backends: SQLite, Postgres, InMemory (the
+  Postgres claim proven under real-container concurrency).
+- **Runner + handler seam** (`Lyntai.Jobs`) — `IJobHandler` (app work, keyed by type via
+  `builder.AddJobHandler<T>()`; the **at-least-once / idempotent-from-checkpoint** contract is in its
+  doc), `JobContext` (payload + checkpoint + `SaveCheckpointAsync`, which renews the lease), `JobOutcome`
+  (Complete / Retry(delay) / Fail), `IJobQueue`, `IJobRunner`. Retries with backoff up to max attempts; a
+  thrown handler is a transient retry.
+- **Parallelism + control logic** — one `IJobRunner.RunOnceAsync` claims a bounded set across *all* lanes
+  and runs them **concurrently** (true multi-lane parallelism), governed by per-lane limits
+  (`JobOptions.LaneConcurrency`) and a global `MaxConcurrency` cap. Scale further by running several
+  runner instances (one process or many) — the atomic claim hands each job to exactly one. **The app owns
+  the pump** (`RunAsync` from your own `IHostedService`/loop) — Lyntai starts no background threads, so it
+  stays host-free. Tuning on `LyntaiOptions.Jobs` + `LYNTAI_JOBS_*` env.
+- Demonstrated end-to-end in the Playground (a checkpointing 2-step job over the same SQLite db).
+
 ## 0.13.1 — 2026-07-18
 
 Correctness + resource-lifecycle fixes from an adversarial review of the v0.9–v0.13 tool-calling code

@@ -1,6 +1,7 @@
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Cortex;
+using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
 using Lyntai.Processes;
@@ -58,6 +59,13 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IToolRegistry>(sp => new ToolRegistry(sp.GetServices<ITool>()));
         services.TryAddSingleton<IToolLoop>(sp => new ToolLoop(
             sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolRegistry>(), options, sp.GetService<ILogger<ToolLoop>>()));
+
+        // durable jobs: registry gathers registered IJobHandlers; queue/runner drive them over IJobStore
+        // (they throw if no storage backend is wired — durable work must be persisted, not silently lost)
+        services.TryAddSingleton<IJobHandlerRegistry>(sp => new JobHandlerRegistry(sp.GetServices<IJobHandler>()));
+        services.TryAddSingleton<IJobQueue>(sp => new JobQueue(sp.GetService<IJobStore>(), options));
+        services.TryAddSingleton<IJobRunner>(sp => new JobRunner(
+            sp.GetService<IJobStore>(), sp.GetRequiredService<IJobHandlerRegistry>(), options, sp.GetService<ILogger<JobRunner>>()));
 
         return services;
     }

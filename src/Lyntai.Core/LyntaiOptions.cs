@@ -1,3 +1,4 @@
+using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
 
@@ -44,6 +45,9 @@ public sealed class LyntaiOptions
     /// round-trips before it gives up). Per-call override on <c>RunAsync</c>.</summary>
     public int ToolLoopMaxIterations { get; set; } = 8;
 
+    /// <summary>Durable-job tuning (lanes, lease, poll interval, retries).</summary>
+    public JobOptions Jobs { get; } = new();
+
     /// <summary>Resolve the model for a request: explicit request model wins, then the consumer's
     /// configured default, then the "default" consumer entry, then null (provider default).</summary>
     public string? ResolveModel(string consumer, string? requestModel)
@@ -76,6 +80,18 @@ public sealed class LyntaiOptions
 
         if (int.TryParse(getEnv("LYNTAI_TOOL_LOOP_MAX_ITERATIONS"), out var mi) && mi > 0)
             ToolLoopMaxIterations = mi;
+
+        // durable-job knobs
+        if (double.TryParse(getEnv("LYNTAI_JOBS_LEASE_SECONDS"), out var jl) && jl > 0)
+            Jobs.Lease = TimeSpan.FromSeconds(jl);
+        if (double.TryParse(getEnv("LYNTAI_JOBS_POLL_SECONDS"), out var jp) && jp > 0)
+            Jobs.PollInterval = TimeSpan.FromSeconds(jp);
+        if (int.TryParse(getEnv("LYNTAI_JOBS_MAX_ATTEMPTS"), out var jma) && jma > 0)
+            Jobs.DefaultMaxAttempts = jma;
+        if (double.TryParse(getEnv("LYNTAI_JOBS_BACKOFF_SECONDS"), out var jb) && jb >= 0)
+            Jobs.RetryBackoff = TimeSpan.FromSeconds(jb);
+        if (int.TryParse(getEnv("LYNTAI_JOBS_DEFAULT_CONCURRENCY"), out var jc) && jc > 0)
+            Jobs.DefaultLaneConcurrency = jc;
 
         // routing policy knobs (design §6 is the default; these tune it without code)
         if (int.TryParse(getEnv("LYNTAI_RETRY_FAILED"), out var rf) && rf >= 0)

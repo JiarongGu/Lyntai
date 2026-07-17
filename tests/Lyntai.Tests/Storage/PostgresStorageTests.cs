@@ -1,6 +1,8 @@
 using Lyntai;
 using Lyntai.Cortex;
+using Lyntai.Jobs;
 using Lyntai.Storage.Postgres;
+using Lyntai.Tests.Jobs;
 using Xunit;
 
 namespace Lyntai.Tests.Storage;
@@ -180,5 +182,63 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         var hits = await store.RecallAsync(task, query: "智能代理");
         Assert.Single(hits);
         Assert.Contains("智能代理", hits[0].Content);
+    }
+
+    // ---- durable jobs (each test uses a UNIQUE lane so they don't collide on the shared db) -----------
+
+    [Fact]
+    public async Task Job_claim_checkpoint_complete_lifecycle()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        var id = await store.EnqueueAsync(new JobSpec(lane, "t", """{"x":1}"""));
+
+        var job = await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(5));
+        Assert.Equal(id, job!.Id);
+        Assert.Equal(JobStatus.Running, job.Status);
+        Assert.Equal(1, job.Attempts);
+
+        Assert.True(await store.SaveCheckpointAsync(id, "w1", """{"step":2}"""));
+        Assert.Equal("""{"step":2}""", (await store.GetAsync(id))!.Checkpoint);
+        Assert.False(await store.CompleteAsync(id, "intruder")); // fenced
+        Assert.True(await store.CompleteAsync(id, "w1"));
+        Assert.Equal(JobStatus.Succeeded, (await store.GetAsync(id))!.Status);
+    }
+
+    [Fact]
+    public async Task Job_skip_locked_never_double_claims_under_concurrency()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        const int n = 20;
+        for (var i = 0; i < n; i++) await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
+
+        var claims = await Task.WhenAll(Enumerable.Range(0, n * 2)
+            .Select(i => store.ClaimNextAsync(lane, $"w{i}", TimeSpan.FromMinutes(5))));
+
+        var ids = claims.Where(j => j is not null).Select(j => j!.Id).ToList();
+        Assert.Equal(n, ids.Count);              // FOR UPDATE SKIP LOCKED gave each job to exactly one
+        Assert.Equal(n, ids.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Job_stale_lease_is_reclaimed()
+    {
+        if (!pg.Available) return;
+        var clock = new MutableClock();
+        var store = new PostgresJobStore(pg.Factory, clock.Get);
+        var lane = Uid();
+        var lease = TimeSpan.FromMinutes(1);
+        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
+        await store.ClaimNextAsync(lane, "w1", lease);
+
+        clock.Advance(lease + TimeSpan.FromSeconds(1)); // w1 presumed dead
+        var reclaimed = await store.ClaimNextAsync(lane, "w2", lease);
+
+        Assert.Equal(id, reclaimed!.Id);
+        Assert.Equal("w2", reclaimed.ClaimedBy);
+        Assert.Equal(2, reclaimed.Attempts);
     }
 }

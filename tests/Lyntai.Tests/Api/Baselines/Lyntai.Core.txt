@@ -198,6 +198,103 @@ class Lyntai.Cortex.TraceStep
 static class Lyntai.Diagnostics.LyntaiDiagnostics
     ActivitySourceName : String const
     MeterName : String const
+interface Lyntai.Jobs.IJobHandler
+    HandleAsync(JobContext, CancellationToken=) : Task<JobOutcome>
+    Type : String
+interface Lyntai.Jobs.IJobHandlerRegistry
+    Find(String) : IJobHandler
+    Handlers : IReadOnlyList<IJobHandler>
+interface Lyntai.Jobs.IJobQueue
+    EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
+    EnqueueAsync(String, String, String, CancellationToken=) : Task<Guid>
+interface Lyntai.Jobs.IJobRunner
+    RunAsync(CancellationToken=) : Task
+    RunOnceAsync(CancellationToken=) : Task<Int32>
+class Lyntai.Jobs.JobContext
+    .ctor(Guid, String, String, Int32, Func<String,CancellationToken,Task<Boolean>>)
+    Attempts : Int32
+    Checkpoint : String
+    JobId : Guid
+    Payload : String
+    SaveCheckpointAsync(String, CancellationToken=) : Task<Boolean>
+class Lyntai.Jobs.JobHandlerRegistry
+    .ctor(IEnumerable<IJobHandler>)
+    Find(String) : IJobHandler
+    Handlers : IReadOnlyList<IJobHandler>
+class Lyntai.Jobs.JobOptions
+    .ctor()
+    DefaultLaneConcurrency : Int32
+    DefaultMaxAttempts : Int32
+    LaneConcurrency : Dictionary<String,Int32>
+    Lease : TimeSpan
+    LimitFor(String) : Int32
+    MaxConcurrency : Int32
+    PollInterval : TimeSpan
+    RetryBackoff : TimeSpan
+class Lyntai.Jobs.JobOutcome
+    Complete : JobOutcome
+    Equals(JobOutcome) : Boolean
+    Equals(Object) : Boolean
+    Error : String
+    Fail(String) : JobOutcome
+    GetHashCode() : Int32
+    Result : Kind
+    Retry(Nullable<TimeSpan>=) : JobOutcome
+    RetryDelay : Nullable<TimeSpan>
+    ToString() : String
+enum Lyntai.Jobs.JobOutcome+Kind
+    Complete : Kind const
+    Fail : Kind const
+    Retry : Kind const
+    value__ : Int32
+class Lyntai.Jobs.JobQueue
+    .ctor(IJobStore, LyntaiOptions)
+    EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
+    EnqueueAsync(String, String, String, CancellationToken=) : Task<Guid>
+class Lyntai.Jobs.JobRecord
+    .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset)
+    Attempts : Int32
+    AvailableAt : DateTimeOffset
+    Checkpoint : String
+    ClaimedAt : Nullable<DateTimeOffset>
+    ClaimedBy : String
+    CreatedAt : DateTimeOffset
+    Deconstruct(Guid&, String&, String&, String&, JobStatus&, String&, Int32&, Int32&, String&, DateTimeOffset&, Nullable`1&, String&, DateTimeOffset&, DateTimeOffset&) : Void
+    Equals(JobRecord) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Id : Guid
+    Lane : String
+    LastError : String
+    MaxAttempts : Int32
+    Payload : String
+    Status : JobStatus
+    ToString() : String
+    Type : String
+    UpdatedAt : DateTimeOffset
+class Lyntai.Jobs.JobRunner
+    .ctor(IJobStore, IJobHandlerRegistry, LyntaiOptions, ILogger<JobRunner>=, Func<DateTimeOffset>=)
+    RunAsync(CancellationToken=) : Task
+    RunOnceAsync(CancellationToken=) : Task<Int32>
+class Lyntai.Jobs.JobSpec
+    .ctor(String, String, String, Nullable<Int32>=, Nullable<DateTimeOffset>=)
+    AvailableAt : Nullable<DateTimeOffset>
+    Deconstruct(String&, String&, String&, Nullable`1&, Nullable`1&) : Void
+    Equals(JobSpec) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Lane : String
+    MaxAttempts : Nullable<Int32>
+    Payload : String
+    ToString() : String
+    Type : String
+enum Lyntai.Jobs.JobStatus
+    Cancelled : JobStatus const
+    Failed : JobStatus const
+    Pending : JobStatus const
+    Running : JobStatus const
+    Succeeded : JobStatus const
+    value__ : Int32
 interface Lyntai.Llm.ILlmClient
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
@@ -365,6 +462,8 @@ class Lyntai.Llm.Routing.RoutingPolicy
     Retry(LlmVerdict, Int32) : RoutingPolicy
     RetryBackoff : TimeSpan
 class Lyntai.LyntaiBuilder
+    AddJobHandler() : LyntaiBuilder
+    AddJobHandler(Func<IServiceProvider,IJobHandler>) : LyntaiBuilder
     AddProvider() : LyntaiBuilder
     AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
     AddScorer() : LyntaiBuilder
@@ -383,6 +482,7 @@ class Lyntai.LyntaiOptions
     DeadHostThreshold : Int32
     DefaultCandidates : List<LlmCandidate>
     DefaultModelByConsumer : Dictionary<String,String>
+    Jobs : JobOptions
     MemoryCapPerScope : Int32
     MemoryRecallLimit : Int32
     ProviderTimeout : TimeSpan
@@ -454,6 +554,17 @@ interface Lyntai.Storage.IConversationStore
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
 interface Lyntai.Storage.IDbConnectionFactory
     Open() : DbConnection
+interface Lyntai.Storage.IJobStore
+    ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
+    CancelAsync(Guid, CancellationToken=) : Task<Boolean>
+    ClaimNextAsync(String, String, TimeSpan, CancellationToken=) : Task<JobRecord>
+    CompleteAsync(Guid, String, CancellationToken=) : Task<Boolean>
+    CountRunningAsync(String, CancellationToken=) : Task<Int32>
+    EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
+    FailAsync(Guid, String, String, Nullable<DateTimeOffset>=, CancellationToken=) : Task<Boolean>
+    GetAsync(Guid, CancellationToken=) : Task<JobRecord>
+    ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
+    SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IKeyValueStore
     DeleteAsync(String, CancellationToken=) : Task
     GetAsync(String, CancellationToken=) : Task<String>

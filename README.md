@@ -12,9 +12,9 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.13.0 — native tool-calling (HTTP + MEAI bridge), an MCP tool source, proper CLI tool-calling,
-in-process local inference, bring-your-own resources, three storage backends, LLM-ops depth, on a
-production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
+**v0.14.0 — durable jobs (lanes + checkpoint/resume), native tool-calling (HTTP + MEAI bridge), an MCP
+tool source, proper CLI tool-calling, in-process local inference, bring-your-own resources, three
+storage backends, LLM-ops depth, on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
 multi-agent code-review + best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops
 depth (v0.4), public-API baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama
 validation (v0.6), IoC seams so the app owns its resource lifecycle — process execution, HttpClient, DB
@@ -278,6 +278,38 @@ services.AddLyntai(b => b
 
 (This runs an ephemeral Kestrel listener on `127.0.0.1` only during each CLI call — a deliberate, scoped
 exception to Lyntai's otherwise host-free design, isolated in this opt-in package.)
+
+### Durable jobs (`Lyntai.Jobs`)
+
+Run long, multi-step work (e.g. many agents) that survives restarts, with lanes for concurrency control.
+Enqueue a job, a runner claims and runs it, your handler checkpoints — and a job whose worker crashed is
+reclaimed and **resumed from its checkpoint**. Your app owns the pump (no background threads are started
+for you):
+
+```csharp
+sealed class SummarizeHandler : IJobHandler
+{
+    public string Type => "summarize";
+    public async Task<JobOutcome> HandleAsync(JobContext ctx, CancellationToken ct)
+    {
+        if (ctx.Checkpoint is null) { /* step 1 … */ await ctx.SaveCheckpointAsync("fetched", ct); }
+        /* step 2 (skipped-ahead on resume) … */
+        return JobOutcome.Complete;   // or JobOutcome.Retry(delay) / JobOutcome.Fail(reason)
+    }
+}
+
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("jobs.db")                 // durable — Postgres/InMemory also supported
+    .AddJobHandler<SummarizeHandler>()
+    .Configure(o => { o.Jobs.LaneConcurrency["summarize"] = 4; o.Jobs.MaxConcurrency = 8; }));
+
+await queue.EnqueueAsync("summarize", "summarize", payloadJson);
+await runner.RunAsync(ct);   // in your IHostedService — claims across lanes and runs them in parallel
+```
+
+Per-lane limits + a global `MaxConcurrency` cap are the control knobs; run several `IJobRunner` instances
+(one process or many) and the atomic claim gives each job to exactly one. At-least-once semantics —
+handlers must be idempotent from their checkpoint.
 
 ## Dev loop
 

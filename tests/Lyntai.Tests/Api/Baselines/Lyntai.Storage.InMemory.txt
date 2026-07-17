@@ -8,6 +8,18 @@ class Lyntai.Storage.InMemory.InMemoryConversationStore
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+class Lyntai.Storage.InMemory.InMemoryJobStore
+    .ctor(Func<DateTimeOffset>=)
+    ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
+    CancelAsync(Guid, CancellationToken=) : Task<Boolean>
+    ClaimNextAsync(String, String, TimeSpan, CancellationToken=) : Task<JobRecord>
+    CompleteAsync(Guid, String, CancellationToken=) : Task<Boolean>
+    CountRunningAsync(String, CancellationToken=) : Task<Int32>
+    EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
+    FailAsync(Guid, String, String, Nullable<DateTimeOffset>=, CancellationToken=) : Task<Boolean>
+    GetAsync(Guid, CancellationToken=) : Task<JobRecord>
+    ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
+    SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
 class Lyntai.Storage.InMemory.InMemoryKeyValueStore
     .ctor()
     DeleteAsync(String, CancellationToken=) : Task

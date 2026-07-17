@@ -7,6 +7,7 @@ using System.Diagnostics;
 using Lyntai;
 using Lyntai.Cortex;
 using Lyntai.Cortex.Scorers;
+using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Prompts;
 using Lyntai.Storage;
@@ -30,6 +31,7 @@ services.AddLyntai(b => b
     .AddScorer<OutcomeScorer>()
     .AddScorer<StructureScorer>()
     .AddScorer<RelevancyScorer>()
+    .AddJobHandler<DemoJobHandler>()
     .DefaultCandidates("claude-cli", "ollama"));
 await using var sp = services.BuildServiceProvider();
 
@@ -114,6 +116,32 @@ await foreach (var chunk in llm.StreamAsync(
 }
 Console.WriteLine($"playground: stream chunks={streamedChunks} text={streamedText}");
 
-var healthy = trace is { Steps.Count: > 0 } && scores.Count > 0 && recalled.Count > 0 && streamedChunks > 0;
+// 7. durable jobs — enqueue a checkpointing job and pump the runner to completion (the app owns the
+// pump; here the Playground IS the host). Persisted in the same SQLite db, so it would survive a restart.
+var queue = sp.GetRequiredService<IJobQueue>();
+var jobId = await queue.EnqueueAsync("demo-lane", "demo", """{"steps":2}""");
+var runner = sp.GetRequiredService<IJobRunner>();
+for (var pass = 0; pass < 10 && await runner.RunOnceAsync() > 0; pass++) { }
+var jobStore = sp.GetRequiredService<IJobStore>();
+var finishedJob = await jobStore.GetAsync(jobId);
+Console.WriteLine($"playground: job status={finishedJob?.Status} checkpoint={finishedJob?.Checkpoint ?? "none"}");
+
+var healthy = trace is { Steps.Count: > 0 } && scores.Count > 0 && recalled.Count > 0 && streamedChunks > 0
+    && finishedJob is { Status: JobStatus.Succeeded };
 Console.WriteLine(healthy ? "playground: OK" : "playground: INCOMPLETE");
 return healthy ? 0 : 1;
+
+/// <summary>A two-step job that checkpoints after step 1 — on a resume it skips straight to step 2 (the
+/// idempotent-from-checkpoint contract). Registered via AddJobHandler; dispatched by type "demo".</summary>
+sealed class DemoJobHandler : IJobHandler
+{
+    public string Type => "demo";
+
+    public async Task<JobOutcome> HandleAsync(JobContext ctx, CancellationToken ct = default)
+    {
+        if (ctx.Checkpoint is null)          // fresh run → do step 1, then persist progress
+            await ctx.SaveCheckpointAsync("step1-done", ct);
+        // step 2 runs on the first pass or on a resume (where ctx.Checkpoint == "step1-done")
+        return JobOutcome.Complete;
+    }
+}
