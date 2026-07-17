@@ -30,6 +30,8 @@ public static class LyntaiServiceCollectionExtensions
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
         services.TryAddSingleton<ILlmRouter>(sp => new LlmRouter(
             sp.GetServices<ILlmProvider>(), sp.GetRequiredService<DeadHostTracker>(), options, sp.GetService<ILogger<LlmRouter>>()));
+        // the consumer front door: Lyntai behaving like ONE provider (default candidates internal)
+        services.TryAddSingleton<ILlmClient>(sp => new LlmClient(sp.GetRequiredService<ILlmRouter>(), options));
 
         // The cortex services tolerate absent storage (null store → fail-open/no-op), so the minimal
         // setup — a provider and nothing else — still resolves everything.
