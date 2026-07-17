@@ -18,6 +18,9 @@ ok('trace persisted with steps + tokens', /playground: trace steps=[1-9]\d* toke
 ok('memory row recalled', /playground: memory recall=[1-9]/.test(out));
 ok('streaming delivered chunks', /playground: stream chunks=[1-9]/.test(out));
 ok('sqlite db written in the data dir', fs.existsSync(path.join(dataDir, 'lyntai.db')));
+ok('tool loop converged via a tool call', /playground: toolloop verdict=Ok steps=[1-9]/.test(out));
+ok('telemetry fired on both surfaces',
+  /playground: telemetry chatSpans=[1-9]\d* toolLoopSpans=[1-9]\d* toolCallSpans=[1-9]\d* jobSpans=[1-9]\d* toolInvocations=[1-9]\d* jobsProcessed=[1-9]\d*/.test(out));
 ok('final OK marker', out.includes('playground: OK'));
 
 done();

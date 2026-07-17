@@ -23,6 +23,12 @@ shows up end-to-end in one trace/metrics backend alongside the `chat` spans.
   Nothing is emitted unless a listener is attached — the overhead without observability wiring is a few
   null/`Enabled` checks, matching the GenAI surface.
 
+### Samples / tests
+- **Playground now exercises the tool loop** (registers an inline `echo` tool and runs `IToolLoop` over
+  the deterministic stub's new `TOOL_DEMO` protocol path) and **subscribes both telemetry surfaces**
+  in-process, printing what fired. The `p1` e2e asserts the loop converges via a tool call and that every
+  GenAI + agentic span/metric emitted — so the instrumentation is covered end-to-end, not just in units.
+
 ## 0.15.1 — 2026-07-18
 
 Correctness + security fixes from a three-pass adversarial review of the v0.14–v0.15 code (the AES-GCM

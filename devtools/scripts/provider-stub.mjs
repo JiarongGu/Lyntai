@@ -10,6 +10,8 @@
 //                     stream that still delivered content must end Final, not Error)
 //   "SCORING TASK" -> return a canned {"score":0..1,"reason":"..."} JSON (LlmScorerBase judge path)
 //   "JSON_SCHEMA"  -> return a canned JSON object (structured-output path)
+//   "TOOL_DEMO"    -> drive the tool loop's prompt protocol: emit a {"tool":...} call first, then (once
+//                     the tool observation is fed back into the prompt) a {"final":...} answer
 //   else           -> echo a short deterministic completion derived from the prompt
 import process from 'node:process';
 
@@ -49,6 +51,18 @@ if (prompt.includes('JSON_SCHEMA')) {
   const obj = JSON.stringify({ ok: true, note: 'stub structured output' });
   emit({ type: 'assistant', message: { content: [{ type: 'text', text: obj }] } });
   finish(obj);
+  process.exit(0);
+}
+
+if (prompt.includes('TOOL_DEMO')) {
+  // The tool loop's prompt protocol: first turn has no tool observation → ask to call the tool; the
+  // second turn carries the fed-back "observed:" result → answer with a final. Stateless per call, but
+  // the whole conversation (incl. the observation) is serialized into the prompt, so this stays exact.
+  const reply = prompt.includes('observed:')
+    ? JSON.stringify({ final: 'tool demo complete' })
+    : JSON.stringify({ tool: 'echo', arguments: { text: 'lyntai' } });
+  emit({ type: 'assistant', message: { content: [{ type: 'text', text: reply }] } });
+  finish(reply);
   process.exit(0);
 }
 

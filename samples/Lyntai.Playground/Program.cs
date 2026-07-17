@@ -4,9 +4,12 @@
 // Honors LYNTAI_PROVIDER_CMD (the devtools e2e harness points it at the deterministic stub, so a
 // run spends no real tokens) and LYNTAI_DATA (isolated data folder).
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using Lyntai;
+using Lyntai.Agents;
 using Lyntai.Cortex;
 using Lyntai.Cortex.Scorers;
+using Lyntai.Diagnostics;
 using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Prompts;
@@ -18,6 +21,15 @@ var dataDir = Environment.GetEnvironmentVariable("LYNTAI_DATA")
 Directory.CreateDirectory(dataDir);
 var dbPath = Path.Combine(dataDir, "lyntai.db");
 Console.WriteLine($"playground: data={dataDir}");
+
+// Observability: subscribe BCL listeners to BOTH telemetry surfaces (GenAI "Lyntai.Llm" + agentic
+// "Lyntai.Agents"). This is what wiring the OpenTelemetry SDK's AddSource/AddMeter subscribes to (see
+// README); counting in-process keeps the sample dependency-free while proving spans/metrics really fire.
+// Attached before the first LLM call so no span is missed.
+var tel = new TelemetryTally();
+using var spanListener = tel.CreateSpanListener();
+ActivitySource.AddActivityListener(spanListener);
+using var meterListener = tel.CreateMeterListener();
 
 var services = new ServiceCollection();
 services.AddLyntai(b => b
@@ -32,6 +44,8 @@ services.AddLyntai(b => b
     .AddScorer<StructureScorer>()
     .AddScorer<RelevancyScorer>()
     .AddJobHandler<DemoJobHandler>()
+    // an inline tool the model can call inside the tool loop (step 8)
+    .AddTool(_ => new FunctionTool("echo", (args, _) => Task.FromResult($"observed:{args}"), "echoes its JSON arguments"))
     .DefaultCandidates("claude-cli", "ollama"));
 await using var sp = services.BuildServiceProvider();
 
@@ -126,8 +140,26 @@ var jobStore = sp.GetRequiredService<IJobStore>();
 var finishedJob = await jobStore.GetAsync(jobId);
 Console.WriteLine($"playground: job status={finishedJob?.Status} checkpoint={finishedJob?.Checkpoint ?? "none"}");
 
+// 8. agentic tool loop — the model calls the registered "echo" tool, gets the observation fed back, then
+// answers. The CLI provider isn't native-tool-capable, so this drives the prompt-protocol fallback path.
+var toolLoop = sp.GetRequiredService<IToolLoop>();
+var toolResult = await toolLoop.RunAsync(new LlmRequest
+{
+    Consumer = "playground",
+    Messages = [LlmMessage.User("Use your tools to greet the project, then report the result. TOOL_DEMO")],
+});
+Console.WriteLine($"playground: toolloop verdict={toolResult.Verdict} steps={toolResult.Steps.Count} answer={toolResult.Answer}");
+
+// 9. telemetry — report what the two OTel surfaces emitted across the whole run (the listeners above
+// tallied it). Proves the GenAI + agentic instrumentation actually fires end-to-end.
+Console.WriteLine($"playground: telemetry chatSpans={tel.ChatSpans} toolLoopSpans={tel.ToolLoopSpans} " +
+    $"toolCallSpans={tel.ToolCallSpans} jobSpans={tel.JobSpans} toolInvocations={tel.ToolInvocations} " +
+    $"jobsProcessed={tel.JobsProcessed}");
+var telemetryEmitted = tel.ChatSpans > 0 && tel.ToolLoopSpans > 0 && tel.ToolCallSpans > 0
+    && tel.JobSpans > 0 && tel.ToolInvocations > 0 && tel.JobsProcessed > 0;
+
 var healthy = trace is { Steps.Count: > 0 } && scores.Count > 0 && recalled.Count > 0 && streamedChunks > 0
-    && finishedJob is { Status: JobStatus.Succeeded };
+    && finishedJob is { Status: JobStatus.Succeeded } && toolResult.Ok && telemetryEmitted;
 Console.WriteLine(healthy ? "playground: OK" : "playground: INCOMPLETE");
 return healthy ? 0 : 1;
 
@@ -143,5 +175,46 @@ sealed class DemoJobHandler : IJobHandler
             await ctx.SaveCheckpointAsync("step1-done", ct);
         // step 2 runs on the first pass or on a resume (where ctx.Checkpoint == "step1-done")
         return JobOutcome.Complete;
+    }
+}
+
+/// <summary>In-process tally of both Lyntai OTel surfaces — the GenAI source/meter ("Lyntai.Llm") and the
+/// agentic one ("Lyntai.Agents"). A real app would AddSource/AddMeter these into the OpenTelemetry SDK
+/// instead; the BCL listeners here keep the sample dependency-free while proving the instrumentation
+/// fires. Counters are interlocked because the job runner + streaming produce activity off the main flow.</summary>
+sealed class TelemetryTally
+{
+    public int ChatSpans, ToolLoopSpans, ToolCallSpans, JobSpans, ToolInvocations, JobsProcessed;
+
+    public ActivityListener CreateSpanListener() => new()
+    {
+        ShouldListenTo = s => s.Name is LyntaiDiagnostics.ActivitySourceName or LyntaiDiagnostics.AgentActivitySourceName,
+        Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+        ActivityStopped = a =>
+        {
+            if (a.Source.Name == LyntaiDiagnostics.ActivitySourceName) Interlocked.Increment(ref ChatSpans);
+            else if (a.OperationName == "tool_loop") Interlocked.Increment(ref ToolLoopSpans);
+            else if (a.OperationName.StartsWith("execute_tool")) Interlocked.Increment(ref ToolCallSpans);
+            else if (a.OperationName.StartsWith("run_job")) Interlocked.Increment(ref JobSpans);
+        },
+    };
+
+    public MeterListener CreateMeterListener()
+    {
+        var listener = new MeterListener
+        {
+            InstrumentPublished = (inst, l) =>
+            {
+                if (inst.Meter.Name is LyntaiDiagnostics.MeterName or LyntaiDiagnostics.AgentMeterName)
+                    l.EnableMeasurementEvents(inst);
+            },
+        };
+        listener.SetMeasurementEventCallback<long>((inst, value, _, _) =>
+        {
+            if (inst.Name == "lyntai.tool.invocations") Interlocked.Add(ref ToolInvocations, (int)value);
+            else if (inst.Name == "lyntai.jobs.processed") Interlocked.Add(ref JobsProcessed, (int)value);
+        });
+        listener.Start();
+        return listener;
     }
 }
