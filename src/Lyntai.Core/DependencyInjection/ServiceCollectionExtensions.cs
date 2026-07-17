@@ -50,6 +50,7 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetService<ITraceStore>(), logger: sp.GetService<ILogger<TraceService>>()));
         services.TryAddSingleton<IPromptComposer>(sp => new MemoryPromptComposer(
             sp.GetService<IMemoryStore>(), sp.GetService<ILogger<MemoryPromptComposer>>()));
+        services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ILlmClient>()));
 
         return services;
     }
