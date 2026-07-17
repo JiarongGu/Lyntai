@@ -64,7 +64,7 @@ public class CortexIntegrationTests : IDisposable
     [Fact] // 5.3 — the LLM judge runs through the router against the stub's SCORING TASK path
     public async Task Llm_judge_scorer_returns_the_stub_verdict()
     {
-        var judge = new RelevancyScorer(_sp.GetRequiredService<ILlmRouter>(), _sp.GetRequiredService<LyntaiOptions>());
+        var judge = new RelevancyScorer(_sp.GetRequiredService<ILlmClient>());
 
         var result = await judge.ScoreAsync(
             new ScoreContext { SessionId = "s", Input = "question", Output = "answer" }, CancellationToken.None);

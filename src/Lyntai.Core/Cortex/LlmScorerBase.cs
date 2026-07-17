@@ -5,11 +5,12 @@ using Lyntai.Text;
 namespace Lyntai.Cortex;
 
 /// <summary>
-/// Base for LLM-judge scorers: one-shot call through the router (from a neutral context, using the
-/// configured default candidates), expecting a <c>{"score": 0..1, "reason": "…"}</c> verdict.
-/// Tolerant JSON extraction + one retry on parse failure (design §6); anything else → null (skipped).
+/// Base for LLM-judge scorers: one-shot call through the front door (the configured default
+/// candidates), expecting a <c>{"score": 0..1, "reason": "…"}</c> verdict. Extraction + the
+/// one-retry-on-parse-failure contract come from <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>;
+/// anything unusable → null (the dimension is skipped, never sinks the evaluation).
 /// </summary>
-public abstract class LlmScorerBase(ILlmRouter router, LyntaiOptions options) : IScorer
+public abstract class LlmScorerBase(ILlmClient llm) : IScorer
 {
     public abstract string Id { get; }
     public abstract string Name { get; }
@@ -22,8 +23,6 @@ public abstract class LlmScorerBase(ILlmRouter router, LyntaiOptions options) : 
 
     public async Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct)
     {
-        if (options.DefaultCandidates.Count == 0) return null; // nowhere to route the judge call
-
         var req = new LlmRequest
         {
             Messages =
@@ -37,14 +36,9 @@ public abstract class LlmScorerBase(ILlmRouter router, LyntaiOptions options) : 
             Consumer = "scoring",
         };
 
-        for (var attempt = 0; attempt < 2; attempt++) // one retry on parse failure
-        {
-            var reply = await router.CompleteAsync(options.DefaultCandidates, req, ct).ConfigureAwait(false);
-            if (reply.Verdict != LlmVerdict.Ok) return null;
-
-            if (TryParseVerdict(reply.Text, out var result)) return result;
-        }
-        return null;
+        var reply = await llm.CompleteJsonAsync(req, ct).ConfigureAwait(false);
+        if (reply.Verdict != LlmVerdict.Ok) return null;
+        return TryParseVerdict(reply.Text, out var result) ? result : null;
     }
 
     internal static bool TryParseVerdict(string text, out ScoreResult result)
