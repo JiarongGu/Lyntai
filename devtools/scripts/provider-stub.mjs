@@ -6,6 +6,8 @@
 // Behavior by prompt markers (extend as new tests need deterministic outputs):
 //   "SLOW"         -> sleep 8s before responding (cancel / timeout testing)
 //   "FORCE_ERROR"  -> emit an empty result (server maps to a Failed verdict — no content produced)
+//   "NO_RESULT"    -> emit assistant text but exit 0 WITHOUT a terminal result line (a truncated
+//                     stream that still delivered content must end Final, not Error)
 //   "SCORING TASK" -> return a canned {"score":0..1,"reason":"..."} JSON (LlmScorerBase judge path)
 //   "JSON_SCHEMA"  -> return a canned JSON object (structured-output path)
 //   else           -> echo a short deterministic completion derived from the prompt
@@ -29,6 +31,11 @@ if (prompt.includes('SLOW')) {
 if (prompt.includes('FORCE_ERROR')) {
   finish(''); // empty → the provider reports Failed (no output)
   process.exit(0);
+}
+
+if (prompt.includes('NO_RESULT')) {
+  emit({ type: 'assistant', message: { content: [{ type: 'text', text: 'stub reply without result line' }] } });
+  process.exit(0); // no terminal result event
 }
 
 if (prompt.includes('SCORING TASK')) {

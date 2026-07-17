@@ -70,6 +70,20 @@ public class ClaudeCliProviderTests
     }
 
     [Fact]
+    public async Task Content_without_a_result_line_still_ends_with_final()
+    {
+        // a CLI/wrapper that exits 0 after assistant text but without the terminal result event
+        // delivered a full answer — ending it with Error would record a success as a failed run
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider().StreamAsync(Req("NO_RESULT please")))
+            chunks.Add(c);
+
+        Assert.Contains(chunks, c => c.Kind == LlmChunkKind.Content);
+        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Error);
+    }
+
+    [Fact]
     public async Task Streaming_timeout_surfaces_an_error_chunk()
     {
         var chunks = new List<LlmChunk>();
