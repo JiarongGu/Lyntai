@@ -24,18 +24,14 @@ retry-then-advance, per-(provider, model) cooldown granularity, sole-candidate e
 tunable via `ConfigureRouting` / `LYNTAI_*` env. Deferred migrations (`migrateOnFirstUse`).
 BenchmarkDotNet project (router overhead, FTS recall at scale).
 
-## Planned
+### v0.4.0 — LLM-ops depth (2026-07)
+Versioned prompt overrides (`IPromptVersionStore`, history + rollback); judge calibration
+(`JudgeAgreement` metrics + position-bias-aware `IPairwiseComparer`); memory lifecycle (dedup,
+per-entry TTL, `PruneAsync`); trace↔span bridging (`RunTrace.TraceId`). Remaining v0.4 idea —
+LLM summarization/compaction of old memory — deferred as a composition-helper pattern (the
+deterministic lifecycle primitives shipped; summarization has no settled recipe yet).
 
-### v0.4 — LLM-ops depth
-- **Prompt registry versioning**: history + rollback for `lyntai.prompt.*` overrides (audit who
-  changed what; A/B two versions by consumer tag).
-- **Judge calibration helpers**: pairwise comparison mode, rubric prompts, agreement metrics
-  between judge models (research found no settled practice — design carefully, small surface).
-- **Memory lifecycle**: summarization/compaction of old entries, per-entry TTL/decay, dedup on
-  remember.
-- **Telemetry alignment pass**: track the OTel GenAI semantic-conventions repo as it stabilizes
-  (span events, `gen_ai.usage.cached_input_tokens` if/when standardized) and MEAI's convention
-  version; add trace-to-`ITraceStore` bridging so spans and run traces cross-reference.
+## Planned
 
 ### v0.5 — ecosystem & backends
 - **Composite store router** (the mastra pattern the interfaces were shaped for): route each

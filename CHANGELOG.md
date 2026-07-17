@@ -3,6 +3,29 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.4.0 — 2026-07-17
+
+LLM-ops depth (the roadmap's v0.4). No behavioral change to existing paths; all additive except the
+`IMemoryStore` signature (a `ttl` param + `PruneAsync`, pre-1.0).
+
+### Added
+- **Versioned prompt overrides** — `IPromptVersionStore` + SQLite impl: an audit trail for
+  `lyntai.prompt.*` edits (author, monotonic versions, exactly one active) with history and rollback
+  that re-activates an earlier revision without rewriting history. The registry renders the active
+  versioned override (winning over the plain KV key), placeholder guard still applied.
+- **Judge calibration** — `JudgeAgreement` (exact-agreement rate, mean absolute error, Pearson over
+  two aligned score series) and `IPairwiseComparer` / `LlmPairwiseComparer` (which-is-better, with
+  position-bias mitigation on by default — runs both orders, ties on disagreement).
+- **Memory lifecycle** — dedup (remembering an identical fact refreshes rather than duplicates),
+  per-entry TTL (expired entries excluded from every recall path), and `PruneAsync(taskKey?, olderThan?)`.
+  `SqliteMemoryStore` takes an injectable clock for deterministic TTL tests.
+- **Trace ↔ span bridging** — `RunTrace.TraceId` captures the ambient OpenTelemetry W3C trace id at
+  `Begin`, persisted and round-tripped, so a stored run trace cross-references the distributed trace.
+
+### Changed
+- `IMemoryStore.RememberAsync` gains an optional `ttl`; adds `PruneAsync` (pre-1.0 interface change).
+- Migrations 202607170006 (prompt versions), 202607170007 (memory TTL), 202607170008 (trace id).
+
 ## 0.3.0 — 2026-07-17
 
 Routing & resilience depth (the roadmap's v0.3), plus a second independent audit pass (four
