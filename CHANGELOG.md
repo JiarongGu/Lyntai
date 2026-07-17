@@ -3,6 +3,27 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.7.1 — 2026-07-17
+
+Correctness fixes from a high-effort multi-agent code review of the v0.3–v0.7 code. No API break
+(one additive optional ctor param).
+
+### Fixed
+- **Critical: BYO HttpClient was disposed every call** — an app-supplied shared client threw
+  `ObjectDisposedException` on the second request. Lyntai now disposes only clients it created.
+- **Memory cap counted expired entries**, evicting live facts while keeping dead ones — the cap now
+  evicts expired entries first (all three backends).
+- **Memory dedup ranked by a stale id**, so a re-remembered fact recalled as old — recall and the cap
+  now order by `created_at` (the refreshed value), honoring the "refreshes recency" contract.
+- **Router recorded a dead-host failure per retry attempt** — `Retry(Failed, 2)` benched a host in one
+  request; now one failure per request. Router streaming no longer leaks empty content chunks.
+- **Dapper `DateTimeOffset` handler collision** between the SQLite and Postgres backends (process-global
+  registry) — both handlers are now identical, so loading both is safe.
+- **Postgres dedup race** (concurrent Remembers → duplicates) — now an atomic `INSERT … ON CONFLICT`.
+- **`MigratingConnectionFactory` cached a transient migration failure forever** — now retries.
+- **`ClaudeCliProvider.IsAvailable` bypassed a BYO `IProcessRunner`** — a custom (sandbox/remote) runner
+  is now optimistically available so the router reaches it.
+
 ## 0.7.0 — 2026-07-17
 
 Bring-your-own resources — inversion of control for the resource-lifecycle concerns. The app owns the
