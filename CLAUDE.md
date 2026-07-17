@@ -17,13 +17,17 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Pre-implementation.** The design is locked and the build sequence is written:
+**Implemented (v0.1.0).** All phases of `tasks.md` are done and checked off: router + fallback,
+SQLite storage (every table prefixed `lyntai_` — consumer dbs must never collide), the three provider
+packages, the cortex layer, the Playground, the e2e harness, and packaging — tests/e2e green.
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (every interface, the two fork decisions, the
   fallback + CLI-hygiene semantics, and what's explicitly out of scope). Read it first.
-- `tasks.md` — the **sequence** (Phases 0–7, checkbox tasks, TDD, commit points).
-- `devtools/` — the build/test/e2e/pack toolkit, ready to use.
+- `tasks.md` — the **sequence** that was executed (Phases 0–7).
+- `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
 
-The `src/` projects don't exist yet — Phase 0 in `tasks.md` scaffolds them.
+Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (router engine) /
+`Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Storage` / `Lyntai.Processes` /
+`Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
 
 ## Rules
 
