@@ -1,4 +1,5 @@
 using Lyntai;
+using Lyntai.Agents;
 using Lyntai.Cortex;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -51,6 +52,12 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IPromptComposer>(sp => new MemoryPromptComposer(
             sp.GetService<IMemoryStore>(), sp.GetService<ILogger<MemoryPromptComposer>>()));
         services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ILlmClient>()));
+
+        // agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-
+        // agnostically over the front door (works with zero tools too — it degenerates to one completion)
+        services.TryAddSingleton<IToolRegistry>(sp => new ToolRegistry(sp.GetServices<ITool>()));
+        services.TryAddSingleton<IToolLoop>(sp => new ToolLoop(
+            sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolRegistry>(), options, sp.GetService<ILogger<ToolLoop>>()));
 
         return services;
     }

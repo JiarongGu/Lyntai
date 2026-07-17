@@ -3,6 +3,29 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.9.0 — 2026-07-17
+
+First "platform kit" (design §9) capability: agentic tool-calling. Additive, all in `Lyntai.Core`.
+
+### Added
+- **Tool-calling loop** (`Lyntai.Agents`) — a provider-agnostic ReAct-style loop over the `ILlmClient`
+  front door. `IToolLoop.RunAsync(req)` renders the registered tools into the prompt, asks the model to
+  either call a tool or finish (a small JSON protocol: `{"tool":…,"arguments":…}` / `{"final":…}`),
+  executes the chosen tool, feeds the observation back, and repeats until it finishes or the iteration
+  budget is hit. Because it runs over the text contract (through `CompleteJsonAsync`), it works with
+  **any** provider — CLI, HTTP, MEAI bridge, local — with no native tool-calling support required.
+  - **`ITool`** — the executable-tool seam (`Name`/`Description`/`ParametersJsonSchema` mirror the
+    existing `LlmTool`, plus `InvokeAsync`), registered into a DI collection via `builder.AddTool<T>()`
+    / `AddTool(factory)` (the variation point — a tool is a new class + one registration).
+  - **`FunctionTool`** — define a tool inline from a delegate, no class needed.
+  - **`IToolRegistry`** — name-keyed (case-insensitive, first-wins) resolution over the tool collection.
+  - Robust by construction: an unknown tool or a throwing tool becomes an `error: …` observation fed
+    back to the model (it can recover) rather than an exception; a non-Ok LLM verdict (refusal, all
+    candidates down) is surfaced as-is; a run that doesn't converge returns `Failed` with a reason.
+  - Wired by default in `AddLyntai` (resolves with zero tools — it degenerates to one plain
+    completion). Budget via `LyntaiOptions.ToolLoopMaxIterations` (default 8) /
+    `LYNTAI_TOOL_LOOP_MAX_ITERATIONS`, or a per-call `RunAsync(req, maxIterations)` override.
+
 ## 0.8.0 — 2026-07-17
 
 New provider package for in-process local inference. Additive — no changes to existing packages.

@@ -1,3 +1,48 @@
+class Lyntai.Agents.FunctionTool
+    .ctor(String, Func<String,CancellationToken,Task<String>>, String=, String=)
+    Description : String
+    InvokeAsync(String, CancellationToken=) : Task<String>
+    Name : String
+    ParametersJsonSchema : String
+interface Lyntai.Agents.ITool
+    Description : String
+    InvokeAsync(String, CancellationToken=) : Task<String>
+    Name : String
+    ParametersJsonSchema : String
+interface Lyntai.Agents.IToolLoop
+    RunAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : Task<ToolLoopResult>
+interface Lyntai.Agents.IToolRegistry
+    Find(String) : ITool
+    Tools : IReadOnlyList<ITool>
+class Lyntai.Agents.ToolLoop
+    .ctor(ILlmClient, IToolRegistry, LyntaiOptions, ILogger<ToolLoop>=)
+    RunAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : Task<ToolLoopResult>
+class Lyntai.Agents.ToolLoopResult
+    .ctor(String, LlmVerdict, IReadOnlyList<ToolStep>, String=)
+    Answer : String
+    Deconstruct(String&, LlmVerdict&, IReadOnlyList`1&, String&) : Void
+    Detail : String
+    Equals(Object) : Boolean
+    Equals(ToolLoopResult) : Boolean
+    GetHashCode() : Int32
+    Ok : Boolean
+    Steps : IReadOnlyList<ToolStep>
+    ToString() : String
+    Verdict : LlmVerdict
+class Lyntai.Agents.ToolRegistry
+    .ctor(IEnumerable<ITool>)
+    Find(String) : ITool
+    Tools : IReadOnlyList<ITool>
+class Lyntai.Agents.ToolStep
+    .ctor(String, String, String)
+    ArgumentsJson : String
+    Deconstruct(String&, String&, String&) : Void
+    Equals(Object) : Boolean
+    Equals(ToolStep) : Boolean
+    GetHashCode() : Int32
+    Result : String
+    ToString() : String
+    Tool : String
 class Lyntai.Cortex.AgreementReport
     .ctor(Int32, Double, Double, Nullable<Double>)
     Count : Int32
@@ -297,6 +342,8 @@ class Lyntai.LyntaiBuilder
     AddProvider() : LyntaiBuilder
     AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
     AddScorer() : LyntaiBuilder
+    AddTool() : LyntaiBuilder
+    AddTool(Func<IServiceProvider,ITool>) : LyntaiBuilder
     Configure(Action<LyntaiOptions>) : LyntaiBuilder
     ConfigureRouting(Action<RoutingPolicy>) : LyntaiBuilder
     DefaultCandidates(LlmCandidate[]) : LyntaiBuilder
@@ -315,6 +362,7 @@ class Lyntai.LyntaiOptions
     ProviderTimeout : TimeSpan
     ResolveModel(String, String) : String
     Routing : RoutingPolicy
+    ToolLoopMaxIterations : Int32
 interface Lyntai.Processes.IProcessRunner
     RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
     StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>

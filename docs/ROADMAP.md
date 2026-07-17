@@ -60,6 +60,16 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   own GGUF chat template. Wiring is unit-tested; real inference gated behind opt-in live tests
   (`LYNTAI_LIVE_LLAMA` + `LYNTAI_LLAMA_MODEL`), so the default run stays native-dependency-free.
 
+### v0.9.0 — agentic tool-calling (2026-07) — first platform-kit cut
+- ✅ **Tool-calling loop** (`Lyntai.Agents`, deferred §9 "tool/MCP registry") — a provider-agnostic
+  ReAct loop over `ILlmClient` (`IToolLoop`), executable-tool seam (`ITool` + `AddTool` DI collection,
+  `FunctionTool` for inline tools), name-keyed `IToolRegistry`. Runs over the text contract via
+  `CompleteJsonAsync`, so it works with any provider without native tool-calling. Unknown/throwing tools
+  become recoverable observations; non-Ok verdicts surface; non-convergence returns `Failed`. This is
+  the primitive the remaining agentic §9 items (orchestration, durable jobs) build on. Next on this
+  track when picked up: native provider tool-calling (surfacing tool_calls in replies) and an MCP-client
+  tool source (an `ITool` that proxies an MCP server).
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

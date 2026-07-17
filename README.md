@@ -12,12 +12,13 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.8.0 — in-process local inference, bring-your-own resources, three storage backends, LLM-ops depth,
-on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a multi-agent code-review +
-best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops depth (v0.4), public-API
-baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama validation (v0.6), IoC
-seams so the app owns its resource lifecycle — process execution, HttpClient, DB connection/schema,
-provider presets (v0.7), and a local GGUF provider via LLamaSharp (v0.8).
+**v0.9.0 — agentic tool-calling, in-process local inference, bring-your-own resources, three storage
+backends, LLM-ops depth, on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
+multi-agent code-review + best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops
+depth (v0.4), public-API baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama
+validation (v0.6), IoC seams so the app owns its resource lifecycle — process execution, HttpClient, DB
+connection/schema, provider presets (v0.7), a local GGUF provider via LLamaSharp (v0.8), and a
+provider-agnostic tool-calling loop (v0.9).
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
 - `docs/ROADMAP.md` — what's shipped, what's next, and what's blocked on a hosted repo / DB / native deps.
@@ -208,6 +209,39 @@ services.AddLyntai(cfg =>
 The model loads lazily on first use and generations are serialized (one local model, one at a time).
 It's just another `ILlmProvider`, so it fits anywhere in a fallback candidate list — e.g. a hosted
 model first, `"local"` as an offline backstop.
+
+### Tool-calling (`Lyntai.Agents`)
+
+Give the model tools and let it work in a loop. `IToolLoop` runs over the `ILlmClient` front door, so
+it works with **any** provider (CLI, HTTP, MEAI bridge, local) — no native tool-calling required.
+
+```csharp
+services.AddLyntai(cfg =>
+{
+    cfg.AddClaudeCliProvider().DefaultCandidates("claude-cli");
+
+    // a tool from a class (DI-injectable) or inline from a delegate:
+    cfg.AddTool(_ => new FunctionTool(
+        name: "get_weather",
+        invoke: (argsJson, ct) => Task.FromResult("""{"tempC":21,"sky":"clear"}"""),
+        description: "Current weather for a city",
+        parametersJsonSchema: """{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}"""));
+});
+
+// inject IToolLoop:
+var result = await toolLoop.RunAsync(new LlmRequest
+{
+    Messages = [LlmMessage.User("What should I wear in Paris today?")],
+});
+Console.WriteLine(result.Answer);          // the model's final answer after any tool round-trips
+foreach (var step in result.Steps)         // every tool call it made, for tracing
+    Console.WriteLine($"{step.Tool}({step.ArgumentsJson}) -> {step.Result}");
+```
+
+The loop asks the model to either call a tool or finish, executes the tool, feeds the result back, and
+repeats up to `ToolLoopMaxIterations` (default 8). An unknown or throwing tool becomes a recoverable
+`error: …` observation rather than a crash; a refusal or all-providers-down verdict surfaces on
+`result.Verdict`.
 
 ## Dev loop
 

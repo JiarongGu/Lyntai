@@ -9,7 +9,8 @@ namespace Lyntai;
 /// <c>LYNTAI_TIMEOUT_SECONDS</c>, <c>LYNTAI_DEADHOST_THRESHOLD</c>, <c>LYNTAI_DEADHOST_COOLDOWN_SECONDS</c>,
 /// <c>LYNTAI_DEFAULT_CANDIDATES</c> (comma-separated <c>providerId[:model]</c>), <c>LYNTAI_MODEL_&lt;CONSUMER&gt;</c>,
 /// <c>LYNTAI_RETRY_FAILED</c>, <c>LYNTAI_RETRY_TIMEOUT</c>, <c>LYNTAI_RETRY_BACKOFF_SECONDS</c>,
-/// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>).
+/// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>),
+/// <c>LYNTAI_TOOL_LOOP_MAX_ITERATIONS</c>.
 /// </summary>
 public sealed class LyntaiOptions
 {
@@ -38,6 +39,10 @@ public sealed class LyntaiOptions
 
     /// <summary>Default max entries returned by a memory recall.</summary>
     public int MemoryRecallLimit { get; set; } = 20;
+
+    /// <summary>Default iteration budget for an <see cref="Lyntai.Agents.IToolLoop"/> run (tool
+    /// round-trips before it gives up). Per-call override on <c>RunAsync</c>.</summary>
+    public int ToolLoopMaxIterations { get; set; } = 8;
 
     /// <summary>Resolve the model for a request: explicit request model wins, then the consumer's
     /// configured default, then the "default" consumer entry, then null (provider default).</summary>
@@ -68,6 +73,9 @@ public sealed class LyntaiOptions
 
         if (double.TryParse(getEnv("LYNTAI_DEADHOST_COOLDOWN_SECONDS"), out var c) && c > 0)
             DeadHostCooldown = TimeSpan.FromSeconds(c);
+
+        if (int.TryParse(getEnv("LYNTAI_TOOL_LOOP_MAX_ITERATIONS"), out var mi) && mi > 0)
+            ToolLoopMaxIterations = mi;
 
         // routing policy knobs (design §6 is the default; these tune it without code)
         if (int.TryParse(getEnv("LYNTAI_RETRY_FAILED"), out var rf) && rf >= 0)

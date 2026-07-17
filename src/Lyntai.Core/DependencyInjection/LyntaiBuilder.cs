@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Lyntai.Agents;
 using Lyntai.Cortex;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -43,6 +44,22 @@ public sealed class LyntaiBuilder
         where T : class, IScorer
     {
         Services.AddSingleton<IScorer, T>();
+        return this;
+    }
+
+    /// <summary>Register an <see cref="ITool"/> into the tool-loop's tool collection.</summary>
+    public LyntaiBuilder AddTool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, ITool
+    {
+        Services.AddSingleton<ITool, T>();
+        return this;
+    }
+
+    /// <summary>Register a tool built from the service provider (for config/dependency-parameterized
+    /// ones, or an inline <see cref="FunctionTool"/>).</summary>
+    public LyntaiBuilder AddTool(Func<IServiceProvider, ITool> factory)
+    {
+        Services.AddSingleton(factory);
         return this;
     }
 

@@ -6,7 +6,7 @@
     versions never drift from what the assemblies report. `dotnet pack -p:Version=X` overrides for a release.
   -->
   <PropertyGroup>
-    <VersionPrefix>0.8.0</VersionPrefix>
+    <VersionPrefix>0.9.0</VersionPrefix>
   </PropertyGroup>
 
   <!-- Shared build settings for the whole tree. -->
