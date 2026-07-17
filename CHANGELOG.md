@@ -3,6 +3,37 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.10.0 — 2026-07-18
+
+Native (structured) tool-calling — makes the v0.9 tool loop *actually work* over real provider
+function-calling instead of only the prompt-based protocol. Additive; the contract additions keep every
+existing `new LlmReply`/`LlmMessage` call site source-compatible.
+
+### Added
+- **Native tool-calling round-trip.** The model's tool calls now come back as structured data and tool
+  results feed back through the contract:
+  - `LlmToolCall(Id, Name, ArgumentsJson)`; `LlmReply.ToolCalls`; `LlmMessage.ToolCalls` +
+    `LlmMessage.ToolCallId` with factories `AssistantToolCalls(calls)` / `ToolResult(id, content)`.
+  - `ILlmProvider.SupportsToolCalls` (default-interface-method, default false),
+    `ILlmClient.SupportsToolCalls` / `ILlmRouter.SupportsToolCalls(candidates)` — the loop asks the
+    front door whether native tool-calling is available for the default routing (first live candidate)
+    without ever seeing the candidate list.
+  - **`OpenAiCompatibleProvider`** parses `tool_calls` from the response into `LlmReply.ToolCalls`
+    (handling OpenAI's string arguments *and* Ollama's object arguments; synthesizing an id when Ollama
+    omits one) and serializes assistant-tool-call turns + `role:"tool"` result turns in both the OpenAI
+    and Ollama payloads. `SupportsToolCalls => true`.
+- **`IToolLoop` now prefers native, falls back to prompt.** When the routing supports native tool-calling
+  the loop sends tool declarations and acts on structured `ToolCalls` (parallel calls in one turn
+  supported); otherwise it uses the v0.9 prompt protocol. Both paths execute the same app-registered
+  `ITool`s, and unknown/throwing tools stay recoverable. Proven end-to-end against a real local Ollama
+  (opt-in `OllamaToolCallLiveTests`, gated on `LYNTAI_LIVE_OLLAMA`).
+
+### Deferred
+- Native tool-calling through the **MEAI bridge** (`ExtensionsAiProvider`) — its `SupportsToolCalls`
+  stays `false` for now (an argument dict↔JSON serialization spike + a `MapMessages` rewrite); a
+  follow-up. Streaming tool-calls and ClaudeCli/Local native tools remain out of scope (they use the
+  prompt fallback).
+
 ## 0.9.0 — 2026-07-17
 
 First "platform kit" (design §9) capability: agentic tool-calling. Additive, all in `Lyntai.Core`.

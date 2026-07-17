@@ -13,11 +13,7 @@ public static class OpenAiPayload
         var payload = new JsonObject
         {
             ["model"] = model,
-            ["messages"] = new JsonArray([.. req.Messages.Select(m => (JsonNode)new JsonObject
-            {
-                ["role"] = m.Role,
-                ["content"] = m.Content,
-            })]),
+            ["messages"] = new JsonArray([.. req.Messages.Select(ToMessage)]),
             ["stream"] = stream,
         };
         if (req.MaxTokens is not null) payload["max_tokens"] = req.MaxTokens;
@@ -50,6 +46,37 @@ public static class OpenAiPayload
             };
         }
         return payload;
+    }
+
+    /// <summary>One canonical message → OpenAI schema. A plain turn is {role, content}; an assistant
+    /// tool-call turn is {role:"assistant", content:null, tool_calls:[…]} with arguments as a STRING
+    /// (OpenAI's shape); a tool-result turn is {role:"tool", tool_call_id, content}.</summary>
+    internal static JsonNode ToMessage(LlmMessage m)
+    {
+        if (m.ToolCalls is { Count: > 0 })
+            return new JsonObject
+            {
+                ["role"] = "assistant",
+                ["content"] = null, // OpenAI wants null content on a tool-call turn
+                ["tool_calls"] = new JsonArray([.. m.ToolCalls.Select(tc => (JsonNode)new JsonObject
+                {
+                    ["id"] = tc.Id,
+                    ["type"] = "function",
+                    ["function"] = new JsonObject { ["name"] = tc.Name, ["arguments"] = tc.ArgumentsJson },
+                })]),
+            };
+        if (m.ToolCallId is not null)
+            return new JsonObject { ["role"] = "tool", ["tool_call_id"] = m.ToolCallId, ["content"] = m.Content };
+        return new JsonObject { ["role"] = m.Role, ["content"] = m.Content };
+    }
+
+    /// <summary>Parse a JSON arguments string into a JSON object node (empty object on failure) — used
+    /// where a dialect wants arguments embedded as an object rather than a string (Ollama).</summary>
+    internal static JsonNode ParseObject(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new JsonObject();
+        try { return JsonNode.Parse(json) ?? new JsonObject(); }
+        catch (JsonException) { return new JsonObject(); }
     }
 
     /// <summary>Schemas arrive as strings on the canonical request but must be embedded as JSON

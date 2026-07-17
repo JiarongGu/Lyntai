@@ -11,6 +11,8 @@ public sealed class FakeLlmProvider(string id) : ILlmProvider
 
     public bool IsAvailable { get; set; } = true;
 
+    public bool SupportsToolCalls { get; set; }
+
     public Queue<LlmReply> Replies { get; } = new();
 
     public Func<LlmRequest, IReadOnlyList<LlmChunk>>? StreamScript { get; set; }

@@ -30,6 +30,10 @@ public sealed class OpenAiCompatibleProvider(
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(config.BaseUrl);
 
+    // OpenAI-compatible endpoints support native function-calling: we send req.Tools and surface the
+    // model's tool_calls on the reply. Coarse — an Ollama MODEL that ignores tools just answers in prose.
+    public bool SupportsToolCalls => true;
+
     /// <summary>Get the per-call HttpClient. Lyntai-created clients (from the named IHttpClientFactory
     /// client) are disposed after each call; an APP-supplied (BYO) client is NEVER disposed — the app
     /// owns its lifetime, so disposing it would break every call after the first.</summary>
@@ -69,12 +73,16 @@ public sealed class OpenAiCompatibleProvider(
                 return new LlmReply("", LlmVerdict.Failed, Detail: $"{id}: {ex.Message}");
             }
 
-            if (TryExtract(body, out var text, out var usage, out var finishReason))
+            if (TryExtract(body, out var text, out var usage, out var finishReason, out var toolCalls))
             {
                 // a content filter often arrives as HTTP 200 + finish_reason with EMPTY content —
                 // it must classify as Refused (no fallback) before any empty-text handling
                 if (finishReason == "content_filter")
                     return new LlmReply(text, LlmVerdict.Refused, usage, $"{id}: content filter");
+                // a tool-call turn is a SUCCESSFUL reply with empty text — surface it before the
+                // empty-text→Failed/retry path (the tool loop drives the next turn)
+                if (toolCalls is { Count: > 0 })
+                    return new LlmReply(text, LlmVerdict.Ok, usage) { ToolCalls = toolCalls };
                 if (text.Length > 0)
                     return new LlmReply(text, LlmVerdict.Ok, usage);
                 // well-formed but empty and not filtered — same retry-once as a malformed body
@@ -232,12 +240,16 @@ public sealed class OpenAiCompatibleProvider(
     }
 
     /// <summary>Tolerant extraction covering both response shapes:
-    /// OpenAI <c>choices[0].message.content</c> and Ollama <c>message.content</c>.</summary>
-    internal static bool TryExtract(string body, out string text, out LlmUsage? usage, out string? finishReason)
+    /// OpenAI <c>choices[0].message.content</c> and Ollama <c>message.content</c>. Also surfaces native
+    /// <c>tool_calls</c> when present (id/function.name/function.arguments — arguments as a string on
+    /// OpenAI, an object on Ollama, both normalized to a JSON string).</summary>
+    internal static bool TryExtract(string body, out string text, out LlmUsage? usage, out string? finishReason,
+        out IReadOnlyList<LlmToolCall>? toolCalls)
     {
         text = "";
         usage = null;
         finishReason = null;
+        toolCalls = null;
         try
         {
             using var doc = JsonDocument.Parse(body);
@@ -262,6 +274,9 @@ public sealed class OpenAiCompatibleProvider(
                 message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
                 text = content.GetString() ?? "";
 
+            if (message.ValueKind == JsonValueKind.Object)
+                toolCalls = ExtractToolCalls(message);
+
             usage = ExtractUsage(root);
             // a recognized message OR a finish_reason is a well-formed reply, even with empty
             // content (a content-filtered 200 has exactly that shape) — verdicts are the caller's job
@@ -271,6 +286,40 @@ public sealed class OpenAiCompatibleProvider(
         {
             return false;
         }
+    }
+
+    /// <summary>Parse <c>message.tool_calls</c> (both dialects). OpenAI carries an id and string
+    /// arguments; Ollama carries no id (synthesize one) and object arguments (serialize to a string).</summary>
+    private static IReadOnlyList<LlmToolCall>? ExtractToolCalls(JsonElement message)
+    {
+        if (!message.TryGetProperty("tool_calls", out var calls) || calls.ValueKind != JsonValueKind.Array || calls.GetArrayLength() == 0)
+            return null;
+
+        var result = new List<LlmToolCall>();
+        var index = 0;
+        foreach (var call in calls.EnumerateArray())
+        {
+            if (call.ValueKind != JsonValueKind.Object ||
+                !call.TryGetProperty("function", out var fn) || fn.ValueKind != JsonValueKind.Object ||
+                !fn.TryGetProperty("name", out var nameEl) || nameEl.ValueKind != JsonValueKind.String)
+            {
+                index++;
+                continue; // not a function tool call we can act on — skip
+            }
+            var id = call.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
+                ? idEl.GetString()! : $"call_{index}"; // Ollama gives no id — synthesize a stable one
+            var args = "{}";
+            if (fn.TryGetProperty("arguments", out var argEl))
+                args = argEl.ValueKind switch
+                {
+                    JsonValueKind.String => argEl.GetString() is { Length: > 0 } s ? s : "{}", // OpenAI: already a JSON string
+                    JsonValueKind.Object => argEl.GetRawText(),                                // Ollama: an object → its JSON text
+                    _ => "{}",
+                };
+            result.Add(new LlmToolCall(id, nameEl.GetString()!, args));
+            index++;
+        }
+        return result.Count > 0 ? result : null;
     }
 
     private static LlmUsage? ExtractUsage(JsonElement root)

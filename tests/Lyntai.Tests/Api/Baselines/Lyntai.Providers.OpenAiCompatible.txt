@@ -17,6 +17,7 @@ class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls : Boolean
 static class Lyntai.Providers.OpenAiCompatible.Payloads.OllamaPayload
     Build(LlmRequest, String, Boolean, Nullable<Int32>=) : JsonObject
 static class Lyntai.Providers.OpenAiCompatible.Payloads.OpenAiPayload

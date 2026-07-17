@@ -12,4 +12,9 @@ public interface ILlmClient
     Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default);
 
     IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default);
+
+    /// <summary>Whether native tool-calling is available for the configured default routing (the first
+    /// live default candidate is a tool-capable provider). The <see cref="Agents.IToolLoop"/> reads
+    /// this to choose the native path vs. its prompt-based fallback — without seeing candidate lists.</summary>
+    bool SupportsToolCalls => false;
 }

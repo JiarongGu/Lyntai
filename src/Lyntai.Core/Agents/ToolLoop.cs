@@ -7,12 +7,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Agents;
 
 /// <summary>
-/// Default <see cref="IToolLoop"/>. The JSON protocol each turn: the model replies with exactly one
-/// object, either <c>{"tool":"&lt;name&gt;","arguments":{…}}</c> to call a tool or
-/// <c>{"final":"&lt;answer&gt;"}</c> to finish. Replies go through <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>,
-/// so a parseable object is guaranteed (tolerant extraction + one corrective retry). Unknown tools and
-/// tools that throw become <c>error: …</c> observations fed back to the model (it can recover) rather
-/// than exceptions. A non-Ok LLM verdict (refusal, all candidates down) is surfaced as-is.
+/// Default <see cref="IToolLoop"/>. Uses <b>native</b> tool-calling when the routing supports it
+/// (<see cref="ILlmClient.SupportsToolCalls"/>): tool declarations go to the model and its structured
+/// <see cref="LlmReply.ToolCalls"/> drive execution, with results fed back as tool-role messages.
+/// Otherwise it falls back to a provider-agnostic <b>prompt protocol</b> over the text contract (the
+/// model replies with one JSON object, <c>{"tool":…}</c> or <c>{"final":…}</c>, via
+/// <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>). Both paths execute the same registered
+/// <see cref="ITool"/>s. Unknown tools and tools that throw become <c>error: …</c> observations fed back
+/// to the model (it can recover) rather than exceptions; a non-Ok LLM verdict is surfaced as-is.
 /// </summary>
 public sealed class ToolLoop(
     ILlmClient client,
@@ -36,6 +38,57 @@ public sealed class ToolLoop(
         }
 
         var budget = maxIterations ?? options.ToolLoopMaxIterations;
+
+        // Native tool-calling when the routing supports it (robust, structured); otherwise the
+        // provider-agnostic prompt protocol below. Both execute the same registered ITools.
+        return client.SupportsToolCalls
+            ? await RunNativeAsync(req, tools, budget, steps, ct).ConfigureAwait(false)
+            : await RunPromptAsync(req, tools, budget, steps, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Native path: send tool declarations, act on the model's structured
+    /// <see cref="LlmReply.ToolCalls"/>, feed results back as tool-role messages, repeat.</summary>
+    private async Task<ToolLoopResult> RunNativeAsync(LlmRequest req, IReadOnlyList<ITool> tools, int budget,
+        List<ToolStep> steps, CancellationToken ct)
+    {
+        var declarations = tools.Select(t => new LlmTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
+        var messages = new List<LlmMessage>(req.Messages); // no protocol prompt — the model calls tools natively
+
+        for (var iteration = 0; iteration < budget; iteration++)
+        {
+            // CompleteAsync, NOT CompleteJsonAsync: a native tool-call turn has empty text and would
+            // fail the parseable-JSON check, triggering a corrective retry that corrupts the loop
+            var reply = await client.CompleteAsync(req with { Messages = [.. messages], Tools = declarations }, ct)
+                .ConfigureAwait(false);
+            if (reply.Verdict != LlmVerdict.Ok)
+                return new ToolLoopResult("", reply.Verdict, steps, reply.Detail);
+
+            if (reply.ToolCalls is not { Count: > 0 })
+            {
+                _logger.LogDebug("tool-loop (native): final answer after {Steps} tool step(s)", steps.Count);
+                return new ToolLoopResult(reply.Text, LlmVerdict.Ok, steps); // no calls → the model answered
+            }
+
+            // one assistant-tool-call turn carrying ALL calls, then one tool-result per call (a missing
+            // tool_call_id makes providers reject the next request)
+            messages.Add(LlmMessage.AssistantToolCalls(reply.ToolCalls));
+            foreach (var call in reply.ToolCalls)
+            {
+                var observation = await InvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);
+                steps.Add(new ToolStep(call.Name, call.ArgumentsJson, observation));
+                messages.Add(LlmMessage.ToolResult(call.Id, observation));
+            }
+        }
+
+        _logger.LogWarning("tool-loop (native): no final answer within {Budget} iterations", budget);
+        return new ToolLoopResult("", LlmVerdict.Failed, steps, $"tool loop did not converge within {budget} iterations");
+    }
+
+    /// <summary>Fallback path for providers without native tool-calling: a JSON protocol in the prompt
+    /// (<c>{"tool":…}</c>/<c>{"final":…}</c>) over the text contract via <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>.</summary>
+    private async Task<ToolLoopResult> RunPromptAsync(LlmRequest req, IReadOnlyList<ITool> tools, int budget,
+        List<ToolStep> steps, CancellationToken ct)
+    {
         var messages = new List<LlmMessage> { LlmMessage.System(BuildSystemPrompt(tools)) };
         messages.AddRange(req.Messages);
 

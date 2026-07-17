@@ -147,6 +147,105 @@ public class ToolLoopTests
         Assert.Empty(result.Steps);
     }
 
+    // ---- native tool-calling path (client.SupportsToolCalls == true) ---------------------------------
+
+    private static ToolLoop NativeLoop(FakeLlmClient client, params ITool[] tools)
+    {
+        client.SupportsToolCalls = true;
+        return new ToolLoop(client, new ToolRegistry(tools), Options());
+    }
+
+    [Fact]
+    public async Task Native_executes_the_models_tool_calls_and_feeds_results_back()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok)
+        { ToolCalls = [new LlmToolCall("call_1", "echo", """{"x":1}""")] });
+        client.Replies.Enqueue(new LlmReply("all done", LlmVerdict.Ok)); // no tool calls → final
+
+        var result = await NativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.True(result.Ok);
+        Assert.Equal("all done", result.Answer);
+        var step = Assert.Single(result.Steps);
+        Assert.Equal("echo", step.Tool);
+        Assert.Equal("""observed:{"x":1}""", step.Result);
+
+        // first turn sent the tool declarations; second turn carried the assistant-tool-call + tool-result
+        Assert.NotNull(client.Calls[0].Tools);
+        Assert.Contains(client.Calls[0].Tools!, t => t.Name == "echo");
+        Assert.Contains(client.Calls[1].Messages, m => m.ToolCalls is { Count: > 0 });
+        Assert.Contains(client.Calls[1].Messages, m => m.Role == "tool" && m.ToolCallId == "call_1");
+        // native path sends no prompt-protocol system message
+        Assert.DoesNotContain(client.Calls[0].Messages, m => m.Role == "system");
+    }
+
+    [Fact]
+    public async Task Native_handles_parallel_tool_calls_in_one_turn()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok)
+        {
+            ToolCalls =
+            [
+                new LlmToolCall("call_1", "echo", """{"a":1}"""),
+                new LlmToolCall("call_2", "echo", """{"b":2}"""),
+            ],
+        });
+        client.Replies.Enqueue(new LlmReply("combined", LlmVerdict.Ok));
+
+        var result = await NativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.Equal(2, result.Steps.Count);                          // both executed, order preserved
+        Assert.Equal("""observed:{"a":1}""", result.Steps[0].Result);
+        Assert.Equal("""observed:{"b":2}""", result.Steps[1].Result);
+        var toolResults = client.Calls[1].Messages.Where(m => m.Role == "tool").ToList();
+        Assert.Equal(["call_1", "call_2"], toolResults.Select(m => m.ToolCallId)); // one result per call id
+    }
+
+    [Fact]
+    public async Task Native_unknown_tool_is_reported_back_not_thrown()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok)
+        { ToolCalls = [new LlmToolCall("call_1", "nope", "{}")] });
+        client.Replies.Enqueue(new LlmReply("recovered", LlmVerdict.Ok));
+
+        var result = await NativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.True(result.Ok);
+        Assert.Equal("recovered", result.Answer);
+        Assert.Contains("unknown tool", result.Steps[0].Result);
+    }
+
+    [Fact]
+    public async Task Native_non_convergence_returns_Failed()
+    {
+        var client = new FakeLlmClient();
+        for (var i = 0; i < 10; i++)
+            client.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok)
+            { ToolCalls = [new LlmToolCall($"call_{i}", "echo", "{}")] });
+
+        client.SupportsToolCalls = true;
+        var result = await new ToolLoop(client, new ToolRegistry([Echo()]), Options(max: 3)).RunAsync(Ask());
+
+        Assert.Equal(LlmVerdict.Failed, result.Verdict);
+        Assert.Equal(3, result.Steps.Count);                          // one call per turn, budget 3
+        Assert.Contains("did not converge", result.Detail);
+    }
+
+    [Fact]
+    public async Task Native_surfaces_a_non_Ok_verdict()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("", LlmVerdict.RateLimited, Detail: "slow down"));
+
+        var result = await NativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.Equal(LlmVerdict.RateLimited, result.Verdict);
+        Assert.Empty(result.Steps);
+    }
+
     [Fact]
     public async Task With_no_tools_registered_it_is_a_single_plain_completion()
     {

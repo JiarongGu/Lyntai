@@ -3,12 +3,12 @@ using Lyntai.Llm;
 namespace Lyntai.Agents;
 
 /// <summary>
-/// A provider-agnostic tool-calling (ReAct-style) loop over the <see cref="ILlmClient"/> front door:
-/// it renders the registered tools into the prompt, asks the model to either call a tool or finish,
-/// executes the chosen tool, feeds the observation back, and repeats until the model finishes or the
-/// iteration budget is hit. Because it runs over the text contract, it works with <em>any</em>
-/// provider (CLI, HTTP, MEAI bridge, local) — no native tool-calling support required, so it fits the
-/// "Lyntai behaves like one provider" principle.
+/// A tool-calling (ReAct-style) loop over the <see cref="ILlmClient"/> front door: it makes the
+/// registered tools available to the model, executes the tool the model chooses, feeds the observation
+/// back, and repeats until the model finishes or the iteration budget is hit. It prefers <b>native</b>
+/// function-calling (when the provider supports it) and falls back to a <b>prompt protocol</b> over the
+/// text contract for providers that don't — so it works with <em>any</em> provider (HTTP, MEAI bridge,
+/// CLI, local) and stays behind the "Lyntai behaves like one provider" front door either way.
 /// </summary>
 public interface IToolLoop
 {

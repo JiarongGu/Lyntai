@@ -60,6 +60,51 @@ public class OpenAiCompatibleProviderTests
     }
 
     [Fact]
+    public void Provider_advertises_native_tool_calls()
+    {
+        Assert.True(Provider(new StubHttpHandler()).SupportsToolCalls);
+    }
+
+    [Fact]
+    public async Task Openai_tool_calls_response_maps_to_ok_with_parsed_calls_and_empty_text()
+    {
+        // content is null + finish_reason tool_calls + arguments as a STRING (OpenAI shape)
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
+            {"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[
+              {"id":"call_1","type":"function","function":{"name":"get_weather","arguments":"{\"city\":\"Paris\"}"}}
+            ]},"finish_reason":"tool_calls"}]}
+            """);
+
+        var reply = await Provider(handler).CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict); // empty text + tool calls is NOT a failure
+        Assert.Equal("", reply.Text);
+        var call = Assert.Single(reply.ToolCalls!);
+        Assert.Equal("call_1", call.Id);
+        Assert.Equal("get_weather", call.Name);
+        Assert.Equal("""{"city":"Paris"}""", call.ArgumentsJson);
+    }
+
+    [Fact]
+    public async Task Ollama_tool_calls_response_normalizes_object_arguments_and_synthesizes_an_id()
+    {
+        // Ollama shape: top-level message, arguments as an OBJECT, no id
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, """
+            {"message":{"role":"assistant","content":"","tool_calls":[
+              {"function":{"name":"get_weather","arguments":{"city":"Paris"}}}
+            ]},"done":true}
+            """);
+
+        var reply = await Provider(handler).CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        var call = Assert.Single(reply.ToolCalls!);
+        Assert.Equal("get_weather", call.Name);
+        Assert.False(string.IsNullOrEmpty(call.Id));                 // synthesized (Ollama gives none)
+        Assert.Equal("""{"city":"Paris"}""", call.ArgumentsJson);    // object → JSON string
+    }
+
+    [Fact]
     public async Task Content_filter_maps_to_refused()
     {
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.BadRequest,

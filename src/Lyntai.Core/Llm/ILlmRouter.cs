@@ -10,4 +10,8 @@ public interface ILlmRouter
     Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
 
     IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);
+
+    /// <summary>Whether native tool-calling is available for <paramref name="candidates"/> — true iff
+    /// the first live (registered + available) candidate is a tool-capable provider. Default false.</summary>
+    bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates) => false;
 }

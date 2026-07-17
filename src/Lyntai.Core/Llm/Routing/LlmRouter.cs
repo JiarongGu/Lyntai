@@ -217,6 +217,23 @@ public sealed class LlmRouter(
         yield return lastError ?? LlmChunk.Error(LlmVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
     }
 
+    /// <summary>Native tool support for a candidate list: the first live candidate (registered,
+    /// available, not on cooldown) decides — matching how the router commits to the first working one.
+    /// A tool-capable fallback that would never be reached must not flip this true.</summary>
+    public bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates)
+    {
+        var deduped = CandidateDedup.Dedup(candidates);
+        var soleCandidate = deduped.Count == 1;
+        foreach (var candidate in deduped)
+        {
+            // the candidate's own model is fine for the availability/cooldown probe (it only keys the
+            // dead-host lookup); no request/consumer context is needed to answer "is it tool-capable"
+            var provider = SelectLive(candidate, candidate.Model, soleCandidate, out _);
+            if (provider is not null) return provider.SupportsToolCalls; // first live candidate decides
+        }
+        return false;
+    }
+
     private async Task<LlmReply> TryCompleteAsync(ILlmProvider provider, string? effectiveModel, LlmRequest req, CancellationToken ct)
     {
         var effective = req with { Model = effectiveModel };

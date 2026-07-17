@@ -10,6 +10,8 @@ public sealed class FakeLlmClient : ILlmClient
     public Queue<LlmReply> Replies { get; } = new();
     public List<LlmRequest> Calls { get; } = [];
 
+    public bool SupportsToolCalls { get; set; }
+
     public Func<LlmRequest, IReadOnlyList<LlmChunk>>? StreamScript { get; set; }
 
     public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)

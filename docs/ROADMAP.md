@@ -64,11 +64,19 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
 - ✅ **Tool-calling loop** (`Lyntai.Agents`, deferred §9 "tool/MCP registry") — a provider-agnostic
   ReAct loop over `ILlmClient` (`IToolLoop`), executable-tool seam (`ITool` + `AddTool` DI collection,
   `FunctionTool` for inline tools), name-keyed `IToolRegistry`. Runs over the text contract via
-  `CompleteJsonAsync`, so it works with any provider without native tool-calling. Unknown/throwing tools
-  become recoverable observations; non-Ok verdicts surface; non-convergence returns `Failed`. This is
-  the primitive the remaining agentic §9 items (orchestration, durable jobs) build on. Next on this
-  track when picked up: native provider tool-calling (surfacing tool_calls in replies) and an MCP-client
-  tool source (an `ITool` that proxies an MCP server).
+  `CompleteJsonAsync`, so it works with any provider. Unknown/throwing tools become recoverable
+  observations; non-Ok verdicts surface; non-convergence returns `Failed`. The primitive the remaining
+  agentic §9 items (orchestration, durable jobs) build on.
+
+### v0.10.0 — native tool-calling (2026-07)
+- ✅ **Native (structured) tool-calling** — the loop now uses real provider function-calling when
+  available, not just the prompt protocol. Contract carries tool calls (`LlmToolCall`,
+  `LlmReply.ToolCalls`, `LlmMessage.ToolResult`/`AssistantToolCalls`); `SupportsToolCalls` capability on
+  provider/router/client (first-live-candidate) lets `IToolLoop` pick native vs. the prompt fallback
+  transparently. `OpenAiCompatibleProvider` parses `tool_calls` (OpenAI + Ollama dialects) and
+  serializes tool/assistant turns. Proven end-to-end against a real Ollama. **Next on this track:**
+  native tool-calling through the MEAI bridge (`ExtensionsAiProvider` — a small argument-serialization
+  spike, deferred); then an MCP-client `ITool` (proxy an MCP server); streaming tool-calls.
 
 ## Planned
 

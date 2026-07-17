@@ -75,4 +75,30 @@ public class LlmClientTests
 
         Assert.Equal(LlmVerdict.Failed, reply.Verdict);
     }
+
+    [Fact]
+    public void SupportsToolCalls_is_false_when_the_default_provider_has_no_native_support()
+    {
+        using var sp = Build(new FakeLlmProvider("plain")); // DIM default false
+        Assert.False(sp.GetRequiredService<ILlmClient>().SupportsToolCalls);
+    }
+
+    [Fact]
+    public void SupportsToolCalls_reflects_the_first_live_candidate()
+    {
+        var native = new FakeLlmProvider("native") { SupportsToolCalls = true };
+        var plain = new FakeLlmProvider("plain");
+        using var sp = Build(native, plain);
+        Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls);
+    }
+
+    [Fact]
+    public void SupportsToolCalls_skips_a_dead_first_candidate_to_the_next_live_one()
+    {
+        // first candidate is unavailable → the query falls to the next LIVE candidate, which is plain
+        var down = new FakeLlmProvider("down") { IsAvailable = false, SupportsToolCalls = true };
+        var plain = new FakeLlmProvider("plain");
+        using var sp = Build(down, plain);
+        Assert.False(sp.GetRequiredService<ILlmClient>().SupportsToolCalls); // the reachable one isn't tool-capable
+    }
 }

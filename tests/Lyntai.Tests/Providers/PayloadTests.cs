@@ -75,6 +75,58 @@ public class PayloadTests
     }
 
     [Fact]
+    public void Openai_serializes_an_assistant_tool_call_turn_with_null_content()
+    {
+        var req = new LlmRequest
+        {
+            Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("call_1", "get_weather", """{"city":"Paris"}""")])],
+        };
+
+        var msg = OpenAiPayload.Build(req, "m", stream: false)["messages"]!.AsArray()[0]!;
+
+        Assert.Equal("assistant", (string)msg["role"]!);
+        Assert.Null(msg["content"]); // OpenAI's documented shape for a tool-call turn
+        var call = msg["tool_calls"]!.AsArray()[0]!;
+        Assert.Equal("call_1", (string)call["id"]!);
+        Assert.Equal("function", (string)call["type"]!);
+        Assert.Equal("get_weather", (string)call["function"]!["name"]!);
+        Assert.Equal("""{"city":"Paris"}""", (string)call["function"]!["arguments"]!); // OpenAI: arguments is a STRING
+    }
+
+    [Fact]
+    public void Openai_serializes_a_tool_result_turn_with_tool_call_id()
+    {
+        var req = new LlmRequest { Messages = [LlmMessage.ToolResult("call_1", "18C sunny")] };
+
+        var msg = OpenAiPayload.Build(req, "m", stream: false)["messages"]!.AsArray()[0]!;
+
+        Assert.Equal("tool", (string)msg["role"]!);
+        Assert.Equal("call_1", (string)msg["tool_call_id"]!);
+        Assert.Equal("18C sunny", (string)msg["content"]!);
+    }
+
+    [Fact]
+    public void Ollama_serializes_tool_call_arguments_as_an_object()
+    {
+        var req = new LlmRequest
+        {
+            Messages =
+            [
+                LlmMessage.AssistantToolCalls([new LlmToolCall("call_1", "get_weather", """{"city":"Paris"}""")]),
+                LlmMessage.ToolResult("call_1", "18C"),
+            ],
+        };
+
+        var messages = OllamaPayload.Build(req, "m", stream: false)["messages"]!.AsArray();
+
+        var call = messages[0]!["tool_calls"]!.AsArray()[0]!;
+        Assert.IsType<JsonObject>(call["function"]!["arguments"]); // Ollama: arguments is an OBJECT, not a string
+        Assert.Equal("Paris", (string)call["function"]!["arguments"]!["city"]!);
+        Assert.Equal("tool", (string)messages[1]!["role"]!);
+        Assert.Equal("18C", (string)messages[1]!["content"]!);
+    }
+
+    [Fact]
     public void Schema_round_trips_through_parse()
     {
         const string schema = """{"type":"object","required":["a"],"properties":{"a":{"type":"number"}}}""";

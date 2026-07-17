@@ -17,11 +17,7 @@ public static class OllamaPayload
         var payload = new JsonObject
         {
             ["model"] = model,
-            ["messages"] = new JsonArray([.. req.Messages.Select(m => (JsonNode)new JsonObject
-            {
-                ["role"] = m.Role,
-                ["content"] = m.Content,
-            })]),
+            ["messages"] = new JsonArray([.. req.Messages.Select(ToMessage)]),
             ["stream"] = stream,
         };
         if (options.Count > 0) payload["options"] = options;
@@ -45,5 +41,25 @@ public static class OllamaPayload
             payload["format"] = OpenAiPayload.ParseSchema(req.JsonSchema); // schema OBJECT, not a string
 
         return payload;
+    }
+
+    /// <summary>One canonical message → Ollama /api/chat schema. Differs from OpenAI: a tool-call turn's
+    /// arguments embed as an OBJECT (not a string) and carry no id; a tool result is {role:"tool",
+    /// content} (Ollama correlates by order, not tool_call_id).</summary>
+    internal static JsonNode ToMessage(LlmMessage m)
+    {
+        if (m.ToolCalls is { Count: > 0 })
+            return new JsonObject
+            {
+                ["role"] = "assistant",
+                ["content"] = m.Content, // "" — Ollama has no null-content requirement
+                ["tool_calls"] = new JsonArray([.. m.ToolCalls.Select(tc => (JsonNode)new JsonObject
+                {
+                    ["function"] = new JsonObject { ["name"] = tc.Name, ["arguments"] = OpenAiPayload.ParseObject(tc.ArgumentsJson) },
+                })]),
+            };
+        if (m.ToolCallId is not null)
+            return new JsonObject { ["role"] = "tool", ["content"] = m.Content };
+        return new JsonObject { ["role"] = m.Role, ["content"] = m.Content };
     }
 }

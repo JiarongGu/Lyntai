@@ -195,14 +195,17 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
 interface Lyntai.Llm.ILlmClient
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls : Boolean
 interface Lyntai.Llm.ILlmProvider
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls : Boolean
 interface Lyntai.Llm.ILlmRouter
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(IReadOnlyList<LlmCandidate>) : Boolean
 class Lyntai.Llm.LlmCandidate
     .ctor(String, String=)
     Deconstruct(String&, String&) : Void
@@ -234,6 +237,7 @@ enum Lyntai.Llm.LlmChunkKind
 class Lyntai.Llm.LlmMessage
     .ctor(String, String)
     Assistant(String) : LlmMessage
+    AssistantToolCalls(IReadOnlyList<LlmToolCall>) : LlmMessage
     Content : String
     Deconstruct(String&, String&) : Void
     Equals(LlmMessage) : Boolean
@@ -242,6 +246,9 @@ class Lyntai.Llm.LlmMessage
     Role : String
     System(String) : LlmMessage
     ToString() : String
+    ToolCallId : String
+    ToolCalls : IReadOnlyList<LlmToolCall>
+    ToolResult(String, String) : LlmMessage
     User(String) : LlmMessage
 class Lyntai.Llm.LlmReply
     .ctor(String, LlmVerdict, LlmUsage=, String=)
@@ -252,6 +259,7 @@ class Lyntai.Llm.LlmReply
     GetHashCode() : Int32
     Text : String
     ToString() : String
+    ToolCalls : IReadOnlyList<LlmToolCall>
     Usage : LlmUsage
     Verdict : LlmVerdict
 class Lyntai.Llm.LlmRequest
@@ -278,6 +286,16 @@ class Lyntai.Llm.LlmTool
     GetHashCode() : Int32
     Name : String
     ParametersJsonSchema : String
+    ToString() : String
+class Lyntai.Llm.LlmToolCall
+    .ctor(String, String, String)
+    ArgumentsJson : String
+    Deconstruct(String&, String&, String&) : Void
+    Equals(LlmToolCall) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    Name : String
     ToString() : String
 class Lyntai.Llm.LlmUsage
     .ctor(Int64, Int64, Int64=, Nullable<Double>=)
@@ -325,10 +343,12 @@ class Lyntai.Llm.Routing.LlmClient
     .ctor(ILlmRouter, LyntaiOptions)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls : Boolean
 class Lyntai.Llm.Routing.LlmRouter
     .ctor(IEnumerable<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILogger<LlmRouter>=)
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(IReadOnlyList<LlmCandidate>) : Boolean
 class Lyntai.Llm.Routing.RoutingPolicy
     .ctor()
     ActionFor(LlmVerdict) : FallbackAction
