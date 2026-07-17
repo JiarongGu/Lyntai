@@ -2,9 +2,9 @@ using Lyntai.Llm;
 
 namespace Lyntai.Agents;
 
-/// <summary>One turn to run through the orchestration: the user <paramref name="Message"/>, an optional
-/// <paramref name="System"/> prompt, and memory scoping. When <see cref="TaskKey"/> is set, prior memory
-/// is recalled into the prompt and (if <see cref="Remember"/>) the exchange is written back.</summary>
+/// <summary>One turn to run through the orchestration: the user <see cref="Message"/>, an optional
+/// <see cref="ChatTurn.System"/> prompt, and memory scoping. When <see cref="TaskKey"/> is set, prior
+/// memory is recalled into the prompt and (if <see cref="Remember"/>) the exchange is written back.</summary>
 public sealed record ChatTurn
 {
     public required string Message { get; init; }

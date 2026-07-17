@@ -69,11 +69,16 @@ public static class OpenAiPayload
             return new JsonObject { ["role"] = "tool", ["tool_call_id"] = m.ToolCallId, ["content"] = m.Content };
         if (m.Role == "user" && m.Attachments is { Count: > 0 }) // OpenAI accepts image parts only on user turns
         {
-            // vision: content becomes an array of parts — the text, then one image_url per attachment
-            var parts = new JsonArray { new JsonObject { ["type"] = "text", ["text"] = m.Content } };
-            foreach (var a in m.Attachments)
-                parts.Add(new JsonObject { ["type"] = "image_url", ["image_url"] = new JsonObject { ["url"] = a.Url() } });
-            return new JsonObject { ["role"] = m.Role, ["content"] = parts };
+            // vision: content becomes an array of parts — the text, then one image_url per attachment.
+            // Build via the params JsonArray ctor with JsonNode-typed elements (as the tool_calls array
+            // above does); the JsonArray.Add<T>(T) overload is flagged trim/AOT-unsafe, this path isn't.
+            JsonNode text = new JsonObject { ["type"] = "text", ["text"] = m.Content };
+            var images = m.Attachments.Select(a => (JsonNode)new JsonObject
+            {
+                ["type"] = "image_url",
+                ["image_url"] = new JsonObject { ["url"] = a.Url() },
+            });
+            return new JsonObject { ["role"] = m.Role, ["content"] = new JsonArray([text, .. images]) };
         }
         return new JsonObject { ["role"] = m.Role, ["content"] = m.Content };
     }

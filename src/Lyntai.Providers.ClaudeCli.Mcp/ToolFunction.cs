@@ -39,7 +39,7 @@ internal sealed class ToolFunction(ITool tool) : AIFunction
 
     /// <summary>An argument value → a JSON node, preserving type. Values arrive as <see cref="JsonElement"/>
     /// from the wire but can be boxed CLR primitives; those must keep their JSON type (a <c>3</c> must not
-    /// become <c>"3"</c>). Reflection-free (typed <see cref="JsonValue.Create(bool)"/> etc.).</summary>
+    /// become <c>"3"</c>). Reflection-free (typed <c>JsonValue.Create</c> overloads etc.).</summary>
     private static JsonNode? ToNode(object? value) => value switch
     {
         null => null,

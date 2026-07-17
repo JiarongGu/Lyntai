@@ -29,7 +29,7 @@ public interface ISecretProtector
     string Unprotect(string ciphertext);
 }
 
-/// <summary>The access gate: decides whether <paramref name="accessor"/> may READ a given secret. It gates
+/// <summary>The access gate: decides whether a given accessor may READ a given secret. It gates
 /// reads only — Set/Delete/ListNames are not policy-checked (mutations/enumeration are considered a
 /// management concern, guarded by who can reach the vault at all).</summary>
 public interface ISecretAccessPolicy

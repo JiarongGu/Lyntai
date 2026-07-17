@@ -111,7 +111,7 @@ public class GuardTests
     }
 
     [Fact]
-    public void AddGuard_wires_the_rail_from_the_di_collection()
+    public async Task AddGuard_wires_the_rail_from_the_di_collection()
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
@@ -120,6 +120,7 @@ public class GuardTests
         using var sp = services.BuildServiceProvider();
 
         var rail = sp.GetRequiredService<IGuardRail>();
-        Assert.Equal(GuardOutcome.Kind.Block, rail.InspectResponseAsync(new LlmReply("this is secret", LlmVerdict.Ok)).Result.Result);
+        var outcome = await rail.InspectResponseAsync(new LlmReply("this is secret", LlmVerdict.Ok));
+        Assert.Equal(GuardOutcome.Kind.Block, outcome.Result);
     }
 }

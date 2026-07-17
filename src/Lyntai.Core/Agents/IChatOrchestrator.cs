@@ -9,7 +9,7 @@ namespace Lyntai.Agents;
 /// <para>NOTE: the gates are the ENTRY and FINAL-ANSWER of the turn. When tools run, the tool loop's
 /// intermediate model turns (and the tool observations fed back into them) are NOT individually gated —
 /// so a tool that returns untrusted content can influence the model mid-loop. If you need every model
-/// turn gated, register your <see cref="ILlmClient"/> as a <c>GuardedLlmClient</c> (the loop then gates
+/// turn gated, register your <see cref="Lyntai.Llm.ILlmClient"/> as a <c>GuardedLlmClient</c> (the loop then gates
 /// each turn); don't ALSO rely on these gates for that content, to avoid double-gating.</para>
 /// </summary>
 public interface IChatOrchestrator
