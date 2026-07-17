@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
+[Collection("provider-cmd-env")] // serialized with other tests that set LYNTAI_PROVIDER_CMD
 public class AddClaudeCliProviderTests
 {
     [Fact]
