@@ -1,0 +1,35 @@
+static class Lyntai.InMemoryStorageBuilderExtensions
+    UseInMemoryStorage(LyntaiBuilder) : LyntaiBuilder
+class Lyntai.Storage.InMemory.InMemoryConversationStore
+    .ctor()
+    AppendMessageAsync(String, String, String, CancellationToken=) : Task<ChatMessage>
+    CreateThreadAsync(String, String=, CancellationToken=) : Task<ChatThread>
+    DeleteThreadAsync(String, CancellationToken=) : Task
+    GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
+    GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
+    ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+class Lyntai.Storage.InMemory.InMemoryKeyValueStore
+    .ctor()
+    DeleteAsync(String, CancellationToken=) : Task
+    GetAsync(String, CancellationToken=) : Task<String>
+    SetAsync(String, String, CancellationToken=) : Task
+class Lyntai.Storage.InMemory.InMemoryMemoryStore
+    .ctor(LyntaiOptions, Func<DateTimeOffset>=)
+    ForgetAsync(String, String=, CancellationToken=) : Task
+    PruneAsync(String=, Nullable<TimeSpan>=, CancellationToken=) : Task<Int32>
+    RecallAsync(String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<MemoryEntry>>
+    RememberAsync(String, String, String, Nullable<TimeSpan>=, CancellationToken=) : Task
+class Lyntai.Storage.InMemory.InMemoryPromptVersionStore
+    .ctor()
+    GetActiveAsync(String, CancellationToken=) : Task<PromptVersion>
+    HistoryAsync(String, CancellationToken=) : Task<IReadOnlyList<PromptVersion>>
+    RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
+    SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
+class Lyntai.Storage.InMemory.InMemoryScoreStore
+    .ctor()
+    GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
+    SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
+class Lyntai.Storage.InMemory.InMemoryTraceStore
+    .ctor()
+    GetAsync(String, CancellationToken=) : Task<RunTrace>
+    SaveAsync(RunTrace, CancellationToken=) : Task

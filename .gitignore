@@ -15,6 +15,9 @@ artifacts/
 # BenchmarkDotNet output
 BenchmarkDotNet.Artifacts/
 
+# API-surface approval-test diffs (the .txt baselines ARE tracked; the .actual diffs are not)
+*.actual
+
 # devtools scratch (family convention: `_`-prefixed, never OS temp)
 devtools/_*
 devtools/screenshots/

@@ -31,21 +31,35 @@ per-entry TTL, `PruneAsync`); trace↔span bridging (`RunTrace.TraceId`). Remain
 LLM summarization/compaction of old memory — deferred as a composition-helper pattern (the
 deterministic lifecycle primitives shipped; summarization has no settled recipe yet).
 
+### v0.5.0 — ecosystem & backends (2026-07)
+- ✅ **Composite store seam** — `Lyntai.Storage.InMemory` is the second real backend; the mastra
+  "one interface per domain, many backends" pattern is expressed through DI (the container is the
+  registry): `UseInMemoryStorage()` stands alone or backfills gaps, and mixing is a per-domain
+  override (last registration wins). Proven by tests.
+- ✅ **AOT story documented** — `docs/AOT.md`: Core + providers + InMemory are AOT-compatible;
+  `Lyntai.Storage.Sqlite` opts out honestly over Dapper/FluentMigrator reflection, with the
+  Dapper.AOT path noted.
+
 ## Planned
 
-### v0.5 — ecosystem & backends
-- **Composite store router** (the mastra pattern the interfaces were shaped for): route each
-  storage domain to a different backend package without breaking consumers.
-- **`Lyntai.Storage.Postgres`**: second storage backend proving the domain-interface seam.
-- **Full AOT story**: evaluate Dapper.AOT for `Lyntai.Storage.Sqlite` (async +
-  `MatchNamesWithUnderscores` + FluentMigrator compatibility) or document the non-AOT status.
-- **`Lyntai.Providers.Local`** (LLamaSharp, in-process) — deferred §9 item.
+### Blocked on user-provided infrastructure
+These need something only the maintainer can provision; the design admits them without breaking changes.
+- **`Lyntai.Storage.Postgres`** — needs a Postgres instance (Testcontainers/Docker or a live server)
+  to integration-test honestly; shipping it untested would violate the project's own testing bar.
+- **`Lyntai.Providers.Local`** (LLamaSharp, in-process, deferred §9) — heavy native dependency +
+  multi-GB model downloads to verify.
+- **Docs site**, **real `PackageProjectUrl`/`RepositoryUrl`**, and **SourceLink activation** — all
+  gated on the repo being hosted. (Sources are already embedded in the PDBs via `EmbedAllSources`, so
+  step-into debugging works today; SourceLink is a one-package add once there's a remote to resolve.)
 
 ### v1.0 — API freeze
-- Semver commitment: no breaking changes without a major bump.
-- Public-API baseline tests (Microsoft.CodeAnalysis.PublicApiAnalyzers) so breaks are deliberate.
-- Docs site (API reference from the shipped XML docs + how-to guides).
-- Real `PackageProjectUrl`/`RepositoryUrl` + SourceLink once the repo is hosted.
+- ✅ **Public-API baseline** — an approval test (`ApiSurfaceTests`) snapshots every packable
+  assembly's public/protected surface; any add/remove/rename fails until the baseline is updated
+  deliberately, so pre-1.0 breaks are visible in review and post-1.0 gate a major bump.
+- ✅ **Semver policy** — stated in `CHANGELOG.md` and here: pre-1.0 minor versions may carry breaking
+  changes (each called out in the changelog); 1.0 commits to SemVer 2.0.0 (no breaks without a major bump).
+- Remaining before tagging 1.0: host the repo (unblocks the three infra items above), then a docs
+  pass and the SourceLink/URL wiring.
 
 ### Post-1.0 — the platform kit (design §9)
 Each as a separate package on the same seams: two-gate chat orchestration · scope-guard/jail hooks ·

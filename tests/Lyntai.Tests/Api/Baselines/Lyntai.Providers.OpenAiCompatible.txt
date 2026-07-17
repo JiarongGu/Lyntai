@@ -1,0 +1,24 @@
+static class Lyntai.OpenAiCompatibleBuilderExtensions
+    AddOpenAiCompatibleProvider(LyntaiBuilder, String, Action<OpenAiCompatibleOptions>) : LyntaiBuilder
+class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
+    .ctor()
+    ApiKey : String
+    BaseUrl : String
+    DefaultModel : String
+    Flavor : String
+    NumCtx : Nullable<Int32>
+class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
+    .ctor(String, OpenAiCompatibleOptions, Func<HttpClient>, LyntaiOptions, ILogger<OpenAiCompatibleProvider>=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    Id : String
+    IsAvailable : Boolean
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+static class Lyntai.Providers.OpenAiCompatible.Payloads.OllamaPayload
+    Build(LlmRequest, String, Boolean, Nullable<Int32>=) : JsonObject
+static class Lyntai.Providers.OpenAiCompatible.Payloads.OpenAiPayload
+    Build(LlmRequest, String, Boolean) : JsonObject
+static class Lyntai.Providers.OpenAiCompatible.ProviderDetect
+    Detect(String) : String
+    Ollama : String const
+    OpenAi : String const
+    OpenRouter : String const
