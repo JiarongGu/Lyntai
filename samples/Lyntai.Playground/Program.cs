@@ -96,6 +96,24 @@ Console.WriteLine($"playground: trace steps={trace?.Steps.Count ?? 0} " +
 var recalled = await memory.RecallAsync("playground", scope: "demo", query: "short sentence");
 Console.WriteLine($"playground: memory recall={recalled.Count}");
 
-var healthy = trace is { Steps.Count: > 0 } && scores.Count > 0 && recalled.Count > 0;
+// 6. streaming through the same front door (the e2e asserts chunks actually flow)
+var streamedChunks = 0;
+var streamedText = new System.Text.StringBuilder();
+await foreach (var chunk in llm.StreamAsync(
+    new LlmRequest { Messages = [LlmMessage.User("Stream one short sentence.")], Consumer = "playground" }))
+{
+    if (chunk.Kind == LlmChunkKind.Content)
+    {
+        streamedChunks++;
+        streamedText.Append(chunk.Text);
+    }
+    else if (chunk.Kind == LlmChunkKind.Error)
+    {
+        Console.Error.WriteLine($"playground: stream error — {chunk.Verdict}: {chunk.Detail}");
+    }
+}
+Console.WriteLine($"playground: stream chunks={streamedChunks} text={streamedText}");
+
+var healthy = trace is { Steps.Count: > 0 } && scores.Count > 0 && recalled.Count > 0 && streamedChunks > 0;
 Console.WriteLine(healthy ? "playground: OK" : "playground: INCOMPLETE");
 return healthy ? 0 : 1;
