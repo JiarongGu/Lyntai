@@ -1,6 +1,7 @@
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Cortex;
+using Lyntai.Guards;
 using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -66,6 +67,15 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IJobQueue>(sp => new JobQueue(sp.GetService<IJobStore>(), options));
         services.TryAddSingleton<IJobRunner>(sp => new JobRunner(
             sp.GetService<IJobStore>(), sp.GetRequiredService<IJobHandlerRegistry>(), options, sp.GetService<ILogger<JobRunner>>()));
+
+        // scope-guard / jail hooks: the rail gathers any registered IGuards (empty = allow everything)
+        services.TryAddSingleton<IGuardRail>(sp => new GuardRail(sp.GetServices<IGuard>(), sp.GetService<ILogger<GuardRail>>()));
+
+        // two-gate chat orchestration: composes guards + memory + the tool loop into one guarded turn
+        services.TryAddSingleton<IChatOrchestrator>(sp => new ChatOrchestrator(
+            sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolLoop>(), sp.GetRequiredService<IToolRegistry>(),
+            sp.GetRequiredService<IGuardRail>(), sp.GetRequiredService<IPromptComposer>(),
+            sp.GetService<IMemoryStore>(), sp.GetService<ILogger<ChatOrchestrator>>()));
 
         return services;
     }

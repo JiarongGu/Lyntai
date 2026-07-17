@@ -3,6 +3,30 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.15.0 — 2026-07-18
+
+The rest of the design §9 platform kit, in one release: guards, two-gate chat orchestration, a secret
+vault, and vision/multimodal. All additive, all in `Lyntai.Core`.
+
+### Added
+- **Scope-guard / jail hooks** (`Lyntai.Guards`) — `IGuard` inspects an outbound request and/or inbound
+  reply and can Allow / Block / Replace; `IGuardRail` runs the registered guards (first-non-Allow wins).
+  A `DenylistGuard` jails named terms; `GuardedLlmClient` wraps the front door to gate every completion.
+  Register via `builder.AddGuard<T>()`.
+- **Two-gate chat orchestration** (`IChatOrchestrator` in `Lyntai.Agents`) — one guarded chat turn:
+  **input gate** (guards) → memory recall into the prompt → the model *via the tool loop* → **output gate**
+  (guards) → remember the exchange. Composes the guard rail, `IPromptComposer`, the tool loop, and memory;
+  fail-open around the two gates. Injectable as a batteries-included entry point.
+- **Secret vault + access gate** (`Lyntai.Secrets`) — `ISecretVault` (get/set/delete/list), encrypted at
+  rest by an `ISecretProtector` (`AesGcmSecretProtector` = AES-256-GCM with a BYO 32-byte key; tamper-
+  detecting), backed by the registered `IKeyValueStore` (persistent) or in-memory. An optional
+  `ISecretAccessPolicy` gates reads (denied → `UnauthorizedAccessException`). Wire via
+  `builder.AddSecretVault(key, policy)`.
+- **Vision / multimodal** — `LlmAttachment` (inline bytes or a URL + MIME type) on `LlmMessage.Attachments`,
+  with `LlmMessage.UserWithImage(...)` / `UserWithImageUrl(...)`. The OpenAI-compatible provider renders
+  them as `image_url` content parts and the MEAI bridge maps them to `DataContent`/`UriContent`; text-only
+  providers ignore them.
+
 ## 0.14.0 — 2026-07-18
 
 Durable jobs (design §9): lanes + checkpoint/resume, built for running many agents in parallel with

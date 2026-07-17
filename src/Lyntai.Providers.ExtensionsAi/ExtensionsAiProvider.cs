@@ -139,6 +139,16 @@ public sealed class ExtensionsAiProvider(
                 [.. m.ToolCalls.Select(tc => (AIContent)new FunctionCallContent(tc.Id, tc.Name, ParseArgs(tc.ArgumentsJson)))]);
         if (m.ToolCallId is not null)
             return new ChatMessage(ChatRole.Tool, [new FunctionResultContent(m.ToolCallId, m.Content)]);
+        if (m.Attachments is { Count: > 0 })
+        {
+            // vision: text + one image content per attachment (DataContent for bytes, UriContent for a URL)
+            var contents = new List<AIContent> { new TextContent(m.Content) };
+            foreach (var a in m.Attachments)
+                contents.Add(a.Uri is not null
+                    ? new UriContent(a.Uri, a.MediaType)
+                    : new DataContent(a.Data ?? ReadOnlyMemory<byte>.Empty, a.MediaType));
+            return new ChatMessage(new ChatRole(m.Role), contents);
+        }
         return new ChatMessage(new ChatRole(m.Role), m.Content);
     }
 

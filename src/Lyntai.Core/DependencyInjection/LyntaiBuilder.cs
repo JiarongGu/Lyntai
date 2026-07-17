@@ -79,6 +79,23 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register a scope-guard / jail hook into the guard-rail collection (applied at the chat
+    /// orchestration's gates, or by a <c>GuardedLlmClient</c>).</summary>
+    public LyntaiBuilder AddGuard<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, Lyntai.Guards.IGuard
+    {
+        Services.AddSingleton<Lyntai.Guards.IGuard, T>();
+        return this;
+    }
+
+    /// <summary>Register a guard built from the service provider (or an inline one, e.g. a
+    /// <c>DenylistGuard</c>).</summary>
+    public LyntaiBuilder AddGuard(Func<IServiceProvider, Lyntai.Guards.IGuard> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.</summary>
     public LyntaiBuilder DefaultCandidates(params string[] providerIds) =>
         DefaultCandidates([.. providerIds.Select(id => new LlmCandidate(id))]);

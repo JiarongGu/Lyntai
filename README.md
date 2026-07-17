@@ -12,9 +12,9 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.14.0 — durable jobs (lanes + checkpoint/resume), native tool-calling (HTTP + MEAI bridge), an MCP
-tool source, proper CLI tool-calling, in-process local inference, bring-your-own resources, three
-storage backends, LLM-ops depth, on a production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
+**v0.15.0 — guards + two-gate orchestration + secret vault + vision, durable jobs, the full tool-calling
+story, in-process local inference, bring-your-own resources, three storage backends, LLM-ops depth, on a
+production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
 multi-agent code-review + best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops
 depth (v0.4), public-API baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama
 validation (v0.6), IoC seams so the app owns its resource lifecycle — process execution, HttpClient, DB
@@ -310,6 +310,17 @@ await runner.RunAsync(ct);   // in your IHostedService — claims across lanes a
 Per-lane limits + a global `MaxConcurrency` cap are the control knobs; run several `IJobRunner` instances
 (one process or many) and the atomic claim gives each job to exactly one. At-least-once semantics —
 handlers must be idempotent from their checkpoint.
+
+### Guards, orchestration, secrets, vision
+
+- **Guards** (`Lyntai.Guards`) — `IGuard`s inspect requests/replies and Allow/Block/Replace; `AddGuard<T>()`
+  registers them, `GuardedLlmClient` gates any completion, and the chat orchestrator applies them as gates.
+- **Two-gate chat** (`IChatOrchestrator`) — one call runs: input gate → memory recall → model (via the
+  tool loop) → output gate → remember. A batteries-included, guarded chat entry point.
+- **Secret vault** (`Lyntai.Secrets`) — `AddSecretVault(key)` gives an `ISecretVault` encrypted at rest
+  (AES-256-GCM, your key), persistent over your storage backend, with an optional read access policy.
+- **Vision** — `LlmMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`); the
+  OpenAI-compatible and MEAI-bridged providers send it as image content.
 
 ## Dev loop
 

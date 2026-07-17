@@ -105,6 +105,17 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   (host-free). At-least-once (idempotent-from-checkpoint). **Deferred (noted):** cron/scheduling,
   priorities, dead-letter queue, cross-process global limits, running-job cancellation.
 
+### v0.15.0 — the rest of the platform kit (2026-07)
+- ✅ **Scope-guard / jail hooks** (`Lyntai.Guards`) — `IGuard`/`IGuardRail` (Allow/Block/Replace),
+  `DenylistGuard`, `GuardedLlmClient`, `AddGuard`.
+- ✅ **Two-gate chat orchestration** (`IChatOrchestrator`) — input gate → memory → tool loop → output gate
+  → remember, composing the existing primitives.
+- ✅ **Secret vault + access gate** (`Lyntai.Secrets`) — `ISecretVault` encrypted at rest (AES-256-GCM,
+  BYO key), KV-backed or in-memory, optional `ISecretAccessPolicy`.
+- ✅ **Vision / multimodal** — `LlmAttachment` on messages; OpenAI `image_url` parts + MEAI
+  `DataContent`/`UriContent`. This completes design §9 (the "platform kit") apart from the
+  server/host/launcher, which is intentionally out of scope for a library.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

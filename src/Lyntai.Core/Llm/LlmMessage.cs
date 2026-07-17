@@ -13,9 +13,21 @@ public sealed record LlmMessage(string Role, string Content)
     /// answers. Null otherwise.</summary>
     public string? ToolCallId { get; init; }
 
+    /// <summary>Non-text parts (images) on this message. Vision-capable providers translate them; text-only
+    /// providers ignore them. Null for a plain text message.</summary>
+    public IReadOnlyList<LlmAttachment>? Attachments { get; init; }
+
     public static LlmMessage System(string content) => new("system", content);
     public static LlmMessage User(string content) => new("user", content);
     public static LlmMessage Assistant(string content) => new("assistant", content);
+
+    /// <summary>A user message with an inline image (bytes + MIME type) for vision-capable models.</summary>
+    public static LlmMessage UserWithImage(string text, byte[] imageBytes, string mediaType) =>
+        new("user", text) { Attachments = [new LlmAttachment(mediaType, imageBytes)] };
+
+    /// <summary>A user message with a remote image URL for vision-capable models.</summary>
+    public static LlmMessage UserWithImageUrl(string text, string imageUrl, string mediaType = "image/jpeg") =>
+        new("user", text) { Attachments = [new LlmAttachment(mediaType, Uri: imageUrl)] };
 
     /// <summary>An assistant turn that made <paramref name="toolCalls"/> (no text content).</summary>
     public static LlmMessage AssistantToolCalls(IReadOnlyList<LlmToolCall> toolCalls) =>

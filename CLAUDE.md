@@ -17,8 +17,8 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.14.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
-v0.3–v0.14 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
+**Implemented + hardened (v0.15.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
+v0.3–v0.15 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
 + `migrate:false`, provider presets — the app owns resource lifecycle, Lyntai provides the interface;
 v0.8 = `Lyntai.Providers.Local` in-process GGUF inference via LLamaSharp, managed-only so the app picks
 the backend; v0.9 = agentic tool-calling `Lyntai.Agents` — `IToolLoop` over `ILlmClient`, `ITool`/`AddTool`
@@ -30,8 +30,10 @@ MCP client; v0.13 = `Lyntai.Providers.ClaudeCli.Mcp` — proper CLI tool-calling
 `ITool`s as an ephemeral localhost MCP server for `claude -p` via the `ICliToolProvisioner` seam,
 a scoped opt-in exception to "no host"; v0.14 = durable jobs `Lyntai.Jobs` — `IJobStore` (lanes +
 atomic claim + checkpoint/resume across all 3 backends) + `IJobRunner`/`IJobHandler`/`AddJobHandler`,
-multi-agent parallel with per-lane + global `MaxConcurrency` control, app owns the pump): `ILlmClient`
-front door (to a
+multi-agent parallel with per-lane + global `MaxConcurrency` control, app owns the pump; v0.15 = rest of
+§9 platform kit — `Lyntai.Guards` (scope-guard/jail hooks + `GuardedLlmClient`), two-gate
+`IChatOrchestrator`, `Lyntai.Secrets` (AES-GCM vault + access gate), vision/multimodal via
+`LlmMessage.Attachments`): `ILlmClient` front door (to a
 consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
 `RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel GenAI
@@ -49,9 +51,10 @@ Tests/e2e green.
 - `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (router engine) /
-`Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` (tool-calling loop) /
-`Lyntai.Jobs` (durable jobs runner/handlers) / `Lyntai.Storage` / `Lyntai.Processes` / `Lyntai.Text`;
-builder + `Add*`/`Use*` extensions live in the `Lyntai` namespace.
+`Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` (tool loop + chat orchestration) /
+`Lyntai.Jobs` (durable jobs) / `Lyntai.Guards` (guard rail) / `Lyntai.Secrets` (secret vault) /
+`Lyntai.Storage` / `Lyntai.Processes` / `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the
+`Lyntai` namespace.
 
 ## Rules, knowledge & skills
 

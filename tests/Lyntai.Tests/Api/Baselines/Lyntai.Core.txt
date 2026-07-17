@@ -1,3 +1,32 @@
+class Lyntai.Agents.ChatOrchestrator
+    .ctor(ILlmClient, IToolLoop, IToolRegistry, IGuardRail, IPromptComposer, IMemoryStore=, ILogger<ChatOrchestrator>=)
+    ChatAsync(ChatTurn, CancellationToken=) : Task<ChatResult>
+class Lyntai.Agents.ChatResult
+    .ctor(String, LlmVerdict, Boolean, String, IReadOnlyList<ToolStep>)
+    Answer : String
+    BlockReason : String
+    Blocked : Boolean
+    Deconstruct(String&, LlmVerdict&, Boolean&, String&, IReadOnlyList`1&) : Void
+    Equals(ChatResult) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Ok : Boolean
+    ToString() : String
+    ToolSteps : IReadOnlyList<ToolStep>
+    Verdict : LlmVerdict
+class Lyntai.Agents.ChatTurn
+    .ctor()
+    Consumer : String
+    Equals(ChatTurn) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    MemoryScope : String
+    Message : String
+    Remember : Boolean
+    System : String
+    TaskKey : String
+    ToString() : String
+    UseTools : Boolean
 class Lyntai.Agents.CliToolSession
     .ctor(IReadOnlyList<String>, Func<ValueTask>=)
     DisposeAsync() : ValueTask
@@ -8,6 +37,8 @@ class Lyntai.Agents.FunctionTool
     InvokeAsync(String, CancellationToken=) : Task<String>
     Name : String
     ParametersJsonSchema : String
+interface Lyntai.Agents.IChatOrchestrator
+    ChatAsync(ChatTurn, CancellationToken=) : Task<ChatResult>
 interface Lyntai.Agents.ICliToolProvisioner
     ProvisionAsync(CancellationToken=) : Task<CliToolSession>
 interface Lyntai.Agents.ITool
@@ -198,6 +229,44 @@ class Lyntai.Cortex.TraceStep
 static class Lyntai.Diagnostics.LyntaiDiagnostics
     ActivitySourceName : String const
     MeterName : String const
+class Lyntai.Guards.DenylistGuard
+    .ctor(IReadOnlyList<String>, String=)
+    InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
+    InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+    Name : String
+class Lyntai.Guards.GuardOutcome
+    Allow : GuardOutcome
+    Block(String) : GuardOutcome
+    Equals(GuardOutcome) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    IsAllow : Boolean
+    Reason : String
+    Replace(String, String=) : GuardOutcome
+    Replacement : String
+    Result : Kind
+    ToString() : String
+enum Lyntai.Guards.GuardOutcome+Kind
+    Allow : Kind const
+    Block : Kind const
+    Replace : Kind const
+    value__ : Int32
+class Lyntai.Guards.GuardRail
+    .ctor(IEnumerable<IGuard>, ILogger<GuardRail>=)
+    InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
+    InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+class Lyntai.Guards.GuardedLlmClient
+    .ctor(ILlmClient, IGuardRail)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest) : Boolean
+interface Lyntai.Guards.IGuard
+    InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
+    InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+    Name : String
+interface Lyntai.Guards.IGuardRail
+    InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
+    InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
 interface Lyntai.Jobs.IJobHandler
     HandleAsync(JobContext, CancellationToken=) : Task<JobOutcome>
     Type : String
@@ -309,6 +378,18 @@ interface Lyntai.Llm.ILlmRouter
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
+class Lyntai.Llm.LlmAttachment
+    .ctor(String, Byte[]=, String=)
+    Data : Byte[]
+    DataUrl() : String
+    Deconstruct(String&, Byte[]&, String&) : Void
+    Equals(LlmAttachment) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    ToString() : String
+    Uri : String
+    Url() : String
 class Lyntai.Llm.LlmCandidate
     .ctor(String, String=)
     Deconstruct(String&, String&) : Void
@@ -341,6 +422,7 @@ class Lyntai.Llm.LlmMessage
     .ctor(String, String)
     Assistant(String) : LlmMessage
     AssistantToolCalls(IReadOnlyList<LlmToolCall>) : LlmMessage
+    Attachments : IReadOnlyList<LlmAttachment>
     Content : String
     Deconstruct(String&, String&) : Void
     Equals(LlmMessage) : Boolean
@@ -353,6 +435,8 @@ class Lyntai.Llm.LlmMessage
     ToolCalls : IReadOnlyList<LlmToolCall>
     ToolResult(String, String) : LlmMessage
     User(String) : LlmMessage
+    UserWithImage(String, Byte[], String) : LlmMessage
+    UserWithImageUrl(String, String, String=) : LlmMessage
 class Lyntai.Llm.LlmReply
     .ctor(String, LlmVerdict, LlmUsage=, String=)
     Deconstruct(String&, LlmVerdict&, LlmUsage&, String&) : Void
@@ -462,6 +546,8 @@ class Lyntai.Llm.Routing.RoutingPolicy
     Retry(LlmVerdict, Int32) : RoutingPolicy
     RetryBackoff : TimeSpan
 class Lyntai.LyntaiBuilder
+    AddGuard() : LyntaiBuilder
+    AddGuard(Func<IServiceProvider,IGuard>) : LyntaiBuilder
     AddJobHandler() : LyntaiBuilder
     AddJobHandler(Func<IServiceProvider,IJobHandler>) : LyntaiBuilder
     AddProvider() : LyntaiBuilder
@@ -521,6 +607,38 @@ class Lyntai.Prompts.PromptRegistry
     .ctor(IKeyValueStore=, IPromptVersionStore=, ILogger<PromptRegistry>=)
     KeyPrefix : String const
     RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
+static class Lyntai.SecretVaultBuilderExtensions
+    AddSecretVault(LyntaiBuilder, Byte[]=, ISecretAccessPolicy=) : LyntaiBuilder
+class Lyntai.Secrets.AesGcmSecretProtector
+    .ctor(Byte[])
+    Protect(String) : String
+    Unprotect(String) : String
+interface Lyntai.Secrets.ISecretAccessPolicy
+    CanReadAsync(String, String, CancellationToken=) : Task<Boolean>
+interface Lyntai.Secrets.ISecretProtector
+    Protect(String) : String
+    Unprotect(String) : String
+interface Lyntai.Secrets.ISecretVault
+    DeleteAsync(String, CancellationToken=) : Task
+    GetAsync(String, String=, CancellationToken=) : Task<String>
+    ListNamesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
+    SetAsync(String, String, CancellationToken=) : Task
+class Lyntai.Secrets.InMemorySecretVault
+    .ctor(ISecretProtector=, ISecretAccessPolicy=)
+    DeleteAsync(String, CancellationToken=) : Task
+    GetAsync(String, String=, CancellationToken=) : Task<String>
+    ListNamesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
+    SetAsync(String, String, CancellationToken=) : Task
+class Lyntai.Secrets.KeyValueSecretVault
+    .ctor(IKeyValueStore, ISecretProtector, ISecretAccessPolicy=)
+    DeleteAsync(String, CancellationToken=) : Task
+    GetAsync(String, String=, CancellationToken=) : Task<String>
+    ListNamesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
+    SetAsync(String, String, CancellationToken=) : Task
+class Lyntai.Secrets.NullSecretProtector
+    .ctor()
+    Protect(String) : String
+    Unprotect(String) : String
 class Lyntai.Storage.ChatMessage
     .ctor(Int64, String, String, String, DateTimeOffset)
     Content : String

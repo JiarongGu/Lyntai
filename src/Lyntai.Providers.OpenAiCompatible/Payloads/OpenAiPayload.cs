@@ -67,6 +67,14 @@ public static class OpenAiPayload
             };
         if (m.ToolCallId is not null)
             return new JsonObject { ["role"] = "tool", ["tool_call_id"] = m.ToolCallId, ["content"] = m.Content };
+        if (m.Attachments is { Count: > 0 })
+        {
+            // vision: content becomes an array of parts — the text, then one image_url per attachment
+            var parts = new JsonArray { new JsonObject { ["type"] = "text", ["text"] = m.Content } };
+            foreach (var a in m.Attachments)
+                parts.Add(new JsonObject { ["type"] = "image_url", ["image_url"] = new JsonObject { ["url"] = a.Url() } });
+            return new JsonObject { ["role"] = m.Role, ["content"] = parts };
+        }
         return new JsonObject { ["role"] = m.Role, ["content"] = m.Content };
     }
 
