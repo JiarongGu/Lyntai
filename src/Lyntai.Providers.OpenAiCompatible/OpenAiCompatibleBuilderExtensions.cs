@@ -21,9 +21,10 @@ public static class OpenAiCompatibleBuilderExtensions
         configure(config);
 
         Func<IServiceProvider, Func<HttpClient>> resolveClient;
-        if (httpClient is not null)
+        var byo = httpClient is not null;
+        if (byo)
         {
-            resolveClient = sp => () => httpClient(sp); // app-owned client + lifecycle
+            resolveClient = sp => () => httpClient!(sp); // app-owned client + lifecycle — never disposed by Lyntai
         }
         else
         {
@@ -38,7 +39,8 @@ public static class OpenAiCompatibleBuilderExtensions
             config,
             resolveClient(sp),
             sp.GetRequiredService<LyntaiOptions>(),
-            sp.GetService<ILogger<OpenAiCompatibleProvider>>()));
+            sp.GetService<ILogger<OpenAiCompatibleProvider>>(),
+            disposeHttpClient: !byo)); // dispose only Lyntai-created clients
         return builder;
     }
 

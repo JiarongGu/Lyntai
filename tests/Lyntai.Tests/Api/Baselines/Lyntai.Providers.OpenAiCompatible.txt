@@ -12,7 +12,7 @@ class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
     Flavor : String
     NumCtx : Nullable<Int32>
 class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
-    .ctor(String, OpenAiCompatibleOptions, Func<HttpClient>, LyntaiOptions, ILogger<OpenAiCompatibleProvider>=)
+    .ctor(String, OpenAiCompatibleOptions, Func<HttpClient>, LyntaiOptions, ILogger<OpenAiCompatibleProvider>=, Boolean=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean

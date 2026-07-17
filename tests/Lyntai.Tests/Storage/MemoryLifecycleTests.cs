@@ -104,6 +104,43 @@ public class MemoryLifecycleTests : IDisposable
     }
 
     [Fact]
+    public async Task Cap_does_not_evict_live_entries_in_favor_of_expired_ones()
+    {
+        // regression: the cap-trim used to keep the newest @cap by id, so an expired-but-unpruned entry
+        // with a higher id would be kept while a live older entry got deleted — silently losing a fact.
+        var store = new SqliteMemoryStore(_db.Factory,
+            new LyntaiOptions { MemoryCapPerScope = 2, MemoryRecallLimit = 100 }, clock: () => _now);
+        await store.RememberAsync("t", "s", "keep-me");                            // id1, no TTL — always live
+        await store.RememberAsync("t", "s", "expiring", ttl: TimeSpan.FromMinutes(5)); // id2 (cap not yet exceeded)
+        _now += TimeSpan.FromMinutes(6);                                          // "expiring" now expired
+        await store.RememberAsync("t", "s", "newer");                            // id3 — triggers the cap trim (3 > 2)
+
+        // old behavior kept the newest 2 by id (newer + expired), deleting the LIVE keep-me; the fix
+        // sorts the expired entry last so IT is evicted and keep-me survives
+        var live = await store.RecallAsync("t");
+        Assert.Contains(live, h => h.Content == "keep-me");
+        Assert.Contains(live, h => h.Content == "newer");
+        Assert.Equal(2, live.Count);
+    }
+
+    [Fact]
+    public async Task Re_remembering_a_fact_refreshes_its_recall_recency()
+    {
+        // regression: recall ordered by id, so a re-remembered (deduped) fact kept its old id and
+        // recalled as OLD despite its refreshed created_at, contradicting the "refreshes recency" contract.
+        var store = new SqliteMemoryStore(_db.Factory,
+            new LyntaiOptions { MemoryCapPerScope = 100, MemoryRecallLimit = 100 }, clock: () => _now);
+        await store.RememberAsync("t", "s", "important");
+        _now += TimeSpan.FromMinutes(1);
+        await store.RememberAsync("t", "s", "trivial");
+        _now += TimeSpan.FromMinutes(1);
+        await store.RememberAsync("t", "s", "important"); // dedup refresh — should move to the top
+
+        var hits = await store.RecallAsync("t");
+        Assert.Equal("important", hits[0].Content); // most recently reinforced ⇒ first in recall
+    }
+
+    [Fact]
     public async Task Prune_can_be_scoped_to_one_task()
     {
         await _store.RememberAsync("task-a", "s", "a", ttl: TimeSpan.FromMinutes(5));

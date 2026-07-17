@@ -20,7 +20,8 @@ public sealed class OpenAiCompatibleProvider(
     OpenAiCompatibleOptions config,
     Func<HttpClient> httpFactory,
     LyntaiOptions options,
-    ILogger<OpenAiCompatibleProvider>? logger = null) : ILlmProvider
+    ILogger<OpenAiCompatibleProvider>? logger = null,
+    bool disposeHttpClient = true) : ILlmProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<OpenAiCompatibleProvider>.Instance;
     private readonly string _flavor = config.Flavor ?? ProviderDetect.Detect(config.BaseUrl);
@@ -29,10 +30,16 @@ public sealed class OpenAiCompatibleProvider(
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(config.BaseUrl);
 
+    /// <summary>Get the per-call HttpClient. Lyntai-created clients (from the named IHttpClientFactory
+    /// client) are disposed after each call; an APP-supplied (BYO) client is NEVER disposed — the app
+    /// owns its lifetime, so disposing it would break every call after the first.</summary>
+    private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
+
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         var model = req.Model ?? config.DefaultModel ?? "";
-        using var http = httpFactory();
+        using var owned = OwnedClient();       // disposed only when Lyntai owns it
+        var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
         for (var attempt = 0; ; attempt++)
         {
             HttpResponseMessage response;
@@ -85,7 +92,8 @@ public sealed class OpenAiCompatibleProvider(
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var model = req.Model ?? config.DefaultModel ?? "";
-        using var http = httpFactory();
+        using var owned = OwnedClient();       // disposed only when Lyntai owns it
+        var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
 
         // the timeout is an INACTIVITY clock: it covers the connect and each line read, but is stopped
         // while we and the consumer process a line — a slow-but-healthy stream isn't killed under a

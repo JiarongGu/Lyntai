@@ -16,10 +16,13 @@ public class ByoHttpClientTests
         """;
 
     [Fact]
-    public async Task App_supplied_httpclient_is_used()
+    public async Task App_supplied_httpclient_is_used_and_survives_repeated_calls()
     {
-        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
-        var appClient = new HttpClient(handler); // the app's own client + handler pipeline
+        // two responses + two calls on ONE shared client — before the ownership fix, the 1st call
+        // disposed the app's client and the 2nd threw ObjectDisposedException (the old single-call
+        // test masked this)
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody).Enqueue(HttpStatusCode.OK, OkBody);
+        using var appClient = new HttpClient(handler); // the app's own client + handler pipeline; app owns disposal
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
@@ -28,14 +31,15 @@ public class ByoHttpClientTests
                 httpClient: _ => appClient) // BYO
             .DefaultCandidates("openai"));
         using var sp = services.BuildServiceProvider();
+        var llm = sp.GetRequiredService<ILlmClient>();
 
-        var reply = await sp.GetRequiredService<ILlmClient>()
-            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")], Model = "gpt-x" });
+        var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("one")], Model = "gpt-x" });
+        var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("two")], Model = "gpt-x" });
 
-        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
-        Assert.Equal("served via my client", reply.Text);
-        Assert.Single(handler.Requests);                         // the app's handler saw the request
-        Assert.Equal("Bearer k", handler.Requests[0].Auth);
+        Assert.Equal(LlmVerdict.Ok, first.Verdict);
+        Assert.Equal(LlmVerdict.Ok, second.Verdict);      // client was NOT disposed after the first call
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal("Bearer k", handler.Requests[1].Auth);
     }
 
     [Fact]

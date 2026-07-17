@@ -14,8 +14,9 @@ public sealed class PostgresConnectionFactory : IDbConnectionFactory
     {
         // snake_case columns ↔ PascalCase properties (family convention — a global Dapper setting)
         DefaultTypeMap.MatchNamesWithUnderscores = true;
-        // timestamptz ↔ DateTimeOffset: Npgsql hands Dapper a UTC DateTime for a timestamptz column;
-        // this maps it to/from DateTimeOffset so the domain records (which use DateTimeOffset) bind.
+        // timestamptz ↔ DateTimeOffset. Dapper's type-handler registry is PROCESS-GLOBAL, so this
+        // collides with Lyntai.Storage.Sqlite's handler when both backends load — the two MUST stay
+        // behaviorally IDENTICAL (this exact class body) so whichever wins, both round-trip correctly.
         SqlMapper.AddTypeHandler(new DateTimeOffsetHandler());
     }
 
@@ -30,6 +31,7 @@ public sealed class PostgresConnectionFactory : IDbConnectionFactory
         return conn;
     }
 
+    // KEEP IDENTICAL to Lyntai.Storage.Sqlite's DateTimeOffsetHandler (shared global Dapper registry).
     private sealed class DateTimeOffsetHandler : SqlMapper.TypeHandler<DateTimeOffset>
     {
         public override void SetValue(IDbDataParameter parameter, DateTimeOffset value)

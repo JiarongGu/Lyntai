@@ -62,14 +62,16 @@ public sealed class LlmRouter(
                 }
                 if (action == FallbackAction.PenalizeAndAdvance)
                 {
-                    deadHosts.RecordFailure(key);
                     if (Policy.ShouldRetrySameCandidate(reply.Verdict, ++retries))
                     {
                         _logger.LogDebug("router: retrying {Provider} ({Retry}/{Budget}) after {Verdict}",
                             provider.Id, retries, Policy.RetriesFor(reply.Verdict), reply.Verdict);
                         if (Policy.RetryBackoff > TimeSpan.Zero) await Task.Delay(Policy.RetryBackoff, ct).ConfigureAwait(false);
-                        continue;
+                        continue; // retries are part of ONE attempt at this candidate — no failure recorded yet
                     }
+                    // retries exhausted: record exactly ONE failure for this request (not one per retry —
+                    // that would cross the dead-host threshold within a single call)
+                    deadHosts.RecordFailure(key);
                 }
                 // Advance (no host penalty) or exhausted retries → next candidate
                 break;
@@ -149,25 +151,31 @@ public sealed class LlmRouter(
                                 _logger.LogWarning("router: {Provider} failed pre-content ({Verdict} — {Detail}); trying next candidate",
                                     provider.Id, chunk.Verdict, chunk.Detail);
                                 if (action == FallbackAction.CooldownAndAdvance) deadHosts.MarkDead(key);
-                                else if (action == FallbackAction.PenalizeAndAdvance) deadHosts.RecordFailure(key);
+                                // PenalizeAndAdvance records ONE failure on advance (below), not per retry
                                 retryVerdict = chunk.Verdict;
                                 break; // leave the enumerator; decide retry-vs-advance below
                             }
 
-                            // only REAL content commits the stream. An empty/role-only first Content chunk
-                            // must not disable fallback — the router is the trust boundary and can't assume
-                            // every third-party provider guards this itself.
-                            if (chunk.Kind == LlmChunkKind.Content && chunk.Text.Length > 0 && !committed)
+                            if (chunk.Kind == LlmChunkKind.Content)
                             {
-                                committed = true;
-                                deadHosts.RecordSuccess(key);
-                                LyntaiDiagnostics.RecordFirstChunk(provider.Id, effective.Model,
-                                    Stopwatch.GetElapsedTime(start).TotalSeconds);
-                                _logger.LogInformation("router: streaming from {Provider} (model {Model})",
-                                    provider.Id, effective.Model ?? "(default)");
+                                // an empty/role-only content chunk is NOT real content: never yield it
+                                // (no leak to the consumer) and it must not commit the stream / disable fallback
+                                if (chunk.Text.Length == 0) continue;
+                                if (!committed)
+                                {
+                                    committed = true;
+                                    deadHosts.RecordSuccess(key);
+                                    LyntaiDiagnostics.RecordFirstChunk(provider.Id, effective.Model,
+                                        Stopwatch.GetElapsedTime(start).TotalSeconds);
+                                    _logger.LogInformation("router: streaming from {Provider} (model {Model})",
+                                        provider.Id, effective.Model ?? "(default)");
+                                }
+                                yield return chunk;
+                                continue;
                             }
 
-                            yield return chunk; // committed (or benign pre-content Final): pass through unchanged
+                            // Final, or an Error AFTER content committed: pass through unchanged
+                            yield return chunk;
                             if (chunk.Kind is LlmChunkKind.Final or LlmChunkKind.Error) yield break;
                         }
                     }
@@ -188,8 +196,11 @@ public sealed class LlmRouter(
                     _logger.LogDebug("router: retrying stream {Provider} ({Retry}/{Budget}) after {Verdict}",
                         provider.Id, retries, Policy.RetriesFor(retryVerdict), retryVerdict);
                     if (Policy.RetryBackoff > TimeSpan.Zero) await Task.Delay(Policy.RetryBackoff, ct).ConfigureAwait(false);
-                    continue;
+                    continue; // retries are part of ONE attempt — no failure recorded yet
                 }
+                // retries exhausted: record exactly ONE failure for a penalize verdict (not one per retry)
+                if (Policy.ActionFor(retryVerdict) == FallbackAction.PenalizeAndAdvance)
+                    deadHosts.RecordFailure(key);
                 advance = true;
             }
         }

@@ -30,9 +30,11 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
             else
                 _entries.Add(new Entry(_nextId++, taskKey, scope, content, now, expiresAt));
 
-            // cap: trim the oldest beyond the per-(task, scope) cap
+            // cap: keep the newest @cap LIVE entries, trim the rest — expired sort last (evicted before
+            // live ones); recency is by created_at so a refreshed fact ranks newest.
             var scoped = _entries.Where(e => e.TaskKey == taskKey && e.Scope == scope)
-                .OrderByDescending(e => e.Id).ToList();
+                .OrderBy(e => e.ExpiresAt is null || e.ExpiresAt > now ? 0 : 1)
+                .ThenByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).ToList();
             foreach (var stale in scoped.Skip(options.MemoryCapPerScope))
                 _entries.Remove(stale);
         }
@@ -59,7 +61,7 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
 
                 IReadOnlyList<MemoryEntry> result =
                 [
-                    .. candidates.OrderByDescending(e => e.Id).Take(take)
+                    .. candidates.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).Take(take)
                         .Select(e => new MemoryEntry(e.Id, e.TaskKey, e.Scope, e.Content, e.CreatedAt))
                 ];
                 return Task.FromResult(result);

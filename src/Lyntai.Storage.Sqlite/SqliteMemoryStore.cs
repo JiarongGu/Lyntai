@@ -42,13 +42,17 @@ public sealed class SqliteMemoryStore(
                 """, new { taskKey, scope, content, now, expiresAt }, cancellationToken: ct)).ConfigureAwait(false);
         }
 
-        // bounded: trim the oldest beyond the per-(task, scope) cap
+        // bounded: keep the newest @cap LIVE entries, trim the rest. Expired entries sort last so they
+        // are evicted BEFORE still-valid ones (else the cap could delete live facts while keeping dead
+        // ones); recency is by created_at so a re-remembered (refreshed) fact ranks as newest.
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_entry
             WHERE task_key = @taskKey AND scope = @scope AND id NOT IN (
                 SELECT id FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
-                ORDER BY id DESC LIMIT @cap)
-            """, new { taskKey, scope, cap = options.MemoryCapPerScope }, cancellationToken: ct)).ConfigureAwait(false);
+                ORDER BY (CASE WHEN expires_at IS NULL OR expires_at > @now THEN 0 ELSE 1 END),
+                         created_at DESC, id DESC
+                LIMIT @cap)
+            """, new { taskKey, scope, cap = options.MemoryCapPerScope, now }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public async Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default)
@@ -106,7 +110,7 @@ public sealed class SqliteMemoryStore(
                     WHERE m.task_key = @taskKey AND (@scope IS NULL OR m.scope = @scope)
                       AND (m.expires_at IS NULL OR m.expires_at > @now)
                       AND m.content LIKE @pattern ESCAPE '\'
-                    ORDER BY m.id DESC LIMIT @take
+                    ORDER BY m.created_at DESC, m.id DESC LIMIT @take
                     """, new { taskKey, scope, pattern, take, now }, cancellationToken: ct)).ConfigureAwait(false);
                 return likeHits.AsList();
             }
@@ -116,7 +120,7 @@ public sealed class SqliteMemoryStore(
                 FROM lyntai_memory_entry m
                 WHERE m.task_key = @taskKey AND (@scope IS NULL OR m.scope = @scope)
                   AND (m.expires_at IS NULL OR m.expires_at > @now)
-                ORDER BY m.id DESC LIMIT @take
+                ORDER BY m.created_at DESC, m.id DESC LIMIT @take
                 """, new { taskKey, scope, take, now }, cancellationToken: ct)).ConfigureAwait(false);
             return recent.AsList();
         }

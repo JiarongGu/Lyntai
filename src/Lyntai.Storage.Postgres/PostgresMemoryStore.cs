@@ -29,26 +29,24 @@ public sealed class PostgresMemoryStore(
         var expiresAt = ttl is null ? (DateTimeOffset?)null : now + ttl.Value;
         using var conn = factory.Open();
 
-        var refreshed = await conn.ExecuteAsync(new CommandDefinition("""
-            UPDATE lyntai_memory_entry SET created_at = @now, expires_at = @expiresAt
-            WHERE task_key = @taskKey AND scope = @scope AND content = @content
+        // dedup as a single ATOMIC upsert (via the ux_lyntai_memory_dedup unique index) — race-free,
+        // unlike a separate UPDATE-then-INSERT which two concurrent Remembers could both fall through.
+        await conn.ExecuteAsync(new CommandDefinition("""
+            INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at, expires_at)
+            VALUES (@taskKey, @scope, @content, @now, @expiresAt)
+            ON CONFLICT (task_key, scope, md5(content)) DO UPDATE SET created_at = @now, expires_at = @expiresAt
             """, new { taskKey, scope, content, now, expiresAt = (object?)expiresAt ?? DBNull.Value }, cancellationToken: ct)).ConfigureAwait(false);
 
-        if (refreshed == 0)
-        {
-            await conn.ExecuteAsync(new CommandDefinition("""
-                INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at, expires_at)
-                VALUES (@taskKey, @scope, @content, @now, @expiresAt)
-                """, new { taskKey, scope, content, now, expiresAt = (object?)expiresAt ?? DBNull.Value }, cancellationToken: ct)).ConfigureAwait(false);
-        }
-
-        // bounded: trim the oldest beyond the per-(task, scope) cap
+        // bounded: keep the newest @cap LIVE entries, trim the rest. Expired entries sort last so they
+        // are evicted BEFORE still-valid ones; recency is by created_at so a refreshed fact ranks newest.
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_entry
             WHERE task_key = @taskKey AND scope = @scope AND id NOT IN (
                 SELECT id FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
-                ORDER BY id DESC LIMIT @cap)
-            """, new { taskKey, scope, cap = options.MemoryCapPerScope }, cancellationToken: ct)).ConfigureAwait(false);
+                ORDER BY (CASE WHEN expires_at IS NULL OR expires_at > @now THEN 0 ELSE 1 END),
+                         created_at DESC, id DESC
+                LIMIT @cap)
+            """, new { taskKey, scope, cap = options.MemoryCapPerScope, now }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
@@ -69,7 +67,7 @@ public sealed class PostgresMemoryStore(
                     WHERE task_key = @taskKey AND (@scope::text IS NULL OR scope = @scope)
                       AND (expires_at IS NULL OR expires_at > @now)
                       AND content ILIKE @pattern ESCAPE '\'
-                    ORDER BY id DESC LIMIT @take
+                    ORDER BY created_at DESC, id DESC LIMIT @take
                     """, new { taskKey, scope, pattern, take, now }, cancellationToken: ct)).ConfigureAwait(false);
                 return [.. hits.Select(r => r.ToEntity())];
             }
@@ -78,7 +76,7 @@ public sealed class PostgresMemoryStore(
                 SELECT {SelectColumns} FROM lyntai_memory_entry
                 WHERE task_key = @taskKey AND (@scope::text IS NULL OR scope = @scope)
                   AND (expires_at IS NULL OR expires_at > @now)
-                ORDER BY id DESC LIMIT @take
+                ORDER BY created_at DESC, id DESC LIMIT @take
                 """, new { taskKey, scope, take, now }, cancellationToken: ct)).ConfigureAwait(false);
             return [.. recent.Select(r => r.ToEntity())];
         }

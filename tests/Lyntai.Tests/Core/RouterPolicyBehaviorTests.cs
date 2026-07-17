@@ -156,6 +156,66 @@ public class RouterPolicyBehaviorTests
     }
 
     [Fact]
+    public async Task Retries_record_only_one_dead_host_failure_per_request()
+    {
+        // Retry(Failed,2) + default threshold 3 must NOT bench the host after a single request:
+        // the 3 attempts count as ONE failed request, so one RecordFailure, not three.
+        var options = new LyntaiOptions();
+        options.Routing.Retry(LlmVerdict.Failed, 2);
+        var tracker = new DeadHostTracker(threshold: 3, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
+
+        var flaky = new FakeLlmProvider("flaky");
+        for (var i = 0; i < 3; i++) flaky.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: $"blip {i}"));
+        var backup = new FakeLlmProvider("backup");
+        backup.Replies.Enqueue(new LlmReply("from backup", LlmVerdict.Ok));
+
+        await Router(options, tracker, flaky, backup).CompleteAsync([new("flaky"), new("backup")], Req);
+
+        Assert.Equal(3, flaky.Calls.Count);      // all 3 attempts happened
+        Assert.False(tracker.IsDead("flaky"));   // but only ONE failure recorded — not benched
+    }
+
+    [Fact]
+    public async Task Streaming_empty_content_chunks_are_never_yielded_to_the_consumer()
+    {
+        var options = new LyntaiOptions();
+        var p = new FakeLlmProvider("p")
+        {
+            // an empty/role-only chunk, then real content — the empty one must not leak downstream
+            StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Content("real answer"), LlmChunk.Final()],
+        };
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Router(options, null, p).StreamAsync([new("p")], Req)) chunks.Add(c);
+
+        var contents = chunks.Where(c => c.Kind == LlmChunkKind.Content).ToList();
+        Assert.Single(contents);                        // the empty chunk was filtered
+        Assert.Equal("real answer", contents[0].Text);
+        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+    }
+
+    [Fact]
+    public async Task Streaming_empty_chunk_then_error_still_falls_over_without_leaking()
+    {
+        var options = new LyntaiOptions();
+        var p1 = new FakeLlmProvider("p1")
+        {
+            StreamScript = _ => [LlmChunk.Content(""), LlmChunk.Error(LlmVerdict.Failed, "cold")],
+        };
+        var p2 = new FakeLlmProvider("p2")
+        {
+            StreamScript = _ => [LlmChunk.Content("served by fallback"), LlmChunk.Final()],
+        };
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Router(options, null, p1, p2).StreamAsync([new("p1"), new("p2")], Req)) chunks.Add(c);
+
+        // no empty chunk from p1 leaked before p2's real content
+        Assert.Equal("served by fallback",
+            string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+    }
+
+    [Fact]
     public async Task Streaming_retry_then_advance_reconnects_the_same_candidate_pre_content()
     {
         var options = new LyntaiOptions();

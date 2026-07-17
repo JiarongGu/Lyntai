@@ -55,6 +55,15 @@ public class ProcessRunnerSeamTests
     }
 
     [Fact]
+    public void Custom_runner_makes_the_provider_available_regardless_of_local_path()
+    {
+        // a BYO runner resolves the command in ITS environment (sandbox/remote), so IsAvailable must
+        // NOT depend on the host's local PATH — else the router would skip it and never call the runner
+        var provider = new ClaudeCliProvider(new FakeProcessRunner(), new LyntaiOptions(), command: "claude");
+        Assert.True(provider.IsAvailable);
+    }
+
+    [Fact]
     public async Task Registered_custom_runner_wins_in_di()
     {
         var runner = new FakeProcessRunner();

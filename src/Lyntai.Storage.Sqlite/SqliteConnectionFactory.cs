@@ -14,7 +14,11 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
     {
         // snake_case columns ↔ PascalCase properties (family convention)
         DefaultTypeMap.MatchNamesWithUnderscores = true;
-        // DateTimeOffset ↔ ISO-8601 TEXT — deterministic storage, no provider-specific magic
+        // DateTimeOffset ↔ UTC. Dapper's type-handler registry is PROCESS-GLOBAL and keyed by type, so
+        // this collides with Lyntai.Storage.Postgres's handler when both backends load — the two MUST be
+        // behaviorally IDENTICAL (this exact class body) so whichever static ctor wins, both providers
+        // round-trip correctly. SetValue=UtcDateTime is the one form that works for both (SQLite stores
+        // the DateTime as ISO TEXT; Npgsql binds it to timestamptz).
         SqlMapper.AddTypeHandler(new DateTimeOffsetHandler());
     }
 
@@ -44,12 +48,19 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
         return conn;
     }
 
+    // KEEP IDENTICAL to Lyntai.Storage.Postgres's DateTimeOffsetHandler (shared global Dapper registry).
     private sealed class DateTimeOffsetHandler : SqlMapper.TypeHandler<DateTimeOffset>
     {
         public override void SetValue(IDbDataParameter parameter, DateTimeOffset value) =>
-            parameter.Value = value.ToString("O", CultureInfo.InvariantCulture);
+            parameter.Value = value.UtcDateTime;
 
-        public override DateTimeOffset Parse(object value) =>
-            DateTimeOffset.Parse((string)value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+        public override DateTimeOffset Parse(object value) => value switch
+        {
+            DateTimeOffset dto => dto.ToUniversalTime(),
+            DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
+            string s => DateTimeOffset.Parse(s, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+            _ => throw new DataException($"cannot convert {value.GetType()} to DateTimeOffset"),
+        };
     }
 }

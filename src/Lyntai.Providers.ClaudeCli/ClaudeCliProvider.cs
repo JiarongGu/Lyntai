@@ -33,6 +33,12 @@ public sealed class ClaudeCliProvider(
     {
         get
         {
+            // A custom IProcessRunner (sandbox / remote / audited execution) resolves the command in
+            // ITS environment, not the host's local PATH — so don't probe the local PATH and skip the
+            // provider, or the BYO runner would never be reached. Be optimistic; a truly missing binary
+            // then surfaces as a Failed verdict on the actual call, and the router falls over.
+            if (runner is not ProcessRunner) return true;
+
             var (exe, _) = ResolveCommand();
             if (!string.Equals(exe, "claude", StringComparison.OrdinalIgnoreCase)) return true; // explicit override
             var resolved = ProcessRunner.ResolveCommandPath("claude");

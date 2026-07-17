@@ -53,6 +53,9 @@ public sealed class M202607170001_InitialSchema : Migration
             """);
         Execute.Sql("CREATE INDEX ix_lyntai_memory_task_scope ON lyntai_memory_entry(task_key, scope)");
         Execute.Sql("CREATE INDEX ix_lyntai_memory_content_trgm ON lyntai_memory_entry USING gin (content gin_trgm_ops)");
+        // dedup key: an atomic INSERT ... ON CONFLICT upsert needs a unique index. md5(content) keeps the
+        // index small and within btree size limits (a unique index on raw TEXT content could exceed them).
+        Execute.Sql("CREATE UNIQUE INDEX ux_lyntai_memory_dedup ON lyntai_memory_entry (task_key, scope, md5(content))");
 
         Execute.Sql("""
             CREATE TABLE lyntai_score_result (
