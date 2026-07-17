@@ -11,4 +11,8 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
 </Project>

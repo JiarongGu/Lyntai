@@ -1,5 +1,6 @@
 using Lyntai;
 using Lyntai.Llm;
+using Lyntai.Llm.Routing;
 
 namespace Lyntai.Tests.Core;
 
@@ -15,6 +16,27 @@ public class LyntaiOptionsTests
         Assert.Equal(TimeSpan.FromSeconds(30), options.DeadHostCooldown);
         Assert.Empty(options.DefaultCandidates);
         Assert.True(options.MemoryCapPerScope > 0);
+        Assert.NotNull(options.Routing); // §6-default policy present out of the box
+    }
+
+    [Fact]
+    public void Routing_env_overrides_tune_the_policy()
+    {
+        var options = new LyntaiOptions();
+        var env = new Dictionary<string, string?>
+        {
+            ["LYNTAI_RETRY_FAILED"] = "2",
+            ["LYNTAI_RETRY_TIMEOUT"] = "1",
+            ["LYNTAI_RETRY_BACKOFF_SECONDS"] = "0.25",
+            ["LYNTAI_COOLDOWN_SCOPE"] = "ProviderAndModel",
+        };
+
+        options.ApplyEnvOverrides(k => env.GetValueOrDefault(k));
+
+        Assert.Equal(2, options.Routing.RetriesFor(LlmVerdict.Failed));
+        Assert.Equal(1, options.Routing.RetriesFor(LlmVerdict.Timeout));
+        Assert.Equal(TimeSpan.FromSeconds(0.25), options.Routing.RetryBackoff);
+        Assert.Equal(CooldownScope.ProviderAndModel, options.Routing.CooldownScope);
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Lyntai.Cortex;
 using Lyntai.Llm;
+using Lyntai.Llm.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai;
@@ -59,6 +60,14 @@ public sealed class LyntaiBuilder
     public LyntaiBuilder Configure(Action<LyntaiOptions> configure)
     {
         configure(Options);
+        return this;
+    }
+
+    /// <summary>Tune the router's fallback policy (per-verdict action, same-candidate retries,
+    /// cooldown-key granularity, sole-candidate exemption). The defaults reproduce design §6.</summary>
+    public LyntaiBuilder ConfigureRouting(Action<RoutingPolicy> configure)
+    {
+        configure(Options.Routing);
         return this;
     }
 }

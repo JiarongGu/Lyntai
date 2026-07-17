@@ -1,4 +1,5 @@
 using Lyntai.Llm;
+using Lyntai.Llm.Routing;
 
 namespace Lyntai;
 
@@ -6,7 +7,9 @@ namespace Lyntai;
 /// Library-wide options. Configure in <c>AddLyntai(cfg => …)</c>; after configuration,
 /// <c>LYNTAI_*</c> environment variables override what was set in code (env beats config):
 /// <c>LYNTAI_TIMEOUT_SECONDS</c>, <c>LYNTAI_DEADHOST_THRESHOLD</c>, <c>LYNTAI_DEADHOST_COOLDOWN_SECONDS</c>,
-/// <c>LYNTAI_DEFAULT_CANDIDATES</c> (comma-separated <c>providerId[:model]</c>), <c>LYNTAI_MODEL_&lt;CONSUMER&gt;</c>.
+/// <c>LYNTAI_DEFAULT_CANDIDATES</c> (comma-separated <c>providerId[:model]</c>), <c>LYNTAI_MODEL_&lt;CONSUMER&gt;</c>,
+/// <c>LYNTAI_RETRY_FAILED</c>, <c>LYNTAI_RETRY_TIMEOUT</c>, <c>LYNTAI_RETRY_BACKOFF_SECONDS</c>,
+/// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>).
 /// </summary>
 public sealed class LyntaiOptions
 {
@@ -18,6 +21,10 @@ public sealed class LyntaiOptions
 
     /// <summary>How long a dead provider/host stays out of rotation.</summary>
     public TimeSpan DeadHostCooldown { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>The router's fallback policy: per-verdict action, same-candidate retries, cooldown-key
+    /// granularity, sole-candidate exemption. Defaults reproduce design §6 — override to tune.</summary>
+    public RoutingPolicy Routing { get; } = new();
 
     /// <summary>Router fallback order used when a caller doesn't pass explicit candidates
     /// (scorers, composition helpers, the Playground).</summary>
@@ -61,6 +68,17 @@ public sealed class LyntaiOptions
 
         if (double.TryParse(getEnv("LYNTAI_DEADHOST_COOLDOWN_SECONDS"), out var c) && c > 0)
             DeadHostCooldown = TimeSpan.FromSeconds(c);
+
+        // routing policy knobs (design §6 is the default; these tune it without code)
+        if (int.TryParse(getEnv("LYNTAI_RETRY_FAILED"), out var rf) && rf >= 0)
+            Routing.Retry(LlmVerdict.Failed, rf);
+        if (int.TryParse(getEnv("LYNTAI_RETRY_TIMEOUT"), out var rt) && rt >= 0)
+            Routing.Retry(LlmVerdict.Timeout, rt);
+        if (double.TryParse(getEnv("LYNTAI_RETRY_BACKOFF_SECONDS"), out var rb) && rb >= 0)
+            Routing.RetryBackoff = TimeSpan.FromSeconds(rb);
+        var scope = getEnv("LYNTAI_COOLDOWN_SCOPE");
+        if (!string.IsNullOrWhiteSpace(scope) && Enum.TryParse<CooldownScope>(scope, ignoreCase: true, out var cs))
+            Routing.CooldownScope = cs;
 
         var candidates = getEnv("LYNTAI_DEFAULT_CANDIDATES");
         if (!string.IsNullOrWhiteSpace(candidates))
