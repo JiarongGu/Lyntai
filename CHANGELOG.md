@@ -3,6 +3,25 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.7.0 — 2026-07-17
+
+Bring-your-own resources — inversion of control for the resource-lifecycle concerns. The app owns the
+implementation; Lyntai provides the interface. All additive; the `ClaudeCliProvider` ctor now takes
+`IProcessRunner` (source-compatible — `ProcessRunner` implements it).
+
+### Added
+- **`IProcessRunner`** — the process-spawning seam (default `ProcessRunner`). Register your own to own
+  how the `claude` CLI is spawned (sandbox, custom shell, remote/audited execution).
+- **BYO HttpClient** — `AddOpenAiCompatibleProvider` (and the presets) accept an optional
+  `Func<IServiceProvider, HttpClient>`, so you supply your configured client (Polly, auth handlers,
+  proxy, a named `IHttpClientFactory` client) and own its lifecycle.
+- **BYO DB connection + schema** — `UseSqliteStorage`/`UsePostgresStorage` gain an
+  `IDbConnectionFactory` overload (you own connection creation/pooling/lifecycle) and a `migrate: false`
+  flag (you own the schema; Lyntai runs no migrations).
+- **Provider presets** — `AddOpenAiProvider`, `AddOllamaProvider`, `AddOpenRouterProvider`,
+  `AddAzureOpenAiProvider` — pre-configured defaults over the generic method. The BYO `ILlmProvider`
+  path (`AddProvider`) stays open for anything bespoke.
+
 ## 0.6.0 — 2026-07-17
 
 Second heavyweight backend + a real-endpoint provider test — the two items previously blocked on

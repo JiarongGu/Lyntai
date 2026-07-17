@@ -12,11 +12,11 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.6.0 — three storage backends, LLM-ops depth, on a production-hardened base.** The v0.1.0
-substrate (all of `tasks.md`), a multi-agent code-review + best-practices research pass (v0.2),
-configurable routing (v0.3), LLM-ops depth — versioned prompts, judge calibration, memory lifecycle,
-trace↔span bridging (v0.4) — public-API baseline + a second storage backend (v0.5), and a PostgreSQL
-backend + live-Ollama validation (v0.6).
+**v0.7.0 — bring-your-own resources, three storage backends, LLM-ops depth, on a production-hardened
+base.** The v0.1.0 substrate (all of `tasks.md`), a multi-agent code-review + best-practices research
+pass (v0.2), configurable routing (v0.3), LLM-ops depth (v0.4), public-API baseline + a second storage
+backend (v0.5), a PostgreSQL backend + live-Ollama validation (v0.6), and IoC seams so the app owns its
+resource lifecycle — process execution, HttpClient, DB connection/schema, provider presets (v0.7).
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
 - `docs/ROADMAP.md` — what's shipped, what's next, and what's blocked on a hosted repo / DB / native deps.
@@ -152,6 +152,34 @@ meterProviderBuilder.AddMeter(LyntaiDiagnostics.MeterName);              // dura
 `chat {model}` client spans carry `gen_ai.system` (provider id), `gen_ai.request.model`, token
 usage, and `error.type` (the verdict) on failure. `time_to_first_chunk` marks the streaming
 fallback point of no return.
+
+### Bring your own resources
+
+Lyntai defines the interfaces; your app owns the resource lifecycle wherever that matters.
+
+```csharp
+services.AddLyntai(cfg =>
+{
+    // Provider presets (or the generic AddOpenAiCompatibleProvider, or your own ILlmProvider):
+    cfg.AddOpenAiProvider(apiKey, defaultModel: "gpt-4o-mini");
+    cfg.AddOllamaProvider(defaultModel: "llama3.2:3b");
+    cfg.AddProvider(_ => new MyCustomProvider());          // BYO ILlmProvider
+
+    // BYO HttpClient — your configured client (Polly, auth handlers, proxy, a named client):
+    cfg.AddOpenRouterProvider(apiKey,
+        httpClient: sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("resilient"));
+
+    // BYO DB connection + schema ownership:
+    cfg.UseSqliteStorage(myConnectionFactory);             // you own connection lifecycle
+    cfg.UsePostgresStorage(connString, migrate: false);    // you own the schema (no Lyntai migrations)
+});
+
+// BYO process execution — control how the claude CLI is spawned (sandbox, custom shell, remote):
+services.AddSingleton<IProcessRunner>(new MySandboxedProcessRunner());
+```
+
+Anything you register wins over Lyntai's default (the defaults use `TryAdd`), and every storage domain
+is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement wholesale.
 
 ## Dev loop
 

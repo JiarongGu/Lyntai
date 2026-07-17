@@ -45,6 +45,13 @@ deterministic lifecycle primitives shipped; summarization has no settled recipe 
   memory recall incl. CJK), integration-tested against a real container via Testcontainers.
 - ✅ **Live Ollama test** — the OpenAI-compatible provider verified against a real endpoint (opt-in).
 
+### v0.7.0 — bring-your-own resources (2026-07)
+IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the interface:
+- ✅ **`IProcessRunner`** (own CLI spawning), **BYO HttpClient** (own the client/handlers/lifecycle),
+  **BYO `IDbConnectionFactory` + `migrate:false`** (own connection + schema), and **provider presets**
+  (`AddOpenAiProvider`/`AddOllamaProvider`/`AddOpenRouterProvider`/`AddAzureOpenAiProvider`) alongside
+  the existing BYO `ILlmProvider` path.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

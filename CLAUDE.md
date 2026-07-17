@@ -17,8 +17,9 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.6.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
-v0.3–v0.6: `ILlmClient` front door (to a consumer, Lyntai behaves like ONE provider — keep new surface
+**Implemented + hardened (v0.7.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
+v0.3–v0.7 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
++ `migrate:false`, provider presets — the app owns resource lifecycle, Lyntai provides the interface): `ILlmClient` front door (to a consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
 `RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel GenAI
 telemetry (`LyntaiDiagnostics`) + `RunTrace.TraceId` bridging, structured output (`CompleteJsonAsync`),
