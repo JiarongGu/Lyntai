@@ -26,6 +26,17 @@ public sealed class LyntaiBuilder
 
     public LyntaiOptions Options { get; }
 
+    /// <summary>Front-door decorators (response cache, usage budget, …) folded over the base router-backed
+    /// client by <c>AddLyntai</c> in ascending <c>Order</c> (lower = innermost, higher = outermost) — so
+    /// multiple compose deterministically regardless of the order they were added, instead of clobbering
+    /// one another.</summary>
+    internal List<(int Order, Func<IServiceProvider, ILlmClient, ILlmClient> Decorate)> FrontDoorDecorators { get; } = [];
+
+    // Fold order (higher = outer). The cache is OUTERMOST so a hit returns without touching inner
+    // decorators — in particular a cached hit is free and must NOT count toward the usage budget.
+    internal const int BudgetDecoratorOrder = 10;
+    internal const int CacheDecoratorOrder = 20;
+
     /// <summary>Register an <see cref="ILlmProvider"/> into the router's provider collection.</summary>
     public LyntaiBuilder AddProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
         where T : class, ILlmProvider
@@ -108,13 +119,29 @@ public sealed class LyntaiBuilder
     {
         configure?.Invoke(Options.Cache);
         Services.TryAddSingleton<Lyntai.Llm.Caching.IResponseCache>(_ => new Lyntai.Llm.Caching.InMemoryResponseCache(Options));
-        // Decorate the front door: a fresh router-backed client wrapped in the cache. Registered here
-        // (during configure) with AddSingleton, so the base TryAddSingleton<ILlmClient> in AddLyntai is
-        // skipped and every ILlmClient resolution — tool loop, orchestrator, scorers — reads through it.
-        Services.AddSingleton<ILlmClient>(sp => new Lyntai.Llm.Caching.CachingLlmClient(
-            new LlmClient(sp.GetRequiredService<ILlmRouter>(), Options),
-            sp.GetRequiredService<Lyntai.Llm.Caching.IResponseCache>(), Options,
-            sp.GetService<ILogger<Lyntai.Llm.Caching.CachingLlmClient>>()));
+        // Decorate the front door (folded over the base client by AddLyntai, so it composes with any other
+        // decorator) — every ILlmClient resolution (tool loop, orchestrator, scorers) reads through it.
+        FrontDoorDecorators.Add((CacheDecoratorOrder, (sp, inner) => new Lyntai.Llm.Caching.CachingLlmClient(
+            inner, sp.GetRequiredService<Lyntai.Llm.Caching.IResponseCache>(), Options,
+            sp.GetService<ILogger<Lyntai.Llm.Caching.CachingLlmClient>>())));
+        return this;
+    }
+
+    /// <summary>Meter token/cost usage across the front door and REFUSE further calls once a configured cap
+    /// is reached — cost governance. Global caps via <see cref="BudgetOptions"/>
+    /// (<c>MaxCostUsd</c>/<c>MaxTokens</c>) with optional per-consumer overrides; also
+    /// <c>LYNTAI_BUDGET_MAX_COST_USD</c> / <c>LYNTAI_BUDGET_MAX_TOKENS</c>. The applicable total is checked
+    /// BEFORE each call (a call whose cost isn't yet known can push a total slightly past the cap — a soft
+    /// ceiling). Query or reset spend at runtime via the registered
+    /// <see cref="Lyntai.Llm.Budgeting.IUsageTracker"/>; register your own before this to override the
+    /// in-memory default.</summary>
+    public LyntaiBuilder AddUsageBudget(Action<BudgetOptions>? configure = null)
+    {
+        configure?.Invoke(Options.Budget);
+        Services.TryAddSingleton<Lyntai.Llm.Budgeting.IUsageTracker, Lyntai.Llm.Budgeting.InMemoryUsageTracker>();
+        FrontDoorDecorators.Add((BudgetDecoratorOrder, (sp, inner) => new Lyntai.Llm.Budgeting.BudgetedLlmClient(
+            inner, sp.GetRequiredService<Lyntai.Llm.Budgeting.IUsageTracker>(), Options,
+            sp.GetService<ILogger<Lyntai.Llm.Budgeting.BudgetedLlmClient>>())));
         return this;
     }
 

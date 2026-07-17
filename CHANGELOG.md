@@ -3,6 +3,33 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.18.0 — 2026-07-18
+
+Usage budgeting — cost/token governance on the front door, the natural companion to the response cache.
+Meters spend and refuses further calls once a cap is reached. Same shape as caching: a decorator over the
+single `ILlmClient` front door with a swappable accounting seam.
+
+### Added
+- **`AddUsageBudget([configure])`** — registers the built-in `InMemoryUsageTracker` and decorates the
+  front door with a `BudgetedLlmClient` that records each call's usage and refuses (a `Refused` reply / an
+  Error stream chunk, **without** hitting a provider) once the applicable total reaches a cap. Global caps
+  via `BudgetOptions` (`MaxCostUsd` / `MaxTokens`) with optional per-consumer overrides
+  (`ConsumerBudget`); also `LYNTAI_BUDGET_MAX_COST_USD` / `LYNTAI_BUDGET_MAX_TOKENS`.
+- **`IUsageTracker`** (the seam) — accumulates token/cost totals per consumer + globally; query spend
+  (`Total`) or reset at a billing-window boundary (`Reset`) at runtime. Register your own before
+  `AddUsageBudget` for persistent/shared accounting. `UsageTotals` is the snapshot record.
+- A `lyntai.budget.refusals` counter (tagged by the cap hit) on the `Lyntai.Agents` meter.
+
+### Changed
+- **Front-door decorators now compose.** The cache/budget decorators are folded over the base client in a
+  deterministic order (cache **outermost**), so enabling both works correctly regardless of the order they
+  were added — in particular a **cached hit is free and never counts toward the budget**. (Previously each
+  decorator wrapped a fresh base client, so a second one would have clobbered the first.)
+
+### Semantics
+- The cap is a **soft ceiling**: the applicable total is checked *before* each call, so the call that
+  crosses a cap still runs (its cost isn't known until it returns) and the *next* one is refused.
+
 ## 0.17.0 — 2026-07-18
 
 Read-through response caching on the front door — an opt-in decorator that turns identical repeated

@@ -161,6 +161,30 @@ JSON schema) — `Consumer` is excluded, so two consumers issuing the same reque
 loop is stateful), and **non-Ok** replies never are. The in-memory cache is the default; register your own
 `IResponseCache` before `AddResponseCache` to back it with Redis or another shared/persistent store.
 
+### Usage budgeting
+
+Cap spend. The budget meters token/cost usage across the front door and refuses further calls once a cap is
+reached — without hitting a provider.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .AddOpenAiProvider(/* … */)
+    .AddUsageBudget(b =>
+    {
+        b.MaxCostUsd = 20.00;                              // global ceiling
+        b.PerConsumer["scoring"] = new(MaxCostUsd: 2.00);  // a tighter cap for one consumer
+    }));
+
+// query or reset spend at runtime
+var spent = sp.GetRequiredService<IUsageTracker>().Total().CostUsd;
+```
+
+Over a cap, a completion returns `Verdict == Refused` (a stream yields one Error chunk) and no provider is
+called. The ceiling is **soft**: the call that crosses a cap still runs (its cost isn't known until it
+returns), the next is refused. Compose with the cache and a **cached hit is free** — it never counts toward
+the budget (the cache is the outermost decorator). Register your own `IUsageTracker` for persistent/shared
+spend accounting.
+
 ### Observability
 
 Lyntai emits OpenTelemetry GenAI-convention telemetry from the router — the same schema

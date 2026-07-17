@@ -131,6 +131,13 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   native-tool, and non-Ok replies are never cached. A `lyntai.cache.requests` hit/miss counter. Because it
   wraps the single front door, the tool loop / orchestrator / scorers all read through it once enabled.
 
+### v0.18.0 — usage budgeting (2026-07)
+- ✅ **Usage budget / spend caps** (`AddUsageBudget`) — a front-door decorator that meters token/cost usage
+  (`IUsageTracker`, per-consumer + global) and REFUSES further calls once a cap (`BudgetOptions`:
+  `MaxCostUsd`/`MaxTokens`, per-consumer overrides) is reached, without hitting a provider. Soft ceiling
+  (checked before each call). Front-door decorators now compose deterministically (cache outermost), so a
+  cached hit is free and never counts toward the budget. `lyntai.budget.refusals` counter.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

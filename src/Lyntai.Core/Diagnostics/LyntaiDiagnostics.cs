@@ -126,6 +126,8 @@ public static class LyntaiDiagnostics
         AgentMeter.CreateCounter<long>("lyntai.guard.decisions", description: "Guard block/replace decisions, tagged by gate + result");
     internal static readonly Counter<long> CacheRequests =
         AgentMeter.CreateCounter<long>("lyntai.cache.requests", description: "Response-cache lookups, tagged by result hit/miss");
+    internal static readonly Counter<long> BudgetRefusals =
+        AgentMeter.CreateCounter<long>("lyntai.budget.refusals", description: "Calls refused by the usage budget, tagged by the cap hit");
 
     internal static Activity? StartToolLoop(string consumer)
     {
@@ -195,5 +197,11 @@ public static class LyntaiDiagnostics
     {
         if (CacheRequests.Enabled)
             CacheRequests.Add(1, new TagList { { "lyntai.cache.result", hit ? "hit" : "miss" } });
+    }
+
+    internal static void RecordBudgetRefusal(string cap)
+    {
+        if (BudgetRefusals.Enabled)
+            BudgetRefusals.Add(1, new TagList { { "lyntai.budget.cap", cap } });
     }
 }

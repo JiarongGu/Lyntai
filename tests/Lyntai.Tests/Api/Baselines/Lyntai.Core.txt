@@ -80,10 +80,24 @@ class Lyntai.Agents.ToolStep
     Result : String
     ToString() : String
     Tool : String
+class Lyntai.BudgetOptions
+    .ctor()
+    MaxCostUsd : Nullable<Double>
+    MaxTokens : Nullable<Int64>
+    PerConsumer : Dictionary<String,ConsumerBudget>
 class Lyntai.CacheOptions
     .ctor()
     MaxEntries : Int32
     Ttl : TimeSpan
+class Lyntai.ConsumerBudget
+    .ctor(Nullable<Double>=, Nullable<Int64>=)
+    Deconstruct(Nullable`1&, Nullable`1&) : Void
+    Equals(ConsumerBudget) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    MaxCostUsd : Nullable<Double>
+    MaxTokens : Nullable<Int64>
+    ToString() : String
 class Lyntai.Cortex.AgreementReport
     .ctor(Int32, Double, Double, Nullable<Double>)
     Count : Int32
@@ -370,6 +384,33 @@ enum Lyntai.Jobs.JobStatus
     Running : JobStatus const
     Succeeded : JobStatus const
     value__ : Int32
+class Lyntai.Llm.Budgeting.BudgetedLlmClient
+    .ctor(ILlmClient, IUsageTracker, LyntaiOptions, ILogger<BudgetedLlmClient>=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest) : Boolean
+interface Lyntai.Llm.Budgeting.IUsageTracker
+    Record(String, LlmUsage) : Void
+    Reset(String=) : Void
+    Total(String=) : UsageTotals
+class Lyntai.Llm.Budgeting.InMemoryUsageTracker
+    .ctor()
+    Record(String, LlmUsage) : Void
+    Reset(String=) : Void
+    Total(String=) : UsageTotals
+class Lyntai.Llm.Budgeting.UsageTotals
+    .ctor(Int64, Int64, Double, Int64)
+    Calls : Int64
+    CostUsd : Double
+    Deconstruct(Int64&, Int64&, Double&, Int64&) : Void
+    Empty : UsageTotals
+    Equals(Object) : Boolean
+    Equals(UsageTotals) : Boolean
+    GetHashCode() : Int32
+    InputTokens : Int64
+    OutputTokens : Int64
+    ToString() : String
+    TotalTokens : Int64
 class Lyntai.Llm.Caching.CachingLlmClient
     .ctor(ILlmClient, IResponseCache, LyntaiOptions, ILogger<CachingLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
@@ -576,6 +617,7 @@ class Lyntai.LyntaiBuilder
     AddScorer() : LyntaiBuilder
     AddTool() : LyntaiBuilder
     AddTool(Func<IServiceProvider,ITool>) : LyntaiBuilder
+    AddUsageBudget(Action<BudgetOptions>=) : LyntaiBuilder
     Configure(Action<LyntaiOptions>) : LyntaiBuilder
     ConfigureRouting(Action<RoutingPolicy>) : LyntaiBuilder
     DefaultCandidates(LlmCandidate[]) : LyntaiBuilder
@@ -585,6 +627,7 @@ class Lyntai.LyntaiBuilder
 class Lyntai.LyntaiOptions
     .ctor()
     ApplyEnvOverrides(Func<String,String>=, IEnumerable<KeyValuePair<String,String>>=) : Void
+    Budget : BudgetOptions
     Cache : CacheOptions
     DeadHostCooldown : TimeSpan
     DeadHostThreshold : Int32

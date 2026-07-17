@@ -1,3 +1,4 @@
+using System.Globalization;
 using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
@@ -11,7 +12,8 @@ namespace Lyntai;
 /// <c>LYNTAI_DEFAULT_CANDIDATES</c> (comma-separated <c>providerId[:model]</c>), <c>LYNTAI_MODEL_&lt;CONSUMER&gt;</c>,
 /// <c>LYNTAI_RETRY_FAILED</c>, <c>LYNTAI_RETRY_TIMEOUT</c>, <c>LYNTAI_RETRY_BACKOFF_SECONDS</c>,
 /// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>),
-/// <c>LYNTAI_TOOL_LOOP_MAX_ITERATIONS</c>, <c>LYNTAI_CACHE_TTL_SECONDS</c>, <c>LYNTAI_CACHE_MAX_ENTRIES</c>.
+/// <c>LYNTAI_TOOL_LOOP_MAX_ITERATIONS</c>, <c>LYNTAI_CACHE_TTL_SECONDS</c>, <c>LYNTAI_CACHE_MAX_ENTRIES</c>,
+/// <c>LYNTAI_BUDGET_MAX_COST_USD</c>, <c>LYNTAI_BUDGET_MAX_TOKENS</c>.
 /// </summary>
 public sealed class LyntaiOptions
 {
@@ -50,6 +52,9 @@ public sealed class LyntaiOptions
 
     /// <summary>Response-cache tuning (TTL, size cap) for the opt-in <c>AddResponseCache</c>.</summary>
     public CacheOptions Cache { get; } = new();
+
+    /// <summary>Usage caps (cost/token ceilings) for the opt-in <c>AddUsageBudget</c>.</summary>
+    public BudgetOptions Budget { get; } = new();
 
     /// <summary>Resolve the model for a request: explicit request model wins, then the consumer's
     /// configured default, then the "default" consumer entry, then null (provider default).</summary>
@@ -101,6 +106,12 @@ public sealed class LyntaiOptions
             Cache.Ttl = TimeSpan.FromSeconds(ct);
         if (int.TryParse(getEnv("LYNTAI_CACHE_MAX_ENTRIES"), out var cm) && cm > 0)
             Cache.MaxEntries = cm;
+
+        // usage-budget knobs (global caps; per-consumer caps are code-only)
+        if (double.TryParse(getEnv("LYNTAI_BUDGET_MAX_COST_USD"), NumberStyles.Float, CultureInfo.InvariantCulture, out var bc) && bc >= 0)
+            Budget.MaxCostUsd = bc;
+        if (long.TryParse(getEnv("LYNTAI_BUDGET_MAX_TOKENS"), out var bt) && bt >= 0)
+            Budget.MaxTokens = bt;
 
         // routing policy knobs (design §6 is the default; these tune it without code)
         if (int.TryParse(getEnv("LYNTAI_RETRY_FAILED"), out var rf) && rf >= 0)
