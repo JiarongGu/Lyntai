@@ -126,9 +126,13 @@ public class JobRunnerTests
         await queue.EnqueueAsync("a", "t", "{}");
         await queue.EnqueueAsync("b", "t", "{}");
 
+        // generous backstop: a correct runner enters both handlers near-instantly, but under a saturated
+        // thread pool (the whole suite runs in parallel) the 2nd handler task can be slow to SCHEDULE — a
+        // tight timeout there is a false negative, not a real failure. Big enough to never flake, small
+        // enough to still fail fast if cross-lane concurrency is genuinely broken (then it never releases).
         var runTask = runner.RunOnceAsync();
-        Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(5))); // lane a's job is in flight
-        Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(5))); // lane b's job in flight AT THE SAME TIME
+        Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane a's job did not start"); // in flight
+        Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(30)), "lane b's job did not start concurrently");
         release.SetResult();
 
         Assert.Equal(2, await runTask);
