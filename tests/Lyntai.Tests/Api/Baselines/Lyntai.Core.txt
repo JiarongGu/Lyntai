@@ -471,7 +471,7 @@ class Lyntai.Llm.Caching.InMemoryResponseCache
     SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
     TryGetAsync(String, CancellationToken=) : Task<LlmReply>
 static class Lyntai.Llm.Caching.ResponseCacheKey
-    For(LlmRequest) : String
+    For(LlmRequest, String=) : String
 interface Lyntai.Llm.ILlmClient
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>

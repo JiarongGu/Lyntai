@@ -24,7 +24,9 @@ public sealed class CachingLlmClient(
     {
         if (!IsCacheable(req)) return await inner.CompleteAsync(req, ct).ConfigureAwait(false);
 
-        var key = ResponseCacheKey.For(req);
+        // key on the EFFECTIVE model (the router resolves per-consumer defaults), so two consumers with
+        // different default models + Model=null + identical messages don't collide onto one answer
+        var key = ResponseCacheKey.For(req, options.ResolveModel(req.Consumer, req.Model));
         var cached = await cache.TryGetAsync(key, ct).ConfigureAwait(false);
         if (cached is not null)
         {

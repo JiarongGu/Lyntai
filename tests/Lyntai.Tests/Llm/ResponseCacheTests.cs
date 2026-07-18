@@ -46,6 +46,43 @@ public class ResponseCacheTests
     }
 
     [Fact]
+    public void Key_folds_the_effective_per_consumer_model_but_not_the_consumer()
+    {
+        var options = new LyntaiOptions();
+        options.DefaultModelByConsumer["a"] = "model-a";
+        options.DefaultModelByConsumer["b"] = "model-b";
+        options.DefaultModelByConsumer["c"] = "model-a"; // resolves to the same model as "a"
+        var msg = new LlmRequest { Messages = [LlmMessage.User("same")] };
+
+        var keyA = ResponseCacheKey.For(msg with { Consumer = "a" }, options.ResolveModel("a", null));
+        var keyB = ResponseCacheKey.For(msg with { Consumer = "b" }, options.ResolveModel("b", null));
+        var keyC = ResponseCacheKey.For(msg with { Consumer = "c" }, options.ResolveModel("c", null));
+
+        Assert.NotEqual(keyA, keyB); // different resolved models → distinct keys (no cross-model serve)
+        Assert.Equal(keyA, keyC);    // same resolved model → shared key (consumer stays out of the key)
+    }
+
+    [Fact]
+    public async Task Cache_does_not_cross_serve_consumers_with_different_default_models()
+    {
+        var inner = new FakeLlmClient();
+        inner.Replies.Enqueue(new LlmReply("answer-for-a", LlmVerdict.Ok));
+        inner.Replies.Enqueue(new LlmReply("answer-for-b", LlmVerdict.Ok));
+        var options = new LyntaiOptions();
+        options.DefaultModelByConsumer["a"] = "model-a";
+        options.DefaultModelByConsumer["b"] = "model-b";
+        var client = new CachingLlmClient(inner, new InMemoryResponseCache(options), options);
+        LlmMessage[] same = [LlmMessage.User("same question")];
+
+        var a = await client.CompleteAsync(new LlmRequest { Messages = same, Consumer = "a" }); // model-a
+        var b = await client.CompleteAsync(new LlmRequest { Messages = same, Consumer = "b" }); // model-b
+
+        Assert.Equal("answer-for-a", a.Text);
+        Assert.Equal("answer-for-b", b.Text); // NOT served a's cached reply — different resolved model
+        Assert.Equal(2, inner.Calls.Count);
+    }
+
+    [Fact]
     public void Key_is_not_fooled_by_message_boundary_shifts()
     {
         // "ab"+"c" must not collide with "a"+"bc" — length-framing prevents the concatenation collision

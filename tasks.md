@@ -209,7 +209,7 @@ would have caught the bug.
   - Test: reclaim a stale `Running` job whose `attempts` already exceeds `MaxAttempts` → the runner dead-letters
     it and the handler is NEVER invoked (fake handler asserts it wasn't called).
 
-- [ ] **T3 · Response-cache cross-model collision when per-consumer default models differ**
+- [x] **T3 · Response-cache cross-model collision when per-consumer default models differ**
   - Files: `src/Lyntai.Core/Llm/Caching/IResponseCache.cs` (`ResponseCacheKey.For`),
     `src/Lyntai.Core/Llm/Caching/CachingLlmClient.cs`, `src/Lyntai.Core/LyntaiOptions.cs` (`ResolveModel`).
   - Defect: the cache is the outermost decorator and keys on the RAW `req.Model`, excluding `req.Consumer`. But

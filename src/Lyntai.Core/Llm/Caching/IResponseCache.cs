@@ -31,11 +31,16 @@ public interface IResponseCache
 /// </summary>
 public static class ResponseCacheKey
 {
-    public static string For(LlmRequest req)
+    /// <summary>Compute the key. Pass <paramref name="effectiveModel"/> (the model the router will actually
+    /// use, e.g. <c>options.ResolveModel(req.Consumer, req.Model)</c>) so two consumers whose per-consumer
+    /// DEFAULT models differ don't collide on a null <see cref="LlmRequest.Model"/> — the effective model is
+    /// an output determinant, the raw one isn't. Consumer itself stays OUT (two consumers resolving to the
+    /// same model still share a hit). Falls back to <see cref="LlmRequest.Model"/> when not supplied.</summary>
+    public static string For(LlmRequest req, string? effectiveModel = null)
     {
         using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         AddString(h, "lyntai-cache-v1"); // version prefix — bump to invalidate the whole keyspace on a shape change
-        AddString(h, req.Model);
+        AddString(h, effectiveModel ?? req.Model);
         AddInt(h, req.MaxTokens ?? -1);
         AddString(h, req.Temperature?.ToString("R", CultureInfo.InvariantCulture));
         AddString(h, req.JsonSchema);
