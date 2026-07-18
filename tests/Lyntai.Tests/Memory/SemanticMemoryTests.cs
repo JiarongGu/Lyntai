@@ -43,11 +43,18 @@ public class SemanticMemoryTests
     }
 
     [Fact]
-    public async Task Vector_store_throws_on_a_dimension_mismatch()
+    public async Task Vector_store_tolerates_a_dimension_mismatch_scoring_it_zero()
     {
+        // a stray wrong-dimension row (e.g. from a prior embedding model) must NOT throw and sink the whole
+        // search — it scores 0 and ranks last, consistent with the SQLite/Postgres vector stores.
         var store = new InMemoryVectorStore();
-        await store.UpsertAsync("c", "a", [1f, 0f, 0f], "A");
-        await Assert.ThrowsAsync<ArgumentException>(async () => await store.SearchAsync("c", [1f, 0f], k: 1));
+        await store.UpsertAsync("c", "match", [1f, 0f], "MATCH");     // 2-dim (same as the query)
+        await store.UpsertAsync("c", "stale", [1f, 0f, 0f], "STALE"); // 3-dim (mismatched)
+
+        var hits = await store.SearchAsync("c", [1f, 0f], k: 5);
+
+        Assert.Equal("MATCH", hits[0].Payload);                       // matching dim ranks first
+        Assert.Equal(0, hits.Single(h => h.Payload == "STALE").Score); // mismatched row scored 0, not thrown
     }
 
     // ---- semantic memory service ---------------------------------------------------------------------

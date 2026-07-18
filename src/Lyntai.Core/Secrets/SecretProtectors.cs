@@ -12,7 +12,10 @@ public sealed class NullSecretProtector : ISecretProtector
 }
 
 /// <summary>AES-256-GCM authenticated encryption with an app-supplied 32-byte key (BYO key — Lyntai never
-/// generates or persists it). Output is base64(nonce | tag | ciphertext); tampering fails decryption.</summary>
+/// generates or persists it). Output is base64(nonce | tag | ciphertext); tampering fails decryption.
+/// <see cref="Unprotect"/> throws <see cref="CryptographicException"/> on ANY unusable blob — tampered
+/// (auth-tag mismatch), non-base64, or too short — so a caller can catch one exception type for all
+/// at-rest corruption rather than a stray <c>FormatException</c>/<c>ArgumentOutOfRangeException</c>.</summary>
 public sealed class AesGcmSecretProtector : ISecretProtector
 {
     private const int NonceLen = 12; // AesGcm.NonceByteSizes.MaxSize
@@ -43,12 +46,22 @@ public sealed class AesGcmSecretProtector : ISecretProtector
 
     public string Unprotect(string ciphertext)
     {
-        var blob = Convert.FromBase64String(ciphertext);
+        // a corrupt/truncated at-rest blob must fail as a CryptographicException (like the auth-tag
+        // mismatch below), not leak a FormatException/ArgumentOutOfRangeException from parsing/slicing
+        byte[] blob;
+        try { blob = Convert.FromBase64String(ciphertext); }
+        catch (FormatException ex)
+        {
+            throw new CryptographicException("Secret blob is not valid base64 — corrupt, or not produced by this protector.", ex);
+        }
+        if (blob.Length < NonceLen + TagLen)
+            throw new CryptographicException($"Secret blob is too short ({blob.Length} bytes) to hold the nonce + tag — corrupt or truncated.");
+
         var nonce = blob.AsSpan(0, NonceLen);
         var tag = blob.AsSpan(NonceLen, TagLen);
         var ct = blob.AsSpan(NonceLen + TagLen);
         var pt = new byte[ct.Length];
-        using (var aes = new AesGcm(_key, TagLen)) aes.Decrypt(nonce, ct, tag, pt);
+        using (var aes = new AesGcm(_key, TagLen)) aes.Decrypt(nonce, ct, tag, pt); // throws AuthenticationTagMismatchException on tamper
         return Encoding.UTF8.GetString(pt);
     }
 }

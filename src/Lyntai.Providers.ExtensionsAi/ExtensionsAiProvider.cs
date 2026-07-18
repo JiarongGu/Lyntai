@@ -76,6 +76,7 @@ public sealed class ExtensionsAiProvider(
 
         LlmUsage? usage = null;
         var sawContent = false;
+        var sawToolCall = false;
         var enumerator = client.GetStreamingResponseAsync(MapMessages(req), MapOptions(req), timeoutCts.Token)
             .GetAsyncEnumerator(timeoutCts.Token);
         await using (enumerator.ConfigureAwait(false))
@@ -110,6 +111,7 @@ public sealed class ExtensionsAiProvider(
                 foreach (var content in update.Contents)
                 {
                     if (content is UsageContent u) usage = MapUsage(u.Details);
+                    else if (content is FunctionCallContent) sawToolCall = true; // a streamed native tool call
                 }
                 if (update.Text is { Length: > 0 } text)
                 {
@@ -119,10 +121,16 @@ public sealed class ExtensionsAiProvider(
             }
         }
 
-        // the streaming twin of CompleteAsync's empty→Failed: a zero-content stream must surface an
-        // error the router can fall over on, not end as a clean empty Final
         if (!sawContent)
-            yield return LlmChunk.Error(LlmVerdict.Failed, $"{id}: empty response");
+        {
+            // a streamed native tool call (no text) is NOT a host failure — the streaming contract (LlmChunk)
+            // just can't carry tool calls (deferred). Surface Refused (no fallback/cooldown), not Failed.
+            yield return sawToolCall
+                ? LlmChunk.Error(LlmVerdict.Refused, $"{id}: streaming does not deliver native tool calls — use CompleteAsync for tool-calling")
+                // the streaming twin of CompleteAsync's empty→Failed: a genuinely empty stream must surface
+                // an error the router can fall over on, not end as a clean empty Final
+                : LlmChunk.Error(LlmVerdict.Failed, $"{id}: empty response");
+        }
         else
             yield return LlmChunk.Final(usage);
     }

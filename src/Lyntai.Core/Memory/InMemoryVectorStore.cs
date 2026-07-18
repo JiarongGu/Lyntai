@@ -41,11 +41,12 @@ public sealed class InMemoryVectorStore : IVectorStore
     }
 
     /// <summary>Cosine similarity of two equal-length vectors — dot / (‖a‖·‖b‖); 0 when either is a zero
-    /// vector. Throws on a dimension mismatch (embedding models must be consistent, per <c>IEmbedder</c>).</summary>
+    /// vector, and 0 on a DIMENSION MISMATCH (a stored vector from a different embedding model — a stray
+    /// wrong-dim row ranks last rather than throwing and sinking the whole search). This matches the SQLite
+    /// vector store, so <c>IVectorStore</c> behaves consistently across backends.</summary>
     internal static double Cosine(float[] a, float[] b)
     {
-        if (a.Length != b.Length)
-            throw new ArgumentException($"vector dimension mismatch: query {a.Length} vs stored {b.Length}");
+        if (a.Length != b.Length || a.Length == 0) return 0;
         double dot = 0, na = 0, nb = 0;
         for (var i = 0; i < a.Length; i++)
         {

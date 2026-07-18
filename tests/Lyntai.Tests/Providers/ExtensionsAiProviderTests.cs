@@ -59,6 +59,28 @@ public class ExtensionsAiProviderTests
     }
 
     [Fact]
+    public async Task A_streamed_tool_call_surfaces_Refused_not_Failed()
+    {
+        // a streamed FunctionCall-only turn (no text) must NOT be classified as an empty→Failed response —
+        // that would cool down a healthy host. The streaming contract can't carry tool calls, so it surfaces
+        // Refused (no fallback/cooldown), pointing the caller at CompleteAsync.
+        var client = new FakeChatClient();
+        client.Updates.Add(new ChatResponseUpdate
+        {
+            Role = ChatRole.Assistant,
+            Contents = [new FunctionCallContent("call-1", "get_weather")],
+        });
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(client).StreamAsync(Req with { Tools = [new LlmTool("get_weather")] }))
+            chunks.Add(c);
+
+        var only = Assert.Single(chunks);
+        Assert.Equal(LlmChunkKind.Error, only.Kind);
+        Assert.Equal(LlmVerdict.Refused, only.Verdict);
+    }
+
+    [Fact]
     public async Task Exception_maps_to_failed_verdict()
     {
         var client = new FakeChatClient { ThrowOnCall = new InvalidOperationException("backend down") };

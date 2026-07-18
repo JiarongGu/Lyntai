@@ -11,20 +11,21 @@ public sealed class DenylistGuard(IReadOnlyList<string> terms, string? name = nu
 
     public string Name => name ?? "denylist";
 
-    public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default)
-    {
+    public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default) =>
         // scan EVERY message role, not just "user" — a denied term hiding in a system/assistant/tool
-        // message (e.g. a tool result fed back mid-loop) must not slip past the jail
-        var text = string.Join("\n", req.Messages.Select(m => m.Content));
-        return Task.FromResult(Check(text));
-    }
+        // message (e.g. a tool result fed back mid-loop) must not slip past the jail. Scans each message's
+        // content directly (no whole-transcript join allocation) and short-circuits on the first hit.
+        Task.FromResult(Check(req.Messages.Select(m => m.Content)));
 
     public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
-        Task.FromResult(Check(reply.Text + "\n" + (reply.Detail ?? ""))); // also scan error detail (may echo content)
+        Task.FromResult(Check([reply.Text, reply.Detail ?? ""])); // also scan error detail (may echo content)
 
-    private GuardOutcome Check(string text)
+    private GuardOutcome Check(IEnumerable<string> segments)
     {
-        var hit = _terms.FirstOrDefault(t => text.Contains(t, StringComparison.OrdinalIgnoreCase));
-        return hit is null ? GuardOutcome.Allow : GuardOutcome.Block($"denied term: {hit}");
+        foreach (var segment in segments)
+            foreach (var term in _terms)
+                if (segment.Contains(term, StringComparison.OrdinalIgnoreCase))
+                    return GuardOutcome.Block($"denied term: {term}");
+        return GuardOutcome.Allow;
     }
 }

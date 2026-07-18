@@ -196,6 +196,16 @@ public sealed class OpenAiCompatibleProvider(
             yield return LlmChunk.Error(LlmVerdict.Refused, $"{id}: content filter");
             yield break;
         }
+        // the streaming contract (LlmChunk) carries no tool-call payload — streaming native tool-calls is
+        // deferred. A model that STREAMED a tool call (finish_reason=tool_calls, no content) is NOT a host
+        // failure: surface Refused (no fallback/cooldown) pointing the caller at CompleteAsync, rather than
+        // the empty→Failed below which would penalize a perfectly healthy host.
+        if (finishReason == "tool_calls")
+        {
+            yield return LlmChunk.Error(LlmVerdict.Refused,
+                $"{id}: streaming does not deliver native tool calls — use CompleteAsync for tool-calling");
+            yield break;
+        }
         // zero-content stream = the streaming twin of CompleteAsync's empty→Failed, so the router
         // can fall over pre-content instead of reporting a clean empty answer
         if (!sawContent)

@@ -3,6 +3,34 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.27.2 — 2026-07-18
+
+Follow-up hardening from a full-codebase multi-agent code review (45 agents; 35 candidates, 19 refuted by
+the review's own verifier). No public API change.
+
+### Fixed
+- **Streamed native tool call misclassified as a host failure** — a `StreamAsync` response that was a tool
+  call (no text) ended as `Failed` in both the OpenAI-compatible provider (`finish_reason=tool_calls`) and
+  the MEAI bridge (`FunctionCallContent`), which cooled down a perfectly healthy host. It now surfaces
+  `Refused` (no fallback/cooldown) pointing the caller at `CompleteAsync`. (Full streaming tool-call
+  *delivery* stays deferred — the `LlmChunk` streaming contract carries no tool-call payload.)
+- **Secret vault: a corrupt/truncated at-rest blob now fails as `CryptographicException`** — `Unprotect`
+  used to leak a `FormatException`/`ArgumentOutOfRangeException` from base64 parsing or span slicing;
+  callers can now catch one exception type for all at-rest corruption (base64, too-short, or tampered).
+
+### Changed
+- **`InMemoryVectorStore` tolerates a dimension mismatch (scores it 0) instead of throwing** — so
+  `IVectorStore` behaves consistently across the in-memory / SQLite backends (a stray wrong-dimension row,
+  e.g. from a prior embedding model, ranks last rather than sinking the whole search).
+- **`DenylistGuard` scans each message directly** (short-circuiting on the first hit) instead of
+  allocating a whole-transcript join per request — cheaper on long tool-loop transcripts.
+
+### Reviewed, kept by design
+- Incrementing a job's attempt count on a stale-lease reclaim is deliberate poison-pill protection (a
+  crash-looping job is bounded by `MaxAttempts`); long handlers renew the lease by checkpointing. The
+  per-job cancel poll, the tool-loop's defensive message snapshot, and a few small duplicated helpers were
+  judged not worth the churn/risk.
+
 ## 0.27.1 — 2026-07-18
 
 Consolidation / hardening pass over v0.16–v0.27 (a three-way adversarial review). No public API change —

@@ -28,6 +28,18 @@ public class SecretVaultTests
     }
 
     [Fact]
+    public void Unprotect_fails_a_corrupt_blob_as_a_cryptographic_exception_not_a_stray_type()
+    {
+        var p = new AesGcmSecretProtector(RandomNumberGenerator.GetBytes(32));
+        // every unusable at-rest blob must surface as CryptographicException (one type a caller can catch),
+        // not a FormatException / ArgumentOutOfRangeException leaking from base64 parsing or span slicing
+        Assert.ThrowsAny<CryptographicException>(() => p.Unprotect("!!! not base64 !!!"));            // non-base64
+        Assert.ThrowsAny<CryptographicException>(() => p.Unprotect(Convert.ToBase64String(new byte[10]))); // < nonce+tag
+        Assert.ThrowsAny<CryptographicException>(() => p.Unprotect(Convert.ToBase64String(new byte[40]))); // right size, bad tag
+        Assert.Equal("ok", p.Unprotect(p.Protect("ok"))); // and a real blob still round-trips
+    }
+
+    [Fact]
     public async Task Kv_vault_stores_ciphertext_at_rest_and_lists_names()
     {
         var kv = new InMemoryKeyValueStore();
