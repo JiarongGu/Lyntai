@@ -1,62 +1,130 @@
-# Lyntai release — on a *published* GitHub Release, pack every library and push to NuGet.
-#
-# Setup (once): add a repo secret NUGET_API_KEY (Settings → Secrets and variables → Actions)
-# holding a nuget.org API key scoped to push the Lyntai.* packages.
-#
-# To cut a release:
-#   1. Bump <VersionPrefix> in src/Directory.Build.props (the single source of truth) + commit.
-#   2. Tag it `v<version>` (e.g. v0.28.0) and push the tag.
-#   3. Publish a GitHub Release for that tag — this workflow then packs + pushes to NuGet.
-# The tag MUST equal `v<VersionPrefix>`; the workflow fails fast otherwise so a tag can't drift
-# from the packed version.
-name: release
+name: Release
 
+# Manual-trigger only (mirrors the sibling Gatherlight release model). Cutting a release is a deliberate
+# act you start from the Actions tab (Run workflow) — there is intentionally NO tag-push / release-published
+# trigger. The full verify gate (build · test · e2e · leak scan) runs against the exact commit before the
+# irreversible NuGet push, and the version bump is committed only AFTER the publish succeeds.
+#
+# Setup (once): add a repo secret NUGET_API_KEY (Settings -> Secrets and variables -> Actions) — a
+# nuget.org API key scoped to push Lyntai.* packages.
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 0.28.0) — leave empty to bump from the current version'
+        required: false
+        type: string
+      bump:
+        description: 'Version bump type (ignored when an explicit version is given)'
+        required: false
+        type: choice
+        default: 'patch'
+        options:
+          - none
+          - patch
+          - minor
+          - major
+      create_tag:
+        description: 'Create + push a git tag for this version'
+        required: false
+        type: boolean
+        default: true
+      draft:
+        description: 'Create the GitHub release as a draft (review before publishing)'
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Mark as a pre-release'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write   # push the version-bump commit + tag, create the release
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    name: Verify + pack + push to NuGet
+    runs-on: ubuntu-latest   # pure managed library; the DPAPI tests self-skip on Linux, Postgres/Docker runs
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          dotnet-version: 10.0.x
+          fetch-depth: 0   # full history for release notes + tag diffs
 
-      - uses: actions/setup-node@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
         with:
-          node-version: 22
+          dotnet-version: '10.0.x'
 
-      - name: Assert the release tag matches VersionPrefix
-        env:
-          TAG: ${{ github.event.release.tag_name }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Version source of truth = src/Directory.Build.props (<VersionPrefix>), which the .NET assemblies AND
+      # devtools/project.config.mjs both read. An explicit `version` input wins; otherwise `bump` steps the
+      # current semver. The bump is WRITTEN to the working tree here (so pack uses it) but the commit is
+      # DEFERRED until after the publish succeeds — a failed release must leave no phantom bump commit.
+      - name: Determine version
+        id: version
+        shell: pwsh
         run: |
-          VERSION=$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' src/Directory.Build.props)
-          CLEAN_TAG="${TAG#v}"
-          echo "VersionPrefix=$VERSION  tag=$TAG"
-          if [ "$VERSION" != "$CLEAN_TAG" ]; then
-            echo "::error::Release tag '$TAG' does not match src/Directory.Build.props VersionPrefix '$VERSION'. Bump VersionPrefix and re-tag as v$VERSION."
-            exit 1
-          fi
+          $current = node -e "import('./devtools/project.config.mjs').then(m=>process.stdout.write(String(m.default.version)))"
+          Write-Host "current version: $current"
 
-      # Re-validate on the release commit before the irreversible publish (build + full test suite;
-      # every LLM call goes through the deterministic provider-stub — no real tokens).
-      - name: Build
-        run: node devtools/dev.mjs build
+          $final = $current
+          if ("${{ inputs.version }}" -ne "") {
+            $final = "${{ inputs.version }}"
+            Write-Host "explicit version: $final"
+          } elseif ("${{ inputs.bump }}" -ne "none") {
+            if ($current -match '^(\d+)\.(\d+)\.(\d+)') {
+              $maj = [int]$matches[1]; $min = [int]$matches[2]; $pat = [int]$matches[3]
+              switch ("${{ inputs.bump }}") {
+                "major" { $maj++; $min = 0; $pat = 0 }
+                "minor" { $min++; $pat = 0 }
+                "patch" { $pat++ }
+              }
+              $final = "$maj.$min.$pat"
+              Write-Host "bumped ${{ inputs.bump }}: $current -> $final"
+            } else {
+              Write-Host "::error::version '$current' is not X.Y.Z — pass an explicit version input"
+              exit 1
+            }
+          }
 
-      - name: Test
-        run: node devtools/dev.mjs test
+          # Normalize to a full 3-part semver so `1.0` becomes `1.0.0` in the tag + bump.
+          if ($final -match '^(\d+)(\.(\d+))?(\.(\d+))?([-+].*)?$') {
+            $final = "$([int]$matches[1]).$([int]($matches[3] ?? 0)).$([int]($matches[5] ?? 0))" + $matches[6]
+            Write-Host "normalized version: $final"
+          }
+
+          $changed = "false"
+          if ($final -ne $current) {
+            $p = "src/Directory.Build.props"
+            $c = Get-Content $p -Raw
+            $c = $c -replace "(<VersionPrefix>)[^<]*(</VersionPrefix>)", ('${1}' + $final + '${2}')
+            Set-Content $p $c -NoNewline -Encoding utf8
+            $changed = "true"
+            Write-Host "wrote version $final to $p (commit deferred until the gate + publish pass)"
+          }
+
+          "changed=$changed" >> $env:GITHUB_OUTPUT
+          "version=$final" >> $env:GITHUB_OUTPUT
+          "tag=v$final" >> $env:GITHUB_OUTPUT
+
+      # Gate the release on the full devtools loop (build · test · e2e vs the provider-stub · leak scan)
+      # against the exact commit — every LLM call goes through the deterministic stub, no real tokens.
+      - name: Verify gate
+        run: node devtools/dev.mjs verify
 
       - name: Pack
         run: node devtools/dev.mjs pack
 
-      # Pushes each Lyntai.*.nupkg; the adjacent .snupkg symbol packages are pushed automatically.
-      # --skip-duplicate makes a re-run safe if a version is already on nuget.org.
+      # The irreversible step FIRST (before any git bookkeeping) — so a missing/bad key or a publish failure
+      # leaves no bump commit or tag behind. --skip-duplicate makes a re-run safe if a version is already live;
+      # each .nupkg's adjacent .snupkg symbol package is pushed automatically.
       - name: Push to NuGet
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
@@ -65,3 +133,97 @@ jobs:
           --api-key "$NUGET_API_KEY"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
+
+      # Commit the version bump ONLY now that the gate + publish succeeded — a failed release burns no version.
+      - name: Commit version bump
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/Directory.Build.props
+          git commit -m "chore: release v${{ steps.version.outputs.version }}"
+          git push
+
+      # Tag AFTER a green gate + a successful publish (+ the bump commit), so tags point at shipped commits.
+      - name: Create git tag
+        if: inputs.create_tag
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          # Idempotent so a re-run (re-cutting the same version) doesn't abort on "tag already exists".
+          if (git tag -l $tag) {
+            Write-Host "tag $tag already exists — leaving it in place (re-run)."
+          } else {
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a $tag -m "Release $tag"
+            git push origin $tag
+          }
+
+      - name: Generate release notes
+        id: notes
+        shell: pwsh
+        run: |
+          $currentTag = "${{ steps.version.outputs.tag }}"
+
+          # Previous RELEASE tag = the highest tag STRICTLY LESS than the current version, compared by VERSION
+          # (orders 1.10.0 > 1.6.0 numerically; handles 2- or 3-part tags; robust on a first release).
+          function Parse-Ver($t) {
+            if ($t -match '^v?(\d+)\.(\d+)(\.(\d+))?') {
+              $patch = if ($matches[4]) { $matches[4] } else { '0' }
+              return [version]"$($matches[1]).$($matches[2]).$patch"
+            }
+            return $null
+          }
+          $curV = Parse-Ver $currentTag
+          $previousTag = $null; $prevV = $null
+          foreach ($t in (git tag)) {
+            $v = Parse-Ver $t
+            if ($null -eq $v) { continue }
+            if ($curV -and $v -ge $curV) { continue }   # skip the current tag + anything newer
+            if ($null -eq $prevV -or $v -gt $prevV) { $prevV = $v; $previousTag = $t }
+          }
+
+          if ($previousTag) {
+            Write-Host "notes: $previousTag..HEAD (current $currentTag)"
+            $commits = git log "$previousTag..HEAD" --pretty=format:"%s" --no-merges
+          } else {
+            Write-Host "no previous release tag — using all commits"
+            $commits = git log --pretty=format:"%s" --no-merges
+          }
+
+          # Categorize by conventional-commit prefix; drop the non-user-facing kinds so the notes read like a
+          # changelog. Anything without a recognized prefix falls into "Other changes".
+          $features = @(); $fixes = @(); $other = @()
+          foreach ($msg in $commits) {
+            if ($msg -match '^feat(\([^)]+\))?:\s*(.+)')    { $features += $matches[2].Trim() }
+            elseif ($msg -match '^fix(\([^)]+\))?:\s*(.+)') { $fixes += $matches[2].Trim() }
+            elseif ($msg -match '^(chore|docs|refactor|style|perf|test|ci|build)(\([^)]+\))?:\s*') { }
+            else { $other += $msg }
+          }
+
+          $notes = @("## Lyntai $currentTag", "")
+          if ($features.Count) { $notes += "### New features"; $notes += ""; $features | ForEach-Object { $notes += "- $_" }; $notes += "" }
+          if ($fixes.Count)    { $notes += "### Fixes";        $notes += ""; $fixes    | ForEach-Object { $notes += "- $_" }; $notes += "" }
+          if ($other.Count)    { $notes += "### Other changes"; $notes += ""; $other   | ForEach-Object { $notes += "- $_" }; $notes += "" }
+          if (($features.Count + $fixes.Count + $other.Count) -eq 0) { $notes += "See CHANGELOG.md for details."; $notes += "" }
+
+          $notes += "---"; $notes += ""
+          $notes += "Install from NuGet: ``dotnet add package Lyntai.Core`` (+ the provider/storage packages you need). Full detail in CHANGELOG.md."
+
+          $md = $notes -join "`n"
+          $md | Out-File release-notes.md -Encoding utf8
+          Write-Host $md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Lyntai ${{ steps.version.outputs.tag }}
+          body_path: release-notes.md
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          files: publish/packages/*.nupkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
