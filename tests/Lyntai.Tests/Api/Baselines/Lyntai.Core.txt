@@ -1,3 +1,36 @@
+static class Lyntai.Agents.AgentSessionExtensions
+    RunAsync(IAgentSession, AgentSessionOptions, Action<AgentStreamEvent>=, CancellationToken=) : Task<AgentSessionResult>
+class Lyntai.Agents.AgentSessionOptions
+    .ctor()
+    .ctor(AgentSessionOptions)
+    DisallowedTools : IReadOnlyList<String>
+    EqualityContract : Type
+    Equals(AgentSessionOptions) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Model : String
+    PrintMembers(StringBuilder) : Boolean
+    Prompt : String
+    ResumeToken : String
+    SystemPrompt : String
+    TimeoutSeconds : Nullable<Int32>
+    ToString() : String
+    ToolPolicy : AgentToolPolicy
+    WorkingDirectory : String
+class Lyntai.Agents.AgentSessionResult
+    .ctor(String, String, LlmVerdict, Boolean, String, String, UsageFinal)
+    Deconstruct(String&, String&, LlmVerdict&, Boolean&, String&, String&, UsageFinal&) : Void
+    Diagnostic : String
+    Equals(AgentSessionResult) : Boolean
+    Equals(Object) : Boolean
+    FinalText : String
+    GetHashCode() : Int32
+    IsError : Boolean
+    SessionId : String
+    Subtype : String
+    ToString() : String
+    Usage : UsageFinal
+    Verdict : LlmVerdict
 class Lyntai.Agents.AgentStreamEvent
     .ctor()
     .ctor(AgentStreamEvent)
@@ -50,6 +83,8 @@ class Lyntai.Agents.FunctionTool
     InvokeAsync(String, CancellationToken=) : Task<String>
     Name : String
     ParametersJsonSchema : String
+interface Lyntai.Agents.IAgentSession
+    StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IChatOrchestrator
     ChatAsync(ChatTurn, CancellationToken=) : Task<ChatResult>
 interface Lyntai.Agents.ICliToolProvisioner
