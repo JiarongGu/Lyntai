@@ -28,6 +28,9 @@ public class SqliteJobStoreTests
     [Fact] public Task Fenced_by_worker() => Run(JobStoreContract.Writes_are_fenced_by_worker_id);
     [Fact] public Task Cancel_pending_only() => Run(JobStoreContract.Cancel_only_affects_pending);
     [Fact] public Task Active_lanes_and_count() => Run(JobStoreContract.Active_lanes_and_running_count);
+    [Fact] public Task Priority_first() => Run(JobStoreContract.Higher_priority_is_claimed_first);
+    [Fact] public Task Dead_letter() => Run(JobStoreContract.Dead_letter_is_terminal_inspectable_and_fenced);
+    [Fact] public Task Replay_dead() => Run(JobStoreContract.Replay_requeues_a_dead_job);
 
     [Fact]
     public async Task Concurrent_claims_never_double_grab()

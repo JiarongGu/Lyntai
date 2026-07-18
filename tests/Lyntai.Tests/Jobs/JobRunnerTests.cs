@@ -70,7 +70,7 @@ public class JobRunnerTests
     }
 
     [Fact]
-    public async Task Retry_requeues_then_fails_after_max_attempts()
+    public async Task Retry_requeues_then_dead_letters_after_max_attempts_and_replays()
     {
         var handler = new FakeJobHandler("flaky", _ => Task.FromResult(JobOutcome.Retry()));
         var (runner, store, queue, clock) = Build(o => o.Jobs.DefaultMaxAttempts = 2, handler);
@@ -80,10 +80,31 @@ public class JobRunnerTests
         Assert.Equal(JobStatus.Pending, (await store.GetAsync(id))!.Status);
 
         clock.Advance(TimeSpan.FromMinutes(2));                       // past the backoff
-        await runner.RunOnceAsync();                                  // attempt 2 → Retry but at max → Failed
+        await runner.RunOnceAsync();                                  // attempt 2 → Retry but at max → dead-lettered
 
-        Assert.Equal(JobStatus.Failed, (await store.GetAsync(id))!.Status);
+        Assert.Equal(JobStatus.Dead, (await store.GetAsync(id))!.Status);
         Assert.Equal(2, handler.Calls);
+        Assert.Contains(await queue.ListDeadAsync(), j => j.Id == id); // inspectable in the DLQ
+
+        // replay it → runnable again (attempts reset); this run completes it
+        handler.Result = _ => Task.FromResult(JobOutcome.Complete);
+        Assert.True(await queue.ReplayAsync(id));
+        await runner.RunOnceAsync();
+        Assert.Equal(JobStatus.Succeeded, (await store.GetAsync(id))!.Status);
+    }
+
+    [Fact]
+    public async Task Higher_priority_jobs_run_before_lower_within_a_lane()
+    {
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var (runner, store, queue, _) = Build(o => o.Jobs.LaneConcurrency["p"] = 1, handler); // one at a time
+        var low = await queue.EnqueueAsync("p", "t", "{}", priority: 1);
+        var high = await queue.EnqueueAsync("p", "t", "{}", priority: 9);
+
+        await runner.RunOnceAsync(); // claims exactly one — must be the high-priority job
+
+        Assert.Equal(JobStatus.Succeeded, (await store.GetAsync(high))!.Status);
+        Assert.Equal(JobStatus.Pending, (await store.GetAsync(low))!.Status);
     }
 
     [Fact]

@@ -176,6 +176,14 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   Cache + usage go in migration `M202607180002`. Exact (unindexed) for now; an hnsw/ivfflat ANN index
   (needs a fixed embedding dimension) is a further enhancement.
 
+### v0.24.0 — durable-job priorities + dead-letter queue (2026-07)
+- ✅ **Priorities + DLQ** — two of the v0.14 deferred job features. `JobSpec.Priority` (claim picks
+  `priority DESC, available_at, id`); exhausted retries go to a terminal-but-inspectable/replayable
+  `JobStatus.Dead` dead-letter queue (`IJobStore.DeadLetterAsync`/`ReplayAsync`, `IJobQueue.ListDeadAsync`/
+  `ReplayAsync`) instead of a silent `Failed`. Across InMemory/SQLite/Postgres (migration
+  `M202607180003`), pinned by the shared store contract. **Still deferred from v0.14:** cron/scheduling,
+  cross-process global concurrency limits, running-job cancellation.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

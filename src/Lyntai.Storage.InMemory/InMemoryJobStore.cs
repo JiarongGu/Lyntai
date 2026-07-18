@@ -17,7 +17,8 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
         var id = Guid.NewGuid();
         var rec = new JobRecord(id, spec.Lane, spec.Type, spec.Payload, JobStatus.Pending, Checkpoint: null,
             Attempts: 0, MaxAttempts: spec.MaxAttempts ?? 3, LastError: null,
-            AvailableAt: spec.AvailableAt ?? now, ClaimedAt: null, ClaimedBy: null, CreatedAt: now, UpdatedAt: now);
+            AvailableAt: spec.AvailableAt ?? now, ClaimedAt: null, ClaimedBy: null, CreatedAt: now, UpdatedAt: now,
+            Priority: spec.Priority);
         lock (_lock) _jobs[id] = rec;
         return Task.FromResult(id);
     }
@@ -32,7 +33,7 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
                 .Where(j => j.Lane == lane &&
                     ((j.Status == JobStatus.Pending && j.AvailableAt <= now) ||
                      (j.Status == JobStatus.Running && j.ClaimedAt is { } ca && ca < staleBefore)))
-                .OrderBy(j => j.AvailableAt).ThenBy(j => j.CreatedAt)
+                .OrderByDescending(j => j.Priority).ThenBy(j => j.AvailableAt).ThenBy(j => j.CreatedAt)
                 .FirstOrDefault();
             if (candidate is null) return Task.FromResult<JobRecord?>(null);
 
@@ -77,6 +78,33 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
             _jobs[id] = retryAt is { } at
                 ? j with { Status = JobStatus.Pending, AvailableAt = at, LastError = error, ClaimedBy = null, ClaimedAt = null, UpdatedAt = now }
                 : j with { Status = JobStatus.Failed, LastError = error, UpdatedAt = now };
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<bool> DeadLetterAsync(Guid id, string workerId, string error, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
+            _jobs[id] = j with { Status = JobStatus.Dead, LastError = error, UpdatedAt = now };
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<bool> ReplayAsync(Guid id, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!_jobs.TryGetValue(id, out var j) || j.Status is not (JobStatus.Dead or JobStatus.Failed))
+                return Task.FromResult(false);
+            _jobs[id] = j with
+            {
+                Status = JobStatus.Pending, Attempts = 0, LastError = null, AvailableAt = now,
+                ClaimedBy = null, ClaimedAt = null, UpdatedAt = now,
+            };
             return Task.FromResult(true);
         }
     }

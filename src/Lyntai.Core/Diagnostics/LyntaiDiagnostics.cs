@@ -178,7 +178,7 @@ public static class LyntaiDiagnostics
         if (a is not null)
         {
             a.SetTag("lyntai.job.outcome", outcome);
-            if (outcome is "failed" or "lost_lease") a.SetStatus(ActivityStatusCode.Error, outcome);
+            if (outcome is "failed" or "dead" or "lost_lease") a.SetStatus(ActivityStatusCode.Error, outcome);
         }
         if (JobsProcessed.Enabled)
             JobsProcessed.Add(1, new TagList { { "lyntai.job.lane", lane }, { "lyntai.job.outcome", outcome } });

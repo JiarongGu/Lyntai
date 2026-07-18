@@ -29,6 +29,10 @@ class Lyntai.Storage.Postgres.Migrations.M202607180002_Governance
     .ctor()
     Down() : Void
     Up() : Void
+class Lyntai.Storage.Postgres.Migrations.M202607180003_JobPriority
+    .ctor()
+    Down() : Void
+    Up() : Void
 static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
     MigrateUp(String) : Void
 class Lyntai.Storage.Postgres.PostgresConnectionFactory
@@ -49,10 +53,12 @@ class Lyntai.Storage.Postgres.PostgresJobStore
     ClaimNextAsync(String, String, TimeSpan, CancellationToken=) : Task<JobRecord>
     CompleteAsync(Guid, String, CancellationToken=) : Task<Boolean>
     CountRunningAsync(String, CancellationToken=) : Task<Int32>
+    DeadLetterAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
     EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
     FailAsync(Guid, String, String, Nullable<DateTimeOffset>=, CancellationToken=) : Task<Boolean>
     GetAsync(Guid, CancellationToken=) : Task<JobRecord>
     ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
+    ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
 class Lyntai.Storage.Postgres.PostgresKeyValueStore
     .ctor(IDbConnectionFactory)

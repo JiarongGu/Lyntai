@@ -157,4 +157,47 @@ public static class JobStoreContract
         Assert.Equal(1, await store.CountRunningAsync("a"));
         Assert.Equal(0, await store.CountRunningAsync("b"));
     }
+
+    public static async Task Higher_priority_is_claimed_first(IJobStore store, MutableClock clock)
+    {
+        await store.EnqueueAsync(Spec() with { Priority = 1 });          // low, enqueued FIRST
+        var hi = await store.EnqueueAsync(Spec() with { Priority = 5 }); // high, enqueued second
+
+        var claimed = await store.ClaimNextAsync("default", "w1", Lease);
+        Assert.Equal(hi, claimed!.Id); // priority beats FIFO within the lane
+        Assert.Equal(5, claimed.Priority);
+    }
+
+    public static async Task Dead_letter_is_terminal_inspectable_and_fenced(IJobStore store, MutableClock clock)
+    {
+        var id = await store.EnqueueAsync(Spec());
+        await store.ClaimNextAsync("default", "w1", Lease);
+
+        Assert.False(await store.DeadLetterAsync(id, "intruder", "nope")); // fenced by worker
+        Assert.True(await store.DeadLetterAsync(id, "w1", "exhausted"));
+
+        var job = await store.GetAsync(id);
+        Assert.Equal(JobStatus.Dead, job!.Status);
+        Assert.Equal("exhausted", job.LastError);
+        Assert.Contains(await store.ListAsync(JobStatus.Dead), j => j.Id == id); // shows in the DLQ
+        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease));         // terminal, not reclaimable
+    }
+
+    public static async Task Replay_requeues_a_dead_job(IJobStore store, MutableClock clock)
+    {
+        var id = await store.EnqueueAsync(Spec());
+        await store.ClaimNextAsync("default", "w1", Lease);
+        await store.DeadLetterAsync(id, "w1", "exhausted");
+
+        Assert.True(await store.ReplayAsync(id));
+        var job = await store.GetAsync(id);
+        Assert.Equal(JobStatus.Pending, job!.Status);
+        Assert.Equal(0, job.Attempts);   // attempts reset
+        Assert.Null(job.LastError);      // error cleared
+
+        var reclaimed = await store.ClaimNextAsync("default", "w1", Lease); // runnable again
+        Assert.Equal(id, reclaimed!.Id);
+        Assert.Equal(1, reclaimed.Attempts);
+        Assert.False(await store.ReplayAsync(id)); // now Running (not Dead/Failed) → no-op
+    }
 }

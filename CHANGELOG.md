@@ -3,6 +3,27 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.24.0 — 2026-07-18
+
+Durable-job priorities + a dead-letter queue — two of the deferred v0.14 job features. Across all three
+backends (InMemory / SQLite / Postgres), pinned by the shared store contract.
+
+### Added
+- **Priorities** — `JobSpec.Priority` (and `IJobQueue.EnqueueAsync(lane, type, payload, priority)`). The
+  claim now picks by `priority DESC, available_at, id` — higher runs first within a lane. The claim index
+  is recreated to lead with priority (migration `M202607180003`).
+- **Dead-letter queue** — exhausted transient retries now go to a new terminal `JobStatus.Dead` (instead of
+  a silent `Failed`), which is **inspectable and replayable**: `IJobStore.DeadLetterAsync` /
+  `ReplayAsync`, surfaced on the front door as `IJobQueue.ListDeadAsync` / `ReplayAsync`. `Replay` requeues
+  a Dead (or Failed) job — Pending, attempts reset, error cleared, available now. The runner dead-letters
+  on exhaustion (telemetry outcome `dead`, Error span status); an explicit `JobOutcome.Fail` still → `Failed`.
+
+### Breaking (pre-1.0)
+- `JobStatus` gains `Dead`; retries-exhausted jobs are now `Dead`, not `Failed` (an explicit `Fail`
+  outcome and the no-handler path stay `Failed`). `JobSpec`/`JobRecord` gain a trailing optional
+  `Priority` (source-compatible; positional deconstruct/ctor arity changed). `IJobStore` gains
+  `DeadLetterAsync`/`ReplayAsync` (custom implementers must add them).
+
 ## 0.23.0 — 2026-07-18
 
 Postgres backends for the governance + semantic-memory seams, mirroring v0.22's SQLite ones — and the

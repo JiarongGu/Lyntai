@@ -410,6 +410,16 @@ Per-lane limits + a global `MaxConcurrency` cap are the control knobs; run sever
 (one process or many) and the atomic claim gives each job to exactly one. At-least-once semantics —
 handlers must be idempotent from their checkpoint.
 
+**Priorities + dead-letter queue.** Enqueue with a priority (higher runs first within a lane), and a job
+that exhausts its retries lands in the dead-letter queue (`JobStatus.Dead`) — inspectable and replayable
+rather than a silent failure:
+
+```csharp
+await queue.EnqueueAsync("summarize", "summarize", payloadJson, priority: 10); // jumps the lane
+foreach (var dead in await queue.ListDeadAsync())    // inspect what gave up
+    await queue.ReplayAsync(dead.Id);                // requeue it (attempts reset)
+```
+
 ### Guards, orchestration, secrets, vision
 
 - **Guards** (`Lyntai.Guards`) — `IGuard`s inspect requests/replies and Allow/Block/Replace; `AddGuard<T>()`

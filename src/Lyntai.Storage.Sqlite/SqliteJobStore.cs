@@ -15,7 +15,7 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
 {
     private const string Cols =
         "id, lane, type, payload, status, checkpoint, attempts, max_attempts, last_error, " +
-        "available_at, claimed_at, claimed_by, created_at, updated_at";
+        "available_at, claimed_at, claimed_by, created_at, updated_at, priority";
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
@@ -26,11 +26,11 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
         using var conn = factory.Open();
         await conn.ExecuteAsync(new CommandDefinition($"""
             INSERT INTO lyntai_job ({Cols})
-            VALUES (@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now)
+            VALUES (@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority)
             """, new
         {
             id = id.ToString(), lane = spec.Lane, type = spec.Type, payload = spec.Payload,
-            maxAttempts = spec.MaxAttempts ?? 3, availableAt = spec.AvailableAt ?? now, now,
+            maxAttempts = spec.MaxAttempts ?? 3, availableAt = spec.AvailableAt ?? now, now, priority = spec.Priority,
         }, cancellationToken: ct)).ConfigureAwait(false);
         return id;
     }
@@ -48,7 +48,7 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
                 WHERE lane=@lane
                   AND ((status='Pending' AND available_at<=@now)
                     OR (status='Running' AND claimed_at<@staleBefore))
-                ORDER BY available_at, id LIMIT 1)
+                ORDER BY priority DESC, available_at, id LIMIT 1)
             RETURNING {Cols}
             """, new { lane, workerId, now, staleBefore }, cancellationToken: ct)).ConfigureAwait(false);
         return row?.ToRecord();
@@ -64,6 +64,21 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
         retryAt is { } at
             ? Fenced("SET status='Pending', available_at=@retryAt, last_error=@error, claimed_by=NULL, claimed_at=NULL, updated_at=@now", id, workerId, ct, new { error, retryAt = at })
             : Fenced("SET status='Failed', last_error=@error, updated_at=@now", id, workerId, ct, new { error });
+
+    public Task<bool> DeadLetterAsync(Guid id, string workerId, string error, CancellationToken ct = default) =>
+        Fenced("SET status='Dead', last_error=@error, updated_at=@now", id, workerId, ct, new { error });
+
+    public async Task<bool> ReplayAsync(Guid id, CancellationToken ct = default)
+    {
+        var now = _clock();
+        using var conn = factory.Open();
+        var n = await conn.ExecuteAsync(new CommandDefinition("""
+            UPDATE lyntai_job
+            SET status='Pending', attempts=0, last_error=NULL, available_at=@now, claimed_by=NULL, claimed_at=NULL, updated_at=@now
+            WHERE id=@id AND status IN ('Dead','Failed')
+            """, new { id = id.ToString(), now }, cancellationToken: ct)).ConfigureAwait(false);
+        return n > 0;
+    }
 
     public async Task<bool> CancelAsync(Guid id, CancellationToken ct = default)
     {
@@ -140,8 +155,9 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
         public string? ClaimedBy { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public DateTimeOffset UpdatedAt { get; set; }
+        public long Priority { get; set; }
 
         public JobRecord ToRecord() => new(Guid.Parse(Id), Lane, Type, Payload, Enum.Parse<JobStatus>(Status),
-            Checkpoint, (int)Attempts, (int)MaxAttempts, LastError, AvailableAt, ClaimedAt, ClaimedBy, CreatedAt, UpdatedAt);
+            Checkpoint, (int)Attempts, (int)MaxAttempts, LastError, AvailableAt, ClaimedAt, ClaimedBy, CreatedAt, UpdatedAt, (int)Priority);
     }
 }

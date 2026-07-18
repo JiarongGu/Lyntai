@@ -14,8 +14,9 @@ namespace Lyntai.Jobs;
 /// several runner instances (one process or many): each has a distinct worker id and the store's atomic
 /// claim hands every job to exactly one. There is deliberately NO count-then-claim gate (it would race);
 /// the atomic claim is the mutual exclusion. Outcome mapping: Complete → done; Retry → requeue with
-/// backoff up to max attempts, else Failed; Fail → terminal; a thrown handler exception → transient retry
-/// up to max. Writes are fenced by the worker id; a write the store ignores (lease lost) is logged and the
+/// backoff up to max attempts, else DEAD-LETTERED (inspectable/replayable); Fail → terminal Failed; a
+/// thrown handler exception → transient retry up to max. Writes are fenced by the worker id; a write the
+/// store ignores (lease lost) is logged and the
 /// job abandoned.
 /// </summary>
 public sealed class JobRunner(
@@ -152,9 +153,9 @@ public sealed class JobRunner(
                     _clock() + (outcome.RetryDelay ?? Opts.RetryBackoff), ct).ConfigureAwait(false);
                 label = "retry";
                 break;
-            case JobOutcome.Kind.Retry: // attempts exhausted → terminal
-                ok = await _store.FailAsync(job.Id, _workerId, error ?? "retries exhausted", ct: ct).ConfigureAwait(false);
-                label = "failed";
+            case JobOutcome.Kind.Retry: // attempts exhausted → dead-letter (inspectable + replayable)
+                ok = await _store.DeadLetterAsync(job.Id, _workerId, error ?? "retries exhausted", ct).ConfigureAwait(false);
+                label = "dead";
                 break;
             default: // Fail
                 ok = await _store.FailAsync(job.Id, _workerId, error ?? "failed", ct: ct).ConfigureAwait(false);

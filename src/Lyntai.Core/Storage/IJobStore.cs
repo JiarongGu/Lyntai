@@ -22,8 +22,9 @@ public interface IJobStore
 
     /// <summary>Atomically claim one runnable job in <paramref name="lane"/> for <paramref name="workerId"/>
     /// (a Pending job past its available_at, or a Running job whose lease is older than
-    /// <paramref name="lease"/>), flipping it to Running with a fresh lease and incrementing attempts.
-    /// Returns null when the lane has nothing runnable.</summary>
+    /// <paramref name="lease"/>), flipping it to Running with a fresh lease and incrementing attempts. Picks
+    /// by <c>priority DESC, available_at, id</c> — higher priority first. Returns null when the lane has
+    /// nothing runnable.</summary>
     Task<JobRecord?> ClaimNextAsync(string lane, string workerId, TimeSpan lease, CancellationToken ct = default);
 
     /// <summary>Persist the handler's progress AND renew the lease (so a job longer than the lease isn't
@@ -36,6 +37,16 @@ public interface IJobStore
     /// <summary>Fail the job. When <paramref name="retryAt"/> is set (and attempts remain) it goes back to
     /// Pending available at that time; otherwise Failed (terminal). Fenced; false = lost the lease.</summary>
     Task<bool> FailAsync(Guid id, string workerId, string error, DateTimeOffset? retryAt = null, CancellationToken ct = default);
+
+    /// <summary>Move the job to the DEAD-LETTER queue (<see cref="JobStatus.Dead"/>, terminal) — used when
+    /// transient retries are exhausted, so it's inspectable (<c>ListAsync(JobStatus.Dead)</c>) and
+    /// replayable rather than a silent Failed. Fenced by <paramref name="workerId"/>; false = lost the lease.</summary>
+    Task<bool> DeadLetterAsync(Guid id, string workerId, string error, CancellationToken ct = default);
+
+    /// <summary>Requeue a terminal-failed job (<see cref="JobStatus.Dead"/> or <see cref="JobStatus.Failed"/>)
+    /// — back to Pending, attempts reset to 0, error cleared, available now. NOT fenced (an admin op on a
+    /// job no worker holds). Returns whether a matching job was requeued.</summary>
+    Task<bool> ReplayAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Cancel a still-Pending job (no effect on a Running one). Returns whether it was cancelled.</summary>
     Task<bool> CancelAsync(Guid id, CancellationToken ct = default);

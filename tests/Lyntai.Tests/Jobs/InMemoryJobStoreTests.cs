@@ -23,4 +23,7 @@ public class InMemoryJobStoreTests
     [Fact] public async Task Fenced_by_worker() { var (s, c) = New(); await JobStoreContract.Writes_are_fenced_by_worker_id(s, c); }
     [Fact] public async Task Cancel_pending_only() { var (s, c) = New(); await JobStoreContract.Cancel_only_affects_pending(s, c); }
     [Fact] public async Task Active_lanes_and_count() { var (s, c) = New(); await JobStoreContract.Active_lanes_and_running_count(s, c); }
+    [Fact] public async Task Priority_first() { var (s, c) = New(); await JobStoreContract.Higher_priority_is_claimed_first(s, c); }
+    [Fact] public async Task Dead_letter() { var (s, c) = New(); await JobStoreContract.Dead_letter_is_terminal_inspectable_and_fenced(s, c); }
+    [Fact] public async Task Replay_dead() { var (s, c) = New(); await JobStoreContract.Replay_requeues_a_dead_job(s, c); }
 }

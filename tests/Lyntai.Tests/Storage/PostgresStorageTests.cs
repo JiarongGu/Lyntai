@@ -241,4 +241,37 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal("w2", reclaimed.ClaimedBy);
         Assert.Equal(2, reclaimed.Attempts);
     }
+
+    [Fact]
+    public async Task Job_higher_priority_is_claimed_first()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        await store.EnqueueAsync(new JobSpec(lane, "t", "{}", Priority: 1));
+        var hi = await store.EnqueueAsync(new JobSpec(lane, "t", "{}", Priority: 5));
+
+        var claimed = await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
+        Assert.Equal(hi, claimed!.Id);
+        Assert.Equal(5, claimed.Priority);
+    }
+
+    [Fact]
+    public async Task Job_dead_letters_and_replays()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
+        await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
+
+        Assert.True(await store.DeadLetterAsync(id, "w1", "exhausted"));
+        Assert.Equal(JobStatus.Dead, (await store.GetAsync(id))!.Status);
+        Assert.Contains(await store.ListAsync(JobStatus.Dead, lane), j => j.Id == id);
+
+        Assert.True(await store.ReplayAsync(id));
+        var job = await store.GetAsync(id);
+        Assert.Equal(JobStatus.Pending, job!.Status);
+        Assert.Equal(0, job.Attempts);
+    }
 }

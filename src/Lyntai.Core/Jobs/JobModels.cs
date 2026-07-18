@@ -13,23 +13,31 @@ public enum JobStatus
     /// <summary>Finished successfully. Terminal.</summary>
     Succeeded,
 
-    /// <summary>Gave up after exhausting attempts or a hard failure. Terminal (the app may re-enqueue).</summary>
+    /// <summary>A hard failure the handler declared permanent (<see cref="JobOutcome.Fail"/>). Terminal
+    /// (the app may re-enqueue). Distinct from <see cref="Dead"/> — a Fail is "don't retry this".</summary>
     Failed,
 
     /// <summary>Cancelled before it ran. Terminal.</summary>
     Cancelled,
+
+    /// <summary>Exhausted its retries (transient failures ran out of attempts) → the dead-letter queue.
+    /// Terminal but INSPECTABLE + REPLAYABLE (<see cref="Storage.IJobStore.ReplayAsync"/>) — the point of a
+    /// DLQ over a silent Failed.</summary>
+    Dead,
 }
 
 /// <summary>What to enqueue: the <paramref name="Lane"/> (execution lane, for concurrency), the
 /// <paramref name="Type"/> (dispatches to the matching <see cref="IJobHandler"/>), and the
 /// <paramref name="Payload"/> (JSON the handler reads). <paramref name="MaxAttempts"/> bounds retries;
-/// <paramref name="AvailableAt"/> delays first execution (null = immediately).</summary>
+/// <paramref name="AvailableAt"/> delays first execution (null = immediately). <paramref name="Priority"/>
+/// orders the claim within a lane — HIGHER runs first (default 0), then oldest-available, then FIFO.</summary>
 public sealed record JobSpec(
     string Lane,
     string Type,
     string Payload,
     int? MaxAttempts = null,
-    DateTimeOffset? AvailableAt = null);
+    DateTimeOffset? AvailableAt = null,
+    int Priority = 0);
 
 /// <summary>A persisted job row, as returned by a claim. <paramref name="Checkpoint"/> is the last
 /// progress the handler saved (null on the first run, non-null on a resume).</summary>
@@ -47,4 +55,5 @@ public sealed record JobRecord(
     DateTimeOffset? ClaimedAt,
     string? ClaimedBy,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    int Priority = 0);
