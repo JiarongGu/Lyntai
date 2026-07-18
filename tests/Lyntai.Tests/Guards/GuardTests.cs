@@ -36,6 +36,37 @@ public class GuardTests
     }
 
     [Fact]
+    public async Task Denylist_scans_tool_call_arguments_and_attachment_uris_not_only_content()
+    {
+        var rail = new GuardRail([new DenylistGuard(["forbidden"])]);
+
+        // the ONLY occurrence of the term is inside an assistant tool-call's JSON arguments (Content="")
+        var inArgs = new LlmRequest
+        {
+            Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("c1", "search", """{"q":"forbidden thing"}""")])],
+        };
+        Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectRequestAsync(inArgs)).Result);
+
+        // and one hiding in an image attachment URI
+        var inUri = new LlmRequest
+        {
+            Messages = [LlmMessage.UserWithImageUrl("look", "https://x/forbidden.png")],
+        };
+        Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectRequestAsync(inUri)).Result);
+
+        // a clean tool-call turn is allowed
+        var clean = new LlmRequest
+        {
+            Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("c1", "search", """{"q":"weather"}""")])],
+        };
+        Assert.Equal(GuardOutcome.Kind.Allow, (await rail.InspectRequestAsync(clean)).Result);
+
+        // a reply whose tool call carries the term is blocked at the output gate
+        var reply = new LlmReply("", LlmVerdict.Ok) { ToolCalls = [new LlmToolCall("c1", "run", """{"cmd":"forbidden"}""")] };
+        Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectResponseAsync(reply)).Result);
+    }
+
+    [Fact]
     public async Task Rail_chains_a_replacement_into_later_guards()
     {
         // guard A rewrites "a" → "b"; a denylist on "a" must then NOT fire, because it sees the rewrite

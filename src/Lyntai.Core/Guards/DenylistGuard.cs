@@ -12,13 +12,27 @@ public sealed class DenylistGuard(IReadOnlyList<string> terms, string? name = nu
     public string Name => name ?? "denylist";
 
     public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default) =>
-        // scan EVERY message role, not just "user" — a denied term hiding in a system/assistant/tool
-        // message (e.g. a tool result fed back mid-loop) must not slip past the jail. Scans each message's
-        // content directly (no whole-transcript join allocation) and short-circuits on the first hit.
-        Task.FromResult(Check(req.Messages.Select(m => m.Content)));
+        // scan EVERY scannable string across EVERY message role, not just "user" content — a denied term can
+        // hide in an assistant tool-call turn (Content="" with the payload on ToolCalls) or an image
+        // attachment URI, not only in text. Scans each segment directly (no whole-transcript join) and
+        // short-circuits on the first hit.
+        Task.FromResult(Check(req.Messages.SelectMany(Segments)));
 
     public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
-        Task.FromResult(Check([reply.Text, reply.Detail ?? ""])); // also scan error detail (may echo content)
+        // also scan the error detail (may echo content) AND the reply's own tool calls
+        Task.FromResult(Check([reply.Text, reply.Detail ?? "", .. ToolCallSegments(reply.ToolCalls)]));
+
+    // every scannable string in a message: content, each tool call's name + JSON arguments, each
+    // attachment's URI
+    private static IEnumerable<string> Segments(LlmMessage m)
+    {
+        yield return m.Content;
+        foreach (var s in ToolCallSegments(m.ToolCalls)) yield return s;
+        foreach (var a in m.Attachments ?? []) yield return a.Uri ?? "";
+    }
+
+    private static IEnumerable<string> ToolCallSegments(IReadOnlyList<LlmToolCall>? calls) =>
+        calls is null ? [] : calls.Select(c => c.Name + " " + c.ArgumentsJson);
 
     private GuardOutcome Check(IEnumerable<string> segments)
     {

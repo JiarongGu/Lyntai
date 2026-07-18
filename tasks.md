@@ -186,7 +186,7 @@ would have caught the bug.
 
 ### Bugs (correctness / security) — do these first
 
-- [ ] **T1 · Denylist jail bypass on the native tool-calling path** (security)
+- [x] **T1 · Denylist jail bypass on the native tool-calling path** (security)
   - Files: `src/Lyntai.Core/Guards/DenylistGuard.cs`, models `src/Lyntai.Core/Llm/LlmMessage.cs` (`ToolCalls`,
     `Attachments`), `src/Lyntai.Core/Llm/LlmReply.cs` (`ToolCalls`).
   - Defect: `InspectRequestAsync` scans only `req.Messages.Select(m => m.Content)`. An assistant tool-call
