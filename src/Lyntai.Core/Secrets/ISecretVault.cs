@@ -31,7 +31,13 @@ public interface ISecretProtector
 
 /// <summary>The access gate: decides whether a given accessor may READ a given secret. It gates
 /// reads only — Set/Delete/ListNames are not policy-checked (mutations/enumeration are considered a
-/// management concern, guarded by who can reach the vault at all).</summary>
+/// management concern, guarded by who can reach the vault at all).
+/// <para><b>Security:</b> if your implementation compares the <c>accessor</c> (or any secret
+/// token it carries) against an expected value, use a constant-time compare
+/// (<see cref="System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(System.ReadOnlySpan{byte},System.ReadOnlySpan{byte})"/>),
+/// not <c>==</c>/<c>string.Equals</c> — an early-exit compare leaks the token byte-by-byte through timing.
+/// Plain identity/role checks (matching an id against a set) don't need this; secret-material equality
+/// does.</para></summary>
 public interface ISecretAccessPolicy
 {
     Task<bool> CanReadAsync(string name, string? accessor, CancellationToken ct = default);

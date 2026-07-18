@@ -11,7 +11,12 @@ namespace Lyntai.Jobs;
 /// (no background threads are started for you). Each schedule's next-run time is persisted (via
 /// <see cref="IKeyValueStore"/>) so a restart resumes the cadence instead of re-anchoring; with no key-value
 /// store wired it falls back to in-memory (cadence resets on restart). If the ticker was down across one or
-/// more slots, the missed runs are COALESCED into a single enqueue — not replayed as a burst.</summary>
+/// more slots, the missed runs are COALESCED into a single enqueue — not replayed as a burst.
+/// <para>Firing is <b>at-least-once</b>: each tick enqueues the due job first, then persists the advanced
+/// next-run. A crash in that window (or a failed <c>SetNextAsync</c>) leaves the slot due, so the next
+/// tick fires it again — one slot can enqueue more than one job. This mirrors the durable-job
+/// at-least-once contract: the enqueued job's handler must be idempotent (dedup on a slot key derived
+/// from the schedule name + fire time if a duplicate run would be harmful).</para></summary>
 public interface IJobScheduler
 {
     /// <summary>Enqueue a job for each schedule that is due, advancing each. Returns how many were enqueued.</summary>

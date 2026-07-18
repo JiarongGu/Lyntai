@@ -11,6 +11,11 @@ namespace Lyntai.Llm.Budgeting;
 /// provider (a <see cref="LlmVerdict.Refused"/> reply / an Error stream chunk). After a call it records the
 /// reported usage. Wired by <c>AddUsageBudget()</c>. The ceiling is soft — the call that crosses a cap
 /// still runs (its cost isn't known until it returns); the next one is refused.
+/// <para>The check-and-record is deliberately NOT atomic across a call, so under concurrency the cap can
+/// overshoot: every request already in flight when the cap is crossed passed its pre-call check and still
+/// runs. The overshoot is bounded by the number of concurrent in-flight calls (their combined cost), not
+/// "one call past the cap". If you need a hard ceiling, cap concurrency upstream or reserve-then-reconcile
+/// in a custom <see cref="IUsageTracker"/>.</para>
 /// </summary>
 public sealed class BudgetedLlmClient(
     ILlmClient inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedLlmClient>? logger = null) : ILlmClient

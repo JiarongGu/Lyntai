@@ -263,17 +263,17 @@ would have caught the bug.
   `when (ex is not OperationCanceledException || !ct.IsCancellationRequested)` so only the caller's cancel aborts;
   a provider-side OCE becomes a fall-over-able Error chunk (the router is the trust boundary). Test: a fake
   provider throwing a bare OCE (ct not cancelled) pre-content → falls over to the next candidate.
-- [ ] **T9 · Budget cap not atomic under concurrency** — `BudgetedLlmClient.cs`: check-then-act lets N concurrent
+- [x] **T9 · Budget cap not atomic under concurrency** — `BudgetedLlmClient.cs`: check-then-act lets N concurrent
   calls all pass the cap (overshoot = in-flight N, not "one past"). Reserve-then-reconcile, or tighten the doc to
   state the overshoot bound.
-- [ ] **T10 · Scheduler enqueues before persisting the advance** — `JobScheduler.cs`: a crash between enqueue and
+- [x] **T10 · Scheduler enqueues before persisting the advance** — `JobScheduler.cs`: a crash between enqueue and
   `SetNextAsync` re-runs the slot. Persist-then-enqueue, or document the at-least-once semantics on `IJobScheduler`.
 - [x] **T11 · InMemory job-claim tiebreaker diverges from SQL** — `InMemoryJobStore.cs`: add `.ThenBy(j => j.Id)`
   after `AvailableAt` to match SQLite/Postgres `…, id` (deterministic same-tick same-priority order).
-- [ ] **T12 · Access-gate constant-time compare guidance** — `src/Lyntai.Core/Secrets/ISecretVault.cs`: XML-doc
+- [x] **T12 · Access-gate constant-time compare guidance** — `src/Lyntai.Core/Secrets/ISecretVault.cs`: XML-doc
   warning that any token/secret equality inside an `ISecretAccessPolicy` must use
   `CryptographicOperations.FixedTimeEquals`. Doc-only.
-- [ ] **T13 · Stale changelog** — `CHANGELOG.md` v0.27.1 "Known edge cases" still says the in-memory store throws
+- [x] **T13 · Stale changelog** — `CHANGELOG.md` v0.27.1 "Known edge cases" still says the in-memory store throws
   on a dimension mismatch; v0.27.2 changed it to score 0. Correct the note.
 
 ## Part 2 — Sonora-adoption gaps (features Lyntai lacks)

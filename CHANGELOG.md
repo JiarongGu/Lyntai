@@ -61,8 +61,9 @@ all fixes are internal/behavioral.
 - The **pgvector** store can surface a DB error for a **zero-magnitude or non-finite embedding vector**
   (pgvector's `<=>`/parser reject them), where the brute-force in-memory/SQLite stores return a 0 score.
   Real embedders don't emit these for non-empty text. A **dimension mismatch** (e.g. after changing
-  embedding models without reindexing) throws in the in-memory/Postgres stores (SQLite tolerates it) —
-  reindex on a model change.
+  embedding models without reindexing) throws in the Postgres store; the in-memory and SQLite stores
+  tolerate it (score 0 — in-memory was changed to tolerate in 0.27.2, see above). Either way, reindex on
+  a model change.
 
 ## 0.27.0 — 2026-07-18
 
