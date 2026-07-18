@@ -1,10 +1,11 @@
 # Lyntai (灵台) — Implementation Plan / Task Backlog
 
-> **Status: fully implemented (v0.2.0).** All phases below are done, then a review/research hardening
-> pass landed on top (front-door `ILlmClient`, `AsChatClient()` reverse bridge, shared
-> `LlmVerdictClassifier`, finer verdict taxonomy, OTel GenAI telemetry, `CompleteJsonAsync` structured
-> output, `lyntai_`-prefixed SQLite objects). See `CHANGELOG.md` for per-release detail and
-> `docs/ROADMAP.md` for the forward sequence. Build clean · 221 tests · e2e green · leak scan clean.
+> **Status: phases 0–7 implemented, then roadmap v0.3–v0.27.2 landed on top** (agentic tool-calling,
+> durable jobs, guards, secrets, semantic memory, three storage backends, governance decorators, …).
+> See `CHANGELOG.md` for per-release detail and `docs/ROADMAP.md` for the forward sequence.
+> **➡ Active work: the "Review follow-up (2026-07-18)" section at the bottom of this file** — confirmed
+> defects + Sonora-adoption gaps from an independent review of v0.27.2. Build clean · 571 tests · e2e
+> green · leak scan clean.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use `superpowers:subagent-driven-development` (recommended)
 > or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox syntax.
@@ -169,6 +170,147 @@ Goal: the library is consumable as NuGet packages with a clean README.
 - [x] **7.4 Final self-review** — `dev.mjs test` + `dev.mjs e2e` + `dev.mjs check-sensitive --tree` all green; spec §5 interfaces all implemented; out-of-scope items (§9) genuinely absent.
 
 **Acceptance:** `dev.mjs pack` produces restorable packages a throwaway consumer project can `AddLyntai` against and run a stubbed completion.
+
+---
+
+# Review follow-up (2026-07-18) — active backlog
+
+Backlog from an independent review of v0.27.2 (four adversarial reviewers over LLM core/governance,
+jobs/agents/guards/secrets, storage/memory, plus a Sonora-adoption gap analysis). Findings with a
+`file:line` were verified in code. **Part 1** = confirmed defects the 571 tests + prior review passes
+missed. **Part 2** = capabilities Lyntai still lacks for the Sonora app to adopt it. Read
+`.claude/knowledge/pitfalls.md` first; several of these are "passing tests ≠ correct" — add the test that
+would have caught the bug.
+
+## Part 1 — Review fixes
+
+### Bugs (correctness / security) — do these first
+
+- [ ] **T1 · Denylist jail bypass on the native tool-calling path** (security)
+  - Files: `src/Lyntai.Core/Guards/DenylistGuard.cs`, models `src/Lyntai.Core/Llm/LlmMessage.cs` (`ToolCalls`,
+    `Attachments`), `src/Lyntai.Core/Llm/LlmReply.cs` (`ToolCalls`).
+  - Defect: `InspectRequestAsync` scans only `req.Messages.Select(m => m.Content)`. An assistant tool-call
+    turn carries `Content=""` with the payload on `.ToolCalls` (name + `ArgumentsJson`); image `.Attachments`
+    (`Uri`) and `reply.ToolCalls` are never scanned. A denied term in tool arguments/attachments slips the jail.
+  - Fix: in `Check`, also project each message's `ToolCalls?.Select(c => c.Name + " " + c.ArgumentsJson)` and
+    `Attachments?.Select(a => a.Uri ?? "")`; in `InspectResponseAsync` also scan `reply.ToolCalls`.
+  - Test: a request whose only occurrence of a denied term is inside an assistant tool-call's `ArgumentsJson`
+    (and one in an attachment `Uri`) → `GuardOutcome.Block`; a clean tool-call turn → `Allow`.
+
+- [ ] **T2 · Durable-job poison-pill is unbounded on a worker crash**
+  - Files: `src/Lyntai.Core/Jobs/JobRunner.cs` (`RunJobAsync`), and the three stores' `ClaimNextAsync`
+    (`SqliteJobStore.cs`, `PostgresJobStore.cs`, `InMemoryJobStore.cs`).
+  - Defect: `MaxAttempts` is enforced only in `ApplyAsync` (runs when a handler throws/returns). A worker that
+    dies before the handler returns leaves the job `Running`; the stale-lease reclaim increments `attempts` and
+    re-runs it forever — no `attempts > MaxAttempts` check at claim/run. Contradicts the v0.27.2 changelog.
+  - Fix: at the top of `RunJobAsync` (after the `CancelRequested` short-circuit), if `job.Attempts > job.MaxAttempts`
+    dead-letter it and return WITHOUT invoking the handler. Confirm `attempts` is incremented on claim in all
+    three stores so the bound trips.
+  - Test: reclaim a stale `Running` job whose `attempts` already exceeds `MaxAttempts` → the runner dead-letters
+    it and the handler is NEVER invoked (fake handler asserts it wasn't called).
+
+- [ ] **T3 · Response-cache cross-model collision when per-consumer default models differ**
+  - Files: `src/Lyntai.Core/Llm/Caching/IResponseCache.cs` (`ResponseCacheKey.For`),
+    `src/Lyntai.Core/Llm/Caching/CachingLlmClient.cs`, `src/Lyntai.Core/LyntaiOptions.cs` (`ResolveModel`).
+  - Defect: the cache is the outermost decorator and keys on the RAW `req.Model`, excluding `req.Consumer`. But
+    the router resolves the effective model via `options.ResolveModel(req.Consumer, …)` (`DefaultModelByConsumer` /
+    `LYNTAI_MODEL_<CONSUMER>`). Two consumers with different per-consumer defaults, both sending `req.Model=null` +
+    identical messages, share a key → the first's answer is served to the second (wrong model).
+  - Fix: fold the effective model into the key — in `CachingLlmClient` compute
+    `options.ResolveModel(req.Consumer, req.Model)` and pass it to a `ResponseCacheKey.For(req, effectiveModel)`
+    overload that hashes it (keep `req.Consumer` OUT so two consumers resolving to the same model still share).
+  - Test: two consumers, distinct `DefaultModelByConsumer` entries, `req.Model=null`, identical messages →
+    DISTINCT keys / no shared hit; two consumers resolving to the same model → shared hit.
+
+- [ ] **T4 · Streaming `finish_reason=tool_calls` emits a spurious `Refused` after content**
+  - File: `src/Lyntai.Providers.OpenAiCompatible/OpenAiCompatibleProvider.cs` (the `finishReason == "tool_calls"`
+    branch, ~203).
+  - Defect: the branch is NOT gated on `!sawContent`, so a stream that interleaves content deltas then ends
+    `finish_reason:tool_calls` yields a trailing `Error(Refused)` after valid content. The MEAI twin
+    (`ExtensionsAiProvider`) already gates on `!sawContent`.
+  - Fix: `if (finishReason == "tool_calls" && !sawContent)`. When content already streamed, fall through to the
+    normal `Final(usage)` (streaming tool-call delivery is deferred by design).
+  - Test: SSE with `finish_reason:tool_calls` and NO content → a single `Error/Refused` chunk (not `Failed`); SSE
+    with content deltas THEN `finish_reason:tool_calls` → content chunks + a benign `Final`, no trailing `Error`.
+
+### Cross-backend divergences (the three storage backends disagree)
+
+- [ ] **T5 · Memory recall matches "any token" (SQLite FTS) vs "contiguous phrase" (Postgres/InMemory)**
+  - Files: `src/Lyntai.Core/Storage/FtsQuery.cs`, `SqliteMemoryStore.cs`, `PostgresMemoryStore.cs`,
+    `InMemoryMemoryStore.cs`. A multi-word query → SQLite `"a" OR "b"` (either-token hits) while Postgres
+    `ILIKE %a b%` / InMemory `Contains("a b")` match only the contiguous substring. Same query, different results.
+  - Fix (pick one, document it): AND-join FTS tokens for phrase parity, OR document the per-backend recall/ranking
+    difference on `IMemoryStore` XML doc + `.claude/knowledge/storage.md`. Test: a shared cross-backend two-word
+    recall test asserting the documented behavior.
+
+- [ ] **T6 · Usage-budget consumer key: InMemory case-insensitive vs SQL case-sensitive**
+  - Files: `InMemoryUsageTracker.cs` (keys `OrdinalIgnoreCase`), `SqliteUsageTracker.cs`, `PostgresUsageTracker.cs`
+    (case-sensitive PK). Budget totals diverge by backend for `App` vs `app`. Fix: converge — cheapest is
+    `StringComparer.Ordinal` in the in-memory tracker. Test: `Record("App")` + `Record("app")` → consistent totals
+    across every backend (parametrized).
+
+- [ ] **T7 · pgvector throws on a dimension-mismatched row; semantic recall isn't fail-open**
+  - Files: `PostgresVectorStore.cs` (`SearchAsync`), `src/Lyntai.Core/Memory/SemanticMemory.cs` (`RecallAsync`).
+    pgvector's `<=>` errors on a differing-dimension row (InMemory/SQLite score 0), and `RecallAsync` has no
+    try/catch → all semantic recall breaks on Postgres after a model swap. Fix: make `RecallAsync` fail-open
+    (catch/log/return `[]`, rethrow only OCE); document reindex-on-model-change on `IEmbedder`/`ISemanticMemory`.
+    Test: a wrong-dimension row → recall returns `[]`, doesn't throw.
+
+### Lower (risk / nit)
+
+- [ ] **T8 · Router treats a provider's own `OperationCanceledException` as caller-cancel** —
+  `src/Lyntai.Core/Llm/Routing/LlmRouter.cs` (streaming catch): narrow to
+  `when (ex is not OperationCanceledException || !ct.IsCancellationRequested)` so only the caller's cancel aborts;
+  a provider-side OCE becomes a fall-over-able Error chunk (the router is the trust boundary). Test: a fake
+  provider throwing a bare OCE (ct not cancelled) pre-content → falls over to the next candidate.
+- [ ] **T9 · Budget cap not atomic under concurrency** — `BudgetedLlmClient.cs`: check-then-act lets N concurrent
+  calls all pass the cap (overshoot = in-flight N, not "one past"). Reserve-then-reconcile, or tighten the doc to
+  state the overshoot bound.
+- [ ] **T10 · Scheduler enqueues before persisting the advance** — `JobScheduler.cs`: a crash between enqueue and
+  `SetNextAsync` re-runs the slot. Persist-then-enqueue, or document the at-least-once semantics on `IJobScheduler`.
+- [ ] **T11 · InMemory job-claim tiebreaker diverges from SQL** — `InMemoryJobStore.cs`: add `.ThenBy(j => j.Id)`
+  after `AvailableAt` to match SQLite/Postgres `…, id` (deterministic same-tick same-priority order).
+- [ ] **T12 · Access-gate constant-time compare guidance** — `src/Lyntai.Core/Secrets/ISecretVault.cs`: XML-doc
+  warning that any token/secret equality inside an `ISecretAccessPolicy` must use
+  `CryptographicOperations.FixedTimeEquals`. Doc-only.
+- [ ] **T13 · Stale changelog** — `CHANGELOG.md` v0.27.1 "Known edge cases" still says the in-memory store throws
+  on a dimension mismatch; v0.27.2 changed it to score 0. Correct the note.
+
+## Part 2 — Sonora-adoption gaps (features Lyntai lacks)
+
+Sonora (the sibling Sonora repo) can adopt Lyntai for its LLM client, providers, CLI spawn, structured
+output, jobs core, and storage — and would *upgrade* several (multi-worker jobs, cron, DLQ, priority, model
+routing). These are the pieces it still needs before dropping its own code. Priority order; fold into
+`docs/ROADMAP.md` as next versions if Sonora adoption is a goal.
+
+- [ ] **S1 · Portable secret vault: DPAPI protector + recovery-key DEK envelope** (highest value)
+  - `Lyntai.Secrets` is AES-GCM with a BYO key only — no DPAPI, no recovery key, no `Recover()`, no
+    machine-portability. Add a `DpapiSecretProtector` (Windows `ProtectedData`, guarded by `OperatingSystem.IsWindows()`)
+    and a DEK-envelope vault mode (random 256-bit DEK encrypts secrets, double-wrapped by DPAPI + a PBKDF2 recovery
+    key; `GenerateMasterKey`/`Recover`/machine-fingerprint). Keep AES-GCM/BYO as the portable default. (Mirror
+    Sonora `…/Modules/Core/Services/SecretVault.cs`.) Tests: DPAPI round-trip; recover via key on a "different
+    machine"; tamper → `CryptographicException`.
+- [ ] **S2 · Job admission-control seam + first-class `Paused` state**
+  - Sonora's `CapacityGovernor` (external GPU/CPU-load-aware lane throttling + schedule window) has no Lyntai hook,
+    and there's no `Paused` status. Add `IJobAdmissionController` the runner consults per lane before
+    `ClaimNextAsync` (allow / hold-lane) + `JobStatus.Paused` with pause/resume on `IJobQueue`/`IJobStore` across
+    all three backends. App owns the load sampling. Tests: a controller that holds a lane → no claims for it;
+    pause/resume round-trips on every backend.
+- [ ] **S3 · Live job progress + step reporting on `JobContext`**
+  - Lyntai exposes only `SaveCheckpointAsync`; Sonora's UI needs `ReportProgressAsync(done,total,stage)` +
+    `ReportStepAsync(msg)`. Add them (new `JobRecord` `Progress`/`Total`/`Stage`/`StepLog` fields + a migration
+    across backends, or an event stream). Tests: progress/steps round-trip and are readable while the job runs.
+- [ ] **S4 · Per-request refusal-pattern seam** — add optional `LlmRequest.RefusalPattern` (or a classifier hook)
+  so a caller can supply an extra refusal check on the reply text (Sonora passes a per-language regex per call).
+  Keep the central patterns as default. Test: a reply matching a per-request pattern → `Refused`.
+- [ ] **S5 · Document the "rate-limit → surface" recipe for single-provider adopters** — Sonora wants a 429 to
+  hard-stop (protect the quota window), not cool-and-advance; with a sole candidate, `ExemptSoleCandidate` would
+  even retry it. README/knowledge recipe: `ConfigureRouting(p => p.On(RateLimited, Surface))` (+ note
+  `ExemptSoleCandidate`). Doc-only (capability exists).
+- [ ] **S6 · (nice-to-have) curated-memory variant of `IMemoryStore`** — Sonora's is a curated catalog
+  (`Kind`/`Enabled`/`Source` + `UpdateAsync` + per-kind prompt sections); Lyntai's is a remember/recall log.
+  Optionally add a curated-entry model + `UpdateAsync` + per-kind composition. Otherwise Sonora keeps its own
+  memory module — acceptable; deprioritize.
 
 ---
 

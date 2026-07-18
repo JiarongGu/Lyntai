@@ -10,8 +10,11 @@ using Lyntai.Agents;
 using Lyntai.Cortex;
 using Lyntai.Cortex.Scorers;
 using Lyntai.Diagnostics;
+using Lyntai.Embeddings;
 using Lyntai.Jobs;
 using Lyntai.Llm;
+using Lyntai.Llm.Budgeting;
+using Lyntai.Memory;
 using Lyntai.Prompts;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +24,13 @@ var dataDir = Environment.GetEnvironmentVariable("LYNTAI_DATA")
 Directory.CreateDirectory(dataDir);
 var dbPath = Path.Combine(dataDir, "lyntai.db");
 Console.WriteLine($"playground: data={dataDir}");
+
+// LYNTAI_DEMO=governance → a separate full-stack smoke over the platform features that the default flow
+// doesn't touch (response cache / usage budget / rate limit / semantic memory / recurring schedule). Each
+// is a small isolated composition, so it exercises the real DI wiring end-to-end. Returns before the
+// default flow below, which is unchanged.
+if (Environment.GetEnvironmentVariable("LYNTAI_DEMO") == "governance")
+    return await GovernanceDemo.RunAsync(dbPath);
 
 // Observability: subscribe BCL listeners to BOTH telemetry surfaces (GenAI "Lyntai.Llm" + agentic
 // "Lyntai.Agents"). This is what wiring the OpenTelemetry SDK's AddSource/AddMeter subscribes to (see
@@ -216,5 +226,150 @@ sealed class TelemetryTally
         });
         listener.Start();
         return listener;
+    }
+}
+
+/// <summary>The LYNTAI_DEMO=governance flow: a full-stack smoke over the platform features the default run
+/// doesn't touch. Each scenario is its own isolated AddLyntai composition against the deterministic stub,
+/// so it exercises the real DI wiring + decorator fold end-to-end. Prints one True/False marker per feature
+/// (the p2 e2e asserts on them).</summary>
+static class GovernanceDemo
+{
+    public static async Task<int> RunAsync(string dbPath)
+    {
+        var cache = await CacheScenario();
+        Console.WriteLine($"governance: cache hit served={cache}");
+        var budget = await BudgetScenario();
+        Console.WriteLine($"governance: budget refused over cap={budget}");
+        var rate = await RateLimitScenario();
+        Console.WriteLine($"governance: rate limited={rate}");
+        var semantic = await SemanticScenario(dbPath);
+        Console.WriteLine($"governance: semantic recall ranked={semantic}");
+        var schedule = await ScheduleScenario(dbPath);
+        Console.WriteLine($"governance: cron/schedule enqueued={schedule}");
+
+        var ok = cache && budget && rate && semantic && schedule;
+        Console.WriteLine(ok ? "governance: OK" : "governance: INCOMPLETE");
+        return ok ? 0 : 1;
+    }
+
+    // response cache: two IDENTICAL completions — the second must be served from cache (a hit on the
+    // lyntai.cache.requests meter), and the provider reached once.
+    private static async Task<bool> CacheScenario()
+    {
+        var hits = 0;
+        using var meter = ResultCounter("lyntai.cache.requests", "lyntai.cache.result", "hit", () => Interlocked.Increment(ref hits));
+
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b.AddClaudeCliProvider().AddResponseCache().DefaultCandidates("claude-cli"));
+        await using var sp = services.BuildServiceProvider();
+        var llm = sp.GetRequiredService<ILlmClient>();
+        var req = new LlmRequest { Messages = [LlmMessage.User("cache me please")], Consumer = "gov" };
+
+        var first = await llm.CompleteAsync(req);
+        var second = await llm.CompleteAsync(req); // identical → cache hit, no provider call
+        return first.Verdict == LlmVerdict.Ok && second.Verdict == LlmVerdict.Ok && second.Text == first.Text && hits >= 1;
+    }
+
+    // usage budget: the stub reports cost per call, so a tiny cap lets the first call through (recording
+    // spend) and refuses the second (soft ceiling checked before the call).
+    private static async Task<bool> BudgetScenario()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b.AddClaudeCliProvider().AddUsageBudget(o => o.MaxCostUsd = 0.01).DefaultCandidates("claude-cli"));
+        await using var sp = services.BuildServiceProvider();
+        var llm = sp.GetRequiredService<ILlmClient>();
+
+        var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("spend one")] });
+        var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("spend two")] });
+        var spent = sp.GetRequiredService<IUsageTracker>().Total().CostUsd;
+        return first.Verdict == LlmVerdict.Ok && second.Verdict == LlmVerdict.Refused && spent > 0;
+    }
+
+    // rate limit: burst 1 + a negligible refill rate + no wait → the second immediate call is refused.
+    private static async Task<bool> RateLimitScenario()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddClaudeCliProvider()
+            .AddRateLimit(o => { o.PermitsPerSecond = 0.0001; o.Burst = 1; o.MaxWait = TimeSpan.Zero; })
+            .DefaultCandidates("claude-cli"));
+        await using var sp = services.BuildServiceProvider();
+        var llm = sp.GetRequiredService<ILlmClient>();
+
+        var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("a")] });
+        var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("b")] });
+        return first.Verdict == LlmVerdict.Ok && second.Verdict == LlmVerdict.RateLimited;
+    }
+
+    // semantic memory: remember two facts, recall by a query that overlaps the relevant one — it must rank
+    // first, and the unrelated fact be filtered by the minScore floor. (DemoEmbedder is a stand-in model.)
+    private static async Task<bool> SemanticScenario(string dbPath)
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b.AddClaudeCliProvider().UseSqliteStorage(dbPath).AddEmbeddings(new DemoEmbedder()).DefaultCandidates("claude-cli"));
+        await using var sp = services.BuildServiceProvider();
+        var mem = sp.GetRequiredService<ISemanticMemory>();
+
+        await mem.RememberAsync("faq", "s", "You can cancel your subscription anytime from account settings.");
+        await mem.RememberAsync("faq", "s", "Our pizza menu changes every week.");
+        var hits = await mem.RecallAsync("faq", "s", "how do I cancel my subscription", k: 2, minScore: 0.0001);
+        // the query-relevant fact ranks FIRST (the unrelated pizza fact may still trail with a tiny
+        // collision-driven score from the demo's feature-hash embedder — a real model wouldn't)
+        return hits.Count > 0 && hits[0].Content.Contains("cancel");
+    }
+
+    // recurring schedule: a short interval schedule fires on the tick after its first interval elapses,
+    // enqueuing a durable job (next-run persisted in the SQLite key-value store).
+    private static async Task<bool> ScheduleScenario(string dbPath)
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddClaudeCliProvider().UseSqliteStorage(dbPath)
+            .AddJobSchedule("demo-sched", "sched-lane", "sched-type", "{}", TimeSpan.FromMilliseconds(5))
+            .DefaultCandidates("claude-cli"));
+        await using var sp = services.BuildServiceProvider();
+        var scheduler = sp.GetRequiredService<IJobScheduler>();
+
+        await scheduler.TickAsync();   // first sight → schedules next = now + 5ms
+        await Task.Delay(30);          // let the interval lapse
+        var enqueued = await scheduler.TickAsync(); // due → enqueue
+        var jobs = await sp.GetRequiredService<IJobStore>().ListAsync(lane: "sched-lane");
+        return enqueued >= 1 && jobs.Count >= 1;
+    }
+
+    /// <summary>A MeterListener counting a named instrument's measurements whose given tag equals a value.</summary>
+    private static MeterListener ResultCounter(string instrument, string tagKey, string tagValue, Action onMatch)
+    {
+        var listener = new MeterListener
+        {
+            InstrumentPublished = (inst, l) => { if (inst.Name == instrument) l.EnableMeasurementEvents(inst); },
+        };
+        listener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
+        {
+            foreach (var t in tags) if (t.Key == tagKey && (string?)t.Value == tagValue) { onMatch(); return; }
+        });
+        listener.Start();
+        return listener;
+    }
+}
+
+/// <summary>A deterministic stand-in embedder for the demo (feature-hashed bag-of-words, so texts sharing
+/// words land close in cosine space). A real app registers an actual embeddings model via AddEmbeddings.</summary>
+sealed class DemoEmbedder : IEmbedder
+{
+    public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<float[]>>([.. texts.Select(Embed)]);
+
+    private static float[] Embed(string text)
+    {
+        var v = new float[64];
+        foreach (var word in text.ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        {
+            uint h = 2166136261; // FNV-1a (stable across runs, unlike string.GetHashCode)
+            foreach (var c in word) { h ^= c; h *= 16777619; }
+            v[(int)(h & 0x7fffffff) % v.Length] += 1f;
+        }
+        return v;
     }
 }
