@@ -33,7 +33,10 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
                 .Where(j => j.Lane == lane &&
                     ((j.Status == JobStatus.Pending && j.AvailableAt <= now) ||
                      (j.Status == JobStatus.Running && j.ClaimedAt is { } ca && ca < staleBefore)))
-                .OrderByDescending(j => j.Priority).ThenBy(j => j.AvailableAt).ThenBy(j => j.CreatedAt)
+                // tiebreak by id to match the SQL stores' `ORDER BY … available_at, id` (id is a TEXT
+                // Guid there, so compare the string form ordinally, not the Guid's own byte order)
+                .OrderByDescending(j => j.Priority).ThenBy(j => j.AvailableAt)
+                .ThenBy(j => j.Id.ToString(), StringComparer.Ordinal)
                 .FirstOrDefault();
             if (candidate is null) return Task.FromResult<JobRecord?>(null);
 

@@ -27,4 +27,5 @@ public class InMemoryJobStoreTests
     [Fact] public async Task Dead_letter() { var (s, c) = New(); await JobStoreContract.Dead_letter_is_terminal_inspectable_and_fenced(s, c); }
     [Fact] public async Task Replay_dead() { var (s, c) = New(); await JobStoreContract.Replay_requeues_a_dead_job(s, c); }
     [Fact] public async Task Request_cancel() { var (s, c) = New(); await JobStoreContract.Request_cancel_flags_a_running_job_then_cancel_running_finalizes(s, c); }
+    [Fact] public async Task Tiebreak_by_id() { var (s, c) = New(); await JobStoreContract.Same_tick_same_priority_claims_in_id_order(s, c); }
 }

@@ -268,7 +268,7 @@ would have caught the bug.
   state the overshoot bound.
 - [ ] **T10 · Scheduler enqueues before persisting the advance** — `JobScheduler.cs`: a crash between enqueue and
   `SetNextAsync` re-runs the slot. Persist-then-enqueue, or document the at-least-once semantics on `IJobScheduler`.
-- [ ] **T11 · InMemory job-claim tiebreaker diverges from SQL** — `InMemoryJobStore.cs`: add `.ThenBy(j => j.Id)`
+- [x] **T11 · InMemory job-claim tiebreaker diverges from SQL** — `InMemoryJobStore.cs`: add `.ThenBy(j => j.Id)`
   after `AvailableAt` to match SQLite/Postgres `…, id` (deterministic same-tick same-priority order).
 - [ ] **T12 · Access-gate constant-time compare guidance** — `src/Lyntai.Core/Secrets/ISecretVault.cs`: XML-doc
   warning that any token/secret equality inside an `ISecretAccessPolicy` must use

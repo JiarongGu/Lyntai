@@ -201,6 +201,18 @@ public static class JobStoreContract
         Assert.False(await store.ReplayAsync(id)); // now Running (not Dead/Failed) → no-op
     }
 
+    public static async Task Same_tick_same_priority_claims_in_id_order(IJobStore store, MutableClock clock)
+    {
+        // two jobs, identical lane/priority/available_at (clock not advanced) → the tiebreak is the id,
+        // consistently on every backend (SQL: ORDER BY …, id; InMemory now matches via the id string)
+        var id1 = await store.EnqueueAsync(Spec());
+        var id2 = await store.EnqueueAsync(Spec());
+        var expectedFirst = string.CompareOrdinal(id1.ToString(), id2.ToString()) < 0 ? id1 : id2;
+
+        var first = await store.ClaimNextAsync("default", "w1", Lease);
+        Assert.Equal(expectedFirst, first!.Id);
+    }
+
     public static async Task Request_cancel_flags_a_running_job_then_cancel_running_finalizes(IJobStore store, MutableClock clock)
     {
         var id = await store.EnqueueAsync(Spec());
