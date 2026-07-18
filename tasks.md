@@ -197,7 +197,7 @@ would have caught the bug.
   - Test: a request whose only occurrence of a denied term is inside an assistant tool-call's `ArgumentsJson`
     (and one in an attachment `Uri`) → `GuardOutcome.Block`; a clean tool-call turn → `Allow`.
 
-- [ ] **T2 · Durable-job poison-pill is unbounded on a worker crash**
+- [x] **T2 · Durable-job poison-pill is unbounded on a worker crash**
   - Files: `src/Lyntai.Core/Jobs/JobRunner.cs` (`RunJobAsync`), and the three stores' `ClaimNextAsync`
     (`SqliteJobStore.cs`, `PostgresJobStore.cs`, `InMemoryJobStore.cs`).
   - Defect: `MaxAttempts` is enforced only in `ApplyAsync` (runs when a handler throws/returns). A worker that

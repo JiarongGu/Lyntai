@@ -120,6 +120,18 @@ public sealed class JobRunner(
                 return;
             }
 
+            // poison-pill bound: MaxAttempts is otherwise enforced only in ApplyAsync (runs when the handler
+            // returns/throws). A handler that CRASHES the worker never reaches it, so the stale-lease reclaim
+            // — which increments attempts on every claim — would re-run it forever. Trip the bound at claim
+            // time: past MaxAttempts, dead-letter WITHOUT invoking the handler.
+            if (job.Attempts > job.MaxAttempts)
+            {
+                _logger.LogWarning("job {Id} ('{Type}') exceeded max attempts ({Attempts} > {Max}) — dead-lettering without running", job.Id, job.Type, job.Attempts, job.MaxAttempts);
+                await _store.DeadLetterAsync(job.Id, _workerId, $"exceeded max attempts ({job.MaxAttempts})", ct).ConfigureAwait(false);
+                outcome = "dead";
+                return;
+            }
+
             var ctx = new JobContext(job.Id, job.Payload, job.Checkpoint, job.Attempts,
                 (cp, c) => _store.SaveCheckpointAsync(job.Id, _workerId, cp, c));
 

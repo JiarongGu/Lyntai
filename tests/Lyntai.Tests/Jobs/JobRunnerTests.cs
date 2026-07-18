@@ -94,6 +94,29 @@ public class JobRunnerTests
     }
 
     [Fact]
+    public async Task A_job_past_max_attempts_is_dead_lettered_without_running()
+    {
+        // simulates a poison pill that CRASHES the worker every run (the handler never returns/throws, so
+        // ApplyAsync's bound never fires) — the claim-time bound must dead-letter it without invoking it.
+        var handler = new FakeJobHandler("poison", _ => throw new InvalidOperationException("boom"));
+        var (runner, store, queue, clock) = Build(o => o.Jobs.DefaultMaxAttempts = 2, handler);
+        var id = await queue.EnqueueAsync("default", "poison", "{}");
+
+        // two "crashes": a dead worker claims (attempts++) but never runs the handler; its lease lapses
+        for (var i = 0; i < 2; i++)
+        {
+            await store.ClaimNextAsync("default", "dead", TimeSpan.FromMinutes(1));
+            clock.Advance(TimeSpan.FromMinutes(2)); // lease lapses → reclaimable
+        }
+        Assert.Equal(0, handler.Calls); // never actually ran
+
+        await runner.RunOnceAsync(); // reclaims (attempts → 3 > 2) → dead-letter at the top, no run
+
+        Assert.Equal(JobStatus.Dead, (await store.GetAsync(id))!.Status);
+        Assert.Equal(0, handler.Calls); // the handler was NOT invoked
+    }
+
+    [Fact]
     public async Task Cancel_request_stops_a_running_job()
     {
         var entered = new TaskCompletionSource();
