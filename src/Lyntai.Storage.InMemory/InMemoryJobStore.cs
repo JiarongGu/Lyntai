@@ -103,7 +103,7 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
             _jobs[id] = j with
             {
                 Status = JobStatus.Pending, Attempts = 0, LastError = null, AvailableAt = now,
-                ClaimedBy = null, ClaimedAt = null, UpdatedAt = now,
+                ClaimedBy = null, ClaimedAt = null, UpdatedAt = now, CancelRequested = false,
             };
             return Task.FromResult(true);
         }
@@ -115,6 +115,28 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
         lock (_lock)
         {
             if (!_jobs.TryGetValue(id, out var j) || j.Status != JobStatus.Pending) return Task.FromResult(false);
+            _jobs[id] = j with { Status = JobStatus.Cancelled, UpdatedAt = now };
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<bool> RequestCancelAsync(Guid id, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!_jobs.TryGetValue(id, out var j) || j.Status != JobStatus.Running) return Task.FromResult(false);
+            _jobs[id] = j with { CancelRequested = true, UpdatedAt = now };
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<bool> CancelRunningAsync(Guid id, string workerId, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
             _jobs[id] = j with { Status = JobStatus.Cancelled, UpdatedAt = now };
             return Task.FromResult(true);
         }

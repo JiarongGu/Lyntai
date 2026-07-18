@@ -111,13 +111,34 @@ public sealed class JobRunner(
                 return;
             }
 
+            // a cancel could already be pending on this record (e.g. it was requested, then the worker
+            // crashed and a stale-lease reclaim handed it here) — don't run it, just finalize the cancel
+            if (job.CancelRequested)
+            {
+                await _store.CancelRunningAsync(job.Id, _workerId, ct).ConfigureAwait(false);
+                outcome = "cancelled";
+                return;
+            }
+
             var ctx = new JobContext(job.Id, job.Payload, job.Checkpoint, job.Attempts,
                 (cp, c) => _store.SaveCheckpointAsync(job.Id, _workerId, cp, c));
 
+            // link a per-job token so a cancel REQUEST (polled from the store) cancels the handler's ct,
+            // separately from shutdown (the outer ct). The poll stops the moment the handler returns.
+            using var jobCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            using var pollStop = new CancellationTokenSource();
+            var cancelPoll = PollForCancelAsync(job.Id, jobCts, pollStop.Token);
             try
             {
-                var result = await handler.HandleAsync(ctx, ct).ConfigureAwait(false);
+                var result = await handler.HandleAsync(ctx, jobCts.Token).ConfigureAwait(false);
                 outcome = await ApplyAsync(job, result, result.Error, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (jobCts.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                // a cancel was REQUESTED (not a shutdown) and the handler honored it → mark Cancelled (fenced)
+                _logger.LogInformation("job {Id} ('{Type}') cancelled on request", job.Id, job.Type);
+                await _store.CancelRunningAsync(job.Id, _workerId, ct).ConfigureAwait(false);
+                outcome = "cancelled";
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -129,11 +150,34 @@ public sealed class JobRunner(
                 _logger.LogWarning(ex, "job {Id} ('{Type}') threw; scheduling a retry", job.Id, job.Type);
                 outcome = await ApplyAsync(job, JobOutcome.Retry(), ex.Message, ct).ConfigureAwait(false); // a throw is transient
             }
+            finally
+            {
+                pollStop.Cancel();           // stop the cancel poll now the handler is done
+                await cancelPoll.ConfigureAwait(false);
+            }
         }
         finally
         {
             LyntaiDiagnostics.EndJob(activity, job.Lane, outcome, Stopwatch.GetElapsedTime(start).TotalSeconds);
         }
+    }
+
+    /// <summary>While a job runs, poll the store for a cancel request; on seeing one, cancel the job's
+    /// linked token so the handler stops cooperatively. Ends when <paramref name="stop"/> fires (the handler
+    /// returned) or the cancel is observed. Swallows its own cancellation + any transient store error.</summary>
+    private async Task PollForCancelAsync(Guid id, CancellationTokenSource jobCts, CancellationToken stop)
+    {
+        try
+        {
+            while (!stop.IsCancellationRequested)
+            {
+                await Task.Delay(Opts.PollInterval, stop).ConfigureAwait(false);
+                var current = await _store.GetAsync(id, stop).ConfigureAwait(false);
+                if (current?.CancelRequested == true) { await jobCts.CancelAsync().ConfigureAwait(false); return; }
+            }
+        }
+        catch (OperationCanceledException) { /* the handler finished (stop fired) or shutdown */ }
+        catch (Exception ex) { _logger.LogDebug(ex, "cancel poll for job {Id} errored (ignored)", id); }
     }
 
     /// <summary>Maps the outcome onto the store and returns a telemetry label

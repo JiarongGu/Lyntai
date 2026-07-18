@@ -418,7 +418,11 @@ rather than a silent failure:
 await queue.EnqueueAsync("summarize", "summarize", payloadJson, priority: 10); // jumps the lane
 foreach (var dead in await queue.ListDeadAsync())    // inspect what gave up
     await queue.ReplayAsync(dead.Id);                // requeue it (attempts reset)
+await queue.CancelAsync(jobId);   // cancels a Pending job; requests cancellation of a Running one
 ```
+
+`CancelAsync` on a running job is cooperative — the runner cancels the handler's `CancellationToken`, so a
+handler that honors it stops (and the job becomes `Cancelled`).
 
 **Recurring schedules.** Register an interval schedule and `IJobScheduler` enqueues the job every interval;
 the next-run time is persisted (in the key-value store) so the cadence survives restarts. The app owns the

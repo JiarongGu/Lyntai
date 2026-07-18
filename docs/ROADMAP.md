@@ -192,8 +192,14 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
 ### v0.26.0 — cron expressions (2026-07)
 - ✅ **Cron schedules** (`AddCronSchedule` + `CronExpression`) — schedules run on a real 5-field cron
   expression (UTC), not just a fixed interval. Dependency-free hand-rolled parser (ranges/steps/lists,
-  dom/dow OR, `@daily`-style macros), validated eagerly at composition. Closes the cron-expressions
-  deferral. **Still deferred from v0.14:** cross-process global concurrency limits, running-job cancellation.
+  dom/dow OR, `@daily`-style macros), validated eagerly at composition.
+
+### v0.27.0 — running-job cancellation (2026-07)
+- ✅ **Cancel a running job** (`IJobQueue.CancelAsync`, `IJobStore.RequestCancelAsync`/`CancelRunningAsync`,
+  `JobRecord.CancelRequested`) — cooperative: a cancel request flags the job, the runner polls and cancels
+  the handler's token; a handler honoring it stops and the job becomes Cancelled. Across InMemory/SQLite/
+  Postgres. **Still deferred from v0.14 (the last item):** cross-process GLOBAL concurrency limits (the
+  per-process cap + atomic claim cover most needs; a shared cap needs a distributed counter).
 
 ## Planned
 

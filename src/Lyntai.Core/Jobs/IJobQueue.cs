@@ -18,6 +18,10 @@ public interface IJobQueue
 
     /// <summary>Requeue a dead-lettered (or Failed) job for another run. Returns whether one was requeued.</summary>
     Task<bool> ReplayAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Cancel a job whether it's Pending (cancelled immediately) or Running (cancellation is
+    /// requested — the worker stops it cooperatively). Returns whether anything was cancelled/requested.</summary>
+    Task<bool> CancelAsync(Guid id, CancellationToken ct = default);
 }
 
 /// <inheritdoc/>
@@ -38,4 +42,8 @@ public sealed class JobQueue(IJobStore? store, LyntaiOptions options) : IJobQueu
         _store.ListAsync(JobStatus.Dead, lane, limit, ct);
 
     public Task<bool> ReplayAsync(Guid id, CancellationToken ct = default) => _store.ReplayAsync(id, ct);
+
+    public async Task<bool> CancelAsync(Guid id, CancellationToken ct = default) =>
+        await _store.CancelAsync(id, ct).ConfigureAwait(false)          // Pending → Cancelled outright
+        || await _store.RequestCancelAsync(id, ct).ConfigureAwait(false); // else Running → request cancellation
 }

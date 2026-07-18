@@ -51,6 +51,16 @@ public interface IJobStore
     /// <summary>Cancel a still-Pending job (no effect on a Running one). Returns whether it was cancelled.</summary>
     Task<bool> CancelAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>Request cancellation of a RUNNING job — sets its <c>cancel_requested</c> flag. The worker
+    /// running it observes the flag (its handler's <c>CancellationToken</c> is cancelled) and, honoring it,
+    /// stops; the job then becomes Cancelled. No effect on a non-Running job (use <see cref="CancelAsync"/>
+    /// for a Pending one). Returns whether the flag was set.</summary>
+    Task<bool> RequestCancelAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Mark a Running job Cancelled — used by the runner once it has stopped the handler in
+    /// response to a cancel request. Fenced by <paramref name="workerId"/>; false = lost the lease.</summary>
+    Task<bool> CancelRunningAsync(Guid id, string workerId, CancellationToken ct = default);
+
     /// <summary>Count of Running jobs in a lane — for observability/tests only, NEVER a claim gate (a
     /// count-then-claim would race). The atomic claim is the real mutual exclusion.</summary>
     Task<int> CountRunningAsync(string lane, CancellationToken ct = default);

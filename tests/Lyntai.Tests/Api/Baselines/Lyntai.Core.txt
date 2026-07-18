@@ -310,6 +310,7 @@ interface Lyntai.Jobs.IJobHandlerRegistry
     Find(String) : IJobHandler
     Handlers : IReadOnlyList<IJobHandler>
 interface Lyntai.Jobs.IJobQueue
+    CancelAsync(Guid, CancellationToken=) : Task<Boolean>
     EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
     EnqueueAsync(String, String, String, Int32=, CancellationToken=) : Task<Guid>
     ListDeadAsync(String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
@@ -359,19 +360,21 @@ enum Lyntai.Jobs.JobOutcome+Kind
     value__ : Int32
 class Lyntai.Jobs.JobQueue
     .ctor(IJobStore, LyntaiOptions)
+    CancelAsync(Guid, CancellationToken=) : Task<Boolean>
     EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
     EnqueueAsync(String, String, String, Int32=, CancellationToken=) : Task<Guid>
     ListDeadAsync(String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
 class Lyntai.Jobs.JobRecord
-    .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset, Int32=)
+    .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset, Int32=, Boolean=)
     Attempts : Int32
     AvailableAt : DateTimeOffset
+    CancelRequested : Boolean
     Checkpoint : String
     ClaimedAt : Nullable<DateTimeOffset>
     ClaimedBy : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Guid&, String&, String&, String&, JobStatus&, String&, Int32&, Int32&, String&, DateTimeOffset&, Nullable`1&, String&, DateTimeOffset&, DateTimeOffset&, Int32&) : Void
+    Deconstruct(Guid&, String&, String&, String&, JobStatus&, String&, Int32&, Int32&, String&, DateTimeOffset&, Nullable`1&, String&, DateTimeOffset&, DateTimeOffset&, Int32&, Boolean&) : Void
     Equals(JobRecord) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
@@ -844,6 +847,7 @@ interface Lyntai.Storage.IDbConnectionFactory
 interface Lyntai.Storage.IJobStore
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
     CancelAsync(Guid, CancellationToken=) : Task<Boolean>
+    CancelRunningAsync(Guid, String, CancellationToken=) : Task<Boolean>
     ClaimNextAsync(String, String, TimeSpan, CancellationToken=) : Task<JobRecord>
     CompleteAsync(Guid, String, CancellationToken=) : Task<Boolean>
     CountRunningAsync(String, CancellationToken=) : Task<Int32>
@@ -853,6 +857,7 @@ interface Lyntai.Storage.IJobStore
     GetAsync(Guid, CancellationToken=) : Task<JobRecord>
     ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
+    RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IKeyValueStore
     DeleteAsync(String, CancellationToken=) : Task

@@ -3,6 +3,30 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.27.0 — 2026-07-18
+
+Running-job cancellation — a job that's currently executing can now be stopped (before, only Pending jobs
+cancelled). Cooperative: a cancel request sets a flag the runner polls; it cancels the handler's token, and
+a handler that honors the token stops. Across all three backends.
+
+### Added
+- **`IJobQueue.CancelAsync(id)`** — the single front-door cancel: a Pending job is cancelled outright, a
+  Running one has cancellation *requested*.
+- **`IJobStore.RequestCancelAsync`** (flag a Running job) + **`CancelRunningAsync`** (the runner marks it
+  Cancelled, fenced by worker); **`JobRecord.CancelRequested`**. The runner links a per-job token, polls the
+  store (`Jobs.PollInterval`) for the flag, and on seeing it cancels the handler's token → the handler
+  stops → the job becomes Cancelled. A cancel already set on a reclaimed (stale-lease) job is honored
+  without re-running it. `Replay` clears the flag.
+
+### Breaking (pre-1.0)
+- `JobRecord` gains a trailing optional `CancelRequested`; `IJobStore` gains `RequestCancelAsync` /
+  `CancelRunningAsync` (custom implementers must add them). The `cancel_requested` column was folded into
+  the Jobs migration (pre-release consolidation) — no new migration.
+
+### Notes
+- Cancellation is cooperative — a handler must honor its `CancellationToken` to actually stop. Latency is
+  up to one `Jobs.PollInterval`.
+
 ## 0.26.0 — 2026-07-18
 
 Cron expressions for job schedules — recurring jobs can now run on a real cron schedule, not just a fixed

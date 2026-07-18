@@ -200,4 +200,18 @@ public static class JobStoreContract
         Assert.Equal(1, reclaimed.Attempts);
         Assert.False(await store.ReplayAsync(id)); // now Running (not Dead/Failed) → no-op
     }
+
+    public static async Task Request_cancel_flags_a_running_job_then_cancel_running_finalizes(IJobStore store, MutableClock clock)
+    {
+        var id = await store.EnqueueAsync(Spec());
+        Assert.False(await store.RequestCancelAsync(id)); // still Pending → no-op (Pending uses CancelAsync)
+
+        await store.ClaimNextAsync("default", "w1", Lease);
+        Assert.True(await store.RequestCancelAsync(id));  // Running → flag set
+        Assert.True((await store.GetAsync(id))!.CancelRequested);
+
+        Assert.False(await store.CancelRunningAsync(id, "intruder")); // fenced by worker
+        Assert.True(await store.CancelRunningAsync(id, "w1"));
+        Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
+    }
 }

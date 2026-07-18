@@ -94,6 +94,36 @@ public class JobRunnerTests
     }
 
     [Fact]
+    public async Task Cancel_request_stops_a_running_job()
+    {
+        var entered = new TaskCompletionSource();
+        var handler = new BlockingHandler(entered);
+        // small poll interval so the runner observes the cancel request quickly
+        var (runner, store, queue, _) = Build(o => o.Jobs.PollInterval = TimeSpan.FromMilliseconds(20), handler);
+        var id = await queue.EnqueueAsync("default", "block", "{}");
+
+        var runTask = runner.RunOnceAsync();
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(30)); // the job is running + blocked on its ct (throws on timeout)
+
+        Assert.True(await queue.CancelAsync(id));                            // request cancellation of the running job
+        await runTask.WaitAsync(TimeSpan.FromSeconds(30));                   // poll cancels it, handler stops, runner finalizes
+
+        Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
+    }
+
+    /// <summary>A handler that signals it started, then blocks until its cancellation token fires.</summary>
+    private sealed class BlockingHandler(TaskCompletionSource entered) : IJobHandler
+    {
+        public string Type => "block";
+        public async Task<JobOutcome> HandleAsync(JobContext ctx, CancellationToken ct)
+        {
+            entered.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false); // honors cancellation
+            return JobOutcome.Complete;
+        }
+    }
+
+    [Fact]
     public async Task Higher_priority_jobs_run_before_lower_within_a_lane()
     {
         var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));

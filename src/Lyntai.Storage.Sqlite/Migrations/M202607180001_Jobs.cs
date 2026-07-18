@@ -27,7 +27,8 @@ public sealed class M202607180001_Jobs : Migration
                 claimed_by TEXT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                priority INTEGER NOT NULL DEFAULT 0
+                priority INTEGER NOT NULL DEFAULT 0,
+                cancel_requested INTEGER NOT NULL DEFAULT 0
             )
             """);
         // the claim picks by (lane, status, priority DESC, available_at); this index serves it

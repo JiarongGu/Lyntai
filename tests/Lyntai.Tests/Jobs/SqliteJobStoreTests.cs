@@ -31,6 +31,7 @@ public class SqliteJobStoreTests
     [Fact] public Task Priority_first() => Run(JobStoreContract.Higher_priority_is_claimed_first);
     [Fact] public Task Dead_letter() => Run(JobStoreContract.Dead_letter_is_terminal_inspectable_and_fenced);
     [Fact] public Task Replay_dead() => Run(JobStoreContract.Replay_requeues_a_dead_job);
+    [Fact] public Task Request_cancel() => Run(JobStoreContract.Request_cancel_flags_a_running_job_then_cancel_running_finalizes);
 
     [Fact]
     public async Task Concurrent_claims_never_double_grab()

@@ -274,4 +274,20 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(JobStatus.Pending, job!.Status);
         Assert.Equal(0, job.Attempts);
     }
+
+    [Fact]
+    public async Task Job_request_cancel_flags_running_then_cancel_running_finalizes()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
+        await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
+
+        Assert.True(await store.RequestCancelAsync(id));
+        Assert.True((await store.GetAsync(id))!.CancelRequested);
+        Assert.False(await store.CancelRunningAsync(id, "intruder")); // fenced
+        Assert.True(await store.CancelRunningAsync(id, "w1"));
+        Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
+    }
 }

@@ -56,4 +56,5 @@ public sealed record JobRecord(
     string? ClaimedBy,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    int Priority = 0);
+    int Priority = 0,
+    bool CancelRequested = false);
