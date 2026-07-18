@@ -300,10 +300,10 @@ routing). These are the pieces it still needs before dropping its own code. Prio
   - Lyntai exposes only `SaveCheckpointAsync`; Sonora's UI needs `ReportProgressAsync(done,total,stage)` +
     `ReportStepAsync(msg)`. Add them (new `JobRecord` `Progress`/`Total`/`Stage`/`StepLog` fields + a migration
     across backends, or an event stream). Tests: progress/steps round-trip and are readable while the job runs.
-- [ ] **S4 · Per-request refusal-pattern seam** — add optional `LlmRequest.RefusalPattern` (or a classifier hook)
+- [x] **S4 · Per-request refusal-pattern seam** — add optional `LlmRequest.RefusalPattern` (or a classifier hook)
   so a caller can supply an extra refusal check on the reply text (Sonora passes a per-language regex per call).
   Keep the central patterns as default. Test: a reply matching a per-request pattern → `Refused`.
-- [ ] **S5 · Document the "rate-limit → surface" recipe for single-provider adopters** — Sonora wants a 429 to
+- [x] **S5 · Document the "rate-limit → surface" recipe for single-provider adopters** — Sonora wants a 429 to
   hard-stop (protect the quota window), not cool-and-advance; with a sole candidate, `ExemptSoleCandidate` would
   even retry it. README/knowledge recipe: `ConfigureRouting(p => p.On(RateLimited, Surface))` (+ note
   `ExemptSoleCandidate`). Doc-only (capability exists).

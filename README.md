@@ -103,6 +103,9 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   policy follows the prompt, not the host).
 - **Streaming never falls back after the first token** — pre-content failures move to the next
   candidate, mid-stream errors pass through unchanged (your consumer never sees duplicated output).
+- **Per-request refusal check** — set `LlmRequest.RefusalPattern` (a regex) and an otherwise-`Ok` reply
+  whose text matches surfaces as `Refused` (e.g. a per-language "I can't help with that"). Screened at the
+  outermost front-door layer, so even a cached hit is re-checked.
 - **Dead-host cooldown** instead of exponential backoff; any success resets.
 - **All of the above is the default `RoutingPolicy` — tune it without a fork.** Retry a transient
   fault on the same candidate before failing over, override what each verdict does, cool by

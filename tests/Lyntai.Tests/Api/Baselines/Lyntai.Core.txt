@@ -600,6 +600,7 @@ class Lyntai.Llm.LlmRequest
     MaxTokens : Nullable<Int32>
     Messages : IReadOnlyList<LlmMessage>
     Model : String
+    RefusalPattern : String
     Temperature : Nullable<Double>
     ToString() : String
     Tools : IReadOnlyList<LlmTool>
@@ -659,6 +660,11 @@ class Lyntai.Llm.RateLimiting.RateLimitedLlmClient
 class Lyntai.Llm.RateLimiting.TokenBucketRateLimiter
     .ctor(LyntaiOptions, Func<DateTimeOffset>=)
     AcquireAsync(String, CancellationToken=) : Task<Boolean>
+class Lyntai.Llm.RefusalScreeningLlmClient
+    .ctor(ILlmClient, ILogger<RefusalScreeningLlmClient>=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest) : Boolean
 static class Lyntai.Llm.Routing.CandidateDedup
     Dedup(IEnumerable<LlmCandidate>) : IReadOnlyList<LlmCandidate>
 enum Lyntai.Llm.Routing.CooldownScope

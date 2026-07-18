@@ -161,7 +161,10 @@ public class UsageBudgetTests
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ILlmClient>();
-        Assert.IsType<CachingLlmClient>(client); // cache is the outermost decorator regardless of add order
+        // the always-on refusal screen is the outermost layer; the cache is the outermost GOVERNANCE
+        // decorator inside it (proven behaviorally below: a hit reaches the provider 0 extra times and never
+        // re-counts toward the budget)
+        Assert.IsType<RefusalScreeningLlmClient>(client);
 
         var req = new LlmRequest { Messages = [LlmMessage.User("hi")] };
         await client.CompleteAsync(req); // miss → provider hit, cost recorded

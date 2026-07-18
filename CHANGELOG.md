@@ -39,6 +39,15 @@ live job progress) and the three storage backends (`PauseAsync`/`ResumeAsync`, p
   `Append` → `JobStep`); `JobContext` also exposes the prior snapshot (`Progress`/`Steps`/…) so a resumed
   handler sees what it already reported. New `lyntai_job` columns folded into the jobs migration
   (pre-release; SQLite + Postgres). InMemory mirrors it.
+- **Per-request refusal pattern** — `LlmRequest.RefusalPattern` (a case-insensitive regex) surfaces an
+  otherwise-`Ok` reply whose text matches as `Refused` (no fallback) — a caller-supplied check (e.g. a
+  per-language "I can't help") on top of the central patterns. Applied by `RefusalScreeningLlmClient`, the
+  always-on OUTERMOST front-door layer, so a cached hit is re-screened too; malformed patterns fail open.
+
+### Documented (Sonora-adoption recipes)
+- The **"rate-limit → surface"** recipe for single-provider adopters
+  (`ConfigureRouting(p => p.On(RateLimited, Surface))` + the `ExemptSoleCandidate` note) — knowledge doc +
+  README.
 
 ### Fixed
 - **Security — denylist guard bypassed via tool calls/attachments** — `DenylistGuard` scanned only message

@@ -231,7 +231,8 @@ public class ResponseCacheTests
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ILlmClient>();
-        Assert.IsType<CachingLlmClient>(client); // the front door is decorated
+        // the always-on refusal screen wraps the front door; the caching behavior is proven below
+        Assert.IsType<RefusalScreeningLlmClient>(client);
 
         var req = new LlmRequest { Messages = [LlmMessage.User("hi")] };
         var first = await client.CompleteAsync(req);

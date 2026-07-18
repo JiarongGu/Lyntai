@@ -30,6 +30,24 @@ won't retry it), then try in order, skipping providers that are unregistered / `
 dead-host cooldown. Log every attempt with provider + verdict + detail. Return the last reply if all
 candidates are exhausted; a `Failed` "no live candidate" reply if none were even eligible.
 
+## Routing recipes
+
+- **Single-provider adopter who wants a 429 to hard-stop** (protect the quota window instead of
+  cool-and-advance — e.g. Sonora): the default maps `RateLimited → CooldownAndAdvance`, and with a lone
+  candidate `ExemptSoleCandidate=true` (the default) even *retries* the cooled sole host. To surface the
+  429 to the caller immediately with no cooldown/retry:
+  ```csharp
+  builder.ConfigureRouting(p => p.On(LlmVerdict.RateLimited, FallbackAction.Surface));
+  ```
+  `Surface` returns the reply as-is (no host penalty, no fallback), so the app sees `RateLimited` and can
+  back off on its own schedule. (Leave `ExemptSoleCandidate` alone — it only matters for cooldown/advance
+  actions, which `Surface` no longer triggers.)
+- **Caller-supplied refusal check on the reply text**: set `LlmRequest.RefusalPattern` (a case-insensitive
+  regex, e.g. a per-language "I can't help with that"). An otherwise-`Ok` reply whose text matches is
+  surfaced as `Refused` (no fallback). Applied by `RefusalScreeningLlmClient` — the always-on OUTERMOST
+  front-door layer (above the response cache), so a cached hit is re-screened too. Completion-path only
+  (streaming isn't screened); a malformed pattern is logged and ignored (fail-open).
+
 ## Streaming (`LlmRouter.StreamAsync`) — two invariants
 
 1. **No fallback after the first content token.** Once a *real* content chunk is yielded (`committed`),
