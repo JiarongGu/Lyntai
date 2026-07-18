@@ -13,7 +13,8 @@ public sealed class LlmRouter(
     IEnumerable<ILlmProvider> providers,
     DeadHostTracker deadHosts,
     LyntaiOptions options,
-    ILogger<LlmRouter>? logger = null) : ILlmRouter
+    ILogger<LlmRouter>? logger = null,
+    IModelRoutingStore? modelRouting = null) : ILlmRouter
 {
     private readonly ILogger _logger = logger ?? NullLogger<LlmRouter>.Instance;
     private RoutingPolicy Policy => options.Routing;
@@ -31,11 +32,12 @@ public sealed class LlmRouter(
     {
         var deduped = CandidateDedup.Dedup(candidates);
         var soleCandidate = deduped.Count == 1;
+        var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
         LlmReply? last = null;
 
         foreach (var candidate in deduped)
         {
-            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
+            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model, liveModel);
             var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason);
             if (provider is null)
             {
@@ -95,11 +97,12 @@ public sealed class LlmRouter(
     {
         var deduped = CandidateDedup.Dedup(candidates);
         var soleCandidate = deduped.Count == 1;
+        var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
         LlmChunk? lastError = null;
 
         foreach (var candidate in deduped)
         {
-            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
+            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model, liveModel);
             var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason);
             if (provider is null)
             {
@@ -261,6 +264,12 @@ public sealed class LlmRouter(
             Stopwatch.GetElapsedTime(start).TotalSeconds, reply.Detail);
         return reply;
     }
+
+    /// <summary>The live per-consumer model override (null when live routing isn't wired) — read once per
+    /// call and passed into <see cref="LyntaiOptions.ResolveModel(string,string,string)"/> for each candidate.
+    /// (The sync <see cref="SupportsToolCalls"/> capability probe stays on the configured default.)</summary>
+    private async Task<string?> LiveModelAsync(string consumer, CancellationToken ct) =>
+        modelRouting is null ? null : await modelRouting.GetModelOverrideAsync(consumer, ct).ConfigureAwait(false);
 
     /// <summary>The dead-host key for a candidate, at the configured cooldown granularity.</summary>
     private string CooldownKey(string providerId, string? effectiveModel) =>

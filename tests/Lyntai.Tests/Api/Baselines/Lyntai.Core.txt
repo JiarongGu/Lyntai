@@ -520,7 +520,7 @@ class Lyntai.Llm.Budgeting.UsageTotals
     ToString() : String
     TotalTokens : Int64
 class Lyntai.Llm.Caching.CachingLlmClient
-    .ctor(ILlmClient, IResponseCache, LyntaiOptions, ILogger<CachingLlmClient>=)
+    .ctor(ILlmClient, IResponseCache, LyntaiOptions, ILogger<CachingLlmClient>=, IModelRoutingStore=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(LlmRequest) : Boolean
@@ -712,13 +712,19 @@ enum Lyntai.Llm.Routing.FallbackAction
     PenalizeAndAdvance : FallbackAction const
     Surface : FallbackAction const
     value__ : Int32
+interface Lyntai.Llm.Routing.IModelRoutingStore
+    GetModelOverrideAsync(String, CancellationToken=) : Task<String>
+class Lyntai.Llm.Routing.KeyValueModelRoutingStore
+    .ctor(IKeyValueStore=, ILogger<KeyValueModelRoutingStore>=)
+    GetModelOverrideAsync(String, CancellationToken=) : Task<String>
+    KeyPrefix : String const
 class Lyntai.Llm.Routing.LlmClient
     .ctor(ILlmRouter, LyntaiOptions)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(LlmRequest) : Boolean
 class Lyntai.Llm.Routing.LlmRouter
-    .ctor(IEnumerable<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILogger<LlmRouter>=)
+    .ctor(IEnumerable<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILogger<LlmRouter>=, IModelRoutingStore=)
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
@@ -743,6 +749,7 @@ class Lyntai.LyntaiBuilder
     AddJobHandler(Func<IServiceProvider,IJobHandler>) : LyntaiBuilder
     AddJobSchedule(JobSchedule) : LyntaiBuilder
     AddJobSchedule(String, String, String, String, TimeSpan, Int32=) : LyntaiBuilder
+    AddLiveModelRouting() : LyntaiBuilder
     AddProvider() : LyntaiBuilder
     AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
     AddRateLimit(Action<RateLimitOptions>=) : LyntaiBuilder
@@ -773,6 +780,7 @@ class Lyntai.LyntaiOptions
     ProviderTimeout : TimeSpan
     RateLimit : RateLimitOptions
     ResolveModel(String, String) : String
+    ResolveModel(String, String, String) : String
     ResolveTimeout(LlmRequest) : TimeSpan
     Routing : RoutingPolicy
     TimeoutByConsumer : Dictionary<String,TimeSpan>

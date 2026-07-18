@@ -1,4 +1,5 @@
 using Lyntai.Diagnostics;
+using Lyntai.Llm.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -16,7 +17,8 @@ namespace Lyntai.Llm.Caching;
 /// must vary per call should skip the cache or use a short TTL.</para>
 /// </summary>
 public sealed class CachingLlmClient(
-    ILlmClient inner, IResponseCache cache, LyntaiOptions options, ILogger<CachingLlmClient>? logger = null) : ILlmClient
+    ILlmClient inner, IResponseCache cache, LyntaiOptions options,
+    ILogger<CachingLlmClient>? logger = null, IModelRoutingStore? modelRouting = null) : ILlmClient
 {
     private readonly ILogger _logger = logger ?? NullLogger<CachingLlmClient>.Instance;
 
@@ -24,9 +26,11 @@ public sealed class CachingLlmClient(
     {
         if (!IsCacheable(req)) return await inner.CompleteAsync(req, ct).ConfigureAwait(false);
 
-        // key on the EFFECTIVE model (the router resolves per-consumer defaults), so two consumers with
-        // different default models + Model=null + identical messages don't collide onto one answer
-        var key = ResponseCacheKey.For(req, options.ResolveModel(req.Consumer, req.Model));
+        // key on the EFFECTIVE model — the router resolves per-consumer defaults + a LIVE override, so two
+        // consumers (or a pre/post admin retune) with Model=null + identical messages don't collide, and a
+        // stale-model reply is never served after a live retune
+        var live = modelRouting is null ? null : await modelRouting.GetModelOverrideAsync(req.Consumer, ct).ConfigureAwait(false);
+        var key = ResponseCacheKey.For(req, options.ResolveModel(req.Consumer, req.Model, live));
         var cached = await cache.TryGetAsync(key, ct).ConfigureAwait(false);
         if (cached is not null)
         {

@@ -432,7 +432,7 @@ persist, per-scorer judge model preserved, model retuning takes effect live).
     Files: `src/Lyntai.Core/Cortex/ScoreModels.cs` + `.claude/knowledge/`.
 
 ### Cortex
-- [ ] **A6 · Live per-consumer model override read into `ResolveModel` — HARD (blocker)**
+- [x] **A6 · Live per-consumer model override read into `ResolveModel` — HARD (blocker)**
   - Model routing (`DefaultModelByConsumer` + `LYNTAI_MODEL_<CONSUMER>`) resolves from code config + env at
     STARTUP, so an admin-set model retune never takes effect without a restart. Add an optional KV-backed
     `IModelRoutingStore` that `ResolveModel`/`LlmRouter` consults LIVE (KV override → per-consumer default →

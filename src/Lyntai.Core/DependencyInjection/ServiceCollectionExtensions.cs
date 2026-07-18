@@ -67,7 +67,8 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton(sp => new DeadHostTracker(
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
         services.TryAddSingleton<ILlmRouter>(sp => new LlmRouter(
-            sp.GetServices<ILlmProvider>(), sp.GetRequiredService<DeadHostTracker>(), options, sp.GetService<ILogger<LlmRouter>>()));
+            sp.GetServices<ILlmProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
+            sp.GetService<ILogger<LlmRouter>>(), modelRouting: sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>()));
         // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
         // are folded over the base client in registration order, so they compose instead of clobbering.
         services.TryAddSingleton<ILlmClient>(sp =>

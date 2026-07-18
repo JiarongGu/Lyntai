@@ -165,7 +165,23 @@ public sealed class LyntaiBuilder
         // decorator) — every ILlmClient resolution (tool loop, orchestrator, scorers) reads through it.
         AddFrontDoorDecorator(CacheDecoratorOrder, (sp, inner) => new Lyntai.Llm.Caching.CachingLlmClient(
             inner, sp.GetRequiredService<Lyntai.Llm.Caching.IResponseCache>(), Options,
-            sp.GetService<ILogger<Lyntai.Llm.Caching.CachingLlmClient>>()));
+            sp.GetService<ILogger<Lyntai.Llm.Caching.CachingLlmClient>>(),
+            sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>()));
+        return this;
+    }
+
+    /// <summary>Enable LIVE per-consumer model routing: the router (and response cache) read a
+    /// <c>lyntai.model.&lt;consumer&gt;</c> override from the key-value store on each call, so an admin retune
+    /// of a consumer's model takes effect WITHOUT a restart (the model analogue of a prompt override). Needs a
+    /// registered <see cref="Lyntai.Storage.IKeyValueStore"/>; opt-in, so apps that don't want the per-call
+    /// lookup pay nothing. Precedence: explicit request/candidate model → live override → configured
+    /// per-consumer default → provider default.</summary>
+    public LyntaiBuilder AddLiveModelRouting()
+    {
+        Services.TryAddSingleton<Lyntai.Llm.Routing.IModelRoutingStore>(sp =>
+            new Lyntai.Llm.Routing.KeyValueModelRoutingStore(
+                sp.GetService<Lyntai.Storage.IKeyValueStore>(),
+                sp.GetService<ILogger<Lyntai.Llm.Routing.KeyValueModelRoutingStore>>()));
         return this;
     }
 

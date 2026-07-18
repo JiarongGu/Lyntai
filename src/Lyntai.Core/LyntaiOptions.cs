@@ -74,9 +74,15 @@ public sealed class LyntaiOptions
 
     /// <summary>Resolve the model for a request: explicit request model wins, then the consumer's
     /// configured default, then the "default" consumer entry, then null (provider default).</summary>
-    public string? ResolveModel(string consumer, string? requestModel)
+    public string? ResolveModel(string consumer, string? requestModel) => ResolveModel(consumer, requestModel, null);
+
+    /// <summary>Resolve the model with an optional LIVE <paramref name="liveOverride"/> (from an
+    /// <see cref="Lyntai.Llm.Routing.IModelRoutingStore"/>): explicit request model wins, then the live
+    /// override, then the consumer's configured default, then the "default" entry, then null.</summary>
+    public string? ResolveModel(string consumer, string? requestModel, string? liveOverride)
     {
         if (!string.IsNullOrEmpty(requestModel)) return requestModel;
+        if (!string.IsNullOrEmpty(liveOverride)) return liveOverride;
         if (DefaultModelByConsumer.TryGetValue(consumer, out var m)) return m;
         return DefaultModelByConsumer.TryGetValue("default", out var d) ? d : null;
     }
