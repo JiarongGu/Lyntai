@@ -131,6 +131,7 @@ interface Lyntai.Cortex.IScorer
     Name : String
     ScoreAsync(ScoreContext, CancellationToken) : Task<ScoreResult>
 interface Lyntai.Cortex.IScoringService
+    EvaluateAsync(ScoreContext, Boolean, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
     EvaluateAsync(ScoreContext, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
 interface Lyntai.Cortex.ITraceRecorder
     CompleteAsync(CancellationToken=) : Task
@@ -258,6 +259,7 @@ class Lyntai.Cortex.Scorers.StructureScorer
     ScoreAsync(ScoreContext, CancellationToken) : Task<ScoreResult>
 class Lyntai.Cortex.ScoringService
     .ctor(IEnumerable<IScorer>, IScoreStore=, ILogger<ScoringService>=)
+    EvaluateAsync(ScoreContext, Boolean, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
     EvaluateAsync(ScoreContext, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
 class Lyntai.Cortex.TraceService
     .ctor(ITraceStore=, Func<DateTimeOffset>=, ILogger<TraceService>=)

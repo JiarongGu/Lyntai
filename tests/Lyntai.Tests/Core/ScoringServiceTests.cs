@@ -1,4 +1,5 @@
 using Lyntai.Cortex;
+using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Core;
@@ -49,5 +50,19 @@ public class ScoringServiceTests
 
         Assert.Single(results);
         Assert.Equal("ok", results[0].ScorerId);
+    }
+
+    [Fact]
+    public async Task Dry_run_scores_without_persisting_even_when_a_store_is_wired()
+    {
+        var store = new InMemoryScoreStore();
+        var service = new ScoringService([new FakeScorer("a", score: _ => new ScoreResult(0.5))], store);
+
+        var dry = await service.EvaluateAsync(Ctx, persist: false);
+        Assert.Single(dry);                          // scored...
+        Assert.Empty(await store.GetAsync("s1"));    // ...but nothing written
+
+        await service.EvaluateAsync(Ctx);            // default overload persists
+        Assert.Single(await store.GetAsync("s1"));
     }
 }

@@ -415,7 +415,7 @@ persist, per-scorer judge model preserved, model retuning takes effect live).
     (`AVG(score), COUNT` grouped by scorer); (c) a **bulk/all-sessions read/export** (`session_id, scorer_id,
     score` dump for a tuning dataset). Files: `src/Lyntai.Core/Storage/IScoreStore.cs`, the three
     `*ScoreStore.cs` impls + the score migration on each backend + `JobStoreContract`-style cross-backend tests.
-- [ ] **A2 · `IScoringService`: evaluate WITHOUT persisting even when a store is wired — HARD (blocker)**
+- [x] **A2 · `IScoringService`: evaluate WITHOUT persisting even when a store is wired — HARD (blocker)**
   - `ScoringService.EvaluateAsync` auto-saves whenever an `IScoreStore` is registered, so a dry/preview path
     can't score without writing rows. Add an overload/flag (`EvaluateAsync(ctx, persist: false)`) or split
     evaluate-vs-persist. Files: `src/Lyntai.Core/Cortex/{IScoringService,ScoringService}.cs`.

@@ -13,7 +13,10 @@ public sealed class ScoringService(
 {
     private readonly ILogger _logger = logger ?? NullLogger<ScoringService>.Instance;
 
-    public async Task<IReadOnlyList<ScoredResult>> EvaluateAsync(ScoreContext ctx, CancellationToken ct = default)
+    public Task<IReadOnlyList<ScoredResult>> EvaluateAsync(ScoreContext ctx, CancellationToken ct = default) =>
+        EvaluateAsync(ctx, persist: true, ct);
+
+    public async Task<IReadOnlyList<ScoredResult>> EvaluateAsync(ScoreContext ctx, bool persist, CancellationToken ct = default)
     {
         var results = new List<ScoredResult>();
         foreach (var scorer in scorers)
@@ -31,7 +34,7 @@ public sealed class ScoringService(
             }
         }
 
-        if (store is not null && results.Count > 0)
+        if (persist && store is not null && results.Count > 0)
         {
             try
             {
