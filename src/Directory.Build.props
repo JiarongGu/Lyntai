@@ -29,7 +29,8 @@
   <PropertyGroup>
     <Authors>Jiarong Gu</Authors>
     <Product>Lyntai</Product>
-    <PackageProjectUrl>https://github.com/</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/JiarongGu/Lyntai</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JiarongGu/Lyntai</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
