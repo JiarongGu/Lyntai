@@ -45,15 +45,31 @@ public static class LyntaiServiceCollectionExtensions
                 "ILlmClient is already registered — the decorators would be silently ignored. Either don't pre-register " +
                 "ILlmClient, or use the BYO seams (IResponseCache / IUsageTracker / IRateLimiter) instead.");
 
+        // Compose per feature area — each block is self-contained and order-independent across areas (they
+        // register distinct service types; the front-door decorators fold at resolution, not registration).
         services.AddSingleton(options);
+        RegisterLlmFrontDoor(services, builder, options);
+        RegisterCortex(services);
+        RegisterSemanticMemory(services);
+        RegisterAgents(services, options);
+        RegisterJobs(services, options);
+        RegisterGuardsAndChat(services);
+
+        return services;
+    }
+
+    /// <summary>The LLM front door: process runner, dead-host tracker, router, and the consumer
+    /// <see cref="ILlmClient"/> — Lyntai behaving like ONE provider, with any front-door decorators folded
+    /// over the base client.</summary>
+    private static void RegisterLlmFrontDoor(IServiceCollection services, LyntaiBuilder builder, LyntaiOptions options)
+    {
         services.TryAddSingleton<IProcessRunner, ProcessRunner>(); // BYO: register your own IProcessRunner first to override spawning
         services.TryAddSingleton(sp => new DeadHostTracker(
             options.DeadHostThreshold, options.DeadHostCooldown, logger: sp.GetService<ILogger<DeadHostTracker>>()));
         services.TryAddSingleton<ILlmRouter>(sp => new LlmRouter(
             sp.GetServices<ILlmProvider>(), sp.GetRequiredService<DeadHostTracker>(), options, sp.GetService<ILogger<LlmRouter>>()));
-        // the consumer front door: Lyntai behaving like ONE provider (default candidates internal). Any
-        // registered front-door decorators (response cache, usage budget, …) are folded over the base
-        // client in registration order, so they compose instead of clobbering one another.
+        // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
+        // are folded over the base client in registration order, so they compose instead of clobbering.
         services.TryAddSingleton<ILlmClient>(sp =>
         {
             ILlmClient client = new LlmClient(sp.GetRequiredService<ILlmRouter>(), options);
@@ -65,9 +81,12 @@ public static class LyntaiServiceCollectionExtensions
             // guard above.
             return new RefusalScreeningLlmClient(client, sp.GetService<ILogger<RefusalScreeningLlmClient>>());
         });
+    }
 
-        // The cortex services tolerate absent storage (null store → fail-open/no-op), so the minimal
-        // setup — a provider and nothing else — still resolves everything.
+    /// <summary>The LLM-ops cortex: prompt registry, scoring, tracing, prompt composition, and the pairwise
+    /// judge. All tolerate absent storage (null store → fail-open/no-op), so a provider-only setup resolves.</summary>
+    private static void RegisterCortex(IServiceCollection services)
+    {
         services.TryAddSingleton<IPromptRegistry>(sp => new PromptRegistry(
             sp.GetService<IKeyValueStore>(), sp.GetService<IPromptVersionStore>(), sp.GetService<ILogger<PromptRegistry>>()));
         services.TryAddSingleton<IScoringService>(sp => new ScoringService(
@@ -78,27 +97,34 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
             sp.GetService<ILogger<MemoryPromptComposer>>()));
         services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ILlmClient>()));
+    }
 
-        // semantic memory — wired ONLY when an embedder is registered (AddEmbeddings). Composes the app's
-        // IEmbedder with a vector store (in-memory default; register your own IVectorStore for pgvector/
-        // etc.). Absent an embedder it isn't registered, so the composer/orchestrator resolve null and skip
-        // it — no accidental throws on every turn.
-        if (services.Any(d => d.ServiceType == typeof(Lyntai.Embeddings.IEmbedder)))
-        {
-            services.TryAddSingleton<Lyntai.Memory.IVectorStore, Lyntai.Memory.InMemoryVectorStore>();
-            services.TryAddSingleton<Lyntai.Memory.ISemanticMemory>(sp => new Lyntai.Memory.SemanticMemory(
-                sp.GetRequiredService<Lyntai.Embeddings.IEmbedder>(), sp.GetRequiredService<Lyntai.Memory.IVectorStore>(),
-                sp.GetService<ILogger<Lyntai.Memory.SemanticMemory>>()));
-        }
+    /// <summary>Semantic memory — wired ONLY when an embedder is registered (AddEmbeddings). Composes the
+    /// app's IEmbedder with a vector store (in-memory default; register your own IVectorStore for pgvector/
+    /// etc.). Absent an embedder it isn't registered, so the composer/orchestrator resolve null and skip it —
+    /// no accidental throws on every turn.</summary>
+    private static void RegisterSemanticMemory(IServiceCollection services)
+    {
+        if (!services.Any(d => d.ServiceType == typeof(Lyntai.Embeddings.IEmbedder))) return;
+        services.TryAddSingleton<Lyntai.Memory.IVectorStore, Lyntai.Memory.InMemoryVectorStore>();
+        services.TryAddSingleton<Lyntai.Memory.ISemanticMemory>(sp => new Lyntai.Memory.SemanticMemory(
+            sp.GetRequiredService<Lyntai.Embeddings.IEmbedder>(), sp.GetRequiredService<Lyntai.Memory.IVectorStore>(),
+            sp.GetService<ILogger<Lyntai.Memory.SemanticMemory>>()));
+    }
 
-        // agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-
-        // agnostically over the front door (works with zero tools too — it degenerates to one completion)
+    /// <summary>Agentic tool-calling: the registry gathers any registered ITools; the loop runs provider-
+    /// agnostically over the front door (works with zero tools too — it degenerates to one completion).</summary>
+    private static void RegisterAgents(IServiceCollection services, LyntaiOptions options)
+    {
         services.TryAddSingleton<IToolRegistry>(sp => new ToolRegistry(sp.GetServices<ITool>()));
         services.TryAddSingleton<IToolLoop>(sp => new ToolLoop(
             sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolRegistry>(), options, sp.GetService<ILogger<ToolLoop>>()));
+    }
 
-        // durable jobs: registry gathers registered IJobHandlers; queue/runner drive them over IJobStore
-        // (they throw if no storage backend is wired — durable work must be persisted, not silently lost)
+    /// <summary>Durable jobs: the handler registry, enqueue queue, admission control, runner, and scheduler.
+    /// The queue/runner throw if no IJobStore is wired — durable work must be persisted, not silently lost.</summary>
+    private static void RegisterJobs(IServiceCollection services, LyntaiOptions options)
+    {
         services.TryAddSingleton<IJobHandlerRegistry>(sp => new JobHandlerRegistry(sp.GetServices<IJobHandler>()));
         services.TryAddSingleton<IJobQueue>(sp => new JobQueue(sp.GetService<IJobStore>(), options));
         // admission control: an app can register its own to throttle lanes by external load; default admits all
@@ -111,17 +137,18 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IJobScheduler>(sp => new JobScheduler(
             sp.GetRequiredService<IJobQueue>(), sp.GetServices<JobSchedule>(), options,
             sp.GetService<IKeyValueStore>(), sp.GetService<ILogger<JobScheduler>>()));
+    }
 
-        // scope-guard / jail hooks: the rail gathers any registered IGuards (empty = allow everything)
+    /// <summary>Scope-guard/jail hooks and the two-gate chat orchestrator that composes guards + memory +
+    /// the tool loop into one guarded turn.</summary>
+    private static void RegisterGuardsAndChat(IServiceCollection services)
+    {
+        // the rail gathers any registered IGuards (empty = allow everything)
         services.TryAddSingleton<IGuardRail>(sp => new GuardRail(sp.GetServices<IGuard>(), sp.GetService<ILogger<GuardRail>>()));
-
-        // two-gate chat orchestration: composes guards + memory + the tool loop into one guarded turn
         services.TryAddSingleton<IChatOrchestrator>(sp => new ChatOrchestrator(
             sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolLoop>(), sp.GetRequiredService<IToolRegistry>(),
             sp.GetRequiredService<IGuardRail>(), sp.GetRequiredService<IPromptComposer>(),
             sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
             sp.GetService<ILogger<ChatOrchestrator>>()));
-
-        return services;
     }
 }

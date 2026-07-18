@@ -181,6 +181,7 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
         return [.. rows.Select(r => r.ToRecord())];
     }
 
+    /// <summary>A fenced write: only lands while THIS worker holds the Running claim; returns rows-affected>0.</summary>
     private async Task<bool> Fenced(string setClause, Guid id, string workerId, CancellationToken ct, object? extra = null)
     {
         var now = _clock();

@@ -1009,5 +1009,7 @@ class Lyntai.Storage.PromptVersion
     Version : Int32
 static class Lyntai.Text.JsonExtract
     ExtractObject(String) : String
+    IsValid(String) : Boolean
+    TryParseObject(String, JsonDocument&) : Boolean
 static class Microsoft.Extensions.DependencyInjection.LyntaiServiceCollectionExtensions
     AddLyntai(IServiceCollection, Action<LyntaiBuilder>) : IServiceCollection

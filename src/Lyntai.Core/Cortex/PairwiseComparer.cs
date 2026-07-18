@@ -75,11 +75,9 @@ public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBia
     internal static bool TryParse(string text, out PairwiseResult result)
     {
         result = new PairwiseResult(PairwiseWinner.Tie);
-        var json = JsonExtract.ExtractObject(text);
-        if (json is null) return false;
-        try
+        if (!JsonExtract.TryParseObject(text, out var doc)) return false;
+        using (doc)
         {
-            using var doc = JsonDocument.Parse(json);
             if (!doc.RootElement.TryGetProperty("winner", out var w) || w.ValueKind != JsonValueKind.String)
                 return false;
             var winner = w.GetString()?.Trim().ToLowerInvariant() switch
@@ -93,10 +91,6 @@ public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBia
                 : null;
             result = new PairwiseResult(winner, reason);
             return true;
-        }
-        catch (JsonException)
-        {
-            return false;
         }
     }
 }

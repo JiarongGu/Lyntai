@@ -44,11 +44,9 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
     internal static bool TryParseVerdict(string text, out ScoreResult result)
     {
         result = new ScoreResult(0);
-        var json = JsonExtract.ExtractObject(text);
-        if (json is null) return false;
-        try
+        if (!JsonExtract.TryParseObject(text, out var doc)) return false;
+        using (doc)
         {
-            using var doc = JsonDocument.Parse(json);
             if (!doc.RootElement.TryGetProperty("score", out var scoreEl) || scoreEl.ValueKind != JsonValueKind.Number)
                 return false;
             var score = Math.Clamp(scoreEl.GetDouble(), 0.0, 1.0);
@@ -57,10 +55,6 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
                 : null;
             result = new ScoreResult(score, reason);
             return true;
-        }
-        catch (JsonException)
-        {
-            return false;
         }
     }
 }

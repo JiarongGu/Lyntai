@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Lyntai.Text;
 
 namespace Lyntai.Cortex.Scorers;
@@ -33,24 +32,11 @@ public sealed class StructureScorer : IScorer
     private static ScoreResult ScoreJson(string? output)
     {
         if (string.IsNullOrWhiteSpace(output)) return new ScoreResult(0.0, "empty output, json expected");
-        if (IsValidJson(output)) return new ScoreResult(1.0, "output is valid json");
+        if (JsonExtract.IsValid(output)) return new ScoreResult(1.0, "output is valid json");
 
         var embedded = JsonExtract.ExtractObject(output);
-        if (embedded is not null && IsValidJson(embedded))
+        if (JsonExtract.IsValid(embedded))
             return new ScoreResult(0.7, "json extractable from surrounding prose");
         return new ScoreResult(0.0, "no parseable json in output");
-    }
-
-    private static bool IsValidJson(string text)
-    {
-        try
-        {
-            using var _ = JsonDocument.Parse(text);
-            return true;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
     }
 }
