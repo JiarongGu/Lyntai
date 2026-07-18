@@ -57,6 +57,8 @@ public sealed class M202607170001_InitialSchema : Migration
         // index small and within btree size limits (a unique index on raw TEXT content could exceed them).
         Execute.Sql("CREATE UNIQUE INDEX ux_lyntai_memory_dedup ON lyntai_memory_entry (task_key, scope, md5(content))");
 
+        // UNIQUE(session_id, scorer_id) makes SaveAsync an upsert (re-scoring replaces) and serves the
+        // session-prefix lookups, so no separate session index is needed.
         Execute.Sql("""
             CREATE TABLE lyntai_score_result (
                 id BIGSERIAL PRIMARY KEY,
@@ -67,10 +69,10 @@ public sealed class M202607170001_InitialSchema : Migration
                 is_llm BOOLEAN NOT NULL,
                 score DOUBLE PRECISION NOT NULL,
                 reason TEXT NULL,
-                created_at TIMESTAMPTZ NOT NULL
+                created_at TIMESTAMPTZ NOT NULL,
+                UNIQUE(session_id, scorer_id)
             )
             """);
-        Execute.Sql("CREATE INDEX ix_lyntai_score_session ON lyntai_score_result(session_id)");
 
         Execute.Sql("""
             CREATE TABLE lyntai_run_trace (

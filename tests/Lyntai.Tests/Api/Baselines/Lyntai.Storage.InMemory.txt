@@ -54,6 +54,8 @@ class Lyntai.Storage.InMemory.InMemoryPromptVersionStore
     SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
 class Lyntai.Storage.InMemory.InMemoryScoreStore
     .ctor()
+    AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
+    ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
     GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
     SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
 class Lyntai.Storage.InMemory.InMemoryTraceStore

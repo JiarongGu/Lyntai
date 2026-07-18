@@ -96,6 +96,8 @@ class Lyntai.Storage.Postgres.PostgresResponseCache
     TryGetAsync(String, CancellationToken=) : Task<LlmReply>
 class Lyntai.Storage.Postgres.PostgresScoreStore
     .ctor(IDbConnectionFactory)
+    AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
+    ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
     GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
     SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
 class Lyntai.Storage.Postgres.PostgresTraceStore

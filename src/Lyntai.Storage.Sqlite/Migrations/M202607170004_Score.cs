@@ -7,7 +7,9 @@ public sealed class M202607170004_Score : Migration
 {
     public override void Up()
     {
-        // score_group instead of the "group" keyword; score is REAL but SELECTs still CAST (affinity trap)
+        // score_group instead of the "group" keyword; score is REAL but SELECTs still CAST (affinity trap).
+        // UNIQUE(session_id, scorer_id) makes SaveAsync an upsert (re-scoring replaces, not accumulates) and
+        // doubles as the session-prefix index, so no separate session index is needed.
         Execute.Sql("""
             CREATE TABLE lyntai_score_result (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,10 +20,10 @@ public sealed class M202607170004_Score : Migration
                 is_llm INTEGER NOT NULL,
                 score REAL NOT NULL,
                 reason TEXT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                UNIQUE(session_id, scorer_id)
             )
             """);
-        Execute.Sql("CREATE INDEX ix_lyntai_score_session ON lyntai_score_result(session_id)");
     }
 
     public override void Down()

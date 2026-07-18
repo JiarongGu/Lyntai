@@ -99,6 +99,25 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     }
 
     [Fact]
+    public async Task Score_rescore_upserts_not_accumulates()
+    {
+        if (!pg.Available) return;
+        // ON CONFLICT (session_id, scorer_id) — session-scoped so it's safe in the shared container.
+        // (Aggregate/Export are table-wide, so they're covered cross-backend by the InMemory + SQLite
+        // ScoreStoreContract rather than here.)
+        var store = new PostgresScoreStore(pg.Factory);
+        var s = Uid();
+
+        await store.SaveAsync(s, [new ScoredResult("a", "A", "g", false, 0.5), new ScoredResult("b", "B", "g", false, 0.3)]);
+        await store.SaveAsync(s, [new ScoredResult("a", "A", "g", false, 0.9)]); // re-score "a"
+
+        var results = await store.GetAsync(s);
+        Assert.Equal(2, results.Count);
+        Assert.Equal(0.9, results.Single(x => x.ScorerId == "a").Score);
+        Assert.Equal(0.3, results.Single(x => x.ScorerId == "b").Score);
+    }
+
+    [Fact]
     public async Task Trace_round_trips_with_trace_id_and_totals()
     {
         if (!pg.Available) return;

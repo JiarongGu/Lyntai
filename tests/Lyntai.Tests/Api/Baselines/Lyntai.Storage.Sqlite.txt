@@ -125,6 +125,8 @@ class Lyntai.Storage.Sqlite.SqliteResponseCache
     TryGetAsync(String, CancellationToken=) : Task<LlmReply>
 class Lyntai.Storage.Sqlite.SqliteScoreStore
     .ctor(IDbConnectionFactory)
+    AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
+    ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
     GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
     SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
 class Lyntai.Storage.Sqlite.SqliteTraceStore

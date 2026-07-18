@@ -194,6 +194,16 @@ class Lyntai.Cortex.ScoreContext
     Output : String
     SessionId : String
     ToString() : String
+class Lyntai.Cortex.ScoreExportRow
+    .ctor(String, String, Double)
+    Deconstruct(String&, String&, Double&) : Void
+    Equals(Object) : Boolean
+    Equals(ScoreExportRow) : Boolean
+    GetHashCode() : Int32
+    Score : Double
+    ScorerId : String
+    SessionId : String
+    ToString() : String
 class Lyntai.Cortex.ScoreResult
     .ctor(Double, String=)
     Deconstruct(Double&, String&) : Void
@@ -213,6 +223,17 @@ class Lyntai.Cortex.ScoredResult
     IsLlm : Boolean
     Reason : String
     Score : Double
+    ScorerId : String
+    ScorerName : String
+    ToString() : String
+class Lyntai.Cortex.ScorerAggregate
+    .ctor(String, String, Double, Int32)
+    AverageScore : Double
+    Count : Int32
+    Deconstruct(String&, String&, Double&, Int32&) : Void
+    Equals(Object) : Boolean
+    Equals(ScorerAggregate) : Boolean
+    GetHashCode() : Int32
     ScorerId : String
     ScorerName : String
     ToString() : String
@@ -981,6 +1002,8 @@ interface Lyntai.Storage.IPromptVersionStore
     RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
     SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
 interface Lyntai.Storage.IScoreStore
+    AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
+    ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
     GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
     SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
 interface Lyntai.Storage.ITraceStore

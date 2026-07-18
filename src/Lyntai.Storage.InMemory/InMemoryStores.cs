@@ -101,7 +101,12 @@ public sealed class InMemoryScoreStore : IScoreStore
         lock (_lock)
         {
             if (!_bySession.TryGetValue(sessionId, out var list)) _bySession[sessionId] = list = [];
-            list.AddRange(results);
+            // upsert on (session, scorer): re-scoring REPLACES that scorer's row (matches the SQL stores)
+            foreach (var r in results)
+            {
+                var i = list.FindIndex(e => e.ScorerId == r.ScorerId);
+                if (i >= 0) list[i] = r; else list.Add(r);
+            }
         }
         return Task.CompletedTask;
     }
@@ -112,6 +117,35 @@ public sealed class InMemoryScoreStore : IScoreStore
         {
             IReadOnlyList<ScoredResult> result = _bySession.TryGetValue(sessionId, out var list) ? [.. list] : [];
             return Task.FromResult(result);
+        }
+    }
+
+    public Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default)
+    {
+        lock (_lock)
+        {
+            IReadOnlyList<ScorerAggregate> agg =
+            [
+                .. _bySession.Values.SelectMany(l => l)
+                    .GroupBy(r => r.ScorerId, StringComparer.Ordinal)
+                    .OrderBy(g => g.Key, StringComparer.Ordinal)
+                    .Select(g => new ScorerAggregate(g.Key, g.First().ScorerName, g.Average(r => r.Score), g.Count())),
+            ];
+            return Task.FromResult(agg);
+        }
+    }
+
+    public Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default)
+    {
+        lock (_lock)
+        {
+            IReadOnlyList<ScoreExportRow> rows =
+            [
+                .. _bySession
+                    .SelectMany(kv => kv.Value.Select(r => new ScoreExportRow(kv.Key, r.ScorerId, r.Score)))
+                    .OrderBy(r => r.SessionId, StringComparer.Ordinal).ThenBy(r => r.ScorerId, StringComparer.Ordinal),
+            ];
+            return Task.FromResult(rows);
         }
     }
 }

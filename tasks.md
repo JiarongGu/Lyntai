@@ -394,6 +394,65 @@ Lyntai gap. One genuine Lyntai gap:
 
 ---
 
+## Part 5 — Adoption gaps: cortex + scoring (2026-07-18)
+
+Trying to replace a real adopting app's (Gatherlight's) hand-rolled **cortex** (prompt/model tuning) and
+**scoring** with Lyntai's surfaced where Lyntai is the runtime CORE but not yet the full adoptable surface —
+a wholesale swap today would *regress* the app. Goal: make Lyntai's cortex+scoring genuinely adoptable so a
+real app can retire its own `ScoringService`/`ScoreRepository` + cortex model-routing with **no regression**.
+
+**HARD requirements (a migration REGRESSES the product without these — do first): A1, A2, A3, A6.**
+Should-have: A7. Nice-to-have / polish: A4, A5. Each is a generic library improvement, not app-specific.
+**Definition of done:** after A1–A3 + A6, the adopting app's scoring framework + cortex model tuning move
+onto Lyntai losing nothing (no duplicate score rows, the eval aggregate UI still works, dry runs don't
+persist, per-scorer judge model preserved, model retuning takes effect live).
+
+### Scoring
+- [x] **A1 · `IScoreStore`: upsert + cross-session aggregate + bulk export — HARD (blocker)**
+  - Today it's `SaveAsync` (append-only INSERT) + `GetAsync(session)`. Without this the eval UI breaks and
+    re-scoring corrupts data. Needs: (a) **upsert** on `(session_id, scorer_id)` (re-scoring REPLACES, not
+    accumulates — add the unique/PK + ON CONFLICT); (b) a cross-session per-scorer **aggregate**
+    (`AVG(score), COUNT` grouped by scorer); (c) a **bulk/all-sessions read/export** (`session_id, scorer_id,
+    score` dump for a tuning dataset). Files: `src/Lyntai.Core/Storage/IScoreStore.cs`, the three
+    `*ScoreStore.cs` impls + the score migration on each backend + `JobStoreContract`-style cross-backend tests.
+- [ ] **A2 · `IScoringService`: evaluate WITHOUT persisting even when a store is wired — HARD (blocker)**
+  - `ScoringService.EvaluateAsync` auto-saves whenever an `IScoreStore` is registered, so a dry/preview path
+    can't score without writing rows. Add an overload/flag (`EvaluateAsync(ctx, persist: false)`) or split
+    evaluate-vs-persist. Files: `src/Lyntai.Core/Cortex/{IScoringService,ScoringService}.cs`.
+- [ ] **A3 · `LlmScorerBase`: per-scorer model + consumer hook — HARD (blocker)**
+  - It hardcodes the default candidates + `Consumer="scoring"`, so every judge runs on the default model — a
+    real app routes cheap judges to a cheap model (e.g. haiku) per scorer. Let the subclass/ctor set a `Model`
+    + `Consumer` threaded into the `CompleteJsonAsync` request. File: `src/Lyntai.Core/Cortex/LlmScorerBase.cs`.
+- [ ] **A4 · `IScorer.Description` (optional) — nice-to-have** — an admin "list scorers" view wants a human
+    description beyond `Name`. Add an optional `Description` (default "") or document it as app-owned.
+    File: `src/Lyntai.Core/Cortex/IScorer.cs`.
+- [ ] **A5 · Document the `ScoreContext.Extra` domain-dimension pattern — nice-to-have** — domain scorers put
+    their dimensions (phase/mode/changed-files) into `Extra` (stringly-typed; list values must be serialized).
+    Document this as the intended extension pattern on `ScoreContext`, or add a typed-context helper.
+    Files: `src/Lyntai.Core/Cortex/ScoreModels.cs` + `.claude/knowledge/`.
+
+### Cortex
+- [ ] **A6 · Live per-consumer model override read into `ResolveModel` — HARD (blocker)**
+  - Model routing (`DefaultModelByConsumer` + `LYNTAI_MODEL_<CONSUMER>`) resolves from code config + env at
+    STARTUP, so an admin-set model retune never takes effect without a restart. Add an optional KV-backed
+    `IModelRoutingStore` that `ResolveModel`/`LlmRouter` consults LIVE (KV override → per-consumer default →
+    "default" → provider default), mirroring how `IPromptRegistry` reads a live prompt override. Files:
+    `src/Lyntai.Core/LyntaiOptions.cs` (ResolveModel), `src/Lyntai.Core/Llm/Routing/LlmRouter.cs`.
+- [ ] **A7 · Surface the placeholder-contract violation to the caller — should-have**
+  - `PromptRegistry.RenderAsync` enforces "an override must keep the default's `{placeholders}`" but only
+    LOGS + silently falls back. An admin save-flow needs to REJECT with the exact missing tokens (the app can
+    pre-validate today, but the library should own it). Add a `TryValidateOverride(name, defaultTemplate,
+    candidate) → missing[]` (or a strict render mode) the app calls before persisting.
+    File: `src/Lyntai.Core/Prompts/PromptRegistry.cs`.
+
+### Not gaps (app-owned — recorded so they aren't re-raised)
+The prompt catalog (names/labels/descriptions/groups/placeholder lists), the model-consumer catalog +
+suggestions, the `/api/manage/*` controllers + client panels, the domain scorers, `BuildContext` (rebuild
+a score context from the app's own session/event tables), and backlog orchestration all correctly stay in
+the adopting app. Lyntai renders / stores / versions / scores; the app owns its domain metadata + UI.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
