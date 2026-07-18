@@ -33,7 +33,9 @@ public sealed class LyntaiBuilder
     internal List<(int Order, Func<IServiceProvider, ILlmClient, ILlmClient> Decorate)> FrontDoorDecorators { get; } = [];
 
     // Fold order (higher = outer). The cache is OUTERMOST so a hit returns without touching inner
-    // decorators — in particular a cached hit is free and must NOT count toward the usage budget.
+    // decorators — in particular a cached hit is free and must NOT count toward the usage budget or spend a
+    // rate-limit permit. Rate-limit is innermost (closest to the provider — it throttles real calls).
+    internal const int RateLimitDecoratorOrder = 5;
     internal const int BudgetDecoratorOrder = 10;
     internal const int CacheDecoratorOrder = 20;
 
@@ -142,6 +144,22 @@ public sealed class LyntaiBuilder
         FrontDoorDecorators.Add((BudgetDecoratorOrder, (sp, inner) => new Lyntai.Llm.Budgeting.BudgetedLlmClient(
             inner, sp.GetRequiredService<Lyntai.Llm.Budgeting.IUsageTracker>(), Options,
             sp.GetService<ILogger<Lyntai.Llm.Budgeting.BudgetedLlmClient>>())));
+        return this;
+    }
+
+    /// <summary>Throttle front-door calls with a token-bucket rate limiter — over the rate a call waits up
+    /// to <see cref="RateLimitOptions.MaxWait"/>, then is refused (a <c>RateLimited</c> reply). Global rate
+    /// via <see cref="RateLimitOptions"/> (<c>PermitsPerSecond</c>/<c>Burst</c>) with optional per-consumer
+    /// rates; also <c>LYNTAI_RATELIMIT_*</c>. Sits inside the response cache, so cached hits don't spend a
+    /// permit. Register your own <see cref="Lyntai.Llm.RateLimiting.IRateLimiter"/> before this for a
+    /// distributed/shared limiter.</summary>
+    public LyntaiBuilder AddRateLimit(Action<RateLimitOptions>? configure = null)
+    {
+        configure?.Invoke(Options.RateLimit);
+        Services.TryAddSingleton<Lyntai.Llm.RateLimiting.IRateLimiter>(_ => new Lyntai.Llm.RateLimiting.TokenBucketRateLimiter(Options));
+        FrontDoorDecorators.Add((RateLimitDecoratorOrder, (sp, inner) => new Lyntai.Llm.RateLimiting.RateLimitedLlmClient(
+            inner, sp.GetRequiredService<Lyntai.Llm.RateLimiting.IRateLimiter>(),
+            sp.GetService<ILogger<Lyntai.Llm.RateLimiting.RateLimitedLlmClient>>())));
         return this;
     }
 

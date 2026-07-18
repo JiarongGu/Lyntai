@@ -13,7 +13,8 @@ namespace Lyntai;
 /// <c>LYNTAI_RETRY_FAILED</c>, <c>LYNTAI_RETRY_TIMEOUT</c>, <c>LYNTAI_RETRY_BACKOFF_SECONDS</c>,
 /// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>),
 /// <c>LYNTAI_TOOL_LOOP_MAX_ITERATIONS</c>, <c>LYNTAI_CACHE_TTL_SECONDS</c>, <c>LYNTAI_CACHE_MAX_ENTRIES</c>,
-/// <c>LYNTAI_BUDGET_MAX_COST_USD</c>, <c>LYNTAI_BUDGET_MAX_TOKENS</c>.
+/// <c>LYNTAI_BUDGET_MAX_COST_USD</c>, <c>LYNTAI_BUDGET_MAX_TOKENS</c>,
+/// <c>LYNTAI_RATELIMIT_PERMITS_PER_SECOND</c>, <c>LYNTAI_RATELIMIT_BURST</c>, <c>LYNTAI_RATELIMIT_MAX_WAIT_SECONDS</c>.
 /// </summary>
 public sealed class LyntaiOptions
 {
@@ -55,6 +56,9 @@ public sealed class LyntaiOptions
 
     /// <summary>Usage caps (cost/token ceilings) for the opt-in <c>AddUsageBudget</c>.</summary>
     public BudgetOptions Budget { get; } = new();
+
+    /// <summary>Client-side throttling for the opt-in <c>AddRateLimit</c>.</summary>
+    public RateLimitOptions RateLimit { get; } = new();
 
     /// <summary>Resolve the model for a request: explicit request model wins, then the consumer's
     /// configured default, then the "default" consumer entry, then null (provider default).</summary>
@@ -112,6 +116,14 @@ public sealed class LyntaiOptions
             Budget.MaxCostUsd = bc;
         if (long.TryParse(getEnv("LYNTAI_BUDGET_MAX_TOKENS"), out var bt) && bt >= 0)
             Budget.MaxTokens = bt;
+
+        // rate-limit knobs (global rate; per-consumer rates are code-only)
+        if (double.TryParse(getEnv("LYNTAI_RATELIMIT_PERMITS_PER_SECOND"), NumberStyles.Float, CultureInfo.InvariantCulture, out var rps) && rps >= 0)
+            RateLimit.PermitsPerSecond = rps;
+        if (int.TryParse(getEnv("LYNTAI_RATELIMIT_BURST"), out var rlb) && rlb > 0)
+            RateLimit.Burst = rlb;
+        if (double.TryParse(getEnv("LYNTAI_RATELIMIT_MAX_WAIT_SECONDS"), NumberStyles.Float, CultureInfo.InvariantCulture, out var rmw) && rmw >= 0)
+            RateLimit.MaxWait = TimeSpan.FromSeconds(rmw);
 
         // routing policy knobs (design §6 is the default; these tune it without code)
         if (int.TryParse(getEnv("LYNTAI_RETRY_FAILED"), out var rf) && rf >= 0)

@@ -151,6 +151,13 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   writes each remembered exchange to both stores. Semantic memory is registered only when an `IEmbedder`
   is, so the chat path skips it cleanly otherwise. Closes the v0.19 "composer integration stays opt-in" note.
 
+### v0.21.0 — client-side rate limiting (2026-07)
+- ✅ **Rate limiting** (`AddRateLimit`) — a token-bucket front-door decorator: over the configured rate a
+  call waits up to `MaxWait` then is refused (`RateLimited`), without hitting a provider. Global +
+  per-consumer rates; swappable `IRateLimiter` seam (in-memory `TokenBucketRateLimiter` default,
+  distributed later). Completes the governance trio (cache · budget · rate-limit); folds innermost so a
+  cached hit spends no permit. `lyntai.ratelimit.refusals` counter.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

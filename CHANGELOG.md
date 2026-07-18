@@ -3,6 +3,28 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.21.0 — 2026-07-18
+
+Client-side rate limiting — the third front-door governance decorator, completing the trio with response
+caching (cost/latency) and usage budgeting (spend): cache · budget · **rate limit** (throughput). All
+compose on the same ordered decorator chain.
+
+### Added
+- **`AddRateLimit([configure])`** — throttles front-door calls with a token bucket. Over the rate a call
+  waits up to `MaxWait`, then is refused (a `RateLimited` reply / an Error stream chunk) without hitting a
+  provider. Global rate via `RateLimitOptions` (`PermitsPerSecond` / `Burst` / `MaxWait`) with optional
+  per-consumer rates (`ConsumerRate`); also `LYNTAI_RATELIMIT_PERMITS_PER_SECOND` / `_BURST` /
+  `_MAX_WAIT_SECONDS`.
+- **`IRateLimiter`** (the seam) with the built-in **`TokenBucketRateLimiter`** (continuous refill,
+  reservation-based waits, injectable clock). Register your own before `AddRateLimit` for a
+  distributed/shared limiter.
+- A `lyntai.ratelimit.refusals` counter (tagged by consumer) on the `Lyntai.Agents` meter.
+
+### Composition
+- Fold order is now **cache (outer) → budget → rate-limit (inner) → client**, so a **cached hit spends
+  nothing** — no budget accounting and no rate-limit permit; the rate limiter throttles only real provider
+  calls. Order is deterministic regardless of the order the decorators were added.
+
 ## 0.20.0 — 2026-07-18
 
 Semantic memory is now wired into the chat path — the composer and orchestrator use it automatically when

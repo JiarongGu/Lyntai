@@ -212,6 +212,27 @@ returns), the next is refused. Compose with the cache and a **cached hit is free
 the budget (the cache is the outermost decorator). Register your own `IUsageTracker` for persistent/shared
 spend accounting.
 
+### Rate limiting
+
+Throttle throughput with a token bucket. Over the configured rate a call waits briefly for a permit, then
+is refused (`Verdict == RateLimited`) rather than hammering the provider.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .AddOpenAiProvider(/* … */)
+    .AddRateLimit(r =>
+    {
+        r.PermitsPerSecond = 10;
+        r.Burst = 20;                                 // allow a burst after idle
+        r.PerConsumer["scoring"] = new(PermitsPerSecond: 2);
+    }));
+```
+
+Together, caching, budgeting, and rate limiting are the front-door **governance trio** (cost/latency,
+spend, throughput) and compose on one chain — **cache outermost, rate-limit innermost** — so a cached hit
+spends nothing: no budget accounting and no rate-limit permit. Register your own `IRateLimiter` for a
+limiter shared across processes.
+
 ### Observability
 
 Lyntai emits OpenTelemetry GenAI-convention telemetry from the router — the same schema

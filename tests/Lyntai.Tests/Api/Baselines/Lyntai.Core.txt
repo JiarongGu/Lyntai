@@ -98,6 +98,15 @@ class Lyntai.ConsumerBudget
     MaxCostUsd : Nullable<Double>
     MaxTokens : Nullable<Int64>
     ToString() : String
+class Lyntai.ConsumerRate
+    .ctor(Double, Int32=)
+    Burst : Int32
+    Deconstruct(Double&, Int32&) : Void
+    Equals(ConsumerRate) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    PermitsPerSecond : Double
+    ToString() : String
 class Lyntai.Cortex.AgreementReport
     .ctor(Int32, Double, Double, Nullable<Double>)
     Count : Int32
@@ -573,6 +582,16 @@ static class Lyntai.Llm.LlmVerdictClassifier
     FromErrorText(String, LlmVerdict=) : LlmVerdict
     FromException(Exception) : LlmVerdict
     FromHttpFailure(HttpStatusCode, String) : LlmVerdict
+interface Lyntai.Llm.RateLimiting.IRateLimiter
+    AcquireAsync(String, CancellationToken=) : Task<Boolean>
+class Lyntai.Llm.RateLimiting.RateLimitedLlmClient
+    .ctor(ILlmClient, IRateLimiter, ILogger<RateLimitedLlmClient>=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest) : Boolean
+class Lyntai.Llm.RateLimiting.TokenBucketRateLimiter
+    .ctor(LyntaiOptions, Func<DateTimeOffset>=)
+    AcquireAsync(String, CancellationToken=) : Task<Boolean>
 static class Lyntai.Llm.Routing.CandidateDedup
     Dedup(IEnumerable<LlmCandidate>) : IReadOnlyList<LlmCandidate>
 enum Lyntai.Llm.Routing.CooldownScope
@@ -619,6 +638,7 @@ class Lyntai.LyntaiBuilder
     AddJobHandler(Func<IServiceProvider,IJobHandler>) : LyntaiBuilder
     AddProvider() : LyntaiBuilder
     AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
+    AddRateLimit(Action<RateLimitOptions>=) : LyntaiBuilder
     AddResponseCache(Action<CacheOptions>=) : LyntaiBuilder
     AddScorer() : LyntaiBuilder
     AddTool() : LyntaiBuilder
@@ -643,6 +663,7 @@ class Lyntai.LyntaiOptions
     MemoryCapPerScope : Int32
     MemoryRecallLimit : Int32
     ProviderTimeout : TimeSpan
+    RateLimit : RateLimitOptions
     ResolveModel(String, String) : String
     Routing : RoutingPolicy
     ToolLoopMaxIterations : Int32
@@ -715,6 +736,12 @@ class Lyntai.Prompts.PromptRegistry
     .ctor(IKeyValueStore=, IPromptVersionStore=, ILogger<PromptRegistry>=)
     KeyPrefix : String const
     RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
+class Lyntai.RateLimitOptions
+    .ctor()
+    Burst : Int32
+    MaxWait : TimeSpan
+    PerConsumer : Dictionary<String,ConsumerRate>
+    PermitsPerSecond : Double
 static class Lyntai.SecretVaultBuilderExtensions
     AddSecretVault(LyntaiBuilder, Byte[]=, ISecretAccessPolicy=) : LyntaiBuilder
 class Lyntai.Secrets.AesGcmSecretProtector
