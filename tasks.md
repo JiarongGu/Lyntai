@@ -222,7 +222,7 @@ would have caught the bug.
   - Test: two consumers, distinct `DefaultModelByConsumer` entries, `req.Model=null`, identical messages →
     DISTINCT keys / no shared hit; two consumers resolving to the same model → shared hit.
 
-- [ ] **T4 · Streaming `finish_reason=tool_calls` emits a spurious `Refused` after content**
+- [x] **T4 · Streaming `finish_reason=tool_calls` emits a spurious `Refused` after content**
   - File: `src/Lyntai.Providers.OpenAiCompatible/OpenAiCompatibleProvider.cs` (the `finishReason == "tool_calls"`
     branch, ~203).
   - Defect: the branch is NOT gated on `!sawContent`, so a stream that interleaves content deltas then ends

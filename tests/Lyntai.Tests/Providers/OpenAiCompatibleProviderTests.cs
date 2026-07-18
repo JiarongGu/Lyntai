@@ -183,6 +183,50 @@ public class OpenAiCompatibleProviderTests
     }
 
     [Fact]
+    public async Task Sse_tool_calls_finish_with_no_content_surfaces_refused()
+    {
+        // a streamed tool call with NO text: streaming can't carry it, but it's not a host failure
+        const string sse = """
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"f"}}]}}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        var only = Assert.Single(chunks);
+        Assert.Equal(LlmChunkKind.Error, only.Kind);
+        Assert.Equal(LlmVerdict.Refused, only.Verdict); // NOT Failed (would cool down a healthy host)
+    }
+
+    [Fact]
+    public async Task Sse_content_then_tool_calls_finish_keeps_content_with_a_benign_final()
+    {
+        // content streamed, THEN finish_reason=tool_calls — must NOT emit a trailing Error after the content
+        const string sse = """
+            data: {"choices":[{"delta":{"content":"partial answer"}}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        Assert.Equal(["partial answer"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);            // benign Final
+        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Error); // no spurious trailing Error
+    }
+
+    [Fact]
     public async Task Ollama_ndjson_stream_parses_and_final_carries_usage()
     {
         const string ndjson = """
