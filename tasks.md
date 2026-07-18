@@ -1,11 +1,12 @@
 # Lyntai (灵台) — Implementation Plan / Task Backlog
 
-> **Status: phases 0–7 implemented, then roadmap v0.3–v0.27.2 landed on top** (agentic tool-calling,
-> durable jobs, guards, secrets, semantic memory, three storage backends, governance decorators, …).
-> See `CHANGELOG.md` for per-release detail and `docs/ROADMAP.md` for the forward sequence.
-> **➡ Active work: the "Review follow-up (2026-07-18)" section at the bottom of this file** — confirmed
-> defects + Sonora-adoption gaps from an independent review of v0.27.2. Build clean · 571 tests · e2e
-> green · leak scan clean.
+> **Status: phases 0–7 + roadmap v0.3–v0.28 implemented** (agentic tool-calling, durable jobs, guards,
+> secrets, semantic memory, three storage backends, governance decorators, …). See `CHANGELOG.md` for
+> per-release detail and `docs/ROADMAP.md` for the forward sequence.
+> **➡ Active work: "Part 3 — Review round 2" at the bottom of this file.** The round-1 backlog (Part 1/2,
+> T1–T13 + S1–S6) is DONE — the four bugs fixed correctly + tested, the refactor behavior-preserving,
+> S1 crypto core sound. Round 2 = 3 small findings on the new surface. Build clean · 635 tests · e2e
+> 2/2 · leak scan clean.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use `superpowers:subagent-driven-development` (recommended)
 > or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox syntax.
@@ -311,6 +312,59 @@ routing). These are the pieces it still needs before dropping its own code. Prio
   (`Kind`/`Enabled`/`Source` + `UpdateAsync` + per-kind prompt sections); Lyntai's is a remember/recall log.
   Optionally add a curated-entry model + `UpdateAsync` + per-kind composition. Otherwise Sonora keeps its own
   memory module — acceptable; deprioritize.
+
+---
+
+## Part 3 — Review round 2 (2026-07-18)
+
+Findings from reviewing the Part 1/2 work (T1–T13 + S1–S6, all confirmed COMPLETE — the four bugs fixed
+correctly + tested, the refactor behavior-preserving, S1 crypto core sound: fresh per-op nonces, PBKDF2
+@210k, authenticated tag, no plaintext DEK on disk). Three real issues remain on the newly-added surface,
+plus nits. All verified in code; none catastrophic.
+
+- [ ] **N1 · Concurrent step-log reports lose steps on the SQL backends** (BUG)
+  - Files: `src/Lyntai.Core/Jobs/JobContext.cs` (`ReportStepAsync`/`ReportProgressAsync`),
+    `src/Lyntai.Storage.Sqlite/SqliteJobStore.cs` (~64-71), `src/Lyntai.Storage.Postgres/PostgresJobStore.cs`.
+  - Defect: `ReportStepAsync` is a read-modify-write across two round-trips (`GetAsync` → `JobStepLog.Append`
+    → fenced `UPDATE`) with no serialization. Two concurrent (or un-awaited) reports from ONE handler interleave
+    → a step is lost. `InMemoryJobStore` appends under its lock, so it's safe there — a cross-backend divergence
+    too.
+  - Fix: serialize the per-job reporters — they all target the one running row. Cheapest: a `SemaphoreSlim` (or
+    lock) in `JobContext` guarding `ReportStepAsync`/`ReportProgressAsync`/`SaveCheckpointAsync` for that job.
+    (Or an atomic SQL append — harder on SQLite.)
+  - Test: fire N concurrent `ReportStepAsync` from a handler; assert all N steps land, on every backend (add to
+    `JobStoreContract`).
+
+- [ ] **N2 · Recovery-KDF iteration count is honored from the envelope with no floor** (crypto hardening)
+  - File: `src/Lyntai.Core/Secrets/SecretKeyEnvelope.cs` (`FromJson` ~138; `UnwrapWithRecoveryKey` /
+    `DeriveRecoveryKek` ~90/169).
+  - Defect: `RecoveryIterations` is read straight from JSON and fed to `Pbkdf2` unbounded. A tampered/portable
+    envelope can downgrade the KDF (e.g. `1`), and `iterations <= 0` throws `ArgumentOutOfRangeException` — a
+    leaked non-`CryptographicException` on the corrupt-envelope path. Practical brute-force risk is low (192-bit
+    random recovery key), but the iteration count is meant to be a code-owned invariant.
+  - Fix: in `FromJson`/unwrap, reject `RecoveryIterations < DefaultRecoveryIterations` (or a hard floor like
+    100_000) as a `CryptographicException`.
+  - Test: an envelope with `recoveryIterations` of `1` (and `0`) → `CryptographicException`.
+
+- [ ] **N3 · Envelope `version` is written but never enforced on read** (risk)
+  - File: `src/Lyntai.Core/Secrets/SecretKeyEnvelope.cs` (`FromJson` ~134).
+  - Defect: `version` is parsed as `?? 1` then discarded — a future v2 envelope opened by v1 code silently
+    misparses as v1 instead of being rejected.
+  - Fix: after parsing, `if (version > CurrentVersion) throw new CryptographicException(...)`; carry the parsed
+    version onto the record. Test: a version-bumped envelope → `CryptographicException`.
+
+- [ ] **N4 · Nits (batch, non-blocking)**
+  - Step-log cap is hard-wired to `JobStepLog.DefaultCap = 200` — add `JobOptions.MaxStepLog` and thread it into
+    the three stores' `Append` calls.
+  - Zero the transient recovery KEK after use — `try/finally { CryptographicOperations.ZeroMemory(kek); }` in
+    `WrapWithRecovery`/`UnwrapWithRecoveryKey` (`SecretKeyEnvelope.cs`). Defense-in-depth (the long-lived DEK is
+    effectively unscrubbable — don't chase it).
+  - `CompleteJsonAsync` (`src/Lyntai.Core/Llm/LlmStructuredExtensions.cs`) still hand-rolls `IsParseable` —
+    replace with `JsonExtract.IsValid(json)` (finish the round-1 refactor's dedup).
+  - Document that `ICuratedMemoryStore.ListAsync` order isn't ordinal-stable across backends (Postgres uses DB
+    collation; `Compose` re-sorts ordinal, so the composed path is fine) — one line on the interface.
+  - Add the two missing tests: an `IJobAdmissionController` that THROWS → treated as hold, pump survives; and
+    `UpdateAsync(source: "")` clears the source on every backend.
 
 ---
 

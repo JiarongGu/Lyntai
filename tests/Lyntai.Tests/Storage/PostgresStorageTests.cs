@@ -360,4 +360,20 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
 
         Assert.False(await store.ReportProgressAsync(id, "intruder", 9, 10, "x")); // fenced
     }
+
+    [Fact]
+    public async Task Job_concurrent_step_reports_all_land()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
+        await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
+
+        const int n = 25; // concurrent reports must not clobber each other (the read-modify-write race)
+        await Task.WhenAll(Enumerable.Range(0, n).Select(i => store.ReportStepAsync(id, "w1", $"step-{i}")));
+
+        var messages = JobStepLog.Parse((await store.GetAsync(id))!.StepLog).Select(s => s.Message).ToList();
+        Assert.Equal(n, messages.Count);
+    }
 }

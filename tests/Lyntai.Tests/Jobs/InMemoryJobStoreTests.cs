@@ -31,4 +31,5 @@ public class InMemoryJobStoreTests
     [Fact] public async Task Pause_resume() { var (s, c) = New(); await JobStoreContract.Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it(s, c); }
     [Fact] public async Task Pause_pending_only() { var (s, c) = New(); await JobStoreContract.Pause_only_affects_a_pending_job(s, c); }
     [Fact] public async Task Progress_and_steps() { var (s, c) = New(); await JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced(s, c); }
+    [Fact] public async Task Concurrent_steps() { var (s, c) = New(); await JobStoreContract.Concurrent_step_reports_all_land(s, c); }
 }

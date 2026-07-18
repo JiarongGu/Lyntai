@@ -36,6 +36,7 @@ public class SqliteJobStoreTests
     [Fact] public Task Pause_resume() => Run(JobStoreContract.Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it);
     [Fact] public Task Pause_pending_only() => Run(JobStoreContract.Pause_only_affects_a_pending_job);
     [Fact] public Task Progress_and_steps() => Run(JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced);
+    [Fact] public Task Concurrent_steps() => Run(JobStoreContract.Concurrent_step_reports_all_land);
 
     [Fact]
     public async Task Concurrent_claims_never_double_grab()

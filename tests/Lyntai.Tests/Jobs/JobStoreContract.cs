@@ -251,6 +251,21 @@ public static class JobStoreContract
         Assert.Equal(3, (await store.GetAsync(id))!.Progress); // unchanged
     }
 
+    public static async Task Concurrent_step_reports_all_land(IJobStore store, MutableClock clock)
+    {
+        var id = await store.EnqueueAsync(Spec());
+        await store.ClaimNextAsync("default", "w1", Lease);
+
+        const int n = 25; // fire many concurrent reports from the "handler" — none may be lost to a RMW race
+        var oks = await Task.WhenAll(Enumerable.Range(0, n).Select(i => store.ReportStepAsync(id, "w1", $"step-{i}")));
+        Assert.All(oks, Assert.True);
+
+        var messages = JobStepLog.Parse((await store.GetAsync(id))!.StepLog).Select(s => s.Message).ToList();
+        Assert.Equal(n, messages.Count);
+        Assert.Equal(Enumerable.Range(0, n).Select(i => $"step-{i}").OrderBy(m => m),
+            messages.OrderBy(m => m)); // every step present, exactly once
+    }
+
     public static async Task Pause_only_affects_a_pending_job(IJobStore store, MutableClock clock)
     {
         var running = await store.EnqueueAsync(Spec());
