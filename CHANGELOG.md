@@ -3,6 +3,54 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.28.0 — 2026-07-18
+
+Adds a **portable, recoverable secret vault** and lands the review-follow-up backlog (a second
+multi-agent code review). New package **`Lyntai.Secrets.Dpapi`**; small public-surface additions to
+`Lyntai.Core` (envelope vault) — see below.
+
+### Added
+- **DEK-envelope secret vault** (`Lyntai.Core`) — a Lyntai-managed data-encryption key instead of a BYO
+  key. `SecretKeyEnvelope` generates a random 256-bit DEK that all secrets are AES-256-GCM encrypted
+  under, and wraps the DEK **two ways**: a *machine wrap* (sealed by an injected `ISecretProtector` — the
+  fast path, no passphrase on the same host) and a *recovery wrap* (a KEK derived PBKDF2-SHA256 from a
+  one-time recovery key — the portability path). `EnvelopeSecretVault` drives the lifecycle:
+  `GenerateMasterKeyAsync()` (once, returns the recovery key to record out-of-band), auto-init via the
+  machine wrap, and `RecoverAsync(recoveryKey)` on a new host (re-binds the DEK, so later reads take the
+  fast path). A machine that can't unseal the machine wrap throws `SecretRecoveryRequiredException` until
+  recovered. Wire with `builder.AddEnvelopeSecretVault(machineProtector)`.
+- **`Lyntai.Secrets.Dpapi`** (new package) — `DpapiSecretProtector` (Windows DPAPI via
+  `System.Security.Cryptography.ProtectedData`, user- or machine-scoped, optional entropy) and
+  `builder.AddDpapiSecretVault(...)`, which wires the envelope vault with DPAPI as the machine-binding
+  protector: secrets sealed to this Windows host at rest, recoverable off-machine via the recovery key.
+  Windows-only at runtime (guarded with a clear `PlatformNotSupportedException`); the envelope crypto
+  stays portable in Core, so non-Windows hosts use an AES-GCM protector via `AddEnvelopeSecretVault`.
+
+### Fixed
+- **Security — denylist guard bypassed via tool calls/attachments** — `DenylistGuard` scanned only message
+  text, so a jailed term in a tool-call name/arguments or an attachment URI slipped through. It now scans
+  tool-call segments and attachment URIs on the request, and `reply.ToolCalls` on the response.
+- **Durable-job poison-pill unbounded on crash-before-run** — a job whose attempts already exceeded
+  `MaxAttempts` (e.g. repeatedly claimed then crashed) is now dead-lettered at claim time instead of
+  running again.
+- **Response cache collided across models** — `ResponseCacheKey` now folds the *effective* (resolved)
+  model, so the same request routed to different models no longer serves a cross-model cached reply.
+- **Usage-tracker consumer key was case-insensitive** — `InMemoryUsageTracker` now keys consumers
+  ordinally (case-sensitive), matching the SQL trackers, so `"App"` and `"app"` bill separately.
+- **Semantic recall now fails open** — if the vector backend throws mid-recall, `SemanticMemory.RecallAsync`
+  logs and returns no hits (caller cancellation still propagates) rather than failing the whole request.
+- **Router misclassified a provider's own cancellation** — a provider that throws
+  `OperationCanceledException` for its *own* reasons mid-stream now falls over to the next candidate
+  instead of aborting the request; only the caller's cancellation still propagates.
+- **In-memory job-claim tiebreaker diverged from SQL** — `InMemoryJobStore` breaks a same-priority,
+  same-`available_at` tie by the id string (ordinal), matching the SQL stores' `ORDER BY …, id`.
+
+### Documented
+- The soft budget cap's **concurrency overshoot bound** (in-flight calls, not "one past"), the job
+  scheduler's **at-least-once** enqueue-then-advance window, the required **constant-time compare** for
+  secret/token equality in an `ISecretAccessPolicy`, and the cross-backend memory-recall divergence.
+  Corrected the 0.27.1 dimension-mismatch note (in-memory scores 0 since 0.27.2, only Postgres throws).
+
 ## 0.27.2 — 2026-07-18
 
 Follow-up hardening from a full-codebase multi-agent code review (45 agents; 35 candidates, 19 refuted by

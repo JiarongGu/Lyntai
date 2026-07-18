@@ -283,7 +283,7 @@ output, jobs core, and storage — and would *upgrade* several (multi-worker job
 routing). These are the pieces it still needs before dropping its own code. Priority order; fold into
 `docs/ROADMAP.md` as next versions if Sonora adoption is a goal.
 
-- [ ] **S1 · Portable secret vault: DPAPI protector + recovery-key DEK envelope** (highest value)
+- [x] **S1 · Portable secret vault: DPAPI protector + recovery-key DEK envelope** (highest value)
   - `Lyntai.Secrets` is AES-GCM with a BYO key only — no DPAPI, no recovery key, no `Recover()`, no
     machine-portability. Add a `DpapiSecretProtector` (Windows `ProtectedData`, guarded by `OperatingSystem.IsWindows()`)
     and a DEK-envelope vault mode (random 256-bit DEK encrypts secrets, double-wrapped by DPAPI + a PBKDF2 recovery

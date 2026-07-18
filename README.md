@@ -442,6 +442,10 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
   tool loop) → output gate → remember. A batteries-included, guarded chat entry point.
 - **Secret vault** (`Lyntai.Secrets`) — `AddSecretVault(key)` gives an `ISecretVault` encrypted at rest
   (AES-256-GCM, your key), persistent over your storage backend, with an optional read access policy.
+  Prefer no key to manage? `AddEnvelopeSecretVault(machineProtector)` (Core) uses a Lyntai-generated key
+  sealed to the host *and* backed by a one-time recovery key for off-machine recovery; on Windows,
+  `AddDpapiSecretVault()` (`Lyntai.Secrets.Dpapi`) binds it with DPAPI. Call `GenerateMasterKeyAsync()`
+  once (record the recovery key), `RecoverAsync(key)` on migration.
 - **Vision** — `LlmMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`); the
   OpenAI-compatible and MEAI-bridged providers send it as image content.
 

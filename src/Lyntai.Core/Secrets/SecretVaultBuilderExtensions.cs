@@ -28,4 +28,27 @@ public static class SecretVaultBuilderExtensions
         });
         return builder;
     }
+
+    /// <summary>Register an <see cref="EnvelopeSecretVault"/> — a Lyntai-managed DEK (double-wrapped by a
+    /// machine protector + a recovery key) instead of a BYO key. Supply the machine-binding
+    /// <paramref name="machineProtector"/> (a DPAPI protector on Windows, or any <see cref="ISecretProtector"/>
+    /// elsewhere). The app calls <see cref="EnvelopeSecretVault.GenerateMasterKeyAsync"/> once (recording the
+    /// recovery key) and <see cref="EnvelopeSecretVault.RecoverAsync"/> on machine migration. Requires a
+    /// registered <see cref="IKeyValueStore"/> (durable jobs-style storage) — the vault is backed by it.</summary>
+    public static LyntaiBuilder AddEnvelopeSecretVault(this LyntaiBuilder builder,
+        ISecretProtector machineProtector, ISecretAccessPolicy? accessPolicy = null)
+    {
+        ArgumentNullException.ThrowIfNull(machineProtector);
+        builder.Services.TryAddSingleton<ISecretVault>(sp =>
+        {
+            var kv = sp.GetService<IKeyValueStore>()
+                ?? throw new InvalidOperationException(
+                    "AddEnvelopeSecretVault requires a key-value store — wire a storage backend (e.g. UseSqliteStorage/UseInMemoryStorage) before it.");
+            var policy = accessPolicy ?? sp.GetService<ISecretAccessPolicy>();
+            return new EnvelopeSecretVault(kv, machineProtector, policy);
+        });
+        // also resolvable by its concrete type so the app can reach GenerateMasterKeyAsync/RecoverAsync
+        builder.Services.TryAddSingleton(sp => (EnvelopeSecretVault)sp.GetRequiredService<ISecretVault>());
+        return builder;
+    }
 }

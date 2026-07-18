@@ -45,5 +45,6 @@ export default {
     'src/Lyntai.Providers.Local',
     'src/Lyntai.Tools.Mcp',
     'src/Lyntai.Providers.ClaudeCli.Mcp',
+    'src/Lyntai.Secrets.Dpapi',
   ],
 };

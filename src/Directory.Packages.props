@@ -14,6 +14,9 @@
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
 
+    <!-- Windows DPAPI (secret vault machine binding) — Windows-only at runtime, guarded in code -->
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
+
     <!-- abstractions / DI / http -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />

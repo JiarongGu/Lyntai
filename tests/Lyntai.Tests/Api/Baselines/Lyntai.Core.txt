@@ -780,11 +780,21 @@ class Lyntai.RateLimitOptions
     PerConsumer : Dictionary<String,ConsumerRate>
     PermitsPerSecond : Double
 static class Lyntai.SecretVaultBuilderExtensions
+    AddEnvelopeSecretVault(LyntaiBuilder, ISecretProtector, ISecretAccessPolicy=) : LyntaiBuilder
     AddSecretVault(LyntaiBuilder, Byte[]=, ISecretAccessPolicy=) : LyntaiBuilder
 class Lyntai.Secrets.AesGcmSecretProtector
     .ctor(Byte[])
     Protect(String) : String
     Unprotect(String) : String
+class Lyntai.Secrets.EnvelopeSecretVault
+    .ctor(IKeyValueStore, ISecretProtector, ISecretAccessPolicy=)
+    DeleteAsync(String, CancellationToken=) : Task
+    GenerateMasterKeyAsync(CancellationToken=) : Task<String>
+    GetAsync(String, String=, CancellationToken=) : Task<String>
+    InitializeAsync(CancellationToken=) : Task
+    ListNamesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
+    RecoverAsync(String, CancellationToken=) : Task
+    SetAsync(String, String, CancellationToken=) : Task
 interface Lyntai.Secrets.ISecretAccessPolicy
     CanReadAsync(String, String, CancellationToken=) : Task<Boolean>
 interface Lyntai.Secrets.ISecretProtector
@@ -811,6 +821,29 @@ class Lyntai.Secrets.NullSecretProtector
     .ctor()
     Protect(String) : String
     Unprotect(String) : String
+class Lyntai.Secrets.SecretKeyEnvelope
+    .ctor()
+    ComputeMachineFingerprint() : String
+    Create(ISecretProtector, Int32=) : ValueTuple<SecretKeyEnvelope,Byte[],String>
+    DefaultRecoveryIterations : Int32 const
+    Equals(Object) : Boolean
+    Equals(SecretKeyEnvelope) : Boolean
+    FromJson(String) : SecretKeyEnvelope
+    GetHashCode() : Int32
+    MachineFingerprint : String
+    MachineWrappedDek : String
+    MatchesThisMachine : Boolean
+    RecoveryIterations : Int32
+    RecoverySalt : String
+    RecoveryWrappedDek : String
+    RewrapForMachine(Byte[], ISecretProtector) : SecretKeyEnvelope
+    ToJson() : String
+    ToString() : String
+    UnwrapWithMachine(ISecretProtector) : Byte[]
+    UnwrapWithRecoveryKey(String) : Byte[]
+    Version : Int32
+class Lyntai.Secrets.SecretRecoveryRequiredException
+    .ctor(String, Exception=)
 class Lyntai.Storage.ChatMessage
     .ctor(Int64, String, String, String, DateTimeOffset)
     Content : String

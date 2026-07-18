@@ -28,6 +28,7 @@ public class ApiSurfaceTests
         "Lyntai.Providers.Local",
         "Lyntai.Tools.Mcp",
         "Lyntai.Providers.ClaudeCli.Mcp",
+        "Lyntai.Secrets.Dpapi",
     ];
 
     // anchor a known public type from each assembly so it's loaded + resolvable by simple name
@@ -43,6 +44,7 @@ public class ApiSurfaceTests
         ["Lyntai.Providers.Local"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,
         ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpTool).Assembly,
         ["Lyntai.Providers.ClaudeCli.Mcp"] = typeof(Lyntai.ClaudeCliMcpBuilderExtensions).Assembly,
+        ["Lyntai.Secrets.Dpapi"] = typeof(Lyntai.Secrets.DpapiSecretProtector).Assembly,
     };
 
     private static string BaselineDir => Path.GetFullPath(Path.Combine(
