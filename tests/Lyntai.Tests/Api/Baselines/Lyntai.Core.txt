@@ -868,6 +868,7 @@ class Lyntai.Secrets.SecretKeyEnvelope
     .ctor()
     ComputeMachineFingerprint() : String
     Create(ISecretProtector, Int32=) : ValueTuple<SecretKeyEnvelope,Byte[],String>
+    CurrentVersion : Int32 const
     DefaultRecoveryIterations : Int32 const
     Equals(Object) : Boolean
     Equals(SecretKeyEnvelope) : Boolean
@@ -876,6 +877,7 @@ class Lyntai.Secrets.SecretKeyEnvelope
     MachineFingerprint : String
     MachineWrappedDek : String
     MatchesThisMachine : Boolean
+    MinRecoveryIterations : Int32 const
     RecoveryIterations : Int32
     RecoverySalt : String
     RecoveryWrappedDek : String

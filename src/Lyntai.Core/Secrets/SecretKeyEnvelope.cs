@@ -25,6 +25,15 @@ public sealed record SecretKeyEnvelope
 {
     /// <summary>PBKDF2 iteration count for the recovery KEK — OWASP-tier for SHA-256.</summary>
     public const int DefaultRecoveryIterations = 210_000;
+
+    /// <summary>Hard floor for the recovery KDF: an envelope claiming fewer iterations is rejected rather
+    /// than run with a downgraded KDF (a tampered/portable envelope can't weaken the key derivation).</summary>
+    public const int MinRecoveryIterations = 100_000;
+
+    /// <summary>The newest envelope format this build can read. A higher <see cref="Version"/> is rejected
+    /// (a future format must not be silently misparsed as this one).</summary>
+    public const int CurrentVersion = 1;
+
     private const int DekLen = 32;         // AES-256
     private const int RecoverySaltLen = 16;
     private const int RecoveryKeyBytes = 24; // 192 bits of recovery entropy → 32 base64 chars
@@ -129,13 +138,21 @@ public sealed record SecretKeyEnvelope
         catch (JsonException ex) { throw new CryptographicException("Secret-key envelope JSON is malformed.", ex); }
         try
         {
+            var version = obj["version"]?.GetValue<int>() ?? 1;
+            if (version > CurrentVersion)
+                throw new CryptographicException(
+                    $"Secret-key envelope version {version} is newer than this build supports ({CurrentVersion}) — upgrade Lyntai to open it.");
+            var iterations = obj["recoveryIterations"]!.GetValue<int>();
+            if (iterations < MinRecoveryIterations)
+                throw new CryptographicException(
+                    $"Secret-key envelope recovery KDF iterations ({iterations}) is below the {MinRecoveryIterations} floor — corrupt or downgraded.");
             return new SecretKeyEnvelope
             {
-                Version = obj["version"]?.GetValue<int>() ?? 1,
+                Version = version,
                 MachineWrappedDek = obj["machineWrappedDek"]!.GetValue<string>(),
                 RecoveryWrappedDek = obj["recoveryWrappedDek"]!.GetValue<string>(),
                 RecoverySalt = obj["recoverySalt"]!.GetValue<string>(),
-                RecoveryIterations = obj["recoveryIterations"]!.GetValue<int>(),
+                RecoveryIterations = iterations,
                 MachineFingerprint = obj["machineFingerprint"]!.GetValue<string>(),
             };
         }
@@ -165,8 +182,16 @@ public sealed record SecretKeyEnvelope
         return new AesGcmSecretProtector(kek).Protect(Convert.ToBase64String(dek));
     }
 
-    private static byte[] DeriveRecoveryKek(string recoveryKey, byte[] salt, int iterations) =>
-        Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(recoveryKey), salt, iterations, HashAlgorithmName.SHA256, DekLen);
+    private static byte[] DeriveRecoveryKek(string recoveryKey, byte[] salt, int iterations)
+    {
+        // the KDF choke point — floor the iteration count here too, so an envelope constructed directly
+        // (bypassing FromJson) with a downgraded/zero count fails as CryptographicException, not a stray
+        // ArgumentOutOfRangeException
+        if (iterations < MinRecoveryIterations)
+            throw new CryptographicException(
+                $"Recovery KDF iteration count ({iterations}) is below the {MinRecoveryIterations} floor — envelope corrupt or downgraded.");
+        return Rfc2898DeriveBytes.Pbkdf2(Encoding.UTF8.GetBytes(recoveryKey), salt, iterations, HashAlgorithmName.SHA256, DekLen);
+    }
 
     private static byte[] DecodeDek(string base64Dek)
     {

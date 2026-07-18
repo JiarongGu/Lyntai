@@ -322,7 +322,7 @@ correctly + tested, the refactor behavior-preserving, S1 crypto core sound: fres
 @210k, authenticated tag, no plaintext DEK on disk). Three real issues remain on the newly-added surface,
 plus nits. All verified in code; none catastrophic.
 
-- [ ] **N1 · Concurrent step-log reports lose steps on the SQL backends** (BUG)
+- [x] **N1 · Concurrent step-log reports lose steps on the SQL backends** (BUG)
   - Files: `src/Lyntai.Core/Jobs/JobContext.cs` (`ReportStepAsync`/`ReportProgressAsync`),
     `src/Lyntai.Storage.Sqlite/SqliteJobStore.cs` (~64-71), `src/Lyntai.Storage.Postgres/PostgresJobStore.cs`.
   - Defect: `ReportStepAsync` is a read-modify-write across two round-trips (`GetAsync` → `JobStepLog.Append`
@@ -335,7 +335,7 @@ plus nits. All verified in code; none catastrophic.
   - Test: fire N concurrent `ReportStepAsync` from a handler; assert all N steps land, on every backend (add to
     `JobStoreContract`).
 
-- [ ] **N2 · Recovery-KDF iteration count is honored from the envelope with no floor** (crypto hardening)
+- [x] **N2 · Recovery-KDF iteration count is honored from the envelope with no floor** (crypto hardening)
   - File: `src/Lyntai.Core/Secrets/SecretKeyEnvelope.cs` (`FromJson` ~138; `UnwrapWithRecoveryKey` /
     `DeriveRecoveryKek` ~90/169).
   - Defect: `RecoveryIterations` is read straight from JSON and fed to `Pbkdf2` unbounded. A tampered/portable
@@ -346,7 +346,7 @@ plus nits. All verified in code; none catastrophic.
     100_000) as a `CryptographicException`.
   - Test: an envelope with `recoveryIterations` of `1` (and `0`) → `CryptographicException`.
 
-- [ ] **N3 · Envelope `version` is written but never enforced on read** (risk)
+- [x] **N3 · Envelope `version` is written but never enforced on read** (risk)
   - File: `src/Lyntai.Core/Secrets/SecretKeyEnvelope.cs` (`FromJson` ~134).
   - Defect: `version` is parsed as `?? 1` then discarded — a future v2 envelope opened by v1 code silently
     misparses as v1 instead of being rejected.

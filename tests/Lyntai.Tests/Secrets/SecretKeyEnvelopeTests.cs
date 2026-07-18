@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json.Nodes;
 using Lyntai.Secrets;
 using Lyntai.Storage.InMemory;
 
@@ -70,6 +71,38 @@ public class SecretKeyEnvelopeTests
         var rebound = envelope.RewrapForMachine(dek, newMachine);
         Assert.Equal(dek, rebound.UnwrapWithMachine(newMachine));       // now unwraps on the new host
         Assert.Equal(dek, rebound.UnwrapWithRecoveryKey(recoveryKey));  // recovery wrap preserved
+    }
+
+    [Fact]
+    public void Downgraded_recovery_iterations_are_rejected_on_unwrap()
+    {
+        var (envelope, _, recoveryKey) = SecretKeyEnvelope.Create(Machine());
+        // a directly-constructed envelope claiming a weak KDF is rejected at the derive choke point as a
+        // CryptographicException (not a stray ArgumentOutOfRangeException for 0)
+        foreach (var weak in new[] { 1, 0, SecretKeyEnvelope.MinRecoveryIterations - 1 })
+        {
+            var tampered = envelope with { RecoveryIterations = weak };
+            Assert.ThrowsAny<CryptographicException>(() => tampered.UnwrapWithRecoveryKey(recoveryKey));
+        }
+    }
+
+    [Fact]
+    public void FromJson_rejects_downgraded_iterations_and_future_versions()
+    {
+        var (envelope, _, _) = SecretKeyEnvelope.Create(Machine());
+
+        var lowIter = JsonNode.Parse(envelope.ToJson())!.AsObject();
+        lowIter["recoveryIterations"] = 1;
+        Assert.ThrowsAny<CryptographicException>(() => SecretKeyEnvelope.FromJson(lowIter.ToJsonString()));
+
+        var zeroIter = JsonNode.Parse(envelope.ToJson())!.AsObject();
+        zeroIter["recoveryIterations"] = 0;
+        Assert.ThrowsAny<CryptographicException>(() => SecretKeyEnvelope.FromJson(zeroIter.ToJsonString()));
+
+        // a newer envelope format must be rejected, not silently misparsed as v1
+        var future = JsonNode.Parse(envelope.ToJson())!.AsObject();
+        future["version"] = SecretKeyEnvelope.CurrentVersion + 1;
+        Assert.ThrowsAny<CryptographicException>(() => SecretKeyEnvelope.FromJson(future.ToJsonString()));
     }
 
     [Fact]
