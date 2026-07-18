@@ -1,4 +1,6 @@
 using Lyntai;
+using Lyntai.Storage;
+using Lyntai.Storage.InMemory;
 using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Tests.Storage;
@@ -12,6 +14,25 @@ public class MemoryStoreTests : IDisposable
     public MemoryStoreTests() => _store = new SqliteMemoryStore(_db.Factory, _options);
 
     public void Dispose() => _db.Dispose();
+
+    [Fact] // T5: lock the documented cross-backend recall guarantee + divergence
+    public async Task Recall_matching_is_consistent_for_single_tokens_and_divergent_for_separated_words()
+    {
+        var opts = new LyntaiOptions();
+        var sqlite = new SqliteMemoryStore(_db.Factory, opts);
+        IMemoryStore inmem = new InMemoryMemoryStore(opts);
+        foreach (var s in new IMemoryStore[] { sqlite, inmem })
+            await s.RememberAsync("t", "s", "You can cancel your subscription anytime.");
+
+        // CONSISTENT guarantee: a single ≥3-char token substring recalls on every backend
+        Assert.Single(await sqlite.RecallAsync("t", "s", "subscription"));
+        Assert.Single(await inmem.RecallAsync("t", "s", "subscription"));
+
+        // DOCUMENTED divergence: words appearing SEPARATELY hit on SQLite (any-token FTS), miss on InMemory
+        // (contiguous substring). Prefer single salient terms for portable recall.
+        Assert.Single(await sqlite.RecallAsync("t", "s", "cancel plan"));  // the "cancel" token matches
+        Assert.Empty(await inmem.RecallAsync("t", "s", "cancel plan"));    // "cancel plan" isn't contiguous
+    }
 
     [Fact]
     public async Task Remember_then_recall_by_substring()

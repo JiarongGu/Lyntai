@@ -45,6 +45,15 @@ Query building: `FtsQuery.Build` drops `<3`-char tokens (trigram's minimum), dou
 nothing usable remains → the caller **falls back to LIKE** (with `ESCAPE`-guarded `% _ \`). Rank matches
 with `bm25()`. `match` is only ever sourced from `FtsQuery.Build`, never raw user text.
 
+**Cross-backend recall DIVERGENCE (documented on `IMemoryStore.RecallAsync`, not a bug):** the three
+backends use three different index engines, so multi-word recall + ranking differ *by design*. SQLite:
+ANY token (the OR-join above) via the trigram index, ranked by **bm25 relevance**. Postgres (pg_trgm) +
+InMemory: the query as a **contiguous substring**, ranked by **recency**. Consistent guarantee: an entry
+whose content contains a ≥3-char query token as a substring is recalled on every backend. A multi-word
+query whose words appear *separately* can hit on SQLite but miss on Postgres/InMemory. Don't "fix" one
+backend to match another without deciding the semantic — reimplementing bm25 in-app to converge ranking
+is out of scope; single salient query terms are portable.
+
 ## Migrations
 
 FluentMigrator, numbered `YYYYMMDDNNNN`, **never reused** (an unapplied duplicate number is silently

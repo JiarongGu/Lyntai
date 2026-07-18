@@ -235,7 +235,7 @@ would have caught the bug.
 
 ### Cross-backend divergences (the three storage backends disagree)
 
-- [ ] **T5 · Memory recall matches "any token" (SQLite FTS) vs "contiguous phrase" (Postgres/InMemory)**
+- [x] **T5 · Memory recall matches "any token" (SQLite FTS) vs "contiguous phrase" (Postgres/InMemory)** — documented (ranking can't converge without in-app bm25) + cross-backend guarantee test
   - Files: `src/Lyntai.Core/Storage/FtsQuery.cs`, `SqliteMemoryStore.cs`, `PostgresMemoryStore.cs`,
     `InMemoryMemoryStore.cs`. A multi-word query → SQLite `"a" OR "b"` (either-token hits) while Postgres
     `ILIKE %a b%` / InMemory `Contains("a b")` match only the contiguous substring. Same query, different results.

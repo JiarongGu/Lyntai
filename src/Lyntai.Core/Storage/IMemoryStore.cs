@@ -16,9 +16,15 @@ public interface IMemoryStore
     /// optional <paramref name="ttl"/> makes the entry expire (dropped from recall, reaped by prune).</summary>
     Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default);
 
-    /// <summary>Recall entries for a task, optionally filtered by scope and ranked against a query
-    /// (FTS trigram match with LIKE fallback); no query → most recent first. Expired entries are never
-    /// returned.</summary>
+    /// <summary>Recall entries for a task, optionally filtered by scope and matched against a query; no
+    /// query → most recent first. Expired entries are never returned.
+    /// <para>GUARANTEE (consistent across backends): an entry whose content contains a query TOKEN (≥3
+    /// chars) as a substring is recalled. BACKEND DIFFERENCE (by design — three different index engines):
+    /// SQLite matches ANY token via the FTS5 trigram index and ranks by bm25 relevance (a LIKE
+    /// contiguous-substring fallback covers all-short/punctuation queries); Postgres (pg_trgm) and InMemory
+    /// match the query as a CONTIGUOUS substring and rank by recency. So a multi-word query where the words
+    /// appear separately can recall on SQLite but not on Postgres/InMemory, and same-match ordering differs
+    /// (relevance vs recency). Prefer single salient terms for portable recall.</para></summary>
     Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null, string? query = null,
         int? limit = null, CancellationToken ct = default);
 
