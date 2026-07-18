@@ -1,0 +1,67 @@
+# Lyntai release — on a *published* GitHub Release, pack every library and push to NuGet.
+#
+# Setup (once): add a repo secret NUGET_API_KEY (Settings → Secrets and variables → Actions)
+# holding a nuget.org API key scoped to push the Lyntai.* packages.
+#
+# To cut a release:
+#   1. Bump <VersionPrefix> in src/Directory.Build.props (the single source of truth) + commit.
+#   2. Tag it `v<version>` (e.g. v0.28.0) and push the tag.
+#   3. Publish a GitHub Release for that tag — this workflow then packs + pushes to NuGet.
+# The tag MUST equal `v<VersionPrefix>`; the workflow fails fast otherwise so a tag can't drift
+# from the packed version.
+name: release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Assert the release tag matches VersionPrefix
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION=$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' src/Directory.Build.props)
+          CLEAN_TAG="${TAG#v}"
+          echo "VersionPrefix=$VERSION  tag=$TAG"
+          if [ "$VERSION" != "$CLEAN_TAG" ]; then
+            echo "::error::Release tag '$TAG' does not match src/Directory.Build.props VersionPrefix '$VERSION'. Bump VersionPrefix and re-tag as v$VERSION."
+            exit 1
+          fi
+
+      # Re-validate on the release commit before the irreversible publish (build + full test suite;
+      # every LLM call goes through the deterministic provider-stub — no real tokens).
+      - name: Build
+        run: node devtools/dev.mjs build
+
+      - name: Test
+        run: node devtools/dev.mjs test
+
+      - name: Pack
+        run: node devtools/dev.mjs pack
+
+      # Pushes each Lyntai.*.nupkg; the adjacent .snupkg symbol packages are pushed automatically.
+      # --skip-duplicate makes a re-run safe if a version is already on nuget.org.
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: >
+          dotnet nuget push "publish/packages/*.nupkg"
+          --api-key "$NUGET_API_KEY"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
