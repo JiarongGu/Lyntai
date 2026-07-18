@@ -5,11 +5,9 @@ name: Release
 # trigger. The full verify gate (build · test · e2e · leak scan) runs against the exact commit before the
 # irreversible NuGet push, and the version bump is committed only AFTER the publish succeeds.
 #
-# Publishing uses NuGet Trusted Publishing (OIDC) — no stored API key. Setup (once):
-#   1. On nuget.org: Account -> Trusted Publishing -> add a policy for repository JiarongGu/Lyntai and
-#      workflow file `release.yml` (scoped to the Lyntai.* package glob).
-#   2. In this repo: Settings -> Secrets and variables -> Actions -> Variables -> add NUGET_USER = your
-#      nuget.org username. (A variable, not a secret — the username is public.)
+# Publishing uses NuGet Trusted Publishing (OIDC) — no stored API key. Setup (once): on nuget.org,
+# Account -> Trusted Publishing -> add a policy for the nuget.org user (Jiarong.Gu), repository
+# JiarongGu/Lyntai, and workflow file `release.yml` (scoped to the Lyntai.* package glob).
 on:
   workflow_dispatch:
     inputs:
@@ -132,7 +130,7 @@ jobs:
         id: nuget-login
         uses: NuGet/login@v1
         with:
-          user: ${{ vars.NUGET_USER }}
+          user: Jiarong.Gu
 
       # The irreversible step FIRST (before any git bookkeeping) — so a publish failure leaves no bump commit
       # or tag behind. --skip-duplicate makes a re-run safe if a version is already live; each .nupkg's
