@@ -298,7 +298,7 @@ Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess
 `LLamaSharp.Backend.*` that matches your hardware alongside `Lyntai.Providers.Local`:
 
 ```xml
-<PackageReference Include="Lyntai.Providers.Local" Version="0.8.0" />
+<PackageReference Include="Lyntai.Providers.Local" Version="0.28.0" />
 <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />  <!-- or .Cuda12 / .Vulkan / .Metal -->
 ```
 
