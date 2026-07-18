@@ -23,4 +23,18 @@ public static class ClaudeCliBuilderExtensions
             provisioner: sp.GetService<ICliToolProvisioner>()));
         return builder;
     }
+
+    /// <summary>Register <see cref="ClaudeAgentSession"/> as the <see cref="IAgentSession"/> singleton.
+    /// The spawned command honors <c>LYNTAI_PROVIDER_CMD</c> / <c>CLAUDE_CMD</c> env overrides so
+    /// tests and e2e can point at a deterministic stub. The session uses the caller's
+    /// <see cref="AgentSessionOptions.WorkingDirectory"/> (not the neutral temp dir used by the provider)
+    /// because the agent is expected to operate inside the caller's project.</summary>
+    public static LyntaiBuilder AddClaudeCliAgentSession(this LyntaiBuilder builder)
+    {
+        builder.Services.AddSingleton<IAgentSession>(sp => new ClaudeAgentSession(
+            sp.GetRequiredService<IProcessRunner>(),
+            sp.GetRequiredService<LyntaiOptions>(),
+            sp.GetService<ILogger<ClaudeAgentSession>>()));
+        return builder;
+    }
 }

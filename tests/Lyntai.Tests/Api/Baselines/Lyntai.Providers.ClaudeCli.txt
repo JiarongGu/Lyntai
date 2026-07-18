@@ -1,5 +1,23 @@
 static class Lyntai.ClaudeCliBuilderExtensions
+    AddClaudeCliAgentSession(LyntaiBuilder) : LyntaiBuilder
     AddClaudeCliProvider(LyntaiBuilder) : LyntaiBuilder
+static class Lyntai.Providers.ClaudeCli.ClaudeAgentArgs
+    Build(AgentSessionOptions) : IReadOnlyList<String>
+class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
+    .ctor()
+    AllowedTools : IReadOnlyList<String>
+    EqualityContract : Type
+    Equals(AgentSessionOptions) : Boolean
+    Equals(ClaudeAgentOptions) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    McpConfigPath : String
+    PrintMembers(StringBuilder) : Boolean
+    SettingsPath : String
+    ToString() : String
+class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
+    .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeAgentSession>=, String=)
+    StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
 static class Lyntai.Providers.ClaudeCli.ClaudeArgs
     Build(String) : IReadOnlyList<String>
     BuildPrompt(LlmRequest) : String
@@ -10,6 +28,8 @@ class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     IsAvailable : Boolean
     ProviderId : String const
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
+    FilePathOf(ToolCall) : String
 class Lyntai.Providers.ClaudeCli.StreamJsonEvent
     .ctor(StreamJsonEventKind, String=, LlmUsage=)
     Deconstruct(StreamJsonEventKind&, String&, LlmUsage&) : Void
