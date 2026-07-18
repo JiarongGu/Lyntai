@@ -3,6 +3,25 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.25.0 — 2026-07-18
+
+Recurring job scheduling — the last big v0.14-deferred job feature. Register an interval schedule and the
+scheduler enqueues a job every interval, durably.
+
+### Added
+- **`AddJobSchedule(name, lane, type, payload, every, priority)`** (and a `JobSchedule` overload) — a
+  recurring job. **`IJobScheduler`** drives it: `TickAsync` enqueues the due schedules and advances them;
+  `RunAsync` loops on `Jobs.PollInterval`. The app owns the pump (host-free), same as the runner.
+- Next-run time is **persisted via the key-value store** (keyed by schedule name), so a restart resumes the
+  cadence instead of re-anchoring; with no `IKeyValueStore` wired it falls back to in-memory. No new storage
+  domain / migration — it reuses `IKeyValueStore`.
+- **Missed slots coalesce** into a single enqueue (a ticker that was down doesn't replay a burst); the first
+  run waits one interval (no fire-on-startup); a non-positive interval is skipped, not spun.
+
+### Notes
+- Interval-based for now (cron expressions are a future enhancement — they'd need a cron parser). Scheduling
+  requires durable jobs (the queue throws without a storage backend).
+
 ## 0.24.0 — 2026-07-18
 
 Durable-job priorities + a dead-letter queue — two of the deferred v0.14 job features. Across all three

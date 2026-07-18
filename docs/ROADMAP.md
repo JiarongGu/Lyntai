@@ -180,9 +180,15 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
 - ✅ **Priorities + DLQ** — two of the v0.14 deferred job features. `JobSpec.Priority` (claim picks
   `priority DESC, available_at, id`); exhausted retries go to a terminal-but-inspectable/replayable
   `JobStatus.Dead` dead-letter queue (`IJobStore.DeadLetterAsync`/`ReplayAsync`, `IJobQueue.ListDeadAsync`/
-  `ReplayAsync`) instead of a silent `Failed`. Across InMemory/SQLite/Postgres (migration
-  `M202607180003`), pinned by the shared store contract. **Still deferred from v0.14:** cron/scheduling,
-  cross-process global concurrency limits, running-job cancellation.
+  `ReplayAsync`) instead of a silent `Failed`. Across InMemory/SQLite/Postgres, pinned by the shared store
+  contract. (The priority column was later folded into the Jobs migration — pre-release consolidation.)
+
+### v0.25.0 — recurring job scheduling (2026-07)
+- ✅ **Scheduling** (`AddJobSchedule` + `IJobScheduler`) — the last big v0.14 job deferral. Interval-based
+  recurring jobs; `TickAsync`/`RunAsync` (app-owned pump). Next-run persisted via the key-value store
+  (durable across restart; in-memory fallback), no new storage domain. Missed slots coalesce; first run
+  waits one interval. **Still deferred from v0.14:** cron *expressions* (need a parser), cross-process
+  global concurrency limits, running-job cancellation.
 
 ## Planned
 

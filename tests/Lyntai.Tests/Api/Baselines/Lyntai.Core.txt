@@ -314,6 +314,9 @@ interface Lyntai.Jobs.IJobQueue
 interface Lyntai.Jobs.IJobRunner
     RunAsync(CancellationToken=) : Task
     RunOnceAsync(CancellationToken=) : Task<Int32>
+interface Lyntai.Jobs.IJobScheduler
+    RunAsync(CancellationToken=) : Task
+    TickAsync(CancellationToken=) : Task<Int32>
 class Lyntai.Jobs.JobContext
     .ctor(Guid, String, String, Int32, Func<String,CancellationToken,Task<Boolean>>)
     Attempts : Int32
@@ -383,6 +386,23 @@ class Lyntai.Jobs.JobRunner
     .ctor(IJobStore, IJobHandlerRegistry, LyntaiOptions, ILogger<JobRunner>=, Func<DateTimeOffset>=)
     RunAsync(CancellationToken=) : Task
     RunOnceAsync(CancellationToken=) : Task<Int32>
+class Lyntai.Jobs.JobSchedule
+    .ctor(String, String, String, String, TimeSpan, Int32=)
+    Deconstruct(String&, String&, String&, String&, TimeSpan&, Int32&) : Void
+    Equals(JobSchedule) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Interval : TimeSpan
+    Lane : String
+    Name : String
+    Payload : String
+    Priority : Int32
+    ToString() : String
+    Type : String
+class Lyntai.Jobs.JobScheduler
+    .ctor(IJobQueue, IEnumerable<JobSchedule>, LyntaiOptions, IKeyValueStore=, ILogger<JobScheduler>=, Func<DateTimeOffset>=)
+    RunAsync(CancellationToken=) : Task
+    TickAsync(CancellationToken=) : Task<Int32>
 class Lyntai.Jobs.JobSpec
     .ctor(String, String, String, Nullable<Int32>=, Nullable<DateTimeOffset>=, Int32=)
     AvailableAt : Nullable<DateTimeOffset>
@@ -643,6 +663,8 @@ class Lyntai.LyntaiBuilder
     AddGuard(Func<IServiceProvider,IGuard>) : LyntaiBuilder
     AddJobHandler() : LyntaiBuilder
     AddJobHandler(Func<IServiceProvider,IJobHandler>) : LyntaiBuilder
+    AddJobSchedule(JobSchedule) : LyntaiBuilder
+    AddJobSchedule(String, String, String, String, TimeSpan, Int32=) : LyntaiBuilder
     AddProvider() : LyntaiBuilder
     AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
     AddRateLimit(Action<RateLimitOptions>=) : LyntaiBuilder

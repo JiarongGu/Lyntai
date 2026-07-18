@@ -420,6 +420,15 @@ foreach (var dead in await queue.ListDeadAsync())    // inspect what gave up
     await queue.ReplayAsync(dead.Id);                // requeue it (attempts reset)
 ```
 
+**Recurring schedules.** Register an interval schedule and `IJobScheduler` enqueues the job every interval;
+the next-run time is persisted (in the key-value store) so the cadence survives restarts. The app owns the
+scheduler pump too:
+
+```csharp
+cfg.AddJobSchedule("nightly-report", lane: "reports", type: "report", payload: "{}", every: TimeSpan.FromHours(24));
+await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunAsync
+```
+
 ### Guards, orchestration, secrets, vision
 
 - **Guards** (`Lyntai.Guards`) — `IGuard`s inspect requests/replies and Allow/Block/Replace; `AddGuard<T>()`

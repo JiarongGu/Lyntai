@@ -88,6 +88,11 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<IJobQueue>(sp => new JobQueue(sp.GetService<IJobStore>(), options));
         services.TryAddSingleton<IJobRunner>(sp => new JobRunner(
             sp.GetService<IJobStore>(), sp.GetRequiredService<IJobHandlerRegistry>(), options, sp.GetService<ILogger<JobRunner>>()));
+        // recurring schedules: enqueues due JobSchedules; next-run persisted via IKeyValueStore (durable
+        // across restart) or in-memory when none is wired. The app drives the pump (host-free).
+        services.TryAddSingleton<IJobScheduler>(sp => new JobScheduler(
+            sp.GetRequiredService<IJobQueue>(), sp.GetServices<JobSchedule>(), options,
+            sp.GetService<IKeyValueStore>(), sp.GetService<ILogger<JobScheduler>>()));
 
         // scope-guard / jail hooks: the rail gathers any registered IGuards (empty = allow everything)
         services.TryAddSingleton<IGuardRail>(sp => new GuardRail(sp.GetServices<IGuard>(), sp.GetService<ILogger<GuardRail>>()));

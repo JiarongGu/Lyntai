@@ -94,6 +94,20 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register a recurring job: every <paramref name="every"/>, the <see cref="Lyntai.Jobs.IJobScheduler"/>
+    /// enqueues a <paramref name="type"/> job on <paramref name="lane"/> with <paramref name="payload"/>.
+    /// <paramref name="name"/> must be stable + unique (it keys the persisted next-run). The app drives the
+    /// scheduler's pump (TickAsync/RunAsync).</summary>
+    public LyntaiBuilder AddJobSchedule(string name, string lane, string type, string payload, TimeSpan every, int priority = 0) =>
+        AddJobSchedule(new Lyntai.Jobs.JobSchedule(name, lane, type, payload, every, priority));
+
+    /// <summary>Register a recurring <see cref="Lyntai.Jobs.JobSchedule"/>.</summary>
+    public LyntaiBuilder AddJobSchedule(Lyntai.Jobs.JobSchedule schedule)
+    {
+        Services.AddSingleton(schedule);
+        return this;
+    }
+
     /// <summary>Register a scope-guard / jail hook into the guard-rail collection (applied at the chat
     /// orchestration's gates, or by a <c>GuardedLlmClient</c>).</summary>
     public LyntaiBuilder AddGuard<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
