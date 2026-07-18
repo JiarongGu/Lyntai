@@ -122,6 +122,9 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   drops a `{placeholder}` present in the default is rejected (falls back to the default, with a warning).
 - **Memory recall is bounded and fail-open:** FTS5 trigram match (works for CJK substrings), LIKE
   fallback, capped per (task, scope) — and it never throws into your prompt path.
+- **Curated memory catalog** (`ICuratedMemoryStore`) sits beside the recall log for hand-managed context:
+  entries grouped by `Kind`, each individually enable/disable-able and editable (`UpdateAsync`), rendered
+  into per-kind prompt sections by `CuratedMemorySections.Compose` — across all three backends.
 - **Env overrides beat code config:** `LYNTAI_TIMEOUT_SECONDS`, `LYNTAI_DEADHOST_THRESHOLD`,
   `LYNTAI_DEADHOST_COOLDOWN_SECONDS`, `LYNTAI_DEFAULT_CANDIDATES` (`providerId[:model],…`),
   `LYNTAI_RETRY_FAILED`/`_TIMEOUT`/`_BACKOFF_SECONDS`, `LYNTAI_COOLDOWN_SCOPE`,

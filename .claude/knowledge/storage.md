@@ -18,6 +18,12 @@ can hand a `double` property a boxed `long` and throw (or truncate). **Every** 0
 (scores, `cost_usd`) MUST be read as `CAST(col AS REAL)` in the SELECT. Integer columns (token counts,
 durations) are fine uncast. `ScoreStoreTests.Doubles_round_trip_exactly_the_affinity_trap` guards this.
 
+**Bool from INTEGER + a positional record:** Dapper will NOT bind a SQLite `INTEGER` (0/1) column to a
+`bool` parameter of a **positional record constructor** — it fails with "no matching constructor". Bind
+into a settable-property Row DTO (Dapper converts INTEGER→bool for a property setter) and project to the
+record — see `SqliteCuratedMemoryStore.Row` / `SqliteJobStore.Row`. (Postgres native `BOOLEAN` binds
+straight to a record ctor, so its stores skip the Row DTO.)
+
 ## Per-connection pragmas
 
 `foreign_keys`, `busy_timeout`, and `journal_mode` are **per-connection** in SQLite (except WAL, which

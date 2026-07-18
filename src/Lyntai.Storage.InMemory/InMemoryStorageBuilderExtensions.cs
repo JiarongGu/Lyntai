@@ -21,6 +21,7 @@ public static class InMemoryStorageBuilderExtensions
         builder.Services.TryAddSingleton<IScoreStore, InMemoryScoreStore>();
         builder.Services.TryAddSingleton<ITraceStore, InMemoryTraceStore>();
         builder.Services.TryAddSingleton<IJobStore>(_ => new InMemoryJobStore());
+        builder.Services.TryAddSingleton<ICuratedMemoryStore>(_ => new InMemoryCuratedMemoryStore());
         return builder;
     }
 }

@@ -52,6 +52,7 @@ public static class PostgresStorageBuilderExtensions
         builder.Services.AddSingleton<IScoreStore, PostgresScoreStore>();
         builder.Services.AddSingleton<ITraceStore, PostgresTraceStore>();
         builder.Services.AddSingleton<IJobStore>(sp => new PostgresJobStore(sp.GetRequiredService<IDbConnectionFactory>()));
+        builder.Services.AddSingleton<ICuratedMemoryStore>(sp => new PostgresCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
 

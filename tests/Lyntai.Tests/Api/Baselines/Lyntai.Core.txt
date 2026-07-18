@@ -118,6 +118,8 @@ class Lyntai.Cortex.AgreementReport
     MeanAbsoluteError : Double
     PearsonCorrelation : Nullable<Double>
     ToString() : String
+static class Lyntai.Cortex.CuratedMemorySections
+    Compose(IEnumerable<CuratedMemory>, Func<String,String>=, String=) : String
 interface Lyntai.Cortex.IPairwiseComparer
     CompareAsync(String, String, String, CancellationToken=) : Task<PairwiseResult>
 interface Lyntai.Cortex.IPromptComposer
@@ -907,6 +909,20 @@ class Lyntai.Storage.ChatThread
     Id : String
     Title : String
     ToString() : String
+class Lyntai.Storage.CuratedMemory
+    .ctor(Int64, String, String, String, Boolean, DateTimeOffset, DateTimeOffset)
+    Content : String
+    CreatedAt : DateTimeOffset
+    Deconstruct(Int64&, String&, String&, String&, Boolean&, DateTimeOffset&, DateTimeOffset&) : Void
+    Enabled : Boolean
+    Equals(CuratedMemory) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Id : Int64
+    Kind : String
+    Source : String
+    ToString() : String
+    UpdatedAt : DateTimeOffset
 static class Lyntai.Storage.FtsQuery
     Build(String) : String
 interface Lyntai.Storage.IConversationStore
@@ -916,6 +932,12 @@ interface Lyntai.Storage.IConversationStore
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+interface Lyntai.Storage.ICuratedMemoryStore
+    AddAsync(String, String, String=, Boolean=, CancellationToken=) : Task<Int64>
+    GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
+    ListAsync(String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
+    RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
+    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IDbConnectionFactory
     Open() : DbConnection
 interface Lyntai.Storage.IJobStore

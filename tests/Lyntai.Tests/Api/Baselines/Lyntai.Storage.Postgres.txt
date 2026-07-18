@@ -29,6 +29,10 @@ class Lyntai.Storage.Postgres.Migrations.M202607180002_Governance
     .ctor()
     Down() : Void
     Up() : Void
+class Lyntai.Storage.Postgres.Migrations.M202607180003_CuratedMemory
+    .ctor()
+    Down() : Void
+    Up() : Void
 static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
     MigrateUp(String) : Void
 class Lyntai.Storage.Postgres.PostgresConnectionFactory
@@ -42,6 +46,13 @@ class Lyntai.Storage.Postgres.PostgresConversationStore
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+class Lyntai.Storage.Postgres.PostgresCuratedMemoryStore
+    .ctor(IDbConnectionFactory, Func<DateTimeOffset>=)
+    AddAsync(String, String, String=, Boolean=, CancellationToken=) : Task<Int64>
+    GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
+    ListAsync(String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
+    RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
+    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 class Lyntai.Storage.Postgres.PostgresJobStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=)
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>

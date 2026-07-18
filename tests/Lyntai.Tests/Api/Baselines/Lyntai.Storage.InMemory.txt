@@ -8,6 +8,13 @@ class Lyntai.Storage.InMemory.InMemoryConversationStore
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+class Lyntai.Storage.InMemory.InMemoryCuratedMemoryStore
+    .ctor(Func<DateTimeOffset>=)
+    AddAsync(String, String, String=, Boolean=, CancellationToken=) : Task<Int64>
+    GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
+    ListAsync(String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
+    RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
+    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 class Lyntai.Storage.InMemory.InMemoryJobStore
     .ctor(Func<DateTimeOffset>=)
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>

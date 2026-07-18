@@ -56,6 +56,7 @@ public static class SqliteStorageBuilderExtensions
         builder.Services.AddSingleton<IScoreStore, SqliteScoreStore>();
         builder.Services.AddSingleton<ITraceStore, SqliteTraceStore>();
         builder.Services.AddSingleton<IJobStore>(sp => new SqliteJobStore(sp.GetRequiredService<IDbConnectionFactory>()));
+        builder.Services.AddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
 

@@ -308,6 +308,37 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     }
 
     [Fact]
+    public async Task Curated_memory_crud_and_filters()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresCuratedMemoryStore(pg.Factory);
+        var kind = Uid(); // unique kind so the shared container doesn't cross-contaminate
+
+        var a = await store.AddAsync(kind, "term A", source: "src", enabled: true);
+        await store.AddAsync(kind, "term B", enabled: false);
+
+        var got = await store.GetAsync(a);
+        Assert.Equal("term A", got!.Content);
+        Assert.Equal("src", got.Source);
+        Assert.True(got.Enabled);
+
+        Assert.Equal(2, (await store.ListAsync(kind: kind)).Count);
+        var enabled = await store.ListAsync(kind: kind, enabledOnly: true);
+        Assert.Single(enabled);
+        Assert.Equal(a, enabled[0].Id);
+
+        // partial update: toggle enabled only, content/source untouched
+        Assert.True(await store.UpdateAsync(a, enabled: false));
+        var after = await store.GetAsync(a);
+        Assert.False(after!.Enabled);
+        Assert.Equal("term A", after.Content);
+        Assert.Equal("src", after.Source);
+
+        Assert.True(await store.RemoveAsync(a));
+        Assert.Null(await store.GetAsync(a));
+    }
+
+    [Fact]
     public async Task Job_progress_and_steps_are_readable_while_running()
     {
         if (!pg.Available) return;

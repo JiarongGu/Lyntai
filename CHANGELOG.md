@@ -8,7 +8,8 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 Adds a **portable, recoverable secret vault** and **job admission control / pause**, and lands the
 review-follow-up backlog (a second multi-agent code review). New package **`Lyntai.Secrets.Dpapi`**;
 public-surface additions to `Lyntai.Core` (envelope vault, `IJobAdmissionController`, `JobStatus.Paused`,
-live job progress) and the three storage backends (`PauseAsync`/`ResumeAsync`, progress reporting) — see below.
+live job progress, curated memory) and the three storage backends (`PauseAsync`/`ResumeAsync`, progress
+reporting, `ICuratedMemoryStore`) — see below.
 
 ### Added
 - **DEK-envelope secret vault** (`Lyntai.Core`) — a Lyntai-managed data-encryption key instead of a BYO
@@ -43,6 +44,12 @@ live job progress) and the three storage backends (`PauseAsync`/`ResumeAsync`, p
   otherwise-`Ok` reply whose text matches as `Refused` (no fallback) — a caller-supplied check (e.g. a
   per-language "I can't help") on top of the central patterns. Applied by `RefusalScreeningLlmClient`, the
   always-on OUTERMOST front-door layer, so a cached hit is re-screened too; malformed patterns fail open.
+- **Curated memory catalog** — `ICuratedMemoryStore` (across InMemory/SQLite/Postgres): a hand-managed
+  catalog of `CuratedMemory` entries grouped by `Kind`, each individually enable/disable-able (`Enabled`)
+  and editable (`UpdateAsync` with COALESCE semantics) with a `Source` note — distinct from the automatic,
+  bounded, dedup/TTL remember/recall *log* (`IMemoryStore`). `CuratedMemorySections.Compose` renders the
+  enabled entries into per-kind prompt sections. New `lyntai_curated_memory` table (migration
+  `202607180003`, SQLite + Postgres).
 
 ### Documented (Sonora-adoption recipes)
 - The **"rate-limit → surface"** recipe for single-provider adopters
