@@ -136,23 +136,37 @@ The adapter subtypes this (§5). The interface method takes the base; the claude
 for its extras. A rarely-used third-adapter flag can ride a `ProviderOptions` bag rather than force a new
 Core field — but that escape hatch is not built until needed.
 
-### 4.4 `IAgentSession` + `AgentSessionResult`
+### 4.4 `IAgentSession` + `AgentSessionResult` — both consumption doors
+
+Two consumption APIs, mirroring `ILlmProvider.StreamAsync`/`CompleteAsync`, so the primitive serves *both*
+a live-transcript UI and a headless/batch caller:
 
 ```csharp
 public interface IAgentSession
 {
-    IAsyncEnumerable<AgentStreamEvent> RunAsync(AgentSessionOptions options, CancellationToken ct = default);
+    // Streaming door — live transcript; cancels cleanly (disposal kills the process tree, §5).
+    // Adapters implement ONLY this.
+    IAsyncEnumerable<AgentStreamEvent> StreamAsync(AgentSessionOptions options, CancellationToken ct = default);
 }
 
-// Convenience the caller can fold the stream into (or reconstruct from SessionEnded + UsageFinal):
+public static class AgentSessionExtensions
+{
+    // Result door — headless/batch callers; optional per-event callback for logging/tracing. Iterates
+    // StreamAsync once and folds it (SessionId ← SessionStarted; Verdict/FinalText/Subtype/Diagnostic ←
+    // SessionEnded; Usage ← last UsageFinal). The fold lives here ONCE — DRY across all adapters.
+    public static async Task<AgentSessionResult> RunAsync(
+        this IAgentSession session, AgentSessionOptions options,
+        Action<AgentStreamEvent>? onEvent = null, CancellationToken ct = default) { /* fold */ }
+}
+
 public sealed record AgentSessionResult(
     string? SessionId, string FinalText, LlmVerdict Verdict, bool IsError,
     string? Subtype, string? Diagnostic, UsageFinal? Usage);
 ```
 
-`IAsyncEnumerable` is the primary shape — idiomatic, composable, natural for a live transcript, and it
-cancels cleanly (disposal kills the process tree, §5). A `RunToEndAsync` helper that returns
-`AgentSessionResult` can wrap it for callers that only want the outcome.
+`StreamAsync` is the one primitive adapters implement — idiomatic, composable, natural for a live
+transcript. `RunAsync` is an **extension** that folds the stream to `AgentSessionResult` (with an optional
+`onEvent` callback), so both doors are first-class while the fold is written once, not per adapter.
 
 **Front-door note (memory: "Lyntai behaves like a provider").** `IAgentSession` is a *second* front door,
 sanctioned and distinct from the `ILlmClient` completion front door — a self-driving gated loop is a

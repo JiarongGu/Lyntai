@@ -537,8 +537,11 @@ generic library primitive (Core) or its first adapter, not app-specific.
 
 ### G2a · `IAgentSession` + options + result — Core (`Lyntai.Agents`) — HARD (blocker)
 - The neutral session contract, in `src/Lyntai.Core/Agents/`:
-  - `interface IAgentSession { IAsyncEnumerable<AgentStreamEvent> RunAsync(AgentSessionOptions options,
-    CancellationToken ct = default); }`
+  - `interface IAgentSession { IAsyncEnumerable<AgentStreamEvent> StreamAsync(AgentSessionOptions options,
+    CancellationToken ct = default); }` — the streaming door (adapters implement only this). Plus a
+    `AgentSessionExtensions.RunAsync(this IAgentSession, options, Action<AgentStreamEvent>? onEvent = null,
+    ct)` extension that folds the stream to `AgentSessionResult` — the result door, written ONCE (DRY),
+    mirroring `ILlmProvider.StreamAsync`/`CompleteAsync`. Both consumption doors first-class.
   - `record AgentSessionOptions` — the neutral per-call inputs: `Prompt` (required; travels over stdin,
     never argv), `SystemPrompt?`, `ToolPolicy` (default `ReadOnly`), `ResumeToken?` (**opaque string** —
     claude session id / OpenAI `previous_response_id`; the resume-across-the-gate mechanism),
@@ -549,9 +552,10 @@ generic library primitive (Core) or its first adapter, not app-specific.
     string? Subtype, string? Diagnostic, UsageFinal? Usage)` — the caller-facing outcome.
 - `IAgentSession` is a **second, sanctioned front door** (distinct from the `ILlmClient` completion door)
   and sits **outside** the router: no cross-provider fallback mid-agent-loop.
-- Test (Core, fakes): a hand-driven `IAsyncEnumerable<AgentStreamEvent>` fake session folds to the right
-  `AgentSessionResult` (SessionId from `SessionStarted`; Verdict/FinalText/Usage from `SessionEnded`
-  +`UsageFinal`).
+- Test (Core, fakes): a fake `IAgentSession` whose `StreamAsync` yields a hand-driven event sequence →
+  `RunAsync` folds to the right `AgentSessionResult` (SessionId from `SessionStarted`;
+  Verdict/FinalText/Subtype/Diagnostic from `SessionEnded`; Usage from the last `UsageFinal`); `onEvent`
+  fires once per streamed event in order.
 
 ### G2b · `ClaudeAgentSession` + args + DI — adapter (`Lyntai.Providers.ClaudeCli`) — HARD (blocker)
 - `record ClaudeAgentOptions : AgentSessionOptions` — adds the claude-specific flags (all
