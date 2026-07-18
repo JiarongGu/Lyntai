@@ -24,12 +24,14 @@ public sealed class JobRunner(
     IJobHandlerRegistry handlers,
     LyntaiOptions options,
     ILogger<JobRunner>? logger = null,
-    Func<DateTimeOffset>? clock = null) : IJobRunner
+    Func<DateTimeOffset>? clock = null,
+    IJobAdmissionController? admission = null) : IJobRunner
 {
     private readonly IJobStore _store = store ?? throw new InvalidOperationException(
         "Durable jobs require a storage backend — call UseSqliteStorage / UsePostgresStorage / UseInMemoryStorage.");
     private readonly ILogger _logger = logger ?? NullLogger<JobRunner>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
+    private readonly IJobAdmissionController _admission = admission ?? new AdmitAllAdmissionController();
     private readonly string _workerId = Guid.NewGuid().ToString("N");
     private int _rotation; // rotates the lane start each pass so no lane is perpetually first under the cap
 
@@ -48,14 +50,28 @@ public sealed class JobRunner(
         var offset = Interlocked.Increment(ref _rotation) % lanes.Count;
         var ordered = offset == 0 ? lanes : [.. lanes.Skip(offset), .. lanes.Take(offset)];
 
+        // consult the admission controller ONCE per lane this pass; a held lane is skipped entirely (its
+        // jobs stay Pending). A throw is treated as "hold" so a flaky controller can't crash the pump.
+        var admitted = new List<string>(ordered.Count);
+        foreach (var lane in ordered)
+        {
+            bool ok;
+            try { ok = await _admission.CanClaimAsync(lane, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex) { _logger.LogWarning(ex, "admission controller threw for lane '{Lane}' — holding it this pass", lane); ok = false; }
+            if (ok) admitted.Add(lane);
+            else _logger.LogDebug("lane '{Lane}' held by the admission controller this pass", lane);
+        }
+        if (admitted.Count == 0) return 0;
+
         var cap = Opts.MaxConcurrency; // 0 = unbounded
-        var remaining = ordered.ToDictionary(l => l, Opts.LimitFor, StringComparer.Ordinal);
+        var remaining = admitted.ToDictionary(l => l, Opts.LimitFor, StringComparer.Ordinal);
         var claimed = new List<JobRecord>();
         bool progressed;
         do
         {
             progressed = false;
-            foreach (var lane in ordered)
+            foreach (var lane in admitted)
             {
                 if (cap > 0 && claimed.Count >= cap) break;
                 if (remaining[lane] <= 0) continue;

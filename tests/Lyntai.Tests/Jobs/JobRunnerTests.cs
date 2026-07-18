@@ -258,4 +258,51 @@ public class JobRunnerTests
         Assert.Equal(JobStatus.Running, job!.Status);   // the runner's Complete was fenced out
         Assert.Equal("other", job.ClaimedBy);           // the reclaimer owns it now — not marked Succeeded
     }
+
+    /// <summary>An admission controller that holds a fixed set of lanes.</summary>
+    private sealed class HoldLanes(params string[] held) : IJobAdmissionController
+    {
+        private readonly HashSet<string> _held = [.. held];
+        public ValueTask<bool> CanClaimAsync(string lane, CancellationToken ct = default) => new(!_held.Contains(lane));
+    }
+
+    [Fact]
+    public async Task Admission_controller_holds_a_lane_out_of_claims()
+    {
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var clock = new MutableClock();
+        var store = new InMemoryJobStore(clock.Get);
+        var options = new LyntaiOptions();
+        options.Jobs.Lease = Lease;
+        var runner = new JobRunner(store, new JobHandlerRegistry([handler]), options, clock: clock.Get,
+            admission: new HoldLanes("held"));
+        var queue = new JobQueue(store, options);
+
+        var heldJob = await queue.EnqueueAsync("held", "t", "{}");
+        var openJob = await queue.EnqueueAsync("open", "t", "{}");
+
+        var ran = await runner.RunOnceAsync();
+
+        Assert.Equal(1, ran);                                                   // only the open lane ran
+        Assert.Equal(JobStatus.Succeeded, (await store.GetAsync(openJob))!.Status);
+        Assert.Equal(JobStatus.Pending, (await store.GetAsync(heldJob))!.Status); // held stays Pending (no state change)
+    }
+
+    [Fact]
+    public async Task A_paused_job_is_not_run()
+    {
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var (runner, store, queue, _) = Build(null, handler);
+        var id = await queue.EnqueueAsync("default", "t", "{}");
+        Assert.True(await queue.PauseAsync(id));
+
+        var ran = await runner.RunOnceAsync();
+
+        Assert.Equal(0, ran);
+        Assert.Equal(JobStatus.Paused, (await store.GetAsync(id))!.Status);
+
+        Assert.True(await queue.ResumeAsync(id));
+        Assert.Equal(1, await runner.RunOnceAsync());
+        Assert.Equal(JobStatus.Succeeded, (await store.GetAsync(id))!.Status);
+    }
 }

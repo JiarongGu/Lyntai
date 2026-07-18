@@ -97,8 +97,11 @@ public static class LyntaiServiceCollectionExtensions
         // (they throw if no storage backend is wired — durable work must be persisted, not silently lost)
         services.TryAddSingleton<IJobHandlerRegistry>(sp => new JobHandlerRegistry(sp.GetServices<IJobHandler>()));
         services.TryAddSingleton<IJobQueue>(sp => new JobQueue(sp.GetService<IJobStore>(), options));
+        // admission control: an app can register its own to throttle lanes by external load; default admits all
+        services.TryAddSingleton<IJobAdmissionController, AdmitAllAdmissionController>();
         services.TryAddSingleton<IJobRunner>(sp => new JobRunner(
-            sp.GetService<IJobStore>(), sp.GetRequiredService<IJobHandlerRegistry>(), options, sp.GetService<ILogger<JobRunner>>()));
+            sp.GetService<IJobStore>(), sp.GetRequiredService<IJobHandlerRegistry>(), options,
+            sp.GetService<ILogger<JobRunner>>(), admission: sp.GetService<IJobAdmissionController>()));
         // recurring schedules: enqueues due JobSchedules; next-run persisted via IKeyValueStore (durable
         // across restart) or in-memory when none is wired. The app drives the pump (host-free).
         services.TryAddSingleton<IJobScheduler>(sp => new JobScheduler(

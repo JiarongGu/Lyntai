@@ -51,6 +51,15 @@ public interface IJobStore
     /// <summary>Cancel a still-Pending job (no effect on a Running one). Returns whether it was cancelled.</summary>
     Task<bool> CancelAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>Administratively hold a Pending job: Pending → <see cref="JobStatus.Paused"/>, so it's not
+    /// claimed until resumed. No effect on a non-Pending job. Returns whether it was paused. (To hold a whole
+    /// lane transiently without persisting a state change, use <see cref="Lyntai.Jobs.IJobAdmissionController"/>.)</summary>
+    Task<bool> PauseAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Release a held job: <see cref="JobStatus.Paused"/> → Pending, claimable again. No effect on
+    /// a non-Paused job. Returns whether it was resumed.</summary>
+    Task<bool> ResumeAsync(Guid id, CancellationToken ct = default);
+
     /// <summary>Request cancellation of a RUNNING job — sets its <c>cancel_requested</c> flag. The worker
     /// running it observes the flag (its handler's <c>CancellationToken</c> is cancelled) and, honoring it,
     /// stops; the job then becomes Cancelled. No effect on a non-Running job (use <see cref="CancelAsync"/>

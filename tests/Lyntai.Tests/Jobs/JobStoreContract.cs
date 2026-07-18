@@ -213,6 +213,29 @@ public static class JobStoreContract
         Assert.Equal(expectedFirst, first!.Id);
     }
 
+    public static async Task Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it(IJobStore store, MutableClock clock)
+    {
+        var id = await store.EnqueueAsync(Spec());
+
+        Assert.True(await store.PauseAsync(id));                            // Pending → Paused
+        Assert.Equal(JobStatus.Paused, (await store.GetAsync(id))!.Status);
+        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease));    // a Paused job is not claimable
+        Assert.False(await store.PauseAsync(id));                           // already Paused → no-op
+
+        Assert.True(await store.ResumeAsync(id));                           // Paused → Pending
+        Assert.Equal(JobStatus.Pending, (await store.GetAsync(id))!.Status);
+        Assert.False(await store.ResumeAsync(id));                          // not Paused → no-op
+        Assert.Equal(id, (await store.ClaimNextAsync("default", "w1", Lease))!.Id); // runnable again
+    }
+
+    public static async Task Pause_only_affects_a_pending_job(IJobStore store, MutableClock clock)
+    {
+        var running = await store.EnqueueAsync(Spec());
+        await store.ClaimNextAsync("default", "w1", Lease);
+        Assert.False(await store.PauseAsync(running)); // can't pause a Running job (use cancel/admission control)
+        Assert.Equal(JobStatus.Running, (await store.GetAsync(running))!.Status);
+    }
+
     public static async Task Request_cancel_flags_a_running_job_then_cancel_running_finalizes(IJobStore store, MutableClock clock)
     {
         var id = await store.EnqueueAsync(Spec());

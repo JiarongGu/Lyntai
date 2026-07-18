@@ -24,6 +24,12 @@ public enum JobStatus
     /// Terminal but INSPECTABLE + REPLAYABLE (<see cref="Storage.IJobStore.ReplayAsync"/>) — the point of a
     /// DLQ over a silent Failed.</summary>
     Dead,
+
+    /// <summary>Administratively held: a Pending job taken out of the claimable set until resumed (via
+    /// <see cref="Storage.IJobStore.ResumeAsync"/>). NON-terminal — resume returns it to Pending. Distinct
+    /// from <see cref="IJobAdmissionController"/>, which holds a whole LANE transiently without touching the
+    /// jobs' state.</summary>
+    Paused,
 }
 
 /// <summary>What to enqueue: the <paramref name="Lane"/> (execution lane, for concurrency), the

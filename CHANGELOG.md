@@ -5,9 +5,10 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## 0.28.0 — 2026-07-18
 
-Adds a **portable, recoverable secret vault** and lands the review-follow-up backlog (a second
-multi-agent code review). New package **`Lyntai.Secrets.Dpapi`**; small public-surface additions to
-`Lyntai.Core` (envelope vault) — see below.
+Adds a **portable, recoverable secret vault** and **job admission control / pause**, and lands the
+review-follow-up backlog (a second multi-agent code review). New package **`Lyntai.Secrets.Dpapi`**;
+public-surface additions to `Lyntai.Core` (envelope vault, `IJobAdmissionController`, `JobStatus.Paused`)
+and the three storage backends (`PauseAsync`/`ResumeAsync`) — see below.
 
 ### Added
 - **DEK-envelope secret vault** (`Lyntai.Core`) — a Lyntai-managed data-encryption key instead of a BYO
@@ -25,6 +26,12 @@ multi-agent code review). New package **`Lyntai.Secrets.Dpapi`**; small public-s
   protector: secrets sealed to this Windows host at rest, recoverable off-machine via the recovery key.
   Windows-only at runtime (guarded with a clear `PlatformNotSupportedException`); the envelope crypto
   stays portable in Core, so non-Windows hosts use an AES-GCM protector via `AddEnvelopeSecretVault`.
+- **Job admission control + `Paused` state** — `IJobAdmissionController` (default admit-all) is consulted
+  by the runner per lane *before* it claims, so an app can throttle lanes by external signals (GPU/CPU
+  load, a maintenance window) without Lyntai knowing about them; a held lane's jobs stay Pending (a throw
+  is treated as "hold"). Register with `AddJobAdmissionController`. Separately, `JobStatus.Paused` with
+  `IJobQueue`/`IJobStore` `PauseAsync`/`ResumeAsync` administratively holds a single Pending job out of the
+  claimable set (no schema change — status is TEXT) across all three backends.
 
 ### Fixed
 - **Security — denylist guard bypassed via tool calls/attachments** — `DenylistGuard` scanned only message

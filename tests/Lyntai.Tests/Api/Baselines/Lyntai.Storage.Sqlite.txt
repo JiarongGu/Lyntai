@@ -84,8 +84,10 @@ class Lyntai.Storage.Sqlite.SqliteJobStore
     FailAsync(Guid, String, String, Nullable<DateTimeOffset>=, CancellationToken=) : Task<Boolean>
     GetAsync(Guid, CancellationToken=) : Task<JobRecord>
     ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
+    PauseAsync(Guid, CancellationToken=) : Task<Boolean>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
     RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
+    ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
 class Lyntai.Storage.Sqlite.SqliteKeyValueStore
     .ctor(IDbConnectionFactory)

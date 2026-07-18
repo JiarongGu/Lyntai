@@ -300,9 +300,14 @@ interface Lyntai.Guards.IGuard
 interface Lyntai.Guards.IGuardRail
     InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
     InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+class Lyntai.Jobs.AdmitAllAdmissionController
+    .ctor()
+    CanClaimAsync(String, CancellationToken=) : ValueTask<Boolean>
 class Lyntai.Jobs.CronExpression
     Next(DateTimeOffset) : DateTimeOffset
     Parse(String) : CronExpression
+interface Lyntai.Jobs.IJobAdmissionController
+    CanClaimAsync(String, CancellationToken=) : ValueTask<Boolean>
 interface Lyntai.Jobs.IJobHandler
     HandleAsync(JobContext, CancellationToken=) : Task<JobOutcome>
     Type : String
@@ -314,7 +319,9 @@ interface Lyntai.Jobs.IJobQueue
     EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
     EnqueueAsync(String, String, String, Int32=, CancellationToken=) : Task<Guid>
     ListDeadAsync(String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
+    PauseAsync(Guid, CancellationToken=) : Task<Boolean>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
+    ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
 interface Lyntai.Jobs.IJobRunner
     RunAsync(CancellationToken=) : Task
     RunOnceAsync(CancellationToken=) : Task<Int32>
@@ -364,7 +371,9 @@ class Lyntai.Jobs.JobQueue
     EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
     EnqueueAsync(String, String, String, Int32=, CancellationToken=) : Task<Guid>
     ListDeadAsync(String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
+    PauseAsync(Guid, CancellationToken=) : Task<Boolean>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
+    ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
 class Lyntai.Jobs.JobRecord
     .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset, Int32=, Boolean=)
     Attempts : Int32
@@ -389,7 +398,7 @@ class Lyntai.Jobs.JobRecord
     Type : String
     UpdatedAt : DateTimeOffset
 class Lyntai.Jobs.JobRunner
-    .ctor(IJobStore, IJobHandlerRegistry, LyntaiOptions, ILogger<JobRunner>=, Func<DateTimeOffset>=)
+    .ctor(IJobStore, IJobHandlerRegistry, LyntaiOptions, ILogger<JobRunner>=, Func<DateTimeOffset>=, IJobAdmissionController=)
     RunAsync(CancellationToken=) : Task
     RunOnceAsync(CancellationToken=) : Task<Int32>
 class Lyntai.Jobs.JobSchedule
@@ -427,6 +436,7 @@ enum Lyntai.Jobs.JobStatus
     Cancelled : JobStatus const
     Dead : JobStatus const
     Failed : JobStatus const
+    Paused : JobStatus const
     Pending : JobStatus const
     Running : JobStatus const
     Succeeded : JobStatus const
@@ -669,6 +679,8 @@ class Lyntai.LyntaiBuilder
     AddEmbeddings(IEmbedder) : LyntaiBuilder
     AddGuard() : LyntaiBuilder
     AddGuard(Func<IServiceProvider,IGuard>) : LyntaiBuilder
+    AddJobAdmissionController() : LyntaiBuilder
+    AddJobAdmissionController(Func<IServiceProvider,IJobAdmissionController>) : LyntaiBuilder
     AddJobHandler() : LyntaiBuilder
     AddJobHandler(Func<IServiceProvider,IJobHandler>) : LyntaiBuilder
     AddJobSchedule(JobSchedule) : LyntaiBuilder
@@ -889,8 +901,10 @@ interface Lyntai.Storage.IJobStore
     FailAsync(Guid, String, String, Nullable<DateTimeOffset>=, CancellationToken=) : Task<Boolean>
     GetAsync(Guid, CancellationToken=) : Task<JobRecord>
     ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
+    PauseAsync(Guid, CancellationToken=) : Task<Boolean>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
     RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
+    ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IKeyValueStore
     DeleteAsync(String, CancellationToken=) : Task

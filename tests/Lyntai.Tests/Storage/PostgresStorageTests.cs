@@ -290,4 +290,20 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.True(await store.CancelRunningAsync(id, "w1"));
         Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
     }
+
+    [Fact]
+    public async Task Job_pause_holds_out_of_claims_then_resume_restores()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
+
+        Assert.True(await store.PauseAsync(id));                              // Pending → Paused
+        Assert.Equal(JobStatus.Paused, (await store.GetAsync(id))!.Status);
+        Assert.Null(await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1))); // not claimable
+
+        Assert.True(await store.ResumeAsync(id));                            // Paused → Pending
+        Assert.Equal(id, (await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1)))!.Id);
+    }
 }

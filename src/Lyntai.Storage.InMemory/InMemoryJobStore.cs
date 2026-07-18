@@ -123,6 +123,28 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
         }
     }
 
+    public Task<bool> PauseAsync(Guid id, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!_jobs.TryGetValue(id, out var j) || j.Status != JobStatus.Pending) return Task.FromResult(false);
+            _jobs[id] = j with { Status = JobStatus.Paused, UpdatedAt = now };
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<bool> ResumeAsync(Guid id, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!_jobs.TryGetValue(id, out var j) || j.Status != JobStatus.Paused) return Task.FromResult(false);
+            _jobs[id] = j with { Status = JobStatus.Pending, UpdatedAt = now };
+            return Task.FromResult(true);
+        }
+    }
+
     public Task<bool> RequestCancelAsync(Guid id, CancellationToken ct = default)
     {
         var now = _clock();

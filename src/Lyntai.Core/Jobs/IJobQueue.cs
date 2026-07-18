@@ -22,6 +22,13 @@ public interface IJobQueue
     /// <summary>Cancel a job whether it's Pending (cancelled immediately) or Running (cancellation is
     /// requested — the worker stops it cooperatively). Returns whether anything was cancelled/requested.</summary>
     Task<bool> CancelAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Administratively hold a Pending job (Pending → Paused) so it isn't claimed until resumed.
+    /// Returns whether it was paused.</summary>
+    Task<bool> PauseAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Release a held job (Paused → Pending). Returns whether it was resumed.</summary>
+    Task<bool> ResumeAsync(Guid id, CancellationToken ct = default);
 }
 
 /// <inheritdoc/>
@@ -46,4 +53,8 @@ public sealed class JobQueue(IJobStore? store, LyntaiOptions options) : IJobQueu
     public async Task<bool> CancelAsync(Guid id, CancellationToken ct = default) =>
         await _store.CancelAsync(id, ct).ConfigureAwait(false)          // Pending → Cancelled outright
         || await _store.RequestCancelAsync(id, ct).ConfigureAwait(false); // else Running → request cancellation
+
+    public Task<bool> PauseAsync(Guid id, CancellationToken ct = default) => _store.PauseAsync(id, ct);
+
+    public Task<bool> ResumeAsync(Guid id, CancellationToken ct = default) => _store.ResumeAsync(id, ct);
 }

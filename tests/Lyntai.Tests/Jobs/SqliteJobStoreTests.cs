@@ -33,6 +33,8 @@ public class SqliteJobStoreTests
     [Fact] public Task Replay_dead() => Run(JobStoreContract.Replay_requeues_a_dead_job);
     [Fact] public Task Request_cancel() => Run(JobStoreContract.Request_cancel_flags_a_running_job_then_cancel_running_finalizes);
     [Fact] public Task Tiebreak_by_id() => Run(JobStoreContract.Same_tick_same_priority_claims_in_id_order);
+    [Fact] public Task Pause_resume() => Run(JobStoreContract.Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it);
+    [Fact] public Task Pause_pending_only() => Run(JobStoreContract.Pause_only_affects_a_pending_job);
 
     [Fact]
     public async Task Concurrent_claims_never_double_grab()

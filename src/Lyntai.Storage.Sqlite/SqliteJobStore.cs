@@ -81,6 +81,26 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
         return n > 0;
     }
 
+    public async Task<bool> PauseAsync(Guid id, CancellationToken ct = default)
+    {
+        var now = _clock();
+        using var conn = factory.Open();
+        var n = await conn.ExecuteAsync(new CommandDefinition(
+            "UPDATE lyntai_job SET status='Paused', updated_at=@now WHERE id=@id AND status='Pending'",
+            new { id = id.ToString(), now }, cancellationToken: ct)).ConfigureAwait(false);
+        return n > 0;
+    }
+
+    public async Task<bool> ResumeAsync(Guid id, CancellationToken ct = default)
+    {
+        var now = _clock();
+        using var conn = factory.Open();
+        var n = await conn.ExecuteAsync(new CommandDefinition(
+            "UPDATE lyntai_job SET status='Pending', updated_at=@now WHERE id=@id AND status='Paused'",
+            new { id = id.ToString(), now }, cancellationToken: ct)).ConfigureAwait(false);
+        return n > 0;
+    }
+
     public async Task<bool> RequestCancelAsync(Guid id, CancellationToken ct = default)
     {
         var now = _clock();

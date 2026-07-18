@@ -94,6 +94,23 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Replace the default admit-all <see cref="Lyntai.Jobs.IJobAdmissionController"/> with one the
+    /// runner consults per lane before claiming — so the app can throttle lanes by external load / a
+    /// maintenance window. Registered as the singleton controller (last registration wins).</summary>
+    public LyntaiBuilder AddJobAdmissionController<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, Lyntai.Jobs.IJobAdmissionController
+    {
+        Services.AddSingleton<Lyntai.Jobs.IJobAdmissionController, T>();
+        return this;
+    }
+
+    /// <summary>Register a job admission controller instance (or one built from the provider).</summary>
+    public LyntaiBuilder AddJobAdmissionController(Func<IServiceProvider, Lyntai.Jobs.IJobAdmissionController> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Register a recurring job: every <paramref name="every"/>, the <see cref="Lyntai.Jobs.IJobScheduler"/>
     /// enqueues a <paramref name="type"/> job on <paramref name="lane"/> with <paramref name="payload"/>.
     /// <paramref name="name"/> must be stable + unique (it keys the persisted next-run). The app drives the

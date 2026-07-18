@@ -290,7 +290,7 @@ routing). These are the pieces it still needs before dropping its own code. Prio
     key; `GenerateMasterKey`/`Recover`/machine-fingerprint). Keep AES-GCM/BYO as the portable default. (Mirror
     Sonora `…/Modules/Core/Services/SecretVault.cs`.) Tests: DPAPI round-trip; recover via key on a "different
     machine"; tamper → `CryptographicException`.
-- [ ] **S2 · Job admission-control seam + first-class `Paused` state**
+- [x] **S2 · Job admission-control seam + first-class `Paused` state**
   - Sonora's `CapacityGovernor` (external GPU/CPU-load-aware lane throttling + schedule window) has no Lyntai hook,
     and there's no `Paused` status. Add `IJobAdmissionController` the runner consults per lane before
     `ClaimNextAsync` (allow / hold-lane) + `JobStatus.Paused` with pause/resume on `IJobQueue`/`IJobStore` across
