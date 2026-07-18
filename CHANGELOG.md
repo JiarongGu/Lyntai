@@ -3,6 +3,36 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.28.1 — 2026-07-18
+
+Consumer-driven adoption gaps — makes Lyntai's **cortex + scoring** genuinely adoptable (a real app can
+retire its own scoring framework + model tuning with no regression) and adds a **per-request timeout**.
+Additive only (new overloads / opt-in / default-interface members) — no breaking change.
+
+### Added
+- **Per-request timeout override** — `LlmRequest.TimeoutSeconds` (+ a per-consumer
+  `LyntaiOptions.TimeoutByConsumer` map) let one long call — e.g. a CLI-agent run driving many steps —
+  carry a bigger budget without inflating every short call. `LyntaiOptions.ResolveTimeout` (request >
+  consumer-map > "default" > global `ProviderTimeout`), clamped to `MaxProviderTimeout`
+  (env `LYNTAI_MAX_TIMEOUT_SECONDS`); honored by all four providers.
+- **Score store: upsert + aggregate + export** (`IScoreStore`) — `SaveAsync` now UPSERTs on
+  `(session, scorer)` (re-scoring replaces, not accumulates; new `UNIQUE` merged into the score
+  migration), plus `AggregateAsync` (per-scorer AVG+COUNT → `ScorerAggregate`) and `ExportAsync`
+  (flat `(session, scorer, score)` dump → `ScoreExportRow`) for the eval dashboard + tuning datasets.
+- **Dry-run scoring** — `IScoringService.EvaluateAsync(ctx, persist: false)` scores without writing rows
+  even when a store is wired (a preview/tuning path).
+- **Per-scorer judge model** — `LlmScorerBase` exposes overridable `Model` + `Consumer`, so a cheap judge
+  can route to a cheap model per scorer (was hardcoded to the default + `"scoring"`).
+- **Live per-consumer model routing** — opt-in `AddLiveModelRouting()` registers an `IModelRoutingStore`
+  (KV-backed) the router + cache read each call, so an admin model retune takes effect WITHOUT a restart
+  (`lyntai.model.<consumer>`; precedence: explicit → live → configured default). `ResolveModel` gains a
+  `liveOverride` overload.
+- **Prompt-override validation** — `IPromptRegistry.ValidateOverride(default, candidate)` returns the
+  `{placeholders}` a candidate would drop (empty = valid), so an admin save-flow rejects a bad override up
+  front instead of relying on `RenderAsync`'s silent runtime fall-back.
+- **`IScorer.Description`** (optional default-interface member) for an admin "list scorers" view; documented
+  the `ScoreContext.Extra` domain-dimension pattern.
+
 ## 0.28.0 — 2026-07-18
 
 Adds a **portable, recoverable secret vault** and **job admission control / pause**, and lands the
@@ -44,12 +74,6 @@ reporting, `ICuratedMemoryStore`) — see below.
   otherwise-`Ok` reply whose text matches as `Refused` (no fallback) — a caller-supplied check (e.g. a
   per-language "I can't help") on top of the central patterns. Applied by `RefusalScreeningLlmClient`, the
   always-on OUTERMOST front-door layer, so a cached hit is re-screened too; malformed patterns fail open.
-- **Per-request timeout override** — `LlmRequest.TimeoutSeconds` (and a per-consumer `LyntaiOptions.TimeoutByConsumer`
-  map) let one long call — e.g. a CLI-agent run driving many steps — carry a bigger budget without inflating
-  every short call's timeout. Resolved by `LyntaiOptions.ResolveTimeout` (request > consumer-map > "default"
-  > global `ProviderTimeout`), clamped to `MaxProviderTimeout` (env `LYNTAI_MAX_TIMEOUT_SECONDS`); honored by
-  all four providers (ClaudeCli spawn, OpenAI-compatible + MEAI + Local inactivity clocks). Mirrors the
-  existing `DefaultModelByConsumer`/`ResolveModel` shape.
 - **Curated memory catalog** — `ICuratedMemoryStore` (across InMemory/SQLite/Postgres): a hand-managed
   catalog of `CuratedMemory` entries grouped by `Kind`, each individually enable/disable-able (`Enabled`)
   and editable (`UpdateAsync` with COALESCE semantics) with a `Source` note — distinct from the automatic,
