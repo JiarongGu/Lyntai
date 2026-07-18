@@ -1,3 +1,16 @@
+class Lyntai.Agents.AgentStreamEvent
+    .ctor()
+    .ctor(AgentStreamEvent)
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder) : Boolean
+    ToString() : String
+enum Lyntai.Agents.AgentToolPolicy
+    ReadOnly : AgentToolPolicy const
+    Write : AgentToolPolicy const
+    value__ : Int32
 class Lyntai.Agents.ChatOrchestrator
     .ctor(ILlmClient, IToolLoop, IToolRegistry, IGuardRail, IPromptComposer, IMemoryStore=, ISemanticMemory=, ILogger<ChatOrchestrator>=)
     ChatAsync(ChatTurn, CancellationToken=) : Task<ChatResult>
@@ -51,6 +64,68 @@ interface Lyntai.Agents.IToolLoop
 interface Lyntai.Agents.IToolRegistry
     Find(String) : ITool
     Tools : IReadOnlyList<ITool>
+class Lyntai.Agents.SessionEnded
+    .ctor(LlmVerdict, Boolean, String, String, String, String)
+    Deconstruct(LlmVerdict&, Boolean&, String&, String&, String&, String&) : Void
+    Diagnostic : String
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    Equals(SessionEnded) : Boolean
+    FinalText : String
+    GetHashCode() : Int32
+    IsError : Boolean
+    PrintMembers(StringBuilder) : Boolean
+    SessionId : String
+    Subtype : String
+    ToString() : String
+    Verdict : LlmVerdict
+class Lyntai.Agents.SessionStarted
+    .ctor(String)
+    Deconstruct(String&) : Void
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    Equals(SessionStarted) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder) : Boolean
+    SessionId : String
+    ToString() : String
+class Lyntai.Agents.TextDelta
+    .ctor(String)
+    Deconstruct(String&) : Void
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    Equals(TextDelta) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder) : Boolean
+    Text : String
+    ToString() : String
+class Lyntai.Agents.Thinking
+    .ctor(String)
+    Deconstruct(String&) : Void
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    Equals(Thinking) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder) : Boolean
+    Text : String
+    ToString() : String
+class Lyntai.Agents.ToolCall
+    .ctor(String, String, String=)
+    ArgumentsJson : String
+    CallId : String
+    Deconstruct(String&, String&, String&) : Void
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    Equals(ToolCall) : Boolean
+    GetHashCode() : Int32
+    Name : String
+    PrintMembers(StringBuilder) : Boolean
+    ToString() : String
 class Lyntai.Agents.ToolLoop
     .ctor(ILlmClient, IToolRegistry, LyntaiOptions, ILogger<ToolLoop>=)
     RunAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : Task<ToolLoopResult>
@@ -70,6 +145,19 @@ class Lyntai.Agents.ToolRegistry
     .ctor(IEnumerable<ITool>)
     Find(String) : ITool
     Tools : IReadOnlyList<ITool>
+class Lyntai.Agents.ToolResult
+    .ctor(String, String, Boolean)
+    CallId : String
+    Content : String
+    Deconstruct(String&, String&, Boolean&) : Void
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    Equals(ToolResult) : Boolean
+    GetHashCode() : Int32
+    IsError : Boolean
+    PrintMembers(StringBuilder) : Boolean
+    ToString() : String
 class Lyntai.Agents.ToolStep
     .ctor(String, String, String)
     ArgumentsJson : String
@@ -80,6 +168,34 @@ class Lyntai.Agents.ToolStep
     Result : String
     ToString() : String
     Tool : String
+class Lyntai.Agents.UsageFinal
+    .ctor(Int64, Int64, Int64, Int64, String)
+    CacheCreate : Int64
+    CacheRead : Int64
+    Deconstruct(Int64&, Int64&, Int64&, Int64&, String&) : Void
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    Equals(UsageFinal) : Boolean
+    GetHashCode() : Int32
+    Input : Int64
+    Model : String
+    Output : Int64
+    PrintMembers(StringBuilder) : Boolean
+    ToString() : String
+class Lyntai.Agents.UsageLive
+    .ctor(Int64, Int64, Int64)
+    CacheRead : Int64
+    Deconstruct(Int64&, Int64&, Int64&) : Void
+    EqualityContract : Type
+    Equals(AgentStreamEvent) : Boolean
+    Equals(Object) : Boolean
+    Equals(UsageLive) : Boolean
+    GetHashCode() : Int32
+    Input : Int64
+    Output : Int64
+    PrintMembers(StringBuilder) : Boolean
+    ToString() : String
 class Lyntai.BudgetOptions
     .ctor()
     MaxCostUsd : Nullable<Double>
