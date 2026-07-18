@@ -353,7 +353,7 @@ plus nits. All verified in code; none catastrophic.
   - Fix: after parsing, `if (version > CurrentVersion) throw new CryptographicException(...)`; carry the parsed
     version onto the record. Test: a version-bumped envelope → `CryptographicException`.
 
-- [ ] **N4 · Nits (batch, non-blocking)**
+- [x] **N4 · Nits (batch, non-blocking)**
   - Step-log cap is hard-wired to `JobStepLog.DefaultCap = 200` — add `JobOptions.MaxStepLog` and thread it into
     the three stores' `Append` calls.
   - Zero the transient recovery KEK after use — `try/finally { CryptographicOperations.ZeroMemory(kek); }` in

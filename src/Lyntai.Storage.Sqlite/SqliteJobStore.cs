@@ -11,7 +11,7 @@ namespace Lyntai.Storage.Sqlite;
 /// report rows-affected. Timestamps/id/status are TEXT (no new Dapper type handler → no process-global
 /// registry collision; TEXT timestamps compare chronologically because the ISO format is sortable).
 /// </summary>
-public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOffset>? clock = null) : IJobStore
+public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOffset>? clock = null, int stepLogCap = JobStepLog.DefaultCap) : IJobStore
 {
     private const string Cols =
         "id, lane, type, payload, status, checkpoint, attempts, max_attempts, last_error, " +
@@ -74,7 +74,7 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
         {
             var current = await GetAsync(id, ct).ConfigureAwait(false);
             if (current is null || current.Status != JobStatus.Running || current.ClaimedBy != workerId) return false;
-            var stepLog = JobStepLog.Append(current.StepLog, message, _clock());
+            var stepLog = JobStepLog.Append(current.StepLog, message, _clock(), stepLogCap);
             return await Fenced("SET step_log=@stepLog, updated_at=@now", id, workerId, ct, new { stepLog }).ConfigureAwait(false);
         }
         finally { _stepLock.Release(); }

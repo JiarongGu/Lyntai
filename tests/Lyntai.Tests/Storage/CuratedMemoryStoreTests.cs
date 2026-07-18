@@ -11,6 +11,7 @@ public class InMemoryCuratedMemoryStoreTests
     [Fact] public Task Add_get_list() => CuratedMemoryStoreContract.Add_get_list_round_trips(New());
     [Fact] public Task Update_partial() => CuratedMemoryStoreContract.Update_changes_only_the_provided_fields(New());
     [Fact] public Task List_filters() => CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(New());
+    [Fact] public Task Clear_source() => CuratedMemoryStoreContract.Update_with_empty_source_clears_it(New());
     [Fact] public Task Remove() => CuratedMemoryStoreContract.Remove_deletes(New());
 }
 
@@ -25,5 +26,6 @@ public class SqliteCuratedMemoryStoreTests : IDisposable
     [Fact] public Task Add_get_list() => CuratedMemoryStoreContract.Add_get_list_round_trips(Store);
     [Fact] public Task Update_partial() => CuratedMemoryStoreContract.Update_changes_only_the_provided_fields(Store);
     [Fact] public Task List_filters() => CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(Store);
+    [Fact] public Task Clear_source() => CuratedMemoryStoreContract.Update_with_empty_source_clears_it(Store);
     [Fact] public Task Remove() => CuratedMemoryStoreContract.Remove_deletes(Store);
 }

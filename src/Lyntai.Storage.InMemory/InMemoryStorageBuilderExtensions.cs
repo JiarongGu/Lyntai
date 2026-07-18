@@ -20,7 +20,8 @@ public static class InMemoryStorageBuilderExtensions
         builder.Services.TryAddSingleton<IMemoryStore>(sp => new InMemoryMemoryStore(sp.GetRequiredService<LyntaiOptions>()));
         builder.Services.TryAddSingleton<IScoreStore, InMemoryScoreStore>();
         builder.Services.TryAddSingleton<ITraceStore, InMemoryTraceStore>();
-        builder.Services.TryAddSingleton<IJobStore>(_ => new InMemoryJobStore());
+        builder.Services.TryAddSingleton<IJobStore>(sp => new InMemoryJobStore(
+            stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
         builder.Services.TryAddSingleton<ICuratedMemoryStore>(_ => new InMemoryCuratedMemoryStore());
         return builder;
     }

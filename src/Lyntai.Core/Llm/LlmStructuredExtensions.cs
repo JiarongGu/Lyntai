@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Lyntai.Text;
 
 namespace Lyntai.Llm;
@@ -22,8 +21,8 @@ public static class LlmStructuredExtensions
             if (reply.Verdict != LlmVerdict.Ok) return reply;
 
             var json = JsonExtract.ExtractObject(reply.Text);
-            if (json is not null && IsParseable(json))
-                return reply with { Text = json };
+            if (JsonExtract.IsValid(json))
+                return reply with { Text = json! };
 
             if (attempt > 0)
                 return new LlmReply("", LlmVerdict.Failed, reply.Usage,
@@ -40,19 +39,6 @@ public static class LlmStructuredExtensions
                     LlmMessage.User("That was not valid JSON. Reply with ONLY a single JSON object — no prose, no code fences."),
                 ],
             };
-        }
-    }
-
-    private static bool IsParseable(string json)
-    {
-        try
-        {
-            using var _ = JsonDocument.Parse(json);
-            return true;
-        }
-        catch (JsonException)
-        {
-            return false;
         }
     }
 }

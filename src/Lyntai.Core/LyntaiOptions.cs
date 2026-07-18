@@ -104,6 +104,8 @@ public sealed class LyntaiOptions
             Jobs.RetryBackoff = TimeSpan.FromSeconds(jb);
         if (int.TryParse(getEnv("LYNTAI_JOBS_DEFAULT_CONCURRENCY"), out var jc) && jc > 0)
             Jobs.DefaultLaneConcurrency = jc;
+        if (int.TryParse(getEnv("LYNTAI_JOBS_MAX_STEP_LOG"), out var jsl) && jsl > 0)
+            Jobs.MaxStepLog = jsl;
 
         // response-cache knobs
         if (double.TryParse(getEnv("LYNTAI_CACHE_TTL_SECONDS"), out var ct) && ct >= 0)

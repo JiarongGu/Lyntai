@@ -355,6 +355,7 @@ class Lyntai.Jobs.JobOptions
     Lease : TimeSpan
     LimitFor(String) : Int32
     MaxConcurrency : Int32
+    MaxStepLog : Int32
     PollInterval : TimeSpan
     RetryBackoff : TimeSpan
 class Lyntai.Jobs.JobOutcome

@@ -16,7 +16,7 @@ class Lyntai.Storage.InMemory.InMemoryCuratedMemoryStore
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 class Lyntai.Storage.InMemory.InMemoryJobStore
-    .ctor(Func<DateTimeOffset>=)
+    .ctor(Func<DateTimeOffset>=, Int32=)
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
     CancelAsync(Guid, CancellationToken=) : Task<Boolean>
     CancelRunningAsync(Guid, String, CancellationToken=) : Task<Boolean>

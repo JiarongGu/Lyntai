@@ -5,7 +5,7 @@ namespace Lyntai.Storage.InMemory;
 /// <summary>In-memory <see cref="IJobStore"/>. Claim/lease/fencing semantics mirror the SQL backends,
 /// under one lock. (Durable across restarts only insofar as the process lives — for tests and ephemeral
 /// use; use SQLite/Postgres for real durability.)</summary>
-public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobStore
+public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int stepLogCap = JobStepLog.DefaultCap) : IJobStore
 {
     private readonly Lock _lock = new();
     private readonly Dictionary<Guid, JobRecord> _jobs = [];
@@ -78,7 +78,7 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
         lock (_lock)
         {
             if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
-            _jobs[id] = j with { StepLog = JobStepLog.Append(j.StepLog, message, now), UpdatedAt = now };
+            _jobs[id] = j with { StepLog = JobStepLog.Append(j.StepLog, message, now, stepLogCap), UpdatedAt = now };
             return Task.FromResult(true);
         }
     }

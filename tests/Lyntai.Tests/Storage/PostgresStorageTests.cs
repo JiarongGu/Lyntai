@@ -334,6 +334,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal("term A", after.Content);
         Assert.Equal("src", after.Source);
 
+        // "" clears the source (null = unchanged)
+        Assert.True(await store.UpdateAsync(a, source: ""));
+        Assert.Equal("", (await store.GetAsync(a))!.Source);
+
         Assert.True(await store.RemoveAsync(a));
         Assert.Null(await store.GetAsync(a));
     }

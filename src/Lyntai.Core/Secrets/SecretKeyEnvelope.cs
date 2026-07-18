@@ -99,7 +99,8 @@ public sealed record SecretKeyEnvelope
         var kek = DeriveRecoveryKek(recoveryKey, salt, RecoveryIterations);
         // AesGcmSecretProtector already maps every unusable blob (bad key ⇒ tag mismatch, corrupt base64,
         // truncation) to CryptographicException — reuse it rather than re-implement the GCM framing
-        return DecodeDek(new AesGcmSecretProtector(kek).Unprotect(RecoveryWrappedDek));
+        try { return DecodeDek(new AesGcmSecretProtector(kek).Unprotect(RecoveryWrappedDek)); }
+        finally { CryptographicOperations.ZeroMemory(kek); } // scrub the transient KEK (defense-in-depth)
     }
 
     /// <summary>Produce a new envelope that re-seals <paramref name="dek"/> for THIS machine (fresh machine
@@ -179,7 +180,8 @@ public sealed record SecretKeyEnvelope
     private static string WrapWithRecovery(byte[] dek, string recoveryKey, byte[] salt, int iterations)
     {
         var kek = DeriveRecoveryKek(recoveryKey, salt, iterations);
-        return new AesGcmSecretProtector(kek).Protect(Convert.ToBase64String(dek));
+        try { return new AesGcmSecretProtector(kek).Protect(Convert.ToBase64String(dek)); }
+        finally { CryptographicOperations.ZeroMemory(kek); } // scrub the transient KEK (defense-in-depth)
     }
 
     private static byte[] DeriveRecoveryKek(string recoveryKey, byte[] salt, int iterations)

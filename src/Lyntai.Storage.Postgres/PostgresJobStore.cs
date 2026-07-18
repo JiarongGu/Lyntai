@@ -10,7 +10,7 @@ namespace Lyntai.Storage.Postgres;
 /// the claim predicate (stale lease); mutating writes are fenced by <c>claimed_by</c> and report
 /// rows-affected. Mirrors <c>SqliteJobStore</c>; <c>timestamptz</c> compares as real timestamps.
 /// </summary>
-public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTimeOffset>? clock = null) : IJobStore
+public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTimeOffset>? clock = null, int stepLogCap = JobStepLog.DefaultCap) : IJobStore
 {
     private const string Cols =
         "id, lane, type, payload, status, checkpoint, attempts, max_attempts, last_error, " +
@@ -81,7 +81,7 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
         {
             var current = await GetAsync(id, ct).ConfigureAwait(false);
             if (current is null || current.Status != JobStatus.Running || current.ClaimedBy != workerId) return false;
-            var stepLog = JobStepLog.Append(current.StepLog, message, _clock());
+            var stepLog = JobStepLog.Append(current.StepLog, message, _clock(), stepLogCap);
             return await Fenced("SET step_log=@stepLog, updated_at=@now", id, workerId, ct, new { stepLog }).ConfigureAwait(false);
         }
         finally { _stepLock.Release(); }

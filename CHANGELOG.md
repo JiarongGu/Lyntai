@@ -81,6 +81,24 @@ reporting, `ICuratedMemoryStore`) — see below.
   secret/token equality in an `ISecretAccessPolicy`, and the cross-backend memory-recall divergence.
   Corrected the 0.27.1 dimension-mismatch note (in-memory scores 0 since 0.27.2, only Postgres throws).
 
+### Hardening (round-2 review of the new surface)
+- **Concurrent step-log reports could lose a step on the SQL job stores** — `ReportStepAsync` is a
+  read-modify-write on `step_log`; two concurrent reports from one handler could interleave (InMemory was
+  already safe under its lock). Serialized with a per-store lock on both SQL backends.
+- **Secret-envelope KDF downgrade / non-crypto exception** — the recovery PBKDF2 iteration count was honored
+  from the (possibly tampered) envelope unbounded, and `0` threw `ArgumentOutOfRangeException`. Added a hard
+  `MinRecoveryIterations = 100_000` floor enforced at load and at the KDF, as a `CryptographicException`.
+- **Envelope `version` was written but never enforced** — a future format opened by this build now throws
+  instead of silently misparsing; the transient recovery KEK is zeroed after use.
+- **Config + polish** — `JobOptions.MaxStepLog` (env `LYNTAI_JOBS_MAX_STEP_LOG`) makes the step-log cap
+  configurable; `CompleteJsonAsync` reuses `JsonExtract.IsValid`; documented that `ICuratedMemoryStore.ListAsync`
+  kind-ordering isn't ordinal-stable across backends (the composed prompt re-sorts, so it's stable).
+
+### Refactor (behavior-preserving)
+- Consolidated the duplicated "extract a JSON object from an LLM reply, then parse it" scaffolding into
+  `JsonExtract.TryParseObject`/`IsValid`; split the ~100-line `AddLyntai` composition root into one focused
+  helper per feature area. No behavior change (only the two new `JsonExtract` methods touch the surface).
+
 ## 0.27.2 — 2026-07-18
 
 Follow-up hardening from a full-codebase multi-agent code review (45 agents; 35 candidates, 19 refuted by

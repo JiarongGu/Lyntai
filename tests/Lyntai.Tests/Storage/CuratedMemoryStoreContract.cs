@@ -57,6 +57,16 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(2, (await store.ListAsync(enabledOnly: true)).Count); // term A + persona
     }
 
+    public static async Task Update_with_empty_source_clears_it(ICuratedMemoryStore store)
+    {
+        var id = await store.AddAsync("k", "content", source: "original");
+        Assert.Equal("original", (await store.GetAsync(id))!.Source);
+
+        // "" clears the source (null would mean "leave unchanged")
+        Assert.True(await store.UpdateAsync(id, source: ""));
+        Assert.Equal("", (await store.GetAsync(id))!.Source);
+    }
+
     public static async Task Remove_deletes(ICuratedMemoryStore store)
     {
         var id = await store.AddAsync("k", "gone soon");

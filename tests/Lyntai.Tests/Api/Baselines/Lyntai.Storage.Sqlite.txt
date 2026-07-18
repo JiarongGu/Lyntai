@@ -83,7 +83,7 @@ class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 class Lyntai.Storage.Sqlite.SqliteJobStore
-    .ctor(IDbConnectionFactory, Func<DateTimeOffset>=)
+    .ctor(IDbConnectionFactory, Func<DateTimeOffset>=, Int32=)
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
     CancelAsync(Guid, CancellationToken=) : Task<Boolean>
     CancelRunningAsync(Guid, String, CancellationToken=) : Task<Boolean>

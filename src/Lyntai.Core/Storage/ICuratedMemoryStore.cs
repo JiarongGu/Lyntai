@@ -31,6 +31,9 @@ public interface ICuratedMemoryStore
     Task<CuratedMemory?> GetAsync(long id, CancellationToken ct = default);
 
     /// <summary>List entries, optionally filtered by <paramref name="kind"/> and to
-    /// <paramref name="enabledOnly"/>. Ordered by kind then creation (stable for prompt composition).</summary>
+    /// <paramref name="enabledOnly"/>. Ordered by kind then creation. NOTE: the kind ordering is NOT
+    /// guaranteed ordinal-stable across backends — Postgres orders by its DB collation while InMemory/SQLite
+    /// order ordinally; if exact ordering matters, sort in-app (<c>CuratedMemorySections.Compose</c> re-sorts
+    /// ordinal, so the composed prompt is stable regardless).</summary>
     Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false, int? limit = null, CancellationToken ct = default);
 }

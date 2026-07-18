@@ -266,6 +266,31 @@ public class JobRunnerTests
         public ValueTask<bool> CanClaimAsync(string lane, CancellationToken ct = default) => new(!_held.Contains(lane));
     }
 
+    private sealed class ThrowingAdmission : IJobAdmissionController
+    {
+        public ValueTask<bool> CanClaimAsync(string lane, CancellationToken ct = default) =>
+            throw new InvalidOperationException("boom");
+    }
+
+    [Fact]
+    public async Task A_throwing_admission_controller_holds_the_lane_and_the_pump_survives()
+    {
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var clock = new MutableClock();
+        var store = new InMemoryJobStore(clock.Get);
+        var options = new LyntaiOptions();
+        options.Jobs.Lease = Lease;
+        var runner = new JobRunner(store, new JobHandlerRegistry([handler]), options, clock: clock.Get,
+            admission: new ThrowingAdmission());
+        var queue = new JobQueue(store, options);
+        var id = await queue.EnqueueAsync("default", "t", "{}");
+
+        var ran = await runner.RunOnceAsync(); // a flaky controller must NOT crash the pump — it holds the lane
+
+        Assert.Equal(0, ran);
+        Assert.Equal(JobStatus.Pending, (await store.GetAsync(id))!.Status); // untouched, retried next pass
+    }
+
     [Fact]
     public async Task Admission_controller_holds_a_lane_out_of_claims()
     {

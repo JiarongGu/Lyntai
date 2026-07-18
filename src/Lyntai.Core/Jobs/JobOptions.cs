@@ -31,5 +31,9 @@ public sealed class JobOptions
     /// <summary>Retry delay used when a handler returns <c>Retry()</c> with no explicit delay, or throws.</summary>
     public TimeSpan RetryBackoff { get; set; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>Max entries retained in a job's live step log (<c>ReportStepAsync</c>); older steps are
+    /// dropped so a long-running job can't grow the row unbounded.</summary>
+    public int MaxStepLog { get; set; } = Lyntai.Jobs.JobStepLog.DefaultCap;
+
     public int LimitFor(string lane) => LaneConcurrency.TryGetValue(lane, out var n) ? n : DefaultLaneConcurrency;
 }
