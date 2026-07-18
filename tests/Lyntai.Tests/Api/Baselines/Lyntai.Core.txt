@@ -148,6 +148,7 @@ class Lyntai.Cortex.LlmPairwiseComparer
     CompareAsync(String, String, String, CancellationToken=) : Task<PairwiseResult>
 class Lyntai.Cortex.LlmScorerBase
     .ctor(ILlmClient)
+    Applies(ScoreContext) : Boolean
     BuildJudgePrompt(ScoreContext) : String
     Consumer : String
     Group : String

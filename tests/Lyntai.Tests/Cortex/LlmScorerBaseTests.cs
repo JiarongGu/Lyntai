@@ -7,13 +7,15 @@ namespace Lyntai.Tests.Cortex;
 public class LlmScorerBaseTests
 {
     // a concrete judge whose model/consumer come from ctor args (via the prop overrides) — the "subclass/ctor
-    // sets it" path
-    private sealed class Judge(ILlmClient llm, string? model = null, string consumer = "scoring") : LlmScorerBase(llm)
+    // sets it" path. `applies` gates whether the judge runs at all.
+    private sealed class Judge(ILlmClient llm, string? model = null, string consumer = "scoring", bool applies = true)
+        : LlmScorerBase(llm)
     {
         public override string Id => "judge";
         public override string Name => "Judge";
         protected override string? Model => model;
         protected override string Consumer => consumer;
+        protected override bool Applies(ScoreContext ctx) => applies;
         protected override string BuildJudgePrompt(ScoreContext ctx) => "judge this";
     }
 
@@ -47,5 +49,15 @@ public class LlmScorerBaseTests
         var req = Assert.Single(llm.Calls);
         Assert.Equal("haiku", req.Model);       // a cheap judge routed to a cheap model
         Assert.Equal("scoring-cheap", req.Consumer);
+    }
+
+    [Fact]
+    public async Task A_non_applicable_dimension_returns_null_without_calling_the_client()
+    {
+        var llm = ClientReturning(0.9);
+        var result = await new Judge(llm, applies: false).ScoreAsync(Ctx, default);
+
+        Assert.Null(result);        // omitted, not recorded
+        Assert.Empty(llm.Calls);    // and no tokens spent — the judge never ran
     }
 }

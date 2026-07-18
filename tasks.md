@@ -401,7 +401,7 @@ Trying to replace a real adopting app's (Gatherlight's) hand-rolled **cortex** (
 a wholesale swap today would *regress* the app. Goal: make Lyntai's cortex+scoring genuinely adoptable so a
 real app can retire its own `ScoringService`/`ScoreRepository` + cortex model-routing with **no regression**.
 
-**HARD requirements (a migration REGRESSES the product without these — do first): A1, A2, A3, A6.**
+**HARD requirements (a migration REGRESSES the product without these — do first): A1, A2, A3, A6, A8.**
 Should-have: A7. Nice-to-have / polish: A4, A5. Each is a generic library improvement, not app-specific.
 **Definition of done:** after A1–A3 + A6, the adopting app's scoring framework + cortex model tuning move
 onto Lyntai losing nothing (no duplicate score rows, the eval aggregate UI still works, dry runs don't
@@ -430,6 +430,17 @@ persist, per-scorer judge model preserved, model retuning takes effect live).
     their dimensions (phase/mode/changed-files) into `Extra` (stringly-typed; list values must be serialized).
     Document this as the intended extension pattern on `ScoreContext`, or add a typed-context helper.
     Files: `src/Lyntai.Core/Cortex/ScoreModels.cs` + `.claude/knowledge/`.
+- [x] **A8 · `LlmScorerBase`: an applicability skip hook (don't judge N/A dimensions) — HARD (blocker)**
+  - `LlmScorerBase.ScoreAsync` ALWAYS calls the judge — a subclass can't say "this dimension doesn't apply
+    to this context" before spending tokens (`BuildJudgePrompt` returns a non-null `string`; `ScoreAsync`
+    isn't virtual). Real judge scorers are conditional (a "faithfulness" dimension applies to a plan, not a
+    code-edit turn); without a skip they call the LLM for every context and record a score where there
+    should be none. Fix: make `BuildJudgePrompt` return `string?` (null → skip, `ScoreAsync` returns null),
+    OR add `protected virtual bool Applies(ScoreContext ctx) => true` checked before the judge call.
+    (Without it, an adopting app must re-implement `LlmScorerBase` locally just to get the skip — defeating
+    the point of the base.) File: `src/Lyntai.Core/Cortex/LlmScorerBase.cs`.
+  - Test: a scorer whose `Applies`/`BuildJudgePrompt` says "no" returns null WITHOUT calling the client
+    (assert the fake client saw no calls).
 
 ### Cortex
 - [x] **A6 · Live per-consumer model override read into `ResolveModel` — HARD (blocker)**

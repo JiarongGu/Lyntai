@@ -25,12 +25,20 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
     /// Default <c>"scoring"</c>; override per scorer to route different judges differently.</summary>
     protected virtual string Consumer => "scoring";
 
+    /// <summary>Whether this dimension applies to <paramref name="ctx"/> — checked BEFORE the judge call, so
+    /// a conditional scorer (e.g. a "faithfulness" dimension that applies to a plan but not a code-edit turn)
+    /// skips WITHOUT spending tokens. Return false → <see cref="ScoreAsync"/> returns null (the dimension is
+    /// omitted, never recorded). Default: always applies.</summary>
+    protected virtual bool Applies(ScoreContext ctx) => true;
+
     /// <summary>Build the judge prompt for a context. The base wraps it with the verdict-format
     /// instruction; implementations only describe what to judge.</summary>
     protected abstract string BuildJudgePrompt(ScoreContext ctx);
 
     public async Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct)
     {
+        if (!Applies(ctx)) return null; // not applicable to this context — don't spend tokens on the judge
+
         var req = new LlmRequest
         {
             Messages =

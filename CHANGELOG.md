@@ -23,6 +23,9 @@ Additive only (new overloads / opt-in / default-interface members) — no breaki
   even when a store is wired (a preview/tuning path).
 - **Per-scorer judge model** — `LlmScorerBase` exposes overridable `Model` + `Consumer`, so a cheap judge
   can route to a cheap model per scorer (was hardcoded to the default + `"scoring"`).
+- **Applicability skip on `LlmScorerBase`** — a `protected virtual bool Applies(ScoreContext)` (default
+  true) checked before the judge call, so a conditional judge (e.g. "faithfulness" applies to a plan, not a
+  code-edit turn) returns null WITHOUT spending tokens instead of scoring every context.
 - **Live per-consumer model routing** — opt-in `AddLiveModelRouting()` registers an `IModelRoutingStore`
   (KV-backed) the router + cache read each call, so an admin model retune takes effect WITHOUT a restart
   (`lyntai.model.<consumer>`; precedence: explicit → live → configured default). `ResolveModel` gains a
