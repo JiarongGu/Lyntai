@@ -158,6 +158,15 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   distributed later). Completes the governance trio (cache · budget · rate-limit); folds innermost so a
   cached hit spends no permit. `lyntai.ratelimit.refusals` counter.
 
+### v0.22.0 — persistent SQLite backends for the new seams (2026-07)
+- ✅ **SQLite response cache / usage tracker / vector store** — the governance + semantic-memory features
+  shipped with in-memory defaults; this backs them with SQLite (`UseSqliteResponseCache` /
+  `UseSqliteUsageTracking` / `UseSqliteVectorStore`) so a cache, a spend budget, and semantic memory survive
+  restarts, all behind the same interfaces (opt-in, `AddSingleton` over the Core `TryAdd` defaults). One
+  migration adds the three `lyntai_*` tables. Vector search is brute-force (pgvector is the path for scale);
+  rate limiting stays in-memory by design (distributed-limiter concern). Postgres equivalents can follow the
+  same way.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

@@ -58,4 +58,36 @@ public static class SqliteStorageBuilderExtensions
         builder.Services.AddSingleton<IJobStore>(sp => new SqliteJobStore(sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
+
+    // --- persistent backends for the front-door governance + semantic-memory seams --------------------
+    // These override the in-memory defaults that AddResponseCache/AddUsageBudget/AddEmbeddings register in
+    // Core (plain AddSingleton wins over their TryAdd regardless of call order). Each needs the SQLite
+    // connection factory + schema from UseSqliteStorage, so call that first.
+
+    /// <summary>Back the response cache (<c>AddResponseCache</c>) with SQLite so it survives restarts.
+    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, bool, bool)"/> for the factory + schema.</summary>
+    public static LyntaiBuilder UseSqliteResponseCache(this LyntaiBuilder builder)
+    {
+        builder.Services.AddSingleton<Lyntai.Llm.Caching.IResponseCache>(sp => new SqliteResponseCache(
+            sp.GetRequiredService<IDbConnectionFactory>(), sp.GetRequiredService<LyntaiOptions>()));
+        return builder;
+    }
+
+    /// <summary>Back usage accounting (<c>AddUsageBudget</c>) with SQLite so spend isn't reset every restart.
+    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, bool, bool)"/> for the factory + schema.</summary>
+    public static LyntaiBuilder UseSqliteUsageTracking(this LyntaiBuilder builder)
+    {
+        builder.Services.AddSingleton<Lyntai.Llm.Budgeting.IUsageTracker>(sp => new SqliteUsageTracker(
+            sp.GetRequiredService<IDbConnectionFactory>()));
+        return builder;
+    }
+
+    /// <summary>Back semantic-memory vectors (<c>AddEmbeddings</c>) with SQLite so they survive restarts.
+    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, bool, bool)"/> for the factory + schema.</summary>
+    public static LyntaiBuilder UseSqliteVectorStore(this LyntaiBuilder builder)
+    {
+        builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new SqliteVectorStore(
+            sp.GetRequiredService<IDbConnectionFactory>()));
+        return builder;
+    }
 }

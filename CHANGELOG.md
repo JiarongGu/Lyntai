@@ -3,6 +3,31 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.22.0 — 2026-07-18
+
+Persistent SQLite backends for the governance + semantic-memory seams. The cache, usage tracker, and
+vector store shipped with in-memory defaults (in Core); this backs them with SQLite so they survive a
+restart — all behind the same interfaces, opt-in, no change to the decorators or `ISemanticMemory`.
+
+### Added (`Lyntai.Storage.Sqlite`)
+- **`UseSqliteResponseCache()`** — `SqliteResponseCache` (`IResponseCache`): reply JSON + expiry, eviction
+  on write (prune expired, then trim oldest beyond `MaxEntries`). The cache survives restarts.
+- **`UseSqliteUsageTracking()`** — `SqliteUsageTracker` (`IUsageTracker`): one row per consumer,
+  incremented in place; the global total is a `SUM` across rows — so a usage budget isn't reset every
+  deploy.
+- **`UseSqliteVectorStore()`** — `SqliteVectorStore` (`IVectorStore`): persistent semantic-memory vectors
+  (JSON float arrays), brute-force exact cosine loaded per collection. Plug it in and `ISemanticMemory`
+  persists unchanged.
+- Migration `M202607180002_Governance` adds `lyntai_response_cache` / `lyntai_usage` / `lyntai_vector`.
+
+### Notes
+- These `AddSingleton` over the Core in-memory `TryAdd` defaults (win regardless of call order). Each needs
+  the connection factory + schema from `UseSqliteStorage`, so call that first.
+- The SQLite vector store is brute-force (not indexed) — persistent and fine to some thousands of vectors
+  per collection; a dedicated vector backend (pgvector) is the path for larger corpora. Rate limiting stays
+  in-memory by design (a shared limiter is a distributed-cache concern, not SQLite) — its `IRateLimiter`
+  seam remains the extension point.
+
 ## 0.21.0 — 2026-07-18
 
 Client-side rate limiting — the third front-door governance decorator, completing the trio with response

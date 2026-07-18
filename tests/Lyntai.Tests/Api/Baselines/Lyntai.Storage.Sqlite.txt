@@ -1,6 +1,9 @@
 static class Lyntai.SqliteStorageBuilderExtensions
+    UseSqliteResponseCache(LyntaiBuilder) : LyntaiBuilder
     UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
     UseSqliteStorage(LyntaiBuilder, String, Boolean=, Boolean=) : LyntaiBuilder
+    UseSqliteUsageTracking(LyntaiBuilder) : LyntaiBuilder
+    UseSqliteVectorStore(LyntaiBuilder) : LyntaiBuilder
 class Lyntai.Storage.Sqlite.MigratingConnectionFactory
     .ctor(String)
     Open() : DbConnection
@@ -50,6 +53,10 @@ class Lyntai.Storage.Sqlite.Migrations.M202607180001_Jobs
     .ctor()
     Down() : Void
     Up() : Void
+class Lyntai.Storage.Sqlite.Migrations.M202607180002_Governance
+    .ctor()
+    Down() : Void
+    Up() : Void
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
     MigrateUp(String) : Void
 class Lyntai.Storage.Sqlite.SqliteConnectionFactory
@@ -93,6 +100,10 @@ class Lyntai.Storage.Sqlite.SqlitePromptVersionStore
     HistoryAsync(String, CancellationToken=) : Task<IReadOnlyList<PromptVersion>>
     RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
     SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
+class Lyntai.Storage.Sqlite.SqliteResponseCache
+    .ctor(IDbConnectionFactory, LyntaiOptions, Func<DateTimeOffset>=)
+    SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
+    TryGetAsync(String, CancellationToken=) : Task<LlmReply>
 class Lyntai.Storage.Sqlite.SqliteScoreStore
     .ctor(IDbConnectionFactory)
     GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
@@ -101,3 +112,13 @@ class Lyntai.Storage.Sqlite.SqliteTraceStore
     .ctor(IDbConnectionFactory)
     GetAsync(String, CancellationToken=) : Task<RunTrace>
     SaveAsync(RunTrace, CancellationToken=) : Task
+class Lyntai.Storage.Sqlite.SqliteUsageTracker
+    .ctor(IDbConnectionFactory)
+    Record(String, LlmUsage) : Void
+    Reset(String=) : Void
+    Total(String=) : UsageTotals
+class Lyntai.Storage.Sqlite.SqliteVectorStore
+    .ctor(IDbConnectionFactory)
+    RemoveCollectionAsync(String, CancellationToken=) : Task
+    SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
+    UpsertAsync(String, String, Single[], String, CancellationToken=) : Task
