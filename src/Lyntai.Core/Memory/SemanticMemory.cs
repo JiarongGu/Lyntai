@@ -13,6 +13,10 @@ namespace Lyntai.Memory;
 public sealed class SemanticMemory(
     IEmbedder? embedder, IVectorStore vectors, ILogger<SemanticMemory>? logger = null) : ISemanticMemory
 {
+    // U+001F unit separator between task + scope so ("ab","c") and ("a","bc") can't collide onto one
+    // collection. Built from (char)0x1f so the source stays plain-ASCII (no inline control byte / escape).
+    private const char CollectionSeparator = (char)0x1f;
+
     private readonly ILogger _logger = logger ?? NullLogger<SemanticMemory>.Instance;
 
     private IEmbedder Embedder => embedder ?? throw new InvalidOperationException(
@@ -38,8 +42,7 @@ public sealed class SemanticMemory(
     public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) =>
         vectors.RemoveCollectionAsync(Collection(taskKey, scope), ct);
 
-    // one vector collection per (task, scope); the unit separator can't occur in the parts
-    private static string Collection(string taskKey, string scope) => $"{taskKey}{scope}";
+    private static string Collection(string taskKey, string scope) => $"{taskKey}{CollectionSeparator}{scope}";
 
     // stable content hash → the vector id, so re-remembering identical content overwrites (dedup)
     private static string IdFor(string content) =>

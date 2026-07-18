@@ -3,6 +3,39 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.27.1 — 2026-07-18
+
+Consolidation / hardening pass over v0.16–v0.27 (a three-way adversarial review). No public API change —
+all fixes are internal/behavioral.
+
+### Fixed
+- **Rate limiter: a cancelled wait now refunds its reserved permit** — a caller that bailed during
+  `await Task.Delay(wait)` used to leave the bucket decremented, so a burst of cancellations throttled
+  legitimate callers for slots no request ever used.
+- **Postgres vector store: a faulted lazy schema no longer bricks the store** — a transient failure on the
+  first `CREATE EXTENSION`/`CREATE TABLE` was cached forever (every later call re-threw). It now retries on
+  the next call.
+- **Cron: inverted/empty ranges are rejected** — `5-3`, `70/5`, `10-40` (out-of-range) parsed cleanly and
+  produced a schedule that silently never fired (slipping past `AddCronSchedule`'s eager validation). They
+  now throw `FormatException`.
+- **Scheduler: an impossible-but-parseable cron (e.g. Feb 30) is quarantined per-schedule** — its
+  `Next()` throw no longer aborts the whole tick (skipping later schedules) or spins every poll.
+- **Front-door decorators are idempotent** — calling `AddResponseCache`/`AddUsageBudget`/`AddRateLimit`
+  twice no longer stacks a second decorator (two rate limiters sharing the singleton would double-charge
+  permits).
+- **A pre-registered `ILlmClient` + a decorator now throws at composition** instead of silently dropping
+  cache/budget/rate-limit governance.
+- Postgres response-cache eviction gained a `cache_key` tiebreaker (deterministic trim, matching SQLite);
+  `SemanticMemory`'s task+scope separator is now a plain-ASCII `(char)0x1f` constant (was a raw control
+  byte in the source); scheduler caches are `ConcurrentDictionary`.
+
+### Known edge cases (documented, not fixed)
+- The **pgvector** store can surface a DB error for a **zero-magnitude or non-finite embedding vector**
+  (pgvector's `<=>`/parser reject them), where the brute-force in-memory/SQLite stores return a 0 score.
+  Real embedders don't emit these for non-empty text. A **dimension mismatch** (e.g. after changing
+  embedding models without reindexing) throws in the in-memory/Postgres stores (SQLite tolerates it) —
+  reindex on a model change.
+
 ## 0.27.0 — 2026-07-18
 
 Running-job cancellation — a job that's currently executing can now be stopped (before, only Pending jobs

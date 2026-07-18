@@ -41,7 +41,7 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
             "DELETE FROM lyntai_response_cache WHERE expires_at <= @now", new { now }, cancellationToken: ct)).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_response_cache WHERE cache_key IN (
-                SELECT cache_key FROM lyntai_response_cache ORDER BY created_at DESC OFFSET @max)
+                SELECT cache_key FROM lyntai_response_cache ORDER BY created_at DESC, cache_key OFFSET @max)
             """, new { max = Math.Max(1, options.Cache.MaxEntries) }, cancellationToken: ct)).ConfigureAwait(false);
     }
 }

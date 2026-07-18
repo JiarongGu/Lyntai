@@ -146,10 +146,19 @@ public sealed class LyntaiBuilder
         Services.TryAddSingleton<Lyntai.Llm.Caching.IResponseCache>(_ => new Lyntai.Llm.Caching.InMemoryResponseCache(Options));
         // Decorate the front door (folded over the base client by AddLyntai, so it composes with any other
         // decorator) — every ILlmClient resolution (tool loop, orchestrator, scorers) reads through it.
-        FrontDoorDecorators.Add((CacheDecoratorOrder, (sp, inner) => new Lyntai.Llm.Caching.CachingLlmClient(
+        AddFrontDoorDecorator(CacheDecoratorOrder, (sp, inner) => new Lyntai.Llm.Caching.CachingLlmClient(
             inner, sp.GetRequiredService<Lyntai.Llm.Caching.IResponseCache>(), Options,
-            sp.GetService<ILogger<Lyntai.Llm.Caching.CachingLlmClient>>())));
+            sp.GetService<ILogger<Lyntai.Llm.Caching.CachingLlmClient>>()));
         return this;
+    }
+
+    // idempotent decorator registration: a repeated Add* still re-applies its options (the configure call
+    // above) but must NOT stack a second decorator of the same kind — two rate limiters in series would
+    // double-charge permits, two caches would double-look-up.
+    private void AddFrontDoorDecorator(int order, Func<IServiceProvider, ILlmClient, ILlmClient> decorate)
+    {
+        if (FrontDoorDecorators.All(d => d.Order != order))
+            FrontDoorDecorators.Add((order, decorate));
     }
 
     /// <summary>Meter token/cost usage across the front door and REFUSE further calls once a configured cap
@@ -164,9 +173,9 @@ public sealed class LyntaiBuilder
     {
         configure?.Invoke(Options.Budget);
         Services.TryAddSingleton<Lyntai.Llm.Budgeting.IUsageTracker, Lyntai.Llm.Budgeting.InMemoryUsageTracker>();
-        FrontDoorDecorators.Add((BudgetDecoratorOrder, (sp, inner) => new Lyntai.Llm.Budgeting.BudgetedLlmClient(
+        AddFrontDoorDecorator(BudgetDecoratorOrder, (sp, inner) => new Lyntai.Llm.Budgeting.BudgetedLlmClient(
             inner, sp.GetRequiredService<Lyntai.Llm.Budgeting.IUsageTracker>(), Options,
-            sp.GetService<ILogger<Lyntai.Llm.Budgeting.BudgetedLlmClient>>())));
+            sp.GetService<ILogger<Lyntai.Llm.Budgeting.BudgetedLlmClient>>()));
         return this;
     }
 
@@ -180,9 +189,9 @@ public sealed class LyntaiBuilder
     {
         configure?.Invoke(Options.RateLimit);
         Services.TryAddSingleton<Lyntai.Llm.RateLimiting.IRateLimiter>(_ => new Lyntai.Llm.RateLimiting.TokenBucketRateLimiter(Options));
-        FrontDoorDecorators.Add((RateLimitDecoratorOrder, (sp, inner) => new Lyntai.Llm.RateLimiting.RateLimitedLlmClient(
+        AddFrontDoorDecorator(RateLimitDecoratorOrder, (sp, inner) => new Lyntai.Llm.RateLimiting.RateLimitedLlmClient(
             inner, sp.GetRequiredService<Lyntai.Llm.RateLimiting.IRateLimiter>(),
-            sp.GetService<ILogger<Lyntai.Llm.RateLimiting.RateLimitedLlmClient>>())));
+            sp.GetService<ILogger<Lyntai.Llm.RateLimiting.RateLimitedLlmClient>>()));
         return this;
     }
 

@@ -32,7 +32,13 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
         if (wait.Value > TimeSpan.Zero)
         {
             try { await Task.Delay(wait.Value, ct).ConfigureAwait(false); }
-            catch (OperationCanceledException) { return false; }
+            catch (OperationCanceledException)
+            {
+                // the caller bailed before its slot — hand the reserved permit back, else a burst of
+                // cancelled waits would throttle legitimate callers for a slot no request ever used
+                BucketFor(consumer)?.Refund();
+                return false;
+            }
         }
         return true;
     }
@@ -75,6 +81,12 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
                 if (wait > maxWait) { _tokens += 1; return null; } // too long → refund + refuse
                 return wait;
             }
+        }
+
+        /// <summary>Return a previously-reserved permit (the caller cancelled before using it).</summary>
+        public void Refund()
+        {
+            lock (_gate) _tokens = Math.Min(burst, _tokens + 1);
         }
     }
 }

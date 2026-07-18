@@ -135,6 +135,21 @@ public class JobSchedulerTests
     }
 
     [Fact]
+    public async Task An_impossible_cron_is_quarantined_and_does_not_abort_the_tick()
+    {
+        // "0 0 30 2 *" = Feb 30 — parses fine but has no occurrence (Next throws). A valid schedule listed
+        // AFTER it must still fire; the throw must not abort the whole tick.
+        var impossible = new JobSchedule("feb30", "l", "t", "{}", Cron: "0 0 30 2 *");
+        var good = new JobSchedule("hourly", "l2", "t2", "{}", Cron: "0 * * * *");
+        var (sched, jobs, clock, _) = Build(impossible, good);
+
+        await sched.TickAsync();                       // first sight: 'good' scheduled; feb30 quarantined
+        clock.Advance(TimeSpan.FromHours(1));
+        Assert.Equal(1, await sched.TickAsync());      // 'good' fires despite feb30 throwing every tick
+        Assert.Single(await jobs.ListAsync());
+    }
+
+    [Fact]
     public async Task An_invalid_cron_schedule_is_skipped_not_thrown_at_tick()
     {
         var (sched, jobs, clock, _) = Build(new JobSchedule("bad", "l", "t", "{}", Cron: "not a cron"));

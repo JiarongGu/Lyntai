@@ -29,10 +29,21 @@ public static class LyntaiServiceCollectionExtensions
             throw new InvalidOperationException(
                 "AddLyntai has already been called on this IServiceCollection. Call it once and compose all providers, storage, and scorers in the single configure callback.");
 
+        // a consumer-supplied ILlmClient registered BEFORE AddLyntai would make the base TryAddSingleton
+        // below no-op — silently dropping any front-door decorators (cache/budget/rate-limit). Catch that
+        // contradiction rather than let governance vanish without a trace.
+        var hadPreexistingClient = services.Any(d => d.ServiceType == typeof(ILlmClient));
+
         var options = new LyntaiOptions();
         var builder = new LyntaiBuilder(services, options);
         configure(builder);
         options.ApplyEnvOverrides();
+
+        if (hadPreexistingClient && builder.FrontDoorDecorators.Count > 0)
+            throw new InvalidOperationException(
+                "A front-door decorator (AddResponseCache / AddUsageBudget / AddRateLimit) was configured, but an " +
+                "ILlmClient is already registered — the decorators would be silently ignored. Either don't pre-register " +
+                "ILlmClient, or use the BYO seams (IResponseCache / IUsageTracker / IRateLimiter) instead.");
 
         services.AddSingleton(options);
         services.TryAddSingleton<IProcessRunner, ProcessRunner>(); // BYO: register your own IProcessRunner first to override spawning

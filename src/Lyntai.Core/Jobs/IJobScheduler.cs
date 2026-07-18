@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
@@ -29,11 +30,14 @@ public sealed class JobScheduler(
     ILogger<JobScheduler>? logger = null,
     Func<DateTimeOffset>? clock = null) : IJobScheduler
 {
+    // ConcurrentDictionary so the caches don't corrupt if the app happens to drive the pump from more than
+    // one thread (the intended model is a single pump, but a Dictionary write-race would be nastier than
+    // the benign duplicate-work a concurrent one allows).
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _memory = new(StringComparer.Ordinal); // no-KV fallback
+    private readonly ConcurrentDictionary<string, CronExpression?> _cron = new(StringComparer.Ordinal);  // parsed cron cache
     private readonly IReadOnlyList<JobSchedule> _schedules = [.. schedules];
     private readonly ILogger _logger = logger ?? NullLogger<JobScheduler>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
-    private readonly Dictionary<string, DateTimeOffset> _memory = new(StringComparer.Ordinal); // fallback
-    private readonly Dictionary<string, CronExpression?> _cron = new(StringComparer.Ordinal);  // parsed cron cache
 
     public async Task<int> TickAsync(CancellationToken ct = default)
     {
@@ -43,21 +47,31 @@ public sealed class JobScheduler(
         {
             if (!IsValid(s)) continue; // malformed schedule (no trigger / bad cron / non-positive interval)
 
-            var next = await GetNextAsync(s.Name, ct).ConfigureAwait(false);
-            if (next is null)
+            // NextAfter can throw for a parseable-but-impossible cron (e.g. Feb 30) — quarantine that ONE
+            // schedule so it neither aborts the tick (skipping later schedules) nor spins on every poll
+            try
             {
-                // first sight → schedule the first run (one interval out / the cron's next), don't fire now
+                var next = await GetNextAsync(s.Name, ct).ConfigureAwait(false);
+                if (next is null)
+                {
+                    // first sight → schedule the first run (one interval out / the cron's next), don't fire now
+                    await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
+                    continue;
+                }
+                if (next.Value > now) continue; // not due yet
+
+                await queue.EnqueueAsync(s.Lane, s.Type, s.Payload, s.Priority, ct).ConfigureAwait(false);
+                enqueued++;
+                _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
+
+                // advance to the next slot strictly after now — missed slots coalesce into this ONE run
                 await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
-                continue;
             }
-            if (next.Value > now) continue; // not due yet
-
-            await queue.EnqueueAsync(s.Lane, s.Type, s.Payload, s.Priority, ct).ConfigureAwait(false);
-            enqueued++;
-            _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
-
-            // advance to the next slot strictly after now — missed slots coalesce into this ONE run
-            await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "scheduler: skipping '{Name}' this tick — its next-run couldn't be computed", s.Name);
+            }
         }
         return enqueued;
     }

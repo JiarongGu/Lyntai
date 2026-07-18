@@ -100,6 +100,9 @@ public class CronExpressionTests
     [InlineData("60 * * * *")]     // minute out of range
     [InlineData("* 24 * * *")]     // hour out of range
     [InlineData("* * * * 9")]      // day-of-week out of range
+    [InlineData("5-3 * * * *")]    // inverted range (would silently never fire)
+    [InlineData("70/5 * * * *")]   // step base past max (empty set)
+    [InlineData("* * 10-40 * *")]  // range upper bound out of [1,31]
     public void Malformed_expressions_throw(string bad)
     {
         Assert.ThrowsAny<Exception>(() => CronExpression.Parse(bad));

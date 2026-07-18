@@ -55,11 +55,18 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
             "DELETE FROM lyntai_vector WHERE collection = @collection", new { collection }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    // create the extension + table once (idempotent); a faulted setup surfaces the pgvector error on use
+    // create the extension + table once (idempotent). If the first attempt FAULTED (a transient blip —
+    // pool exhaustion, a momentary lock/permission issue on CREATE EXTENSION), don't cache the failure
+    // forever: retry on the next call, so one bad moment doesn't brick the store for the process lifetime.
     private Task EnsureSchemaAsync()
     {
-        if (_schema is not null) return _schema;
-        lock (_lock) return _schema ??= CreateSchemaAsync();
+        var current = _schema;
+        if (current is { IsFaulted: false, IsCanceled: false }) return current;
+        lock (_lock)
+        {
+            if (_schema is null or { IsFaulted: true } or { IsCanceled: true }) _schema = CreateSchemaAsync();
+            return _schema;
+        }
     }
 
     private async Task CreateSchemaAsync()

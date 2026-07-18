@@ -123,6 +123,51 @@ public class RateLimitTests
     // ---- DI + composition with the cache -------------------------------------------------------------
 
     [Fact]
+    public async Task A_cancelled_wait_refunds_its_reserved_permit()
+    {
+        // rate 1/s, burst 1, generous MaxWait so the 2nd acquire WAITS rather than refuses
+        var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.FromSeconds(60); });
+        Assert.True(await limiter.AcquireAsync("c")); // spend the one permit (tokens 1 -> 0)
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        Assert.False(await limiter.AcquireAsync("c", cts.Token)); // would wait ~1s; cancelled → refund
+
+        // if the permit was refunded, tokens are back to 0 → the next reserve needs 1s (a single deficit),
+        // NOT 2s (which is what a lost/un-refunded permit would leave)
+        Assert.Equal(TimeSpan.FromSeconds(1), limiter.TryReserve("c", T0));
+    }
+
+    [Fact]
+    public async Task AddRateLimit_is_idempotent_and_does_not_double_charge()
+    {
+        var provider = new FakeLlmProvider("p"); // default Ok replies
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => provider)
+            .AddRateLimit(o => { o.PermitsPerSecond = 0.0001; o.Burst = 2; o.MaxWait = TimeSpan.Zero; })
+            .AddRateLimit()          // duplicate — must be ignored (a 2nd limiter shares the singleton →
+            .DefaultCandidates("p")); // each call would spend TWO permits, exhausting burst 2 in one call)
+        using var sp = services.BuildServiceProvider();
+        var client = sp.GetRequiredService<ILlmClient>();
+        var req = new LlmRequest { Messages = [LlmMessage.User("q")] };
+
+        Assert.Equal(LlmVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // burst 2 → 1 left
+        Assert.Equal(LlmVerdict.Ok, (await client.CompleteAsync(req)).Verdict);          // 1 → 0 (only if single limiter)
+        Assert.Equal(LlmVerdict.RateLimited, (await client.CompleteAsync(req)).Verdict); // now exhausted
+    }
+
+    [Fact]
+    public void A_pre_registered_front_door_with_a_decorator_throws()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ILlmClient>(new FakeLlmClient()); // BYO ILlmClient before AddLyntai
+        Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddResponseCache())); // decorator would be silently dropped → guarded
+    }
+
+    [Fact]
     public async Task A_cached_hit_does_not_spend_a_rate_limit_permit()
     {
         var provider = new FakeLlmProvider("p");

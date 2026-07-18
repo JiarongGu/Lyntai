@@ -108,6 +108,13 @@ public sealed class CronExpression
                 hi = slash >= 0 ? max : lo; // "n/step" means from n to max by step; bare "n" is just n
             }
 
+            // reject a malformed range up front — an inverted (a-b with a>b) or out-of-range bound would
+            // otherwise yield an EMPTY match-set silently (a "5-3"/"70/5" cron that never fires) and slip
+            // past AddCronSchedule's eager validation. day-of-week allows the literal 7 (Sunday) before norm.
+            var rawMax = sundayIsSeven ? 7 : max;
+            if (lo < min || hi > rawMax || lo > hi)
+                throw new FormatException($"cron field '{part}' is out of range [{min},{max}] or inverted (in '{spec}')");
+
             for (var v = lo; v <= hi; v += step)
             {
                 var value = sundayIsSeven && v == 7 ? 0 : v;
