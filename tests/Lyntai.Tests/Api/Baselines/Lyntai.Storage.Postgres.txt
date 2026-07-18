@@ -1,6 +1,9 @@
 static class Lyntai.PostgresStorageBuilderExtensions
+    UsePostgresResponseCache(LyntaiBuilder) : LyntaiBuilder
     UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
     UsePostgresStorage(LyntaiBuilder, String, Boolean=, Boolean=) : LyntaiBuilder
+    UsePostgresUsageTracking(LyntaiBuilder) : LyntaiBuilder
+    UsePostgresVectorStore(LyntaiBuilder) : LyntaiBuilder
 class Lyntai.Storage.Postgres.MigratingConnectionFactory
     .ctor(String)
     Open() : DbConnection
@@ -19,6 +22,10 @@ class Lyntai.Storage.Postgres.Migrations.M202607170001_InitialSchema
     Down() : Void
     Up() : Void
 class Lyntai.Storage.Postgres.Migrations.M202607180001_Jobs
+    .ctor()
+    Down() : Void
+    Up() : Void
+class Lyntai.Storage.Postgres.Migrations.M202607180002_Governance
     .ctor()
     Down() : Void
     Up() : Void
@@ -64,6 +71,10 @@ class Lyntai.Storage.Postgres.PostgresPromptVersionStore
     HistoryAsync(String, CancellationToken=) : Task<IReadOnlyList<PromptVersion>>
     RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
     SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
+class Lyntai.Storage.Postgres.PostgresResponseCache
+    .ctor(IDbConnectionFactory, LyntaiOptions, Func<DateTimeOffset>=)
+    SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
+    TryGetAsync(String, CancellationToken=) : Task<LlmReply>
 class Lyntai.Storage.Postgres.PostgresScoreStore
     .ctor(IDbConnectionFactory)
     GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
@@ -72,3 +83,13 @@ class Lyntai.Storage.Postgres.PostgresTraceStore
     .ctor(IDbConnectionFactory)
     GetAsync(String, CancellationToken=) : Task<RunTrace>
     SaveAsync(RunTrace, CancellationToken=) : Task
+class Lyntai.Storage.Postgres.PostgresUsageTracker
+    .ctor(IDbConnectionFactory)
+    Record(String, LlmUsage) : Void
+    Reset(String=) : Void
+    Total(String=) : UsageTotals
+class Lyntai.Storage.Postgres.PostgresVectorStore
+    .ctor(IDbConnectionFactory)
+    RemoveCollectionAsync(String, CancellationToken=) : Task
+    SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
+    UpsertAsync(String, String, Single[], String, CancellationToken=) : Task

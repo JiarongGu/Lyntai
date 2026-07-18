@@ -54,4 +54,37 @@ public static class PostgresStorageBuilderExtensions
         builder.Services.AddSingleton<IJobStore>(sp => new PostgresJobStore(sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
+
+    // --- persistent backends for the front-door governance + semantic-memory seams --------------------
+    // Mirror the SQLite ones: AddSingleton over the Core in-memory TryAdd defaults (win regardless of call
+    // order). Each needs the connection factory + schema from UsePostgresStorage, so call that first.
+
+    /// <summary>Back the response cache (<c>AddResponseCache</c>) with PostgreSQL (survives restarts, shared
+    /// across processes). Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, bool, bool)"/>.</summary>
+    public static LyntaiBuilder UsePostgresResponseCache(this LyntaiBuilder builder)
+    {
+        builder.Services.AddSingleton<Lyntai.Llm.Caching.IResponseCache>(sp => new PostgresResponseCache(
+            sp.GetRequiredService<IDbConnectionFactory>(), sp.GetRequiredService<LyntaiOptions>()));
+        return builder;
+    }
+
+    /// <summary>Back usage accounting (<c>AddUsageBudget</c>) with PostgreSQL (persistent, shared spend).
+    /// Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, bool, bool)"/>.</summary>
+    public static LyntaiBuilder UsePostgresUsageTracking(this LyntaiBuilder builder)
+    {
+        builder.Services.AddSingleton<Lyntai.Llm.Budgeting.IUsageTracker>(sp => new PostgresUsageTracker(
+            sp.GetRequiredService<IDbConnectionFactory>()));
+        return builder;
+    }
+
+    /// <summary>Back semantic-memory vectors (<c>AddEmbeddings</c>) with pgvector — the similarity search
+    /// runs in the database (cosine <c>&lt;=&gt;</c> + SQL top-k), not brute-force in the app. Creates its
+    /// <c>vector</c> extension + table lazily on first use (so this is the only thing that needs pgvector).
+    /// Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, bool, bool)"/> for the factory.</summary>
+    public static LyntaiBuilder UsePostgresVectorStore(this LyntaiBuilder builder)
+    {
+        builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new PostgresVectorStore(
+            sp.GetRequiredService<IDbConnectionFactory>()));
+        return builder;
+    }
 }

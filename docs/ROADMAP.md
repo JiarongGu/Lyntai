@@ -167,6 +167,15 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   rate limiting stays in-memory by design (distributed-limiter concern). Postgres equivalents can follow the
   same way.
 
+### v0.23.0 — Postgres backends for the new seams, with pgvector (2026-07)
+- ✅ **Postgres response cache / usage tracker / vector store** — mirrors the v0.22 SQLite backends
+  (`UsePostgresResponseCache` / `UsePostgresUsageTracking` / `UsePostgresVectorStore`). The vector store is
+  **pgvector**-backed: the cosine `<=>` operator + SQL `ORDER BY … LIMIT k` do the top-k in the database
+  (not brute-force in the app) — the scale path flagged in v0.19/v0.22. Its schema is created lazily on
+  first use, so `UsePostgresStorage` doesn't force pgvector on consumers who don't use semantic memory.
+  Cache + usage go in migration `M202607180002`. Exact (unindexed) for now; an hnsw/ivfflat ANN index
+  (needs a fixed embedding dimension) is a further enhancement.
+
 ## Planned
 
 ### Blocked on user-provided infrastructure

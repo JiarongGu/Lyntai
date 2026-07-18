@@ -3,7 +3,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Storage.Postgres</PackageId>
-    <Description>PostgreSQL implementations of the Lyntai storage domains (key-value, conversations, task-scoped memory with pg_trgm substring recall, scores, run traces, versioned prompts) — Npgsql + Dapper + FluentMigrator, wired via builder.UsePostgresStorage(connectionString). Every object is lyntai_-prefixed so it can share a consumer database.</Description>
+    <Description>PostgreSQL implementations of the Lyntai storage domains (key-value, conversations, task-scoped memory with pg_trgm substring recall, scores, run traces, versioned prompts, durable jobs) plus persistent backends for the response cache, usage tracker, and semantic-memory vector store (pgvector) — Npgsql + Dapper + FluentMigrator, wired via builder.UsePostgresStorage(connectionString). Every object is lyntai_-prefixed so it can share a consumer database.</Description>
     <!-- Dapper materializes via reflection: same honest opt-out as Lyntai.Storage.Sqlite. -->
     <IsAotCompatible>false</IsAotCompatible>
     <IsTrimmable>false</IsTrimmable>

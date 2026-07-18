@@ -3,6 +3,31 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.23.0 — 2026-07-18
+
+Postgres backends for the governance + semantic-memory seams, mirroring v0.22's SQLite ones — and the
+vector store uses **pgvector** so similarity search runs in the database, not brute-force in the app.
+
+### Added (`Lyntai.Storage.Postgres`)
+- **`UsePostgresResponseCache()`** — `PostgresResponseCache` (`IResponseCache`): reply JSON + `timestamptz`
+  expiry, eviction on write. Persistent and shareable across processes on the same db.
+- **`UsePostgresUsageTracking()`** — `PostgresUsageTracker` (`IUsageTracker`): per-consumer rows,
+  incremented in place; global total is a `SUM`.
+- **`UsePostgresVectorStore()`** — `PostgresVectorStore` (`IVectorStore`) over **pgvector**: the cosine
+  `<=>` operator + SQL `ORDER BY … LIMIT k` do the top-k in the database (only the k nearest rows come
+  back, vs. loading a whole collection into the app). `ISemanticMemory` persists unchanged.
+- Migration `M202607180002_Governance` adds `lyntai_response_cache` / `lyntai_usage`.
+
+### Notes
+- **`UsePostgresStorage` does NOT require pgvector.** The vector store creates its `vector` extension +
+  `lyntai_vector` table LAZILY on first use (needs rights to `CREATE EXTENSION vector`, or a DBA enabling
+  it once) — so only `UsePostgresVectorStore` pulls in pgvector, not the whole storage layer.
+- The pgvector column is an unbounded `vector` (dimension-agnostic) and unindexed — the search is exact (a
+  sequential scan with pgvector's operator, SQL-side top-k). An ANN index (hnsw/ivfflat, needs a fixed
+  embedding dimension) is a future enhancement.
+- The Postgres test container image is now `pgvector/pgvector:pg16` (a superset of postgres:16) so the
+  vector store's live tests run; all other Postgres tests are unchanged. Tests skip without Docker.
+
 ## 0.22.0 — 2026-07-18
 
 Persistent SQLite backends for the governance + semantic-memory seams. The cache, usage tracker, and

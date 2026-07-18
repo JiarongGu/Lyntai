@@ -23,7 +23,9 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         try
         {
-            _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
+            // pgvector image (a superset of postgres:16) so the PostgresVectorStore's lazy
+            // `CREATE EXTENSION vector` works; every other Postgres test runs against it unchanged.
+            _container = new PostgreSqlBuilder("pgvector/pgvector:pg16").Build();
             await _container.StartAsync();
             ConnectionString = _container.GetConnectionString();
             MigrationRunnerService.MigrateUp(ConnectionString);

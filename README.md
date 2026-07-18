@@ -158,9 +158,9 @@ services.AddLyntai(cfg => cfg
 Keyed by a stable hash of the output-determining request fields (messages, model, max tokens, temperature,
 JSON schema) — `Consumer` is excluded, so two consumers issuing the same request share a hit. Only clean
 `Ok`, non-streaming completions are cached; **streaming**, requests carrying **native tools** (the tool
-loop is stateful), and **non-Ok** replies never are. The in-memory cache is the default; call `UseSqliteResponseCache()` to persist it in your SQLite db (it
-then survives restarts), or register your own `IResponseCache` before `AddResponseCache` to back it with
-Redis or another shared store.
+loop is stateful), and **non-Ok** replies never are. The in-memory cache is the default; call `UseSqliteResponseCache()` (or `UsePostgresResponseCache()`) to
+persist it so it survives restarts, or register your own `IResponseCache` before `AddResponseCache` to back
+it with Redis or another shared store.
 
 ### Semantic memory
 
@@ -180,9 +180,10 @@ var hits = await memory.RecallAsync("support", "faq", query: "how do I stop payi
 ```
 
 Vectors live in a swappable `IVectorStore` — the built-in `InMemoryVectorStore` (exact brute-force cosine)
-is the default; call `UseSqliteVectorStore()` to persist them in your SQLite db, or register your own
-before `AddLyntai` to back recall with pgvector, sqlite-vec, or a vector DB without changing the recall
-code. Scoped by (task, scope) like the lexical store; re-remembering identical content dedups.
+is the default; call `UseSqliteVectorStore()` to persist them in SQLite, or `UsePostgresVectorStore()` for
+**pgvector** (the cosine search runs in the database — SQL-side top-k, not brute-force in the app). Or
+register your own before `AddLyntai` for another vector DB — the recall code is unchanged. Scoped by (task,
+scope) like the lexical store; re-remembering identical content dedups.
 
 Registering an embedder also upgrades the **chat orchestration** automatically: `IChatOrchestrator`'s
 memory injection becomes **hybrid** (semantic hits lead, then lexical entries fill in, deduped) and each
@@ -210,8 +211,9 @@ var spent = sp.GetRequiredService<IUsageTracker>().Total().CostUsd;
 Over a cap, a completion returns `Verdict == Refused` (a stream yields one Error chunk) and no provider is
 called. The ceiling is **soft**: the call that crosses a cap still runs (its cost isn't known until it
 returns), the next is refused. Compose with the cache and a **cached hit is free** — it never counts toward
-the budget (the cache is the outermost decorator). Call `UseSqliteUsageTracking()` to persist spend across
-restarts, or register your own `IUsageTracker` for shared accounting.
+the budget (the cache is the outermost decorator). Call `UseSqliteUsageTracking()` (or
+`UsePostgresUsageTracking()`) to persist spend across restarts, or register your own `IUsageTracker` for
+shared accounting.
 
 ### Rate limiting
 
