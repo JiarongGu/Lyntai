@@ -16,6 +16,7 @@ using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;
 using Lyntai.Memory;
 using Lyntai.Prompts;
+using Lyntai.Providers.ClaudeCli;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,6 +32,12 @@ Console.WriteLine($"playground: data={dataDir}");
 // default flow below, which is unchanged.
 if (Environment.GetEnvironmentVariable("LYNTAI_DEMO") == "governance")
     return await GovernanceDemo.RunAsync(dbPath);
+
+// LYNTAI_DEMO=agent-session → proves the self-driving CLI-agent-session primitive end-to-end against
+// the stub: streaming door (session 1, read-only plan gate) → resume into the result door (session 2,
+// write execute gate). Returns before the default flow below, which is unchanged.
+if (Environment.GetEnvironmentVariable("LYNTAI_DEMO") == "agent-session")
+    return await AgentSessionDemo.RunAsync();
 
 // Observability: subscribe BCL listeners to BOTH telemetry surfaces (GenAI "Lyntai.Llm" + agentic
 // "Lyntai.Agents"). This is what wiring the OpenTelemetry SDK's AddSource/AddMeter subscribes to (see
@@ -351,6 +358,49 @@ static class GovernanceDemo
         });
         listener.Start();
         return listener;
+    }
+}
+
+/// <summary>The LYNTAI_DEMO=agent-session flow: drives the self-driving CLI-agent-session primitive against
+/// the stub. Session 1 (read-only plan gate) via the STREAMING door; session 2 (write execute gate) RESUMED
+/// from session 1 via the RESULT door. Proves spawn + gate flags + streamed events + resume end-to-end.</summary>
+static class AgentSessionDemo
+{
+    public static async Task<int> RunAsync()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddClaudeCliProvider()
+            .AddClaudeCliAgentSession()
+            .DefaultCandidates("claude-cli"));
+        await using var sp = services.BuildServiceProvider();
+        var session = sp.GetRequiredService<IAgentSession>();
+        var cwd = Directory.GetCurrentDirectory();
+
+        // Session 1 — read-only PLAN gate, STREAMING door.
+        string? id1 = null; var events1 = 0; var tools = 0; LlmVerdict? v1 = null;
+        await foreach (var e in session.StreamAsync(new ClaudeAgentOptions {
+            Prompt = "Plan the change. AGENT_SESSION", ToolPolicy = AgentToolPolicy.ReadOnly, WorkingDirectory = cwd }))
+        {
+            events1++;
+            if (e is SessionStarted s) id1 = s.SessionId;
+            else if (e is ToolCall tc) { tools++; Console.WriteLine($"agent: tool={tc.Name} file={ClaudeToolCalls.FilePathOf(tc)}"); }
+            else if (e is SessionEnded se) v1 = se.Verdict;
+        }
+        Console.WriteLine($"agent: session1 id={id1} events={events1} tools={tools} verdict={v1}");
+
+        // Session 2 — WRITE execute gate, RESUMED from session 1, RESULT door (+ onEvent tally).
+        var events2 = 0;
+        var result = await session.RunAsync(new ClaudeAgentOptions {
+            Prompt = "Apply the change. AGENT_SESSION", ToolPolicy = AgentToolPolicy.Write,
+            ResumeToken = id1, WorkingDirectory = cwd }, onEvent: _ => events2++);
+        var resumed = result.SessionId == id1;
+        Console.WriteLine($"agent: session2 id={result.SessionId} events={events2} resumed={resumed} verdict={result.Verdict} text={result.FinalText}");
+
+        var ok = id1 is not null && tools > 0 && v1 == LlmVerdict.Ok
+            && result.Verdict == LlmVerdict.Ok && resumed && events2 > 0;
+        Console.WriteLine(ok ? "agent: OK" : "agent: INCOMPLETE");
+        return ok ? 0 : 1;
     }
 }
 

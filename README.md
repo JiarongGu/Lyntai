@@ -387,6 +387,50 @@ services.AddLyntai(b => b
 (This runs an ephemeral Kestrel listener on `127.0.0.1` only during each CLI call — a deliberate, scoped
 exception to Lyntai's otherwise host-free design, isolated in this opt-in package.)
 
+### CLI-agent session vs `IToolLoop` (`IAgentSession`)
+
+When the external agent drives its OWN tool loop out-of-process (e.g. the `claude` CLI running
+autonomously), `IAgentSession` is the right primitive — not `IToolLoop`. You observe a streamed
+transcript of what the agent did (`AgentStreamEvent`), gate it read-only (plan) vs write (execute) via
+`AgentToolPolicy`, and resume it across a human confirmation gate using the session's `ResumeToken`.
+Two consumption doors: `StreamAsync` (live event-by-event, for progress UI or structured logging) and
+`RunAsync(onEvent)` (fold to a result for callers that only need the outcome).
+
+The `IAgentSession` interface is neutral Core (`Lyntai.Agents`); all claude-specific flags
+(`--settings`, `--mcp-config`, `AllowedTools`) live in the `Lyntai.Providers.ClaudeCli` adapter
+(`ClaudeAgentSession` / `ClaudeAgentOptions`, registered via `AddClaudeCliAgentSession()`).
+
+```csharp
+services.AddLyntai(b => b
+    .AddClaudeCliProvider()
+    .AddClaudeCliAgentSession()          // registers IAgentSession → ClaudeAgentSession
+    .DefaultCandidates("claude-cli"));
+
+var session = sp.GetRequiredService<IAgentSession>();
+
+// Session 1 — read-only PLAN gate, streaming door (observe live tool calls):
+string? resumeToken = null;
+await foreach (var e in session.StreamAsync(new ClaudeAgentOptions
+    { Prompt = "Plan the refactor.", ToolPolicy = AgentToolPolicy.ReadOnly, WorkingDirectory = cwd }))
+{
+    if (e is SessionStarted s) resumeToken = s.SessionId;
+    else if (e is ToolCall tc) Console.WriteLine($"tool: {tc.Name} → {ClaudeToolCalls.FilePathOf(tc)}");
+    else if (e is SessionEnded se) Console.WriteLine($"plan verdict: {se.Verdict}");
+}
+
+// Human review / approval gate here …
+
+// Session 2 — WRITE execute gate, resumed from session 1, result door:
+var result = await session.RunAsync(new ClaudeAgentOptions
+    { Prompt = "Apply the refactor.", ToolPolicy = AgentToolPolicy.Write, ResumeToken = resumeToken,
+      WorkingDirectory = cwd });
+Console.WriteLine($"done: {result.Verdict} — {result.FinalText}");
+```
+
+**`IToolLoop`** (the other shape) — Lyntai drives the ReAct loop in-process over registered `ITool`s.
+Choose `IToolLoop` when you supply the tools and want Lyntai to call them; choose `IAgentSession` when
+the external agent drives its own loop and you want to observe, gate, and resume it.
+
 ### Durable jobs (`Lyntai.Jobs`)
 
 Run long, multi-step work (e.g. many agents) that survives restarts, with lanes for concurrency control.
