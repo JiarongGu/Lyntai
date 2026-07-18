@@ -20,6 +20,13 @@ public sealed record LlmRequest
     /// <summary>Per-feature routing/telemetry tag (e.g. "scoring", "chat").</summary>
     public string Consumer { get; init; } = "default";
 
+    /// <summary>An optional per-request timeout override (seconds) for the provider call — for a call that
+    /// legitimately runs far longer than the global <see cref="LyntaiOptions.ProviderTimeout"/> (e.g. a
+    /// CLI-agent run driving many steps) without inflating the timeout of every short call. Null = the
+    /// resolved default (per-consumer, then global). Clamped to <see cref="LyntaiOptions.MaxProviderTimeout"/>.
+    /// See <see cref="LyntaiOptions.ResolveTimeout"/>.</summary>
+    public int? TimeoutSeconds { get; init; }
+
     /// <summary>An optional per-request refusal regex (case-insensitive). If an otherwise-<c>Ok</c> reply's
     /// text matches it, the reply is surfaced as <see cref="LlmVerdict.Refused"/> (no fallback) — a caller-
     /// supplied check on top of the central patterns, e.g. a per-language "I can't help with that" phrasing

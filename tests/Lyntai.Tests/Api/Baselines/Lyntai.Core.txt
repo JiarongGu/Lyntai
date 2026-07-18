@@ -605,6 +605,7 @@ class Lyntai.Llm.LlmRequest
     Model : String
     RefusalPattern : String
     Temperature : Nullable<Double>
+    TimeoutSeconds : Nullable<Int32>
     ToString() : String
     Tools : IReadOnlyList<LlmTool>
 static class Lyntai.Llm.LlmStructuredExtensions
@@ -741,12 +742,15 @@ class Lyntai.LyntaiOptions
     DefaultCandidates : List<LlmCandidate>
     DefaultModelByConsumer : Dictionary<String,String>
     Jobs : JobOptions
+    MaxProviderTimeout : TimeSpan
     MemoryCapPerScope : Int32
     MemoryRecallLimit : Int32
     ProviderTimeout : TimeSpan
     RateLimit : RateLimitOptions
     ResolveModel(String, String) : String
+    ResolveTimeout(LlmRequest) : TimeSpan
     Routing : RoutingPolicy
+    TimeoutByConsumer : Dictionary<String,TimeSpan>
     ToolLoopMaxIterations : Int32
 interface Lyntai.Memory.ISemanticMemory
     ForgetAsync(String, String, CancellationToken=) : Task

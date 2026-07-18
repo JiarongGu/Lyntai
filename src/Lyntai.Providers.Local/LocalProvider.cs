@@ -84,6 +84,7 @@ public sealed class LocalProvider(
             }
 
             var inference = BuildInferenceParams(req);
+            var timeout = lyntai.ResolveTimeout(req);
             var sawContent = false;
 
             // the timeout is an INACTIVITY clock: re-armed before each token read and stopped while we
@@ -99,7 +100,7 @@ public sealed class LocalProvider(
                     LlmChunk? error = null;
                     try
                     {
-                        timeoutCts.CancelAfter(lyntai.ProviderTimeout);   // arm: inactivity clock for this token
+                        timeoutCts.CancelAfter(timeout);                  // arm: inactivity clock for this token
                         var moved = await enumerator.MoveNextAsync().ConfigureAwait(false);
                         timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while we + the consumer work
                         piece = moved ? enumerator.Current : null;
@@ -109,7 +110,7 @@ public sealed class LocalProvider(
                     {
                         var timedOut = timeoutCts.IsCancellationRequested;
                         error = LlmChunk.Error(timedOut ? LlmVerdict.Timeout : LlmVerdict.Failed,
-                            timedOut ? $"{Id}: no token within {lyntai.ProviderTimeout}" : $"{Id}: generation broke — {ex.Message}");
+                            timedOut ? $"{Id}: no token within {timeout}" : $"{Id}: generation broke — {ex.Message}");
                         piece = null;
                     }
                     if (error is not null)

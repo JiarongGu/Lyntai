@@ -33,8 +33,9 @@ public sealed class ExtensionsAiProvider(
 
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
+        var timeout = options.ResolveTimeout(req);
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(options.ProviderTimeout);
+        timeoutCts.CancelAfter(timeout);
         try
         {
             var response = await client.GetResponseAsync(MapMessages(req), MapOptions(req), timeoutCts.Token)
@@ -56,7 +57,7 @@ public sealed class ExtensionsAiProvider(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            return new LlmReply("", LlmVerdict.Timeout, Detail: $"{id}: no response within {options.ProviderTimeout}");
+            return new LlmReply("", LlmVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
         }
         catch (Exception ex)
         {
@@ -71,8 +72,9 @@ public sealed class ExtensionsAiProvider(
         // stopped while we and the consumer work) — a slow-but-healthy stream or a slow reader is
         // never killed under it. The single-shot CancelAfter this replaces counted consumer dwell
         // time and killed healthy streams; ProcessRunner.StreamLinesAsync uses the same pattern.
+        var timeout = options.ResolveTimeout(req);
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(options.ProviderTimeout); // arm for the initial connect
+        timeoutCts.CancelAfter(timeout); // arm for the initial connect
 
         LlmUsage? usage = null;
         var sawContent = false;
@@ -87,7 +89,7 @@ public sealed class ExtensionsAiProvider(
                 LlmChunk? error = null;
                 try
                 {
-                    timeoutCts.CancelAfter(options.ProviderTimeout);           // arm: inactivity clock for this read
+                    timeoutCts.CancelAfter(timeout);                           // arm: inactivity clock for this read
                     var moved = await enumerator.MoveNextAsync().ConfigureAwait(false);
                     timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan);          // stop the clock while we + the consumer work
                     update = moved ? enumerator.Current : null;
@@ -95,7 +97,7 @@ public sealed class ExtensionsAiProvider(
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (OperationCanceledException)
                 {
-                    error = LlmChunk.Error(LlmVerdict.Timeout, $"{id}: no response within {options.ProviderTimeout}");
+                    error = LlmChunk.Error(LlmVerdict.Timeout, $"{id}: no response within {timeout}");
                 }
                 catch (Exception ex)
                 {

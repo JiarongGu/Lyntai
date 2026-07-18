@@ -42,6 +42,7 @@ public sealed class OpenAiCompatibleProvider(
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         var model = req.Model ?? config.DefaultModel ?? "";
+        var timeout = options.ResolveTimeout(req);
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
         for (var attempt = 0; ; attempt++)
@@ -51,7 +52,7 @@ public sealed class OpenAiCompatibleProvider(
             try
             {
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                timeoutCts.CancelAfter(options.ProviderTimeout);
+                timeoutCts.CancelAfter(timeout);
                 response = await http.SendAsync(BuildRequest(req, model, stream: false), timeoutCts.Token).ConfigureAwait(false);
                 using (response)
                 {
@@ -66,7 +67,7 @@ public sealed class OpenAiCompatibleProvider(
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (OperationCanceledException)
             {
-                return new LlmReply("", LlmVerdict.Timeout, Detail: $"{id}: no response within {options.ProviderTimeout}");
+                return new LlmReply("", LlmVerdict.Timeout, Detail: $"{id}: no response within {timeout}");
             }
             catch (HttpRequestException ex)
             {
@@ -100,6 +101,7 @@ public sealed class OpenAiCompatibleProvider(
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var model = req.Model ?? config.DefaultModel ?? "";
+        var timeout = options.ResolveTimeout(req);
         using var owned = OwnedClient();       // disposed only when Lyntai owns it
         var http = owned ?? httpFactory();     // BYO client: fetched, not disposed
 
@@ -107,7 +109,7 @@ public sealed class OpenAiCompatibleProvider(
         // while we and the consumer process a line — a slow-but-healthy stream isn't killed under a
         // slow reader. Re-armed per read below (mirrors ProcessRunner.StreamLinesAsync).
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(options.ProviderTimeout); // arm for the connect (ResponseHeadersRead)
+        timeoutCts.CancelAfter(timeout); // arm for the connect (ResponseHeadersRead)
 
         HttpResponseMessage? response = null;
         LlmChunk? startupError = null;
@@ -125,7 +127,7 @@ public sealed class OpenAiCompatibleProvider(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException)
         {
-            startupError = LlmChunk.Error(LlmVerdict.Timeout, $"{id}: no response within {options.ProviderTimeout}");
+            startupError = LlmChunk.Error(LlmVerdict.Timeout, $"{id}: no response within {timeout}");
         }
         catch (HttpRequestException ex)
         {
@@ -153,7 +155,7 @@ public sealed class OpenAiCompatibleProvider(
             LlmChunk? error = null;
             try
             {
-                timeoutCts.CancelAfter(options.ProviderTimeout);            // arm: inactivity clock for this read
+                timeoutCts.CancelAfter(timeout);                           // arm: inactivity clock for this read
                 line = await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false);
                 timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan);          // stop the clock while we + the consumer work
             }

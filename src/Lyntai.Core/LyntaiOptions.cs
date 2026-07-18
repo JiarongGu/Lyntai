@@ -8,7 +8,7 @@ namespace Lyntai;
 /// <summary>
 /// Library-wide options. Configure in <c>AddLyntai(cfg => …)</c>; after configuration,
 /// <c>LYNTAI_*</c> environment variables override what was set in code (env beats config):
-/// <c>LYNTAI_TIMEOUT_SECONDS</c>, <c>LYNTAI_DEADHOST_THRESHOLD</c>, <c>LYNTAI_DEADHOST_COOLDOWN_SECONDS</c>,
+/// <c>LYNTAI_TIMEOUT_SECONDS</c>, <c>LYNTAI_MAX_TIMEOUT_SECONDS</c>, <c>LYNTAI_DEADHOST_THRESHOLD</c>, <c>LYNTAI_DEADHOST_COOLDOWN_SECONDS</c>,
 /// <c>LYNTAI_DEFAULT_CANDIDATES</c> (comma-separated <c>providerId[:model]</c>), <c>LYNTAI_MODEL_&lt;CONSUMER&gt;</c>,
 /// <c>LYNTAI_RETRY_FAILED</c>, <c>LYNTAI_RETRY_TIMEOUT</c>, <c>LYNTAI_RETRY_BACKOFF_SECONDS</c>,
 /// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>),
@@ -18,8 +18,15 @@ namespace Lyntai;
 /// </summary>
 public sealed class LyntaiOptions
 {
-    /// <summary>Per-call provider timeout (CLI spawn / HTTP call).</summary>
+    /// <summary>Per-call provider timeout (CLI spawn / HTTP call) — the default when a request/consumer
+    /// doesn't override it. See <see cref="ResolveTimeout"/> / <see cref="LlmRequest.TimeoutSeconds"/> /
+    /// <see cref="TimeoutByConsumer"/>.</summary>
     public TimeSpan ProviderTimeout { get; set; } = TimeSpan.FromMinutes(2);
+
+    /// <summary>Ceiling that clamps a caller-supplied per-request timeout (<see cref="LlmRequest.TimeoutSeconds"/>)
+    /// — so a stray/large value can't hang a call indefinitely. App-configured timeouts (the global +
+    /// <see cref="TimeoutByConsumer"/>) are trusted and NOT clamped.</summary>
+    public TimeSpan MaxProviderTimeout { get; set; } = TimeSpan.FromMinutes(30);
 
     /// <summary>Consecutive failures before a provider/host is marked dead.</summary>
     public int DeadHostThreshold { get; set; } = 3;
@@ -37,6 +44,11 @@ public sealed class LyntaiOptions
 
     /// <summary>Default model per consumer tag ("default" applies when the tag has no entry).</summary>
     public Dictionary<string, string> DefaultModelByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Provider timeout per consumer tag ("default" applies when the tag has no entry) — e.g. give a
+    /// long-running CLI-agent consumer a bigger budget than the short-call ones. A request's own
+    /// <see cref="LlmRequest.TimeoutSeconds"/> still wins over this. Mirrors <see cref="DefaultModelByConsumer"/>.</summary>
+    public Dictionary<string, TimeSpan> TimeoutByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Max entries kept per (task, scope) in the memory store — oldest trimmed beyond this.</summary>
     public int MemoryCapPerScope { get; set; } = 500;
@@ -69,6 +81,21 @@ public sealed class LyntaiOptions
         return DefaultModelByConsumer.TryGetValue("default", out var d) ? d : null;
     }
 
+    /// <summary>Resolve the provider timeout for a request: an explicit <see cref="LlmRequest.TimeoutSeconds"/>
+    /// wins (clamped to <see cref="MaxProviderTimeout"/>), then the consumer's <see cref="TimeoutByConsumer"/>
+    /// entry, then the "default" consumer entry, then the global <see cref="ProviderTimeout"/>. The
+    /// app-configured values are trusted (not clamped); only the per-request override is.</summary>
+    public TimeSpan ResolveTimeout(LlmRequest req)
+    {
+        if (req.TimeoutSeconds is { } s && s > 0)
+        {
+            var requested = TimeSpan.FromSeconds(s);
+            return requested > MaxProviderTimeout ? MaxProviderTimeout : requested;
+        }
+        if (TimeoutByConsumer.TryGetValue(req.Consumer, out var t)) return t;
+        return TimeoutByConsumer.TryGetValue("default", out var d) ? d : ProviderTimeout;
+    }
+
     /// <summary>Apply <c>LYNTAI_*</c> environment overrides. The env getter is injectable so tests
     /// are deterministic; production uses <see cref="Environment.GetEnvironmentVariable(string)"/>.</summary>
     public void ApplyEnvOverrides(Func<string, string?>? getEnv = null,
@@ -83,6 +110,8 @@ public sealed class LyntaiOptions
 
         if (double.TryParse(getEnv("LYNTAI_TIMEOUT_SECONDS"), out var t) && t > 0)
             ProviderTimeout = TimeSpan.FromSeconds(t);
+        if (double.TryParse(getEnv("LYNTAI_MAX_TIMEOUT_SECONDS"), out var mt) && mt > 0)
+            MaxProviderTimeout = TimeSpan.FromSeconds(mt);
 
         if (int.TryParse(getEnv("LYNTAI_DEADHOST_THRESHOLD"), out var n) && n > 0)
             DeadHostThreshold = n;

@@ -44,6 +44,12 @@ reporting, `ICuratedMemoryStore`) — see below.
   otherwise-`Ok` reply whose text matches as `Refused` (no fallback) — a caller-supplied check (e.g. a
   per-language "I can't help") on top of the central patterns. Applied by `RefusalScreeningLlmClient`, the
   always-on OUTERMOST front-door layer, so a cached hit is re-screened too; malformed patterns fail open.
+- **Per-request timeout override** — `LlmRequest.TimeoutSeconds` (and a per-consumer `LyntaiOptions.TimeoutByConsumer`
+  map) let one long call — e.g. a CLI-agent run driving many steps — carry a bigger budget without inflating
+  every short call's timeout. Resolved by `LyntaiOptions.ResolveTimeout` (request > consumer-map > "default"
+  > global `ProviderTimeout`), clamped to `MaxProviderTimeout` (env `LYNTAI_MAX_TIMEOUT_SECONDS`); honored by
+  all four providers (ClaudeCli spawn, OpenAI-compatible + MEAI + Local inactivity clocks). Mirrors the
+  existing `DefaultModelByConsumer`/`ResolveModel` shape.
 - **Curated memory catalog** — `ICuratedMemoryStore` (across InMemory/SQLite/Postgres): a hand-managed
   catalog of `CuratedMemory` entries grouped by `Kind`, each individually enable/disable-able (`Enabled`)
   and editable (`UpdateAsync` with COALESCE semantics) with a `Source` note — distinct from the automatic,

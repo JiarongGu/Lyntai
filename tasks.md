@@ -368,6 +368,32 @@ plus nits. All verified in code; none catastrophic.
 
 ---
 
+## Part 4 — Consumer-driven gaps (Sonora integration)
+
+Surfaced while evaluating **Sonora** (a real consumer) adopting Lyntai for its LLM + agentic site-study
+layer. Sonora is a strong fit — drop-in `AddClaudeCliProvider`, the `LlmVerdictClassifier`, routing/fallback
+(which would fix its `CLI_TIMEOUT`), and the prompt/memory cortex all map cleanly; the only friction on
+Sonora's side (re-authoring its `[McpServerTool]` study tools as `ITool`s) is Sonora's own migration, not a
+Lyntai gap. One genuine Lyntai gap:
+
+- [x] **C1 · Per-request timeout override (for the CLI-agent / long-tool-loop path)**
+  - Files: `src/Lyntai.Core/Llm/LlmRequest.cs` (add the field); the providers that honor it (esp. the spawn
+    timeout in `src/Lyntai.Providers.ClaudeCli`); wherever the global `LyntaiOptions.ProviderTimeout` is applied.
+  - Need: the timeout today is a single global option. Sonora's site-study drives the **claude CLI's own agent
+    loop** via `AddClaudeCliMcpTools()` — ONE `claude -p` call that fetches/renders/test-renders many pages over
+    10+ minutes — while its other calls (translation, one-shot) are short. Raising the global timeout to fit the
+    agentic run over-waits every short call; keeping it short kills the study (that's Sonora's current
+    `CLI_TIMEOUT`). Routing/fallback only helps if a second provider is configured.
+  - Fix: add `LlmRequest.TimeoutSeconds? { get; init; }` (and/or a per-`Consumer` timeout map in options),
+    honored by providers over the global default; clamp to a sane ceiling; null = the global.
+  - Test: a request whose `TimeoutSeconds` exceeds the global still completes when the provider runs longer than
+    the global; a short-timeout request cancels at its own value.
+  - Note: the alternative — a consumer adopts Lyntai's `IToolLoop` (Lyntai-orchestrated, short per-turn calls) —
+    sidesteps this, but the CLI-agent path (`ClaudeCli.Mcp`) that Lyntai ships should still support a per-call
+    budget larger than the global.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

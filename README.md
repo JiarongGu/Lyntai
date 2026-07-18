@@ -107,6 +107,9 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   whose text matches surfaces as `Refused` (e.g. a per-language "I can't help with that"). Screened at the
   outermost front-door layer, so even a cached hit is re-checked.
 - **Dead-host cooldown** instead of exponential backoff; any success resets.
+- **Per-request timeout** — set `LlmRequest.TimeoutSeconds` (or a per-consumer `TimeoutByConsumer` default)
+  when one call legitimately runs far longer than the global `ProviderTimeout` (e.g. a CLI-agent run),
+  without inflating every short call. Precedence: request → consumer → global; clamped to `MaxProviderTimeout`.
 - **All of the above is the default `RoutingPolicy` — tune it without a fork.** Retry a transient
   fault on the same candidate before failing over, override what each verdict does, cool by
   `(provider, model)` instead of whole-host, or keep the sole candidate always live:

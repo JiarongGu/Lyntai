@@ -57,10 +57,11 @@ public sealed class ClaudeCliProvider(
         var argv = prefixArgs.Concat(ClaudeArgs.Build(req.Model)).Concat(session?.ExtraArgs ?? []).ToList();
         var prompt = ClaudeArgs.BuildPrompt(req);
 
+        var timeout = options.ResolveTimeout(req);
         ProcessResult result;
         try
         {
-            result = await runner.RunAsync(exe, argv, stdin: prompt, timeout: options.ProviderTimeout,
+            result = await runner.RunAsync(exe, argv, stdin: prompt, timeout: timeout,
                 workingDirectory: NeutralWorkingDirectory, ct: ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -70,7 +71,7 @@ public sealed class ClaudeCliProvider(
         }
 
         if (result.TimedOut)
-            return new LlmReply("", LlmVerdict.Timeout, Detail: $"claude CLI exceeded {options.ProviderTimeout}");
+            return new LlmReply("", LlmVerdict.Timeout, Detail: $"claude CLI exceeded {timeout}");
 
         var stderrTail = Tail(result.StdErr);
         if (result.ExitCode != 0)
@@ -114,7 +115,7 @@ public sealed class ClaudeCliProvider(
         string resultText = "";
         LlmUsage? usage = null;
 
-        var lines = runner.StreamLinesAsync(exe, argv, stdin: prompt, timeout: options.ProviderTimeout,
+        var lines = runner.StreamLinesAsync(exe, argv, stdin: prompt, timeout: options.ResolveTimeout(req),
             workingDirectory: NeutralWorkingDirectory, ct: ct);
         var enumerator = lines.GetAsyncEnumerator(ct);
         await using (enumerator.ConfigureAwait(false))
