@@ -29,10 +29,6 @@ class Lyntai.Storage.Postgres.Migrations.M202607180002_Governance
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607180003_JobPriority
-    .ctor()
-    Down() : Void
-    Up() : Void
 static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
     MigrateUp(String) : Void
 class Lyntai.Storage.Postgres.PostgresConnectionFactory

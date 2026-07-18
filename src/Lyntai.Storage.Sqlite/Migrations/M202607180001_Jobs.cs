@@ -3,8 +3,9 @@ using FluentMigrator;
 namespace Lyntai.Storage.Sqlite.Migrations;
 
 /// <summary>Durable jobs (design §9): the <c>lyntai_job</c> queue with lane/status/checkpoint + the
-/// lease columns the atomic claim keys on. Timestamps are ISO-8601 TEXT (the shared DateTimeOffset
-/// handler); id + status are TEXT (no new Dapper type handler → no process-global registry collision).</summary>
+/// lease columns the atomic claim keys on, plus <c>priority</c> (higher runs first). Timestamps are
+/// ISO-8601 TEXT (the shared DateTimeOffset handler); id + status are TEXT (no new Dapper type handler →
+/// no process-global registry collision). The dead-letter state (<c>Dead</c>) needs no column — status is TEXT.</summary>
 [Migration(202607180001)]
 public sealed class M202607180001_Jobs : Migration
 {
@@ -25,11 +26,12 @@ public sealed class M202607180001_Jobs : Migration
                 claimed_at TEXT NULL,
                 claimed_by TEXT NULL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 0
             )
             """);
-        // the claim predicate filters by (lane, status, available_at); this index serves it
-        Execute.Sql("CREATE INDEX ix_lyntai_job_claim ON lyntai_job(lane, status, available_at)");
+        // the claim picks by (lane, status, priority DESC, available_at); this index serves it
+        Execute.Sql("CREATE INDEX ix_lyntai_job_claim ON lyntai_job(lane, status, priority DESC, available_at)");
     }
 
     public override void Down()
