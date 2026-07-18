@@ -148,9 +148,11 @@ class Lyntai.Cortex.LlmPairwiseComparer
 class Lyntai.Cortex.LlmScorerBase
     .ctor(ILlmClient)
     BuildJudgePrompt(ScoreContext) : String
+    Consumer : String
     Group : String
     Id : String
     IsLlm : Boolean
+    Model : String
     Name : String
     ScoreAsync(ScoreContext, CancellationToken) : Task<ScoreResult>
 class Lyntai.Cortex.MemoryPromptComposer

@@ -419,7 +419,7 @@ persist, per-scorer judge model preserved, model retuning takes effect live).
   - `ScoringService.EvaluateAsync` auto-saves whenever an `IScoreStore` is registered, so a dry/preview path
     can't score without writing rows. Add an overload/flag (`EvaluateAsync(ctx, persist: false)`) or split
     evaluate-vs-persist. Files: `src/Lyntai.Core/Cortex/{IScoringService,ScoringService}.cs`.
-- [ ] **A3 · `LlmScorerBase`: per-scorer model + consumer hook — HARD (blocker)**
+- [x] **A3 · `LlmScorerBase`: per-scorer model + consumer hook — HARD (blocker)**
   - It hardcodes the default candidates + `Consumer="scoring"`, so every judge runs on the default model — a
     real app routes cheap judges to a cheap model (e.g. haiku) per scorer. Let the subclass/ctor set a `Model`
     + `Consumer` threaded into the `CompleteJsonAsync` request. File: `src/Lyntai.Core/Cortex/LlmScorerBase.cs`.

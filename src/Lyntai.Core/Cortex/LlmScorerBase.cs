@@ -17,6 +17,14 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
     public virtual string Group => "llm";
     public bool IsLlm => true;
 
+    /// <summary>The model this judge runs on — null (default) uses the routed default for
+    /// <see cref="Consumer"/>. Override to route a cheap judge to a cheap model (e.g. haiku) per scorer.</summary>
+    protected virtual string? Model => null;
+
+    /// <summary>The consumer tag for this judge's calls — drives per-consumer model + timeout routing.
+    /// Default <c>"scoring"</c>; override per scorer to route different judges differently.</summary>
+    protected virtual string Consumer => "scoring";
+
     /// <summary>Build the judge prompt for a context. The base wraps it with the verdict-format
     /// instruction; implementations only describe what to judge.</summary>
     protected abstract string BuildJudgePrompt(ScoreContext ctx);
@@ -33,7 +41,8 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
                 LlmMessage.User(BuildJudgePrompt(ctx)),
             ],
             JsonSchema = """{"type":"object","properties":{"score":{"type":"number"},"reason":{"type":"string"}},"required":["score"]}""",
-            Consumer = "scoring",
+            Model = Model,
+            Consumer = Consumer,
         };
 
         var reply = await llm.CompleteJsonAsync(req, ct).ConfigureAwait(false);
