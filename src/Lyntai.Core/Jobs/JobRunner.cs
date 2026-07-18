@@ -149,7 +149,10 @@ public sealed class JobRunner(
             }
 
             var ctx = new JobContext(job.Id, job.Payload, job.Checkpoint, job.Attempts,
-                (cp, c) => _store.SaveCheckpointAsync(job.Id, _workerId, cp, c));
+                (cp, c) => _store.SaveCheckpointAsync(job.Id, _workerId, cp, c),
+                (done, total, stage, c) => _store.ReportProgressAsync(job.Id, _workerId, done, total, stage, c),
+                (msg, c) => _store.ReportStepAsync(job.Id, _workerId, msg, c),
+                job.Progress, job.Total, job.Stage, job.StepLog);
 
             // link a per-job token so a cancel REQUEST (polled from the store) cancels the handler's ct,
             // separately from shutdown (the outer ct). The poll stops the moment the handler returns.

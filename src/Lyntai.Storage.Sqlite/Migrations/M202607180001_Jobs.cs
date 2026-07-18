@@ -3,9 +3,10 @@ using FluentMigrator;
 namespace Lyntai.Storage.Sqlite.Migrations;
 
 /// <summary>Durable jobs (design §9): the <c>lyntai_job</c> queue with lane/status/checkpoint + the
-/// lease columns the atomic claim keys on, plus <c>priority</c> (higher runs first). Timestamps are
-/// ISO-8601 TEXT (the shared DateTimeOffset handler); id + status are TEXT (no new Dapper type handler →
-/// no process-global registry collision). The dead-letter state (<c>Dead</c>) needs no column — status is TEXT.</summary>
+/// lease columns the atomic claim keys on, plus <c>priority</c> (higher runs first) and the live
+/// progress/step-log columns. Timestamps are ISO-8601 TEXT (the shared DateTimeOffset handler); id +
+/// status are TEXT (no new Dapper type handler → no process-global registry collision). The dead-letter
+/// (<c>Dead</c>) and <c>Paused</c> states need no column — status is TEXT.</summary>
 [Migration(202607180001)]
 public sealed class M202607180001_Jobs : Migration
 {
@@ -28,7 +29,11 @@ public sealed class M202607180001_Jobs : Migration
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 priority INTEGER NOT NULL DEFAULT 0,
-                cancel_requested INTEGER NOT NULL DEFAULT 0
+                cancel_requested INTEGER NOT NULL DEFAULT 0,
+                progress INTEGER NOT NULL DEFAULT 0,
+                total INTEGER NOT NULL DEFAULT 0,
+                stage TEXT NULL,
+                step_log TEXT NULL
             )
             """);
         // the claim picks by (lane, status, priority DESC, available_at); this index serves it

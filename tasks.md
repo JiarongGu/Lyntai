@@ -296,7 +296,7 @@ routing). These are the pieces it still needs before dropping its own code. Prio
     `ClaimNextAsync` (allow / hold-lane) + `JobStatus.Paused` with pause/resume on `IJobQueue`/`IJobStore` across
     all three backends. App owns the load sampling. Tests: a controller that holds a lane → no claims for it;
     pause/resume round-trips on every backend.
-- [ ] **S3 · Live job progress + step reporting on `JobContext`**
+- [x] **S3 · Live job progress + step reporting on `JobContext`**
   - Lyntai exposes only `SaveCheckpointAsync`; Sonora's UI needs `ReportProgressAsync(done,total,stage)` +
     `ReportStepAsync(msg)`. Add them (new `JobRecord` `Progress`/`Total`/`Stage`/`StepLog` fields + a migration
     across backends, or an event stream). Tests: progress/steps round-trip and are readable while the job runs.

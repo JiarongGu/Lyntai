@@ -228,6 +228,29 @@ public static class JobStoreContract
         Assert.Equal(id, (await store.ClaimNextAsync("default", "w1", Lease))!.Id); // runnable again
     }
 
+    public static async Task Progress_and_steps_are_readable_while_running_and_fenced(IJobStore store, MutableClock clock)
+    {
+        var id = await store.EnqueueAsync(Spec());
+        await store.ClaimNextAsync("default", "w1", Lease);
+
+        Assert.True(await store.ReportProgressAsync(id, "w1", 3, 10, "phase-1"));
+        Assert.True(await store.ReportStepAsync(id, "w1", "started"));
+        Assert.True(await store.ReportStepAsync(id, "w1", "halfway"));
+
+        // readable WHILE the job is still Running — the point of live progress
+        var job = await store.GetAsync(id);
+        Assert.Equal(JobStatus.Running, job!.Status);
+        Assert.Equal(3, job.Progress);
+        Assert.Equal(10, job.Total);
+        Assert.Equal("phase-1", job.Stage);
+        Assert.Equal(["started", "halfway"], JobStepLog.Parse(job.StepLog).Select(s => s.Message));
+
+        // fenced: a worker that doesn't hold the claim can't report
+        Assert.False(await store.ReportProgressAsync(id, "intruder", 9, 10, "x"));
+        Assert.False(await store.ReportStepAsync(id, "intruder", "nope"));
+        Assert.Equal(3, (await store.GetAsync(id))!.Progress); // unchanged
+    }
+
     public static async Task Pause_only_affects_a_pending_job(IJobStore store, MutableClock clock)
     {
         var running = await store.EnqueueAsync(Spec());

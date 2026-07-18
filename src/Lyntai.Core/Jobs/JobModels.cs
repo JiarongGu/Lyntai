@@ -46,7 +46,10 @@ public sealed record JobSpec(
     int Priority = 0);
 
 /// <summary>A persisted job row, as returned by a claim. <paramref name="Checkpoint"/> is the last
-/// progress the handler saved (null on the first run, non-null on a resume).</summary>
+/// progress the handler saved (null on the first run, non-null on a resume). <paramref name="Progress"/>/
+/// <paramref name="Total"/>/<paramref name="Stage"/> are the live progress snapshot reported by the
+/// handler (readable while it runs, e.g. for a UI); <paramref name="StepLog"/> is the JSON step log (parse
+/// with <see cref="JobStepLog.Parse"/>).</summary>
 public sealed record JobRecord(
     Guid Id,
     string Lane,
@@ -63,4 +66,8 @@ public sealed record JobRecord(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     int Priority = 0,
-    bool CancelRequested = false);
+    bool CancelRequested = false,
+    int Progress = 0,
+    int Total = 0,
+    string? Stage = null,
+    string? StepLog = null);

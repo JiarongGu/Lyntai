@@ -28,7 +28,11 @@ public sealed class M202607180001_Jobs : Migration
                 created_at TIMESTAMPTZ NOT NULL,
                 updated_at TIMESTAMPTZ NOT NULL,
                 priority INTEGER NOT NULL DEFAULT 0,
-                cancel_requested BOOLEAN NOT NULL DEFAULT FALSE
+                cancel_requested BOOLEAN NOT NULL DEFAULT FALSE,
+                progress INTEGER NOT NULL DEFAULT 0,
+                total INTEGER NOT NULL DEFAULT 0,
+                stage TEXT NULL,
+                step_log TEXT NULL
             )
             """);
         Execute.Sql("CREATE INDEX ix_lyntai_job_claim ON lyntai_job(lane, status, priority DESC, available_at)");

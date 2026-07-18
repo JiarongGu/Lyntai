@@ -7,8 +7,8 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 Adds a **portable, recoverable secret vault** and **job admission control / pause**, and lands the
 review-follow-up backlog (a second multi-agent code review). New package **`Lyntai.Secrets.Dpapi`**;
-public-surface additions to `Lyntai.Core` (envelope vault, `IJobAdmissionController`, `JobStatus.Paused`)
-and the three storage backends (`PauseAsync`/`ResumeAsync`) — see below.
+public-surface additions to `Lyntai.Core` (envelope vault, `IJobAdmissionController`, `JobStatus.Paused`,
+live job progress) and the three storage backends (`PauseAsync`/`ResumeAsync`, progress reporting) — see below.
 
 ### Added
 - **DEK-envelope secret vault** (`Lyntai.Core`) — a Lyntai-managed data-encryption key instead of a BYO
@@ -32,6 +32,13 @@ and the three storage backends (`PauseAsync`/`ResumeAsync`) — see below.
   is treated as "hold"). Register with `AddJobAdmissionController`. Separately, `JobStatus.Paused` with
   `IJobQueue`/`IJobStore` `PauseAsync`/`ResumeAsync` administratively holds a single Pending job out of the
   claimable set (no schema change — status is TEXT) across all three backends.
+- **Live job progress + step reporting** — `JobContext.ReportProgressAsync(done, total, stage)` and
+  `ReportStepAsync(message)` let a handler surface live status a UI can read WHILE the job runs (new
+  `JobRecord.Progress`/`Total`/`Stage`/`StepLog` + `IJobStore.ReportProgressAsync`/`ReportStepAsync`,
+  fenced by the worker id, not lease renewals). The step log is a capped JSON array (`JobStepLog.Parse`/
+  `Append` → `JobStep`); `JobContext` also exposes the prior snapshot (`Progress`/`Steps`/…) so a resumed
+  handler sees what it already reported. New `lyntai_job` columns folded into the jobs migration
+  (pre-release; SQLite + Postgres). InMemory mirrors it.
 
 ### Fixed
 - **Security — denylist guard bypassed via tool calls/attachments** — `DenylistGuard` scanned only message

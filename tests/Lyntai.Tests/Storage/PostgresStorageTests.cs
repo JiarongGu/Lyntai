@@ -306,4 +306,27 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.True(await store.ResumeAsync(id));                            // Paused → Pending
         Assert.Equal(id, (await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1)))!.Id);
     }
+
+    [Fact]
+    public async Task Job_progress_and_steps_are_readable_while_running()
+    {
+        if (!pg.Available) return;
+        var store = new PostgresJobStore(pg.Factory);
+        var lane = Uid();
+        var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
+        await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1));
+
+        Assert.True(await store.ReportProgressAsync(id, "w1", 3, 10, "phase-1"));
+        Assert.True(await store.ReportStepAsync(id, "w1", "started"));
+        Assert.True(await store.ReportStepAsync(id, "w1", "halfway"));
+
+        var job = await store.GetAsync(id);
+        Assert.Equal(JobStatus.Running, job!.Status);
+        Assert.Equal(3, job.Progress);
+        Assert.Equal(10, job.Total);
+        Assert.Equal("phase-1", job.Stage);
+        Assert.Equal(["started", "halfway"], JobStepLog.Parse(job.StepLog).Select(s => s.Message));
+
+        Assert.False(await store.ReportProgressAsync(id, "intruder", 9, 10, "x")); // fenced
+    }
 }

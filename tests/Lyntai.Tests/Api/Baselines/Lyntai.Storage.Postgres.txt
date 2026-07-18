@@ -57,6 +57,8 @@ class Lyntai.Storage.Postgres.PostgresJobStore
     ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
     PauseAsync(Guid, CancellationToken=) : Task<Boolean>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
+    ReportProgressAsync(Guid, String, Int32, Int32, String, CancellationToken=) : Task<Boolean>
+    ReportStepAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
     RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
     ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>

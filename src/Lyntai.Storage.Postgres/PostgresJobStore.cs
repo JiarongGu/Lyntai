@@ -14,12 +14,14 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
 {
     private const string Cols =
         "id, lane, type, payload, status, checkpoint, attempts, max_attempts, last_error, " +
-        "available_at, claimed_at, claimed_by, created_at, updated_at, priority, cancel_requested";
+        "available_at, claimed_at, claimed_by, created_at, updated_at, priority, cancel_requested, " +
+        "progress, total, stage, step_log";
 
     // same columns, qualified for the UPDATE … FROM … RETURNING (id is otherwise ambiguous with `pick`)
     private const string JCols =
         "j.id, j.lane, j.type, j.payload, j.status, j.checkpoint, j.attempts, j.max_attempts, j.last_error, " +
-        "j.available_at, j.claimed_at, j.claimed_by, j.created_at, j.updated_at, j.priority, j.cancel_requested";
+        "j.available_at, j.claimed_at, j.claimed_by, j.created_at, j.updated_at, j.priority, j.cancel_requested, " +
+        "j.progress, j.total, j.stage, j.step_log";
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
@@ -30,7 +32,7 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
         using var conn = factory.Open();
         await conn.ExecuteAsync(new CommandDefinition($"""
             INSERT INTO lyntai_job ({Cols})
-            VALUES (@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority, FALSE)
+            VALUES (@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority, FALSE, 0, 0, NULL, NULL)
             """, new
         {
             id = id.ToString(), lane = spec.Lane, type = spec.Type, payload = spec.Payload,
@@ -62,6 +64,19 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
 
     public Task<bool> SaveCheckpointAsync(Guid id, string workerId, string checkpoint, CancellationToken ct = default) =>
         Fenced("SET checkpoint=@checkpoint, claimed_at=@now, updated_at=@now", id, workerId, ct, new { checkpoint });
+
+    public Task<bool> ReportProgressAsync(Guid id, string workerId, int done, int total, string? stage, CancellationToken ct = default) =>
+        Fenced("SET progress=@done, total=@total, stage=@stage, updated_at=@now", id, workerId, ct, new { done, total, stage });
+
+    public async Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default)
+    {
+        // read-modify-write the capped JSON step log; the fenced write drops it if the lease was lost
+        // (a single job is reported on by its one owning worker, so no self-race on the read)
+        var current = await GetAsync(id, ct).ConfigureAwait(false);
+        if (current is null || current.Status != JobStatus.Running || current.ClaimedBy != workerId) return false;
+        var stepLog = JobStepLog.Append(current.StepLog, message, _clock());
+        return await Fenced("SET step_log=@stepLog, updated_at=@now", id, workerId, ct, new { stepLog }).ConfigureAwait(false);
+    }
 
     public Task<bool> CompleteAsync(Guid id, string workerId, CancellationToken ct = default) =>
         Fenced("SET status='Succeeded', updated_at=@now", id, workerId, ct);
@@ -196,8 +211,13 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
         public DateTimeOffset UpdatedAt { get; set; }
         public long Priority { get; set; }
         public bool CancelRequested { get; set; }
+        public long Progress { get; set; }
+        public long Total { get; set; }
+        public string? Stage { get; set; }
+        public string? StepLog { get; set; }
 
         public JobRecord ToRecord() => new(Guid.Parse(Id), Lane, Type, Payload, Enum.Parse<JobStatus>(Status),
-            Checkpoint, (int)Attempts, (int)MaxAttempts, LastError, AvailableAt, ClaimedAt, ClaimedBy, CreatedAt, UpdatedAt, (int)Priority, CancelRequested);
+            Checkpoint, (int)Attempts, (int)MaxAttempts, LastError, AvailableAt, ClaimedAt, ClaimedBy, CreatedAt, UpdatedAt, (int)Priority, CancelRequested,
+            (int)Progress, (int)Total, Stage, StepLog);
     }
 }

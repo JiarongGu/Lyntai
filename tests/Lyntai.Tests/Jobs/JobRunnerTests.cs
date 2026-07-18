@@ -289,6 +289,52 @@ public class JobRunnerTests
     }
 
     [Fact]
+    public async Task Handler_reported_progress_and_steps_are_persisted_and_readable()
+    {
+        var handler = new FakeJobHandler("t", async ctx =>
+        {
+            await ctx.ReportProgressAsync(1, 2, "warming-up");
+            await ctx.ReportStepAsync("did the first thing");
+            return JobOutcome.Complete;
+        });
+        var (runner, store, queue, _) = Build(null, handler);
+        var id = await queue.EnqueueAsync("default", "t", "{}");
+
+        await runner.RunOnceAsync();
+
+        var job = await store.GetAsync(id);
+        Assert.Equal(1, job!.Progress);
+        Assert.Equal(2, job.Total);
+        Assert.Equal("warming-up", job.Stage);
+        Assert.Equal(["did the first thing"], JobStepLog.Parse(job.StepLog).Select(s => s.Message));
+    }
+
+    [Fact]
+    public async Task A_resumed_job_sees_its_prior_steps_in_context()
+    {
+        var seenOnResume = new List<string>();
+        var handler = new FakeJobHandler("t", async ctx =>
+        {
+            if (ctx.Checkpoint is null) // first attempt: report a step + checkpoint, then "crash" (retry)
+            {
+                await ctx.ReportStepAsync("attempt-1 work");
+                await ctx.SaveCheckpointAsync("cp1");
+                return JobOutcome.Retry();
+            }
+            seenOnResume.AddRange(ctx.Steps.Select(s => s.Message)); // resume: prior steps are visible
+            return JobOutcome.Complete;
+        });
+        var (runner, store, queue, clock) = Build(null, handler);
+        await queue.EnqueueAsync("default", "t", "{}");
+
+        await runner.RunOnceAsync();                          // attempt 1 → Retry
+        clock.Advance(TimeSpan.FromMinutes(2));               // let the retry become available
+        await runner.RunOnceAsync();                          // attempt 2 → resume, Complete
+
+        Assert.Equal(["attempt-1 work"], seenOnResume);
+    }
+
+    [Fact]
     public async Task A_paused_job_is_not_run()
     {
         var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));

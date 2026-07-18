@@ -31,6 +31,17 @@ public interface IJobStore
     /// stolen). Fenced by <paramref name="workerId"/>; false = lost the lease.</summary>
     Task<bool> SaveCheckpointAsync(Guid id, string workerId, string checkpoint, CancellationToken ct = default);
 
+    /// <summary>Record a LIVE progress snapshot (readable while the job runs, e.g. for a UI): items
+    /// <paramref name="done"/> of <paramref name="total"/>, at <paramref name="stage"/>. Does NOT renew the
+    /// lease (it's observability, not the resume checkpoint). Fenced by <paramref name="workerId"/>; false =
+    /// lost the lease.</summary>
+    Task<bool> ReportProgressAsync(Guid id, string workerId, int done, int total, string? stage, CancellationToken ct = default);
+
+    /// <summary>Append a human-readable step to the job's step log (capped, JSON — parse with
+    /// <see cref="Lyntai.Jobs.JobStepLog.Parse"/>). Observability only; does not renew the lease. Fenced by
+    /// <paramref name="workerId"/>; false = lost the lease.</summary>
+    Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default);
+
     /// <summary>Mark the job Succeeded (terminal). Fenced; false = lost the lease.</summary>
     Task<bool> CompleteAsync(Guid id, string workerId, CancellationToken ct = default);
 

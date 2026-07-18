@@ -329,12 +329,18 @@ interface Lyntai.Jobs.IJobScheduler
     RunAsync(CancellationToken=) : Task
     TickAsync(CancellationToken=) : Task<Int32>
 class Lyntai.Jobs.JobContext
-    .ctor(Guid, String, String, Int32, Func<String,CancellationToken,Task<Boolean>>)
+    .ctor(Guid, String, String, Int32, Func<String,CancellationToken,Task<Boolean>>, Func<Int32,Int32,String,CancellationToken,Task<Boolean>>=, Func<String,CancellationToken,Task<Boolean>>=, Int32=, Int32=, String=, String=)
     Attempts : Int32
     Checkpoint : String
     JobId : Guid
     Payload : String
+    Progress : Int32
+    ReportProgressAsync(Int32, Int32, String=, CancellationToken=) : Task<Boolean>
+    ReportStepAsync(String, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(String, CancellationToken=) : Task<Boolean>
+    Stage : String
+    Steps : IReadOnlyList<JobStep>
+    Total : Int32
 class Lyntai.Jobs.JobHandlerRegistry
     .ctor(IEnumerable<IJobHandler>)
     Find(String) : IJobHandler
@@ -375,7 +381,7 @@ class Lyntai.Jobs.JobQueue
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
     ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
 class Lyntai.Jobs.JobRecord
-    .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset, Int32=, Boolean=)
+    .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset, Int32=, Boolean=, Int32=, Int32=, String=, String=)
     Attempts : Int32
     AvailableAt : DateTimeOffset
     CancelRequested : Boolean
@@ -383,7 +389,7 @@ class Lyntai.Jobs.JobRecord
     ClaimedAt : Nullable<DateTimeOffset>
     ClaimedBy : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Guid&, String&, String&, String&, JobStatus&, String&, Int32&, Int32&, String&, DateTimeOffset&, Nullable`1&, String&, DateTimeOffset&, DateTimeOffset&, Int32&, Boolean&) : Void
+    Deconstruct(Guid&, String&, String&, String&, JobStatus&, String&, Int32&, Int32&, String&, DateTimeOffset&, Nullable`1&, String&, DateTimeOffset&, DateTimeOffset&, Int32&, Boolean&, Int32&, Int32&, String&, String&) : Void
     Equals(JobRecord) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
@@ -393,8 +399,12 @@ class Lyntai.Jobs.JobRecord
     MaxAttempts : Int32
     Payload : String
     Priority : Int32
+    Progress : Int32
+    Stage : String
     Status : JobStatus
+    StepLog : String
     ToString() : String
+    Total : Int32
     Type : String
     UpdatedAt : DateTimeOffset
 class Lyntai.Jobs.JobRunner
@@ -441,6 +451,19 @@ enum Lyntai.Jobs.JobStatus
     Running : JobStatus const
     Succeeded : JobStatus const
     value__ : Int32
+class Lyntai.Jobs.JobStep
+    .ctor(DateTimeOffset, String)
+    At : DateTimeOffset
+    Deconstruct(DateTimeOffset&, String&) : Void
+    Equals(JobStep) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Message : String
+    ToString() : String
+static class Lyntai.Jobs.JobStepLog
+    Append(String, String, DateTimeOffset, Int32=) : String
+    DefaultCap : Int32 const
+    Parse(String) : IReadOnlyList<JobStep>
 class Lyntai.Llm.Budgeting.BudgetedLlmClient
     .ctor(ILlmClient, IUsageTracker, LyntaiOptions, ILogger<BudgetedLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
@@ -903,6 +926,8 @@ interface Lyntai.Storage.IJobStore
     ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
     PauseAsync(Guid, CancellationToken=) : Task<Boolean>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
+    ReportProgressAsync(Guid, String, Int32, Int32, String, CancellationToken=) : Task<Boolean>
+    ReportStepAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
     RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
     ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>

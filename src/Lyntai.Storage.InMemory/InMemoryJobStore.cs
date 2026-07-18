@@ -61,6 +61,28 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null) : IJobS
         }
     }
 
+    public Task<bool> ReportProgressAsync(Guid id, string workerId, int done, int total, string? stage, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
+            _jobs[id] = j with { Progress = done, Total = total, Stage = stage, UpdatedAt = now }; // NOT a lease renewal
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
+            _jobs[id] = j with { StepLog = JobStepLog.Append(j.StepLog, message, now), UpdatedAt = now };
+            return Task.FromResult(true);
+        }
+    }
+
     public Task<bool> CompleteAsync(Guid id, string workerId, CancellationToken ct = default)
     {
         var now = _clock();
