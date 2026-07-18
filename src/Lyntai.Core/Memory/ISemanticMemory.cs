@@ -6,6 +6,10 @@ namespace Lyntai.Memory;
 /// an app-provided <see cref="Lyntai.Embeddings.IEmbedder"/> with an <see cref="IVectorStore"/>; wired when
 /// embeddings are registered (<c>builder.AddEmbeddings(...)</c>). Scoped by (taskKey, scope) like the
 /// lexical store; re-remembering identical content overwrites rather than duplicating.
+/// <para>CHANGING THE EMBEDDING MODEL: stored vectors keep their old dimension. Recall is fail-open (a
+/// backend that rejects a dimension-mismatched vector — e.g. pgvector — yields no hits rather than
+/// throwing), but you should REINDEX (<see cref="ForgetAsync"/> the scope + re-<see cref="RememberAsync"/>,
+/// or drop the vectors) after a model change so recall works again.</para>
 /// </summary>
 public interface ISemanticMemory
 {

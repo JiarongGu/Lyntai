@@ -34,9 +34,21 @@ public sealed class SemanticMemory(
         int k = 5, double minScore = 0, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(query) || k <= 0) return [];
-        var qv = await Embedder.EmbedAsync(query, ct).ConfigureAwait(false);
-        var matches = await vectors.SearchAsync(Collection(taskKey, scope), qv, k, ct).ConfigureAwait(false);
-        return [.. matches.Where(m => m.Score >= minScore).Select(m => new SemanticHit(m.Payload, m.Score))];
+        try
+        {
+            var qv = await Embedder.EmbedAsync(query, ct).ConfigureAwait(false);
+            var matches = await vectors.SearchAsync(Collection(taskKey, scope), qv, k, ct).ConfigureAwait(false);
+            return [.. matches.Where(m => m.Score >= minScore).Select(m => new SemanticHit(m.Payload, m.Score))];
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            // fail-open (like lexical recall): a vector backend can throw on a dimension-mismatched row (a
+            // pgvector `<=>` error after an embedding-model swap, say) — degrade to no hits, don't take down
+            // the caller. REINDEX (Forget + re-Remember, or drop the collection) after changing the model.
+            _logger.LogWarning(ex, "semantic recall failed for {Task}/{Scope} — returning empty (reindex after a model change)", taskKey, scope);
+            return [];
+        }
     }
 
     public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) =>

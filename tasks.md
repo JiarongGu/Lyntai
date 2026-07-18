@@ -249,7 +249,7 @@ would have caught the bug.
     `StringComparer.Ordinal` in the in-memory tracker. Test: `Record("App")` + `Record("app")` → consistent totals
     across every backend (parametrized).
 
-- [ ] **T7 · pgvector throws on a dimension-mismatched row; semantic recall isn't fail-open**
+- [x] **T7 · pgvector throws on a dimension-mismatched row; semantic recall isn't fail-open**
   - Files: `PostgresVectorStore.cs` (`SearchAsync`), `src/Lyntai.Core/Memory/SemanticMemory.cs` (`RecallAsync`).
     pgvector's `<=>` errors on a differing-dimension row (InMemory/SQLite score 0), and `RecallAsync` has no
     try/catch → all semantic recall breaks on Postgres after a model swap. Fix: make `RecallAsync` fail-open

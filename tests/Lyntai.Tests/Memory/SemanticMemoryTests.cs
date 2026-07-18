@@ -116,6 +116,22 @@ public class SemanticMemoryTests
         Assert.Empty(await mem.RecallAsync("t", "s", "   ", k: 5));
     }
 
+    [Fact] // T7: recall is fail-open when the vector backend throws (e.g. pgvector on a dimension mismatch)
+    public async Task Recall_is_fail_open_when_the_vector_store_throws()
+    {
+        var mem = new SemanticMemory(new FakeEmbedder(), new ThrowingVectorStore());
+        var hits = await mem.RecallAsync("t", "s", "query", k: 5); // must NOT throw
+        Assert.Empty(hits);
+    }
+
+    private sealed class ThrowingVectorStore : IVectorStore
+    {
+        public Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>
+            throw new InvalidOperationException("different vector dimensions"); // mimics pgvector's error
+        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
     [Fact]
     public async Task Without_an_embedder_a_call_throws_a_clear_error()
     {
