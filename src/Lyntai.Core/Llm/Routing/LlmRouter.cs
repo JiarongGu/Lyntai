@@ -135,7 +135,10 @@ public sealed class LlmRouter(
                             {
                                 chunk = await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null;
                             }
-                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            // only the CALLER's cancel aborts the router (the trust boundary); a provider's
+                            // OWN OperationCanceledException (ct not cancelled — e.g. its internal timeout)
+                            // becomes a fall-over-able Error chunk, not an abort of the whole stream
+                            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
                             {
                                 chunk = LlmChunk.Error(LlmVerdict.Failed, ex.Message); // a mid-iteration throw is an Error chunk
                             }

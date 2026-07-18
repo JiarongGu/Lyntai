@@ -17,6 +17,9 @@ public sealed class FakeLlmProvider(string id) : ILlmProvider
 
     public Func<LlmRequest, IReadOnlyList<LlmChunk>>? StreamScript { get; set; }
 
+    /// <summary>When set, StreamAsync throws this BEFORE yielding (a provider-side stream failure).</summary>
+    public Exception? StreamThrow { get; set; }
+
     public List<LlmRequest> Calls { get; } = [];
 
     public int StreamCalls { get; private set; }
@@ -33,6 +36,7 @@ public sealed class FakeLlmProvider(string id) : ILlmProvider
     {
         StreamCalls++;
         Calls.Add(req);
+        if (StreamThrow is not null) throw StreamThrow; // provider-side failure before any content
         var chunks = StreamScript?.Invoke(req) ?? [LlmChunk.Content($"{Id} stream"), LlmChunk.Final()];
         foreach (var chunk in chunks)
         {

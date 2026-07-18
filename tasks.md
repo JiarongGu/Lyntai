@@ -258,7 +258,7 @@ would have caught the bug.
 
 ### Lower (risk / nit)
 
-- [ ] **T8 · Router treats a provider's own `OperationCanceledException` as caller-cancel** —
+- [x] **T8 · Router treats a provider's own `OperationCanceledException` as caller-cancel** —
   `src/Lyntai.Core/Llm/Routing/LlmRouter.cs` (streaming catch): narrow to
   `when (ex is not OperationCanceledException || !ct.IsCancellationRequested)` so only the caller's cancel aborts;
   a provider-side OCE becomes a fall-over-able Error chunk (the router is the trust boundary). Test: a fake

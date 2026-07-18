@@ -38,6 +38,19 @@ public class LlmRouterStreamTests
         Assert.Equal(1, p2.StreamCalls);
     }
 
+    [Fact] // T8: a PROVIDER's own OperationCanceledException (caller ct not cancelled) falls over, not aborts
+    public async Task Provider_side_cancellation_pre_content_falls_over_to_next_candidate()
+    {
+        var p1 = new FakeLlmProvider("p1") { StreamThrow = new OperationCanceledException("provider gave up") };
+        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("hi"), LlmChunk.Final()] };
+
+        // no caller cancellation → the provider's OWN OCE must not abort the router; it falls over to p2
+        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+
+        Assert.Equal(["hi"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(1, p2.StreamCalls);
+    }
+
     [Fact]
     public async Task Empty_first_content_chunk_does_not_commit_so_a_following_error_falls_over()
     {
