@@ -80,6 +80,21 @@ public class SqliteGovernanceStoreTests : IDisposable
         Assert.Equal(UsageTotals.Empty, tracker.Total("never-seen"));
     }
 
+    [Fact] // T6: the consumer key must be case-SENSITIVE on every backend (SQL PK is)
+    public void UsageTracker_consumer_key_is_case_sensitive_on_every_backend()
+    {
+        IUsageTracker[] trackers = [new InMemoryUsageTracker(), new SqliteUsageTracker(_db.Factory)];
+        foreach (var t in trackers)
+        {
+            t.Record("App", new LlmUsage(10, 0, CostUsd: 0.10));
+            t.Record("app", new LlmUsage(20, 0, CostUsd: 0.20));
+            Assert.Equal(1, t.Total("App").Calls);           // "App" and "app" are DISTINCT consumers
+            Assert.Equal(1, t.Total("app").Calls);
+            Assert.Equal(0.10, t.Total("App").CostUsd, 5);
+            Assert.Equal(0.20, t.Total("app").CostUsd, 5);
+        }
+    }
+
     [Fact]
     public void UsageTracker_reset_clears_a_consumer_or_all()
     {

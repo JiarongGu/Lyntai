@@ -243,7 +243,7 @@ would have caught the bug.
     difference on `IMemoryStore` XML doc + `.claude/knowledge/storage.md`. Test: a shared cross-backend two-word
     recall test asserting the documented behavior.
 
-- [ ] **T6 · Usage-budget consumer key: InMemory case-insensitive vs SQL case-sensitive**
+- [x] **T6 · Usage-budget consumer key: InMemory case-insensitive vs SQL case-sensitive**
   - Files: `InMemoryUsageTracker.cs` (keys `OrdinalIgnoreCase`), `SqliteUsageTracker.cs`, `PostgresUsageTracker.cs`
     (case-sensitive PK). Budget totals diverge by backend for `App` vs `app`. Fix: converge — cheapest is
     `StringComparer.Ordinal` in the in-memory tracker. Test: `Record("App")` + `Record("app")` → consistent totals
