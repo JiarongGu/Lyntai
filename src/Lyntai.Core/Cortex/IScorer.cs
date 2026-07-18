@@ -8,6 +8,10 @@ public interface IScorer
     string Id { get; }
     string Name { get; }
 
+    /// <summary>An optional human-readable description of what this dimension measures — for an admin
+    /// "list scorers" view. Defaults to empty (opt in by overriding).</summary>
+    string Description => "";
+
     /// <summary>Grouping key for aggregation/reporting (e.g. "deterministic", "llm").</summary>
     string Group { get; }
 

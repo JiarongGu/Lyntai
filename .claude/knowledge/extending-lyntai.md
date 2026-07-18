@@ -87,10 +87,17 @@ Cheapest extension. A class + one registration, no new package (built-ins live i
 - **Deterministic:** implement `IScorer` directly, compute in code, return `ScoreResult` (or `null` when
   the scorer doesn't apply to this context — `ScoringService` skips nulls).
 - **LLM-judge:** extend `LlmScorerBase` — it runs a one-shot judge through the front door and parses a
-  clamped `{score,reason}`. You supply the criterion prompt.
+  clamped `{score,reason}`. Override `Model`/`Consumer` to route a cheap judge to a cheap model; you supply
+  the criterion prompt.
 
 Register into the DI collection: `builder.AddScorer<MyScorer>()`. `ScoringService` iterates
 `IEnumerable<IScorer>` and isolates a throwing scorer — never add an `if/switch` over scorer ids.
+
+**Domain dimensions** a scorer needs beyond input/output ride in `ScoreContext.Extra` (a flat
+`string→string` map — the app's own key catalog, e.g. `phase`/`mode`/`changed_files`). It's deliberately
+stringly-typed so Core stays domain-agnostic; **serialize non-scalar values** (a list → JSON or a
+delimiter the scorer splits). Persist a preview run without writing rows via
+`EvaluateAsync(ctx, persist: false)`; the store upserts on `(session, scorer)` so re-scoring replaces.
 
 ---
 

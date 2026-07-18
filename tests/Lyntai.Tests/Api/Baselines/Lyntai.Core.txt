@@ -125,6 +125,7 @@ interface Lyntai.Cortex.IPairwiseComparer
 interface Lyntai.Cortex.IPromptComposer
     ComposeAsync(String, String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<String>
 interface Lyntai.Cortex.IScorer
+    Description : String
     Group : String
     Id : String
     IsLlm : Boolean
@@ -850,10 +851,12 @@ class Lyntai.Processes.ProcessTimeoutException
     .ctor(String, TimeSpan)
 interface Lyntai.Prompts.IPromptRegistry
     RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
+    ValidateOverride(String, String) : IReadOnlyList<String>
 class Lyntai.Prompts.PromptRegistry
     .ctor(IKeyValueStore=, IPromptVersionStore=, ILogger<PromptRegistry>=)
     KeyPrefix : String const
     RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
+    ValidateOverride(String, String) : IReadOnlyList<String>
 class Lyntai.RateLimitOptions
     .ctor()
     Burst : Int32

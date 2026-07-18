@@ -64,4 +64,16 @@ public class PromptRegistryTests
 
         Assert.Equal("plain", rendered);
     }
+
+    [Fact]
+    public void ValidateOverride_reports_the_exact_dropped_placeholders()
+    {
+        var registry = new PromptRegistry(kv: null);
+
+        // keeps both placeholders (extra prose is fine) → valid
+        Assert.Empty(registry.ValidateOverride(Default, "In {lang}, summarize {input} tersely."));
+
+        // drops {lang} → the admin save-flow can reject with the exact token
+        Assert.Equal(["lang"], registry.ValidateOverride(Default, "Summarize {input}."));
+    }
 }

@@ -423,10 +423,10 @@ persist, per-scorer judge model preserved, model retuning takes effect live).
   - It hardcodes the default candidates + `Consumer="scoring"`, so every judge runs on the default model — a
     real app routes cheap judges to a cheap model (e.g. haiku) per scorer. Let the subclass/ctor set a `Model`
     + `Consumer` threaded into the `CompleteJsonAsync` request. File: `src/Lyntai.Core/Cortex/LlmScorerBase.cs`.
-- [ ] **A4 · `IScorer.Description` (optional) — nice-to-have** — an admin "list scorers" view wants a human
+- [x] **A4 · `IScorer.Description` (optional) — nice-to-have** — an admin "list scorers" view wants a human
     description beyond `Name`. Add an optional `Description` (default "") or document it as app-owned.
     File: `src/Lyntai.Core/Cortex/IScorer.cs`.
-- [ ] **A5 · Document the `ScoreContext.Extra` domain-dimension pattern — nice-to-have** — domain scorers put
+- [x] **A5 · Document the `ScoreContext.Extra` domain-dimension pattern — nice-to-have** — domain scorers put
     their dimensions (phase/mode/changed-files) into `Extra` (stringly-typed; list values must be serialized).
     Document this as the intended extension pattern on `ScoreContext`, or add a typed-context helper.
     Files: `src/Lyntai.Core/Cortex/ScoreModels.cs` + `.claude/knowledge/`.
@@ -438,7 +438,7 @@ persist, per-scorer judge model preserved, model retuning takes effect live).
     `IModelRoutingStore` that `ResolveModel`/`LlmRouter` consults LIVE (KV override → per-consumer default →
     "default" → provider default), mirroring how `IPromptRegistry` reads a live prompt override. Files:
     `src/Lyntai.Core/LyntaiOptions.cs` (ResolveModel), `src/Lyntai.Core/Llm/Routing/LlmRouter.cs`.
-- [ ] **A7 · Surface the placeholder-contract violation to the caller — should-have**
+- [x] **A7 · Surface the placeholder-contract violation to the caller — should-have**
   - `PromptRegistry.RenderAsync` enforces "an override must keep the default's `{placeholders}`" but only
     LOGS + silently falls back. An admin save-flow needs to REJECT with the exact missing tokens (the app can
     pre-validate today, but the library should own it). Add a `TryValidateOverride(name, defaultTemplate,

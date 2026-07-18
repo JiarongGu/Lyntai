@@ -30,7 +30,7 @@ public sealed partial class PromptRegistry(
         var @override = await GetOverrideAsync(name, ct).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(@override))
         {
-            var missing = Placeholders(defaultTemplate).Except(Placeholders(@override)).ToList();
+            var missing = ValidateOverride(defaultTemplate, @override);
             if (missing.Count > 0)
                 _logger.LogWarning("prompt override {Key} rejected — drops placeholder(s) {Missing}; using the default",
                     KeyPrefix + name, string.Join(", ", missing));
@@ -63,6 +63,9 @@ public sealed partial class PromptRegistry(
             return null; // fail-open: a storage outage never blocks prompt rendering
         }
     }
+
+    public IReadOnlyList<string> ValidateOverride(string defaultTemplate, string candidate) =>
+        [.. Placeholders(defaultTemplate).Except(Placeholders(candidate))];
 
     private static HashSet<string> Placeholders(string template) =>
         PlaceholderRegex().Matches(template).Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal);

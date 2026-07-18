@@ -7,6 +7,13 @@ public sealed record ScoreContext
     public required string SessionId { get; init; }
     public string? Input { get; init; }
     public string? Output { get; init; }
+
+    /// <summary>The extension point for DOMAIN dimensions a custom <see cref="IScorer"/> reads beyond
+    /// input/output — e.g. <c>phase</c>, <c>mode</c>, <c>changed_files</c>. Deliberately stringly-typed so
+    /// the library stays domain-agnostic: a scorer defines its own keys and parses the values it needs.
+    /// NON-scalar values (lists, objects) must be SERIALIZED by the caller (JSON, or a delimiter the scorer
+    /// splits on) — this is a flat string map, not a typed bag. The app owns the key catalog; Lyntai just
+    /// carries it through to the scorers.</summary>
     public IReadOnlyDictionary<string, string>? Extra { get; init; }
 }
 

@@ -8,6 +8,23 @@ public class ScorersTests
     private static ScoreContext Ctx(string? output, Dictionary<string, string>? extra = null) =>
         new() { SessionId = "s", Input = "in", Output = output, Extra = extra };
 
+    private sealed class DescribedScorer : IScorer
+    {
+        public string Id => "described";
+        public string Name => "Described";
+        public string Description => "measures the thing";
+        public string Group => "g";
+        public bool IsLlm => false;
+        public Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct) => Task.FromResult<ScoreResult?>(null);
+    }
+
+    [Fact]
+    public void Scorer_description_defaults_to_empty_and_can_be_overridden()
+    {
+        Assert.Equal("", ((IScorer)new StructureScorer()).Description); // default interface member
+        Assert.Equal("measures the thing", ((IScorer)new DescribedScorer()).Description);
+    }
+
     [Theory]
     [InlineData(null, 0.0)]
     [InlineData("", 0.0)]
