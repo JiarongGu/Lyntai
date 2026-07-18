@@ -5,8 +5,11 @@ name: Release
 # trigger. The full verify gate (build · test · e2e · leak scan) runs against the exact commit before the
 # irreversible NuGet push, and the version bump is committed only AFTER the publish succeeds.
 #
-# Setup (once): add a repo secret NUGET_API_KEY (Settings -> Secrets and variables -> Actions) — a
-# nuget.org API key scoped to push Lyntai.* packages.
+# Publishing uses NuGet Trusted Publishing (OIDC) — no stored API key. Setup (once):
+#   1. On nuget.org: Account -> Trusted Publishing -> add a policy for repository JiarongGu/Lyntai and
+#      workflow file `release.yml` (scoped to the Lyntai.* package glob).
+#   2. In this repo: Settings -> Secrets and variables -> Actions -> Variables -> add NUGET_USER = your
+#      nuget.org username. (A variable, not a secret — the username is public.)
 on:
   workflow_dispatch:
     inputs:
@@ -42,6 +45,7 @@ on:
 
 permissions:
   contents: write   # push the version-bump commit + tag, create the release
+  id-token: write   # OIDC token for NuGet Trusted Publishing (mints a short-lived key — no stored secret)
 
 jobs:
   publish:
@@ -122,15 +126,21 @@ jobs:
       - name: Pack
         run: node devtools/dev.mjs pack
 
-      # The irreversible step FIRST (before any git bookkeeping) — so a missing/bad key or a publish failure
-      # leaves no bump commit or tag behind. --skip-duplicate makes a re-run safe if a version is already live;
-      # each .nupkg's adjacent .snupkg symbol package is pushed automatically.
+      # Trusted Publishing: exchange the workflow's GitHub OIDC token for a short-lived nuget.org API key
+      # (matched against the policy configured on nuget.org for this repo + workflow). No stored secret.
+      - name: NuGet login (Trusted Publishing)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      # The irreversible step FIRST (before any git bookkeeping) — so a publish failure leaves no bump commit
+      # or tag behind. --skip-duplicate makes a re-run safe if a version is already live; each .nupkg's
+      # adjacent .snupkg symbol package is pushed automatically.
       - name: Push to NuGet
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: >
           dotnet nuget push "publish/packages/*.nupkg"
-          --api-key "$NUGET_API_KEY"
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
