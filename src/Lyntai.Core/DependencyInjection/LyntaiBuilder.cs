@@ -101,6 +101,15 @@ public sealed class LyntaiBuilder
     public LyntaiBuilder AddJobSchedule(string name, string lane, string type, string payload, TimeSpan every, int priority = 0) =>
         AddJobSchedule(new Lyntai.Jobs.JobSchedule(name, lane, type, payload, every, priority));
 
+    /// <summary>Register a recurring job on a <b>cron</b> schedule (5-field <c>min hour dom month dow</c>, or
+    /// a macro like <c>@daily</c>; evaluated in UTC). The expression is validated now — a bad one throws
+    /// here rather than being silently skipped at tick time. The app drives the scheduler pump.</summary>
+    public LyntaiBuilder AddCronSchedule(string name, string lane, string type, string payload, string cron, int priority = 0)
+    {
+        _ = Lyntai.Jobs.CronExpression.Parse(cron); // fail fast on a malformed expression
+        return AddJobSchedule(new Lyntai.Jobs.JobSchedule(name, lane, type, payload, Cron: cron, Priority: priority));
+    }
+
     /// <summary>Register a recurring <see cref="Lyntai.Jobs.JobSchedule"/>.</summary>
     public LyntaiBuilder AddJobSchedule(Lyntai.Jobs.JobSchedule schedule)
     {

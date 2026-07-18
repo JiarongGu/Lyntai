@@ -300,6 +300,9 @@ interface Lyntai.Guards.IGuard
 interface Lyntai.Guards.IGuardRail
     InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
     InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+class Lyntai.Jobs.CronExpression
+    Next(DateTimeOffset) : DateTimeOffset
+    Parse(String) : CronExpression
 interface Lyntai.Jobs.IJobHandler
     HandleAsync(JobContext, CancellationToken=) : Task<JobOutcome>
     Type : String
@@ -387,12 +390,13 @@ class Lyntai.Jobs.JobRunner
     RunAsync(CancellationToken=) : Task
     RunOnceAsync(CancellationToken=) : Task<Int32>
 class Lyntai.Jobs.JobSchedule
-    .ctor(String, String, String, String, TimeSpan, Int32=)
-    Deconstruct(String&, String&, String&, String&, TimeSpan&, Int32&) : Void
+    .ctor(String, String, String, String, Nullable<TimeSpan>=, Int32=, String=)
+    Cron : String
+    Deconstruct(String&, String&, String&, String&, Nullable`1&, Int32&, String&) : Void
     Equals(JobSchedule) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
-    Interval : TimeSpan
+    Interval : Nullable<TimeSpan>
     Lane : String
     Name : String
     Payload : String
@@ -657,6 +661,7 @@ class Lyntai.Llm.Routing.RoutingPolicy
     Retry(LlmVerdict, Int32) : RoutingPolicy
     RetryBackoff : TimeSpan
 class Lyntai.LyntaiBuilder
+    AddCronSchedule(String, String, String, String, String, Int32=) : LyntaiBuilder
     AddEmbeddings(Func<IServiceProvider,IEmbedder>) : LyntaiBuilder
     AddEmbeddings(IEmbedder) : LyntaiBuilder
     AddGuard() : LyntaiBuilder

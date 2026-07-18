@@ -120,6 +120,40 @@ public class JobSchedulerTests
     }
 
     [Fact]
+    public async Task Cron_schedule_fires_at_the_cron_time()
+    {
+        // MutableClock starts at 2026-07-18 12:00:00Z; "0 * * * *" = top of every hour
+        var (sched, jobs, clock, _) = Build(new JobSchedule("hourly", "l", "t", "{}", Cron: "0 * * * *"));
+
+        Assert.Equal(0, await sched.TickAsync());          // first sight → next = 13:00, no fire
+        Assert.Empty(await jobs.ListAsync());
+
+        clock.Advance(TimeSpan.FromHours(1));              // 13:00
+        Assert.Equal(1, await sched.TickAsync());          // due
+        Assert.Single(await jobs.ListAsync());
+        Assert.Equal(0, await sched.TickAsync());          // next = 14:00, not due yet
+    }
+
+    [Fact]
+    public async Task An_invalid_cron_schedule_is_skipped_not_thrown_at_tick()
+    {
+        var (sched, jobs, clock, _) = Build(new JobSchedule("bad", "l", "t", "{}", Cron: "not a cron"));
+        clock.Advance(TimeSpan.FromHours(2));
+        Assert.Equal(0, await sched.TickAsync()); // skipped, no throw
+        Assert.Empty(await jobs.ListAsync());
+    }
+
+    [Fact]
+    public void AddCronSchedule_validates_the_expression_eagerly()
+    {
+        var services = new ServiceCollection();
+        Assert.ThrowsAny<Exception>(() => services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .UseInMemoryStorage()
+            .AddCronSchedule("bad", "l", "t", "{}", "not a cron"))); // throws at composition, not at tick
+    }
+
+    [Fact]
     public async Task AddJobSchedule_wires_the_scheduler()
     {
         var services = new ServiceCollection();

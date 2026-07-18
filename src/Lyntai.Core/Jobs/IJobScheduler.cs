@@ -33,6 +33,7 @@ public sealed class JobScheduler(
     private readonly ILogger _logger = logger ?? NullLogger<JobScheduler>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly Dictionary<string, DateTimeOffset> _memory = new(StringComparer.Ordinal); // fallback
+    private readonly Dictionary<string, CronExpression?> _cron = new(StringComparer.Ordinal);  // parsed cron cache
 
     public async Task<int> TickAsync(CancellationToken ct = default)
     {
@@ -40,16 +41,13 @@ public sealed class JobScheduler(
         var enqueued = 0;
         foreach (var s in _schedules)
         {
-            if (s.Interval <= TimeSpan.Zero)
-            {
-                _logger.LogWarning("scheduler: skipping '{Name}' — interval must be positive (was {Interval})", s.Name, s.Interval);
-                continue; // a non-positive interval would never advance past 'now' → skip it, don't spin
-            }
+            if (!IsValid(s)) continue; // malformed schedule (no trigger / bad cron / non-positive interval)
+
             var next = await GetNextAsync(s.Name, ct).ConfigureAwait(false);
             if (next is null)
             {
-                // first sight → the first run is one interval out (don't fire immediately on startup)
-                await SetNextAsync(s.Name, now + s.Interval, ct).ConfigureAwait(false);
+                // first sight → schedule the first run (one interval out / the cron's next), don't fire now
+                await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
                 continue;
             }
             if (next.Value > now) continue; // not due yet
@@ -58,12 +56,45 @@ public sealed class JobScheduler(
             enqueued++;
             _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
 
-            // advance past now to the next future slot — coalescing any missed slots into ONE run
-            var advanced = next.Value;
-            do { advanced += s.Interval; } while (advanced <= now);
-            await SetNextAsync(s.Name, advanced, ct).ConfigureAwait(false);
+            // advance to the next slot strictly after now — missed slots coalesce into this ONE run
+            await SetNextAsync(s.Name, NextAfter(s, now), ct).ConfigureAwait(false);
         }
         return enqueued;
+    }
+
+    /// <summary>The next fire time strictly after <paramref name="from"/> — the cron's next occurrence, or
+    /// the interval advanced past <paramref name="from"/> (so a lapsed ticker coalesces to one slot).</summary>
+    private DateTimeOffset NextAfter(JobSchedule s, DateTimeOffset from)
+    {
+        if (Cron(s) is { } cron) return cron.Next(from);
+        var interval = s.Interval!.Value;
+        var t = from + interval;
+        return t; // interval schedules fire one interval out; coalescing is implicit (from is 'now')
+    }
+
+    private bool IsValid(JobSchedule s)
+    {
+        if (s.Cron is not null)
+        {
+            if (Cron(s) is not null) return true;
+            _logger.LogWarning("scheduler: skipping '{Name}' — invalid cron '{Cron}'", s.Name, s.Cron);
+            return false;
+        }
+        if (s.Interval is { } iv && iv > TimeSpan.Zero) return true;
+        _logger.LogWarning("scheduler: skipping '{Name}' — needs a positive Interval or a Cron", s.Name);
+        return false;
+    }
+
+    // parse + cache the cron (null = no cron or a parse failure); cached so a bad cron doesn't re-throw/warn each tick
+    private CronExpression? Cron(JobSchedule s)
+    {
+        if (s.Cron is null) return null;
+        if (_cron.TryGetValue(s.Cron, out var parsed)) return parsed;
+        try { return _cron[s.Cron] = CronExpression.Parse(s.Cron); }
+        catch (Exception ex) when (ex is FormatException or InvalidOperationException)
+        {
+            return _cron[s.Cron] = null; // remember the failure; IsValid logs it
+        }
     }
 
     public async Task RunAsync(CancellationToken ct = default)

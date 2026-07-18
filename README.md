@@ -426,6 +426,7 @@ scheduler pump too:
 
 ```csharp
 cfg.AddJobSchedule("nightly-report", lane: "reports", type: "report", payload: "{}", every: TimeSpan.FromHours(24));
+cfg.AddCronSchedule("weekday-9am", lane: "reports", type: "report", payload: "{}", cron: "0 9 * * 1-5"); // or a cron (UTC)
 await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunAsync
 ```
 

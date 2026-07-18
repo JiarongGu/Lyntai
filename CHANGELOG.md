@@ -3,6 +3,25 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## 0.26.0 — 2026-07-18
+
+Cron expressions for job schedules — recurring jobs can now run on a real cron schedule, not just a fixed
+interval. Dependency-free (a hand-rolled 5-field parser; no cron NuGet pulled into Core).
+
+### Added
+- **`AddCronSchedule(name, lane, type, payload, cron, priority)`** — schedule a job on a cron expression.
+  The expression is validated at composition (a bad one throws in `AddLyntai`, not silently at tick time).
+- **`CronExpression`** (`Parse` / `Next`) — a 5-field UTC cron: `*`, values, ranges `a-b`, steps `*/n` /
+  `a-b/n` / `n/step`, comma lists, day-of-week 0–6 (Sunday=0 or 7), the standard day-of-month/day-of-week
+  OR rule, and the macros `@hourly @daily @midnight @weekly @monthly @yearly/@annually`.
+- `JobSchedule` now carries `Cron` (alongside `Interval`); the scheduler uses the cron's next occurrence
+  when set — missed slots still coalesce (the cron's next-after-now skips them).
+
+### Breaking (pre-1.0)
+- `JobSchedule.Interval` is now `TimeSpan?` (was `TimeSpan`) and a trailing `Cron` field was added — set
+  exactly one of interval/cron. Source-compatible for the existing interval overloads; the positional
+  ctor/deconstruct arity changed. Both are normally built via the builder methods.
+
 ## 0.25.0 — 2026-07-18
 
 Recurring job scheduling — the last big v0.14-deferred job feature. Register an interval schedule and the

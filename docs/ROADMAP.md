@@ -187,8 +187,13 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
 - ✅ **Scheduling** (`AddJobSchedule` + `IJobScheduler`) — the last big v0.14 job deferral. Interval-based
   recurring jobs; `TickAsync`/`RunAsync` (app-owned pump). Next-run persisted via the key-value store
   (durable across restart; in-memory fallback), no new storage domain. Missed slots coalesce; first run
-  waits one interval. **Still deferred from v0.14:** cron *expressions* (need a parser), cross-process
-  global concurrency limits, running-job cancellation.
+  waits one interval.
+
+### v0.26.0 — cron expressions (2026-07)
+- ✅ **Cron schedules** (`AddCronSchedule` + `CronExpression`) — schedules run on a real 5-field cron
+  expression (UTC), not just a fixed interval. Dependency-free hand-rolled parser (ranges/steps/lists,
+  dom/dow OR, `@daily`-style macros), validated eagerly at composition. Closes the cron-expressions
+  deferral. **Still deferred from v0.14:** cross-process global concurrency limits, running-job cancellation.
 
 ## Planned
 
