@@ -3,10 +3,11 @@
 > **Status: phases 0–7 + roadmap v0.3–v0.28 implemented** (agentic tool-calling, durable jobs, guards,
 > secrets, semantic memory, three storage backends, governance decorators, …). See `CHANGELOG.md` for
 > per-release detail and `docs/ROADMAP.md` for the forward sequence.
-> **➡ Active work: "Part 3 — Review round 2" at the bottom of this file.** The round-1 backlog (Part 1/2,
-> T1–T13 + S1–S6) is DONE — the four bugs fixed correctly + tested, the refactor behavior-preserving,
-> S1 crypto core sound. Round 2 = 3 small findings on the new surface. Build clean · 635 tests · e2e
-> 2/2 · leak scan clean.
+> **➡ Active work: "Part 6 — Agentic self-driving-agent session (generic primitive)" at the bottom of this file.**
+> Parts 1–5 (T1–T13 · S1–S6 · N1–N4 · C1 · A1–A8) are DONE — the bugs fixed + tested, the refactors
+> behavior-preserving, S1 crypto core sound, and the cortex+scoring adoption surface (Part 5) landed
+> so a real app retired its own `ScoringService`/`ScoreRepository`. Part 6 = the one remaining gap
+> blocking that app's *interactive* two-gate chat (and thereby its cortex migration).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use `superpowers:subagent-driven-development` (recommended)
 > or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox syntax.
@@ -461,6 +462,145 @@ The prompt catalog (names/labels/descriptions/groups/placeholder lists), the mod
 suggestions, the `/api/manage/*` controllers + client panels, the domain scorers, `BuildContext` (rebuild
 a score context from the app's own session/event tables), and backlog orchestration all correctly stay in
 the adopting app. Lyntai renders / stores / versions / scores; the app owns its domain metadata + UI.
+
+---
+
+## Part 6 — Agentic self-driving-agent session (generic primitive) (2026-07-19)
+
+> **Design contract:** `docs/2026-07-19-agent-session-design.md` — the neutral surface, the OpenAI
+> Responses API neutrality stress-test that shaped it, the `IAgentSession`-vs-`IToolLoop` boundary, and
+> the three resolved decisions. **Read it before implementing.** This Part is that design's task cut.
+
+Surfaced trying to migrate a real adopter's (Gatherlight's) **interactive two-gate chat** — plan
+(read-only) → human approve → execute (write, scope-guarded) → human review diff → commit — off its
+hand-rolled native `ClaudeCliRunner` onto Lyntai. This is the ONE remaining Lyntai gap blocking that
+adopter, **and the prerequisite for its cortex migration** (Part 5): the app's cortex — prompt/model
+tuning — is overwhelmingly consumed by THIS flow, so cortex can't move onto Lyntai until the flow does.
+
+Lyntai already drives an LLM two ways — `ILlmProvider` (`ClaudeCliProvider`: one-shot text reply, a
+neutral cwd) and `IToolLoop`/`ChatOrchestrator` (**Lyntai** orchestrates a ReAct loop over registered
+`ITool`s, in-proc — the tool calls come back to us). **Neither fits the two-gate**, which lets **the
+agent drive its OWN loop** (many tool turns inside one `claude -p`, executing its own tools) against the
+**app's own out-of-process MCP server + a scope-guard hooks file**, and needs a **rich streamed event
+surface + session resume across the human gate**. That is a genuinely new capability, and — per the
+design decision — a **generic primitive**: the interface + event model live in **Core (`Lyntai.Agents`)**,
+the `claude` CLI is **adapter #1** (`Lyntai.Providers.ClaudeCli`). No `claude` flag leaks into Core; a
+future Codex/Gemini-CLI/OpenAI-Responses adapter reuses the surface unchanged. `IAgentSession` sits
+**beside** `IToolLoop`, never folded into it (the boundary is: a tool call handed back to the caller to
+execute is `IToolLoop`'s job, not this).
+
+Reference implementation to generalize (a straight port of the *adapter half*): the adopter's native
+runner — Gatherlight `src/server/Gatherlight.Server/Modules/Llm/Services/ClaudeCliRunner.cs` +
+`ClaudeRunOptions` / `AgentEvent` / `EditTracker`.
+
+**HARD (a two-gate adopter can't migrate without these): G1a+G1b, G2a+G2b.** Should-have: G3. Each is a
+generic library primitive (Core) or its first adapter, not app-specific.
+
+### G1a · `AgentStreamEvent` event model — Core (`Lyntai.Agents`) — HARD (blocker)
+- The neutral, reusable event vocabulary — the self-driving-agent counterpart to `Agents.ToolStep`, so it
+  belongs in Core next to it (**not** in the adapter). A sealed hierarchy (consumers `switch` on type),
+  in `src/Lyntai.Core/Agents/`:
+  - `abstract record AgentStreamEvent;`
+  - `SessionStarted(string SessionId)`; `TextDelta(string Text)`; `Thinking(string Text)`;
+  - `ToolCall(string Name, string ArgumentsJson, string? CallId = null)` — **no `filePath`** (that is
+    claude's Edit/Write tool schema, not universal; the adapter ships a helper, see G2b);
+  - `ToolResult(string? CallId, string Content, bool IsError)` — `CallId` correlates to its `ToolCall`;
+  - `UsageLive(long Input, long Output, long CacheRead)` (per assistant turn);
+  - `UsageFinal(long Input, long Output, long CacheRead, long CacheCreate, string? Model)` (per run — RAW
+    counts + the ACTUAL model id, so an app prices from its own table; deliberately NOT `LlmUsage`, which
+    lacks `CacheCreate`/model and is the priced path);
+  - `SessionEnded(LlmVerdict Verdict, bool IsError, string? Subtype, string? SessionId, string? FinalText,
+    string? Diagnostic)` — the **single** terminal event (folds the old separate `Done`+`Error`); a
+    no-output run is diagnosable via `Verdict`/`Subtype`/`Diagnostic`, never silent. `Diagnostic` (neutral)
+    is where the CLI adapter packs its stderr tail.
+- Also in Core: `enum AgentToolPolicy { ReadOnly, Write }`.
+- Test (Core, fakes, no I/O): pattern-match exhaustiveness over the hierarchy; `AgentSessionResult` (G2a)
+  folds correctly from a synthetic event stream.
+
+### G1b · `StreamJsonParser` emits the events — adapter (`Lyntai.Providers.ClaudeCli`) — HARD (blocker)
+- Today `StreamJsonParser` (`src/Lyntai.Providers.ClaudeCli/StreamJsonParser.cs`) recognizes only
+  `assistant` text blocks → `AssistantText` and `result` → `Result`; `system/init`, `stream_event`
+  partial deltas, `assistant` tool_use, and `user` tool_result all fall to `Other` and are dropped.
+- Fix: extend it to emit the G1a events from the fuller stream-json — `system`/init → `SessionStarted`;
+  `stream_event` `content_block_delta` → `TextDelta`/`Thinking` (needs `--include-partial-messages`, set
+  in G2b); `assistant` tool_use → `ToolCall`, `message.model` + per-turn usage → `UsageLive`; `user`
+  tool_result → `ToolResult`; `result` `subtype`/`is_error` → `SessionEnded`. With partial messages on,
+  text comes from the deltas; the consolidated `assistant` block is **not** re-emitted as text (drives
+  `UsageLive` only) — avoid double-counting. **Leave the existing `StreamJsonEvent` → text path and the
+  `LlmChunk`/`ILlmProvider` mapping unchanged** — no provider regression; factor the extraction so the
+  provider still collapses to text.
+- Test (captured fixture lines + the stub): `system/init` → `SessionStarted` with the id; an `assistant`
+  tool_use block → `ToolCall` with name (+ args); partial `text_delta`/`thinking_delta` →
+  `TextDelta`/`Thinking`; `result` with `is_error:true, subtype:"error_max_turns"` → `SessionEnded`
+  carrying both; raw per-run token counts + model id on `UsageFinal`; a malformed line still ignored (no
+  throw); **the existing provider text path still collapses correctly** (regression guard).
+
+### G2a · `IAgentSession` + options + result — Core (`Lyntai.Agents`) — HARD (blocker)
+- The neutral session contract, in `src/Lyntai.Core/Agents/`:
+  - `interface IAgentSession { IAsyncEnumerable<AgentStreamEvent> RunAsync(AgentSessionOptions options,
+    CancellationToken ct = default); }`
+  - `record AgentSessionOptions` — the neutral per-call inputs: `Prompt` (required; travels over stdin,
+    never argv), `SystemPrompt?`, `ToolPolicy` (default `ReadOnly`), `ResumeToken?` (**opaque string** —
+    claude session id / OpenAI `previous_response_id`; the resume-across-the-gate mechanism),
+    `Model?`, `TimeoutSeconds?` (null = the global; reuse C1), `DisallowedTools`, and `WorkingDirectory?`
+    (**on the base** by resolved decision 1 — documented "CLI-agent adapters run the loop here; adapters
+    without a filesystem context ignore it").
+  - `record AgentSessionResult(string? SessionId, string FinalText, LlmVerdict Verdict, bool IsError,
+    string? Subtype, string? Diagnostic, UsageFinal? Usage)` — the caller-facing outcome.
+- `IAgentSession` is a **second, sanctioned front door** (distinct from the `ILlmClient` completion door)
+  and sits **outside** the router: no cross-provider fallback mid-agent-loop.
+- Test (Core, fakes): a hand-driven `IAsyncEnumerable<AgentStreamEvent>` fake session folds to the right
+  `AgentSessionResult` (SessionId from `SessionStarted`; Verdict/FinalText/Usage from `SessionEnded`
+  +`UsageFinal`).
+
+### G2b · `ClaudeAgentSession` + args + DI — adapter (`Lyntai.Providers.ClaudeCli`) — HARD (blocker)
+- `record ClaudeAgentOptions : AgentSessionOptions` — adds the claude-specific flags (all
+  adapter-confined): `SettingsPath?` (`--settings`, the scope-guard **hooks file** / PreToolUse jail —
+  the adopter's security boundary, forwarded verbatim), `McpConfigPath?` + `AllowedTools` (`--mcp-config`
+  /`--allowedTools` — the app's **externally-hosted** out-of-process MCP server, distinct from and
+  composing with the in-proc `ICliToolProvisioner`/`AddClaudeCliMcpTools`).
+- `ClaudeAgentArgs.Build(ClaudeAgentOptions)` (generalize the reference `ClaudeCliRunner.BuildArgs`):
+  `-p --output-format stream-json --verbose --include-partial-messages`; `ReadOnly` ⇒ `--disallowed-tools
+  Edit,Write,NotebookEdit` (+ the caller set, default also `AskUserQuestion`/`ExitPlanMode`/`EnterPlanMode`
+  — flow tools that hang a headless run); `Write` ⇒ `--permission-mode acceptEdits`; `--settings`,
+  `--mcp-config`/`--allowedTools`, `--resume` (from `ResumeToken`), `--model` forwarded. Prompt via stdin
+  only, never argv.
+- `ClaudeAgentSession : IAgentSession` — runs ONE `claude -p` turn over `ProcessRunner`, cwd =
+  `WorkingDirectory` (the deliberate inverse of `ClaudeCliProvider.NeutralWorkingDirectory` — the
+  interactive gate loads the app's `CLAUDE.md`/knowledge; must be per-call, never the neutral cwd),
+  kill-tree on cancel, the `CLAUDE_CMD`/`LYNTAI_PROVIDER_CMD` stub seam (token-free e2e); stream-json →
+  G1a events; prompt written on a **background task** so a large prompt can't deadlock the stdout drain;
+  bounded stderr tail → `SessionEnded.Diagnostic`; final result classified via `LlmVerdictClassifier`.
+- `ClaudeToolCalls.FilePathOf(evt)` — adapter convenience (resolved decision 2): extracts `file_path` from
+  a `ToolCall`'s `ArgumentsJson` for the app's `EditTracker`, keeping claude's tool schema out of Core.
+- `AddClaudeCliAgentSession()` builder extension (resolve `IProcessRunner` + `LyntaiOptions` + logger;
+  honor the stub env), mirroring `AddClaudeCliProvider`.
+- Test (against the stub): read-only argv denies the write tools and omits `acceptEdits`; write argv adds
+  `--permission-mode acceptEdits`; `SettingsPath`/`McpConfigPath`/`AllowedTools`/`ResumeToken` all land in
+  argv; the prompt never appears in argv; a stubbed `system/init` → the result `SessionId`; a stubbed
+  tool_use transcript → ordered `ToolCall`/`ToolResult` events then `SessionEnded`; an empty stub run →
+  `SessionEnded` carrying subtype + `Diagnostic` (stderr tail); cancel mid-stream kills the process tree;
+  `FilePathOf` pulls the path from an Edit tool_use's args.
+
+### G3 · docs + stub transcript + e2e — should-have
+- Extend the provider-stub (`devtools/scripts/provider-stub.mjs`) with a marker that emits a deterministic
+  multi-tool agentic transcript (system/init → assistant text + tool_use → user tool_result → result), so
+  G1/G2 tests + an e2e stay token-free. Add a `devtools/scripts/e2e/pN.mjs` that runs a read-only then a
+  resumed write session against the stub and asserts the event sequence + the session resume. README: a
+  "**CLI-agent session vs `IToolLoop`**" section — when the agent drives its own loop against the app's
+  tools/gates (this) vs when Lyntai orchestrates the loop over registered `ITool`s (that) — plus the
+  Core/adapter split. Update the `Lyntai.Core` **and** `Lyntai.Providers.ClaudeCli` API baselines
+  deliberately (new public surface in both).
+
+### Not gaps (app-owned — recorded so they aren't re-raised)
+The two-gate **orchestration** (plan→approve→execute→review→commit state machine), the scope-guard hook
+**content** (the jail policy/script + its `GUARD_VERSION` re-issue), the app's **MCP server + tool
+registry**, **edit-tracking → git stage/diff/commit** (the adopter's `EditTracker` just consumes a
+`ToolCall`'s args via `ClaudeToolCalls.FilePathOf`), the **SSE bridge + the app's own event wire shape**,
+and **model-pricing tables** all stay in the adopting app. Lyntai ships the session **primitive** — spawn
++ gate flags + rich streamed events + resume + diagnosable termination; the app builds the gated
+review/commit product on top. Completing G1+G2 unblocks the adopter's two-gate migration, which unblocks
+its cortex migration (Part 5).
 
 ---
 
