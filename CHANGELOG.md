@@ -62,6 +62,14 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   was a carry-over that read backwards for a library table. Applied in-place to the existing migration
   (pre-release — no data migration). **Breaking (pre-1.0)** for anyone reading the raw table.
 
+### Fixed
+- **BYO storage impl now actually wins (Part 8 · R1)** — the SQLite and Postgres storage packages registered
+  every domain store with plain `AddSingleton`, so an app that registered its OWN impl BEFORE
+  `UseSqliteStorage`/`UsePostgresStorage` was silently clobbered — contradicting the README's "anything you
+  register wins (defaults use `TryAdd`)". The domain-store registrations now use `TryAddSingleton` (matching
+  `Lyntai.Storage.InMemory`), so a pre-registered app impl wins regardless of call order — the BYO-backend
+  escape hatch the app-owned-storage design (P3) relies on.
+
 ## 0.28.1 — 2026-07-18
 
 Consumer-driven adoption gaps — makes Lyntai's **cortex + scoring** genuinely adoptable (a real app can

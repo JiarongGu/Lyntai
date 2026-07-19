@@ -728,7 +728,7 @@ genuinely strong (policy-driven fallback, clean provider/decorator seams, honest
 crypto discipline) — these are refinements + a few real correctness/consistency gaps, not structural rot.
 
 ### High
-- [ ] **R1 · "Plug your own impl" is broken for storage + the README claim is false** (generic/sustainable)
+- [x] **R1 · "Plug your own impl" is broken for storage + the README claim is false** (generic/sustainable) ✅ done 2026-07-20 — Sqlite+Postgres domain stores now `TryAddSingleton` (match InMemory); pre-registered app impl wins; README claim now true; AddEmbeddings audited (explicit registration, plain Add correct).
   - `README.md:~295` says "anything you register wins (defaults use `TryAdd`)", but
     `src/Lyntai.Storage.Sqlite/SqliteStorageBuilderExtensions.cs:46-62` registers every domain store with
     plain `AddSingleton` — so a pre-registered app impl does NOT win; last-registration-wins by ORDER. This

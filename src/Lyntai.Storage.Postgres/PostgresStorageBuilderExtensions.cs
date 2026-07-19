@@ -2,6 +2,7 @@ using Lyntai.Storage;
 using Lyntai.Storage.Postgres;
 using Lyntai.Storage.Postgres.Migrations;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 // Lives in the Lyntai namespace so `UsePostgresStorage` shows up right on the builder.
@@ -42,18 +43,20 @@ public static class PostgresStorageBuilderExtensions
     public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, IDbConnectionFactory factory)
     {
         builder.Services.AddSingleton(factory);
-        builder.Services.AddSingleton<IKeyValueStore, PostgresKeyValueStore>();
-        builder.Services.AddSingleton<IPromptVersionStore, PostgresPromptVersionStore>();
-        builder.Services.AddSingleton<IConversationStore, PostgresConversationStore>();
-        builder.Services.AddSingleton<IMemoryStore>(sp => new PostgresMemoryStore(
+        // Domain stores register with TryAdd so an app's OWN impl (a BYO backend) wins — matches
+        // Lyntai.Storage.Sqlite / InMemory and the "anything you register wins" contract in the README.
+        builder.Services.TryAddSingleton<IKeyValueStore, PostgresKeyValueStore>();
+        builder.Services.TryAddSingleton<IPromptVersionStore, PostgresPromptVersionStore>();
+        builder.Services.TryAddSingleton<IConversationStore, PostgresConversationStore>();
+        builder.Services.TryAddSingleton<IMemoryStore>(sp => new PostgresMemoryStore(
             sp.GetRequiredService<IDbConnectionFactory>(),
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<PostgresMemoryStore>>()));
-        builder.Services.AddSingleton<IScoreStore, PostgresScoreStore>();
-        builder.Services.AddSingleton<ITraceStore, PostgresTraceStore>();
-        builder.Services.AddSingleton<IJobStore>(sp => new PostgresJobStore(
+        builder.Services.TryAddSingleton<IScoreStore, PostgresScoreStore>();
+        builder.Services.TryAddSingleton<ITraceStore, PostgresTraceStore>();
+        builder.Services.TryAddSingleton<IJobStore>(sp => new PostgresJobStore(
             sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
-        builder.Services.AddSingleton<ICuratedMemoryStore>(sp => new PostgresCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
+        builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new PostgresCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
 

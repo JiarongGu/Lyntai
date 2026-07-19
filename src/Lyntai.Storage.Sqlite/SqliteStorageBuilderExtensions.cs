@@ -2,6 +2,7 @@ using Lyntai.Storage;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Storage.Sqlite.Migrations;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 // Lives in the Lyntai namespace so `UseSqliteStorage` shows up right on the builder with no extra using.
@@ -49,18 +50,21 @@ public static class SqliteStorageBuilderExtensions
     public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, IDbConnectionFactory factory)
     {
         builder.Services.AddSingleton(factory);
-        builder.Services.AddSingleton<IKeyValueStore, SqliteKeyValueStore>();
-        builder.Services.AddSingleton<IPromptVersionStore, SqlitePromptVersionStore>();
-        builder.Services.AddSingleton<IConversationStore, SqliteConversationStore>();
-        builder.Services.AddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(
+        // Domain stores register with TryAdd so an app that registers its OWN impl (a BYO backend) wins —
+        // whether it registered before OR after UseSqliteStorage. Matches Lyntai.Storage.InMemory and the
+        // "anything you register wins" contract in the README.
+        builder.Services.TryAddSingleton<IKeyValueStore, SqliteKeyValueStore>();
+        builder.Services.TryAddSingleton<IPromptVersionStore, SqlitePromptVersionStore>();
+        builder.Services.TryAddSingleton<IConversationStore, SqliteConversationStore>();
+        builder.Services.TryAddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(
             sp.GetRequiredService<IDbConnectionFactory>(),
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<SqliteMemoryStore>>()));
-        builder.Services.AddSingleton<IScoreStore, SqliteScoreStore>();
-        builder.Services.AddSingleton<ITraceStore, SqliteTraceStore>();
-        builder.Services.AddSingleton<IJobStore>(sp => new SqliteJobStore(
+        builder.Services.TryAddSingleton<IScoreStore, SqliteScoreStore>();
+        builder.Services.TryAddSingleton<ITraceStore, SqliteTraceStore>();
+        builder.Services.TryAddSingleton<IJobStore>(sp => new SqliteJobStore(
             sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
-        builder.Services.AddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
+        builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
 

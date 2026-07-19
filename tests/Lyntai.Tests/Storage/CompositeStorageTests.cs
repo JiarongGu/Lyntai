@@ -38,7 +38,7 @@ public class CompositeStorageTests : IDisposable
         services.AddLyntai(b =>
         {
             b.AddProvider(_ => new FakeLlmProvider("p"));
-            b.UseSqliteStorage(_dbPath);   // all domains → SQLite (AddSingleton)
+            b.UseSqliteStorage(_dbPath);   // all domains → SQLite (TryAdd)
             // route memory to the in-memory backend instead — last registration wins in DI
             b.Services.AddSingleton<IMemoryStore>(sp => new InMemoryMemoryStore(sp.GetRequiredService<LyntaiOptions>()));
         });

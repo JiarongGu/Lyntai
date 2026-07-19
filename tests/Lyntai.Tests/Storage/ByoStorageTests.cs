@@ -79,6 +79,22 @@ public class ByoStorageTests : IDisposable
         }
     }
 
+    [Fact]
+    public void App_registered_domain_store_impl_wins_over_the_backend_default()
+    {
+        // BYO-impl escape hatch: an app registers its OWN store BEFORE UseSqliteStorage and it must win —
+        // the domain stores register with TryAdd, so Lyntai's SQLite impl doesn't clobber the app's.
+        var myKv = new InMemoryKeyValueStore();
+        var services = new ServiceCollection();
+        services.AddSingleton<IKeyValueStore>(myKv);
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .UseSqliteStorage(_db.Factory));
+        using var sp = services.BuildServiceProvider();
+
+        Assert.Same(myKv, sp.GetRequiredService<IKeyValueStore>());
+    }
+
     private sealed class CountingFactory(IDbConnectionFactory inner) : IDbConnectionFactory
     {
         public int Opens { get; private set; }
