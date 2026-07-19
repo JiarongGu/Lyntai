@@ -935,6 +935,7 @@ class Lyntai.LyntaiOptions
     ResolveModel(String, String) : String
     ResolveModel(String, String, String) : String
     ResolveTimeout(LlmRequest) : TimeSpan
+    ResolveTimeout(Nullable<Int32>) : TimeSpan
     Routing : RoutingPolicy
     TimeoutByConsumer : Dictionary<String,TimeSpan>
     ToolLoopMaxIterations : Int32

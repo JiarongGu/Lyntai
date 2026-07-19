@@ -93,13 +93,22 @@ public sealed class LyntaiOptions
     /// app-configured values are trusted (not clamped); only the per-request override is.</summary>
     public TimeSpan ResolveTimeout(LlmRequest req)
     {
-        if (req.TimeoutSeconds is { } s && s > 0)
+        if (req.TimeoutSeconds is { } s && s > 0) return ResolveTimeout(s);
+        if (TimeoutByConsumer.TryGetValue(req.Consumer, out var t)) return t;
+        return TimeoutByConsumer.TryGetValue("default", out var d) ? d : ProviderTimeout;
+    }
+
+    /// <summary>Resolve a provider timeout from an explicit per-call seconds value: the value wins (clamped
+    /// to <see cref="MaxProviderTimeout"/>), else the global <see cref="ProviderTimeout"/>. (The consumer-tier
+    /// resolution lives only in the <see cref="ResolveTimeout(Lyntai.Llm.LlmRequest)"/> overload.)</summary>
+    public TimeSpan ResolveTimeout(int? seconds)
+    {
+        if (seconds is { } s && s > 0)
         {
             var requested = TimeSpan.FromSeconds(s);
             return requested > MaxProviderTimeout ? MaxProviderTimeout : requested;
         }
-        if (TimeoutByConsumer.TryGetValue(req.Consumer, out var t)) return t;
-        return TimeoutByConsumer.TryGetValue("default", out var d) ? d : ProviderTimeout;
+        return ProviderTimeout;
     }
 
     /// <summary>Apply <c>LYNTAI_*</c> environment overrides. The env getter is injectable so tests

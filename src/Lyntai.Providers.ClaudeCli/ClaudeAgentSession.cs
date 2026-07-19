@@ -41,11 +41,7 @@ public sealed class ClaudeAgentSession : IAgentSession
         var (exe, prefixArgs) = ResolveCommand();
         var argv = prefixArgs.Concat(ClaudeAgentArgs.Build(options)).ToList();
 
-        var timeout = options.TimeoutSeconds is { } s && s > 0
-            ? (TimeSpan.FromSeconds(s) is var t && t > _options.MaxProviderTimeout
-                ? _options.MaxProviderTimeout
-                : t)
-            : _options.ProviderTimeout;
+        var timeout = _options.ResolveTimeout(options.TimeoutSeconds);
 
         var reader = new StreamJsonAgentReader();
         var sawTerminal = false;

@@ -44,18 +44,18 @@ public class ClaudeAgentSessionTests
             LastStdin = stdin;
             LastWorkingDirectory = workingDirectory;
 
-            if (_throws is not null)
-            {
-                // yield nothing, then throw after (as ProcessRunner does: yields lines so far, then throws)
-                await Task.Yield();
-                throw _throws;
-            }
-
             foreach (var line in _lines)
             {
                 ct.ThrowIfCancellationRequested();
                 yield return line;
                 await Task.Yield();
+            }
+
+            if (_throws is not null)
+            {
+                // yield lines first, then throw (as ProcessRunner does: yields lines so far, then throws)
+                await Task.Yield();
+                throw _throws;
             }
         }
     }
@@ -325,6 +325,25 @@ public class ClaudeAgentSessionTests
         Assert.True(ended.IsError);
         Assert.Equal(LlmVerdict.Failed, ended.Verdict);
         Assert.Contains("no output", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Reader_terminal_wins_and_is_not_duplicated_when_process_then_exits_nonzero()
+    {
+        // The result line makes the reader emit SessionEnded(Ok); the process then throws. The
+        // !sawTerminal guard must suppress a second terminal — exactly one SessionEnded, and it's the Ok one.
+        var ex = new ProcessRunException("claude", 1, "boom stderr");
+        var runner = new FakeAgentRunner(FullTranscript, ex);
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
+
+        var events = new List<AgentStreamEvent>();
+        await foreach (var e in session.StreamAsync(new ClaudeAgentOptions { Prompt = "x", WorkingDirectory = "." }))
+            events.Add(e);
+
+        var terminals = events.OfType<SessionEnded>().ToList();
+        Assert.Single(terminals);
+        Assert.Equal(LlmVerdict.Ok, terminals[0].Verdict);
+        Assert.False(terminals[0].IsError);
     }
 
     [Fact]
