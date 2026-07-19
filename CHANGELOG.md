@@ -68,6 +68,12 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **Public front-door decorator seam (Part 8 · R11)** — `LyntaiBuilder.AddFrontDoorDecorator(order, factory)`
+  is now public, so an app can fold its OWN cross-cutting `ILlmClient` decorator (PII redaction, request
+  logging, a bespoke cache) over the base client along the SAME ordered chain as the built-in governance
+  decorators — instead of pre-registering a whole `ILlmClient` (which trips the governance guard). The
+  built-in fold orders are exposed as public consts (`RateLimitDecoratorOrder`=5, `BudgetDecoratorOrder`=10,
+  `CacheDecoratorOrder`=20) so a custom decorator can position relative to them.
 - **`LlmVerdict.Unsupported` (Part 8 · R9)** — a distinct verdict for a capability/transport gap (e.g. a
   native tool call that streaming can't carry — use `CompleteAsync`), previously overloaded onto `Refused`.
   It surfaces like `Refused` (no fallback/cooldown — another candidate has the same limitation; mapped to

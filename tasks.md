@@ -787,7 +787,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   names, text-block concat, `GetLong`); `ClaudeCliProvider.CompleteAsync` (`:80-102`) hand-rolls a buffered
   assistant-vs-result reconciliation that duplicates the streaming loop (`:152-169`). Extract shared
   field-extraction helpers; consider `CompleteAsync` accumulating over `StreamAsync` like `LocalProvider`.
-- [ ] **R11 · No public seam for a custom front-door decorator** (generic) — `FrontDoorDecorators` +
+- [x] **R11 · No public seam for a custom front-door decorator** (generic) ✅ done 2026-07-20 — `AddFrontDoorDecorator(order, factory)` public + built-in fold-order consts public, so an app folds its own decorator on the same ordered chain without pre-registering a whole ILlmClient. Original: — `FrontDoorDecorators` +
   `AddFrontDoorDecorator` are `internal`; an app's own cross-cutting concern (PII redaction, request logging)
   must pre-register a whole `ILlmClient`, which trips the governance guard. Expose a public
   `AddFrontDoorDecorator(order, factory)` / `ILlmClientDecorator` collection folding on the same ordered chain.

@@ -102,4 +102,33 @@ public class AddLyntaiTests
         public Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct) =>
             Task.FromResult<ScoreResult?>(null);
     }
+
+    // R11 — a custom cross-cutting decorator folds over the front door via the public seam, without the app
+    // pre-registering a whole ILlmClient (which would trip the governance guard).
+    [Fact]
+    public async Task Custom_front_door_decorator_wraps_the_client()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .DefaultCandidates("p")
+            .AddFrontDoorDecorator(25, (_, inner) => new TagDecorator(inner))); // 25 = outside the cache slot
+        using var sp = services.BuildServiceProvider();
+
+        var reply = await sp.GetRequiredService<ILlmClient>()
+            .CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
+
+        Assert.StartsWith("[tagged]", reply.Text); // the custom decorator ran
+    }
+
+    private sealed class TagDecorator(ILlmClient inner) : ILlmClient
+    {
+        public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        {
+            var r = await inner.CompleteAsync(req, ct);
+            return r with { Text = "[tagged] " + r.Text };
+        }
+        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) => inner.StreamAsync(req, ct);
+        public bool SupportsToolCalls(LlmRequest req) => inner.SupportsToolCalls(req);
+    }
 }

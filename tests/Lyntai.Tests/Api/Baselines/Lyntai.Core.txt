@@ -901,6 +901,7 @@ class Lyntai.LyntaiBuilder
     AddCronSchedule(String, String, String, String, String, Int32=) : LyntaiBuilder
     AddEmbeddings(Func<IServiceProvider,IEmbedder>) : LyntaiBuilder
     AddEmbeddings(IEmbedder) : LyntaiBuilder
+    AddFrontDoorDecorator(Int32, Func<IServiceProvider,ILlmClient,ILlmClient>) : LyntaiBuilder
     AddGuard() : LyntaiBuilder
     AddGuard(Func<IServiceProvider,IGuard>) : LyntaiBuilder
     AddJobAdmissionController() : LyntaiBuilder
@@ -918,11 +919,14 @@ class Lyntai.LyntaiBuilder
     AddTool() : LyntaiBuilder
     AddTool(Func<IServiceProvider,ITool>) : LyntaiBuilder
     AddUsageBudget(Action<BudgetOptions>=) : LyntaiBuilder
+    BudgetDecoratorOrder : Int32 const
+    CacheDecoratorOrder : Int32 const
     Configure(Action<LyntaiOptions>) : LyntaiBuilder
     ConfigureRouting(Action<RoutingPolicy>) : LyntaiBuilder
     DefaultCandidates(LlmCandidate[]) : LyntaiBuilder
     DefaultCandidates(String[]) : LyntaiBuilder
     Options : LyntaiOptions
+    RateLimitDecoratorOrder : Int32 const
     Services : IServiceCollection
 class Lyntai.LyntaiOptions
     .ctor()

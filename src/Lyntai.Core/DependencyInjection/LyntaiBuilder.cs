@@ -35,9 +35,14 @@ public sealed class LyntaiBuilder
     // Fold order (higher = outer). The cache is OUTERMOST so a hit returns without touching inner
     // decorators — in particular a cached hit is free and must NOT count toward the usage budget or spend a
     // rate-limit permit. Rate-limit is innermost (closest to the provider — it throttles real calls).
-    internal const int RateLimitDecoratorOrder = 5;
-    internal const int BudgetDecoratorOrder = 10;
-    internal const int CacheDecoratorOrder = 20;
+    // Public so a custom decorator (AddFrontDoorDecorator) can position itself relative to the built-ins.
+    /// <summary>Fold order of the built-in rate-limit decorator (innermost — closest to the provider).</summary>
+    public const int RateLimitDecoratorOrder = 5;
+    /// <summary>Fold order of the built-in usage-budget decorator.</summary>
+    public const int BudgetDecoratorOrder = 10;
+    /// <summary>Fold order of the built-in response-cache decorator (outermost governance layer — a hit
+    /// short-circuits without spending budget/rate-limit).</summary>
+    public const int CacheDecoratorOrder = 20;
 
     /// <summary>Register an <see cref="ILlmProvider"/> into the router's provider collection.</summary>
     public LyntaiBuilder AddProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
@@ -204,13 +209,21 @@ public sealed class LyntaiBuilder
         return this;
     }
 
-    // idempotent decorator registration: a repeated Add* still re-applies its options (the configure call
-    // above) but must NOT stack a second decorator of the same kind — two rate limiters in series would
-    // double-charge permits, two caches would double-look-up.
-    private void AddFrontDoorDecorator(int order, Func<IServiceProvider, ILlmClient, ILlmClient> decorate)
+    /// <summary>Register a custom cross-cutting front-door decorator (PII redaction, request logging, a
+    /// bespoke cache, …) folded over the base router-backed <see cref="ILlmClient"/> along the SAME ordered
+    /// chain as the built-in governance decorators — so it composes with them instead of forcing the app to
+    /// pre-register a whole <see cref="ILlmClient"/> (which trips the governance guard). <paramref name="order"/>
+    /// positions it: higher = outer; the built-ins are <see cref="RateLimitDecoratorOrder"/> (5) /
+    /// <see cref="BudgetDecoratorOrder"/> (10) / <see cref="CacheDecoratorOrder"/> (20). Idempotent per
+    /// order — one decorator per slot (a repeated Add of the same order is ignored), so pick a distinct
+    /// order (e.g. 15 to sit between budget and cache, 25 to sit outside the cache).</summary>
+    public LyntaiBuilder AddFrontDoorDecorator(int order, Func<IServiceProvider, ILlmClient, ILlmClient> decorate)
     {
+        // idempotent per order: a repeated Add* still re-applies its options but must NOT stack a second
+        // decorator in the same slot — two rate limiters in series would double-charge permits.
         if (FrontDoorDecorators.All(d => d.Order != order))
             FrontDoorDecorators.Add((order, decorate));
+        return this;
     }
 
     /// <summary>Meter token/cost usage across the front door and REFUSE further calls once a configured cap
