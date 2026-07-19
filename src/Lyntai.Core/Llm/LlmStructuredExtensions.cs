@@ -11,7 +11,10 @@ public static class LlmStructuredExtensions
     /// <summary>Complete and return a reply whose <c>Text</c> is a single parseable JSON object.
     /// Providers that support it get the schema natively (<see cref="LlmRequest.JsonSchema"/>);
     /// either way the reply text is extracted and validated here — an Ok verdict guarantees
-    /// <c>JsonDocument.Parse(reply.Text)</c> succeeds.</summary>
+    /// <c>JsonDocument.Parse(reply.Text)</c> succeeds.
+    /// <para>Note: the parse-failure retry issues a SECOND <c>CompleteAsync</c> through the front door, so a
+    /// retried call spends a second usage-budget/rate-limit charge and never returns a cached hit (a
+    /// corrective retry is, by definition, not the cached response). One retry only.</para></summary>
     public static async Task<LlmReply> CompleteJsonAsync(this ILlmClient client, LlmRequest req, CancellationToken ct = default)
     {
         var current = req;

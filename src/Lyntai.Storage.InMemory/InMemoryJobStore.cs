@@ -218,7 +218,9 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
             [
                 .. _jobs.Values
                     .Where(j => (status is null || j.Status == status) && (lane is null || j.Lane == lane))
-                    .OrderByDescending(j => j.CreatedAt).ThenByDescending(j => j.Id)
+                    // ordinal Id tiebreak to match the SQL stores' TEXT `id` ordering (and ClaimNextAsync) —
+                    // ThenByDescending(j.Id) sorts by Guid.CompareTo (per-field), a different order
+                    .OrderByDescending(j => j.CreatedAt).ThenByDescending(j => j.Id.ToString(), StringComparer.Ordinal)
                     .Take(limit)
             ];
             return Task.FromResult(result);

@@ -827,7 +827,15 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   compare-and-swap KV write.
 
 ### Low (batch — verify + fix opportunistically)
-- [ ] **R21 · Nits**
+- [~] **R21 · Nits** — PARTIAL (2026-07-20). **Done:** OutcomeScorer magic key → `ErrorKey` const;
+  `LlmScorerBase` judge SYSTEM preamble now `virtual JudgeSystemPrompt`; `InMemoryJobStore.ListAsync` ordinal
+  Id tiebreak (SQL parity); `CompleteJsonAsync` retry double-charge/no-cache DOCUMENTED; `ClaudeCommand.Tokenize`
+  double-quotes-only DOCUMENTED; SQLite late-ADD-COLUMN `Down()` best-effort already documented (verified);
+  `PackageProjectUrl`/`RepositoryUrl` set (verify repo hosted + add SourceLink at the 1.0 hosting step).
+  **Deferred → R21b (task #27):** ToolLoop assistant-prose channel; `TraceStep.Sequence`/`OffsetMs`;
+  reverse-MEAI-bridge tool/schema/attachment parity; JsonNode-switch helper hoist; `ResponseCacheKey`
+  reflection guard test; vault write/enumerate policy hook; typed `IRefusalMatcher` seam; `AddRateLimit`
+  no-effective-limit warn.
   - `ToolLoop` native path drops assistant prose that accompanies tool calls (`ToolLoop.cs:82-86`) — capture
     it into a step/thinking channel.
   - `OutcomeScorer.cs:22` bakes in a magic `Extra["error"]` key though `Extra` is "app-owned" — expose as a

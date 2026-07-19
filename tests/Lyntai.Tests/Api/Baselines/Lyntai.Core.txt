@@ -308,6 +308,7 @@ class Lyntai.Cortex.LlmScorerBase
     Group : String
     Id : String
     IsLlm : Boolean
+    JudgeSystemPrompt : String
     Model : String
     Name : String
     ScoreAsync(ScoreContext, CancellationToken) : Task<ScoreResult>
@@ -398,6 +399,7 @@ class Lyntai.Cortex.ScorerAggregate
     ToString() : String
 class Lyntai.Cortex.Scorers.OutcomeScorer
     .ctor()
+    ErrorKey : String const
     Group : String
     Id : String
     IsLlm : Boolean

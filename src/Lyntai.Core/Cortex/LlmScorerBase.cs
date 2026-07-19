@@ -35,6 +35,14 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
     /// instruction; implementations only describe what to judge.</summary>
     protected abstract string BuildJudgePrompt(ScoreContext ctx);
 
+    /// <summary>The judge's SYSTEM preamble. Virtual so a scorer can override the rubric/tone/language
+    /// (the default is English + a strict-evaluator framing) — it MUST still instruct the model to reply
+    /// with exactly the <c>{"score": &lt;0..1&gt;, "reason": "…"}</c> JSON object that
+    /// <see cref="TryParseVerdict"/> expects.</summary>
+    protected virtual string JudgeSystemPrompt =>
+        "You are a strict evaluator performing a SCORING TASK. Reply with exactly one JSON object " +
+        """{"score": <number 0..1>, "reason": "<short reason>"} and nothing else.""";
+
     public async Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct)
     {
         if (!Applies(ctx)) return null; // not applicable to this context — don't spend tokens on the judge
@@ -43,9 +51,7 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
         {
             Messages =
             [
-                LlmMessage.System(
-                    "You are a strict evaluator performing a SCORING TASK. Reply with exactly one JSON object " +
-                    """{"score": <number 0..1>, "reason": "<short reason>"} and nothing else."""),
+                LlmMessage.System(JudgeSystemPrompt),
                 LlmMessage.User(BuildJudgePrompt(ctx)),
             ],
             JsonSchema = """{"type":"object","properties":{"score":{"type":"number"},"reason":{"type":"string"}},"required":["score"]}""",

@@ -18,7 +18,10 @@ internal static class ClaudeCommand
         return tokens.Count == 0 ? ("claude", []) : (tokens[0], tokens.Skip(1).ToList());
     }
 
-    /// <summary>Split a command line into tokens, honoring double-quoted spans (paths with spaces).</summary>
+    /// <summary>Split a command line into tokens, honoring double-quoted spans (paths with spaces).
+    /// Only DOUBLE quotes are interpreted — single quotes and backslash escapes are treated literally, so a
+    /// <c>LYNTAI_PROVIDER_CMD</c>/<c>CLAUDE_CMD</c> override should quote paths with <c>"</c> and avoid
+    /// shell-style single-quote/escape syntax.</summary>
     public static List<string> Tokenize(string commandLine)
     {
         var tokens = new List<string>();

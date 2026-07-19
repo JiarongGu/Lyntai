@@ -113,6 +113,12 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   now emit it for the deferred stream-native-tool-calls case.
 
 ### Fixed
+- **Low-priority nits batch (Part 8 · R21, partial)** — `InMemoryJobStore.ListAsync` now uses an ordinal
+  `Id.ToString()` tiebreak to match the SQL stores' TEXT ordering (was `Guid.CompareTo`); `OutcomeScorer`'s
+  magic `Extra["error"]` key is exposed as `OutcomeScorer.ErrorKey`; the `LlmScorerBase` judge SYSTEM
+  preamble is now an overridable `JudgeSystemPrompt` (was a hardcoded English literal); and doc gaps closed
+  (`CompleteJsonAsync` retry double-charges/never cache-hits; `ClaudeCommand.Tokenize` is double-quote-only).
+  The more involved nits are tracked as a follow-up (R21b).
 - **Curated-list ordering parity across backends (Part 8 · R19)** — the Postgres curated `ListAsync` sorted
   `kind` under the DB locale collation while SQLite uses its default BINARY (byte-ordinal), so the two could
   order differently. Postgres now `ORDER BY kind COLLATE "C"` (byte-ordinal) to match. The memory-recall
