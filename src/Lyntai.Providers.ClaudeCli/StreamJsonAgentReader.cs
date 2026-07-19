@@ -144,9 +144,9 @@ internal sealed class StreamJsonAgentReader
         if (msg.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
         {
             yield return new UsageLive(
-                GetLong(usage, "input_tokens"),
-                GetLong(usage, "output_tokens"),
-                GetLong(usage, "cache_read_input_tokens"));
+                StreamJsonFields.GetLong(usage, "input_tokens"),
+                StreamJsonFields.GetLong(usage, "output_tokens"),
+                StreamJsonFields.GetLong(usage, "cache_read_input_tokens"));
         }
     }
 
@@ -171,23 +171,11 @@ internal sealed class StreamJsonAgentReader
 
             var isError = block.TryGetProperty("is_error", out var isErrorEl) && isErrorEl.ValueKind == JsonValueKind.True;
 
-            string contentStr;
+            string contentStr = string.Empty;
             if (block.TryGetProperty("content", out var contentEl))
-            {
                 contentStr = contentEl.ValueKind == JsonValueKind.String
                     ? contentEl.GetString() ?? string.Empty
-                    : contentEl.ValueKind == JsonValueKind.Array
-                        ? string.Concat(contentEl.EnumerateArray()
-                            .Where(b => b.TryGetProperty("type", out var t) && t.ValueEquals("text"))
-                            .Select(b => b.TryGetProperty("text", out var txt) && txt.ValueKind == JsonValueKind.String
-                                ? txt.GetString() ?? string.Empty
-                                : string.Empty))
-                        : string.Empty;
-            }
-            else
-            {
-                contentStr = string.Empty;
-            }
+                    : StreamJsonFields.ConcatTextBlocks(contentEl); // array → concat text blocks; else ""
 
             yield return new ToolResult(callId, contentStr, isError);
         }
@@ -215,10 +203,10 @@ internal sealed class StreamJsonAgentReader
         if (root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
         {
             yield return new UsageFinal(
-                GetLong(usage, "input_tokens"),
-                GetLong(usage, "output_tokens"),
-                GetLong(usage, "cache_read_input_tokens"),
-                GetLong(usage, "cache_creation_input_tokens"),
+                StreamJsonFields.GetLong(usage, "input_tokens"),
+                StreamJsonFields.GetLong(usage, "output_tokens"),
+                StreamJsonFields.GetLong(usage, "cache_read_input_tokens"),
+                StreamJsonFields.GetLong(usage, "cache_creation_input_tokens"),
                 _model);
         }
 
@@ -230,9 +218,4 @@ internal sealed class StreamJsonAgentReader
             FinalText: finalText,
             Diagnostic: null);
     }
-
-    // ── helpers ──────────────────────────────────────────────────────────────
-
-    private static long GetLong(JsonElement obj, string name) =>
-        obj.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.Number ? el.GetInt64() : 0;
 }

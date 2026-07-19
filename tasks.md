@@ -782,7 +782,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   `Error(Refused,…)` (`OpenAiCompatibleProvider.cs:206`, `ExtensionsAiProvider.cs:130`); `Refused` means
   "content policy, surface no-fallback", so telemetry/scorers can't tell a policy refusal from a transport
   limitation. Add a distinct verdict (e.g. `Unsupported`) mapped to `Surface`.
-- [ ] **R10 · Duplicated stream-json parsing + CLI reconciliation will drift** (sustainable) —
+- [x] **R10 · Duplicated stream-json parsing + CLI reconciliation will drift** (sustainable) ✅ done 2026-07-20 — extracted `StreamJsonFields` (shared `GetLong` + `ConcatTextBlocks`) so `StreamJsonParser` + `StreamJsonAgentReader` can't drift on usage/text-block reads. (CompleteAsync-over-StreamAsync accumulation deferred — larger behavioral refactor, noted below.) —
   `StreamJsonParser.cs` and `StreamJsonAgentReader.cs` independently parse the same wire format (usage field
   names, text-block concat, `GetLong`); `ClaudeCliProvider.CompleteAsync` (`:80-102`) hand-rolls a buffered
   assistant-vs-result reconciliation that duplicates the streaming loop (`:152-169`). Extract shared

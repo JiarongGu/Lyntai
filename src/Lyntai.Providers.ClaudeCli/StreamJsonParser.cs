@@ -51,9 +51,7 @@ public static class StreamJsonParser
             !msg.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array)
             return new StreamJsonEvent(StreamJsonEventKind.Other);
 
-        var text = string.Concat(content.EnumerateArray()
-            .Where(b => b.TryGetProperty("type", out var t) && t.ValueEquals("text"))
-            .Select(b => b.TryGetProperty("text", out var txt) ? txt.GetString() ?? "" : ""));
+        var text = StreamJsonFields.ConcatTextBlocks(content);
         return text.Length == 0
             ? new StreamJsonEvent(StreamJsonEventKind.Other) // tool-use-only blocks etc.
             : new StreamJsonEvent(StreamJsonEventKind.AssistantText, text);
@@ -72,14 +70,11 @@ public static class StreamJsonParser
                 ? c.GetDouble()
                 : null;
             usage = new LlmUsage(
-                GetLong(u, "input_tokens"),
-                GetLong(u, "output_tokens"),
-                GetLong(u, "cache_read_input_tokens"),
+                StreamJsonFields.GetLong(u, "input_tokens"),
+                StreamJsonFields.GetLong(u, "output_tokens"),
+                StreamJsonFields.GetLong(u, "cache_read_input_tokens"),
                 cost);
         }
         return new StreamJsonEvent(StreamJsonEventKind.Result, text, usage);
     }
-
-    private static long GetLong(JsonElement obj, string name) =>
-        obj.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.Number ? el.GetInt64() : 0;
 }
