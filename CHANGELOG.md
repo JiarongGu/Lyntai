@@ -80,6 +80,12 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Fixed
+- **SQLite memory dedup is now atomic (Part 8 · R6)** — `SqliteMemoryStore.RememberAsync` did
+  UPDATE-then-INSERT with no unique constraint, so two concurrent `RememberAsync` of the same
+  `(task, scope, content)` could both fall through the UPDATE and INSERT duplicate rows. Added a
+  `UNIQUE(task_key, scope, content)` index (`ux_lyntai_memory_dedup`, replacing the non-unique
+  `(task_key, scope)` index whose prefix it subsumes) and switched to `INSERT … ON CONFLICT DO UPDATE` —
+  matching `PostgresMemoryStore`'s atomic upsert. The AFTER UPDATE trigger keeps the FTS index in sync.
 - **Response-gate `Replace` redacts the whole reply (Part 8 · R3, security)** — the output gate scans a
   reply's `Text` + `Detail` + `ToolCalls`, but a `Replace` outcome only rewrote `Text`, leaving denied
   content in `ToolCalls`/`Detail` to pass through un-redacted (`GuardedLlmClient` and the rail's re-threading

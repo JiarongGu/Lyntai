@@ -761,7 +761,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
     is tested with different cases, so InMemory (the test double) can green-light semantics the SQL stores
     don't reproduce. Fix: `Assert.Skip` (visible) + run the pg container in CI; run the existing contracts
     against Postgres; extract contracts for the other 6 stores and run all three backends through each.
-- [ ] **R6 · SQLite memory dedup is non-atomic (data-integrity divergence)** (sustainable)
+- [x] **R6 · SQLite memory dedup is non-atomic (data-integrity divergence)** (sustainable) ✅ done 2026-07-20 — added `UNIQUE(task_key, scope, content)` (`ux_lyntai_memory_dedup`, replaces the non-unique prefix index) + `INSERT … ON CONFLICT DO UPDATE` (matches Postgres); FTS stays synced via the AFTER UPDATE trigger.
   - `SqliteMemoryStore.RememberAsync` (`:32-43`) is UPDATE-then-INSERT with no unique constraint → two
     concurrent Remembers create duplicate `(task,scope,content)` rows; `PostgresMemoryStore` (`:34-38`) uses
     an atomic `ON CONFLICT` on a unique index and can't. Fix: add `UNIQUE(task_key, scope, content)` (or

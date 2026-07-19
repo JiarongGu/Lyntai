@@ -19,7 +19,10 @@ public sealed class M202607170003_Memory : Migration
                 created_at TEXT NOT NULL
             )
             """);
-        Execute.Sql("CREATE INDEX ix_lyntai_memory_task_scope ON lyntai_memory_entry(task_key, scope)");
+        // UNIQUE on (task_key, scope, content) so dedup is enforced by the schema — RememberAsync upserts
+        // atomically (INSERT … ON CONFLICT), instead of a UPDATE-then-INSERT two concurrent writers could
+        // both fall through and duplicate. The (task_key, scope) prefix still serves the recall/cap filters.
+        Execute.Sql("CREATE UNIQUE INDEX ux_lyntai_memory_dedup ON lyntai_memory_entry(task_key, scope, content)");
 
         Execute.Sql("CREATE VIRTUAL TABLE lyntai_memory_fts USING fts5(content, content='lyntai_memory_entry', content_rowid='id', tokenize='trigram')");
 

@@ -27,20 +27,14 @@ public sealed class SqliteMemoryStore(
         var expiresAt = ttl is null ? (DateTimeOffset?)null : now + ttl.Value;
         using var conn = factory.Open();
 
-        // dedup: an identical fact in the same (task, scope) is refreshed (recency + TTL) rather than
-        // duplicated. The AFTER UPDATE trigger re-syncs FTS, so search stays correct.
-        var refreshed = await conn.ExecuteAsync(new CommandDefinition("""
-            UPDATE lyntai_memory_entry SET created_at = @now, expires_at = @expiresAt
-            WHERE task_key = @taskKey AND scope = @scope AND content = @content
+        // dedup as a single ATOMIC upsert (via the ux_lyntai_memory_dedup unique index) — race-free, unlike
+        // a UPDATE-then-INSERT two concurrent Remembers could both fall through and duplicate. An identical
+        // fact in the same (task, scope) is refreshed (recency + TTL); the AFTER UPDATE trigger re-syncs FTS.
+        await conn.ExecuteAsync(new CommandDefinition("""
+            INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at, expires_at)
+            VALUES (@taskKey, @scope, @content, @now, @expiresAt)
+            ON CONFLICT(task_key, scope, content) DO UPDATE SET created_at = @now, expires_at = @expiresAt
             """, new { taskKey, scope, content, now, expiresAt }, cancellationToken: ct)).ConfigureAwait(false);
-
-        if (refreshed == 0)
-        {
-            await conn.ExecuteAsync(new CommandDefinition("""
-                INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at, expires_at)
-                VALUES (@taskKey, @scope, @content, @now, @expiresAt)
-                """, new { taskKey, scope, content, now, expiresAt }, cancellationToken: ct)).ConfigureAwait(false);
-        }
 
         // bounded: keep the newest @cap LIVE entries, trim the rest. Expired entries sort last so they
         // are evicted BEFORE still-valid ones (else the cap could delete live facts while keeping dead

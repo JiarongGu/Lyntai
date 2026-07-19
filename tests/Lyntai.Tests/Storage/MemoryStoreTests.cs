@@ -1,7 +1,9 @@
+using Dapper;
 using Lyntai;
 using Lyntai.Storage;
 using Lyntai.Storage.InMemory;
 using Lyntai.Storage.Sqlite;
+using Microsoft.Data.Sqlite;
 
 namespace Lyntai.Tests.Storage;
 
@@ -62,5 +64,17 @@ public class MemoryStoreTests : IDisposable
 
         Assert.Equal(3, hits.Count);
         Assert.Equal(["entry 5", "entry 4", "entry 3"], hits.Select(h => h.Content)); // newest kept, recency order
+    }
+
+    [Fact] // R6: dedup must be enforced by the schema, not just a UPDATE-then-INSERT that two concurrent
+           // Remembers could both fall through — a raw duplicate row is rejected by the unique index.
+    public async Task Duplicate_fact_is_rejected_by_a_unique_constraint()
+    {
+        await _store.RememberAsync("t", "s", "the same fact");
+
+        using var conn = _db.Factory.Open();
+        var ex = await Assert.ThrowsAsync<SqliteException>(() => conn.ExecuteAsync(
+            "INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at) VALUES ('t','s','the same fact','x')"));
+        Assert.Contains("UNIQUE", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }
