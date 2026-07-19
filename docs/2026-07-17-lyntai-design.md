@@ -159,7 +159,8 @@ public interface IKeyValueStore {                  // lyntai_kv: prompt override
     Task SetAsync(string key, string value, CancellationToken ct = default);
     Task DeleteAsync(string key, CancellationToken ct = default);
 }
-public interface IConversationStore { /* threads + messages */ }
+public interface IConversationStore { /* threads + a typed event stream per thread — ChatMessage(Kind,Payload),
+                                        Role/Content aliases for plain chat; thread Metadata for app state */ }
 public interface IMemoryStore { /* task-scoped learned facts, bounded, fail-open, FTS recall */ }
 public interface IScoreStore { /* persisted scorer results */ }
 public interface ITraceStore { /* run traces + steps */ }

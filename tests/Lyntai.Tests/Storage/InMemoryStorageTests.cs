@@ -38,6 +38,22 @@ public class InMemoryStorageTests
     }
 
     [Fact]
+    public async Task Conversation_persists_typed_events_and_thread_metadata()
+    {
+        var store = new InMemoryConversationStore();
+        await store.CreateThreadAsync("t", "title", metadata: """{"phase":"plan"}""");
+        await store.AppendMessageAsync("t", "phase", """{"phase":"plan"}""");
+        await store.AppendMessageAsync("t", "text", "hello");
+
+        var events = await store.GetMessagesAsync("t");
+        Assert.Equal(["phase", "text"], events.Select(e => e.Kind));
+        Assert.Equal("""{"phase":"plan"}""", (await store.GetThreadAsync("t"))!.Metadata);
+
+        await store.SetThreadMetadataAsync("t", """{"phase":"done"}""");
+        Assert.Equal("""{"phase":"done"}""", (await store.GetThreadAsync("t"))!.Metadata);
+    }
+
+    [Fact]
     public async Task Memory_dedups_expires_and_recalls_by_substring()
     {
         var store = new InMemoryMemoryStore(new LyntaiOptions { MemoryCapPerScope = 100 }, clock: () => _now);

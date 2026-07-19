@@ -662,7 +662,11 @@ app tell Lyntai its prefix.
   - Note: `IKeyValueStore` itself needs no change — it's already the app-owned-storage seam. This is purely
     making the key NAMESPACE the app's, so Lyntai's logic sits over the app's single table cleanly.
 
-- [ ] **P2 · Generic conversation store — a typed event stream, not just role/text chat — should-have (generic capability)**
+- [x] **P2 · Generic conversation store — a typed event stream, not just role/text chat — should-have (generic capability)** ✅ done 2026-07-20
+      — `ChatMessage` gains `Kind`/`Payload` (Role/Content kept as aliases); `ChatThread` gains opaque
+      `Metadata` + `SetThreadMetadataAsync`; message columns renamed role→kind/content→payload, thread
+      `metadata` column added (migrations in-place); all 3 backends + contract tests. (Agent-session
+      dogfood wiring deferred — see R4.)
   - A conversation is, in general, a **typed multi-kind event stream** — text, tool-call, tool-result,
     usage, thinking, phase/status, error — not only user/assistant chat turns. **Lyntai already produces
     exactly this shape natively**: the Part 6 agent session's `AgentStreamEvent` and `IToolLoop`'s

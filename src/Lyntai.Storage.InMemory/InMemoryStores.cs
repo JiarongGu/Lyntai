@@ -33,9 +33,9 @@ public sealed class InMemoryConversationStore : IConversationStore
     private readonly List<ChatMessage> _messages = [];
     private long _nextId = 1;
 
-    public Task<ChatThread> CreateThreadAsync(string id, string? title = null, CancellationToken ct = default)
+    public Task<ChatThread> CreateThreadAsync(string id, string? title = null, string? metadata = null, CancellationToken ct = default)
     {
-        var thread = new ChatThread(id, title, DateTimeOffset.UtcNow);
+        var thread = new ChatThread(id, title, DateTimeOffset.UtcNow, metadata);
         lock (_lock) _threads[id] = thread;
         return Task.FromResult(thread);
     }
@@ -43,6 +43,13 @@ public sealed class InMemoryConversationStore : IConversationStore
     public Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default)
     {
         lock (_lock) return Task.FromResult(_threads.GetValueOrDefault(id));
+    }
+
+    public Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default)
+    {
+        lock (_lock)
+            if (_threads.TryGetValue(id, out var t)) _threads[id] = t with { Metadata = metadata };
+        return Task.CompletedTask;
     }
 
     public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default)
@@ -59,11 +66,11 @@ public sealed class InMemoryConversationStore : IConversationStore
         }
     }
 
-    public Task<ChatMessage> AppendMessageAsync(string threadId, string role, string content, CancellationToken ct = default)
+    public Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, CancellationToken ct = default)
     {
         lock (_lock)
         {
-            var msg = new ChatMessage(_nextId++, threadId, role, content, DateTimeOffset.UtcNow);
+            var msg = new ChatMessage(_nextId++, threadId, kind, payload, DateTimeOffset.UtcNow);
             _messages.Add(msg);
             return Task.FromResult(msg);
         }

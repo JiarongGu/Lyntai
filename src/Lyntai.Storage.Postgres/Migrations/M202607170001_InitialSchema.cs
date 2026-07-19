@@ -26,15 +26,18 @@ public sealed class M202607170001_InitialSchema : Migration
             CREATE TABLE lyntai_thread (
                 id TEXT PRIMARY KEY,
                 title TEXT NULL,
-                created_at TIMESTAMPTZ NOT NULL
+                created_at TIMESTAMPTZ NOT NULL,
+                metadata TEXT NULL
             )
             """);
+        // A thread is a typed event stream: `kind` is the event type (a role for a plain chat turn),
+        // `payload` the body (text, or JSON for a richer event).
         Execute.Sql("""
             CREATE TABLE lyntai_message (
                 id BIGSERIAL PRIMARY KEY,
                 thread_id TEXT NOT NULL REFERENCES lyntai_thread(id) ON DELETE CASCADE,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                payload TEXT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL
             )
             """);

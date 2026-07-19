@@ -25,6 +25,17 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   session.
 
 ### Changed
+- **Generic typed-event conversation store (Part 7 · P2)** — a conversation is now modelled as a typed
+  multi-kind event stream (text / tool-call / tool-result / usage / thinking / phase / error), not only
+  role/text chat turns — so an agent transcript or a tool-loop run can persist through the same surface,
+  and an adopter's typed event log fits without a bespoke schema. `ChatMessage` gains `Kind` (event type;
+  a role for a plain chat turn) and `Payload` (event body; text or JSON), keeping `Role`/`Content` as
+  read-only aliases for the chat shape. `ChatThread` gains optional opaque `Metadata` (thread-level JSON
+  state) with `IConversationStore.SetThreadMetadataAsync` to update it and a `metadata` arg on
+  `CreateThreadAsync`. **Breaking (pre-1.0):** the message columns are renamed `role`→`kind`,
+  `content`→`payload` and a `metadata` column added to threads (migrations edited in-place, pre-release —
+  no data migration); `AppendMessageAsync`'s parameters are renamed `role`/`content`→`kind`/`payload`
+  (signature unchanged). Implemented across all three backends (SQLite / InMemory / Postgres).
 - **App-owned cortex KV (Part 7 · P1)** — the cortex KV key namespaces are now configurable, so an app can
   point Lyntai's prompt/model overrides straight at its OWN existing keys — no prefix-translating shim, no
   duplicated rows. `PromptRegistry` and `KeyValueModelRoutingStore` take an optional `keyPrefix` ctor

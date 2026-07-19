@@ -41,11 +41,12 @@ class Lyntai.Storage.Postgres.PostgresConnectionFactory
 class Lyntai.Storage.Postgres.PostgresConversationStore
     .ctor(IDbConnectionFactory)
     AppendMessageAsync(String, String, String, CancellationToken=) : Task<ChatMessage>
-    CreateThreadAsync(String, String=, CancellationToken=) : Task<ChatThread>
+    CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
     DeleteThreadAsync(String, CancellationToken=) : Task
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+    SetThreadMetadataAsync(String, String, CancellationToken=) : Task
 class Lyntai.Storage.Postgres.PostgresCuratedMemoryStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=)
     AddAsync(String, String, String=, Boolean=, CancellationToken=) : Task<Int64>
