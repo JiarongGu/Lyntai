@@ -3,6 +3,10 @@
 > Design for Part 6 of `tasks.md` ("Agentic CLI session"), reworked so the primitive is **generic**
 > (interface + event model in Core; the `claude` CLI is adapter #1), not a claude-CLI-shaped surface.
 > Read `docs/2026-07-17-lyntai-design.md` (§6 CLI hygiene, §9 platform kit) first — this extends it.
+>
+> **Status: IMPLEMENTED (G1a–G3).** Shipped as designed; the one as-built deviation is the adapter
+> parser — a new stateful `StreamJsonAgentReader` rather than an edit to the static `StreamJsonParser`
+> (keeps the untouched provider text path isolated). Build clean · 725 tests · e2e 3/3 · leak scan clean.
 
 ## 1. Context — the gap, and why it is a new primitive
 
@@ -41,7 +45,7 @@ provider-specific parts stay in the adapter.
 | Session interface + result | yes | Core (`IAgentSession`, `AgentSessionResult`) |
 | Model / timeout / prompt / disallowed-tools | yes | Core (`AgentSessionOptions`) |
 | `--settings` hooks file, `--mcp-config`, `--allowedTools`, `acceptEdits`, `--include-partial-messages` | **no** | Adapter (`ClaudeAgentOptions`, `ClaudeAgentArgs`) |
-| stream-json parsing | **no** | Adapter (`StreamJsonParser`) |
+| stream-json parsing | **no** | Adapter (`StreamJsonAgentReader`) |
 
 This **dominates "neutral events only"**: the same code is written either way; the delta is *where the
 interface + records live and what they're named*. Putting them in Core costs ~nothing now and saves a
@@ -202,7 +206,9 @@ public sealed record ClaudeAgentOptions : AgentSessionOptions
 - **Composes with, does not replace, `ICliToolProvisioner`.** `--mcp-config` points at the app's own
   out-of-process server; the in-proc `AddClaudeCliMcpTools` provisioner path is a separate, orthogonal way
   to expose Lyntai-hosted `ITool`s. Both can be present.
-- **`StreamJsonParser` extension** — emit the §4.1 events from the fuller stream-json (`system`/init →
+- **`StreamJsonAgentReader`** (a new stateful, per-run reader — NOT an edit to the existing static
+  `StreamJsonParser`, which stays the provider's text path) — emit the §4.1 events from the fuller
+  stream-json (`system`/init →
   `SessionStarted`; `stream_event` `content_block_delta` → `TextDelta`/`Thinking`; `assistant` tool_use →
   `ToolCall`, `message.model` + per-turn usage → `UsageLive`; `user` tool_result → `ToolResult`; `result`
   `subtype`/`is_error` → `SessionEnded`). With `--include-partial-messages` on, text comes from the
@@ -251,7 +257,7 @@ the app's event wire shape, and **model-pricing tables** all stay in the adoptin
 
 - **Core (fakes, no I/O):** `AgentToolPolicy` → arg mapping via `ClaudeAgentArgs`; event-model pattern
   exhaustiveness; `AgentSessionResult` folded from a synthetic event stream.
-- **`StreamJsonParser` (captured fixture lines):** `system`/init → `SessionStarted` with the id; tool_use
+- **`StreamJsonAgentReader` (captured fixture lines):** `system`/init → `SessionStarted` with the id; tool_use
   block → `ToolCall` with name (+ args); partial `text_delta`/`thinking_delta` → `TextDelta`/`Thinking`;
   `result` `is_error:true, subtype:"error_max_turns"` → `SessionEnded` carrying both; raw counts + model
   on `UsageFinal`; a malformed line still ignored (no throw); **the existing provider text path still
@@ -270,7 +276,8 @@ the app's event wire shape, and **model-pricing tables** all stay in the adoptin
 ## 9. Revised task shape (supersedes Part 6's G1/G2 split)
 
 - **G1a (Core):** `AgentStreamEvent` hierarchy + `AgentToolPolicy` in `Lyntai.Agents`.
-- **G1b (Adapter):** extend `StreamJsonParser` to emit them; provider text path unchanged.
+- **G1b (Adapter):** add `StreamJsonAgentReader` (stateful, per-run) to emit them; the existing static
+  `StreamJsonParser` provider text path is left unchanged.
 - **G2a (Core):** `IAgentSession`, `AgentSessionOptions`, `AgentSessionResult`.
 - **G2b (Adapter):** `ClaudeAgentOptions`, `ClaudeAgentArgs.Build`, `ClaudeAgentSession`,
   `AddClaudeCliAgentSession`.

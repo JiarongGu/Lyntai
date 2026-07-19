@@ -3,11 +3,12 @@
 > **Status: phases 0–7 + roadmap v0.3–v0.28 implemented** (agentic tool-calling, durable jobs, guards,
 > secrets, semantic memory, three storage backends, governance decorators, …). See `CHANGELOG.md` for
 > per-release detail and `docs/ROADMAP.md` for the forward sequence.
-> **➡ Active work: "Part 6 — Agentic self-driving-agent session (generic primitive)" at the bottom of this file.**
-> Parts 1–5 (T1–T13 · S1–S6 · N1–N4 · C1 · A1–A8) are DONE — the bugs fixed + tested, the refactors
-> behavior-preserving, S1 crypto core sound, and the cortex+scoring adoption surface (Part 5) landed
-> so a real app retired its own `ScoringService`/`ScoreRepository`. Part 6 = the one remaining gap
-> blocking that app's *interactive* two-gate chat (and thereby its cortex migration).
+> **➡ All planned work is DONE, including Part 6 (agent-session primitive).** Parts 1–5
+> (T1–T13 · S1–S6 · N1–N4 · C1 · A1–A8) + Part 6 (G1a/G1b · G2a/G2b · G3) landed — bugs fixed + tested,
+> refactors behavior-preserving, and the generic self-driving-agent-session primitive shipped
+> (`IAgentSession` in Core `Lyntai.Agents`, the `claude` CLI adapter, both consumption doors, resume
+> across the gate). Build clean · 725 tests · e2e 3/3 · leak scan clean. This unblocks the adopter's
+> two-gate migration (and thereby its cortex migration).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use `superpowers:subagent-driven-development` (recommended)
 > or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox syntax.
@@ -467,9 +468,13 @@ the adopting app. Lyntai renders / stores / versions / scores; the app owns its 
 
 ## Part 6 — Agentic self-driving-agent session (generic primitive) (2026-07-19)
 
+> **✅ DONE (G1a · G2a · G1b · G2b · G3).** Shipped as designed (one as-built deviation: the adapter
+> parser is a new stateful `StreamJsonAgentReader`, not an edit to the static `StreamJsonParser`).
+> Build clean · 725 tests · e2e 3/3 · leak scan clean.
+>
 > **Design contract:** `docs/2026-07-19-agent-session-design.md` — the neutral surface, the OpenAI
 > Responses API neutrality stress-test that shaped it, the `IAgentSession`-vs-`IToolLoop` boundary, and
-> the three resolved decisions. **Read it before implementing.** This Part is that design's task cut.
+> the three resolved decisions.
 
 Surfaced trying to migrate a real adopter's (Gatherlight's) **interactive two-gate chat** — plan
 (read-only) → human approve → execute (write, scope-guarded) → human review diff → commit — off its
@@ -517,11 +522,12 @@ generic library primitive (Core) or its first adapter, not app-specific.
 - Test (Core, fakes, no I/O): pattern-match exhaustiveness over the hierarchy; `AgentSessionResult` (G2a)
   folds correctly from a synthetic event stream.
 
-### G1b · `StreamJsonParser` emits the events — adapter (`Lyntai.Providers.ClaudeCli`) — HARD (blocker)
+### G1b · `StreamJsonAgentReader` emits the events — adapter (`Lyntai.Providers.ClaudeCli`) — HARD (blocker)
 - Today `StreamJsonParser` (`src/Lyntai.Providers.ClaudeCli/StreamJsonParser.cs`) recognizes only
   `assistant` text blocks → `AssistantText` and `result` → `Result`; `system/init`, `stream_event`
   partial deltas, `assistant` tool_use, and `user` tool_result all fall to `Other` and are dropped.
-- Fix: extend it to emit the G1a events from the fuller stream-json — `system`/init → `SessionStarted`;
+- Fix: add a new stateful, per-run `StreamJsonAgentReader` (NOT an edit to the static `StreamJsonParser`)
+  to emit the G1a events from the fuller stream-json — `system`/init → `SessionStarted`;
   `stream_event` `content_block_delta` → `TextDelta`/`Thinking` (needs `--include-partial-messages`, set
   in G2b); `assistant` tool_use → `ToolCall`, `message.model` + per-turn usage → `UsageLive`; `user`
   tool_result → `ToolResult`; `result` `subtype`/`is_error` → `SessionEnded`. With partial messages on,
