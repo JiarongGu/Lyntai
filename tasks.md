@@ -817,7 +817,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
 - [x] **R18 · Env-override docs incomplete** (sustainable) ✅ done 2026-07-20 — added the `LYNTAI_JOBS_*` family (6) + `LYNTAI_DEFAULT_MODEL` alias (and the cache/budget/ratelimit/tool-loop vars) to the `LyntaiOptions` XML-doc + README env list. Original: — the whole `LYNTAI_JOBS_*` family (6 vars) +
   `LYNTAI_DEFAULT_MODEL` alias are read in `ApplyEnvOverrides` but absent from the `LyntaiOptions` XML-doc
   list + README. Add them; consider one canonical env-var reference table.
-- [ ] **R19 · Recall/list ordering diverges across backends beyond what contracts assert** (sustainable) —
+- [x] **R19 · Recall/list ordering diverges across backends beyond what contracts assert** (sustainable) ✅ done 2026-07-20 — Postgres curated `ListAsync` now `ORDER BY kind COLLATE "C"` (byte-ordinal, matches SQLite BINARY). Memory-recall bm25-vs-recency is an INHERENT divergence (FTS relevance vs recency — can't converge without dropping a feature): kept documented + asserted-divergent via R5's backend-specific tests. Original: —
   SQLite memory recall `ORDER BY bm25` vs Postgres/InMemory recency; curated `ListAsync`/aggregate `ORDER BY
   <text>` is SQLite BINARY vs Postgres DB-collation. Documented in prose only. Force `COLLATE "C"` (or order
   by recency everywhere) for parity, or assert the divergence in a contract test.

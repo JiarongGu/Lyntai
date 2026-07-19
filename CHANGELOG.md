@@ -107,6 +107,11 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   now emit it for the deferred stream-native-tool-calls case.
 
 ### Fixed
+- **Curated-list ordering parity across backends (Part 8 · R19)** — the Postgres curated `ListAsync` sorted
+  `kind` under the DB locale collation while SQLite uses its default BINARY (byte-ordinal), so the two could
+  order differently. Postgres now `ORDER BY kind COLLATE "C"` (byte-ordinal) to match. The memory-recall
+  ordering (SQLite bm25 relevance vs Postgres/InMemory recency) is an inherent semantic divergence — kept
+  documented + asserted-divergent via the R5 backend-specific tests rather than forced to converge.
 - **ClaudeCli warns instead of silently dropping `LlmRequest.Tools` (Part 8 · R14)** — the CLI provider
   doesn't consume request-level tool declarations (`SupportsToolCalls`=false; tool-calling goes through the
   MCP provisioner), so a caller that put tools on the request + routed to `claude-cli` had them dropped with

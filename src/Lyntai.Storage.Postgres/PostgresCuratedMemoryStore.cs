@@ -65,7 +65,9 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
         var rows = await conn.QueryAsync<CuratedMemory>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (@kind::text IS NULL OR kind = @kind) AND (NOT @enabledOnly OR enabled)
-            ORDER BY kind, created_at, id
+            -- COLLATE "C" (byte-ordinal) so the text sort matches SQLite's default BINARY collation rather
+            -- than the Postgres DB locale collation — identical curated list order across backends.
+            ORDER BY kind COLLATE "C", created_at, id
             LIMIT @limit
             """, new
         {
