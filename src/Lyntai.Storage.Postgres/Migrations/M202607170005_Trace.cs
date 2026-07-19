@@ -25,6 +25,7 @@ public sealed class M202607170005_Trace : Migration
                 id BIGSERIAL PRIMARY KEY,
                 session_id TEXT NOT NULL REFERENCES lyntai_run_trace(session_id) ON DELETE CASCADE,
                 seq INTEGER NOT NULL,
+                offset_ms BIGINT NOT NULL DEFAULT 0,
                 kind TEXT NOT NULL,
                 label TEXT NOT NULL,
                 input_tokens BIGINT NOT NULL,

@@ -8,6 +8,16 @@ public sealed record TraceStep
 
     public required string Label { get; init; }
 
+    /// <summary>The step's 0-based position on the run timeline. A recorder (<see cref="ITraceRecorder"/>)
+    /// stamps this at <see cref="ITraceRecorder.Record"/> time; the store persists it and orders by it, so
+    /// the timeline no longer relies on the store's insertion order to be preserved.</summary>
+    public long Sequence { get; init; }
+
+    /// <summary>Milliseconds from the run's start (<see cref="RunTrace.StartedAt"/>) to when this step was
+    /// recorded — the step's position on the wall-clock timeline. Stamped by the recorder; distinct from
+    /// <see cref="DurationMs"/> (how long the step itself took). Zero for a hand-built step left unset.</summary>
+    public long OffsetMs { get; init; }
+
     public long InputTokens { get; init; }
     public long OutputTokens { get; init; }
     public double CostUsd { get; init; }

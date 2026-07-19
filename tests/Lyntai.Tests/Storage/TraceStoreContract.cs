@@ -18,9 +18,9 @@ public static class TraceStoreContract
         TraceId = "0af7651916cd43dd8448eb211c80319c",
         Steps =
         [
-            new TraceStep { Kind = "phase", Label = "plan", DurationMs = 1200 },
-            new TraceStep { Kind = "llm", Label = "complete", InputTokens = 1200, OutputTokens = 340, CostUsd = 0.012, DurationMs = 2100, Detail = "claude-cli" },
-            new TraceStep { Kind = "llm", Label = "judge", InputTokens = 300, OutputTokens = 40, CostUsd = 0.003, DurationMs = 800 },
+            new TraceStep { Kind = "phase", Label = "plan", Sequence = 0, OffsetMs = 0, DurationMs = 1200 },
+            new TraceStep { Kind = "llm", Label = "complete", Sequence = 1, OffsetMs = 1200, InputTokens = 1200, OutputTokens = 340, CostUsd = 0.012, DurationMs = 2100, Detail = "claude-cli" },
+            new TraceStep { Kind = "llm", Label = "judge", Sequence = 2, OffsetMs = 3300, InputTokens = 300, OutputTokens = 40, CostUsd = 0.003, DurationMs = 800 },
         ],
     };
 
@@ -55,5 +55,15 @@ public static class TraceStoreContract
     public static async Task Unknown_session_returns_null(ITraceStore store, string key)
     {
         Assert.Null(await store.GetAsync(key + "-nope"));
+    }
+
+    public static async Task Step_sequence_and_offset_round_trip(ITraceStore store, string key)
+    {
+        await store.SaveAsync(Sample(key));
+
+        var loaded = await store.GetAsync(key);
+        Assert.NotNull(loaded);
+        Assert.Equal([0L, 1L, 2L], loaded!.Steps.Select(s => s.Sequence)); // explicit timeline ordinal
+        Assert.Equal([0L, 1200L, 3300L], loaded.Steps.Select(s => s.OffsetMs)); // wall-clock offset from start
     }
 }

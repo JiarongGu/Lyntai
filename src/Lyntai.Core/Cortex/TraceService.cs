@@ -43,7 +43,14 @@ public sealed class TraceService(
 
         public void Record(TraceStep step)
         {
-            lock (_lock) _steps.Add(step);
+            lock (_lock)
+                // stamp the timeline position authoritatively (overriding any caller-set values): Sequence is
+                // the 0-based insertion order; OffsetMs is ms from the run start on the recorder's own clock.
+                _steps.Add(step with
+                {
+                    Sequence = _steps.Count,
+                    OffsetMs = (long)(owner._clock() - startedAt).TotalMilliseconds,
+                });
         }
 
         public async Task CompleteAsync(CancellationToken ct = default)

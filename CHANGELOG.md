@@ -90,6 +90,12 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **`TraceStep.Sequence` + `TraceStep.OffsetMs` (Part 8 · R21b)** — a run-trace step now carries an explicit
+  0-based timeline ordinal (`Sequence`) and its wall-clock offset from the run start in ms (`OffsetMs`),
+  stamped by the recorder at `Record` time (using its injectable clock) instead of the timeline relying on
+  the store's insertion order. Persisted + ordered-by on all three backends (`offset_ms` column folded into
+  the existing trace migration, pre-release; `seq` already existed). Additive — both default to 0 on a
+  hand-built step.
 - **Durable-job partition keys — actor mailboxes (Part 10 · A1)** — `JobSpec`/`EnqueueAsync` gain an optional
   `partitionKey`: jobs sharing a `(lane, partitionKey)` run **one-at-a-time in FIFO (enqueue) order** (an
   actor mailbox), while different keys run in parallel up to the lane's concurrency. Enforced in the atomic

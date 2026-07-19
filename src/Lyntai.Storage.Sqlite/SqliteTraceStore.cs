@@ -21,13 +21,16 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
             """, new { trace.SessionId, trace.Mode, trace.StartedAt, trace.EndedAt, trace.TraceId },
             tx, cancellationToken: ct)).ConfigureAwait(false);
 
-        for (var seq = 0; seq < trace.Steps.Count; seq++)
+        for (var i = 0; i < trace.Steps.Count; i++)
         {
-            var s = trace.Steps[seq];
+            var s = trace.Steps[i];
+            // seq is the step's timeline ordinal (Sequence when set by a recorder; the list position otherwise,
+            // so a hand-built trace with unset Sequence still persists a monotonic, distinct order)
+            var seq = s.Sequence != 0 ? s.Sequence : i;
             await conn.ExecuteAsync(new CommandDefinition("""
-                INSERT INTO lyntai_trace_step (session_id, seq, kind, label, input_tokens, output_tokens, cost_usd, duration_ms, detail)
-                VALUES (@SessionId, @seq, @Kind, @Label, @InputTokens, @OutputTokens, @CostUsd, @DurationMs, @Detail)
-                """, new { trace.SessionId, seq, s.Kind, s.Label, s.InputTokens, s.OutputTokens, s.CostUsd, s.DurationMs, s.Detail },
+                INSERT INTO lyntai_trace_step (session_id, seq, offset_ms, kind, label, input_tokens, output_tokens, cost_usd, duration_ms, detail)
+                VALUES (@SessionId, @seq, @OffsetMs, @Kind, @Label, @InputTokens, @OutputTokens, @CostUsd, @DurationMs, @Detail)
+                """, new { trace.SessionId, seq, s.OffsetMs, s.Kind, s.Label, s.InputTokens, s.OutputTokens, s.CostUsd, s.DurationMs, s.Detail },
                 tx, cancellationToken: ct)).ConfigureAwait(false);
         }
         tx.Commit();
@@ -44,9 +47,10 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
         if (header is null) return null;
 
         var steps = await conn.QueryAsync<StepRow>(new CommandDefinition("""
-            SELECT kind AS Kind, label AS Label, input_tokens AS InputTokens, output_tokens AS OutputTokens,
+            SELECT seq AS Sequence, offset_ms AS OffsetMs, kind AS Kind, label AS Label,
+                   input_tokens AS InputTokens, output_tokens AS OutputTokens,
                    CAST(cost_usd AS REAL) AS CostUsd, duration_ms AS DurationMs, detail AS Detail
-            FROM lyntai_trace_step WHERE session_id = @sessionId ORDER BY seq
+            FROM lyntai_trace_step WHERE session_id = @sessionId ORDER BY seq, id
             """, new { sessionId }, cancellationToken: ct)).ConfigureAwait(false);
 
         return new RunTrace
@@ -60,6 +64,8 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
             {
                 Kind = s.Kind,
                 Label = s.Label,
+                Sequence = s.Sequence,
+                OffsetMs = s.OffsetMs,
                 InputTokens = s.InputTokens,
                 OutputTokens = s.OutputTokens,
                 CostUsd = s.CostUsd,
@@ -83,6 +89,8 @@ public sealed class SqliteTraceStore(IDbConnectionFactory factory) : ITraceStore
     {
         public string Kind { get; set; } = "";
         public string Label { get; set; } = "";
+        public long Sequence { get; set; }
+        public long OffsetMs { get; set; }
         public long InputTokens { get; set; }
         public long OutputTokens { get; set; }
         public double CostUsd { get; set; }

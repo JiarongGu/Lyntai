@@ -19,6 +19,7 @@ public sealed class M202607170005_Trace : Migration
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL REFERENCES lyntai_run_trace(session_id) ON DELETE CASCADE,
                 seq INTEGER NOT NULL,
+                offset_ms INTEGER NOT NULL DEFAULT 0,
                 kind TEXT NOT NULL,
                 label TEXT NOT NULL,
                 input_tokens INTEGER NOT NULL,
