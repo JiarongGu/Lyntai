@@ -892,6 +892,8 @@ class Lyntai.Llm.Routing.RoutingPolicy
     Retry(LlmVerdict, Int32) : RoutingPolicy
     RetryBackoff : TimeSpan
 class Lyntai.LyntaiBuilder
+    AddConversationEnricher() : LyntaiBuilder
+    AddConversationEnricher(Func<IServiceProvider,IConversationEnricher>) : LyntaiBuilder
     AddCronSchedule(String, String, String, String, String, Int32=) : LyntaiBuilder
     AddEmbeddings(Func<IServiceProvider,IEmbedder>) : LyntaiBuilder
     AddEmbeddings(IEmbedder) : LyntaiBuilder
@@ -1088,17 +1090,19 @@ class Lyntai.Secrets.SecretKeyEnvelope
 class Lyntai.Secrets.SecretRecoveryRequiredException
     .ctor(String, Exception=)
 class Lyntai.Storage.ChatMessage
-    .ctor(Int64, String, String, String, DateTimeOffset)
+    .ctor(String, String, Int64, String, String, String, DateTimeOffset)
     Content : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Int64&, String&, String&, String&, DateTimeOffset&) : Void
+    Deconstruct(String&, String&, Int64&, String&, String&, String&, DateTimeOffset&) : Void
     Equals(ChatMessage) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
-    Id : Int64
+    Id : String
     Kind : String
+    Metadata : String
     Payload : String
     Role : String
+    Seq : Int64
     ThreadId : String
     ToString() : String
 class Lyntai.Storage.ChatThread
@@ -1126,10 +1130,22 @@ class Lyntai.Storage.CuratedMemory
     Source : String
     ToString() : String
     UpdatedAt : DateTimeOffset
+class Lyntai.Storage.EnrichingConversationStore
+    .ctor(IConversationStore, IEnumerable<IConversationEnricher>)
+    AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
+    CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
+    DeleteThreadAsync(String, CancellationToken=) : Task
+    GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
+    GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
+    ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+    SetThreadMetadataAsync(String, String, CancellationToken=) : Task
 static class Lyntai.Storage.FtsQuery
     Build(String) : String
+interface Lyntai.Storage.IConversationEnricher
+    OnMessageAppendedAsync(ChatMessage, CancellationToken=) : Task
+    OnThreadCreatedAsync(ChatThread, CancellationToken=) : Task
 interface Lyntai.Storage.IConversationStore
-    AppendMessageAsync(String, String, String, CancellationToken=) : Task<ChatMessage>
+    AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
     CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
     DeleteThreadAsync(String, CancellationToken=) : Task
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>

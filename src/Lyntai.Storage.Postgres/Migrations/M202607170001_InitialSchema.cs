@@ -30,18 +30,22 @@ public sealed class M202607170001_InitialSchema : Migration
                 metadata TEXT NULL
             )
             """);
-        // A thread is a typed event stream: `kind` is the event type (a role for a plain chat turn),
-        // `payload` the body (text, or JSON for a richer event).
+        // A thread is a typed event stream: `id` a globally-unique GUID handle; `seq` the 1-based per-thread
+        // order (external event-stream schemas key on (thread_id, seq)); `kind` the event type (a role for a
+        // plain chat turn); `payload` the body (text or JSON); `metadata` optional per-event JSON.
         Execute.Sql("""
             CREATE TABLE lyntai_message (
-                id BIGSERIAL PRIMARY KEY,
+                id TEXT PRIMARY KEY,
                 thread_id TEXT NOT NULL REFERENCES lyntai_thread(id) ON DELETE CASCADE,
+                seq BIGINT NOT NULL,
                 kind TEXT NOT NULL,
                 payload TEXT NOT NULL,
+                metadata TEXT NULL,
                 created_at TIMESTAMPTZ NOT NULL
             )
             """);
-        Execute.Sql("CREATE INDEX ix_lyntai_message_thread ON lyntai_message(thread_id)");
+        // one index serves both the thread-scoped read (thread_id prefix) and per-thread seq uniqueness
+        Execute.Sql("CREATE UNIQUE INDEX ix_lyntai_message_thread_seq ON lyntai_message(thread_id, seq)");
 
         Execute.Sql("CREATE EXTENSION IF NOT EXISTS pg_trgm");
         Execute.Sql("""

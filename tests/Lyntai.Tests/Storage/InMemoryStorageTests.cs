@@ -43,10 +43,13 @@ public class InMemoryStorageTests
         var store = new InMemoryConversationStore();
         await store.CreateThreadAsync("t", "title", metadata: """{"phase":"plan"}""");
         await store.AppendMessageAsync("t", "phase", """{"phase":"plan"}""");
-        await store.AppendMessageAsync("t", "text", "hello");
+        await store.AppendMessageAsync("t", "text", "hello", metadata: """{"tokens":3}""");
 
         var events = await store.GetMessagesAsync("t");
         Assert.Equal(["phase", "text"], events.Select(e => e.Kind));
+        Assert.Equal([1L, 2L], events.Select(e => e.Seq));                 // per-thread seq
+        Assert.Equal("""{"tokens":3}""", events[1].Metadata);              // per-message metadata
+        Assert.True(Guid.TryParse(events[0].Id, out _));                   // GUID id
         Assert.Equal("""{"phase":"plan"}""", (await store.GetThreadAsync("t"))!.Metadata);
 
         await store.SetThreadMetadataAsync("t", """{"phase":"done"}""");

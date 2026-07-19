@@ -37,7 +37,7 @@ public class ConversationStoreTests : IDisposable
 
         Assert.Equal(["first", "second", "第三条消息"], messages.Select(m => m.Content));
         Assert.Equal(["user", "assistant", "user"], messages.Select(m => m.Role));
-        Assert.True(messages[0].Id < messages[1].Id);
+        Assert.Equal([1L, 2L, 3L], messages.Select(m => m.Seq));
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class ConversationStoreTests : IDisposable
         Assert.Equal(["phase", "text", "tool"], events.Select(e => e.Kind));
         Assert.Equal(["""{"phase":"plan"}""", "hello", """{"name":"echo","args":{"x":1}}"""],
             events.Select(e => e.Payload));
-        Assert.True(events[0].Id < events[1].Id && events[1].Id < events[2].Id); // store-assigned seq
+        Assert.Equal([1L, 2L, 3L], events.Select(e => e.Seq)); // per-thread store-assigned seq
     }
 
     [Fact]
@@ -108,5 +108,25 @@ public class ConversationStoreTests : IDisposable
         Assert.Equal("hi", m.Content);  // Content aliases Payload
         Assert.Equal(m.Kind, m.Role);
         Assert.Equal(m.Payload, m.Content);
+    }
+
+    [Fact]
+    public async Task Messages_carry_per_thread_seq_and_optional_metadata()
+    {
+        await _store.CreateThreadAsync("a");
+        await _store.CreateThreadAsync("b");
+        var a1 = await _store.AppendMessageAsync("a", "text", "a-one");
+        var b1 = await _store.AppendMessageAsync("b", "text", "b-one", metadata: """{"tokens":5}""");
+        var a2 = await _store.AppendMessageAsync("a", "text", "a-two");
+
+        Assert.Equal(1L, a1.Seq);
+        Assert.Equal(1L, b1.Seq);   // per-thread: b restarts at 1
+        Assert.Equal(2L, a2.Seq);
+        Assert.True(Guid.TryParse(a1.Id, out _));                       // Id is a GUID handle
+        Assert.Equal(3, new[] { a1.Id, b1.Id, a2.Id }.Distinct().Count()); // globally unique
+
+        var bMsgs = await _store.GetMessagesAsync("b");
+        Assert.Equal("""{"tokens":5}""", bMsgs[0].Metadata);         // per-message metadata round-trips
+        Assert.Null((await _store.GetMessagesAsync("a"))[0].Metadata); // metadata is optional
     }
 }

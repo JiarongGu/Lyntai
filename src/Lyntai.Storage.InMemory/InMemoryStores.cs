@@ -31,7 +31,6 @@ public sealed class InMemoryConversationStore : IConversationStore
     private readonly Lock _lock = new();
     private readonly Dictionary<string, ChatThread> _threads = [];
     private readonly List<ChatMessage> _messages = [];
-    private long _nextId = 1;
 
     public Task<ChatThread> CreateThreadAsync(string id, string? title = null, string? metadata = null, CancellationToken ct = default)
     {
@@ -66,11 +65,13 @@ public sealed class InMemoryConversationStore : IConversationStore
         }
     }
 
-    public Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, CancellationToken ct = default)
+    public Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default)
     {
         lock (_lock)
         {
-            var msg = new ChatMessage(_nextId++, threadId, kind, payload, DateTimeOffset.UtcNow);
+            // Id is a GUID handle; Seq is the 1-based per-thread order (next after the thread's current count)
+            var seq = _messages.Count(m => m.ThreadId == threadId) + 1;
+            var msg = new ChatMessage(Guid.NewGuid().ToString(), threadId, seq, kind, payload, metadata, DateTimeOffset.UtcNow);
             _messages.Add(msg);
             return Task.FromResult(msg);
         }
@@ -80,7 +81,7 @@ public sealed class InMemoryConversationStore : IConversationStore
     {
         lock (_lock)
         {
-            IReadOnlyList<ChatMessage> result = [.. _messages.Where(m => m.ThreadId == threadId).OrderBy(m => m.Id)];
+            IReadOnlyList<ChatMessage> result = [.. _messages.Where(m => m.ThreadId == threadId).OrderBy(m => m.Seq)];
             return Task.FromResult(result);
         }
     }

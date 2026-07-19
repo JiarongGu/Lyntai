@@ -69,7 +69,7 @@ class Lyntai.Storage.Sqlite.SqliteConnectionFactory
     Open() : DbConnection
 class Lyntai.Storage.Sqlite.SqliteConversationStore
     .ctor(IDbConnectionFactory)
-    AppendMessageAsync(String, String, String, CancellationToken=) : Task<ChatMessage>
+    AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
     CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
     DeleteThreadAsync(String, CancellationToken=) : Task
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>

@@ -159,8 +159,10 @@ public interface IKeyValueStore {                  // lyntai_kv: prompt override
     Task SetAsync(string key, string value, CancellationToken ct = default);
     Task DeleteAsync(string key, CancellationToken ct = default);
 }
-public interface IConversationStore { /* threads + a typed event stream per thread — ChatMessage(Kind,Payload),
-                                        Role/Content aliases for plain chat; thread Metadata for app state */ }
+public interface IConversationStore { /* threads + a typed event stream per thread — ChatMessage(GUID Id, per-thread
+                                        Seq, Kind, Payload, Metadata); Role/Content aliases for plain chat. Lyntai OWNS
+                                        the schema; add app info via thread/message Metadata + IConversationEnricher,
+                                        not by owning tables (BYO-impl is the escape hatch). */ }
 public interface IMemoryStore { /* task-scoped learned facts, bounded, fail-open, FTS recall */ }
 public interface IScoreStore { /* persisted scorer results */ }
 public interface ITraceStore { /* run traces + steps */ }

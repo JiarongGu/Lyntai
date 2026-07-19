@@ -2,7 +2,7 @@ static class Lyntai.InMemoryStorageBuilderExtensions
     UseInMemoryStorage(LyntaiBuilder) : LyntaiBuilder
 class Lyntai.Storage.InMemory.InMemoryConversationStore
     .ctor()
-    AppendMessageAsync(String, String, String, CancellationToken=) : Task<ChatMessage>
+    AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
     CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
     DeleteThreadAsync(String, CancellationToken=) : Task
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>

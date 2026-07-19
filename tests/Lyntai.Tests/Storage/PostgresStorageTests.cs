@@ -64,13 +64,17 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         var store = new PostgresConversationStore(pg.Factory);
         var t = Uid();
 
-        await store.CreateThreadAsync(t, "title");
+        await store.CreateThreadAsync(t, "title", metadata: """{"phase":"plan"}""");
         var m1 = await store.AppendMessageAsync(t, "user", "one");
-        var m2 = await store.AppendMessageAsync(t, "assistant", "two");
-        Assert.True(m1.Id < m2.Id); // RETURNING id monotonic
+        var m2 = await store.AppendMessageAsync(t, "assistant", "two", metadata: """{"tokens":7}""");
+        Assert.Equal(1L, m1.Seq);              // per-thread seq
+        Assert.Equal(2L, m2.Seq);
+        Assert.True(Guid.TryParse(m1.Id, out _)); // GUID id handle
 
         var msgs = await store.GetMessagesAsync(t);
         Assert.Equal(["one", "two"], msgs.Select(m => m.Content));
+        Assert.Equal("""{"tokens":7}""", msgs[1].Metadata);                       // per-message metadata
+        Assert.Equal("""{"phase":"plan"}""", (await store.GetThreadAsync(t))!.Metadata); // thread metadata
 
         await store.DeleteThreadAsync(t);
         Assert.Null(await store.GetThreadAsync(t));

@@ -62,6 +62,24 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register an <see cref="Lyntai.Storage.IConversationEnricher"/> into the enricher collection —
+    /// the app's "add additional info" seam. Lyntai owns the conversation store; each registered enricher is
+    /// invoked after a thread/message write to persist the app's own info (in its own store), without
+    /// replacing the store. Add a class + one registration, never a fork.</summary>
+    public LyntaiBuilder AddConversationEnricher<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, Lyntai.Storage.IConversationEnricher
+    {
+        Services.AddSingleton<Lyntai.Storage.IConversationEnricher, T>();
+        return this;
+    }
+
+    /// <summary>Register a conversation enricher built from the service provider.</summary>
+    public LyntaiBuilder AddConversationEnricher(Func<IServiceProvider, Lyntai.Storage.IConversationEnricher> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Register an <see cref="ITool"/> into the tool-loop's tool collection.</summary>
     public LyntaiBuilder AddTool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
         where T : class, ITool

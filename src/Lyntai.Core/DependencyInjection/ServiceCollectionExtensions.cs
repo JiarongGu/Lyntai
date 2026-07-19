@@ -50,6 +50,7 @@ public static class LyntaiServiceCollectionExtensions
         services.AddSingleton(options);
         RegisterLlmFrontDoor(services, builder, options);
         RegisterCortex(services, options);
+        RegisterConversationEnrichment(services);
         RegisterSemanticMemory(services);
         RegisterAgents(services, options);
         RegisterJobs(services, options);
@@ -99,6 +100,27 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetService<IMemoryStore>(), sp.GetService<Lyntai.Memory.ISemanticMemory>(),
             sp.GetService<ILogger<MemoryPromptComposer>>()));
         services.TryAddSingleton<IPairwiseComparer>(sp => new LlmPairwiseComparer(sp.GetRequiredService<ILlmClient>()));
+    }
+
+    /// <summary>When any <see cref="IConversationEnricher"/> is registered, decorate the resolved
+    /// conversation store with <see cref="EnrichingConversationStore"/> so the app's enrichers fire after
+    /// each write — composing over whatever backend (or BYO impl) is registered, without replacing it. No
+    /// enrichers → the plain backend store resolves unwrapped (zero overhead).</summary>
+    private static void RegisterConversationEnrichment(IServiceCollection services)
+    {
+        if (!services.Any(d => d.ServiceType == typeof(IConversationEnricher))) return;
+        // wrap the LAST-registered IConversationStore (the effective backend / BYO impl)
+        var backend = services.LastOrDefault(d => d.ServiceType == typeof(IConversationStore));
+        if (backend is null) return; // no conversation store wired → nothing to enrich
+
+        services.Remove(backend);
+        services.AddSingleton<IConversationStore>(sp =>
+        {
+            var inner = (IConversationStore)(backend.ImplementationInstance
+                ?? backend.ImplementationFactory?.Invoke(sp)
+                ?? ActivatorUtilities.GetServiceOrCreateInstance(sp, backend.ImplementationType!));
+            return new EnrichingConversationStore(inner, sp.GetServices<IConversationEnricher>());
+        });
     }
 
     /// <summary>Semantic memory — wired ONLY when an embedder is registered (AddEmbeddings). Composes the

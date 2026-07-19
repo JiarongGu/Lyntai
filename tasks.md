@@ -691,22 +691,21 @@ app tell Lyntai its prefix.
   - Test: append messages of mixed `Kind` (phase/text/tool) with JSON payloads, read back in seq order;
     thread metadata round-trips; the plain role/content chat path still works.
 
-- [ ] **P3 · App-owned storage: use my own table, don't create unused ones — should-have (adoption)**
-  - Even generic (P2), an adopter with EXISTING tables (`chat_session`/`chat_event`) wants Lyntai's
-    conversation LOGIC over ITS tables, not a duplicate `lyntai_thread`/`lyntai_message`. Two seams, mirror
-    of P1: (a) the app registers its own `IConversationStore` impl (works today — plain `AddSingleton`, later
-    registration wins), and/or (b) **configurable table names** on `SqliteConversationStore` (like P1's
-    configurable key prefix) so the app points Lyntai's SQL at `chat_session`/`chat_event`.
-  - AND the all-or-nothing wiring: `UseSqliteStorage(dbPath)` registers every store and
-    `MigrationRunnerService.MigrateUp` creates ALL ~13 `lyntai_*` tables even when the adopter uses one
-    (Gatherlight uses only `lyntai_score_result`; the other ~12 sit empty). Add **opt-in store selection**
-    (e.g. `UseSqliteStorage(dbPath, stores: Stores.Scoring | Stores.Cortex)` → register + migrate only
-    those), or per-store migrations gated by the selected set; at minimum document the `migrate:false`
-    escape hatch (app owns the schema, creates only the `lyntai_*` tables it uses).
-  - Files: `src/Lyntai.Storage.Sqlite/SqliteStorageBuilderExtensions.cs`, `SqliteConversationStore.cs`,
-    `Migrations/*` + `MigrationRunnerService`.
-  - Test: `UseSqliteStorage(db, stores: Scoring)` → `lyntai_score_result` exists, `lyntai_thread` does NOT;
-    a `SqliteConversationStore` with table names `chat_session`/`chat_event` reads the app's rows.
+- [x] **P3 · App-owned storage — REDESIGNED per the design principle — should-have (adoption)** ✅ done 2026-07-20
+  - **Design correction (user, 2026-07-20):** the original P3 premise (point Lyntai's SQL at the app's OWN
+    `chat_session`/`chat_event` tables via configurable table names) is *wrong* — it makes the ADOPTER manage
+    Lyntai's schema version. The design is: **Lyntai OWNS and manages the LLM storage** (its `lyntai_*` tables
+    + migrations); the app adds ADDITIONAL INFO on top. So:
+    - Delivered the **enrichment** (P2): `ChatMessage` is a superset matching complex event-stream systems
+      (GUID `Id`, per-thread `Seq`, `Kind`, `Payload`, per-message `Metadata`) + thread `Metadata` — so an
+      adopter's existing event table already conforms and there's little schema drift to manage.
+    - Delivered the **`IConversationEnricher`** DI-collection seam (`AddConversationEnricher<T>`): add your
+      own info via a focused interface, invoked after each write — NOT by forking the store.
+    - Kept the **BYO-impl** escape hatch: an app can register its own `IConversationStore`/`IKeyValueStore`
+      impl for a genuinely custom backend (wins via `TryAdd` — see R1). `migrate:false` still lets an app own
+      the schema entirely.
+    - **Dropped** the configurable-table-names work (contrary to the design) and the opt-in store-selection /
+      selective-migration idea (unused empty `lyntai_*` tables are cheap; app-owned tables are the BYO path).
 
 ### Not a gap (recorded)
 `IKeyValueStore` (logic-backed) and the pure-storage interfaces (`IConversationStore`, `IMemoryStore`, …)

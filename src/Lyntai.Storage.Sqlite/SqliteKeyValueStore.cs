@@ -2,6 +2,9 @@ using Dapper;
 
 namespace Lyntai.Storage.Sqlite;
 
+/// <summary>KV store over Lyntai's own <c>lyntai_kv</c> table (Lyntai manages the schema). An app that needs
+/// its own backend registers its own <see cref="IKeyValueStore"/> impl instead (it wins over the default —
+/// the domain stores register with <c>TryAdd</c>).</summary>
 public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IKeyValueStore
 {
     public async Task<string?> GetAsync(string key, CancellationToken ct = default)

@@ -10,7 +10,10 @@ namespace Lyntai;
 public static class SqliteStorageBuilderExtensions
 {
     /// <summary>Wire every storage domain to SQLite at <paramref name="dbPath"/>: registers the
-    /// connection factory + all six stores.
+    /// connection factory + all stores over Lyntai's own <c>lyntai_*</c> tables. Lyntai OWNS the LLM storage
+    /// schema; an app attaches its own additional info via the record <c>metadata</c> fields rather than by
+    /// managing tables. An app that genuinely needs its own backend registers its own domain-store impl
+    /// (it wins — the domain stores register with <c>TryAdd</c>).
     /// <para><paramref name="migrateOnFirstUse"/> defers migrations to the first store access so DI
     /// composition does no I/O (AOT/startup-sensitive hosts, container health checks).</para>
     /// <para><paramref name="migrate"/>=false makes the APP own the schema — Lyntai runs no migrations,

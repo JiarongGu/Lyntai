@@ -27,15 +27,29 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 ### Changed
 - **Generic typed-event conversation store (Part 7 · P2)** — a conversation is now modelled as a typed
   multi-kind event stream (text / tool-call / tool-result / usage / thinking / phase / error), not only
-  role/text chat turns — so an agent transcript or a tool-loop run can persist through the same surface,
-  and an adopter's typed event log fits without a bespoke schema. `ChatMessage` gains `Kind` (event type;
-  a role for a plain chat turn) and `Payload` (event body; text or JSON), keeping `Role`/`Content` as
-  read-only aliases for the chat shape. `ChatThread` gains optional opaque `Metadata` (thread-level JSON
-  state) with `IConversationStore.SetThreadMetadataAsync` to update it and a `metadata` arg on
-  `CreateThreadAsync`. **Breaking (pre-1.0):** the message columns are renamed `role`→`kind`,
-  `content`→`payload` and a `metadata` column added to threads (migrations edited in-place, pre-release —
-  no data migration); `AppendMessageAsync`'s parameters are renamed `role`/`content`→`kind`/`payload`
-  (signature unchanged). Implemented across all three backends (SQLite / InMemory / Postgres).
+  role/text chat turns — so an agent transcript or a tool-loop run persists through the same surface, and a
+  complex external event log fits without a bespoke schema. The enriched `ChatMessage` is
+  `(Id, ThreadId, Seq, Kind, Payload, Metadata, CreatedAt)`: `Id` is a store-generated **GUID** handle;
+  `Seq` is the **1-based per-thread** sequence (external event-stream schemas key on `(thread_id, seq)`);
+  `Kind` is the event/message type (a role for a plain chat turn; `Role`/`Content` kept as read-only chat
+  aliases); `Payload` the body (text or JSON); `Metadata` optional **per-message** JSON. `ChatThread` gains
+  optional opaque `Metadata` (thread-level JSON state) with `IConversationStore.SetThreadMetadataAsync` +
+  a `metadata` arg on `CreateThreadAsync`. **Add your own additional info without forking the store** via a
+  new `IConversationEnricher` DI collection (`AddConversationEnricher<T>` / factory) — Lyntai owns the LLM
+  storage, and each registered enricher is invoked after a thread/message write to persist the app's own
+  info in its own store (auto-wired by `EnrichingConversationStore` only when an enricher is registered).
+  **Breaking (pre-1.0):** `ChatMessage.Id` changes `long`→`string` (GUID); message columns become
+  `id(TEXT)/thread_id/seq/kind/payload/metadata/created_at` (was `id(INTEGER)/thread_id/role/content/
+  created_at`); threads gain a `metadata` column; the message index is now `UNIQUE(thread_id, seq)`
+  (migrations edited in-place, pre-release — no data migration). `AppendMessageAsync` is
+  `(threadId, kind, payload, metadata=null, ct)` (the store assigns Id + Seq). All three backends
+  (SQLite / InMemory / Postgres).
+- **App-owned storage direction (Part 7 · P3)** — settled the design: **Lyntai owns and manages the LLM
+  storage schema** (its `lyntai_*` tables + migrations); an app adds its ADDITIONAL INFO via the record
+  `metadata` fields and the `IConversationEnricher` seam (above), rather than pointing Lyntai at its own
+  tables (which would force the app to manage schema versions). An app that genuinely needs its own backend
+  still registers its own domain-store impl (a full BYO — see the `TryAdd` registration change). The
+  earlier "configurable table names" direction was dropped as contrary to this.
 - **App-owned cortex KV (Part 7 · P1)** — the cortex KV key namespaces are now configurable, so an app can
   point Lyntai's prompt/model overrides straight at its OWN existing keys — no prefix-translating shim, no
   duplicated rows. `PromptRegistry` and `KeyValueModelRoutingStore` take an optional `keyPrefix` ctor

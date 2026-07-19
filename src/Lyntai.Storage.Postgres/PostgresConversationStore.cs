@@ -39,23 +39,29 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
             new { id, metadata }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    public async Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, CancellationToken ct = default)
+    public async Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default)
     {
+        // Id is a store-assigned GUID handle; Seq is the 1-based per-thread order. The UNIQUE(thread_id, seq)
+        // index rejects a duplicate if two writers race the MAX(seq)+1 subquery (single-writer-per-thread is
+        // the normal case; a rare concurrent append surfaces as a unique violation to retry).
+        var id = Guid.NewGuid().ToString();
         var createdAt = DateTimeOffset.UtcNow;
         using var conn = factory.Open();
-        var id = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
-            INSERT INTO lyntai_message (thread_id, kind, payload, created_at) VALUES (@threadId, @kind, @payload, @createdAt)
-            RETURNING id
-            """, new { threadId, kind, payload, createdAt }, cancellationToken: ct)).ConfigureAwait(false);
-        return new ChatMessage(id, threadId, kind, payload, createdAt);
+        var seq = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
+            INSERT INTO lyntai_message (id, thread_id, seq, kind, payload, metadata, created_at)
+            VALUES (@id, @threadId, (SELECT COALESCE(MAX(seq), 0) + 1 FROM lyntai_message WHERE thread_id = @threadId),
+                    @kind, @payload, @metadata, @createdAt)
+            RETURNING seq
+            """, new { id, threadId, kind, payload, metadata, createdAt }, cancellationToken: ct)).ConfigureAwait(false);
+        return new ChatMessage(id, threadId, seq, kind, payload, metadata, createdAt);
     }
 
     public async Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default)
     {
         using var conn = factory.Open();
         var rows = await conn.QueryAsync<ChatMessage>(new CommandDefinition("""
-            SELECT id AS Id, thread_id AS ThreadId, kind AS Kind, payload AS Payload, created_at AS CreatedAt
-            FROM lyntai_message WHERE thread_id = @threadId ORDER BY id
+            SELECT id AS Id, thread_id AS ThreadId, seq AS Seq, kind AS Kind, payload AS Payload, metadata AS Metadata, created_at AS CreatedAt
+            FROM lyntai_message WHERE thread_id = @threadId ORDER BY seq
             """, new { threadId }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }

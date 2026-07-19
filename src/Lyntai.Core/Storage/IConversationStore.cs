@@ -6,11 +6,18 @@ namespace Lyntai.Storage;
 public sealed record ChatThread(string Id, string? Title, DateTimeOffset CreatedAt, string? Metadata = null);
 
 /// <summary>One event in a thread's stream. A conversation is, in general, a typed multi-kind event stream
-/// (text / tool-call / tool-result / usage / thinking / phase / error), not only role/text chat turns —
-/// so <paramref name="Kind"/> is a free-form event type (chat uses a role: user/assistant/system/tool) and
-/// <paramref name="Payload"/> is the event body (chat uses the message text; richer events carry JSON).
-/// <paramref name="Id"/> is the store-assigned sequence.</summary>
-public sealed record ChatMessage(long Id, string ThreadId, string Kind, string Payload, DateTimeOffset CreatedAt)
+/// (text / tool-call / tool-result / usage / thinking / phase / error), not only role/text chat turns.
+/// <list type="bullet">
+/// <item><paramref name="Id"/> — a globally-unique GUID handle (store-generated).</item>
+/// <item><paramref name="Seq"/> — the 1-based sequence WITHIN the thread; events order by this (external
+/// event-stream schemas key on <c>(thread_id, seq)</c>).</item>
+/// <item><paramref name="Kind"/> — the event type / message type (chat uses a role: user/assistant/
+/// system/tool; richer streams use text/tool-call/tool-result/usage/thinking/phase/error).</item>
+/// <item><paramref name="Payload"/> — the event body (chat uses the message text; richer events carry JSON).</item>
+/// <item><paramref name="Metadata"/> — optional per-event structured metadata (JSON — usage, model, …).</item>
+/// </list></summary>
+public sealed record ChatMessage(
+    string Id, string ThreadId, long Seq, string Kind, string Payload, string? Metadata, DateTimeOffset CreatedAt)
 {
     /// <summary>Chat-turn alias for <see cref="Kind"/> (user/assistant/system) — the plain chat shape.</summary>
     public string Role => Kind;
@@ -37,11 +44,30 @@ public interface IConversationStore
     Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default);
 
     /// <summary>Append an event to a thread. <paramref name="kind"/> is the event type (a role for a plain
-    /// chat turn); <paramref name="payload"/> is the body (text, or JSON for a richer event).</summary>
-    Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, CancellationToken ct = default);
+    /// chat turn); <paramref name="payload"/> is the body (text, or JSON for a richer event);
+    /// <paramref name="metadata"/> is optional per-event JSON. The store assigns a GUID <c>Id</c> and the
+    /// next per-thread <c>Seq</c>.</summary>
+    Task<ChatMessage> AppendMessageAsync(string threadId, string kind, string payload, string? metadata = null, CancellationToken ct = default);
 
     /// <summary>Events of a thread in append (sequence) order.</summary>
     Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default);
 
     Task DeleteThreadAsync(string id, CancellationToken ct = default);
+}
+
+/// <summary>Contributes app-specific ADDITIONAL INFO to a conversation WITHOUT owning the store — Lyntai
+/// manages the LLM storage; the app attaches its own info. Register with <c>AddConversationEnricher</c>
+/// (a DI collection — add a class + one registration, never a fork); the store invokes every registered
+/// enricher AFTER the core row is persisted, so the passed record carries its store-assigned Id/Seq.
+/// Persist your info in your OWN store (keyed by the record's Id / thread id). An enricher that throws
+/// surfaces to the caller — the core row is already stored — so catch inside for best-effort. Implement
+/// only the hook(s) you need (both default to no-op).</summary>
+public interface IConversationEnricher
+{
+    /// <summary>Invoked after a thread is created (with its persisted <see cref="ChatThread"/>).</summary>
+    Task OnThreadCreatedAsync(ChatThread thread, CancellationToken ct = default) => Task.CompletedTask;
+
+    /// <summary>Invoked after a message is appended (with its persisted <see cref="ChatMessage"/> —
+    /// store-assigned Id + per-thread Seq).</summary>
+    Task OnMessageAppendedAsync(ChatMessage message, CancellationToken ct = default) => Task.CompletedTask;
 }
