@@ -794,7 +794,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
 - [x] **R12 · `IDbConnectionFactory.Open()` is sync-only** (sustainable) ✅ done 2026-07-20 — added `OpenAsync(ct)` as a default-interface method (delegates to `Open()`, non-breaking) with genuine async overrides in the SQLite + Postgres factories. Original: — every store blocks a threadpool
   thread on connect (esp. Postgres network+pool). Add `Task<DbConnection> OpenAsync(ct)` to the interface NOW
   (default over `Open()`) — the one interface change that's expensive to make post-publish.
-- [ ] **R13 · Unwrapped DEK never zeroized** (sustainable — crypto) — `EnvelopeSecretVault` (`Create`/
+- [x] **R13 · Unwrapped DEK never zeroized** (sustainable — crypto) ✅ done 2026-07-20 — `EnvelopeSecretVault.BuildInner` now `CryptographicOperations.ZeroMemory`s the unwrapped DEK after the protector clones it (single choke point covering Generate/Recover/Initialize). Original: — `EnvelopeSecretVault` (`Create`/
   `UnwrapWithMachine`/`UnwrapWithRecoveryKey`) hands the DEK to `AesGcmSecretProtector` (which clones it) and
   never `ZeroMemory`s the original; the transient recovery KEK IS scrubbed but the longer-lived master DEK is
   not. Zero it after building the inner protector; consider making the protector disposable.

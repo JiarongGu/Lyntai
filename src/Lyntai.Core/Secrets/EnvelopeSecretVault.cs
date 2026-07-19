@@ -115,6 +115,14 @@ public sealed class EnvelopeSecretVault(
         return SecretKeyEnvelope.FromJson(json);
     }
 
-    private KeyValueSecretVault BuildInner(byte[] dek) =>
-        new(kv, new AesGcmSecretProtector(dek), policy);
+    private KeyValueSecretVault BuildInner(byte[] dek)
+    {
+        // AesGcmSecretProtector CLONES the DEK, so our unwrapped copy is now redundant — scrub it rather
+        // than leave the plaintext master key lingering on the managed heap until GC (the transient recovery
+        // KEK is already zeroed inside the envelope; this closes the same window for the DEK). Every unwrap
+        // path (Generate/Recover/EnsureInitialized) funnels through here, so this covers all of them.
+        var inner = new KeyValueSecretVault(kv, new AesGcmSecretProtector(dek), policy);
+        CryptographicOperations.ZeroMemory(dek);
+        return inner;
+    }
 }

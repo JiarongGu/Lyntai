@@ -87,6 +87,11 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   now emit it for the deferred stream-native-tool-calls case.
 
 ### Fixed
+- **Envelope vault zeroizes the unwrapped DEK (Part 8 · R13, crypto)** — `EnvelopeSecretVault` unwrapped the
+  master DEK and handed it to `AesGcmSecretProtector` (which clones it) but never scrubbed its own copy, so
+  the plaintext key lingered on the managed heap until GC (the transient recovery KEK was already zeroed —
+  this closes the same window for the longer-lived DEK). It now `CryptographicOperations.ZeroMemory`s the
+  DEK at the single `BuildInner` choke point every unwrap path funnels through.
 - **Verdict classifier: extensible + reaches `ContextWindowExceeded` on typed exceptions (Part 8 · R8)** —
   `LlmVerdictClassifier.FromException` now scans the full inner-exception chain, so a typed provider
   exception (e.g. an MEAI "prompt too long") that wraps the real detail in an inner exception classifies as
