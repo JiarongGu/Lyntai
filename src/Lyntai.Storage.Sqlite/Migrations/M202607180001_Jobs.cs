@@ -34,11 +34,14 @@ public sealed class M202607180001_Jobs : Migration
                 progress INTEGER NOT NULL DEFAULT 0,
                 total INTEGER NOT NULL DEFAULT 0,
                 stage TEXT NULL,
-                step_log TEXT NULL
+                step_log TEXT NULL,
+                partition_key TEXT NULL
             )
             """);
         // the claim picks by (lane, status, priority DESC, available_at); this index serves it
         Execute.Sql("CREATE INDEX ix_lyntai_job_claim ON lyntai_job(lane, status, priority DESC, available_at)");
+        // the partition guard's self-referencing subqueries key on (lane, partition_key); this serves them
+        Execute.Sql("CREATE INDEX ix_lyntai_job_partition ON lyntai_job(lane, partition_key)");
     }
 
     public override void Down()

@@ -507,7 +507,7 @@ interface Lyntai.Jobs.IJobHandlerRegistry
 interface Lyntai.Jobs.IJobQueue
     CancelAsync(Guid, CancellationToken=) : Task<Boolean>
     EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
-    EnqueueAsync(String, String, String, Int32=, CancellationToken=) : Task<Guid>
+    EnqueueAsync(String, String, String, Int32=, String=, CancellationToken=) : Task<Guid>
     ListDeadAsync(String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
     PauseAsync(Guid, CancellationToken=) : Task<Boolean>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
@@ -566,13 +566,13 @@ class Lyntai.Jobs.JobQueue
     .ctor(IJobStore, LyntaiOptions)
     CancelAsync(Guid, CancellationToken=) : Task<Boolean>
     EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
-    EnqueueAsync(String, String, String, Int32=, CancellationToken=) : Task<Guid>
+    EnqueueAsync(String, String, String, Int32=, String=, CancellationToken=) : Task<Guid>
     ListDeadAsync(String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
     PauseAsync(Guid, CancellationToken=) : Task<Boolean>
     ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
     ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
 class Lyntai.Jobs.JobRecord
-    .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset, Int32=, Boolean=, Int32=, Int32=, String=, String=)
+    .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset, Int32=, Boolean=, Int32=, Int32=, String=, String=, String=)
     Attempts : Int32
     AvailableAt : DateTimeOffset
     CancelRequested : Boolean
@@ -580,7 +580,7 @@ class Lyntai.Jobs.JobRecord
     ClaimedAt : Nullable<DateTimeOffset>
     ClaimedBy : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Guid&, String&, String&, String&, JobStatus&, String&, Int32&, Int32&, String&, DateTimeOffset&, Nullable`1&, String&, DateTimeOffset&, DateTimeOffset&, Int32&, Boolean&, Int32&, Int32&, String&, String&) : Void
+    Deconstruct(Guid&, String&, String&, String&, JobStatus&, String&, Int32&, Int32&, String&, DateTimeOffset&, Nullable`1&, String&, DateTimeOffset&, DateTimeOffset&, Int32&, Boolean&, Int32&, Int32&, String&, String&, String&) : Void
     Equals(JobRecord) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
@@ -588,6 +588,7 @@ class Lyntai.Jobs.JobRecord
     Lane : String
     LastError : String
     MaxAttempts : Int32
+    PartitionKey : String
     Payload : String
     Priority : Int32
     Progress : Int32
@@ -621,14 +622,15 @@ class Lyntai.Jobs.JobScheduler
     RunAsync(CancellationToken=) : Task
     TickAsync(CancellationToken=) : Task<Int32>
 class Lyntai.Jobs.JobSpec
-    .ctor(String, String, String, Nullable<Int32>=, Nullable<DateTimeOffset>=, Int32=)
+    .ctor(String, String, String, Nullable<Int32>=, Nullable<DateTimeOffset>=, Int32=, String=)
     AvailableAt : Nullable<DateTimeOffset>
-    Deconstruct(String&, String&, String&, Nullable`1&, Nullable`1&, Int32&) : Void
+    Deconstruct(String&, String&, String&, Nullable`1&, Nullable`1&, Int32&, String&) : Void
     Equals(JobSpec) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
     Lane : String
     MaxAttempts : Nullable<Int32>
+    PartitionKey : String
     Payload : String
     Priority : Int32
     ToString() : String

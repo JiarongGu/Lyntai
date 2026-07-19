@@ -36,14 +36,19 @@ public enum JobStatus
 /// <paramref name="Type"/> (dispatches to the matching <see cref="IJobHandler"/>), and the
 /// <paramref name="Payload"/> (JSON the handler reads). <paramref name="MaxAttempts"/> bounds retries;
 /// <paramref name="AvailableAt"/> delays first execution (null = immediately). <paramref name="Priority"/>
-/// orders the claim within a lane — HIGHER runs first (default 0), then oldest-available, then FIFO.</summary>
+/// orders the claim within a lane — HIGHER runs first (default 0), then oldest-available, then FIFO.
+/// <paramref name="PartitionKey"/> (null = unpartitioned, the default) turns a set of jobs sharing a
+/// <c>(lane, key)</c> into an actor mailbox: at most one such job runs at a time and they run in strict
+/// FIFO order (priority is IGNORED WITHIN a partition); jobs with different keys (or no key) still run in
+/// parallel up to the lane's concurrency.</summary>
 public sealed record JobSpec(
     string Lane,
     string Type,
     string Payload,
     int? MaxAttempts = null,
     DateTimeOffset? AvailableAt = null,
-    int Priority = 0);
+    int Priority = 0,
+    string? PartitionKey = null);
 
 /// <summary>A persisted job row, as returned by a claim. <paramref name="Checkpoint"/> is the last
 /// progress the handler saved (null on the first run, non-null on a resume). <paramref name="Progress"/>/
@@ -70,4 +75,5 @@ public sealed record JobRecord(
     int Progress = 0,
     int Total = 0,
     string? Stage = null,
-    string? StepLog = null);
+    string? StepLog = null,
+    string? PartitionKey = null);

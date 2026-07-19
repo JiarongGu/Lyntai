@@ -902,6 +902,29 @@ tables" direction).
 
 ---
 
+## Part 10 — Actor/mailbox model for durable jobs (2026-07-20)
+
+- [x] **A1 · Ordered single-owner-per-key durable jobs (actor mailboxes) — should-have** ✅ done 2026-07-20 —
+  `JobSpec`/`IJobQueue.EnqueueAsync` gain an optional `partitionKey`. Jobs sharing a `(lane, partitionKey)`
+  run **one-at-a-time in FIFO (enqueue) order** — an actor mailbox — while distinct keys run in parallel up
+  to the lane's `MaxConcurrency`. Built on the EXISTING durable persistence + atomic claim + crash-resume
+  (no new pump, no new state machine): the actor guarantee is a claim-time predicate, so a crashed owner's
+  stale lease is *reclaimed* (keeps its slot) rather than skipped, and priority still orders *across*
+  partitions but is ignored *within* one (FIFO wins). `partitionKey = null` = unchanged behavior.
+  - **Claim guard (all 3 backends):** a candidate with a non-null key is claimable only if no OTHER live-leased
+    `Running` sibling of the partition exists (one-at-a-time); a `Pending` candidate additionally requires NO
+    `Running` sibling at all (a stale Running must be reclaimed first) AND must be the earliest available
+    `Pending` of the partition (FIFO, `available_at` then ordinal id). SQLite/Postgres express this as
+    `NOT EXISTS` subqueries inside the atomic claim (`FOR UPDATE SKIP LOCKED` on pg); InMemory mirrors it in
+    `PartitionClaimable`. New index `ix_lyntai_job_partition(lane, partition_key)`.
+  - **Schema:** `partition_key TEXT NULL` folded into the existing `M202607180001_Jobs` migration (pre-release
+    merge policy — no new numbered migration).
+  - Verified on InMemory, SQLite, and **live Postgres** (Docker): 4 new `JobStoreContract` tests run across all
+    three backends — same-partition serialize+FIFO, different-partitions parallel, priority-across/FIFO-within,
+    stale-Running reclaimed-before-later-Pending. 832 pass / 0 fail / 0 skip.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

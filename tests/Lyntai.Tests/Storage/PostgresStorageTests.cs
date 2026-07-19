@@ -356,4 +356,23 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         var messages = JobStepLog.Parse((await store.GetAsync(id))!.StepLog).Select(s => s.Message).ToList();
         Assert.Equal(n, messages.Count);
     }
+
+    // ---- partition keys (actor-mailbox) — run the shared JobStoreContract methods against Postgres over
+    // the shared container, each namespaced to a UNIQUE lane (Uid()) so the FIFO/one-at-a-time guard is
+    // exercised on the SKIP-LOCKED claim path in isolation from the other tests' rows.
+
+    [SkippableFact] public Task Job_partition_serial_fifo() => JobPg(JobStoreContract.Same_partition_serializes_and_is_fifo);
+    [SkippableFact] public Task Job_partitions_parallel() => JobPg(JobStoreContract.Different_partitions_run_in_parallel);
+    [SkippableFact] public Task Job_partition_priority_ignored_within() => JobPg(JobStoreContract.Priority_is_ignored_within_a_partition_but_honored_across);
+    [SkippableFact] public Task Job_partition_stale_reclaim_keeps_position() => JobPg(JobStoreContract.Stale_partition_running_is_reclaimed_before_later_pending);
+
+    /// <summary>Skip-guarded runner for a partition contract method — builds the store over a shared
+    /// MutableClock (the FIFO scenarios advance it between enqueues, the reclaim scenario advances past the
+    /// lease) and passes a UNIQUE lane (Uid()) so it coexists with the other tests on the shared container.</summary>
+    private async Task JobPg(Func<IJobStore, MutableClock, string, Task> body)
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var clock = new MutableClock();
+        await body(new PostgresJobStore(pg.Factory, clock.Get), clock, Uid());
+    }
 }

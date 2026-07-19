@@ -9,8 +9,9 @@ public interface IJobQueue
     Task<Guid> EnqueueAsync(JobSpec spec, CancellationToken ct = default);
 
     /// <summary>Convenience overload — enqueue with default attempts, immediately available, at
-    /// <paramref name="priority"/> (higher runs first within the lane).</summary>
-    Task<Guid> EnqueueAsync(string lane, string type, string payload, int priority = 0, CancellationToken ct = default);
+    /// <paramref name="priority"/> (higher runs first within the lane). <paramref name="partitionKey"/>
+    /// (null = unpartitioned) serializes jobs sharing a <c>(lane, key)</c> into a FIFO actor mailbox.</summary>
+    Task<Guid> EnqueueAsync(string lane, string type, string payload, int priority = 0, string? partitionKey = null, CancellationToken ct = default);
 
     /// <summary>The dead-letter queue: jobs that exhausted their retries (<see cref="JobStatus.Dead"/>),
     /// newest first, for inspection.</summary>
@@ -42,8 +43,8 @@ public sealed class JobQueue(IJobStore? store, LyntaiOptions options) : IJobQueu
     public Task<Guid> EnqueueAsync(JobSpec spec, CancellationToken ct = default) =>
         _store.EnqueueAsync(spec with { MaxAttempts = spec.MaxAttempts ?? options.Jobs.DefaultMaxAttempts }, ct);
 
-    public Task<Guid> EnqueueAsync(string lane, string type, string payload, int priority = 0, CancellationToken ct = default) =>
-        EnqueueAsync(new JobSpec(lane, type, payload, Priority: priority), ct);
+    public Task<Guid> EnqueueAsync(string lane, string type, string payload, int priority = 0, string? partitionKey = null, CancellationToken ct = default) =>
+        EnqueueAsync(new JobSpec(lane, type, payload, Priority: priority, PartitionKey: partitionKey), ct);
 
     public Task<IReadOnlyList<JobRecord>> ListDeadAsync(string? lane = null, int limit = 100, CancellationToken ct = default) =>
         _store.ListAsync(JobStatus.Dead, lane, limit, ct);

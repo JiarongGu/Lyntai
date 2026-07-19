@@ -71,7 +71,7 @@ public sealed class JobScheduler(
                 }
                 if (next.Value > now) continue; // not due yet
 
-                await queue.EnqueueAsync(s.Lane, s.Type, s.Payload, s.Priority, ct).ConfigureAwait(false);
+                await queue.EnqueueAsync(s.Lane, s.Type, s.Payload, s.Priority, ct: ct).ConfigureAwait(false);
                 enqueued++;
                 _logger.LogDebug("scheduler: enqueued '{Name}' ({Type})", s.Name, s.Type);
 

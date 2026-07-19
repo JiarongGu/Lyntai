@@ -90,6 +90,14 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **Durable-job partition keys — actor mailboxes (Part 10 · A1)** — `JobSpec`/`EnqueueAsync` gain an optional
+  `partitionKey`: jobs sharing a `(lane, partitionKey)` run **one-at-a-time in FIFO (enqueue) order** (an
+  actor mailbox), while different keys run in parallel up to the lane's concurrency. Enforced in the atomic
+  claim on all three backends (a candidate with a partition is claimable only if no live-leased Running
+  sibling exists; a Pending one additionally requires no Running sibling at all — a stale/crashed Running is
+  *reclaimed* first, keeping its slot — and must be the earliest available Pending of the partition; priority
+  still orders across partitions). `partitionKey = null` is unchanged behavior. Verified on InMemory, SQLite,
+  and Postgres (live container). Builds on the existing durable persistence + atomic claim + crash-resume.
 - **Storage feature toggles (Part 9 · F1)** — every storage domain is individually enable/disable-able via a
   `[Flags] StorageFeature` (KeyValue / Conversation / Memory / Score / Trace / PromptVersion / Jobs /
   Governance / CuratedMemory / All): `UseSqliteStorage(path, StorageFeature.Score | …)` /

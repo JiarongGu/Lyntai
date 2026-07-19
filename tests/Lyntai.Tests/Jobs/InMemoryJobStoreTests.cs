@@ -32,4 +32,8 @@ public class InMemoryJobStoreTests
     [Fact] public async Task Pause_pending_only() { var (s, c) = New(); await JobStoreContract.Pause_only_affects_a_pending_job(s, c); }
     [Fact] public async Task Progress_and_steps() { var (s, c) = New(); await JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced(s, c); }
     [Fact] public async Task Concurrent_steps() { var (s, c) = New(); await JobStoreContract.Concurrent_step_reports_all_land(s, c); }
+    [Fact] public async Task Partition_serial_fifo() { var (s, c) = New(); await JobStoreContract.Same_partition_serializes_and_is_fifo(s, c); }
+    [Fact] public async Task Partitions_parallel() { var (s, c) = New(); await JobStoreContract.Different_partitions_run_in_parallel(s, c); }
+    [Fact] public async Task Partition_priority_ignored_within() { var (s, c) = New(); await JobStoreContract.Priority_is_ignored_within_a_partition_but_honored_across(s, c); }
+    [Fact] public async Task Partition_stale_reclaim_keeps_position() { var (s, c) = New(); await JobStoreContract.Stale_partition_running_is_reclaimed_before_later_pending(s, c); }
 }

@@ -18,7 +18,7 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         var rec = new JobRecord(id, spec.Lane, spec.Type, spec.Payload, JobStatus.Pending, Checkpoint: null,
             Attempts: 0, MaxAttempts: spec.MaxAttempts ?? 3, LastError: null,
             AvailableAt: spec.AvailableAt ?? now, ClaimedAt: null, ClaimedBy: null, CreatedAt: now, UpdatedAt: now,
-            Priority: spec.Priority);
+            Priority: spec.Priority, PartitionKey: spec.PartitionKey);
         lock (_lock) _jobs[id] = rec;
         return Task.FromResult(id);
     }
@@ -33,6 +33,7 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
                 .Where(j => j.Lane == lane &&
                     ((j.Status == JobStatus.Pending && j.AvailableAt <= now) ||
                      (j.Status == JobStatus.Running && j.ClaimedAt is { } ca && ca < staleBefore)))
+                .Where(j => PartitionClaimable(j, lane, now, staleBefore)) // actor-mailbox FIFO guard
                 // tiebreak by id to match the SQL stores' `ORDER BY … available_at, id` (id is a TEXT
                 // Guid there, so compare the string form ordinally, not the Guid's own byte order)
                 .OrderByDescending(j => j.Priority).ThenBy(j => j.AvailableAt)
@@ -225,6 +226,37 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
             ];
             return Task.FromResult(result);
         }
+    }
+
+    // Partition (actor-mailbox) guard — mirrors the SQL stores' NOT EXISTS subqueries. A candidate with a
+    // NULL partition_key is unguarded (current semantics). For a non-null key P within (lane, P):
+    //   - one-at-a-time: no OTHER live-leased Running of P may exist;
+    //   - a Pending candidate must additionally see NO Running of P at all (a stale Running must be RECLAIMED
+    //     first, not skipped) AND be the EARLIEST available Pending of P (FIFO, ignoring priority);
+    //   - a stale-Running candidate (reclaim) is subject only to the one-at-a-time guard — it keeps its slot.
+    // Must be called under _lock.
+    private bool PartitionClaimable(JobRecord j, string lane, DateTimeOffset now, DateTimeOffset staleBefore)
+    {
+        if (j.PartitionKey is not { } key) return true; // unpartitioned → no guard
+
+        var peers = _jobs.Values.Where(p => p.Lane == lane && p.PartitionKey == key).ToList();
+
+        // one-at-a-time: no OTHER job of the partition is Running with a live lease
+        if (peers.Any(p => p.Id != j.Id && p.Status == JobStatus.Running && p.ClaimedAt is { } ca && ca >= staleBefore))
+            return false;
+
+        if (j.Status == JobStatus.Pending)
+        {
+            // a stale Running of the partition must be reclaimed first — a Pending can't jump it
+            if (peers.Any(p => p.Status == JobStatus.Running)) return false;
+            // FIFO within the partition: no earlier available Pending of the partition exists
+            if (peers.Any(p => p.Id != j.Id && p.Status == JobStatus.Pending && p.AvailableAt <= now &&
+                    (p.AvailableAt < j.AvailableAt ||
+                     (p.AvailableAt == j.AvailableAt && string.CompareOrdinal(p.Id.ToString(), j.Id.ToString()) < 0))))
+                return false;
+        }
+        // else: a stale Running candidate (reclaim) — only the one-at-a-time guard above applied
+        return true;
     }
 
     // fencing: a mutating write only lands if THIS worker still holds the Running claim

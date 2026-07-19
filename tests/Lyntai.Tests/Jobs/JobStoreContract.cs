@@ -287,4 +287,101 @@ public static class JobStoreContract
         Assert.True(await store.CancelRunningAsync(id, "w1"));
         Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
     }
+
+    // ---- partition keys (actor-mailbox: same key serial+FIFO, different keys parallel) ----------------
+    // Parameterized by `lane` so the Postgres backend can namespace each run to a unique lane on its shared
+    // container (partition keys are also namespaced off the lane string for the same reason). FIFO within a
+    // partition is `ORDER BY available_at, id` — so these tests advance the clock a tick between enqueues to
+    // make each job's available_at strictly earlier than the next (a real, order-independent FIFO), matching
+    // how the store defines "earliest" (see Same_tick_same_priority_claims_in_id_order for the same-tick case).
+    private static readonly TimeSpan Tick = TimeSpan.FromSeconds(1);
+
+    public static async Task Same_partition_serializes_and_is_fifo(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var p = lane + "-P";
+        // enqueue J1, J2, J3 in strict FIFO order on ONE lane with the SAME partition key
+        var j1 = await store.EnqueueAsync(new JobSpec(lane, "t", "1", PartitionKey: p));
+        clock.Advance(Tick);
+        var j2 = await store.EnqueueAsync(new JobSpec(lane, "t", "2", PartitionKey: p));
+        clock.Advance(Tick);
+        var j3 = await store.EnqueueAsync(new JobSpec(lane, "t", "3", PartitionKey: p));
+
+        // first claim → J1 (earliest of the partition)
+        var first = await store.ClaimNextAsync(lane, "w1", Lease);
+        Assert.Equal(j1, first!.Id);
+
+        // a SECOND worker claiming while J1 is Running → null: the partition is busy, J2/J3 are blocked
+        Assert.Null(await store.ClaimNextAsync(lane, "w2", Lease));
+
+        // complete J1 → the partition frees; next claim returns J2 (strictly, not J3)
+        Assert.True(await store.CompleteAsync(j1, "w1"));
+        var second = await store.ClaimNextAsync(lane, "w2", Lease);
+        Assert.Equal(j2, second!.Id);
+        Assert.Null(await store.ClaimNextAsync(lane, "w3", Lease)); // J3 still blocked behind J2
+
+        // and finally J3 after J2 completes
+        Assert.True(await store.CompleteAsync(j2, "w2"));
+        Assert.Equal(j3, (await store.ClaimNextAsync(lane, "w3", Lease))!.Id);
+    }
+
+    public static async Task Different_partitions_run_in_parallel(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        // two jobs on ONE lane with DIFFERENT partition keys — they must not block each other
+        var a = await store.EnqueueAsync(new JobSpec(lane, "t", "a", PartitionKey: lane + "-A"));
+        var b = await store.EnqueueAsync(new JobSpec(lane, "t", "b", PartitionKey: lane + "-B"));
+
+        var first = await store.ClaimNextAsync(lane, "w1", Lease);
+        var second = await store.ClaimNextAsync(lane, "w2", Lease); // different key → still claimable
+
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        Assert.Equal([a, b], new[] { first!.Id, second!.Id }.OrderBy(x => x == a ? 0 : 1)); // both, distinct
+        Assert.NotEqual(first.Id, second.Id);
+    }
+
+    public static async Task Priority_is_ignored_within_a_partition_but_honored_across(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var p = lane + "-P";
+        // WITHIN the partition: J1 enqueued first at low priority, J2 second at HIGH priority. FIFO wins —
+        // J2 must NOT jump ahead of J1 despite its higher priority.
+        var j1 = await store.EnqueueAsync(new JobSpec(lane, "t", "1", Priority: 1, PartitionKey: p));
+        clock.Advance(Tick);
+        var j2 = await store.EnqueueAsync(new JobSpec(lane, "t", "2", Priority: 9, PartitionKey: p));
+        clock.Advance(Tick);
+        // an UNPARTITIONED job at middling priority — across-partition ordering IS by priority
+        var mid = await store.EnqueueAsync(new JobSpec(lane, "t", "mid", Priority: 5));
+
+        // across partitions/unpartitioned, higher priority claims first: the partition's ELIGIBLE job is J1
+        // (pri 1, the earliest of P), so `mid` (pri 5) outranks it globally and claims first
+        Assert.Equal(mid, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id);
+        // now the only eligible job is J1 (J2 is blocked behind it despite pri 9) → FIFO within the partition
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w2", Lease))!.Id);
+        Assert.Null(await store.ClaimNextAsync(lane, "w3", Lease)); // J2 blocked while J1 runs
+        Assert.True(await store.CompleteAsync(j1, "w2"));
+        Assert.Equal(j2, (await store.ClaimNextAsync(lane, "w3", Lease))!.Id); // J2 only after J1
+    }
+
+    public static async Task Stale_partition_running_is_reclaimed_before_later_pending(IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var p = lane + "-P";
+        var j1 = await store.EnqueueAsync(new JobSpec(lane, "t", "1", PartitionKey: p));
+        clock.Advance(Tick);
+        var j2 = await store.EnqueueAsync(new JobSpec(lane, "t", "2", PartitionKey: p));
+
+        // J1 claimed + running, J2 blocked behind it
+        Assert.Equal(j1, (await store.ClaimNextAsync(lane, "w1", Lease))!.Id);
+
+        // w1 crashes: J1's lease goes stale. The next claim must RE-CLAIM J1 (resume its position), NOT skip
+        // to the later Pending J2.
+        clock.Advance(Lease + TimeSpan.FromSeconds(1));
+        var reclaimed = await store.ClaimNextAsync(lane, "w2", Lease);
+        Assert.Equal(j1, reclaimed!.Id);       // the stale Running of P, not J2
+        Assert.Equal("w2", reclaimed.ClaimedBy);
+        Assert.Equal(2, reclaimed.Attempts);   // reclaimed → attempts incremented
+
+        // J2 still blocked while J1 (now freshly leased by w2) runs
+        Assert.Null(await store.ClaimNextAsync(lane, "w3", Lease));
+        Assert.True(await store.CompleteAsync(j1, "w2"));
+        Assert.Equal(j2, (await store.ClaimNextAsync(lane, "w3", Lease))!.Id);
+    }
 }

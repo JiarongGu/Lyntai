@@ -15,13 +15,13 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
     private const string Cols =
         "id, lane, type, payload, status, checkpoint, attempts, max_attempts, last_error, " +
         "available_at, claimed_at, claimed_by, created_at, updated_at, priority, cancel_requested, " +
-        "progress, total, stage, step_log";
+        "progress, total, stage, step_log, partition_key";
 
     // same columns, qualified for the UPDATE … FROM … RETURNING (id is otherwise ambiguous with `pick`)
     private const string JCols =
         "j.id, j.lane, j.type, j.payload, j.status, j.checkpoint, j.attempts, j.max_attempts, j.last_error, " +
         "j.available_at, j.claimed_at, j.claimed_by, j.created_at, j.updated_at, j.priority, j.cancel_requested, " +
-        "j.progress, j.total, j.stage, j.step_log";
+        "j.progress, j.total, j.stage, j.step_log, j.partition_key";
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     // ReportStepAsync is a read-modify-write on step_log (no single-statement atomic append with the cap),
@@ -36,11 +36,12 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
         using var conn = factory.Open();
         await conn.ExecuteAsync(new CommandDefinition($"""
             INSERT INTO lyntai_job ({Cols})
-            VALUES (@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority, FALSE, 0, 0, NULL, NULL)
+            VALUES (@id, @lane, @type, @payload, 'Pending', NULL, 0, @maxAttempts, NULL, @availableAt, NULL, NULL, @now, @now, @priority, FALSE, 0, 0, NULL, NULL, @partitionKey)
             """, new
         {
             id = id.ToString(), lane = spec.Lane, type = spec.Type, payload = spec.Payload,
             maxAttempts = spec.MaxAttempts ?? 3, availableAt = spec.AvailableAt ?? now, now, priority = spec.Priority,
+            partitionKey = spec.PartitionKey,
         }, cancellationToken: ct)).ConfigureAwait(false);
         return id;
     }
@@ -54,11 +55,25 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
             UPDATE lyntai_job j
             SET status='Running', claimed_by=@workerId, claimed_at=@now, attempts=attempts+1, updated_at=@now
             FROM (
-                SELECT id FROM lyntai_job
-                WHERE lane=@lane
-                  AND ((status='Pending' AND available_at<=@now)
-                    OR (status='Running' AND claimed_at<@staleBefore))
-                ORDER BY priority DESC, available_at, id
+                SELECT id FROM lyntai_job c
+                WHERE c.lane=@lane
+                  AND ((c.status='Pending' AND c.available_at<=@now)
+                    OR (c.status='Running' AND c.claimed_at<@staleBefore))
+                  -- actor-mailbox partition guard: NULL partition_key ⇒ unguarded (current semantics)
+                  AND (c.partition_key IS NULL OR (
+                    -- one-at-a-time: no OTHER live-leased Running of this (lane, partition)
+                    NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
+                                  AND p.id<>c.id AND p.status='Running' AND p.claimed_at>=@staleBefore)
+                    -- a Pending candidate: no Running of the partition AT ALL (a stale Running is RECLAIMED
+                    -- first, not skipped), and it's the EARLIEST available Pending of the partition (FIFO)
+                    AND (c.status<>'Pending' OR (
+                      NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
+                                    AND p.status='Running')
+                      AND NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
+                                    AND p.status='Pending' AND p.available_at<=@now
+                                    AND (p.available_at<c.available_at
+                                      OR (p.available_at=c.available_at AND p.id<c.id)))))))
+                ORDER BY c.priority DESC, c.available_at, c.id
                 FOR UPDATE SKIP LOCKED LIMIT 1) pick
             WHERE j.id = pick.id
             RETURNING {JCols}
@@ -225,9 +240,10 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
         public long Total { get; set; }
         public string? Stage { get; set; }
         public string? StepLog { get; set; }
+        public string? PartitionKey { get; set; }
 
         public JobRecord ToRecord() => new(Guid.Parse(Id), Lane, Type, Payload, Enum.Parse<JobStatus>(Status),
             Checkpoint, (int)Attempts, (int)MaxAttempts, LastError, AvailableAt, ClaimedAt, ClaimedBy, CreatedAt, UpdatedAt, (int)Priority, CancelRequested,
-            (int)Progress, (int)Total, Stage, StepLog);
+            (int)Progress, (int)Total, Stage, StepLog, PartitionKey);
     }
 }

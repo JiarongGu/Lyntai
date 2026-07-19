@@ -37,6 +37,10 @@ public class SqliteJobStoreTests
     [Fact] public Task Pause_pending_only() => Run(JobStoreContract.Pause_only_affects_a_pending_job);
     [Fact] public Task Progress_and_steps() => Run(JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced);
     [Fact] public Task Concurrent_steps() => Run(JobStoreContract.Concurrent_step_reports_all_land);
+    [Fact] public Task Partition_serial_fifo() => Run((s, c) => JobStoreContract.Same_partition_serializes_and_is_fifo(s, c));
+    [Fact] public Task Partitions_parallel() => Run((s, c) => JobStoreContract.Different_partitions_run_in_parallel(s, c));
+    [Fact] public Task Partition_priority_ignored_within() => Run((s, c) => JobStoreContract.Priority_is_ignored_within_a_partition_but_honored_across(s, c));
+    [Fact] public Task Partition_stale_reclaim_keeps_position() => Run((s, c) => JobStoreContract.Stale_partition_running_is_reclaimed_before_later_pending(s, c));
 
     [Fact]
     public async Task Concurrent_claims_never_double_grab()
