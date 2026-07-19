@@ -743,7 +743,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
     attachment URIs, but nothing invokes the rail inside the loop — a denied term in a tool call or an exfil
     via a tool observation bypasses the jail. Fix: give `ToolLoop` an `IGuardRail`/per-tool-call hook (gate
     each call's args + observation), or document loudly that guards are a chat-gate boundary only.
-- [ ] **R3 · Response-gate `Replace` only rewrites `Text`, leaving `ToolCalls`/`Detail`** (sustainable — security)
+- [x] **R3 · Response-gate `Replace` only rewrites `Text`, leaving `ToolCalls`/`Detail`** (sustainable — security) ✅ done 2026-07-20 — response Replace now clears `ToolCalls`+`Detail` too (GuardedLlmClient + rail re-threading); replacement is the whole sanitized reply.
   - `Guards/GuardRail.cs:69` + `GuardedLlmClient.cs:29`: `InspectResponseAsync` scans Text+Detail+ToolCalls
     but a `Replace` outcome does `reply with { Text = … }`, so denied content in `ToolCalls`/`Detail` passes
     through un-redacted. Fix: on response `Replace` also clear/rewrite `ToolCalls`+`Detail`, or treat a hit

@@ -63,6 +63,11 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   (pre-release — no data migration). **Breaking (pre-1.0)** for anyone reading the raw table.
 
 ### Fixed
+- **Response-gate `Replace` redacts the whole reply (Part 8 · R3, security)** — the output gate scans a
+  reply's `Text` + `Detail` + `ToolCalls`, but a `Replace` outcome only rewrote `Text`, leaving denied
+  content in `ToolCalls`/`Detail` to pass through un-redacted (`GuardedLlmClient` and the rail's re-threading
+  to later guards). A response `Replace` now also clears `ToolCalls` and `Detail` — the replacement text is
+  the whole sanitized reply.
 - **Guards now cover the agent tool loop (Part 8 · R2, security)** — `ToolLoop` gated nothing: only the
   chat orchestrator's initial user message + final answer passed the rail, so with `UseTools` on, a denied
   term in a model-emitted tool call's `ArgumentsJson`, or an exfil through a tool observation, bypassed the

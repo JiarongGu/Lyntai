@@ -130,6 +130,45 @@ public class GuardTests
     }
 
     [Fact]
+    public async Task Guarded_client_replace_also_clears_tool_calls_and_detail()
+    {
+        // R3 — a response Replace redacts the reply; it must NOT leave denied content in ToolCalls/Detail
+        // (which the output gate also scans). The replacement text is the whole sanitized reply.
+        var inner = new FakeLlmClient();
+        inner.Replies.Enqueue(new LlmReply("sensitive output", LlmVerdict.Ok, Detail: "trace: leaked-path")
+        {
+            ToolCalls = [new LlmToolCall("c1", "run", """{"cmd":"exfiltrate"}""")],
+        });
+        var client = new GuardedLlmClient(inner, new GuardRail([new RewriteGuard()]));
+
+        var reply = await client.CompleteAsync(Ask("hi"));
+
+        Assert.Equal("[redacted]", reply.Text);
+        Assert.Null(reply.ToolCalls); // not left un-redacted
+        Assert.Null(reply.Detail);
+    }
+
+    [Fact]
+    public async Task Rail_replace_clears_tool_calls_and_detail_for_later_guards()
+    {
+        // guard A replaces the text; a later denylist on a term that was ONLY in the original ToolCalls /
+        // Detail must NOT fire — the Replace redacts the whole reply, so later guards see them cleared.
+        var rail = new GuardRail([
+            new FnGuard(_ => GuardOutcome.Replace("[clean]")),
+            new DenylistGuard(["exfil"]),
+        ]);
+        var reply = new LlmReply("x", LlmVerdict.Ok, Detail: "exfil in detail")
+        {
+            ToolCalls = [new LlmToolCall("c1", "run", """{"cmd":"exfil"}""")],
+        };
+
+        var outcome = await rail.InspectResponseAsync(reply);
+
+        Assert.Equal(GuardOutcome.Kind.Replace, outcome.Result); // denylist saw cleared content, didn't block
+        Assert.Equal("[clean]", outcome.Replacement);
+    }
+
+    [Fact]
     public async Task Guarded_client_passes_clean_traffic_through()
     {
         var inner = new FakeLlmClient();

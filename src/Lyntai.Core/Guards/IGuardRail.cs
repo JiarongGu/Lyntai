@@ -79,7 +79,9 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
                 _logger.LogInformation("guard '{Guard}' rewrote the response", guard.Name);
                 LyntaiDiagnostics.RecordGuardDecision("output", guard.Name, "replace");
                 effective = outcome;
-                current = current with { Text = outcome.Replacement! }; // re-thread the rewritten text
+                // re-thread the rewritten text AND clear ToolCalls/Detail — a Replace redacts the whole
+                // reply, so later guards (and the applied result) must not see the un-redacted originals
+                current = current with { Text = outcome.Replacement!, ToolCalls = null, Detail = null };
             }
         }
         return effective;

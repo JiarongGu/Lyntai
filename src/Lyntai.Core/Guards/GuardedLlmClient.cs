@@ -26,7 +26,9 @@ public sealed class GuardedLlmClient(ILlmClient inner, IGuardRail rail) : ILlmCl
         return post.Result switch
         {
             GuardOutcome.Kind.Block => new LlmReply("", LlmVerdict.Refused, reply.Usage, $"blocked by guard: {post.Reason}"),
-            GuardOutcome.Kind.Replace => reply with { Text = post.Replacement! },
+            // a Replace redacts the WHOLE reply — clear ToolCalls + Detail too, or denied content the output
+            // gate also scans (a tool call's args, an error detail) would pass through un-redacted
+            GuardOutcome.Kind.Replace => reply with { Text = post.Replacement!, ToolCalls = null, Detail = null },
             _ => reply,
         };
     }
