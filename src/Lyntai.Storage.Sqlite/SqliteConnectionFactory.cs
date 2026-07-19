@@ -68,7 +68,10 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
     }
 
     // KEEP IDENTICAL to Lyntai.Storage.Postgres's DateTimeOffsetHandler (shared global Dapper registry).
-    private sealed class DateTimeOffsetHandler : SqlMapper.TypeHandler<DateTimeOffset>
+    // `internal` (not private) so a test can assert the two are behaviorally identical — the process-global
+    // registry means whichever backend's static ctor runs last wins, so a silent drift between them would
+    // corrupt round-trips on one backend.
+    internal sealed class DateTimeOffsetHandler : SqlMapper.TypeHandler<DateTimeOffset>
     {
         public override void SetValue(IDbDataParameter parameter, DateTimeOffset value) =>
             parameter.Value = value.UtcDateTime;

@@ -46,6 +46,11 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   (pre-release — no data migration). **Breaking (pre-1.0)** for anyone reading the raw table.
 
 ### Tests
+- **Dapper DateTimeOffset-handler parity pinned (Part 8 · R15)** — the SQLite + Postgres factories each
+  register a `DateTimeOffsetHandler` into Dapper's PROCESS-GLOBAL registry (whichever static ctor runs last
+  wins process-wide), documented as "must stay identical." Added a Docker-free test asserting the two
+  handlers `Parse`/`SetValue` identically across a battery of inputs, so a silent drift is caught the moment
+  one is edited (the handlers are now `internal` + `InternalsVisibleTo(Lyntai.Tests)`).
 - **Cross-backend storage parity (Part 8 · R5)** — Postgres integration tests no longer false-green: they
   were `if (!pg.Available) return;` (PASS when Docker is absent), now `[SkippableFact]` + `Skip.IfNot` (via
   `Xunit.SkippableFact`) so a Docker-less run reports them SKIPPED, not passed. Extracted backend-agnostic

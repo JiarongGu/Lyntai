@@ -17,6 +17,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- so the test suite can assert this backend's Dapper DateTimeOffsetHandler stays behaviorally
+         identical to the Postgres one (both share Dapper's process-global handler registry) -->
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Dapper" />
     <PackageReference Include="FluentMigrator.Runner.SQLite" />
     <PackageReference Include="Microsoft.Data.Sqlite" />

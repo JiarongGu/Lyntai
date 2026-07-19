@@ -802,7 +802,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   `ClaudeArgs.Build` ignores `req.Tools` (tools reach the CLI only via the separate MCP provisioner). A caller
   putting tools on the request + routing to claude-cli gets them dropped with no diagnostic. Log a warning
   when `req.Tools` is non-empty on the CLI path; document the divergence.
-- [ ] **R15 · Process-global Dapper type-handler coupling between the two SQL factories** (generic) — both
+- [x] **R15 · Process-global Dapper type-handler coupling between the two SQL factories** (generic) ✅ done 2026-07-20 — added a Docker-free parity test asserting the two `DateTimeOffsetHandler`s `Parse`/`SetValue` identically (handlers now `internal` + `InternalsVisibleTo`), catching drift immediately. (Registration is already replace-idempotent; guarding against a 3rd-party clobber isn't feasible with Dapper's API — drift protection is the real fix.) Original: — both
   `SqliteConnectionFactory` + `PostgresConnectionFactory` register a `DateTimeOffsetHandler` into Dapper's
   process-global registry in a static ctor ("whichever wins, both must be identical") — a third-party handler
   or a 4th backend can clobber it. Register idempotently/defensively; add a test asserting both are identical.
