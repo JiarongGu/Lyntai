@@ -736,7 +736,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
     registrations `TryAdd` (matching the InMemory/secrets packages + `IPromptRegistry`), OR correct the
     README + document "register after `Use*Storage`". Audit `AddEmbeddings` (`LyntaiBuilder.cs:236`) for the
     same Add-vs-TryAdd inconsistency.
-- [ ] **R2 · Guards don't cover the agent tool loop** (sustainable — security)
+- [x] **R2 · Guards don't cover the agent tool loop** (sustainable — security) ✅ done 2026-07-20 — `IGuardRail.InspectToolCallAsync`/`InspectToolResultAsync` (default methods reusing existing guards); `ToolLoop` gates each call's args + observation, Block→abort(Refused), Replace→rewrite; DI-wired.
   - `ChatOrchestrator`/`ToolLoop` gate only the initial user message + final answer; when `UseTools` is on,
     model-emitted tool-call `ArgumentsJson` and tool observations flow UN-guarded (`Agents/ToolLoop.cs:91-96`,
     `Agents/ChatOrchestrator.cs:54-57`). `DenylistGuard` was deliberately extended to scan `ArgumentsJson` +

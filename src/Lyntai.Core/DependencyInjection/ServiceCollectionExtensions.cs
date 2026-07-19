@@ -142,7 +142,8 @@ public static class LyntaiServiceCollectionExtensions
     {
         services.TryAddSingleton<IToolRegistry>(sp => new ToolRegistry(sp.GetServices<ITool>()));
         services.TryAddSingleton<IToolLoop>(sp => new ToolLoop(
-            sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolRegistry>(), options, sp.GetService<ILogger<ToolLoop>>()));
+            sp.GetRequiredService<ILlmClient>(), sp.GetRequiredService<IToolRegistry>(), options,
+            sp.GetService<ILogger<ToolLoop>>(), guards: sp.GetService<Lyntai.Guards.IGuardRail>()));
     }
 
     /// <summary>Durable jobs: the handler registry, enqueue queue, admission control, runner, and scheduler.

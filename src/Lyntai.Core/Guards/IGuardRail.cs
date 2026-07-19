@@ -16,6 +16,19 @@ public interface IGuardRail
 
     /// <summary>Run the response guards (the output gate).</summary>
     Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default);
+
+    /// <summary>Gate a tool call the model wants to make (its name + JSON arguments) BEFORE it executes —
+    /// inside the agent tool loop, not just at the chat boundary. Modelled as an outbound request carrying
+    /// the tool-call turn, so existing request guards (which already scan a tool call's <c>ArgumentsJson</c>)
+    /// inspect it with no new per-guard surface. Block to refuse the call; Replace to rewrite the args JSON.</summary>
+    Task<GuardOutcome> InspectToolCallAsync(string toolName, string argumentsJson, CancellationToken ct = default) =>
+        InspectRequestAsync(new LlmRequest { Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("", toolName, argumentsJson)])] }, ct);
+
+    /// <summary>Gate a tool's observation BEFORE it is fed back to the model — so a denied term can't be
+    /// exfiltrated through a tool result. Modelled as an inbound reply, so existing response guards inspect
+    /// it. Block to withhold it; Replace to substitute redacted text.</summary>
+    Task<GuardOutcome> InspectToolResultAsync(string toolName, string result, CancellationToken ct = default) =>
+        InspectResponseAsync(new LlmReply(result, LlmVerdict.Ok), ct);
 }
 
 /// <inheritdoc/>

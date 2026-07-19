@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Lyntai.Diagnostics;
+using Lyntai.Guards;
 using Lyntai.Llm;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,7 +22,8 @@ public sealed class ToolLoop(
     ILlmClient client,
     IToolRegistry registry,
     LyntaiOptions options,
-    ILogger<ToolLoop>? logger = null) : IToolLoop
+    ILogger<ToolLoop>? logger = null,
+    IGuardRail? guards = null) : IToolLoop
 {
     private readonly ILogger _logger = logger ?? NullLogger<ToolLoop>.Instance;
 
@@ -90,9 +92,11 @@ public sealed class ToolLoop(
             messages.Add(LlmMessage.AssistantToolCalls(reply.ToolCalls));
             foreach (var call in reply.ToolCalls)
             {
-                var observation = await InvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);
-                steps.Add(new ToolStep(call.Name, call.ArgumentsJson, observation));
-                messages.Add(LlmMessage.ToolResult(call.Id, observation));
+                var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);
+                if (gated.Blocked)
+                    return new ToolLoopResult("", LlmVerdict.Refused, steps, gated.Reason);
+                steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
+                messages.Add(LlmMessage.ToolResult(call.Id, gated.Observation));
             }
         }
 
@@ -127,16 +131,56 @@ public sealed class ToolLoop(
                 return new ToolLoopResult(call.FinalAnswer, LlmVerdict.Ok, steps);
             }
 
-            var observation = await InvokeAsync(call.ToolName, call.ArgumentsJson, ct).ConfigureAwait(false);
-            steps.Add(new ToolStep(call.ToolName, call.ArgumentsJson, observation));
+            var gated = await GatedInvokeAsync(call.ToolName, call.ArgumentsJson, ct).ConfigureAwait(false);
+            if (gated.Blocked)
+                return new ToolLoopResult("", LlmVerdict.Refused, steps, gated.Reason);
+            steps.Add(new ToolStep(call.ToolName, gated.Args, gated.Observation));
 
             // feed the model its own tool-call turn, then the observation, and continue
             messages.Add(LlmMessage.Assistant(reply.Text));
-            messages.Add(LlmMessage.User($"Tool \"{call.ToolName}\" returned:\n{observation}"));
+            messages.Add(LlmMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
         }
 
         _logger.LogWarning("tool-loop: no final answer within {Budget} iterations", budget);
         return new ToolLoopResult("", LlmVerdict.Failed, steps, $"tool loop did not converge within {budget} iterations");
+    }
+
+    /// <summary>Gate a tool call's ARGS before it runs and its OBSERVATION after — the tool-loop guard hook
+    /// (guards otherwise only cover the chat boundary, not model-driven tool calls). A Block in either
+    /// direction aborts the loop as a jail violation; a Replace rewrites the args / redacts the observation.
+    /// No guard rail (or no guards registered) → straight through.</summary>
+    private async Task<Gated> GatedInvokeAsync(string name, string argumentsJson, CancellationToken ct)
+    {
+        if (guards is not null)
+        {
+            var pre = await guards.InspectToolCallAsync(name, argumentsJson, ct).ConfigureAwait(false);
+            if (pre.Result == GuardOutcome.Kind.Block)
+            {
+                _logger.LogInformation("tool-loop: guard blocked tool call {Tool}: {Reason}", name, pre.Reason);
+                return Gated.Block(pre.Reason ?? $"tool call '{name}' blocked by guard");
+            }
+            if (pre.Result == GuardOutcome.Kind.Replace) argumentsJson = pre.Replacement!;
+        }
+
+        var observation = await InvokeAsync(name, argumentsJson, ct).ConfigureAwait(false);
+
+        if (guards is not null)
+        {
+            var post = await guards.InspectToolResultAsync(name, observation, ct).ConfigureAwait(false);
+            if (post.Result == GuardOutcome.Kind.Block)
+            {
+                _logger.LogInformation("tool-loop: guard blocked the observation from {Tool}: {Reason}", name, post.Reason);
+                return Gated.Block(post.Reason ?? $"observation from '{name}' blocked by guard");
+            }
+            if (post.Result == GuardOutcome.Kind.Replace) observation = post.Replacement!;
+        }
+        return Gated.Ok(observation, argumentsJson);
+    }
+
+    private readonly record struct Gated(bool Blocked, string? Reason, string Observation, string Args)
+    {
+        public static Gated Block(string reason) => new(true, reason, "", "");
+        public static Gated Ok(string observation, string args) => new(false, null, observation, args);
     }
 
     private async Task<string> InvokeAsync(string name, string argumentsJson, CancellationToken ct)

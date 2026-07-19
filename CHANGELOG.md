@@ -63,6 +63,13 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   (pre-release — no data migration). **Breaking (pre-1.0)** for anyone reading the raw table.
 
 ### Fixed
+- **Guards now cover the agent tool loop (Part 8 · R2, security)** — `ToolLoop` gated nothing: only the
+  chat orchestrator's initial user message + final answer passed the rail, so with `UseTools` on, a denied
+  term in a model-emitted tool call's `ArgumentsJson`, or an exfil through a tool observation, bypassed the
+  jail. `IGuardRail` gains `InspectToolCallAsync` / `InspectToolResultAsync` (default methods that reuse the
+  existing request/response guards — no new per-guard surface), and `ToolLoop` gates each tool call's args
+  (before execute) + observation (before feeding it back). A guard Block aborts the loop with a `Refused`
+  verdict; a Replace rewrites the args / redacts the observation. Wired via DI; no guards registered → no-op.
 - **BYO storage impl now actually wins (Part 8 · R1)** — the SQLite and Postgres storage packages registered
   every domain store with plain `AddSingleton`, so an app that registered its OWN impl BEFORE
   `UseSqliteStorage`/`UsePostgresStorage` was silently clobbered — contradicting the README's "anything you

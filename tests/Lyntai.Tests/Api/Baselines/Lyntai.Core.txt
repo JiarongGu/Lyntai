@@ -162,7 +162,7 @@ class Lyntai.Agents.ToolCall
     PrintMembers(StringBuilder) : Boolean
     ToString() : String
 class Lyntai.Agents.ToolLoop
-    .ctor(ILlmClient, IToolRegistry, LyntaiOptions, ILogger<ToolLoop>=)
+    .ctor(ILlmClient, IToolRegistry, LyntaiOptions, ILogger<ToolLoop>=, IGuardRail=)
     RunAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : Task<ToolLoopResult>
 class Lyntai.Agents.ToolLoopResult
     .ctor(String, LlmVerdict, IReadOnlyList<ToolStep>, String=)
@@ -480,6 +480,8 @@ interface Lyntai.Guards.IGuard
 interface Lyntai.Guards.IGuardRail
     InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
     InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+    InspectToolCallAsync(String, String, CancellationToken=) : Task<GuardOutcome>
+    InspectToolResultAsync(String, String, CancellationToken=) : Task<GuardOutcome>
 class Lyntai.Jobs.AdmitAllAdmissionController
     .ctor()
     CanClaimAsync(String, CancellationToken=) : ValueTask<Boolean>

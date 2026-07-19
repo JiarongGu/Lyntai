@@ -260,4 +260,55 @@ public class ToolLoopTests
         Assert.Single(client.Calls);                    // one call, no protocol/JSON coercion
         Assert.DoesNotContain(client.Calls[0].Messages, m => m.Role == "system"); // no protocol prompt injected
     }
+
+    // R2 — guards cover the tool loop: a denied term in tool ARGS or in a tool OBSERVATION is a jail
+    // violation, not something that bypasses the rail because it never touched the initial/final gate.
+    [Fact]
+    public async Task Blocks_a_tool_call_whose_args_contain_a_denied_term()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"tool":"echo","arguments":{"x":"launch the nukes"}}""", LlmVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"final":"unreached"}""", LlmVerdict.Ok));
+        var loop = new ToolLoop(client, new ToolRegistry([Echo()]), Options(),
+            guards: new Lyntai.Guards.GuardRail([new Lyntai.Guards.DenylistGuard(["nukes"])]));
+
+        var result = await loop.RunAsync(Ask());
+
+        Assert.Equal(LlmVerdict.Refused, result.Verdict);
+        Assert.Contains("nukes", result.Detail);
+        Assert.Empty(result.Steps);       // the tool never executed
+        Assert.Single(client.Calls);      // loop aborted before the next model turn
+    }
+
+    [Fact]
+    public async Task Blocks_a_tool_observation_that_contains_a_denied_term()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"tool":"leak","arguments":{}}""", LlmVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"final":"unreached"}""", LlmVerdict.Ok));
+        var leak = new FunctionTool("leak", (_, _) => Task.FromResult("here is the SECRET_KEY value"), "leaks");
+        var loop = new ToolLoop(client, new ToolRegistry([leak]), Options(),
+            guards: new Lyntai.Guards.GuardRail([new Lyntai.Guards.DenylistGuard(["SECRET_KEY"])]));
+
+        var result = await loop.RunAsync(Ask());
+
+        Assert.Equal(LlmVerdict.Refused, result.Verdict);
+        Assert.Single(client.Calls);      // aborted — the observation is never fed back to the model
+    }
+
+    [Fact]
+    public async Task Allows_a_clean_tool_call_when_a_guard_is_present()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"tool":"echo","arguments":{"x":1}}""", LlmVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok));
+        var loop = new ToolLoop(client, new ToolRegistry([Echo()]), Options(),
+            guards: new Lyntai.Guards.GuardRail([new Lyntai.Guards.DenylistGuard(["forbidden"])]));
+
+        var result = await loop.RunAsync(Ask());
+
+        Assert.True(result.Ok);            // nothing denied → the loop runs normally
+        Assert.Equal("done", result.Answer);
+        Assert.Single(result.Steps);
+    }
 }
