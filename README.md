@@ -514,3 +514,7 @@ node devtools/dev.mjs install-hooks    # enable the pre-commit sensitive-info gu
 ```
 
 See `.claude/rules/dev-conventions.md` for the load-bearing patterns.
+
+## License
+
+[MIT](LICENSE) © Jiarong Gu — the same `MIT` SPDX expression every NuGet package carries.
