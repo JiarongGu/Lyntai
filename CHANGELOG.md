@@ -80,6 +80,10 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **Scoring read/aggregate/export on `IScoringService` (Part 8 · R17)** — `AggregateAsync` / `ExportAsync`
+  (and per-session `GetAsync`) lived only on `IScoreStore`, forcing a dashboard to inject the storage
+  interface and reach past the service seam. They're now on `IScoringService` too (delegating to the store,
+  empty when none) — inject the service, not the store, mirroring how `ITraceService.GetAsync` wraps its store.
 - **`IDbConnectionFactory.OpenAsync` (Part 8 · R12)** — an async open added NOW (as a default-interface
   method delegating to `Open()`, so it's non-breaking for existing implementers) because adding it to the
   interface after 1.0 would break every implementer. The built-in SQLite + Postgres factories override it

@@ -48,4 +48,15 @@ public sealed class ScoringService(
         }
         return results;
     }
+
+    // read/aggregate/export through the service seam (a dashboard injects IScoringService, not IScoreStore);
+    // empty when no store is wired, mirroring how ITraceService wraps its store.
+    public Task<IReadOnlyList<ScoredResult>> GetAsync(string sessionId, CancellationToken ct = default) =>
+        store is null ? Task.FromResult<IReadOnlyList<ScoredResult>>([]) : store.GetAsync(sessionId, ct);
+
+    public Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default) =>
+        store is null ? Task.FromResult<IReadOnlyList<ScorerAggregate>>([]) : store.AggregateAsync(ct);
+
+    public Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default) =>
+        store is null ? Task.FromResult<IReadOnlyList<ScoreExportRow>>([]) : store.ExportAsync(ct);
 }

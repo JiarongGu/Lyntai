@@ -810,8 +810,8 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   fail-open `RecallAsync`; a direct `ISemanticMemory` consumer gets an unguarded throw, and a mid-life model
   swap silently poisons a collection (no per-collection dimension stamp). Document the throw contract (or make
   symmetric) + stamp collection dimension at first write.
-- [ ] **R17 · `AggregateAsync`/`ExportAsync` live only on `IScoreStore`, bypassing the `IScoringService`
-  seam** (generic) — a dashboard must inject the storage interface directly, breaking the "inject the service,
+- [x] **R17 · `AggregateAsync`/`ExportAsync` live only on `IScoreStore`, bypassing the `IScoringService`
+  seam** (generic) ✅ done 2026-07-20 — surfaced `GetAsync`/`AggregateAsync`/`ExportAsync` on `IScoringService` (delegates to the store, empty when none), so a dashboard injects the service not the store. Original: — a dashboard must inject the storage interface directly, breaking the "inject the service,
   not the store" layering (`ITraceService.GetAsync` wraps the store correctly). Surface read/aggregate/export
   on `IScoringService`.
 - [ ] **R18 · Env-override docs incomplete** (sustainable) — the whole `LYNTAI_JOBS_*` family (6 vars) +

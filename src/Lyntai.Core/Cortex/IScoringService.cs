@@ -11,4 +11,16 @@ public interface IScoringService
     /// <summary>Score the context, persisting only when <paramref name="persist"/> is true — pass false for
     /// a dry/preview run (e.g. tuning a prompt) that must NOT write rows even when a score store is wired.</summary>
     Task<IReadOnlyList<ScoredResult>> EvaluateAsync(ScoreContext ctx, bool persist, CancellationToken ct = default);
+
+    /// <summary>The persisted scores for a session (empty when no score store is wired). Read through the
+    /// service seam — a dashboard injects <see cref="IScoringService"/>, not the storage interface.</summary>
+    Task<IReadOnlyList<ScoredResult>> GetAsync(string sessionId, CancellationToken ct = default);
+
+    /// <summary>Cross-session per-scorer aggregate (mean score + count) for the eval dashboard (empty when
+    /// no store is wired).</summary>
+    Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default);
+
+    /// <summary>Flat bulk export of every persisted <c>(session, scorer, score)</c> — a tuning-dataset dump
+    /// (empty when no store is wired).</summary>
+    Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default);
 }

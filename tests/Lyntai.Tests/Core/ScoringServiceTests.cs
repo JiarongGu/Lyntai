@@ -65,4 +65,26 @@ public class ScoringServiceTests
         await service.EvaluateAsync(Ctx);            // default overload persists
         Assert.Single(await store.GetAsync("s1"));
     }
+
+    // R17 — a dashboard reads/aggregates/exports through the SERVICE seam, not by reaching past it into the store.
+    [Fact]
+    public async Task Service_surfaces_read_aggregate_and_export_over_the_store()
+    {
+        var store = new InMemoryScoreStore();
+        var service = new ScoringService([new FakeScorer("a", score: _ => new ScoreResult(0.6))], store);
+        await service.EvaluateAsync(Ctx); // persists s1/a
+
+        Assert.Single(await service.GetAsync("s1"));       // read
+        Assert.Single(await service.AggregateAsync());     // cross-session aggregate
+        Assert.Single(await service.ExportAsync());        // flat export
+    }
+
+    [Fact]
+    public async Task Read_methods_are_empty_when_no_store_is_wired()
+    {
+        var service = new ScoringService([new FakeScorer("a", score: _ => new ScoreResult(0.5))]);
+        Assert.Empty(await service.GetAsync("s1"));
+        Assert.Empty(await service.AggregateAsync());
+        Assert.Empty(await service.ExportAsync());
+    }
 }
