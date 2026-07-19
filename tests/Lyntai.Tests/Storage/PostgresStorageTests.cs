@@ -1,8 +1,11 @@
 using Lyntai;
 using Lyntai.Cortex;
 using Lyntai.Jobs;
+using Lyntai.Storage;
 using Lyntai.Storage.Postgres;
+using Lyntai.Storage.Postgres.Migrations;
 using Lyntai.Tests.Jobs;
+using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace Lyntai.Tests.Storage;
@@ -39,6 +42,39 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
               AND indexname NOT LIKE 'lyntai\_%' AND indexname NOT LIKE 'ix\_lyntai\_%' AND indexname NOT LIKE 'ux\_lyntai\_%'
             """)).ToList();
         Assert.Empty(stray);
+    }
+
+    /// <summary>F1 (feature toggles): a DISABLED storage feature lands no table on Postgres. Selective
+    /// migration is driven by per-migration <c>[Tags(nameof(StorageFeature.X), StorageFeatures.AllTag)]</c>
+    /// + the runner's active tag set, exactly as SQLite. Uses a THROWAWAY container (not the shared,
+    /// already-all-migrated fixture db) so the subset migration is observed in isolation.</summary>
+    [SkippableFact]
+    public async Task Selective_migration_lands_only_the_selected_features_tables()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+
+        await using var container = new PostgreSqlBuilder("pgvector/pgvector:pg16").Build();
+        await container.StartAsync();
+        var cs = container.GetConnectionString();
+
+        MigrationRunnerService.MigrateUp(cs, StorageFeature.Score | StorageFeature.Conversation);
+        var factory = new PostgresConnectionFactory(cs);
+
+        Assert.True(await TableExists(factory, "lyntai_score_result")); // Score selected
+        Assert.True(await TableExists(factory, "lyntai_thread"));        // Conversation selected
+        Assert.True(await TableExists(factory, "lyntai_message"));
+        Assert.False(await TableExists(factory, "lyntai_kv"));           // KeyValue NOT selected → no table
+        Assert.False(await TableExists(factory, "lyntai_memory_entry")); // Memory NOT selected
+        Assert.False(await TableExists(factory, "lyntai_job"));          // Jobs NOT selected
+        Assert.True(await TableExists(factory, "lyntai_version_info"));  // version table always
+    }
+
+    private static async Task<bool> TableExists(IDbConnectionFactory factory, string table)
+    {
+        using var conn = factory.Open();
+        return await Dapper.SqlMapper.ExecuteScalarAsync<bool>(conn,
+            "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = @table)",
+            new { table });
     }
 
     // ---- cross-backend contracts, run against Postgres over the shared container ----------------------

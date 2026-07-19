@@ -1,11 +1,13 @@
 static class Lyntai.SqliteStorageBuilderExtensions
     UseSqliteResponseCache(LyntaiBuilder) : LyntaiBuilder
     UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
+    UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory, StorageFeature) : LyntaiBuilder
     UseSqliteStorage(LyntaiBuilder, String, Boolean=, Boolean=) : LyntaiBuilder
+    UseSqliteStorage(LyntaiBuilder, String, StorageFeature, Boolean=, Boolean=) : LyntaiBuilder
     UseSqliteUsageTracking(LyntaiBuilder) : LyntaiBuilder
     UseSqliteVectorStore(LyntaiBuilder) : LyntaiBuilder
 class Lyntai.Storage.Sqlite.MigratingConnectionFactory
-    .ctor(String)
+    .ctor(String, StorageFeature=)
     Open() : DbConnection
 class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
     .ctor()
@@ -63,6 +65,7 @@ class Lyntai.Storage.Sqlite.Migrations.M202607180003_CuratedMemory
     Up() : Void
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
     MigrateUp(String) : Void
+    MigrateUp(String, StorageFeature) : Void
 class Lyntai.Storage.Sqlite.SqliteConnectionFactory
     .ctor(String)
     DbPath : String

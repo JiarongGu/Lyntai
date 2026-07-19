@@ -881,7 +881,7 @@ this only stops it creating tables for features the app opted out of. This is th
 selective-migration deferred from P3, now a first-class requirement (NOT the rejected "app owns its own
 tables" direction).
 
-- [ ] **F1 · Feature toggle model + gated registration + selective migration — should-have**
+- [x] **F1 · Feature toggle model + gated registration + selective migration — should-have** ✅ done 2026-07-20 — `[Flags] StorageFeature` (9 domains + All); `UseSqliteStorage`/`UsePostgresStorage(…, features)` gate registration per feature AND migrate only selected tables (tag-driven: each migration `[Tags(nameof(StorageFeature.X), AllTag)]`; All=one pass, subset=one pass/feature). Postgres monolith split into per-feature migrations for parity. Startup signal = a disabled store isn't registered (GetRequiredService throws). Verified both backends against a live Postgres container (819 pass). Details:
   - A `[Flags] enum LyntaiFeatures` (Scoring, Conversation, Memory, Traces, Jobs, CuratedMemory,
     PromptVersions, Governance, SemanticMemory, …; `All` default) — or per-feature options. Surface on the
     storage builders (e.g. `UseSqliteStorage(dbPath, features: LyntaiFeatures.Scoring | …)`) and/or a builder

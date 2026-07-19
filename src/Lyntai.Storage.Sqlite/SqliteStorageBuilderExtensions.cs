@@ -22,6 +22,16 @@ public static class SqliteStorageBuilderExtensions
     /// <see cref="MigrationRunnerService.MigrateUp"/> yourself if you want Lyntai's schema on your own
     /// terms.</para></summary>
     public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, string dbPath,
+        bool migrateOnFirstUse = false, bool migrate = true) =>
+        builder.UseSqliteStorage(dbPath, StorageFeature.All, migrateOnFirstUse, migrate);
+
+    /// <summary>Wire only the SELECTED storage features to SQLite (feature toggles): a disabled feature
+    /// registers no store AND lands no table (no unused <c>lyntai_*</c> tables for domains you don't use).
+    /// Migration is per-feature (each migration is tagged with its feature); registration is gated per
+    /// feature too, so a disabled domain's store isn't resolvable (its null-tolerant consumers skip it; a
+    /// direct <c>GetRequiredService</c> throws — the startup signal that a disabled feature is being used).
+    /// Default (<see cref="StorageFeature.All"/>) is the historical behavior.</summary>
+    public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, string dbPath, StorageFeature features,
         bool migrateOnFirstUse = false, bool migrate = true)
     {
         IDbConnectionFactory factory;
@@ -31,40 +41,48 @@ public static class SqliteStorageBuilderExtensions
         }
         else if (migrateOnFirstUse)
         {
-            factory = new MigratingConnectionFactory(dbPath);
+            factory = new MigratingConnectionFactory(dbPath, features);
         }
         else
         {
             var dir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            MigrationRunnerService.MigrateUp(dbPath);
+            MigrationRunnerService.MigrateUp(dbPath, features);
             factory = new SqliteConnectionFactory(dbPath);
         }
-        return builder.UseSqliteStorage(factory);
+        return builder.UseSqliteStorage(factory, features);
     }
 
     /// <summary>Wire every storage domain to SQLite using an APP-SUPPLIED <see cref="IDbConnectionFactory"/> —
     /// so the app owns connection creation, pooling, and lifecycle (e.g. a connection drawn from its own
     /// pool). Lyntai runs no migrations here; own the schema, or migrate on your own factory beforehand.
     /// The SQL is SQLite-dialect, so the factory must open SQLite connections.</summary>
-    public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, IDbConnectionFactory factory)
+    public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, IDbConnectionFactory factory) =>
+        builder.UseSqliteStorage(factory, StorageFeature.All);
+
+    /// <summary>As <see cref="UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory)"/>, but registers only
+    /// the SELECTED features' stores (feature toggles over an app-supplied factory).</summary>
+    public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, IDbConnectionFactory factory, StorageFeature features)
     {
         builder.Services.AddSingleton(factory);
-        // Domain stores register with TryAdd so an app that registers its OWN impl (a BYO backend) wins —
-        // whether it registered before OR after UseSqliteStorage. Matches Lyntai.Storage.InMemory and the
-        // "anything you register wins" contract in the README.
-        builder.Services.TryAddSingleton<IKeyValueStore, SqliteKeyValueStore>();
-        builder.Services.TryAddSingleton<IPromptVersionStore, SqlitePromptVersionStore>();
-        builder.Services.TryAddSingleton<IConversationStore, SqliteConversationStore>();
-        builder.Services.TryAddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(
-            sp.GetRequiredService<IDbConnectionFactory>(),
-            sp.GetRequiredService<LyntaiOptions>(),
-            sp.GetService<ILogger<SqliteMemoryStore>>()));
-        builder.Services.TryAddSingleton<IScoreStore, SqliteScoreStore>();
-        builder.Services.TryAddSingleton<ITraceStore, SqliteTraceStore>();
-        builder.Services.TryAddSingleton<IJobStore>(sp => new SqliteJobStore(
-            sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
-        builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
+        // Register only the selected features. Domain stores use TryAdd so an app that registers its OWN
+        // impl (a BYO backend) wins — before OR after UseSqliteStorage — matching Lyntai.Storage.InMemory and
+        // the "anything you register wins" contract in the README.
+        if (features.HasFlag(StorageFeature.KeyValue)) builder.Services.TryAddSingleton<IKeyValueStore, SqliteKeyValueStore>();
+        if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore, SqlitePromptVersionStore>();
+        if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore, SqliteConversationStore>();
+        if (features.HasFlag(StorageFeature.Memory))
+            builder.Services.TryAddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(
+                sp.GetRequiredService<IDbConnectionFactory>(),
+                sp.GetRequiredService<LyntaiOptions>(),
+                sp.GetService<ILogger<SqliteMemoryStore>>()));
+        if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore, SqliteScoreStore>();
+        if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore, SqliteTraceStore>();
+        if (features.HasFlag(StorageFeature.Jobs))
+            builder.Services.TryAddSingleton<IJobStore>(sp => new SqliteJobStore(
+                sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
+        if (features.HasFlag(StorageFeature.CuratedMemory))
+            builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
 

@@ -3,6 +3,7 @@ using FluentMigrator;
 namespace Lyntai.Storage.Sqlite.Migrations;
 
 [Migration(202607170002)]
+[Tags(nameof(StorageFeature.Conversation), StorageFeatures.AllTag)]
 public sealed class M202607170002_Conversation : Migration
 {
     public override void Up()

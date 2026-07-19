@@ -5,6 +5,7 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// <summary>Adds optional per-entry expiry to memory. The FTS external-content index only mirrors
 /// <c>content</c>, so a new nullable column needs no trigger changes.</summary>
 [Migration(202607170007)]
+[Tags(nameof(StorageFeature.Memory), StorageFeatures.AllTag)]
 public sealed class M202607170007_MemoryTtl : Migration
 {
     public override void Up()

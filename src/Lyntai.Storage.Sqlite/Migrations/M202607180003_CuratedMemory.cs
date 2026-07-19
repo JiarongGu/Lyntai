@@ -7,6 +7,7 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// <c>lyntai_memory_entry</c> log). Timestamps are ISO-8601 TEXT (sortable); <c>enabled</c> is an INTEGER
 /// bool. No FTS/cap/TTL — the catalog is small and deliberate.</summary>
 [Migration(202607180003)]
+[Tags(nameof(StorageFeature.CuratedMemory), StorageFeatures.AllTag)]
 public sealed class M202607180003_CuratedMemory : Migration
 {
     public override void Up()

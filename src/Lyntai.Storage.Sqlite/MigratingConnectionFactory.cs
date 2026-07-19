@@ -15,12 +15,14 @@ public sealed class MigratingConnectionFactory : IDbConnectionFactory
 {
     private readonly SqliteConnectionFactory _inner;
     private readonly string _dbPath;
+    private readonly StorageFeature _features;
     private readonly Lock _gate = new();
     private volatile bool _migrated;
 
-    public MigratingConnectionFactory(string dbPath)
+    public MigratingConnectionFactory(string dbPath, StorageFeature features = StorageFeature.All)
     {
         _dbPath = dbPath;
+        _features = features;
         _inner = new SqliteConnectionFactory(dbPath);
     }
 
@@ -34,7 +36,7 @@ public sealed class MigratingConnectionFactory : IDbConnectionFactory
                 {
                     var dir = Path.GetDirectoryName(Path.GetFullPath(_dbPath));
                     if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                    MigrationRunnerService.MigrateUp(_dbPath); // throws → _migrated stays false → next Open retries
+                    MigrationRunnerService.MigrateUp(_dbPath, _features); // throws → _migrated stays false → next Open retries
                     _migrated = true;
                 }
             }

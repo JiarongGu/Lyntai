@@ -7,6 +7,7 @@ namespace Lyntai.Storage.Postgres.Migrations;
 /// (Npgsql-native — no string-compare trap); id + status are TEXT (same as SQLite, so no native-uuid/
 /// Dapper-handler divergence). The dead-letter state (<c>Dead</c>) needs no column — status is TEXT.</summary>
 [Migration(202607180001)]
+[Tags(nameof(StorageFeature.Jobs), StorageFeatures.AllTag)]
 public sealed class M202607180001_Jobs : Migration
 {
     public override void Up()

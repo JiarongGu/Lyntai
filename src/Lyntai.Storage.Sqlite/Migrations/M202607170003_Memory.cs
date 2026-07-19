@@ -6,6 +6,7 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// recall — unicode61 would treat a whole CJK phrase as one token), kept in sync by AFTER triggers
 /// and backfilled in this same migration.</summary>
 [Migration(202607170003)]
+[Tags(nameof(StorageFeature.Memory), StorageFeatures.AllTag)]
 public sealed class M202607170003_Memory : Migration
 {
     public override void Up()

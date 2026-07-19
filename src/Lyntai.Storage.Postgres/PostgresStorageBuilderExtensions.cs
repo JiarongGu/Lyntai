@@ -17,7 +17,17 @@ public static class PostgresStorageBuilderExtensions
     /// assuming the <c>lyntai_*</c> tables already exist. Every object is <c>lyntai_</c>-prefixed, so the
     /// connection may target an existing application database.</para></summary>
     public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, string connectionString,
-        bool migrateOnFirstUse = false, bool migrate = true)
+        bool migrateOnFirstUse = false, bool migrate = true) =>
+        builder.UsePostgresStorage(connectionString, StorageFeature.All, migrateOnFirstUse, migrate);
+
+    /// <summary>Wire only the SELECTED storage features to PostgreSQL (feature toggles): a disabled feature
+    /// registers no store AND lands no table (no unused <c>lyntai_*</c> tables for domains you don't use).
+    /// Migration is per-feature (each migration is tagged with its feature); registration is gated per
+    /// feature too, so a disabled domain's store isn't resolvable (its null-tolerant consumers skip it; a
+    /// direct <c>GetRequiredService</c> throws — the startup signal that a disabled feature is being used).
+    /// Default (<see cref="StorageFeature.All"/>) is the historical behavior.</summary>
+    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, string connectionString,
+        StorageFeature features, bool migrateOnFirstUse = false, bool migrate = true)
     {
         IDbConnectionFactory factory;
         if (!migrate)
@@ -26,37 +36,46 @@ public static class PostgresStorageBuilderExtensions
         }
         else if (migrateOnFirstUse)
         {
-            factory = new MigratingConnectionFactory(connectionString);
+            factory = new MigratingConnectionFactory(connectionString, features);
         }
         else
         {
-            MigrationRunnerService.MigrateUp(connectionString);
+            MigrationRunnerService.MigrateUp(connectionString, features);
             factory = new PostgresConnectionFactory(connectionString);
         }
-        return builder.UsePostgresStorage(factory);
+        return builder.UsePostgresStorage(factory, features);
     }
 
     /// <summary>Wire every storage domain to PostgreSQL using an APP-SUPPLIED
     /// <see cref="IDbConnectionFactory"/> — the app owns connection creation, pooling, and lifecycle.
     /// Lyntai runs no migrations here; own the schema, or migrate beforehand. The SQL is Postgres-dialect,
     /// so the factory must open Npgsql connections.</summary>
-    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, IDbConnectionFactory factory)
+    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, IDbConnectionFactory factory) =>
+        builder.UsePostgresStorage(factory, StorageFeature.All);
+
+    /// <summary>As <see cref="UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory)"/>, but registers only
+    /// the SELECTED features' stores (feature toggles over an app-supplied factory).</summary>
+    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, IDbConnectionFactory factory, StorageFeature features)
     {
         builder.Services.AddSingleton(factory);
-        // Domain stores register with TryAdd so an app's OWN impl (a BYO backend) wins — matches
-        // Lyntai.Storage.Sqlite / InMemory and the "anything you register wins" contract in the README.
-        builder.Services.TryAddSingleton<IKeyValueStore, PostgresKeyValueStore>();
-        builder.Services.TryAddSingleton<IPromptVersionStore, PostgresPromptVersionStore>();
-        builder.Services.TryAddSingleton<IConversationStore, PostgresConversationStore>();
-        builder.Services.TryAddSingleton<IMemoryStore>(sp => new PostgresMemoryStore(
-            sp.GetRequiredService<IDbConnectionFactory>(),
-            sp.GetRequiredService<LyntaiOptions>(),
-            sp.GetService<ILogger<PostgresMemoryStore>>()));
-        builder.Services.TryAddSingleton<IScoreStore, PostgresScoreStore>();
-        builder.Services.TryAddSingleton<ITraceStore, PostgresTraceStore>();
-        builder.Services.TryAddSingleton<IJobStore>(sp => new PostgresJobStore(
-            sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
-        builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new PostgresCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
+        // Register only the selected features. Domain stores use TryAdd so an app that registers its OWN
+        // impl (a BYO backend) wins — before OR after UsePostgresStorage — matching Lyntai.Storage.Sqlite /
+        // InMemory and the "anything you register wins" contract in the README.
+        if (features.HasFlag(StorageFeature.KeyValue)) builder.Services.TryAddSingleton<IKeyValueStore, PostgresKeyValueStore>();
+        if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore, PostgresPromptVersionStore>();
+        if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore, PostgresConversationStore>();
+        if (features.HasFlag(StorageFeature.Memory))
+            builder.Services.TryAddSingleton<IMemoryStore>(sp => new PostgresMemoryStore(
+                sp.GetRequiredService<IDbConnectionFactory>(),
+                sp.GetRequiredService<LyntaiOptions>(),
+                sp.GetService<ILogger<PostgresMemoryStore>>()));
+        if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore, PostgresScoreStore>();
+        if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore, PostgresTraceStore>();
+        if (features.HasFlag(StorageFeature.Jobs))
+            builder.Services.TryAddSingleton<IJobStore>(sp => new PostgresJobStore(
+                sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
+        if (features.HasFlag(StorageFeature.CuratedMemory))
+            builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new PostgresCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
 

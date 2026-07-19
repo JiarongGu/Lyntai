@@ -7,6 +7,7 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// (<c>IVectorStore</c>). Timestamps are TEXT (ISO-8601, sortable → chronological string compares, like
 /// the job store); cost is REAL (wrap in <c>CAST(x AS REAL)</c> on SELECT — SQLite integer affinity).</summary>
 [Migration(202607180002)]
+[Tags(nameof(StorageFeature.Governance), StorageFeatures.AllTag)]
 public sealed class M202607180002_Governance : Migration
 {
     public override void Up()

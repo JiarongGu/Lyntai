@@ -1246,6 +1246,22 @@ class Lyntai.Storage.PromptVersion
     Template : String
     ToString() : String
     Version : Int32
+enum Lyntai.Storage.StorageFeature
+    All : StorageFeature const
+    Conversation : StorageFeature const
+    CuratedMemory : StorageFeature const
+    Governance : StorageFeature const
+    Jobs : StorageFeature const
+    KeyValue : StorageFeature const
+    Memory : StorageFeature const
+    None : StorageFeature const
+    PromptVersion : StorageFeature const
+    Score : StorageFeature const
+    Trace : StorageFeature const
+    value__ : Int32
+static class Lyntai.Storage.StorageFeatures
+    AllTag : String const
+    TagsFor(StorageFeature) : String[]
 static class Lyntai.Text.JsonExtract
     ExtractObject(String) : String
     IsValid(String) : Boolean

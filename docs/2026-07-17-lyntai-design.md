@@ -182,6 +182,11 @@ services.AddLyntai(cfg => {
 Options bind from config + env overrides (`LYNTAI_*`). Sensible defaults so the minimal setup is a
 provider + storage.
 
+**Storage feature toggles** — `UseSqliteStorage(path, StorageFeature.Score | …)` (and the Postgres twin)
+select which storage domains to wire: a disabled feature registers no store AND lands no table (tag-driven
+selective migration; default `All`). Lyntai still OWNS the tables it creates — this just avoids unused
+`lyntai_*` tables for domains the app doesn't use.
+
 ## 6. Data flow & error handling (the parts that matter)
 
 **Fallback router** (odysseus semantics). *As of v0.3 all of this is the **default** `RoutingPolicy`

@@ -7,6 +7,7 @@ namespace Lyntai.Storage.Postgres.Migrations;
 /// Parallels the SQLite migration of the same number; <c>enabled</c> is a native BOOLEAN and timestamps
 /// are <c>timestamptz</c>.</summary>
 [Migration(202607180003)]
+[Tags(nameof(StorageFeature.CuratedMemory), StorageFeatures.AllTag)]
 public sealed class M202607180003_CuratedMemory : Migration
 {
     public override void Up()

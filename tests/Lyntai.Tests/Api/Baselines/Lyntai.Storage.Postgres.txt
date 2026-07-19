@@ -1,11 +1,13 @@
 static class Lyntai.PostgresStorageBuilderExtensions
     UsePostgresResponseCache(LyntaiBuilder) : LyntaiBuilder
     UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
+    UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory, StorageFeature) : LyntaiBuilder
     UsePostgresStorage(LyntaiBuilder, String, Boolean=, Boolean=) : LyntaiBuilder
+    UsePostgresStorage(LyntaiBuilder, String, StorageFeature, Boolean=, Boolean=) : LyntaiBuilder
     UsePostgresUsageTracking(LyntaiBuilder) : LyntaiBuilder
     UsePostgresVectorStore(LyntaiBuilder) : LyntaiBuilder
 class Lyntai.Storage.Postgres.MigratingConnectionFactory
-    .ctor(String)
+    .ctor(String, StorageFeature=)
     Open() : DbConnection
 class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
     .ctor()
@@ -17,7 +19,27 @@ class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
     SchemaName : String
     TableName : String
     UniqueIndexName : String
-class Lyntai.Storage.Postgres.Migrations.M202607170001_InitialSchema
+class Lyntai.Storage.Postgres.Migrations.M202607170001_KeyValue
+    .ctor()
+    Down() : Void
+    Up() : Void
+class Lyntai.Storage.Postgres.Migrations.M202607170002_Conversation
+    .ctor()
+    Down() : Void
+    Up() : Void
+class Lyntai.Storage.Postgres.Migrations.M202607170003_Memory
+    .ctor()
+    Down() : Void
+    Up() : Void
+class Lyntai.Storage.Postgres.Migrations.M202607170004_Score
+    .ctor()
+    Down() : Void
+    Up() : Void
+class Lyntai.Storage.Postgres.Migrations.M202607170005_Trace
+    .ctor()
+    Down() : Void
+    Up() : Void
+class Lyntai.Storage.Postgres.Migrations.M202607170006_PromptVersion
     .ctor()
     Down() : Void
     Up() : Void
@@ -35,6 +57,7 @@ class Lyntai.Storage.Postgres.Migrations.M202607180003_CuratedMemory
     Up() : Void
 static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
     MigrateUp(String) : Void
+    MigrateUp(String, StorageFeature) : Void
 class Lyntai.Storage.Postgres.PostgresConnectionFactory
     .ctor(String)
     Open() : DbConnection

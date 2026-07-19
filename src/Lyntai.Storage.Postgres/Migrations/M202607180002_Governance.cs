@@ -9,6 +9,7 @@ namespace Lyntai.Storage.Postgres.Migrations;
 /// <c>vector</c>/pgvector extension), NOT here — so <c>UsePostgresStorage</c> does not require pgvector;
 /// only <c>UsePostgresVectorStore</c> does.</para></summary>
 [Migration(202607180002)]
+[Tags(nameof(StorageFeature.Governance), StorageFeatures.AllTag)]
 public sealed class M202607180002_Governance : Migration
 {
     public override void Up()

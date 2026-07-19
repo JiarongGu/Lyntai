@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Lyntai.Storage;
 using Lyntai.Storage.Postgres.Migrations;
 
 namespace Lyntai.Storage.Postgres;
@@ -11,12 +12,14 @@ public sealed class MigratingConnectionFactory : IDbConnectionFactory
 {
     private readonly PostgresConnectionFactory _inner;
     private readonly string _connectionString;
+    private readonly StorageFeature _features;
     private readonly Lock _gate = new();
     private volatile bool _migrated;
 
-    public MigratingConnectionFactory(string connectionString)
+    public MigratingConnectionFactory(string connectionString, StorageFeature features = StorageFeature.All)
     {
         _connectionString = connectionString;
+        _features = features;
         _inner = new PostgresConnectionFactory(connectionString);
     }
 
@@ -28,7 +31,7 @@ public sealed class MigratingConnectionFactory : IDbConnectionFactory
             {
                 if (!_migrated)
                 {
-                    MigrationRunnerService.MigrateUp(_connectionString); // throws → retried on next Open
+                    MigrationRunnerService.MigrateUp(_connectionString, _features); // throws → retried on next Open
                     _migrated = true;
                 }
             }

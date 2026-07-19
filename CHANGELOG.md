@@ -90,6 +90,16 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **Storage feature toggles (Part 9 · F1)** — every storage domain is individually enable/disable-able via a
+  `[Flags] StorageFeature` (KeyValue / Conversation / Memory / Score / Trace / PromptVersion / Jobs /
+  Governance / CuratedMemory / All): `UseSqliteStorage(path, StorageFeature.Score | …)` /
+  `UsePostgresStorage(conn, …)` register only the selected domains' stores AND migrate only their tables — a
+  disabled feature lands **no `lyntai_*` table** and registers no store (its null-tolerant consumers skip it;
+  a direct `GetRequiredService` throws — the startup signal that a disabled feature is being used). Selective
+  migration is tag-driven: each migration carries `[Tags(nameof(StorageFeature.X), StorageFeatures.AllTag)]`;
+  `All` runs one pass, a subset one pass per feature. Default (`All`) is the historical behavior. The Postgres
+  monolithic `InitialSchema` was split into per-feature migrations for parity (pre-release). Verified on both
+  backends against a real Postgres container.
 - **Scoring read/aggregate/export on `IScoringService` (Part 8 · R17)** — `AggregateAsync` / `ExportAsync`
   (and per-session `GetAsync`) lived only on `IScoreStore`, forcing a dashboard to inject the storage
   interface and reach past the service seam. They're now on `IScoringService` too (delegating to the store,

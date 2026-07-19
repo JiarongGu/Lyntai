@@ -8,6 +8,7 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// status are TEXT (no new Dapper type handler → no process-global registry collision). The dead-letter
 /// (<c>Dead</c>) and <c>Paused</c> states need no column — status is TEXT.</summary>
 [Migration(202607180001)]
+[Tags(nameof(StorageFeature.Jobs), StorageFeatures.AllTag)]
 public sealed class M202607180001_Jobs : Migration
 {
     public override void Up()
