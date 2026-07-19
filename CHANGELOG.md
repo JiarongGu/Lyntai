@@ -67,6 +67,14 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   observability path is the OpenTelemetry `Activity` spans on the `Lyntai.Llm` / `Lyntai.Agents` sources.
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
+### Added
+- **`LlmVerdict.Unsupported` (Part 8 · R9)** — a distinct verdict for a capability/transport gap (e.g. a
+  native tool call that streaming can't carry — use `CompleteAsync`), previously overloaded onto `Refused`.
+  It surfaces like `Refused` (no fallback/cooldown — another candidate has the same limitation; mapped to
+  `FallbackAction.Surface` in the default `RoutingPolicy`), but is distinct so telemetry/scorers don't
+  conflate a capability gap with a content-policy refusal. The OpenAI-compatible + MEAI streaming providers
+  now emit it for the deferred stream-native-tool-calls case.
+
 ### Fixed
 - **Verdict classifier: extensible + reaches `ContextWindowExceeded` on typed exceptions (Part 8 · R8)** —
   `LlmVerdictClassifier.FromException` now scans the full inner-exception chain, so a typed provider

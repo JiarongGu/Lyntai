@@ -183,7 +183,7 @@ public class OpenAiCompatibleProviderTests
     }
 
     [Fact]
-    public async Task Sse_tool_calls_finish_with_no_content_surfaces_refused()
+    public async Task Sse_tool_calls_finish_with_no_content_surfaces_unsupported()
     {
         // a streamed tool call with NO text: streaming can't carry it, but it's not a host failure
         const string sse = """
@@ -201,7 +201,7 @@ public class OpenAiCompatibleProviderTests
 
         var only = Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, only.Kind);
-        Assert.Equal(LlmVerdict.Refused, only.Verdict); // NOT Failed (would cool down a healthy host)
+        Assert.Equal(LlmVerdict.Unsupported, only.Verdict); // NOT Failed (healthy host); NOT Refused (not policy)
     }
 
     [Fact]

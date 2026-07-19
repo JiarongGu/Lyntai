@@ -16,6 +16,7 @@ public class RoutingPolicyTests
         Assert.Equal(FallbackAction.CooldownAndAdvance, p.ActionFor(LlmVerdict.AuthFailed));
         Assert.Equal(FallbackAction.Advance, p.ActionFor(LlmVerdict.ContextWindowExceeded));
         Assert.Equal(FallbackAction.Surface, p.ActionFor(LlmVerdict.Refused));
+        Assert.Equal(FallbackAction.Surface, p.ActionFor(LlmVerdict.Unsupported)); // capability gap, distinct verdict
 
         Assert.Equal(CooldownScope.Provider, p.CooldownScope);
         Assert.True(p.ExemptSoleCandidate);

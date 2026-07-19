@@ -59,11 +59,11 @@ public class ExtensionsAiProviderTests
     }
 
     [Fact]
-    public async Task A_streamed_tool_call_surfaces_Refused_not_Failed()
+    public async Task A_streamed_tool_call_surfaces_Unsupported_not_Failed()
     {
         // a streamed FunctionCall-only turn (no text) must NOT be classified as an empty→Failed response —
         // that would cool down a healthy host. The streaming contract can't carry tool calls, so it surfaces
-        // Refused (no fallback/cooldown), pointing the caller at CompleteAsync.
+        // Unsupported (a capability gap — no fallback/cooldown), pointing the caller at CompleteAsync.
         var client = new FakeChatClient();
         client.Updates.Add(new ChatResponseUpdate
         {
@@ -77,7 +77,7 @@ public class ExtensionsAiProviderTests
 
         var only = Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, only.Kind);
-        Assert.Equal(LlmVerdict.Refused, only.Verdict);
+        Assert.Equal(LlmVerdict.Unsupported, only.Verdict);
     }
 
     [Fact]

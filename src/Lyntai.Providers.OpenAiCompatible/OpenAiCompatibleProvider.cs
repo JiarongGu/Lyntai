@@ -200,12 +200,12 @@ public sealed class OpenAiCompatibleProvider(
         }
         // the streaming contract (LlmChunk) carries no tool-call payload — streaming native tool-calls is
         // deferred. A model that STREAMED a tool call with NO content (finish_reason=tool_calls) is NOT a
-        // host failure: surface Refused (no fallback/cooldown) pointing the caller at CompleteAsync, rather
-        // than the empty→Failed below which would penalize a healthy host. But if content ALSO streamed,
-        // don't clobber it — fall through to a benign Final (the tool call is dropped, not the answer).
+        // host failure: surface Unsupported (a capability gap — no fallback/cooldown) pointing the caller at
+        // CompleteAsync, rather than the empty→Failed below which would penalize a healthy host. But if
+        // content ALSO streamed, don't clobber it — fall through to a benign Final (tool call dropped).
         if (finishReason == "tool_calls" && !sawContent)
         {
-            yield return LlmChunk.Error(LlmVerdict.Refused,
+            yield return LlmChunk.Error(LlmVerdict.Unsupported,
                 $"{id}: streaming does not deliver native tool calls — use CompleteAsync for tool-calling");
             yield break;
         }

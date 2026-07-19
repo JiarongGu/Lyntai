@@ -829,6 +829,7 @@ enum Lyntai.Llm.LlmVerdict
     RateLimited : LlmVerdict const
     Refused : LlmVerdict const
     Timeout : LlmVerdict const
+    Unsupported : LlmVerdict const
     value__ : Int32
 static class Lyntai.Llm.LlmVerdictClassifier
     AddErrorTextMatcher(Func<String,Nullable<LlmVerdict>>) : IDisposable

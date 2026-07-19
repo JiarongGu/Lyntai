@@ -29,4 +29,11 @@ public enum LlmVerdict
     /// <summary>Authentication/authorization rejected (401/403, invalid key). Terminal per host —
     /// retrying the same credentials never helps — but a fallback candidate may have valid ones.</summary>
     AuthFailed,
+
+    /// <summary>The provider can't fulfill THIS request shape via THIS path — a capability/transport gap,
+    /// not a content-policy refusal and not a host fault (e.g. a native tool call that streaming can't
+    /// carry; use <c>CompleteAsync</c>). Surfaces like <see cref="Refused"/> (no fallback/cooldown — another
+    /// candidate has the same limitation), but is a DISTINCT verdict so telemetry/scorers don't conflate a
+    /// capability gap with a policy refusal.</summary>
+    Unsupported,
 }

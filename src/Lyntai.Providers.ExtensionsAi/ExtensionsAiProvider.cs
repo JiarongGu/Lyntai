@@ -126,9 +126,10 @@ public sealed class ExtensionsAiProvider(
         if (!sawContent)
         {
             // a streamed native tool call (no text) is NOT a host failure — the streaming contract (LlmChunk)
-            // just can't carry tool calls (deferred). Surface Refused (no fallback/cooldown), not Failed.
+            // just can't carry tool calls (deferred). Surface Unsupported (a capability gap — no fallback/
+            // cooldown), not Failed.
             yield return sawToolCall
-                ? LlmChunk.Error(LlmVerdict.Refused, $"{id}: streaming does not deliver native tool calls — use CompleteAsync for tool-calling")
+                ? LlmChunk.Error(LlmVerdict.Unsupported, $"{id}: streaming does not deliver native tool calls — use CompleteAsync for tool-calling")
                 // the streaming twin of CompleteAsync's empty→Failed: a genuinely empty stream must surface
                 // an error the router can fall over on, not end as a clean empty Final
                 : LlmChunk.Error(LlmVerdict.Failed, $"{id}: empty response");

@@ -19,6 +19,9 @@ public sealed class RoutingPolicy
         [LlmVerdict.AuthFailed] = FallbackAction.CooldownAndAdvance,
         [LlmVerdict.ContextWindowExceeded] = FallbackAction.Advance,
         [LlmVerdict.Refused] = FallbackAction.Surface,
+        // a capability/transport gap (not a host fault) surfaces like Refused — another candidate has the
+        // same limitation, so advancing would just churn — but stays a distinct verdict for telemetry.
+        [LlmVerdict.Unsupported] = FallbackAction.Surface,
     };
 
     private readonly Dictionary<LlmVerdict, int> _retries = [];

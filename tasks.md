@@ -778,7 +778,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   partial` (can't extend without editing core); `FromException` has no context-window arm (MEAI "prompt too
   long" typed exceptions → `Failed`, defeating the big-context fallback). Keep typed-status primary; add a
   consumer pattern seam (`Func<string,LlmVerdict?>` / injectable set) + known context-window exception types.
-- [ ] **R9 · `Refused` verdict overloaded for capability gaps** (generic) — streaming native tool-calls map to
+- [x] **R9 · `Refused` verdict overloaded for capability gaps** (generic) ✅ done 2026-07-20 — added `LlmVerdict.Unsupported` (→ `Surface`); OpenAI-compat + MEAI streaming providers emit it for stream-native-tool-calls instead of `Refused`, so telemetry distinguishes capability gap from policy refusal. — streaming native tool-calls map to
   `Error(Refused,…)` (`OpenAiCompatibleProvider.cs:206`, `ExtensionsAiProvider.cs:130`); `Refused` means
   "content policy, surface no-fallback", so telemetry/scorers can't tell a policy refusal from a transport
   limitation. Add a distinct verdict (e.g. `Unsupported`) mapped to `Surface`.
