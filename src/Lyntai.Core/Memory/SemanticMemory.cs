@@ -24,6 +24,10 @@ public sealed class SemanticMemory(
 
     public async Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default)
     {
+        // NOT fail-open (unlike RecallAsync): a write that faults SURFACES rather than silently losing the
+        // fact — see the ISemanticMemory.RememberAsync contract. After an embedding-MODEL swap the stored
+        // vectors keep their old dimension; the vector stores degrade gracefully (in-memory/SQLite rank a
+        // mismatched row last via Cosine=0; pgvector rejects it), so REINDEX (ForgetAsync + re-Remember).
         if (string.IsNullOrWhiteSpace(content)) return;
         var vector = await Embedder.EmbedAsync(content, ct).ConfigureAwait(false);
         await vectors.UpsertAsync(Collection(taskKey, scope), IdFor(content), vector, content, ct).ConfigureAwait(false);

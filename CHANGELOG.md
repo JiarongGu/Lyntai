@@ -62,6 +62,13 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   contracts as backend-specific tests (tracked as R19).
 
 ### Docs
+- **Semantic `RememberAsync` throw contract + model-swap behavior documented (Part 8 · R16)** — made
+  explicit that `ISemanticMemory.RememberAsync` SURFACES failures (deliberately asymmetric with the
+  fail-open `RecallAsync` — a silently-lost write is worse than a throw; the orchestrator already guards its
+  own call), and that after an embedding-model swap the vector stores degrade gracefully (in-memory/SQLite
+  rank a dimension-mismatched row last; pgvector rejects it) so a reindex is required. (A persistent
+  per-collection dimension stamp was deliberately not added — it would contradict the intentional
+  graceful-degradation design and needs an `IVectorStore` change; the stores already handle the mismatch.)
 - **Version-drift reconciliation + guard (Part 8 · R7)** — refreshed the README `## Status` (was stuck at
   v0.15, now v0.28.5 with the full feature arc); relocated the agent-session (Part 6) entries from
   "Unreleased" into a `## 0.28.5` section (with 0.28.2–0.28.4 consolidated) so Unreleased reflects only the

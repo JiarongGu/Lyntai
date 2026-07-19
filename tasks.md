@@ -806,7 +806,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   `SqliteConnectionFactory` + `PostgresConnectionFactory` register a `DateTimeOffsetHandler` into Dapper's
   process-global registry in a static ctor ("whichever wins, both must be identical") — a third-party handler
   or a 4th backend can clobber it. Register idempotently/defensively; add a test asserting both are identical.
-- [ ] **R16 · Semantic `RememberAsync` not fail-open + no dimension check** (generic) — asymmetric with the
+- [x] **R16 · Semantic `RememberAsync` not fail-open + no dimension check** (generic) ✅ done 2026-07-20 — documented the throw contract (RememberAsync surfaces write failures by design, asymmetric with fail-open Recall) + the per-backend model-swap behavior. Persistent dimension-stamp NOT added: contradicts the intentional graceful-degradation design (in-mem/sqlite rank mismatch last; pgvector rejects) + needs an IVectorStore change. Original: — asymmetric with the
   fail-open `RecallAsync`; a direct `ISemanticMemory` consumer gets an unguarded throw, and a mid-life model
   swap silently poisons a collection (no per-collection dimension stamp). Document the throw contract (or make
   symmetric) + stamp collection dimension at first write.

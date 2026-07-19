@@ -14,7 +14,11 @@ namespace Lyntai.Memory;
 public interface ISemanticMemory
 {
     /// <summary>Embed and store <paramref name="content"/> under (taskKey, scope). Remembering identical
-    /// content in the same scope overwrites the existing entry (dedup by content).</summary>
+    /// content in the same scope overwrites the existing entry (dedup by content).
+    /// <para><b>Surfaces failures</b> (throws if the embedder or vector store faults) — deliberately
+    /// asymmetric with the fail-open <see cref="RecallAsync"/>: silently losing a WRITE is worse than a
+    /// throw the caller can see. The batteries-included <c>ChatOrchestrator</c> already wraps its own
+    /// Remember call; a direct consumer that wants best-effort should catch.</para></summary>
     Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default);
 
     /// <summary>The <paramref name="k"/> most semantically similar remembered facts to <paramref name="query"/>
