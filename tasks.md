@@ -821,7 +821,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   SQLite memory recall `ORDER BY bm25` vs Postgres/InMemory recency; curated `ListAsync`/aggregate `ORDER BY
   <text>` is SQLite BINARY vs Postgres DB-collation. Documented in prose only. Force `COLLATE "C"` (or order
   by recency everywhere) for parity, or assert the divergence in a contract test.
-- [ ] **R20 · Job scheduler double-fires under multi-instance** (sustainable) — the runner supports N
+- [x] **R20 · Job scheduler double-fires under multi-instance** (sustainable) ✅ done 2026-07-20 — documented the "run ONE scheduler process" constraint on `IJobScheduler` (the read→enqueue→persist sequence isn't a CAS; the runner fleet can still be N). CAS on `IKeyValueStore` deferred (interface change across all backends). Original: — the runner supports N
   instances but two schedulers read the same due next-run from shared KV and both enqueue before either
   persists → every slot fires per instance. Document "one scheduler process", or make `SetNextAsync` a
   compare-and-swap KV write.

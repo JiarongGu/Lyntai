@@ -62,6 +62,12 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   contracts as backend-specific tests (tracked as R19).
 
 ### Docs
+- **Scheduler is single-process (Part 8 · R20)** — documented on `IJobScheduler` that exactly one scheduler
+  process must drive the pump: unlike the job runner (N instances via atomic claim), the scheduler's
+  read-due → enqueue → persist-next-run sequence is not a compare-and-swap, so two scheduler processes on a
+  shared KV store would each fire every schedule once. The runner fleet can still be N; the idempotent-handler
+  guidance is the backstop. (A CAS `SetNextAsync` was deferred — it needs an `IKeyValueStore` interface
+  change across all backends.)
 - **Env-override reference completed (Part 8 · R18)** — the durable-jobs family (`LYNTAI_JOBS_LEASE_SECONDS`
   / `_POLL_SECONDS` / `_MAX_ATTEMPTS` / `_BACKOFF_SECONDS` / `_DEFAULT_CONCURRENCY` / `_MAX_STEP_LOG`) and the
   `LYNTAI_DEFAULT_MODEL` alias were read by `ApplyEnvOverrides` but missing from the `LyntaiOptions` XML-doc

@@ -16,7 +16,13 @@ namespace Lyntai.Jobs;
 /// next-run. A crash in that window (or a failed <c>SetNextAsync</c>) leaves the slot due, so the next
 /// tick fires it again — one slot can enqueue more than one job. This mirrors the durable-job
 /// at-least-once contract: the enqueued job's handler must be idempotent (dedup on a slot key derived
-/// from the schedule name + fire time if a duplicate run would be harmful).</para></summary>
+/// from the schedule name + fire time if a duplicate run would be harmful).</para>
+/// <para><b>Run ONE scheduler process.</b> Unlike the job <see cref="IJobRunner"/> (which scales to N
+/// instances via the store's atomic claim), the scheduler is single-instance: the "read due next-run →
+/// enqueue → persist advanced next-run" sequence is NOT a compare-and-swap, so two scheduler processes
+/// sharing the same key-value store would each read the same due slot and both enqueue, firing every
+/// schedule once PER instance. Drive the pump from exactly one process; the runner fleet can still be N.
+/// (The idempotent-handler guidance above is the backstop if a duplicate slips through.)</para></summary>
 public interface IJobScheduler
 {
     /// <summary>Enqueue a job for each schedule that is due, advancing each. Returns how many were enqueued.</summary>
