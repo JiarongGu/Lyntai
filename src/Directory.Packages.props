@@ -39,6 +39,9 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- runtime-conditional skip ([SkippableFact] + Skip.IfNot) — xUnit v2 has no Assert.Skip; used to make
+         the Postgres/Docker-gated tests report as SKIPPED (visible) rather than silently PASS -->
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
 
     <!-- benchmarks -->

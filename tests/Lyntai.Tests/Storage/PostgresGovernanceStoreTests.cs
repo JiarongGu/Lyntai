@@ -18,10 +18,10 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
 {
     private static string Uid() => Guid.NewGuid().ToString("N");
 
-    [Fact]
+    [SkippableFact]
     public async Task ResponseCache_persists_across_instances_and_expires()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var options = new LyntaiOptions();
         var clock = new MutableClock();
         var key = Uid();
@@ -37,10 +37,10 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         Assert.Null(await cache.TryGetAsync(key)); // expired
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task UsageTracker_accumulates_per_consumer_and_resets()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var a = Uid();
         new PostgresUsageTracker(pg.Factory).Record(a, new LlmUsage(10, 5, CostUsd: 0.10));
         new PostgresUsageTracker(pg.Factory).Record(a, new LlmUsage(20, 5, CostUsd: 0.20));
@@ -54,10 +54,10 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         Assert.Equal(UsageTotals.Empty, new PostgresUsageTracker(pg.Factory).Total(a));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task VectorStore_pgvector_ranks_by_cosine_dedups_and_removes()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var c = Uid();
         var store = new PostgresVectorStore(pg.Factory);
         await store.UpsertAsync(c, "a", [1f, 0f, 0f], "A");
@@ -73,10 +73,10 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         Assert.Empty(await store.SearchAsync(c, [1f, 0f, 0f], k: 5));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Semantic_memory_works_over_the_pgvector_store()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var task = Uid();
         var mem = new SemanticMemory(new FakeEmbedder(), new PostgresVectorStore(pg.Factory));
         await mem.RememberAsync(task, "s", "cancel my subscription anytime");

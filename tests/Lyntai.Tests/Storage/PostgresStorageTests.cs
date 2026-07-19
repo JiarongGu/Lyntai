@@ -16,19 +16,19 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     private static string Uid() => Guid.NewGuid().ToString("N");
     private DateTimeOffset _now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
 
-    [Fact]
+    [SkippableFact]
     public async Task Live_postgres_connection_works()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         using var conn = pg.Factory.Open();
         var version = await Dapper.SqlMapper.QuerySingleAsync<string>(conn, "SELECT version()");
         Assert.Contains("PostgreSQL", version); // proves a real server, not a trivially-skipped test
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Every_object_carries_the_lyntai_prefix()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         using var conn = pg.Factory.Open();
         // the package may live inside a consumer's existing db — nothing unprefixed allowed
         var stray = (await Dapper.SqlMapper.QueryAsync<string>(conn, """
@@ -42,10 +42,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Empty(stray);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task KeyValue_round_trips_with_upsert()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var kv = new PostgresKeyValueStore(pg.Factory);
         var key = Uid();
 
@@ -57,10 +57,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Null(await kv.GetAsync(key));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Conversation_appends_orders_and_cascades()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresConversationStore(pg.Factory);
         var t = Uid();
 
@@ -81,10 +81,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Empty(await store.GetMessagesAsync(t)); // FK cascade
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Score_round_trips_double_and_bool_exactly()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresScoreStore(pg.Factory);
         var s = Uid();
 
@@ -102,10 +102,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(1.0, results[1].Score);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Score_rescore_upserts_not_accumulates()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         // ON CONFLICT (session_id, scorer_id) — session-scoped so it's safe in the shared container.
         // (Aggregate/Export are table-wide, so they're covered cross-backend by the InMemory + SQLite
         // ScoreStoreContract rather than here.)
@@ -121,10 +121,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(0.3, results.Single(x => x.ScorerId == "b").Score);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Trace_round_trips_with_trace_id_and_totals()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresTraceStore(pg.Factory);
         var s = Uid();
 
@@ -150,10 +150,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(2, loaded.Steps.Count);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Prompt_versions_history_and_rollback()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresPromptVersionStore(pg.Factory);
         var name = Uid();
 
@@ -169,10 +169,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Null(await store.RollbackAsync(name, 99));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Memory_dedup_ttl_cap_and_prune()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresMemoryStore(pg.Factory,
             new LyntaiOptions { MemoryCapPerScope = 3, MemoryRecallLimit = 100 }, clock: () => _now);
         var task = Uid();
@@ -190,10 +190,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.True(await store.PruneAsync() >= 1); // reaped
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Memory_pg_trgm_recalls_cjk_substring()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresMemoryStore(pg.Factory,
             new LyntaiOptions { MemoryCapPerScope = 100, MemoryRecallLimit = 100 }, clock: () => _now);
         var task = Uid();
@@ -209,10 +209,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
 
     // ---- durable jobs (each test uses a UNIQUE lane so they don't collide on the shared db) -----------
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_claim_checkpoint_complete_lifecycle()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresJobStore(pg.Factory);
         var lane = Uid();
         var id = await store.EnqueueAsync(new JobSpec(lane, "t", """{"x":1}"""));
@@ -229,10 +229,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(JobStatus.Succeeded, (await store.GetAsync(id))!.Status);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_skip_locked_never_double_claims_under_concurrency()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresJobStore(pg.Factory);
         var lane = Uid();
         const int n = 20;
@@ -246,10 +246,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(n, ids.Distinct().Count());
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_stale_lease_is_reclaimed()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var clock = new MutableClock();
         var store = new PostgresJobStore(pg.Factory, clock.Get);
         var lane = Uid();
@@ -265,10 +265,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(2, reclaimed.Attempts);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_higher_priority_is_claimed_first()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresJobStore(pg.Factory);
         var lane = Uid();
         await store.EnqueueAsync(new JobSpec(lane, "t", "{}", Priority: 1));
@@ -279,10 +279,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(5, claimed.Priority);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_dead_letters_and_replays()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresJobStore(pg.Factory);
         var lane = Uid();
         var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
@@ -298,10 +298,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(0, job.Attempts);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_request_cancel_flags_running_then_cancel_running_finalizes()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresJobStore(pg.Factory);
         var lane = Uid();
         var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
@@ -314,10 +314,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_pause_holds_out_of_claims_then_resume_restores()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresJobStore(pg.Factory);
         var lane = Uid();
         var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
@@ -330,10 +330,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(id, (await store.ClaimNextAsync(lane, "w1", TimeSpan.FromMinutes(1)))!.Id);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Curated_memory_crud_and_filters()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresCuratedMemoryStore(pg.Factory);
         var kind = Uid(); // unique kind so the shared container doesn't cross-contaminate
 
@@ -365,10 +365,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Null(await store.GetAsync(a));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_progress_and_steps_are_readable_while_running()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresJobStore(pg.Factory);
         var lane = Uid();
         var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
@@ -388,10 +388,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.False(await store.ReportProgressAsync(id, "intruder", 9, 10, "x")); // fenced
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Job_concurrent_step_reports_all_land()
     {
-        if (!pg.Available) return;
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresJobStore(pg.Factory);
         var lane = Uid();
         var id = await store.EnqueueAsync(new JobSpec(lane, "t", "{}"));
