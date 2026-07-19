@@ -3,6 +3,10 @@ using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Tests.Storage;
 
+/// <summary>SQLite-SPECIFIC conversation-store concerns. The cross-backend semantics (create/get, thread +
+/// per-message metadata, mixed-kind events, per-thread seq, GUID ids, role/content aliases, cascade,
+/// list newest-first, CJK payloads) are pinned by <see cref="ConversationStoreContract"/>
+/// (<see cref="SqliteConversationStoreContractTests"/>).</summary>
 public class ConversationStoreTests : IDisposable
 {
     private readonly TempDb _db = new();
@@ -13,120 +17,16 @@ public class ConversationStoreTests : IDisposable
     public void Dispose() => _db.Dispose();
 
     [Fact]
-    public async Task Create_and_get_thread()
+    public async Task Delete_thread_cascades_to_the_message_table_via_fk()
     {
-        await _store.CreateThreadAsync("t1", "hello world");
-
-        var thread = await _store.GetThreadAsync("t1");
-
-        Assert.NotNull(thread);
-        Assert.Equal("t1", thread.Id);
-        Assert.Equal("hello world", thread.Title);
-        Assert.True(thread.CreatedAt > DateTimeOffset.UtcNow.AddMinutes(-1));
-    }
-
-    [Fact]
-    public async Task Messages_append_and_list_in_order()
-    {
-        await _store.CreateThreadAsync("t1");
-        await _store.AppendMessageAsync("t1", "user", "first");
-        await _store.AppendMessageAsync("t1", "assistant", "second");
-        await _store.AppendMessageAsync("t1", "user", "第三条消息"); // CJK content must round-trip
-
-        var messages = await _store.GetMessagesAsync("t1");
-
-        Assert.Equal(["first", "second", "第三条消息"], messages.Select(m => m.Content));
-        Assert.Equal(["user", "assistant", "user"], messages.Select(m => m.Role));
-        Assert.Equal([1L, 2L, 3L], messages.Select(m => m.Seq));
-    }
-
-    [Fact]
-    public async Task Delete_thread_cascades_to_messages()
-    {
+        // the contract proves the cascade through GetMessagesAsync; this additionally proves the FK
+        // ON DELETE CASCADE actually removes the underlying lyntai_message rows (foreign_keys=ON).
         await _store.CreateThreadAsync("t1");
         await _store.AppendMessageAsync("t1", "user", "doomed");
 
         await _store.DeleteThreadAsync("t1");
 
-        Assert.Null(await _store.GetThreadAsync("t1"));
         using var conn = _db.Factory.Open();
         Assert.Equal(0L, conn.ExecuteScalar<long>("SELECT COUNT(*) FROM lyntai_message"));
-    }
-
-    [Fact]
-    public async Task List_threads_newest_first_with_limit()
-    {
-        await _store.CreateThreadAsync("a");
-        await Task.Delay(30);
-        await _store.CreateThreadAsync("b");
-
-        var all = await _store.ListThreadsAsync();
-        Assert.Equal(["b", "a"], all.Select(t => t.Id));
-
-        var one = await _store.ListThreadsAsync(limit: 1);
-        Assert.Equal(["b"], one.Select(t => t.Id));
-    }
-
-    // P2 — a conversation is a typed multi-kind event stream, not only role/text chat.
-    [Fact]
-    public async Task Appends_mixed_kind_events_with_json_payloads_in_seq_order()
-    {
-        await _store.CreateThreadAsync("t1");
-        await _store.AppendMessageAsync("t1", "phase", """{"phase":"plan"}""");
-        await _store.AppendMessageAsync("t1", "text", "hello");
-        await _store.AppendMessageAsync("t1", "tool", """{"name":"echo","args":{"x":1}}""");
-
-        var events = await _store.GetMessagesAsync("t1");
-
-        Assert.Equal(["phase", "text", "tool"], events.Select(e => e.Kind));
-        Assert.Equal(["""{"phase":"plan"}""", "hello", """{"name":"echo","args":{"x":1}}"""],
-            events.Select(e => e.Payload));
-        Assert.Equal([1L, 2L, 3L], events.Select(e => e.Seq)); // per-thread store-assigned seq
-    }
-
-    [Fact]
-    public async Task Thread_metadata_round_trips_and_updates()
-    {
-        await _store.CreateThreadAsync("t1", "title", metadata: """{"phase":"plan"}""");
-        Assert.Equal("""{"phase":"plan"}""", (await _store.GetThreadAsync("t1"))!.Metadata);
-
-        await _store.SetThreadMetadataAsync("t1", """{"phase":"done","commit":"abc"}""");
-        Assert.Equal("""{"phase":"done","commit":"abc"}""", (await _store.GetThreadAsync("t1"))!.Metadata);
-
-        await _store.CreateThreadAsync("t2"); // metadata is optional
-        Assert.Null((await _store.GetThreadAsync("t2"))!.Metadata);
-    }
-
-    [Fact]
-    public async Task Chat_role_content_aliases_map_to_kind_payload()
-    {
-        await _store.CreateThreadAsync("t1");
-        await _store.AppendMessageAsync("t1", "user", "hi");
-
-        var m = (await _store.GetMessagesAsync("t1"))[0];
-        Assert.Equal("user", m.Role);   // Role aliases Kind
-        Assert.Equal("hi", m.Content);  // Content aliases Payload
-        Assert.Equal(m.Kind, m.Role);
-        Assert.Equal(m.Payload, m.Content);
-    }
-
-    [Fact]
-    public async Task Messages_carry_per_thread_seq_and_optional_metadata()
-    {
-        await _store.CreateThreadAsync("a");
-        await _store.CreateThreadAsync("b");
-        var a1 = await _store.AppendMessageAsync("a", "text", "a-one");
-        var b1 = await _store.AppendMessageAsync("b", "text", "b-one", metadata: """{"tokens":5}""");
-        var a2 = await _store.AppendMessageAsync("a", "text", "a-two");
-
-        Assert.Equal(1L, a1.Seq);
-        Assert.Equal(1L, b1.Seq);   // per-thread: b restarts at 1
-        Assert.Equal(2L, a2.Seq);
-        Assert.True(Guid.TryParse(a1.Id, out _));                       // Id is a GUID handle
-        Assert.Equal(3, new[] { a1.Id, b1.Id, a2.Id }.Distinct().Count()); // globally unique
-
-        var bMsgs = await _store.GetMessagesAsync("b");
-        Assert.Equal("""{"tokens":5}""", bMsgs[0].Metadata);         // per-message metadata round-trips
-        Assert.Null((await _store.GetMessagesAsync("a"))[0].Metadata); // metadata is optional
     }
 }

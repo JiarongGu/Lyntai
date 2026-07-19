@@ -12,22 +12,9 @@ public class KeyValueStoreTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    [Fact]
-    public async Task Set_get_delete_round_trip()
-    {
-        await _store.SetAsync("k1", "v1");
-        Assert.Equal("v1", await _store.GetAsync("k1"));
-
-        await _store.DeleteAsync("k1");
-        Assert.Null(await _store.GetAsync("k1"));
-    }
-
-    [Fact]
-    public async Task Missing_key_returns_null()
-    {
-        Assert.Null(await _store.GetAsync("never-set"));
-    }
-
+    // Round-trip / missing-key / overwrite-value semantics are pinned cross-backend by
+    // KeyValueStoreContract (SqliteKeyValueStoreContractTests). This class keeps only the SQLite-SPECIFIC
+    // concern: SetAsync bumps the raw updated_at column.
     [Fact]
     public async Task Overwrite_updates_value_and_updated_at()
     {

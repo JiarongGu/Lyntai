@@ -753,7 +753,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
     `Activity` spans (`LyntaiDiagnostics`) but never a `TraceStep`, and the batteries-included orchestrator
     persists no trace — though "run traces" is a headline cortex feature. Fix: wire `ITraceService` into the
     orchestrator/loop (phase/llm/tool steps), or document `ITraceService` as BYO + the auto path is OTel-only.
-- [ ] **R5 · Cross-backend parity is under-verified (Postgres false-green + missing shared contracts)** (sustainable)
+- [x] **R5 · Cross-backend parity is under-verified (Postgres false-green + missing shared contracts)** (sustainable) ✅ done 2026-07-20 — `[SkippableFact]`+`Skip.IfNot` (Xunit.SkippableFact) so Postgres tests SKIP visibly, not false-green; extracted KeyValue/Conversation/Memory/Trace/PromptVersion contracts run across all 3 backends (+ existing Score/Job/CuratedMemory routed through Postgres where session-scoped); divergent memory ordering/matching kept as backend-specific tests (→ R19). 752 pass / 49 skip (Docker down). CI pg run left as an infra follow-up (no CI config in repo yet).
   - `tests/…/PostgresStorageTests.cs` gates every test `if (!pg.Available) return` → **silently passes** (not
     skips) when Docker is absent, so Postgres parity is unverified in default CI. Postgres also re-implements
     `JobStoreContract`/`CuratedMemoryStoreContract` ad-hoc (subset of assertions), and 6 of 8 stores (Memory,

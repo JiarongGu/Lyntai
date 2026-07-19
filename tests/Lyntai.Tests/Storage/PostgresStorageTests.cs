@@ -14,7 +14,6 @@ namespace Lyntai.Tests.Storage;
 public sealed class PostgresStorageTests(PostgresFixture pg)
 {
     private static string Uid() => Guid.NewGuid().ToString("N");
-    private DateTimeOffset _now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
 
     [SkippableFact]
     public async Task Live_postgres_connection_works()
@@ -42,44 +41,64 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Empty(stray);
     }
 
-    [SkippableFact]
-    public async Task KeyValue_round_trips_with_upsert()
+    // ---- cross-backend contracts, run against Postgres over the shared container ----------------------
+    // Each is namespaced by a unique key (Uid()) so it coexists with the other tests on the one shared,
+    // migrated database. Table-wide contract methods (ScoreStoreContract Aggregate/Export;
+    // CuratedMemoryStoreContract / JobStoreContract full suites) are NOT routed here — they read across the
+    // whole table and would see other tests' rows on the shared container, so they stay InMemory+SQLite
+    // (see those backends' *ContractTests). The session/task/id-scoped contract methods are safe here.
+
+    [SkippableFact] public Task KeyValue_round_trip() => Pg(() => KeyValueStoreContract.Set_get_delete_round_trip(new PostgresKeyValueStore(pg.Factory), Uid()));
+    [SkippableFact] public Task KeyValue_missing() => Pg(() => KeyValueStoreContract.Missing_key_returns_null(new PostgresKeyValueStore(pg.Factory), Uid()));
+    [SkippableFact] public Task KeyValue_overwrite() => Pg(() => KeyValueStoreContract.Overwrite_updates_the_value(new PostgresKeyValueStore(pg.Factory), Uid())); // ON CONFLICT upsert
+    [SkippableFact] public Task KeyValue_cjk() => Pg(() => KeyValueStoreContract.Cjk_value_round_trips(new PostgresKeyValueStore(pg.Factory), Uid()));
+
+    [SkippableFact] public Task Conversation_create_get() => Pg(() => ConversationStoreContract.Create_and_get_thread(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_metadata() => Pg(() => ConversationStoreContract.Thread_metadata_round_trips_and_updates(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_mixed_events() => Pg(() => ConversationStoreContract.Appends_mixed_kind_events_with_json_payloads_in_seq_order(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_cjk() => Pg(() => ConversationStoreContract.Cjk_payload_round_trips(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_seq_metadata() => Pg(() => ConversationStoreContract.Seq_is_1_based_and_restarts_per_thread_with_guid_ids_and_per_message_metadata(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_aliases() => Pg(() => ConversationStoreContract.Role_content_aliases_map_to_kind_payload(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_cascade() => Pg(() => ConversationStoreContract.Delete_thread_cascades_to_messages(new PostgresConversationStore(pg.Factory), Uid())); // FK cascade
+    [SkippableFact] public Task Conversation_list_newest_first() => Pg(() => ConversationStoreContract.List_threads_returns_newest_first(new PostgresConversationStore(pg.Factory), Uid()));
+
+    [SkippableFact] public Task Trace_save_load() => Pg(() => TraceStoreContract.Save_and_load_with_steps_totals_and_trace_id(new PostgresTraceStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Trace_resave_replaces() => Pg(() => TraceStoreContract.Saving_the_same_session_replaces_the_trace(new PostgresTraceStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Trace_unknown() => Pg(() => TraceStoreContract.Unknown_session_returns_null(new PostgresTraceStore(pg.Factory), Uid()));
+
+    [SkippableFact] public Task PromptVersion_none() => Pg(() => PromptVersionStoreContract.No_version_yet_returns_null_active_and_empty_history(new PostgresPromptVersionStore(pg.Factory), Uid()));
+    [SkippableFact] public Task PromptVersion_monotonic() => Pg(() => PromptVersionStoreContract.Save_creates_monotonic_versions_and_the_latest_is_active(new PostgresPromptVersionStore(pg.Factory), Uid()));
+    [SkippableFact] public Task PromptVersion_history() => Pg(() => PromptVersionStoreContract.History_is_newest_first_with_exactly_one_active(new PostgresPromptVersionStore(pg.Factory), Uid()));
+    [SkippableFact] public Task PromptVersion_rollback() => Pg(() => PromptVersionStoreContract.Rollback_reactivates_an_earlier_revision_without_rewriting_history(new PostgresPromptVersionStore(pg.Factory), Uid()));
+    [SkippableFact] public Task PromptVersion_rollback_missing() => Pg(() => PromptVersionStoreContract.Rollback_to_a_missing_version_returns_null_and_changes_nothing(new PostgresPromptVersionStore(pg.Factory), Uid()));
+    [SkippableFact] public Task PromptVersion_isolation() => Pg(() => PromptVersionStoreContract.Names_are_isolated(new PostgresPromptVersionStore(pg.Factory), Uid()));
+
+    // ScoreStoreContract: only the session-scoped Rescore is table-safe on the shared container (Aggregate
+    // and Export are table-wide → InMemory + SQLite only, as noted above).
+    [SkippableFact] public Task Score_rescore() => Pg(() => ScoreStoreContract.Rescore_replaces_not_accumulates(new PostgresScoreStore(pg.Factory)));
+
+    // MemoryStoreContract: task-scoped, so every method is safe on the shared container. A mutable clock
+    // drives the TTL contract deterministically; PostgresMemoryStore is built with cap = 3 for the cap test.
+    [SkippableFact] public Task Memory_token_recall() => Pg(() => MemoryStoreContract.Remember_then_recall_by_single_token_substring(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_cjk() => Pg(() => MemoryStoreContract.Cjk_substring_recall(PgMemory(), Uid())); // pg_trgm CJK substring recall
+    [SkippableFact] public Task Memory_scope() => Pg(() => MemoryStoreContract.Scope_filter_applies(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_task_isolation() => Pg(() => MemoryStoreContract.Task_isolation_applies(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_dedup() => Pg(() => MemoryStoreContract.Remembering_an_identical_fact_dedups(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_scope_dedup() => Pg(() => MemoryStoreContract.Different_scopes_are_not_deduped_together(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_ttl() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(PgMemory(mc), Uid(), mc.Advance)); }
+    [SkippableFact] public Task Memory_cap() => Pg(() => MemoryStoreContract.Cap_trims_to_the_newest_entries(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_forget() => Pg(() => MemoryStoreContract.Forget_clears_a_task(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_fail_open() => Pg(() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(PgMemory(), Uid()));
+
+    /// <summary>Skip-guard wrapper so each contract delegator is a one-liner.</summary>
+    private async Task Pg(Func<Task> body)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var kv = new PostgresKeyValueStore(pg.Factory);
-        var key = Uid();
-
-        await kv.SetAsync(key, "v1");
-        Assert.Equal("v1", await kv.GetAsync(key));
-        await kv.SetAsync(key, "v2"); // ON CONFLICT upsert
-        Assert.Equal("v2", await kv.GetAsync(key));
-        await kv.DeleteAsync(key);
-        Assert.Null(await kv.GetAsync(key));
+        await body();
     }
 
-    [SkippableFact]
-    public async Task Conversation_appends_orders_and_cascades()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresConversationStore(pg.Factory);
-        var t = Uid();
-
-        await store.CreateThreadAsync(t, "title", metadata: """{"phase":"plan"}""");
-        var m1 = await store.AppendMessageAsync(t, "user", "one");
-        var m2 = await store.AppendMessageAsync(t, "assistant", "two", metadata: """{"tokens":7}""");
-        Assert.Equal(1L, m1.Seq);              // per-thread seq
-        Assert.Equal(2L, m2.Seq);
-        Assert.True(Guid.TryParse(m1.Id, out _)); // GUID id handle
-
-        var msgs = await store.GetMessagesAsync(t);
-        Assert.Equal(["one", "two"], msgs.Select(m => m.Content));
-        Assert.Equal("""{"tokens":7}""", msgs[1].Metadata);                       // per-message metadata
-        Assert.Equal("""{"phase":"plan"}""", (await store.GetThreadAsync(t))!.Metadata); // thread metadata
-
-        await store.DeleteThreadAsync(t);
-        Assert.Null(await store.GetThreadAsync(t));
-        Assert.Empty(await store.GetMessagesAsync(t)); // FK cascade
-    }
+    private PostgresMemoryStore PgMemory(MutableClock? clock = null) =>
+        new(pg.Factory, new LyntaiOptions { MemoryCapPerScope = 3, MemoryRecallLimit = 100 }, clock: (clock ?? new MutableClock()).Get);
 
     [SkippableFact]
     public async Task Score_round_trips_double_and_bool_exactly()
@@ -102,112 +121,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.Equal(1.0, results[1].Score);
     }
 
-    [SkippableFact]
-    public async Task Score_rescore_upserts_not_accumulates()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        // ON CONFLICT (session_id, scorer_id) — session-scoped so it's safe in the shared container.
-        // (Aggregate/Export are table-wide, so they're covered cross-backend by the InMemory + SQLite
-        // ScoreStoreContract rather than here.)
-        var store = new PostgresScoreStore(pg.Factory);
-        var s = Uid();
-
-        await store.SaveAsync(s, [new ScoredResult("a", "A", "g", false, 0.5), new ScoredResult("b", "B", "g", false, 0.3)]);
-        await store.SaveAsync(s, [new ScoredResult("a", "A", "g", false, 0.9)]); // re-score "a"
-
-        var results = await store.GetAsync(s);
-        Assert.Equal(2, results.Count);
-        Assert.Equal(0.9, results.Single(x => x.ScorerId == "a").Score);
-        Assert.Equal(0.3, results.Single(x => x.ScorerId == "b").Score);
-    }
-
-    [SkippableFact]
-    public async Task Trace_round_trips_with_trace_id_and_totals()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresTraceStore(pg.Factory);
-        var s = Uid();
-
-        await store.SaveAsync(new RunTrace
-        {
-            SessionId = s,
-            Mode = "chat",
-            StartedAt = _now,
-            EndedAt = _now.AddMinutes(1),
-            TraceId = "0af7651916cd43dd8448eb211c80319c",
-            Steps =
-            [
-                new TraceStep { Kind = "llm", Label = "complete", InputTokens = 1200, OutputTokens = 340, CostUsd = 0.012 },
-                new TraceStep { Kind = "llm", Label = "judge", InputTokens = 300, OutputTokens = 40, CostUsd = 0.003 },
-            ],
-        });
-
-        var loaded = await store.GetAsync(s);
-        Assert.NotNull(loaded);
-        Assert.Equal("0af7651916cd43dd8448eb211c80319c", loaded.TraceId);
-        Assert.Equal(1500, loaded.TotalInputTokens);
-        Assert.Equal(0.015, loaded.TotalCostUsd, precision: 10);
-        Assert.Equal(2, loaded.Steps.Count);
-    }
-
-    [SkippableFact]
-    public async Task Prompt_versions_history_and_rollback()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresPromptVersionStore(pg.Factory);
-        var name = Uid();
-
-        await store.SaveAsync(name, "v1", "alice");
-        await store.SaveAsync(name, "v2", "bob");
-
-        Assert.Equal(2, (await store.GetActiveAsync(name))!.Version);
-        Assert.Equal([2, 1], (await store.HistoryAsync(name)).Select(v => v.Version));
-
-        var rolled = await store.RollbackAsync(name, 1);
-        Assert.Equal(1, rolled!.Version);
-        Assert.Equal("v1", (await store.GetActiveAsync(name))!.Template);
-        Assert.Null(await store.RollbackAsync(name, 99));
-    }
-
-    [SkippableFact]
-    public async Task Memory_dedup_ttl_cap_and_prune()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresMemoryStore(pg.Factory,
-            new LyntaiOptions { MemoryCapPerScope = 3, MemoryRecallLimit = 100 }, clock: () => _now);
-        var task = Uid();
-
-        await store.RememberAsync(task, "s", "same fact");
-        await store.RememberAsync(task, "s", "same fact"); // dedup
-        await store.RememberAsync(task, "s", "ephemeral", ttl: TimeSpan.FromMinutes(5));
-        Assert.Equal(2, (await store.RecallAsync(task)).Count);
-
-        for (var i = 1; i <= 5; i++) await store.RememberAsync(task, "capped", $"e{i}");
-        Assert.Equal(3, (await store.RecallAsync(task, scope: "capped")).Count); // cap trims oldest
-
-        _now += TimeSpan.FromMinutes(6);
-        Assert.DoesNotContain(await store.RecallAsync(task), m => m.Content == "ephemeral"); // expired
-        Assert.True(await store.PruneAsync() >= 1); // reaped
-    }
-
-    [SkippableFact]
-    public async Task Memory_pg_trgm_recalls_cjk_substring()
-    {
-        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        var store = new PostgresMemoryStore(pg.Factory,
-            new LyntaiOptions { MemoryCapPerScope = 100, MemoryRecallLimit = 100 }, clock: () => _now);
-        var task = Uid();
-
-        await store.RememberAsync(task, "notes", "灵台平台负责智能代理的记忆存储");
-        await store.RememberAsync(task, "notes", "另一条无关的记录");
-
-        // a mid-phrase CJK substring — pg_trgm ILIKE matches it (the Postgres analogue of FTS5 trigram)
-        var hits = await store.RecallAsync(task, query: "智能代理");
-        Assert.Single(hits);
-        Assert.Contains("智能代理", hits[0].Content);
-    }
-
     // ---- durable jobs (each test uses a UNIQUE lane so they don't collide on the shared db) -----------
+    // JobStoreContract is table-wide (fixed "default" lane + ActiveLanesAsync / ListAsync(status)) so it is
+    // NOT routed against the shared container — the InMemory + SQLite JobStore*Tests run the full contract.
+    // These ad-hoc tests use a UNIQUE Uid() lane, covering the Postgres-specific SKIP-LOCKED claim path.
 
     [SkippableFact]
     public async Task Job_claim_checkpoint_complete_lifecycle()

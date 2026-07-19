@@ -62,6 +62,17 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   was a carry-over that read backwards for a library table. Applied in-place to the existing migration
   (pre-release — no data migration). **Breaking (pre-1.0)** for anyone reading the raw table.
 
+### Tests
+- **Cross-backend storage parity (Part 8 · R5)** — Postgres integration tests no longer false-green: they
+  were `if (!pg.Available) return;` (PASS when Docker is absent), now `[SkippableFact]` + `Skip.IfNot` (via
+  `Xunit.SkippableFact`) so a Docker-less run reports them SKIPPED, not passed. Extracted backend-agnostic
+  shared contracts for `IKeyValueStore` / `IConversationStore` / `IMemoryStore` / `ITraceStore` /
+  `IPromptVersionStore` (joining the existing Score/Job/CuratedMemory contracts) and run InMemory + SQLite +
+  Postgres through them, replacing Postgres's ad-hoc re-implementations — so the in-memory test double can't
+  green-light semantics the SQL stores don't reproduce. Genuinely backend-divergent behavior (memory recall
+  ordering / multi-word matching — bm25 vs recency/substring) is deliberately kept OUT of the shared
+  contracts as backend-specific tests (tracked as R19).
+
 ### Docs
 - **`ITraceService` is the BYO / app-driven persisted-trace API (Part 8 · R4)** — clarified (XML-doc +
   README) that Lyntai's batteries-included flows do NOT auto-populate a `RunTrace`; the automatic

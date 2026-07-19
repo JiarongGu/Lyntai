@@ -1,0 +1,49 @@
+using Lyntai;
+using Lyntai.Storage;
+using Lyntai.Storage.InMemory;
+using Lyntai.Storage.Sqlite;
+
+namespace Lyntai.Tests.Storage;
+
+/// <summary>Runs the <see cref="MemoryStoreContract"/> against the InMemory backend. Cap = 3 (for the
+/// cap-trim contract); a mutable clock drives deterministic TTL expiry.</summary>
+public class InMemoryMemoryStoreContractTests
+{
+    private DateTimeOffset _now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
+    private static readonly LyntaiOptions Options = new() { MemoryCapPerScope = 3, MemoryRecallLimit = 100 };
+    private InMemoryMemoryStore New() => new(Options, clock: () => _now);
+
+    [Fact] public Task Token_recall() => MemoryStoreContract.Remember_then_recall_by_single_token_substring(New(), "k");
+    [Fact] public Task Cjk() => MemoryStoreContract.Cjk_substring_recall(New(), "k");
+    [Fact] public Task Scope() => MemoryStoreContract.Scope_filter_applies(New(), "k");
+    [Fact] public Task Task_isolation() => MemoryStoreContract.Task_isolation_applies(New(), "k");
+    [Fact] public Task Dedup() => MemoryStoreContract.Remembering_an_identical_fact_dedups(New(), "k");
+    [Fact] public Task Scope_dedup() => MemoryStoreContract.Different_scopes_are_not_deduped_together(New(), "k");
+    [Fact] public Task Ttl() { var s = New(); return MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(s, "k", by => _now += by); }
+    [Fact] public Task Cap() => MemoryStoreContract.Cap_trims_to_the_newest_entries(New(), "k");
+    [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
+    [Fact] public Task Fail_open() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(New(), "k");
+}
+
+/// <summary>Runs the <see cref="MemoryStoreContract"/> against SQLite over a per-test temp db. Cap = 3;
+/// a mutable clock drives deterministic TTL expiry.</summary>
+public class SqliteMemoryStoreContractTests : IDisposable
+{
+    private readonly TempDb _db = new();
+    private DateTimeOffset _now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
+    private static readonly LyntaiOptions Options = new() { MemoryCapPerScope = 3, MemoryRecallLimit = 100 };
+    private SqliteMemoryStore New() => new(_db.Factory, Options, clock: () => _now);
+
+    public void Dispose() => _db.Dispose();
+
+    [Fact] public Task Token_recall() => MemoryStoreContract.Remember_then_recall_by_single_token_substring(New(), "k");
+    [Fact] public Task Cjk() => MemoryStoreContract.Cjk_substring_recall(New(), "k");
+    [Fact] public Task Scope() => MemoryStoreContract.Scope_filter_applies(New(), "k");
+    [Fact] public Task Task_isolation() => MemoryStoreContract.Task_isolation_applies(New(), "k");
+    [Fact] public Task Dedup() => MemoryStoreContract.Remembering_an_identical_fact_dedups(New(), "k");
+    [Fact] public Task Scope_dedup() => MemoryStoreContract.Different_scopes_are_not_deduped_together(New(), "k");
+    [Fact] public Task Ttl() { var s = New(); return MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(s, "k", by => _now += by); }
+    [Fact] public Task Cap() => MemoryStoreContract.Cap_trims_to_the_newest_entries(New(), "k");
+    [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
+    [Fact] public Task Fail_open() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(New(), "k");
+}
