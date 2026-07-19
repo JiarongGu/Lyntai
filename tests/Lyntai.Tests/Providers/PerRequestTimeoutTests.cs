@@ -124,8 +124,10 @@ public class PerRequestTimeoutTests
     [Fact]
     public async Task A_longer_per_request_timeout_completes_a_call_that_outlasts_the_global()
     {
-        // global 100ms would time out the 300ms call; a 5s per-request budget lets it through
-        var provider = Http(delay: TimeSpan.FromMilliseconds(300), global: TimeSpan.FromMilliseconds(100));
+        // global 200ms times out the 1.5s call; a 5s per-request budget lets it through. Wide margins
+        // (~1.3s below the global, ~3.5s above the override) so a late CTS timer under parallel/CI load
+        // can't flip the verdict — a tight 100ms/300ms spread flaked exactly that way.
+        var provider = Http(delay: TimeSpan.FromMilliseconds(1500), global: TimeSpan.FromMilliseconds(200));
 
         var timedOut = await provider.CompleteAsync(Req());                    // no override → global → Timeout
         Assert.Equal(LlmVerdict.Timeout, timedOut.Verdict);
