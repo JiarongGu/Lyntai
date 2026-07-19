@@ -62,6 +62,10 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   contracts as backend-specific tests (tracked as R19).
 
 ### Docs
+- **Env-override reference completed (Part 8 · R18)** — the durable-jobs family (`LYNTAI_JOBS_LEASE_SECONDS`
+  / `_POLL_SECONDS` / `_MAX_ATTEMPTS` / `_BACKOFF_SECONDS` / `_DEFAULT_CONCURRENCY` / `_MAX_STEP_LOG`) and the
+  `LYNTAI_DEFAULT_MODEL` alias were read by `ApplyEnvOverrides` but missing from the `LyntaiOptions` XML-doc
+  list + README; added them (plus the cache/budget/rate-limit/tool-loop vars the README had omitted).
 - **Semantic `RememberAsync` throw contract + model-swap behavior documented (Part 8 · R16)** — made
   explicit that `ISemanticMemory.RememberAsync` SURFACES failures (deliberately asymmetric with the
   fail-open `RecallAsync` — a silently-lost write is worse than a throw; the orchestrator already guards its

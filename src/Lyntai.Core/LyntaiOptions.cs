@@ -9,12 +9,16 @@ namespace Lyntai;
 /// Library-wide options. Configure in <c>AddLyntai(cfg => …)</c>; after configuration,
 /// <c>LYNTAI_*</c> environment variables override what was set in code (env beats config):
 /// <c>LYNTAI_TIMEOUT_SECONDS</c>, <c>LYNTAI_MAX_TIMEOUT_SECONDS</c>, <c>LYNTAI_DEADHOST_THRESHOLD</c>, <c>LYNTAI_DEADHOST_COOLDOWN_SECONDS</c>,
-/// <c>LYNTAI_DEFAULT_CANDIDATES</c> (comma-separated <c>providerId[:model]</c>), <c>LYNTAI_MODEL_&lt;CONSUMER&gt;</c>,
+/// <c>LYNTAI_DEFAULT_CANDIDATES</c> (comma-separated <c>providerId[:model]</c>), <c>LYNTAI_MODEL_&lt;CONSUMER&gt;</c>
+/// (with <c>LYNTAI_DEFAULT_MODEL</c> as an alias for <c>LYNTAI_MODEL_DEFAULT</c>),
 /// <c>LYNTAI_RETRY_FAILED</c>, <c>LYNTAI_RETRY_TIMEOUT</c>, <c>LYNTAI_RETRY_BACKOFF_SECONDS</c>,
 /// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>),
 /// <c>LYNTAI_TOOL_LOOP_MAX_ITERATIONS</c>, <c>LYNTAI_CACHE_TTL_SECONDS</c>, <c>LYNTAI_CACHE_MAX_ENTRIES</c>,
 /// <c>LYNTAI_BUDGET_MAX_COST_USD</c>, <c>LYNTAI_BUDGET_MAX_TOKENS</c>,
-/// <c>LYNTAI_RATELIMIT_PERMITS_PER_SECOND</c>, <c>LYNTAI_RATELIMIT_BURST</c>, <c>LYNTAI_RATELIMIT_MAX_WAIT_SECONDS</c>.
+/// <c>LYNTAI_RATELIMIT_PERMITS_PER_SECOND</c>, <c>LYNTAI_RATELIMIT_BURST</c>, <c>LYNTAI_RATELIMIT_MAX_WAIT_SECONDS</c>,
+/// and the durable-jobs family <c>LYNTAI_JOBS_LEASE_SECONDS</c>, <c>LYNTAI_JOBS_POLL_SECONDS</c>,
+/// <c>LYNTAI_JOBS_MAX_ATTEMPTS</c>, <c>LYNTAI_JOBS_BACKOFF_SECONDS</c>, <c>LYNTAI_JOBS_DEFAULT_CONCURRENCY</c>,
+/// <c>LYNTAI_JOBS_MAX_STEP_LOG</c>.
 /// </summary>
 public sealed class LyntaiOptions
 {

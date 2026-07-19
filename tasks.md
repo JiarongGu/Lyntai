@@ -814,7 +814,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   seam** (generic) ✅ done 2026-07-20 — surfaced `GetAsync`/`AggregateAsync`/`ExportAsync` on `IScoringService` (delegates to the store, empty when none), so a dashboard injects the service not the store. Original: — a dashboard must inject the storage interface directly, breaking the "inject the service,
   not the store" layering (`ITraceService.GetAsync` wraps the store correctly). Surface read/aggregate/export
   on `IScoringService`.
-- [ ] **R18 · Env-override docs incomplete** (sustainable) — the whole `LYNTAI_JOBS_*` family (6 vars) +
+- [x] **R18 · Env-override docs incomplete** (sustainable) ✅ done 2026-07-20 — added the `LYNTAI_JOBS_*` family (6) + `LYNTAI_DEFAULT_MODEL` alias (and the cache/budget/ratelimit/tool-loop vars) to the `LyntaiOptions` XML-doc + README env list. Original: — the whole `LYNTAI_JOBS_*` family (6 vars) +
   `LYNTAI_DEFAULT_MODEL` alias are read in `ApplyEnvOverrides` but absent from the `LyntaiOptions` XML-doc
   list + README. Add them; consider one canonical env-var reference table.
 - [ ] **R19 · Recall/list ordering diverges across backends beyond what contracts assert** (sustainable) —
