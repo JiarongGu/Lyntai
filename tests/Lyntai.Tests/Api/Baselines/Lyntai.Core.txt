@@ -868,9 +868,10 @@ enum Lyntai.Llm.Routing.FallbackAction
 interface Lyntai.Llm.Routing.IModelRoutingStore
     GetModelOverrideAsync(String, CancellationToken=) : Task<String>
 class Lyntai.Llm.Routing.KeyValueModelRoutingStore
-    .ctor(IKeyValueStore=, ILogger<KeyValueModelRoutingStore>=)
+    .ctor(IKeyValueStore=, ILogger<KeyValueModelRoutingStore>=, String=)
+    DefaultKeyPrefix : String const
     GetModelOverrideAsync(String, CancellationToken=) : Task<String>
-    KeyPrefix : String const
+    KeyPrefix : String
 class Lyntai.Llm.Routing.LlmClient
     .ctor(ILlmRouter, LyntaiOptions)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
@@ -930,6 +931,8 @@ class Lyntai.LyntaiOptions
     MaxProviderTimeout : TimeSpan
     MemoryCapPerScope : Int32
     MemoryRecallLimit : Int32
+    ModelKeyPrefix : String
+    PromptKeyPrefix : String
     ProviderTimeout : TimeSpan
     RateLimit : RateLimitOptions
     ResolveModel(String, String) : String
@@ -1006,8 +1009,9 @@ interface Lyntai.Prompts.IPromptRegistry
     RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
     ValidateOverride(String, String) : IReadOnlyList<String>
 class Lyntai.Prompts.PromptRegistry
-    .ctor(IKeyValueStore=, IPromptVersionStore=, ILogger<PromptRegistry>=)
-    KeyPrefix : String const
+    .ctor(IKeyValueStore=, IPromptVersionStore=, ILogger<PromptRegistry>=, String=)
+    DefaultKeyPrefix : String const
+    KeyPrefix : String
     RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
     ValidateOverride(String, String) : IReadOnlyList<String>
 class Lyntai.RateLimitOptions

@@ -9,7 +9,7 @@ public sealed class M202607170001_KeyValue : Migration
 {
     public override void Up()
     {
-        Create.Table("lyntai_app_config")
+        Create.Table("lyntai_kv")
             .WithColumn("key").AsString().PrimaryKey()
             .WithColumn("value").AsString().NotNullable()
             .WithColumn("updated_at").AsString().NotNullable();
@@ -17,6 +17,6 @@ public sealed class M202607170001_KeyValue : Migration
 
     public override void Down()
     {
-        Delete.Table("lyntai_app_config");
+        Delete.Table("lyntai_kv");
     }
 }

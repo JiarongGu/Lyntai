@@ -49,7 +49,7 @@ public static class LyntaiServiceCollectionExtensions
         // register distinct service types; the front-door decorators fold at resolution, not registration).
         services.AddSingleton(options);
         RegisterLlmFrontDoor(services, builder, options);
-        RegisterCortex(services);
+        RegisterCortex(services, options);
         RegisterSemanticMemory(services);
         RegisterAgents(services, options);
         RegisterJobs(services, options);
@@ -86,10 +86,11 @@ public static class LyntaiServiceCollectionExtensions
 
     /// <summary>The LLM-ops cortex: prompt registry, scoring, tracing, prompt composition, and the pairwise
     /// judge. All tolerate absent storage (null store → fail-open/no-op), so a provider-only setup resolves.</summary>
-    private static void RegisterCortex(IServiceCollection services)
+    private static void RegisterCortex(IServiceCollection services, LyntaiOptions options)
     {
         services.TryAddSingleton<IPromptRegistry>(sp => new PromptRegistry(
-            sp.GetService<IKeyValueStore>(), sp.GetService<IPromptVersionStore>(), sp.GetService<ILogger<PromptRegistry>>()));
+            sp.GetService<IKeyValueStore>(), sp.GetService<IPromptVersionStore>(),
+            sp.GetService<ILogger<PromptRegistry>>(), options.PromptKeyPrefix));
         services.TryAddSingleton<IScoringService>(sp => new ScoringService(
             sp.GetServices<IScorer>(), sp.GetService<IScoreStore>(), sp.GetService<ILogger<ScoringService>>()));
         services.TryAddSingleton<ITraceService>(sp => new TraceService(

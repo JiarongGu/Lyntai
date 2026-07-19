@@ -181,7 +181,8 @@ public sealed class LyntaiBuilder
         Services.TryAddSingleton<Lyntai.Llm.Routing.IModelRoutingStore>(sp =>
             new Lyntai.Llm.Routing.KeyValueModelRoutingStore(
                 sp.GetService<Lyntai.Storage.IKeyValueStore>(),
-                sp.GetService<ILogger<Lyntai.Llm.Routing.KeyValueModelRoutingStore>>()));
+                sp.GetService<ILogger<Lyntai.Llm.Routing.KeyValueModelRoutingStore>>(),
+                Options.ModelKeyPrefix));
         return this;
     }
 

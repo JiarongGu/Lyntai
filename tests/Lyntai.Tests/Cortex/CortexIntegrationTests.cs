@@ -56,7 +56,7 @@ public class CortexIntegrationTests : IDisposable
         Assert.Equal("default: x", await prompts.RenderAsync("greet", "default: {v}",
             new Dictionary<string, string> { ["v"] = "x" }));
 
-        await kv.SetAsync(PromptRegistry.KeyPrefix + "greet", "persisted override: {v}");
+        await kv.SetAsync(PromptRegistry.DefaultKeyPrefix + "greet", "persisted override: {v}");
         Assert.Equal("persisted override: x", await prompts.RenderAsync("greet", "default: {v}",
             new Dictionary<string, string> { ["v"] = "x" }));
     }

@@ -35,7 +35,7 @@ public class KeyValueStoreTests : IDisposable
         string ReadUpdatedAt()
         {
             using var conn = _db.Factory.Open();
-            return conn.ExecuteScalar<string>("SELECT updated_at FROM lyntai_app_config WHERE key = 'k'")!;
+            return conn.ExecuteScalar<string>("SELECT updated_at FROM lyntai_kv WHERE key = 'k'")!;
         }
         var first = ReadUpdatedAt();
 

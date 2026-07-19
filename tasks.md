@@ -614,6 +614,248 @@ its cortex migration (Part 5).
 
 ---
 
+## Part 7 — App-owned storage: use your own table, no duplication (2026-07-19)
+
+Surfaced adopting Lyntai's **cortex + conversation storage** in Gatherlight. The design goal (the user's,
+verbatim): *Lyntai is the cortex library with the render/validate/routing/MCP/tuning logic built-in; the app
+plugs its OWN table behind Lyntai's interfaces — single source of truth, nothing stored twice, and no unused
+Lyntai tables for domains the app owns.* Three gaps block that: the hardcoded cortex KV key prefix (**P1**),
+a conversation model too chat-specific to adopt an app's typed event stream (**P2**), and all-or-nothing
+storage wiring + hardcoded table names (**P3**). The adopter already has `app_config` (cortex) and
+`chat_session`/`chat_event` (conversations) and does NOT want them duplicated into `lyntai_kv` /
+`lyntai_thread` / `lyntai_message`.
+
+**The KV seam already exists and is the right one:** `IPromptRegistry`/`KeyValueModelRoutingStore` both take a
+nullable `IKeyValueStore` (`TryAdd`), so an app can register its own `IKeyValueStore` (over its existing
+config table) and Lyntai's cortex operates on it — no `lyntai_kv` copy. This is good; keep it.
+
+**The one gap that forces a shim:** the key prefixes are HARDCODED — `PromptRegistry.KeyPrefix =
+"lyntai.prompt."` and `KeyValueModelRoutingStore.KeyPrefix = "lyntai.model."`. An app whose existing keys
+are `cortex.prompt.*` / `llm.model.*` must wrap its store in a **prefix-translating adapter** just to reuse
+its own rows — awkward, and easy to get wrong. To truly "expose an interface to use your own table," let the
+app tell Lyntai its prefix.
+
+**The seam already exists and is the right one:** `IPromptRegistry`/`KeyValueModelRoutingStore` both take a
+nullable `IKeyValueStore` (`TryAdd`), so an app can register its own `IKeyValueStore` (over its existing
+config table) and Lyntai's cortex operates on it — no `lyntai_kv` copy. This is good; keep it.
+
+**The one gap that forces a shim:** the key prefixes are HARDCODED — `PromptRegistry.KeyPrefix =
+"lyntai.prompt."` and `KeyValueModelRoutingStore.KeyPrefix = "lyntai.model."`. An app whose existing keys
+are `cortex.prompt.*` / `llm.model.*` must wrap its store in a **prefix-translating adapter** just to reuse
+its own rows — awkward, and easy to get wrong. To truly "expose an interface to use your own table," let the
+app tell Lyntai its prefix.
+
+- [x] **P1 · Configurable KV key prefix on the cortex stores — should-have (adoption)** ✅ done 2026-07-19
+      — `keyPrefix` ctor arg on both stores + `LyntaiOptions.PromptKeyPrefix`/`ModelKeyPrefix`; `KeyPrefix`
+      const → `DefaultKeyPrefix` + instance property; KV table renamed `lyntai_app_config` → `lyntai_kv`.
+  - Files: `src/Lyntai.Core/Prompts/PromptRegistry.cs` (`KeyPrefix` → a ctor-injected value, default
+    `"lyntai.prompt."`), `src/Lyntai.Core/Llm/Routing/IModelRoutingStore.cs` (`KeyValueModelRoutingStore.KeyPrefix`
+    → ctor-injected, default `"lyntai.model."`), and the `AddLiveModelRouting()` / prompt-registry DI
+    registrations (`ServiceCollectionExtensions` / `LyntaiBuilder`) to thread an optional override
+    (e.g. `LyntaiOptions.PromptKeyPrefix` / `ModelKeyPrefix`, or params on the Add* methods).
+  - Behavior: default UNCHANGED (`lyntai.prompt.` / `lyntai.model.`), so existing consumers are unaffected;
+    an app can set `cortex.prompt.` / `llm.model.` to point Lyntai straight at its own keys — no translating
+    shim, no duplication, existing overrides honored as-is.
+  - Test: a `PromptRegistry` built with prefix `cortex.prompt.` reads an override stored under
+    `cortex.prompt.plan` in a fake KV; `KeyValueModelRoutingStore` with prefix `llm.model.` reads
+    `llm.model.chat`; defaults still read the `lyntai.*` keys.
+  - Note: `IKeyValueStore` itself needs no change — it's already the app-owned-storage seam. This is purely
+    making the key NAMESPACE the app's, so Lyntai's logic sits over the app's single table cleanly.
+
+- [ ] **P2 · Generic conversation store — a typed event stream, not just role/text chat — should-have (generic capability)**
+  - A conversation is, in general, a **typed multi-kind event stream** — text, tool-call, tool-result,
+    usage, thinking, phase/status, error — not only user/assistant chat turns. **Lyntai already produces
+    exactly this shape natively**: the Part 6 agent session's `AgentStreamEvent` and `IToolLoop`'s
+    `ToolStep` are typed events. So a store that can persist a typed event stream is a *first-party* Lyntai
+    capability (persist an agent transcript / tool-loop run), not just an adopter concern — today there's
+    nowhere to durably record those runs. `ChatMessage(Id, ThreadId, **Role**, **Content**, CreatedAt)` only
+    models a chat turn, so neither Lyntai's own transcripts nor an adopter's event log fit it.
+  - Motivating adopter (one example of the general shape): Gatherlight's `chat_event` is
+    `(thread_id, **seq**, **kind**, **payload_json**, created_at)` with `kind` ∈ {phase, text, tool,
+    tool-result, usage, error, done}; its session-level `phase`/`plan_text`/`commit_sha` are just
+    PROJECTIONS of typed events in that stream. This is representative, not special.
+  - Fix (design it generic): give `ChatMessage` a generic **`Kind`/`Type`** (superset of role) and a
+    structured **`Payload`** (JSON string, superset of `Content`), keep `Id` as the store-assigned **seq**;
+    give `ChatThread` optional **metadata** (small key→value / JSON) for thread-level state without a bespoke
+    per-app column. Backward-compatible: role→kind, content→payload with chat as the default shape. Ideally
+    wire the agent session / tool loop to be able to persist their event stream through it (dogfood the
+    generality).
+  - Files: `src/Lyntai.Core/Storage/IConversationStore.cs` (records + interface),
+    `src/Lyntai.Storage.Sqlite/SqliteConversationStore.cs` + its migration (add `kind`/`payload`/thread
+    metadata columns; keep role/content as views or the default kind), the InMemory/Postgres twins + the
+    `ConversationStore` contract tests.
+  - Test: append messages of mixed `Kind` (phase/text/tool) with JSON payloads, read back in seq order;
+    thread metadata round-trips; the plain role/content chat path still works.
+
+- [ ] **P3 · App-owned storage: use my own table, don't create unused ones — should-have (adoption)**
+  - Even generic (P2), an adopter with EXISTING tables (`chat_session`/`chat_event`) wants Lyntai's
+    conversation LOGIC over ITS tables, not a duplicate `lyntai_thread`/`lyntai_message`. Two seams, mirror
+    of P1: (a) the app registers its own `IConversationStore` impl (works today — plain `AddSingleton`, later
+    registration wins), and/or (b) **configurable table names** on `SqliteConversationStore` (like P1's
+    configurable key prefix) so the app points Lyntai's SQL at `chat_session`/`chat_event`.
+  - AND the all-or-nothing wiring: `UseSqliteStorage(dbPath)` registers every store and
+    `MigrationRunnerService.MigrateUp` creates ALL ~13 `lyntai_*` tables even when the adopter uses one
+    (Gatherlight uses only `lyntai_score_result`; the other ~12 sit empty). Add **opt-in store selection**
+    (e.g. `UseSqliteStorage(dbPath, stores: Stores.Scoring | Stores.Cortex)` → register + migrate only
+    those), or per-store migrations gated by the selected set; at minimum document the `migrate:false`
+    escape hatch (app owns the schema, creates only the `lyntai_*` tables it uses).
+  - Files: `src/Lyntai.Storage.Sqlite/SqliteStorageBuilderExtensions.cs`, `SqliteConversationStore.cs`,
+    `Migrations/*` + `MigrationRunnerService`.
+  - Test: `UseSqliteStorage(db, stores: Scoring)` → `lyntai_score_result` exists, `lyntai_thread` does NOT;
+    a `SqliteConversationStore` with table names `chat_session`/`chat_event` reads the app's rows.
+
+### Not a gap (recorded)
+`IKeyValueStore` (logic-backed) and the pure-storage interfaces (`IConversationStore`, `IMemoryStore`, …)
+are the correct app-owned-storage seams — an app supplies its own impl to use its own table. Prompt VERSION
+history in `lyntai_prompt_version` is Lyntai's own domain table (not a duplicate of app data), consistent
+with "Lyntai manages its own tables." The gaps: the hardcoded KV key prefix (P1) forces a shim over a
+logic-backed store; the conversation model is too chat-specific to adopt an event stream (P2); and
+all-or-nothing wiring + hardcoded table names (P3) create/duplicate tables for domains the app owns.
+
+---
+
+## Part 8 — "Generic + sustainable" review sweep (2026-07-19)
+
+A 6-agent parallel read of the whole codebase (LLM core · agents/cortex/prompts · storage ×3 backends ·
+providers · jobs/secrets/memory/guards · DI/options/docs) against two axes: **generic** (no single-consumer
+leakage, configurable seams, DI-strategy variation not if/else) and **sustainable** (cross-backend parity,
+tested, documented, safe to evolve). `file:line` noted — **verify each in code before fixing** (a couple may
+be intentional/by-design). Excludes items already filed in Parts 5–7. Overall verdict: the library is
+genuinely strong (policy-driven fallback, clean provider/decorator seams, honest fail-open docs, real
+crypto discipline) — these are refinements + a few real correctness/consistency gaps, not structural rot.
+
+### High
+- [ ] **R1 · "Plug your own impl" is broken for storage + the README claim is false** (generic/sustainable)
+  - `README.md:~295` says "anything you register wins (defaults use `TryAdd`)", but
+    `src/Lyntai.Storage.Sqlite/SqliteStorageBuilderExtensions.cs:46-62` registers every domain store with
+    plain `AddSingleton` — so a pre-registered app impl does NOT win; last-registration-wins by ORDER. This
+    directly undercuts the "use your own table/impl" goal (Part 7). Fix: make the storage-domain
+    registrations `TryAdd` (matching the InMemory/secrets packages + `IPromptRegistry`), OR correct the
+    README + document "register after `Use*Storage`". Audit `AddEmbeddings` (`LyntaiBuilder.cs:236`) for the
+    same Add-vs-TryAdd inconsistency.
+- [ ] **R2 · Guards don't cover the agent tool loop** (sustainable — security)
+  - `ChatOrchestrator`/`ToolLoop` gate only the initial user message + final answer; when `UseTools` is on,
+    model-emitted tool-call `ArgumentsJson` and tool observations flow UN-guarded (`Agents/ToolLoop.cs:91-96`,
+    `Agents/ChatOrchestrator.cs:54-57`). `DenylistGuard` was deliberately extended to scan `ArgumentsJson` +
+    attachment URIs, but nothing invokes the rail inside the loop — a denied term in a tool call or an exfil
+    via a tool observation bypasses the jail. Fix: give `ToolLoop` an `IGuardRail`/per-tool-call hook (gate
+    each call's args + observation), or document loudly that guards are a chat-gate boundary only.
+- [ ] **R3 · Response-gate `Replace` only rewrites `Text`, leaving `ToolCalls`/`Detail`** (sustainable — security)
+  - `Guards/GuardRail.cs:69` + `GuardedLlmClient.cs:29`: `InspectResponseAsync` scans Text+Detail+ToolCalls
+    but a `Replace` outcome does `reply with { Text = … }`, so denied content in `ToolCalls`/`Detail` passes
+    through un-redacted. Fix: on response `Replace` also clear/rewrite `ToolCalls`+`Detail`, or treat a hit
+    outside `Text` as `Block`-only.
+- [ ] **R4 · Trace subsystem is orphaned from the agent flows** (sustainable)
+  - `ITraceService.Record` is called nowhere in `src/` except tests. `ToolLoop`/`ChatOrchestrator` emit OTel
+    `Activity` spans (`LyntaiDiagnostics`) but never a `TraceStep`, and the batteries-included orchestrator
+    persists no trace — though "run traces" is a headline cortex feature. Fix: wire `ITraceService` into the
+    orchestrator/loop (phase/llm/tool steps), or document `ITraceService` as BYO + the auto path is OTel-only.
+- [ ] **R5 · Cross-backend parity is under-verified (Postgres false-green + missing shared contracts)** (sustainable)
+  - `tests/…/PostgresStorageTests.cs` gates every test `if (!pg.Available) return` → **silently passes** (not
+    skips) when Docker is absent, so Postgres parity is unverified in default CI. Postgres also re-implements
+    `JobStoreContract`/`CuratedMemoryStoreContract` ad-hoc (subset of assertions), and 6 of 8 stores (Memory,
+    KeyValue, Conversation, Score, Trace, PromptVersion) have NO shared cross-backend contract — each backend
+    is tested with different cases, so InMemory (the test double) can green-light semantics the SQL stores
+    don't reproduce. Fix: `Assert.Skip` (visible) + run the pg container in CI; run the existing contracts
+    against Postgres; extract contracts for the other 6 stores and run all three backends through each.
+- [ ] **R6 · SQLite memory dedup is non-atomic (data-integrity divergence)** (sustainable)
+  - `SqliteMemoryStore.RememberAsync` (`:32-43`) is UPDATE-then-INSERT with no unique constraint → two
+    concurrent Remembers create duplicate `(task,scope,content)` rows; `PostgresMemoryStore` (`:34-38`) uses
+    an atomic `ON CONFLICT` on a unique index and can't. Fix: add `UNIQUE(task_key, scope, content)` (or
+    hashed) to the SQLite schema + `INSERT … ON CONFLICT DO UPDATE`.
+
+### Med
+- [ ] **R7 · README/CHANGELOG version drift (ships in every nupkg)** (sustainable) — `README.md` `## Status`
+  is stuck at ~v0.15 (omits governance trio, semantic memory, Postgres, DLQ/cron/cancel jobs, secret vault,
+  agent session) while `VersionPrefix`=0.28.5; `CHANGELOG.md` has no entries for 0.28.2–0.28.5 and the
+  agent-session work sits under "Unreleased". Reconcile on release; add a `dev.mjs` pack-doctor that fails if
+  README status ≠ `VersionPrefix`.
+- [ ] **R8 · Verdict classifier is English/regex-biased + not extensible; `ContextWindowExceeded` unreachable
+  on typed-exception paths** (generic) — `LlmVerdictClassifier` text patterns are English-only and `static
+  partial` (can't extend without editing core); `FromException` has no context-window arm (MEAI "prompt too
+  long" typed exceptions → `Failed`, defeating the big-context fallback). Keep typed-status primary; add a
+  consumer pattern seam (`Func<string,LlmVerdict?>` / injectable set) + known context-window exception types.
+- [ ] **R9 · `Refused` verdict overloaded for capability gaps** (generic) — streaming native tool-calls map to
+  `Error(Refused,…)` (`OpenAiCompatibleProvider.cs:206`, `ExtensionsAiProvider.cs:130`); `Refused` means
+  "content policy, surface no-fallback", so telemetry/scorers can't tell a policy refusal from a transport
+  limitation. Add a distinct verdict (e.g. `Unsupported`) mapped to `Surface`.
+- [ ] **R10 · Duplicated stream-json parsing + CLI reconciliation will drift** (sustainable) —
+  `StreamJsonParser.cs` and `StreamJsonAgentReader.cs` independently parse the same wire format (usage field
+  names, text-block concat, `GetLong`); `ClaudeCliProvider.CompleteAsync` (`:80-102`) hand-rolls a buffered
+  assistant-vs-result reconciliation that duplicates the streaming loop (`:152-169`). Extract shared
+  field-extraction helpers; consider `CompleteAsync` accumulating over `StreamAsync` like `LocalProvider`.
+- [ ] **R11 · No public seam for a custom front-door decorator** (generic) — `FrontDoorDecorators` +
+  `AddFrontDoorDecorator` are `internal`; an app's own cross-cutting concern (PII redaction, request logging)
+  must pre-register a whole `ILlmClient`, which trips the governance guard. Expose a public
+  `AddFrontDoorDecorator(order, factory)` / `ILlmClientDecorator` collection folding on the same ordered chain.
+- [ ] **R12 · `IDbConnectionFactory.Open()` is sync-only** (sustainable) — every store blocks a threadpool
+  thread on connect (esp. Postgres network+pool). Add `Task<DbConnection> OpenAsync(ct)` to the interface NOW
+  (default over `Open()`) — the one interface change that's expensive to make post-publish.
+- [ ] **R13 · Unwrapped DEK never zeroized** (sustainable — crypto) — `EnvelopeSecretVault` (`Create`/
+  `UnwrapWithMachine`/`UnwrapWithRecoveryKey`) hands the DEK to `AesGcmSecretProtector` (which clones it) and
+  never `ZeroMemory`s the original; the transient recovery KEK IS scrubbed but the longer-lived master DEK is
+  not. Zero it after building the inner protector; consider making the protector disposable.
+- [ ] **R14 · ClaudeCli silently drops `LlmRequest.Tools`** (generic) — `SupportsToolCalls=false` and
+  `ClaudeArgs.Build` ignores `req.Tools` (tools reach the CLI only via the separate MCP provisioner). A caller
+  putting tools on the request + routing to claude-cli gets them dropped with no diagnostic. Log a warning
+  when `req.Tools` is non-empty on the CLI path; document the divergence.
+- [ ] **R15 · Process-global Dapper type-handler coupling between the two SQL factories** (generic) — both
+  `SqliteConnectionFactory` + `PostgresConnectionFactory` register a `DateTimeOffsetHandler` into Dapper's
+  process-global registry in a static ctor ("whichever wins, both must be identical") — a third-party handler
+  or a 4th backend can clobber it. Register idempotently/defensively; add a test asserting both are identical.
+- [ ] **R16 · Semantic `RememberAsync` not fail-open + no dimension check** (generic) — asymmetric with the
+  fail-open `RecallAsync`; a direct `ISemanticMemory` consumer gets an unguarded throw, and a mid-life model
+  swap silently poisons a collection (no per-collection dimension stamp). Document the throw contract (or make
+  symmetric) + stamp collection dimension at first write.
+- [ ] **R17 · `AggregateAsync`/`ExportAsync` live only on `IScoreStore`, bypassing the `IScoringService`
+  seam** (generic) — a dashboard must inject the storage interface directly, breaking the "inject the service,
+  not the store" layering (`ITraceService.GetAsync` wraps the store correctly). Surface read/aggregate/export
+  on `IScoringService`.
+- [ ] **R18 · Env-override docs incomplete** (sustainable) — the whole `LYNTAI_JOBS_*` family (6 vars) +
+  `LYNTAI_DEFAULT_MODEL` alias are read in `ApplyEnvOverrides` but absent from the `LyntaiOptions` XML-doc
+  list + README. Add them; consider one canonical env-var reference table.
+- [ ] **R19 · Recall/list ordering diverges across backends beyond what contracts assert** (sustainable) —
+  SQLite memory recall `ORDER BY bm25` vs Postgres/InMemory recency; curated `ListAsync`/aggregate `ORDER BY
+  <text>` is SQLite BINARY vs Postgres DB-collation. Documented in prose only. Force `COLLATE "C"` (or order
+  by recency everywhere) for parity, or assert the divergence in a contract test.
+- [ ] **R20 · Job scheduler double-fires under multi-instance** (sustainable) — the runner supports N
+  instances but two schedulers read the same due next-run from shared KV and both enqueue before either
+  persists → every slot fires per instance. Document "one scheduler process", or make `SetNextAsync` a
+  compare-and-swap KV write.
+
+### Low (batch — verify + fix opportunistically)
+- [ ] **R21 · Nits**
+  - `ToolLoop` native path drops assistant prose that accompanies tool calls (`ToolLoop.cs:82-86`) — capture
+    it into a step/thinking channel.
+  - `OutcomeScorer.cs:22` bakes in a magic `Extra["error"]` key though `Extra` is "app-owned" — expose as a
+    documented `const`/configurable key name.
+  - `LlmScorerBase` judge SYSTEM prompt is hardcoded English + un-overridable (only `BuildJudgePrompt` = the
+    user turn is virtual) — make the system preamble virtual.
+  - `TraceStep` has no explicit `Sequence`/`OffsetMs` — timeline relies on store insertion order; add one.
+  - `ClaudeArgs.Build` hardcodes `--disallowed-tools AskUserQuestion` with no override seam — move to config.
+  - Reverse MEAI bridge `LyntaiChatClient.MapRequest` drops tools/JsonSchema/attachments (forward bridge maps
+    them) — restore parity.
+  - The boxed-primitive→`JsonNode` switch is copied in `ToolFunction.ToNode` + `ExtensionsAiProvider
+    .SerializeArgs` (+2 more) — hoist to one internal helper.
+  - `CompleteJsonAsync` structured retry double-charges budget/rate-limit + never cache-hits — document.
+  - `InMemoryJobStore.ListAsync` tiebreak (`Guid` byte order) differs from SQL (`TEXT` ordinal) — apply the
+    `Id.ToString()` ordinal tiebreak like `ClaimNextAsync` already does.
+  - `ResponseCacheKey.For` manual `"lyntai-cache-v1"` prefix + hand-listed fields can rot when a new
+    output-determining `LlmRequest` field is added un-hashed — add a reflection guard test.
+  - Secret vault access policy gates READS only; `Set`/`Delete`/`ListNames` are ungated by contract — surface
+    an optional write/enumerate policy hook, or document the asymmetry in the builder doc.
+  - `LlmRequest.RefusalPattern` is a stringly-typed .NET regex on the canonical DTO (a consumer concern) —
+    consider a typed `IRefusalMatcher` seam long-term.
+  - `PackageProjectUrl`/`RepositoryUrl` point at a repo that may not be hosted yet → dead link + no SourceLink
+    in shipped packages — verify before the next pack (ROADMAP lists hosting as the 1.0 blocker).
+  - `AddRateLimit()` with all-default options throttles nothing (global `PermitsPerSecond=0`) — warn/no-op
+    when it resolves to no effective limit, mirroring the pre-registered-client guard.
+  - `ClaudeCommand.Tokenize` handles double quotes only (not escaped/single) — document the env-var limitation.
+  - SQLite `Down()` for late ADD-COLUMN migrations is a no-op (pre-3.35 no DROP COLUMN) → down-migrations
+    asymmetric with Postgres — document as best-effort, or recreate-table.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

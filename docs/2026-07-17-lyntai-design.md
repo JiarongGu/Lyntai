@@ -154,7 +154,7 @@ public interface ITraceService {                   // run timeline: phase/tool/u
 
 ### 5.4 Storage domains (interfaces in Core; SQLite impl in the storage package)
 ```csharp
-public interface IKeyValueStore {                  // app_config: prompt overrides, model routing, flags
+public interface IKeyValueStore {                  // lyntai_kv: prompt overrides, model routing, flags
     Task<string?> GetAsync(string key, CancellationToken ct = default);
     Task SetAsync(string key, string value, CancellationToken ct = default);
     Task DeleteAsync(string key, CancellationToken ct = default);

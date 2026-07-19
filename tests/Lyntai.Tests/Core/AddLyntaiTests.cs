@@ -56,7 +56,7 @@ public class AddLyntaiTests
     public async Task Registered_kv_store_feeds_the_prompt_registry()
     {
         var kv = new InMemoryKeyValueStore();
-        kv.Data[PromptRegistry.KeyPrefix + "p"] = "override {v}";
+        kv.Data[PromptRegistry.DefaultKeyPrefix + "p"] = "override {v}";
 
         var services = new ServiceCollection();
         services.AddSingleton<IKeyValueStore>(kv);

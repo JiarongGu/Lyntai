@@ -65,7 +65,7 @@ public class ByoStorageTests : IDisposable
                 .UseSqliteStorage(freshPath, migrate: false));
             using var sp = services.BuildServiceProvider();
 
-            // no lyntai_app_config table → the store throws (proving Lyntai skipped migration)
+            // no lyntai_kv table → the store throws (proving Lyntai skipped migration)
             await Assert.ThrowsAnyAsync<SqliteException>(() =>
                 sp.GetRequiredService<IKeyValueStore>().SetAsync("k", "v"));
         }

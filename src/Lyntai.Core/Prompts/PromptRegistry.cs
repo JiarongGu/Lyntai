@@ -16,9 +16,16 @@ namespace Lyntai.Prompts;
 public sealed partial class PromptRegistry(
     IKeyValueStore? kv = null,
     IPromptVersionStore? versions = null,
-    ILogger<PromptRegistry>? logger = null) : IPromptRegistry
+    ILogger<PromptRegistry>? logger = null,
+    string? keyPrefix = null) : IPromptRegistry
 {
-    public const string KeyPrefix = "lyntai.prompt.";
+    /// <summary>Default KV key namespace for a prompt override (e.g. <c>lyntai.prompt.plan</c>).</summary>
+    public const string DefaultKeyPrefix = "lyntai.prompt.";
+
+    /// <summary>The KV key namespace this registry reads/writes overrides under. Defaults to
+    /// <see cref="DefaultKeyPrefix"/>; an app can set its OWN namespace (e.g. <c>cortex.prompt.</c>) so
+    /// Lyntai's cortex operates over the app's existing keys — no prefix-translating shim, no duplication.</summary>
+    public string KeyPrefix { get; } = keyPrefix ?? DefaultKeyPrefix;
 
     private readonly ILogger _logger = logger ?? NullLogger<PromptRegistry>.Instance;
 

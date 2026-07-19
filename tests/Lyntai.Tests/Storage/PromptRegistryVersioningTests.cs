@@ -16,7 +16,7 @@ public class PromptRegistryVersioningTests : IDisposable
     {
         var versions = new SqlitePromptVersionStore(_db.Factory);
         var kv = new InMemoryKeyValueStore();
-        kv.Data[PromptRegistry.KeyPrefix + "ask"] = "KV override: {q}";
+        kv.Data[PromptRegistry.DefaultKeyPrefix + "ask"] = "KV override: {q}";
         var registry = new PromptRegistry(kv, versions);
 
         // no version yet → the KV key is used

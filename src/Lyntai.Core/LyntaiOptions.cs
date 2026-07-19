@@ -50,6 +50,16 @@ public sealed class LyntaiOptions
     /// <see cref="LlmRequest.TimeoutSeconds"/> still wins over this. Mirrors <see cref="DefaultModelByConsumer"/>.</summary>
     public Dictionary<string, TimeSpan> TimeoutByConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>KV key namespace the prompt registry reads/writes overrides under. Defaults to
+    /// <c>lyntai.prompt.</c>; set an app's OWN namespace (e.g. <c>cortex.prompt.</c>) so Lyntai's cortex
+    /// operates over the app's existing config rows — no prefix-translating shim, no duplicated keys.</summary>
+    public string PromptKeyPrefix { get; set; } = Lyntai.Prompts.PromptRegistry.DefaultKeyPrefix;
+
+    /// <summary>KV key namespace the live model-routing store (<c>AddLiveModelRouting</c>) reads per-consumer
+    /// overrides under. Defaults to <c>lyntai.model.</c>; set an app's OWN namespace (e.g. <c>llm.model.</c>)
+    /// to point live model routing at the app's existing keys.</summary>
+    public string ModelKeyPrefix { get; set; } = KeyValueModelRoutingStore.DefaultKeyPrefix;
+
     /// <summary>Max entries kept per (task, scope) in the memory store — oldest trimmed beyond this.</summary>
     public int MemoryCapPerScope { get; set; } = 500;
 

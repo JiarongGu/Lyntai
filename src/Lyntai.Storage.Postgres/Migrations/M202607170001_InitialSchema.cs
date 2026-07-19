@@ -15,7 +15,7 @@ public sealed class M202607170001_InitialSchema : Migration
     public override void Up()
     {
         Execute.Sql("""
-            CREATE TABLE lyntai_app_config (
+            CREATE TABLE lyntai_kv (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 updated_at TIMESTAMPTZ NOT NULL
@@ -119,7 +119,7 @@ public sealed class M202607170001_InitialSchema : Migration
         foreach (var table in new[]
         {
             "lyntai_prompt_version", "lyntai_trace_step", "lyntai_run_trace", "lyntai_score_result",
-            "lyntai_memory_entry", "lyntai_message", "lyntai_thread", "lyntai_app_config",
+            "lyntai_memory_entry", "lyntai_message", "lyntai_thread", "lyntai_kv",
         })
             Execute.Sql($"DROP TABLE IF EXISTS {table} CASCADE");
     }

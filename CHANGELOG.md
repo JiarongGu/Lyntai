@@ -24,6 +24,19 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   `MaxProviderTimeout`, else the global `ProviderTimeout`), shared by the request path and the agent
   session.
 
+### Changed
+- **App-owned cortex KV (Part 7 · P1)** — the cortex KV key namespaces are now configurable, so an app can
+  point Lyntai's prompt/model overrides straight at its OWN existing keys — no prefix-translating shim, no
+  duplicated rows. `PromptRegistry` and `KeyValueModelRoutingStore` take an optional `keyPrefix` ctor
+  argument, surfaced on the builder as `LyntaiOptions.PromptKeyPrefix` / `LyntaiOptions.ModelKeyPrefix`.
+  Defaults are UNCHANGED (`lyntai.prompt.` / `lyntai.model.`), so existing consumers are unaffected.
+  **Breaking (pre-1.0):** the public `KeyPrefix` const on both stores is renamed to `DefaultKeyPrefix`; the
+  effective prefix is now the instance `KeyPrefix` property.
+- **KV backing table renamed `lyntai_app_config` → `lyntai_kv`** — it is Lyntai's own key→value store
+  (prompt/model overrides, scheduler next-run, secret vault), never the *application's* config; the old name
+  was a carry-over that read backwards for a library table. Applied in-place to the existing migration
+  (pre-release — no data migration). **Breaking (pre-1.0)** for anyone reading the raw table.
+
 ## 0.28.1 — 2026-07-18
 
 Consumer-driven adoption gaps — makes Lyntai's **cortex + scoring** genuinely adoptable (a real app can

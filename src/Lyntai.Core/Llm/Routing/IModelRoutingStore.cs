@@ -20,10 +20,15 @@ public interface IModelRoutingStore
 /// registered <see cref="IKeyValueStore"/> each call (fail-open — a store outage or no store yields no
 /// override). Mirrors how <c>PromptRegistry</c> reads a live prompt override.</summary>
 public sealed class KeyValueModelRoutingStore(
-    IKeyValueStore? kv = null, ILogger<KeyValueModelRoutingStore>? logger = null) : IModelRoutingStore
+    IKeyValueStore? kv = null, ILogger<KeyValueModelRoutingStore>? logger = null, string? keyPrefix = null) : IModelRoutingStore
 {
-    /// <summary>KV key prefix for a per-consumer model override (e.g. <c>lyntai.model.scoring</c>).</summary>
-    public const string KeyPrefix = "lyntai.model.";
+    /// <summary>Default KV key prefix for a per-consumer model override (e.g. <c>lyntai.model.scoring</c>).</summary>
+    public const string DefaultKeyPrefix = "lyntai.model.";
+
+    /// <summary>The KV key namespace this store reads model overrides under. Defaults to
+    /// <see cref="DefaultKeyPrefix"/>; set an app's OWN namespace (e.g. <c>llm.model.</c>) to point Lyntai's
+    /// live model routing at the app's existing keys — no shim, no duplication.</summary>
+    public string KeyPrefix { get; } = keyPrefix ?? DefaultKeyPrefix;
     private readonly ILogger _logger = logger ?? NullLogger<KeyValueModelRoutingStore>.Instance;
 
     public async Task<string?> GetModelOverrideAsync(string consumer, CancellationToken ct = default)
