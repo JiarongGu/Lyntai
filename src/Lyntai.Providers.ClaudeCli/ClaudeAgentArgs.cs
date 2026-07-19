@@ -26,22 +26,22 @@ public static class ClaudeAgentArgs
         };
 
         // Build de-duplicated disallowed list: always-denied + caller-provided + (if ReadOnly) write tools
-        var disallowed = new LinkedList<string>();
+        var disallowed = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var t in AlwaysDenied)
         {
-            if (seen.Add(t)) disallowed.AddLast(t);
+            if (seen.Add(t)) disallowed.Add(t);
         }
         foreach (var t in options.DisallowedTools)
         {
-            if (seen.Add(t)) disallowed.AddLast(t);
+            if (seen.Add(t)) disallowed.Add(t);
         }
         if (options.ToolPolicy == AgentToolPolicy.ReadOnly)
         {
             foreach (var t in ReadOnlyDenied)
             {
-                if (seen.Add(t)) disallowed.AddLast(t);
+                if (seen.Add(t)) disallowed.Add(t);
             }
         }
 

@@ -97,7 +97,7 @@ public class ClaudeCliProviderTests
     [Fact]
     public void Command_tokenizer_handles_quoted_paths()
     {
-        var tokens = ClaudeCliProvider.Tokenize("node \"C:\\some dir\\stub.mjs\" --flag");
+        var tokens = ClaudeCommand.Tokenize("node \"C:\\some dir\\stub.mjs\" --flag");
 
         Assert.Equal(["node", @"C:\some dir\stub.mjs", "--flag"], tokens);
     }

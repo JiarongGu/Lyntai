@@ -38,7 +38,7 @@ public sealed class ClaudeAgentSession : IAgentSession
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
         AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var (exe, prefixArgs) = ResolveCommand();
+        var (exe, prefixArgs) = ClaudeCommand.Resolve(_command);
         var argv = prefixArgs.Concat(ClaudeAgentArgs.Build(options)).ToList();
 
         var timeout = _options.ResolveTimeout(options.TimeoutSeconds);
@@ -102,15 +102,5 @@ public sealed class ClaudeAgentSession : IAgentSession
             yield return new SessionEnded(LlmVerdict.Failed, true, null, lastSessionId, null,
                 "no output produced (no terminal result)");
         }
-    }
-
-    private (string Exe, IReadOnlyList<string> PrefixArgs) ResolveCommand()
-    {
-        var cmd = _command
-            ?? Environment.GetEnvironmentVariable("LYNTAI_PROVIDER_CMD")
-            ?? Environment.GetEnvironmentVariable("CLAUDE_CMD")
-            ?? "claude";
-        var tokens = ClaudeCliProvider.Tokenize(cmd);
-        return tokens.Count == 0 ? ("claude", []) : (tokens[0], tokens.Skip(1).ToList());
     }
 }

@@ -35,6 +35,3 @@ public sealed record UsageFinal(long Input, long Output, long CacheRead, long Ca
 public sealed record SessionEnded(
     LlmVerdict Verdict, bool IsError, string? Subtype, string? SessionId,
     string? FinalText, string? Diagnostic) : AgentStreamEvent;
-
-/// <summary>Read-only (plan gate) vs write (execute gate) tool policy for a gated agent session.</summary>
-public enum AgentToolPolicy { ReadOnly, Write }

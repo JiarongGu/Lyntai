@@ -2,6 +2,9 @@ using Lyntai.Llm;
 
 namespace Lyntai.Agents;
 
+/// <summary>Read-only (plan gate) vs write (execute gate) tool policy for a gated agent session.</summary>
+public enum AgentToolPolicy { ReadOnly, Write }
+
 /// <summary>Neutral per-call inputs for an <see cref="IAgentSession"/>. Adapters subtype this to add
 /// provider-specific options (e.g. ClaudeAgentOptions). Inheritable — do NOT seal.</summary>
 public record AgentSessionOptions

@@ -176,36 +176,8 @@ public sealed class ClaudeCliProvider(
             yield return LlmChunk.Error(LlmVerdict.Failed, "no output produced");
     }
 
-    /// <summary>Parse the (possibly multi-token, possibly quoted) command override into exe + prefix
-    /// args — e.g. <c>node /path/provider-stub.mjs</c> spawns node with the stub as its first arg.</summary>
-    internal (string Exe, IReadOnlyList<string> PrefixArgs) ResolveCommand()
-    {
-        var cmd = command
-            ?? Environment.GetEnvironmentVariable("LYNTAI_PROVIDER_CMD")
-            ?? Environment.GetEnvironmentVariable("CLAUDE_CMD")
-            ?? "claude";
-        var tokens = Tokenize(cmd);
-        return tokens.Count == 0 ? ("claude", []) : (tokens[0], tokens.Skip(1).ToList());
-    }
-
-    internal static List<string> Tokenize(string commandLine)
-    {
-        var tokens = new List<string>();
-        var current = new System.Text.StringBuilder();
-        var inQuotes = false;
-        foreach (var c in commandLine)
-        {
-            if (c == '"') { inQuotes = !inQuotes; continue; }
-            if (!inQuotes && char.IsWhiteSpace(c))
-            {
-                if (current.Length > 0) { tokens.Add(current.ToString()); current.Clear(); }
-                continue;
-            }
-            current.Append(c);
-        }
-        if (current.Length > 0) tokens.Add(current.ToString());
-        return tokens;
-    }
+    /// <summary>Resolve the command override / env seams into exe + prefix args (see <see cref="ClaudeCommand"/>).</summary>
+    internal (string Exe, IReadOnlyList<string> PrefixArgs) ResolveCommand() => ClaudeCommand.Resolve(command);
 
     private static string Tail(string text, int max = 500)
     {
