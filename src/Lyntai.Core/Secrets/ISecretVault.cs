@@ -40,5 +40,10 @@ public interface ISecretProtector
 /// does.</para></summary>
 public interface ISecretAccessPolicy
 {
+    /// <summary>Gate a READ of secret <paramref name="name"/> by <paramref name="accessor"/>.
+    /// <para>By design this policy gates READS only — <c>Set</c>/<c>Delete</c>/<c>ListNames</c> are NOT gated
+    /// by contract (writes/enumeration are assumed to be an admin/provisioning path, not the runtime read
+    /// path the policy protects). If you need to gate writes/enumeration, wrap the <see cref="ISecretVault"/>
+    /// with your own decorator; a first-class write/enumerate hook may be added later.</para></summary>
     Task<bool> CanReadAsync(string name, string? accessor, CancellationToken ct = default);
 }

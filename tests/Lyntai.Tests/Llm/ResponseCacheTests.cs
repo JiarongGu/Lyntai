@@ -1,3 +1,4 @@
+using System.Reflection;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Caching;
@@ -43,6 +44,32 @@ public class ResponseCacheTests
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { Temperature = 0.5 }));  // temperature
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { JsonSchema = "{}" }));  // schema
         Assert.NotEqual(key, ResponseCacheKey.For(baseReq with { MaxTokens = 10 }));     // max tokens
+    }
+
+    // R21b — guard against a NEW LlmRequest field being added but not folded into the cache key (a silent
+    // collision: two requests differing only in the new field would share a cached hit). Every field must be
+    // either hashed by ResponseCacheKey.For or consciously listed here as excluded (with a reason).
+    [Fact]
+    public void Every_LlmRequest_field_is_classified_for_the_cache_key()
+    {
+        var hashed = new HashSet<string> { "Messages", "Model", "MaxTokens", "Temperature", "JsonSchema" };
+        var excluded = new HashSet<string>
+        {
+            "Consumer",       // captured via the effective model; two consumers → same model share a hit
+            "Tools",          // native-tool requests are never cached (CachingLlmClient bypasses them)
+            "TimeoutSeconds", // not output-determining
+            "RefusalPattern", // applied post-hoc at the front door — re-screens even a cached hit
+        };
+        var classified = new HashSet<string>(hashed);
+        classified.UnionWith(excluded);
+
+        var actual = typeof(LlmRequest).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(p => p.Name).ToHashSet();
+
+        Assert.True(actual.SetEquals(classified),
+            "LlmRequest fields not classified for ResponseCacheKey — hash them in ResponseCacheKey.For or add " +
+            $"to the excluded set with a reason. Unclassified: [{string.Join(", ", actual.Except(classified))}]; " +
+            $"stale: [{string.Join(", ", classified.Except(actual))}]");
     }
 
     [Fact]

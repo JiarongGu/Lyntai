@@ -29,9 +29,11 @@ public sealed record LlmMessage(string Role, string Content)
     public static LlmMessage UserWithImageUrl(string text, string imageUrl, string mediaType = "image/jpeg") =>
         new("user", text) { Attachments = [new LlmAttachment(mediaType, Uri: imageUrl)] };
 
-    /// <summary>An assistant turn that made <paramref name="toolCalls"/> (no text content).</summary>
-    public static LlmMessage AssistantToolCalls(IReadOnlyList<LlmToolCall> toolCalls) =>
-        new("assistant", "") { ToolCalls = toolCalls };
+    /// <summary>An assistant turn that made <paramref name="toolCalls"/>, optionally with accompanying
+    /// <paramref name="content"/> (prose the model emitted alongside the calls — providers allow both on one
+    /// assistant turn; preserving it keeps that reasoning in the transcript instead of dropping it).</summary>
+    public static LlmMessage AssistantToolCalls(IReadOnlyList<LlmToolCall> toolCalls, string content = "") =>
+        new("assistant", content) { ToolCalls = toolCalls };
 
     /// <summary>A tool-result turn answering the call <paramref name="toolCallId"/> with
     /// <paramref name="content"/> (the observation the tool returned).</summary>

@@ -123,6 +123,12 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   now emit it for the deferred stream-native-tool-calls case.
 
 ### Fixed
+- **More low-priority nits (Part 8 · R21b)** — the agentic tool loop's native path now preserves any prose
+  the model emitted alongside its tool calls (`LlmMessage.AssistantToolCalls` carries content) instead of
+  dropping it; added a reflection guard test asserting every `LlmRequest` field is either hashed into the
+  response-cache key or consciously excluded (catches a future field that would cause silent cache
+  collisions); documented that `ISecretAccessPolicy` gates reads only (writes/enumeration are the
+  admin/provisioning path — wrap the vault to gate them).
 - **Low-priority nits batch (Part 8 · R21, partial)** — `InMemoryJobStore.ListAsync` now uses an ordinal
   `Id.ToString()` tiebreak to match the SQL stores' TEXT ordering (was `Guid.CompareTo`); `OutcomeScorer`'s
   magic `Extra["error"]` key is exposed as `OutcomeScorer.ErrorKey`; the `LlmScorerBase` judge SYSTEM

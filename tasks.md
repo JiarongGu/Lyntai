@@ -832,10 +832,12 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   Id tiebreak (SQL parity); `CompleteJsonAsync` retry double-charge/no-cache DOCUMENTED; `ClaudeCommand.Tokenize`
   double-quotes-only DOCUMENTED; SQLite late-ADD-COLUMN `Down()` best-effort already documented (verified);
   `PackageProjectUrl`/`RepositoryUrl` set (verify repo hosted + add SourceLink at the 1.0 hosting step).
-  **Deferred → R21b (task #27):** ToolLoop assistant-prose channel; `TraceStep.Sequence`/`OffsetMs`;
-  reverse-MEAI-bridge tool/schema/attachment parity; JsonNode-switch helper hoist; `ResponseCacheKey`
-  reflection guard test; vault write/enumerate policy hook; typed `IRefusalMatcher` seam; `AddRateLimit`
-  no-effective-limit warn.
+  **R21b (2026-07-20) — done:** ToolLoop native path now preserves assistant prose (`AssistantToolCalls`
+  carries content); `ResponseCacheKey` reflection guard test (every `LlmRequest` field hashed or excluded);
+  vault read-only policy asymmetry documented on `ISecretAccessPolicy`. **R21b — still deferred:**
+  `TraceStep.Sequence`/`OffsetMs` (API change, low value while trace is BYO); reverse-MEAI-bridge
+  tool/schema/attachment parity; JsonNode-switch helper hoist (cross-assembly); typed `IRefusalMatcher` seam
+  (long-term); `AddRateLimit` no-effective-limit warn (env-timing-fiddly).
   - `ToolLoop` native path drops assistant prose that accompanies tool calls (`ToolLoop.cs:82-86`) — capture
     it into a step/thinking channel.
   - `OutcomeScorer.cs:22` bakes in a magic `Extra["error"]` key though `Extra` is "app-owned" — expose as a

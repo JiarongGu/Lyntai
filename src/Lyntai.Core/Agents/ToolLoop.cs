@@ -87,9 +87,10 @@ public sealed class ToolLoop(
                 return new ToolLoopResult(reply.Text, LlmVerdict.Ok, steps); // no calls → the model answered
             }
 
-            // one assistant-tool-call turn carrying ALL calls, then one tool-result per call (a missing
-            // tool_call_id makes providers reject the next request)
-            messages.Add(LlmMessage.AssistantToolCalls(reply.ToolCalls));
+            // one assistant-tool-call turn carrying ALL calls (+ any prose the model emitted alongside them,
+            // preserved rather than dropped), then one tool-result per call (a missing tool_call_id makes
+            // providers reject the next request)
+            messages.Add(LlmMessage.AssistantToolCalls(reply.ToolCalls, reply.Text));
             foreach (var call in reply.ToolCalls)
             {
                 var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);

@@ -753,7 +753,7 @@ enum Lyntai.Llm.LlmChunkKind
 class Lyntai.Llm.LlmMessage
     .ctor(String, String)
     Assistant(String) : LlmMessage
-    AssistantToolCalls(IReadOnlyList<LlmToolCall>) : LlmMessage
+    AssistantToolCalls(IReadOnlyList<LlmToolCall>, String=) : LlmMessage
     Attachments : IReadOnlyList<LlmAttachment>
     Content : String
     Deconstruct(String&, String&) : Void
