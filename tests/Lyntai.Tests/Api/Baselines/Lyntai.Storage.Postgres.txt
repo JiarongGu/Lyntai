@@ -38,6 +38,7 @@ static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
 class Lyntai.Storage.Postgres.PostgresConnectionFactory
     .ctor(String)
     Open() : DbConnection
+    OpenAsync(CancellationToken=) : Task<DbConnection>
 class Lyntai.Storage.Postgres.PostgresConversationStore
     .ctor(IDbConnectionFactory)
     AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>

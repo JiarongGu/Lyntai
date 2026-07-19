@@ -1168,6 +1168,7 @@ interface Lyntai.Storage.ICuratedMemoryStore
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IDbConnectionFactory
     Open() : DbConnection
+    OpenAsync(CancellationToken=) : Task<DbConnection>
 interface Lyntai.Storage.IJobStore
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
     CancelAsync(Guid, CancellationToken=) : Task<Boolean>

@@ -31,6 +31,21 @@ public sealed class PostgresConnectionFactory : IDbConnectionFactory
         return conn;
     }
 
+    public async Task<DbConnection> OpenAsync(CancellationToken ct = default)
+    {
+        var conn = new NpgsqlConnection(_connectionString);
+        try
+        {
+            await conn.OpenAsync(ct).ConfigureAwait(false); // async pooled connect (network round-trip)
+            return conn;
+        }
+        catch
+        {
+            await conn.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
     // KEEP IDENTICAL to Lyntai.Storage.Sqlite's DateTimeOffsetHandler (shared global Dapper registry).
     private sealed class DateTimeOffsetHandler : SqlMapper.TypeHandler<DateTimeOffset>
     {

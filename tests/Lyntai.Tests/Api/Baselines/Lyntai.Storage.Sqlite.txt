@@ -67,6 +67,7 @@ class Lyntai.Storage.Sqlite.SqliteConnectionFactory
     .ctor(String)
     DbPath : String
     Open() : DbConnection
+    OpenAsync(CancellationToken=) : Task<DbConnection>
 class Lyntai.Storage.Sqlite.SqliteConversationStore
     .ctor(IDbConnectionFactory)
     AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>

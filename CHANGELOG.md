@@ -68,6 +68,11 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **`IDbConnectionFactory.OpenAsync` (Part 8 · R12)** — an async open added NOW (as a default-interface
+  method delegating to `Open()`, so it's non-breaking for existing implementers) because adding it to the
+  interface after 1.0 would break every implementer. The built-in SQLite + Postgres factories override it
+  with a genuinely async open (over the driver's `OpenAsync` + pragmas), so a store can stop blocking a
+  threadpool thread on connect — matters most for the networked/pooled Postgres backend.
 - **Public front-door decorator seam (Part 8 · R11)** — `LyntaiBuilder.AddFrontDoorDecorator(order, factory)`
   is now public, so an app can fold its OWN cross-cutting `ILlmClient` decorator (PII redaction, request
   logging, a bespoke cache) over the base client along the SAME ordered chain as the built-in governance

@@ -48,6 +48,25 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
         return conn;
     }
 
+    public async Task<DbConnection> OpenAsync(CancellationToken ct = default)
+    {
+        var conn = new SqliteConnection(_connectionString);
+        try
+        {
+            conn.DefaultTimeout = 30;
+            await conn.OpenAsync(ct).ConfigureAwait(false);
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;";
+            await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            return conn;
+        }
+        catch
+        {
+            await conn.DisposeAsync().ConfigureAwait(false); // don't leak a half-open connection on failure
+            throw;
+        }
+    }
+
     // KEEP IDENTICAL to Lyntai.Storage.Postgres's DateTimeOffsetHandler (shared global Dapper registry).
     private sealed class DateTimeOffsetHandler : SqlMapper.TypeHandler<DateTimeOffset>
     {

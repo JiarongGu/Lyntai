@@ -791,7 +791,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   `AddFrontDoorDecorator` are `internal`; an app's own cross-cutting concern (PII redaction, request logging)
   must pre-register a whole `ILlmClient`, which trips the governance guard. Expose a public
   `AddFrontDoorDecorator(order, factory)` / `ILlmClientDecorator` collection folding on the same ordered chain.
-- [ ] **R12 · `IDbConnectionFactory.Open()` is sync-only** (sustainable) — every store blocks a threadpool
+- [x] **R12 · `IDbConnectionFactory.Open()` is sync-only** (sustainable) ✅ done 2026-07-20 — added `OpenAsync(ct)` as a default-interface method (delegates to `Open()`, non-breaking) with genuine async overrides in the SQLite + Postgres factories. Original: — every store blocks a threadpool
   thread on connect (esp. Postgres network+pool). Add `Task<DbConnection> OpenAsync(ct)` to the interface NOW
   (default over `Open()`) — the one interface change that's expensive to make post-publish.
 - [ ] **R13 · Unwrapped DEK never zeroized** (sustainable — crypto) — `EnvelopeSecretVault` (`Create`/
