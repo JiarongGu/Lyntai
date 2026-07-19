@@ -748,7 +748,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
     but a `Replace` outcome does `reply with { Text = … }`, so denied content in `ToolCalls`/`Detail` passes
     through un-redacted. Fix: on response `Replace` also clear/rewrite `ToolCalls`+`Detail`, or treat a hit
     outside `Text` as `Block`-only.
-- [ ] **R4 · Trace subsystem is orphaned from the agent flows** (sustainable)
+- [x] **R4 · Trace subsystem is orphaned from the agent flows** (sustainable) ✅ done 2026-07-20 — chosen: document `ITraceService` as the BYO/app-driven persisted-trace API; OTel Activity spans are the automatic path. Clarified in `ITraceService` XML-doc + README Observability. (No auto-wiring — ChatTurn has no session id, and OTel already covers auto-observability.)
   - `ITraceService.Record` is called nowhere in `src/` except tests. `ToolLoop`/`ChatOrchestrator` emit OTel
     `Activity` spans (`LyntaiDiagnostics`) but never a `TraceStep`, and the batteries-included orchestrator
     persists no trace — though "run traces" is a headline cortex feature. Fix: wire `ITraceService` into the

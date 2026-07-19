@@ -62,6 +62,12 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   was a carry-over that read backwards for a library table. Applied in-place to the existing migration
   (pre-release — no data migration). **Breaking (pre-1.0)** for anyone reading the raw table.
 
+### Docs
+- **`ITraceService` is the BYO / app-driven persisted-trace API (Part 8 · R4)** — clarified (XML-doc +
+  README) that Lyntai's batteries-included flows do NOT auto-populate a `RunTrace`; the automatic
+  observability path is the OpenTelemetry `Activity` spans on the `Lyntai.Llm` / `Lyntai.Agents` sources.
+  Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
+
 ### Fixed
 - **Response-gate `Replace` redacts the whole reply (Part 8 · R3, security)** — the output gate scans a
   reply's `Text` + `Detail` + `ToolCalls`, but a `Replace` outcome only rewrote `Text`, leaving denied

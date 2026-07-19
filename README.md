@@ -267,6 +267,12 @@ fallback point of no return. On the `Lyntai.Agents` side, a `tool_loop` span nes
 processed/duration metrics), and a guard-decisions counter tags each block/replace by gate — so an
 agent run traces end-to-end next to its LLM calls.
 
+OpenTelemetry is the **automatic** observability path. `ITraceService` is a separate, **app-driven**
+API for a durable, step-shaped run history you query later: call `Begin(sessionId, mode)` and
+`recorder.Record(step)` yourself, and it persists a `RunTrace` to the wired `ITraceStore`
+(SQLite/Postgres/InMemory). The batteries-included flows don't auto-populate it — reach for it when you
+want your own queryable trace timeline; reach for OTel for live tracing/metrics.
+
 ### Bring your own resources
 
 Lyntai defines the interfaces; your app owns the resource lifecycle wherever that matters.
