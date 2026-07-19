@@ -798,7 +798,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   `UnwrapWithMachine`/`UnwrapWithRecoveryKey`) hands the DEK to `AesGcmSecretProtector` (which clones it) and
   never `ZeroMemory`s the original; the transient recovery KEK IS scrubbed but the longer-lived master DEK is
   not. Zero it after building the inner protector; consider making the protector disposable.
-- [ ] **R14 · ClaudeCli silently drops `LlmRequest.Tools`** (generic) — `SupportsToolCalls=false` and
+- [x] **R14 · ClaudeCli silently drops `LlmRequest.Tools`** (generic) ✅ done 2026-07-20 — logs a warning (count + "use the ClaudeCli.Mcp provisioner") when `req.Tools` is non-empty on the CLI path; documented on the `WarnIfRequestToolsIgnored` helper. Original: — `SupportsToolCalls=false` and
   `ClaudeArgs.Build` ignores `req.Tools` (tools reach the CLI only via the separate MCP provisioner). A caller
   putting tools on the request + routing to claude-cli gets them dropped with no diagnostic. Log a warning
   when `req.Tools` is non-empty on the CLI path; document the divergence.

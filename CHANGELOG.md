@@ -87,6 +87,10 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   now emit it for the deferred stream-native-tool-calls case.
 
 ### Fixed
+- **ClaudeCli warns instead of silently dropping `LlmRequest.Tools` (Part 8 · R14)** — the CLI provider
+  doesn't consume request-level tool declarations (`SupportsToolCalls`=false; tool-calling goes through the
+  MCP provisioner), so a caller that put tools on the request + routed to `claude-cli` had them dropped with
+  no diagnostic. It now logs a warning naming the count + the correct path (the ClaudeCli.Mcp provisioner).
 - **Envelope vault zeroizes the unwrapped DEK (Part 8 · R13, crypto)** — `EnvelopeSecretVault` unwrapped the
   master DEK and handed it to `AesGcmSecretProtector` (which clones it) but never scrubbed its own copy, so
   the plaintext key lingered on the managed heap until GC (the transient recovery KEK was already zeroed —

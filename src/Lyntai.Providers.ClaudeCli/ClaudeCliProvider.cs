@@ -50,6 +50,7 @@ public sealed class ClaudeCliProvider(
 
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
+        WarnIfRequestToolsIgnored(req);
         // when a provisioner is registered (the ClaudeCli.Mcp add-on), it stands up an MCP host exposing
         // the app's tools and hands back the CLI args; the session tears it down after the process exits
         await using var session = provisioner is null ? null : await provisioner.ProvisionAsync(ct).ConfigureAwait(false);
@@ -104,6 +105,7 @@ public sealed class ClaudeCliProvider(
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
+        WarnIfRequestToolsIgnored(req);
         // host lives for the whole stream (the CLI calls tools throughout); torn down when this iterator
         // is disposed
         await using var session = provisioner is null ? null : await provisioner.ProvisionAsync(ct).ConfigureAwait(false);
@@ -183,5 +185,19 @@ public sealed class ClaudeCliProvider(
     {
         var trimmed = text.Trim();
         return trimmed.Length <= max ? trimmed : trimmed[^max..];
+    }
+
+    /// <summary>The CLI provider does NOT consume <see cref="LlmRequest.Tools"/> (native tool declarations
+    /// on the request): <c>SupportsToolCalls</c> is false and <see cref="ClaudeArgs.Build"/> ignores them.
+    /// Tool-calling on this provider goes through the separate MCP provisioner (the app's registered
+    /// <c>ITool</c>s hosted as an ephemeral MCP server), not request-level declarations. Warn rather than
+    /// drop them silently, so a caller that put tools on the request + routed here gets a diagnostic.</summary>
+    private void WarnIfRequestToolsIgnored(LlmRequest req)
+    {
+        if (req.Tools is { Count: > 0 })
+            _logger.LogWarning(
+                "claude-cli ignores LlmRequest.Tools ({Count} declaration(s) dropped) — the CLI provider " +
+                "doesn't take request-level tool declarations; expose tools via the ClaudeCli.Mcp provisioner (AddMcp…) instead.",
+                req.Tools.Count);
     }
 }
