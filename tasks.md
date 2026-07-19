@@ -859,6 +859,39 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
 
 ---
 
+## Part 9 — Feature/module toggles: enable only what you use (2026-07-20)
+
+Requirement (user, 2026-07-20): every **side feature** (scoring, conversation/message, memory, traces,
+jobs, curated memory, prompt-versions, governance cache/budget, semantic memory) should be individually
+**enable/disable-able by the app**. When a feature is DISABLED: its stores are NOT registered, and its
+table(s) are **NOT migrated** — no unused `lyntai_*` tables land. Backed by (a) **app-startup verification**
+(only the enabled features' schema exists / using a disabled feature fails fast with a clear message) and
+(b) **per-module/feature migration logic** (migrate only the selected features' tables).
+
+Consistent with the [[lyntai-owns-storage-extend-not-fork]] design: Lyntai still OWNS the tables it creates —
+this only stops it creating tables for features the app opted out of. This is the opt-in store-selection +
+selective-migration deferred from P3, now a first-class requirement (NOT the rejected "app owns its own
+tables" direction).
+
+- [ ] **F1 · Feature toggle model + gated registration + selective migration — should-have**
+  - A `[Flags] enum LyntaiFeatures` (Scoring, Conversation, Memory, Traces, Jobs, CuratedMemory,
+    PromptVersions, Governance, SemanticMemory, …; `All` default) — or per-feature options. Surface on the
+    storage builders (e.g. `UseSqliteStorage(dbPath, features: LyntaiFeatures.Scoring | …)`) and/or a builder
+    `EnableFeatures(...)`. Default = All (unchanged behavior).
+  - **Registration:** register only the selected features' stores (conditional on the flag set).
+  - **Migration:** per-feature migration gating — map each migration (or a FluentMigrator tag) to its feature;
+    `MigrationRunnerService.MigrateUp` runs ONLY the selected features' migrations (both SQLite + Postgres).
+    Update the "N migrations applied" invariant test to be feature-set-aware. **This is the risky part**
+    (FluentMigrator tag/selective-run semantics + version-table interplay) — TDD it carefully.
+  - **Startup verification:** a check (opt-in) that the enabled features' tables exist and that a disabled
+    feature isn't silently used — fail fast with an actionable message rather than a raw SQL "no such table".
+  - Files: `SqliteStorageBuilderExtensions` / `PostgresStorageBuilderExtensions`, both `MigrationRunnerService`s,
+    the migrations (feature tagging), `ServiceCollectionExtensions` (conditional registration), a new
+    `LyntaiFeatures` enum/options; contract test asserting a disabled feature lands no table + its store isn't
+    registered, while an enabled one works.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
