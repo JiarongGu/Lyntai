@@ -768,7 +768,7 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
     hashed) to the SQLite schema + `INSERT … ON CONFLICT DO UPDATE`.
 
 ### Med
-- [ ] **R7 · README/CHANGELOG version drift (ships in every nupkg)** (sustainable) — `README.md` `## Status`
+- [x] **R7 · README/CHANGELOG version drift (ships in every nupkg)** (sustainable) ✅ done 2026-07-20 — README Status refreshed to v0.28.5; agent-session moved from Unreleased → `## 0.28.5`; added `dev.mjs doctor` pack-guard (README Status version must == VersionPrefix). Original: — `README.md` `## Status`
   is stuck at ~v0.15 (omits governance trio, semantic memory, Postgres, DLQ/cron/cancel jobs, secret vault,
   agent session) while `VersionPrefix`=0.28.5; `CHANGELOG.md` has no entries for 0.28.2–0.28.5 and the
   agent-session work sits under "Unreleased". Reconcile on release; add a `dev.mjs` pack-doctor that fails if

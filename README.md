@@ -12,14 +12,18 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.15.0 — guards + two-gate orchestration + secret vault + vision, durable jobs, the full tool-calling
-story, in-process local inference, bring-your-own resources, three storage backends, LLM-ops depth, on a
-production-hardened base.** The v0.1.0 substrate (all of `tasks.md`), a
-multi-agent code-review + best-practices research pass (v0.2), configurable routing (v0.3), LLM-ops
-depth (v0.4), public-API baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama
-validation (v0.6), IoC seams so the app owns its resource lifecycle — process execution, HttpClient, DB
-connection/schema, provider presets (v0.7), a local GGUF provider via LLamaSharp (v0.8), an agentic
-tool-calling loop (v0.9), and native (structured) function-calling with a prompt fallback (v0.10).
+**v0.28.5 — a hardened, batteries-included cortex substrate.** On the v0.1.0 base (all of `tasks.md`) plus
+a multi-agent review/research pass (v0.2): configurable routing (v0.3), LLM-ops depth (v0.4), public-API
+baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama validation (v0.6), IoC
+seams so the app owns its resource lifecycle — process execution, HttpClient, DB connection/schema,
+provider presets (v0.7), a local GGUF provider via LLamaSharp (v0.8), an agentic tool-calling loop (v0.9),
+native (structured) function-calling with a prompt fallback + MEAI-bridged tool-calls (v0.10–v0.11), MCP
+tools (v0.12) and CLI tool-calling via an ephemeral MCP server (v0.13), durable multi-agent jobs (v0.14),
+the §9 platform kit — guards + two-gate orchestration, secret vault, vision/multimodal (v0.15) — then the
+post-kit expansion (v0.16–v0.28): OTel telemetry; cache/budget/rate-limit front-door governance; semantic
+memory over a BYO embedder + vector store (incl. pgvector); durable-job priorities/DLQ/cron/cancellation +
+admission control + live progress; a DPAPI + recovery-key envelope vault; per-request refusal screening;
+curated memory; and the agentic **self-driving-agent session** primitive (v0.28.5).
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
 - `docs/ROADMAP.md` — what's shipped, what's next, and what's blocked on a hosted repo / DB / native deps.

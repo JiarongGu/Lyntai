@@ -5,24 +5,7 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## Unreleased
 
-### Added
-- **Agentic self-driving-agent session** — a generic primitive for gating an agent that drives its OWN
-  tool loop out-of-process (the `claude` CLI now; a future Codex/Gemini-CLI/OpenAI-Responses adapter
-  reuses the surface unchanged), distinct from `IToolLoop` (where Lyntai drives the loop). Neutral surface
-  in Core `Lyntai.Agents`: `IAgentSession.StreamAsync` yielding an `AgentStreamEvent` transcript
-  (`SessionStarted`/`TextDelta`/`Thinking`/`ToolCall`/`ToolResult`/`UsageLive`/`UsageFinal`/`SessionEnded`),
-  an `AgentToolPolicy` (ReadOnly plan gate vs Write execute gate), an opaque `ResumeToken` (resume across a
-  human gate), and `AgentSessionOptions`/`AgentSessionResult`. **Both consumption doors:**
-  `StreamAsync` (live transcript) and the `RunAsync(onEvent)` extension (folds to `AgentSessionResult`),
-  mirroring `ILlmProvider.StreamAsync`/`CompleteAsync`. The `claude` adapter
-  (`Lyntai.Providers.ClaudeCli`): `ClaudeAgentSession` + `ClaudeAgentOptions` (`--settings` scope-guard
-  hooks, `--mcp-config`/`--allowedTools` for an app-hosted MCP server, read-only/write tool policy,
-  `--resume`), `ClaudeAgentArgs`, `ClaudeToolCalls.FilePathOf`, and `AddClaudeCliAgentSession()`. Prompt
-  over stdin only; diagnosable termination (a no-output run is never silent). Design:
-  `docs/2026-07-19-agent-session-design.md`.
-- **`LyntaiOptions.ResolveTimeout(int?)`** — a per-call-seconds timeout overload (value clamped to
-  `MaxProviderTimeout`, else the global `ProviderTimeout`), shared by the request path and the agent
-  session.
+Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
 
 ### Changed
 - **Generic typed-event conversation store (Part 7 · P2)** — a conversation is now modelled as a typed
@@ -74,6 +57,11 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   contracts as backend-specific tests (tracked as R19).
 
 ### Docs
+- **Version-drift reconciliation + guard (Part 8 · R7)** — refreshed the README `## Status` (was stuck at
+  v0.15, now v0.28.5 with the full feature arc); relocated the agent-session (Part 6) entries from
+  "Unreleased" into a `## 0.28.5` section (with 0.28.2–0.28.4 consolidated) so Unreleased reflects only the
+  not-yet-released work; and added `node devtools/dev.mjs doctor` (a `pack` pre-check) that fails if the
+  README Status version ≠ `VersionPrefix`, so a shipped nupkg can't advertise a stale version.
 - **`ITraceService` is the BYO / app-driven persisted-trace API (Part 8 · R4)** — clarified (XML-doc +
   README) that Lyntai's batteries-included flows do NOT auto-populate a `RunTrace`; the automatic
   observability path is the OpenTelemetry `Activity` spans on the `Lyntai.Llm` / `Lyntai.Agents` sources.
@@ -104,6 +92,31 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
   register wins (defaults use `TryAdd`)". The domain-store registrations now use `TryAddSingleton` (matching
   `Lyntai.Storage.InMemory`), so a pre-registered app impl wins regardless of call order — the BYO-backend
   escape hatch the app-owned-storage design (P3) relies on.
+
+## 0.28.5 — 2026-07-19
+
+Part 6 — the agentic **self-driving-agent session** primitive (0.28.2–0.28.4 were the cortex/scoring
+adoption tail + patch re-releases; consolidated here).
+
+### Added
+- **Agentic self-driving-agent session** — a generic primitive for gating an agent that drives its OWN
+  tool loop out-of-process (the `claude` CLI now; a future Codex/Gemini-CLI/OpenAI-Responses adapter
+  reuses the surface unchanged), distinct from `IToolLoop` (where Lyntai drives the loop). Neutral surface
+  in Core `Lyntai.Agents`: `IAgentSession.StreamAsync` yielding an `AgentStreamEvent` transcript
+  (`SessionStarted`/`TextDelta`/`Thinking`/`ToolCall`/`ToolResult`/`UsageLive`/`UsageFinal`/`SessionEnded`),
+  an `AgentToolPolicy` (ReadOnly plan gate vs Write execute gate), an opaque `ResumeToken` (resume across a
+  human gate), and `AgentSessionOptions`/`AgentSessionResult`. **Both consumption doors:**
+  `StreamAsync` (live transcript) and the `RunAsync(onEvent)` extension (folds to `AgentSessionResult`),
+  mirroring `ILlmProvider.StreamAsync`/`CompleteAsync`. The `claude` adapter
+  (`Lyntai.Providers.ClaudeCli`): `ClaudeAgentSession` + `ClaudeAgentOptions` (`--settings` scope-guard
+  hooks, `--mcp-config`/`--allowedTools` for an app-hosted MCP server, read-only/write tool policy,
+  `--resume`), `ClaudeAgentArgs`, `ClaudeToolCalls.FilePathOf`, and `AddClaudeCliAgentSession()`. Prompt
+  over stdin only; diagnosable termination (a no-output run is never silent). Design:
+  `docs/2026-07-19-agent-session-design.md`.
+- **`LyntaiOptions.ResolveTimeout(int?)`** — a per-call-seconds timeout overload (value clamped to
+  `MaxProviderTimeout`, else the global `ProviderTimeout`), shared by the request path and the agent
+  session.
+- **`LlmScorerBase` applicability skip hook** (0.28.3) — a scorer can opt out of a given context.
 
 ## 0.28.1 — 2026-07-18
 

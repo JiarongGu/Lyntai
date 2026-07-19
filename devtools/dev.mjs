@@ -4,6 +4,7 @@
 //   node devtools/dev.mjs e2e [all|pN|pN-pM|p1,p3] [--build] [--parallel[=N]] - Playground e2e suites
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
 //   node devtools/dev.mjs pack             - dotnet pack the packable libraries -> publish/packages/
+//   node devtools/dev.mjs doctor           - assert README ## Status version == VersionPrefix (pack guard)
 //   node devtools/dev.mjs install-hooks    - git core.hooksPath -> devtools/hooks (pre-commit guard)
 //   node devtools/dev.mjs check-sensitive  - scan staged changes (--tree for all tracked files)
 import { spawn, spawnSync } from 'node:child_process';
@@ -20,6 +21,21 @@ const [cmd, ...args] = process.argv.slice(2);
 const run = (exe, argv, opts = {}) => {
   const r = spawnSync(exe, argv, { stdio: 'inherit', cwd: repo, shell: false, ...opts });
   process.exitCode = r.status ?? 1;
+};
+
+// pack-doctor: the README `## Status` headline version must match VersionPrefix, so a shipped nupkg's
+// README never advertises a stale version. Returns true when they agree.
+const packDoctor = () => {
+  const readme = fs.readFileSync(path.join(repo, 'README.md'), 'utf8');
+  const status = readme.split(/^## /m).find((s) => s.startsWith('Status')) ?? '';
+  const readmeVersion = (status.match(/\*\*v(\d+\.\d+\.\d+)/) ?? [])[1] ?? null;
+  if (readmeVersion !== config.version) {
+    console.error(`pack-doctor: README "## Status" version (${readmeVersion ?? 'none found'}) != ` +
+      `VersionPrefix (${config.version}) — update the README Status headline (**vX.Y.Z …) before packing.`);
+    return false;
+  }
+  console.log(`pack-doctor: README Status matches VersionPrefix (${config.version}) ✓`);
+  return true;
 };
 
 switch (cmd) {
@@ -51,7 +67,13 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'check-sensitive.mjs'), ...args]);
     break;
 
+  case 'doctor':
+    process.exitCode = packDoctor() ? 0 : 1;
+    break;
+
   case 'pack': {
+    // guard: never pack with a stale README version
+    if (!packDoctor()) { process.exitCode = 1; break; }
     // dotnet pack each packable library → publish/packages/*.nupkg, then print id + sha256.
     const out = path.join(repo, 'publish', 'packages');
     fs.rmSync(out, { recursive: true, force: true });
@@ -221,6 +243,6 @@ switch (cmd) {
   }
 
   default:
-    console.log('usage: node devtools/dev.mjs <build|test|e2e|verify|playground|bench|pack|new-migration|install-hooks|check-sensitive>');
+    console.log('usage: node devtools/dev.mjs <build|test|e2e|verify|playground|bench|pack|doctor|new-migration|install-hooks|check-sensitive>');
     process.exitCode = cmd ? 1 : 0;
 }
