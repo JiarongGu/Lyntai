@@ -67,4 +67,33 @@ public class LlmVerdictClassifierTests
         Assert.Equal(LlmVerdict.Timeout,
             LlmVerdictClassifier.FromException(new OperationCanceledException()));
     }
+
+    // R8 — a typed provider exception often wraps the real "too long" detail in an INNER exception; scanning
+    // only the outer ex.Message misses it → Failed instead of ContextWindowExceeded, defeating the
+    // big-context fallback.
+    [Fact]
+    public void FromException_reads_the_inner_exception_chain_for_context_window()
+    {
+        var ex = new InvalidOperationException("The request failed.",
+            new InvalidOperationException("This model's maximum context length is 8192 tokens; your request had 90000."));
+
+        Assert.Equal(LlmVerdict.ContextWindowExceeded, LlmVerdictClassifier.FromException(ex));
+    }
+
+    // R8 — the built-in patterns are English-only; an app can add its own matcher (e.g. a non-English
+    // provider) via a scoped seam, consulted BEFORE the built-ins.
+    [Fact]
+    public void Custom_matcher_extends_classification_and_is_scoped()
+    {
+        const string german = "Ratenlimit überschritten"; // "rate limit exceeded" — not matched by built-ins
+        Assert.Equal(LlmVerdict.Failed, LlmVerdictClassifier.FromErrorText(german));
+
+        using (LlmVerdictClassifier.AddErrorTextMatcher(t =>
+            t.Contains("Ratenlimit", StringComparison.OrdinalIgnoreCase) ? LlmVerdict.RateLimited : null))
+        {
+            Assert.Equal(LlmVerdict.RateLimited, LlmVerdictClassifier.FromErrorText(german)); // custom wins
+        }
+
+        Assert.Equal(LlmVerdict.Failed, LlmVerdictClassifier.FromErrorText(german)); // unregistered on dispose
+    }
 }

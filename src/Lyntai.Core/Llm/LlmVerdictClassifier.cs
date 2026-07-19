@@ -13,14 +13,42 @@ public static partial class LlmVerdictClassifier
     /// <summary>Classify an error message / stderr tail. Conservative on purpose: "429" alone is NOT
     /// enough (a stack frame like <c>cli.js:429</c> must stay Failed) — it needs rate-limit phrasing,
     /// or an HTTP-ish context word immediately before the number.</summary>
+    // consumer-registered matchers, consulted BEFORE the built-in (English) patterns — so an app can teach
+    // the classifier a non-English provider's phrasing, or a bespoke error code, without editing Core. A
+    // process-wide extension point (set at startup); AddErrorTextMatcher returns an IDisposable so a test
+    // can scope its registration.
+    private static readonly Lock _matchersLock = new();
+    private static readonly List<Func<string, LlmVerdict?>> _customMatchers = [];
+
+    /// <summary>Register a custom error-text matcher (returns a verdict, or null to defer). Consulted before
+    /// the built-in patterns, first non-null wins. Dispose the returned handle to unregister (an app
+    /// registers once at startup and never disposes; a test disposes to isolate).</summary>
+    public static IDisposable AddErrorTextMatcher(Func<string, LlmVerdict?> matcher)
+    {
+        ArgumentNullException.ThrowIfNull(matcher);
+        lock (_matchersLock) _customMatchers.Add(matcher);
+        return new MatcherRegistration(matcher);
+    }
+
     public static LlmVerdict FromErrorText(string? text, LlmVerdict fallback = LlmVerdict.Failed)
     {
         if (string.IsNullOrWhiteSpace(text)) return fallback;
+
+        Func<string, LlmVerdict?>[] custom;
+        lock (_matchersLock) custom = [.. _customMatchers];
+        foreach (var matcher in custom)
+            if (matcher(text) is { } verdict) return verdict; // consumer patterns win over the built-ins
+
         if (RateLimitPattern().IsMatch(text)) return LlmVerdict.RateLimited;
         if (ContextWindowPattern().IsMatch(text)) return LlmVerdict.ContextWindowExceeded;
         if (AuthPattern().IsMatch(text)) return LlmVerdict.AuthFailed;
         if (RefusalPattern().IsMatch(text)) return LlmVerdict.Refused;
         return fallback;
+    }
+
+    private sealed class MatcherRegistration(Func<string, LlmVerdict?> matcher) : IDisposable
+    {
+        public void Dispose() { lock (_matchersLock) _customMatchers.Remove(matcher); }
     }
 
     /// <summary>Classify a caught exception: the typed HTTP status wins over message heuristics
@@ -30,8 +58,18 @@ public static partial class LlmVerdictClassifier
         HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } => LlmVerdict.RateLimited,
         HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden } => LlmVerdict.AuthFailed,
         OperationCanceledException => LlmVerdict.Timeout,
-        _ => FromErrorText(ex.Message),
+        // scan the FULL inner-exception chain, not just ex.Message — a typed provider exception (e.g. an
+        // MEAI "prompt too long") often wraps the real context-window/rate-limit detail in an inner
+        // exception, so classifying only the outer message would flatten it to Failed.
+        _ => FromErrorText(FullMessage(ex)),
     };
+
+    private static string FullMessage(Exception ex)
+    {
+        var parts = new List<string>();
+        for (Exception? e = ex; e is not null; e = e.InnerException) parts.Add(e.Message);
+        return string.Join(" | ", parts);
+    }
 
     /// <summary>Classify a failed HTTP status + response body (typed status wins over body text).</summary>
     public static LlmVerdict FromHttpFailure(HttpStatusCode status, string? body) => status switch

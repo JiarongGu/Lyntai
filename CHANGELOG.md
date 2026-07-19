@@ -68,6 +68,13 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Fixed
+- **Verdict classifier: extensible + reaches `ContextWindowExceeded` on typed exceptions (Part 8 · R8)** —
+  `LlmVerdictClassifier.FromException` now scans the full inner-exception chain, so a typed provider
+  exception (e.g. an MEAI "prompt too long") that wraps the real detail in an inner exception classifies as
+  `ContextWindowExceeded` (was flattened to `Failed`, defeating the big-context fallback). Added a
+  consumer-extensibility seam `AddErrorTextMatcher(Func<string, LlmVerdict?>)` (returns a disposable
+  registration) consulted before the built-in English patterns — so an app can teach the classifier a
+  non-English provider's phrasing or a bespoke error code without editing Core.
 - **SQLite memory dedup is now atomic (Part 8 · R6)** — `SqliteMemoryStore.RememberAsync` did
   UPDATE-then-INSERT with no unique constraint, so two concurrent `RememberAsync` of the same
   `(task, scope, content)` could both fall through the UPDATE and INSERT duplicate rows. Added a

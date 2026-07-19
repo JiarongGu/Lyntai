@@ -773,8 +773,8 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   agent session) while `VersionPrefix`=0.28.5; `CHANGELOG.md` has no entries for 0.28.2–0.28.5 and the
   agent-session work sits under "Unreleased". Reconcile on release; add a `dev.mjs` pack-doctor that fails if
   README status ≠ `VersionPrefix`.
-- [ ] **R8 · Verdict classifier is English/regex-biased + not extensible; `ContextWindowExceeded` unreachable
-  on typed-exception paths** (generic) — `LlmVerdictClassifier` text patterns are English-only and `static
+- [x] **R8 · Verdict classifier is English/regex-biased + not extensible; `ContextWindowExceeded` unreachable
+  on typed-exception paths** (generic) ✅ done 2026-07-20 — `FromException` scans the inner-exception chain (typed "too long" → ContextWindowExceeded); added `AddErrorTextMatcher` consumer seam (disposable, consulted before built-ins). — `LlmVerdictClassifier` text patterns are English-only and `static
   partial` (can't extend without editing core); `FromException` has no context-window arm (MEAI "prompt too
   long" typed exceptions → `Failed`, defeating the big-context fallback). Keep typed-status primary; add a
   consumer pattern seam (`Func<string,LlmVerdict?>` / injectable set) + known context-window exception types.
