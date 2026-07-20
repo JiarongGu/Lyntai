@@ -181,19 +181,9 @@ public sealed class ExtensionsAiProvider(
     /// the shared <see cref="Lyntai.Text.JsonArgs"/> (kept in sync with the MCP tool-host).</summary>
     private static string SerializeArgs(IDictionary<string, object?>? args) => Lyntai.Text.JsonArgs.Serialize(args);
 
-    /// <summary>A JSON arguments string → the dictionary <see cref="FunctionCallContent"/> wants. Values
-    /// stay as detached <see cref="JsonNode"/>s (reflection-free); MEAI serializes them on the wire.</summary>
-    private static IDictionary<string, object?>? ParseArgs(string argumentsJson)
-    {
-        if (string.IsNullOrWhiteSpace(argumentsJson)) return null;
-        try
-        {
-            return JsonNode.Parse(argumentsJson) is JsonObject obj
-                ? obj.ToDictionary(kv => kv.Key, kv => (object?)kv.Value?.DeepClone())
-                : null;
-        }
-        catch (JsonException) { return null; }
-    }
+    /// <summary>A JSON arguments string → the dictionary <see cref="FunctionCallContent"/> wants (values stay
+    /// as detached <see cref="JsonNode"/>s, reflection-free) — via the shared <see cref="Lyntai.Text.JsonArgs"/>.</summary>
+    private static IDictionary<string, object?>? ParseArgs(string argumentsJson) => Lyntai.Text.JsonArgs.Parse(argumentsJson);
 
     private static ChatOptions MapOptions(LlmRequest req)
     {

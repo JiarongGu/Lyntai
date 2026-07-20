@@ -1267,6 +1267,7 @@ static class Lyntai.Storage.StorageFeatures
     AllTag : String const
     TagsFor(StorageFeature) : String[]
 static class Lyntai.Text.JsonArgs
+    Parse(String) : IDictionary<String,Object>
     Serialize(IEnumerable<KeyValuePair<String,Object>>) : String
     ToNode(Object) : JsonNode
 static class Lyntai.Text.JsonExtract

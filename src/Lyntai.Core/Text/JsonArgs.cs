@@ -35,4 +35,18 @@ public static class JsonArgs
             obj[key] = ToNode(value);
         return obj.ToJsonString();
     }
+
+    /// <summary>A JSON object string → the argument dictionary (values are detached <see cref="JsonNode"/>s,
+    /// reflection-free) — the inverse of <see cref="Serialize"/>. Null/blank/non-object/unparseable → null.</summary>
+    public static IDictionary<string, object?>? Parse(string? argumentsJson)
+    {
+        if (string.IsNullOrWhiteSpace(argumentsJson)) return null;
+        try
+        {
+            return JsonNode.Parse(argumentsJson) is JsonObject obj
+                ? obj.ToDictionary(kv => kv.Key, kv => (object?)kv.Value?.DeepClone())
+                : null;
+        }
+        catch (JsonException) { return null; }
+    }
 }

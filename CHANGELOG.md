@@ -90,6 +90,14 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **Reverse MEAI bridge parity — tools / json-schema / multimodal / tool turns (Part 8 · R21b)** — consuming
+  Lyntai `AsChatClient()` (the reverse `IChatClient` bridge) now maps the full request surface the forward
+  bridge already did: `ChatOptions.Tools` → `LlmRequest.Tools`, a JSON-schema `ResponseFormat` →
+  `LlmRequest.JsonSchema`, image `DataContent`/`UriContent` → `LlmMessage.Attachments`, and assistant
+  `FunctionCallContent` / `FunctionResultContent` turns → tool-call / tool-result messages. The response
+  completes the round-trip: a reply's native `ToolCalls` surface back as `FunctionCallContent` (with a
+  `ToolCalls` finish reason), so an MEAI app can drive tool-calling *through* Lyntai. `JsonArgs` gains a
+  `Parse` companion (JSON string → arg dict); the forward bridge's private copy now delegates to it too.
 - **`Lyntai.Text.JsonArgs` — shared reflection-free tool-arg serializer (Part 8 · R21b)** — the
   boxed-primitive/`JsonElement`/`JsonNode` → JSON switch that the MCP tool-host (`ToolFunction`) and the MEAI
   provider bridge (`ExtensionsAiProvider`) each carried a private copy of is now one public helper in Core
