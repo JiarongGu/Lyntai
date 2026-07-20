@@ -25,6 +25,14 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
             _global = new Bucket(options.RateLimit.PermitsPerSecond, Math.Max(1, options.RateLimit.Burst), _clock());
     }
 
+    /// <summary>Whether the current options resolve to any real throttle — a positive global rate, or at
+    /// least one positive per-consumer rate. False means every acquire clears immediately (a pure
+    /// passthrough); the <c>AddRateLimit</c> wiring warns in that case. Read live, so it honors
+    /// <c>LYNTAI_RATELIMIT_*</c> env overrides applied after construction.</summary>
+    internal bool HasEffectiveLimit =>
+        _options.RateLimit.PermitsPerSecond > 0 ||
+        _options.RateLimit.PerConsumer.Values.Any(r => r.PermitsPerSecond > 0);
+
     public async Task<bool> AcquireAsync(string consumer, CancellationToken ct = default)
     {
         var wait = TryReserve(consumer, _clock());

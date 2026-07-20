@@ -4,6 +4,7 @@ using Lyntai.Llm.Caching;
 using Lyntai.Llm.RateLimiting;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Lyntai.Tests.Llm;
 
@@ -165,6 +166,69 @@ public class RateLimitTests
         Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
             .AddResponseCache())); // decorator would be silently dropped → guarded
+    }
+
+    // ---- no-effective-limit guard (R21b) -------------------------------------------------------------
+
+    [Fact]
+    public void HasEffectiveLimit_is_false_for_defaults_and_true_when_a_positive_rate_is_set()
+    {
+        Assert.False(Limiter(_ => { }).HasEffectiveLimit);                              // defaults: 0 global, no per-consumer
+        Assert.True(Limiter(o => o.PermitsPerSecond = 5).HasEffectiveLimit);            // global rate
+        Assert.True(Limiter(o => o.PerConsumer["c"] = new ConsumerRate(1)).HasEffectiveLimit); // per-consumer rate only
+    }
+
+    [Fact]
+    public async Task AddRateLimit_with_no_effective_limit_warns_but_still_serves()
+    {
+        var logs = new List<string>();
+        var provider = new FakeLlmProvider("p"); // default Ok replies
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.AddProvider(new CapturingLoggerProvider(logs)));
+        services.AddLyntai(b => b
+            .AddProvider(_ => provider)
+            .AddRateLimit() // all defaults → PermitsPerSecond 0, no per-consumer → nothing throttled
+            .DefaultCandidates("p"));
+        using var sp = services.BuildServiceProvider();
+
+        var client = sp.GetRequiredService<ILlmClient>(); // resolution folds the decorators → warning fires here
+        var reply = await client.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("q")] });
+
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict); // still serves (a no-op passthrough, not a hard failure)
+        Assert.Contains(logs, l => l.Contains("no effective limit", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AddRateLimit_with_a_real_limit_does_not_warn()
+    {
+        var logs = new List<string>();
+        var provider = new FakeLlmProvider("p");
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.AddProvider(new CapturingLoggerProvider(logs)));
+        services.AddLyntai(b => b
+            .AddProvider(_ => provider)
+            .AddRateLimit(o => o.PermitsPerSecond = 10)
+            .DefaultCandidates("p"));
+        using var sp = services.BuildServiceProvider();
+
+        _ = sp.GetRequiredService<ILlmClient>();
+        Assert.DoesNotContain(logs, l => l.Contains("no effective limit", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private sealed class CapturingLoggerProvider(List<string> sink) : ILoggerProvider
+    {
+        public ILogger CreateLogger(string categoryName) => new Cap(sink);
+        public void Dispose() { }
+
+        private sealed class Cap(List<string> sink) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => true;
+            public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex, Func<TState, Exception?, string> fmt)
+            {
+                if (level >= LogLevel.Warning) lock (sink) sink.Add(fmt(state, ex));
+            }
+        }
     }
 
     [Fact]

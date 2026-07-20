@@ -90,6 +90,12 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **`AddRateLimit` warns when it resolves to no effective limit (Part 8 · R21b)** — calling `AddRateLimit()`
+  with all-default options (global `PermitsPerSecond=0` and no per-consumer rate) silently throttled nothing.
+  It now logs a warning at front-door resolution (after env overrides are applied) pointing at the setting to
+  fix, mirroring the intent of the pre-registered-client guard — while still serving (a no-op passthrough, so
+  a limit raised later via env still takes effect). Only the built-in token bucket is checked; a BYO
+  `IRateLimiter` owns its own effectiveness.
 - **Typed `IRefusalMatcher` seam (Part 8 · R21b)** — a structured alternative to the stringly-typed
   per-request `LlmRequest.RefusalPattern` regex. Register matchers with `AddRefusalMatcher<T>()` / instance /
   factory; the refusal-screening front door runs every one on an Ok reply's text (after the central patterns

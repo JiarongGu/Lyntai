@@ -279,9 +279,20 @@ public sealed class LyntaiBuilder
     {
         configure?.Invoke(Options.RateLimit);
         Services.TryAddSingleton<Lyntai.Llm.RateLimiting.IRateLimiter>(_ => new Lyntai.Llm.RateLimiting.TokenBucketRateLimiter(Options));
-        AddFrontDoorDecorator(RateLimitDecoratorOrder, (sp, inner) => new Lyntai.Llm.RateLimiting.RateLimitedLlmClient(
-            inner, sp.GetRequiredService<Lyntai.Llm.RateLimiting.IRateLimiter>(),
-            sp.GetService<ILogger<Lyntai.Llm.RateLimiting.RateLimitedLlmClient>>()));
+        AddFrontDoorDecorator(RateLimitDecoratorOrder, (sp, inner) =>
+        {
+            var limiter = sp.GetRequiredService<Lyntai.Llm.RateLimiting.IRateLimiter>();
+            // the built-in token bucket with no positive global/per-consumer rate throttles NOTHING — warn
+            // rather than silently no-op (mirrors the pre-registered-client guard's intent). Evaluated after
+            // env overrides; a BYO IRateLimiter owns its own effectiveness, so we only check ours.
+            if (limiter is Lyntai.Llm.RateLimiting.TokenBucketRateLimiter { HasEffectiveLimit: false })
+                sp.GetService<ILogger<Lyntai.Llm.RateLimiting.RateLimitedLlmClient>>()?.LogWarning(
+                    "AddRateLimit resolved to no effective limit (RateLimit.PermitsPerSecond=0 and no per-consumer " +
+                    "rate) — it will not throttle. Set RateLimit.PermitsPerSecond (or a PerConsumer rate, or the " +
+                    "LYNTAI_RATELIMIT_PERMITS_PER_SECOND env var) to enable throttling.");
+            return new Lyntai.Llm.RateLimiting.RateLimitedLlmClient(
+                inner, limiter, sp.GetService<ILogger<Lyntai.Llm.RateLimiting.RateLimitedLlmClient>>());
+        });
         return this;
     }
 
