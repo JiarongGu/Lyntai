@@ -177,29 +177,9 @@ public sealed class ExtensionsAiProvider(
     }
 
     /// <summary>An argument dictionary (values are typically <see cref="JsonElement"/> as MEAI parsed
-    /// them off the wire, occasionally a <see cref="JsonNode"/>) → a JSON object string.</summary>
-    private static string SerializeArgs(IDictionary<string, object?>? args)
-    {
-        if (args is not { Count: > 0 }) return "{}";
-        var obj = new JsonObject();
-        foreach (var (key, value) in args)
-            obj[key] = value switch
-            {
-                null => null,
-                JsonNode n => n.DeepClone(),
-                JsonElement e => JsonNode.Parse(e.GetRawText()),
-                // MEAI clients can hand back boxed CLR primitives — keep their JSON type (a 3 must not
-                // become "3"); typed JsonValue.Create overloads are reflection-free (stays AOT-clean)
-                bool b => JsonValue.Create(b),
-                int i => JsonValue.Create(i),
-                long l => JsonValue.Create(l),
-                double d => JsonValue.Create(d),
-                decimal m => JsonValue.Create(m),
-                string s => JsonValue.Create(s),
-                var other => JsonValue.Create(other.ToString()), // last-resort fallback
-            };
-        return obj.ToJsonString();
-    }
+    /// them off the wire, occasionally a <see cref="JsonNode"/>) → a JSON object string. Reflection-free via
+    /// the shared <see cref="Lyntai.Text.JsonArgs"/> (kept in sync with the MCP tool-host).</summary>
+    private static string SerializeArgs(IDictionary<string, object?>? args) => Lyntai.Text.JsonArgs.Serialize(args);
 
     /// <summary>A JSON arguments string → the dictionary <see cref="FunctionCallContent"/> wants. Values
     /// stay as detached <see cref="JsonNode"/>s (reflection-free); MEAI serializes them on the wire.</summary>

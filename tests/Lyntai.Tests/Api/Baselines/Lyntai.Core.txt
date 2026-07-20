@@ -1266,6 +1266,9 @@ enum Lyntai.Storage.StorageFeature
 static class Lyntai.Storage.StorageFeatures
     AllTag : String const
     TagsFor(StorageFeature) : String[]
+static class Lyntai.Text.JsonArgs
+    Serialize(IEnumerable<KeyValuePair<String,Object>>) : String
+    ToNode(Object) : JsonNode
 static class Lyntai.Text.JsonExtract
     ExtractObject(String) : String
     IsValid(String) : Boolean

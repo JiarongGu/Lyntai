@@ -90,6 +90,11 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **`Lyntai.Text.JsonArgs` — shared reflection-free tool-arg serializer (Part 8 · R21b)** — the
+  boxed-primitive/`JsonElement`/`JsonNode` → JSON switch that the MCP tool-host (`ToolFunction`) and the MEAI
+  provider bridge (`ExtensionsAiProvider`) each carried a private copy of is now one public helper in Core
+  (`JsonArgs.ToNode` / `JsonArgs.Serialize`), so the two adapters can't drift on how a `3` vs `"3"` is
+  serialized. Public (not `InternalsVisibleTo`-shared) — it's the primitive any custom tool bridge wants.
 - **`TraceStep.Sequence` + `TraceStep.OffsetMs` (Part 8 · R21b)** — a run-trace step now carries an explicit
   0-based timeline ordinal (`Sequence`) and its wall-clock offset from the run start in ms (`OffsetMs`),
   stamped by the recorder at `Record` time (using its injectable clock) instead of the timeline relying on
