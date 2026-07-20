@@ -3,9 +3,10 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
-## Unreleased
+## 0.29.0 — 2026-07-20
 
-Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
+Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep) + Part 9 (storage feature
+toggles) + Part 10 (actor/mailbox durable jobs).
 
 ### Changed
 - **Generic typed-event conversation store (Part 7 · P2)** — a conversation is now modelled as a typed

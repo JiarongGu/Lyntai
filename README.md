@@ -12,7 +12,7 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 
 ## Status
 
-**v0.28.5 — a hardened, batteries-included cortex substrate.** On the v0.1.0 base (all of `tasks.md`) plus
+**v0.29.0 — a hardened, batteries-included cortex substrate.** On the v0.1.0 base (all of `tasks.md`) plus
 a multi-agent review/research pass (v0.2): configurable routing (v0.3), LLM-ops depth (v0.4), public-API
 baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama validation (v0.6), IoC
 seams so the app owns its resource lifecycle — process execution, HttpClient, DB connection/schema,
@@ -23,7 +23,12 @@ the §9 platform kit — guards + two-gate orchestration, secret vault, vision/m
 post-kit expansion (v0.16–v0.28): OTel telemetry; cache/budget/rate-limit front-door governance; semantic
 memory over a BYO embedder + vector store (incl. pgvector); durable-job priorities/DLQ/cron/cancellation +
 admission control + live progress; a DPAPI + recovery-key envelope vault; per-request refusal screening;
-curated memory; and the agentic **self-driving-agent session** primitive (v0.28.5).
+curated memory; and the agentic **self-driving-agent session** primitive (v0.28.5). **v0.29** adds a typed
+multi-kind **conversation event store** (GUID ids + per-thread seq + metadata) with an `IConversationEnricher`
+seam for app-owned extension, **storage feature toggles** (enable only the domains you use — a disabled
+feature lands no table), **actor/mailbox durable jobs** (jobs sharing a partition key run one-at-a-time in
+FIFO, parallel across keys), and a generic sustainability review pass across the surface — a typed
+`IRefusalMatcher` seam, full reverse-MEAI-bridge parity, explicit trace-step timelines, and more (v0.29.0).
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
 - `docs/ROADMAP.md` — what's shipped, what's next, and what's blocked on a hosted repo / DB / native deps.
@@ -315,7 +320,7 @@ Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess
 `LLamaSharp.Backend.*` that matches your hardware alongside `Lyntai.Providers.Local`:
 
 ```xml
-<PackageReference Include="Lyntai.Providers.Local" Version="0.28.0" />
+<PackageReference Include="Lyntai.Providers.Local" Version="0.29.0" />
 <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />  <!-- or .Cuda12 / .Vulkan / .Metal -->
 ```
 

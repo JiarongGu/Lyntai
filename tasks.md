@@ -1,8 +1,9 @@
 # Lyntai (灵台) — Implementation Plan / Task Backlog
 
-> **Status: phases 0–7 + roadmap v0.3–v0.28 implemented** (agentic tool-calling, durable jobs, guards,
-> secrets, semantic memory, three storage backends, governance decorators, …). See `CHANGELOG.md` for
-> per-release detail and `docs/ROADMAP.md` for the forward sequence.
+> **Status: phases 0–7 + roadmap v0.3–v0.29 implemented** (agentic tool-calling, durable jobs, guards,
+> secrets, semantic memory, three storage backends, governance decorators, storage feature toggles,
+> actor/mailbox jobs, …). See `CHANGELOG.md` for per-release detail and `docs/ROADMAP.md` for the forward
+> sequence.
 > **➡ All planned work is DONE, including Part 6 (agent-session primitive).** Parts 1–5
 > (T1–T13 · S1–S6 · N1–N4 · C1 · A1–A8) + Part 6 (G1a/G1b · G2a/G2b · G3) landed — bugs fixed + tested,
 > refactors behavior-preserving, and the generic self-driving-agent-session primitive shipped

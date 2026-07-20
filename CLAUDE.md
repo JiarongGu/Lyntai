@@ -17,8 +17,8 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.28.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
-v0.3–v0.28 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
+**Implemented + hardened (v0.29.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
+v0.3–v0.29 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
 + `migrate:false`, provider presets — the app owns resource lifecycle, Lyntai provides the interface;
 v0.8 = `Lyntai.Providers.Local` in-process GGUF inference via LLamaSharp, managed-only so the app picks
 the backend; v0.9 = agentic tool-calling `Lyntai.Agents` — `IToolLoop` over `ILlmClient`, `ITool`/`AddTool`
@@ -37,7 +37,11 @@ multi-agent parallel with per-lane + global `MaxConcurrency` control, app owns t
 front-door governance decorators; semantic memory via BYO `IEmbedder`+`IVectorStore` (incl. pgvector);
 durable-job priorities/DLQ/cron/cancellation + admission-control + `Paused` + live progress; DPAPI +
 recovery-key envelope vault (`Lyntai.Secrets.Dpapi`); per-request refusal screening; curated memory
-(`ICuratedMemoryStore`)): `ILlmClient` front door (to a
+(`ICuratedMemoryStore`); v0.29 = app-owned storage adoption — a typed multi-kind conversation event store
+(GUID ids + per-thread seq + metadata) with an `IConversationEnricher` seam, `StorageFeature` toggles (a
+disabled domain lands no table, tag-driven selective migration), actor/mailbox durable jobs (per-partition
+FIFO, parallel across keys), a typed `IRefusalMatcher` seam, and a generic sustainability review sweep):
+`ILlmClient` front door (to a
 consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
 `RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel
