@@ -827,17 +827,19 @@ crypto discipline) — these are refinements + a few real correctness/consistenc
   compare-and-swap KV write.
 
 ### Low (batch — verify + fix opportunistically)
-- [~] **R21 · Nits** — PARTIAL (2026-07-20). **Done:** OutcomeScorer magic key → `ErrorKey` const;
+- [x] **R21 · Nits** — DONE (2026-07-20). **Done in R21:** OutcomeScorer magic key → `ErrorKey` const;
   `LlmScorerBase` judge SYSTEM preamble now `virtual JudgeSystemPrompt`; `InMemoryJobStore.ListAsync` ordinal
   Id tiebreak (SQL parity); `CompleteJsonAsync` retry double-charge/no-cache DOCUMENTED; `ClaudeCommand.Tokenize`
   double-quotes-only DOCUMENTED; SQLite late-ADD-COLUMN `Down()` best-effort already documented (verified);
   `PackageProjectUrl`/`RepositoryUrl` set (verify repo hosted + add SourceLink at the 1.0 hosting step).
-  **R21b (2026-07-20) — done:** ToolLoop native path now preserves assistant prose (`AssistantToolCalls`
+  **R21b (2026-07-20) — first cut:** ToolLoop native path now preserves assistant prose (`AssistantToolCalls`
   carries content); `ResponseCacheKey` reflection guard test (every `LlmRequest` field hashed or excluded);
-  vault read-only policy asymmetry documented on `ISecretAccessPolicy`. **R21b — still deferred:**
-  `TraceStep.Sequence`/`OffsetMs` (API change, low value while trace is BYO); reverse-MEAI-bridge
-  tool/schema/attachment parity; JsonNode-switch helper hoist (cross-assembly); typed `IRefusalMatcher` seam
-  (long-term); `AddRateLimit` no-effective-limit warn (env-timing-fiddly).
+  vault read-only policy asymmetry documented on `ISecretAccessPolicy`. **R21b — final cut (2026-07-20), all
+  cleared:** `TraceStep.Sequence`/`OffsetMs` stamped by the recorder + persisted/ordered on all 3 backends;
+  reverse-MEAI-bridge parity (`AsChatClient` maps tools/JSON-schema/attachments/tool-turns + surfaces reply
+  tool calls); JsonNode-switch hoisted to public `Lyntai.Text.JsonArgs` (`ToNode`/`Serialize`/`Parse`), both
+  adapters delegate; typed `IRefusalMatcher` seam (`AddRefusalMatcher`, fail-open) alongside `RefusalPattern`;
+  `AddRateLimit` warns (still serves) when it resolves to no effective limit. Each TDD'd + committed; 837 green.
   - `ToolLoop` native path drops assistant prose that accompanies tool calls (`ToolLoop.cs:82-86`) — capture
     it into a step/thinking channel.
   - `OutcomeScorer.cs:22` bakes in a magic `Extra["error"]` key though `Extra` is "app-owned" — expose as a

@@ -14,7 +14,7 @@ public static class ClaudeAgentArgs
     private static readonly string[] ReadOnlyDenied = ["Edit", "Write", "NotebookEdit"];
 
     /// <summary>Build the argv list for a claude agent session. The prompt is NOT included here —
-    /// send it over stdin via <see cref="IProcessRunner.StreamLinesAsync"/>.</summary>
+    /// send it over stdin via <see cref="Lyntai.Processes.IProcessRunner.StreamLinesAsync"/>.</summary>
     public static IReadOnlyList<string> Build(AgentSessionOptions options)
     {
         var args = new List<string>

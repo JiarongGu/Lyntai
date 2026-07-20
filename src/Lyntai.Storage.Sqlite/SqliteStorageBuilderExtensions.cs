@@ -19,7 +19,7 @@ public static class SqliteStorageBuilderExtensions
     /// composition does no I/O (AOT/startup-sensitive hosts, container health checks).</para>
     /// <para><paramref name="migrate"/>=false makes the APP own the schema — Lyntai runs no migrations,
     /// assuming the tables (see the <c>lyntai_*</c> schema) already exist. Run
-    /// <see cref="MigrationRunnerService.MigrateUp"/> yourself if you want Lyntai's schema on your own
+    /// <see cref="MigrationRunnerService.MigrateUp(string)"/> yourself if you want Lyntai's schema on your own
     /// terms.</para></summary>
     public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, string dbPath,
         bool migrateOnFirstUse = false, bool migrate = true) =>
