@@ -84,4 +84,66 @@ public class RefusalScreeningTests
         var reply = await client.CompleteAsync(Req(refusalPattern: "cannot help"));
         Assert.Equal(LlmVerdict.Refused, reply.Verdict);
     }
+
+    // --- typed IRefusalMatcher seam (R21b) -------------------------------------------------------
+
+    private sealed class ContainsMatcher(string needle) : IRefusalMatcher
+    {
+        public bool IsRefusal(LlmRequest request, string replyText) => replyText.Contains(needle, StringComparison.Ordinal);
+    }
+
+    private sealed class ThrowingMatcher : IRefusalMatcher
+    {
+        public bool IsRefusal(LlmRequest request, string replyText) => throw new InvalidOperationException("boom");
+    }
+
+    [Fact]
+    public async Task A_registered_matcher_downgrades_an_ok_reply_to_refused()
+    {
+        var inner = new FakeLlmClient();
+        inner.Replies.Enqueue(new LlmReply("well, NOPE, not doing that", LlmVerdict.Ok));
+        var screened = new RefusalScreeningLlmClient(inner, [new ContainsMatcher("NOPE")]);
+
+        var reply = await screened.CompleteAsync(Req());
+        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+    }
+
+    [Fact]
+    public async Task A_matcher_that_does_not_match_leaves_the_reply_ok()
+    {
+        var inner = new FakeLlmClient();
+        inner.Replies.Enqueue(new LlmReply("sure thing", LlmVerdict.Ok));
+        var screened = new RefusalScreeningLlmClient(inner, [new ContainsMatcher("NOPE")]);
+
+        var reply = await screened.CompleteAsync(Req());
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+    }
+
+    [Fact]
+    public async Task A_throwing_matcher_fails_open()
+    {
+        var inner = new FakeLlmClient();
+        inner.Replies.Enqueue(new LlmReply("anything", LlmVerdict.Ok));
+        var screened = new RefusalScreeningLlmClient(inner, [new ThrowingMatcher()]);
+
+        var reply = await screened.CompleteAsync(Req());
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict); // matcher blew up → reply passes through unchanged
+    }
+
+    [Fact]
+    public async Task Matchers_registered_via_AddRefusalMatcher_screen_at_the_front_door()
+    {
+        var provider = new FakeLlmProvider("p");
+        provider.Replies.Enqueue(new LlmReply("here is my NOPE answer", LlmVerdict.Ok));
+
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => provider).DefaultCandidates("p")
+            .AddRefusalMatcher(new ContainsMatcher("NOPE")));
+        using var sp = services.BuildServiceProvider();
+        var client = sp.GetRequiredService<ILlmClient>();
+
+        var reply = await client.CompleteAsync(Req());
+        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+    }
 }

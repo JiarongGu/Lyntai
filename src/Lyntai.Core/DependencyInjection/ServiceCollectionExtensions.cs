@@ -77,11 +77,12 @@ public static class LyntaiServiceCollectionExtensions
             ILlmClient client = new LlmClient(sp.GetRequiredService<ILlmRouter>(), options);
             foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
                 client = decorate(sp, client);
-            // per-request refusal screening (LlmRequest.RefusalPattern) is OUTERMOST + always on (no config —
-            // it's a request field), so it re-screens even a cached hit. Deliberately NOT in
-            // FrontDoorDecorators, so it doesn't trip the "decorators configured but ILlmClient pre-registered"
-            // guard above.
-            return new RefusalScreeningLlmClient(client, sp.GetService<ILogger<RefusalScreeningLlmClient>>());
+            // refusal screening (per-request LlmRequest.RefusalPattern + any registered IRefusalMatcher) is
+            // OUTERMOST + always on (the pattern is a request field), so it re-screens even a cached hit.
+            // Deliberately NOT in FrontDoorDecorators, so it doesn't trip the "decorators configured but
+            // ILlmClient pre-registered" guard above.
+            return new RefusalScreeningLlmClient(client, sp.GetServices<IRefusalMatcher>(),
+                sp.GetService<ILogger<RefusalScreeningLlmClient>>());
         });
     }
 

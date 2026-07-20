@@ -85,6 +85,31 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register a typed <see cref="Lyntai.Llm.IRefusalMatcher"/> into the refusal-screening front
+    /// door — the structured alternative to a per-request <c>RefusalPattern</c> regex. Every registered
+    /// matcher runs on an Ok reply's text (after the central patterns + the request pattern); any that
+    /// returns true surfaces the reply as <c>Refused</c> (no fallback). Add a class + one registration.</summary>
+    public LyntaiBuilder AddRefusalMatcher<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+        where T : class, Lyntai.Llm.IRefusalMatcher
+    {
+        Services.AddSingleton<Lyntai.Llm.IRefusalMatcher, T>();
+        return this;
+    }
+
+    /// <summary>Register a refusal matcher instance.</summary>
+    public LyntaiBuilder AddRefusalMatcher(Lyntai.Llm.IRefusalMatcher matcher)
+    {
+        Services.AddSingleton(matcher);
+        return this;
+    }
+
+    /// <summary>Register a refusal matcher built from the service provider.</summary>
+    public LyntaiBuilder AddRefusalMatcher(Func<IServiceProvider, Lyntai.Llm.IRefusalMatcher> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Register an <see cref="ITool"/> into the tool-loop's tool collection.</summary>
     public LyntaiBuilder AddTool<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
         where T : class, ITool

@@ -714,6 +714,8 @@ interface Lyntai.Llm.ILlmRouter
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
+interface Lyntai.Llm.IRefusalMatcher
+    IsRefusal(LlmRequest, String) : Boolean
 class Lyntai.Llm.LlmAttachment
     .ctor(String, Byte[]=, String=)
     Data : Byte[]
@@ -859,7 +861,7 @@ class Lyntai.Llm.RateLimiting.TokenBucketRateLimiter
     .ctor(LyntaiOptions, Func<DateTimeOffset>=)
     AcquireAsync(String, CancellationToken=) : Task<Boolean>
 class Lyntai.Llm.RefusalScreeningLlmClient
-    .ctor(ILlmClient, ILogger<RefusalScreeningLlmClient>=)
+    .ctor(ILlmClient, IEnumerable<IRefusalMatcher>=, ILogger<RefusalScreeningLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(LlmRequest) : Boolean
@@ -926,6 +928,9 @@ class Lyntai.LyntaiBuilder
     AddProvider() : LyntaiBuilder
     AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
     AddRateLimit(Action<RateLimitOptions>=) : LyntaiBuilder
+    AddRefusalMatcher() : LyntaiBuilder
+    AddRefusalMatcher(Func<IServiceProvider,IRefusalMatcher>) : LyntaiBuilder
+    AddRefusalMatcher(IRefusalMatcher) : LyntaiBuilder
     AddResponseCache(Action<CacheOptions>=) : LyntaiBuilder
     AddScorer() : LyntaiBuilder
     AddTool() : LyntaiBuilder

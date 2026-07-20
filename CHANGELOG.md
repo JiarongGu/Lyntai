@@ -90,6 +90,14 @@ Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep).
   Use `ITraceService.Begin`/`Record` when you want your own durable, step-shaped run history.
 
 ### Added
+- **Typed `IRefusalMatcher` seam (Part 8 · R21b)** — a structured alternative to the stringly-typed
+  per-request `LlmRequest.RefusalPattern` regex. Register matchers with `AddRefusalMatcher<T>()` / instance /
+  factory; the refusal-screening front door runs every one on an Ok reply's text (after the central patterns
+  + the request pattern) and surfaces the reply as `Refused` (no fallback) if any returns true. A matcher
+  keys off the whole request (consumer/model/language) as well as the text, and a throwing matcher fails open
+  (logged + ignored). **Breaking (pre-1.0):** `RefusalScreeningLlmClient`'s constructor gains an optional
+  `IEnumerable<IRefusalMatcher>` before the logger (only affects direct positional construction — it's a
+  front-door internal, normally wired by `AddLyntai`).
 - **Reverse MEAI bridge parity — tools / json-schema / multimodal / tool turns (Part 8 · R21b)** — consuming
   Lyntai `AsChatClient()` (the reverse `IChatClient` bridge) now maps the full request surface the forward
   bridge already did: `ChatOptions.Tools` → `LlmRequest.Tools`, a JSON-schema `ResponseFormat` →
