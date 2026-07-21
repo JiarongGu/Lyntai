@@ -270,7 +270,8 @@ class Lyntai.Cortex.AgreementReport
     PearsonCorrelation : Nullable<Double>
     ToString() : String
 static class Lyntai.Cortex.CuratedMemorySections
-    Compose(IEnumerable<CuratedMemory>, Func<String,String>=, String=) : String
+    AppliesTo(CuratedMemory, String, IReadOnlyCollection<String>) : Boolean
+    Compose(IEnumerable<CuratedMemory>, Func<String,String>=, String=, String=, IEnumerable<String>=) : String
 interface Lyntai.Cortex.IPairwiseComparer
     CompareAsync(String, String, String, CancellationToken=) : Task<PairwiseResult>
 interface Lyntai.Cortex.IPromptComposer
@@ -1142,27 +1143,31 @@ class Lyntai.Storage.ChatThread
     Title : String
     ToString() : String
 class Lyntai.Storage.CuratedMemory
-    .ctor(Int64, String, String, String, Boolean, DateTimeOffset, DateTimeOffset)
+    .ctor(Int64, String, String, String, Boolean, DateTimeOffset, DateTimeOffset, String=, String=)
     Content : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Int64&, String&, String&, String&, Boolean&, DateTimeOffset&, DateTimeOffset&) : Void
+    Deconstruct(Int64&, String&, String&, String&, Boolean&, DateTimeOffset&, DateTimeOffset&, String&, String&) : Void
     Enabled : Boolean
     Equals(CuratedMemory) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
     Id : Int64
     Kind : String
+    Scope : String
     Source : String
+    Task : String
     ToString() : String
     UpdatedAt : DateTimeOffset
 class Lyntai.Storage.EnrichingConversationStore
     .ctor(IConversationStore, IEnumerable<IConversationEnricher>)
     AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
+    CountThreadsAsync(CancellationToken=) : Task<Int32>
     CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
     DeleteThreadAsync(String, CancellationToken=) : Task
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String, String, CancellationToken=) : Task
 static class Lyntai.Storage.FtsQuery
     Build(String) : String
@@ -1171,16 +1176,19 @@ interface Lyntai.Storage.IConversationEnricher
     OnThreadCreatedAsync(ChatThread, CancellationToken=) : Task
 interface Lyntai.Storage.IConversationStore
     AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
+    CountThreadsAsync(CancellationToken=) : Task<Int32>
     CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
     DeleteThreadAsync(String, CancellationToken=) : Task
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String, String, CancellationToken=) : Task
 interface Lyntai.Storage.ICuratedMemoryStore
-    AddAsync(String, String, String=, Boolean=, CancellationToken=) : Task<Int64>
+    AddAsync(String, String, String=, Boolean=, String=, String=, CancellationToken=) : Task<Int64>
+    ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
-    ListAsync(String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
+    ListAsync(String=, Boolean=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IDbConnectionFactory

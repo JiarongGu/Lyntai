@@ -123,4 +123,41 @@ public static class ConversationStoreContract
         var mine = (await store.ListThreadsAsync(limit: 1000)).Where(t => t.Id == older || t.Id == newer).ToList();
         Assert.Equal([newer, older], mine.Select(t => t.Id)); // newest first
     }
+
+    public static async Task Count_reflects_inserted_and_deleted_threads(IConversationStore store, string key)
+    {
+        // The shared Postgres container may hold other threads, so assert on the DELTA, not an absolute.
+        var before = await store.CountThreadsAsync();
+        await store.CreateThreadAsync(key + "-c1");
+        await store.CreateThreadAsync(key + "-c2");
+        await store.CreateThreadAsync(key + "-c3");
+        Assert.Equal(before + 3, await store.CountThreadsAsync());
+
+        await store.DeleteThreadAsync(key + "-c2");
+        Assert.Equal(before + 2, await store.CountThreadsAsync());
+    }
+
+    public static async Task Paged_cursor_walks_every_thread_exactly_once(IConversationStore store, string key)
+    {
+        // Rapid inserts (no delay) deliberately let several threads share a created_at tick so the keyset
+        // cursor's id tiebreak is exercised — a naive created_at-only cursor would skip or duplicate them.
+        var ids = Enumerable.Range(0, 5).Select(i => $"{key}-p{i}").ToList();
+        foreach (var id in ids) await store.CreateThreadAsync(id);
+
+        var mine = new HashSet<string>(ids);
+        var collected = new List<string>();
+        ChatThread? cursor = null;
+        for (var page = 0; page < 500 && collected.Count(mine.Contains) < ids.Count; page++)
+        {
+            var batch = await store.ListThreadsPageAsync(limit: 2, after: cursor);
+            Assert.True(batch.Count <= 2);       // a page never exceeds its limit (not list-all-then-filter)
+            if (batch.Count == 0) break;         // walked off the end
+            collected.AddRange(batch.Select(t => t.Id));
+            cursor = batch[^1];
+        }
+
+        var found = collected.Where(mine.Contains).ToList();
+        Assert.Equal(ids.Count, found.Count);              // every inserted thread surfaced
+        Assert.Equal(ids.Count, found.Distinct().Count()); // exactly once — no cursor overlap/skip
+    }
 }

@@ -8,18 +8,19 @@ namespace Lyntai.Storage.Sqlite;
 /// <c>enabled</c> is an INTEGER bool.</summary>
 public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<DateTimeOffset>? clock = null) : ICuratedMemoryStore
 {
-    private const string Cols = "id, kind, content, source, enabled, created_at, updated_at";
+    private const string Cols = "id, kind, content, source, enabled, created_at, updated_at, task, scope";
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
-    public async Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true, CancellationToken ct = default)
+    public async Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
+        string? task = null, string? scope = null, CancellationToken ct = default)
     {
         var now = _clock();
         using var conn = factory.Open();
         return await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
-            INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at)
-            VALUES (@kind, @content, @source, @enabled, @now, @now)
+            INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope)
+            VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope)
             RETURNING id
-            """, new { kind, content, source, enabled, now }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { kind, content, source, enabled, now, task, scope }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null, CancellationToken ct = default)
@@ -54,15 +55,32 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
         return row?.ToRecord();
     }
 
-    public async Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false, int? limit = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
+        string? task = null, int? limit = null, CancellationToken ct = default)
     {
         using var conn = factory.Open();
         var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
-            WHERE (@kind IS NULL OR kind = @kind) AND (@enabledOnly = 0 OR enabled = 1)
+            WHERE (@kind IS NULL OR kind = @kind) AND (@task IS NULL OR task = @task) AND (@enabledOnly = 0 OR enabled = 1)
             ORDER BY kind, created_at, id
             LIMIT @limit
-            """, new { kind, enabledOnly, limit = limit ?? -1 }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { kind, task, enabledOnly, limit = limit ?? -1 }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows.Select(r => r.ToRecord())];
+    }
+
+    public async Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string task, IEnumerable<string> scopes,
+        bool enabledOnly = true, CancellationToken ct = default)
+    {
+        var scopeList = scopes as IReadOnlyList<string> ?? [.. scopes];
+        // empty scopes → scope filter disabled; else the entry's scope must be null/empty (applies everywhere)
+        // or one of the requested scopes. task-null rows apply to every task.
+        var scopeClause = scopeList.Count == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope IN @scopes)";
+        using var conn = factory.Open();
+        var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
+            SELECT {Cols} FROM lyntai_curated_memory
+            WHERE (@enabledOnly = 0 OR enabled = 1) AND (task IS NULL OR task = @task){scopeClause}
+            ORDER BY kind, created_at, id
+            """, new { task, enabledOnly, scopes = scopeList }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => r.ToRecord())];
     }
 
@@ -77,7 +95,9 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
         public bool Enabled { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public DateTimeOffset UpdatedAt { get; set; }
+        public string? Task { get; set; }
+        public string? Scope { get; set; }
 
-        public CuratedMemory ToRecord() => new(Id, Kind, Content, Source, Enabled, CreatedAt, UpdatedAt);
+        public CuratedMemory ToRecord() => new(Id, Kind, Content, Source, Enabled, CreatedAt, UpdatedAt, Task, Scope);
     }
 }

@@ -38,6 +38,28 @@ public sealed class SqliteConversationStore(IDbConnectionFactory factory) : ICon
         return [.. rows];
     }
 
+    public async Task<int> CountThreadsAsync(CancellationToken ct = default)
+    {
+        using var conn = factory.Open();
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM lyntai_thread", cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
+    {
+        using var conn = factory.Open();
+        const string cols = "SELECT id AS Id, title AS Title, created_at AS CreatedAt, metadata AS Metadata FROM lyntai_thread";
+        // keyset paging: the cursor's (created_at, id) is compared with the SAME ordering as ListThreadsAsync,
+        // so same-tick threads (tiebroken by id DESC) are neither skipped nor duplicated across pages.
+        var sql = after is null
+            ? $"{cols} ORDER BY created_at DESC, id DESC LIMIT @limit"
+            : $"{cols} WHERE created_at < @AfterCreatedAt OR (created_at = @AfterCreatedAt AND id < @AfterId) " +
+              "ORDER BY created_at DESC, id DESC LIMIT @limit";
+        var rows = await conn.QueryAsync<ChatThread>(new CommandDefinition(sql,
+            new { limit, AfterCreatedAt = after?.CreatedAt, AfterId = after?.Id }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows];
+    }
+
     public async Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default)
     {
         using var conn = factory.Open();

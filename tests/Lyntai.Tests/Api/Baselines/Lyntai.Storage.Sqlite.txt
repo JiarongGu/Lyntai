@@ -63,6 +63,10 @@ class Lyntai.Storage.Sqlite.Migrations.M202607180003_CuratedMemory
     .ctor()
     Down() : Void
     Up() : Void
+class Lyntai.Storage.Sqlite.Migrations.M202607220001_CuratedMemoryTaskScope
+    .ctor()
+    Down() : Void
+    Up() : Void
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
     MigrateUp(String) : Void
     MigrateUp(String, StorageFeature) : Void
@@ -74,17 +78,20 @@ class Lyntai.Storage.Sqlite.SqliteConnectionFactory
 class Lyntai.Storage.Sqlite.SqliteConversationStore
     .ctor(IDbConnectionFactory)
     AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
+    CountThreadsAsync(CancellationToken=) : Task<Int32>
     CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
     DeleteThreadAsync(String, CancellationToken=) : Task
     GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
     GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String, String, CancellationToken=) : Task
 class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=)
-    AddAsync(String, String, String=, Boolean=, CancellationToken=) : Task<Int64>
+    AddAsync(String, String, String=, Boolean=, String=, String=, CancellationToken=) : Task<Int64>
+    ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
-    ListAsync(String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
+    ListAsync(String=, Boolean=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 class Lyntai.Storage.Sqlite.SqliteJobStore

@@ -3,6 +3,34 @@
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
 Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
+## Unreleased
+
+Consumer-driven generic gaps (tasks.md Part 11 · Part 12). All additive; public surface grew (`ApiSurface`
+baselines updated) — no removals, existing calls source-compatible.
+
+### Added
+- **Curated memory `task` + `scope` (CM1)** — `CuratedMemory` gains optional nullable `Task`/`Scope`;
+  `ICuratedMemoryStore` gains `ForCompositionAsync(task, scopes, enabledOnly)` (enabled entries whose task
+  matches or is null, and whose scope is null/empty or ∈ scopes; an EMPTY `scopes` disables scope filtering)
+  plus a `task` strict-equality filter on `ListAsync`/`AddAsync`. `CuratedMemorySections` gains the shared
+  `AppliesTo` predicate and a `(task, scopes)` filter on `Compose`. New migration **`202607220001`** adds
+  nullable `task`/`scope` to `lyntai_curated_memory` on SQLite + Postgres (a separate `ADD COLUMN` migration,
+  not a fold, since the table shipped in 0.28; no backfill — null = "applies everywhere", so existing rows
+  are unchanged). Across InMemory/SQLite/Postgres.
+- **`IConversationStore` count + keyset paging (G3)** — `CountThreadsAsync()` and `ListThreadsPageAsync(limit,
+  after)` (cursor is the last thread of the previous page; same `created_at DESC, id DESC` order, stable across
+  same-timestamp ties). Default interface methods (BYO impls keep working) with efficient `COUNT(*)` / keyset
+  overrides on all three backends.
+
+### Fixed
+- **`ClaudeToolCalls.FilePathOf` now reads `notebook_path`/`path` (G1)** — checks `file_path`, then
+  `notebook_path` (NotebookEdit), then `path`, so an edit-tracker built from the agent stream no longer
+  silently misses NotebookEdit (or any `path`-arg tool) writes.
+- **Agent-session `FinalText` falls back to assistant text (G2)** — when a run ends with assistant text but an
+  empty/absent terminal `result` (truncation / older CLI / provider variant), both the claude adapter's
+  `SessionEnded.FinalText` and the generic `RunAsync` fold (accumulated `TextDelta`s) fall back to the
+  assistant text instead of `""`, so consumers that treat empty as failure don't spuriously fail.
+
 ## 0.29.0 — 2026-07-20
 
 Part 7 (app-owned storage adoption) + Part 8 (generic/sustainable review sweep) + Part 9 (storage feature

@@ -4,12 +4,11 @@
 > secrets, semantic memory, three storage backends, governance decorators, storage feature toggles,
 > actor/mailbox jobs, …). See `CHANGELOG.md` for per-release detail and `docs/ROADMAP.md` for the forward
 > sequence.
-> **➡ All planned work is DONE, including Part 6 (agent-session primitive).** Parts 1–5
-> (T1–T13 · S1–S6 · N1–N4 · C1 · A1–A8) + Part 6 (G1a/G1b · G2a/G2b · G3) landed — bugs fixed + tested,
-> refactors behavior-preserving, and the generic self-driving-agent-session primitive shipped
-> (`IAgentSession` in Core `Lyntai.Agents`, the `claude` CLI adapter, both consumption doors, resume
-> across the gate). Build clean · 725 tests · e2e 3/3 · leak scan clean. This unblocks the adopter's
-> two-gate migration (and thereby its cortex migration).
+> **➡ ALL tasks in this file are DONE (Parts 0–12 · every checkbox `[x]`).** The generic self-driving
+> agent-session primitive (Part 6) landed, and the latest consumer-driven gaps are closed: Part 11
+> (G1 write-tool path args · G2 `FinalText` fallback · G3 `IConversationStore` count + keyset paging) and
+> Part 12 (CM1 curated-memory `task`/`scope` + `ForCompositionAsync`, new migration `202607220001`). All
+> generic library improvements. Build clean · 866 tests · e2e 3/3 · leak scan clean.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use `superpowers:subagent-driven-development` (recommended)
 > or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox syntax.
@@ -930,12 +929,16 @@ tables" direction).
 
 ## Part 11 — Consumer-driven gaps: Gatherlight conversation-store adoption (2026-07-20)
 
+> **✅ DONE (G1 · G2 · G3), 2026-07-22.** All three shipped generic + TDD'd. G3 added `CountThreadsAsync`
+> + keyset-cursor `ListThreadsPageAsync` as default-interface methods (BYO impls keep working) with
+> efficient overrides on all three backends; cross-backend contract tests pass (incl. live Postgres).
+
 Surfaced adopting the generic conversation store (Part 7 · P2) in Gatherlight (its two-gate `chat_session`/
 `chat_event` moved onto `IConversationStore`, accessed ONLY through the API — no raw SQL on `lyntai_*`).
 Three small, generic library improvements the adopter had to work around app-side. Each is a general
 capability, Gatherlight is just the example.
 
-- [ ] **G1 · `ClaudeToolCalls.FilePathOf` should also read `notebook_path` / `path`, not only `file_path`** (generic)
+- [x] **G1 · `ClaudeToolCalls.FilePathOf` should also read `notebook_path` / `path`, not only `file_path`** (generic)
   - `src/Lyntai.Providers.ClaudeCli/ClaudeToolCalls.cs` — `FilePathOf` reads only `file_path`, so a
     `NotebookEdit` tool call (arg `notebook_path`) returns null. An app building an edit-tracker / commit-set
     from the agent stream (Gatherlight does) then silently misses `NotebookEdit` (and any `path`-arg tool)
@@ -943,7 +946,7 @@ capability, Gatherlight is just the example.
     Fix: check `file_path`, then `notebook_path`, then `path` (the three write-tool path args). Test:
     a `NotebookEdit` call's `notebook_path` is returned; `file_path` still wins when both present.
 
-- [ ] **G2 · Agent-session `FinalText` should fall back to accumulated assistant text when the terminal
+- [x] **G2 · Agent-session `FinalText` should fall back to accumulated assistant text when the terminal
     `result` is empty** (generic — robustness)
   - `src/Lyntai.Providers.ClaudeCli/StreamJsonAgentReader.cs` + the `RunAsync` fold (`AgentSessionResult
     .FinalText`) populate final text ONLY from the terminal `result` message's `result` string; assistant
@@ -955,7 +958,7 @@ capability, Gatherlight is just the example.
     when the terminal result text is empty. Test: a stubbed stream with assistant text + an empty `result`
     string → `AgentSessionResult.FinalText` is the assistant text, not `""`.
 
-- [ ] **G3 · `IConversationStore` count + filtered/paged list (avoid list-all-then-filter)** (generic — nice-to-have)
+- [x] **G3 · `IConversationStore` count + filtered/paged list (avoid list-all-then-filter)** (generic — nice-to-have)
   - `src/Lyntai.Core/Storage/IConversationStore.cs` exposes only `ListThreadsAsync(limit)` — no count and no
     server-side filter. An adopter that needs "how many conversations" or "the unscored terminal ones"
     resorts to `ListThreadsAsync(100_000)` + in-memory filter (Gatherlight's eval-console stats + score
@@ -968,6 +971,13 @@ capability, Gatherlight is just the example.
 
 ## Part 12 — Consumer-driven gap: curated memory with task + scope (Sonora adoption, 2026-07-22)
 
+> **✅ DONE (CM1), 2026-07-22.** Shipped generic + TDD'd across all three backends. `CuratedMemory` gained
+> nullable `Task`/`Scope`; `ICuratedMemoryStore` gained `ForCompositionAsync(task, scopes, enabledOnly)` +
+> a `task` filter on `ListAsync`/`AddAsync`; `CuratedMemorySections` gained the shared `AppliesTo` predicate
+> + a `(task, scopes)` `Compose` filter. Because the `lyntai_curated_memory` table shipped RELEASED (v0.28),
+> the columns are a NEW numbered migration (`202607220001`, `ADD COLUMN`), not a fold — no backfill (null =
+> global). Verified on InMemory, SQLite, and live Postgres.
+
 Sonora is adopting Lyntai as its LLM + cortex substrate (retiring its own `Modules/Llm` + `Modules/Ai`). Its
 `ai_memory` is a HUMAN-CURATED store — an editor adds entries carrying a `task` ("translation" / "metadata"),
 an optional `scope` ("lang:zh"), a `kind` (grouping), an `enabled` toggle, and a `source`; a composer folds the
@@ -977,7 +987,7 @@ only global-per-kind — but Lyntai's `ICuratedMemoryStore` today is `kind` + `e
 clean migration would lose the task/scope filtering. (`IMemoryStore` / `ISemanticMemory` have task/scope but are
 auto-learned — no curation, no editor.)
 
-- [ ] **CM1 · Optional `task` + `scope` on curated memory** (generic — an adopter with per-consumer curated context)
+- [x] **CM1 · Optional `task` + `scope` on curated memory** (generic — an adopter with per-consumer curated context)
   - Files: `src/Lyntai.Core/Storage/ICuratedMemoryStore.cs` (+ the `CuratedMemory` record), the three backends
     (`Lyntai.Storage.{Sqlite,Postgres,InMemory}` — the `lyntai_curated_memory` table + a migration adding
     nullable `task` + `scope`), and the compose helper `Cortex/CuratedMemorySections.cs`.

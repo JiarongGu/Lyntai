@@ -97,6 +97,8 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Conversation_aliases() => Pg(() => ConversationStoreContract.Role_content_aliases_map_to_kind_payload(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_cascade() => Pg(() => ConversationStoreContract.Delete_thread_cascades_to_messages(new PostgresConversationStore(pg.Factory), Uid())); // FK cascade
     [SkippableFact] public Task Conversation_list_newest_first() => Pg(() => ConversationStoreContract.List_threads_returns_newest_first(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_count() => Pg(() => ConversationStoreContract.Count_reflects_inserted_and_deleted_threads(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_paged() => Pg(() => ConversationStoreContract.Paged_cursor_walks_every_thread_exactly_once(new PostgresConversationStore(pg.Factory), Uid()));
 
     [SkippableFact] public Task Trace_save_load() => Pg(() => TraceStoreContract.Save_and_load_with_steps_totals_and_trace_id(new PostgresTraceStore(pg.Factory), Uid()));
     [SkippableFact] public Task Trace_resave_replaces() => Pg(() => TraceStoreContract.Saving_the_same_session_replaces_the_trace(new PostgresTraceStore(pg.Factory), Uid()));
@@ -317,6 +319,15 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
 
         Assert.True(await store.RemoveAsync(a));
         Assert.Null(await store.GetAsync(a));
+    }
+
+    [SkippableFact]
+    public async Task Curated_memory_task_scope_composition()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresCuratedMemoryStore(pg.Factory);
+        // Unique tasks so the shared container doesn't cross-contaminate the absolute membership asserts.
+        await CuratedMemoryStoreContract.ForComposition_filters_by_task_and_scope(store, Uid() + "-tr", Uid() + "-meta");
     }
 
     [SkippableFact]

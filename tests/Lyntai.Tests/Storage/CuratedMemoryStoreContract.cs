@@ -74,4 +74,55 @@ public static class CuratedMemoryStoreContract
         Assert.Null(await store.GetAsync(id));
         Assert.False(await store.RemoveAsync(id)); // already gone → false
     }
+
+    /// <summary>Assumes a fresh (or per-key-isolated) store — asserts absolute membership. The Postgres
+    /// backend runs this over a uniquely-tasked variant instead (shared container).</summary>
+    public static async Task ForComposition_filters_by_task_and_scope(ICuratedMemoryStore store, string t = "translation", string m = "metadata")
+    {
+        var zh        = await store.AddAsync("glossary", "zh term",  task: t, scope: "lang:zh");
+        var tGlobal   = await store.AddAsync("glossary", "any lang", task: t);                    // null scope
+        var meta      = await store.AddAsync("rules",    "meta rule", task: m);
+        var disabled  = await store.AddAsync("glossary", "off",       enabled: false, task: t, scope: "lang:zh");
+        var universal = await store.AddAsync("persona",  "be terse");                             // null task + null scope
+
+        // task + matching scope → zh, tGlobal (null scope), universal (null task). Not metadata; not disabled.
+        var forZh = (await store.ForCompositionAsync(t, ["lang:zh"])).Select(e => e.Id).ToHashSet();
+        Assert.Contains(zh, forZh);
+        Assert.Contains(tGlobal, forZh);
+        Assert.Contains(universal, forZh);
+        Assert.DoesNotContain(meta, forZh);
+        Assert.DoesNotContain(disabled, forZh);       // disabled excluded by the default enabledOnly
+
+        // empty scopes → scope filter disabled: every enabled row of the task + the universal row
+        var forEmpty = (await store.ForCompositionAsync(t, [])).Select(e => e.Id).ToHashSet();
+        Assert.Contains(zh, forEmpty);                // included via the empty-scopes rule despite its lang:zh scope
+        Assert.Contains(tGlobal, forEmpty);
+        Assert.Contains(universal, forEmpty);
+        Assert.DoesNotContain(meta, forEmpty);
+
+        // different scope → the lang:zh row drops out; null-scope + null-task rows remain
+        var forJa = (await store.ForCompositionAsync(t, ["lang:ja"])).Select(e => e.Id).ToHashSet();
+        Assert.DoesNotContain(zh, forJa);
+        Assert.Contains(tGlobal, forJa);
+        Assert.Contains(universal, forJa);
+
+        // different task → only the universal (null-task) row crosses over
+        var forMeta = (await store.ForCompositionAsync(m, [])).Select(e => e.Id).ToHashSet();
+        Assert.Contains(meta, forMeta);
+        Assert.Contains(universal, forMeta);
+        Assert.DoesNotContain(zh, forMeta);
+        Assert.DoesNotContain(tGlobal, forMeta);
+
+        // enabledOnly:false surfaces the disabled row too
+        var withDisabled = (await store.ForCompositionAsync(t, ["lang:zh"], enabledOnly: false)).Select(e => e.Id).ToHashSet();
+        Assert.Contains(disabled, withDisabled);
+
+        // ListAsync(task:) is a strict-equality admin filter — the null-task universal row is NOT included
+        var listed = (await store.ListAsync(task: t)).Select(e => e.Id).ToHashSet();
+        Assert.Contains(zh, listed);
+        Assert.Contains(tGlobal, listed);
+        Assert.Contains(disabled, listed);        // ListAsync doesn't drop disabled rows unless enabledOnly
+        Assert.DoesNotContain(meta, listed);
+        Assert.DoesNotContain(universal, listed);
+    }
 }

@@ -39,6 +39,26 @@ public interface IConversationStore
 
     Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default);
 
+    /// <summary>Total number of threads in the store. For stats/backlog counts without loading every row.
+    /// (Default impl counts <see cref="ListThreadsAsync"/> — override for an O(1) <c>COUNT(*)</c>.)</summary>
+    async Task<int> CountThreadsAsync(CancellationToken ct = default) =>
+        (await ListThreadsAsync(int.MaxValue, ct).ConfigureAwait(false)).Count;
+
+    /// <summary>One page of threads in the same newest-first order as <see cref="ListThreadsAsync"/>
+    /// (created_at DESC, id DESC), starting strictly AFTER <paramref name="after"/> (keyset/cursor paging —
+    /// pass the last thread of the previous page; null starts at the newest). Walks the whole store page by
+    /// page without loading it all at once. The (created_at, id) cursor is stable across same-timestamp ties.
+    /// (Default impl pages over <see cref="ListThreadsAsync"/> in memory — override for a server-side keyset.)</summary>
+    async Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
+    {
+        var all = await ListThreadsAsync(int.MaxValue, ct).ConfigureAwait(false); // already ordered created_at DESC, id DESC
+        IEnumerable<ChatThread> q = all;
+        if (after is not null)
+            q = q.Where(t => t.CreatedAt < after.CreatedAt
+                || (t.CreatedAt == after.CreatedAt && string.CompareOrdinal(t.Id, after.Id) < 0));
+        return [.. q.Take(limit)];
+    }
+
     /// <summary>Replace a thread's opaque metadata (thread-level state that changes over the run —
     /// e.g. phase/plan/commit projections). No-op if the thread doesn't exist.</summary>
     Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default);

@@ -13,6 +13,7 @@ public class InMemoryCuratedMemoryStoreTests
     [Fact] public Task List_filters() => CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(New());
     [Fact] public Task Clear_source() => CuratedMemoryStoreContract.Update_with_empty_source_clears_it(New());
     [Fact] public Task Remove() => CuratedMemoryStoreContract.Remove_deletes(New());
+    [Fact] public Task ForComposition() => CuratedMemoryStoreContract.ForComposition_filters_by_task_and_scope(New());
 }
 
 /// <summary>Runs the <see cref="CuratedMemoryStoreContract"/> against SQLite over a per-test temp db.</summary>
@@ -28,4 +29,5 @@ public class SqliteCuratedMemoryStoreTests : IDisposable
     [Fact] public Task List_filters() => CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(Store);
     [Fact] public Task Clear_source() => CuratedMemoryStoreContract.Update_with_empty_source_clears_it(Store);
     [Fact] public Task Remove() => CuratedMemoryStoreContract.Remove_deletes(Store);
+    [Fact] public Task ForComposition() => CuratedMemoryStoreContract.ForComposition_filters_by_task_and_scope(Store);
 }

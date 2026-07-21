@@ -16,6 +16,8 @@ public class InMemoryConversationStoreContractTests
     [Fact] public Task Aliases() => ConversationStoreContract.Role_content_aliases_map_to_kind_payload(New(), "k");
     [Fact] public Task Cascade() => ConversationStoreContract.Delete_thread_cascades_to_messages(New(), "k");
     [Fact] public Task List_newest_first() => ConversationStoreContract.List_threads_returns_newest_first(New(), "k");
+    [Fact] public Task Count() => ConversationStoreContract.Count_reflects_inserted_and_deleted_threads(New(), "k");
+    [Fact] public Task Paged() => ConversationStoreContract.Paged_cursor_walks_every_thread_exactly_once(New(), "k");
 }
 
 /// <summary>Runs the <see cref="ConversationStoreContract"/> against SQLite over a per-test temp db.</summary>
@@ -34,4 +36,6 @@ public class SqliteConversationStoreContractTests : IDisposable
     [Fact] public Task Aliases() => ConversationStoreContract.Role_content_aliases_map_to_kind_payload(Store, "k");
     [Fact] public Task Cascade() => ConversationStoreContract.Delete_thread_cascades_to_messages(Store, "k");
     [Fact] public Task List_newest_first() => ConversationStoreContract.List_threads_returns_newest_first(Store, "k");
+    [Fact] public Task Count() => ConversationStoreContract.Count_reflects_inserted_and_deleted_threads(Store, "k");
+    [Fact] public Task Paged() => ConversationStoreContract.Paged_cursor_walks_every_thread_exactly_once(Store, "k");
 }

@@ -27,6 +27,10 @@ public sealed class EnrichingConversationStore(IConversationStore inner, IEnumer
 
     public Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default) => inner.ListThreadsAsync(limit, ct);
 
+    public Task<int> CountThreadsAsync(CancellationToken ct = default) => inner.CountThreadsAsync(ct);
+
+    public Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default) => inner.ListThreadsPageAsync(limit, after, ct);
+
     public Task SetThreadMetadataAsync(string id, string? metadata, CancellationToken ct = default) => inner.SetThreadMetadataAsync(id, metadata, ct);
 
     public Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default) => inner.GetMessagesAsync(threadId, ct);
