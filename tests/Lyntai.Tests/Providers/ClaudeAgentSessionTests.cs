@@ -389,6 +389,27 @@ public class ClaudeAgentSessionTests
         Assert.Null(ClaudeToolCalls.FilePathOf(call));
     }
 
+    [Fact]
+    public void FilePathOf_returns_notebook_path_when_no_file_path()
+    {
+        var call = new ToolCall("NotebookEdit", """{"notebook_path":"/x/n.ipynb","new_source":"print(1)"}""", "call-4");
+        Assert.Equal("/x/n.ipynb", ClaudeToolCalls.FilePathOf(call));
+    }
+
+    [Fact]
+    public void FilePathOf_returns_path_when_no_file_or_notebook_path()
+    {
+        var call = new ToolCall("SomeWriteTool", """{"path":"/x/p.txt"}""", "call-5");
+        Assert.Equal("/x/p.txt", ClaudeToolCalls.FilePathOf(call));
+    }
+
+    [Fact]
+    public void FilePathOf_file_path_wins_over_notebook_path_and_path()
+    {
+        var call = new ToolCall("Edit", """{"file_path":"/x/a.txt","notebook_path":"/x/n.ipynb","path":"/x/p.txt"}""", "call-6");
+        Assert.Equal("/x/a.txt", ClaudeToolCalls.FilePathOf(call));
+    }
+
     // ── DI test ───────────────────────────────────────────────────────────────
 
     [Fact]
