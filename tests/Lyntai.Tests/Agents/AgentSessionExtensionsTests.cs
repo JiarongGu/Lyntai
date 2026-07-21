@@ -73,6 +73,25 @@ public class AgentSessionExtensionsTests
     }
 
     [Fact]
+    public async Task Fold_empty_final_text_falls_back_to_accumulated_text_deltas()
+    {
+        var events = new AgentStreamEvent[]
+        {
+            new SessionStarted("sid"),
+            new TextDelta("Hello "),
+            new Thinking("(ignored)"),
+            new TextDelta("world"),
+            new SessionEnded(LlmVerdict.Ok, IsError: false, Subtype: null, SessionId: "sid",
+                FinalText: "", Diagnostic: null),
+        };
+        var session = new FakeSession(events);
+
+        var result = await session.RunAsync(new AgentSessionOptions { Prompt = "q" });
+
+        Assert.Equal("Hello world", result.FinalText);
+    }
+
+    [Fact]
     public async Task No_terminal_event_yields_failed_result_with_diagnostic()
     {
         var events = new AgentStreamEvent[]

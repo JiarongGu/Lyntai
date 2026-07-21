@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
 using Lyntai.Llm;
@@ -12,6 +13,7 @@ namespace Lyntai.Providers.ClaudeCli;
 internal sealed class StreamJsonAgentReader
 {
     private string? _model;
+    private string? _lastAssistantText;
 
     /// <summary>Translates one stream-json line into 0..N events. Never throws.</summary>
     public IEnumerable<AgentStreamEvent> Read(string line)
@@ -116,6 +118,8 @@ internal sealed class StreamJsonAgentReader
         if (msg.TryGetProperty("model", out var modelEl) && modelEl.ValueKind == JsonValueKind.String)
             _model = modelEl.GetString();
 
+        var toolCalls = new List<ToolCall>();
+        StringBuilder? text = null;
         if (msg.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
         {
             foreach (var block in content.EnumerateArray())
@@ -123,8 +127,15 @@ internal sealed class StreamJsonAgentReader
                 if (!block.TryGetProperty("type", out var blockTypeEl) || blockTypeEl.ValueKind != JsonValueKind.String)
                     continue;
 
-                // text blocks: intentionally skipped (already streamed via stream_event deltas)
-                if (blockTypeEl.ValueEquals("tool_use"))
+                if (blockTypeEl.ValueEquals("text"))
+                {
+                    // text blocks are NOT re-emitted (already streamed via stream_event deltas), but the
+                    // last assistant turn's text is retained so a terminal result that ends empty
+                    // (truncation / older CLI / provider variant) can fall back to it (see ReadResult).
+                    if (block.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String)
+                        (text ??= new StringBuilder()).Append(textEl.GetString());
+                }
+                else if (blockTypeEl.ValueEquals("tool_use"))
                 {
                     var name = block.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
                         ? nameEl.GetString()!
@@ -135,10 +146,17 @@ internal sealed class StreamJsonAgentReader
                     var argsJson = block.TryGetProperty("input", out var inputEl)
                         ? inputEl.GetRawText()
                         : "{}";
-                    yield return new ToolCall(name, argsJson, id);
+                    toolCalls.Add(new ToolCall(name, argsJson, id));
                 }
             }
         }
+
+        // Remember the last NON-EMPTY assistant text (a later tool-only turn must not clear it).
+        if (text is { Length: > 0 })
+            _lastAssistantText = text.ToString();
+
+        foreach (var tc in toolCalls)
+            yield return tc;
 
         // Emit UsageLive if usage is present
         if (msg.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
@@ -198,6 +216,12 @@ internal sealed class StreamJsonAgentReader
         var finalText = root.TryGetProperty("result", out var resultEl) && resultEl.ValueKind == JsonValueKind.String
             ? resultEl.GetString()
             : null;
+
+        // Robustness fallback: a run that ended with assistant text but an empty/absent terminal result
+        // string leaves consumers (one-shot extract, kb-merge, validate, dry-plan preview) that treat
+        // empty FinalText as failure spuriously failing — fall back to the last assistant text instead.
+        if (string.IsNullOrWhiteSpace(finalText) && !string.IsNullOrEmpty(_lastAssistantText))
+            finalText = _lastAssistantText;
 
         // UsageFinal first (if usage present), then SessionEnded
         if (root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)

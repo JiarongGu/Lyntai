@@ -23,6 +23,7 @@ public static class AgentSessionExtensions
         string? sessionId = null;
         UsageFinal? usage = null;
         SessionEnded? ended = null;
+        System.Text.StringBuilder? text = null;
 
         await foreach (var e in session.StreamAsync(options, ct).WithCancellation(ct).ConfigureAwait(false))
         {
@@ -30,15 +31,24 @@ public static class AgentSessionExtensions
             switch (e)
             {
                 case SessionStarted s: sessionId ??= s.SessionId; break;
+                case TextDelta t: (text ??= new System.Text.StringBuilder()).Append(t.Text); break;
                 case UsageFinal u: usage = u; break;              // last one wins
                 case SessionEnded x: ended = x; sessionId ??= x.SessionId; break;
             }
         }
 
-        return ended is not null
-            ? new AgentSessionResult(sessionId ?? ended.SessionId, ended.FinalText ?? "", ended.Verdict,
-                ended.IsError, ended.Subtype, ended.Diagnostic, usage)
-            : new AgentSessionResult(sessionId, "", LlmVerdict.Failed, IsError: true, Subtype: null,
+        if (ended is null)
+            return new AgentSessionResult(sessionId, "", LlmVerdict.Failed, IsError: true, Subtype: null,
                 Diagnostic: "stream ended without a terminal SessionEnded event", usage);
+
+        // Fall back to the streamed assistant text when the terminal event carried no final text — an
+        // adapter whose terminal result came back empty (truncation / older CLI / provider variant) still
+        // yields the answer to callers that treat empty FinalText as failure.
+        var finalText = ended.FinalText;
+        if (string.IsNullOrWhiteSpace(finalText) && text is { Length: > 0 })
+            finalText = text.ToString();
+
+        return new AgentSessionResult(sessionId ?? ended.SessionId, finalText ?? "", ended.Verdict,
+            ended.IsError, ended.Subtype, ended.Diagnostic, usage);
     }
 }

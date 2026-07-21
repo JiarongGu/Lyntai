@@ -238,6 +238,35 @@ public class StreamJsonAgentReaderTests
         Assert.IsType<SessionEnded>(events[0]);
     }
 
+    [Fact]
+    public void Result_with_empty_result_falls_back_to_last_assistant_text()
+    {
+        var reader = new StreamJsonAgentReader();
+        // Assistant text arrives as a complete message block (which the reader does NOT re-emit),
+        // then the terminal result carries an empty result string (truncation / older CLI / variant).
+        const string assistantLine = """{"type":"assistant","message":{"content":[{"type":"text","text":"The answer is 42."}]}}""";
+        _ = reader.Read(assistantLine).ToList();
+
+        const string resultLine = """{"type":"result","subtype":"success","is_error":false,"result":"","session_id":"s3"}""";
+        var events = reader.Read(resultLine).ToList();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal("The answer is 42.", ended.FinalText);
+    }
+
+    [Fact]
+    public void Result_with_nonempty_result_wins_over_last_assistant_text()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = reader.Read("""{"type":"assistant","message":{"content":[{"type":"text","text":"draft"}]}}""").ToList();
+
+        const string resultLine = """{"type":"result","subtype":"success","is_error":false,"result":"final","session_id":"s4"}""";
+        var events = reader.Read(resultLine).ToList();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal("final", ended.FinalText);
+    }
+
     // ── tolerant / error handling ────────────────────────────────────────────
 
     [Theory]
