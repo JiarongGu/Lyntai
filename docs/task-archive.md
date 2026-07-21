@@ -1,14 +1,25 @@
-# Lyntai (灵台) — Implementation Plan / Task Backlog
+# Lyntai (灵台) — Completed Task Archive
+
+> **This is the ARCHIVE of finished work — the historical implementation plan + closed backlog, kept for
+> the record. The ACTIVE backlog lives in [`../tasks.md`](../tasks.md) (open tasks only).** Per the
+> task-lifecycle rule (`.claude/rules/task-lifecycle.md`), an entry is moved here from `tasks.md` once it is
+> fully done (committed + verified). `CHANGELOG.md` stays the release-facing log; this file is the
+> task-level record (why/how, per-task).
+>
+> **Everything below is COMPLETE (Parts 0–12 · every checkbox `[x]`).** Phases 0–7 built the library;
+> Parts 1–12 were review/adoption hardening + consumer-driven generic gaps. Most recent close (2026-07-22):
+> Part 11 (G1 write-tool path args · G2 `FinalText` fallback · G3 `IConversationStore` count + keyset
+> paging) and Part 12 (CM1 curated-memory `task`/`scope` + `ForCompositionAsync`, new migration
+> `202607220001`). Build clean · 866 tests · e2e 3/3 · leak scan clean.
+>
+> _(Original header preserved below for the record.)_
+
+---
 
 > **Status: phases 0–7 + roadmap v0.3–v0.29 implemented** (agentic tool-calling, durable jobs, guards,
 > secrets, semantic memory, three storage backends, governance decorators, storage feature toggles,
 > actor/mailbox jobs, …). See `CHANGELOG.md` for per-release detail and `docs/ROADMAP.md` for the forward
 > sequence.
-> **➡ ALL tasks in this file are DONE (Parts 0–12 · every checkbox `[x]`).** The generic self-driving
-> agent-session primitive (Part 6) landed, and the latest consumer-driven gaps are closed: Part 11
-> (G1 write-tool path args · G2 `FinalText` fallback · G3 `IConversationStore` count + keyset paging) and
-> Part 12 (CM1 curated-memory `task`/`scope` + `ForCompositionAsync`, new migration `202607220001`). All
-> generic library improvements. Build clean · 866 tests · e2e 3/3 · leak scan clean.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use `superpowers:subagent-driven-development` (recommended)
 > or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox syntax.

@@ -65,7 +65,7 @@ Lyntai/
 │  └─ Lyntai.Tests/                    # xUnit: unit + integration (temp SQLite, stubbed provider)
 ├─ devtools/                           # generalized dev.mjs + e2e harness + check-sensitive + hooks
 ├─ docs/                               # this spec + implementation plan
-├─ tasks.md                            # build backlog / roadmap
+├─ tasks.md                            # ACTIVE backlog (open tasks only; completed → docs/task-archive.md)
 ├─ CLAUDE.md + .claude/rules/          # conventions retargeted to Lyntai
 └─ .gitignore
 ```
