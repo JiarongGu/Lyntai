@@ -928,6 +928,77 @@ tables" direction).
 
 ---
 
+## Part 11 — Consumer-driven gaps: Gatherlight conversation-store adoption (2026-07-20)
+
+Surfaced adopting the generic conversation store (Part 7 · P2) in Gatherlight (its two-gate `chat_session`/
+`chat_event` moved onto `IConversationStore`, accessed ONLY through the API — no raw SQL on `lyntai_*`).
+Three small, generic library improvements the adopter had to work around app-side. Each is a general
+capability, Gatherlight is just the example.
+
+- [ ] **G1 · `ClaudeToolCalls.FilePathOf` should also read `notebook_path` / `path`, not only `file_path`** (generic)
+  - `src/Lyntai.Providers.ClaudeCli/ClaudeToolCalls.cs` — `FilePathOf` reads only `file_path`, so a
+    `NotebookEdit` tool call (arg `notebook_path`) returns null. An app building an edit-tracker / commit-set
+    from the agent stream (Gatherlight does) then silently misses `NotebookEdit` (and any `path`-arg tool)
+    writes. Gatherlight had to re-implement the parse app-side (`file_path` → `notebook_path` → `path`).
+    Fix: check `file_path`, then `notebook_path`, then `path` (the three write-tool path args). Test:
+    a `NotebookEdit` call's `notebook_path` is returned; `file_path` still wins when both present.
+
+- [ ] **G2 · Agent-session `FinalText` should fall back to accumulated assistant text when the terminal
+    `result` is empty** (generic — robustness)
+  - `src/Lyntai.Providers.ClaudeCli/StreamJsonAgentReader.cs` + the `RunAsync` fold (`AgentSessionResult
+    .FinalText`) populate final text ONLY from the terminal `result` message's `result` string; assistant
+    text blocks are intentionally skipped (streamed as deltas). If a run ends with assistant text but an
+    empty/absent `result.result` (truncation, an older CLI, a provider variant), `FinalText` is `""` — where
+    the pre-Lyntai native runner fell back to the last assistant text block. Consumers that treat empty as
+    failure (one-shot extract, kb-merge, validate, a dry-plan preview) then spuriously fail. Fix: have the
+    reader/fold retain the last assistant text (or the accumulated `TextDelta`s) and use it as the fallback
+    when the terminal result text is empty. Test: a stubbed stream with assistant text + an empty `result`
+    string → `AgentSessionResult.FinalText` is the assistant text, not `""`.
+
+- [ ] **G3 · `IConversationStore` count + filtered/paged list (avoid list-all-then-filter)** (generic — nice-to-have)
+  - `src/Lyntai.Core/Storage/IConversationStore.cs` exposes only `ListThreadsAsync(limit)` — no count and no
+    server-side filter. An adopter that needs "how many conversations" or "the unscored terminal ones"
+    resorts to `ListThreadsAsync(100_000)` + in-memory filter (Gatherlight's eval-console stats + score
+    backlog do exactly this). Fine at family scale, ugly + O(n) at any real size. Consider a
+    `CountThreadsAsync()` and/or a filtered/paged list (by a metadata predicate or a created-at cursor).
+    Keep the simple `ListThreadsAsync` as the default. Test: count matches inserted rows; a paged cursor
+    walks all threads without loading them at once.
+
+---
+
+## Part 12 — Consumer-driven gap: curated memory with task + scope (Sonora adoption, 2026-07-22)
+
+Sonora is adopting Lyntai as its LLM + cortex substrate (retiring its own `Modules/Llm` + `Modules/Ai`). Its
+`ai_memory` is a HUMAN-CURATED store — an editor adds entries carrying a `task` ("translation" / "metadata"),
+an optional `scope` ("lang:zh"), a `kind` (grouping), an `enabled` toggle, and a `source`; a composer folds the
+*enabled* entries for a given (task, scope-set) into that call's system prompt as a kind-grouped block (bounded,
+fail-open). This is a legitimate, generic pattern — curated context that is PER-CONSUMER and PER-VARIANT, not
+only global-per-kind — but Lyntai's `ICuratedMemoryStore` today is `kind` + `enabled` ONLY (no task/scope), so a
+clean migration would lose the task/scope filtering. (`IMemoryStore` / `ISemanticMemory` have task/scope but are
+auto-learned — no curation, no editor.)
+
+- [ ] **CM1 · Optional `task` + `scope` on curated memory** (generic — an adopter with per-consumer curated context)
+  - Files: `src/Lyntai.Core/Storage/ICuratedMemoryStore.cs` (+ the `CuratedMemory` record), the three backends
+    (`Lyntai.Storage.{Sqlite,Postgres,InMemory}` — the `lyntai_curated_memory` table + a migration adding
+    nullable `task` + `scope`), and the compose helper `Cortex/CuratedMemorySections.cs`.
+  - Spec: `AddAsync(kind, content, source?, enabled?, task?, scope?)`; `ListAsync(kind?, enabledOnly?, task?)`;
+    and a filtered read `ForCompositionAsync(task, IEnumerable<string> scopes, enabledOnly = true)` returning
+    enabled entries whose `task` matches AND (`scope` is null/empty OR `scope` ∈ scopes) — task-less/scope-less
+    rows apply everywhere (backward-compatible: existing rows have null task/scope, so they behave exactly as
+    today). `CuratedMemorySections.Compose` gains an optional (task, scopes) filter.
+  - Test: an entry (task="translation", scope="lang:zh") is returned for ("translation", ["lang:zh"]) and for
+    ("translation", []) via the null-scope rule, but NOT for ("metadata", …) nor ("translation", ["lang:ja"]);
+    a null-task/null-scope entry is returned for every (task, scopes); the existing kind+enabled behavior is
+    unchanged when task/scope are omitted.
+  - Migration: `YYYYMMDDNNNN_CuratedMemoryTaskScope` adds nullable `task` + `scope` (tagged
+    `StorageFeature.CuratedMemory`); no backfill (null = global — the historical behavior).
+
+Once CM1 ships (a release Sonora bumps to), Sonora migrates `ai_memory` → `lyntai_curated_memory`
+(task/scope/kind/enabled/source map 1:1) and retires `Modules/Ai`. Until then Sonora keeps its curated store as
+is and wires only Lyntai's LEARNED memory (the auto-improvement layer) alongside it.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
