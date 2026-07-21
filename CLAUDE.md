@@ -58,6 +58,8 @@ Tests/e2e green.
 - `docs/ROADMAP.md` — the forward sequence (v0.4+ and standing maintenance policies).
 - `CHANGELOG.md` — per-release detail; breaking changes called out.
 - `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
+- `tasks.md` — the **active** backlog (open tasks only); `docs/task-archive.md` — the completed-task
+  history (the frozen implementation plan + closed backlogs). See the `task-lifecycle.md` rule.
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (router engine) /
 `Lyntai.Llm.Caching` (response cache) / `Lyntai.Llm.Budgeting` (usage budget) /
@@ -73,16 +75,21 @@ Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (rout
 
 - **`.claude/rules/`** (always-on) — `dev-conventions.md` (package layout, async Dapper + `snake_case` +
   `CAST(x AS REAL)`, FluentMigrator numbering, FTS5-trigram, spawn hygiene, DI-collection variation
-  points, the devtools loop) and `sensitive-info.md` (no dev-machine paths / private tokens; pre-commit
-  guard — install once with `node devtools/dev.mjs install-hooks`). See `.claude/rules/RULES_INDEX.md`.
+  points, the devtools loop), `sensitive-info.md` (no dev-machine paths / private tokens; pre-commit
+  guard — install once with `node devtools/dev.mjs install-hooks`), `task-lifecycle.md` (`tasks.md` =
+  OPEN backlog only; a completed task MOVES to `docs/task-archive.md`), and `no-global-memory.md` (project
+  facts live IN-REPO — `.claude/**` / `docs/DECISIONS.md` — global memory is user-prefs only). See
+  `.claude/rules/RULES_INDEX.md`.
 - **`.claude/knowledge/`** (on-demand deep dives — read the one you're touching):
   `extending-lyntai.md` (the four extension points), `llm-and-router.md` (verdict taxonomy, fallback §6
   amended, streaming-commit + inactivity-clock invariants, CLI hygiene), `storage.md` (Dapper/CAST/FTS5
   trigram triggers/pragmas/`lyntai_` prefix), **`pitfalls.md` (traps that pass the build/tests while
   being wrong — read before extending)**.
-- **`.claude/skills/`** — invoke for an extension task: `add-provider`, `add-storage-backend`,
-  `add-scorer`, `add-migration`.
+- **`.claude/skills/`** — extension tasks (`add-provider`, `add-storage-backend`, `add-scorer`,
+  `add-migration`) and process (`archive-task` — move a finished task from `tasks.md` to the archive).
 - **TDD** (failing test first) and **commit per task**. **Never commit without explicit user approval.**
+- **Backlog vs archive:** `tasks.md` holds only OPEN tasks; completed work is moved to
+  `docs/task-archive.md` (see `task-lifecycle.md`), and `CHANGELOG.md` is the release-facing log.
 - Working files (probes, scratch) go under `devtools/_*` (gitignored), never OS temp.
 - **This machine's console is GBK** — write files with the Write/Edit tools or `-Encoding utf8`, never
   `echo`/`Set-Content` UTF-8 through the console (it lossily mangles CJK/em-dashes). See `pitfalls.md`.
