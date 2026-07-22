@@ -338,4 +338,14 @@ public sealed class LyntaiBuilder
         configure(Options.Routing);
         return this;
     }
+
+    /// <summary>Tune how <c>IMemoryStore</c> bounds its size — count cap + eviction mode (FIFO/LRU), default
+    /// TTL, size budget. The defaults reproduce the historical 500-entry FIFO cap; use a
+    /// <see cref="Lyntai.Storage.MemoryRetentionPolicy"/> preset (e.g.
+    /// <c>b.ConfigureMemory(p => { p.Eviction = MemoryEvictionMode.Lru; p.DefaultTtl = TimeSpan.FromDays(7); })</c>).</summary>
+    public LyntaiBuilder ConfigureMemory(Action<Lyntai.Storage.MemoryRetentionPolicy> configure)
+    {
+        configure(Options.MemoryRetention);
+        return this;
+    }
 }

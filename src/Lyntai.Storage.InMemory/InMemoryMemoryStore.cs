@@ -3,14 +3,15 @@ using Lyntai.Storage;
 namespace Lyntai.Storage.InMemory;
 
 /// <summary>
-/// In-memory <see cref="IMemoryStore"/> honoring the domain contract: dedup on remember, per-entry
-/// TTL, per-(task, scope) cap, and fail-open recall. Recall matches by case-insensitive SUBSTRING
-/// (there is no trigram/bm25 ranking here — results are recency-ordered), which is the in-memory
-/// analogue of the SQLite backend's LIKE fallback; adequate for tests and ephemeral use.
+/// In-memory <see cref="IMemoryStore"/> honoring the domain contract: dedup on remember, per-entry TTL, a
+/// configurable <see cref="MemoryRetentionPolicy"/> (count cap + FIFO/LRU eviction, default TTL, size
+/// budget), and fail-open recall. Recall matches by case-insensitive SUBSTRING (recency-ordered; the
+/// in-memory analogue of SQLite's LIKE fallback) — adequate for tests and ephemeral use.
 /// </summary>
 public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffset>? clock = null) : IMemoryStore
 {
-    private sealed record Entry(long Id, string TaskKey, string Scope, string Content, DateTimeOffset CreatedAt, DateTimeOffset? ExpiresAt);
+    private sealed record Entry(long Id, string TaskKey, string Scope, string Content,
+        DateTimeOffset CreatedAt, DateTimeOffset LastAccessedAt, DateTimeOffset? ExpiresAt);
 
     private readonly Lock _lock = new();
     private readonly List<Entry> _entries = [];
@@ -20,23 +21,27 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
     public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default)
     {
         var now = _clock();
-        var expiresAt = ttl is null ? (DateTimeOffset?)null : now + ttl.Value;
+        var policy = options.MemoryRetention;
+        var effectiveTtl = ttl ?? policy.DefaultTtl; // a per-call ttl wins over the policy default
+        var expiresAt = effectiveTtl is null ? (DateTimeOffset?)null : now + effectiveTtl.Value;
         lock (_lock)
         {
-            // dedup: refresh an identical fact rather than duplicating it
+            // dedup: refresh an identical fact (recency + access + TTL) rather than duplicating it
             var existing = _entries.FindIndex(e => e.TaskKey == taskKey && e.Scope == scope && e.Content == content);
             if (existing >= 0)
-                _entries[existing] = _entries[existing] with { CreatedAt = now, ExpiresAt = expiresAt };
+                _entries[existing] = _entries[existing] with { CreatedAt = now, LastAccessedAt = now, ExpiresAt = expiresAt };
             else
-                _entries.Add(new Entry(_nextId++, taskKey, scope, content, now, expiresAt));
+                _entries.Add(new Entry(_nextId++, taskKey, scope, content, now, now, expiresAt));
 
-            // cap: keep the newest @cap LIVE entries, trim the rest — expired sort last (evicted before
-            // live ones); recency is by created_at so a refreshed fact ranks newest.
-            var scoped = _entries.Where(e => e.TaskKey == taskKey && e.Scope == scope)
-                .OrderBy(e => e.ExpiresAt is null || e.ExpiresAt > now ? 0 : 1)
-                .ThenByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).ToList();
-            foreach (var stale in scoped.Skip(options.MemoryCapPerScope))
-                _entries.Remove(stale);
+            // policy-driven eviction — the shared MemoryEviction helper picks the survivors (count cap +
+            // FIFO/LRU + size budget), identical to the SQLite/Postgres backends. Manual = no size bound = keep all.
+            if (policy.HasSizeBound)
+            {
+                var scoped = _entries.Where(e => e.TaskKey == taskKey && e.Scope == scope)
+                    .Select(e => new MemoryEviction.Row(e.Id, e.CreatedAt, e.LastAccessedAt, e.ExpiresAt, e.Content.Length));
+                var keep = MemoryEviction.Survivors(policy, scoped, now);
+                _entries.RemoveAll(e => e.TaskKey == taskKey && e.Scope == scope && !keep.Contains(e.Id));
+            }
         }
         return Task.CompletedTask;
     }
@@ -46,6 +51,7 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
     {
         var take = limit ?? options.MemoryRecallLimit;
         var now = _clock();
+        var touch = options.MemoryRetention.TracksAccess; // LRU refreshes recency on recall
         try
         {
             lock (_lock)
@@ -59,11 +65,17 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
                     candidates = candidates.Where(e =>
                         e.Content.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase));
 
+                var ordered = candidates.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).Take(take).ToList();
+
+                if (touch && ordered.Count > 0) // LRU: mark the recalled entries as recently used
+                {
+                    var ids = ordered.Select(e => e.Id).ToHashSet();
+                    for (var i = 0; i < _entries.Count; i++)
+                        if (ids.Contains(_entries[i].Id)) _entries[i] = _entries[i] with { LastAccessedAt = now };
+                }
+
                 IReadOnlyList<MemoryEntry> result =
-                [
-                    .. candidates.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).Take(take)
-                        .Select(e => new MemoryEntry(e.Id, e.TaskKey, e.Scope, e.Content, e.CreatedAt))
-                ];
+                    [.. ordered.Select(e => new MemoryEntry(e.Id, e.TaskKey, e.Scope, e.Content, e.CreatedAt))];
                 return Task.FromResult(result);
             }
         }

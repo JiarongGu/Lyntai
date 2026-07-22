@@ -2,6 +2,7 @@ using System.Globalization;
 using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Llm.Routing;
+using Lyntai.Storage;
 
 namespace Lyntai;
 
@@ -14,6 +15,8 @@ namespace Lyntai;
 /// <c>LYNTAI_RETRY_FAILED</c>, <c>LYNTAI_RETRY_TIMEOUT</c>, <c>LYNTAI_RETRY_BACKOFF_SECONDS</c>,
 /// <c>LYNTAI_COOLDOWN_SCOPE</c> (<c>Provider</c> | <c>ProviderAndModel</c>),
 /// <c>LYNTAI_TOOL_LOOP_MAX_ITERATIONS</c>, <c>LYNTAI_CACHE_TTL_SECONDS</c>, <c>LYNTAI_CACHE_MAX_ENTRIES</c>,
+/// <c>LYNTAI_MEMORY_MAX_ENTRIES</c>, <c>LYNTAI_MEMORY_EVICTION</c> (<c>Fifo</c> | <c>Lru</c>),
+/// <c>LYNTAI_MEMORY_TTL_SECONDS</c>, <c>LYNTAI_MEMORY_MAX_CHARS</c>,
 /// <c>LYNTAI_BUDGET_MAX_COST_USD</c>, <c>LYNTAI_BUDGET_MAX_TOKENS</c>,
 /// <c>LYNTAI_RATELIMIT_PERMITS_PER_SECOND</c>, <c>LYNTAI_RATELIMIT_BURST</c>, <c>LYNTAI_RATELIMIT_MAX_WAIT_SECONDS</c>,
 /// and the durable-jobs family <c>LYNTAI_JOBS_LEASE_SECONDS</c>, <c>LYNTAI_JOBS_POLL_SECONDS</c>,
@@ -64,8 +67,20 @@ public sealed class LyntaiOptions
     /// to point live model routing at the app's existing keys.</summary>
     public string ModelKeyPrefix { get; set; } = KeyValueModelRoutingStore.DefaultKeyPrefix;
 
-    /// <summary>Max entries kept per (task, scope) in the memory store — oldest trimmed beyond this.</summary>
-    public int MemoryCapPerScope { get; set; } = 500;
+    /// <summary>How <see cref="Lyntai.Storage.IMemoryStore"/> bounds its size — the app's control over
+    /// retention: a per-scope count cap + <see cref="MemoryEvictionMode"/> (FIFO / LRU), a default TTL, and a
+    /// per-scope size (character) budget. See <see cref="MemoryRetentionPolicy"/> presets. Defaults reproduce
+    /// the historical 500-entry FIFO cap; tune via <c>ConfigureMemory(...)</c> or <c>LYNTAI_MEMORY_*</c>.</summary>
+    public MemoryRetentionPolicy MemoryRetention { get; set; } = MemoryRetentionPolicy.Default;
+
+    /// <summary>[Shortcut] Max entries kept per (task, scope) — proxies
+    /// <see cref="MemoryRetentionPolicy.MaxEntriesPerScope"/> on <see cref="MemoryRetention"/> (0 = uncapped).
+    /// Prefer configuring <see cref="MemoryRetention"/> directly.</summary>
+    public int MemoryCapPerScope
+    {
+        get => MemoryRetention.MaxEntriesPerScope ?? 0;
+        set => MemoryRetention.MaxEntriesPerScope = value > 0 ? value : null;
+    }
 
     /// <summary>Default max entries returned by a memory recall.</summary>
     public int MemoryRecallLimit { get; set; } = 20;
@@ -170,6 +185,17 @@ public sealed class LyntaiOptions
             Cache.Ttl = TimeSpan.FromSeconds(ct);
         if (int.TryParse(getEnv("LYNTAI_CACHE_MAX_ENTRIES"), out var cm) && cm > 0)
             Cache.MaxEntries = cm;
+
+        // memory retention knobs (count cap, eviction mode, default TTL, size budget)
+        if (int.TryParse(getEnv("LYNTAI_MEMORY_MAX_ENTRIES"), out var mme))
+            MemoryRetention.MaxEntriesPerScope = mme > 0 ? mme : null;
+        var evict = getEnv("LYNTAI_MEMORY_EVICTION");
+        if (!string.IsNullOrWhiteSpace(evict) && Enum.TryParse<MemoryEvictionMode>(evict, ignoreCase: true, out var em))
+            MemoryRetention.Eviction = em;
+        if (double.TryParse(getEnv("LYNTAI_MEMORY_TTL_SECONDS"), out var mttl) && mttl > 0)
+            MemoryRetention.DefaultTtl = TimeSpan.FromSeconds(mttl);
+        if (int.TryParse(getEnv("LYNTAI_MEMORY_MAX_CHARS"), out var mmc))
+            MemoryRetention.MaxCharsPerScope = mmc > 0 ? mmc : null;
 
         // usage-budget knobs (global caps; per-consumer caps are code-only)
         if (double.TryParse(getEnv("LYNTAI_BUDGET_MAX_COST_USD"), NumberStyles.Float, CultureInfo.InvariantCulture, out var bc) && bc >= 0)

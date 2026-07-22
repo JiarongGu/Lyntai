@@ -108,6 +108,63 @@ public static class MemoryStoreContract
         Assert.Equal(["entry 3", "entry 4", "entry 5"], contents.OrderBy(c => c)); // newest 3 kept
     }
 
+    /// <summary>Store built with <c>CountCap(3, Lru)</c> + a controllable clock: a recalled entry survives
+    /// eviction that a FIFO cap would have dropped.</summary>
+    public static async Task Lru_evicts_least_recently_recalled(IMemoryStore store, string key, Action<TimeSpan> advance)
+    {
+        await store.RememberAsync(key, "s", "alpha one");   advance(TimeSpan.FromMinutes(1));
+        await store.RememberAsync(key, "s", "beta two");    advance(TimeSpan.FromMinutes(1));
+        await store.RememberAsync(key, "s", "gamma three"); advance(TimeSpan.FromMinutes(1));
+
+        Assert.Single(await store.RecallAsync(key, query: "alpha")); // refreshes "alpha one" → most-recently-used
+        advance(TimeSpan.FromMinutes(1));
+
+        await store.RememberAsync(key, "s", "delta four"); // 4th entry, cap 3 → evict least-recently-USED
+        var contents = (await store.RecallAsync(key)).Select(h => h.Content).ToHashSet();
+        Assert.Equal(3, contents.Count);
+        Assert.Contains("alpha one", contents);      // survived because it was recalled (a FIFO cap would drop it)
+        Assert.Contains("gamma three", contents);
+        Assert.Contains("delta four", contents);
+        Assert.DoesNotContain("beta two", contents); // least-recently-used → evicted
+    }
+
+    /// <summary>Store built with <c>TimeToLive(5min)</c> + a controllable clock: the policy default TTL
+    /// applies to entries remembered without a per-call ttl; a per-call ttl still wins.</summary>
+    public static async Task Default_ttl_expires_entries_without_per_call_ttl(IMemoryStore store, string key, Action<TimeSpan> advance)
+    {
+        await store.RememberAsync(key, "s", "uses default ttl");                                // → policy DefaultTtl (5min)
+        await store.RememberAsync(key, "s", "explicit long", ttl: TimeSpan.FromMinutes(100));   // per-call ttl overrides default
+        Assert.Equal(2, (await store.RecallAsync(key)).Count);
+
+        advance(TimeSpan.FromMinutes(6)); // past the 5min default, before the 100min explicit
+        var live = await store.RecallAsync(key);
+        Assert.Single(live);
+        Assert.Equal("explicit long", live[0].Content);
+    }
+
+    /// <summary>Store built with <c>SizeBudget(25 chars, Fifo)</c>: entries are trimmed to keep the newest
+    /// under the per-scope character budget.</summary>
+    public static async Task Size_budget_evicts_to_fit(IMemoryStore store, string key)
+    {
+        // each content is 10 chars; budget 25 → at most 2 fit (20 ≤ 25; a 3rd would be 30 > 25)
+        await store.RememberAsync(key, "s", new string('a', 10));
+        await store.RememberAsync(key, "s", new string('b', 10));
+        await store.RememberAsync(key, "s", new string('c', 10));
+
+        var contents = (await store.RecallAsync(key)).Select(h => h.Content).ToHashSet();
+        Assert.Equal(2, contents.Count);                       // trimmed to fit the char budget
+        Assert.Contains(new string('c', 10), contents);        // newest 2 kept (FIFO)
+        Assert.Contains(new string('b', 10), contents);
+        Assert.DoesNotContain(new string('a', 10), contents);  // oldest evicted to fit
+    }
+
+    /// <summary>Store built with <c>Manual</c> (no size bound) + a high recall limit: nothing is auto-evicted.</summary>
+    public static async Task Manual_policy_never_evicts(IMemoryStore store, string key)
+    {
+        for (var i = 1; i <= 12; i++) await store.RememberAsync(key, "s", $"fact {i}");
+        Assert.Equal(12, (await store.RecallAsync(key)).Count); // no cap/budget → all kept
+    }
+
     public static async Task Forget_clears_a_task(IMemoryStore store, string key)
     {
         await store.RememberAsync(key, "s", "x");

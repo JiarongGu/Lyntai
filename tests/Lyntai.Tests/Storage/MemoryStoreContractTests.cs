@@ -12,6 +12,8 @@ public class InMemoryMemoryStoreContractTests
     private DateTimeOffset _now = new(2026, 7, 17, 12, 0, 0, TimeSpan.Zero);
     private static readonly LyntaiOptions Options = new() { MemoryCapPerScope = 3, MemoryRecallLimit = 100 };
     private InMemoryMemoryStore New() => new(Options, clock: () => _now);
+    private InMemoryMemoryStore NewWith(MemoryRetentionPolicy p) =>
+        new(new LyntaiOptions { MemoryRetention = p, MemoryRecallLimit = 100 }, clock: () => _now);
 
     [Fact] public Task Token_recall() => MemoryStoreContract.Remember_then_recall_by_single_token_substring(New(), "k");
     [Fact] public Task Cjk() => MemoryStoreContract.Cjk_substring_recall(New(), "k");
@@ -23,6 +25,10 @@ public class InMemoryMemoryStoreContractTests
     [Fact] public Task Cap() => MemoryStoreContract.Cap_trims_to_the_newest_entries(New(), "k");
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
     [Fact] public Task Fail_open() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(New(), "k");
+    [Fact] public Task Lru() { var s = NewWith(MemoryRetentionPolicy.CountCap(3, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_evicts_least_recently_recalled(s, "k", by => _now += by); }
+    [Fact] public Task Default_ttl() { var s = NewWith(MemoryRetentionPolicy.TimeToLive(TimeSpan.FromMinutes(5))); return MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(s, "k", by => _now += by); }
+    [Fact] public Task Size_budget() => MemoryStoreContract.Size_budget_evicts_to_fit(NewWith(MemoryRetentionPolicy.SizeBudget(25)), "k");
+    [Fact] public Task Manual() => MemoryStoreContract.Manual_policy_never_evicts(NewWith(MemoryRetentionPolicy.Manual), "k");
 }
 
 /// <summary>Runs the <see cref="MemoryStoreContract"/> against SQLite over a per-test temp db. Cap = 3;

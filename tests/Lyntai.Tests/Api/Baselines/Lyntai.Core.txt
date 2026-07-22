@@ -940,6 +940,7 @@ class Lyntai.LyntaiBuilder
     BudgetDecoratorOrder : Int32 const
     CacheDecoratorOrder : Int32 const
     Configure(Action<LyntaiOptions>) : LyntaiBuilder
+    ConfigureMemory(Action<MemoryRetentionPolicy>) : LyntaiBuilder
     ConfigureRouting(Action<RoutingPolicy>) : LyntaiBuilder
     DefaultCandidates(LlmCandidate[]) : LyntaiBuilder
     DefaultCandidates(String[]) : LyntaiBuilder
@@ -959,6 +960,7 @@ class Lyntai.LyntaiOptions
     MaxProviderTimeout : TimeSpan
     MemoryCapPerScope : Int32
     MemoryRecallLimit : Int32
+    MemoryRetention : MemoryRetentionPolicy
     ModelKeyPrefix : String
     PromptKeyPrefix : String
     ProviderTimeout : TimeSpan
@@ -1250,6 +1252,38 @@ class Lyntai.Storage.MemoryEntry
     Scope : String
     TaskKey : String
     ToString() : String
+static class Lyntai.Storage.MemoryEviction
+    Survivors(MemoryRetentionPolicy, IEnumerable<Row>, DateTimeOffset) : HashSet<Int64>
+struct Lyntai.Storage.MemoryEviction+Row
+    .ctor(Int64, DateTimeOffset, DateTimeOffset, Nullable<DateTimeOffset>, Int32)
+    CreatedAt : DateTimeOffset
+    Deconstruct(Int64&, DateTimeOffset&, DateTimeOffset&, Nullable`1&, Int32&) : Void
+    Equals(Object) : Boolean
+    Equals(Row) : Boolean
+    ExpiresAt : Nullable<DateTimeOffset>
+    GetHashCode() : Int32
+    Id : Int64
+    LastAccessedAt : DateTimeOffset
+    Length : Int32
+    ToString() : String
+enum Lyntai.Storage.MemoryEvictionMode
+    Fifo : MemoryEvictionMode const
+    Lru : MemoryEvictionMode const
+    value__ : Int32
+class Lyntai.Storage.MemoryRetentionPolicy
+    .ctor()
+    Composite(Int32, TimeSpan, MemoryEvictionMode=) : MemoryRetentionPolicy
+    CountCap(Int32, MemoryEvictionMode=) : MemoryRetentionPolicy
+    Default : MemoryRetentionPolicy
+    DefaultTtl : Nullable<TimeSpan>
+    Eviction : MemoryEvictionMode
+    HasSizeBound : Boolean
+    Manual : MemoryRetentionPolicy
+    MaxCharsPerScope : Nullable<Int32>
+    MaxEntriesPerScope : Nullable<Int32>
+    SizeBudget(Int32, MemoryEvictionMode=) : MemoryRetentionPolicy
+    TimeToLive(TimeSpan, Nullable<Int32>=) : MemoryRetentionPolicy
+    TracksAccess : Boolean
 class Lyntai.Storage.PromptVersion
     .ctor(String, Int32, String, String, DateTimeOffset, Boolean)
     Author : String
