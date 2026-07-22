@@ -9,6 +9,14 @@ Consumer-driven generic gaps (tasks.md Part 11 · Part 12). All additive; public
 baselines updated) — no removals, existing calls source-compatible.
 
 ### Added
+- **App-configurable memory retention (Part 14)** — `IMemoryStore` size management is now a
+  `MemoryRetentionPolicy` (`LyntaiOptions.MemoryRetention` / `ConfigureMemory(...)` / `LYNTAI_MEMORY_*`),
+  mirroring the configurable `RoutingPolicy`: a per-scope count cap with **FIFO or LRU** eviction, a default
+  TTL, a per-scope size (character) budget, and presets (`CountCap` / `TimeToLive` / `SizeBudget` /
+  `Composite` / `Manual`). Eviction is a single pure `MemoryEviction.Survivors` helper shared by all three
+  backends (InMemory / SQLite / Postgres). LRU adds a `last_accessed_at` column (migration `202607220002`,
+  `ADD COLUMN` + backfill — the SQLite FTS update-trigger is scoped to `content` to avoid churn). The default
+  reproduces the historical 500-entry FIFO cap; `MemoryCapPerScope` now proxies it (source-compatible).
 - **Curated memory `task` + `scope` (CM1)** — `CuratedMemory` gains optional nullable `Task`/`Scope`;
   `ICuratedMemoryStore` gains `ForCompositionAsync(task, scopes, enabledOnly)` (enabled entries whose task
   matches or is null, and whose scope is null/empty or ∈ scopes; an EMPTY `scopes` disables scope filtering)

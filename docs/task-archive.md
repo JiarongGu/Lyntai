@@ -1035,6 +1035,25 @@ model / evolve-the-system / invariants; migrated the 9 `lyntai-*` global memorie
 
 ---
 
+## Part 14 — App-configurable memory retention policy (multi-strategy) (2026-07-22)
+
+✅ done 2026-07-22 — `IMemoryStore` size management is now an app-configurable `MemoryRetentionPolicy`
+(DECISIONS D16), mirroring the configurable `RoutingPolicy`. Requirement (user): "multi-way / configurable
+so the app has control", production-grade, drawing on existing agent-memory systems (LangChain
+buffer-window/token-buffer, MemGPT eviction).
+
+- **R1 · `MemoryRetentionPolicy`** — ✅ done. Composable knobs (`LyntaiOptions.MemoryRetention` /
+  `ConfigureMemory(...)` / `LYNTAI_MEMORY_*`): count cap + `MemoryEvictionMode` (FIFO/LRU), default TTL,
+  per-scope size (character) budget; presets `CountCap`/`TimeToLive`/`SizeBudget`/`Composite`/`Manual`.
+  Eviction is a single pure `MemoryEviction.Survivors` helper shared by all three backends (InMemory /
+  SQLite / Postgres) so they can't diverge; LRU adds `last_accessed_at` (migration `202607220002`,
+  refreshed best-effort on recall; SQLite FTS update-trigger scoped to `content` to avoid churn). Default
+  reproduces the historical 500-entry FIFO cap (`MemoryCapPerScope` proxies it). Cross-backend contract
+  tests for LRU / default-TTL / size-budget / manual; verified on InMemory, SQLite, and live Postgres.
+  Landed in 3 commits (Core+InMemory, SQLite, Postgres+docs).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

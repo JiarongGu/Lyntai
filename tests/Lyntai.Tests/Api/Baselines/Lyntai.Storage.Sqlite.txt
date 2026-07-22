@@ -67,6 +67,10 @@ class Lyntai.Storage.Sqlite.Migrations.M202607220001_CuratedMemoryTaskScope
     .ctor()
     Down() : Void
     Up() : Void
+class Lyntai.Storage.Sqlite.Migrations.M202607220002_MemoryLastAccessed
+    .ctor()
+    Down() : Void
+    Up() : Void
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
     MigrateUp(String) : Void
     MigrateUp(String, StorageFeature) : Void

@@ -122,3 +122,16 @@ NOT any-match). So `All` = one pass requesting just `[StorageFeatures.AllTag]` (
 it); a subset = one pass PER selected feature (the version table dedups). Each migration is tagged
 `[Tags(nameof(StorageFeature.X), StorageFeatures.AllTag)]`. Full detail in `.claude/knowledge/storage.md`.
 Consistent with D13 (Lyntai still owns the tables it creates — this just skips unused domains).
+
+## D16 — Memory retention is an app-configurable, multi-strategy policy
+`IMemoryStore` size management is a `MemoryRetentionPolicy` (`LyntaiOptions.MemoryRetention`,
+`ConfigureMemory(...)`, `LYNTAI_MEMORY_*`) — mirroring how **D10** makes routing configurable — not a fixed
+cap. Composable knobs: a per-scope count cap + `MemoryEvictionMode` (**FIFO** sliding window vs **LRU**
+working set), a default TTL, and a per-scope size (character) budget; presets name the shapes
+(`CountCap`/`TimeToLive`/`SizeBudget`/`Composite`/`Manual`). The default reproduces the historical 500-entry
+FIFO cap (`MemoryCapPerScope` now proxies `MaxEntriesPerScope`). Eviction is a single PURE
+`MemoryEviction.Survivors` helper that all three backends share (fetch the scoped group's metadata → compute
+survivors → delete the rest) — that's why they can't diverge; LRU adds a `last_accessed_at` column
+(migration `202607220002`) refreshed best-effort on recall. Inspired by LangChain's buffer-window /
+token-buffer / summary memories and MemGPT-style eviction. Add a new bound as a knob on the policy + a case
+in the shared helper — never a per-backend branch.
