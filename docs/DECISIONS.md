@@ -135,3 +135,7 @@ survivors → delete the rest) — that's why they can't diverge; LRU adds a `la
 (migration `202607220002`) refreshed best-effort on recall. Inspired by LangChain's buffer-window /
 token-buffer / summary memories and MemGPT-style eviction. Add a new bound as a knob on the policy + a case
 in the shared helper — never a per-backend branch.
+On-write eviction only bounds scopes you keep writing to; a COLD `(taskKey, scope)` accumulates expired
+rows. So GC of cold/expired entries is an **opt-in cron job** — `AddMemoryPruneJob(cron, olderThan?)`
+registers an `IJobHandler` over `PruneAsync` on the existing durable-jobs + cron machinery. Lyntai owns the
+prune work; the **app owns the pump** (no self-run timer — Lyntai is a library, D9/D14).

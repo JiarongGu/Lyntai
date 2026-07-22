@@ -926,6 +926,7 @@ class Lyntai.LyntaiBuilder
     AddJobSchedule(JobSchedule) : LyntaiBuilder
     AddJobSchedule(String, String, String, String, TimeSpan, Int32=) : LyntaiBuilder
     AddLiveModelRouting() : LyntaiBuilder
+    AddMemoryPruneJob(String, Nullable<TimeSpan>=, String=, String=, String=, Int32=) : LyntaiBuilder
     AddProvider() : LyntaiBuilder
     AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
     AddRateLimit(Action<RateLimitOptions>=) : LyntaiBuilder

@@ -9,6 +9,11 @@ Consumer-driven generic gaps (tasks.md Part 11 · Part 12). All additive; public
 baselines updated) — no removals, existing calls source-compatible.
 
 ### Added
+- **Opt-in memory-prune cron job (Part 15)** — `builder.AddMemoryPruneJob(cron, olderThan?, taskKey?)`
+  registers a durable-job handler that calls `IMemoryStore.PruneAsync` on a cron schedule: background GC
+  that reclaims storage from cold/expired `(taskKey, scope)`s that on-write eviction never revisits. Lyntai
+  owns the prune work; the app owns the pump (drives `IJobScheduler`/`IJobRunner` — no self-run timer, per
+  the "no host" boundary). Idempotent; call it more than once for several schedules.
 - **App-configurable memory retention (Part 14)** — `IMemoryStore` size management is now a
   `MemoryRetentionPolicy` (`LyntaiOptions.MemoryRetention` / `ConfigureMemory(...)` / `LYNTAI_MEMORY_*`),
   mirroring the configurable `RoutingPolicy`: a per-scope count cap with **FIFO or LRU** eviction, a default

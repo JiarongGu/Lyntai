@@ -1054,6 +1054,20 @@ buffer-window/token-buffer, MemGPT eviction).
 
 ---
 
+## Part 15 — Opt-in memory-prune cron job (2026-07-22)
+
+✅ done 2026-07-22 — Follow-on to Part 14 (DECISIONS D16). On-write eviction only bounds scopes you keep
+writing to; a cold `(taskKey, scope)` accumulates expired rows. `builder.AddMemoryPruneJob(cron,
+olderThan?, taskKey?)` registers an internal `MemoryPruneJobHandler` (`IJobHandler` over
+`IMemoryStore.PruneAsync`, idempotent) + a cron `JobSchedule` on the EXISTING durable-jobs + cron
+machinery — Lyntai owns the prune work, the app owns the pump (no self-run timer; consistent with the "no
+host" boundary D9/D14). Handler + payload record are internal (only `AddMemoryPruneJob` is public surface).
+TDD'd (handler parses payload / reaps; registration wires one handler + N schedules; bad cron throws).
+Decided WITH the user: needed because this is a generic library used across many apps (unbounded cold-scope
+growth is the real case).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

@@ -182,6 +182,23 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Opt-in background GC for memory: register a recurring <b>memory-prune</b> job on a
+    /// <paramref name="cron"/> schedule that reaps expired (and, when <paramref name="olderThan"/> is set,
+    /// aged-out) entries via <c>IMemoryStore.PruneAsync</c> — reclaiming storage from cold/expired
+    /// <c>(taskKey, scope)</c>s that on-write eviction never revisits. Lyntai owns the prune WORK; the APP
+    /// owns the pump (drive <c>IJobScheduler.RunAsync</c>/<c>TickAsync</c> + <c>IJobRunner</c>). Needs a
+    /// memory store (e.g. <c>UseSqliteStorage</c>) wired. <paramref name="taskKey"/> null = all tasks. The
+    /// cron is validated now (a bad one throws here). Call more than once with distinct
+    /// <paramref name="name"/>s for several schedules — the handler is registered once.</summary>
+    public LyntaiBuilder AddMemoryPruneJob(string cron, TimeSpan? olderThan = null, string? taskKey = null,
+        string lane = "default", string name = "lyntai-memory-prune", int priority = 0)
+    {
+        // one handler regardless of how many schedules (TryAddEnumerable dedups by implementation type)
+        Services.TryAddEnumerable(ServiceDescriptor.Singleton<Lyntai.Jobs.IJobHandler, Lyntai.Jobs.MemoryPruneJobHandler>());
+        var payload = new Lyntai.Jobs.MemoryPruneRequest(taskKey, olderThan?.TotalSeconds).ToJson();
+        return AddCronSchedule(name, lane, Lyntai.Jobs.MemoryPruneJobHandler.JobType, payload, cron, priority);
+    }
+
     /// <summary>Register a scope-guard / jail hook into the guard-rail collection (applied at the chat
     /// orchestration's gates, or by a <c>GuardedLlmClient</c>).</summary>
     public LyntaiBuilder AddGuard<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
