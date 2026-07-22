@@ -4,7 +4,7 @@
 //   node devtools/dev.mjs e2e [all|pN|pN-pM|p1,p3] [--build] [--parallel[=N]] - Playground e2e suites
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
 //   node devtools/dev.mjs pack             - dotnet pack the packable libraries -> publish/packages/
-//   node devtools/dev.mjs doctor           - assert README ## Status version == VersionPrefix (pack guard)
+//   node devtools/dev.mjs doctor [--fix]   - check README ## Status version == VersionPrefix (--fix syncs it)
 //   node devtools/dev.mjs install-hooks    - git core.hooksPath -> devtools/hooks (pre-commit guard)
 //   node devtools/dev.mjs check-sensitive  - scan staged changes (--tree for all tracked files)
 import { spawn, spawnSync } from 'node:child_process';
@@ -23,19 +23,33 @@ const run = (exe, argv, opts = {}) => {
   process.exitCode = r.status ?? 1;
 };
 
-// pack-doctor: the README `## Status` headline version must match VersionPrefix, so a shipped nupkg's
-// README never advertises a stale version. Returns true when they agree.
-const packDoctor = () => {
-  const readme = fs.readFileSync(path.join(repo, 'README.md'), 'utf8');
-  const status = readme.split(/^## /m).find((s) => s.startsWith('Status')) ?? '';
-  const readmeVersion = (status.match(/\*\*v(\d+\.\d+\.\d+)/) ?? [])[1] ?? null;
-  if (readmeVersion !== config.version) {
-    console.error(`pack-doctor: README "## Status" version (${readmeVersion ?? 'none found'}) != ` +
-      `VersionPrefix (${config.version}) — update the README Status headline (**vX.Y.Z …) before packing.`);
-    return false;
+// pack-doctor: keep the README `## Status` headline version in lock-step with VersionPrefix (the single
+// source in src/Directory.Build.props), so a shipped nupkg's README never advertises a stale version. The
+// release pipeline BUMPS the version, so `pack` (and `doctor --fix`) SYNC the header to match — no manual
+// README edit. `doctor` with no flag just CHECKS and fails on drift. The value that gets updated is the
+// `**vX.Y.Z` at the start of the `## Status` headline (flagged with an HTML comment in the README).
+const statusVersionOf = (readme) =>
+  ((readme.split(/^## /m).find((s) => s.startsWith('Status')) ?? '').match(/\*\*v(\d+\.\d+\.\d+)/) ?? [])[1] ?? null;
+
+const packDoctor = ({ fix = false } = {}) => {
+  const file = path.join(repo, 'README.md');
+  const readme = fs.readFileSync(file, 'utf8');
+  const found = statusVersionOf(readme);
+  if (found === config.version) {
+    console.log(`pack-doctor: README Status matches VersionPrefix (${config.version}) ✓`);
+    return true;
   }
-  console.log(`pack-doctor: README Status matches VersionPrefix (${config.version}) ✓`);
-  return true;
+  if (fix) {
+    // rewrite ONLY the first `**vX.Y.Z` inside the `## Status` section
+    const at = readme.search(/^## Status/m);
+    fs.writeFileSync(file, readme.slice(0, at) + readme.slice(at).replace(/\*\*v\d+\.\d+\.\d+/, `**v${config.version}`));
+    console.log(`pack-doctor: synced README "## Status" version ${found ? 'v' + found : '(none)'} → ` +
+      `v${config.version} (from VersionPrefix)`);
+    return true;
+  }
+  console.error(`pack-doctor: README "## Status" version (${found ?? 'none found'}) != VersionPrefix ` +
+    `(${config.version}) — run \`node devtools/dev.mjs doctor --fix\` (or \`pack\`, which auto-syncs it).`);
+  return false;
 };
 
 switch (cmd) {
@@ -68,12 +82,13 @@ switch (cmd) {
     break;
 
   case 'doctor':
-    process.exitCode = packDoctor() ? 0 : 1;
+    process.exitCode = packDoctor({ fix: args.includes('--fix') }) ? 0 : 1;
     break;
 
   case 'pack': {
-    // guard: never pack with a stale README version
-    if (!packDoctor()) { process.exitCode = 1; break; }
+    // auto-sync the README `## Status` version to VersionPrefix, then pack — the release pipeline bumps the
+    // version, so pack updates the header for it (never packs a stale README, never hard-fails on a bump).
+    packDoctor({ fix: true });
     // dotnet pack each packable library → publish/packages/*.nupkg, then print id + sha256.
     const out = path.join(repo, 'publish', 'packages');
     fs.rmSync(out, { recursive: true, force: true });

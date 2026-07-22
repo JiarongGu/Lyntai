@@ -143,13 +143,14 @@ jobs:
           --skip-duplicate
 
       # Commit the version bump ONLY now that the gate + publish succeeded — a failed release burns no version.
+      # The Pack step auto-synced the README `## Status` headline to the bumped VersionPrefix, so commit both.
       - name: Commit version bump
         if: steps.version.outputs.changed == 'true'
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/Directory.Build.props
+          git add src/Directory.Build.props README.md
           git commit -m "chore: release v${{ steps.version.outputs.version }}"
           git push
 
