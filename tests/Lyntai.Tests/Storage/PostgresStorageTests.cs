@@ -133,6 +133,8 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Memory_default_ttl() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(PgMemoryWith(MemoryRetentionPolicy.TimeToLive(TimeSpan.FromMinutes(5)), mc), Uid(), mc.Advance)); }
     [SkippableFact] public Task Memory_size_budget() => Pg(() => MemoryStoreContract.Size_budget_evicts_to_fit(PgMemoryWith(MemoryRetentionPolicy.SizeBudget(25), new MutableClock()), Uid()));
     [SkippableFact] public Task Memory_size_budget_runes() => Pg(() => MemoryStoreContract.Size_budget_counts_code_points_not_utf16_units(PgMemoryWith(MemoryRetentionPolicy.SizeBudget(2), new MutableClock()), Uid()));
+    [SkippableFact] public Task Memory_both_bounds() => Pg(() => MemoryStoreContract.Both_count_cap_and_size_budget_apply(PgMemoryWith(new MemoryRetentionPolicy { MaxEntriesPerScope = 3, MaxCharsPerScope = 25 }, new MutableClock()), Uid()));
+    [SkippableFact] public Task Memory_lru_tie() => Pg(() => MemoryStoreContract.Lru_recency_tie_broken_by_id(PgMemoryWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru), new MutableClock()), Uid()));
     [SkippableFact] public Task Memory_manual() => Pg(() => MemoryStoreContract.Manual_policy_never_evicts(PgMemoryWith(MemoryRetentionPolicy.Manual, new MutableClock()), Uid()));
 
     /// <summary>Skip-guard wrapper so each contract delegator is a one-liner.</summary>

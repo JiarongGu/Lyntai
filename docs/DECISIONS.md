@@ -129,20 +129,27 @@ Consistent with D13 (Lyntai still owns the tables it creates — this just skips
 cap. Composable knobs: a per-scope count cap + `MemoryEvictionMode` (**FIFO** sliding window vs **LRU**
 working set), a default TTL, and a per-scope size (character) budget; presets name the shapes
 (`CountCap`/`TimeToLive`/`SizeBudget`/`Composite`/`Manual`). The default reproduces the historical 500-entry
-FIFO cap (`MemoryCapPerScope` now proxies `MaxEntriesPerScope`). Eviction is a single PURE
-`MemoryEviction.Survivors` helper that all three backends share (fetch the scoped group's metadata → compute
-survivors → delete the rest) — that's why they can't diverge; LRU adds a `last_accessed_at` column
-(migration `202607220002`) refreshed best-effort on recall. Inspired by LangChain's buffer-window /
-token-buffer / summary memories and MemGPT-style eviction. Add a new bound as a knob on the policy + a case
-in the shared helper — never a per-backend branch.
-**Trade-off (deliberate):** on-write eviction is fetch-scoped-metadata → compute survivors → delete (via
-`MemoryEviction.ApplyAsync`), NOT one atomic `DELETE … WHERE id NOT IN (SELECT … LIMIT)`. That's what lets
-LRU + size-budget (which need windowed/last-access logic no single portable SQL statement gives) share one
-tested code path across backends. The cost: it reads ~scope-size rows per write and the read→delete isn't
-atomic, so a rare concurrent same-`(task, scope)` write can transiently over-cap or drop a just-remembered
-fact. Acceptable for a memory store — scopes are bounded by the cap and single-writer-per-scope is the norm.
-The `MemoryCapPerScope` shortcut now treats **0 as uncapped** (it proxies `MaxEntriesPerScope`, and ≤0 = no
-count cap) — a change from the pre-policy "cap 0 = store nothing".
+FIFO cap (`MemoryCapPerScope` now proxies `MaxEntriesPerScope`). `MemoryEviction.Survivors` is the single
+PURE reference for *what* survives; *how* it's applied splits by path (both provably match `Survivors` — the
+cross-backend contract tests pin the parity). Inspired by LangChain's buffer-window / token-buffer / summary
+memories and MemGPT-style eviction. Add a new bound as a knob on the policy + a case in `Survivors` — never a
+per-backend branch.
+**Two eviction paths:**
+- **Count cap (the common case) → ONE ATOMIC statement** per SQL backend: `DELETE … WHERE id NOT IN (SELECT
+  … ORDER BY <live-first>, <recency> DESC, id DESC LIMIT @cap)` (`recency` = `created_at` for FIFO,
+  `COALESCE(last_accessed_at, created_at)` for LRU). Race-free and without reading the scope; it reproduces
+  `Survivors`' count-cap branch exactly. (SQLite/Postgres each hold a byte-identical copy — SQL stays in the
+  adapters per the layering rule; the contract tests guard against drift.)
+- **Size budget → the compute path** (`MemoryEviction.ApplyAsync`: fetch scoped metadata → `Survivors` →
+  delete the rest), because a cumulative-length budget can't be one portable statement. Non-atomic and
+  O(scope)-per-write, acceptable because scopes are cap-bounded and single-writer-per-scope is the norm.
+  InMemory does the `Survivors` compute under its lock for every bounded policy.
+
+LRU adds a `last_accessed_at` column (migration `202607220002`), refreshed best-effort ONLY on a **queried**
+recall (a targeted lookup = "use"; a bare list-all / compose-all is enumeration, not use — so an app that
+always composes ALL facts into the prompt should prefer FIFO). The `MemoryCapPerScope` shortcut treats
+**0 as uncapped** (proxies `MaxEntriesPerScope`, ≤0 = no count cap) — a change from the pre-policy
+"cap 0 = store nothing".
 On-write eviction only bounds scopes you keep writing to; a COLD `(taskKey, scope)` accumulates expired
 rows. So GC of cold/expired entries is an **opt-in cron job** — `AddMemoryPruneJob(cron, olderThan?)`
 registers an `IJobHandler` over `PruneAsync` on the existing durable-jobs + cron machinery. Lyntai owns the

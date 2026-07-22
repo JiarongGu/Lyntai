@@ -11,7 +11,7 @@ namespace Lyntai.Storage.InMemory;
 public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffset>? clock = null) : IMemoryStore
 {
     private sealed record Entry(long Id, string TaskKey, string Scope, string Content,
-        DateTimeOffset CreatedAt, DateTimeOffset LastAccessedAt, DateTimeOffset? ExpiresAt);
+        DateTimeOffset CreatedAt, DateTimeOffset LastAccessedAt, DateTimeOffset? ExpiresAt, int RuneLength);
 
     private readonly Lock _lock = new();
     private readonly List<Entry> _entries = [];
@@ -31,16 +31,17 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
             if (existing >= 0)
                 _entries[existing] = _entries[existing] with { CreatedAt = now, LastAccessedAt = now, ExpiresAt = expiresAt };
             else
-                _entries.Add(new Entry(_nextId++, taskKey, scope, content, now, now, expiresAt));
+                // cache the code-point (rune) length once at insert — the size budget reads it without rescanning
+                _entries.Add(new Entry(_nextId++, taskKey, scope, content, now, now, expiresAt, content.EnumerateRunes().Count()));
 
             // policy-driven eviction — the shared MemoryEviction helper picks the survivors (count cap +
             // FIFO/LRU + size budget), identical to the SQLite/Postgres backends. Manual = no size bound = keep all.
             if (policy.HasSizeBound)
             {
                 var scoped = _entries.Where(e => e.TaskKey == taskKey && e.Scope == scope)
-                    // measure the size budget in Unicode CODE POINTS (runes), matching SQL LENGTH() — NOT
-                    // string.Length (UTF-16 units), which would diverge from the SQL backends on astral content.
-                    .Select(e => new MemoryEviction.Row(e.Id, e.CreatedAt, e.LastAccessedAt, e.ExpiresAt, e.Content.EnumerateRunes().Count()));
+                    // RuneLength = cached code-point count (matches SQL LENGTH()), NOT string.Length (UTF-16),
+                    // which would diverge from the SQL backends on astral content.
+                    .Select(e => new MemoryEviction.Row(e.Id, e.CreatedAt, e.LastAccessedAt, e.ExpiresAt, e.RuneLength));
                 var keep = MemoryEviction.Survivors(policy, scoped, now);
                 _entries.RemoveAll(e => e.TaskKey == taskKey && e.Scope == scope && !keep.Contains(e.Id));
             }

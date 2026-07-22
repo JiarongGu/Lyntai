@@ -191,6 +191,41 @@ public static class MemoryStoreContract
         Assert.Equal(2, (await store.RecallAsync(key)).Count);
     }
 
+    /// <summary>Store built with a policy that sets BOTH a count cap AND a size budget: both bind (the
+    /// count cap first, then the char budget). Exercises the size-budget routing that also applies the cap
+    /// — the presets never set both.</summary>
+    public static async Task Both_count_cap_and_size_budget_apply(IMemoryStore store, string key)
+    {
+        // cap 3, budget 25 chars, entries of 10 chars each: the cap alone would keep 3 (30 chars), but the
+        // 25-char budget trims to the newest 2 (20 ≤ 25; a 3rd = 30 > 25). Both bounds bind.
+        await store.RememberAsync(key, "s", new string('a', 10));
+        await store.RememberAsync(key, "s", new string('b', 10));
+        await store.RememberAsync(key, "s", new string('c', 10));
+        await store.RememberAsync(key, "s", new string('d', 10));
+
+        var contents = (await store.RecallAsync(key)).Select(h => h.Content).ToHashSet();
+        Assert.Equal(2, contents.Count);
+        Assert.Contains(new string('d', 10), contents); // newest 2 survive both bounds
+        Assert.Contains(new string('c', 10), contents);
+    }
+
+    /// <summary>Store built with <c>CountCap(2, Lru)</c>: entries with a TIED recency (same tick, none
+    /// recalled) are broken by <c>id DESC</c> — the atomic SQL count-cap path must match <c>Survivors</c>.</summary>
+    public static async Task Lru_recency_tie_broken_by_id(IMemoryStore store, string key)
+    {
+        // no clock advance + no queried recall → all three share last_accessed_at (= created_at); cap 2 →
+        // keep the two highest ids, evict the lowest, by the id-DESC tiebreak (identical on every backend).
+        await store.RememberAsync(key, "s", "first");
+        await store.RememberAsync(key, "s", "second");
+        await store.RememberAsync(key, "s", "third");
+
+        var contents = (await store.RecallAsync(key)).Select(h => h.Content).ToHashSet();
+        Assert.Equal(2, contents.Count);
+        Assert.Contains("second", contents);
+        Assert.Contains("third", contents);
+        Assert.DoesNotContain("first", contents); // lowest id evicted on the recency tie
+    }
+
     /// <summary>Store built with <c>Manual</c> (no size bound) + a high recall limit: nothing is auto-evicted.</summary>
     public static async Task Manual_policy_never_evicts(IMemoryStore store, string key)
     {

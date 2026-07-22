@@ -30,6 +30,8 @@ public class InMemoryMemoryStoreContractTests
     [Fact] public Task Default_ttl() { var s = NewWith(MemoryRetentionPolicy.TimeToLive(TimeSpan.FromMinutes(5))); return MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(s, "k", by => _now += by); }
     [Fact] public Task Size_budget() => MemoryStoreContract.Size_budget_evicts_to_fit(NewWith(MemoryRetentionPolicy.SizeBudget(25)), "k");
     [Fact] public Task Size_budget_runes() => MemoryStoreContract.Size_budget_counts_code_points_not_utf16_units(NewWith(MemoryRetentionPolicy.SizeBudget(2)), "k");
+    [Fact] public Task Both_bounds() => MemoryStoreContract.Both_count_cap_and_size_budget_apply(NewWith(new MemoryRetentionPolicy { MaxEntriesPerScope = 3, MaxCharsPerScope = 25 }), "k");
+    [Fact] public Task Lru_tie() => MemoryStoreContract.Lru_recency_tie_broken_by_id(NewWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru)), "k");
     [Fact] public Task Manual() => MemoryStoreContract.Manual_policy_never_evicts(NewWith(MemoryRetentionPolicy.Manual), "k");
 }
 
@@ -61,5 +63,7 @@ public class SqliteMemoryStoreContractTests : IDisposable
     [Fact] public Task Default_ttl() { var s = NewWith(MemoryRetentionPolicy.TimeToLive(TimeSpan.FromMinutes(5))); return MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(s, "k", by => _now += by); }
     [Fact] public Task Size_budget() => MemoryStoreContract.Size_budget_evicts_to_fit(NewWith(MemoryRetentionPolicy.SizeBudget(25)), "k");
     [Fact] public Task Size_budget_runes() => MemoryStoreContract.Size_budget_counts_code_points_not_utf16_units(NewWith(MemoryRetentionPolicy.SizeBudget(2)), "k");
+    [Fact] public Task Both_bounds() => MemoryStoreContract.Both_count_cap_and_size_budget_apply(NewWith(new MemoryRetentionPolicy { MaxEntriesPerScope = 3, MaxCharsPerScope = 25 }), "k");
+    [Fact] public Task Lru_tie() => MemoryStoreContract.Lru_recency_tie_broken_by_id(NewWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru)), "k");
     [Fact] public Task Manual() => MemoryStoreContract.Manual_policy_never_evicts(NewWith(MemoryRetentionPolicy.Manual), "k");
 }

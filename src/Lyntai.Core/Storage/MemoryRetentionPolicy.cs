@@ -9,8 +9,10 @@ public enum MemoryEvictionMode
     Fifo,
 
     /// <summary>Evict the least-recently-RECALLED first (an LRU cache — MemGPT-style working-set eviction).
-    /// A successful recall refreshes an entry's recency, so hot facts survive; needs last-access tracking
-    /// (a small write on recall).</summary>
+    /// A <b>queried</b> recall (a targeted lookup) refreshes an entry's recency so hot facts survive; a bare
+    /// list-all / compose-all recall does NOT count as "use" (else it would churn the whole set) — so prefer
+    /// <see cref="Fifo"/> if your app always composes EVERY fact into the prompt. Needs last-access tracking
+    /// (a small best-effort write on the queried recall).</summary>
     Lru,
 }
 
