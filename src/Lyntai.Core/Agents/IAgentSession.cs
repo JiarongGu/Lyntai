@@ -41,11 +41,14 @@ public static class AgentSessionExtensions
             return new AgentSessionResult(sessionId, "", LlmVerdict.Failed, IsError: true, Subtype: null,
                 Diagnostic: "stream ended without a terminal SessionEnded event", usage);
 
-        // Fall back to the streamed assistant text when the terminal event carried no final text — an
+        // Fall back to the streamed assistant text when a SUCCESSFUL terminal carried no final text — an
         // adapter whose terminal result came back empty (truncation / older CLI / provider variant) still
-        // yields the answer to callers that treat empty FinalText as failure.
+        // yields the answer to callers that treat empty FinalText as failure. But a terminal that IS an
+        // error (Timeout/Failed) must NOT be dressed up as a partial success from its truncated pre-error
+        // deltas — those same callers would then consume garbage instead of retrying (Verdict/IsError still
+        // report the truth).
         var finalText = ended.FinalText;
-        if (string.IsNullOrWhiteSpace(finalText) && text is { Length: > 0 })
+        if (!ended.IsError && string.IsNullOrWhiteSpace(finalText) && text is { Length: > 0 })
             finalText = text.ToString();
 
         return new AgentSessionResult(sessionId ?? ended.SessionId, finalText ?? "", ended.Verdict,

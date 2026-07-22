@@ -38,7 +38,9 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
             if (policy.HasSizeBound)
             {
                 var scoped = _entries.Where(e => e.TaskKey == taskKey && e.Scope == scope)
-                    .Select(e => new MemoryEviction.Row(e.Id, e.CreatedAt, e.LastAccessedAt, e.ExpiresAt, e.Content.Length));
+                    // measure the size budget in Unicode CODE POINTS (runes), matching SQL LENGTH() — NOT
+                    // string.Length (UTF-16 units), which would diverge from the SQL backends on astral content.
+                    .Select(e => new MemoryEviction.Row(e.Id, e.CreatedAt, e.LastAccessedAt, e.ExpiresAt, e.Content.EnumerateRunes().Count()));
                 var keep = MemoryEviction.Survivors(policy, scoped, now);
                 _entries.RemoveAll(e => e.TaskKey == taskKey && e.Scope == scope && !keep.Contains(e.Id));
             }
@@ -51,7 +53,10 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
     {
         var take = limit ?? options.MemoryRecallLimit;
         var now = _clock();
-        var touch = options.MemoryRetention.TracksAccess; // LRU refreshes recency on recall
+        // LRU refreshes recency only on a QUERIED recall (a targeted lookup counts as "use"); a bare
+        // list-all is enumeration, not use, so it must not bump every returned entry (that would churn the
+        // working set — a routine "compose all memories" read would keep resetting the LRU order).
+        var touch = options.MemoryRetention.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
             lock (_lock)

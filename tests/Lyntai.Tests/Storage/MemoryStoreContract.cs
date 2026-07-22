@@ -128,6 +128,28 @@ public static class MemoryStoreContract
         Assert.DoesNotContain("beta two", contents); // least-recently-used → evicted
     }
 
+    /// <summary>Store built with <c>CountCap(2, Lru)</c> + a controllable clock: a BARE (no-query) recall
+    /// does NOT refresh LRU recency — only a queried recall counts as "use", so a routine list-all can't
+    /// churn the working set.</summary>
+    public static async Task Lru_bare_recall_does_not_refresh_recency(IMemoryStore store, string key, Action<TimeSpan> advance)
+    {
+        await store.RememberAsync(key, "s", "alpha fact"); advance(TimeSpan.FromMinutes(1));
+        await store.RememberAsync(key, "s", "beta fact");  advance(TimeSpan.FromMinutes(1));
+
+        Assert.Single(await store.RecallAsync(key, query: "alpha")); // queried recall → "alpha fact" is now recently-used
+        advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(2, (await store.RecallAsync(key)).Count); // BARE list-all — must NOT bump "beta fact"'s recency
+        advance(TimeSpan.FromMinutes(1));
+
+        await store.RememberAsync(key, "s", "gamma fact"); // 3rd entry, cap 2 → evict least-recently-USED
+        var contents = (await store.RecallAsync(key)).Select(h => h.Content).ToHashSet();
+        Assert.Equal(2, contents.Count);
+        Assert.Contains("alpha fact", contents);      // survived (queried) — a refreshing bare recall would evict this instead
+        Assert.Contains("gamma fact", contents);
+        Assert.DoesNotContain("beta fact", contents); // never queried → least-recently-used → evicted
+    }
+
     /// <summary>Store built with <c>TimeToLive(5min)</c> + a controllable clock: the policy default TTL
     /// applies to entries remembered without a per-call ttl; a per-call ttl still wins.</summary>
     public static async Task Default_ttl_expires_entries_without_per_call_ttl(IMemoryStore store, string key, Action<TimeSpan> advance)
@@ -156,6 +178,17 @@ public static class MemoryStoreContract
         Assert.Contains(new string('c', 10), contents);        // newest 2 kept (FIFO)
         Assert.Contains(new string('b', 10), contents);
         Assert.DoesNotContain(new string('a', 10), contents);  // oldest evicted to fit
+    }
+
+    /// <summary>Store built with <c>SizeBudget(2)</c>: the budget counts Unicode CODE POINTS (== SQL
+    /// LENGTH), NOT UTF-16 units, so astral-plane content evicts identically on every backend.</summary>
+    public static async Task Size_budget_counts_code_points_not_utf16_units(IMemoryStore store, string key)
+    {
+        // each entry is ONE emoji = 1 code point but 2 UTF-16 units. Under a 2-code-point budget both fit;
+        // a string.Length (UTF-16) measure would keep only one — this locks the cross-backend measure.
+        await store.RememberAsync(key, "s", "😀");
+        await store.RememberAsync(key, "s", "🎉");
+        Assert.Equal(2, (await store.RecallAsync(key)).Count);
     }
 
     /// <summary>Store built with <c>Manual</c> (no size bound) + a high recall limit: nothing is auto-evicted.</summary>

@@ -42,7 +42,9 @@ baselines updated) — no removals, existing calls source-compatible.
 - **Agent-session `FinalText` falls back to assistant text (G2)** — when a run ends with assistant text but an
   empty/absent terminal `result` (truncation / older CLI / provider variant), both the claude adapter's
   `SessionEnded.FinalText` and the generic `RunAsync` fold (accumulated `TextDelta`s) fall back to the
-  assistant text instead of `""`, so consumers that treat empty as failure don't spuriously fail.
+  assistant text instead of `""`, so consumers that treat empty as failure don't spuriously fail. The fold
+  backfills only for SUCCESSFUL terminals — a timed-out/failed run keeps an empty `FinalText` (it is not
+  dressed up as a partial success; `Verdict`/`IsError` still report the truth).
 
 ## 0.29.0 — 2026-07-20
 

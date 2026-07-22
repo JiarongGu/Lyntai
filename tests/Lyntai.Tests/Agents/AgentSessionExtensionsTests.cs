@@ -92,6 +92,28 @@ public class AgentSessionExtensionsTests
     }
 
     [Fact]
+    public async Task Fold_does_not_backfill_final_text_for_an_error_terminal()
+    {
+        // A run that streamed partial text then hard-errored (Timeout/Failed, FinalText=null) must NOT be
+        // dressed up as a partial success — callers that treat empty FinalText as failure need it to stay empty.
+        var events = new AgentStreamEvent[]
+        {
+            new SessionStarted("sid"),
+            new TextDelta("partial pre-timeout "),
+            new TextDelta("answer"),
+            new SessionEnded(LlmVerdict.Timeout, IsError: true, Subtype: "timeout", SessionId: "sid",
+                FinalText: null, Diagnostic: "timed out"),
+        };
+        var session = new FakeSession(events);
+
+        var result = await session.RunAsync(new AgentSessionOptions { Prompt = "q" });
+
+        Assert.Equal(LlmVerdict.Timeout, result.Verdict);
+        Assert.True(result.IsError);
+        Assert.Equal("", result.FinalText); // stayed empty despite the streamed deltas
+    }
+
+    [Fact]
     public async Task No_terminal_event_yields_failed_result_with_diagnostic()
     {
         var events = new AgentStreamEvent[]

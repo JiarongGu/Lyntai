@@ -26,8 +26,10 @@ public class InMemoryMemoryStoreContractTests
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
     [Fact] public Task Fail_open() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(New(), "k");
     [Fact] public Task Lru() { var s = NewWith(MemoryRetentionPolicy.CountCap(3, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_evicts_least_recently_recalled(s, "k", by => _now += by); }
+    [Fact] public Task Lru_bare() { var s = NewWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_bare_recall_does_not_refresh_recency(s, "k", by => _now += by); }
     [Fact] public Task Default_ttl() { var s = NewWith(MemoryRetentionPolicy.TimeToLive(TimeSpan.FromMinutes(5))); return MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(s, "k", by => _now += by); }
     [Fact] public Task Size_budget() => MemoryStoreContract.Size_budget_evicts_to_fit(NewWith(MemoryRetentionPolicy.SizeBudget(25)), "k");
+    [Fact] public Task Size_budget_runes() => MemoryStoreContract.Size_budget_counts_code_points_not_utf16_units(NewWith(MemoryRetentionPolicy.SizeBudget(2)), "k");
     [Fact] public Task Manual() => MemoryStoreContract.Manual_policy_never_evicts(NewWith(MemoryRetentionPolicy.Manual), "k");
 }
 
@@ -55,7 +57,9 @@ public class SqliteMemoryStoreContractTests : IDisposable
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
     [Fact] public Task Fail_open() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(New(), "k");
     [Fact] public Task Lru() { var s = NewWith(MemoryRetentionPolicy.CountCap(3, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_evicts_least_recently_recalled(s, "k", by => _now += by); }
+    [Fact] public Task Lru_bare() { var s = NewWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_bare_recall_does_not_refresh_recency(s, "k", by => _now += by); }
     [Fact] public Task Default_ttl() { var s = NewWith(MemoryRetentionPolicy.TimeToLive(TimeSpan.FromMinutes(5))); return MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(s, "k", by => _now += by); }
     [Fact] public Task Size_budget() => MemoryStoreContract.Size_budget_evicts_to_fit(NewWith(MemoryRetentionPolicy.SizeBudget(25)), "k");
+    [Fact] public Task Size_budget_runes() => MemoryStoreContract.Size_budget_counts_code_points_not_utf16_units(NewWith(MemoryRetentionPolicy.SizeBudget(2)), "k");
     [Fact] public Task Manual() => MemoryStoreContract.Manual_policy_never_evicts(NewWith(MemoryRetentionPolicy.Manual), "k");
 }

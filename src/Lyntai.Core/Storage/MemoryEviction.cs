@@ -47,4 +47,21 @@ public static class MemoryEviction
     }
 
     private static bool IsLive(Row r, DateTimeOffset now) => r.ExpiresAt is null || r.ExpiresAt > now;
+
+    /// <summary>Drives on-write eviction for a store backend: no-op when the policy has no size bound, else
+    /// fetch the scoped group's metadata, compute the survivors, and delete the rest. The backend supplies
+    /// only its storage-specific <paramref name="fetchScoped"/> + <paramref name="deleteByIds"/> — so this
+    /// "compute survivors → delete non-survivors" flow lives in ONE place and the SQLite/Postgres backends
+    /// can't drift on it (they differ only in the fetch/delete SQL dialect).</summary>
+    public static async Task ApplyAsync(MemoryRetentionPolicy policy, DateTimeOffset now,
+        Func<CancellationToken, Task<IReadOnlyList<Row>>> fetchScoped,
+        Func<IReadOnlyList<long>, CancellationToken, Task> deleteByIds,
+        CancellationToken ct = default)
+    {
+        if (!policy.HasSizeBound) return;
+        var rows = await fetchScoped(ct).ConfigureAwait(false);
+        var keep = Survivors(policy, rows, now);
+        var evict = rows.Where(r => !keep.Contains(r.Id)).Select(r => r.Id).ToList();
+        if (evict.Count > 0) await deleteByIds(evict, ct).ConfigureAwait(false);
+    }
 }

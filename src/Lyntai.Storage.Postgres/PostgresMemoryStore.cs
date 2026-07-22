@@ -39,25 +39,23 @@ public sealed class PostgresMemoryStore(
             ON CONFLICT (task_key, scope, md5(content)) DO UPDATE SET created_at = @now, last_accessed_at = @now, expires_at = @expiresAt
             """, new { taskKey, scope, content, now, expiresAt = (object?)expiresAt ?? DBNull.Value }, cancellationToken: ct)).ConfigureAwait(false);
 
-        // policy-driven eviction via the shared helper (identical across backends). Manual = no size bound = skip.
-        if (policy.HasSizeBound)
-            await EvictAsync(conn, taskKey, scope, policy, now, ct).ConfigureAwait(false);
+        // policy-driven eviction — MemoryEviction.ApplyAsync orchestrates fetch → survivors → delete
+        // identically across backends; this store supplies only its Postgres fetch + delete SQL. Manual = no-op.
+        await MemoryEviction.ApplyAsync(policy, now,
+            c => FetchScopedAsync(conn, taskKey, scope, c),
+            (ids, c) => conn.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM lyntai_memory_entry WHERE id = ANY(@ids)", new { ids = ids.ToArray() }, cancellationToken: c)),
+            ct).ConfigureAwait(false);
     }
 
-    private static async Task EvictAsync(IDbConnection conn, string taskKey, string scope,
-        MemoryRetentionPolicy policy, DateTimeOffset now, CancellationToken ct)
+    private static async Task<IReadOnlyList<MemoryEviction.Row>> FetchScopedAsync(IDbConnection conn, string taskKey, string scope, CancellationToken ct)
     {
         var rows = await conn.QueryAsync<EvictRow>(new CommandDefinition("""
             SELECT id AS Id, created_at AS CreatedAt, COALESCE(last_accessed_at, created_at) AS LastAccessedAt,
                    expires_at AS ExpiresAt, LENGTH(content) AS Length
             FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
             """, new { taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
-        var mapped = rows.Select(r => new MemoryEviction.Row(r.Id, r.CreatedAt, r.LastAccessedAt, r.ExpiresAt, r.Length)).ToList();
-        var keep = MemoryEviction.Survivors(policy, mapped, now);
-        var evict = mapped.Where(r => !keep.Contains(r.Id)).Select(r => r.Id).ToArray();
-        if (evict.Length > 0)
-            await conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM lyntai_memory_entry WHERE id = ANY(@evict)", new { evict }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows.Select(r => new MemoryEviction.Row(r.Id, r.CreatedAt, r.LastAccessedAt, r.ExpiresAt, r.Length))];
     }
 
     public async Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null,
@@ -65,7 +63,9 @@ public sealed class PostgresMemoryStore(
     {
         var take = limit ?? options.MemoryRecallLimit;
         var now = _clock();
-        var touch = options.MemoryRetention.TracksAccess; // LRU refreshes last-access on recall
+        // LRU refreshes last-access only on a QUERIED recall (a targeted lookup = "use"); a bare list-all
+        // is enumeration, not use, so it must not bump every returned entry.
+        var touch = options.MemoryRetention.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
             using var conn = factory.Open();
@@ -101,17 +101,26 @@ public sealed class PostgresMemoryStore(
         }
     }
 
-    /// <summary>LRU: refresh last-access of the recalled entries so they survive eviction. Best-effort;
-    /// only fires when the policy uses LRU (<paramref name="touch"/>).</summary>
-    private static async Task<IReadOnlyList<MemoryEntry>> TouchAsync(IDbConnection conn, List<MemoryEntry> hits,
+    /// <summary>LRU: refresh last-access of the recalled entries so they survive eviction. Best-effort — a
+    /// failed refresh (e.g. transient write contention) is swallowed so it NEVER turns a successful recall
+    /// into an empty result (the outer catch is fail-open). Only fires on a queried LRU recall.</summary>
+    private async Task<IReadOnlyList<MemoryEntry>> TouchAsync(IDbConnection conn, List<MemoryEntry> hits,
         bool touch, DateTimeOffset now, CancellationToken ct)
     {
         if (touch && hits.Count > 0)
         {
-            var ids = hits.Select(h => h.Id).ToArray();
-            await conn.ExecuteAsync(new CommandDefinition(
-                "UPDATE lyntai_memory_entry SET last_accessed_at = @now WHERE id = ANY(@ids)",
-                new { now, ids }, cancellationToken: ct)).ConfigureAwait(false);
+            try
+            {
+                var ids = hits.Select(h => h.Id).ToArray();
+                await conn.ExecuteAsync(new CommandDefinition(
+                    "UPDATE lyntai_memory_entry SET last_accessed_at = @now WHERE id = ANY(@ids)",
+                    new { now, ids }, cancellationToken: ct)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "LRU last-access refresh failed for {Count} entries; recall result kept", hits.Count);
+            }
         }
         return hits;
     }

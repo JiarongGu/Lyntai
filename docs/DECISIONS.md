@@ -135,6 +135,14 @@ survivors → delete the rest) — that's why they can't diverge; LRU adds a `la
 (migration `202607220002`) refreshed best-effort on recall. Inspired by LangChain's buffer-window /
 token-buffer / summary memories and MemGPT-style eviction. Add a new bound as a knob on the policy + a case
 in the shared helper — never a per-backend branch.
+**Trade-off (deliberate):** on-write eviction is fetch-scoped-metadata → compute survivors → delete (via
+`MemoryEviction.ApplyAsync`), NOT one atomic `DELETE … WHERE id NOT IN (SELECT … LIMIT)`. That's what lets
+LRU + size-budget (which need windowed/last-access logic no single portable SQL statement gives) share one
+tested code path across backends. The cost: it reads ~scope-size rows per write and the read→delete isn't
+atomic, so a rare concurrent same-`(task, scope)` write can transiently over-cap or drop a just-remembered
+fact. Acceptable for a memory store — scopes are bounded by the cap and single-writer-per-scope is the norm.
+The `MemoryCapPerScope` shortcut now treats **0 as uncapped** (it proxies `MaxEntriesPerScope`, and ≤0 = no
+count cap) — a change from the pre-policy "cap 0 = store nothing".
 On-write eviction only bounds scopes you keep writing to; a COLD `(taskKey, scope)` accumulates expired
 rows. So GC of cold/expired entries is an **opt-in cron job** — `AddMemoryPruneJob(cron, olderThan?)`
 registers an `IJobHandler` over `PruneAsync` on the existing durable-jobs + cron machinery. Lyntai owns the
