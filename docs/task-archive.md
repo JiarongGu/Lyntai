@@ -1068,6 +1068,28 @@ growth is the real case).
 
 ---
 
+## Part 16 — Code-review follow-ups: close every deferred finding (2026-07-22)
+
+✅ done 2026-07-22 — The workflow code review of Part 14/15 surfaced 10 findings; 4 confirmed bugs + the
+dedup landed in `f6fc301`. Per the user's "complete them all", the deferred/refuted rest were closed too:
+
+- **R1 · Atomic count-cap eviction (SQL)** — ✅ done. Restored a single-statement atomic
+  `DELETE … WHERE id NOT IN (SELECT … ORDER BY <recency> DESC LIMIT @cap)` for the count-cap case (FIFO via
+  `created_at`, LRU via `COALESCE(last_accessed_at, created_at)`) in both SQL stores; `MemoryEviction.ApplyAsync`
+  now runs ONLY for the size-budget case (needs the windowed compute). Race-free + O(1)-ish for the common
+  path, fixing review #5/#9. Cap/Lru/Lru_bare contract tests stay green (incl. live Postgres).
+- **R2 · InMemory `Seq` = MAX+1** — ✅ done. `InMemoryConversationStore.AppendMessageAsync` now uses
+  `MAX(seq)+1` (mirrors the SQL `COALESCE(MAX(seq),0)+1`), so a future per-message deletion can't reuse a seq.
+- **R3 · BYO paging caveat** — ✅ done. The `CountThreadsAsync`/`ListThreadsPageAsync` XML docs now WARN that
+  the default materializes the whole table (a naive fallback) and a BYO store must override for cheapness.
+- **R4 · `MemoryCapPerScope = 0`** — ✅ resolved-as-documented. 0 = uncapped (≤0 = no cap is the policy's
+  stated semantics); a fringe change from the old "cap 0 = store nothing", noted in DECISIONS D16.
+- **R5 · Refuted findings** — ✅ recorded, no change. StreamJsonAgentReader text-buffering (needed for the
+  empty-terminal fallback) and MemoryPruneRequest-vs-JsonArgs (JsonArgs is shaped for tool args) were refuted
+  by the review's own verifier.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

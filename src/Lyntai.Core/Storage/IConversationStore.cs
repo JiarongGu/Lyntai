@@ -39,8 +39,10 @@ public interface IConversationStore
 
     Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default);
 
-    /// <summary>Total number of threads in the store. For stats/backlog counts without loading every row.
-    /// (Default impl counts <see cref="ListThreadsAsync"/> — override for an O(1) <c>COUNT(*)</c>.)</summary>
+    /// <summary>Total number of threads in the store — for stats/backlog counts. The shipped SQLite/Postgres/
+    /// InMemory backends do it in O(1) (<c>COUNT(*)</c>). <b>WARNING for a BYO impl:</b> the DEFAULT here
+    /// materializes the WHOLE table (<c>ListThreadsAsync(int.MaxValue)</c>) then counts — a naive fallback
+    /// so the interface stays small, NOT a cheap call. Override it for any store of non-trivial size.</summary>
     async Task<int> CountThreadsAsync(CancellationToken ct = default) =>
         (await ListThreadsAsync(int.MaxValue, ct).ConfigureAwait(false)).Count;
 
@@ -48,7 +50,9 @@ public interface IConversationStore
     /// (created_at DESC, id DESC), starting strictly AFTER <paramref name="after"/> (keyset/cursor paging —
     /// pass the last thread of the previous page; null starts at the newest). Walks the whole store page by
     /// page without loading it all at once. The (created_at, id) cursor is stable across same-timestamp ties.
-    /// (Default impl pages over <see cref="ListThreadsAsync"/> in memory — override for a server-side keyset.)</summary>
+    /// The shipped backends do a server-side keyset. <b>WARNING for a BYO impl:</b> the DEFAULT here loads the
+    /// WHOLE table (<c>ListThreadsAsync(int.MaxValue)</c>) then slices in memory — a naive fallback, NOT the
+    /// cheap keyset it looks like. Override it for any store of non-trivial size.</summary>
     async Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
     {
         var all = await ListThreadsAsync(int.MaxValue, ct).ConfigureAwait(false); // already ordered created_at DESC, id DESC

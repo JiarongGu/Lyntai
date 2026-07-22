@@ -39,13 +39,35 @@ public sealed class PostgresMemoryStore(
             ON CONFLICT (task_key, scope, md5(content)) DO UPDATE SET created_at = @now, last_accessed_at = @now, expires_at = @expiresAt
             """, new { taskKey, scope, content, now, expiresAt = (object?)expiresAt ?? DBNull.Value }, cancellationToken: ct)).ConfigureAwait(false);
 
-        // policy-driven eviction — MemoryEviction.ApplyAsync orchestrates fetch → survivors → delete
-        // identically across backends; this store supplies only its Postgres fetch + delete SQL. Manual = no-op.
-        await MemoryEviction.ApplyAsync(policy, now,
-            c => FetchScopedAsync(conn, taskKey, scope, c),
-            (ids, c) => conn.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM lyntai_memory_entry WHERE id = ANY(@ids)", new { ids = ids.ToArray() }, cancellationToken: c)),
-            ct).ConfigureAwait(false);
+        // Eviction: the COUNT-CAP case (common path) is a single ATOMIC DELETE — race-free, no scope fetch.
+        // The SIZE-BUDGET case needs the windowed cumulative-length compute, so it goes through the shared
+        // MemoryEviction.ApplyAsync (fetch → survivors → delete). Manual = nothing.
+        if (policy.MaxCharsPerScope is > 0)
+            await MemoryEviction.ApplyAsync(policy, now,
+                c => FetchScopedAsync(conn, taskKey, scope, c),
+                (ids, c) => conn.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM lyntai_memory_entry WHERE id = ANY(@ids)", new { ids = ids.ToArray() }, cancellationToken: c)),
+                ct).ConfigureAwait(false);
+        else if (policy.MaxEntriesPerScope is int cap and > 0)
+            await CapEvictAsync(conn, taskKey, scope, cap, policy.Eviction, now, ct).ConfigureAwait(false);
+    }
+
+    // Count-cap eviction as ONE atomic statement: keep the newest @cap LIVE entries (expired sort last),
+    // recency by created_at (FIFO) or last_accessed_at (LRU). Reproduces MemoryEviction.Survivors' count-cap
+    // branch, race-free and without reading the scope into memory.
+    private static Task CapEvictAsync(IDbConnection conn, string taskKey, string scope, int cap,
+        MemoryEvictionMode mode, DateTimeOffset now, CancellationToken ct)
+    {
+        // `recency` is one of two fixed column expressions (no user input) — safe to interpolate.
+        var recency = mode == MemoryEvictionMode.Lru ? "COALESCE(last_accessed_at, created_at)" : "created_at";
+        return conn.ExecuteAsync(new CommandDefinition($"""
+            DELETE FROM lyntai_memory_entry
+            WHERE task_key = @taskKey AND scope = @scope AND id NOT IN (
+                SELECT id FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
+                ORDER BY (CASE WHEN expires_at IS NULL OR expires_at > @now THEN 0 ELSE 1 END),
+                         {recency} DESC, id DESC
+                LIMIT @cap)
+            """, new { taskKey, scope, cap, now }, cancellationToken: ct));
     }
 
     private static async Task<IReadOnlyList<MemoryEviction.Row>> FetchScopedAsync(IDbConnection conn, string taskKey, string scope, CancellationToken ct)

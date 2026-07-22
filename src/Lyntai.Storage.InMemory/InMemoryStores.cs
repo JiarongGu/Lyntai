@@ -90,8 +90,9 @@ public sealed class InMemoryConversationStore : IConversationStore
     {
         lock (_lock)
         {
-            // Id is a GUID handle; Seq is the 1-based per-thread order (next after the thread's current count)
-            var seq = _messages.Count(m => m.ThreadId == threadId) + 1;
+            // Id is a GUID handle; Seq is the 1-based per-thread order = MAX(seq)+1 (mirrors the SQL backends'
+            // COALESCE(MAX(seq),0)+1 — NOT Count+1, which would reuse a seq if a message were ever deleted).
+            var seq = _messages.Where(m => m.ThreadId == threadId).Select(m => m.Seq).DefaultIfEmpty(0L).Max() + 1;
             var msg = new ChatMessage(Guid.NewGuid().ToString(), threadId, seq, kind, payload, metadata, DateTimeOffset.UtcNow);
             _messages.Add(msg);
             return Task.FromResult(msg);
