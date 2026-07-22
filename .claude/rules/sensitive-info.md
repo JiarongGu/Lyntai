@@ -9,6 +9,9 @@ person-specific.
   neutral placeholders.
 - **No private tokens / secrets.** API keys, access tokens, credentials — none in tracked files or history.
   Tests use the deterministic provider-stub, never a real key.
+- **No other repos' private names or paths.** Refer to sibling/related projects **neutrally** ("a sibling
+  project"), never by name, and never by their on-disk path — same reason as machine paths: this repo is
+  shaped to be published.
 - **Commit messages are history too.** Describe changes structurally, never with machine/person specifics.
 
 ## How to apply

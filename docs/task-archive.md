@@ -1020,6 +1020,21 @@ is and wires only Lyntai's LEARNED memory (the auto-improvement layer) alongside
 
 ---
 
+## Part 13 — Assistant coding-system: no-global-memory + sibling coding pattern (2026-07-22)
+
+✅ done 2026-07-22 — Adopted a sibling project's in-repo coding-system discipline: project
+facts live in the repo, not in Claude Code's global auto-memory. Added `.claude/rules/no-global-memory.md`
+(+ `minimise-bash-prompts.md`, `no-tmp-for-repo-files.md`, `TEMPLATE.md`) and the `RULES_INDEX.md` loading
+model / evolve-the-system / invariants; migrated the 9 `lyntai-*` global memories into `docs/DECISIONS.md`
+(D6/D7 already covered two, D10–D15 added the rest).
+
+- **M1 · Clear global auto-memory of project facts** — ✅ done 2026-07-22. Deleted the 9 migrated
+  `lyntai-*` files from this project's global auto-memory dir and reset its `MEMORY.md` to a redirect note
+  (global memory now holds only user-specific prefs — currently none). Information-lossless — all content
+  is preserved in `docs/DECISIONS.md`. First live use of the `archive-task` flow.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
