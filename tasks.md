@@ -15,7 +15,8 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ## Active backlog
 
-_None — all tracked work is complete (see `docs/task-archive.md`)._
+_None — the backlog is empty. The last close (2026-07-23) was the buffered CLI-completion inactivity/dead
+detection fix (archived as Part 18 in [`docs/task-archive.md`](docs/task-archive.md))._
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a

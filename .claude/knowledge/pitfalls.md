@@ -15,8 +15,11 @@ the tests) while being wrong. Skim before touching the relevant area.
 
 ## LLM / router (details in `llm-and-router.md`)
 
-- **Streaming timeout as a single `CancelAfter`** over the whole stream — counts consumer dwell time and
-  kills healthy streams. Must be a per-read inactivity clock. (Shipped in two providers; fixed.)
+- **A timeout as a single `CancelAfter` over a whole call** — a wall clock that kills a slow-but-alive
+  child (a long tool loop, a big prompt) exactly like a dead one. Both the STREAMING path and the BUFFERED
+  `ProcessRunner.RunAsync` must use a per-chunk inactivity clock (re-armed on each read); the buffered path
+  adds an absolute `maxDuration` backstop and reports `ProcessResult.TimeoutKind`. (Streaming shipped the
+  bug in two providers; the buffered path shipped it too — both fixed.)
 - **Committing a stream on an empty content chunk** — disables fallback for a zero-content first chunk.
   Gate the commit on `Text.Length > 0`.
 - **Hand-rolled verdict heuristics** in a provider — they drift. Always route through

@@ -18,7 +18,7 @@ public class ProcessRunnerSeamTests
         public List<(string Command, IReadOnlyList<string> Args, string? Stdin)> Calls { get; } = [];
 
         public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
-            TimeSpan? timeout = null, string? workingDirectory = null,
+            TimeSpan? timeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
             IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
         {
             Calls.Add((command, args, stdin));

@@ -64,11 +64,14 @@ public class PerRequestTimeoutTests
         private const string ResultJson =
             """{"type":"result","result":"ok","usage":{"input_tokens":1,"output_tokens":1}}""";
 
+        public TimeSpan? LastMaxDuration;
+
         public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
-            TimeSpan? timeout = null, string? workingDirectory = null,
+            TimeSpan? timeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
             IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
         {
             LastTimeout = timeout;
+            LastMaxDuration = maxDuration;
             return Task.FromResult(new ProcessResult(0, ResultJson, "", TimedOut: false));
         }
 
@@ -98,6 +101,30 @@ public class PerRequestTimeoutTests
 
         await provider.CompleteAsync(Req(consumer: "study"));
         Assert.Equal(TimeSpan.FromMinutes(15), runner.LastTimeout);            // per-consumer default
+    }
+
+    [Fact]
+    public async Task ClaudeCli_passes_the_absolute_max_duration_backstop_to_the_runner()
+    {
+        // The buffered path gets BOTH a resolved inactivity window (timeout) AND an absolute ceiling
+        // (maxDuration) so a chatty-but-endless child is still bounded. The backstop is MaxProviderTimeout,
+        // but never SMALLER than the inactivity window (a consumer budget above the ceiling raises it).
+        var runner = new CapturingRunner();
+        var opts = new LyntaiOptions
+        {
+            ProviderTimeout = TimeSpan.FromSeconds(60),
+            MaxProviderTimeout = TimeSpan.FromMinutes(30),
+        };
+        var provider = new ClaudeCliProvider(runner, opts, command: "claude");
+
+        await provider.CompleteAsync(Req());
+        Assert.Equal(TimeSpan.FromSeconds(60), runner.LastTimeout);            // inactivity = resolved timeout
+        Assert.Equal(TimeSpan.FromMinutes(30), runner.LastMaxDuration);        // backstop = MaxProviderTimeout
+
+        opts.TimeoutByConsumer["agent"] = TimeSpan.FromMinutes(45);            // consumer budget above the ceiling
+        await provider.CompleteAsync(Req(consumer: "agent"));
+        Assert.Equal(TimeSpan.FromMinutes(45), runner.LastTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(45), runner.LastMaxDuration);        // raised to the window, never below it
     }
 
     // ---- OpenAiCompatible honors the resolved timeout for real (delaying handler) ----

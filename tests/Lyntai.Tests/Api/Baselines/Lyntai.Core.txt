@@ -1011,7 +1011,7 @@ class Lyntai.Memory.VectorMatch
     Score : Double
     ToString() : String
 interface Lyntai.Processes.IProcessRunner
-    RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
+    RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
     StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>
 class Lyntai.Processes.ProcessResult
     .ctor(Int32, String, String, Boolean)
@@ -1024,6 +1024,7 @@ class Lyntai.Processes.ProcessResult
     StdOut : String
     Success : Boolean
     TimedOut : Boolean
+    TimeoutKind : ProcessTimeoutKind
     ToString() : String
 class Lyntai.Processes.ProcessRunException
     .ctor(String, Int32, String)
@@ -1032,10 +1033,15 @@ class Lyntai.Processes.ProcessRunException
 class Lyntai.Processes.ProcessRunner
     .ctor()
     ResolveCommandPath(String) : String
-    RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
+    RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
     StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>
 class Lyntai.Processes.ProcessTimeoutException
     .ctor(String, TimeSpan)
+enum Lyntai.Processes.ProcessTimeoutKind
+    Inactivity : ProcessTimeoutKind const
+    MaxDuration : ProcessTimeoutKind const
+    None : ProcessTimeoutKind const
+    value__ : Int32
 interface Lyntai.Prompts.IPromptRegistry
     RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
     ValidateOverride(String, String) : IReadOnlyList<String>

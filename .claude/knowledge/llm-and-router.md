@@ -78,9 +78,15 @@ immediately (RateLimited/AuthFailed); `RecordFailure` counts toward the threshol
 `UseShellExecute=false`; `ArgumentList` only (never a shell — prompts carry newlines/metacharacters);
 dynamic content (the prompt) travels via **stdin**, never argv; BOM-less UTF-8 on stdin, stdout, stderr;
 resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`); `Kill(entireProcessTree:true)` on
-cancel/timeout. The buffered `RunAsync` drains stdout/stderr concurrently and writes stdin *under* the
-timeout (a child that never drains its pipe would otherwise block the writer forever). Tests stub the CLI
-via `LYNTAI_PROVIDER_CMD`.
+cancel/timeout. **Both** paths measure child **inactivity**, never wall-clock: the buffered `RunAsync`
+reads stdout in chunks and re-arms `timeout` on each (stdin written concurrently, its clock re-armed too),
+so a slow-but-alive turn finishes while a child gone SILENT for the window is killed — matching
+`StreamLinesAsync`. The buffered path also takes an absolute `maxDuration` backstop (a child that never
+stalls but never finishes) and reports `ProcessResult.TimeoutKind` = `Inactivity` vs `MaxDuration` so the
+two are distinguishable; `ClaudeCliProvider` passes the resolved timeout as the window and
+`MaxProviderTimeout` as the backstop. Do NOT reintroduce a single wall-clock `CancelAfter` over the whole
+buffered call — it kills healthy slow turns (the streaming-timeout trap, same failure mode). Tests stub the
+CLI via `LYNTAI_PROVIDER_CMD`.
 
 ## Front door (`ILlmClient` / `LlmClient`)
 

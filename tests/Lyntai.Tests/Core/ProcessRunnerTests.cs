@@ -141,6 +141,74 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public async Task Run_async_a_streaming_child_past_the_inactivity_window_completes()
+    {
+        // The buffered path's timeout is child INACTIVITY, not wall clock: a slow-but-ALIVE turn (a big
+        // prompt, a long tool loop) that keeps emitting output must finish, even when its TOTAL runtime
+        // exceeds the window — only TRUE SILENCE for the window kills it. Today RunAsync applies a
+        // wall-clock timeout and kills this healthy child at ~4s; an inactivity clock lets it run to exit.
+        // The 4s window is generous headroom for node's cold start under parallel test load (the window is
+        // armed before the child prints); the 1s ticks are well under it, but 6 of them outlast the window.
+        const string script = """
+            let i = 0;
+            console.log('tick' + i++);                                 // first line covers cold start
+            const t = setInterval(() => {
+              console.log('tick' + i++);
+              if (i > 5) { clearInterval(t); process.exit(0); }
+            }, 1000);
+            """;
+        var sw = Stopwatch.StartNew();
+        var result = await _runner.RunAsync("node", ["-e", script], timeout: TimeSpan.FromSeconds(4));
+        sw.Stop();
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.False(result.TimedOut);                 // never silent for the window → not a timeout
+        Assert.Contains("tick5", result.StdOut);       // ran to its clean exit, past the window
+    }
+
+    [Fact]
+    public async Task Run_async_kills_a_child_gone_silent_and_reports_inactivity()
+    {
+        // Dead detection: a child that emits once then stalls forever is killed after the inactivity
+        // window with no further output — reported as an INACTIVITY timeout, with the pre-stall output
+        // preserved. (Distinct from an absolute-max timeout; see the max-cap test.)
+        var sw = Stopwatch.StartNew();
+        var result = await _runner.RunAsync("node",
+            ["-e", "console.log('alive'); setTimeout(() => {}, 60000);"],
+            timeout: TimeSpan.FromSeconds(4));
+        sw.Stop();
+
+        Assert.True(result.TimedOut);
+        Assert.Equal(ProcessTimeoutKind.Inactivity, result.TimeoutKind);
+        Assert.Contains("alive", result.StdOut);       // output before the stall survives
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
+    }
+
+    [Fact]
+    public async Task Run_async_absolute_max_caps_a_chatty_child_that_never_stalls()
+    {
+        // Backstop: a child that NEVER goes silent (output every 50ms) would run forever under a pure
+        // inactivity clock, so the absolute max duration caps it — reported as a MaxDuration timeout,
+        // distinct from inactivity. The inactivity window (30s) can't trip here; only the 2s cap can.
+        // The child self-exits at ~6s so a broken cap fails the test instead of hanging the run.
+        const string script = """
+            let i = 0;
+            const t = setInterval(() => {
+              console.log('spam' + i++);
+              if (i > 120) { clearInterval(t); process.exit(0); }
+            }, 50);
+            """;
+        var sw = Stopwatch.StartNew();
+        var result = await _runner.RunAsync("node", ["-e", script],
+            timeout: TimeSpan.FromSeconds(30), maxDuration: TimeSpan.FromSeconds(2));
+        sw.Stop();
+
+        Assert.True(result.TimedOut);
+        Assert.Equal(ProcessTimeoutKind.MaxDuration, result.TimeoutKind);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), $"took {sw.Elapsed} — the max cap didn't fire early");
+    }
+
+    [Fact]
     public async Task Slow_consumer_dwell_does_not_trip_the_stream_timeout()
     {
         // the timeout is child INACTIVITY, not wall clock: a consumer slower than the timeout between

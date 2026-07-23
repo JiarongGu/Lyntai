@@ -58,11 +58,16 @@ public sealed class ClaudeCliProvider(
         var argv = prefixArgs.Concat(ClaudeArgs.Build(req.Model)).Concat(session?.ExtraArgs ?? []).ToList();
         var prompt = ClaudeArgs.BuildPrompt(req);
 
+        // The buffered path treats `timeout` as an INACTIVITY window (a slow-but-alive turn — a big prompt,
+        // a long tool loop — keeps re-arming it), with `maxDuration` an absolute backstop so a chatty child
+        // that never stalls is still bounded. The backstop is MaxProviderTimeout, but never below the
+        // inactivity window (a consumer budget above the ceiling raises it, not the reverse).
         var timeout = options.ResolveTimeout(req);
+        var maxDuration = options.MaxProviderTimeout < timeout ? timeout : options.MaxProviderTimeout;
         ProcessResult result;
         try
         {
-            result = await runner.RunAsync(exe, argv, stdin: prompt, timeout: timeout,
+            result = await runner.RunAsync(exe, argv, stdin: prompt, timeout: timeout, maxDuration: maxDuration,
                 workingDirectory: NeutralWorkingDirectory, ct: ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -72,7 +77,10 @@ public sealed class ClaudeCliProvider(
         }
 
         if (result.TimedOut)
-            return new LlmReply("", LlmVerdict.Timeout, Detail: $"claude CLI exceeded {timeout}");
+            return new LlmReply("", LlmVerdict.Timeout,
+                Detail: result.TimeoutKind == ProcessTimeoutKind.MaxDuration
+                    ? $"claude CLI exceeded max duration {maxDuration}"
+                    : $"claude CLI stalled — no output for {timeout}");
 
         var stderrTail = Tail(result.StdErr);
         if (result.ExitCode != 0)

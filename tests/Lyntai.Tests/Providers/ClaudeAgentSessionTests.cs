@@ -30,7 +30,7 @@ public class ClaudeAgentSessionTests
         }
 
         public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
-            TimeSpan? timeout = null, string? workingDirectory = null,
+            TimeSpan? timeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
             IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
             => Task.FromResult(new ProcessResult(0, string.Empty, string.Empty, TimedOut: false));
 

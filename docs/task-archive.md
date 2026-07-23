@@ -1130,6 +1130,38 @@ consumers (Sonora, pinned `0.29.1`) pick it up. Files: `src/Lyntai.Core/Processe
 
 ---
 
+## Part 18 — CLI completion: inactivity-based dead detection (buffered path) (2026-07-23)
+
+- [ ] **`id: cli-completion-inactivity-dead-detection`** — `src/Lyntai.Core/Processes/ProcessRunner.cs` (`RunAsync`) + `src/Lyntai.Providers.ClaudeCli/ClaudeCliProvider.cs` (buffered `CompleteAsync`).
+  **Problem.** The buffered completion path (`ProcessRunner.RunAsync`, used by `ClaudeCliProvider.CompleteAsync`) applies a **wall-clock** timeout that "covers the WHOLE call" + reads with `ReadToEndAsync`. So a model turn that is SLOW-but-ALIVE (a big prompt, a long tool loop) is killed exactly like a truly DEAD/stalled one — the caller can't tell "working" from "hung," and raising the wall-clock just delays the false kill. `StreamLinesAsync` already does the right thing (an INACTIVITY window re-armed on each stdout read, with the clock stopped while the consumer works), but the buffered path can't — it awaits the entire stream at once.
+  **Fix.** Give the buffered path INACTIVITY-based DEAD DETECTION: read stdout in chunks and RE-ARM the timeout on each chunk received, so the child is killed only after N seconds of TRUE SILENCE (no output) — a streaming / tool-looping child keeps resetting the clock. Options: (a) add an inactivity mode to `RunAsync` (chunked read + per-chunk re-arm), or (b) implement `CompleteAsync` on top of `StreamLinesAsync` (accumulate lines; its inactivity window already applies). Keep an absolute MAX cap as a backstop, and treat "dead" (inactivity) distinctly from "exceeded max."
+  **TDD (must FAIL before the fix).** A buffered completion whose child stays SILENT for the inactivity window is killed with a Timeout; a child that keeps emitting output well past the old wall-clock (but never stalls) COMPLETES — today the wall-clock kills it.
+  **Impact.** Consumers (Sonora's site-study synth) intermittently lose a working-but-slow LLM turn to the wall-clock and fall back to a worse non-LLM path (e.g. a forum def the deterministic path gets wrong). Dead detection lets a slow turn finish while cutting a genuinely stuck one fast.
+
+✅ done 2026-07-23 — Took option (a): `ProcessRunner.RunAsync` now measures child **inactivity**, not wall
+clock — it reads stdout in chunks and re-arms `timeout` on each read (stdin written concurrently, its clock
+re-armed too), so a slow-but-ALIVE turn (big prompt / long tool loop) runs to completion while a child gone
+SILENT for the window is killed — the same discipline `StreamLinesAsync` already used. A new absolute
+`maxDuration` backstop bounds a child that never stalls but never finishes, and `ProcessResult.TimeoutKind`
+(`Inactivity` vs `MaxDuration`) reports which clock fired. `ClaudeCliProvider.CompleteAsync` passes the
+resolved timeout as the inactivity window and `MaxProviderTimeout` (raised to the window if a consumer budget
+exceeds the ceiling, never below it) as the backstop, surfacing the distinction in the timeout `Detail`.
+**Seam note:** `IProcessRunner.RunAsync` gained an optional `maxDuration` parameter — callers stay
+source-compatible; a BYO `IProcessRunner` must add it to its override (the three test fakes did). TDD:
+`Run_async_a_streaming_child_past_the_inactivity_window_completes` FAILED on the pre-fix wall-clock code
+(killed the healthy child at ~4s → `ExitCode -1`) and passes now;
+`Run_async_kills_a_child_gone_silent_and_reports_inactivity`,
+`Run_async_absolute_max_caps_a_chatty_child_that_never_stalls`, and
+`ClaudeCli_passes_the_absolute_max_duration_backstop_to_the_runner` cover dead detection, the backstop, and
+the provider wiring. Public surface grew (`ApiSurface` Lyntai.Core baseline updated: the `maxDuration` param,
+`ProcessResult.TimeoutKind`, the `ProcessTimeoutKind` enum). `dev.mjs verify` green (902 tests · e2e 3/3 ·
+leak scan). Files: `src/Lyntai.Core/Processes/ProcessRunner.cs`, `src/Lyntai.Core/Processes/IProcessRunner.cs`,
+`src/Lyntai.Providers.ClaudeCli/ClaudeCliProvider.cs`, `tests/Lyntai.Tests/Core/ProcessRunnerTests.cs`,
+`tests/Lyntai.Tests/Providers/PerRequestTimeoutTests.cs`, the two provider/agent-session test fakes,
+`.claude/knowledge/{llm-and-router,pitfalls}.md`, `CHANGELOG.md`.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

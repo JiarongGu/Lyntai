@@ -9,12 +9,18 @@ namespace Lyntai.Processes;
 public interface IProcessRunner
 {
     /// <summary>Buffered run: returns exit code + full stdout/stderr. Honors a per-call timeout
-    /// (killing the process tree on expiry, reported as <c>TimedOut</c>) and caller cancellation.</summary>
+    /// (killing the process tree on expiry, reported as <c>TimedOut</c>) and caller cancellation. The
+    /// default <see cref="ProcessRunner"/> treats <paramref name="timeout"/> as an INACTIVITY window
+    /// (re-armed on each stdout chunk, so a slow-but-alive child isn't killed) and <paramref name="maxDuration"/>
+    /// as an absolute ceiling on total runtime (a backstop for a child that never stalls but never finishes);
+    /// the resulting <see cref="ProcessResult.TimeoutKind"/> says which fired. A custom runner defines its
+    /// own timeout policy but should still bound the call by both, killing the tree on expiry.</summary>
     Task<ProcessResult> RunAsync(
         string command,
         IReadOnlyList<string> args,
         string? stdin = null,
         TimeSpan? timeout = null,
+        TimeSpan? maxDuration = null,
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
         CancellationToken ct = default);

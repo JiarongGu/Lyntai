@@ -6,7 +6,9 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 ## Unreleased
 
 Consumer-driven generic gaps (tasks.md Part 11 · Part 12). All additive; public surface grew (`ApiSurface`
-baselines updated) — no removals, existing calls source-compatible.
+baselines updated) — no removals, existing calls source-compatible. One seam signature grew: the buffered
+`IProcessRunner.RunAsync` gained an optional `maxDuration` parameter (calls stay source-compatible; a BYO
+`IProcessRunner` implementation must add the parameter to its override) — see Fixed, buffered dead detection.
 
 ### Added
 - **Opt-in memory-prune cron job (Part 15)** — `builder.AddMemoryPruneJob(cron, olderThan?, taskKey?)`
@@ -36,6 +38,19 @@ baselines updated) — no removals, existing calls source-compatible.
   overrides on all three backends.
 
 ### Fixed
+- **Buffered CLI completion uses INACTIVITY-based dead detection, not a wall clock (Part 1)** — the buffered
+  path (`ProcessRunner.RunAsync`, driving `ClaudeCliProvider.CompleteAsync`) applied a single wall-clock
+  timeout over the whole call, so a slow-but-ALIVE turn (a big prompt, a long tool loop) was killed exactly
+  like a dead/stalled one — a consumer couldn't tell "working" from "hung," and raising the wall-clock just
+  delayed the false kill. `RunAsync` now treats `timeout` as an **inactivity window**: it reads stdout in
+  chunks and re-arms the clock on each, so the child is killed only after the window elapses in **true
+  silence** (a streaming/tool-looping child keeps resetting it) — the same discipline `StreamLinesAsync`
+  already used. A new **absolute `maxDuration`** backstop bounds a child that never stalls but never finishes;
+  `ProcessResult.TimeoutKind` (`Inactivity` vs `MaxDuration`) says which fired, and `CompleteAsync` surfaces
+  the distinction in the timeout `Detail`. `ClaudeCliProvider` passes the resolved timeout as the window and
+  `MaxProviderTimeout` (raised to the window if a consumer budget exceeds the ceiling) as the backstop.
+  **Seam note:** `IProcessRunner.RunAsync` gained an optional `maxDuration` parameter — callers are
+  source-compatible, but a BYO `IProcessRunner` must add the parameter to its override.
 - **`StreamLinesAsync` no longer deadlocks on a prompt larger than the OS pipe buffer** — the streamed CLI
   runner (`ProcessRunner.StreamLinesAsync`) used to `await` the FULL stdin write and close stdin **before**
   starting the stdout read loop. A child that emits stdout before draining stdin (e.g. `claude
