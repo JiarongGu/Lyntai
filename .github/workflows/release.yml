@@ -225,6 +225,9 @@ jobs:
           $md | Out-File release-notes.md -Encoding utf8
           Write-Host $md
 
+      # The Release carries only the notes — NOT the .nupkg/.snupkg files. nuget.org is the canonical,
+      # permanent home for every published version, so attaching the packages here just duplicates them
+      # into GitHub Release-asset storage. The notes link to NuGet for the install.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -233,6 +236,5 @@ jobs:
           body_path: release-notes.md
           draft: ${{ inputs.draft }}
           prerelease: ${{ inputs.prerelease }}
-          files: publish/packages/*.nupkg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
