@@ -15,7 +15,7 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 <!-- version-indicator: the **vX.Y.Z below is AUTO-SYNCED from src/Directory.Build.props <VersionPrefix> by
      `node devtools/dev.mjs pack` / `doctor --fix` (the release pipeline bumps the version, pack updates this
      headline). Don't hand-edit the version here to release — bump VersionPrefix; the header follows. -->
-**v0.29.2 — a hardened, batteries-included cortex substrate.** On the v0.1.0 base (all of `tasks.md`) plus
+**v0.29.3 — a hardened, batteries-included cortex substrate.** On the v0.1.0 base (all of `tasks.md`) plus
 a multi-agent review/research pass (v0.2): configurable routing (v0.3), LLM-ops depth (v0.4), public-API
 baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama validation (v0.6), IoC
 seams so the app owns its resource lifecycle — process execution, HttpClient, DB connection/schema,
