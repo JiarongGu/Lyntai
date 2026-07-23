@@ -98,15 +98,13 @@ public sealed class ProcessRunner : IProcessRunner
 
         try
         {
-            if (timeout is not null) timeoutCts.CancelAfter(timeout.Value); // arm for the stdin write
-            try
-            {
-                await WriteStdinAsync(process, stdin, timeoutCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                timedOut = !ct.IsCancellationRequested;
-            }
+            // Write stdin CONCURRENTLY with the stdout read loop below. A large prompt fills the stdin pipe while the
+            // child is already writing to stdout; awaiting the FULL stdin write BEFORE the first stdout read deadlocks
+            // both pipes (parent blocked writing stdin, child blocked writing stdout) — the child never starts its turn.
+            // Firing the write lets the read loop drain stdout so the child keeps draining stdin. (RunAsync reads-first
+            // for the same reason; StreamLinesAsync must not serialize write-then-read on a big prompt.)
+            if (timeout is not null) timeoutCts.CancelAfter(timeout.Value); // arm for the first read
+            var stdinTask = WriteStdinAsync(process, stdin, timeoutCts.Token);
 
             while (!timedOut && !timeoutCts.IsCancellationRequested)
             {
@@ -130,6 +128,11 @@ public sealed class ProcessRunner : IProcessRunner
                 }
                 yield return line;
             }
+
+            // The stdout loop ended (child closed stdout, or a timeout) — observe the concurrent stdin write so it's
+            // never left unobserved. A broken pipe (child exited before draining) is already swallowed in
+            // WriteStdinAsync; a cancel/timeout is the same one the loop reported. The real signal is exit code / stderr.
+            try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / timedOut */ }
 
             // bound the final reap too (a child that closed stdout but lingers)
             if (timeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(timeout.Value);

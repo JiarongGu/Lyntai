@@ -87,6 +87,60 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public async Task Stream_lines_does_not_deadlock_on_large_stdin_with_interleaved_stdout()
+    {
+        // Regression: StreamLinesAsync used to await the FULL stdin write (and close stdin) BEFORE
+        // the stdout read loop began. On a prompt larger than the OS pipe buffer this deadlocks a
+        // child that emits stdout before draining stdin (like `claude --output-format stream-json`,
+        // which prints its startup/MCP handshake first): the parent blocks filling the stdin pipe
+        // while the child blocks filling the stdout pipe the parent hasn't begun draining. On Windows
+        // node's pipe writes are synchronous, so the child's up-front stdout burst blocks its event
+        // loop before it reads stdin — the deadlock reproduces deterministically here.
+        //
+        // Both payloads exceed any pipe buffer (~64 KB max): ~256 KB of stdout up front, then a
+        // 512 KB stdin to consume. Fired concurrently, the read loop drains stdout so the child keeps
+        // draining stdin and both complete; serialized write-then-read hangs to the timeout.
+        const string script = """
+            const l = 'y'.repeat(256) + '\n';
+            for (let i = 0; i < 1024; i++) process.stdout.write(l);   // ~256 KB of stdout BEFORE reading stdin
+            let n = 0;
+            process.stdin.on('data', d => { n += d.length; });
+            process.stdin.on('end', () => { process.stdout.write('DONE:' + n + '\n'); });
+            """;
+        var bigStdin = new string('x', 512 * 1024); // 524288 bytes, well past the pipe buffer
+
+        var lines = new List<string>();
+        var sw = Stopwatch.StartNew();
+        await foreach (var line in _runner.StreamLinesAsync("node", ["-e", script],
+            stdin: bigStdin, timeout: TimeSpan.FromSeconds(20)))
+        {
+            lines.Add(line);
+        }
+        sw.Stop();
+
+        // the child fully consumed stdin AND the parent fully drained stdout: no deadlock
+        Assert.Equal("DONE:524288", lines[^1]);
+        Assert.True(lines.Count > 1000, $"only {lines.Count} lines — stdout wasn't fully drained");
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(20), $"took {sw.Elapsed} — write-then-read deadlocked");
+    }
+
+    [Fact]
+    public async Task Stream_lines_passes_small_stdin_through()
+    {
+        // Regression guard for the concurrent-stdin change: a small prompt (under the pipe buffer)
+        // must still round-trip and the stream must complete cleanly.
+        var lines = new List<string>();
+        await foreach (var line in _runner.StreamLinesAsync("node",
+            ["-e", "let n = 0; process.stdin.on('data', d => n += d.length); process.stdin.on('end', () => console.log('READ:' + n))"],
+            stdin: "hello 灵台\n"))
+        {
+            lines.Add(line);
+        }
+
+        Assert.Equal(["READ:13"], lines); // "hello " (6) + 灵台 (2×3 UTF-8 bytes) + "\n" (1) = 13 bytes
+    }
+
+    [Fact]
     public async Task Slow_consumer_dwell_does_not_trip_the_stream_timeout()
     {
         // the timeout is child INACTIVITY, not wall clock: a consumer slower than the timeout between

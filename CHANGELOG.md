@@ -36,6 +36,15 @@ baselines updated) — no removals, existing calls source-compatible.
   overrides on all three backends.
 
 ### Fixed
+- **`StreamLinesAsync` no longer deadlocks on a prompt larger than the OS pipe buffer** — the streamed CLI
+  runner (`ProcessRunner.StreamLinesAsync`) used to `await` the FULL stdin write and close stdin **before**
+  starting the stdout read loop. A child that emits stdout before draining stdin (e.g. `claude
+  --output-format stream-json`, which prints its startup / MCP handshake first) then deadlocked on a large
+  prompt: the parent blocked filling the stdin pipe while the child blocked filling the stdout pipe the
+  parent hadn't begun draining — the turn never started and the call hung to its timeout (a consumer's agent
+  loop would silently time out or fall back to a non-LLM path). The stdin write now runs **concurrently**
+  with the read loop (its outcome observed after the loop), so stdout drains as stdin is fed — matching
+  `RunAsync`'s read-first ordering. Internal behavior only; public surface unchanged.
 - **`ClaudeToolCalls.FilePathOf` now reads `notebook_path`/`path` (G1)** — checks `file_path`, then
   `notebook_path` (NotebookEdit), then `path`, so an edit-tracker built from the agent stream no longer
   silently misses NotebookEdit (or any `path`-arg tool) writes.

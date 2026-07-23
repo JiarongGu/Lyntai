@@ -1090,6 +1090,46 @@ dedup landed in `f6fc301`. Per the user's "complete them all", the deferred/refu
 
 ---
 
+## Part 17 — CLI runner: `StreamLinesAsync` stdin/stdout pipe deadlock on large prompts (2026-07-23)
+
+- [ ] **`id: procrunner-streamlines-stdin-deadlock`** — `src/Lyntai.Core/Processes/ProcessRunner.cs` (`StreamLinesAsync`).
+  **Bug.** `StreamLinesAsync` `await`s the FULL stdin write (`WriteStdinAsync`) and closes stdin **before** the
+  stdout read loop begins. On a prompt larger than the OS pipe buffer this **deadlocks**: the parent blocks filling
+  the stdin pipe while the child — already emitting stdout (`--output-format stream-json` startup, MCP
+  `initialize`/`tools/list` events) — blocks filling the stdout pipe the parent hasn't begun draining. The child's
+  turn never starts (0 tool calls, no output); the caller's timeout is what finally kills it. `RunAsync` doesn't
+  hit this because it starts the stdout/stderr `ReadToEndAsync` **first**, then writes stdin — `StreamLinesAsync`
+  must not serialize write-then-read.
+  **Fix.** Fire the stdin write **concurrently** with the read loop (don't `await` it before the first read);
+  observe its outcome after the loop (a broken pipe on early child exit is already swallowed in `WriteStdinAsync`).
+  **TDD (must FAIL before the fix).** Stream a prompt bigger than the pipe buffer (≥ ~128 KB) through a child that
+  interleaves reading stdin with writing to stdout — it must complete and yield the child's lines; today it hangs
+  to the timeout. Keep a small-prompt case green (regression guard).
+  **Impact.** Every large self-driving/agentic CLI turn (big system prompt or user prompt) stalls to the caller's
+  timeout — the model never runs — so any consumer's agent loop silently times out / falls back to a non-LLM path.
+  (Found from Sonora: its site-study synth hung on every large prompt → deterministic fallback → wrong result on
+  pages the deterministic path can't handle, e.g. forums. The agentic `claude` call itself completes fine when
+  spawned directly; only this write-then-read path hangs.)
+  **NB.** A candidate minimal fix is drafted in the working tree (write stdin concurrently in `StreamLinesAsync`);
+  formalize it test-first, then bump + republish `Lyntai.Core` so consumers pick it up (Sonora pins `0.29.1`).
+
+✅ done 2026-07-23 — `StreamLinesAsync` now fires the stdin write **concurrently** with the stdout read loop
+(was: `await` the full write + close stdin BEFORE the first read) and observes the write's outcome after the loop
+(a broken pipe / cancel is already swallowed in `WriteStdinAsync`; the real signal stays exit-code / stderr /
+`timedOut`). The old write-then-read serialization deadlocked on a prompt > the OS pipe buffer against a child
+that emits stdout before draining stdin (parent filling the stdin pipe ⟂ child filling the un-drained stdout
+pipe) and hung to the caller's timeout; now stdout drains as stdin is fed, matching `RunAsync`'s read-first
+ordering. TDD: `Stream_lines_does_not_deadlock_on_large_stdin_with_interleaved_stdout` (512 KB stdin + a node
+child that writes ~256 KB stdout BEFORE reading stdin) FAILED with `ProcessTimeoutException` on the pre-fix code
+and passes now; `Stream_lines_passes_small_stdin_through` guards the small-prompt path. Windows-deterministic
+(node's pipe writes are synchronous, so the child's up-front stdout burst blocks its event loop before it reads
+stdin). No public-surface change (internal behavior only — `ApiSurface` unchanged); `dev.mjs verify` green
+(898 tests · e2e 3/3 · leak scan). Republish is the manual **Release** workflow (patch bump → `0.29.2`) so
+consumers (Sonora, pinned `0.29.1`) pick it up. Files: `src/Lyntai.Core/Processes/ProcessRunner.cs`,
+`tests/Lyntai.Tests/Core/ProcessRunnerTests.cs`.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
