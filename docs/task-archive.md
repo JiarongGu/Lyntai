@@ -1158,7 +1158,8 @@ the provider wiring. Public surface grew (`ApiSurface` Lyntai.Core baseline upda
 leak scan). Files: `src/Lyntai.Core/Processes/ProcessRunner.cs`, `src/Lyntai.Core/Processes/IProcessRunner.cs`,
 `src/Lyntai.Providers.ClaudeCli/ClaudeCliProvider.cs`, `tests/Lyntai.Tests/Core/ProcessRunnerTests.cs`,
 `tests/Lyntai.Tests/Providers/PerRequestTimeoutTests.cs`, the two provider/agent-session test fakes,
-`.claude/knowledge/{llm-and-router,pitfalls}.md`, `CHANGELOG.md`.
+`.claude/knowledge/{llm-and-router,pitfalls}.md`, `CHANGELOG.md`. **Shipped in 0.29.3** (fix commit
+`f33669d`, release `5414cd7` — patch bump so consumers, e.g. Sonora, pick it up).
 
 ---
 

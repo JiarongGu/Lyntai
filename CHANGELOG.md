@@ -5,10 +5,16 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## Unreleased
 
-Consumer-driven generic gaps (tasks.md Part 11 · Part 12). All additive; public surface grew (`ApiSurface`
-baselines updated) — no removals, existing calls source-compatible. One seam signature grew: the buffered
-`IProcessRunner.RunAsync` gained an optional `maxDuration` parameter (calls stay source-compatible; a BYO
-`IProcessRunner` implementation must add the parameter to its override) — see Fixed, buffered dead detection.
+_Nothing yet._
+
+## 0.29.3 — 2026-07-23
+
+The 0.29.1–0.29.3 patch series: consumer-driven generic gaps (tasks.md Part 11 · Part 12) plus CLI-runner
+hardening (the `StreamLinesAsync` large-prompt deadlock, then buffered inactivity/dead detection). All
+additive; public surface grew (`ApiSurface` baselines updated) — no removals, existing calls
+source-compatible. One seam signature grew: the buffered `IProcessRunner.RunAsync` gained an optional
+`maxDuration` parameter (calls stay source-compatible; a BYO `IProcessRunner` implementation must add the
+parameter to its override) — see Fixed, buffered dead detection.
 
 ### Added
 - **Opt-in memory-prune cron job (Part 15)** — `builder.AddMemoryPruneJob(cron, olderThan?, taskKey?)`
