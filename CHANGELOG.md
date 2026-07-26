@@ -5,10 +5,16 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.30.0 — 2026-07-26
+
 Two bodies of work: (1) consumer-driven generic ergonomics from an agent-manager desktop adopter
 (CLI1/TL1/TL2/PR1) plus the source-study curated-memory papercuts (CM1/CM2) — all additive; and (2) a
 **whole-library foundation-hardening pass** (six parallel reviews → ~80 findings → correctness fixes,
-structural dedup, and test-suite hygiene across every package). No new migration.
+structural dedup, and test-suite hygiene across every package, then a second adversarial review of the
+pass's own diff). No new migration. **Breaking changes below (pre-1.0 minor-bump policy)** — see the
+"Breaking" paragraph in the hardening section.
 
 ### Changed / Fixed — foundation-hardening pass
 **Correctness (behavior fixes):**

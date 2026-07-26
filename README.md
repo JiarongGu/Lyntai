@@ -32,9 +32,16 @@ seam for app-owned extension, **storage feature toggles** (enable only the domai
 feature lands no table), **actor/mailbox durable jobs** (jobs sharing a partition key run one-at-a-time in
 FIFO, parallel across keys), and a generic sustainability review pass across the surface — a typed
 `IRefusalMatcher` seam, full reverse-MEAI-bridge parity, explicit trace-step timelines, and more (v0.29.0).
+**v0.30** delivers agent-adoption ergonomics — a headless `SkipAllPermissions` posture for the CLI agent
+session, per-run `ToolLoopResult.Usage`, a live **`IToolLoop.StreamAsync`** event door, `.ps1` launcher-shim
+hosting, curated-memory dedup-on-add + `scope` filtering — and a **whole-library foundation-hardening
+pass**: two adversarial review rounds (~95 findings triaged), correctness fixes across the router, guards,
+orchestrator, prompts, storage, and DI wiring, structural dedup (a shared relational job-store state
+machine, a `DelegatingLlmClient` decorator base, async connection opens throughout), and case-insensitive
+consumer identity end-to-end (v0.30.0).
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
-- `docs/ROADMAP.md` — what's shipped, what's next, and what's blocked on a hosted repo / DB / native deps.
+- `docs/ROADMAP.md` — what's shipped, what's next, and the remaining path to 1.0.
 - `docs/AOT.md` — per-package trimming/Native-AOT status.
 - `CHANGELOG.md` — per-release detail, breaking changes called out.
 
@@ -323,7 +330,7 @@ Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess
 `LLamaSharp.Backend.*` that matches your hardware alongside `Lyntai.Providers.Local`:
 
 ```xml
-<PackageReference Include="Lyntai.Providers.Local" Version="0.29.0" />
+<PackageReference Include="Lyntai.Providers.Local" Version="0.30.0" />
 <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />  <!-- or .Cuda12 / .Vulkan / .Metal -->
 ```
 

@@ -224,9 +224,8 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   memory retention policy + prune cron) and CLI-runner hardening (large-prompt stream deadlock; buffered
   INACTIVITY dead detection + `maxDuration` backstop).
 
-### Unreleased → v0.30.0 — consumer ergonomics + foundation hardening (2026-07)
-Sitting in `CHANGELOG.md § Unreleased`, ready to release:
-- **Part 13 consumer gaps** — headless `SkipAllPermissions` for the claude agent session, `ToolLoopResult.Usage`,
+### v0.30.0 — consumer ergonomics + foundation hardening (2026-07)
+- **Part 19 consumer gaps** — headless `SkipAllPermissions` for the claude agent session, `ToolLoopResult.Usage`,
   live **`IToolLoop.StreamAsync`**, `.ps1` launcher-shim hosting, curated-memory dedup-on-add + `scope` filter.
 - **Whole-library foundation-hardening pass** — 6 parallel reviews (~80 findings) → correctness fixes
   (router/rate-limiter/guards/orchestrator/prompts/storage/DI), structural dedup (`JobStoreSql`+`JobRow`,
@@ -252,7 +251,8 @@ Sitting in `CHANGELOG.md § Unreleased`, ready to release:
 - ✅ **Repo hosted** — github.com/JiarongGu/Lyntai with release CI (`release.yml`); nuget.org is the
   canonical package feed; real `PackageProjectUrl`/`RepositoryUrl` in `Directory.Build.props`.
 - Remaining before tagging 1.0, in order:
-  1. **Release v0.30.0** (the Unreleased section — carries the last planned pre-1.0 breaks).
+  1. ✅ **v0.30.0 recorded** (CHANGELOG section + docs reconciled) — cut via the manual release workflow
+     (Actions → release.yml; the pipeline bumps `VersionPrefix` + the README headline and tags).
   2. **Burn down or consciously defer the `tasks.md` backlog** — the API-shape items matter most
      (async `IUsageTracker` L8 is a breaking interface change; do it BEFORE the freeze or never).
   3. **Add SourceLink** (`Microsoft.SourceLink.GitHub` — a one-package add, now unblocked; sources are

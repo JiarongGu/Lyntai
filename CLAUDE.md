@@ -17,8 +17,8 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.29.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
-v0.3–v0.29 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
+**Implemented + hardened (v0.30.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
+v0.3–v0.30 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
 + `migrate:false`, provider presets — the app owns resource lifecycle, Lyntai provides the interface;
 v0.8 = `Lyntai.Providers.Local` in-process GGUF inference via LLamaSharp, managed-only so the app picks
 the backend; v0.9 = agentic tool-calling `Lyntai.Agents` — `IToolLoop` over `ILlmClient`, `ITool`/`AddTool`
@@ -40,7 +40,13 @@ recovery-key envelope vault (`Lyntai.Secrets.Dpapi`); per-request refusal screen
 (`ICuratedMemoryStore`); v0.29 = app-owned storage adoption — a typed multi-kind conversation event store
 (GUID ids + per-thread seq + metadata) with an `IConversationEnricher` seam, `StorageFeature` toggles (a
 disabled domain lands no table, tag-driven selective migration), actor/mailbox durable jobs (per-partition
-FIFO, parallel across keys), a typed `IRefusalMatcher` seam, and a generic sustainability review sweep):
+FIFO, parallel across keys), a typed `IRefusalMatcher` seam, and a generic sustainability review sweep;
+v0.30 = agent-adoption ergonomics — headless `SkipAllPermissions`, `ToolLoopResult.Usage`, live
+`IToolLoop.StreamAsync`, `.ps1` shim hosting, curated dedup/`scope` — plus a TWO-ROUND whole-library
+hardening pass: correctness fixes across router/guards/orchestrator/prompts/storage/DI, structural dedup
+(`JobStoreSql`+`JobRow` shared state machine, `DelegatingLlmClient` decorator base,
+`LazyMigratingConnectionFactory`, async `OpenAsync` sweep), case-insensitive consumer identity end-to-end,
+and the deferred findings recorded as the `tasks.md` backlog / `docs/DECISIONS.md` D18):
 `ILlmClient` front door (to a
 consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable

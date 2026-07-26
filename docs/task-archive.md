@@ -1163,11 +1163,12 @@ leak scan). Files: `src/Lyntai.Core/Processes/ProcessRunner.cs`, `src/Lyntai.Cor
 
 ---
 
-## Part 13 — agent-manager desktop adoption + curated-memory papercuts (CM1/CM2/CLI1/TL1/TL2/PR1)
+## Part 19 — agent-manager desktop adoption + curated-memory papercuts (CM1/CM2/CLI1/TL1/TL2/PR1)
 
 Consumer-driven generic gaps: a WinForms desktop AI-manager adopting `ClaudeAgentSession` + `IToolLoop`
 (2026-07-26) and the Sonora source-study curated-memory ergonomics (2026-07-24). All generalized to
 app-agnostic library surface (see `.claude/knowledge/generic-library.md`, created in this pass).
+**Shipped in 0.30.0.** (Archived initially under a duplicate "Part 13" heading — renumbered.)
 
 ### Curated-memory ergonomics
 
@@ -1239,6 +1240,25 @@ app-agnostic library surface (see `.claude/knowledge/generic-library.md`, create
   `ProcessRunnerTests.Runs_a_powershell_ps1_launcher_shim` (Windows-gated); the UTF-8-no-BOM round-trip stays
   locked by the existing CJK stdin tests. Files: `src/Lyntai.Core/Processes/ProcessRunner.cs`,
   `tests/Lyntai.Tests/Core/ProcessRunnerTests.cs`, `CHANGELOG.md`.
+
+---
+
+## Part 20 — Whole-library foundation-hardening pass (2026-07-26)
+
+✅ done 2026-07-26 — Not a `tasks.md` task but the archive records it as the third consolidation review:
+six parallel subsystem reviews (~80 findings) → verified per finding → three correctness clusters
+(router/rate-limiter/cache · infra/DI/scheduler/vault · provider bridges/guards/orchestrator/prompts), a
+storage refactor (async `OpenAsync` sweep, `JobStoreSql`+`JobRow` shared state machine,
+`LazyMigratingConnectionFactory`, `VectorMath`, `TagPasses`, cross-backend divergence fixes), an
+LLM/agents dedup cluster (`DelegatingLlmClient` base, router `LiveCandidates`, `GuardRail` shared gate
+loop, API-honesty renames), and test-suite hygiene (shared fakes, per-db pool clears, coverage pins).
+Then a **round-2 adversarial review of the pass's own diff** (48-agent workflow) confirmed 5 regressions
+round 1 introduced — composed-prompt gating, placeholder key-grammar narrowing, stdin drain-liveness,
+thrown-Refused terminality, inert streamed-usage fix — all fixed with regression tests, plus
+case-insensitive consumer identity end-to-end and the shared claim predicate. Deferred findings → the
+`tasks.md` backlog (with reasons); rejected findings → `docs/DECISIONS.md` D18; the JSON-approach
+rationale → D17. Nine commits, `verify` green throughout (954 tests · e2e 3/3 · leak scan).
+**Shipped in 0.30.0.**
 
 ---
 
