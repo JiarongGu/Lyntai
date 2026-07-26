@@ -33,26 +33,14 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
                 WHERE kind = @kind AND content = @content
                   AND task IS NOT DISTINCT FROM @task::text AND scope IS NOT DISTINCT FROM @scope::text
                 ORDER BY id LIMIT 1
-                """, new
-            {
-                kind, content,
-                task = (object?)taskKey ?? DBNull.Value,
-                scope = (object?)scope ?? DBNull.Value,
-            }, cancellationToken: ct)).ConfigureAwait(false);
+                """, new { kind, content, task = taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
             if (existing is { } id) return id;
         }
         return await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
             INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope, title)
             VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope, @title)
             RETURNING id
-            """, new
-        {
-            kind, content, enabled, now,
-            source = (object?)source ?? DBNull.Value,
-            task = (object?)taskKey ?? DBNull.Value,
-            scope = (object?)scope ?? DBNull.Value,
-            title = (object?)title ?? DBNull.Value,
-        }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { kind, content, enabled, now, source, task = taskKey, scope, title }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
@@ -68,14 +56,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
                 title   = COALESCE(@title::text, title),
                 updated_at = @now
             WHERE id = @id
-            """, new
-        {
-            id, now,
-            content = (object?)content ?? DBNull.Value,
-            enabled = (object?)enabled ?? DBNull.Value,
-            source = (object?)source ?? DBNull.Value,
-            title = (object?)title ?? DBNull.Value,
-        }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { id, now, content, enabled, source, title }, cancellationToken: ct)).ConfigureAwait(false);
         return n > 0;
     }
 
@@ -107,13 +88,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
             -- than the Postgres DB locale collation — identical curated list order across backends.
             ORDER BY kind COLLATE "C", created_at, id
             LIMIT @limit
-            """, new
-        {
-            kind = (object?)kind ?? DBNull.Value, enabledOnly,
-            task = (object?)taskKey ?? DBNull.Value,
-            scope = (object?)scope ?? DBNull.Value,
-            limit = (object?)limit ?? DBNull.Value,
-        }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { kind, enabledOnly, task = taskKey, scope, limit }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }
 
@@ -135,14 +110,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
                   AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled)
                 ORDER BY created_at DESC, id DESC
                 LIMIT @limit
-                """, new
-            {
-                pattern, enabledOnly,
-                kind = (object?)kind ?? DBNull.Value,
-                task = (object?)taskKey ?? DBNull.Value,
-                scope = (object?)scope ?? DBNull.Value,
-                limit = (object?)limit ?? DBNull.Value,
-            }, cancellationToken: ct)).ConfigureAwait(false);
+                """, new { pattern, enabledOnly, kind, task = taskKey, scope, limit }, cancellationToken: ct)).ConfigureAwait(false);
             return [.. rows];
         }
         catch (OperationCanceledException) { throw; }

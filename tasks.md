@@ -33,9 +33,6 @@ with the reason; pick up when the trade-off changes.
 - [ ] **S8 — move the remaining 4 Row-DTO pairs (trace/score/prompt-version/usage) to Core** like
   `JobRow`. Deferred: pure materialization with zero dialect content — inert duplication, no fencing-style
   drift risk; weigh the Core-surface bloat before doing it.
-- [ ] **S11 — drop the `(object?)x ?? DBNull.Value` dance in the Postgres stores** for typed nullable
-  params (Dapper binds C# null as DBNull already); keep `::type` casts only where Npgsql can't infer.
-  Do under the Testcontainers suite — Npgsql null-inference has edge cases.
 - [ ] **T11 — convert the storage contract classes to abstract-class-with-[Fact]s** so a backend can't
   silently skip a contract method (the mechanism that produced the PG coverage holes). Postgres keeps its
   deliberate Uid-subset delegators.

@@ -1374,6 +1374,15 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   Dapper `DateTimeOffset` handler and risk a TEXT-format mismatch in `expires_at > @now`; sharing the
   STATEMENT is what kills the drift risk). Existing eviction tests are the net; Core baseline +1 line.
 
+- [x] **S11 — drop the `(object?)x ?? DBNull.Value` dance in the Postgres stores** for typed nullable
+  params (Dapper binds C# null as DBNull already); keep `::type` casts only where Npgsql can't infer.
+  Do under the Testcontainers suite — Npgsql null-inference has edge cases.
+  ✅ done 2026-07-27 — Outcome: all 20 sites (PostgresCuratedMemoryStore + PostgresMemoryStore) now bind
+  typed nullable members directly — Dapper infers the DbType from the anonymous-member's STATIC type
+  (`string?`→text, `int?`→int, `bool?`→boolean, `DateTimeOffset?`→timestamptz), so a null arrives typed.
+  The SQL-side `::type` casts were deliberately KEPT (harmless, and they document the type at the
+  `IS NULL` sites). Verified under the live Testcontainers suite (985 green, 0 skipped).
+
 ---
 
 ## Notes for the implementer

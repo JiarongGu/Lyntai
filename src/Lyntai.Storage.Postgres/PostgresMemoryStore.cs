@@ -37,7 +37,7 @@ public sealed class PostgresMemoryStore(
             INSERT INTO lyntai_memory_entry (task_key, scope, content, created_at, last_accessed_at, expires_at)
             VALUES (@taskKey, @scope, @content, @now, @now, @expiresAt)
             ON CONFLICT (task_key, scope, md5(content)) DO UPDATE SET created_at = @now, last_accessed_at = @now, expires_at = @expiresAt
-            """, new { taskKey, scope, content, now, expiresAt = (object?)expiresAt ?? DBNull.Value }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { taskKey, scope, content, now, expiresAt }, cancellationToken: ct)).ConfigureAwait(false);
 
         // Eviction: the COUNT-CAP case (common path) is a single ATOMIC DELETE — race-free, no scope fetch.
         // The SIZE-BUDGET case needs the windowed cumulative-length compute, so it goes through the shared
@@ -154,7 +154,7 @@ public sealed class PostgresMemoryStore(
             WHERE (@taskKey::text IS NULL OR task_key = @taskKey)
               AND ( (expires_at IS NOT NULL AND expires_at <= @now)
                     OR (@cutoff::timestamptz IS NOT NULL AND created_at < @cutoff) )
-            """, new { taskKey, now, cutoff = (object?)cutoff ?? DBNull.Value }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { taskKey, now, cutoff }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     private sealed class Row
