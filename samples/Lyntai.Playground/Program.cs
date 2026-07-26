@@ -289,7 +289,7 @@ static class GovernanceDemo
 
         var first = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("spend one")] });
         var second = await llm.CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("spend two")] });
-        var spent = sp.GetRequiredService<IUsageTracker>().Total().CostUsd;
+        var spent = (await sp.GetRequiredService<IUsageTracker>().TotalAsync()).CostUsd;
         return first.Verdict == LlmVerdict.Ok && second.Verdict == LlmVerdict.Refused && spent > 0;
     }
 

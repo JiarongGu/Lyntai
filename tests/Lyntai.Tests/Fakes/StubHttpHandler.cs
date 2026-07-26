@@ -10,7 +10,7 @@ public sealed class StubHttpHandler : HttpMessageHandler
     private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _scripts = new();
     private Func<HttpRequestMessage, HttpResponseMessage>? _last;
 
-    public List<(Uri? Uri, string Body, string? Auth)> Requests { get; } = [];
+    public List<(Uri? Uri, string Body, string? Auth, string? ApiKeyHeader)> Requests { get; } = [];
 
     public StubHttpHandler Enqueue(HttpStatusCode status, string body, string mediaType = "application/json")
     {
@@ -30,7 +30,8 @@ public sealed class StubHttpHandler : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct);
-        Requests.Add((request.RequestUri, body, request.Headers.Authorization?.ToString()));
+        Requests.Add((request.RequestUri, body, request.Headers.Authorization?.ToString(),
+            request.Headers.TryGetValues("api-key", out var apiKey) ? string.Join(",", apiKey) : null));
 
         if (_scripts.Count > 0) _last = _scripts.Dequeue();
         if (_last is null) throw new InvalidOperationException("StubHttpHandler: nothing scripted");

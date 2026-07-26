@@ -1,9 +1,9 @@
 namespace Lyntai.Llm.Budgeting;
 
 /// <summary>A process-local <see cref="IUsageTracker"/>: per-consumer running totals plus a global sum,
-/// guarded by a single lock (usage recording is low-frequency relative to the calls it meters). For spend
-/// that must survive a restart or be shared across processes, register your own <see cref="IUsageTracker"/>
-/// instead.</summary>
+/// guarded by a single lock (usage recording is low-frequency relative to the calls it meters); every
+/// member completes synchronously. For spend that must survive a restart or be shared across processes,
+/// register your own <see cref="IUsageTracker"/> instead.</summary>
 public sealed class InMemoryUsageTracker : IUsageTracker
 {
     private sealed class Totals { public long In, Out, Calls; public double Cost; }
@@ -16,7 +16,7 @@ public sealed class InMemoryUsageTracker : IUsageTracker
     private readonly Dictionary<string, Totals> _byConsumer = new(StringComparer.OrdinalIgnoreCase);
     private readonly Totals _global = new();
 
-    public void Record(string consumer, LlmUsage usage)
+    public ValueTask RecordAsync(string consumer, LlmUsage usage, CancellationToken ct = default)
     {
         lock (_gate)
         {
@@ -25,18 +25,19 @@ public sealed class InMemoryUsageTracker : IUsageTracker
             _global.In += usage.InputTokens; _global.Out += usage.OutputTokens;
             _global.Cost += usage.CostUsd ?? 0; _global.Calls++;
         }
+        return ValueTask.CompletedTask;
     }
 
-    public UsageTotals Total(string? consumer = null)
+    public ValueTask<UsageTotals> TotalAsync(string? consumer = null, CancellationToken ct = default)
     {
         lock (_gate)
         {
             var t = consumer is null ? _global : (_byConsumer.TryGetValue(consumer, out var c) ? c : null);
-            return t is null ? UsageTotals.Empty : new UsageTotals(t.In, t.Out, t.Cost, t.Calls);
+            return ValueTask.FromResult(t is null ? UsageTotals.Empty : new UsageTotals(t.In, t.Out, t.Cost, t.Calls));
         }
     }
 
-    public void Reset(string? consumer = null)
+    public ValueTask ResetAsync(string? consumer = null, CancellationToken ct = default)
     {
         lock (_gate)
         {
@@ -51,6 +52,7 @@ public sealed class InMemoryUsageTracker : IUsageTracker
                 _global.In -= t.In; _global.Out -= t.Out; _global.Cost -= t.Cost; _global.Calls -= t.Calls;
             }
         }
+        return ValueTask.CompletedTask;
     }
 
     private Totals Get(string consumer)

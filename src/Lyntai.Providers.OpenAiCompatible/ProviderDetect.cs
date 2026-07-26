@@ -11,6 +11,10 @@ public static class ProviderDetect
     /// (no code path branches on it yet) — kept distinct so OpenRouter-specific behavior (e.g. its ranking
     /// headers) can land later without re-detecting, and so a pinned flavor stays honest.</summary>
     public const string OpenRouter = "openrouter";
+    /// <summary>Detected for *.openai.azure.com hosts. Azure's OpenAI-COMPATIBLE (v1) surface lives under
+    /// <c>/openai/v1</c> on the resource host (a bare resource URL would 404 at <c>/v1/…</c>), and key auth
+    /// conventionally travels in the <c>api-key</c> header — this flavor makes both adjustments.</summary>
+    public const string AzureOpenAi = "azure-openai";
 
     public static string Detect(string? baseUrl)
     {
@@ -19,7 +23,8 @@ public static class ProviderDetect
             return OpenAi;
 
         if (IsHost(uri.Host, "openrouter.ai")) return OpenRouter;
-        if (IsHost(uri.Host, "openai.com") || IsHost(uri.Host, "openai.azure.com")) return OpenAi;
+        if (IsHost(uri.Host, "openai.azure.com")) return AzureOpenAi;
+        if (IsHost(uri.Host, "openai.com")) return OpenAi;
         // Ollama's well-known port — but a /v1 base targets its OpenAI-COMPATIBLE surface, where the
         // native /api/chat payload/endpoint would 404 on every call
         if (uri.Port == 11434)

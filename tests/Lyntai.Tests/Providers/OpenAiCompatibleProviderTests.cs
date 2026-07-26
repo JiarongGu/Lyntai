@@ -9,6 +9,31 @@ namespace Lyntai.Tests.Providers;
 
 public class OpenAiCompatibleProviderTests
 {
+    [Fact] // P3: a bare Azure resource URL composes the /openai/v1 surface and sends the api-key header
+    public async Task Azure_preset_composes_the_openai_v1_endpoint_and_sends_api_key()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        var provider = Provider(handler, o => { o.BaseUrl = "https://my-res.openai.azure.com"; o.ApiKey = "azure-key"; });
+
+        var reply = await provider.CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(new Uri("https://my-res.openai.azure.com/openai/v1/chat/completions"), handler.Requests[0].Uri);
+        Assert.Equal("azure-key", handler.Requests[0].ApiKeyHeader); // Azure key auth
+        Assert.Equal("Bearer azure-key", handler.Requests[0].Auth);  // Entra-style Bearer kept too
+    }
+
+    [Fact] // P3: an Azure base that already includes /openai/v1 is not double-prefixed
+    public async Task Azure_preset_with_explicit_openai_v1_base_is_not_double_prefixed()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OkBody);
+        var provider = Provider(handler, o => { o.BaseUrl = "https://my-res.openai.azure.com/openai/v1"; o.ApiKey = "k"; });
+
+        await provider.CompleteAsync(Req);
+
+        Assert.Equal(new Uri("https://my-res.openai.azure.com/openai/v1/chat/completions"), handler.Requests[0].Uri);
+    }
+
     [Fact] // P2: prose alongside native tool calls survives the payload replay (content is legal with tool_calls)
     public void Payload_tool_call_turn_preserves_assistant_prose()
     {

@@ -23,6 +23,7 @@ static class Lyntai.Providers.OpenAiCompatible.Payloads.OllamaPayload
 static class Lyntai.Providers.OpenAiCompatible.Payloads.OpenAiPayload
     Build(LlmRequest, String, Boolean) : JsonObject
 static class Lyntai.Providers.OpenAiCompatible.ProviderDetect
+    AzureOpenAi : String const
     Detect(String) : String
     Ollama : String const
     OpenAi : String const

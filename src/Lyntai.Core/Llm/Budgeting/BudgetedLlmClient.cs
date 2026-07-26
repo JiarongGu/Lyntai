@@ -24,18 +24,18 @@ public sealed class BudgetedLlmClient(
 
     public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
-        if (IsOverBudget(req.Consumer, out var reason))
+        if (await OverBudgetAsync(req.Consumer, ct).ConfigureAwait(false) is { } reason)
             return new LlmReply("", LlmVerdict.Refused, Detail: reason);
 
         var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
-        if (reply.Usage is not null) tracker.Record(req.Consumer, reply.Usage);
+        if (reply.Usage is not null) await tracker.RecordAsync(req.Consumer, reply.Usage, ct).ConfigureAwait(false);
         return reply;
     }
 
     public override async IAsyncEnumerable<LlmChunk> StreamAsync(
         LlmRequest req, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (IsOverBudget(req.Consumer, out var reason))
+        if (await OverBudgetAsync(req.Consumer, ct).ConfigureAwait(false) is { } reason)
         {
             yield return LlmChunk.Error(LlmVerdict.Refused, reason);
             yield break;
@@ -43,29 +43,29 @@ public sealed class BudgetedLlmClient(
 
         await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
         {
-            if (chunk is { Kind: LlmChunkKind.Final, Usage: not null }) tracker.Record(req.Consumer, chunk.Usage);
+            if (chunk is { Kind: LlmChunkKind.Final, Usage: not null })
+                await tracker.RecordAsync(req.Consumer, chunk.Usage, ct).ConfigureAwait(false);
             yield return chunk;
         }
     }
 
-    /// <summary>True when a cap that applies to <paramref name="consumer"/> has been reached: the global
-    /// caps (vs the global total) or the consumer's own caps (vs its total).</summary>
-    private bool IsOverBudget(string consumer, out string reason)
+    /// <summary>The refusal reason when a cap that applies to <paramref name="consumer"/> has been reached
+    /// — the global caps (vs the global total) or the consumer's own caps (vs its total) — else null.</summary>
+    private async ValueTask<string?> OverBudgetAsync(string consumer, CancellationToken ct)
     {
         var budget = options.Budget;
-        var global = tracker.Total();
-        if (budget.MaxCostUsd is { } gc && global.CostUsd >= gc) { reason = Refuse("global cost budget", gc); return true; }
-        if (budget.MaxTokens is { } gt && global.TotalTokens >= gt) { reason = Refuse("global token budget", gt); return true; }
+        var global = await tracker.TotalAsync(ct: ct).ConfigureAwait(false);
+        if (budget.MaxCostUsd is { } gc && global.CostUsd >= gc) return Refuse("global cost budget", gc);
+        if (budget.MaxTokens is { } gt && global.TotalTokens >= gt) return Refuse("global token budget", gt);
 
         if (budget.PerConsumer.TryGetValue(consumer, out var cb))
         {
-            var ct = tracker.Total(consumer);
-            if (cb.MaxCostUsd is { } cc && ct.CostUsd >= cc) { reason = Refuse($"consumer '{consumer}' cost budget", cc); return true; }
-            if (cb.MaxTokens is { } cct && ct.TotalTokens >= cct) { reason = Refuse($"consumer '{consumer}' token budget", cct); return true; }
+            var mine = await tracker.TotalAsync(consumer, ct).ConfigureAwait(false);
+            if (cb.MaxCostUsd is { } cc && mine.CostUsd >= cc) return Refuse($"consumer '{consumer}' cost budget", cc);
+            if (cb.MaxTokens is { } cct && mine.TotalTokens >= cct) return Refuse($"consumer '{consumer}' token budget", cct);
         }
 
-        reason = "";
-        return false;
+        return null;
     }
 
     private string Refuse(string label, double cap)

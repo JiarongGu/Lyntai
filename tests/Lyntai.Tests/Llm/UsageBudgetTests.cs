@@ -21,37 +21,37 @@ public class UsageBudgetTests
     // ---- tracker -------------------------------------------------------------------------------------
 
     [Fact]
-    public void Tracker_accumulates_per_consumer_and_globally()
+    public async Task Tracker_accumulates_per_consumer_and_globally()
     {
         var tracker = new InMemoryUsageTracker();
-        tracker.Record("a", new LlmUsage(10, 5, CostUsd: 0.10));
-        tracker.Record("a", new LlmUsage(20, 5, CostUsd: 0.20));
-        tracker.Record("b", new LlmUsage(1, 1, CostUsd: 0.01));
+        await tracker.RecordAsync("a", new LlmUsage(10, 5, CostUsd: 0.10));
+        await tracker.RecordAsync("a", new LlmUsage(20, 5, CostUsd: 0.20));
+        await tracker.RecordAsync("b", new LlmUsage(1, 1, CostUsd: 0.01));
 
-        var a = tracker.Total("a");
+        var a = (await tracker.TotalAsync("a"));
         Assert.Equal(30, a.InputTokens);
         Assert.Equal(40, a.TotalTokens);
         Assert.Equal(0.30, a.CostUsd, 5);
         Assert.Equal(2, a.Calls);
 
-        var global = tracker.Total();
+        var global = (await tracker.TotalAsync());
         Assert.Equal(0.31, global.CostUsd, 5);
         Assert.Equal(3, global.Calls);
-        Assert.Equal(UsageTotals.Empty, tracker.Total("never-seen"));
+        Assert.Equal(UsageTotals.Empty, (await tracker.TotalAsync("never-seen")));
     }
 
     [Fact]
-    public void Reset_of_one_consumer_subtracts_from_the_global_total()
+    public async Task Reset_of_one_consumer_subtracts_from_the_global_total()
     {
         var tracker = new InMemoryUsageTracker();
-        tracker.Record("a", new LlmUsage(10, 0, CostUsd: 0.10));
-        tracker.Record("b", new LlmUsage(20, 0, CostUsd: 0.20));
+        await tracker.RecordAsync("a", new LlmUsage(10, 0, CostUsd: 0.10));
+        await tracker.RecordAsync("b", new LlmUsage(20, 0, CostUsd: 0.20));
 
-        tracker.Reset("a");
+        await tracker.ResetAsync("a");
 
-        Assert.Equal(UsageTotals.Empty, tracker.Total("a"));
-        Assert.Equal(0.20, tracker.Total("b").CostUsd, 5);   // b intact
-        Assert.Equal(0.20, tracker.Total().CostUsd, 5);      // global reduced by a's share
+        Assert.Equal(UsageTotals.Empty, (await tracker.TotalAsync("a")));
+        Assert.Equal(0.20, (await tracker.TotalAsync("b")).CostUsd, 5);   // b intact
+        Assert.Equal(0.20, (await tracker.TotalAsync()).CostUsd, 5);      // global reduced by a's share
     }
 
     // ---- decorator -----------------------------------------------------------------------------------
@@ -71,8 +71,8 @@ public class UsageBudgetTests
         var (client, inner, tracker) = Budgeted(_ => { });
         inner.Replies.Enqueue(Ok(0.05, tokens: 42));
         await client.CompleteAsync(Ask());
-        Assert.Equal(0.05, tracker.Total().CostUsd, 5);
-        Assert.Equal(42, tracker.Total().InputTokens);
+        Assert.Equal(0.05, (await tracker.TotalAsync()).CostUsd, 5);
+        Assert.Equal(42, (await tracker.TotalAsync()).InputTokens);
     }
 
     [Fact]
@@ -126,10 +126,10 @@ public class UsageBudgetTests
 
         var chunks = new List<LlmChunk>();
         await foreach (var c in client.StreamAsync(Ask())) chunks.Add(c);
-        Assert.Equal(0.25, tracker.Total().CostUsd, 5);   // usage recorded from the Final chunk
+        Assert.Equal(0.25, (await tracker.TotalAsync()).CostUsd, 5);   // usage recorded from the Final chunk
         Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Error);
 
-        tracker.Record("default", new LlmUsage(0, 0, CostUsd: 1.0)); // push over the cap
+        await tracker.RecordAsync("default", new LlmUsage(0, 0, CostUsd: 1.0)); // push over the cap
         var over = new List<LlmChunk>();
         await foreach (var c in client.StreamAsync(Ask())) over.Add(c);
         var only = Assert.Single(over);
@@ -171,6 +171,6 @@ public class UsageBudgetTests
         await client.CompleteAsync(req); // hit → served from cache, must NOT re-count toward the budget
 
         Assert.Single(provider.Calls);                                  // provider reached once
-        Assert.Equal(0.04, sp.GetRequiredService<IUsageTracker>().Total().CostUsd, 5); // counted once, not twice
+        Assert.Equal(0.04, (await sp.GetRequiredService<IUsageTracker>().TotalAsync()).CostUsd, 5); // counted once, not twice
     }
 }

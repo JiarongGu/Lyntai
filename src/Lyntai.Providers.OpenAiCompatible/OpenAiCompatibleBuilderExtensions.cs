@@ -78,8 +78,10 @@ public static class OpenAiCompatibleBuilderExtensions
             o.DefaultModel = defaultModel;
         }, httpClient);
 
-    /// <summary>Azure OpenAI. <paramref name="endpoint"/> is your resource URL
-    /// (e.g. https://my-resource.openai.azure.com). Default id "azure-openai".</summary>
+    /// <summary>Azure OpenAI, targeting the resource's OpenAI-COMPATIBLE <c>v1</c> surface.
+    /// <paramref name="endpoint"/> is your resource URL (e.g. <c>https://my-resource.openai.azure.com</c> —
+    /// requests compose to <c>…/openai/v1/chat/completions</c>); <paramref name="apiKey"/> is sent as both
+    /// the <c>api-key</c> header (Azure key auth) and a Bearer token. Default id "azure-openai".</summary>
     public static LyntaiBuilder AddAzureOpenAiProvider(this LyntaiBuilder builder, string endpoint, string apiKey,
         string? defaultModel = null, string id = "azure-openai", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddOpenAiCompatibleProvider(id, o =>

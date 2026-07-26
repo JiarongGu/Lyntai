@@ -233,18 +233,31 @@ public sealed class OpenAiCompatibleProvider(
             Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
         };
         if (!string.IsNullOrEmpty(config.ApiKey))
+        {
             request.Headers.Authorization = new("Bearer", config.ApiKey);
+            // Azure key auth conventionally travels in the api-key header; its v1 surface accepts either,
+            // so sending BOTH keeps the key path and a BYO Entra-token Bearer flow on one code path
+            if (_flavor == ProviderDetect.AzureOpenAi)
+                request.Headers.TryAddWithoutValidation("api-key", config.ApiKey);
+        }
         return request;
     }
 
     internal Uri Endpoint()
     {
         var baseUrl = config.BaseUrl.TrimEnd('/');
-        var path = _flavor == ProviderDetect.Ollama
-            ? "/api/chat"
-            : baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+        var path = _flavor switch
+        {
+            ProviderDetect.Ollama => "/api/chat",
+            // Azure's OpenAI-COMPATIBLE (v1) surface lives under /openai/v1 on the resource host — a bare
+            // resource URL (https://my-res.openai.azure.com) would otherwise compose /v1/… and 404. A base
+            // that already includes /openai(…/v1) falls through to the generic suffix logic below.
+            ProviderDetect.AzureOpenAi when !baseUrl.Contains("/openai", StringComparison.OrdinalIgnoreCase)
+                => "/openai/v1/chat/completions",
+            _ => baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
                 ? "/chat/completions"
-                : "/v1/chat/completions";
+                : "/v1/chat/completions",
+        };
         return new Uri(baseUrl + path);
     }
 

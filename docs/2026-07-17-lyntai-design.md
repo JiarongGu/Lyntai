@@ -3,7 +3,13 @@
 > 灵台 (língtái, "the numinous platform") — a classical Chinese name for the seat of the mind.
 > Lyntai is the shared **cortex + persistence** substrate the sibling apps plug into.
 
-Status: **approved design, pre-implementation** · Date: 2026-07-17 · Scope: *Brain + persistence core*
+Status: **approved design — SHIPPED and amended** (see the dated amendments in §6/§9; the 2026-07-26 one
+reconciles v0.16–v0.30) · Date: 2026-07-17 · Scope: *Brain + persistence core → platform kit (D14)*
+
+> **How to read this doc post-1.0-track:** it governs *semantics* (the rules code must follow); the
+> public-API baselines (`tests/Lyntai.Tests/Api/Baselines/`, D11) govern *shape*. Where a §5 snippet
+> differs from the baseline, the baseline is current and the snippet is the v0.1 seed kept for its
+> semantic commentary.
 
 ---
 
@@ -42,6 +48,8 @@ no domain assumptions.
 **Non-goals (this cut):** two-gate chat orchestration, scope-guard/jail hooks, tool/MCP registry,
 durable jobs, security/access-gate, server/host/launcher, vision/multimodal, and the LLamaSharp
 `Local` provider. These are the "Full platform kit" and are explicitly deferred (§9).
+*(2026-07 note: every one of these except the server/host/launcher has since SHIPPED — see the dated
+amendments in §9. This paragraph is the v0.1 scope, kept for the record.)*
 
 ## 3. Architecture — packages
 
@@ -263,10 +271,48 @@ these later without breaking changes.
 > host-free; the one scoped exception is the ephemeral, opt-in localhost MCP listener the ClaudeCli.Mcp
 > add-on runs during a CLI call).
 
+> **Amendment (2026-07-26): reconciled against v0.30.0.** The header's "pre-implementation" status is
+> historical; shape is snapshot-tested (D11) and this doc governs semantics. Since the 2026-07-18
+> amendment, v0.16–v0.30 added — each per D14's "framework in Lyntai, domain in the app", detail in
+> `CHANGELOG.md`/`ROADMAP.md`, rationale in `docs/DECISIONS.md` D6–D18:
+> **`ILlmClient` front door + `AsChatClient()`** (inject the front door, not `ILlmRouter` — D6) ·
+> **OTel telemetry** (`LyntaiDiagnostics`: `Lyntai.Llm` + `Lyntai.Agents` sources/meters, `RunTrace.TraceId`) ·
+> **native tool-calling contract** (`LlmToolCall`, `LlmReply.ToolCalls`, tool/assistant turns,
+> `SupportsToolCalls` on provider/router/client) · **governance decorators** (response cache / usage
+> budget / rate limit behind `IResponseCache`/`IUsageTracker`/`IRateLimiter`; deterministic fold, cache
+> outermost; SQLite/PG persistence) · **semantic memory** (BYO `IEmbedder`, `ISemanticMemory`,
+> `IVectorStore` incl. pgvector; hybrid composer + dual-write) · **durable-jobs expansion** (priorities,
+> DLQ, interval+cron schedules, cooperative cancellation, admission control, `Paused`, live progress,
+> actor/mailbox `PartitionKey`; still deferred: cross-process global limits) · **secrets expansion**
+> (DEK-envelope vault + recovery key; `Lyntai.Secrets.Dpapi`) · **refusal screening**
+> (`LlmRequest.RefusalPattern` + `IRefusalMatcher`) · **curated memory** (`ICuratedMemoryStore`) ·
+> **conversation event store v2** (GUID id + per-thread seq + kind/payload/metadata,
+> `IConversationEnricher`, keyset paging — D13; dates the in-body §5.4 edit) · **`StorageFeature`
+> toggles** (tag-driven selective registration + migration — D15; dates the in-body §5.5 edit) ·
+> **memory retention policy** (`MemoryRetentionPolicy` FIFO/LRU/TTL/size + opt-in prune cron — D16) ·
+> **agent session + streaming loop** (`IAgentSession`/`AgentStreamEvent`, `IToolLoop.StreamAsync`,
+> `ToolLoopResult.Usage`) · **BYO resources** (v0.7: `IProcessRunner`, BYO `HttpClient`, BYO
+> `IDbConnectionFactory` + `migrate:false`, provider presets).
+> **§5 additive shape drift** (current shape = the baselines): `LlmVerdict` +`ContextWindowExceeded`/
+> `AuthFailed`/`Unsupported`; `LlmRequest` +`TimeoutSeconds`/`RefusalPattern`; `LlmReply` +`ToolCalls`;
+> `LlmMessage` tool turns + `Attachments`; `IPromptRegistry.ValidateOverride`; `IScoringService`
+> read/aggregate/export members; new storage domains `IJobStore`/`IPromptVersionStore`/`ICuratedMemoryStore`;
+> three storage backends, 11 packages (adapter→Core-only rule unchanged and verified).
+> **§6 semantic additions:** AuthFailed = cool + advance; ContextWindowExceeded = advance, no penalty;
+> Unsupported = surface (D4) · streaming timeouts are INACTIVITY clocks + the empty-content commit gate
+> (D5) · front-door decorators fold deterministically, cache outermost (D14) · `RefusalPattern` screening
+> re-screens even cached hits · usage-tracker totals are async by contract and case-insensitive per
+> consumer identity (v0.30).
+> **§7:** pre-release migration changes fold into the owning unreleased migration; released migrations
+> are frozen (D12); selective migration is FluentMigrator-tag-driven per `StorageFeature` (D15).
+> **v0.30 pre-1.0 breaks:** `ChatResult.BlockReason`→`Detail`; `IRateLimiter` cancellation propagates;
+> `IUsageTracker` fully async; tracker totals aggregate across consumer casings.
+
 ## 10. Consuming Lyntai (target ergonomics)
 
 A new app adds package references to `Lyntai.Core` + the storage/provider packages it wants, calls
-`services.AddLyntai(...)`, and injects `ILlmRouter`, `IScoringService`, `IMemoryStore`, etc. No source
+`services.AddLyntai(...)`, and injects `ILlmClient` (the front door, D6 — `ILlmRouter` only for a
+call-site-specific candidate list), `IScoringService`, `IMemoryStore`, etc. No source
 copying, no rebuild of the substrate. Adding a storage backend = a new `Lyntai.Storage.X` package that
 implements the domain interfaces. Adding a provider = a new `ILlmProvider` or an MEAI `IChatClient`
 through the bridge.

@@ -1,0 +1,38 @@
+# Push/PR validation: the same verify gate the release pipeline runs (build → tests → e2e → leak scan),
+# so a regression surfaces on the commit that caused it — not weeks later when a release is cut.
+# ubuntu-latest: pure managed library; the DPAPI tests self-skip off Windows, and the runner's Docker
+# lets the Postgres Testcontainers legs run for real (mirrors release.yml's job).
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  # supersede in-flight runs of the same ref (a rapid push train only validates the tip)
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (build · tests · e2e · leak scan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify gate
+        run: node devtools/dev.mjs verify

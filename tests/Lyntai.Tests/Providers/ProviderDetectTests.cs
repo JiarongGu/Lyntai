@@ -7,7 +7,7 @@ public class ProviderDetectTests
     [Theory]
     [InlineData("https://api.openai.com", "openai")]
     [InlineData("https://api.openai.com/v1", "openai")]
-    [InlineData("https://myres.openai.azure.com", "openai")]
+    [InlineData("https://myres.openai.azure.com", "azure-openai")] // P3: Azure's own flavor (/openai/v1 path + api-key header)
     [InlineData("https://openrouter.ai/api/v1", "openrouter")]
     [InlineData("http://localhost:11434", "ollama")]
     [InlineData("http://192.168.1.5:11434", "ollama")]

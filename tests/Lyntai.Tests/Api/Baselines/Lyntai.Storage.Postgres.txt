@@ -143,9 +143,9 @@ class Lyntai.Storage.Postgres.PostgresTraceStore
     SaveAsync(RunTrace, CancellationToken=) : Task
 class Lyntai.Storage.Postgres.PostgresUsageTracker
     .ctor(IDbConnectionFactory)
-    Record(String, LlmUsage) : Void
-    Reset(String=) : Void
-    Total(String=) : UsageTotals
+    RecordAsync(String, LlmUsage, CancellationToken=) : ValueTask
+    ResetAsync(String=, CancellationToken=) : ValueTask
+    TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
 class Lyntai.Storage.Postgres.PostgresVectorStore
     .ctor(IDbConnectionFactory)
     RemoveCollectionAsync(String, CancellationToken=) : Task

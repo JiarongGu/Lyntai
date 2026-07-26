@@ -64,52 +64,52 @@ public class SqliteGovernanceStoreTests : IDisposable
     // ---- usage tracker -------------------------------------------------------------------------------
 
     [Fact]
-    public void UsageTracker_accumulates_per_consumer_and_globally_persisted()
+    public async Task UsageTracker_accumulates_per_consumer_and_globally_persisted()
     {
-        new SqliteUsageTracker(_db.Factory).Record("a", new LlmUsage(10, 5, CostUsd: 0.10));
-        new SqliteUsageTracker(_db.Factory).Record("a", new LlmUsage(20, 5, CostUsd: 0.20));
-        new SqliteUsageTracker(_db.Factory).Record("b", new LlmUsage(1, 1, CostUsd: 0.01));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new LlmUsage(10, 5, CostUsd: 0.10));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("a", new LlmUsage(20, 5, CostUsd: 0.20));
+        await new SqliteUsageTracker(_db.Factory).RecordAsync("b", new LlmUsage(1, 1, CostUsd: 0.01));
 
         var tracker = new SqliteUsageTracker(_db.Factory); // fresh instance reads persisted totals
-        var a = tracker.Total("a");
+        var a = (await tracker.TotalAsync("a"));
         Assert.Equal(30, a.InputTokens);
         Assert.Equal(0.30, a.CostUsd, 5);
         Assert.Equal(2, a.Calls);
-        Assert.Equal(0.31, tracker.Total().CostUsd, 5);   // global SUM across rows
-        Assert.Equal(UsageTotals.Empty, tracker.Total("never-seen"));
+        Assert.Equal(0.31, (await tracker.TotalAsync()).CostUsd, 5);   // global SUM across rows
+        Assert.Equal(UsageTotals.Empty, (await tracker.TotalAsync("never-seen")));
     }
 
     [Fact] // R6: consumer identity is case-INSENSITIVE everywhere — totals AGGREGATE across casings, so
     // the budget cap (whose PerConsumer map is OrdinalIgnoreCase, like every options map) can't be
     // overspent 2x by tagging "App" in one code path and "app" in another. (Supersedes the earlier
     // case-sensitive pin, which matched the SQL PK but let each casing accrue its own uncapped total.)
-    public void UsageTracker_consumer_totals_aggregate_across_casings_on_every_backend()
+    public async Task UsageTracker_consumer_totals_aggregate_across_casings_on_every_backend()
     {
         IUsageTracker[] trackers = [new InMemoryUsageTracker(), new SqliteUsageTracker(_db.Factory)];
         foreach (var t in trackers)
         {
-            t.Record("App", new LlmUsage(10, 0, CostUsd: 0.10));
-            t.Record("app", new LlmUsage(20, 0, CostUsd: 0.20));
-            Assert.Equal(2, t.Total("App").Calls);           // ONE consumer identity, either casing
-            Assert.Equal(2, t.Total("app").Calls);
-            Assert.Equal(30, t.Total("APP").InputTokens);
-            Assert.Equal(0.30, t.Total("app").CostUsd, 5);
+            await t.RecordAsync("App", new LlmUsage(10, 0, CostUsd: 0.10));
+            await t.RecordAsync("app", new LlmUsage(20, 0, CostUsd: 0.20));
+            Assert.Equal(2, (await t.TotalAsync("App")).Calls);           // ONE consumer identity, either casing
+            Assert.Equal(2, (await t.TotalAsync("app")).Calls);
+            Assert.Equal(30, (await t.TotalAsync("APP")).InputTokens);
+            Assert.Equal(0.30, (await t.TotalAsync("app")).CostUsd, 5);
         }
     }
 
     [Fact]
-    public void UsageTracker_reset_clears_a_consumer_or_all()
+    public async Task UsageTracker_reset_clears_a_consumer_or_all()
     {
         var t = new SqliteUsageTracker(_db.Factory);
-        t.Record("a", new LlmUsage(10, 0, CostUsd: 0.10));
-        t.Record("b", new LlmUsage(20, 0, CostUsd: 0.20));
+        await t.RecordAsync("a", new LlmUsage(10, 0, CostUsd: 0.10));
+        await t.RecordAsync("b", new LlmUsage(20, 0, CostUsd: 0.20));
 
-        t.Reset("a");
-        Assert.Equal(UsageTotals.Empty, t.Total("a"));
-        Assert.Equal(0.20, t.Total().CostUsd, 5);         // b remains
+        await t.ResetAsync("a");
+        Assert.Equal(UsageTotals.Empty, (await t.TotalAsync("a")));
+        Assert.Equal(0.20, (await t.TotalAsync()).CostUsd, 5);         // b remains
 
-        t.Reset();
-        Assert.Equal(UsageTotals.Empty, t.Total());
+        await t.ResetAsync();
+        Assert.Equal(UsageTotals.Empty, (await t.TotalAsync()));
     }
 
     // ---- vector store --------------------------------------------------------------------------------

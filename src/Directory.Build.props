@@ -39,7 +39,9 @@
 
   <!-- Production packaging: XML docs ship in the package (missing-doc warnings suppressed — public
        surface is documented where it matters), portable PDBs in a .snupkg, and sources embedded in
-       the PDB so consumers can step into library code without a hosted repo. -->
+       the PDB so consumers can step into library code without a hosted repo. SourceLink itself is
+       SDK-included since .NET 8 (EnableSourceLink defaults true; no package reference needed) —
+       PublishRepositoryUrl surfaces the repo URL in the package/PDB metadata alongside it. -->
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
@@ -47,6 +49,13 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <EmbedAllSources>true</EmbedAllSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+
+  <!-- Deterministic CI builds: normalized paths + reproducible outputs on any GitHub Actions build
+       (both the push/PR verify and the release pack), never on local dev builds. -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <!-- The repo README ships inside every package (PackageReadmeFile above points at it). -->

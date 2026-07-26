@@ -667,14 +667,14 @@ class Lyntai.Llm.Budgeting.BudgetedLlmClient
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
 interface Lyntai.Llm.Budgeting.IUsageTracker
-    Record(String, LlmUsage) : Void
-    Reset(String=) : Void
-    Total(String=) : UsageTotals
+    RecordAsync(String, LlmUsage, CancellationToken=) : ValueTask
+    ResetAsync(String=, CancellationToken=) : ValueTask
+    TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
 class Lyntai.Llm.Budgeting.InMemoryUsageTracker
     .ctor()
-    Record(String, LlmUsage) : Void
-    Reset(String=) : Void
-    Total(String=) : UsageTotals
+    RecordAsync(String, LlmUsage, CancellationToken=) : ValueTask
+    ResetAsync(String=, CancellationToken=) : ValueTask
+    TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
 class Lyntai.Llm.Budgeting.UsageTotals
     .ctor(Int64, Int64, Double, Int64)
     Calls : Int64

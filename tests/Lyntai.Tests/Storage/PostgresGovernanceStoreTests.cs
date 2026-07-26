@@ -41,16 +41,16 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var a = Uid();
-        new PostgresUsageTracker(pg.Factory).Record(a, new LlmUsage(10, 5, CostUsd: 0.10));
-        new PostgresUsageTracker(pg.Factory).Record(a, new LlmUsage(20, 5, CostUsd: 0.20));
+        await new PostgresUsageTracker(pg.Factory).RecordAsync(a, new LlmUsage(10, 5, CostUsd: 0.10));
+        await new PostgresUsageTracker(pg.Factory).RecordAsync(a, new LlmUsage(20, 5, CostUsd: 0.20));
 
-        var ta = new PostgresUsageTracker(pg.Factory).Total(a); // fresh instance reads persisted totals
+        var ta = (await new PostgresUsageTracker(pg.Factory).TotalAsync(a)); // fresh instance reads persisted totals
         Assert.Equal(30, ta.InputTokens);
         Assert.Equal(0.30, ta.CostUsd, 5);
         Assert.Equal(2, ta.Calls);
 
-        new PostgresUsageTracker(pg.Factory).Reset(a);
-        Assert.Equal(UsageTotals.Empty, new PostgresUsageTracker(pg.Factory).Total(a));
+        await new PostgresUsageTracker(pg.Factory).ResetAsync(a);
+        Assert.Equal(UsageTotals.Empty, (await new PostgresUsageTracker(pg.Factory).TotalAsync(a)));
     }
 
     [SkippableFact]
