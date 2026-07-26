@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lyntai.Llm;
+using Lyntai.Llm.Streaming;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -83,34 +84,22 @@ public sealed class ExtensionsAiProvider(
             .GetAsyncEnumerator(timeoutCts.Token);
         await using (enumerator.ConfigureAwait(false))
         {
-            while (true)
+            // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
+            var guarded = GuardedStream.ReadAll<ChatResponseUpdate, LlmChunk>(
+                async () => await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null,
+                ex => ex is OperationCanceledException
+                    ? LlmChunk.Error(LlmVerdict.Timeout, $"{id}: no response within {timeout}")
+                    : LlmChunk.Error(LlmVerdictClassifier.FromException(ex), $"{id}: {ex.Message}"),
+                ct, new InactivityClock(timeoutCts, timeout));
+            await foreach (var (update, terminal) in guarded.ConfigureAwait(false))
             {
-                ChatResponseUpdate? update = null;
-                LlmChunk? error = null;
-                try
+                if (terminal is not null)
                 {
-                    timeoutCts.CancelAfter(timeout);                           // arm: inactivity clock for this read
-                    var moved = await enumerator.MoveNextAsync().ConfigureAwait(false);
-                    timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan);          // stop the clock while we + the consumer work
-                    update = moved ? enumerator.Current : null;
-                }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-                catch (OperationCanceledException)
-                {
-                    error = LlmChunk.Error(LlmVerdict.Timeout, $"{id}: no response within {timeout}");
-                }
-                catch (Exception ex)
-                {
-                    error = LlmChunk.Error(LlmVerdictClassifier.FromException(ex), $"{id}: {ex.Message}");
-                }
-                if (error is not null)
-                {
-                    yield return error;
+                    yield return terminal;
                     yield break;
                 }
-                if (update is null) break;
 
-                foreach (var content in update.Contents)
+                foreach (var content in update!.Contents)
                 {
                     if (content is UsageContent u) usage = MapUsage(u.Details);
                     else if (content is FunctionCallContent) sawToolCall = true; // a streamed native tool call

@@ -1456,6 +1456,23 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   full-buffer contract vs bounded tail). Pure refactor; the ProcessRunner suite (timeout/drain-liveness/
   stdin-coverage/kill/maxDuration) is the net — 1002 green.
 
+- [x] **P5 — extract the 5×-copied provider streaming read-loop into a Core helper.** Every streaming
+  provider (`ExtensionsAiProvider`, `OpenAiCompatibleProvider`, `LocalProvider`, `ClaudeCliProvider`,
+  `ClaudeAgentSession`) hand-rolls the same manual-enumerator + inactivity-clock re-arm + OCE-filter +
+  map-exception-to-terminal loop — the exact pattern that shipped the wall-clock bug twice. Deferred:
+  yield/finally semantics must be preserved exactly; do it TDD against the existing inactivity tests as
+  its own focused task, not inside a broad pass. Sketch in the review: `Lyntai.Llm.Streaming.ReadWithInactivityClock<T>`.
+  ✅ done 2026-07-27 — Outcome: `Lyntai.Llm.Streaming.GuardedStream.ReadAll<TItem, TTerminal>` +
+  `InactivityClock` (Arm/Stop over the provider's linked CTS) own the guarded loop once: arm → read →
+  stop, caller-cancel ALWAYS rethrows, any other fault maps via the provider's `onFault` (null =
+  propagate unchanged — how the CLI paths keep ALL OCE flowing to the router per T8). All five providers
+  now iterate it; the three clock-owning providers pass an `InactivityClock`, the two CLI paths pass none
+  (their window is `ProcessRunner`'s, arriving as `ProcessTimeoutException`); `TTerminal` is generic so
+  the agent session yields `SessionEnded` terminals (closing over the loop-mutated `lastSessionId`).
+  Yield/finally preserved: each provider keeps its own enumerator `await using`, source disposal, and
+  post-loop semantics. Full `verify` green incl. e2e (the streaming smoke); Core baseline +2 types;
+  `llm-and-router.md` updated to name the helper as the canonical provider-side shape.
+
 ---
 
 ## Notes for the implementer

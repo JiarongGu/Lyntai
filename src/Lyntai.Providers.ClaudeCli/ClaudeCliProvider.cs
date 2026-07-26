@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Lyntai.Agents;
 using Lyntai.Llm;
+using Lyntai.Llm.Streaming;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -130,35 +131,29 @@ public sealed class ClaudeCliProvider(
         var enumerator = lines.GetAsyncEnumerator(ct);
         await using (enumerator.ConfigureAwait(false))
         {
-            while (true)
+            // the guarded loop lives once in Core. No clock here — the inactivity window is the RUNNER's
+            // (its timeout arrives as ProcessTimeoutException), so ANY OperationCanceledException is
+            // cancellation and PROPAGATES: onFault returns null for it (the router decides — T8).
+            var guarded = GuardedStream.ReadAll<string, LlmChunk>(
+                async () => await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null,
+                ex => ex switch
+                {
+                    OperationCanceledException => null,
+                    ProcessTimeoutException => LlmChunk.Error(LlmVerdict.Timeout, ex.Message),
+                    ProcessRunException pre => LlmChunk.Error(
+                        LlmVerdictClassifier.FromErrorText(pre.StdErrTail), $"exit {pre.ExitCode}: {pre.StdErrTail}"),
+                    _ => LlmChunk.Error(LlmVerdict.Failed, $"spawn failed: {ex.Message}"),
+                },
+                ct);
+            await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
             {
-                string? line = null;
-                LlmChunk? error = null;
-                try
+                if (terminal is not null)
                 {
-                    line = await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null;
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (ProcessTimeoutException ex)
-                {
-                    error = LlmChunk.Error(LlmVerdict.Timeout, ex.Message);
-                }
-                catch (ProcessRunException ex)
-                {
-                    error = LlmChunk.Error(LlmVerdictClassifier.FromErrorText(ex.StdErrTail), $"exit {ex.ExitCode}: {ex.StdErrTail}");
-                }
-                catch (Exception ex)
-                {
-                    error = LlmChunk.Error(LlmVerdict.Failed, $"spawn failed: {ex.Message}");
-                }
-                if (error is not null)
-                {
-                    yield return error;
+                    yield return terminal;
                     yield break;
                 }
-                if (line is null) break;
 
-                var evt = StreamJsonParser.Parse(line);
+                var evt = StreamJsonParser.Parse(line!);
                 if (evt.Kind == StreamJsonEventKind.AssistantText)
                 {
                     sawContent = true;

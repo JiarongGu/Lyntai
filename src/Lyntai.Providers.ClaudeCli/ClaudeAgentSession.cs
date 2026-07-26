@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Lyntai.Agents;
 using Lyntai.Llm;
+using Lyntai.Llm.Streaming;
 using Lyntai.Processes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -52,38 +53,31 @@ public sealed class ClaudeAgentSession : IAgentSession
         var e = lines.GetAsyncEnumerator(ct);
         await using (e.ConfigureAwait(false))
         {
-            while (true)
+            // the guarded loop lives once in Core. No clock here — the inactivity window is the RUNNER's
+            // (its timeout arrives as ProcessTimeoutException), so ANY OperationCanceledException is
+            // cancellation and PROPAGATES: onFault returns null for it. The fault terminal captures
+            // lastSessionId at FAULT time (the closure reads the loop-mutated local).
+            var guarded = GuardedStream.ReadAll<string, SessionEnded>(
+                async () => await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null,
+                ex => ex switch
+                {
+                    OperationCanceledException => null,
+                    ProcessTimeoutException => new SessionEnded(LlmVerdict.Timeout, true, "timeout", lastSessionId, null, ex.Message),
+                    ProcessRunException pre => new SessionEnded(
+                        LlmVerdictClassifier.FromErrorText(pre.StdErrTail), true, null,
+                        lastSessionId, null, $"exit {pre.ExitCode}: {pre.StdErrTail}"),
+                    _ => new SessionEnded(LlmVerdict.Failed, true, null, lastSessionId, null, $"spawn failed: {ex.Message}"),
+                },
+                ct);
+            await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
             {
-                string? line = null;
-                SessionEnded? terminal = null;
-                try
-                {
-                    line = await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null;
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (ProcessTimeoutException ex)
-                {
-                    terminal = new SessionEnded(LlmVerdict.Timeout, true, "timeout", lastSessionId, null, ex.Message);
-                }
-                catch (ProcessRunException ex)
-                {
-                    terminal = new SessionEnded(
-                        LlmVerdictClassifier.FromErrorText(ex.StdErrTail), true, null,
-                        lastSessionId, null, $"exit {ex.ExitCode}: {ex.StdErrTail}");
-                }
-                catch (Exception ex)
-                {
-                    terminal = new SessionEnded(LlmVerdict.Failed, true, null, lastSessionId, null, $"spawn failed: {ex.Message}");
-                }
-
                 if (terminal is not null)
                 {
                     if (!sawTerminal) yield return terminal;
                     yield break;
                 }
-                if (line is null) break;
 
-                foreach (var evt in reader.Read(line))
+                foreach (var evt in reader.Read(line!))
                 {
                     if (evt is SessionStarted ss) lastSessionId = ss.SessionId;
                     else if (evt is SessionEnded se)

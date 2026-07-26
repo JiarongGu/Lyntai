@@ -20,12 +20,6 @@ The whole-library review (6 parallel reviewers, ~80 findings) landed its correct
 (see `CHANGELOG.md` Unreleased). These remaining findings were TRIAGED AND DEFERRED deliberately — each
 with the reason; pick up when the trade-off changes.
 
-- [ ] **P5 — extract the 5×-copied provider streaming read-loop into a Core helper.** Every streaming
-  provider (`ExtensionsAiProvider`, `OpenAiCompatibleProvider`, `LocalProvider`, `ClaudeCliProvider`,
-  `ClaudeAgentSession`) hand-rolls the same manual-enumerator + inactivity-clock re-arm + OCE-filter +
-  map-exception-to-terminal loop — the exact pattern that shipped the wall-clock bug twice. Deferred:
-  yield/finally semantics must be preserved exactly; do it TDD against the existing inactivity tests as
-  its own focused task, not inside a broad pass. Sketch in the review: `Lyntai.Llm.Streaming.ReadWithInactivityClock<T>`.
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
   materialize. Not a license to reintroduce reflection serialization.

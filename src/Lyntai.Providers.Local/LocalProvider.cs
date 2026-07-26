@@ -4,6 +4,7 @@ using LLama;
 using LLama.Common;
 using LLama.Sampling;
 using Lyntai.Llm;
+using Lyntai.Llm.Streaming;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -98,32 +99,24 @@ public sealed class LocalProvider(
             var enumerator = executor.InferAsync(prompt, inference, timeoutCts.Token).GetAsyncEnumerator(timeoutCts.Token);
             await using (enumerator.ConfigureAwait(false))
             {
-                while (true)
-                {
-                    string? piece;
-                    LlmChunk? error = null;
-                    try
-                    {
-                        timeoutCts.CancelAfter(timeout);                  // arm: inactivity clock for this token
-                        var moved = await enumerator.MoveNextAsync().ConfigureAwait(false);
-                        timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while we + the consumer work
-                        piece = moved ? enumerator.Current : null;
-                    }
-                    catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-                    catch (Exception ex)
+                // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
+                var guarded = GuardedStream.ReadAll<string, LlmChunk>(
+                    async () => await enumerator.MoveNextAsync().ConfigureAwait(false) ? enumerator.Current : null,
+                    ex =>
                     {
                         var timedOut = timeoutCts.IsCancellationRequested;
-                        error = LlmChunk.Error(timedOut ? LlmVerdict.Timeout : LlmVerdict.Failed,
+                        return LlmChunk.Error(timedOut ? LlmVerdict.Timeout : LlmVerdict.Failed,
                             timedOut ? $"{Id}: no token within {timeout}" : $"{Id}: generation broke — {ex.Message}");
-                        piece = null;
-                    }
-                    if (error is not null)
+                    },
+                    ct, new InactivityClock(timeoutCts, timeout));
+                await foreach (var (piece, terminal) in guarded.ConfigureAwait(false))
+                {
+                    if (terminal is not null)
                     {
-                        yield return error;
+                        yield return terminal;
                         yield break;
                     }
-                    if (piece is null) break;
-                    if (piece.Length == 0) continue; // decoder can emit empty pieces mid multi-byte token
+                    if (piece!.Length == 0) continue; // decoder can emit empty pieces mid multi-byte token
                     sawContent = true;
                     yield return LlmChunk.Content(piece);
                 }

@@ -916,6 +916,12 @@ sealed class Lyntai.Llm.Routing.RoutingPolicy
     RetriesFor(LlmVerdict) : Int32
     Retry(LlmVerdict, Int32) : RoutingPolicy
     RetryBackoff : TimeSpan
+static class Lyntai.Llm.Streaming.GuardedStream
+    static ReadAll(Func<ValueTask<TItem>>, Func<Exception,TTerminal>, CancellationToken, InactivityClock=) : IAsyncEnumerable<ValueTuple<TItem,TTerminal>>
+sealed class Lyntai.Llm.Streaming.InactivityClock
+    .ctor(CancellationTokenSource, TimeSpan)
+    Arm() : Void
+    Stop() : Void
 sealed class Lyntai.LyntaiBuilder
     AddConversationEnricher() : LyntaiBuilder
     AddConversationEnricher(Func<IServiceProvider,IConversationEnricher>) : LyntaiBuilder

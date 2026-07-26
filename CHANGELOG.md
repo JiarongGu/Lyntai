@@ -49,6 +49,11 @@ changes** (renamed C# members map onto the frozen columns via SELECT aliases).
   factory/generic registration parity with the other seams.
 - **`IProcessRunner.StreamLinesAsync` `maxDuration`** — an optional wall-clock backstop alongside the
   inactivity window (a slowly-dripping stream can no longer run unbounded).
+- **`Lyntai.Llm.Streaming.GuardedStream` + `InactivityClock`**: the provider streaming read-loop
+  (arm-the-inactivity-clock → read → stop-the-clock, caller-cancel rethrow, per-provider fault→terminal
+  mapping) now lives once in Core — the hand-rolled copies in all five streaming providers were exactly
+  where the wall-clock timeout bug shipped twice. BYO `ILlmProvider` authors should iterate it instead
+  of hand-rolling the loop.
 
 ### Fixed
 - **Rate limiter honors live option retunes** (it documented them but froze rates at construction):

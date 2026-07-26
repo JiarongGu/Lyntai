@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Llm;
+using Lyntai.Llm.Streaming;
 using Lyntai.Providers.OpenAiCompatible.Payloads;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -148,37 +149,26 @@ public sealed class OpenAiCompatibleProvider(
         LlmUsage? usage = null;
         string? finishReason = null;
         var sawContent = false;
-        var done = false;
-        while (!done)
+        // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
+        var guarded = GuardedStream.ReadAll<string, LlmChunk>(
+            async () => await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false),
+            ex => LlmChunk.Error(
+                timeoutCts.IsCancellationRequested ? LlmVerdict.Timeout : LlmVerdict.Failed,
+                $"{id}: stream broke — {ex.Message}"),
+            ct, new InactivityClock(timeoutCts, timeout));
+        await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
         {
-            string? line;
-            LlmChunk? error = null;
-            try
+            if (terminal is not null)
             {
-                timeoutCts.CancelAfter(timeout);                           // arm: inactivity clock for this read
-                line = await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false);
-                timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan);          // stop the clock while we + the consumer work
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception ex)
-            {
-                error = LlmChunk.Error(
-                    timeoutCts.IsCancellationRequested ? LlmVerdict.Timeout : LlmVerdict.Failed,
-                    $"{id}: stream broke — {ex.Message}");
-                line = null;
-            }
-            if (error is not null)
-            {
-                yield return error;
+                yield return terminal;
                 yield break;
             }
-            if (line is null) break;
-            if (line.Length == 0) continue;
+            if (line!.Length == 0) continue;
 
             // SSE ("data: {...}" / "data: [DONE]") for OpenAI-style; bare NDJSON for Ollama
             var payload = line.StartsWith("data:", StringComparison.Ordinal) ? line[5..].Trim() : line.Trim();
             if (payload.Length == 0) continue;
-            if (payload == "[DONE]") { done = true; continue; }
+            if (payload == "[DONE]") break;
 
             var (text, chunkUsage, isFinal, reason) = ParseStreamLine(payload);
             if (chunkUsage is not null) usage = chunkUsage;
@@ -191,7 +181,7 @@ public sealed class OpenAiCompatibleProvider(
             // finish_reason terminates an NDJSON (Ollama) stream. An SSE stream instead runs on to its
             // [DONE] sentinel (or EOF) so the trailing stream_options usage chunk — sent AFTER the
             // finish_reason line, with an EMPTY choices array — is still read into `usage`.
-            if (isFinal && _flavor == ProviderDetect.Ollama) done = true;
+            if (isFinal && _flavor == ProviderDetect.Ollama) break;
         }
 
         // a streamed content filter must end as Refused, not a benign Final — same verdict the
