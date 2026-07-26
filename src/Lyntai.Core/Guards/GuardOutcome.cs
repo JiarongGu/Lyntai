@@ -27,8 +27,6 @@ public sealed record GuardOutcome
     public string? Reason { get; }
     public string? Replacement { get; }
 
-    public bool IsAllow => Result == Kind.Allow;
-
     public static GuardOutcome Allow { get; } = new(Kind.Allow);
     public static GuardOutcome Block(string reason) => new(Kind.Block, reason);
     public static GuardOutcome Replace(string replacement, string? reason = null) => new(Kind.Replace, reason, replacement);

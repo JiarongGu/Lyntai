@@ -38,12 +38,13 @@ public interface IToolLoop
         foreach (var s in result.Steps)
         {
             yield return new ToolCall(s.Tool, s.ArgumentsJson, null);
-            yield return new ToolResult(null, s.Result, s.Result.StartsWith("error:", StringComparison.Ordinal));
+            yield return new ToolResult(null, s.Result, ToolObservations.IsError(s.Result));
         }
-        if (result.Usage is { } u)
-            yield return new UsageFinal(u.InputTokens, u.OutputTokens, u.CacheReadTokens, 0, null);
+        // same event order as the live door: the answer text, then usage, then the terminal
         if (!string.IsNullOrEmpty(result.Answer))
             yield return new TextDelta(result.Answer);
+        if (result.Usage is { } u)
+            yield return new UsageFinal(u.InputTokens, u.OutputTokens, u.CacheReadTokens, 0, null);
         yield return new SessionEnded(result.Verdict, !result.Ok, null, null, result.Answer, result.Detail);
     }
 }

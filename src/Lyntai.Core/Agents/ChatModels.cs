@@ -27,12 +27,15 @@ public sealed record ChatTurn
 }
 
 /// <summary>The result of a chat turn: the <paramref name="Answer"/> (empty when blocked/failed), whether
-/// a guard <paramref name="Blocked"/> it (input or output gate) with the reason, and any tool steps.</summary>
+/// a guard <paramref name="Blocked"/> it (input or output gate), and any tool steps.
+/// <paramref name="Detail"/> carries the guard's block reason when <see cref="Blocked"/>, else the LLM
+/// failure detail on a non-Ok verdict (timeout text, provider error); null on a clean success.
+/// (Renamed from <c>BlockReason</c>, which lied for every non-Ok, non-blocked outcome.)</summary>
 public sealed record ChatResult(
     string Answer,
     LlmVerdict Verdict,
     bool Blocked,
-    string? BlockReason,
+    string? Detail,
     IReadOnlyList<ToolStep> ToolSteps)
 {
     public bool Ok => Verdict == LlmVerdict.Ok && !Blocked;

@@ -13,18 +13,18 @@ namespace Lyntai.Llm.RateLimiting;
 /// a permit — only real provider calls are throttled.
 /// </summary>
 public sealed class RateLimitedLlmClient(
-    ILlmClient inner, IRateLimiter limiter, ILogger<RateLimitedLlmClient>? logger = null) : ILlmClient
+    ILlmClient inner, IRateLimiter limiter, ILogger<RateLimitedLlmClient>? logger = null) : DelegatingLlmClient(inner)
 {
     private readonly ILogger _logger = logger ?? NullLogger<RateLimitedLlmClient>.Instance;
 
-    public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(req.Consumer, ct).ConfigureAwait(false))
             return Throttled(req.Consumer);
-        return await inner.CompleteAsync(req, ct).ConfigureAwait(false);
+        return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
     }
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(
+    public override async IAsyncEnumerable<LlmChunk> StreamAsync(
         LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (!await limiter.AcquireAsync(req.Consumer, ct).ConfigureAwait(false))
@@ -32,11 +32,9 @@ public sealed class RateLimitedLlmClient(
             yield return LlmChunk.Error(LlmVerdict.RateLimited, "client-side rate limit exceeded");
             yield break;
         }
-        await foreach (var chunk in inner.StreamAsync(req, ct).ConfigureAwait(false))
+        await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
             yield return chunk;
     }
-
-    public bool SupportsToolCalls(LlmRequest req) => inner.SupportsToolCalls(req);
 
     private LlmReply Throttled(string consumer)
     {

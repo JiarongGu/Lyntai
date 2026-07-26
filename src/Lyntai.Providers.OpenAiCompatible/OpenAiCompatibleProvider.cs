@@ -247,7 +247,7 @@ public sealed class OpenAiCompatibleProvider(
 
     private LlmReply MapHttpFailure(HttpStatusCode status, string body)
     {
-        var detail = $"{id}: HTTP {(int)status} {Tail(body)}";
+        var detail = $"{id}: HTTP {(int)status} {Head(body)}";
         // typed status wins; body text goes through the ONE shared classifier (never local heuristics)
         return new LlmReply("", LlmVerdictClassifier.FromHttpFailure(status, body), Detail: detail);
     }
@@ -396,7 +396,9 @@ public sealed class OpenAiCompatibleProvider(
     private static long GetLong(JsonElement obj, string name) =>
         obj.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.Number ? el.GetInt64() : 0;
 
-    private static string Tail(string text, int max = 300)
+    // Head, not Tail: an HTTP error body leads with the useful part (ClaudeCli's Tail keeps the END of stderr
+    // — same job, opposite slice; the names now say which).
+    private static string Head(string text, int max = 300)
     {
         var trimmed = text.Trim();
         return trimmed.Length <= max ? trimmed : trimmed[..max];

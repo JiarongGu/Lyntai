@@ -18,21 +18,21 @@ namespace Lyntai.Llm.Budgeting;
 /// in a custom <see cref="IUsageTracker"/>.</para>
 /// </summary>
 public sealed class BudgetedLlmClient(
-    ILlmClient inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedLlmClient>? logger = null) : ILlmClient
+    ILlmClient inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedLlmClient>? logger = null) : DelegatingLlmClient(inner)
 {
     private readonly ILogger _logger = logger ?? NullLogger<BudgetedLlmClient>.Instance;
 
-    public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         if (IsOverBudget(req.Consumer, out var reason))
             return new LlmReply("", LlmVerdict.Refused, Detail: reason);
 
-        var reply = await inner.CompleteAsync(req, ct).ConfigureAwait(false);
+        var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
         if (reply.Usage is not null) tracker.Record(req.Consumer, reply.Usage);
         return reply;
     }
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(
+    public override async IAsyncEnumerable<LlmChunk> StreamAsync(
         LlmRequest req, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
     {
         if (IsOverBudget(req.Consumer, out var reason))
@@ -41,14 +41,12 @@ public sealed class BudgetedLlmClient(
             yield break;
         }
 
-        await foreach (var chunk in inner.StreamAsync(req, ct).ConfigureAwait(false))
+        await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
         {
             if (chunk is { Kind: LlmChunkKind.Final, Usage: not null }) tracker.Record(req.Consumer, chunk.Usage);
             yield return chunk;
         }
     }
-
-    public bool SupportsToolCalls(LlmRequest req) => inner.SupportsToolCalls(req);
 
     /// <summary>True when a cap that applies to <paramref name="consumer"/> has been reached: the global
     /// caps (vs the global total) or the consumer's own caps (vs its total).</summary>

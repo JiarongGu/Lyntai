@@ -30,22 +30,11 @@ public sealed class LlmRouter(
 
     public async Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default)
     {
-        var deduped = CandidateDedup.Dedup(candidates);
-        var soleCandidate = deduped.Count == 1;
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
         LlmReply? last = null;
 
-        foreach (var candidate in deduped)
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req, liveModel))
         {
-            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model, liveModel);
-            var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason);
-            if (provider is null)
-            {
-                _logger.LogDebug("router: skipping {Candidate} — {Reason}", candidate.ProviderId, skipReason);
-                continue;
-            }
-            var key = CooldownKey(provider.Id, effectiveModel);
-
             // retry-then-advance: the same candidate may be retried on transient faults before advancing
             var retries = 0;
             while (true)
@@ -95,21 +84,11 @@ public sealed class LlmRouter(
     public async IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var deduped = CandidateDedup.Dedup(candidates);
-        var soleCandidate = deduped.Count == 1;
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
         LlmChunk? lastError = null;
 
-        foreach (var candidate in deduped)
+        foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req, liveModel))
         {
-            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model, liveModel);
-            var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason);
-            if (provider is null)
-            {
-                _logger.LogDebug("router: skipping {Candidate} — {Reason}", candidate.ProviderId, skipReason);
-                continue;
-            }
-            var key = CooldownKey(provider.Id, effectiveModel);
             var effective = req with { Model = effectiveModel };
 
             // pre-content retry-then-advance: streaming can only retry BEFORE the first token (after
@@ -246,21 +225,37 @@ public sealed class LlmRouter(
 
     /// <summary>Native tool support for a candidate list: the first live candidate (registered,
     /// available, not on cooldown) decides — matching how the router commits to the first working one.
-    /// A tool-capable fallback that would never be reached must not flip this true.</summary>
+    /// A tool-capable fallback that would never be reached must not flip this true. Being a SYNC probe,
+    /// it resolves against the CONFIGURED default model (no live <see cref="IModelRoutingStore"/> read) —
+    /// under <see cref="CooldownScope.ProviderAndModel"/> plus a live override, the probe's cooldown key
+    /// can differ from the completion's.</summary>
     public bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req)
+    {
+        foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
+            return candidate.Provider.SupportsToolCalls; // first live candidate decides
+        return false;
+    }
+
+    /// <summary>The shared candidate-selection preamble every door runs (this used to be written out three
+    /// times): dedup the list, resolve each candidate's EFFECTIVE model (candidate override → request →
+    /// consumer default → live override when supplied), skip unknown/unavailable/cooling providers (with
+    /// the sole-candidate exemption), and pair each survivor with its cooldown key.</summary>
+    private IEnumerable<(ILlmProvider Provider, string? Model, string Key)> LiveCandidates(
+        IReadOnlyList<LlmCandidate> candidates, LlmRequest req, string? liveModel)
     {
         var deduped = CandidateDedup.Dedup(candidates);
         var soleCandidate = deduped.Count == 1;
         foreach (var candidate in deduped)
         {
-            // resolve the SAME effective model CompleteAsync would (so the cooldown key matches under
-            // ProviderAndModel scope) — else the probe could deem a candidate live that the completion
-            // then skips, silently dropping tools
-            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model);
-            var provider = SelectLive(candidate, effectiveModel, soleCandidate, out _);
-            if (provider is not null) return provider.SupportsToolCalls; // first live candidate decides
+            var effectiveModel = options.ResolveModel(req.Consumer, candidate.Model ?? req.Model, liveModel);
+            var provider = SelectLive(candidate, effectiveModel, soleCandidate, out var skipReason);
+            if (provider is null)
+            {
+                _logger.LogDebug("router: skipping {Candidate} — {Reason}", candidate.ProviderId, skipReason);
+                continue;
+            }
+            yield return (provider, effectiveModel, CooldownKey(provider.Id, effectiveModel));
         }
-        return false;
     }
 
     private async Task<LlmReply> TryCompleteAsync(ILlmProvider provider, string? effectiveModel, LlmRequest req, CancellationToken ct)

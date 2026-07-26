@@ -50,9 +50,9 @@ class Lyntai.Agents.ChatOrchestrator
 class Lyntai.Agents.ChatResult
     .ctor(String, LlmVerdict, Boolean, String, IReadOnlyList<ToolStep>)
     Answer : String
-    BlockReason : String
     Blocked : Boolean
     Deconstruct(String&, LlmVerdict&, Boolean&, String&, IReadOnlyList`1&) : Void
+    Detail : String
     Equals(ChatResult) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
@@ -467,7 +467,6 @@ class Lyntai.Guards.GuardOutcome
     Equals(GuardOutcome) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
-    IsAllow : Boolean
     Reason : String
     Replace(String, String=) : GuardOutcome
     Replacement : String
@@ -487,7 +486,6 @@ class Lyntai.Guards.GuardedLlmClient
     .ctor(ILlmClient, IGuardRail)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(LlmRequest) : Boolean
 interface Lyntai.Guards.IGuard
     InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
     InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
@@ -668,7 +666,6 @@ class Lyntai.Llm.Budgeting.BudgetedLlmClient
     .ctor(ILlmClient, IUsageTracker, LyntaiOptions, ILogger<BudgetedLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(LlmRequest) : Boolean
 interface Lyntai.Llm.Budgeting.IUsageTracker
     Record(String, LlmUsage) : Void
     Reset(String=) : Void
@@ -694,8 +691,6 @@ class Lyntai.Llm.Budgeting.UsageTotals
 class Lyntai.Llm.Caching.CachingLlmClient
     .ctor(ILlmClient, IResponseCache, LyntaiOptions, ILogger<CachingLlmClient>=, IModelRoutingStore=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(LlmRequest) : Boolean
 interface Lyntai.Llm.Caching.IResponseCache
     SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
     TryGetAsync(String, CancellationToken=) : Task<LlmReply>
@@ -705,6 +700,12 @@ class Lyntai.Llm.Caching.InMemoryResponseCache
     TryGetAsync(String, CancellationToken=) : Task<LlmReply>
 static class Lyntai.Llm.Caching.ResponseCacheKey
     For(LlmRequest, String=) : String
+class Lyntai.Llm.DelegatingLlmClient
+    .ctor(ILlmClient)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    Inner : ILlmClient
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest) : Boolean
 interface Lyntai.Llm.ILlmClient
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
@@ -861,17 +862,12 @@ class Lyntai.Llm.RateLimiting.RateLimitedLlmClient
     .ctor(ILlmClient, IRateLimiter, ILogger<RateLimitedLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(LlmRequest) : Boolean
 class Lyntai.Llm.RateLimiting.TokenBucketRateLimiter
     .ctor(LyntaiOptions, Func<DateTimeOffset>=)
     AcquireAsync(String, CancellationToken=) : Task<Boolean>
 class Lyntai.Llm.RefusalScreeningLlmClient
     .ctor(ILlmClient, IEnumerable<IRefusalMatcher>=, ILogger<RefusalScreeningLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(LlmRequest) : Boolean
-static class Lyntai.Llm.Routing.CandidateDedup
-    Dedup(IEnumerable<LlmCandidate>) : IReadOnlyList<LlmCandidate>
 enum Lyntai.Llm.Routing.CooldownScope
     Provider : CooldownScope const
     ProviderAndModel : CooldownScope const

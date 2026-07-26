@@ -48,9 +48,14 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
     public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
         InspectCoreAsync(reply, "output", "response",
             static (g, cur, ct) => g.InspectResponseAsync(cur, ct),
-            // re-thread the rewritten text AND clear ToolCalls/Detail — a Replace redacts the whole
-            // reply, so later guards (and the applied result) must not see the un-redacted originals
-            static (cur, replacement) => cur with { Text = replacement, ToolCalls = null, Detail = null }, ct);
+            static (cur, replacement) => Redact(cur, replacement), ct);
+
+    /// <summary>Apply a whole-reply redaction: the rewritten text REPLACES everything scannable — ToolCalls
+    /// and Detail are cleared too, or denied content the output gate also scans (a tool call's args, an
+    /// error detail) would pass through un-redacted. Shared by the rail's re-thread and
+    /// <see cref="GuardedLlmClient"/>'s applied result so the two can't drift.</summary>
+    internal static LlmReply Redact(LlmReply reply, string replacement) =>
+        reply with { Text = replacement, ToolCalls = null, Detail = null };
 
     /// <summary>Tool-call gate with an ARGS-aware re-thread: a Replace rewrites the arguments JSON, and
     /// later guards must inspect the REWRITE (the interface default routes through the request gate,

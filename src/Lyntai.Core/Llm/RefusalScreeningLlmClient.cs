@@ -18,15 +18,15 @@ namespace Lyntai.Llm;
 public sealed class RefusalScreeningLlmClient(
     ILlmClient inner,
     IEnumerable<IRefusalMatcher>? matchers = null,
-    ILogger<RefusalScreeningLlmClient>? logger = null) : ILlmClient
+    ILogger<RefusalScreeningLlmClient>? logger = null) : DelegatingLlmClient(inner)
 {
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(100);
     private readonly IReadOnlyList<IRefusalMatcher> _matchers = [.. matchers ?? []];
     private readonly ILogger _logger = logger ?? NullLogger<RefusalScreeningLlmClient>.Instance;
 
-    public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
-        var reply = await inner.CompleteAsync(req, ct).ConfigureAwait(false);
+        var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
         if (reply.Verdict != LlmVerdict.Ok || string.IsNullOrEmpty(reply.Text))
             return reply;
 
@@ -62,8 +62,6 @@ public sealed class RefusalScreeningLlmClient(
         return reply;
     }
 
-    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
-        inner.StreamAsync(req, ct);
-
-    public bool SupportsToolCalls(LlmRequest req) => inner.SupportsToolCalls(req);
+    // StreamAsync/SupportsToolCalls: base pass-through (streaming is never screened — the reply text
+    // isn't assembled here, and streaming never falls back after the first token).
 }

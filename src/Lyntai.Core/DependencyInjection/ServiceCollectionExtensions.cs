@@ -79,7 +79,8 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetServices<ILlmProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
             sp.GetService<ILogger<LlmRouter>>(), modelRouting: sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>()));
         // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
-        // are folded over the base client in registration order, so they compose instead of clobbering.
+        // are folded over the base client in ascending Order (the decorator's declared position — NOT raw
+        // registration order), so they compose predictably instead of clobbering.
         services.TryAddSingleton<ILlmClient>(sp =>
         {
             ILlmClient client = new LlmClient(sp.GetRequiredService<ILlmRouter>(), options);

@@ -6,6 +6,14 @@ namespace Lyntai.Agents;
 /// the observation returned (or an <c>error: …</c> string when the tool was unknown or threw).</summary>
 public sealed record ToolStep(string Tool, string ArgumentsJson, string Result);
 
+/// <summary>The error-observation marker shared by the loop's producer (unknown tool / a tool that threw)
+/// and both stream doors' <c>ToolResult.IsError</c> flags — one prefix, so producer and readers can't drift.</summary>
+internal static class ToolObservations
+{
+    public const string ErrorPrefix = "error:";
+    public static bool IsError(string observation) => observation.StartsWith(ErrorPrefix, StringComparison.Ordinal);
+}
+
 /// <summary>The outcome of an <see cref="IToolLoop"/> run: the final <paramref name="Answer"/>, the
 /// <paramref name="Verdict"/> (Ok on a clean finish; a non-Ok LLM verdict is surfaced as-is; Failed
 /// with a <paramref name="Detail"/> when the loop didn't converge), and every <see cref="ToolStep"/>

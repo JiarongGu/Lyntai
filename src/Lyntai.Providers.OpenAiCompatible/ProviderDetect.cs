@@ -7,6 +7,9 @@ public static class ProviderDetect
 {
     public const string OpenAi = "openai";
     public const string Ollama = "ollama";
+    /// <summary>Detected for openrouter.ai hosts. Currently behaves IDENTICALLY to <see cref="OpenAi"/>
+    /// (no code path branches on it yet) — kept distinct so OpenRouter-specific behavior (e.g. its ranking
+    /// headers) can land later without re-detecting, and so a pinned flavor stays honest.</summary>
     public const string OpenRouter = "openrouter";
 
     public static string Detect(string? baseUrl)

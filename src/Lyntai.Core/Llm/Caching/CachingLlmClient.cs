@@ -18,13 +18,13 @@ namespace Lyntai.Llm.Caching;
 /// </summary>
 public sealed class CachingLlmClient(
     ILlmClient inner, IResponseCache cache, LyntaiOptions options,
-    ILogger<CachingLlmClient>? logger = null, IModelRoutingStore? modelRouting = null) : ILlmClient
+    ILogger<CachingLlmClient>? logger = null, IModelRoutingStore? modelRouting = null) : DelegatingLlmClient(inner)
 {
     private readonly ILogger _logger = logger ?? NullLogger<CachingLlmClient>.Instance;
 
-    public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
-        if (!IsCacheable(req)) return await inner.CompleteAsync(req, ct).ConfigureAwait(false);
+        if (!IsCacheable(req)) return await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
 
         // key on the EFFECTIVE model — the router resolves per-consumer defaults + a LIVE override, so two
         // consumers (or a pre/post admin retune) with Model=null + identical messages don't collide, and a
@@ -40,17 +40,14 @@ public sealed class CachingLlmClient(
         }
 
         LyntaiDiagnostics.RecordCacheAccess(hit: false);
-        var reply = await inner.CompleteAsync(req, ct).ConfigureAwait(false);
+        var reply = await Inner.CompleteAsync(req, ct).ConfigureAwait(false);
         // cache only clean successes — never an error (transient) or a tool-call reply (stateful/deferred)
         if (reply.Verdict == LlmVerdict.Ok && reply.ToolCalls is null or { Count: 0 })
             await cache.SetAsync(key, reply, options.Cache.Ttl, ct).ConfigureAwait(false);
         return reply;
     }
 
-    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
-        inner.StreamAsync(req, ct); // streaming is delivered live; not a cache unit
-
-    public bool SupportsToolCalls(LlmRequest req) => inner.SupportsToolCalls(req);
+    // StreamAsync/SupportsToolCalls: base pass-through (streaming is delivered live; not a cache unit).
 
     // Native tool requests bypass the cache (the loop is stateful); everything else is cacheable.
     private static bool IsCacheable(LlmRequest req) => req.Tools is null or { Count: 0 };

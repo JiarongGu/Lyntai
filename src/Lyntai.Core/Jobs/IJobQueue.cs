@@ -35,10 +35,14 @@ public interface IJobQueue
 /// <inheritdoc/>
 public sealed class JobQueue(IJobStore? store, LyntaiOptions options) : IJobQueue
 {
+    /// <summary>The one no-store failure message the queue AND the runner throw (kept identical so an
+    /// operator sees the same fix whichever entry point hit it first).</summary>
+    internal const string RequiresStorageMessage =
+        "Durable jobs require a storage backend — call UseSqliteStorage / UsePostgresStorage / UseInMemoryStorage.";
+
     // durable jobs REQUIRE persistence — fail loudly rather than silently dropping work (unlike the
     // fail-open cortex helpers)
-    private readonly IJobStore _store = store ?? throw new InvalidOperationException(
-        "Durable jobs require a storage backend — call UseSqliteStorage / UsePostgresStorage / UseInMemoryStorage.");
+    private readonly IJobStore _store = store ?? throw new InvalidOperationException(RequiresStorageMessage);
 
     public Task<Guid> EnqueueAsync(JobSpec spec, CancellationToken ct = default) =>
         _store.EnqueueAsync(spec with { MaxAttempts = spec.MaxAttempts ?? options.Jobs.DefaultMaxAttempts }, ct);

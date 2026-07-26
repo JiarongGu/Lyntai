@@ -13,7 +13,9 @@ public interface ILlmRouter
 
     /// <summary>Whether native tool-calling is available for <paramref name="candidates"/> serving
     /// <paramref name="req"/> — true iff the first live (registered + available + not on cooldown)
-    /// candidate is a tool-capable provider. Takes the request so it resolves the SAME effective model /
-    /// cooldown key that <see cref="CompleteAsync"/> will, avoiding a probe-vs-serve mismatch. Default false.</summary>
+    /// candidate is a tool-capable provider. Takes the request so it resolves the same CONFIGURED
+    /// effective model / cooldown key that <see cref="CompleteAsync"/> will. Caveat: being a sync probe,
+    /// it does NOT read a live <c>IModelRoutingStore</c> override — under <c>ProviderAndModel</c> cooldown
+    /// scope plus a live override, the probe's cooldown key can differ from the completion's. Default false.</summary>
     bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) => false;
 }

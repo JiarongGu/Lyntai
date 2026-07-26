@@ -90,8 +90,10 @@ public sealed class ToolLoop(
         }
 
         var budget = maxIterations ?? options.ToolLoopMaxIterations;
+        var native = client.SupportsToolCalls(req);
+        var mode = native ? "native" : "prompt";
 
-        if (client.SupportsToolCalls(req))
+        if (native)
         {
             // Native path: tool declarations go to the model; its structured LlmReply.ToolCalls drive
             // execution, fed back as tool-role messages.
@@ -139,10 +141,6 @@ public sealed class ToolLoop(
                     messages.Add(LlmMessage.ToolResult(call.Id, gated.Observation));
                 }
             }
-
-            _logger.LogWarning("tool-loop (native): no final answer within {Budget} iterations", budget);
-            foreach (var ev in Finish("native", LlmVerdict.Failed, null, $"tool loop did not converge within {budget} iterations")) yield return ev;
-            yield break;
         }
         else
         {
@@ -194,16 +192,16 @@ public sealed class ToolLoop(
                 messages.Add(LlmMessage.Assistant(reply.Text));
                 messages.Add(LlmMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
             }
-
-            _logger.LogWarning("tool-loop: no final answer within {Budget} iterations", budget);
-            foreach (var ev in Finish("prompt", LlmVerdict.Failed, null, $"tool loop did not converge within {budget} iterations")) yield return ev;
-            yield break;
         }
+
+        // both paths exhaust their budget identically — ONE shared non-convergence terminal
+        _logger.LogWarning("tool-loop ({Mode}): no final answer within {Budget} iterations", mode, budget);
+        foreach (var ev in Finish(mode, LlmVerdict.Failed, null, $"tool loop did not converge within {budget} iterations")) yield return ev;
     }
 
     // A tool observation carrying an unknown-tool / threw-exception marker (see InvokeAsync) is flagged as an
     // error on the streamed ToolResult; the model still receives it and can recover.
-    private static bool IsErrorObservation(string observation) => observation.StartsWith("error:", StringComparison.Ordinal);
+    private static bool IsErrorObservation(string observation) => ToolObservations.IsError(observation);
 
     /// <summary>Gate a tool call's ARGS before it runs and its OBSERVATION after — the tool-loop guard hook
     /// (guards otherwise only cover the chat boundary, not model-driven tool calls). A Block in either

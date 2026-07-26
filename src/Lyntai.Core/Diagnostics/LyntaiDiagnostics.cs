@@ -72,38 +72,35 @@ public static class LyntaiDiagnostics
 
         if (OperationDuration.Enabled)
         {
-            var tags = new TagList
-            {
-                { "gen_ai.operation.name", "chat" },
-                { "gen_ai.system", providerId },
-                { "gen_ai.request.model", model },
-            };
+            var tags = GenAiTags(providerId, model);
+            tags.Add("gen_ai.operation.name", "chat");
             if (errorType is not null) tags.Add("error.type", errorType);
             OperationDuration.Record(elapsedSeconds, tags);
         }
 
         if (usage is not null && TokenUsage.Enabled)
         {
-            TokenUsage.Record(usage.InputTokens, new TagList
+            foreach (var (type, count) in new[] { ("input", usage.InputTokens), ("output", usage.OutputTokens) })
             {
-                { "gen_ai.system", providerId }, { "gen_ai.request.model", model }, { "gen_ai.token.type", "input" },
-            });
-            TokenUsage.Record(usage.OutputTokens, new TagList
-            {
-                { "gen_ai.system", providerId }, { "gen_ai.request.model", model }, { "gen_ai.token.type", "output" },
-            });
+                var tags = GenAiTags(providerId, model);
+                tags.Add("gen_ai.token.type", type);
+                TokenUsage.Record(count, tags);
+            }
         }
     }
 
     internal static void RecordFirstChunk(string providerId, string? model, double elapsedSeconds)
     {
         if (!TimeToFirstChunk.Enabled) return;
-        TimeToFirstChunk.Record(elapsedSeconds, new TagList
-        {
-            { "gen_ai.system", providerId },
-            { "gen_ai.request.model", model },
-        });
+        TimeToFirstChunk.Record(elapsedSeconds, GenAiTags(providerId, model));
     }
+
+    // TagList is a mutable struct — returned by value; call sites Add their extras before recording.
+    private static TagList GenAiTags(string providerId, string? model) => new()
+    {
+        { "gen_ai.system", providerId },
+        { "gen_ai.request.model", model },
+    };
 
     // ---- agentic telemetry (tool loop, durable jobs, guards) ----------------------------------------
     // A SEPARATE source/meter from the GenAI one above — these aren't gen_ai.* operations. Subscribe with

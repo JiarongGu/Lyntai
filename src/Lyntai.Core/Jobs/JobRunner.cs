@@ -27,8 +27,7 @@ public sealed class JobRunner(
     Func<DateTimeOffset>? clock = null,
     IJobAdmissionController? admission = null) : IJobRunner
 {
-    private readonly IJobStore _store = store ?? throw new InvalidOperationException(
-        "Durable jobs require a storage backend — call UseSqliteStorage / UsePostgresStorage / UseInMemoryStorage.");
+    private readonly IJobStore _store = store ?? throw new InvalidOperationException(JobQueue.RequiresStorageMessage);
     private readonly ILogger _logger = logger ?? NullLogger<JobRunner>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private readonly IJobAdmissionController _admission = admission ?? new AdmitAllAdmissionController();

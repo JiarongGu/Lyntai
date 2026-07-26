@@ -10,30 +10,28 @@ namespace Lyntai.Guards;
 /// the front-door client with this for guarded completions everywhere, or let the chat orchestrator apply
 /// the gates. Streaming applies only the INPUT gate — a stream can't be un-sent once tokens flow.
 /// </summary>
-public sealed class GuardedLlmClient(ILlmClient inner, IGuardRail rail) : ILlmClient
+public sealed class GuardedLlmClient(ILlmClient inner, IGuardRail rail) : DelegatingLlmClient(inner)
 {
-    public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+    public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         var pre = await rail.InspectRequestAsync(req, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
             return new LlmReply("", LlmVerdict.Refused, Detail: $"blocked by guard: {pre.Reason}");
         var effective = pre.Result == GuardOutcome.Kind.Replace ? GuardRail.RewriteLastUser(req, pre.Replacement!) : req;
 
-        var reply = await inner.CompleteAsync(effective, ct).ConfigureAwait(false);
+        var reply = await Inner.CompleteAsync(effective, ct).ConfigureAwait(false);
 
         // gate EVERY reply, not just Ok ones — an error reply's Detail (stderr/HTTP body) can echo content
         var post = await rail.InspectResponseAsync(reply, ct).ConfigureAwait(false);
         return post.Result switch
         {
             GuardOutcome.Kind.Block => new LlmReply("", LlmVerdict.Refused, reply.Usage, $"blocked by guard: {post.Reason}"),
-            // a Replace redacts the WHOLE reply — clear ToolCalls + Detail too, or denied content the output
-            // gate also scans (a tool call's args, an error detail) would pass through un-redacted
-            GuardOutcome.Kind.Replace => reply with { Text = post.Replacement!, ToolCalls = null, Detail = null },
+            GuardOutcome.Kind.Replace => GuardRail.Redact(reply, post.Replacement!), // whole-reply redaction (shared)
             _ => reply,
         };
     }
 
-    public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
+    public override async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         var pre = await rail.InspectRequestAsync(req, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
@@ -42,9 +40,7 @@ public sealed class GuardedLlmClient(ILlmClient inner, IGuardRail rail) : ILlmCl
             yield break;
         }
         var effective = pre.Result == GuardOutcome.Kind.Replace ? GuardRail.RewriteLastUser(req, pre.Replacement!) : req;
-        await foreach (var chunk in inner.StreamAsync(effective, ct).ConfigureAwait(false))
+        await foreach (var chunk in Inner.StreamAsync(effective, ct).ConfigureAwait(false))
             yield return chunk;
     }
-
-    public bool SupportsToolCalls(LlmRequest req) => inner.SupportsToolCalls(req);
 }

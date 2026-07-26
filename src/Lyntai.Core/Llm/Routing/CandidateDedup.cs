@@ -1,8 +1,9 @@
 namespace Lyntai.Llm.Routing;
 
 /// <summary>Drops repeat (ProviderId, Model) candidates — first wins, order preserved — so a
-/// misconfigured list that re-prepends the primary never retries it.</summary>
-public static class CandidateDedup
+/// misconfigured list that re-prepends the primary never retries it. Internal: a router
+/// implementation detail, not consumer surface (tests reach it via InternalsVisibleTo).</summary>
+internal static class CandidateDedup
 {
     public static IReadOnlyList<LlmCandidate> Dedup(IEnumerable<LlmCandidate> candidates)
     {
