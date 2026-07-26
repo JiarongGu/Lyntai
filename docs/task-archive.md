@@ -1353,6 +1353,17 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   (`RunAsync`'s full stderr is contract). Test pins tail semantics across chunk boundaries on a 600 KB
   stderr spew (ends-with marker, ≤500 chars, start dropped). `verify` green (982 tests).
 
+- [x] **L10/L11 — rate-limiter half-live options claim + `LlmVerdictClassifier` custom-matcher
+  lock/copy-per-call** — both small; bundle with the next LLM-area task.
+  ✅ done 2026-07-27 — Outcome: **L10** — `TokenBucketRateLimiter` options are now FULLY live (matching
+  `HasEffectiveLimit`'s documented claim): rate/burst are per-acquire parameters resolved from live
+  options, buckets hold only token state (a global limit enabled after construction gets a lazy bucket;
+  a per-consumer retune applies to the existing bucket immediately), and an explicit zero-rate consumer
+  now REFUSES after its burst instead of throwing (`TimeSpan.FromSeconds(Infinity)`). **L11** —
+  `FromErrorText` reads a copy-on-write matcher snapshot (volatile array rebuilt on register/unregister)
+  instead of lock+copy per classification. 3 new tests (live global enable, per-consumer retune,
+  zero-rate refusal). 985 tests green.
+
 ---
 
 ## Notes for the implementer

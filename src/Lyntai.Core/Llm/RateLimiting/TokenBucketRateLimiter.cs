@@ -9,6 +9,8 @@ namespace Lyntai.Llm.RateLimiting;
 /// when the bucket is empty, computes the wait until its permit frees. If that wait exceeds the configured
 /// <see cref="RateLimitOptions.MaxWait"/> the reservation is refunded and the acquire is refused. The clock
 /// is injectable so the reservation math is deterministic under test (the async wait aside).
+/// <para>Options are read LIVE on every acquire — rate/burst/<c>MaxWait</c> retunes (env overrides, an
+/// admin) apply to existing buckets on their next acquire; a bucket holds only its token state.</para>
 /// </summary>
 public sealed class TokenBucketRateLimiter : IRateLimiter
 {
@@ -18,20 +20,20 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
     // "Chat" and "chat" as the same limit, so they must share ONE bucket — a case-sensitive map here
     // would hand each casing its own full rate (~2x overshoot).
     private readonly ConcurrentDictionary<string, Bucket> _consumerBuckets = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Bucket? _global;
+    // lazy: created on the first acquire that finds a positive global rate, so a limit enabled AFTER
+    // construction (env override / admin retune) still gets its bucket — nothing is frozen at ctor time
+    private Bucket? _global;
 
     public TokenBucketRateLimiter(LyntaiOptions options, Func<DateTimeOffset>? clock = null)
     {
         _options = options;
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
-        if (options.RateLimit.PermitsPerSecond > 0)
-            _global = new Bucket(options.RateLimit.PermitsPerSecond, Math.Max(1, options.RateLimit.Burst), _clock());
     }
 
     /// <summary>Whether the current options resolve to any real throttle — a positive global rate, or at
     /// least one positive per-consumer rate. False means every acquire clears immediately (a pure
     /// passthrough); the <c>AddRateLimit</c> wiring warns in that case. Read live, so it honors
-    /// <c>LYNTAI_RATELIMIT_*</c> env overrides applied after construction.</summary>
+    /// <c>LYNTAI_RATELIMIT_*</c> env overrides applied after construction (as does every acquire).</summary>
     internal bool HasEffectiveLimit =>
         _options.RateLimit.PermitsPerSecond > 0 ||
         _options.RateLimit.PerConsumer.Values.Any(r => r.PermitsPerSecond > 0);
@@ -50,7 +52,7 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
                 // The cancellation then PROPAGATES (matching the router: caller cancel is not a rate
                 // refusal — a cancelled caller must not receive a fabricated RateLimited reply or
                 // pollute the refusal metric).
-                BucketFor(consumer)?.Refund();
+                if (Resolve(consumer) is { } scope) scope.Bucket.Refund(scope.Burst);
                 throw;
             }
         }
@@ -62,24 +64,39 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
     /// state transition is fully deterministic for tests.</summary>
     internal TimeSpan? TryReserve(string consumer, DateTimeOffset now)
     {
-        var bucket = BucketFor(consumer);
-        return bucket is null ? TimeSpan.Zero : bucket.Reserve(now, _options.RateLimit.MaxWait);
+        if (Resolve(consumer) is not { } scope) return TimeSpan.Zero; // no limit configured → unlimited
+        return scope.Bucket.Reserve(now, scope.Rate, scope.Burst, _options.RateLimit.MaxWait);
     }
 
-    private Bucket? BucketFor(string consumer)
+    /// <summary>The bucket + its CURRENT rate/burst for <paramref name="consumer"/> (per-consumer wins over
+    /// global), or null when nothing limits it. Rate/burst come from live options on every call — the
+    /// bucket is a state holder only, so a retune applies to existing buckets immediately.</summary>
+    private (Bucket Bucket, double Rate, int Burst)? Resolve(string consumer)
     {
-        if (_options.RateLimit.PerConsumer.TryGetValue(consumer, out var rate))
-            return _consumerBuckets.GetOrAdd(consumer, _ => new Bucket(rate.PermitsPerSecond, Math.Max(1, rate.Burst), _clock()));
-        return _global; // null when no global limit is configured → unlimited
+        var rl = _options.RateLimit;
+        if (rl.PerConsumer.TryGetValue(consumer, out var rate))
+        {
+            var burst = Math.Max(1, rate.Burst);
+            return (_consumerBuckets.GetOrAdd(consumer, _ => new Bucket(_clock(), burst)), rate.PermitsPerSecond, burst);
+        }
+        if (rl.PermitsPerSecond > 0)
+        {
+            var burst = Math.Max(1, rl.Burst);
+            var bucket = _global ?? LazyInitializer.EnsureInitialized(ref _global, () => new Bucket(_clock(), burst));
+            return (bucket, rl.PermitsPerSecond, burst);
+        }
+        return null; // no global limit configured → unlimited
     }
 
-    private sealed class Bucket(double ratePerSecond, int burst, DateTimeOffset start)
+    private sealed class Bucket(DateTimeOffset start, int initialTokens)
     {
         private readonly object _gate = new();
-        private double _tokens = burst;
+        private double _tokens = initialTokens;
         private DateTimeOffset _last = start;
 
-        public TimeSpan? Reserve(DateTimeOffset now, TimeSpan maxWait)
+        // rate/burst are PARAMETERS (resolved from live options per acquire), not construction state —
+        // the bucket owns only its token count and last-refill instant
+        public TimeSpan? Reserve(DateTimeOffset now, double ratePerSecond, int burst, TimeSpan maxWait)
         {
             lock (_gate)
             {
@@ -91,6 +108,9 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
                 }
                 _tokens -= 1;                            // reserve a permit (may go negative = queued)
                 if (_tokens >= 0) return TimeSpan.Zero;
+                // an explicit zero/negative rate never refills — refuse rather than divide by it
+                // (TimeSpan.FromSeconds(Infinity) would throw); "burst then block" is the configured intent
+                if (ratePerSecond <= 0) { _tokens += 1; return null; }
                 var wait = TimeSpan.FromSeconds(-_tokens / ratePerSecond);
                 if (wait > maxWait) { _tokens += 1; return null; } // too long → refund + refuse
                 return wait;
@@ -98,7 +118,7 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
         }
 
         /// <summary>Return a previously-reserved permit (the caller cancelled before using it).</summary>
-        public void Refund()
+        public void Refund(int burst)
         {
             lock (_gate) _tokens = Math.Min(burst, _tokens + 1);
         }

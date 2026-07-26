@@ -78,6 +78,57 @@ public class RateLimitTests
         for (var i = 0; i < 5; i++) Assert.Equal(TimeSpan.Zero, limiter.TryReserve("c", T0));
     }
 
+    [Fact]
+    public void Global_limit_enabled_after_construction_is_honored_live()
+    {
+        // L10: HasEffectiveLimit documents live options (LYNTAI_RATELIMIT_* env overrides / admin retune
+        // after construction) — the BUCKETS must be live too, not frozen at construction
+        var options = new LyntaiOptions(); // no limit at construction
+        var limiter = new TokenBucketRateLimiter(options, () => T0);
+        Assert.Equal(TimeSpan.Zero, limiter.TryReserve("c", T0)); // unlimited so far
+
+        options.RateLimit.PermitsPerSecond = 1;
+        options.RateLimit.Burst = 1;
+        options.RateLimit.MaxWait = TimeSpan.Zero;
+
+        Assert.Equal(TimeSpan.Zero, limiter.TryReserve("c", T0)); // the one burst permit
+        Assert.Null(limiter.TryReserve("c", T0));                 // now capped → refuse
+    }
+
+    [Fact]
+    public void Per_consumer_rate_retune_applies_to_the_existing_bucket()
+    {
+        var options = new LyntaiOptions();
+        options.RateLimit.PermitsPerSecond = 0;
+        options.RateLimit.MaxWait = TimeSpan.FromSeconds(60);
+        options.RateLimit.PerConsumer["chat"] = new ConsumerRate(PermitsPerSecond: 1, Burst: 1);
+        var limiter = new TokenBucketRateLimiter(options, () => T0);
+
+        Assert.Equal(TimeSpan.Zero, limiter.TryReserve("chat", T0));      // burst permit; the bucket now exists
+        Assert.Equal(TimeSpan.FromSeconds(1), limiter.TryReserve("chat", T0)); // deficit 1 at rate 1 → 1s
+
+        // retune the SAME consumer's rate — the existing bucket must refill at the NEW rate
+        options.RateLimit.PerConsumer["chat"] = new ConsumerRate(PermitsPerSecond: 10, Burst: 1);
+        var wait = limiter.TryReserve("chat", T0);                        // deficit 2 at rate 10 → 0.2s
+        Assert.NotNull(wait);
+        Assert.True(wait < TimeSpan.FromSeconds(1), $"waited {wait} — the old rate is still frozen in");
+    }
+
+    [Fact]
+    public void Zero_rate_per_consumer_refuses_after_its_burst_instead_of_throwing()
+    {
+        // an explicit rate-0 consumer = "burst then block": the exhausted bucket must REFUSE (null),
+        // not divide by the zero rate (TimeSpan.FromSeconds(Infinity) throws)
+        var limiter = Limiter(o =>
+        {
+            o.MaxWait = TimeSpan.FromSeconds(60);
+            o.PerConsumer["blocked"] = new ConsumerRate(PermitsPerSecond: 0, Burst: 1);
+        });
+
+        Assert.Equal(TimeSpan.Zero, limiter.TryReserve("blocked", T0)); // the burst permit
+        Assert.Null(limiter.TryReserve("blocked", T0));                 // never refills → refuse
+    }
+
     [Fact] // L3: the bucket map must share the options map's case-insensitivity — else "Chat"/"chat" each get a full rate
     public void Per_consumer_bucket_is_shared_across_consumer_casings()
     {

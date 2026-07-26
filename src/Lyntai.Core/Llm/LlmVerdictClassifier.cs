@@ -19,6 +19,9 @@ public static partial class LlmVerdictClassifier
     // can scope its registration.
     private static readonly Lock _matchersLock = new();
     private static readonly List<Func<string, LlmVerdict?>> _customMatchers = [];
+    // copy-on-write snapshot rebuilt on register/unregister (rare) so the classify path — which runs on
+    // EVERY failure — reads it lock-free and allocation-free instead of lock+copy per call
+    private static volatile Func<string, LlmVerdict?>[] _matcherSnapshot = [];
 
     /// <summary>Register a custom error-text matcher (returns a verdict, or null to defer). Consulted before
     /// the built-in patterns, first non-null wins. Dispose the returned handle to unregister (an app
@@ -26,7 +29,11 @@ public static partial class LlmVerdictClassifier
     public static IDisposable AddErrorTextMatcher(Func<string, LlmVerdict?> matcher)
     {
         ArgumentNullException.ThrowIfNull(matcher);
-        lock (_matchersLock) _customMatchers.Add(matcher);
+        lock (_matchersLock)
+        {
+            _customMatchers.Add(matcher);
+            _matcherSnapshot = [.. _customMatchers];
+        }
         return new MatcherRegistration(matcher);
     }
 
@@ -34,9 +41,7 @@ public static partial class LlmVerdictClassifier
     {
         if (string.IsNullOrWhiteSpace(text)) return fallback;
 
-        Func<string, LlmVerdict?>[] custom;
-        lock (_matchersLock) custom = [.. _customMatchers];
-        foreach (var matcher in custom)
+        foreach (var matcher in _matcherSnapshot)
             if (matcher(text) is { } verdict) return verdict; // consumer patterns win over the built-ins
 
         if (RateLimitPattern().IsMatch(text)) return LlmVerdict.RateLimited;
@@ -48,7 +53,14 @@ public static partial class LlmVerdictClassifier
 
     private sealed class MatcherRegistration(Func<string, LlmVerdict?> matcher) : IDisposable
     {
-        public void Dispose() { lock (_matchersLock) _customMatchers.Remove(matcher); }
+        public void Dispose()
+        {
+            lock (_matchersLock)
+            {
+                _customMatchers.Remove(matcher);
+                _matcherSnapshot = [.. _customMatchers];
+            }
+        }
     }
 
     /// <summary>Classify a caught exception: the typed HTTP status wins over message heuristics

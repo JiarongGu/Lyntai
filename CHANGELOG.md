@@ -51,6 +51,11 @@ changes** (renamed C# members map onto the frozen columns via SELECT aliases).
   inactivity window (a slowly-dripping stream can no longer run unbounded).
 
 ### Fixed
+- **Rate limiter honors live option retunes** (it documented them but froze rates at construction):
+  bucket rate/burst now resolve from current options on every acquire, so a global limit enabled after
+  startup (env override / admin) throttles, and a per-consumer rate change applies to the existing
+  bucket immediately. An explicit zero-rate consumer now refuses after its burst instead of throwing.
+  The verdict classifier's custom-matcher list is also read as a lock-free snapshot per classification.
 - **Streamed runs no longer buffer unbounded stderr**: `ProcessRunner.StreamLinesAsync` drains stderr
   as a rolling 500-char tail (all it ever reported) instead of `ReadToEndAsync` — a child spewing MBs
   of diagnostics while streaming can't grow the parent's memory. `RunAsync` still returns full stderr
