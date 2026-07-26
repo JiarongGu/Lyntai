@@ -6,10 +6,14 @@ namespace Lyntai.Storage;
 /// <paramref name="Source"/> notes where it came from (a doc, a user, an import).
 /// <paramref name="TaskKey"/> (optional) scopes the entry to a consumer/purpose (e.g. "translation");
 /// <paramref name="Scope"/> (optional) scopes it to a variant (e.g. "lang:zh"). A null <see cref="TaskKey"/>
-/// or <see cref="Scope"/> means "applies everywhere" — see <see cref="ICuratedMemoryStore.ForCompositionAsync"/>.</summary>
+/// or <see cref="Scope"/> means "applies everywhere" — see <see cref="ICuratedMemoryStore.ForCompositionAsync"/>.
+/// <paramref name="Title"/> (optional) is a short display label for the longer <paramref name="Content"/>
+/// (a glossary term, a persona trait, a note title); null/empty = untitled. <c>CuratedMemorySections.Compose</c>
+/// renders it as the entry's lead.</summary>
 public sealed record CuratedMemory(
     long Id, string Kind, string Content, string? Source, bool Enabled,
-    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string? TaskKey = null, string? Scope = null);
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string? TaskKey = null, string? Scope = null,
+    string? Title = null);
 
 /// <summary>
 /// A curated memory catalog: hand-managed entries grouped by <c>Kind</c>, each individually
@@ -27,18 +31,23 @@ public interface ICuratedMemoryStore
     /// if a row with that exact identity already exists its id is returned and no second row is written (mirroring
     /// <see cref="IMemoryStore.RememberAsync"/>'s dedup) — so a consumer can write a fact idempotently without a
     /// pre-<see cref="ListAsync"/>+compare. The default (false) always inserts, keeping the "deliberate catalog"
-    /// behavior. Dedup ignores <paramref name="enabled"/>/<paramref name="source"/> — only the identity matters —
+    /// behavior. Dedup ignores <paramref name="enabled"/>/<paramref name="source"/>/<paramref name="title"/>
+    /// — only the identity matters —
     /// and does not mutate the matched row. On the SQL backends idempotence is a pre-insert identity check,
     /// not a unique index (<c>dedup: false</c> legitimately allows duplicates), so it is BEST-EFFORT under
     /// CONCURRENT writers of the same identity — the catalog is a low-write, deliberately-managed set, and a
-    /// rare racing duplicate is benign (the next dedup add keeps returning the first row's id).</para></summary>
+    /// rare racing duplicate is benign (the next dedup add keeps returning the first row's id).</para>
+    /// <para><paramref name="title"/> is the optional short display label (see <see cref="CuratedMemory.Title"/>);
+    /// it sits after <paramref name="dedup"/> so no pre-existing positional call site silently re-binds.</para></summary>
     Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? taskKey = null, string? scope = null, bool dedup = false, CancellationToken ct = default);
+        string? taskKey = null, string? scope = null, bool dedup = false, string? title = null,
+        CancellationToken ct = default);
 
     /// <summary>Update an entry in place — only the non-null arguments change (COALESCE semantics), so
     /// passing just <paramref name="enabled"/> toggles it without touching the content. To CLEAR the
-    /// source, pass an empty string (null means "leave unchanged"). Returns whether a row was updated.</summary>
-    Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null, CancellationToken ct = default);
+    /// source or title, pass an empty string (null means "leave unchanged"). Returns whether a row was updated.</summary>
+    Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
+        string? title = null, CancellationToken ct = default);
 
     /// <summary>Delete an entry. Returns whether one was removed.</summary>
     Task<bool> RemoveAsync(long id, CancellationToken ct = default);

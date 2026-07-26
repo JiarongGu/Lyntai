@@ -52,6 +52,23 @@ public class CuratedMemorySectionsTests
     }
 
     [Fact]
+    public void Renders_the_title_as_the_entry_lead_when_present()
+    {
+        CuratedMemory Titled(long id, string content, string? title) =>
+            new(id, "glossary", content, Source: null, Enabled: true, T0.AddSeconds(id), T0.AddSeconds(id), Title: title);
+
+        var text = CuratedMemorySections.Compose([
+            Titled(1, "data encryption key", "DEK"),
+            Titled(2, "no label here", null),
+            Titled(3, "empty label", ""),          // empty = untitled, same as null
+        ]);
+
+        Assert.Equal(
+            "## glossary\n- **DEK**: data encryption key\n- no label here\n- empty label",
+            text);
+    }
+
+    [Fact]
     public void Filters_by_task_and_scope_when_requested()
     {
         CuratedMemory E(long id, string kind, string content, string? task, string? scope) =>

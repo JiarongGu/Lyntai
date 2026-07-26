@@ -1295,6 +1295,31 @@ Decisions → `docs/DECISIONS.md` D19; user-visible detail → CHANGELOG Unrelea
 
 ---
 
+## Part 22 — Curated-memory as a titled, searchable catalog (CMEM3/CMEM4)
+
+Requested by the desktop AI-manager integration (2026-07-26): its agent memory is a single titled,
+source-tagged, keyword-searchable, individually-CRUD-able note catalog written by both a human (owner)
+and the agent; two generic gaps stopped `ICuratedMemoryStore` from being that catalog.
+
+- [x] **CMEM3 — optional `Title` on `CuratedMemory`.** A curated fact commonly has a short label + a longer
+  body (a glossary term → definition, a persona trait → detail, a saved note → title). Add an optional
+  `Title` to `CuratedMemory` and to `AddAsync`/`UpdateAsync` (COALESCE-update semantics like the existing
+  fields), and have `CuratedMemorySections.Compose` render it as the entry's lead (e.g. `- **{Title}**: {Content}`,
+  falling back to Content-only when null). Nullable `title` column migration on SQLite + Postgres
+  (`ADD COLUMN`, no backfill — null = untitled, existing rows unchanged), mirrored in InMemory. Additive; no
+  breaking change. (The desktop's Memory view shows a bold title + body per entry — today packed into
+  Content because there's no Title.)
+  ✅ done 2026-07-27 — Outcome: `CuratedMemory.Title` (trailing optional record param), `AddAsync`
+  `title` param placed AFTER `dedup` so no pre-existing positional call site silently re-binds
+  (source/title are both `string?`), `UpdateAsync` COALESCE title ("" clears, null unchanged), title
+  stays OUT of the dedup identity (display metadata, matched row untouched), Compose renders
+  `- **{Title}**: {Content}` (null/empty = content-only), migration `M202607270001_CuratedMemoryTitle`
+  ×2 backends (`ADD COLUMN title TEXT NULL`, CuratedMemory-tagged), contract test
+  `Title_round_trips_updates_and_clears` wired to all 3 backends + a Compose rendering test; 4 ApiSurface
+  baselines regenerated; migration-count pins bumped to 14. `verify` green (976 tests).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

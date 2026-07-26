@@ -71,14 +71,6 @@ enable / task / scope / CRUD — but two gaps stop it from BEING that catalog, s
 its own FTS5 store yet. Both are generic (any curated-catalog UI / agent-recallable operator knowledge
 base wants them), app-agnostic, and additive.
 
-- [ ] **CMEM3 — optional `Title` on `CuratedMemory`.** A curated fact commonly has a short label + a longer
-  body (a glossary term → definition, a persona trait → detail, a saved note → title). Add an optional
-  `Title` to `CuratedMemory` and to `AddAsync`/`UpdateAsync` (COALESCE-update semantics like the existing
-  fields), and have `CuratedMemorySections.Compose` render it as the entry's lead (e.g. `- **{Title}**: {Content}`,
-  falling back to Content-only when null). Nullable `title` column migration on SQLite + Postgres
-  (`ADD COLUMN`, no backfill — null = untitled, existing rows unchanged), mirrored in InMemory. Additive; no
-  breaking change. (The desktop's Memory view shows a bold title + body per entry — today packed into
-  Content because there's no Title.)
 - [ ] **CMEM4 — keyword `SearchAsync` on `ICuratedMemoryStore`.** The curated store is List-by-kind only
   (`ListAsync`/`ForCompositionAsync`); there is no relevance/keyword lookup, so a consumer building a
   searchable curated catalog — or letting an agent `recall` from the curated set — must load-all-and-filter

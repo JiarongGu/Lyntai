@@ -359,6 +359,14 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     }
 
     [SkippableFact]
+    public async Task Curated_memory_title()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        // Unique task so the shared container doesn't cross-contaminate the list assert.
+        await CuratedMemoryStoreContract.Title_round_trips_updates_and_clears(new PostgresCuratedMemoryStore(pg.Factory), Uid() + "-ti");
+    }
+
+    [SkippableFact]
     public async Task Job_progress_and_steps_are_readable_while_running()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");

@@ -108,6 +108,38 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(4, (await store.ListAsync(taskKey: task)).Count);
     }
 
+    /// <summary>CMEM3 — optional <c>Title</c>: a short label alongside the longer content (glossary term,
+    /// persona trait, note title). Round-trips on add, updates with COALESCE semantics ("" clears, null
+    /// leaves unchanged), and stays OUT of the dedup identity (display metadata, like source).</summary>
+    public static async Task Title_round_trips_updates_and_clears(ICuratedMemoryStore store, string task = "titles")
+    {
+        var titled = await store.AddAsync("glossary", "data encryption key", title: "DEK", taskKey: task);
+        var untitled = await store.AddAsync("glossary", "no label", taskKey: task);
+
+        Assert.Equal("DEK", (await store.GetAsync(titled))!.Title);
+        Assert.Null((await store.GetAsync(untitled))!.Title);   // default = untitled
+        Assert.Equal("DEK", (await store.ListAsync(kind: "glossary", taskKey: task)).First(e => e.Id == titled).Title);
+
+        // COALESCE update: title-only change leaves content untouched; content-only change keeps the title
+        Assert.True(await store.UpdateAsync(titled, title: "DEK (key wrapping)"));
+        var after = await store.GetAsync(titled);
+        Assert.Equal("DEK (key wrapping)", after!.Title);
+        Assert.Equal("data encryption key", after.Content);
+
+        Assert.True(await store.UpdateAsync(titled, content: "data encryption key, wrapped by the KEK"));
+        Assert.Equal("DEK (key wrapping)", (await store.GetAsync(titled))!.Title);
+
+        // "" clears the title (null means "leave unchanged" — same convention as source)
+        Assert.True(await store.UpdateAsync(titled, title: ""));
+        Assert.Equal("", (await store.GetAsync(titled))!.Title);
+
+        // dedup identity is (kind, content, task, scope) — a DIFFERENT title still dedups to the same row
+        var first = await store.AddAsync("confirmed", "fact body", title: "label A", taskKey: task, dedup: true);
+        var again = await store.AddAsync("confirmed", "fact body", title: "label B", taskKey: task, dedup: true);
+        Assert.Equal(first, again);
+        Assert.Equal("label A", (await store.GetAsync(first))!.Title); // dedup does not mutate the matched row
+    }
+
     public static async Task Update_with_empty_source_clears_it(ICuratedMemoryStore store)
     {
         var id = await store.AddAsync("k", "content", source: "original");

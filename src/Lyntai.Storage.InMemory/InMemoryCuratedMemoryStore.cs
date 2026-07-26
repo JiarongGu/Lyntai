@@ -13,25 +13,27 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
     private long _nextId = 1;
 
     public Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? taskKey = null, string? scope = null, bool dedup = false, CancellationToken ct = default)
+        string? taskKey = null, string? scope = null, bool dedup = false, string? title = null, CancellationToken ct = default)
     {
         var now = _clock();
         lock (_lock)
         {
             if (dedup)
             {
-                // idempotent on the (kind, content, taskKey, scope) identity — return the existing row's id
+                // idempotent on the (kind, content, taskKey, scope) identity — return the existing row's id.
+                // Title is display metadata (like source): OUT of the identity, and the matched row keeps its own.
                 var hit = _entries.FirstOrDefault(e =>
                     e.Kind == kind && e.Content == content && e.TaskKey == taskKey && e.Scope == scope);
                 if (hit is not null) return Task.FromResult(hit.Id);
             }
             var id = _nextId++;
-            _entries.Add(new CuratedMemory(id, kind, content, source, enabled, now, now, taskKey, scope));
+            _entries.Add(new CuratedMemory(id, kind, content, source, enabled, now, now, taskKey, scope, title));
             return Task.FromResult(id);
         }
     }
 
-    public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null, CancellationToken ct = default)
+    public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
+        string? title = null, CancellationToken ct = default)
     {
         var now = _clock();
         lock (_lock)
@@ -44,6 +46,7 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
                 Content = content ?? e.Content,
                 Enabled = enabled ?? e.Enabled,
                 Source = source ?? e.Source, // null = unchanged; "" clears
+                Title = title ?? e.Title,    // same convention as source
                 UpdatedAt = now,
             };
             return Task.FromResult(true);

@@ -10,11 +10,11 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
 {
     // the released schema's column is `task`; the record property is TaskKey — alias so Dapper's
     // MatchNamesWithUnderscores maps task_key → TaskKey. WHERE/INSERT keep the bare `task` column name.
-    private const string Cols = "id, kind, content, source, enabled, created_at, updated_at, task AS task_key, scope";
+    private const string Cols = "id, kind, content, source, enabled, created_at, updated_at, task AS task_key, scope, title";
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
     public async Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? taskKey = null, string? scope = null, bool dedup = false, CancellationToken ct = default)
+        string? taskKey = null, string? scope = null, bool dedup = false, string? title = null, CancellationToken ct = default)
     {
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -30,13 +30,14 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
             if (existing is { } id) return id;
         }
         return await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
-            INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope)
-            VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope)
+            INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope, title)
+            VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope, @title)
             RETURNING id
-            """, new { kind, content, source, enabled, now, task = taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { kind, content, source, enabled, now, task = taskKey, scope, title }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null, CancellationToken ct = default)
+    public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
+        string? title = null, CancellationToken ct = default)
     {
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -46,9 +47,10 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
             SET content = COALESCE(@content, content),
                 enabled = COALESCE(@enabled, enabled),
                 source  = COALESCE(@source, source),
+                title   = COALESCE(@title, title),
                 updated_at = @now
             WHERE id = @id
-            """, new { id, content, enabled, source, now }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { id, content, enabled, source, title, now }, cancellationToken: ct)).ConfigureAwait(false);
         return n > 0;
     }
 
@@ -111,7 +113,8 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
         public DateTimeOffset UpdatedAt { get; set; }
         public string? TaskKey { get; set; }
         public string? Scope { get; set; }
+        public string? Title { get; set; }
 
-        public CuratedMemory ToRecord() => new(Id, Kind, Content, Source, Enabled, CreatedAt, UpdatedAt, TaskKey, Scope);
+        public CuratedMemory ToRecord() => new(Id, Kind, Content, Source, Enabled, CreatedAt, UpdatedAt, TaskKey, Scope, Title);
     }
 }

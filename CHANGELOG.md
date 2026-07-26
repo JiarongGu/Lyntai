@@ -12,6 +12,13 @@ ROADMAP). Decisions recorded in `docs/DECISIONS.md` D19. No new migration; **no 
 changes** (renamed C# members map onto the frozen columns via SELECT aliases).
 
 ### Added
+- **`CuratedMemory.Title`** (CMEM3): an optional short display label alongside the longer content (a
+  glossary term, a persona trait, a note title). `AddAsync(..., title:)` (after `dedup`, so no existing
+  positional call re-binds) and `UpdateAsync(..., title:)` with the source conventions (COALESCE update;
+  `""` clears; null leaves unchanged); title is display metadata — OUT of the dedup identity.
+  `CuratedMemorySections.Compose` renders a titled entry as `- **{Title}**: {Content}` (untitled entries
+  unchanged). New nullable `title` column via migration `202607270001` on SQLite + Postgres (no backfill;
+  existing rows read as untitled).
 - **Push/PR CI** (`.github/workflows/ci.yml`): every push/PR to master runs the full
   `node devtools/dev.mjs verify` gate (build → tests → e2e → leak scan) on ubuntu-latest.
 - **SourceLink / deterministic CI builds** (`src/Directory.Build.props`): `PublishRepositoryUrl` +

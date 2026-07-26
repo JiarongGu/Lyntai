@@ -10,11 +10,11 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
 {
     // the released schema's column is `task`; the record parameter is TaskKey — alias so Dapper's
     // constructor-name matching maps task_key → TaskKey. WHERE/INSERT keep the bare `task` column name.
-    private const string Cols = "id, kind, content, source, enabled, created_at, updated_at, task AS task_key, scope";
+    private const string Cols = "id, kind, content, source, enabled, created_at, updated_at, task AS task_key, scope, title";
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
     public async Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? taskKey = null, string? scope = null, bool dedup = false, CancellationToken ct = default)
+        string? taskKey = null, string? scope = null, bool dedup = false, string? title = null, CancellationToken ct = default)
     {
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -36,8 +36,8 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
             if (existing is { } id) return id;
         }
         return await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
-            INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope)
-            VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope)
+            INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope, title)
+            VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope, @title)
             RETURNING id
             """, new
         {
@@ -45,10 +45,12 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
             source = (object?)source ?? DBNull.Value,
             task = (object?)taskKey ?? DBNull.Value,
             scope = (object?)scope ?? DBNull.Value,
+            title = (object?)title ?? DBNull.Value,
         }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null, CancellationToken ct = default)
+    public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
+        string? title = null, CancellationToken ct = default)
     {
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -57,6 +59,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
             SET content = COALESCE(@content::text, content),
                 enabled = COALESCE(@enabled::boolean, enabled),
                 source  = COALESCE(@source::text, source),
+                title   = COALESCE(@title::text, title),
                 updated_at = @now
             WHERE id = @id
             """, new
@@ -65,6 +68,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
             content = (object?)content ?? DBNull.Value,
             enabled = (object?)enabled ?? DBNull.Value,
             source = (object?)source ?? DBNull.Value,
+            title = (object?)title ?? DBNull.Value,
         }, cancellationToken: ct)).ConfigureAwait(false);
         return n > 0;
     }
