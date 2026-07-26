@@ -15,17 +15,12 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ## Active backlog
 
-### Deferred from the 2026-07-26 foundation-hardening pass
-The whole-library review (6 parallel reviewers, ~80 findings) landed its correctness + dedup clusters
-(see `CHANGELOG.md` Unreleased). These remaining findings were TRIAGED AND DEFERRED deliberately — each
-with the reason; pick up when the trade-off changes.
+_The 2026-07-26 hardening-pass deferrals are all closed (implemented or rejected-with-rationale) — see
+`docs/task-archive.md` Part 23 and `docs/DECISIONS.md` D18. One CONDITIONAL item stands:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
-  `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
-  materialize. Not a license to reintroduce reflection serialization.
-
-> The pass's REJECTED findings (deliberately not taken) are recorded in `docs/DECISIONS.md` **D18** —
-> per the task-lifecycle rule this file holds open tasks only; don't-relitigate rationale lives there.
+  `JsonSerializerContext` DTOs for the STABLE response envelopes only, **if envelope-parsing bugs ever
+  materialize** (none have). Not a license to reintroduce reflection serialization.
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
