@@ -39,7 +39,11 @@ public static class SecretVaultBuilderExtensions
         ISecretProtector machineProtector, ISecretAccessPolicy? accessPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(machineProtector);
-        builder.Services.TryAddSingleton<ISecretVault>(sp =>
+        // register the CONCRETE vault first and delegate the interface to it — never the inverse cast:
+        // with a BYO ISecretVault pre-registered, (EnvelopeSecretVault)GetRequiredService<ISecretVault>()
+        // would throw InvalidCastException at resolve time. This way the BYO interface registration still
+        // wins, and the concrete type (GenerateMasterKeyAsync/RecoverAsync) stays coherently resolvable.
+        builder.Services.TryAddSingleton(sp =>
         {
             var kv = sp.GetService<IKeyValueStore>()
                 ?? throw new InvalidOperationException(
@@ -47,8 +51,7 @@ public static class SecretVaultBuilderExtensions
             var policy = accessPolicy ?? sp.GetService<ISecretAccessPolicy>();
             return new EnvelopeSecretVault(kv, machineProtector, policy);
         });
-        // also resolvable by its concrete type so the app can reach GenerateMasterKeyAsync/RecoverAsync
-        builder.Services.TryAddSingleton(sp => (EnvelopeSecretVault)sp.GetRequiredService<ISecretVault>());
+        builder.Services.TryAddSingleton<ISecretVault>(sp => sp.GetRequiredService<EnvelopeSecretVault>());
         return builder;
     }
 }

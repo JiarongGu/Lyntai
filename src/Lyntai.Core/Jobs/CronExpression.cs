@@ -19,9 +19,11 @@ public sealed class CronExpression
     private readonly bool[] _dow;    // [0..6]
     private readonly bool _domRestricted;
     private readonly bool _dowRestricted;
+    private readonly string _expression; // the original text, for diagnostics (the thing the operator must fix)
 
-    private CronExpression(bool[] minute, bool[] hour, bool[] dom, bool[] month, bool[] dow, bool domR, bool dowR)
+    private CronExpression(string expression, bool[] minute, bool[] hour, bool[] dom, bool[] month, bool[] dow, bool domR, bool dowR)
     {
+        _expression = expression;
         _minute = minute; _hour = hour; _dom = dom; _month = month; _dow = dow;
         _domRestricted = domR; _dowRestricted = dowR;
     }
@@ -44,6 +46,7 @@ public sealed class CronExpression
             throw new FormatException($"cron must have 5 fields (min hour dom month dow), got {f.Length}: '{expression}'");
 
         return new CronExpression(
+            expression ?? "",
             Field(f[0], 0, 59),
             Field(f[1], 0, 23),
             Field(f[2], 1, 31),
@@ -68,7 +71,8 @@ public sealed class CronExpression
             if (!_minute[t.Minute]) { t = t.AddMinutes(1); continue; }
             return new DateTimeOffset(t, TimeSpan.Zero);
         }
-        throw new InvalidOperationException($"cron '{after}' has no occurrence within 5 years — impossible expression?");
+        throw new InvalidOperationException(
+            $"cron '{_expression}' has no occurrence within 5 years after {after:O} — impossible expression?");
     }
 
     private bool DayMatches(DateTime t)

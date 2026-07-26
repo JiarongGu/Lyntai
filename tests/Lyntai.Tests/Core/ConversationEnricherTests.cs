@@ -50,4 +50,21 @@ public class ConversationEnricherTests
 
         Assert.IsType<InMemoryConversationStore>(sp.GetRequiredService<IConversationStore>()); // not wrapped
     }
+
+    [Fact] // I6: wrapping must PRESERVE the BYO store's lifetime, not silently promote it to singleton
+    public void Enrichment_wrap_preserves_a_byo_stores_registered_lifetime()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IConversationStore, InMemoryConversationStore>(); // BYO, deliberately scoped
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddConversationEnricher(_ => new RecordingEnricher()));
+
+        var descriptor = services.Last(d => d.ServiceType == typeof(IConversationStore));
+        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime); // wrapped, but still scoped
+
+        using var sp = services.BuildServiceProvider();
+        using var scope = sp.CreateScope();
+        Assert.IsType<EnrichingConversationStore>(scope.ServiceProvider.GetRequiredService<IConversationStore>());
+    }
 }

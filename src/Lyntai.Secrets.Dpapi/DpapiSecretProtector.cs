@@ -44,10 +44,11 @@ public sealed class DpapiSecretProtector : ISecretProtector
         _entropy = entropy is null ? null : Encoding.UTF8.GetBytes(entropy);
     }
 
+    // No per-call platform guard: the constructor already throws PlatformNotSupportedException off
+    // Windows, so no instance can exist on another OS (the attributes satisfy the CA1416 analyzer).
     [SupportedOSPlatform("windows")]
     public string Protect(string plaintext)
     {
-        EnsureWindows();
         var blob = ProtectedData.Protect(Encoding.UTF8.GetBytes(plaintext), _entropy, Map(_scope));
         return Convert.ToBase64String(blob);
     }
@@ -55,7 +56,6 @@ public sealed class DpapiSecretProtector : ISecretProtector
     [SupportedOSPlatform("windows")]
     public string Unprotect(string ciphertext)
     {
-        EnsureWindows();
         // every unusable blob must surface as CryptographicException (the one type a caller catches for all
         // at-rest corruption) — normalize the base64 parse failure to match DPAPI's own on tamper/wrong-host
         byte[] blob;
@@ -71,10 +71,4 @@ public sealed class DpapiSecretProtector : ISecretProtector
     [SupportedOSPlatform("windows")]
     private static DataProtectionScope Map(DpapiScope scope) =>
         scope == DpapiScope.LocalMachine ? DataProtectionScope.LocalMachine : DataProtectionScope.CurrentUser;
-
-    private static void EnsureWindows()
-    {
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("DpapiSecretProtector requires Windows (DPAPI).");
-    }
 }

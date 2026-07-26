@@ -96,6 +96,26 @@ public class LyntaiOptionsTests
         Assert.Equal("base-x", options.ResolveModel("chat", null));     // falls through to "default"
     }
 
+    [Fact] // I1: env numbers parse INVARIANT — a comma-decimal locale must not read "1.5" as 15
+    public void Numeric_env_overrides_parse_invariant_regardless_of_culture()
+    {
+        var original = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            var options = new LyntaiOptions();
+            options.ApplyEnvOverrides(k => k switch
+            {
+                "LYNTAI_TIMEOUT_SECONDS" => "1.5",
+                "LYNTAI_DEADHOST_COOLDOWN_SECONDS" => "2.5",
+                _ => null,
+            });
+            Assert.Equal(TimeSpan.FromSeconds(1.5), options.ProviderTimeout);
+            Assert.Equal(TimeSpan.FromSeconds(2.5), options.DeadHostCooldown);
+        }
+        finally { Thread.CurrentThread.CurrentCulture = original; }
+    }
+
     [Fact]
     public void Injected_env_getter_without_allEnv_does_not_scan_the_real_machine()
     {

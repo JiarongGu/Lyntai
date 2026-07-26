@@ -152,71 +152,71 @@ public sealed class LyntaiOptions
         getEnv ??= Environment.GetEnvironmentVariable;
         allEnv ??= production ? EnumerateEnv() : [];
 
-        if (double.TryParse(getEnv("LYNTAI_TIMEOUT_SECONDS"), out var t) && t > 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_TIMEOUT_SECONDS", out var t) && t > 0)
             ProviderTimeout = TimeSpan.FromSeconds(t);
-        if (double.TryParse(getEnv("LYNTAI_MAX_TIMEOUT_SECONDS"), out var mt) && mt > 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_MAX_TIMEOUT_SECONDS", out var mt) && mt > 0)
             MaxProviderTimeout = TimeSpan.FromSeconds(mt);
 
-        if (int.TryParse(getEnv("LYNTAI_DEADHOST_THRESHOLD"), out var n) && n > 0)
+        if (TryEnvInt(getEnv, "LYNTAI_DEADHOST_THRESHOLD", out var n) && n > 0)
             DeadHostThreshold = n;
 
-        if (double.TryParse(getEnv("LYNTAI_DEADHOST_COOLDOWN_SECONDS"), out var c) && c > 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_DEADHOST_COOLDOWN_SECONDS", out var c) && c > 0)
             DeadHostCooldown = TimeSpan.FromSeconds(c);
 
-        if (int.TryParse(getEnv("LYNTAI_TOOL_LOOP_MAX_ITERATIONS"), out var mi) && mi > 0)
+        if (TryEnvInt(getEnv, "LYNTAI_TOOL_LOOP_MAX_ITERATIONS", out var mi) && mi > 0)
             ToolLoopMaxIterations = mi;
 
         // durable-job knobs
-        if (double.TryParse(getEnv("LYNTAI_JOBS_LEASE_SECONDS"), out var jl) && jl > 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_JOBS_LEASE_SECONDS", out var jl) && jl > 0)
             Jobs.Lease = TimeSpan.FromSeconds(jl);
-        if (double.TryParse(getEnv("LYNTAI_JOBS_POLL_SECONDS"), out var jp) && jp > 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_JOBS_POLL_SECONDS", out var jp) && jp > 0)
             Jobs.PollInterval = TimeSpan.FromSeconds(jp);
-        if (int.TryParse(getEnv("LYNTAI_JOBS_MAX_ATTEMPTS"), out var jma) && jma > 0)
+        if (TryEnvInt(getEnv, "LYNTAI_JOBS_MAX_ATTEMPTS", out var jma) && jma > 0)
             Jobs.DefaultMaxAttempts = jma;
-        if (double.TryParse(getEnv("LYNTAI_JOBS_BACKOFF_SECONDS"), out var jb) && jb >= 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_JOBS_BACKOFF_SECONDS", out var jb) && jb >= 0)
             Jobs.RetryBackoff = TimeSpan.FromSeconds(jb);
-        if (int.TryParse(getEnv("LYNTAI_JOBS_DEFAULT_CONCURRENCY"), out var jc) && jc > 0)
+        if (TryEnvInt(getEnv, "LYNTAI_JOBS_DEFAULT_CONCURRENCY", out var jc) && jc > 0)
             Jobs.DefaultLaneConcurrency = jc;
-        if (int.TryParse(getEnv("LYNTAI_JOBS_MAX_STEP_LOG"), out var jsl) && jsl > 0)
+        if (TryEnvInt(getEnv, "LYNTAI_JOBS_MAX_STEP_LOG", out var jsl) && jsl > 0)
             Jobs.MaxStepLog = jsl;
 
         // response-cache knobs
-        if (double.TryParse(getEnv("LYNTAI_CACHE_TTL_SECONDS"), out var ct) && ct >= 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_CACHE_TTL_SECONDS", out var ct) && ct >= 0)
             Cache.Ttl = TimeSpan.FromSeconds(ct);
-        if (int.TryParse(getEnv("LYNTAI_CACHE_MAX_ENTRIES"), out var cm) && cm > 0)
+        if (TryEnvInt(getEnv, "LYNTAI_CACHE_MAX_ENTRIES", out var cm) && cm > 0)
             Cache.MaxEntries = cm;
 
         // memory retention knobs (count cap, eviction mode, default TTL, size budget)
-        if (int.TryParse(getEnv("LYNTAI_MEMORY_MAX_ENTRIES"), out var mme))
+        if (TryEnvInt(getEnv, "LYNTAI_MEMORY_MAX_ENTRIES", out var mme))
             MemoryRetention.MaxEntriesPerScope = mme > 0 ? mme : null;
         var evict = getEnv("LYNTAI_MEMORY_EVICTION");
         if (!string.IsNullOrWhiteSpace(evict) && Enum.TryParse<MemoryEvictionMode>(evict, ignoreCase: true, out var em))
             MemoryRetention.Eviction = em;
-        if (double.TryParse(getEnv("LYNTAI_MEMORY_TTL_SECONDS"), out var mttl) && mttl > 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_MEMORY_TTL_SECONDS", out var mttl) && mttl > 0)
             MemoryRetention.DefaultTtl = TimeSpan.FromSeconds(mttl);
-        if (int.TryParse(getEnv("LYNTAI_MEMORY_MAX_CHARS"), out var mmc))
+        if (TryEnvInt(getEnv, "LYNTAI_MEMORY_MAX_CHARS", out var mmc))
             MemoryRetention.MaxCharsPerScope = mmc > 0 ? mmc : null;
 
         // usage-budget knobs (global caps; per-consumer caps are code-only)
-        if (double.TryParse(getEnv("LYNTAI_BUDGET_MAX_COST_USD"), NumberStyles.Float, CultureInfo.InvariantCulture, out var bc) && bc >= 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_BUDGET_MAX_COST_USD", out var bc) && bc >= 0)
             Budget.MaxCostUsd = bc;
-        if (long.TryParse(getEnv("LYNTAI_BUDGET_MAX_TOKENS"), out var bt) && bt >= 0)
+        if (TryEnvLong(getEnv, "LYNTAI_BUDGET_MAX_TOKENS", out var bt) && bt >= 0)
             Budget.MaxTokens = bt;
 
         // rate-limit knobs (global rate; per-consumer rates are code-only)
-        if (double.TryParse(getEnv("LYNTAI_RATELIMIT_PERMITS_PER_SECOND"), NumberStyles.Float, CultureInfo.InvariantCulture, out var rps) && rps >= 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_RATELIMIT_PERMITS_PER_SECOND", out var rps) && rps >= 0)
             RateLimit.PermitsPerSecond = rps;
-        if (int.TryParse(getEnv("LYNTAI_RATELIMIT_BURST"), out var rlb) && rlb > 0)
+        if (TryEnvInt(getEnv, "LYNTAI_RATELIMIT_BURST", out var rlb) && rlb > 0)
             RateLimit.Burst = rlb;
-        if (double.TryParse(getEnv("LYNTAI_RATELIMIT_MAX_WAIT_SECONDS"), NumberStyles.Float, CultureInfo.InvariantCulture, out var rmw) && rmw >= 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_RATELIMIT_MAX_WAIT_SECONDS", out var rmw) && rmw >= 0)
             RateLimit.MaxWait = TimeSpan.FromSeconds(rmw);
 
         // routing policy knobs (design §6 is the default; these tune it without code)
-        if (int.TryParse(getEnv("LYNTAI_RETRY_FAILED"), out var rf) && rf >= 0)
+        if (TryEnvInt(getEnv, "LYNTAI_RETRY_FAILED", out var rf) && rf >= 0)
             Routing.Retry(LlmVerdict.Failed, rf);
-        if (int.TryParse(getEnv("LYNTAI_RETRY_TIMEOUT"), out var rt) && rt >= 0)
+        if (TryEnvInt(getEnv, "LYNTAI_RETRY_TIMEOUT", out var rt) && rt >= 0)
             Routing.Retry(LlmVerdict.Timeout, rt);
-        if (double.TryParse(getEnv("LYNTAI_RETRY_BACKOFF_SECONDS"), out var rb) && rb >= 0)
+        if (TryEnvDouble(getEnv, "LYNTAI_RETRY_BACKOFF_SECONDS", out var rb) && rb >= 0)
             Routing.RetryBackoff = TimeSpan.FromSeconds(rb);
         var scope = getEnv("LYNTAI_COOLDOWN_SCOPE");
         if (!string.IsNullOrWhiteSpace(scope) && Enum.TryParse<CooldownScope>(scope, ignoreCase: true, out var cs))
@@ -252,6 +252,17 @@ public sealed class LyntaiOptions
             DefaultModelByConsumer[consumer] = value;
         }
     }
+
+    // Every numeric env knob parses INVARIANT: on a comma-decimal locale (de-DE, …) culture-sensitive
+    // parsing reads "1.5" as 15 ('.' is a group separator there) — a silently 10x-wrong timeout.
+    private static bool TryEnvDouble(Func<string, string?> getEnv, string key, out double value) =>
+        double.TryParse(getEnv(key), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+
+    private static bool TryEnvInt(Func<string, string?> getEnv, string key, out int value) =>
+        int.TryParse(getEnv(key), NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+
+    private static bool TryEnvLong(Func<string, string?> getEnv, string key, out long value) =>
+        long.TryParse(getEnv(key), NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
 
     private static IEnumerable<KeyValuePair<string, string>> EnumerateEnv()
     {

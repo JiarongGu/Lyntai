@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Lyntai.Secrets;
 using Lyntai.Storage.InMemory;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Secrets;
 
@@ -114,6 +115,23 @@ public class SecretKeyEnvelopeTests
     }
 
     // ---- EnvelopeSecretVault ----
+
+    [Fact] // I7: a BYO ISecretVault must not make EnvelopeSecretVault resolution explode with an InvalidCastException
+    public void Byo_vault_plus_AddEnvelopeSecretVault_still_resolves_the_concrete_envelope_vault()
+    {
+        var byo = new InMemorySecretVault(new NullSecretProtector());
+        var services = new ServiceCollection();
+        services.AddSingleton<ISecretVault>(byo); // BYO interface registration, before AddLyntai
+        services.AddLyntai(b => b
+            .UseInMemoryStorage()
+            .AddEnvelopeSecretVault(Machine()));
+        using var sp = services.BuildServiceProvider();
+
+        // the BYO registration wins the interface …
+        Assert.Same(byo, sp.GetRequiredService<ISecretVault>());
+        // … and the concrete type still resolves coherently (was: InvalidCastException from (EnvelopeSecretVault)byo)
+        Assert.IsType<EnvelopeSecretVault>(sp.GetRequiredService<EnvelopeSecretVault>());
+    }
 
     [Fact]
     public async Task Generate_then_secrets_round_trip_and_are_ciphertext_at_rest()

@@ -184,6 +184,24 @@ public class ProcessRunnerTests
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
     }
 
+    [Fact] // I2: the stdin observe after stdout EOF is bounded by the inactivity clock (no unbounded hang)
+    public async Task Child_that_closes_stdout_but_never_drains_stdin_is_killed_by_the_inactivity_clock()
+    {
+        // stdout ends immediately (EOF for the read loop), stdin is never read, and the child lingers —
+        // the writer stays blocked on the full stdin pipe, so only a clock ARMED over the stdin observe
+        // can end the call (the pre-fix code stopped the clock there and hung without a maxDuration).
+        var sw = Stopwatch.StartNew();
+        var result = await _runner.RunAsync("node",
+            ["-e", "process.stdout.end(); setTimeout(() => {}, 60000)"],
+            stdin: new string('x', 1_000_000), timeout: TimeSpan.FromSeconds(2))
+            .WaitAsync(TimeSpan.FromSeconds(30)); // red-state guard: fail loud instead of hanging the suite
+        sw.Stop();
+
+        Assert.True(result.TimedOut);
+        Assert.Equal(ProcessTimeoutKind.Inactivity, result.TimeoutKind);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(20), $"took {sw.Elapsed} — the stdin observe escaped the clock");
+    }
+
     [Fact]
     public async Task Run_async_absolute_max_caps_a_chatty_child_that_never_stalls()
     {

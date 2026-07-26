@@ -130,6 +130,16 @@ public class RefusalScreeningTests
         Assert.Equal(LlmVerdict.Ok, reply.Verdict); // matcher blew up → reply passes through unchanged
     }
 
+    [Fact] // I3: a matcher registered against a PRE-REGISTERED ILlmClient would be silently ignored — guard it
+    public void A_pre_registered_front_door_with_a_refusal_matcher_throws()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ILlmClient>(new FakeLlmClient()); // BYO ILlmClient before AddLyntai
+        Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddRefusalMatcher(new ContainsMatcher("NOPE")))); // screening wraps Lyntai's client → dropped → guarded
+    }
+
     [Fact]
     public async Task Matchers_registered_via_AddRefusalMatcher_screen_at_the_front_door()
     {

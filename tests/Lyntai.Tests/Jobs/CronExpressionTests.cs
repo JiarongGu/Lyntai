@@ -107,4 +107,13 @@ public class CronExpressionTests
     {
         Assert.ThrowsAny<Exception>(() => CronExpression.Parse(bad));
     }
+
+    [Fact] // I11: the impossible-cron error names the EXPRESSION (the thing to fix), not the search timestamp
+    public void Impossible_cron_error_message_contains_the_expression()
+    {
+        var cron = CronExpression.Parse("0 0 30 2 *"); // Feb 30 — parseable but never occurs
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => cron.Next(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)));
+        Assert.Contains("0 0 30 2 *", ex.Message);
+    }
 }

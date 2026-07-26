@@ -45,6 +45,14 @@ public static class LyntaiServiceCollectionExtensions
                 "ILlmClient is already registered — the decorators would be silently ignored. Either don't pre-register " +
                 "ILlmClient, or use the BYO seams (IResponseCache / IUsageTracker / IRateLimiter) instead.");
 
+        // same contradiction for refusal screening: it wraps Lyntai's OWN client inside the factory below,
+        // so with a pre-registered ILlmClient every AddRefusalMatcher registration would silently do nothing
+        if (hadPreexistingClient && services.Any(d => d.ServiceType == typeof(IRefusalMatcher)))
+            throw new InvalidOperationException(
+                "An IRefusalMatcher was registered (AddRefusalMatcher), but an ILlmClient is already registered — " +
+                "refusal screening wraps Lyntai's own front door and would be silently ignored. Either don't " +
+                "pre-register ILlmClient, or screen replies in your own client.");
+
         // Compose per feature area — each block is self-contained and order-independent across areas (they
         // register distinct service types; the front-door decorators fold at resolution, not registration).
         services.AddSingleton(options);
@@ -110,18 +118,21 @@ public static class LyntaiServiceCollectionExtensions
     private static void RegisterConversationEnrichment(IServiceCollection services)
     {
         if (!services.Any(d => d.ServiceType == typeof(IConversationEnricher))) return;
-        // wrap the LAST-registered IConversationStore (the effective backend / BYO impl)
-        var backend = services.LastOrDefault(d => d.ServiceType == typeof(IConversationStore));
+        // wrap the LAST-registered IConversationStore (the effective backend / BYO impl); keyed
+        // registrations are skipped — accessing a keyed descriptor's implementation members throws
+        var backend = services.LastOrDefault(d => d.ServiceType == typeof(IConversationStore) && !d.IsKeyedService);
         if (backend is null) return; // no conversation store wired → nothing to enrich
 
         services.Remove(backend);
-        services.AddSingleton<IConversationStore>(sp =>
+        // PRESERVE the original lifetime — a BYO store registered scoped/transient must not be silently
+        // promoted to singleton (one cached instance + potential captive dependencies)
+        services.Add(ServiceDescriptor.Describe(typeof(IConversationStore), sp =>
         {
             var inner = (IConversationStore)(backend.ImplementationInstance
                 ?? backend.ImplementationFactory?.Invoke(sp)
                 ?? ActivatorUtilities.GetServiceOrCreateInstance(sp, backend.ImplementationType!));
             return new EnrichingConversationStore(inner, sp.GetServices<IConversationEnricher>());
-        });
+        }, backend.Lifetime));
     }
 
     /// <summary>Semantic memory — wired ONLY when an embedder is registered (AddEmbeddings). Composes the

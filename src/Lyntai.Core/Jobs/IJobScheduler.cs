@@ -139,9 +139,15 @@ public sealed class JobScheduler(
     {
         if (store is null) return _memory.TryGetValue(name, out var t) ? t : null;
         var raw = await store.GetAsync(Key(name), ct).ConfigureAwait(false);
-        return raw is null
-            ? null
-            : DateTimeOffset.Parse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+        if (raw is null) return null;
+        if (DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
+            return parsed;
+        // corrupt/foreign KV value: treat as first sight so the caller re-anchors and OVERWRITES it
+        // (self-healing) — throwing here would hit the per-schedule catch every tick and silently
+        // freeze this schedule forever, with the bad value never repaired
+        _logger.LogWarning("scheduler: next-run for '{Name}' is unparseable ({Raw}); re-anchoring", name, raw);
+        return null;
     }
 
     private async Task SetNextAsync(string name, DateTimeOffset when, CancellationToken ct)

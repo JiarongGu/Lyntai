@@ -130,13 +130,14 @@ public sealed class ProcessRunner : IProcessRunner
                 if (n == 0) break; // EOF — child closed stdout
                 stdout.Append(buffer, 0, n);
             }
-            if (timeout is not null) idleCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while we observe stdin
+            // Re-arm a FRESH window covering the stdin observe AND the final reap: a child that closed
+            // stdout but never drains its stdin pipe would otherwise block the writer (and us) forever —
+            // the clock must stay armed here so the kill breaks the pipes and unblocks both awaits.
+            if (timeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(timeout.Value);
 
             // observe the concurrent stdin write (a broken pipe from an early child exit is already swallowed)
             try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / TimedOut */ }
 
-            // bound the final reap too (a child that closed stdout but lingers can't hang us)
-            if (timeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(timeout.Value);
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
 
@@ -213,13 +214,16 @@ public sealed class ProcessRunner : IProcessRunner
                 yield return line;
             }
 
-            // The stdout loop ended (child closed stdout, or a timeout) — observe the concurrent stdin write so it's
-            // never left unobserved. A broken pipe (child exited before draining) is already swallowed in
-            // WriteStdinAsync; a cancel/timeout is the same one the loop reported. The real signal is exit code / stderr.
+            // The stdout loop ended (child closed stdout, or a timeout). Re-arm a FRESH window covering the
+            // stdin observe AND the final reap FIRST — a child that closed stdout but never drains its stdin
+            // pipe would otherwise block the writer (and us) forever; the armed clock's kill breaks the pipes.
+            if (timeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(timeout.Value);
+
+            // Observe the concurrent stdin write so it's never left unobserved. A broken pipe (child exited
+            // before draining) is already swallowed in WriteStdinAsync; a cancel/timeout is the same one the
+            // loop reported. The real signal is exit code / stderr.
             try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / timedOut */ }
 
-            // bound the final reap too (a child that closed stdout but lingers)
-            if (timeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(timeout.Value);
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
 

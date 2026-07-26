@@ -53,6 +53,18 @@ public class JobSchedulerTests
         Assert.Equal(3, (await jobs.ListAsync()).Count); // one per elapsed interval
     }
 
+    [Fact] // I4: a corrupt persisted next-run self-heals (re-anchor + overwrite) instead of freezing the schedule
+    public async Task Corrupt_persisted_next_run_re_anchors_instead_of_freezing_the_schedule()
+    {
+        var (sched, jobs, clock, kv) = Build(Every(TimeSpan.FromMinutes(10)));
+        await kv.SetAsync("lyntai:schedule:nightly", "not-a-timestamp"); // corrupt/foreign KV value
+
+        Assert.Equal(0, await sched.TickAsync()); // treated as first sight: re-anchor + OVERWRITE, don't fire
+        clock.Advance(TimeSpan.FromMinutes(10));
+        Assert.Equal(1, await sched.TickAsync()); // the repaired schedule fires on cadence again
+        Assert.Single(await jobs.ListAsync());
+    }
+
     [Fact]
     public async Task Missed_slots_are_coalesced_into_a_single_run()
     {
