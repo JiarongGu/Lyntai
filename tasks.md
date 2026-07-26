@@ -43,8 +43,6 @@ with the reason; pick up when the trade-off changes.
   mid-stream) — OCE must propagate, no fallback, no bogus terminal. **T9** — promote the remaining
   SQLite-only memory-lifecycle semantics (TTL-refresh, recency-refresh, scoped/olderThan prune) into
   `MemoryStoreContract`. **T10** — pin curated-dedup casing + write the parallel dedup race test.
-- [ ] **T14 — de-flake the two wall-clock-coupled tests** (`Abandoning_the_stream_kills_the_child`'s fixed
-  sleeps → bounded polling; `PerRequestTimeoutTests`' real-delay races → a ct-driven `DelayHandler`).
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
   materialize. Not a license to reintroduce reflection serialization.

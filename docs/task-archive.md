@@ -1383,6 +1383,16 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   The SQL-side `::type` casts were deliberately KEPT (harmless, and they document the type at the
   `IS NULL` sites). Verified under the live Testcontainers suite (985 green, 0 skipped).
 
+- [x] **T14 — de-flake the two wall-clock-coupled tests** (`Abandoning_the_stream_kills_the_child`'s fixed
+  sleeps → bounded polling; `PerRequestTimeoutTests`' real-delay races → a ct-driven `DelayHandler`).
+  ✅ done 2026-07-27 — Outcome: the abandonment test now POLLS to a 15s deadline for the heartbeat file to
+  hold its size across two consecutive 300ms windows (≥5 missed beats = dead) instead of two fixed
+  sleeps — load-independent, and it fails HARD if the child outlives the deadline. The timeout tests are
+  now race-free by construction: the must-time-out calls use an infinite ct-driven delay (their own
+  timeout is the only possible exit) and the must-complete call pairs a 1s response with a 60s override
+  (a timer can never fire EARLY, so only the global leaking through — the regression under test — can
+  fail it). The `DelayHandler` was already ct-driven; the margins were the residual flake.
+
 ---
 
 ## Notes for the implementer

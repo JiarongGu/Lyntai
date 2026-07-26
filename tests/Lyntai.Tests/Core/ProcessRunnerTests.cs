@@ -336,12 +336,21 @@ public class ProcessRunnerTests
             await foreach (var _ in _runner.StreamLinesAsync("node", ["-e", script, heartbeat]))
                 break; // abandon immediately
 
-            await Task.Delay(700); // room for the kill to land
-            var size1 = new FileInfo(heartbeat).Length;
-            await Task.Delay(800);
-            var size2 = new FileInfo(heartbeat).Length;
-
-            Assert.Equal(size1, size2); // no beats after abandonment → the child is dead
+            // Bounded poll, not a fixed sleep (which flaked under CI load): the child beats every 100ms,
+            // so the kill has landed once the heartbeat file holds the same size across two consecutive
+            // 300ms windows (≥5 missed beats). Fails hard if it's still beating at the deadline.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
+            var stableWindows = 0;
+            long last = -1;
+            while (stableWindows < 2)
+            {
+                Assert.True(DateTime.UtcNow < deadline, "child still beating 15s after abandonment — the kill didn't land");
+                await Task.Delay(300);
+                var f = new FileInfo(heartbeat);
+                var size = f.Exists ? f.Length : 0;
+                stableWindows = size == last ? stableWindows + 1 : 0;
+                last = size;
+            }
         }
         finally
         {

@@ -134,23 +134,25 @@ public class PerRequestTimeoutTests
     [Fact]
     public async Task A_longer_per_request_timeout_completes_a_call_that_outlasts_the_global()
     {
-        // global 200ms times out the 1.5s call; a 5s per-request budget lets it through. Wide margins
-        // (~1.3s below the global, ~3.5s above the override) so a late CTS timer under parallel/CI load
-        // can't flip the verdict — a tight 100ms/300ms spread flaked exactly that way.
-        var provider = Http(delay: TimeSpan.FromMilliseconds(1500), global: TimeSpan.FromMilliseconds(200));
-
-        var timedOut = await provider.CompleteAsync(Req());                    // no override → global → Timeout
+        // Deterministic in BOTH directions (the earlier real-delay spread flaked when a late CTS timer
+        // under CI load outlived the real response): a timer can never fire EARLY, so the 1s response
+        // under a 60s override can only time out if the 200ms global leaked through (the regression under
+        // test); and the never-completing call can only exit via its own timeout.
+        var timedOut = await Http(delay: Timeout.InfiniteTimeSpan, global: TimeSpan.FromMilliseconds(200))
+            .CompleteAsync(Req());                                             // no override → global → Timeout
         Assert.Equal(LlmVerdict.Timeout, timedOut.Verdict);
 
-        var ok = await provider.CompleteAsync(Req(timeoutSeconds: 5));         // override extends past the global
+        var ok = await Http(delay: TimeSpan.FromSeconds(1), global: TimeSpan.FromMilliseconds(200))
+            .CompleteAsync(Req(timeoutSeconds: 60));                           // override extends past the global
         Assert.Equal(LlmVerdict.Ok, ok.Verdict);
     }
 
     [Fact]
     public async Task A_shorter_per_request_timeout_cancels_at_its_own_value()
     {
-        // global is a generous 30s, but this call sets 1s and the provider stalls 3s → cancels at ~1s
-        var provider = Http(delay: TimeSpan.FromSeconds(3), global: TimeSpan.FromSeconds(30));
+        // global is a generous 30s; the provider never responds, so the 1s per-request override is the
+        // only clock that can exit the call — no wall-clock race in either direction
+        var provider = Http(delay: Timeout.InfiniteTimeSpan, global: TimeSpan.FromSeconds(30));
 
         var reply = await provider.CompleteAsync(Req(timeoutSeconds: 1));
         Assert.Equal(LlmVerdict.Timeout, reply.Verdict);
