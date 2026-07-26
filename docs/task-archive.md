@@ -1432,6 +1432,17 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   contract tests immediately. Rationale recorded in `docs/DECISIONS.md` D18; revisit only if a third
   relational backend materializes.
 
+- [x] **T11 — convert the storage contract classes to abstract-class-with-[Fact]s** so a backend can't
+  silently skip a contract method (the mechanism that produced the PG coverage holes). Postgres keeps its
+  deliberate Uid-subset delegators.
+  ✅ done 2026-07-27 — Outcome: eight `*ContractFacts` abstract bases (KeyValue, Conversation,
+  PromptVersion, Trace, CuratedMemory, Memory — with the two-factory + mutable-clock shape — Score, and
+  Jobs — with the store+clock factory), each deriving InMemory + SQLite classes that supply only the
+  factory; every contract [Fact] is inherited, so a NEW contract method wired once runs on every derived
+  backend automatically. Backend-specific tests (SQLite concurrency/affinity/lease-boundary) stay on the
+  derived classes. Postgres deliberately does not derive (documented on each base: shared container →
+  Uid-namespaced subset). Fact count identical before/after (1002) — nothing lost in the conversion.
+
 ---
 
 ## Notes for the implementer

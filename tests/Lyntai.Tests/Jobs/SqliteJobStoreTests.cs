@@ -6,48 +6,24 @@ using Lyntai.Tests.Storage;
 
 namespace Lyntai.Tests.Jobs;
 
-/// <summary>Runs the full <see cref="JobStoreContract"/> against <see cref="SqliteJobStore"/> over a
-/// per-test temp db, plus the SQL-specific concerns: no double-claim under real concurrency, and the
-/// TEXT-timestamp lease boundary.</summary>
-public class SqliteJobStoreTests
+/// <summary>The full <see cref="JobStoreContract"/> against <see cref="SqliteJobStore"/> over a per-test
+/// temp db (every fact inherited from <see cref="JobStoreContractFacts"/>), plus the SQL-specific
+/// concerns: no double-claim under real concurrency, and the TEXT-timestamp lease boundary.</summary>
+public class SqliteJobStoreTests : JobStoreContractFacts, IDisposable
 {
-    private static async Task Run(Func<IJobStore, MutableClock, Task> scenario)
-    {
-        using var db = new TempDb();
-        var clock = new MutableClock();
-        await scenario(new SqliteJobStore(db.Factory, clock.Get), clock);
-    }
+    private readonly TempDb _db = new();
+    public void Dispose() => _db.Dispose();
 
-    [Fact] public Task Claim_flips_running() => Run(JobStoreContract.Claim_flips_to_running_and_increments_attempts);
-    [Fact] public Task Empty_lane_null() => Run(JobStoreContract.Empty_lane_claims_null);
-    [Fact] public Task Two_claims_distinct() => Run(JobStoreContract.Two_claims_never_return_the_same_job);
-    [Fact] public Task Complete_terminal() => Run(JobStoreContract.Complete_is_terminal);
-    [Fact] public Task Fail_retry_requeues() => Run((s, c) => JobStoreContract.Fail_with_retry_requeues_available_later(s, c));
-    [Fact] public Task Fail_terminal() => Run(JobStoreContract.Fail_without_retry_is_terminal);
-    [Fact] public Task Checkpoint_renews_lease() => Run(JobStoreContract.Checkpoint_round_trips_and_renews_the_lease);
-    [Fact] public Task Stale_reclaim() => Run(JobStoreContract.Stale_lease_is_reclaimed_with_the_checkpoint);
-    [Fact] public Task Fenced_by_worker() => Run(JobStoreContract.Writes_are_fenced_by_worker_id);
-    [Fact] public Task Cancel_pending_only() => Run(JobStoreContract.Cancel_only_affects_pending);
-    [Fact] public Task Active_lanes_and_count() => Run(JobStoreContract.Active_lanes_and_running_count);
-    [Fact] public Task Priority_first() => Run(JobStoreContract.Higher_priority_is_claimed_first);
-    [Fact] public Task Dead_letter() => Run(JobStoreContract.Dead_letter_is_terminal_inspectable_and_fenced);
-    [Fact] public Task Replay_dead() => Run(JobStoreContract.Replay_requeues_a_dead_job);
-    [Fact] public Task Request_cancel() => Run(JobStoreContract.Request_cancel_flags_a_running_job_then_cancel_running_finalizes);
-    [Fact] public Task Tiebreak_by_id() => Run(JobStoreContract.Same_tick_same_priority_claims_in_id_order);
-    [Fact] public Task Pause_resume() => Run(JobStoreContract.Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it);
-    [Fact] public Task Pause_pending_only() => Run(JobStoreContract.Pause_only_affects_a_pending_job);
-    [Fact] public Task Progress_and_steps() => Run(JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced);
-    [Fact] public Task Concurrent_steps() => Run(JobStoreContract.Concurrent_step_reports_all_land);
-    [Fact] public Task Partition_serial_fifo() => Run((s, c) => JobStoreContract.Same_partition_serializes_and_is_fifo(s, c));
-    [Fact] public Task Partitions_parallel() => Run((s, c) => JobStoreContract.Different_partitions_run_in_parallel(s, c));
-    [Fact] public Task Partition_priority_ignored_within() => Run((s, c) => JobStoreContract.Priority_is_ignored_within_a_partition_but_honored_across(s, c));
-    [Fact] public Task Partition_stale_reclaim_keeps_position() => Run((s, c) => JobStoreContract.Stale_partition_running_is_reclaimed_before_later_pending(s, c));
+    protected override (IJobStore, MutableClock) New()
+    {
+        var clock = new MutableClock();
+        return (new SqliteJobStore(_db.Factory, clock.Get), clock);
+    }
 
     [Fact]
     public async Task Concurrent_claims_never_double_grab()
     {
-        using var db = new TempDb();
-        var store = new SqliteJobStore(db.Factory); // real clock — this is a genuine concurrency test
+        var store = new SqliteJobStore(_db.Factory); // real clock — this is a genuine concurrency test
         const int n = 20;
         for (var i = 0; i < n; i++) await store.EnqueueAsync(new JobSpec("race", "t", "{}"));
 
@@ -65,16 +41,13 @@ public class SqliteJobStoreTests
     {
         // the lease comparison is a TEXT (ISO-8601) string compare; prove it's chronologically correct
         // right at the boundary (values with and without fractional seconds)
-        using var db = new TempDb();
-        var clock = new MutableClock();
-        var store = new SqliteJobStore(db.Factory, clock.Get);
+        var (store, clock) = New();
         var lease = TimeSpan.FromMinutes(1);
         var id = await store.EnqueueAsync(new JobSpec("b", "t", "{}"));
         await store.ClaimNextAsync("b", "w1", lease);
 
         clock.Advance(lease - TimeSpan.FromMilliseconds(1));         // just inside the lease
         Assert.Null(await store.ClaimNextAsync("b", "w2", lease));    // not yet stale
-
         clock.Advance(TimeSpan.FromMilliseconds(2));                  // now just past
         Assert.Equal(id, (await store.ClaimNextAsync("b", "w2", lease))!.Id);
     }

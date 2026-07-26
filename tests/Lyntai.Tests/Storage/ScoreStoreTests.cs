@@ -1,9 +1,13 @@
 using Lyntai.Cortex;
+using Lyntai.Storage;
 using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Tests.Storage;
 
-public class ScoreStoreTests : IDisposable
+/// <summary>The full <see cref="ScoreStoreContract"/> against SQLite over a per-test temp db (facts
+/// inherited from <see cref="ScoreStoreContractFacts"/>), plus the SQLite-specific concerns (the
+/// CAST-affinity trap, session round-trip).</summary>
+public class ScoreStoreTests : ScoreStoreContractFacts, IDisposable
 {
     private readonly TempDb _db = new();
     private readonly SqliteScoreStore _store;
@@ -12,9 +16,7 @@ public class ScoreStoreTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    [Fact] public Task Rescore_replaces() => ScoreStoreContract.Rescore_replaces_not_accumulates(_store);
-    [Fact] public Task Aggregate() => ScoreStoreContract.Aggregate_is_per_scorer_across_sessions(_store);
-    [Fact] public Task Export() => ScoreStoreContract.Export_dumps_every_session_scorer_score(_store);
+    protected override IScoreStore NewStore() => _store;
 
     [Fact]
     public async Task Save_and_load_by_session()

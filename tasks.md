@@ -30,9 +30,6 @@ with the reason; pick up when the trade-off changes.
   of spawn/stderr-drain/kill-registration/reap scaffolding. The I2 hang fix already landed; the extraction
   is cleanliness. Keep the two CLOCK topologies separate (buffered dual-clock vs streamed single-clock —
   they are different contracts).
-- [ ] **T11 — convert the storage contract classes to abstract-class-with-[Fact]s** so a backend can't
-  silently skip a contract method (the mechanism that produced the PG coverage holes). Postgres keeps its
-  deliberate Uid-subset delegators.
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
   materialize. Not a license to reintroduce reflection serialization.
