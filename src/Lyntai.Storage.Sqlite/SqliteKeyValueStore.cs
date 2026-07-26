@@ -9,7 +9,7 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IKeyValu
 {
     public async Task<string?> GetAsync(string key, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.QuerySingleOrDefaultAsync<string>(
             new CommandDefinition("SELECT value FROM lyntai_kv WHERE key = @key", new { key }, cancellationToken: ct))
             .ConfigureAwait(false);
@@ -17,7 +17,7 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IKeyValu
 
     public async Task SetAsync(string key, string value, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             INSERT INTO lyntai_kv (key, value, updated_at) VALUES (@key, @value, @now)
             ON CONFLICT(key) DO UPDATE SET value = @value, updated_at = @now
@@ -26,7 +26,7 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IKeyValu
 
     public async Task DeleteAsync(string key, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM lyntai_kv WHERE key = @key", new { key }, cancellationToken: ct)).ConfigureAwait(false);
     }

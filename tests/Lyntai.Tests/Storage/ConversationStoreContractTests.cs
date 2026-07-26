@@ -9,6 +9,7 @@ public class InMemoryConversationStoreContractTests
     private static InMemoryConversationStore New() => new();
 
     [Fact] public Task Create_get() => ConversationStoreContract.Create_and_get_thread(New(), "k");
+    [Fact] public Task Duplicate_id() => ConversationStoreContract.Duplicate_thread_id_throws_and_preserves_the_original(New(), "k");
     [Fact] public Task Metadata() => ConversationStoreContract.Thread_metadata_round_trips_and_updates(New(), "k");
     [Fact] public Task Mixed_events() => ConversationStoreContract.Appends_mixed_kind_events_with_json_payloads_in_seq_order(New(), "k");
     [Fact] public Task Cjk() => ConversationStoreContract.Cjk_payload_round_trips(New(), "k");
@@ -29,6 +30,7 @@ public class SqliteConversationStoreContractTests : IDisposable
     public void Dispose() => _db.Dispose();
 
     [Fact] public Task Create_get() => ConversationStoreContract.Create_and_get_thread(Store, "k");
+    [Fact] public Task Duplicate_id() => ConversationStoreContract.Duplicate_thread_id_throws_and_preserves_the_original(Store, "k");
     [Fact] public Task Metadata() => ConversationStoreContract.Thread_metadata_round_trips_and_updates(Store, "k");
     [Fact] public Task Mixed_events() => ConversationStoreContract.Appends_mixed_kind_events_with_json_payloads_in_seq_order(Store, "k");
     [Fact] public Task Cjk() => ConversationStoreContract.Cjk_payload_round_trips(Store, "k");

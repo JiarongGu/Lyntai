@@ -7,7 +7,7 @@ public sealed class PostgresTraceStore(IDbConnectionFactory factory) : ITraceSto
 {
     public async Task SaveAsync(RunTrace trace, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         using var tx = conn.BeginTransaction();
 
         // saving a session again replaces its trace (steps cascade on delete)
@@ -38,7 +38,7 @@ public sealed class PostgresTraceStore(IDbConnectionFactory factory) : ITraceSto
 
     public async Task<RunTrace?> GetAsync(string sessionId, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
         var header = await conn.QuerySingleOrDefaultAsync<TraceRow>(new CommandDefinition("""
             SELECT session_id AS SessionId, mode AS Mode, started_at AS StartedAt, ended_at AS EndedAt, trace_id AS TraceId

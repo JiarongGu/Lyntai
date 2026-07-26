@@ -15,7 +15,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
         string? task = null, string? scope = null, bool dedup = false, CancellationToken ct = default)
     {
         var now = _clock();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         if (dedup)
         {
             // idempotent on the (kind, content, task, scope) identity. IS NOT DISTINCT FROM is the null-safe
@@ -49,7 +49,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null, CancellationToken ct = default)
     {
         var now = _clock();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var n = await conn.ExecuteAsync(new CommandDefinition("""
             UPDATE lyntai_curated_memory
             SET content = COALESCE(@content::text, content),
@@ -69,7 +69,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
 
     public async Task<bool> RemoveAsync(long id, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var n = await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM lyntai_curated_memory WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
         return n > 0;
@@ -77,7 +77,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
 
     public async Task<CuratedMemory?> GetAsync(long id, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.QuerySingleOrDefaultAsync<CuratedMemory>(new CommandDefinition(
             $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
     }
@@ -85,7 +85,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
     public async Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
         string? task = null, string? scope = null, int? limit = null, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // @limit NULL → LIMIT ALL (no cap); enabledOnly is a plain bool predicate; task/scope are strict equality
         var rows = await conn.QueryAsync<CuratedMemory>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
@@ -112,7 +112,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
         // empty scopes → scope filter disabled; else scope must be null/empty (applies everywhere) or one of
         // the requested scopes (= ANY(...) binds a native array via Npgsql). task-null rows apply to every task.
         var scopeClause = scopeArr.Length == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope = ANY(@scopes))";
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<CuratedMemory>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (NOT @enabledOnly OR enabled) AND (task IS NULL OR task = @task){scopeClause}

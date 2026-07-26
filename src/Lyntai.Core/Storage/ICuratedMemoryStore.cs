@@ -28,7 +28,10 @@ public interface ICuratedMemoryStore
     /// <see cref="IMemoryStore.RememberAsync"/>'s dedup) — so a consumer can write a fact idempotently without a
     /// pre-<see cref="ListAsync"/>+compare. The default (false) always inserts, keeping the "deliberate catalog"
     /// behavior. Dedup ignores <paramref name="enabled"/>/<paramref name="source"/> — only the identity matters —
-    /// and does not mutate the matched row.</para></summary>
+    /// and does not mutate the matched row. On the SQL backends idempotence is a pre-insert identity check,
+    /// not a unique index (<c>dedup: false</c> legitimately allows duplicates), so it is BEST-EFFORT under
+    /// CONCURRENT writers of the same identity — the catalog is a low-write, deliberately-managed set, and a
+    /// rare racing duplicate is benign (the next dedup add keeps returning the first row's id).</para></summary>
     Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
         string? task = null, string? scope = null, bool dedup = false, CancellationToken ct = default);
 
@@ -46,10 +49,8 @@ public interface ICuratedMemoryStore
     /// <paramref name="scope"/> (both STRICT equality — a null-task/null-scope row is NOT included; this is the
     /// admin/management filter, distinct from <see cref="ForCompositionAsync"/>'s applies-everywhere read
     /// semantics — the optimize/admin pass uses <paramref name="scope"/> to pull "all notes for ONE scope, incl.
-    /// disabled"), and to <paramref name="enabledOnly"/>. Ordered by kind then creation. NOTE: the kind ordering
-    /// is NOT guaranteed ordinal-stable across backends — Postgres orders by its DB collation while InMemory/SQLite
-    /// order ordinally; if exact ordering matters, sort in-app (<c>CuratedMemorySections.Compose</c> re-sorts
-    /// ordinal, so the composed prompt is stable regardless).</summary>
+    /// disabled"), and to <paramref name="enabledOnly"/>. Ordered by kind (byte-ordinal on every backend —
+    /// Postgres orders <c>COLLATE "C"</c> to match SQLite/InMemory) then creation.</summary>
     Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
         string? task = null, string? scope = null, int? limit = null, CancellationToken ct = default);
 

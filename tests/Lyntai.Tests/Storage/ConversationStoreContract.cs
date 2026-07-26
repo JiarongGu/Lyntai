@@ -22,6 +22,18 @@ public static class ConversationStoreContract
         Assert.Null(await store.GetThreadAsync(key + "-missing")); // unknown → null
     }
 
+    /// <summary>S6 — a duplicate thread id THROWS on every backend (the SQL backends' PK violation);
+    /// InMemory used to silently overwrite while keeping the old thread's messages — the classic
+    /// test-on-InMemory / deploy-on-SQL divergence.</summary>
+    public static async Task Duplicate_thread_id_throws_and_preserves_the_original(IConversationStore store, string key)
+    {
+        var t = key + "-dup";
+        await store.CreateThreadAsync(t, "first");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => store.CreateThreadAsync(t, "second"));
+        Assert.Equal("first", (await store.GetThreadAsync(t))!.Title); // the original survives untouched
+    }
+
     public static async Task Thread_metadata_round_trips_and_updates(IConversationStore store, string key)
     {
         var t = key + "-meta";

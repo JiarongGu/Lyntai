@@ -5,42 +5,26 @@ using Lyntai.Storage.Sqlite.Migrations;
 namespace Lyntai.Storage.Sqlite;
 
 /// <summary>
-/// A connection factory that runs the migrations exactly once, lazily, on the FIRST successful
-/// <see cref="Open"/> — so <c>UseSqliteStorage(path, migrateOnFirstUse: true)</c> does no I/O during DI
-/// composition. Thread-safe: concurrent first-opens block until the single migration completes, and a
-/// TRANSIENT first-migration failure is retried on the next Open (the flag flips only on success — no
-/// permanently-cached exception, unlike a <see cref="Lazy{T}"/>).
+/// A connection factory that runs the migrations exactly once, lazily, on the FIRST successful open —
+/// so <c>UseSqliteStorage(path, migrateOnFirstUse: true)</c> does no I/O during DI composition. The
+/// once-only/retry-on-transient-failure gate lives in Core's <see cref="LazyMigratingConnectionFactory"/>;
+/// this wrapper supplies the SQLite specifics (create the db directory, run this package's migrations).
 /// </summary>
 public sealed class MigratingConnectionFactory : IDbConnectionFactory
 {
-    private readonly SqliteConnectionFactory _inner;
-    private readonly string _dbPath;
-    private readonly StorageFeature _features;
-    private readonly Lock _gate = new();
-    private volatile bool _migrated;
+    private readonly LazyMigratingConnectionFactory _core;
 
     public MigratingConnectionFactory(string dbPath, StorageFeature features = StorageFeature.All)
     {
-        _dbPath = dbPath;
-        _features = features;
-        _inner = new SqliteConnectionFactory(dbPath);
+        _core = new LazyMigratingConnectionFactory(new SqliteConnectionFactory(dbPath), () =>
+        {
+            var dir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            MigrationRunnerService.MigrateUp(dbPath, features);
+        });
     }
 
-    public DbConnection Open()
-    {
-        if (!_migrated)
-        {
-            lock (_gate)
-            {
-                if (!_migrated)
-                {
-                    var dir = Path.GetDirectoryName(Path.GetFullPath(_dbPath));
-                    if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                    MigrationRunnerService.MigrateUp(_dbPath, _features); // throws → _migrated stays false → next Open retries
-                    _migrated = true;
-                }
-            }
-        }
-        return _inner.Open();
-    }
+    public DbConnection Open() => _core.Open();
+
+    public Task<DbConnection> OpenAsync(CancellationToken ct = default) => _core.OpenAsync(ct);
 }

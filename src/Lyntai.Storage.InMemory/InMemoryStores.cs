@@ -35,7 +35,10 @@ public sealed class InMemoryConversationStore : IConversationStore
     public Task<ChatThread> CreateThreadAsync(string id, string? title = null, string? metadata = null, CancellationToken ct = default)
     {
         var thread = new ChatThread(id, title, DateTimeOffset.UtcNow, metadata);
-        lock (_lock) _threads[id] = thread;
+        // Add, not indexer: a duplicate id must THROW like the SQL backends' primary-key violation —
+        // silently overwriting (while keeping the old thread's messages) is the classic
+        // test-on-InMemory / deploy-on-SQL divergence.
+        lock (_lock) _threads.Add(id, thread);
         return Task.FromResult(thread);
     }
 
@@ -119,8 +122,9 @@ public sealed class InMemoryConversationStore : IConversationStore
     }
 }
 
-/// <summary>In-memory <see cref="IScoreStore"/> (saving a session again appends; GetAsync returns all
-/// for the session in save order).</summary>
+/// <summary>In-memory <see cref="IScoreStore"/> (saving a session again UPSERTS per (session, scorer) —
+/// re-scoring replaces that scorer's row, matching the SQL stores; GetAsync returns the session's rows
+/// in first-save order).</summary>
 public sealed class InMemoryScoreStore : IScoreStore
 {
     private readonly Lock _lock = new();

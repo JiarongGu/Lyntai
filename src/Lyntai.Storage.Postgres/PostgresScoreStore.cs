@@ -7,7 +7,7 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
 {
     public async Task SaveAsync(string sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         using var tx = conn.BeginTransaction();
         var now = DateTimeOffset.UtcNow;
         foreach (var r in results)
@@ -27,7 +27,7 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
 
     public async Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<AggRow>(new CommandDefinition("""
             SELECT scorer_id AS ScorerId, MAX(scorer_name) AS ScorerName,
                    AVG(score) AS AverageScore, COUNT(*) AS Count
@@ -38,7 +38,7 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
 
     public async Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<ExportRow>(new CommandDefinition("""
             SELECT session_id AS SessionId, scorer_id AS ScorerId, score AS Score
             FROM lyntai_score_result ORDER BY session_id, scorer_id
@@ -48,7 +48,7 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
 
     public async Task<IReadOnlyList<ScoredResult>> GetAsync(string sessionId, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // Postgres double precision needs no CAST (unlike SQLite's affinity trap); is_llm is a real
         // boolean. A property-mapped row still sidesteps Dapper's record-ctor exact-type matching.
         var rows = await conn.QueryAsync<ScoreRow>(new CommandDefinition("""

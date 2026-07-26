@@ -24,7 +24,7 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
     public async Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
         await EnsureSchemaAsync().ConfigureAwait(false);
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             INSERT INTO lyntai_vector (collection, vec_id, embedding, payload)
             VALUES (@collection, @id, CAST(@embedding AS vector), @payload)
@@ -36,7 +36,7 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
     {
         if (k <= 0) return [];
         await EnsureSchemaAsync().ConfigureAwait(false);
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // <=> is cosine DISTANCE (0 = identical); score = 1 - distance = cosine similarity, matching the
         // other IVectorStore impls. ORDER BY distance ASC + LIMIT does the top-k in the DB.
         var rows = await conn.QueryAsync<Row>(new CommandDefinition("""
@@ -50,7 +50,7 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
     public async Task RemoveCollectionAsync(string collection, CancellationToken ct = default)
     {
         await EnsureSchemaAsync().ConfigureAwait(false);
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM lyntai_vector WHERE collection = @collection", new { collection }, cancellationToken: ct)).ConfigureAwait(false);
     }

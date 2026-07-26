@@ -9,7 +9,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
 
     public async Task<PromptVersion?> GetActiveAsync(string name, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var row = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name AND is_active", new { name },
             cancellationToken: ct)).ConfigureAwait(false);
@@ -19,7 +19,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
     public async Task<PromptVersion> SaveAsync(string name, string template, string? author = null, CancellationToken ct = default)
     {
         var createdAt = DateTimeOffset.UtcNow;
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         using var tx = conn.BeginTransaction();
 
         var nextVersion = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
@@ -41,7 +41,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
 
     public async Task<IReadOnlyList<PromptVersion>> HistoryAsync(string name, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<Row>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name ORDER BY version DESC",
             new { name }, cancellationToken: ct)).ConfigureAwait(false);
@@ -50,7 +50,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
 
     public async Task<PromptVersion?> RollbackAsync(string name, int version, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         using var tx = conn.BeginTransaction();
 
         var target = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(

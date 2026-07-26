@@ -29,7 +29,7 @@ public sealed class PostgresMemoryStore(
         var now = _clock();
         var policy = options.MemoryRetention;
         var expiresAt = (ttl ?? policy.DefaultTtl) is { } eff ? now + eff : (DateTimeOffset?)null; // per-call ttl wins
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
         // dedup as a single ATOMIC upsert (via ux_lyntai_memory_dedup) — race-free. A refreshed fact bumps
         // recency + last-access + TTL.
@@ -90,7 +90,7 @@ public sealed class PostgresMemoryStore(
         var touch = options.MemoryRetention.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
-            using var conn = factory.Open();
+            await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(query))
             {
@@ -149,7 +149,7 @@ public sealed class PostgresMemoryStore(
 
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_entry WHERE task_key = @taskKey AND (@scope::text IS NULL OR scope = @scope)
             """, new { taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
@@ -159,7 +159,7 @@ public sealed class PostgresMemoryStore(
     {
         var now = _clock();
         var cutoff = olderThan is null ? (DateTimeOffset?)null : now - olderThan.Value;
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_entry
             WHERE (@taskKey::text IS NULL OR task_key = @taskKey)

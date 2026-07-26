@@ -9,6 +9,7 @@ static class Lyntai.PostgresStorageBuilderExtensions
 class Lyntai.Storage.Postgres.MigratingConnectionFactory
     .ctor(String, StorageFeature=)
     Open() : DbConnection
+    OpenAsync(CancellationToken=) : Task<DbConnection>
 class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
     .ctor()
     AppliedOnColumnName : String

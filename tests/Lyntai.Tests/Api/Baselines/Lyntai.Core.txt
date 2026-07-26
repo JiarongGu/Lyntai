@@ -1014,6 +1014,8 @@ class Lyntai.Memory.VectorMatch
     Payload : String
     Score : Double
     ToString() : String
+static class Lyntai.Memory.VectorMath
+    Cosine(Single[], Single[]) : Double
 interface Lyntai.Processes.IProcessRunner
     RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
     StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>
@@ -1248,6 +1250,54 @@ interface Lyntai.Storage.IScoreStore
 interface Lyntai.Storage.ITraceStore
     GetAsync(String, CancellationToken=) : Task<RunTrace>
     SaveAsync(RunTrace, CancellationToken=) : Task
+class Lyntai.Storage.JobRow
+    .ctor()
+    Attempts : Int64
+    AvailableAt : DateTimeOffset
+    CancelRequested : Boolean
+    Checkpoint : String
+    ClaimedAt : Nullable<DateTimeOffset>
+    ClaimedBy : String
+    CreatedAt : DateTimeOffset
+    Id : String
+    Lane : String
+    LastError : String
+    MaxAttempts : Int64
+    PartitionKey : String
+    Payload : String
+    Priority : Int64
+    Progress : Int64
+    Stage : String
+    Status : String
+    StepLog : String
+    ToRecord() : JobRecord
+    Total : Int64
+    Type : String
+    UpdatedAt : DateTimeOffset
+static class Lyntai.Storage.JobStoreSql
+    ActiveLanes : String const
+    CancelPending : String const
+    Cols : String const
+    CountRunning : String const
+    FenceWhere : String const
+    GetById : String const
+    Insert : String const
+    Pause : String const
+    Replay : String const
+    RequestCancel : String const
+    Resume : String const
+    SetCancelled : String const
+    SetCheckpoint : String const
+    SetDead : String const
+    SetFailedRetry : String const
+    SetFailedTerminal : String const
+    SetProgress : String const
+    SetStepLog : String const
+    SetSucceeded : String const
+class Lyntai.Storage.LazyMigratingConnectionFactory
+    .ctor(IDbConnectionFactory, Action)
+    Open() : DbConnection
+    OpenAsync(CancellationToken=) : Task<DbConnection>
 static class Lyntai.Storage.LikePattern
     Contains(String) : String
     Escape(String) : String
@@ -1324,6 +1374,7 @@ enum Lyntai.Storage.StorageFeature
     value__ : Int32
 static class Lyntai.Storage.StorageFeatures
     AllTag : String const
+    TagPasses(StorageFeature) : IEnumerable<String[]>
     TagsFor(StorageFeature) : String[]
 static class Lyntai.Text.JsonArgs
     Parse(String) : IDictionary<String,Object>

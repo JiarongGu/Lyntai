@@ -16,7 +16,7 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
 
     public async Task<LlmReply?> TryGetAsync(string key, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var json = await conn.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
             "SELECT reply_json FROM lyntai_response_cache WHERE cache_key = @key AND expires_at > @now",
             new { key, now = _clock() }, cancellationToken: ct)).ConfigureAwait(false);
@@ -28,7 +28,7 @@ public sealed class PostgresResponseCache(IDbConnectionFactory factory, LyntaiOp
         var window = ttl ?? options.Cache.Ttl;
         if (window <= TimeSpan.Zero) return; // non-positive TTL disables caching
         var now = _clock();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             INSERT INTO lyntai_response_cache (cache_key, reply_json, expires_at, created_at)
             VALUES (@key, @json, @expiresAt, @now)

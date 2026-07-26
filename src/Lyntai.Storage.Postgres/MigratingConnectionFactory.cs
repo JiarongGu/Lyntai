@@ -4,38 +4,21 @@ using Lyntai.Storage.Postgres.Migrations;
 
 namespace Lyntai.Storage.Postgres;
 
-/// <summary>Runs the migrations exactly once, lazily, on the FIRST successful <see cref="Open"/> — so
-/// <c>UsePostgresStorage(conn, migrateOnFirstUse: true)</c> does no I/O during DI composition.
-/// Thread-safe; a TRANSIENT first-migration failure is retried on the next Open (the flag flips only on
-/// success — no permanently-cached exception, unlike a <see cref="Lazy{T}"/>).</summary>
+/// <summary>Runs the migrations exactly once, lazily, on the FIRST successful open — so
+/// <c>UsePostgresStorage(conn, migrateOnFirstUse: true)</c> does no I/O during DI composition. The
+/// once-only/retry-on-transient-failure gate lives in Core's <see cref="LazyMigratingConnectionFactory"/>;
+/// this wrapper supplies the Postgres specifics (run this package's migrations).</summary>
 public sealed class MigratingConnectionFactory : IDbConnectionFactory
 {
-    private readonly PostgresConnectionFactory _inner;
-    private readonly string _connectionString;
-    private readonly StorageFeature _features;
-    private readonly Lock _gate = new();
-    private volatile bool _migrated;
+    private readonly LazyMigratingConnectionFactory _core;
 
     public MigratingConnectionFactory(string connectionString, StorageFeature features = StorageFeature.All)
     {
-        _connectionString = connectionString;
-        _features = features;
-        _inner = new PostgresConnectionFactory(connectionString);
+        _core = new LazyMigratingConnectionFactory(new PostgresConnectionFactory(connectionString),
+            () => MigrationRunnerService.MigrateUp(connectionString, features));
     }
 
-    public DbConnection Open()
-    {
-        if (!_migrated)
-        {
-            lock (_gate)
-            {
-                if (!_migrated)
-                {
-                    MigrationRunnerService.MigrateUp(_connectionString, _features); // throws → retried on next Open
-                    _migrated = true;
-                }
-            }
-        }
-        return _inner.Open();
-    }
+    public DbConnection Open() => _core.Open();
+
+    public Task<DbConnection> OpenAsync(CancellationToken ct = default) => _core.OpenAsync(ct);
 }

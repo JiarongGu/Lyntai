@@ -15,7 +15,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
         string? task = null, string? scope = null, bool dedup = false, CancellationToken ct = default)
     {
         var now = _clock();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         if (dedup)
         {
             // idempotent on the (kind, content, task, scope) identity. `IS` is SQLite's null-safe compare,
@@ -37,7 +37,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null, CancellationToken ct = default)
     {
         var now = _clock();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // COALESCE: only the provided (non-null) fields change; null leaves the column as-is
         var n = await conn.ExecuteAsync(new CommandDefinition("""
             UPDATE lyntai_curated_memory
@@ -52,7 +52,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
 
     public async Task<bool> RemoveAsync(long id, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var n = await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM lyntai_curated_memory WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
         return n > 0;
@@ -60,7 +60,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
 
     public async Task<CuratedMemory?> GetAsync(long id, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var row = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
             $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
         return row?.ToRecord();
@@ -69,7 +69,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
     public async Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
         string? task = null, string? scope = null, int? limit = null, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (@kind IS NULL OR kind = @kind) AND (@task IS NULL OR task = @task)
@@ -87,7 +87,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
         // empty scopes → scope filter disabled; else the entry's scope must be null/empty (applies everywhere)
         // or one of the requested scopes. task-null rows apply to every task.
         var scopeClause = scopeList.Count == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope IN @scopes)";
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (@enabledOnly = 0 OR enabled = 1) AND (task IS NULL OR task = @task){scopeClause}

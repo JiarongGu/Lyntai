@@ -60,4 +60,20 @@ public static class StorageFeatures
         [.. Enum.GetValues<StorageFeature>()
             .Where(f => f is not (StorageFeature.None or StorageFeature.All) && features.HasFlag(f))
             .Select(f => f.ToString())];
+
+    /// <summary>The tag-set for each migration PASS a runner should execute for <paramref name="features"/>
+    /// — the all-requested-tags-must-match dispatch in ONE place (both backend runners consume this):
+    /// <see cref="StorageFeature.All"/> is a single pass requesting just <see cref="AllTag"/> (every
+    /// migration carries it — the historical fast path); a subset is one pass per selected feature tag
+    /// (each migration carries exactly one feature tag; the version table dedups across passes).</summary>
+    public static IEnumerable<string[]> TagPasses(StorageFeature features)
+    {
+        if (features == StorageFeature.All)
+        {
+            yield return [AllTag];
+            yield break;
+        }
+        foreach (var tag in TagsFor(features))
+            yield return [tag];
+    }
 }

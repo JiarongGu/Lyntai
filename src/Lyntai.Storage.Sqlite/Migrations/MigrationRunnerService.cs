@@ -26,11 +26,10 @@ public static class MigrationRunnerService
         var connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
         SeedPragmas(connectionString);
 
-        if (features == StorageFeature.All)
-            RunPass(connectionString, tags: [StorageFeatures.AllTag]); // one pass — every migration carries AllTag
-        else
-            foreach (var tag in StorageFeatures.TagsFor(features))
-                RunPass(connectionString, tags: [tag]); // one feature per pass (all-requested-tags-must-match)
+        // the All-vs-subset tag dispatch lives in Core (StorageFeatures.TagPasses) so both backend
+        // runners share the all-requested-tags-must-match semantics
+        foreach (var tags in StorageFeatures.TagPasses(features))
+            RunPass(connectionString, tags);
     }
 
     private static void SeedPragmas(string connectionString)

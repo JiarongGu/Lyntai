@@ -28,7 +28,7 @@ public sealed class SqliteMemoryStore(
         var now = _clock();
         var policy = options.MemoryRetention;
         var expiresAt = (ttl ?? policy.DefaultTtl) is { } eff ? now + eff : (DateTimeOffset?)null; // per-call ttl wins over the policy default
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
         // dedup as a single ATOMIC upsert (via ux_lyntai_memory_dedup) — race-free. An identical fact in the
         // same (task, scope) is refreshed (recency + last-access + TTL); the content is unchanged so the
@@ -84,7 +84,7 @@ public sealed class SqliteMemoryStore(
     {
         var now = _clock();
         var cutoff = olderThan is null ? (DateTimeOffset?)null : now - olderThan.Value;
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_entry
             WHERE (@taskKey IS NULL OR task_key = @taskKey)
@@ -103,7 +103,7 @@ public sealed class SqliteMemoryStore(
         var touch = options.MemoryRetention.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
-            using var conn = factory.Open();
+            await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
             var match = FtsQuery.Build(query);
             if (match is not null)
@@ -116,7 +116,7 @@ public sealed class SqliteMemoryStore(
                         WHERE lyntai_memory_fts MATCH @match AND m.task_key = @taskKey
                           AND (@scope IS NULL OR m.scope = @scope)
                           AND (m.expires_at IS NULL OR m.expires_at > @now)
-                        ORDER BY bm25(lyntai_memory_fts) LIMIT @take
+                        ORDER BY bm25(lyntai_memory_fts), m.id DESC LIMIT @take -- id tiebreak: equal-score rows must page deterministically
                         """, new { match, taskKey, scope, take, now }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
                     if (hits.Count > 0) return await TouchAsync(conn, hits, touch, now, ct).ConfigureAwait(false);
                     // no trigram hit → fall through to LIKE (covers punctuation-heavy queries)
@@ -184,7 +184,7 @@ public sealed class SqliteMemoryStore(
 
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_entry WHERE task_key = @taskKey AND (@scope IS NULL OR scope = @scope)
             """, new { taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);

@@ -9,6 +9,7 @@ static class Lyntai.SqliteStorageBuilderExtensions
 class Lyntai.Storage.Sqlite.MigratingConnectionFactory
     .ctor(String, StorageFeature=)
     Open() : DbConnection
+    OpenAsync(CancellationToken=) : Task<DbConnection>
 class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
     .ctor()
     AppliedOnColumnName : String
