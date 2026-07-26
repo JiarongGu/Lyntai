@@ -22,7 +22,7 @@ public class SqliteJobStoreTests
     [Fact] public Task Empty_lane_null() => Run(JobStoreContract.Empty_lane_claims_null);
     [Fact] public Task Two_claims_distinct() => Run(JobStoreContract.Two_claims_never_return_the_same_job);
     [Fact] public Task Complete_terminal() => Run(JobStoreContract.Complete_is_terminal);
-    [Fact] public Task Fail_retry_requeues() => Run(JobStoreContract.Fail_with_retry_requeues_available_later);
+    [Fact] public Task Fail_retry_requeues() => Run((s, c) => JobStoreContract.Fail_with_retry_requeues_available_later(s, c));
     [Fact] public Task Fail_terminal() => Run(JobStoreContract.Fail_without_retry_is_terminal);
     [Fact] public Task Checkpoint_renews_lease() => Run(JobStoreContract.Checkpoint_round_trips_and_renews_the_lease);
     [Fact] public Task Stale_reclaim() => Run(JobStoreContract.Stale_lease_is_reclaimed_with_the_checkpoint);

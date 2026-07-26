@@ -6,20 +6,22 @@ namespace Lyntai.Tests.Storage;
 /// and Postgres test classes so the curated-catalog CRUD + filter semantics are pinned identically.</summary>
 public static class CuratedMemoryStoreContract
 {
-    public static async Task Add_get_list_round_trips(ICuratedMemoryStore store)
+    /// <summary>Kind-parameterized so the Postgres leg runs on the shared container (a unique kind
+    /// isolates it); the fresh InMemory/SQLite backends pass the default.</summary>
+    public static async Task Add_get_list_round_trips(ICuratedMemoryStore store, string kind = "persona")
     {
-        var id = await store.AddAsync("persona", "You are terse.", source: "handbook");
+        var id = await store.AddAsync(kind, "You are terse.", source: "handbook");
 
         var got = await store.GetAsync(id);
         Assert.NotNull(got);
-        Assert.Equal("persona", got!.Kind);
+        Assert.Equal(kind, got!.Kind);
         Assert.Equal("You are terse.", got.Content);
         Assert.Equal("handbook", got.Source);
         Assert.True(got.Enabled);
 
         var all = await store.ListAsync();
         Assert.Contains(all, e => e.Id == id);
-        Assert.Null(await store.GetAsync(id + 9999)); // missing → null
+        Assert.Null(await store.GetAsync(-1)); // missing → null (ids are positive on every backend)
     }
 
     public static async Task Update_changes_only_the_provided_fields(ICuratedMemoryStore store)
@@ -40,21 +42,28 @@ public static class CuratedMemoryStoreContract
         Assert.False(after.Enabled);      // still disabled (null = unchanged)
         Assert.Equal("src-a", after.Source);
 
-        Assert.False(await store.UpdateAsync(id + 9999, content: "x")); // missing → false
+        Assert.False(await store.UpdateAsync(-1, content: "x")); // missing → false (ids are positive)
     }
 
-    public static async Task List_filters_by_kind_and_enabled(ICuratedMemoryStore store)
+    /// <summary>Kind-parameterized for the shared Postgres container; the cross-kind enabled filter is
+    /// asserted by CONTAINMENT (a table-wide count would see other tests' rows there).</summary>
+    public static async Task List_filters_by_kind_and_enabled(ICuratedMemoryStore store,
+        string kindA = "glossary", string kindB = "persona")
     {
-        var a = await store.AddAsync("glossary", "term A", enabled: true);
-        await store.AddAsync("glossary", "term B", enabled: false);
-        await store.AddAsync("persona", "be kind", enabled: true);
+        var a = await store.AddAsync(kindA, "term A", enabled: true);
+        await store.AddAsync(kindA, "term B", enabled: false);
+        var b = await store.AddAsync(kindB, "be kind", enabled: true);
 
-        Assert.Equal(2, (await store.ListAsync(kind: "glossary")).Count);
-        var enabledGlossary = await store.ListAsync(kind: "glossary", enabledOnly: true);
-        Assert.Single(enabledGlossary);
-        Assert.Equal(a, enabledGlossary[0].Id);
+        Assert.Equal(2, (await store.ListAsync(kind: kindA)).Count);
+        var enabledA = await store.ListAsync(kind: kindA, enabledOnly: true);
+        Assert.Single(enabledA);
+        Assert.Equal(a, enabledA[0].Id);
 
-        Assert.Equal(2, (await store.ListAsync(enabledOnly: true)).Count); // term A + persona
+        var enabledAll = await store.ListAsync(enabledOnly: true);
+        var enabledIds = enabledAll.Select(e => e.Id).ToHashSet();
+        Assert.Contains(a, enabledIds);  // the enabled filter spans kinds…
+        Assert.Contains(b, enabledIds);
+        Assert.DoesNotContain("term B", enabledAll.Where(e => e.Kind == kindA).Select(e => e.Content)); // …and drops disabled rows
     }
 
     /// <summary>CM1 — opt-in dedup on add: identical (kind, content, task, scope) returns the existing id

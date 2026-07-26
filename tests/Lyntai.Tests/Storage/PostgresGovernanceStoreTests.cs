@@ -55,6 +55,46 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     }
 
     [SkippableFact]
+    public async Task ResponseCache_evicts_the_oldest_beyond_max_entries()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var options = new LyntaiOptions();
+        options.Cache.MaxEntries = 2;
+        // Clock far in the FUTURE: the trim keeps "the newest @max" TABLE-wide, so this test's three
+        // entries must strictly outrank other tests' present-time rows on the shared container (tests in
+        // the postgres collection run serially, so evicting older leftovers is harmless).
+        var clock = new MutableClock { Now = new DateTimeOffset(2040, 1, 1, 0, 0, 0, TimeSpan.Zero) };
+        var cache = new PostgresResponseCache(pg.Factory, options, clock.Get);
+        var (a, b, c) = (Uid(), Uid(), Uid());
+
+        await cache.SetAsync(a, new LlmReply("a", LlmVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync(b, new LlmReply("b", LlmVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
+        await cache.SetAsync(c, new LlmReply("c", LlmVerdict.Ok)); // over cap → oldest (a) trimmed
+
+        Assert.Null(await cache.GetAsync(a));
+        Assert.NotNull(await cache.GetAsync(b));
+        Assert.NotNull(await cache.GetAsync(c));
+
+        // hygiene: don't leave far-future rows outranking later tests' entries in the shared table
+        await cache.RemoveAsync(b);
+        await cache.RemoveAsync(c);
+    }
+
+    [SkippableFact] // R6's Postgres leg: totals AGGREGATE across consumer casings (lower(consumer) SUM)
+    public async Task UsageTracker_consumer_totals_aggregate_across_casings()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var t = new PostgresUsageTracker(pg.Factory);
+        var seed = Uid();
+        await t.RecordAsync("App-" + seed, new LlmUsage(10, 0, CostUsd: 0.10));
+        await t.RecordAsync("app-" + seed, new LlmUsage(20, 0, CostUsd: 0.20));
+
+        Assert.Equal(2, (await t.TotalAsync("APP-" + seed)).Calls);       // ONE consumer identity, any casing
+        Assert.Equal(30, (await t.TotalAsync("app-" + seed)).InputTokens);
+        Assert.Equal(0.30, (await t.TotalAsync("App-" + seed)).CostUsd, 5);
+    }
+
+    [SkippableFact]
     public async Task UsageTracker_accumulates_per_consumer_and_resets()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");

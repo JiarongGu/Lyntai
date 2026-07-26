@@ -36,9 +36,6 @@ with the reason; pick up when the trade-off changes.
 - [ ] **T11 — convert the storage contract classes to abstract-class-with-[Fact]s** so a backend can't
   silently skip a contract method (the mechanism that produced the PG coverage holes). Postgres keeps its
   deliberate Uid-subset delegators.
-- [ ] **T4 remnants — Postgres coverage:** `IJobStore.FailAsync` (retry-requeue timestamp math) has no PG
-  test; the usage-tracker case-sensitivity test lacks its PG leg; response-cache `MaxEntries` eviction is
-  SQLite-only; `Curated_memory_crud_and_filters` (PostgresStorageTests) still hand-copies contract methods.
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
   materialize. Not a license to reintroduce reflection serialization.

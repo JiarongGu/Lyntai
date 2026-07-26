@@ -1410,6 +1410,19 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   insert); the 8-writer race test pins the documented best-effort contract (post-race dedup adds return
   ONE stable id = the first row's; row count bounded by racer count). 999 tests green.
 
+- [x] **T4 remnants — Postgres coverage:** `IJobStore.FailAsync` (retry-requeue timestamp math) has no PG
+  test; the usage-tracker case-sensitivity test lacks its PG leg; response-cache `MaxEntries` eviction is
+  SQLite-only; `Curated_memory_crud_and_filters` (PostgresStorageTests) still hand-copies contract methods.
+  ✅ done 2026-07-27 — Outcome: `Fail_with_retry_requeues_available_later` lane-parameterized and routed
+  through the `JobPg` runner (timestamptz retry math now exercised); `UsageTracker_consumer_totals_
+  aggregate_across_casings` PG leg (Uid-seeded casing variants); PG `MaxEntries` eviction test using a
+  FAR-FUTURE clock so its entries strictly outrank other tests' rows in the shared table (trim is
+  table-wide; serial collection makes leftover eviction harmless; rows removed after via `RemoveAsync`);
+  the hand-copied `Curated_memory_crud_and_filters` replaced with the real contract methods, which were
+  made shared-container-safe (kind-parameterized, `GetAsync(-1)`/`UpdateAsync(-1)` for guaranteed-missing
+  ids instead of `id+9999`, cross-kind enabled filter asserted by containment not table-wide count).
+  1002 tests green.
+
 ---
 
 ## Notes for the implementer

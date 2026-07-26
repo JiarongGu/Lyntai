@@ -58,18 +58,20 @@ public static class JobStoreContract
         Assert.Null(await store.ClaimNextAsync("default", "w1", Lease)); // not re-runnable
     }
 
-    public static async Task Fail_with_retry_requeues_available_later(IJobStore store, MutableClock clock)
+    /// <summary>Lane-parameterized so the Postgres leg can run it on the shared container (a unique lane
+    /// isolates the claim path from other tests' rows); InMemory/SQLite pass the default.</summary>
+    public static async Task Fail_with_retry_requeues_available_later(IJobStore store, MutableClock clock, string lane = "default")
     {
-        var id = await store.EnqueueAsync(Spec());
-        await store.ClaimNextAsync("default", "w1", Lease);
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
 
         var retryAt = clock.Now + TimeSpan.FromMinutes(5);
         Assert.True(await store.FailAsync(id, "w1", "boom", retryAt));
         Assert.Equal(JobStatus.Pending, (await store.GetAsync(id))!.Status);
 
-        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease)); // not yet available
+        Assert.Null(await store.ClaimNextAsync(lane, "w1", Lease)); // not yet available
         clock.Advance(TimeSpan.FromMinutes(6));
-        var again = await store.ClaimNextAsync("default", "w1", Lease);
+        var again = await store.ClaimNextAsync(lane, "w1", Lease);
         Assert.NotNull(again);
         Assert.Equal(2, again!.Attempts); // second attempt
         Assert.Equal("boom", again.LastError);

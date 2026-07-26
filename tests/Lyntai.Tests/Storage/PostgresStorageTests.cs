@@ -313,34 +313,13 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresCuratedMemoryStore(pg.Factory);
-        var kind = Uid(); // unique kind so the shared container doesn't cross-contaminate
-
-        var a = await store.AddAsync(kind, "term A", source: "src", enabled: true);
-        await store.AddAsync(kind, "term B", enabled: false);
-
-        var got = await store.GetAsync(a);
-        Assert.Equal("term A", got!.Content);
-        Assert.Equal("src", got.Source);
-        Assert.True(got.Enabled);
-
-        Assert.Equal(2, (await store.ListAsync(kind: kind)).Count);
-        var enabled = await store.ListAsync(kind: kind, enabledOnly: true);
-        Assert.Single(enabled);
-        Assert.Equal(a, enabled[0].Id);
-
-        // partial update: toggle enabled only, content/source untouched
-        Assert.True(await store.UpdateAsync(a, enabled: false));
-        var after = await store.GetAsync(a);
-        Assert.False(after!.Enabled);
-        Assert.Equal("term A", after.Content);
-        Assert.Equal("src", after.Source);
-
-        // "" clears the source (null = unchanged)
-        Assert.True(await store.UpdateAsync(a, source: ""));
-        Assert.Equal("", (await store.GetAsync(a))!.Source);
-
-        Assert.True(await store.RemoveAsync(a));
-        Assert.Null(await store.GetAsync(a));
+        // the CRUD contract methods proper (no longer a hand-copied approximation that could drift) —
+        // unique kinds isolate the shared container; the id-scoped methods need no namespacing
+        await CuratedMemoryStoreContract.Add_get_list_round_trips(store, Uid() + "-k");
+        await CuratedMemoryStoreContract.Update_changes_only_the_provided_fields(store);
+        await CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(store, Uid() + "-a", Uid() + "-b");
+        await CuratedMemoryStoreContract.Update_with_empty_source_clears_it(store);
+        await CuratedMemoryStoreContract.Remove_deletes(store);
     }
 
     [SkippableFact]
@@ -425,6 +404,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     // the shared container, each namespaced to a UNIQUE lane (Uid()) so the FIFO/one-at-a-time guard is
     // exercised on the SKIP-LOCKED claim path in isolation from the other tests' rows.
 
+    [SkippableFact] public Task Job_fail_retry_requeue() => JobPg(JobStoreContract.Fail_with_retry_requeues_available_later); // retry-requeue timestamp math on timestamptz
     [SkippableFact] public Task Job_partition_serial_fifo() => JobPg(JobStoreContract.Same_partition_serializes_and_is_fifo);
     [SkippableFact] public Task Job_partitions_parallel() => JobPg(JobStoreContract.Different_partitions_run_in_parallel);
     [SkippableFact] public Task Job_partition_priority_ignored_within() => JobPg(JobStoreContract.Priority_is_ignored_within_a_partition_but_honored_across);
