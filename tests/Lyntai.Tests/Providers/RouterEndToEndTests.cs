@@ -33,7 +33,7 @@ public class RouterEndToEndTests : IDisposable
         {
             b.AddClaudeCliProvider();
             b.AddOpenAiCompatibleProvider("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
-            b.DefaultCandidates("claude-cli", "openai");
+            b.UseDefaultCandidates("claude-cli", "openai");
             if (tune is not null) b.Configure(tune);
         });
         // reroute the provider's named HttpClient into the scripted handler
@@ -130,7 +130,7 @@ public class RouterEndToEndTests : IDisposable
         {
             b.AddClaudeCliProvider();
             b.AddOpenAiCompatibleProvider("openai", c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; });
-            b.DefaultCandidates("claude-cli", "openai");
+            b.UseDefaultCandidates("claude-cli", "openai");
         });
         services.AddHttpClient(OpenAiCompatibleBuilderExtensions.HttpClientName("openai"))
             .ConfigurePrimaryHttpMessageHandler(() => _http);

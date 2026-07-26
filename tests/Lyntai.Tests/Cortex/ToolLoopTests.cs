@@ -388,8 +388,8 @@ public class ToolLoopTests
         var events = await Loop(client, Echo()).StreamAsync(Ask()).ToListAsync();
 
         var usage = events.OfType<UsageFinal>().Single();
-        Assert.Equal(30, usage.Input);
-        Assert.Equal(13, usage.Output);
+        Assert.Equal(30, usage.InputTokens);
+        Assert.Equal(13, usage.OutputTokens);
         // the UsageFinal precedes the terminal
         Assert.True(events.FindIndex(e => e is UsageFinal) < events.FindIndex(e => e is SessionEnded));
     }

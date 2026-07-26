@@ -17,7 +17,7 @@ public class ChatOrchestratorTests
         var services = new ServiceCollection();
         services.AddLyntai(b =>
         {
-            b.AddProvider(_ => provider).UseInMemoryStorage().DefaultCandidates("p");
+            b.AddProvider(_ => provider).UseInMemoryStorage().UseDefaultCandidates("p");
             extra?.Invoke(b);
         });
         return services.BuildServiceProvider();

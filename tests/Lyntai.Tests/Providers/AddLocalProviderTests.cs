@@ -81,7 +81,7 @@ public class AddLocalProviderTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddLocalProvider(MissingModel())    // IsAvailable false → skipped by the router
-            .DefaultCandidates("local"));
+            .UseDefaultCandidates("local"));
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(Ask());

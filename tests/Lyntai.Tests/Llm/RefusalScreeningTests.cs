@@ -77,7 +77,7 @@ public class RefusalScreeningTests
         provider.Replies.Enqueue(new LlmReply("I cannot help with that request.", LlmVerdict.Ok));
 
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => provider).DefaultCandidates("p"));
+        services.AddLyntai(b => b.AddProvider(_ => provider).UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
         var client = sp.GetRequiredService<ILlmClient>();
 
@@ -148,7 +148,7 @@ public class RefusalScreeningTests
 
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddProvider(_ => provider).DefaultCandidates("p")
+            .AddProvider(_ => provider).UseDefaultCandidates("p")
             .AddRefusalMatcher(new ContainsMatcher("NOPE")));
         using var sp = services.BuildServiceProvider();
         var client = sp.GetRequiredService<ILlmClient>();

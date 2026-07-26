@@ -150,7 +150,8 @@ public sealed class LocalProvider(
         if (_executor is not null) return _executor;
         var modelParams = new ModelParams(options.ModelPath)
         {
-            ContextSize = options.ContextSize,
+            // int? knob → LLamaSharp's uint?; non-positive = null = the model's own trained maximum
+            ContextSize = options.ContextSize is int cs and > 0 ? (uint?)(uint)cs : null,
             GpuLayerCount = options.GpuLayerCount,
         };
         _weights = LLamaWeights.LoadFromFile(modelParams);

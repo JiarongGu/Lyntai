@@ -19,5 +19,5 @@ public interface IScorer
     bool IsLlm { get; }
 
     /// <summary>Score the context, or return null when this dimension doesn't apply.</summary>
-    Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct);
+    Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct = default);
 }

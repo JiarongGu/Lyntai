@@ -13,12 +13,18 @@ namespace Lyntai.Llm.Caching;
 /// </summary>
 public interface IResponseCache
 {
-    /// <summary>The cached reply for <paramref name="key"/>, or null on a miss / expired entry.</summary>
-    Task<LlmReply?> TryGetAsync(string key, CancellationToken ct = default);
+    /// <summary>The cached reply for <paramref name="key"/>, or null on a miss / expired entry.
+    /// (Named like <c>IKeyValueStore.GetAsync</c>/<c>ISecretVault.GetAsync</c> — null-on-miss, no
+    /// <c>Try</c> prefix.)</summary>
+    Task<LlmReply?> GetAsync(string key, CancellationToken ct = default);
 
     /// <summary>Store <paramref name="reply"/> under <paramref name="key"/> with a freshness window
     /// (<paramref name="ttl"/>; null = the cache's own default).</summary>
     Task SetAsync(string key, LlmReply reply, TimeSpan? ttl = null, CancellationToken ct = default);
+
+    /// <summary>Evict one entry — the escape hatch for a poisoned/stale reply that must not be served
+    /// for the rest of its TTL. A missing key is a no-op.</summary>
+    Task RemoveAsync(string key, CancellationToken ct = default);
 }
 
 /// <summary>

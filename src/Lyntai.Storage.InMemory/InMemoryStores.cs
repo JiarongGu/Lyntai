@@ -23,6 +23,14 @@ public sealed class InMemoryKeyValueStore : IKeyValueStore
         _data.TryRemove(key, out _);
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)
+    {
+        IReadOnlyList<string> keys = [.. _data.Keys
+            .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
+            .OrderBy(k => k, StringComparer.Ordinal)];
+        return Task.FromResult(keys);
+    }
 }
 
 /// <summary>In-memory <see cref="IConversationStore"/> (delete-thread cascades to its messages).</summary>

@@ -47,7 +47,7 @@ public sealed class ClaudeAgentSession : IAgentSession
         var sawTerminal = false;
         string? lastSessionId = null;
 
-        var lines = _runner.StreamLinesAsync(exe, argv, stdin: options.Prompt, timeout: timeout,
+        var lines = _runner.StreamLinesAsync(exe, argv, stdin: options.Prompt, inactivityTimeout: timeout,
             workingDirectory: options.WorkingDirectory, ct: ct);
         var e = lines.GetAsyncEnumerator(ct);
         await using (e.ConfigureAwait(false))

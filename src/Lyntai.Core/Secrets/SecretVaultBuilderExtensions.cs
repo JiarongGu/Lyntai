@@ -7,17 +7,32 @@ namespace Lyntai;
 
 public static class SecretVaultBuilderExtensions
 {
-    /// <summary>Register the secret vault (design §9). Supply a 32-byte <paramref name="encryptionKey"/>
-    /// for AES-256-GCM encryption at rest (BYO key — Lyntai never generates or stores it); omit it for
-    /// plaintext (dev only). Pass an <paramref name="accessPolicy"/> to gate reads. Backing: the registered
-    /// <see cref="IKeyValueStore"/> (persistent, encrypted) when storage is wired, else in-memory.</summary>
+    /// <summary>Register the secret vault (design §9). <paramref name="encryptionKey"/> is REQUIRED —
+    /// a 32-byte key for AES-256-GCM encryption at rest (BYO key — Lyntai never generates or stores it).
+    /// A "secret vault" must not silently store plaintext; for dev/testing without a key, opt in LOUDLY
+    /// via <see cref="AddPlaintextSecretVault"/>. Pass an <paramref name="accessPolicy"/> to gate reads.
+    /// Backing: the registered <see cref="IKeyValueStore"/> (persistent, encrypted) when storage is
+    /// wired, else in-memory.</summary>
     public static LyntaiBuilder AddSecretVault(this LyntaiBuilder builder,
-        byte[]? encryptionKey = null, ISecretAccessPolicy? accessPolicy = null)
+        byte[] encryptionKey, ISecretAccessPolicy? accessPolicy = null)
     {
-        ISecretProtector protector = encryptionKey is { Length: > 0 }
-            ? new AesGcmSecretProtector(encryptionKey)
-            : new NullSecretProtector();
+        if (encryptionKey is not { Length: > 0 })
+            throw new ArgumentException(
+                "AddSecretVault requires an encryption key — secrets must not silently land in plaintext. " +
+                "For dev/testing without encryption, opt in explicitly via AddPlaintextSecretVault().",
+                nameof(encryptionKey));
+        return AddVault(builder, new AesGcmSecretProtector(encryptionKey), accessPolicy);
+    }
 
+    /// <summary>DEV/TESTING ONLY: a vault that stores secrets UNENCRYPTED (no protector). This is the
+    /// loud, deliberate opt-in that <see cref="AddSecretVault"/> refuses to default to — anything read
+    /// from this vault's backing store is plaintext on disk. Never use it for real secrets.</summary>
+    public static LyntaiBuilder AddPlaintextSecretVault(this LyntaiBuilder builder,
+        ISecretAccessPolicy? accessPolicy = null) =>
+        AddVault(builder, new NullSecretProtector(), accessPolicy);
+
+    private static LyntaiBuilder AddVault(LyntaiBuilder builder, ISecretProtector protector, ISecretAccessPolicy? accessPolicy)
+    {
         builder.Services.TryAddSingleton<ISecretVault>(sp =>
         {
             var kv = sp.GetService<IKeyValueStore>();

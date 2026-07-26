@@ -1,16 +1,16 @@
 static class Lyntai.PostgresStorageBuilderExtensions
-    UsePostgresResponseCache(LyntaiBuilder) : LyntaiBuilder
-    UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
-    UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory, StorageFeature) : LyntaiBuilder
-    UsePostgresStorage(LyntaiBuilder, String, Boolean=, Boolean=) : LyntaiBuilder
-    UsePostgresStorage(LyntaiBuilder, String, StorageFeature, Boolean=, Boolean=) : LyntaiBuilder
-    UsePostgresUsageTracking(LyntaiBuilder) : LyntaiBuilder
-    UsePostgresVectorStore(LyntaiBuilder) : LyntaiBuilder
-class Lyntai.Storage.Postgres.MigratingConnectionFactory
+    static UsePostgresResponseCache(LyntaiBuilder) : LyntaiBuilder
+    static UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
+    static UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory, StorageFeature) : LyntaiBuilder
+    static UsePostgresStorage(LyntaiBuilder, String, SchemaMigration=) : LyntaiBuilder
+    static UsePostgresStorage(LyntaiBuilder, String, StorageFeature, SchemaMigration=) : LyntaiBuilder
+    static UsePostgresUsageTracking(LyntaiBuilder) : LyntaiBuilder
+    static UsePostgresVectorStore(LyntaiBuilder) : LyntaiBuilder
+sealed class Lyntai.Storage.Postgres.MigratingConnectionFactory
     .ctor(String, StorageFeature=)
     Open() : DbConnection
     OpenAsync(CancellationToken=) : Task<DbConnection>
-class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
+sealed class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
     .ctor()
     AppliedOnColumnName : String
     ColumnName : String
@@ -20,58 +20,58 @@ class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
     SchemaName : String
     TableName : String
     UniqueIndexName : String
-class Lyntai.Storage.Postgres.Migrations.M202607170001_KeyValue
+sealed class Lyntai.Storage.Postgres.Migrations.M202607170001_KeyValue
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607170002_Conversation
+sealed class Lyntai.Storage.Postgres.Migrations.M202607170002_Conversation
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607170003_Memory
+sealed class Lyntai.Storage.Postgres.Migrations.M202607170003_Memory
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607170004_Score
+sealed class Lyntai.Storage.Postgres.Migrations.M202607170004_Score
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607170005_Trace
+sealed class Lyntai.Storage.Postgres.Migrations.M202607170005_Trace
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607170006_PromptVersion
+sealed class Lyntai.Storage.Postgres.Migrations.M202607170006_PromptVersion
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607180001_Jobs
+sealed class Lyntai.Storage.Postgres.Migrations.M202607180001_Jobs
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607180002_Governance
+sealed class Lyntai.Storage.Postgres.Migrations.M202607180002_Governance
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607180003_CuratedMemory
+sealed class Lyntai.Storage.Postgres.Migrations.M202607180003_CuratedMemory
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607220001_CuratedMemoryTaskScope
+sealed class Lyntai.Storage.Postgres.Migrations.M202607220001_CuratedMemoryTaskScope
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Postgres.Migrations.M202607220002_MemoryLastAccessed
+sealed class Lyntai.Storage.Postgres.Migrations.M202607220002_MemoryLastAccessed
     .ctor()
     Down() : Void
     Up() : Void
 static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
-    MigrateUp(String) : Void
-    MigrateUp(String, StorageFeature) : Void
-class Lyntai.Storage.Postgres.PostgresConnectionFactory
+    static MigrateUp(String) : Void
+    static MigrateUp(String, StorageFeature) : Void
+sealed class Lyntai.Storage.Postgres.PostgresConnectionFactory
     .ctor(String)
     Open() : DbConnection
     OpenAsync(CancellationToken=) : Task<DbConnection>
-class Lyntai.Storage.Postgres.PostgresConversationStore
+sealed class Lyntai.Storage.Postgres.PostgresConversationStore
     .ctor(IDbConnectionFactory)
     AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
     CountThreadsAsync(CancellationToken=) : Task<Int32>
@@ -82,7 +82,7 @@ class Lyntai.Storage.Postgres.PostgresConversationStore
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String, String, CancellationToken=) : Task
-class Lyntai.Storage.Postgres.PostgresCuratedMemoryStore
+sealed class Lyntai.Storage.Postgres.PostgresCuratedMemoryStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=)
     AddAsync(String, String, String=, Boolean=, String=, String=, Boolean=, CancellationToken=) : Task<Int64>
     ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
@@ -90,7 +90,7 @@ class Lyntai.Storage.Postgres.PostgresCuratedMemoryStore
     ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
-class Lyntai.Storage.Postgres.PostgresJobStore
+sealed class Lyntai.Storage.Postgres.PostgresJobStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=, Int32=)
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
     CancelAsync(Guid, CancellationToken=) : Task<Boolean>
@@ -110,43 +110,45 @@ class Lyntai.Storage.Postgres.PostgresJobStore
     RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
     ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
-class Lyntai.Storage.Postgres.PostgresKeyValueStore
+sealed class Lyntai.Storage.Postgres.PostgresKeyValueStore
     .ctor(IDbConnectionFactory)
     DeleteAsync(String, CancellationToken=) : Task
     GetAsync(String, CancellationToken=) : Task<String>
+    ListKeysAsync(String=, CancellationToken=) : Task<IReadOnlyList<String>>
     SetAsync(String, String, CancellationToken=) : Task
-class Lyntai.Storage.Postgres.PostgresMemoryStore
+sealed class Lyntai.Storage.Postgres.PostgresMemoryStore
     .ctor(IDbConnectionFactory, LyntaiOptions, ILogger<PostgresMemoryStore>=, Func<DateTimeOffset>=)
     ForgetAsync(String, String=, CancellationToken=) : Task
     PruneAsync(String=, Nullable<TimeSpan>=, CancellationToken=) : Task<Int32>
     RecallAsync(String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<MemoryEntry>>
     RememberAsync(String, String, String, Nullable<TimeSpan>=, CancellationToken=) : Task
-class Lyntai.Storage.Postgres.PostgresPromptVersionStore
+sealed class Lyntai.Storage.Postgres.PostgresPromptVersionStore
     .ctor(IDbConnectionFactory)
     GetActiveAsync(String, CancellationToken=) : Task<PromptVersion>
     HistoryAsync(String, CancellationToken=) : Task<IReadOnlyList<PromptVersion>>
     RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
     SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
-class Lyntai.Storage.Postgres.PostgresResponseCache
+sealed class Lyntai.Storage.Postgres.PostgresResponseCache
     .ctor(IDbConnectionFactory, LyntaiOptions, Func<DateTimeOffset>=)
+    GetAsync(String, CancellationToken=) : Task<LlmReply>
+    RemoveAsync(String, CancellationToken=) : Task
     SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
-    TryGetAsync(String, CancellationToken=) : Task<LlmReply>
-class Lyntai.Storage.Postgres.PostgresScoreStore
+sealed class Lyntai.Storage.Postgres.PostgresScoreStore
     .ctor(IDbConnectionFactory)
     AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
     ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
     GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
     SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
-class Lyntai.Storage.Postgres.PostgresTraceStore
+sealed class Lyntai.Storage.Postgres.PostgresTraceStore
     .ctor(IDbConnectionFactory)
     GetAsync(String, CancellationToken=) : Task<RunTrace>
     SaveAsync(RunTrace, CancellationToken=) : Task
-class Lyntai.Storage.Postgres.PostgresUsageTracker
+sealed class Lyntai.Storage.Postgres.PostgresUsageTracker
     .ctor(IDbConnectionFactory)
     RecordAsync(String, LlmUsage, CancellationToken=) : ValueTask
     ResetAsync(String=, CancellationToken=) : ValueTask
     TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
-class Lyntai.Storage.Postgres.PostgresVectorStore
+sealed class Lyntai.Storage.Postgres.PostgresVectorStore
     .ctor(IDbConnectionFactory)
     RemoveCollectionAsync(String, CancellationToken=) : Task
     SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>

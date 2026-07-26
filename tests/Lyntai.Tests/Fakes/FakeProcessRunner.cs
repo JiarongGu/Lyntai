@@ -9,10 +9,9 @@ namespace Lyntai.Tests.Fakes;
 /// buffered path, and a <see cref="Calls"/> capture of every invocation's arguments.</summary>
 public sealed class FakeProcessRunner : IProcessRunner
 {
-    /// <summary>One captured invocation (RunAsync or StreamLinesAsync). <see cref="MaxDuration"/> is
-    /// null for streamed calls (the streaming seam carries no max-duration parameter).</summary>
+    /// <summary>One captured invocation (RunAsync or StreamLinesAsync).</summary>
     public readonly record struct Call(string Command, IReadOnlyList<string> Args, string? Stdin,
-        string? WorkingDirectory, TimeSpan? Timeout, TimeSpan? MaxDuration);
+        string? WorkingDirectory, TimeSpan? InactivityTimeout, TimeSpan? MaxDuration);
 
     public FakeProcessRunner(IReadOnlyList<string>? streamLines = null, Exception? throwsAfterLines = null)
     {
@@ -27,7 +26,7 @@ public sealed class FakeProcessRunner : IProcessRunner
     public Exception? ThrowsAfterLines { get; set; }
 
     /// <summary>Canned result returned by <see cref="RunAsync"/>.</summary>
-    public ProcessResult RunResult { get; set; } = new(0, string.Empty, string.Empty, TimedOut: false);
+    public ProcessResult RunResult { get; set; } = new(0, string.Empty, string.Empty);
 
     /// <summary>Every invocation, in order. Streamed calls record at enumeration time (when the
     /// iterator body first runs), like the real runner spawns lazily.</summary>
@@ -37,23 +36,23 @@ public sealed class FakeProcessRunner : IProcessRunner
     public IReadOnlyList<string>? LastArgs => Calls.Count > 0 ? Calls[^1].Args : null;
     public string? LastStdin => Calls.Count > 0 ? Calls[^1].Stdin : null;
     public string? LastWorkingDirectory => Calls.Count > 0 ? Calls[^1].WorkingDirectory : null;
-    public TimeSpan? LastTimeout => Calls.Count > 0 ? Calls[^1].Timeout : null;
+    public TimeSpan? LastInactivityTimeout => Calls.Count > 0 ? Calls[^1].InactivityTimeout : null;
     public TimeSpan? LastMaxDuration => Calls.Count > 0 ? Calls[^1].MaxDuration : null;
 
     public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
-        TimeSpan? timeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
+        TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
     {
-        Calls.Add(new Call(command, args, stdin, workingDirectory, timeout, maxDuration));
+        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration));
         return Task.FromResult(RunResult);
     }
 
     public async IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
-        string? stdin = null, TimeSpan? timeout = null, string? workingDirectory = null,
+        string? stdin = null, TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        Calls.Add(new Call(command, args, stdin, workingDirectory, timeout, MaxDuration: null));
+        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration));
 
         foreach (var line in StreamLines)
         {

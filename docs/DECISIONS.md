@@ -182,3 +182,26 @@ The whole-library review pass triaged ~80 findings into fixed / deferred (the `t
   to the same): harmless, env-governed redundancy; removing either side changes BYO-cache behavior.
 - **ClaudeCli `id` ctor parameter**: two same-process `claude` registrations with different commands is
   exotic; additive if a consumer ever asks.
+
+## D19 — 1.0 API sign-off decisions (2026-07-27; pre-1.0 breaks batched, unreleased)
+The final public-surface sign-off pass (18 findings) closed with these calls — recorded so the surface
+stays settled and the breaks don't get re-litigated at 1.0:
+- **`DefaultCandidates` → `UseDefaultCandidates` is a HARD rename, no obsolete shim.** The method SETS
+  (replaces) the fallback chain — "Use" is the builder family for set-semantics (`UseSqliteStorage`,
+  `UseInMemoryStorage`), "Add" is for append-semantics collections. Pre-1.0 with zero external adopters,
+  a shim would only preserve the misleading name.
+- **`AddOpenRouterProvider` + the `OpenRouter` flavor const STAY** even though the flavor currently
+  behaves identically to `OpenAi`. The preset is real consumer convenience (endpoint + key wiring); the
+  pinned flavor is the seam where OpenRouter-specific behavior (ranking headers) lands later without
+  re-detection. Documented as reserved, not dead.
+- **Accepted as-is (cosmetic, not worth a break):** `AddMemoryPruneJob`'s argument order differs from
+  sibling `AddCronSchedule` (name-first vs cron-first) — both are keyword-argument call sites in
+  practice; and `IVectorStore` has no single-vector removal (upsert by id, remove by whole collection) —
+  sufficient for `SemanticMemory`'s collection-per-scope model, additive post-1.0 if a BYO consumer asks.
+- **Everything else from the scan shipped in the sign-off batch** (see the Unreleased CHANGELOG section):
+  wire-format types internal, `TaskKey`/`ContextSize`/`*Tokens` renames, `SchemaMigration` enum replacing
+  bool pairs, required `AddSecretVault` key + `AddPlaintextSecretVault`, inactivity-timeout renames +
+  `maxDuration`, `ProcessResult.TimeoutKind`, `IKeyValueStore.ListKeysAsync`, `IResponseCache`
+  `GetAsync`/`RemoveAsync`, `IJobQueue` read side, fully-async `IUsageTracker`.
+- **These breaks are deliberately UNRELEASED.** 1.0 is adoption-gated (the user's call: more applications
+  must adopt Lyntai first); this batch rides in whatever release precedes it, versioned then.

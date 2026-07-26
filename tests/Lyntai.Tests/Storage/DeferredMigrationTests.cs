@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>UseSqliteStorage(path, migrateOnFirstUse: true) must do NO I/O at composition time and
+/// <summary>UseSqliteStorage(path, SchemaMigration.OnFirstUse) must do NO I/O at composition time and
 /// migrate exactly once on the first store access.</summary>
 public class DeferredMigrationTests : IDisposable
 {
@@ -20,7 +20,7 @@ public class DeferredMigrationTests : IDisposable
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .UseSqliteStorage(_db.Path, migrateOnFirstUse: true));
+            .UseSqliteStorage(_db.Path, Lyntai.Storage.SchemaMigration.OnFirstUse));
         using var sp = services.BuildServiceProvider();
 
         Assert.False(File.Exists(_db.Path)); // DI composition did no I/O
@@ -35,7 +35,7 @@ public class DeferredMigrationTests : IDisposable
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .UseSqliteStorage(_db.Path, migrateOnFirstUse: true));
+            .UseSqliteStorage(_db.Path, Lyntai.Storage.SchemaMigration.OnFirstUse));
         using var sp = services.BuildServiceProvider();
 
         var kv = sp.GetRequiredService<IKeyValueStore>();

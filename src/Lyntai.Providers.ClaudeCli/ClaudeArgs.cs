@@ -5,7 +5,7 @@ namespace Lyntai.Providers.ClaudeCli;
 
 /// <summary>Builds the STATIC argv for a `claude` print-mode call. Dynamic content — the prompt —
 /// always travels over stdin, never argv (prompts carry newlines and shell metacharacters).</summary>
-public static class ClaudeArgs
+internal static class ClaudeArgs
 {
     public static IReadOnlyList<string> Build(string? model)
     {

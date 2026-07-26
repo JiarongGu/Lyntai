@@ -67,6 +67,14 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Register a scorer built from the service provider — for config/dependency-parameterized
+    /// scorers the generic overload can't construct.</summary>
+    public LyntaiBuilder AddScorer(Func<IServiceProvider, IScorer> factory)
+    {
+        Services.AddSingleton(factory);
+        return this;
+    }
+
     /// <summary>Register an <see cref="Lyntai.Storage.IConversationEnricher"/> into the enricher collection —
     /// the app's "add additional info" seam. Lyntai owns the conversation store; each registered enricher is
     /// invoked after a thread/message write to persist the app's own info (in its own store), without
@@ -331,17 +339,34 @@ public sealed class LyntaiBuilder
         return this;
     }
 
-    /// <summary>Set the router fallback order used when callers don't pass explicit candidates.</summary>
-    public LyntaiBuilder DefaultCandidates(params string[] providerIds) =>
-        DefaultCandidates([.. providerIds.Select(id => new LlmCandidate(id))]);
+    /// <summary>Register the embedder by type (DI constructs it) — completing the instance/factory/generic
+    /// trio the other collection seams offer.</summary>
+    public LyntaiBuilder AddEmbeddings<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEmbedder>()
+        where TEmbedder : class, Lyntai.Embeddings.IEmbedder
+    {
+        Services.AddSingleton<Lyntai.Embeddings.IEmbedder, TEmbedder>();
+        return this;
+    }
 
-    public LyntaiBuilder DefaultCandidates(params LlmCandidate[] candidates)
+    /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
+    /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append.
+    /// Each provider id becomes an <see cref="LlmCandidate"/> with default options.</summary>
+    public LyntaiBuilder UseDefaultCandidates(params string[] providerIds) =>
+        UseDefaultCandidates([.. providerIds.Select(id => new LlmCandidate(id))]);
+
+    /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
+    /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append.</summary>
+    public LyntaiBuilder UseDefaultCandidates(params LlmCandidate[] candidates)
     {
         Options.DefaultCandidates.Clear();
         Options.DefaultCandidates.AddRange(candidates);
         return this;
     }
 
+    /// <summary>Mutate the <see cref="LyntaiOptions"/> in code (timeouts, retries, prompt key prefix,
+    /// job/memory knobs, …). Runs immediately, inside the <c>AddLyntai</c> configure callback; the
+    /// <c>LYNTAI_*</c> environment overrides are applied AFTER that callback returns, so an env var beats
+    /// anything set here.</summary>
     public LyntaiBuilder Configure(Action<LyntaiOptions> configure)
     {
         configure(Options);

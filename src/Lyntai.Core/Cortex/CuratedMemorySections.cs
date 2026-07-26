@@ -45,11 +45,11 @@ public static class CuratedMemorySections
     }
 
     /// <summary>The canonical curated-composition predicate (shared by the store backends' <c>ForCompositionAsync</c>
-    /// and <see cref="Compose"/>): the entry's <see cref="CuratedMemory.Task"/> is null (applies to every task)
+    /// and <see cref="Compose"/>): the entry's <see cref="CuratedMemory.TaskKey"/> is null (applies to every task)
     /// or equals <paramref name="task"/>, AND either <paramref name="scopes"/> is empty (scope filter disabled),
     /// or the entry's <see cref="CuratedMemory.Scope"/> is null/empty (applies to every scope), or the scope is
     /// one of <paramref name="scopes"/>. <see cref="CuratedMemory.Enabled"/> is checked separately.</summary>
     public static bool AppliesTo(CuratedMemory entry, string task, IReadOnlyCollection<string> scopes)
-        => (entry.Task is null || entry.Task == task)
+        => (entry.TaskKey is null || entry.TaskKey == task)
            && (scopes.Count == 0 || string.IsNullOrEmpty(entry.Scope) || scopes.Contains(entry.Scope));
 }

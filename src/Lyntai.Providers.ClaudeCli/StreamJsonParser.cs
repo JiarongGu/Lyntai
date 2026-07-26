@@ -3,7 +3,7 @@ using Lyntai.Llm;
 
 namespace Lyntai.Providers.ClaudeCli;
 
-public enum StreamJsonEventKind
+internal enum StreamJsonEventKind
 {
     /// <summary>Assistant text content (a piece of the reply).</summary>
     AssistantText,
@@ -15,11 +15,11 @@ public enum StreamJsonEventKind
     Other,
 }
 
-public sealed record StreamJsonEvent(StreamJsonEventKind Kind, string Text = "", LlmUsage? Usage = null);
+internal sealed record StreamJsonEvent(StreamJsonEventKind Kind, string Text = "", LlmUsage? Usage = null);
 
 /// <summary>Translates one line of `claude --output-format stream-json` output into a provider event.
 /// Tolerant: unknown/malformed lines become <see cref="StreamJsonEventKind.Other"/>, never a throw.</summary>
-public static class StreamJsonParser
+internal static class StreamJsonParser
 {
     public static StreamJsonEvent Parse(string line)
     {

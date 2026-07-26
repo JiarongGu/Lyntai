@@ -52,7 +52,7 @@ public class McpToolsTests
         provider.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok));
 
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => provider).AddMcpTools(mcpTools).DefaultCandidates("p"));
+        services.AddLyntai(b => b.AddProvider(_ => provider).AddMcpTools(mcpTools).UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
         Assert.Contains(sp.GetRequiredService<IToolRegistry>().Tools, t => t.Name == "shout");

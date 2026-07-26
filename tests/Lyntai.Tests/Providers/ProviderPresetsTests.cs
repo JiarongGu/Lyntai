@@ -22,7 +22,7 @@ public class ProviderPresetsTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddOpenAiProvider("sk-test", defaultModel: "gpt-x", httpClient: _ => new HttpClient(handler))
-            .DefaultCandidates("openai"));
+            .UseDefaultCandidates("openai"));
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
@@ -41,7 +41,7 @@ public class ProviderPresetsTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddOllamaProvider(defaultModel: "llama3", httpClient: _ => new HttpClient(handler))
-            .DefaultCandidates("ollama"));
+            .UseDefaultCandidates("ollama"));
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()
@@ -59,7 +59,7 @@ public class ProviderPresetsTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddOpenRouterProvider("or-key", httpClient: _ => new HttpClient(handler))
-            .DefaultCandidates("openrouter"));
+            .UseDefaultCandidates("openrouter"));
         using var sp = services.BuildServiceProvider();
 
         await sp.GetRequiredService<ILlmClient>().CompleteAsync(new LlmRequest { Messages = [LlmMessage.User("hi")] });
@@ -79,7 +79,7 @@ public class ProviderPresetsTests
         services.AddLyntai(b => b
             .AddOpenAiProvider("k", httpClient: _ => new HttpClient(handler))
             .AddProvider(_ => custom)                 // BYO ILlmProvider
-            .DefaultCandidates("custom", "openai"));  // custom first
+            .UseDefaultCandidates("custom", "openai"));  // custom first
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>()

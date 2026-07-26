@@ -10,8 +10,9 @@ public sealed class LocalModelOptions
     public string ModelPath { get; set; } = "";
 
     /// <summary>Context window (tokens) for the loaded model. Null uses the model's own trained
-    /// maximum from its GGUF metadata — the right default for most models.</summary>
-    public uint? ContextSize { get; set; }
+    /// maximum from its GGUF metadata — the right default for most models. Non-positive values are
+    /// treated as null.</summary>
+    public int? ContextSize { get; set; }
 
     /// <summary>Layers to offload to the GPU. 0 (default) is pure CPU; a large value (e.g. 999)
     /// offloads everything. Requires a GPU LLamaSharp.Backend.* in the consuming app.</summary>

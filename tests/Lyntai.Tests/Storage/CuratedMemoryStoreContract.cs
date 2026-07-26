@@ -62,50 +62,50 @@ public static class CuratedMemoryStoreContract
     /// of always inserting. Parameterized task/scope so the Postgres shared container can run it isolated.</summary>
     public static async Task Dedup_add_is_idempotent(ICuratedMemoryStore store, string task = "source-study", string scope = "site:1")
     {
-        var first = await store.AddAsync("confirmed", "the price selector is .price", task: task, scope: scope, dedup: true);
+        var first = await store.AddAsync("confirmed", "the price selector is .price", taskKey: task, scope: scope, dedup: true);
 
         // identical (kind, content, task, scope) with dedup → the SAME id, no duplicate row
-        var again = await store.AddAsync("confirmed", "the price selector is .price", task: task, scope: scope, dedup: true);
+        var again = await store.AddAsync("confirmed", "the price selector is .price", taskKey: task, scope: scope, dedup: true);
         Assert.Equal(first, again);
-        Assert.Single(await store.ListAsync(kind: "confirmed", task: task, scope: scope));
+        Assert.Single(await store.ListAsync(kind: "confirmed", taskKey: task, scope: scope));
 
         // dedup identity includes scope: a different scope is a NEW row even with dedup
-        var otherScope = await store.AddAsync("confirmed", "the price selector is .price", task: task, scope: scope + "-b", dedup: true);
+        var otherScope = await store.AddAsync("confirmed", "the price selector is .price", taskKey: task, scope: scope + "-b", dedup: true);
         Assert.NotEqual(first, otherScope);
 
         // …and kind: a different kind is a NEW row even with identical content/task/scope
-        var otherKind = await store.AddAsync("pitfall", "the price selector is .price", task: task, scope: scope, dedup: true);
+        var otherKind = await store.AddAsync("pitfall", "the price selector is .price", taskKey: task, scope: scope, dedup: true);
         Assert.NotEqual(first, otherKind);
 
         // without dedup (the default) an identical add always inserts — the catalog stays deliberate
-        var dup = await store.AddAsync("confirmed", "the price selector is .price", task: task, scope: scope);
+        var dup = await store.AddAsync("confirmed", "the price selector is .price", taskKey: task, scope: scope);
         Assert.NotEqual(first, dup);
-        Assert.Equal(2, (await store.ListAsync(kind: "confirmed", task: task, scope: scope)).Count);
+        Assert.Equal(2, (await store.ListAsync(kind: "confirmed", taskKey: task, scope: scope)).Count);
     }
 
     /// <summary>CM2 — <see cref="ICuratedMemoryStore.ListAsync"/> gains a strict-equality <c>scope</c> filter
     /// (the admin/optimize pass: "all notes for ONE scope, incl. disabled"). Null scope = no filter (unchanged).</summary>
     public static async Task List_filters_by_scope(ICuratedMemoryStore store, string task = "opt")
     {
-        var zh      = await store.AddAsync("glossary", "zh term",  task: task, scope: "site:zh");
-        await store.AddAsync("glossary", "ja term",  task: task, scope: "site:ja");
-        await store.AddAsync("glossary", "any lang", task: task);                                   // null scope
-        var offZh   = await store.AddAsync("glossary", "off",      enabled: false, task: task, scope: "site:zh");
+        var zh      = await store.AddAsync("glossary", "zh term",  taskKey: task, scope: "site:zh");
+        await store.AddAsync("glossary", "ja term",  taskKey: task, scope: "site:ja");
+        await store.AddAsync("glossary", "any lang", taskKey: task);                                   // null scope
+        var offZh   = await store.AddAsync("glossary", "off",      enabled: false, taskKey: task, scope: "site:zh");
 
         // scope filter is strict equality and independent of enabled: BOTH site:zh rows (incl. the disabled one)
-        var zhIds = (await store.ListAsync(task: task, scope: "site:zh")).Select(e => e.Id).ToHashSet();
+        var zhIds = (await store.ListAsync(taskKey: task, scope: "site:zh")).Select(e => e.Id).ToHashSet();
         Assert.Equal(new HashSet<long> { zh, offZh }, zhIds);
 
         // strict equality: a specific scope filter does NOT pull in the null-scope ("applies everywhere") row
-        var zhContents = (await store.ListAsync(task: task, scope: "site:zh")).Select(e => e.Content).ToList();
+        var zhContents = (await store.ListAsync(taskKey: task, scope: "site:zh")).Select(e => e.Content).ToList();
         Assert.DoesNotContain("any lang", zhContents);
         Assert.DoesNotContain("ja term", zhContents);
 
         // enabledOnly composes with the scope filter
-        Assert.Single(await store.ListAsync(task: task, scope: "site:zh", enabledOnly: true));
+        Assert.Single(await store.ListAsync(taskKey: task, scope: "site:zh", enabledOnly: true));
 
         // null scope filter (default) → every scope of the task (4 rows)
-        Assert.Equal(4, (await store.ListAsync(task: task)).Count);
+        Assert.Equal(4, (await store.ListAsync(taskKey: task)).Count);
     }
 
     public static async Task Update_with_empty_source_clears_it(ICuratedMemoryStore store)
@@ -130,10 +130,10 @@ public static class CuratedMemoryStoreContract
     /// backend runs this over a uniquely-tasked variant instead (shared container).</summary>
     public static async Task ForComposition_filters_by_task_and_scope(ICuratedMemoryStore store, string t = "translation", string m = "metadata")
     {
-        var zh        = await store.AddAsync("glossary", "zh term",  task: t, scope: "lang:zh");
-        var tGlobal   = await store.AddAsync("glossary", "any lang", task: t);                    // null scope
-        var meta      = await store.AddAsync("rules",    "meta rule", task: m);
-        var disabled  = await store.AddAsync("glossary", "off",       enabled: false, task: t, scope: "lang:zh");
+        var zh        = await store.AddAsync("glossary", "zh term",  taskKey: t, scope: "lang:zh");
+        var tGlobal   = await store.AddAsync("glossary", "any lang", taskKey: t);                    // null scope
+        var meta      = await store.AddAsync("rules",    "meta rule", taskKey: m);
+        var disabled  = await store.AddAsync("glossary", "off",       enabled: false, taskKey: t, scope: "lang:zh");
         var universal = await store.AddAsync("persona",  "be terse");                             // null task + null scope
 
         // task + matching scope → zh, tGlobal (null scope), universal (null task). Not metadata; not disabled.
@@ -168,8 +168,8 @@ public static class CuratedMemoryStoreContract
         var withDisabled = (await store.ForCompositionAsync(t, ["lang:zh"], enabledOnly: false)).Select(e => e.Id).ToHashSet();
         Assert.Contains(disabled, withDisabled);
 
-        // ListAsync(task:) is a strict-equality admin filter — the null-task universal row is NOT included
-        var listed = (await store.ListAsync(task: t)).Select(e => e.Id).ToHashSet();
+        // ListAsync(taskKey:) is a strict-equality admin filter — the null-task-key universal row is NOT included
+        var listed = (await store.ListAsync(taskKey: t)).Select(e => e.Id).ToHashSet();
         Assert.Contains(zh, listed);
         Assert.Contains(tGlobal, listed);
         Assert.Contains(disabled, listed);        // ListAsync doesn't drop disabled rows unless enabledOnly

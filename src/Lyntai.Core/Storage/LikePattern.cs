@@ -10,6 +10,10 @@ public static class LikePattern
     public static string Contains(string term) =>
         "%" + Escape(term.Trim()) + "%";
 
+    /// <summary>A <c>…%</c> "starts-with" pattern with the prefix's wildcards escaped.</summary>
+    public static string StartsWith(string prefix) =>
+        Escape(prefix) + "%";
+
     /// <summary>Escape <c>\</c>, <c>%</c>, and <c>_</c> so the term is matched literally.</summary>
     public static string Escape(string term) =>
         term.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");

@@ -67,7 +67,7 @@ public sealed class ClaudeCliProvider(
         ProcessResult result;
         try
         {
-            result = await runner.RunAsync(exe, argv, stdin: prompt, timeout: timeout, maxDuration: maxDuration,
+            result = await runner.RunAsync(exe, argv, stdin: prompt, inactivityTimeout: timeout, maxDuration: maxDuration,
                 workingDirectory: NeutralWorkingDirectory, ct: ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -125,7 +125,7 @@ public sealed class ClaudeCliProvider(
         string resultText = "";
         LlmUsage? usage = null;
 
-        var lines = runner.StreamLinesAsync(exe, argv, stdin: prompt, timeout: options.ResolveTimeout(req),
+        var lines = runner.StreamLinesAsync(exe, argv, stdin: prompt, inactivityTimeout: options.ResolveTimeout(req),
             workingDirectory: NeutralWorkingDirectory, ct: ct);
         var enumerator = lines.GetAsyncEnumerator(ct);
         await using (enumerator.ConfigureAwait(false))

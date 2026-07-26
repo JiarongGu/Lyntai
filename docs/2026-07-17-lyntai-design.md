@@ -184,7 +184,7 @@ services.AddLyntai(cfg => {
     cfg.AddExtensionsAiProvider("openai", chatClient);   // bridge any IChatClient
     cfg.UseSqliteStorage(dbPath);
     cfg.AddScorer<MyScorer>();
-    cfg.DefaultCandidates("claude-cli", "ollama");       // router fallback order
+    cfg.UseDefaultCandidates("claude-cli", "ollama");       // router fallback order
 });
 ```
 Options bind from config + env overrides (`LYNTAI_*`). Sensible defaults so the minimal setup is a

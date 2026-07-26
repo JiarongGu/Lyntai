@@ -91,7 +91,7 @@ public class OllamaLiveTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddOpenAiCompatibleProvider("ollama", c => { c.BaseUrl = BaseUrl; c.DefaultModel = Model; })
-            .DefaultCandidates("ollama")
+            .UseDefaultCandidates("ollama")
             .Configure(o => o.ProviderTimeout = TimeSpan.FromMinutes(3)));
         using var sp = services.BuildServiceProvider();
 

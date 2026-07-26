@@ -225,7 +225,7 @@ public sealed class OpenAiCompatibleProvider(
     private HttpRequestMessage BuildRequest(LlmRequest req, string model, bool stream)
     {
         var payload = _flavor == ProviderDetect.Ollama
-            ? OllamaPayload.Build(req, model, stream, config.NumCtx)
+            ? OllamaPayload.Build(req, model, stream, config.ContextSize)
             : OpenAiPayload.Build(req, model, stream);
 
         var request = new HttpRequestMessage(HttpMethod.Post, Endpoint())

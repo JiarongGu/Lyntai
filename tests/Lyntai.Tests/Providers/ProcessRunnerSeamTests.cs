@@ -22,7 +22,7 @@ public class ProcessRunnerSeamTests
         RunResult = new ProcessResult(0,
             """{"type":"assistant","message":{"content":[{"type":"text","text":"served by a custom runner"}]}}""" + "\n" +
             """{"type":"result","result":"served by a custom runner","usage":{"input_tokens":5,"output_tokens":3},"total_cost_usd":0.001}""",
-            "", TimedOut: false),
+            ""),
     };
 
     [Fact]
@@ -55,7 +55,7 @@ public class ProcessRunnerSeamTests
         var runner = CannedRunner();
         var services = new ServiceCollection();
         services.AddSingleton<IProcessRunner>(runner); // app registers its own BEFORE AddLyntai
-        services.AddLyntai(b => b.AddClaudeCliProvider().DefaultCandidates("claude-cli"));
+        services.AddLyntai(b => b.AddClaudeCliProvider().UseDefaultCandidates("claude-cli"));
         using var sp = services.BuildServiceProvider();
 
         // the TryAdd default must not shadow the app's runner

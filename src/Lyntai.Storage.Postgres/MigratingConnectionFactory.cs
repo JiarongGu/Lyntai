@@ -5,7 +5,7 @@ using Lyntai.Storage.Postgres.Migrations;
 namespace Lyntai.Storage.Postgres;
 
 /// <summary>Runs the migrations exactly once, lazily, on the FIRST successful open — so
-/// <c>UsePostgresStorage(conn, migrateOnFirstUse: true)</c> does no I/O during DI composition. The
+/// <c>UsePostgresStorage(conn, SchemaMigration.OnFirstUse)</c> does no I/O during DI composition. The
 /// once-only/retry-on-transient-failure gate lives in Core's <see cref="LazyMigratingConnectionFactory"/>;
 /// this wrapper supplies the Postgres specifics (run this package's migrations).</summary>
 public sealed class MigratingConnectionFactory : IDbConnectionFactory

@@ -21,7 +21,7 @@ inactivity clocks in every provider, empty-content commit gate, env/telemetry/id
 ### v0.3.0 — routing & resilience depth (2026-07)
 Configurable `RoutingPolicy` (the §6 switch becomes the default policy): per-verdict action,
 retry-then-advance, per-(provider, model) cooldown granularity, sole-candidate exemption — all
-tunable via `ConfigureRouting` / `LYNTAI_*` env. Deferred migrations (`migrateOnFirstUse`).
+tunable via `ConfigureRouting` / `LYNTAI_*` env. Deferred migrations (now `SchemaMigration.OnFirstUse`).
 BenchmarkDotNet project (router overhead, FTS recall at scale).
 
 ### v0.4.0 — LLM-ops depth (2026-07)
@@ -233,16 +233,19 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   then a second **adversarial review of the pass itself** (48-agent workflow) that caught and fixed 5
   regressions round 1 introduced. Carries small pre-1.0 BREAKS (`ChatResult.BlockReason`→`Detail`,
   `IRateLimiter` cancellation semantics, tracker totals now case-insensitive) — minor-bump release.
-- The pass's **deferred findings are the active backlog** (`tasks.md`): P5 streaming-loop extraction,
-  async `IUsageTracker`, Azure preset verification, remaining Row-DTO/dedup items, PG coverage holes,
-  contract-class mechanism, de-flaking. Rejected findings are recorded in `docs/DECISIONS.md` D18.
+- The pass's **deferred findings went to the backlog** (`tasks.md`): P5 streaming-loop extraction,
+  remaining Row-DTO/dedup items, PG coverage holes, contract-class mechanism, de-flaking (async
+  `IUsageTracker` and the Azure preset closed in the 1.0-prep batch). Rejected findings are recorded
+  in `docs/DECISIONS.md` D18.
 
 ## Planned
 
-### v1.0 — API freeze
+### v1.0 — API freeze (technical gates DONE; release is ADOPTION-GATED)
+Every technical prerequisite is implemented (2026-07-27, unreleased — see CHANGELOG Unreleased):
 - ✅ **Public-API baseline** — an approval test (`ApiSurfaceTests`) snapshots every packable
-  assembly's public/protected surface; any add/remove/rename fails until the baseline is updated
-  deliberately, so pre-1.0 breaks are visible in review and post-1.0 gate a major bump.
+  assembly's public/protected surface (incl. sealed/abstract/static/required modifiers); any
+  add/remove/rename fails until the baseline is updated deliberately, so pre-1.0 breaks are visible in
+  review and post-1.0 gate a major bump.
 - ✅ **Semver policy** — stated in `CHANGELOG.md` and here: pre-1.0 minor versions may carry breaking
   changes (each called out in the changelog); 1.0 commits to SemVer 2.0.0 (no breaks without a major bump).
 - ✅ **Consolidation reviews** — two adversarial passes over the tool-calling/platform-kit code (v0.10–v0.15),
@@ -250,14 +253,19 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   own diff). All confirmed defects fixed.
 - ✅ **Repo hosted** — github.com/JiarongGu/Lyntai with release CI (`release.yml`); nuget.org is the
   canonical package feed; real `PackageProjectUrl`/`RepositoryUrl` in `Directory.Build.props`.
-- Remaining before tagging 1.0, in order:
-  1. ✅ **v0.30.0 recorded** (CHANGELOG section + docs reconciled) — cut via the manual release workflow
-     (Actions → release.yml; the pipeline bumps `VersionPrefix` + the README headline and tags).
-  2. **Burn down or consciously defer the `tasks.md` backlog** — the API-shape items matter most
-     (async `IUsageTracker` L8 is a breaking interface change; do it BEFORE the freeze or never).
-  3. **Add SourceLink** (`Microsoft.SourceLink.GitHub` — a one-package add, now unblocked; sources are
-     already embedded in PDBs via `EmbedAllSources`, so this is polish, not a gate).
-  4. Tag **1.0** to freeze the public API (`ApiSurfaceTests` then gates majors).
+- ✅ **Push/PR CI** — `.github/workflows/ci.yml` runs the full `verify` gate on every push/PR to master.
+- ✅ **SourceLink** — `PublishRepositoryUrl` + `ContinuousIntegrationBuild` under CI (SDK-included since
+  .NET 8; sources already embedded via `EmbedAllSources`).
+- ✅ **Final API sign-off** — an 18-finding surface audit closed by the pre-1.0 breaking batch
+  (`UseDefaultCandidates`, `SchemaMigration`, required vault key, `IResponseCache` reshape, async
+  `IUsageTracker`, process-runner inactivity/maxDuration reshape, honesty renames, wire internals) —
+  decisions in `docs/DECISIONS.md` D19; the surface is now the one 1.0 will freeze.
+
+**The remaining gate is ADOPTION, not code:** 1.0 tags only after more applications adopt Lyntai in
+anger and the surface survives that contact (the sibling apps + at least the agent-manager desktop
+integration running on it). Until then the sign-off batch stays unreleased on master; the `tasks.md`
+backlog (all non-breaking-shape items now) burns down as normal minor releases. When adoption says go:
+tag **1.0**, freezing the public API (`ApiSurfaceTests` then gates majors).
 
 ### The platform kit (design §9) — SHIPPED (v0.8–v0.15, deferrals closed through v0.27)
 Delivered additively on the existing seams: `Lyntai.Providers.Local` · the agentic tool loop + native

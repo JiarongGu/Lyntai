@@ -31,7 +31,7 @@ public sealed class CachingLlmClient(
         // stale-model reply is never served after a live retune
         var live = modelRouting is null ? null : await modelRouting.GetModelOverrideAsync(req.Consumer, ct).ConfigureAwait(false);
         var key = ResponseCacheKey.For(req, options.ResolveModel(req.Consumer, req.Model, live));
-        var cached = await cache.TryGetAsync(key, ct).ConfigureAwait(false);
+        var cached = await cache.GetAsync(key, ct).ConfigureAwait(false);
         if (cached is not null)
         {
             _logger.LogDebug("response-cache hit (consumer {Consumer})", req.Consumer);

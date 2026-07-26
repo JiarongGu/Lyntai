@@ -32,7 +32,7 @@ public class ClaudeCliMcpLiveTests
                 "Returns today's secret word. Call this to learn the secret word.",
                 """{"type":"object","properties":{}}"""))
             .Configure(o => o.ProviderTimeout = TimeSpan.FromMinutes(3))
-            .DefaultCandidates("claude-cli"));
+            .UseDefaultCandidates("claude-cli"));
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmClient>().CompleteAsync(new LlmRequest

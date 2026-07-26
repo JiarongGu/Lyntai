@@ -301,7 +301,7 @@ public class ExtensionsAiProviderTests
         services.AddLyntai(b => b
             .AddExtensionsAiProvider("meai", client)
             .AddTool(_ => new FunctionTool("shout", (args, _) => Task.FromResult(args.ToUpperInvariant())))
-            .DefaultCandidates("meai"));
+            .UseDefaultCandidates("meai"));
         using var sp = services.BuildServiceProvider();
 
         Assert.True(sp.GetRequiredService<ILlmClient>().SupportsToolCalls(Req)); // bridge → router → client capability flows
@@ -325,7 +325,7 @@ public class ExtensionsAiProviderTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddExtensionsAiProvider("my-meai", client)
-            .DefaultCandidates("my-meai"));
+            .UseDefaultCandidates("my-meai"));
         using var sp = services.BuildServiceProvider();
 
         var reply = await sp.GetRequiredService<ILlmRouter>()

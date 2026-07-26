@@ -6,7 +6,7 @@ namespace Lyntai.Providers.OpenAiCompatible.Payloads;
 
 /// <summary>Canonical <see cref="LlmRequest"/> → OpenAI chat-completions schema.
 /// Tool parameter schemas embed as JSON objects; structured output uses response_format.json_schema.</summary>
-public static class OpenAiPayload
+internal static class OpenAiPayload
 {
     public static JsonObject Build(LlmRequest req, string model, bool stream)
     {

@@ -47,7 +47,7 @@ public class AgentSessionExtensionsTests
         Assert.Equal(LlmVerdict.Ok, result.Verdict);
         Assert.False(result.IsError);
         Assert.NotNull(result.Usage);
-        Assert.Equal(10, result.Usage!.Input);
+        Assert.Equal(10, result.Usage!.InputTokens);
         Assert.Equal("claude-x", result.Usage.Model);
     }
 

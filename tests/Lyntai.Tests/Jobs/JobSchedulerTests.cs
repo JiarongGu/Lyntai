@@ -202,5 +202,9 @@ public class JobSchedulerTests
         public Task<string?> GetAsync(string key, CancellationToken ct = default) => Task.FromResult(_d.GetValueOrDefault(key));
         public Task SetAsync(string key, string value, CancellationToken ct = default) { _d[key] = value; return Task.CompletedTask; }
         public Task DeleteAsync(string key, CancellationToken ct = default) { _d.Remove(key); return Task.CompletedTask; }
+        public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<string>>([.. _d.Keys
+                .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
+                .OrderBy(k => k, StringComparer.Ordinal)]);
     }
 }

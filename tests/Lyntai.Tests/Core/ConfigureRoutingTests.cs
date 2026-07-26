@@ -38,7 +38,7 @@ public class ConfigureRoutingTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => flaky)
-            .DefaultCandidates("flaky")
+            .UseDefaultCandidates("flaky")
             .ConfigureRouting(r => r.Retry(LlmVerdict.Failed, 1)));
         using var sp = services.BuildServiceProvider();
 

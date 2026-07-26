@@ -19,7 +19,7 @@ public class AddLyntaiTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => fake)
-            .DefaultCandidates("fake"));
+            .UseDefaultCandidates("fake"));
         using var sp = services.BuildServiceProvider();
 
         var router = sp.GetRequiredService<ILlmRouter>();
@@ -111,7 +111,7 @@ public class AddLyntaiTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .DefaultCandidates("p")
+            .UseDefaultCandidates("p")
             .AddFrontDoorDecorator(25, (_, inner) => new TagDecorator(inner))); // 25 = outside the cache slot
         using var sp = services.BuildServiceProvider();
 

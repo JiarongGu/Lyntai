@@ -17,7 +17,7 @@ public sealed class InMemoryResponseCache(LyntaiOptions options, Func<DateTimeOf
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private long _seq;
 
-    public Task<LlmReply?> TryGetAsync(string key, CancellationToken ct = default)
+    public Task<LlmReply?> GetAsync(string key, CancellationToken ct = default)
     {
         if (_entries.TryGetValue(key, out var e))
         {
@@ -35,6 +35,12 @@ public sealed class InMemoryResponseCache(LyntaiOptions options, Func<DateTimeOf
         if (window <= TimeSpan.Zero) return Task.CompletedTask; // non-positive TTL disables caching
         _entries[key] = new Entry(reply, _clock() + window, Interlocked.Increment(ref _seq));
         if (_entries.Count > options.Cache.MaxEntries) Evict();
+        return Task.CompletedTask;
+    }
+
+    public Task RemoveAsync(string key, CancellationToken ct = default)
+    {
+        _entries.TryRemove(key, out _);
         return Task.CompletedTask;
     }
 

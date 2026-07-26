@@ -1,2 +1,2 @@
 static class Lyntai.ClaudeCliMcpBuilderExtensions
-    AddClaudeCliMcpTools(LyntaiBuilder) : LyntaiBuilder
+    static AddClaudeCliMcpTools(LyntaiBuilder) : LyntaiBuilder

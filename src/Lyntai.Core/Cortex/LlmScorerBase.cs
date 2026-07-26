@@ -43,7 +43,7 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
         "You are a strict evaluator performing a SCORING TASK. Reply with exactly one JSON object " +
         """{"score": <number 0..1>, "reason": "<short reason>"} and nothing else.""";
 
-    public async Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct)
+    public async Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct = default)
     {
         if (!Applies(ctx)) return null; // not applicable to this context — don't spend tokens on the judge
 

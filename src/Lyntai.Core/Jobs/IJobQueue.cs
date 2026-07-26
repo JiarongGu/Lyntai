@@ -13,6 +13,16 @@ public interface IJobQueue
     /// (null = unpartitioned) serializes jobs sharing a <c>(lane, key)</c> into a FIFO actor mailbox.</summary>
     Task<Guid> EnqueueAsync(string lane, string type, string payload, int priority = 0, string? partitionKey = null, CancellationToken ct = default);
 
+    /// <summary>One job's current record — status, attempts, checkpoint, and the LIVE progress fields
+    /// (<see cref="JobRecord.Progress"/>/<see cref="JobRecord.Total"/>/<see cref="JobRecord.Stage"/>/
+    /// <see cref="JobRecord.StepLog"/>) while it runs. Null when unknown. The front door's read side —
+    /// no need to inject the storage-layer <see cref="IJobStore"/> just to watch a job.</summary>
+    Task<JobRecord?> GetAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>List jobs, optionally filtered by <paramref name="status"/> and/or <paramref name="lane"/>,
+    /// newest first.</summary>
+    Task<IReadOnlyList<JobRecord>> ListAsync(JobStatus? status = null, string? lane = null, int limit = 100, CancellationToken ct = default);
+
     /// <summary>The dead-letter queue: jobs that exhausted their retries (<see cref="JobStatus.Dead"/>),
     /// newest first, for inspection.</summary>
     Task<IReadOnlyList<JobRecord>> ListDeadAsync(string? lane = null, int limit = 100, CancellationToken ct = default);
@@ -49,6 +59,11 @@ public sealed class JobQueue(IJobStore? store, LyntaiOptions options) : IJobQueu
 
     public Task<Guid> EnqueueAsync(string lane, string type, string payload, int priority = 0, string? partitionKey = null, CancellationToken ct = default) =>
         EnqueueAsync(new JobSpec(lane, type, payload, Priority: priority, PartitionKey: partitionKey), ct);
+
+    public Task<JobRecord?> GetAsync(Guid id, CancellationToken ct = default) => _store.GetAsync(id, ct);
+
+    public Task<IReadOnlyList<JobRecord>> ListAsync(JobStatus? status = null, string? lane = null, int limit = 100, CancellationToken ct = default) =>
+        _store.ListAsync(status, lane, limit, ct);
 
     public Task<IReadOnlyList<JobRecord>> ListDeadAsync(string? lane = null, int limit = 100, CancellationToken ct = default) =>
         _store.ListAsync(JobStatus.Dead, lane, limit, ct);

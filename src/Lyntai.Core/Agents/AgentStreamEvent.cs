@@ -23,11 +23,11 @@ public sealed record ToolCall(string Name, string ArgumentsJson, string? CallId 
 public sealed record ToolResult(string? CallId, string Content, bool IsError) : AgentStreamEvent;
 
 /// <summary>Per-turn usage tick (RAW token counts — the app prices from its own table).</summary>
-public sealed record UsageLive(long Input, long Output, long CacheRead) : AgentStreamEvent;
+public sealed record UsageLive(long InputTokens, long OutputTokens, long CacheReadTokens) : AgentStreamEvent;
 
 /// <summary>Per-run final usage: RAW counts + the ACTUAL model id. Deliberately NOT LlmUsage (which lacks
-/// CacheCreate/model and is the priced path).</summary>
-public sealed record UsageFinal(long Input, long Output, long CacheRead, long CacheCreate, string? Model) : AgentStreamEvent;
+/// cache-create/model and is the priced path).</summary>
+public sealed record UsageFinal(long InputTokens, long OutputTokens, long CacheReadTokens, long CacheCreateTokens, string? Model) : AgentStreamEvent;
 
 /// <summary>The single terminal event. Verdict != Ok means the run errored; a no-output run is still
 /// diagnosable via Verdict/Subtype/Diagnostic (never silent). Diagnostic is where a CLI adapter packs its

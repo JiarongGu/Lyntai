@@ -1,16 +1,16 @@
 static class Lyntai.SqliteStorageBuilderExtensions
-    UseSqliteResponseCache(LyntaiBuilder) : LyntaiBuilder
-    UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
-    UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory, StorageFeature) : LyntaiBuilder
-    UseSqliteStorage(LyntaiBuilder, String, Boolean=, Boolean=) : LyntaiBuilder
-    UseSqliteStorage(LyntaiBuilder, String, StorageFeature, Boolean=, Boolean=) : LyntaiBuilder
-    UseSqliteUsageTracking(LyntaiBuilder) : LyntaiBuilder
-    UseSqliteVectorStore(LyntaiBuilder) : LyntaiBuilder
-class Lyntai.Storage.Sqlite.MigratingConnectionFactory
+    static UseSqliteResponseCache(LyntaiBuilder) : LyntaiBuilder
+    static UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
+    static UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory, StorageFeature) : LyntaiBuilder
+    static UseSqliteStorage(LyntaiBuilder, String, SchemaMigration=) : LyntaiBuilder
+    static UseSqliteStorage(LyntaiBuilder, String, StorageFeature, SchemaMigration=) : LyntaiBuilder
+    static UseSqliteUsageTracking(LyntaiBuilder) : LyntaiBuilder
+    static UseSqliteVectorStore(LyntaiBuilder) : LyntaiBuilder
+sealed class Lyntai.Storage.Sqlite.MigratingConnectionFactory
     .ctor(String, StorageFeature=)
     Open() : DbConnection
     OpenAsync(CancellationToken=) : Task<DbConnection>
-class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
+sealed class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
     .ctor()
     AppliedOnColumnName : String
     ColumnName : String
@@ -20,67 +20,67 @@ class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
     SchemaName : String
     TableName : String
     UniqueIndexName : String
-class Lyntai.Storage.Sqlite.Migrations.M202607170001_KeyValue
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607170001_KeyValue
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607170002_Conversation
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607170002_Conversation
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607170003_Memory
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607170003_Memory
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607170004_Score
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607170004_Score
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607170005_Trace
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607170005_Trace
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607170006_PromptVersion
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607170006_PromptVersion
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607170007_MemoryTtl
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607170007_MemoryTtl
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607170008_TraceId
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607170008_TraceId
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607180001_Jobs
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607180001_Jobs
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607180002_Governance
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607180002_Governance
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607180003_CuratedMemory
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607180003_CuratedMemory
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607220001_CuratedMemoryTaskScope
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607220001_CuratedMemoryTaskScope
     .ctor()
     Down() : Void
     Up() : Void
-class Lyntai.Storage.Sqlite.Migrations.M202607220002_MemoryLastAccessed
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607220002_MemoryLastAccessed
     .ctor()
     Down() : Void
     Up() : Void
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
-    MigrateUp(String) : Void
-    MigrateUp(String, StorageFeature) : Void
-class Lyntai.Storage.Sqlite.SqliteConnectionFactory
+    static MigrateUp(String) : Void
+    static MigrateUp(String, StorageFeature) : Void
+sealed class Lyntai.Storage.Sqlite.SqliteConnectionFactory
     .ctor(String)
     DbPath : String
     Open() : DbConnection
     OpenAsync(CancellationToken=) : Task<DbConnection>
-class Lyntai.Storage.Sqlite.SqliteConversationStore
+sealed class Lyntai.Storage.Sqlite.SqliteConversationStore
     .ctor(IDbConnectionFactory)
     AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
     CountThreadsAsync(CancellationToken=) : Task<Int32>
@@ -91,7 +91,7 @@ class Lyntai.Storage.Sqlite.SqliteConversationStore
     ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String, String, CancellationToken=) : Task
-class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
+sealed class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=)
     AddAsync(String, String, String=, Boolean=, String=, String=, Boolean=, CancellationToken=) : Task<Int64>
     ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
@@ -99,7 +99,7 @@ class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
     ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
-class Lyntai.Storage.Sqlite.SqliteJobStore
+sealed class Lyntai.Storage.Sqlite.SqliteJobStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=, Int32=)
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
     CancelAsync(Guid, CancellationToken=) : Task<Boolean>
@@ -119,43 +119,45 @@ class Lyntai.Storage.Sqlite.SqliteJobStore
     RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
     ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
     SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
-class Lyntai.Storage.Sqlite.SqliteKeyValueStore
+sealed class Lyntai.Storage.Sqlite.SqliteKeyValueStore
     .ctor(IDbConnectionFactory)
     DeleteAsync(String, CancellationToken=) : Task
     GetAsync(String, CancellationToken=) : Task<String>
+    ListKeysAsync(String=, CancellationToken=) : Task<IReadOnlyList<String>>
     SetAsync(String, String, CancellationToken=) : Task
-class Lyntai.Storage.Sqlite.SqliteMemoryStore
+sealed class Lyntai.Storage.Sqlite.SqliteMemoryStore
     .ctor(IDbConnectionFactory, LyntaiOptions, ILogger<SqliteMemoryStore>=, Func<DateTimeOffset>=)
     ForgetAsync(String, String=, CancellationToken=) : Task
     PruneAsync(String=, Nullable<TimeSpan>=, CancellationToken=) : Task<Int32>
     RecallAsync(String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<MemoryEntry>>
     RememberAsync(String, String, String, Nullable<TimeSpan>=, CancellationToken=) : Task
-class Lyntai.Storage.Sqlite.SqlitePromptVersionStore
+sealed class Lyntai.Storage.Sqlite.SqlitePromptVersionStore
     .ctor(IDbConnectionFactory)
     GetActiveAsync(String, CancellationToken=) : Task<PromptVersion>
     HistoryAsync(String, CancellationToken=) : Task<IReadOnlyList<PromptVersion>>
     RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
     SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
-class Lyntai.Storage.Sqlite.SqliteResponseCache
+sealed class Lyntai.Storage.Sqlite.SqliteResponseCache
     .ctor(IDbConnectionFactory, LyntaiOptions, Func<DateTimeOffset>=)
+    GetAsync(String, CancellationToken=) : Task<LlmReply>
+    RemoveAsync(String, CancellationToken=) : Task
     SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
-    TryGetAsync(String, CancellationToken=) : Task<LlmReply>
-class Lyntai.Storage.Sqlite.SqliteScoreStore
+sealed class Lyntai.Storage.Sqlite.SqliteScoreStore
     .ctor(IDbConnectionFactory)
     AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
     ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
     GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
     SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
-class Lyntai.Storage.Sqlite.SqliteTraceStore
+sealed class Lyntai.Storage.Sqlite.SqliteTraceStore
     .ctor(IDbConnectionFactory)
     GetAsync(String, CancellationToken=) : Task<RunTrace>
     SaveAsync(RunTrace, CancellationToken=) : Task
-class Lyntai.Storage.Sqlite.SqliteUsageTracker
+sealed class Lyntai.Storage.Sqlite.SqliteUsageTracker
     .ctor(IDbConnectionFactory)
     RecordAsync(String, LlmUsage, CancellationToken=) : ValueTask
     ResetAsync(String=, CancellationToken=) : ValueTask
     TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
-class Lyntai.Storage.Sqlite.SqliteVectorStore
+sealed class Lyntai.Storage.Sqlite.SqliteVectorStore
     .ctor(IDbConnectionFactory)
     RemoveCollectionAsync(String, CancellationToken=) : Task
     SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>

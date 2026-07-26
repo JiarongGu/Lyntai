@@ -17,7 +17,7 @@ public class LlmClientTests
         services.AddLyntai(b =>
         {
             foreach (var p in providers) b.AddProvider(_ => p);
-            b.DefaultCandidates([.. providers.Select(p => new LlmCandidate(p.Id))]);
+            b.UseDefaultCandidates([.. providers.Select(p => new LlmCandidate(p.Id))]);
         });
         return services.BuildServiceProvider();
     }

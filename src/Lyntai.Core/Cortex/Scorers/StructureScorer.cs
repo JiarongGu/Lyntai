@@ -18,7 +18,7 @@ public sealed class StructureScorer : IScorer
     public string Group => "deterministic";
     public bool IsLlm => false;
 
-    public Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct)
+    public Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct = default)
     {
         var format = ctx.Extra is not null && ctx.Extra.TryGetValue("format", out var f) ? f : null;
         return Task.FromResult(format switch

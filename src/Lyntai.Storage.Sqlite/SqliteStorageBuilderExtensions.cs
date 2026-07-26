@@ -15,15 +15,12 @@ public static class SqliteStorageBuilderExtensions
     /// schema; an app attaches its own additional info via the record <c>metadata</c> fields rather than by
     /// managing tables. An app that genuinely needs its own backend registers its own domain-store impl
     /// (it wins — the domain stores register with <c>TryAdd</c>).
-    /// <para><paramref name="migrateOnFirstUse"/> defers migrations to the first store access so DI
-    /// composition does no I/O (AOT/startup-sensitive hosts, container health checks).</para>
-    /// <para><paramref name="migrate"/>=false makes the APP own the schema — Lyntai runs no migrations,
-    /// assuming the tables (see the <c>lyntai_*</c> schema) already exist. Run
-    /// <see cref="MigrationRunnerService.MigrateUp(string)"/> yourself if you want Lyntai's schema on your own
-    /// terms.</para></summary>
+    /// <para><paramref name="migration"/> picks the schema-migration mode — see
+    /// <see cref="SchemaMigration"/> (<c>OnStartup</c> default · <c>OnFirstUse</c> deferred ·
+    /// <c>None</c> app-owned schema, e.g. via <see cref="MigrationRunnerService.MigrateUp(string)"/>).</para></summary>
     public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, string dbPath,
-        bool migrateOnFirstUse = false, bool migrate = true) =>
-        builder.UseSqliteStorage(dbPath, StorageFeature.All, migrateOnFirstUse, migrate);
+        SchemaMigration migration = SchemaMigration.OnStartup) =>
+        builder.UseSqliteStorage(dbPath, StorageFeature.All, migration);
 
     /// <summary>Wire only the SELECTED storage features to SQLite (feature toggles): a disabled feature
     /// registers no store AND lands no table (no unused <c>lyntai_*</c> tables for domains you don't use).
@@ -32,23 +29,23 @@ public static class SqliteStorageBuilderExtensions
     /// direct <c>GetRequiredService</c> throws — the startup signal that a disabled feature is being used).
     /// Default (<see cref="StorageFeature.All"/>) is the historical behavior.</summary>
     public static LyntaiBuilder UseSqliteStorage(this LyntaiBuilder builder, string dbPath, StorageFeature features,
-        bool migrateOnFirstUse = false, bool migrate = true)
+        SchemaMigration migration = SchemaMigration.OnStartup)
     {
         IDbConnectionFactory factory;
-        if (!migrate)
+        switch (migration)
         {
-            factory = new SqliteConnectionFactory(dbPath); // app owns the schema — no migrations
-        }
-        else if (migrateOnFirstUse)
-        {
-            factory = new MigratingConnectionFactory(dbPath, features);
-        }
-        else
-        {
-            var dir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            MigrationRunnerService.MigrateUp(dbPath, features);
-            factory = new SqliteConnectionFactory(dbPath);
+            case SchemaMigration.None:
+                factory = new SqliteConnectionFactory(dbPath); // app owns the schema — no migrations
+                break;
+            case SchemaMigration.OnFirstUse:
+                factory = new MigratingConnectionFactory(dbPath, features);
+                break;
+            default:
+                var dir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                MigrationRunnerService.MigrateUp(dbPath, features);
+                factory = new SqliteConnectionFactory(dbPath);
+                break;
         }
         return builder.UseSqliteStorage(factory, features);
     }
@@ -92,7 +89,7 @@ public static class SqliteStorageBuilderExtensions
     // connection factory + schema from UseSqliteStorage, so call that first.
 
     /// <summary>Back the response cache (<c>AddResponseCache</c>) with SQLite so it survives restarts.
-    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, bool, bool)"/> for the factory + schema.</summary>
+    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory + schema.</summary>
     public static LyntaiBuilder UseSqliteResponseCache(this LyntaiBuilder builder)
     {
         builder.Services.AddSingleton<Lyntai.Llm.Caching.IResponseCache>(sp => new SqliteResponseCache(
@@ -101,7 +98,7 @@ public static class SqliteStorageBuilderExtensions
     }
 
     /// <summary>Back usage accounting (<c>AddUsageBudget</c>) with SQLite so spend isn't reset every restart.
-    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, bool, bool)"/> for the factory + schema.</summary>
+    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory + schema.</summary>
     public static LyntaiBuilder UseSqliteUsageTracking(this LyntaiBuilder builder)
     {
         builder.Services.AddSingleton<Lyntai.Llm.Budgeting.IUsageTracker>(sp => new SqliteUsageTracker(
@@ -110,7 +107,7 @@ public static class SqliteStorageBuilderExtensions
     }
 
     /// <summary>Back semantic-memory vectors (<c>AddEmbeddings</c>) with SQLite so they survive restarts.
-    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, bool, bool)"/> for the factory + schema.</summary>
+    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory + schema.</summary>
     public static LyntaiBuilder UseSqliteVectorStore(this LyntaiBuilder builder)
     {
         builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new SqliteVectorStore(

@@ -92,4 +92,37 @@ public class SecretVaultTests
         await vault.SetAsync("token", "abc123");
         Assert.Equal("abc123", await vault.GetAsync("token"));
     }
+
+    [Fact]
+    public void AddSecretVault_refuses_a_missing_or_empty_key_and_points_at_the_plaintext_opt_in()
+    {
+        var services = new ServiceCollection();
+        // a "secret vault" must never silently store plaintext — no key is a hard error at wiring time,
+        // and the message must name the loud dev-only escape hatch
+        foreach (var badKey in new[] { null, Array.Empty<byte>() })
+        {
+            var ex = Assert.Throws<ArgumentException>(() =>
+                services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).AddSecretVault(badKey!)));
+            Assert.Contains("AddPlaintextSecretVault", ex.Message);
+        }
+    }
+
+    [Fact]
+    public async Task AddPlaintextSecretVault_round_trips_and_stores_plaintext_at_rest()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .UseInMemoryStorage()
+            .AddPlaintextSecretVault());
+        using var sp = services.BuildServiceProvider();
+
+        var vault = sp.GetRequiredService<ISecretVault>();
+        await vault.SetAsync("token", "dev-only-value");
+        Assert.Equal("dev-only-value", await vault.GetAsync("token"));
+
+        // the deliberate trade-off of the loud opt-in: the backing KV holds the PLAINTEXT
+        var kv = sp.GetRequiredService<Lyntai.Storage.IKeyValueStore>();
+        Assert.Equal("dev-only-value", await kv.GetAsync("lyntai:secret:token"));
+    }
 }

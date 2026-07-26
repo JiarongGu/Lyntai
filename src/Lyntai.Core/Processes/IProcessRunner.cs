@@ -8,32 +8,36 @@ namespace Lyntai.Processes;
 /// </summary>
 public interface IProcessRunner
 {
-    /// <summary>Buffered run: returns exit code + full stdout/stderr. Honors a per-call timeout
-    /// (killing the process tree on expiry, reported as <c>TimedOut</c>) and caller cancellation. The
-    /// default <see cref="ProcessRunner"/> treats <paramref name="timeout"/> as an INACTIVITY window
-    /// (re-armed on each stdout chunk, so a slow-but-alive child isn't killed) and <paramref name="maxDuration"/>
-    /// as an absolute ceiling on total runtime (a backstop for a child that never stalls but never finishes);
-    /// the resulting <see cref="ProcessResult.TimeoutKind"/> says which fired. A custom runner defines its
-    /// own timeout policy but should still bound the call by both, killing the tree on expiry.</summary>
+    /// <summary>Buffered run: returns exit code + full stdout/stderr. Honors the two clocks (killing the
+    /// process tree on expiry, reported via <see cref="ProcessResult.TimeoutKind"/>) and caller
+    /// cancellation. <paramref name="inactivityTimeout"/> is an INACTIVITY window — the default
+    /// <see cref="ProcessRunner"/> re-arms it on every stdout chunk and stdin-drain slice, so a
+    /// slow-but-ALIVE child isn't killed, only one that goes silent for the window;
+    /// <paramref name="maxDuration"/> is an absolute ceiling on total runtime (a backstop for a child
+    /// that never stalls but never finishes). A custom runner defines its own clock policy but should
+    /// still bound the call by both, killing the tree on expiry.</summary>
     Task<ProcessResult> RunAsync(
         string command,
         IReadOnlyList<string> args,
         string? stdin = null,
-        TimeSpan? timeout = null,
+        TimeSpan? inactivityTimeout = null,
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
         CancellationToken ct = default);
 
-    /// <summary>Streamed run: yields stdout lines as they arrive. Throws
-    /// <see cref="ProcessTimeoutException"/> on timeout and <see cref="ProcessRunException"/> (with the
-    /// stderr tail) on nonzero exit, after the lines produced so far have been yielded. Abandoning the
-    /// enumerator early terminates the child.</summary>
+    /// <summary>Streamed run: yields stdout lines as they arrive. <paramref name="inactivityTimeout"/> is
+    /// the same inactivity window as the buffered run (it deliberately does NOT count time the consumer
+    /// spends between lines); <paramref name="maxDuration"/> is the absolute ceiling (a chatty child that
+    /// never finishes is killed too). Throws <see cref="ProcessTimeoutException"/> when either clock fires
+    /// and <see cref="ProcessRunException"/> (with the stderr tail) on nonzero exit — both after the lines
+    /// produced so far have been yielded. Abandoning the enumerator early terminates the child.</summary>
     IAsyncEnumerable<string> StreamLinesAsync(
         string command,
         IReadOnlyList<string> args,
         string? stdin = null,
-        TimeSpan? timeout = null,
+        TimeSpan? inactivityTimeout = null,
+        TimeSpan? maxDuration = null,
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
         CancellationToken ct = default);

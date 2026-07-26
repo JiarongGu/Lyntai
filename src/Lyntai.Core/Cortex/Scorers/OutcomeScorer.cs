@@ -19,7 +19,7 @@ public sealed class OutcomeScorer : IScorer
     public string Group => "deterministic";
     public bool IsLlm => false;
 
-    public Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct)
+    public Task<ScoreResult?> ScoreAsync(ScoreContext ctx, CancellationToken ct = default)
     {
         ScoreResult result;
         if (string.IsNullOrWhiteSpace(ctx.Output))

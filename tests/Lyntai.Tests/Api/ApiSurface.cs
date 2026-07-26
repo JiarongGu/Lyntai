@@ -19,11 +19,15 @@ internal static class ApiSurface
         return sb.ToString();
     }
 
+    // sealed/abstract are rendered because REMOVING them is non-breaking but ADDING them post-1.0 is a
+    // break (a consumer may derive from an unsealed class) — the gate must see the modifier flip.
     private static string Kind(Type t) =>
         t.IsInterface ? "interface"
         : t.IsEnum ? "enum"
         : t.IsValueType ? "struct"
         : t.IsAbstract && t.IsSealed ? "static class"
+        : t.IsAbstract ? "abstract class"
+        : t.IsSealed ? "sealed class"
         : "class";
 
     private static IEnumerable<string> Members(Type type)
@@ -38,16 +42,18 @@ internal static class ApiSurface
             if (!IsVisible(m)) continue;
             if (m.Name.StartsWith('<')) continue; // backing fields etc.
 
+            // `static` is rendered on members (an instance→static flip is a binary/source break the gate
+            // must see); `required` on properties (adding it post-1.0 breaks every object initializer).
             switch (m)
             {
                 case MethodInfo method:
-                    yield return $"{method.Name}({Params(method.GetParameters())}) : {Simple(method.ReturnType)}";
+                    yield return $"{(method.IsStatic ? "static " : "")}{method.Name}({Params(method.GetParameters())}) : {Simple(method.ReturnType)}";
                     break;
                 case PropertyInfo prop:
-                    yield return $"{prop.Name} : {Simple(prop.PropertyType)}";
+                    yield return $"{(prop.GetAccessors(true)[0].IsStatic ? "static " : "")}{prop.Name} : {Simple(prop.PropertyType)}{(IsRequired(prop) ? " required" : "")}";
                     break;
                 case FieldInfo field:
-                    yield return $"{field.Name} : {Simple(field.FieldType)}{(field.IsLiteral ? " const" : "")}";
+                    yield return $"{(field.IsStatic && !field.IsLiteral ? "static " : "")}{field.Name} : {Simple(field.FieldType)}{(field.IsLiteral ? " const" : "")}";
                     break;
                 case ConstructorInfo ctor:
                     yield return $".ctor({Params(ctor.GetParameters())})";
@@ -58,6 +64,10 @@ internal static class ApiSurface
             }
         }
     }
+
+    private static bool IsRequired(PropertyInfo p) =>
+        p.GetCustomAttributesData().Any(a =>
+            a.AttributeType.FullName == "System.Runtime.CompilerServices.RequiredMemberAttribute");
 
     private static bool IsVisible(MemberInfo m) => m switch
     {

@@ -5,7 +5,7 @@ namespace Lyntai.Providers.OpenAiCompatible.Payloads;
 
 /// <summary>Canonical <see cref="LlmRequest"/> → Ollama /api/chat schema: sampling knobs live under
 /// <c>options</c> (num_predict/num_ctx), structured output is a top-level <c>format</c> schema object.</summary>
-public static class OllamaPayload
+internal static class OllamaPayload
 {
     public static JsonObject Build(LlmRequest req, string model, bool stream, int? numCtx = null)
     {

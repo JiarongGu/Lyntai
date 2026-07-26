@@ -54,7 +54,7 @@ public class OllamaToolCallLiveTests
                 description: "Add two numbers a and b and return the sum.",
                 parametersJsonSchema: """{"type":"object","properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"]}"""))
             .Configure(o => o.ProviderTimeout = TimeSpan.FromMinutes(3)) // cold model load can be slow
-            .DefaultCandidates("ollama"));
+            .UseDefaultCandidates("ollama"));
         using var sp = services.BuildServiceProvider();
 
         // the Ollama provider advertises native tool-calling, so the loop takes the native path

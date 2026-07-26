@@ -27,13 +27,31 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         var cache = new PostgresResponseCache(pg.Factory, options, clock.Get);
         await cache.SetAsync(key, new LlmReply("pg cached", LlmVerdict.Ok, new LlmUsage(3, 4, CostUsd: 0.05)), TimeSpan.FromMinutes(5));
 
-        var got = await new PostgresResponseCache(pg.Factory, options, clock.Get).TryGetAsync(key); // fresh instance
+        var got = await new PostgresResponseCache(pg.Factory, options, clock.Get).GetAsync(key); // fresh instance
         Assert.NotNull(got);
         Assert.Equal("pg cached", got!.Text);
         Assert.Equal(0.05, got.Usage!.CostUsd);
 
         clock.Advance(TimeSpan.FromMinutes(6));
-        Assert.Null(await cache.TryGetAsync(key)); // expired
+        Assert.Null(await cache.GetAsync(key)); // expired
+    }
+
+    [SkippableFact]
+    public async Task ResponseCache_remove_evicts_one_entry_and_a_missing_key_is_a_no_op()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var options = new LyntaiOptions();
+        var cache = new PostgresResponseCache(pg.Factory, options);
+        var keep = Uid();
+        var poisoned = Uid();
+        await cache.SetAsync(keep, new LlmReply("keep", LlmVerdict.Ok));
+        await cache.SetAsync(poisoned, new LlmReply("bad", LlmVerdict.Ok));
+
+        await cache.RemoveAsync(poisoned);
+        await cache.RemoveAsync(Uid()); // no-op, no throw
+
+        Assert.Null(await new PostgresResponseCache(pg.Factory, options).GetAsync(poisoned));
+        Assert.NotNull(await new PostgresResponseCache(pg.Factory, options).GetAsync(keep));
     }
 
     [SkippableFact]

@@ -14,7 +14,7 @@ public class AddToolTests
     public void Tool_loop_and_registry_resolve_with_no_tools_registered()
     {
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).DefaultCandidates("p"));
+        services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("p")).UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
         Assert.NotNull(sp.GetService<IToolLoop>());
@@ -32,7 +32,7 @@ public class AddToolTests
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
             .AddTool(_ => new FunctionTool("shout", (args, _) => Task.FromResult(args.ToUpperInvariant())))
-            .DefaultCandidates("p"));
+            .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
         Assert.Contains(sp.GetRequiredService<IToolRegistry>().Tools, t => t.Name == "shout");

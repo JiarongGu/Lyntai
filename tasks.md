@@ -30,12 +30,6 @@ with the reason; pick up when the trade-off changes.
   of spawn/stderr-drain/kill-registration/reap scaffolding. The I2 hang fix already landed; the extraction
   is cleanliness. Keep the two CLOCK topologies separate (buffered dual-clock vs streamed single-clock —
   they are different contracts).
-- [ ] **P3 — Azure OpenAI preset endpoint shape.** `AddAzureOpenAiProvider`'s documented endpoint example
-  likely 404s (`/v1/...` vs `/openai/v1/...`) and Azure key auth conventionally uses the `api-key` header.
-  Needs verification against a real Azure resource before changing `Endpoint()` — don't fix blind.
-- [ ] **L8 — async `IUsageTracker`.** The sync `Total()` is a pre-call read on EVERY budgeted request — a
-  blocking network round-trip with the Postgres tracker. Breaking interface change (3 impls + baseline);
-  do as its own task.
 - [ ] **S8 — move the remaining 4 Row-DTO pairs (trace/score/prompt-version/usage) to Core** like
   `JobRow`. Deferred: pure materialization with zero dialect content — inert duplication, no fencing-style
   drift risk; weigh the Core-surface bloat before doing it.
@@ -68,6 +62,32 @@ with the reason; pick up when the trade-off changes.
 
 > The pass's REJECTED findings (deliberately not taken) are recorded in `docs/DECISIONS.md` **D18** —
 > per the task-lifecycle rule this file holds open tasks only; don't-relitigate rationale lives there.
+
+### Curated-memory as a titled, searchable catalog (requested by the desktop AI-manager integration, 2026-07-26)
+The desktop adopter models its agent memory as a **single titled, source-tagged, keyword-searchable,
+individually-CRUD-able note catalog** written by BOTH a human (owner) and the agent. Lyntai's
+`ICuratedMemoryStore` (`src/Lyntai.Core/Storage/ICuratedMemoryStore.cs`) already covers kind / source /
+enable / task / scope / CRUD — but two gaps stop it from BEING that catalog, so the adopter can't retire
+its own FTS5 store yet. Both are generic (any curated-catalog UI / agent-recallable operator knowledge
+base wants them), app-agnostic, and additive.
+
+- [ ] **CMEM3 — optional `Title` on `CuratedMemory`.** A curated fact commonly has a short label + a longer
+  body (a glossary term → definition, a persona trait → detail, a saved note → title). Add an optional
+  `Title` to `CuratedMemory` and to `AddAsync`/`UpdateAsync` (COALESCE-update semantics like the existing
+  fields), and have `CuratedMemorySections.Compose` render it as the entry's lead (e.g. `- **{Title}**: {Content}`,
+  falling back to Content-only when null). Nullable `title` column migration on SQLite + Postgres
+  (`ADD COLUMN`, no backfill — null = untitled, existing rows unchanged), mirrored in InMemory. Additive; no
+  breaking change. (The desktop's Memory view shows a bold title + body per entry — today packed into
+  Content because there's no Title.)
+- [ ] **CMEM4 — keyword `SearchAsync` on `ICuratedMemoryStore`.** The curated store is List-by-kind only
+  (`ListAsync`/`ForCompositionAsync`); there is no relevance/keyword lookup, so a consumer building a
+  searchable curated catalog — or letting an agent `recall` from the curated set — must load-all-and-filter
+  in-app. Add `SearchAsync(query, kind?, task?, scope?, enabledOnly?, limit?)` reusing the SAME per-backend
+  index machinery `IMemoryStore` already has (SQLite FTS5-trigram + bm25, Postgres pg_trgm, InMemory
+  substring/recency) so the semantics + backend-divergence notes match the lexical store's documented
+  guarantee. Keeps the catalog "small and deliberate" — search is an added read path, not capping/TTL.
+  Together with CMEM3 this makes `ICuratedMemoryStore` a full titled+searchable catalog an app can adopt
+  wholesale (owner rows `source="owner"`, agent rows `source="agent"` via the existing `dedup` add).
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a

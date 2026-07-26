@@ -4,12 +4,12 @@ namespace Lyntai.Storage;
 /// remember/recall log of <see cref="IMemoryStore"/>). <paramref name="Kind"/> groups entries into
 /// prompt sections; <paramref name="Enabled"/> toggles an entry in/out of composition without deleting it;
 /// <paramref name="Source"/> notes where it came from (a doc, a user, an import).
-/// <paramref name="Task"/> (optional) scopes the entry to a consumer/purpose (e.g. "translation");
-/// <paramref name="Scope"/> (optional) scopes it to a variant (e.g. "lang:zh"). A null <see cref="Task"/>
+/// <paramref name="TaskKey"/> (optional) scopes the entry to a consumer/purpose (e.g. "translation");
+/// <paramref name="Scope"/> (optional) scopes it to a variant (e.g. "lang:zh"). A null <see cref="TaskKey"/>
 /// or <see cref="Scope"/> means "applies everywhere" — see <see cref="ICuratedMemoryStore.ForCompositionAsync"/>.</summary>
 public sealed record CuratedMemory(
     long Id, string Kind, string Content, string? Source, bool Enabled,
-    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string? Task = null, string? Scope = null);
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string? TaskKey = null, string? Scope = null);
 
 /// <summary>
 /// A curated memory catalog: hand-managed entries grouped by <c>Kind</c>, each individually
@@ -20,10 +20,10 @@ public sealed record CuratedMemory(
 /// </summary>
 public interface ICuratedMemoryStore
 {
-    /// <summary>Add a catalog entry; returns its id. <paramref name="task"/>/<paramref name="scope"/> are
+    /// <summary>Add a catalog entry; returns its id. <paramref name="taskKey"/>/<paramref name="scope"/> are
     /// optional per-consumer/per-variant filters (null = applies everywhere; see <see cref="ForCompositionAsync"/>).
     /// <para>When <paramref name="dedup"/> is true, the add is IDEMPOTENT on the identity
-    /// (<paramref name="kind"/>, <paramref name="content"/>, <paramref name="task"/>, <paramref name="scope"/>):
+    /// (<paramref name="kind"/>, <paramref name="content"/>, <paramref name="taskKey"/>, <paramref name="scope"/>):
     /// if a row with that exact identity already exists its id is returned and no second row is written (mirroring
     /// <see cref="IMemoryStore.RememberAsync"/>'s dedup) — so a consumer can write a fact idempotently without a
     /// pre-<see cref="ListAsync"/>+compare. The default (false) always inserts, keeping the "deliberate catalog"
@@ -33,7 +33,7 @@ public interface ICuratedMemoryStore
     /// CONCURRENT writers of the same identity — the catalog is a low-write, deliberately-managed set, and a
     /// rare racing duplicate is benign (the next dedup add keeps returning the first row's id).</para></summary>
     Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? task = null, string? scope = null, bool dedup = false, CancellationToken ct = default);
+        string? taskKey = null, string? scope = null, bool dedup = false, CancellationToken ct = default);
 
     /// <summary>Update an entry in place — only the non-null arguments change (COALESCE semantics), so
     /// passing just <paramref name="enabled"/> toggles it without touching the content. To CLEAR the
@@ -45,21 +45,21 @@ public interface ICuratedMemoryStore
 
     Task<CuratedMemory?> GetAsync(long id, CancellationToken ct = default);
 
-    /// <summary>List entries, optionally filtered by <paramref name="kind"/>, <paramref name="task"/> and
-    /// <paramref name="scope"/> (both STRICT equality — a null-task/null-scope row is NOT included; this is the
+    /// <summary>List entries, optionally filtered by <paramref name="kind"/>, <paramref name="taskKey"/> and
+    /// <paramref name="scope"/> (both STRICT equality — a null-task-key/null-scope row is NOT included; this is the
     /// admin/management filter, distinct from <see cref="ForCompositionAsync"/>'s applies-everywhere read
     /// semantics — the optimize/admin pass uses <paramref name="scope"/> to pull "all notes for ONE scope, incl.
     /// disabled"), and to <paramref name="enabledOnly"/>. Ordered by kind (byte-ordinal on every backend —
     /// Postgres orders <c>COLLATE "C"</c> to match SQLite/InMemory) then creation.</summary>
     Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
-        string? task = null, string? scope = null, int? limit = null, CancellationToken ct = default);
+        string? taskKey = null, string? scope = null, int? limit = null, CancellationToken ct = default);
 
-    /// <summary>The READ-for-prompt filter: enabled entries whose <see cref="CuratedMemory.Task"/> matches
-    /// <paramref name="task"/> (or is null — a null-task row applies to every task) AND whose
+    /// <summary>The READ-for-prompt filter: enabled entries whose <see cref="CuratedMemory.TaskKey"/> matches
+    /// <paramref name="taskKey"/> (or is null — a null-task-key row applies to every task) AND whose
     /// <see cref="CuratedMemory.Scope"/> is null/empty OR is in <paramref name="scopes"/>. Passing an EMPTY
     /// <paramref name="scopes"/> disables the scope filter (every scope of the task is returned). Ordered like
     /// <see cref="ListAsync"/> so <c>CuratedMemorySections.Compose</c> renders stable per-kind sections.
     /// Set <paramref name="enabledOnly"/> false to include disabled rows (admin preview).</summary>
-    Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string task, IEnumerable<string> scopes,
+    Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey, IEnumerable<string> scopes,
         bool enabledOnly = true, CancellationToken ct = default);
 }

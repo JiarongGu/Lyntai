@@ -164,7 +164,7 @@ public class RateLimitTests
             .AddProvider(_ => provider)
             .AddRateLimit(o => { o.PermitsPerSecond = 0.0001; o.Burst = 2; o.MaxWait = TimeSpan.Zero; })
             .AddRateLimit()          // duplicate — must be ignored (a 2nd limiter shares the singleton →
-            .DefaultCandidates("p")); // each call would spend TWO permits, exhausting burst 2 in one call)
+            .UseDefaultCandidates("p")); // each call would spend TWO permits, exhausting burst 2 in one call)
         using var sp = services.BuildServiceProvider();
         var client = sp.GetRequiredService<ILlmClient>();
         var req = new LlmRequest { Messages = [LlmMessage.User("q")] };
@@ -204,7 +204,7 @@ public class RateLimitTests
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
             .AddRateLimit() // all defaults → PermitsPerSecond 0, no per-consumer → nothing throttled
-            .DefaultCandidates("p"));
+            .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ILlmClient>(); // resolution folds the decorators → warning fires here
@@ -224,7 +224,7 @@ public class RateLimitTests
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
             .AddRateLimit(o => o.PermitsPerSecond = 10)
-            .DefaultCandidates("p"));
+            .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
         _ = sp.GetRequiredService<ILlmClient>();
@@ -257,7 +257,7 @@ public class RateLimitTests
             .AddProvider(_ => provider)
             .AddResponseCache()
             .AddRateLimit(o => { o.PermitsPerSecond = 0.0001; o.Burst = 1; o.MaxWait = TimeSpan.Zero; }) // ~1 real call
-            .DefaultCandidates("p"));
+            .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
         var client = sp.GetRequiredService<ILlmClient>();
 

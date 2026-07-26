@@ -65,7 +65,7 @@ public class PerRequestTimeoutTests
     /// the tests read the captured Timeout / MaxDuration back off it.</summary>
     private static FakeProcessRunner CapturingRunner() => new(streamLines: [ResultJson])
     {
-        RunResult = new ProcessResult(0, ResultJson, "", TimedOut: false),
+        RunResult = new ProcessResult(0, ResultJson, ""),
     };
 
     [Fact]
@@ -77,13 +77,13 @@ public class PerRequestTimeoutTests
         var provider = new ClaudeCliProvider(runner, opts, command: "claude");
 
         await provider.CompleteAsync(Req());
-        Assert.Equal(TimeSpan.FromSeconds(60), runner.LastTimeout);            // global default
+        Assert.Equal(TimeSpan.FromSeconds(60), runner.LastInactivityTimeout);            // global default
 
         await provider.CompleteAsync(Req(timeoutSeconds: 600));
-        Assert.Equal(TimeSpan.FromSeconds(600), runner.LastTimeout);           // per-request override
+        Assert.Equal(TimeSpan.FromSeconds(600), runner.LastInactivityTimeout);           // per-request override
 
         await provider.CompleteAsync(Req(consumer: "study"));
-        Assert.Equal(TimeSpan.FromMinutes(15), runner.LastTimeout);            // per-consumer default
+        Assert.Equal(TimeSpan.FromMinutes(15), runner.LastInactivityTimeout);            // per-consumer default
     }
 
     [Fact]
@@ -101,12 +101,12 @@ public class PerRequestTimeoutTests
         var provider = new ClaudeCliProvider(runner, opts, command: "claude");
 
         await provider.CompleteAsync(Req());
-        Assert.Equal(TimeSpan.FromSeconds(60), runner.LastTimeout);            // inactivity = resolved timeout
+        Assert.Equal(TimeSpan.FromSeconds(60), runner.LastInactivityTimeout);            // inactivity = resolved timeout
         Assert.Equal(TimeSpan.FromMinutes(30), runner.LastMaxDuration);        // backstop = MaxProviderTimeout
 
         opts.TimeoutByConsumer["agent"] = TimeSpan.FromMinutes(45);            // consumer budget above the ceiling
         await provider.CompleteAsync(Req(consumer: "agent"));
-        Assert.Equal(TimeSpan.FromMinutes(45), runner.LastTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(45), runner.LastInactivityTimeout);
         Assert.Equal(TimeSpan.FromMinutes(45), runner.LastMaxDuration);        // raised to the window, never below it
     }
 

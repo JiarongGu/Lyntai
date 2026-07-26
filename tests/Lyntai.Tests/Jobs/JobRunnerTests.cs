@@ -39,6 +39,29 @@ public class JobRunnerTests
     }
 
     [Fact]
+    public async Task Queue_read_side_gets_one_job_and_lists_by_status_and_lane()
+    {
+        // the front door's read side — an app watches jobs through IJobQueue, never the storage-layer IJobStore
+        var handler = new FakeJobHandler("greet", _ => Task.FromResult(JobOutcome.Complete));
+        var (runner, _, queue, clock) = Build(null, handler);
+        var done = await queue.EnqueueAsync("lane-a", "greet", "{}");
+        var pending = await queue.EnqueueAsync(new JobSpec("lane-b", "greet", "{}",
+            AvailableAt: clock.Get() + TimeSpan.FromHours(1))); // stays Pending this pass
+
+        Assert.Equal(1, await runner.RunOnceAsync()); // only lane-a's job is runnable
+
+        var record = await queue.GetAsync(done);
+        Assert.NotNull(record);
+        Assert.Equal(JobStatus.Succeeded, record.Status);
+        Assert.Null(await queue.GetAsync(Guid.NewGuid())); // unknown id → null, not a throw
+
+        Assert.Equal([pending], (await queue.ListAsync(JobStatus.Pending)).Select(j => j.Id));
+        Assert.Equal([done], (await queue.ListAsync(lane: "lane-a")).Select(j => j.Id));
+        Assert.Equal(2, (await queue.ListAsync()).Count);
+        Assert.Empty(await queue.ListAsync(JobStatus.Dead));
+    }
+
+    [Fact]
     public async Task Unknown_type_fails_the_job()
     {
         var (runner, store, queue, _) = Build(null); // no handlers

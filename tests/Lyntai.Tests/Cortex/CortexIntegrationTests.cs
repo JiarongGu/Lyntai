@@ -27,7 +27,7 @@ public class CortexIntegrationTests : IDisposable
             .UseSqliteStorage(_db.Path)
             .AddScorer<OutcomeScorer>()
             .AddScorer<RelevancyScorer>()
-            .DefaultCandidates("claude-cli"));
+            .UseDefaultCandidates("claude-cli"));
         _sp = services.BuildServiceProvider();
     }
 

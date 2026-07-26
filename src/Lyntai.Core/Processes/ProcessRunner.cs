@@ -18,13 +18,14 @@ public enum ProcessTimeoutKind
     MaxDuration,
 }
 
-public sealed record ProcessResult(int ExitCode, string StdOut, string StdErr, bool TimedOut)
+public sealed record ProcessResult(int ExitCode, string StdOut, string StdErr,
+    ProcessTimeoutKind TimeoutKind = ProcessTimeoutKind.None)
 {
     public bool Success => ExitCode == 0 && !TimedOut;
 
-    /// <summary>When <see cref="TimedOut"/>, which clock fired (inactivity vs absolute max); otherwise
-    /// <see cref="ProcessTimeoutKind.None"/>.</summary>
-    public ProcessTimeoutKind TimeoutKind { get; init; } = ProcessTimeoutKind.None;
+    /// <summary>Whether a clock killed the run — COMPUTED from <see cref="TimeoutKind"/> (the two can't
+    /// contradict; which clock fired is the kind).</summary>
+    public bool TimedOut => TimeoutKind != ProcessTimeoutKind.None;
 }
 
 /// <summary>A streamed process exited nonzero; carries the stderr tail for diagnostics.</summary>
@@ -52,19 +53,19 @@ public sealed class ProcessRunner : IProcessRunner
     private static readonly ConcurrentDictionary<string, string> PathCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
-    /// <summary>Buffered run: returns exit code + full stdout/stderr. The <paramref name="timeout"/> is an
-    /// INACTIVITY window ("dead" detection), NOT a wall clock: it is re-armed on every stdout chunk (and the
-    /// stdin write), so a slow-but-ALIVE child (a big prompt, a long tool loop) that keeps producing output
-    /// runs to completion, while a child that goes SILENT for the window is killed. Reads stdout in chunks
-    /// rather than awaiting the whole stream, so the clock can measure the gaps between chunks — the same
+    /// <summary>Buffered run: returns exit code + full stdout/stderr. <paramref name="inactivityTimeout"/>
+    /// is an INACTIVITY window ("dead" detection), NOT a wall clock: it is re-armed on every stdout chunk
+    /// and every drained stdin slice, so a slow-but-ALIVE child (a big prompt, a long tool loop) runs to
+    /// completion, while a child that goes SILENT for the window is killed. Reads stdout in chunks rather
+    /// than awaiting the whole stream, so the clock can measure the gaps between chunks — the same
     /// inactivity discipline <see cref="StreamLinesAsync"/> uses. A killed run reports <c>TimedOut=true</c>
-    /// with <see cref="ProcessResult.TimeoutKind"/> = <see cref="ProcessTimeoutKind.Inactivity"/>. Caller
-    /// cancellation kills the tree and rethrows.</summary>
+    /// with <see cref="ProcessResult.TimeoutKind"/> naming the clock that fired. Caller cancellation kills
+    /// the tree and rethrows.</summary>
     public async Task<ProcessResult> RunAsync(
         string command,
         IReadOnlyList<string> args,
         string? stdin = null,
-        TimeSpan? timeout = null,
+        TimeSpan? inactivityTimeout = null,
         TimeSpan? maxDuration = null,
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
@@ -104,17 +105,17 @@ public sealed class ProcessRunner : IProcessRunner
         // a large prompt can fill the stdin pipe before the child drains it, and awaiting the full write
         // first would deadlock a child that emits stdout before reading stdin. A child that never drains
         // its pipe is killed by the inactivity clock, which unblocks the writer. (Mirrors StreamLinesAsync.)
-        if (timeout is not null) idleCts.CancelAfter(timeout.Value);
+        if (inactivityTimeout is not null) idleCts.CancelAfter(inactivityTimeout.Value);
         // each drained stdin slice re-arms the clock: a child actively CONSUMING a large prompt is alive
         var stdinTask = WriteStdinAsync(process, stdin,
-            onProgress: () => { if (timeout is not null) idleCts.CancelAfter(timeout.Value); }, killCts.Token);
+            onProgress: () => { if (inactivityTimeout is not null) idleCts.CancelAfter(inactivityTimeout.Value); }, killCts.Token);
 
         try
         {
             var buffer = new char[8192];
             while (true)
             {
-                if (timeout is not null) idleCts.CancelAfter(timeout.Value); // re-arm for THIS read
+                if (inactivityTimeout is not null) idleCts.CancelAfter(inactivityTimeout.Value); // re-arm for THIS read
                 int n;
                 try
                 {
@@ -136,13 +137,13 @@ public sealed class ProcessRunner : IProcessRunner
             // pipe would otherwise block the writer (and us) forever. With the writer's per-slice re-arms,
             // a child actively DRAINING keeps resetting the clock — only true drain-silence kills (and the
             // kill breaks the pipes, unblocking the writer).
-            if (timeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(timeout.Value);
+            if (inactivityTimeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(inactivityTimeout.Value);
 
             // observe the concurrent stdin write (a broken pipe from an early child exit is already swallowed)
             try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / TimedOut */ }
 
             // fresh window for the final reap too (a child that drained everything but lingers)
-            if (timeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(timeout.Value);
+            if (inactivityTimeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(inactivityTimeout.Value);
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
 
@@ -151,9 +152,9 @@ public sealed class ProcessRunner : IProcessRunner
                 ct.ThrowIfCancellationRequested(); // caller cancel propagates; only a timeout is reported as a result
                 // killCts fired without a tagged reason ⇒ the caller's own token (handled above) or a race; default to inactivity
                 var kind = stopReason == (int)ProcessTimeoutKind.None ? ProcessTimeoutKind.Inactivity : (ProcessTimeoutKind)stopReason;
-                return new ProcessResult(-1, stdout.ToString(), stderr, TimedOut: true) { TimeoutKind = kind };
+                return new ProcessResult(-1, stdout.ToString(), stderr, kind);
             }
-            return new ProcessResult(process.ExitCode, stdout.ToString(), stderr, TimedOut: false);
+            return new ProcessResult(process.ExitCode, stdout.ToString(), stderr);
         }
         finally
         {
@@ -162,17 +163,20 @@ public sealed class ProcessRunner : IProcessRunner
         }
     }
 
-    /// <summary>Streamed run: yields stdout lines as they arrive. The timeout is an INACTIVITY window
-    /// on the child (the stdin write and each stdout read) — it deliberately does NOT count time the
-    /// consumer spends between chunks, so a slow reader never gets a healthy stream killed under it.
-    /// Abandoning the enumerator early (breaking out of <c>await foreach</c>) kills the child process
-    /// tree. Throws <see cref="ProcessTimeoutException"/> on timeout, <see cref="ProcessRunException"/>
+    /// <summary>Streamed run: yields stdout lines as they arrive. <paramref name="inactivityTimeout"/> is
+    /// an INACTIVITY window on the child (the stdin write and each stdout read) — it deliberately does NOT
+    /// count time the consumer spends between chunks, so a slow reader never gets a healthy stream killed
+    /// under it. <paramref name="maxDuration"/> is the absolute ceiling (mirrors <see cref="RunAsync"/>'s
+    /// backstop — a chatty child that never finishes is killed too). Abandoning the enumerator early
+    /// (breaking out of <c>await foreach</c>) kills the child process tree. Throws
+    /// <see cref="ProcessTimeoutException"/> when either clock fires, <see cref="ProcessRunException"/>
     /// (with the stderr tail) on nonzero exit — both after the lines produced so far were yielded.</summary>
     public async IAsyncEnumerable<string> StreamLinesAsync(
         string command,
         IReadOnlyList<string> args,
         string? stdin = null,
-        TimeSpan? timeout = null,
+        TimeSpan? inactivityTimeout = null,
+        TimeSpan? maxDuration = null,
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
         [EnumeratorCancellation] CancellationToken ct = default)
@@ -184,6 +188,11 @@ public sealed class ProcessRunner : IProcessRunner
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         // killing the tree unblocks a pending read/write with EOF/IOException — no cancellable read needed
         using var killOnCancel = timeoutCts.Token.Register(() => KillTree(process));
+        // the absolute ceiling (RunAsync's backstop, mirrored): armed ONCE; firing feeds the same kill
+        // path as the inactivity clock, so a chatty child that never finishes is bounded too
+        using var maxCts = new CancellationTokenSource();
+        using var maxReg = maxCts.Token.Register(() => timeoutCts.Cancel());
+        if (maxDuration is not null) maxCts.CancelAfter(maxDuration.Value);
         var timedOut = false;
 
         try
@@ -197,9 +206,9 @@ public sealed class ProcessRunner : IProcessRunner
             // deliberately STOPPED while the consumer works, and a writer re-arm there would leave it running
             // through consumer dwell — killing a healthy stream under a slow reader.
             var observeStdin = false;
-            if (timeout is not null) timeoutCts.CancelAfter(timeout.Value); // arm for the first read
+            if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value); // arm for the first read
             var stdinTask = WriteStdinAsync(process, stdin,
-                onProgress: () => { if (timeout is not null && Volatile.Read(ref observeStdin)) timeoutCts.CancelAfter(timeout.Value); },
+                onProgress: () => { if (inactivityTimeout is not null && Volatile.Read(ref observeStdin)) timeoutCts.CancelAfter(inactivityTimeout.Value); },
                 timeoutCts.Token);
 
             while (!timedOut && !timeoutCts.IsCancellationRequested)
@@ -207,9 +216,9 @@ public sealed class ProcessRunner : IProcessRunner
                 string? line;
                 try
                 {
-                    if (timeout is not null) timeoutCts.CancelAfter(timeout.Value);            // arm for this read
+                    if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value);            // arm for this read
                     line = await process.StandardOutput.ReadLineAsync(CancellationToken.None).ConfigureAwait(false);
-                    if (timeout is not null) timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while the consumer works
+                    if (inactivityTimeout is not null) timeoutCts.CancelAfter(Timeout.InfiniteTimeSpan); // stop the clock while the consumer works
                 }
                 catch (Exception) when (timeoutCts.IsCancellationRequested)
                 {
@@ -230,7 +239,7 @@ public sealed class ProcessRunner : IProcessRunner
             // stdin pipe would otherwise block the writer (and us) forever, while a child actively DRAINING
             // keeps re-arming and lives; the armed clock's kill breaks the pipes either way.
             Volatile.Write(ref observeStdin, true);
-            if (timeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(timeout.Value);
+            if (inactivityTimeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(inactivityTimeout.Value);
 
             // Observe the concurrent stdin write so it's never left unobserved. A broken pipe (child exited
             // before draining) is already swallowed in WriteStdinAsync; a cancel/timeout is the same one the
@@ -238,7 +247,7 @@ public sealed class ProcessRunner : IProcessRunner
             try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / timedOut */ }
 
             // fresh window for the final reap too (a child that drained everything but lingers)
-            if (timeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(timeout.Value);
+            if (inactivityTimeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(inactivityTimeout.Value);
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
 
@@ -247,7 +256,7 @@ public sealed class ProcessRunner : IProcessRunner
             // it as one (unless the child actually finished cleanly first: the kill can race a clean exit)
             if (timeoutCts.IsCancellationRequested && process.ExitCode != 0) timedOut = true;
             if (timedOut)
-                throw new ProcessTimeoutException(command, timeout ?? TimeSpan.Zero);
+                throw new ProcessTimeoutException(command, inactivityTimeout ?? maxDuration ?? TimeSpan.Zero);
             if (process.ExitCode != 0)
                 throw new ProcessRunException(command, process.ExitCode, Tail(stderr));
         }

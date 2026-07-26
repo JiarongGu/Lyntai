@@ -51,13 +51,13 @@ public class ByoStorageTests : IDisposable
     [Fact]
     public async Task Migrate_false_leaves_schema_ownership_to_the_app()
     {
-        // fresh un-migrated path, migrate:false → Lyntai creates NO tables; a store op fails because
+        // fresh un-migrated path, SchemaMigration.None → Lyntai creates NO tables; a store op fails because
         // the app was supposed to own/provision the schema and didn't here
         using var fresh = new TempDbPath("noschema");
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .UseSqliteStorage(fresh.Path, migrate: false));
+            .UseSqliteStorage(fresh.Path, Lyntai.Storage.SchemaMigration.None));
         using var sp = services.BuildServiceProvider();
 
         // no lyntai_kv table → the store throws (proving Lyntai skipped migration)

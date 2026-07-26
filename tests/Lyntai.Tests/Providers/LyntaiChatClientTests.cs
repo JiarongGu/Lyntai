@@ -15,7 +15,7 @@ public class LyntaiChatClientTests
     {
         var provider = new FakeLlmProvider("fake");
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddProvider(_ => provider).DefaultCandidates("fake"));
+        services.AddLyntai(b => b.AddProvider(_ => provider).UseDefaultCandidates("fake"));
         var sp = services.BuildServiceProvider();
         return (sp.GetRequiredService<ILlmClient>().AsChatClient(), provider);
     }

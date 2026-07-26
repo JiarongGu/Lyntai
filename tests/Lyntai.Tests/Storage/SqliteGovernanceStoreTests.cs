@@ -25,12 +25,12 @@ public class SqliteGovernanceStoreTests : IDisposable
         await new SqliteResponseCache(_db.Factory, options).SetAsync("k", reply);
 
         // a FRESH store over the same db reads it back — proves it's on disk, not in the store instance
-        var got = await new SqliteResponseCache(_db.Factory, options).TryGetAsync("k");
+        var got = await new SqliteResponseCache(_db.Factory, options).GetAsync("k");
         Assert.NotNull(got);
         Assert.Equal("cached answer", got!.Text);
         Assert.Equal(LlmVerdict.Ok, got.Verdict);
         Assert.Equal(0.02, got.Usage!.CostUsd);
-        Assert.Null(await new SqliteResponseCache(_db.Factory, options).TryGetAsync("missing"));
+        Assert.Null(await new SqliteResponseCache(_db.Factory, options).GetAsync("missing"));
     }
 
     [Fact]
@@ -40,9 +40,9 @@ public class SqliteGovernanceStoreTests : IDisposable
         var cache = new SqliteResponseCache(_db.Factory, new LyntaiOptions(), clock.Get);
         await cache.SetAsync("k", new LlmReply("x", LlmVerdict.Ok), TimeSpan.FromMinutes(5));
         clock.Advance(TimeSpan.FromMinutes(4));
-        Assert.NotNull(await cache.TryGetAsync("k")); // still fresh
+        Assert.NotNull(await cache.GetAsync("k")); // still fresh
         clock.Advance(TimeSpan.FromMinutes(2));       // past 5m
-        Assert.Null(await cache.TryGetAsync("k"));
+        Assert.Null(await cache.GetAsync("k"));
     }
 
     [Fact]
@@ -56,9 +56,24 @@ public class SqliteGovernanceStoreTests : IDisposable
         await cache.SetAsync("b", new LlmReply("b", LlmVerdict.Ok)); clock.Advance(TimeSpan.FromSeconds(1));
         await cache.SetAsync("c", new LlmReply("c", LlmVerdict.Ok)); // over cap → oldest ("a") trimmed
 
-        Assert.Null(await cache.TryGetAsync("a"));
-        Assert.NotNull(await cache.TryGetAsync("b"));
-        Assert.NotNull(await cache.TryGetAsync("c"));
+        Assert.Null(await cache.GetAsync("a"));
+        Assert.NotNull(await cache.GetAsync("b"));
+        Assert.NotNull(await cache.GetAsync("c"));
+    }
+
+    [Fact]
+    public async Task ResponseCache_remove_evicts_one_entry_and_a_missing_key_is_a_no_op()
+    {
+        var options = new LyntaiOptions();
+        var cache = new SqliteResponseCache(_db.Factory, options);
+        await cache.SetAsync("keep", new LlmReply("keep", LlmVerdict.Ok));
+        await cache.SetAsync("poisoned", new LlmReply("bad", LlmVerdict.Ok));
+
+        await cache.RemoveAsync("poisoned");
+        await cache.RemoveAsync("never-set"); // no-op, no throw
+
+        Assert.Null(await new SqliteResponseCache(_db.Factory, options).GetAsync("poisoned"));
+        Assert.NotNull(await new SqliteResponseCache(_db.Factory, options).GetAsync("keep"));
     }
 
     // ---- usage tracker -------------------------------------------------------------------------------

@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 namespace Lyntai.Tests.Storage;
 
 /// <summary>Per-test fresh, UN-migrated SQLite db path under devtools/_test-dbs (family rule: scratch
-/// under devtools/_*, never OS temp) — for tests that own the schema story themselves (migrate:false,
+/// under devtools/_*, never OS temp) — for tests that own the schema story themselves (SchemaMigration.None,
 /// deferred / selective migration). Dispose clears this db's pool and deletes db + -wal + -shm; see
 /// <see cref="TempDb"/> for the migrated variant.</summary>
 public sealed class TempDbPath : IDisposable

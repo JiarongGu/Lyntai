@@ -15,6 +15,7 @@ public sealed class OpenAiCompatibleOptions
     /// <summary>Pin the payload flavor ("openai" | "ollama" | "openrouter"); null → detect from BaseUrl.</summary>
     public string? Flavor { get; set; }
 
-    /// <summary>Ollama context-window override (maps to options.num_ctx).</summary>
-    public int? NumCtx { get; set; }
+    /// <summary>Ollama context-window override (maps to Ollama's <c>options.num_ctx</c> wire option;
+    /// ignored by the other flavors).</summary>
+    public int? ContextSize { get; set; }
 }

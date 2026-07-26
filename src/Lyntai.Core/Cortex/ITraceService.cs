@@ -22,6 +22,9 @@ public interface ITraceRecorder
 /// step-shaped run history keyed by your session id. Fail-open — no trace store wired → a no-op recorder.</para></summary>
 public interface ITraceService
 {
+    /// <summary>Start a recorder for one run. <paramref name="mode"/> is an APP-DEFINED label (e.g.
+    /// "chat", "batch", "playground") stamped onto <see cref="RunTrace.Mode"/> as-is — Lyntai attaches no
+    /// semantics to it; use it to tag/filter runs by kind when reading traces back.</summary>
     ITraceRecorder Begin(string sessionId, string mode);
 
     Task<RunTrace?> GetAsync(string sessionId, CancellationToken ct = default);

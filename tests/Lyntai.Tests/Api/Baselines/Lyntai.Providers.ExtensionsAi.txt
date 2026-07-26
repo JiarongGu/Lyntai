@@ -1,18 +1,18 @@
 static class Lyntai.ExtensionsAiBuilderExtensions
-    AddExtensionsAiProvider(LyntaiBuilder, String, Func<IServiceProvider,IChatClient>) : LyntaiBuilder
-    AddExtensionsAiProvider(LyntaiBuilder, String, IChatClient) : LyntaiBuilder
-class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
+    static AddExtensionsAiProvider(LyntaiBuilder, String, Func<IServiceProvider,IChatClient>) : LyntaiBuilder
+    static AddExtensionsAiProvider(LyntaiBuilder, String, IChatClient) : LyntaiBuilder
+sealed class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
     .ctor(String, IChatClient, LyntaiOptions, ILogger<ExtensionsAiProvider>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls : Boolean
-class Lyntai.Providers.ExtensionsAi.LyntaiChatClient
+sealed class Lyntai.Providers.ExtensionsAi.LyntaiChatClient
     .ctor(ILlmClient)
     Dispose() : Void
     GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions=, CancellationToken=) : Task<ChatResponse>
     GetService(Type, Object=) : Object
     GetStreamingResponseAsync(IEnumerable<ChatMessage>, ChatOptions=, CancellationToken=) : IAsyncEnumerable<ChatResponseUpdate>
 static class Lyntai.Providers.ExtensionsAi.LyntaiChatClientExtensions
-    AsChatClient(ILlmClient) : IChatClient
+    static AsChatClient(ILlmClient) : IChatClient

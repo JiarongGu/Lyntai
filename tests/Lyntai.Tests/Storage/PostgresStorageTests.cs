@@ -89,6 +89,9 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task KeyValue_missing() => Pg(() => KeyValueStoreContract.Missing_key_returns_null(new PostgresKeyValueStore(pg.Factory), Uid()));
     [SkippableFact] public Task KeyValue_overwrite() => Pg(() => KeyValueStoreContract.Overwrite_updates_the_value(new PostgresKeyValueStore(pg.Factory), Uid())); // ON CONFLICT upsert
     [SkippableFact] public Task KeyValue_cjk() => Pg(() => KeyValueStoreContract.Cjk_value_round_trips(new PostgresKeyValueStore(pg.Factory), Uid()));
+    [SkippableFact] public Task KeyValue_list_prefix() => Pg(() => KeyValueStoreContract.List_keys_filters_by_prefix_in_ordinal_order(new PostgresKeyValueStore(pg.Factory), Uid())); // COLLATE "C" ordering
+    [SkippableFact] public Task KeyValue_list_literals() => Pg(() => KeyValueStoreContract.List_keys_treats_like_wildcards_as_literals(new PostgresKeyValueStore(pg.Factory), Uid()));
+    [SkippableFact] public Task KeyValue_list_all() => Pg(() => KeyValueStoreContract.List_keys_without_prefix_lists_all_keys(new PostgresKeyValueStore(pg.Factory), Uid()));
 
     [SkippableFact] public Task Conversation_create_get() => Pg(() => ConversationStoreContract.Create_and_get_thread(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_duplicate_id() => Pg(() => ConversationStoreContract.Duplicate_thread_id_throws_and_preserves_the_original(new PostgresConversationStore(pg.Factory), Uid()));

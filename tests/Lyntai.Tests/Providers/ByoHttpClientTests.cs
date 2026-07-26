@@ -29,7 +29,7 @@ public class ByoHttpClientTests
             .AddOpenAiCompatibleProvider("openai",
                 c => { c.BaseUrl = "https://api.openai.com"; c.ApiKey = "k"; },
                 httpClient: _ => appClient) // BYO
-            .DefaultCandidates("openai"));
+            .UseDefaultCandidates("openai"));
         using var sp = services.BuildServiceProvider();
         var llm = sp.GetRequiredService<ILlmClient>();
 
@@ -50,7 +50,7 @@ public class ByoHttpClientTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddOpenAiCompatibleProvider("local", c => c.BaseUrl = "http://127.0.0.1:1")
-            .DefaultCandidates("local")
+            .UseDefaultCandidates("local")
             .Configure(o => o.ProviderTimeout = TimeSpan.FromSeconds(5)));
         using var sp = services.BuildServiceProvider();
 

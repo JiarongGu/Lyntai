@@ -21,4 +21,9 @@ public sealed class InMemoryKeyValueStore : IKeyValueStore
         Data.TryRemove(key, out _);
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<string>>([.. Data.Keys
+            .Where(k => prefix is null || k.StartsWith(prefix, StringComparison.Ordinal))
+            .OrderBy(k => k, StringComparer.Ordinal)]);
 }

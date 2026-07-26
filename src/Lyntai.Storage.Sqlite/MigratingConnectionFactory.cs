@@ -6,7 +6,7 @@ namespace Lyntai.Storage.Sqlite;
 
 /// <summary>
 /// A connection factory that runs the migrations exactly once, lazily, on the FIRST successful open —
-/// so <c>UseSqliteStorage(path, migrateOnFirstUse: true)</c> does no I/O during DI composition. The
+/// so <c>UseSqliteStorage(path, SchemaMigration.OnFirstUse)</c> does no I/O during DI composition. The
 /// once-only/retry-on-transient-failure gate lives in Core's <see cref="LazyMigratingConnectionFactory"/>;
 /// this wrapper supplies the SQLite specifics (create the db directory, run this package's migrations).
 /// </summary>

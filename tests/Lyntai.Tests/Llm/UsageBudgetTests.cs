@@ -157,7 +157,7 @@ public class UsageBudgetTests
             .AddProvider(_ => provider)
             .AddUsageBudget(o => o.MaxCostUsd = 1.0) // added first
             .AddResponseCache()                       // added second — but folds OUTERMOST by order
-            .DefaultCandidates("p"));
+            .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ILlmClient>();

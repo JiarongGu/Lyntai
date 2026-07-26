@@ -1,30 +1,26 @@
 static class Lyntai.OpenAiCompatibleBuilderExtensions
-    AddAzureOpenAiProvider(LyntaiBuilder, String, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-    AddOllamaProvider(LyntaiBuilder, String=, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-    AddOpenAiCompatibleProvider(LyntaiBuilder, String, Action<OpenAiCompatibleOptions>, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-    AddOpenAiProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-    AddOpenRouterProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
+    static AddAzureOpenAiProvider(LyntaiBuilder, String, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOllamaProvider(LyntaiBuilder, String=, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOpenAiCompatibleProvider(LyntaiBuilder, String, Action<OpenAiCompatibleOptions>, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOpenAiProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOpenRouterProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
     .ctor()
     ApiKey : String
     BaseUrl : String
+    ContextSize : Nullable<Int32>
     DefaultModel : String
     Flavor : String
-    NumCtx : Nullable<Int32>
-class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
+sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
     .ctor(String, OpenAiCompatibleOptions, Func<HttpClient>, LyntaiOptions, ILogger<OpenAiCompatibleProvider>=, Boolean=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls : Boolean
-static class Lyntai.Providers.OpenAiCompatible.Payloads.OllamaPayload
-    Build(LlmRequest, String, Boolean, Nullable<Int32>=) : JsonObject
-static class Lyntai.Providers.OpenAiCompatible.Payloads.OpenAiPayload
-    Build(LlmRequest, String, Boolean) : JsonObject
 static class Lyntai.Providers.OpenAiCompatible.ProviderDetect
     AzureOpenAi : String const
-    Detect(String) : String
     Ollama : String const
     OpenAi : String const
     OpenRouter : String const
+    static Detect(String) : String

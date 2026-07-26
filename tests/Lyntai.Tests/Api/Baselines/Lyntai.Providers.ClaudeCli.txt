@@ -1,9 +1,7 @@
 static class Lyntai.ClaudeCliBuilderExtensions
-    AddClaudeCliAgentSession(LyntaiBuilder) : LyntaiBuilder
-    AddClaudeCliProvider(LyntaiBuilder) : LyntaiBuilder
-static class Lyntai.Providers.ClaudeCli.ClaudeAgentArgs
-    Build(AgentSessionOptions) : IReadOnlyList<String>
-class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
+    static AddClaudeCliAgentSession(LyntaiBuilder) : LyntaiBuilder
+    static AddClaudeCliProvider(LyntaiBuilder) : LyntaiBuilder
+sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
     AllowedTools : IReadOnlyList<String>
     EqualityContract : Type
@@ -16,13 +14,10 @@ class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     SettingsPath : String
     SkipAllPermissions : Boolean
     ToString() : String
-class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
+sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
     .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeAgentSession>=, String=)
     StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
-static class Lyntai.Providers.ClaudeCli.ClaudeArgs
-    Build(String) : IReadOnlyList<String>
-    BuildPrompt(LlmRequest) : String
-class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
+sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeCliProvider>=, String=, ICliToolProvisioner=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
@@ -30,21 +25,4 @@ class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     ProviderId : String const
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
 static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
-    FilePathOf(ToolCall) : String
-class Lyntai.Providers.ClaudeCli.StreamJsonEvent
-    .ctor(StreamJsonEventKind, String=, LlmUsage=)
-    Deconstruct(StreamJsonEventKind&, String&, LlmUsage&) : Void
-    Equals(Object) : Boolean
-    Equals(StreamJsonEvent) : Boolean
-    GetHashCode() : Int32
-    Kind : StreamJsonEventKind
-    Text : String
-    ToString() : String
-    Usage : LlmUsage
-enum Lyntai.Providers.ClaudeCli.StreamJsonEventKind
-    AssistantText : StreamJsonEventKind const
-    Other : StreamJsonEventKind const
-    Result : StreamJsonEventKind const
-    value__ : Int32
-static class Lyntai.Providers.ClaudeCli.StreamJsonParser
-    Parse(String) : StreamJsonEvent
+    static FilePathOf(ToolCall) : String

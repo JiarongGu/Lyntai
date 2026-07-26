@@ -12,6 +12,9 @@ public class InMemoryKeyValueStoreContractTests
     [Fact] public Task Missing() => KeyValueStoreContract.Missing_key_returns_null(New(), "k");
     [Fact] public Task Overwrite() => KeyValueStoreContract.Overwrite_updates_the_value(New(), "k");
     [Fact] public Task Cjk() => KeyValueStoreContract.Cjk_value_round_trips(New(), "k");
+    [Fact] public Task List_prefix() => KeyValueStoreContract.List_keys_filters_by_prefix_in_ordinal_order(New(), "k");
+    [Fact] public Task List_literals() => KeyValueStoreContract.List_keys_treats_like_wildcards_as_literals(New(), "k");
+    [Fact] public Task List_all() => KeyValueStoreContract.List_keys_without_prefix_lists_all_keys(New(), "k");
 }
 
 /// <summary>Runs the <see cref="KeyValueStoreContract"/> against SQLite over a per-test temp db.</summary>
@@ -26,4 +29,7 @@ public class SqliteKeyValueStoreContractTests : IDisposable
     [Fact] public Task Missing() => KeyValueStoreContract.Missing_key_returns_null(Store, "k");
     [Fact] public Task Overwrite() => KeyValueStoreContract.Overwrite_updates_the_value(Store, "k");
     [Fact] public Task Cjk() => KeyValueStoreContract.Cjk_value_round_trips(Store, "k");
+    [Fact] public Task List_prefix() => KeyValueStoreContract.List_keys_filters_by_prefix_in_ordinal_order(Store, "k");
+    [Fact] public Task List_literals() => KeyValueStoreContract.List_keys_treats_like_wildcards_as_literals(Store, "k");
+    [Fact] public Task List_all() => KeyValueStoreContract.List_keys_without_prefix_lists_all_keys(Store, "k");
 }

@@ -30,4 +30,18 @@ public sealed class SqliteKeyValueStore(IDbConnectionFactory factory) : IKeyValu
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM lyntai_kv WHERE key = @key", new { key }, cancellationToken: ct)).ConfigureAwait(false);
     }
+
+    public async Task<IReadOnlyList<string>> ListKeysAsync(string? prefix = null, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // NOT LIKE — SQLite's LIKE is ASCII case-INSENSITIVE, breaking the interface's case-sensitive
+        // contract. substr under the default BINARY collation is an exact (ordinal) starts-with, wildcard
+        // chars are literals for free, and ORDER BY key is BINARY (ordinal) too.
+        var keys = await conn.QueryAsync<string>(new CommandDefinition("""
+            SELECT key FROM lyntai_kv
+            WHERE (@prefix IS NULL OR substr(key, 1, length(@prefix)) = @prefix)
+            ORDER BY key
+            """, new { prefix }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. keys];
+    }
 }

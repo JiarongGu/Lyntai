@@ -23,7 +23,7 @@ public class ProcessRunnerTests
     {
         var sw = Stopwatch.StartNew();
         var result = await _runner.RunAsync("node", ["-e", "setTimeout(() => {}, 60000)"],
-            timeout: TimeSpan.FromSeconds(2));
+            inactivityTimeout: TimeSpan.FromSeconds(2));
         sw.Stop();
 
         Assert.True(result.TimedOut);
@@ -80,7 +80,7 @@ public class ProcessRunnerTests
         var sw = Stopwatch.StartNew();
 
         var result = await _runner.RunAsync("node", ["-e", "setTimeout(() => {}, 60000)"],
-            stdin: bigStdin, timeout: TimeSpan.FromSeconds(2));
+            stdin: bigStdin, inactivityTimeout: TimeSpan.FromSeconds(2));
         sw.Stop();
 
         Assert.True(result.TimedOut);
@@ -113,7 +113,7 @@ public class ProcessRunnerTests
         var lines = new List<string>();
         var sw = Stopwatch.StartNew();
         await foreach (var line in _runner.StreamLinesAsync("node", ["-e", script],
-            stdin: bigStdin, timeout: TimeSpan.FromSeconds(20)))
+            stdin: bigStdin, inactivityTimeout: TimeSpan.FromSeconds(20)))
         {
             lines.Add(line);
         }
@@ -159,7 +159,7 @@ public class ProcessRunnerTests
             }, 1000);
             """;
         var sw = Stopwatch.StartNew();
-        var result = await _runner.RunAsync("node", ["-e", script], timeout: TimeSpan.FromSeconds(4));
+        var result = await _runner.RunAsync("node", ["-e", script], inactivityTimeout: TimeSpan.FromSeconds(4));
         sw.Stop();
 
         Assert.Equal(0, result.ExitCode);
@@ -176,7 +176,7 @@ public class ProcessRunnerTests
         var sw = Stopwatch.StartNew();
         var result = await _runner.RunAsync("node",
             ["-e", "console.log('alive'); setTimeout(() => {}, 60000);"],
-            timeout: TimeSpan.FromSeconds(4));
+            inactivityTimeout: TimeSpan.FromSeconds(4));
         sw.Stop();
 
         Assert.True(result.TimedOut);
@@ -202,7 +202,7 @@ public class ProcessRunnerTests
             });
             """;
         var result = await _runner.RunAsync("node", ["-e", script],
-            stdin: new string('x', 300_000), timeout: TimeSpan.FromSeconds(2))
+            stdin: new string('x', 300_000), inactivityTimeout: TimeSpan.FromSeconds(2))
             .WaitAsync(TimeSpan.FromSeconds(60)); // guard: fail loud instead of hanging the suite
 
         Assert.Equal(0, result.ExitCode);
@@ -218,7 +218,7 @@ public class ProcessRunnerTests
         var sw = Stopwatch.StartNew();
         var result = await _runner.RunAsync("node",
             ["-e", "process.stdout.end(); setTimeout(() => {}, 60000)"],
-            stdin: new string('x', 1_000_000), timeout: TimeSpan.FromSeconds(2))
+            stdin: new string('x', 1_000_000), inactivityTimeout: TimeSpan.FromSeconds(2))
             .WaitAsync(TimeSpan.FromSeconds(30)); // red-state guard: fail loud instead of hanging the suite
         sw.Stop();
 
@@ -243,11 +243,41 @@ public class ProcessRunnerTests
             """;
         var sw = Stopwatch.StartNew();
         var result = await _runner.RunAsync("node", ["-e", script],
-            timeout: TimeSpan.FromSeconds(30), maxDuration: TimeSpan.FromSeconds(2));
+            inactivityTimeout: TimeSpan.FromSeconds(30), maxDuration: TimeSpan.FromSeconds(2));
         sw.Stop();
 
         Assert.True(result.TimedOut);
         Assert.Equal(ProcessTimeoutKind.MaxDuration, result.TimeoutKind);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), $"took {sw.Elapsed} — the max cap didn't fire early");
+    }
+
+    [Fact]
+    public async Task Stream_lines_absolute_max_caps_a_chatty_child_that_never_stalls()
+    {
+        // Mirror of the buffered max-cap test on the STREAMED path: a child that prints every 50ms never
+        // trips the 30s inactivity window, so only the 2s absolute maxDuration can end it — surfacing as
+        // ProcessTimeoutException (a timeout, not a ProcessRunException child failure), AFTER the lines
+        // produced so far were yielded. The child self-exits at ~6s so a broken cap fails instead of hanging.
+        const string script = """
+            let i = 0;
+            const t = setInterval(() => {
+              console.log('spam' + i++);
+              if (i > 120) { clearInterval(t); process.exit(0); }
+            }, 50);
+            """;
+        var lines = new List<string>();
+        var sw = Stopwatch.StartNew();
+        await Assert.ThrowsAsync<ProcessTimeoutException>(async () =>
+        {
+            await foreach (var line in _runner.StreamLinesAsync("node", ["-e", script],
+                inactivityTimeout: TimeSpan.FromSeconds(30), maxDuration: TimeSpan.FromSeconds(2)))
+            {
+                lines.Add(line);
+            }
+        });
+        sw.Stop();
+
+        Assert.NotEmpty(lines); // the healthy output before the cap was still yielded
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), $"took {sw.Elapsed} — the max cap didn't fire early");
     }
 
@@ -261,7 +291,7 @@ public class ProcessRunnerTests
         var lines = new List<string>();
         await foreach (var line in _runner.StreamLinesAsync("node",
             ["-e", "console.log('one'); console.log('two'); console.log('three')"],
-            timeout: TimeSpan.FromSeconds(4)))
+            inactivityTimeout: TimeSpan.FromSeconds(4)))
         {
             lines.Add(line);
             if (lines.Count == 2) break;                  // (also exercises early abandonment cleanup)

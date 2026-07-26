@@ -61,20 +61,20 @@ public class AgentStreamEventTests
     [Fact]
     public void UsageLive_round_trips()
     {
-        var e = new UsageLive(Input: 100, Output: 50, CacheRead: 10);
-        Assert.Equal(100, e.Input);
-        Assert.Equal(50, e.Output);
-        Assert.Equal(10, e.CacheRead);
+        var e = new UsageLive(InputTokens: 100, OutputTokens: 50, CacheReadTokens: 10);
+        Assert.Equal(100, e.InputTokens);
+        Assert.Equal(50, e.OutputTokens);
+        Assert.Equal(10, e.CacheReadTokens);
     }
 
     [Fact]
     public void UsageFinal_round_trips()
     {
-        var e = new UsageFinal(Input: 200, Output: 80, CacheRead: 20, CacheCreate: 5, Model: "claude-opus-4");
-        Assert.Equal(200, e.Input);
-        Assert.Equal(80, e.Output);
-        Assert.Equal(20, e.CacheRead);
-        Assert.Equal(5, e.CacheCreate);
+        var e = new UsageFinal(InputTokens: 200, OutputTokens: 80, CacheReadTokens: 20, CacheCreateTokens: 5, Model: "claude-opus-4");
+        Assert.Equal(200, e.InputTokens);
+        Assert.Equal(80, e.OutputTokens);
+        Assert.Equal(20, e.CacheReadTokens);
+        Assert.Equal(5, e.CacheCreateTokens);
         Assert.Equal("claude-opus-4", e.Model);
 
         var noModel = new UsageFinal(200, 80, 20, 5, null);

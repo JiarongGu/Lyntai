@@ -4,7 +4,7 @@ namespace Lyntai.Providers.ClaudeCli;
 
 /// <summary>Builds the static argv for a <c>claude</c> self-driving agent session call.
 /// The prompt always travels over stdin, never argv.</summary>
-public static class ClaudeAgentArgs
+internal static class ClaudeAgentArgs
 {
     // Always denied in a headless (self-driving) run — these require interactive user input and
     // would hang the process.

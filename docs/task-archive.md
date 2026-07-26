@@ -1262,6 +1262,39 @@ rationale → D17. Nine commits, `verify` green throughout (954 tests · e2e 3/3
 
 ---
 
+## Part 21 — 1.0-prep: infrastructure + final API sign-off (2026-07-27; unreleased)
+
+Everything technically gating 1.0, implemented now but deliberately NOT released — 1.0 itself is
+adoption-gated (more applications must adopt Lyntai first; see ROADMAP). Two `tasks.md` items closed as
+part of it:
+
+- [x] **P3 — Azure OpenAI preset endpoint shape.** `AddAzureOpenAiProvider`'s documented endpoint example
+  likely 404s (`/v1/...` vs `/openai/v1/...`) and Azure key auth conventionally uses the `api-key` header.
+  Needs verification against a real Azure resource before changing `Endpoint()` — don't fix blind.
+  ✅ done 2026-07-26 — Outcome: verified against Azure's current `/openai/v1` (v1 GA API) docs;
+  `ProviderDetect.AzureOpenAi` flavor (detects `*.openai.azure.com`), bare-resource endpoint completion
+  to `/openai/v1/chat/completions`, `api-key` header alongside Bearer. Commit `ac519fa`.
+- [x] **L8 — async `IUsageTracker`.** The sync `Total()` is a pre-call read on EVERY budgeted request — a
+  blocking network round-trip with the Postgres tracker. Breaking interface change (3 impls + baseline);
+  do as its own task.
+  ✅ done 2026-07-26 — Outcome: `RecordAsync`/`TotalAsync`/`ResetAsync` (`ValueTask`) across all 3
+  backends + `BudgetedLlmClient`; per-consumer totals aggregate case-insensitively (COLLATE NOCASE /
+  `lower()`). Commit `ac519fa`.
+
+✅ done 2026-07-27 — Also in the part (not `tasks.md` items): push/PR CI running the full `verify` gate;
+SourceLink/deterministic CI builds; the design-contract reconciliation amendment; and the **final API
+sign-off pass** — an 18-finding audit of the whole public surface, closed by a batch of pre-1.0 breaking
+renames/reshapes (`UseDefaultCandidates`, `SchemaMigration` enum, required `AddSecretVault` key +
+`AddPlaintextSecretVault`, `IResponseCache.GetAsync`/`RemoveAsync`, `IProcessRunner`
+inactivity/maxDuration reshape, `TaskKey`/`ContextSize`/`*Tokens`, wire-format types internal) plus
+additive read paths (`IKeyValueStore.ListKeysAsync`, `IJobQueue.GetAsync`/`ListAsync`,
+`AddScorer(factory)`/`AddEmbeddings<T>`), an ApiSurface renderer upgrade
+(sealed/abstract/static/required) with all 11 baselines regenerated deliberately, and a real
+cross-backend fix caught by the new contract tests (SQLite `ListKeysAsync` used case-insensitive `LIKE`).
+Decisions → `docs/DECISIONS.md` D19; user-visible detail → CHANGELOG Unreleased.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

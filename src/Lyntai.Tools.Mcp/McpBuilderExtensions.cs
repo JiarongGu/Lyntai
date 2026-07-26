@@ -12,7 +12,7 @@ public static class McpBuilderExtensions
     /// <code>
     /// await using var mcp = await McpClient.CreateAsync(transport);
     /// var tools = await McpToolset.FromClientAsync(mcp);
-    /// services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(tools).DefaultCandidates("claude-cli"));
+    /// services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(tools).UseDefaultCandidates("claude-cli"));
     /// </code></summary>
     public static LyntaiBuilder AddMcpTools(this LyntaiBuilder builder, IEnumerable<ITool> mcpTools)
     {

@@ -79,7 +79,7 @@ services.AddLyntai(cfg =>
     cfg.UseSqliteStorage("app.db");                      // all five storage domains, migrated on startup
     cfg.AddScorer<OutcomeScorer>();                      // eval dimensions are DI registrations
     cfg.AddScorer<RelevancyScorer>();                    // (this one is an LLM judge through the router)
-    cfg.DefaultCandidates("claude-cli", "ollama");       // router fallback order
+    cfg.UseDefaultCandidates("claude-cli", "ollama");       // router fallback order
 });
 ```
 
@@ -160,7 +160,7 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
 - **Mix storage backends per domain:** the domain interfaces are independent, so the DI container is
   the registry — `UseSqliteStorage(path)` for most domains, then override one
   (`services.AddSingleton<IMemoryStore>(...)`, last registration wins). `UseInMemoryStorage()` stands
-  alone or backfills gaps. `UseSqliteStorage(path, migrateOnFirstUse: true)` defers migration I/O off
+  alone or backfills gaps. `UseSqliteStorage(path, SchemaMigration.OnFirstUse)` defers migration I/O off
   DI composition.
 
 ### Structured output
@@ -314,7 +314,7 @@ services.AddLyntai(cfg =>
 
     // BYO DB connection + schema ownership:
     cfg.UseSqliteStorage(myConnectionFactory);             // you own connection lifecycle
-    cfg.UsePostgresStorage(connString, migrate: false);    // you own the schema (no Lyntai migrations)
+    cfg.UsePostgresStorage(connString, SchemaMigration.None);  // you own the schema (no Lyntai migrations)
 });
 
 // BYO process execution — control how the claude CLI is spawned (sandbox, custom shell, remote):
@@ -342,7 +342,7 @@ services.AddLyntai(cfg =>
         o.GpuLayerCount = 0;      // 0 = CPU; raise to offload layers to the GPU
         o.ContextSize = 4096;     // null = the model's own trained maximum
     });
-    cfg.DefaultCandidates("local");
+    cfg.UseDefaultCandidates("local");
 });
 ```
 
@@ -358,7 +358,7 @@ it works with **any** provider (CLI, HTTP, MEAI bridge, local) — no native too
 ```csharp
 services.AddLyntai(cfg =>
 {
-    cfg.AddClaudeCliProvider().DefaultCandidates("claude-cli");
+    cfg.AddClaudeCliProvider().UseDefaultCandidates("claude-cli");
 
     // a tool from a class (DI-injectable) or inline from a delegate:
     cfg.AddTool(_ => new FunctionTool(
@@ -396,7 +396,7 @@ await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
     Command = "npx", Arguments = ["-y", "@modelcontextprotocol/server-everything"], Name = "everything",
 }));
 var mcpTools = await McpToolset.FromClientAsync(mcp);   // list + adapt the server's tools
-services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(mcpTools).DefaultCandidates("claude-cli"));
+services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(mcpTools).UseDefaultCandidates("claude-cli"));
 ```
 
 **Tools for the claude CLI** (`Lyntai.Providers.ClaudeCli.Mcp`) — the CLI runs its own agent loop and
@@ -409,7 +409,7 @@ services.AddLyntai(b => b
     .AddClaudeCliProvider()
     .AddTool(_ => new FunctionTool("get_weather", (a, ct) => Task.FromResult("""{"tempC":21}"""), "Current weather"))
     .AddClaudeCliMcpTools()        // hosts the tools over MCP for the CLI
-    .DefaultCandidates("claude-cli"));
+    .UseDefaultCandidates("claude-cli"));
 // var reply = await llm.CompleteAsync(...);  → the CLI calls get_weather and answers
 ```
 
@@ -433,7 +433,7 @@ The `IAgentSession` interface is neutral Core (`Lyntai.Agents`); all claude-spec
 services.AddLyntai(b => b
     .AddClaudeCliProvider()
     .AddClaudeCliAgentSession()          // registers IAgentSession → ClaudeAgentSession
-    .DefaultCandidates("claude-cli"));
+    .UseDefaultCandidates("claude-cli"));
 
 var session = sp.GetRequiredService<IAgentSession>();
 

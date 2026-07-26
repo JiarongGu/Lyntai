@@ -95,9 +95,9 @@ public class StreamJsonAgentReaderTests
         Assert.Contains("/x/a.txt", toolCall.ArgumentsJson);
 
         var usage = Assert.Single(events.OfType<UsageLive>());
-        Assert.Equal(100, usage.Input);
-        Assert.Equal(20, usage.Output);
-        Assert.Equal(50, usage.CacheRead);
+        Assert.Equal(100, usage.InputTokens);
+        Assert.Equal(20, usage.OutputTokens);
+        Assert.Equal(50, usage.CacheReadTokens);
     }
 
     [Fact]
@@ -185,10 +185,10 @@ public class StreamJsonAgentReaderTests
         Assert.Equal(2, events.Count);
 
         var final = Assert.IsType<UsageFinal>(events[0]);
-        Assert.Equal(100, final.Input);
-        Assert.Equal(20, final.Output);
-        Assert.Equal(50, final.CacheRead);
-        Assert.Equal(10, final.CacheCreate);
+        Assert.Equal(100, final.InputTokens);
+        Assert.Equal(20, final.OutputTokens);
+        Assert.Equal(50, final.CacheReadTokens);
+        Assert.Equal(10, final.CacheCreateTokens);
 
         var ended = Assert.IsType<SessionEnded>(events[1]);
         Assert.Equal(LlmVerdict.Ok, ended.Verdict);
@@ -215,7 +215,7 @@ public class StreamJsonAgentReaderTests
 
         var final = Assert.IsType<UsageFinal>(events[0]);
         Assert.Equal("claude-opus-4-8", final.Model);  // remembered from init
-        Assert.Equal(5, final.CacheCreate);
+        Assert.Equal(5, final.CacheCreateTokens);
 
         var ended = Assert.IsType<SessionEnded>(events[1]);
         Assert.Equal(LlmVerdict.Failed, ended.Verdict);

@@ -133,8 +133,8 @@ public class ResponseCacheTests
         var (cache, _) = NewCache();
         var reply = new LlmReply("cached", LlmVerdict.Ok);
         await cache.SetAsync("k", reply);
-        Assert.Same(reply, await cache.TryGetAsync("k"));
-        Assert.Null(await cache.TryGetAsync("missing"));
+        Assert.Same(reply, await cache.GetAsync("k"));
+        Assert.Null(await cache.GetAsync("missing"));
     }
 
     [Fact]
@@ -143,9 +143,9 @@ public class ResponseCacheTests
         var (cache, clock) = NewCache();
         await cache.SetAsync("k", new LlmReply("x", LlmVerdict.Ok), TimeSpan.FromMinutes(5));
         clock.Advance(TimeSpan.FromMinutes(4));
-        Assert.NotNull(await cache.TryGetAsync("k")); // still fresh
+        Assert.NotNull(await cache.GetAsync("k")); // still fresh
         clock.Advance(TimeSpan.FromMinutes(2));       // now past 5m
-        Assert.Null(await cache.TryGetAsync("k"));     // expired
+        Assert.Null(await cache.GetAsync("k"));     // expired
     }
 
     [Fact]
@@ -153,7 +153,21 @@ public class ResponseCacheTests
     {
         var (cache, _) = NewCache(c => c.Ttl = TimeSpan.Zero);
         await cache.SetAsync("k", new LlmReply("x", LlmVerdict.Ok)); // uses default ttl = Zero
-        Assert.Null(await cache.TryGetAsync("k"));
+        Assert.Null(await cache.GetAsync("k"));
+    }
+
+    [Fact]
+    public async Task Remove_evicts_one_entry_and_a_missing_key_is_a_no_op()
+    {
+        var (cache, _) = NewCache();
+        await cache.SetAsync("keep", new LlmReply("keep", LlmVerdict.Ok));
+        await cache.SetAsync("poisoned", new LlmReply("bad", LlmVerdict.Ok));
+
+        await cache.RemoveAsync("poisoned");
+        await cache.RemoveAsync("never-set"); // no-op, no throw
+
+        Assert.Null(await cache.GetAsync("poisoned"));
+        Assert.NotNull(await cache.GetAsync("keep")); // surgical — the rest of the cache survives
     }
 
     [Fact]
@@ -163,9 +177,9 @@ public class ResponseCacheTests
         await cache.SetAsync("a", new LlmReply("a", LlmVerdict.Ok));
         await cache.SetAsync("b", new LlmReply("b", LlmVerdict.Ok));
         await cache.SetAsync("c", new LlmReply("c", LlmVerdict.Ok)); // over cap → shed the oldest ("a")
-        Assert.Null(await cache.TryGetAsync("a"));
-        Assert.NotNull(await cache.TryGetAsync("b"));
-        Assert.NotNull(await cache.TryGetAsync("c"));
+        Assert.Null(await cache.GetAsync("a"));
+        Assert.NotNull(await cache.GetAsync("b"));
+        Assert.NotNull(await cache.GetAsync("c"));
     }
 
     // ---- decorator -----------------------------------------------------------------------------------
@@ -253,7 +267,7 @@ public class ResponseCacheTests
         services.AddLyntai(b => b
             .AddProvider(_ => provider)
             .AddResponseCache()
-            .DefaultCandidates("p"));
+            .UseDefaultCandidates("p"));
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<ILlmClient>();

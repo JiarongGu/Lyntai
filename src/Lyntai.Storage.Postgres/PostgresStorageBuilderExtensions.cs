@@ -10,15 +10,14 @@ namespace Lyntai;
 
 public static class PostgresStorageBuilderExtensions
 {
-    /// <summary>Wire every storage domain to PostgreSQL.
-    /// <para><paramref name="migrateOnFirstUse"/> defers migrations to the first store access so DI
-    /// composition does no I/O.</para>
-    /// <para><paramref name="migrate"/>=false makes the APP own the schema — Lyntai runs no migrations,
-    /// assuming the <c>lyntai_*</c> tables already exist. Every object is <c>lyntai_</c>-prefixed, so the
-    /// connection may target an existing application database.</para></summary>
+    /// <summary>Wire every storage domain to PostgreSQL. Every object is <c>lyntai_</c>-prefixed, so the
+    /// connection may target an existing application database.
+    /// <para><paramref name="migration"/> picks the schema-migration mode — see
+    /// <see cref="SchemaMigration"/> (<c>OnStartup</c> default · <c>OnFirstUse</c> deferred ·
+    /// <c>None</c> app-owned schema, e.g. via <see cref="MigrationRunnerService.MigrateUp(string)"/>).</para></summary>
     public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, string connectionString,
-        bool migrateOnFirstUse = false, bool migrate = true) =>
-        builder.UsePostgresStorage(connectionString, StorageFeature.All, migrateOnFirstUse, migrate);
+        SchemaMigration migration = SchemaMigration.OnStartup) =>
+        builder.UsePostgresStorage(connectionString, StorageFeature.All, migration);
 
     /// <summary>Wire only the SELECTED storage features to PostgreSQL (feature toggles): a disabled feature
     /// registers no store AND lands no table (no unused <c>lyntai_*</c> tables for domains you don't use).
@@ -27,21 +26,21 @@ public static class PostgresStorageBuilderExtensions
     /// direct <c>GetRequiredService</c> throws — the startup signal that a disabled feature is being used).
     /// Default (<see cref="StorageFeature.All"/>) is the historical behavior.</summary>
     public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, string connectionString,
-        StorageFeature features, bool migrateOnFirstUse = false, bool migrate = true)
+        StorageFeature features, SchemaMigration migration = SchemaMigration.OnStartup)
     {
         IDbConnectionFactory factory;
-        if (!migrate)
+        switch (migration)
         {
-            factory = new PostgresConnectionFactory(connectionString); // app owns the schema
-        }
-        else if (migrateOnFirstUse)
-        {
-            factory = new MigratingConnectionFactory(connectionString, features);
-        }
-        else
-        {
-            MigrationRunnerService.MigrateUp(connectionString, features);
-            factory = new PostgresConnectionFactory(connectionString);
+            case SchemaMigration.None:
+                factory = new PostgresConnectionFactory(connectionString); // app owns the schema
+                break;
+            case SchemaMigration.OnFirstUse:
+                factory = new MigratingConnectionFactory(connectionString, features);
+                break;
+            default:
+                MigrationRunnerService.MigrateUp(connectionString, features);
+                factory = new PostgresConnectionFactory(connectionString);
+                break;
         }
         return builder.UsePostgresStorage(factory, features);
     }

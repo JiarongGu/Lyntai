@@ -15,7 +15,7 @@ public sealed class SqliteResponseCache(IDbConnectionFactory factory, LyntaiOpti
 {
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
-    public async Task<LlmReply?> TryGetAsync(string key, CancellationToken ct = default)
+    public async Task<LlmReply?> GetAsync(string key, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var json = await conn.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
@@ -43,5 +43,12 @@ public sealed class SqliteResponseCache(IDbConnectionFactory factory, LyntaiOpti
             DELETE FROM lyntai_response_cache WHERE cache_key IN (
                 SELECT cache_key FROM lyntai_response_cache ORDER BY created_at DESC, cache_key LIMIT -1 OFFSET @max)
             """, new { max = Math.Max(1, options.Cache.MaxEntries) }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    public async Task RemoveAsync(string key, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM lyntai_response_cache WHERE cache_key = @key", new { key }, cancellationToken: ct)).ConfigureAwait(false);
     }
 }

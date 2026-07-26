@@ -5,7 +5,68 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## Unreleased
 
-_Nothing yet._
+**1.0-prep: infrastructure + the final API sign-off pass.** The whole public surface was audited
+name-by-name against the design contract and the naming conventions of the .NET ecosystem; the resulting
+breaks are batched HERE, pre-1.0 and deliberately unreleased (1.0 itself is adoption-gated — see
+ROADMAP). Decisions recorded in `docs/DECISIONS.md` D19. No new migration; **no released DB column
+changes** (renamed C# members map onto the frozen columns via SELECT aliases).
+
+### Added
+- **Push/PR CI** (`.github/workflows/ci.yml`): every push/PR to master runs the full
+  `node devtools/dev.mjs verify` gate (build → tests → e2e → leak scan) on ubuntu-latest.
+- **SourceLink / deterministic CI builds** (`src/Directory.Build.props`): `PublishRepositoryUrl` +
+  `ContinuousIntegrationBuild` under GitHub Actions — stepping into Lyntai from a consuming app resolves
+  sources from the repo.
+- **Azure OpenAI as a first-class flavor**: `AddAzureOpenAiProvider(...)` preset,
+  `ProviderDetect.AzureOpenAi` (detects `*.openai.azure.com`), bare-resource endpoint completion to
+  `/openai/v1/chat/completions`, and the `api-key` header sent alongside `Authorization: Bearer`.
+- **`IKeyValueStore.ListKeysAsync(prefix?)`** — enumerate stored keys (ordinal order, case-sensitive
+  starts-with) on all three backends; `LikePattern.StartsWith` helper for SQL prefix patterns.
+- **`IResponseCache.RemoveAsync(key)`** — evict one poisoned/stale entry without waiting out its TTL,
+  on all three backends.
+- **`IJobQueue.GetAsync(id)` / `ListAsync(status?, lane?, limit)`** — the front door's read side; apps
+  watch jobs without injecting the storage-layer `IJobStore`.
+- **`AddPlaintextSecretVault()`** — the LOUD dev-only opt-in for an unencrypted vault (see the
+  `AddSecretVault` break below).
+- **`LyntaiBuilder.AddScorer(Func<IServiceProvider, IScorer>)`** and **`AddEmbeddings<TEmbedder>()`** —
+  factory/generic registration parity with the other seams.
+- **`IProcessRunner.StreamLinesAsync` `maxDuration`** — an optional wall-clock backstop alongside the
+  inactivity window (a slowly-dripping stream can no longer run unbounded).
+
+### Breaking (pre-1.0, unreleased batch)
+- **`LyntaiBuilder.DefaultCandidates` → `UseDefaultCandidates`** — hard rename, no shim: the method SETS
+  (replaces) the fallback chain, and "Use" is the set-semantics builder family.
+- **`UseSqliteStorage` / `UsePostgresStorage` bool pair → `SchemaMigration` enum**
+  (`OnStartup` / `OnFirstUse` / `None`) — `UseSqliteStorage(path, migrate: false, deferMigration: true)`
+  ambiguity is gone; the enum names the lifecycle.
+- **`AddSecretVault` now REQUIRES the encryption key** (throws `ArgumentException` on null/empty): a
+  "secret vault" must never silently store plaintext. Dev/testing opt in loudly via
+  `AddPlaintextSecretVault()`.
+- **`IResponseCache.TryGetAsync` → `GetAsync`** (null-on-miss, matching `IKeyValueStore`/`ISecretVault`
+  naming); interface also gained `RemoveAsync` (BYO impls must add it).
+- **`IUsageTracker` is fully async**: `Record/Total/Reset` → `RecordAsync/TotalAsync/ResetAsync`
+  (`ValueTask`); per-consumer totals aggregate case-insensitively across all three backends.
+- **`IProcessRunner`**: `timeout` parameters renamed `inactivityTimeout` on both methods (they always
+  were inactivity clocks — the name now says so); `StreamLinesAsync` gained the `maxDuration` parameter
+  before `workingDirectory`. `ProcessResult` replaces `TimedOut : bool` (ctor position) with
+  `TimeoutKind : ProcessTimeoutKind` (`None`/`Inactivity`/`MaxDuration`); `TimedOut` remains as a
+  computed property and `Success` still excludes timeouts.
+- **Renames for what things ARE:** `CuratedMemory.Task` → `TaskKey` (a scoping key, not a
+  `System.Threading.Tasks.Task` — DB column unchanged, aliased in SELECTs);
+  `OpenAiCompatibleOptions.NumCtx` → `ContextSize` (`int?`; `LocalModelOptions.ContextSize`
+  `uint?` → `int?` to match); `UsageLive`/`UsageFinal` members gained the `*Tokens` suffix
+  (`InputTokens`, `OutputTokens`, `CacheReadTokens`, + `CacheCreateTokens` on final).
+- **Wire-format internals are now `internal`:** `ClaudeArgs`, `ClaudeAgentArgs`, `StreamJsonParser`,
+  `StreamJsonEvent(+Kind)` (ClaudeCli); `OpenAiPayload`, `OllamaPayload` (OpenAiCompatible). They were
+  implementation detail of the providers, never a consumer seam.
+- **SQLite `ListKeysAsync`** (new API, noted for completeness): prefix matching is case-SENSITIVE
+  (BINARY `substr`, not `LIKE` — SQLite's `LIKE` is ASCII case-insensitive and would have broken the
+  cross-backend contract).
+- `IScorer.ScoreAsync`'s `CancellationToken` gained `= default` (source-compatible; binary-identical).
+
+`ApiSurface` baselines regenerated deliberately for all 11 assemblies — the baseline renderer itself now
+also emits `sealed`/`abstract`/`static`/`required` modifiers, so a future accidental modifier change
+fails the surface test too.
 
 ## 0.30.0 — 2026-07-26
 
