@@ -342,6 +342,16 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     }
 
     [SkippableFact]
+    public async Task Curated_memory_dedup_and_scope_filter()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresCuratedMemoryStore(pg.Factory);
+        // Unique task/scope so the shared container doesn't cross-contaminate the absolute-count asserts.
+        await CuratedMemoryStoreContract.Dedup_add_is_idempotent(store, Uid() + "-dd", "site:" + Uid());
+        await CuratedMemoryStoreContract.List_filters_by_scope(store, Uid() + "-sc");
+    }
+
+    [SkippableFact]
     public async Task Job_progress_and_steps_are_readable_while_running()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");

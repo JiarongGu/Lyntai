@@ -12,10 +12,27 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
     public async Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? task = null, string? scope = null, CancellationToken ct = default)
+        string? task = null, string? scope = null, bool dedup = false, CancellationToken ct = default)
     {
         var now = _clock();
         using var conn = factory.Open();
+        if (dedup)
+        {
+            // idempotent on the (kind, content, task, scope) identity. IS NOT DISTINCT FROM is the null-safe
+            // compare, so a null task/scope matches a null column (a plain `=` would never match NULL).
+            var existing = await conn.ExecuteScalarAsync<long?>(new CommandDefinition("""
+                SELECT id FROM lyntai_curated_memory
+                WHERE kind = @kind AND content = @content
+                  AND task IS NOT DISTINCT FROM @task::text AND scope IS NOT DISTINCT FROM @scope::text
+                ORDER BY id LIMIT 1
+                """, new
+            {
+                kind, content,
+                task = (object?)task ?? DBNull.Value,
+                scope = (object?)scope ?? DBNull.Value,
+            }, cancellationToken: ct)).ConfigureAwait(false);
+            if (existing is { } id) return id;
+        }
         return await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
             INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope)
             VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope)
@@ -66,13 +83,14 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
     }
 
     public async Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
-        string? task = null, int? limit = null, CancellationToken ct = default)
+        string? task = null, string? scope = null, int? limit = null, CancellationToken ct = default)
     {
         using var conn = factory.Open();
-        // @limit NULL → LIMIT ALL (no cap); enabledOnly is a plain bool predicate; task is strict equality
+        // @limit NULL → LIMIT ALL (no cap); enabledOnly is a plain bool predicate; task/scope are strict equality
         var rows = await conn.QueryAsync<CuratedMemory>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
-            WHERE (@kind::text IS NULL OR kind = @kind) AND (@task::text IS NULL OR task = @task) AND (NOT @enabledOnly OR enabled)
+            WHERE (@kind::text IS NULL OR kind = @kind) AND (@task::text IS NULL OR task = @task)
+              AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled)
             -- COLLATE "C" (byte-ordinal) so the text sort matches SQLite's default BINARY collation rather
             -- than the Postgres DB locale collation — identical curated list order across backends.
             ORDER BY kind COLLATE "C", created_at, id
@@ -81,6 +99,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
         {
             kind = (object?)kind ?? DBNull.Value, enabledOnly,
             task = (object?)task ?? DBNull.Value,
+            scope = (object?)scope ?? DBNull.Value,
             limit = (object?)limit ?? DBNull.Value,
         }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];

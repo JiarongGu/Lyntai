@@ -272,6 +272,35 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public async Task Runs_a_powershell_ps1_launcher_shim()
+    {
+        // PR1: a .ps1 launcher shim (some Windows CLIs ship one) can't be exec'd directly by CreateProcess —
+        // the runner must host it in PowerShell rather than fail with a Win32Exception. ASCII output only:
+        // the UTF-8-no-BOM round-trip is locked separately by Stdin_passes_through_including_utf8_cjk (a real
+        // shim's child .exe writes its own bytes through the inherited pipe; PS 5.1 doesn't re-encode them).
+        if (!OperatingSystem.IsWindows()) return; // .ps1 hosting via powershell.exe is a Windows concern
+
+        var dir = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-scratch"));
+        Directory.CreateDirectory(dir);
+        var ps1 = Path.Combine(dir, $"shim-{Guid.NewGuid():N}.ps1");
+        await File.WriteAllTextAsync(ps1, "param($arg) Write-Output \"ps1-shim-ran:$arg\"\n");
+        try
+        {
+            // passing the .ps1 path directly (as a BYO command would); the runner wraps it in powershell.
+            var result = await _runner.RunAsync(ps1, ["ok"]);
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.False(result.TimedOut);
+            Assert.Contains("ps1-shim-ran:ok", result.StdOut);
+        }
+        finally
+        {
+            try { File.Delete(ps1); } catch { }
+        }
+    }
+
+    [Fact]
     public void Resolve_command_path_finds_node_and_caches()
     {
         var resolved = ProcessRunner.ResolveCommandPath("node");

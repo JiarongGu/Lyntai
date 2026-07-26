@@ -225,6 +225,69 @@ public class ClaudeAgentSessionTests
         Assert.Equal(1, bashCount);
     }
 
+    // ── CLI1: headless skip-all-permissions ───────────────────────────────────
+
+    [Fact]
+    public void Build_skip_all_permissions_emits_dangerous_flag()
+    {
+        var opts = new ClaudeAgentOptions { Prompt = "hi", SkipAllPermissions = true };
+        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        Assert.Contains("--dangerously-skip-permissions", argv);
+    }
+
+    [Fact]
+    public void Build_skip_all_permissions_suppresses_permission_mode_even_for_write_policy()
+    {
+        var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write, SkipAllPermissions = true };
+        var argv = ClaudeAgentArgs.Build(opts).ToList();
+
+        Assert.Contains("--dangerously-skip-permissions", argv);
+        Assert.DoesNotContain("--permission-mode", argv); // the CLI rejects combining the two
+    }
+
+    [Fact]
+    public void Build_skip_all_permissions_suppresses_allowed_tools()
+    {
+        var opts = new ClaudeAgentOptions
+        {
+            Prompt = "hi",
+            SkipAllPermissions = true,
+            AllowedTools = ["mcp__fs__read", "mcp__fs__write"],
+        };
+        var argv = ClaudeAgentArgs.Build(opts).ToList();
+
+        Assert.Contains("--dangerously-skip-permissions", argv);
+        Assert.DoesNotContain("--allowedTools", argv); // conflicting with the bypass — suppressed
+    }
+
+    [Fact]
+    public void Build_skip_all_permissions_still_honors_always_denied_and_caller_disallowed()
+    {
+        var opts = new ClaudeAgentOptions
+        {
+            Prompt = "hi",
+            SkipAllPermissions = true,
+            DisallowedTools = ["Bash"],
+        };
+        var argv = ClaudeAgentArgs.Build(opts).ToList();
+
+        var dtIdx = argv.IndexOf("--disallowed-tools");
+        Assert.True(dtIdx >= 0, "the always-denied set + caller disallowed are honored even when bypassing");
+        var dtVal = argv[dtIdx + 1];
+        Assert.Contains("AskUserQuestion", dtVal); // always-denied flow tool
+        Assert.Contains("Bash", dtVal);            // caller-supplied
+    }
+
+    [Fact]
+    public void Build_without_skip_all_permissions_does_not_emit_dangerous_flag()
+    {
+        var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write };
+        var argv = ClaudeAgentArgs.Build(opts).ToList();
+
+        Assert.DoesNotContain("--dangerously-skip-permissions", argv);
+        Assert.Contains("--permission-mode", argv); // the normal acceptEdits path is unaffected
+    }
+
     // ── ClaudeAgentSession.StreamAsync tests ──────────────────────────────────
 
     [Fact]

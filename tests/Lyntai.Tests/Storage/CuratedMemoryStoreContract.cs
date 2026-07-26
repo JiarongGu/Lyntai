@@ -57,6 +57,57 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(2, (await store.ListAsync(enabledOnly: true)).Count); // term A + persona
     }
 
+    /// <summary>CM1 — opt-in dedup on add: identical (kind, content, task, scope) returns the existing id
+    /// (idempotent) instead of a second row; the default (dedup:false) keeps the deliberate-catalog behavior
+    /// of always inserting. Parameterized task/scope so the Postgres shared container can run it isolated.</summary>
+    public static async Task Dedup_add_is_idempotent(ICuratedMemoryStore store, string task = "source-study", string scope = "site:1")
+    {
+        var first = await store.AddAsync("confirmed", "the price selector is .price", task: task, scope: scope, dedup: true);
+
+        // identical (kind, content, task, scope) with dedup → the SAME id, no duplicate row
+        var again = await store.AddAsync("confirmed", "the price selector is .price", task: task, scope: scope, dedup: true);
+        Assert.Equal(first, again);
+        Assert.Single(await store.ListAsync(kind: "confirmed", task: task, scope: scope));
+
+        // dedup identity includes scope: a different scope is a NEW row even with dedup
+        var otherScope = await store.AddAsync("confirmed", "the price selector is .price", task: task, scope: scope + "-b", dedup: true);
+        Assert.NotEqual(first, otherScope);
+
+        // …and kind: a different kind is a NEW row even with identical content/task/scope
+        var otherKind = await store.AddAsync("pitfall", "the price selector is .price", task: task, scope: scope, dedup: true);
+        Assert.NotEqual(first, otherKind);
+
+        // without dedup (the default) an identical add always inserts — the catalog stays deliberate
+        var dup = await store.AddAsync("confirmed", "the price selector is .price", task: task, scope: scope);
+        Assert.NotEqual(first, dup);
+        Assert.Equal(2, (await store.ListAsync(kind: "confirmed", task: task, scope: scope)).Count);
+    }
+
+    /// <summary>CM2 — <see cref="ICuratedMemoryStore.ListAsync"/> gains a strict-equality <c>scope</c> filter
+    /// (the admin/optimize pass: "all notes for ONE scope, incl. disabled"). Null scope = no filter (unchanged).</summary>
+    public static async Task List_filters_by_scope(ICuratedMemoryStore store, string task = "opt")
+    {
+        var zh      = await store.AddAsync("glossary", "zh term",  task: task, scope: "site:zh");
+        await store.AddAsync("glossary", "ja term",  task: task, scope: "site:ja");
+        await store.AddAsync("glossary", "any lang", task: task);                                   // null scope
+        var offZh   = await store.AddAsync("glossary", "off",      enabled: false, task: task, scope: "site:zh");
+
+        // scope filter is strict equality and independent of enabled: BOTH site:zh rows (incl. the disabled one)
+        var zhIds = (await store.ListAsync(task: task, scope: "site:zh")).Select(e => e.Id).ToHashSet();
+        Assert.Equal(new HashSet<long> { zh, offZh }, zhIds);
+
+        // strict equality: a specific scope filter does NOT pull in the null-scope ("applies everywhere") row
+        var zhContents = (await store.ListAsync(task: task, scope: "site:zh")).Select(e => e.Content).ToList();
+        Assert.DoesNotContain("any lang", zhContents);
+        Assert.DoesNotContain("ja term", zhContents);
+
+        // enabledOnly composes with the scope filter
+        Assert.Single(await store.ListAsync(task: task, scope: "site:zh", enabledOnly: true));
+
+        // null scope filter (default) → every scope of the task (4 rows)
+        Assert.Equal(4, (await store.ListAsync(task: task)).Count);
+    }
+
     public static async Task Update_with_empty_source_clears_it(ICuratedMemoryStore store)
     {
         var id = await store.AddAsync("k", "content", source: "original");

@@ -12,10 +12,21 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
     public async Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? task = null, string? scope = null, CancellationToken ct = default)
+        string? task = null, string? scope = null, bool dedup = false, CancellationToken ct = default)
     {
         var now = _clock();
         using var conn = factory.Open();
+        if (dedup)
+        {
+            // idempotent on the (kind, content, task, scope) identity. `IS` is SQLite's null-safe compare,
+            // so a null task/scope matches a null column (a plain `=` would never match NULL).
+            var existing = await conn.ExecuteScalarAsync<long?>(new CommandDefinition("""
+                SELECT id FROM lyntai_curated_memory
+                WHERE kind = @kind AND content = @content AND task IS @task AND scope IS @scope
+                ORDER BY id LIMIT 1
+                """, new { kind, content, task, scope }, cancellationToken: ct)).ConfigureAwait(false);
+            if (existing is { } id) return id;
+        }
         return await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
             INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope)
             VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope)
@@ -56,15 +67,16 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
     }
 
     public async Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
-        string? task = null, int? limit = null, CancellationToken ct = default)
+        string? task = null, string? scope = null, int? limit = null, CancellationToken ct = default)
     {
         using var conn = factory.Open();
         var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
-            WHERE (@kind IS NULL OR kind = @kind) AND (@task IS NULL OR task = @task) AND (@enabledOnly = 0 OR enabled = 1)
+            WHERE (@kind IS NULL OR kind = @kind) AND (@task IS NULL OR task = @task)
+              AND (@scope IS NULL OR scope = @scope) AND (@enabledOnly = 0 OR enabled = 1)
             ORDER BY kind, created_at, id
             LIMIT @limit
-            """, new { kind, task, enabledOnly, limit = limit ?? -1 }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { kind, task, scope, enabledOnly, limit = limit ?? -1 }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => r.ToRecord())];
     }
 

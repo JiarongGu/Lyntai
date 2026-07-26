@@ -24,6 +24,7 @@ always-loaded, but the on-demand rule *bodies* are not, so this table is how you
 
 | Doc | Read when |
 |---|---|
+| [generic-library.md](../knowledge/generic-library.md) | A task is phrased as "app X needs Y" (a consumer-requested feature) — how to ship the GENERIC Y (Core interface / adapter option / BYO seam), not the app's shape |
 | [extending-lyntai.md](../knowledge/extending-lyntai.md) | Adding a provider / storage backend / scorer / migration |
 | [llm-and-router.md](../knowledge/llm-and-router.md) | Touching `Lyntai.Core/Llm/**` or any provider — verdicts, fallback, streaming, CLI spawn |
 | [storage.md](../knowledge/storage.md) | Touching `Lyntai.Storage.*` — Dapper/CAST, FTS5 triggers, migrations, pragmas |

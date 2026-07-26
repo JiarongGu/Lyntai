@@ -147,6 +147,62 @@ public class ToolLoopTests
         Assert.Empty(result.Steps);
     }
 
+    // ---- TL1: per-run token usage aggregated onto the result ----------------------------------------
+
+    [Fact]
+    public async Task Aggregates_token_usage_across_every_call_prompt_path()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"tool":"echo","arguments":{}}""", LlmVerdict.Ok, new LlmUsage(10, 5, 1, 0.001)));
+        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok, new LlmUsage(20, 8, 2, 0.002)));
+
+        var result = await Loop(client, Echo()).RunAsync(Ask());
+
+        Assert.NotNull(result.Usage);
+        Assert.Equal(30, result.Usage!.InputTokens);
+        Assert.Equal(13, result.Usage.OutputTokens);
+        Assert.Equal(3, result.Usage.CacheReadTokens);
+        Assert.Equal(0.003, result.Usage.CostUsd!.Value, 6);
+    }
+
+    [Fact]
+    public async Task Aggregates_token_usage_across_every_call_native_path()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok, new LlmUsage(10, 5))
+        { ToolCalls = [new LlmToolCall("c1", "echo", "{}")] });
+        client.Replies.Enqueue(new LlmReply("done", LlmVerdict.Ok, new LlmUsage(20, 8)));
+
+        var result = await NativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.Equal(30, result.Usage!.InputTokens);
+        Assert.Equal(13, result.Usage.OutputTokens);
+        Assert.Null(result.Usage.CostUsd); // neither reply reported a cost → null, not 0
+    }
+
+    [Fact]
+    public async Task Usage_is_null_when_no_provider_reports_any()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok)); // no usage
+
+        var result = await Loop(client, Echo()).RunAsync(Ask());
+
+        Assert.Null(result.Usage);
+    }
+
+    [Fact]
+    public async Task Usage_is_surfaced_on_the_no_tools_single_completion()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("just answered", LlmVerdict.Ok, new LlmUsage(7, 3)));
+
+        var result = await new ToolLoop(client, new ToolRegistry([]), Options()).RunAsync(Ask());
+
+        Assert.Equal(7, result.Usage!.InputTokens);
+        Assert.Equal(3, result.Usage.OutputTokens);
+    }
+
     // ---- native tool-calling path (client.SupportsToolCalls == true) ---------------------------------
 
     private static ToolLoop NativeLoop(FakeLlmClient client, params ITool[] tools)
@@ -259,6 +315,128 @@ public class ToolLoopTests
         Assert.Equal("just answered", result.Answer);
         Assert.Single(client.Calls);                    // one call, no protocol/JSON coercion
         Assert.DoesNotContain(client.Calls[0].Messages, m => m.Role == "system"); // no protocol prompt injected
+    }
+
+    // ---- TL2: live-progress StreamAsync ------------------------------------------------------------
+
+    private static async Task<List<AgentStreamEvent>> Collect(IAsyncEnumerable<AgentStreamEvent> stream)
+    {
+        var events = new List<AgentStreamEvent>();
+        await foreach (var e in stream) events.Add(e);
+        return events;
+    }
+
+    [Fact]
+    public async Task StreamAsync_prompt_path_yields_toolcall_result_text_then_terminal_in_order()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"tool":"echo","arguments":{"x":1}}""", LlmVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"final":"all done"}""", LlmVerdict.Ok));
+
+        var events = await Collect(Loop(client, Echo()).StreamAsync(Ask()));
+
+        var call = events.OfType<ToolCall>().Single();
+        Assert.Equal("echo", call.Name);
+        Assert.Equal("""{"x":1}""", call.ArgumentsJson);
+        var res = events.OfType<ToolResult>().Single();
+        Assert.Contains("observed:", res.Content);
+        Assert.False(res.IsError);
+        Assert.Contains(events.OfType<TextDelta>(), t => t.Text == "all done");
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.False(ended.IsError);
+        Assert.Equal("all done", ended.FinalText);
+
+        // strict ordering: ToolCall → its ToolResult → the single terminal
+        Assert.True(events.IndexOf(call) < events.IndexOf(res));
+        Assert.True(events.IndexOf(res) < events.FindIndex(e => e is SessionEnded));
+    }
+
+    [Fact]
+    public async Task StreamAsync_native_path_yields_live_events()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok)
+        { ToolCalls = [new LlmToolCall("call_1", "echo", """{"x":1}""")] });
+        client.Replies.Enqueue(new LlmReply("all done", LlmVerdict.Ok));
+
+        var events = await Collect(NativeLoop(client, Echo()).StreamAsync(Ask()));
+
+        var call = events.OfType<ToolCall>().Single();
+        Assert.Equal("echo", call.Name);
+        Assert.Equal("call_1", call.CallId);                 // native path carries the model's call id
+        Assert.Equal("call_1", events.OfType<ToolResult>().Single().CallId);
+        Assert.Contains(events.OfType<TextDelta>(), t => t.Text == "all done");
+        Assert.Equal(LlmVerdict.Ok, events.OfType<SessionEnded>().Single().Verdict);
+    }
+
+    [Fact]
+    public async Task StreamAsync_surfaces_a_non_ok_verdict_as_an_error_terminal()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("", LlmVerdict.Refused, Detail: "policy"));
+
+        var events = await Collect(Loop(client, Echo()).StreamAsync(Ask()));
+
+        Assert.Empty(events.OfType<ToolCall>());
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(LlmVerdict.Refused, ended.Verdict);
+        Assert.True(ended.IsError);
+        Assert.Equal("policy", ended.Diagnostic);
+    }
+
+    [Fact]
+    public async Task StreamAsync_emits_a_usage_final_when_a_provider_reports_usage()
+    {
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"tool":"echo","arguments":{}}""", LlmVerdict.Ok, new LlmUsage(10, 5)));
+        client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok, new LlmUsage(20, 8)));
+
+        var events = await Collect(Loop(client, Echo()).StreamAsync(Ask()));
+
+        var usage = events.OfType<UsageFinal>().Single();
+        Assert.Equal(30, usage.Input);
+        Assert.Equal(13, usage.Output);
+        // the UsageFinal precedes the terminal
+        Assert.True(events.FindIndex(e => e is UsageFinal) < events.FindIndex(e => e is SessionEnded));
+    }
+
+    [Fact]
+    public async Task StreamAsync_reports_a_throwing_tool_as_an_error_result()
+    {
+        var boom = new FunctionTool("boom", (_, _) => throw new InvalidOperationException("kaboom"));
+        var client = new FakeLlmClient();
+        client.Replies.Enqueue(new LlmReply("""{"tool":"boom","arguments":{}}""", LlmVerdict.Ok));
+        client.Replies.Enqueue(new LlmReply("""{"final":"handled"}""", LlmVerdict.Ok));
+
+        var events = await Collect(Loop(client, boom).StreamAsync(Ask()));
+
+        var res = events.OfType<ToolResult>().Single();
+        Assert.True(res.IsError);
+        Assert.Contains("error: kaboom", res.Content);
+    }
+
+    [Fact]
+    public async Task Default_StreamAsync_folds_RunAsync_for_a_byo_implementation()
+    {
+        // A BYO IToolLoop that implements ONLY RunAsync still gets a functional (post-hoc) event stream via
+        // the interface's default StreamAsync.
+        IToolLoop byo = new RunOnlyLoop();
+
+        var events = await Collect(byo.StreamAsync(Ask()));
+
+        Assert.Contains(events, e => e is ToolCall { Name: "t" });
+        Assert.Contains(events, e => e is ToolResult { Content: "obs" });
+        Assert.Contains(events, e => e is TextDelta { Text: "answer" });
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal("answer", ended.FinalText);
+    }
+
+    private sealed class RunOnlyLoop : IToolLoop
+    {
+        public Task<ToolLoopResult> RunAsync(LlmRequest req, int? maxIterations = null, CancellationToken ct = default)
+            => Task.FromResult(new ToolLoopResult("answer", LlmVerdict.Ok, [new ToolStep("t", "{}", "obs")]));
     }
 
     // R2 — guards cover the tool loop: a denied term in tool ARGS or in a tool OBSERVATION is a jail

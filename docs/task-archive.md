@@ -1163,6 +1163,85 @@ leak scan). Files: `src/Lyntai.Core/Processes/ProcessRunner.cs`, `src/Lyntai.Cor
 
 ---
 
+## Part 13 — agent-manager desktop adoption + curated-memory papercuts (CM1/CM2/CLI1/TL1/TL2/PR1)
+
+Consumer-driven generic gaps: a WinForms desktop AI-manager adopting `ClaudeAgentSession` + `IToolLoop`
+(2026-07-26) and the Sonora source-study curated-memory ergonomics (2026-07-24). All generalized to
+app-agnostic library surface (see `.claude/knowledge/generic-library.md`, created in this pass).
+
+### Curated-memory ergonomics
+
+- [x] **CM1 — dedup-on-add for `ICuratedMemoryStore.AddAsync`.** `IMemoryStore.RememberAsync` dedups identical
+  content per (task, scope); `AddAsync` did not. A `dedup: bool = false` flag lets a consumer write a
+  `confirmed` note idempotently without a pre-`ListAsync`+compare.
+
+  ✅ done 2026-07-26 — Added `dedup` (default false) to `ICuratedMemoryStore.AddAsync`. When true the add is
+  idempotent on the (kind, content, task, scope) identity: returns the existing row's id and writes no second
+  row; default keeps the deliberate-catalog always-insert. Across InMemory (LINQ match), SQLite (`… task IS
+  @task AND scope IS @scope` null-safe compare), Postgres (`IS NOT DISTINCT FROM`). TDD:
+  `CuratedMemoryStoreContract.Dedup_add_is_idempotent` (run by InMemory/SQLite/Postgres). Files:
+  `src/Lyntai.Core/Storage/ICuratedMemoryStore.cs`, the three `*CuratedMemoryStore.cs`, the contract +
+  wirings, `ApiSurface` baselines (Core + 3 storage), `CHANGELOG.md`.
+
+- [x] **CM2 — `scope` filter on `ICuratedMemoryStore.ListAsync`.** The optimize/admin pass wants "all notes
+  (incl. disabled) for ONE scope."
+
+  ✅ done 2026-07-26 — Added a strict-equality `scope` filter to `ListAsync` (before `limit`; null = no filter,
+  unchanged). Across all three backends. TDD: `CuratedMemoryStoreContract.List_filters_by_scope`. Files: same
+  set as CM1.
+
+### Agent-session & tool-loop ergonomics
+
+- [x] **CLI1 — headless "skip all permissions" for `ClaudeAgentSession`.** `--permission-mode acceptEdits`
+  auto-accepts edits only; Read/Grep/Bash and every `mcp__*` tool still prompt, hanging a headless `-p` run
+  with no responder. **This was the one blocking that consumer.**
+
+  ✅ done 2026-07-26 — Added an opt-in `SkipAllPermissions` bool to `ClaudeAgentOptions`. When set,
+  `ClaudeAgentArgs.Build` emits `--dangerously-skip-permissions` and suppresses the conflicting
+  `--permission-mode` / `--allowedTools` (the CLI rejects combining them); the always-denied flow tools and the
+  caller's `DisallowedTools` (+ ReadOnly write denial) still stand. Documented opt-in/dangerous. TDD: 6
+  arg-build matrix tests in `ClaudeAgentSessionTests`. Files:
+  `src/Lyntai.Providers.ClaudeCli/{ClaudeAgentOptions,ClaudeAgentArgs}.cs`, tests, `ApiSurface`
+  Lyntai.Providers.ClaudeCli baseline, `CHANGELOG.md`.
+
+- [x] **TL1 — surface token usage on `ToolLoopResult`.** A consumer wanting per-run token accounting had to
+  wrap `ILlmClient` in its own front-door decorator.
+
+  ✅ done 2026-07-26 — Added nullable `ToolLoopResult.Usage` (init property, like `LlmReply.ToolCalls`). The
+  loop aggregates every front-door reply's `LlmUsage` (summed input/output/cache-read; cost summed when any
+  reported one, else null; null overall when none did). TDD: 4 tests in `ToolLoopTests` (prompt/native/no-tools
+  aggregation + null-when-none). Files: `src/Lyntai.Core/Agents/{ToolModels,ToolLoop}.cs`, tests, `ApiSurface`
+  Core baseline, `CHANGELOG.md`.
+
+- [x] **TL2 — live progress from `IToolLoop`.** `RunAsync` returned the answer whole; an interactive UI
+  couldn't show tool calls as they happened. Chosen shape: a full `StreamAsync` event overload mirroring
+  `IAgentSession`.
+
+  ✅ done 2026-07-26 — Added `IToolLoop.StreamAsync(req, maxIterations?, ct)` yielding `AgentStreamEvent`s
+  (ToolCall/ToolResult per round-trip, assistant TextDelta(s), a UsageFinal when usage was reported, one
+  terminal SessionEnded; no SessionStarted — a Lyntai-driven loop has no external session id). Refactored the
+  native/prompt/no-tools loops into one shared event-producing `RunCoreAsync`; `RunAsync` now folds it (steps +
+  usage as side outputs) so both doors stay in lockstep. `StreamAsync` is a DEFAULT interface method (a BYO
+  `IToolLoop` that only implements `RunAsync` gets a functional post-hoc stream for free; `ToolLoop` overrides
+  it live) — additive, not a break. Events are TURN-granular (the native path needs the whole reply to read its
+  structured tool calls). **Gotcha fixed:** an async iterator resets `Activity.Current` (AsyncLocal) across
+  every `yield return`, which broke tool-span nesting under the loop span — re-asserted the loop activity
+  before each child-span-creating await (`Enter()` helper). TDD: 6 StreamAsync tests + the default-method test
+  in `ToolLoopTests`, and the existing 22 RunAsync + `AgentDiagnosticsTests` nesting tests validate the fold.
+  Files: `src/Lyntai.Core/Agents/{IToolLoop,ToolLoop}.cs`, tests, `ApiSurface` Core baseline, `CHANGELOG.md`.
+
+- [x] **PR1 — default `IProcessRunner`: Windows launcher-shim resolution + forced UTF-8.**
+
+  ✅ done 2026-07-26 — On inspection the default `ProcessRunner` ALREADY forced BOM-less UTF-8 on all three
+  streams and resolved `.cmd`/`.exe` shims; the real remaining gap was `.ps1` launcher shims (can't be exec'd
+  directly by CreateProcess). Added `.ps1` to the resolution preference (`.cmd` → `.exe` → `.ps1`) and hosting
+  via `powershell -NoProfile -ExecutionPolicy Bypass -File` (new private `ResolveLauncher`). TDD:
+  `ProcessRunnerTests.Runs_a_powershell_ps1_launcher_shim` (Windows-gated); the UTF-8-no-BOM round-trip stays
+  locked by the existing CJK stdin tests. Files: `src/Lyntai.Core/Processes/ProcessRunner.cs`,
+  `tests/Lyntai.Tests/Core/ProcessRunnerTests.cs`, `CHANGELOG.md`.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

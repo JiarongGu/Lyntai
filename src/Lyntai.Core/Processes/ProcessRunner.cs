@@ -42,8 +42,10 @@ public sealed class ProcessTimeoutException(string command, TimeSpan timeout)
 /// <summary>
 /// CLI spawn hygiene in one place (design §6): <c>UseShellExecute=false</c>, <c>ArgumentList</c> only
 /// (prompts carry newlines/metacharacters — never a shell), prompt over stdin, BOM-less UTF-8 both
-/// directions, resolved-path cache (where.exe/which, prefer .cmd/.exe), Kill(entireProcessTree) on
-/// cancel/timeout.
+/// directions, resolved-path cache (where.exe/which, prefer .cmd/.exe/.ps1), a <c>.ps1</c> launcher shim
+/// hosted in PowerShell (CreateProcess can't exec it directly), Kill(entireProcessTree) on cancel/timeout.
+/// This makes the default runner work for the common Windows CLI shims out of the box — a BYO
+/// <see cref="IProcessRunner"/> is only needed for a genuinely different launch policy (sandbox, remote, …).
 /// </summary>
 public sealed class ProcessRunner : IProcessRunner
 {
@@ -237,8 +239,9 @@ public sealed class ProcessRunner : IProcessRunner
     }
 
     /// <summary>Resolve a bare command name via where.exe/which (cached). Multiple hits prefer
-    /// .cmd, then .exe (an extensionless npm shim can't be spawned by CreateProcess). Paths with
-    /// separators are returned as-is.</summary>
+    /// .cmd, then .exe, then .ps1 (an extensionless npm shim can't be spawned by CreateProcess). Paths with
+    /// separators are returned as-is. A resolved (or directly-supplied) <c>.ps1</c> is hosted in PowerShell
+    /// at spawn time — see the private launcher resolution.</summary>
     public static string ResolveCommandPath(string command)
     {
         if (Path.IsPathRooted(command) || command.Contains('/') || command.Contains('\\')) return command;
@@ -266,6 +269,7 @@ public sealed class ProcessRunner : IProcessRunner
             if (hits.Length == 0) return null;
             return hits.FirstOrDefault(h => h.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase))
                 ?? hits.FirstOrDefault(h => h.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                ?? hits.FirstOrDefault(h => h.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
                 ?? hits[0];
         }
         catch
@@ -278,7 +282,8 @@ public sealed class ProcessRunner : IProcessRunner
         string command, IReadOnlyList<string> args, string? workingDirectory,
         IReadOnlyDictionary<string, string>? environment)
     {
-        var psi = new ProcessStartInfo(ResolveCommandPath(command))
+        var (exe, prefixArgs) = ResolveLauncher(command);
+        var psi = new ProcessStartInfo(exe)
         {
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -290,6 +295,7 @@ public sealed class ProcessRunner : IProcessRunner
             StandardErrorEncoding = Utf8NoBom,
         };
         if (workingDirectory is not null) psi.WorkingDirectory = workingDirectory;
+        foreach (var a in prefixArgs) psi.ArgumentList.Add(a);
         foreach (var arg in args) psi.ArgumentList.Add(arg);
         if (environment is not null)
             foreach (var (k, v) in environment) psi.Environment[k] = v;
@@ -297,6 +303,19 @@ public sealed class ProcessRunner : IProcessRunner
         var process = new System.Diagnostics.Process { StartInfo = psi };
         if (!process.Start()) throw new InvalidOperationException($"failed to start {command}");
         return process;
+    }
+
+    /// <summary>Resolve a command to the executable + any prefix args needed to launch it. A <c>.ps1</c>
+    /// launcher shim can't be exec'd directly by CreateProcess, so on Windows it is hosted in PowerShell
+    /// (<c>powershell -NoProfile -ExecutionPolicy Bypass -File &lt;path&gt;</c>); a resolved <c>.cmd</c>/<c>.exe</c>
+    /// (the common case) runs directly. Both explicit <c>.ps1</c> paths and where.exe-resolved ones are wrapped.
+    /// Stream encoding is forced to BOM-less UTF-8 by <see cref="Start"/> regardless.</summary>
+    private static (string Exe, IReadOnlyList<string> PrefixArgs) ResolveLauncher(string command)
+    {
+        var resolved = ResolveCommandPath(command);
+        if (OperatingSystem.IsWindows() && resolved.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
+            return ("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", resolved]);
+        return (resolved, []);
     }
 
     private static async Task WriteStdinAsync(System.Diagnostics.Process process, string? stdin, CancellationToken ct)

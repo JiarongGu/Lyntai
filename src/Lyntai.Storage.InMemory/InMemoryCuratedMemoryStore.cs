@@ -13,11 +13,18 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
     private long _nextId = 1;
 
     public Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? task = null, string? scope = null, CancellationToken ct = default)
+        string? task = null, string? scope = null, bool dedup = false, CancellationToken ct = default)
     {
         var now = _clock();
         lock (_lock)
         {
+            if (dedup)
+            {
+                // idempotent on the (kind, content, task, scope) identity — return the existing row's id
+                var hit = _entries.FirstOrDefault(e =>
+                    e.Kind == kind && e.Content == content && e.Task == task && e.Scope == scope);
+                if (hit is not null) return Task.FromResult(hit.Id);
+            }
             var id = _nextId++;
             _entries.Add(new CuratedMemory(id, kind, content, source, enabled, now, now, task, scope));
             return Task.FromResult(id);
@@ -54,13 +61,14 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
     }
 
     public Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
-        string? task = null, int? limit = null, CancellationToken ct = default)
+        string? task = null, string? scope = null, int? limit = null, CancellationToken ct = default)
     {
         lock (_lock)
         {
             IEnumerable<CuratedMemory> q = _entries;
             if (kind is not null) q = q.Where(e => e.Kind == kind);
-            if (task is not null) q = q.Where(e => e.Task == task); // strict equality (admin filter)
+            if (task is not null) q = q.Where(e => e.Task == task);   // strict equality (admin filter)
+            if (scope is not null) q = q.Where(e => e.Scope == scope); // strict equality (admin filter)
             if (enabledOnly) q = q.Where(e => e.Enabled);
             q = q.OrderBy(e => e.Kind, StringComparer.Ordinal).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id);
             if (limit is { } n) q = q.Take(n);

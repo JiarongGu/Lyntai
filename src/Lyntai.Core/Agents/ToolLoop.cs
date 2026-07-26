@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Diagnostics;
@@ -27,124 +29,181 @@ public sealed class ToolLoop(
 {
     private readonly ILogger _logger = logger ?? NullLogger<ToolLoop>.Instance;
 
+    /// <summary>Result door: drives the shared core to completion and folds its event stream into a
+    /// <see cref="ToolLoopResult"/> (steps + usage are populated as the core runs; the terminal
+    /// <see cref="SessionEnded"/> carries the answer/verdict/detail).</summary>
     public async Task<ToolLoopResult> RunAsync(LlmRequest req, int? maxIterations = null, CancellationToken ct = default)
+    {
+        var steps = new List<ToolStep>();
+        var usage = new UsageSum();
+        SessionEnded? end = null;
+        await foreach (var e in RunCoreAsync(req, maxIterations, steps, usage, ct).ConfigureAwait(false))
+            if (e is SessionEnded se) end = se; // the core always terminates with exactly one SessionEnded
+
+        var verdict = end?.Verdict ?? LlmVerdict.Failed;
+        return new ToolLoopResult(end?.FinalText ?? "", verdict, steps, end?.Diagnostic) { Usage = usage.Value };
+    }
+
+    /// <summary>Live door (TL2): the shared core's events, streamed as they happen.</summary>
+    public IAsyncEnumerable<AgentStreamEvent> StreamAsync(LlmRequest req, int? maxIterations = null, CancellationToken ct = default)
+        => RunCoreAsync(req, maxIterations, [], new UsageSum(), ct);
+
+    /// <summary>The single event-producing core both doors share. Drives the loop (native / prompt / no-tools),
+    /// yields live <see cref="AgentStreamEvent"/>s, and populates <paramref name="steps"/> + <paramref name="usage"/>
+    /// as side outputs so <see cref="RunAsync"/> can fold the same run. Always ends with exactly one terminal
+    /// <see cref="SessionEnded"/> (preceded by a <see cref="UsageFinal"/> when any provider reported usage).</summary>
+    private async IAsyncEnumerable<AgentStreamEvent> RunCoreAsync(
+        LlmRequest req, int? maxIterations, List<ToolStep> steps, UsageSum usage,
+        [EnumeratorCancellation] CancellationToken ct)
     {
         using var activity = LyntaiDiagnostics.StartToolLoop(req.Consumer);
         var tools = registry.Tools;
-        var steps = new List<ToolStep>();
 
-        ToolLoopResult result;
-        string mode;
-        // No tools registered → the loop degenerates to a single plain completion (forcing the JSON
-        // protocol would be pointless overhead and could mangle a direct answer).
+        // Re-assert the loop span as current before each child-span-creating await. Activity.Current is an
+        // AsyncLocal, and an async iterator resets it across every `yield return` (each MoveNextAsync runs in
+        // the consumer's execution context) — so without this the per-turn chat spans and per-tool spans would
+        // lose their parent. Only when there IS a loop activity (a Lyntai.Agents listener is attached); when
+        // null we leave the consumer's ambient context untouched.
+        void Enter() { if (activity is not null) Activity.Current = activity; }
+
+        // The single terminal: a UsageFinal (when any usage was reported) then the SessionEnded. A local
+        // iterator so every exit site emits it identically (re-yielded via `foreach … yield return`).
+        IEnumerable<AgentStreamEvent> Finish(string mode, LlmVerdict verdict, string? finalText, string? detail)
+        {
+            if (usage.Value is { } u)
+                yield return new UsageFinal(u.InputTokens, u.OutputTokens, u.CacheReadTokens, 0, null);
+            LyntaiDiagnostics.EndToolLoop(activity, mode, steps.Count, verdict);
+            yield return new SessionEnded(verdict, verdict != LlmVerdict.Ok, null, null, finalText, detail);
+        }
+
+        // No tools registered → a single plain completion (forcing the JSON protocol would be pointless
+        // overhead and could mangle a direct answer).
         if (tools.Count == 0)
         {
+            Enter();
             var direct = await client.CompleteAsync(req, ct).ConfigureAwait(false);
-            result = new ToolLoopResult(direct.Verdict == LlmVerdict.Ok ? direct.Text : "", direct.Verdict, steps, direct.Detail);
-            mode = "none";
+            usage.Add(direct.Usage);
+            var ok = direct.Verdict == LlmVerdict.Ok;
+            if (ok && direct.Text.Length > 0) yield return new TextDelta(direct.Text);
+            foreach (var ev in Finish("none", direct.Verdict, ok ? direct.Text : "", direct.Detail)) yield return ev;
+            yield break;
+        }
+
+        var budget = maxIterations ?? options.ToolLoopMaxIterations;
+
+        if (client.SupportsToolCalls(req))
+        {
+            // Native path: tool declarations go to the model; its structured LlmReply.ToolCalls drive
+            // execution, fed back as tool-role messages.
+            var declarations = tools.Select(t => new LlmTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
+            var messages = new List<LlmMessage>(req.Messages); // no protocol prompt — the model calls tools natively
+
+            for (var iteration = 0; iteration < budget; iteration++)
+            {
+                // CompleteAsync, NOT CompleteJsonAsync/StreamAsync: a native tool-call turn has empty text and
+                // its structured ToolCalls (the loop's signal) aren't surfaced by the JSON/streaming contracts.
+                Enter();
+                var reply = await client.CompleteAsync(req with { Messages = [.. messages], Tools = declarations }, ct)
+                    .ConfigureAwait(false);
+                usage.Add(reply.Usage);
+                if (reply.Verdict != LlmVerdict.Ok)
+                {
+                    foreach (var ev in Finish("native", reply.Verdict, null, reply.Detail)) yield return ev;
+                    yield break;
+                }
+                if (reply.ToolCalls is not { Count: > 0 })
+                {
+                    _logger.LogDebug("tool-loop (native): final answer after {Steps} tool step(s)", steps.Count);
+                    if (reply.Text.Length > 0) yield return new TextDelta(reply.Text);
+                    foreach (var ev in Finish("native", LlmVerdict.Ok, reply.Text, null)) yield return ev; // no calls → answered
+                    yield break;
+                }
+
+                // any prose the model emitted alongside the calls is surfaced (and preserved in the transcript);
+                // then one tool-result per call (a missing tool_call_id makes providers reject the next request)
+                if (!string.IsNullOrEmpty(reply.Text)) yield return new TextDelta(reply.Text);
+                messages.Add(LlmMessage.AssistantToolCalls(reply.ToolCalls, reply.Text));
+                foreach (var call in reply.ToolCalls)
+                {
+                    yield return new ToolCall(call.Name, call.ArgumentsJson, call.Id);
+                    Enter();
+                    var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);
+                    if (gated.Blocked)
+                    {
+                        yield return new ToolResult(call.Id, gated.Reason ?? "", true);
+                        foreach (var ev in Finish("native", LlmVerdict.Refused, null, gated.Reason)) yield return ev;
+                        yield break;
+                    }
+                    steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
+                    yield return new ToolResult(call.Id, gated.Observation, IsErrorObservation(gated.Observation));
+                    messages.Add(LlmMessage.ToolResult(call.Id, gated.Observation));
+                }
+            }
+
+            _logger.LogWarning("tool-loop (native): no final answer within {Budget} iterations", budget);
+            foreach (var ev in Finish("native", LlmVerdict.Failed, null, $"tool loop did not converge within {budget} iterations")) yield return ev;
+            yield break;
         }
         else
         {
-            var budget = maxIterations ?? options.ToolLoopMaxIterations;
-            // Native tool-calling when the routing supports it for THIS request (robust, structured);
-            // otherwise the provider-agnostic prompt protocol. Both execute the same registered ITools.
-            if (client.SupportsToolCalls(req))
+            // Prompt-protocol fallback for providers without native tool-calling: {"tool":…}/{"final":…} over
+            // the text contract via LlmStructuredExtensions.CompleteJsonAsync.
+            var messages = new List<LlmMessage> { LlmMessage.System(BuildSystemPrompt(tools)) };
+            messages.AddRange(req.Messages);
+
+            for (var iteration = 0; iteration < budget; iteration++)
             {
-                result = await RunNativeAsync(req, tools, budget, steps, ct).ConfigureAwait(false);
-                mode = "native";
-            }
-            else
-            {
-                result = await RunPromptAsync(req, tools, budget, steps, ct).ConfigureAwait(false);
-                mode = "prompt";
-            }
-        }
+                // Tools = null: this path drives tool use over TEXT; a caller-supplied req.Tools must not also
+                // be sent as native declarations (tools come from the registry), or a partially-tool-aware
+                // model emits a native tool_calls turn this path never parses.
+                Enter();
+                var reply = await client.CompleteJsonAsync(req with { Messages = [.. messages], Tools = null }, ct).ConfigureAwait(false);
+                usage.Add(reply.Usage);
+                if (reply.Verdict != LlmVerdict.Ok)
+                {
+                    foreach (var ev in Finish("prompt", reply.Verdict, null, reply.Detail)) yield return ev; // surface refusal / all-down
+                    yield break;
+                }
+                if (!TryParseTurn(reply.Text, out var call))
+                {
+                    yield return new TextDelta(reply.Text); // no recognized key → a direct answer
+                    foreach (var ev in Finish("prompt", LlmVerdict.Ok, reply.Text, null)) yield return ev;
+                    yield break;
+                }
+                if (call.IsFinal)
+                {
+                    _logger.LogDebug("tool-loop: final answer after {Steps} tool step(s)", steps.Count);
+                    yield return new TextDelta(call.FinalAnswer);
+                    foreach (var ev in Finish("prompt", LlmVerdict.Ok, call.FinalAnswer, null)) yield return ev;
+                    yield break;
+                }
 
-        LyntaiDiagnostics.EndToolLoop(activity, mode, result.Steps.Count, result.Verdict);
-        return result;
-    }
-
-    /// <summary>Native path: send tool declarations, act on the model's structured
-    /// <see cref="LlmReply.ToolCalls"/>, feed results back as tool-role messages, repeat.</summary>
-    private async Task<ToolLoopResult> RunNativeAsync(LlmRequest req, IReadOnlyList<ITool> tools, int budget,
-        List<ToolStep> steps, CancellationToken ct)
-    {
-        var declarations = tools.Select(t => new LlmTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
-        var messages = new List<LlmMessage>(req.Messages); // no protocol prompt — the model calls tools natively
-
-        for (var iteration = 0; iteration < budget; iteration++)
-        {
-            // CompleteAsync, NOT CompleteJsonAsync: a native tool-call turn has empty text and would
-            // fail the parseable-JSON check, triggering a corrective retry that corrupts the loop
-            var reply = await client.CompleteAsync(req with { Messages = [.. messages], Tools = declarations }, ct)
-                .ConfigureAwait(false);
-            if (reply.Verdict != LlmVerdict.Ok)
-                return new ToolLoopResult("", reply.Verdict, steps, reply.Detail);
-
-            if (reply.ToolCalls is not { Count: > 0 })
-            {
-                _logger.LogDebug("tool-loop (native): final answer after {Steps} tool step(s)", steps.Count);
-                return new ToolLoopResult(reply.Text, LlmVerdict.Ok, steps); // no calls → the model answered
-            }
-
-            // one assistant-tool-call turn carrying ALL calls (+ any prose the model emitted alongside them,
-            // preserved rather than dropped), then one tool-result per call (a missing tool_call_id makes
-            // providers reject the next request)
-            messages.Add(LlmMessage.AssistantToolCalls(reply.ToolCalls, reply.Text));
-            foreach (var call in reply.ToolCalls)
-            {
-                var gated = await GatedInvokeAsync(call.Name, call.ArgumentsJson, ct).ConfigureAwait(false);
+                yield return new ToolCall(call.ToolName, call.ArgumentsJson, null); // prompt protocol has no call id
+                Enter();
+                var gated = await GatedInvokeAsync(call.ToolName, call.ArgumentsJson, ct).ConfigureAwait(false);
                 if (gated.Blocked)
-                    return new ToolLoopResult("", LlmVerdict.Refused, steps, gated.Reason);
-                steps.Add(new ToolStep(call.Name, gated.Args, gated.Observation));
-                messages.Add(LlmMessage.ToolResult(call.Id, gated.Observation));
-            }
-        }
+                {
+                    yield return new ToolResult(null, gated.Reason ?? "", true);
+                    foreach (var ev in Finish("prompt", LlmVerdict.Refused, null, gated.Reason)) yield return ev;
+                    yield break;
+                }
+                steps.Add(new ToolStep(call.ToolName, gated.Args, gated.Observation));
+                yield return new ToolResult(null, gated.Observation, IsErrorObservation(gated.Observation));
 
-        _logger.LogWarning("tool-loop (native): no final answer within {Budget} iterations", budget);
-        return new ToolLoopResult("", LlmVerdict.Failed, steps, $"tool loop did not converge within {budget} iterations");
-    }
-
-    /// <summary>Fallback path for providers without native tool-calling: a JSON protocol in the prompt
-    /// (<c>{"tool":…}</c>/<c>{"final":…}</c>) over the text contract via <see cref="LlmStructuredExtensions.CompleteJsonAsync"/>.</summary>
-    private async Task<ToolLoopResult> RunPromptAsync(LlmRequest req, IReadOnlyList<ITool> tools, int budget,
-        List<ToolStep> steps, CancellationToken ct)
-    {
-        var messages = new List<LlmMessage> { LlmMessage.System(BuildSystemPrompt(tools)) };
-        messages.AddRange(req.Messages);
-
-        for (var iteration = 0; iteration < budget; iteration++)
-        {
-            // Tools = null: the prompt protocol drives tool use over TEXT; a caller-supplied req.Tools
-            // must not also be sent as native declarations (the interface says tools come from the
-            // registry), or a partially-tool-aware model gets both and emits a native tool_calls turn
-            // this path never parses.
-            var reply = await client.CompleteJsonAsync(req with { Messages = [.. messages], Tools = null }, ct).ConfigureAwait(false);
-            if (reply.Verdict != LlmVerdict.Ok)
-                return new ToolLoopResult("", reply.Verdict, steps, reply.Detail); // surface refusal / all-down as-is
-
-            if (!TryParseTurn(reply.Text, out var call))
-                return new ToolLoopResult(reply.Text, LlmVerdict.Ok, steps); // no recognized key → treat as a direct answer
-
-            if (call.IsFinal)
-            {
-                _logger.LogDebug("tool-loop: final answer after {Steps} tool step(s)", steps.Count);
-                return new ToolLoopResult(call.FinalAnswer, LlmVerdict.Ok, steps);
+                // feed the model its own tool-call turn, then the observation, and continue
+                messages.Add(LlmMessage.Assistant(reply.Text));
+                messages.Add(LlmMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
             }
 
-            var gated = await GatedInvokeAsync(call.ToolName, call.ArgumentsJson, ct).ConfigureAwait(false);
-            if (gated.Blocked)
-                return new ToolLoopResult("", LlmVerdict.Refused, steps, gated.Reason);
-            steps.Add(new ToolStep(call.ToolName, gated.Args, gated.Observation));
-
-            // feed the model its own tool-call turn, then the observation, and continue
-            messages.Add(LlmMessage.Assistant(reply.Text));
-            messages.Add(LlmMessage.User($"Tool \"{call.ToolName}\" returned:\n{gated.Observation}"));
+            _logger.LogWarning("tool-loop: no final answer within {Budget} iterations", budget);
+            foreach (var ev in Finish("prompt", LlmVerdict.Failed, null, $"tool loop did not converge within {budget} iterations")) yield return ev;
+            yield break;
         }
-
-        _logger.LogWarning("tool-loop: no final answer within {Budget} iterations", budget);
-        return new ToolLoopResult("", LlmVerdict.Failed, steps, $"tool loop did not converge within {budget} iterations");
     }
+
+    // A tool observation carrying an unknown-tool / threw-exception marker (see InvokeAsync) is flagged as an
+    // error on the streamed ToolResult; the model still receives it and can recover.
+    private static bool IsErrorObservation(string observation) => observation.StartsWith("error:", StringComparison.Ordinal);
 
     /// <summary>Gate a tool call's ARGS before it runs and its OBSERVATION after — the tool-loop guard hook
     /// (guards otherwise only cover the chat boundary, not model-driven tool calls). A Block in either
@@ -182,6 +241,28 @@ public sealed class ToolLoop(
     {
         public static Gated Block(string reason) => new(true, reason, "", "");
         public static Gated Ok(string observation, string args) => new(false, null, observation, args);
+    }
+
+    /// <summary>Folds each front-door reply's <see cref="LlmUsage"/> into a running total (TL1). Stays null
+    /// until at least one reply reports usage, so a run over providers that surface no tokens yields a null
+    /// <see cref="ToolLoopResult.Usage"/> rather than a misleading all-zero figure.</summary>
+    private sealed class UsageSum
+    {
+        public LlmUsage? Value { get; private set; }
+
+        public void Add(LlmUsage? next)
+        {
+            if (next is null) return;
+            if (Value is null) { Value = next; return; }
+            var a = Value;
+            // CostUsd sums only when at least one side reported one; both-null stays null (not 0).
+            var cost = a.CostUsd is null && next.CostUsd is null ? (double?)null : (a.CostUsd ?? 0) + (next.CostUsd ?? 0);
+            Value = new LlmUsage(
+                a.InputTokens + next.InputTokens,
+                a.OutputTokens + next.OutputTokens,
+                a.CacheReadTokens + next.CacheReadTokens,
+                cost);
+        }
     }
 
     private async Task<string> InvokeAsync(string name, string argumentsJson, CancellationToken ct)

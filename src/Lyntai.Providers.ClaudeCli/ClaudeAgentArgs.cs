@@ -51,7 +51,16 @@ public static class ClaudeAgentArgs
             args.Add(string.Join(",", disallowed));
         }
 
-        if (options.ToolPolicy == AgentToolPolicy.Write)
+        // Headless bypass (CLI1): an agent on the user's own machine against the user's own resources needs
+        // to skip ALL prompts (in `-p` there is no responder — a prompt hangs the turn). --dangerously-skip-
+        // permissions REPLACES --permission-mode / --allowedTools (the CLI rejects combining them); the
+        // --disallowed-tools denial above (always-denied flow tools + caller-supplied + ReadOnly writes) stands.
+        var bypass = options is ClaudeAgentOptions { SkipAllPermissions: true };
+        if (bypass)
+        {
+            args.Add("--dangerously-skip-permissions");
+        }
+        else if (options.ToolPolicy == AgentToolPolicy.Write)
         {
             args.Add("--permission-mode");
             args.Add("acceptEdits");
@@ -76,7 +85,7 @@ public static class ClaudeAgentArgs
                 args.Add("--mcp-config");
                 args.Add(c.McpConfigPath);
             }
-            if (c.AllowedTools.Count > 0)
+            if (!bypass && c.AllowedTools.Count > 0)
             {
                 args.Add("--allowedTools");
                 args.Add(string.Join(",", c.AllowedTools));

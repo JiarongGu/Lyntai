@@ -5,7 +5,51 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## Unreleased
 
-_Nothing yet._
+Consumer-driven generic ergonomics from an agent-manager desktop adopter (CLI1/TL1/TL2/PR1) plus the
+source-study curated-memory papercuts (CM1/CM2). All additive; public surface grew (`ApiSurface` baselines
+updated) — no removals, existing calls source-compatible. No new migration (both curated columns already
+shipped in 0.29).
+
+### Added
+- **Headless "skip all permissions" for the Claude agent session (CLI1)** — `ClaudeAgentOptions` gains an
+  opt-in `SkipAllPermissions` bool. When set, `ClaudeAgentArgs.Build` emits `--dangerously-skip-permissions`
+  and SUPPRESSES the conflicting `--permission-mode` / `--allowedTools` (the CLI rejects combining them), so a
+  headless `-p` run against the user's OWN machine/resources no longer hangs waiting for a permission
+  responder. The always-denied flow tools (AskUserQuestion/ExitPlanMode/EnterPlanMode) and the caller's
+  `DisallowedTools` (+ the ReadOnly write-tool denial) are still honored. Documented as opt-in/dangerous.
+- **Per-run token usage on `ToolLoopResult` (TL1)** — `ToolLoopResult.Usage` (nullable `LlmUsage`) aggregates
+  every front-door call the loop made (summed input/output/cache-read tokens; cost summed when any call
+  reported one, else null; null overall when no provider surfaced usage). A tool-loop consumer gets a per-run
+  token/cost figure without wrapping `ILlmClient` in its own front-door decorator.
+- **Live progress from `IToolLoop` (TL2)** — `IToolLoop.StreamAsync(req, maxIterations?, ct)` yields
+  `AgentStreamEvent`s as the loop runs: a `ToolCall` then `ToolResult` per tool round-trip (so an interactive
+  UI shows tool chips live), assistant `TextDelta`(s), a `UsageFinal` when usage was reported, and one terminal
+  `SessionEnded`. Mirrors `IAgentSession.StreamAsync` (no `SessionStarted` — a Lyntai-driven loop has no
+  external session id); events are TURN-granular (the native path needs the whole reply to read its structured
+  tool calls). `RunAsync` now folds the same shared core, so both doors stay in lockstep. `StreamAsync` is a
+  DEFAULT interface method (a BYO `IToolLoop` that only implements `RunAsync` gets a functional post-hoc stream
+  for free; the built-in `ToolLoop` overrides it with a live one) — so this is additive, not a break.
+- **Curated-memory dedup-on-add (CM1)** — `ICuratedMemoryStore.AddAsync` gains an opt-in `dedup` bool: when
+  true the add is idempotent on the (kind, content, task, scope) identity (returns the existing id, writes no
+  second row — mirroring `IMemoryStore.RememberAsync`), so a consumer can write a fact idempotently without a
+  pre-`ListAsync`+compare. Default (false) keeps the deliberate-catalog always-insert behavior. Across
+  InMemory/SQLite/Postgres (null-safe identity match via `IS` / `IS NOT DISTINCT FROM`).
+- **Curated-memory `scope` filter on `ListAsync` (CM2)** — `ICuratedMemoryStore.ListAsync` gains a strict-
+  equality `scope` filter (the optimize/admin pass: "all notes for ONE scope, incl. disabled"); null = no
+  filter (unchanged). Across all three backends.
+
+### Fixed
+- **Default `ProcessRunner` hosts `.ps1` launcher shims on Windows (PR1)** — a `.ps1` launcher (some Windows
+  CLIs ship one) can't be exec'd directly by CreateProcess; the runner now resolves it (preference
+  `.cmd` → `.exe` → `.ps1`) and hosts it via `powershell -NoProfile -ExecutionPolicy Bypass -File`, rather than
+  failing with a Win32Exception. The `.cmd`/`.exe` resolution and BOM-less UTF-8 streams were already in place
+  — so the common Windows CLI shims now work out of the box, and a BYO `IProcessRunner` is only needed for a
+  genuinely different launch policy (sandbox, remote, custom encoding).
+
+### Docs
+- **New `.claude/knowledge/generic-library.md`** — the discipline for turning a consumer-specific request
+  ("app X needs Y") into app-agnostic library surface (Core interface / adapter option / BYO seam), with red
+  flags and the current backlog as worked examples. Registered in `RULES_INDEX.md`.
 
 ## 0.29.3 — 2026-07-23
 

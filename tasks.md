@@ -15,8 +15,10 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ## Active backlog
 
-_None — the backlog is empty. The last close (2026-07-23) was the buffered CLI-completion inactivity/dead
-detection fix (archived as Part 18 in [`docs/task-archive.md`](docs/task-archive.md))._
+_None — backlog clear._ The last close (2026-07-26) was Part 13: the agent-manager desktop-adoption gaps
+(CLI1 headless skip-permissions · TL1 tool-loop usage · TL2 `IToolLoop.StreamAsync` · PR1 `.ps1` shim
+hosting) and the Sonora curated-memory papercuts (CM1 dedup-on-add · CM2 `scope` filter on `ListAsync`) —
+see [`docs/task-archive.md`](docs/task-archive.md).
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a

@@ -96,6 +96,7 @@ interface Lyntai.Agents.ITool
     ParametersJsonSchema : String
 interface Lyntai.Agents.IToolLoop
     RunAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : Task<ToolLoopResult>
+    StreamAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IToolRegistry
     Find(String) : ITool
     Tools : IReadOnlyList<ITool>
@@ -164,6 +165,7 @@ class Lyntai.Agents.ToolCall
 class Lyntai.Agents.ToolLoop
     .ctor(ILlmClient, IToolRegistry, LyntaiOptions, ILogger<ToolLoop>=, IGuardRail=)
     RunAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : Task<ToolLoopResult>
+    StreamAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
 class Lyntai.Agents.ToolLoopResult
     .ctor(String, LlmVerdict, IReadOnlyList<ToolStep>, String=)
     Answer : String
@@ -175,6 +177,7 @@ class Lyntai.Agents.ToolLoopResult
     Ok : Boolean
     Steps : IReadOnlyList<ToolStep>
     ToString() : String
+    Usage : LlmUsage
     Verdict : LlmVerdict
 class Lyntai.Agents.ToolRegistry
     .ctor(IEnumerable<ITool>)
@@ -1194,10 +1197,10 @@ interface Lyntai.Storage.IConversationStore
     ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String, String, CancellationToken=) : Task
 interface Lyntai.Storage.ICuratedMemoryStore
-    AddAsync(String, String, String=, Boolean=, String=, String=, CancellationToken=) : Task<Int64>
+    AddAsync(String, String, String=, Boolean=, String=, String=, Boolean=, CancellationToken=) : Task<Int64>
     ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
-    ListAsync(String=, Boolean=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
+    ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IDbConnectionFactory

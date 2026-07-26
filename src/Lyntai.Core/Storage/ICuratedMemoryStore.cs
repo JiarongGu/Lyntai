@@ -21,9 +21,16 @@ public sealed record CuratedMemory(
 public interface ICuratedMemoryStore
 {
     /// <summary>Add a catalog entry; returns its id. <paramref name="task"/>/<paramref name="scope"/> are
-    /// optional per-consumer/per-variant filters (null = applies everywhere; see <see cref="ForCompositionAsync"/>).</summary>
+    /// optional per-consumer/per-variant filters (null = applies everywhere; see <see cref="ForCompositionAsync"/>).
+    /// <para>When <paramref name="dedup"/> is true, the add is IDEMPOTENT on the identity
+    /// (<paramref name="kind"/>, <paramref name="content"/>, <paramref name="task"/>, <paramref name="scope"/>):
+    /// if a row with that exact identity already exists its id is returned and no second row is written (mirroring
+    /// <see cref="IMemoryStore.RememberAsync"/>'s dedup) — so a consumer can write a fact idempotently without a
+    /// pre-<see cref="ListAsync"/>+compare. The default (false) always inserts, keeping the "deliberate catalog"
+    /// behavior. Dedup ignores <paramref name="enabled"/>/<paramref name="source"/> — only the identity matters —
+    /// and does not mutate the matched row.</para></summary>
     Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? task = null, string? scope = null, CancellationToken ct = default);
+        string? task = null, string? scope = null, bool dedup = false, CancellationToken ct = default);
 
     /// <summary>Update an entry in place — only the non-null arguments change (COALESCE semantics), so
     /// passing just <paramref name="enabled"/> toggles it without touching the content. To CLEAR the
@@ -35,15 +42,16 @@ public interface ICuratedMemoryStore
 
     Task<CuratedMemory?> GetAsync(long id, CancellationToken ct = default);
 
-    /// <summary>List entries, optionally filtered by <paramref name="kind"/>, <paramref name="task"/>
-    /// (strict equality — null-task rows are NOT included; this is the admin/management filter, distinct from
-    /// <see cref="ForCompositionAsync"/>'s applies-everywhere read semantics), and to
-    /// <paramref name="enabledOnly"/>. Ordered by kind then creation. NOTE: the kind ordering is NOT
-    /// guaranteed ordinal-stable across backends — Postgres orders by its DB collation while InMemory/SQLite
+    /// <summary>List entries, optionally filtered by <paramref name="kind"/>, <paramref name="task"/> and
+    /// <paramref name="scope"/> (both STRICT equality — a null-task/null-scope row is NOT included; this is the
+    /// admin/management filter, distinct from <see cref="ForCompositionAsync"/>'s applies-everywhere read
+    /// semantics — the optimize/admin pass uses <paramref name="scope"/> to pull "all notes for ONE scope, incl.
+    /// disabled"), and to <paramref name="enabledOnly"/>. Ordered by kind then creation. NOTE: the kind ordering
+    /// is NOT guaranteed ordinal-stable across backends — Postgres orders by its DB collation while InMemory/SQLite
     /// order ordinally; if exact ordering matters, sort in-app (<c>CuratedMemorySections.Compose</c> re-sorts
     /// ordinal, so the composed prompt is stable regardless).</summary>
     Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
-        string? task = null, int? limit = null, CancellationToken ct = default);
+        string? task = null, string? scope = null, int? limit = null, CancellationToken ct = default);
 
     /// <summary>The READ-for-prompt filter: enabled entries whose <see cref="CuratedMemory.Task"/> matches
     /// <paramref name="task"/> (or is null — a null-task row applies to every task) AND whose
