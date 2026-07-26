@@ -1281,7 +1281,8 @@ part of it:
   backends + `BudgetedLlmClient`; per-consumer totals aggregate case-insensitively (COLLATE NOCASE /
   `lower()`). Commit `ac519fa`.
 
-✅ done 2026-07-27 — Also in the part (not `tasks.md` items): push/PR CI running the full `verify` gate;
+✅ done 2026-07-27 — Also in the part (not `tasks.md` items): push/PR CI running the full `verify` gate
+[later removed the same day at the owner's direction — process is fully manual, see `DECISIONS.md` D20];
 SourceLink/deterministic CI builds; the design-contract reconciliation amendment; and the **final API
 sign-off pass** — an 18-finding audit of the whole public surface, closed by a batch of pre-1.0 breaking
 renames/reshapes (`UseDefaultCandidates`, `SchemaMigration` enum, required `AddSecretVault` key +

@@ -190,6 +190,17 @@ The whole-library review pass triaged ~80 findings into fixed / deferred (the `t
   share a whole SQL state machine where drift is dangerous). A mapping drift here fails the
   cross-backend contract tests immediately. Revisit only if a third relational backend materializes.
 
+## D20 — No push/PR CI: verification and releases are MANUAL (2026-07-27)
+A push/PR CI workflow (`ci.yml` running `verify` on every push) was added in the 1.0-prep batch and
+**removed the same day at the owner's direction** — the project's process is fully manual:
+- **Verification is manual**: `node devtools/dev.mjs verify` (build → test → e2e → leak scan) is the
+  gate run BEFORE any commit is claimed complete — the standing dev-loop rule, not a server-side check.
+- **Releases are manual**: the `release.yml` workflow exists but is only ever triggered by hand
+  (Actions → run workflow); it is the ONLY GitHub Actions automation, and the SourceLink/
+  `ContinuousIntegrationBuild` props key off it.
+- Don't re-add push/PR CI as a "1.0 gap" — it was implemented, considered, and declined. Revisit only
+  if the owner asks (e.g. once external contributors send PRs that need a server-side gate).
+
 ## D19 — 1.0 API sign-off decisions (2026-07-27; pre-1.0 breaks batched, unreleased)
 The final public-surface sign-off pass (18 findings) closed with these calls — recorded so the surface
 stays settled and the breaks don't get re-litigated at 1.0:

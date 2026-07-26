@@ -12,6 +12,9 @@ ROADMAP). Decisions recorded in `docs/DECISIONS.md` D19. No new migration; **no 
 changes** (renamed C# members map onto the frozen columns via SELECT aliases).
 
 ### Added
+> A push/PR CI workflow was briefly added here and then removed by decision: verification stays MANUAL
+> (`node devtools/dev.mjs verify` before any commit/release) and releases stay manual (`release.yml`,
+> triggered by hand) — see `docs/DECISIONS.md` D20.
 - **`ICuratedMemoryStore.SearchAsync`** (CMEM4): keyword search over the curated catalog — matches
   content AND title, with the `ListAsync`-family strict filters (`kind`/`taskKey`/`scope`,
   `enabledOnly` default false) and a `limit` cap; a whitespace query returns empty (`ListAsync` is the
@@ -29,11 +32,9 @@ changes** (renamed C# members map onto the frozen columns via SELECT aliases).
   `CuratedMemorySections.Compose` renders a titled entry as `- **{Title}**: {Content}` (untitled entries
   unchanged). New nullable `title` column via migration `202607270001` on SQLite + Postgres (no backfill;
   existing rows read as untitled).
-- **Push/PR CI** (`.github/workflows/ci.yml`): every push/PR to master runs the full
-  `node devtools/dev.mjs verify` gate (build → tests → e2e → leak scan) on ubuntu-latest.
-- **SourceLink / deterministic CI builds** (`src/Directory.Build.props`): `PublishRepositoryUrl` +
-  `ContinuousIntegrationBuild` under GitHub Actions — stepping into Lyntai from a consuming app resolves
-  sources from the repo.
+- **SourceLink / deterministic release builds** (`src/Directory.Build.props`): `PublishRepositoryUrl` +
+  `ContinuousIntegrationBuild` under GitHub Actions (the manual `release.yml` pipeline) — stepping into
+  Lyntai from a consuming app resolves sources from the repo.
 - **Azure OpenAI as a first-class flavor**: `AddAzureOpenAiProvider(...)` preset,
   `ProviderDetect.AzureOpenAi` (detects `*.openai.azure.com`), bare-resource endpoint completion to
   `/openai/v1/chat/completions`, and the `api-key` header sent alongside `Authorization: Bearer`.

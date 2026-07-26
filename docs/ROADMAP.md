@@ -253,9 +253,11 @@ Every technical prerequisite is implemented (2026-07-27, unreleased — see CHAN
   own diff). All confirmed defects fixed.
 - ✅ **Repo hosted** — github.com/JiarongGu/Lyntai with release CI (`release.yml`); nuget.org is the
   canonical package feed; real `PackageProjectUrl`/`RepositoryUrl` in `Directory.Build.props`.
-- ✅ **Push/PR CI** — `.github/workflows/ci.yml` runs the full `verify` gate on every push/PR to master.
-- ✅ **SourceLink** — `PublishRepositoryUrl` + `ContinuousIntegrationBuild` under CI (SDK-included since
-  .NET 8; sources already embedded via `EmbedAllSources`).
+- ✅ **Verification stays MANUAL by decision** (`docs/DECISIONS.md` D20) — `node devtools/dev.mjs verify`
+  is the gate before any commit/release; no push/PR CI. Releases are manual too (`release.yml`,
+  triggered by hand — the only automation).
+- ✅ **SourceLink** — `PublishRepositoryUrl` + `ContinuousIntegrationBuild` under the manual release
+  pipeline (SDK-included since .NET 8; sources already embedded via `EmbedAllSources`).
 - ✅ **Final API sign-off** — an 18-finding surface audit closed by the pre-1.0 breaking batch
   (`UseDefaultCandidates`, `SchemaMigration`, required vault key, `IResponseCache` reshape, async
   `IUsageTracker`, process-runner inactivity/maxDuration reshape, honesty renames, wire internals) —

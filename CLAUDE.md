@@ -47,8 +47,9 @@ hardening pass: correctness fixes across router/guards/orchestrator/prompts/stor
 (`JobStoreSql`+`JobRow` shared state machine, `DelegatingLlmClient` decorator base,
 `LazyMigratingConnectionFactory`, async `OpenAsync` sweep), case-insensitive consumer identity end-to-end.
 **UNRELEASED on master (post-0.30, held for adoption — see CHANGELOG `Unreleased` + ROADMAP):** the
-1.0-prep batch (push/PR CI, SourceLink, Azure OpenAI flavor, the final API sign-off's breaking
-renames/reshapes — `docs/DECISIONS.md` D19), the titled+searchable curated catalog (CMEM3 `Title` /
+1.0-prep batch (SourceLink, Azure OpenAI flavor, the final API sign-off's breaking
+renames/reshapes — `docs/DECISIONS.md` D19; verification + releases stay MANUAL by decision, D20 — no
+push/PR CI), the titled+searchable curated catalog (CMEM3 `Title` /
 CMEM4 `SearchAsync`), and the FULL hardening-deferral burn-down (archive Part 23; `GuardedStream`
 provider read-loop, live rate-limiter options, contract-facts test bases, PG coverage closed — the
 rejected items are D18). 1.0 is ADOPTION-gated, all technical gates done):
