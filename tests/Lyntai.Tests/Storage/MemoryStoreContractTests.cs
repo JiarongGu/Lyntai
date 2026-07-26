@@ -22,6 +22,10 @@ public class InMemoryMemoryStoreContractTests
     [Fact] public Task Dedup() => MemoryStoreContract.Remembering_an_identical_fact_dedups(New(), "k");
     [Fact] public Task Scope_dedup() => MemoryStoreContract.Different_scopes_are_not_deduped_together(New(), "k");
     [Fact] public Task Ttl() { var s = New(); return MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(s, "k", by => _now += by); }
+    [Fact] public Task Ttl_refresh() { var s = New(); return MemoryStoreContract.Refreshing_a_fact_extends_its_ttl(s, "k", by => _now += by); }
+    [Fact] public Task Recency_refresh() { var s = New(); return MemoryStoreContract.Re_remembering_refreshes_recall_recency(s, "k", by => _now += by); }
+    [Fact] public Task Prune_by_age() { var s = New(); return MemoryStoreContract.Prune_older_than_removes_by_age_within_a_task(s, "k", by => _now += by); }
+    [Fact] public Task Prune_scoped() { var s = New(); return MemoryStoreContract.Prune_scoped_to_one_task_leaves_the_sibling(s, "k", by => _now += by); }
     [Fact] public Task Cap() => MemoryStoreContract.Cap_trims_to_the_newest_entries(New(), "k");
     [Fact] public Task Limit_scope() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(New(), "k");
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
@@ -57,6 +61,10 @@ public class SqliteMemoryStoreContractTests : IDisposable
     [Fact] public Task Dedup() => MemoryStoreContract.Remembering_an_identical_fact_dedups(New(), "k");
     [Fact] public Task Scope_dedup() => MemoryStoreContract.Different_scopes_are_not_deduped_together(New(), "k");
     [Fact] public Task Ttl() { var s = New(); return MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(s, "k", by => _now += by); }
+    [Fact] public Task Ttl_refresh() { var s = New(); return MemoryStoreContract.Refreshing_a_fact_extends_its_ttl(s, "k", by => _now += by); }
+    [Fact] public Task Recency_refresh() { var s = New(); return MemoryStoreContract.Re_remembering_refreshes_recall_recency(s, "k", by => _now += by); }
+    [Fact] public Task Prune_by_age() { var s = New(); return MemoryStoreContract.Prune_older_than_removes_by_age_within_a_task(s, "k", by => _now += by); }
+    [Fact] public Task Prune_scoped() { var s = New(); return MemoryStoreContract.Prune_scoped_to_one_task_leaves_the_sibling(s, "k", by => _now += by); }
     [Fact] public Task Cap() => MemoryStoreContract.Cap_trims_to_the_newest_entries(New(), "k");
     [Fact] public Task Limit_scope() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(New(), "k");
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");

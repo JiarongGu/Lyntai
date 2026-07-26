@@ -118,6 +118,32 @@ public class LlmRouterStreamTests
         Assert.Equal(0, p2.StreamCalls);                    // never falls back after the first token
     }
 
+    [Fact] // T5: CALLER cancellation after the first committed chunk PROPAGATES — no fallback, no bogus terminal
+    public async Task Caller_cancellation_mid_stream_propagates_without_fallback_or_a_fabricated_terminal()
+    {
+        using var cts = new CancellationTokenSource();
+        var p1 = new FakeLlmProvider("p1")
+        {
+            StreamScript = _ => [LlmChunk.Content("partial"), LlmChunk.Content("never delivered"), LlmChunk.Final()],
+        };
+        var p2 = new FakeLlmProvider("p2");
+
+        var received = new List<LlmChunk>();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var chunk in Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req, cts.Token))
+            {
+                received.Add(chunk);
+                cts.Cancel(); // the caller bails right after the first committed chunk
+            }
+        });
+
+        Assert.Single(received);                     // the committed chunk arrived, then the cancel propagated
+        Assert.Equal("partial", received[0].Text);
+        Assert.All(received, c => Assert.NotEqual(LlmChunkKind.Error, c.Kind)); // no fabricated terminal Error
+        Assert.Equal(0, p2.StreamCalls);             // and never a fallback for a caller-cancelled stream
+    }
+
     [Fact]
     public async Task Success_streams_straight_through_in_order()
     {

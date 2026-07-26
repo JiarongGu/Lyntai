@@ -39,10 +39,6 @@ with the reason; pick up when the trade-off changes.
 - [ ] **T4 remnants — Postgres coverage:** `IJobStore.FailAsync` (retry-requeue timestamp math) has no PG
   test; the usage-tracker case-sensitivity test lacks its PG leg; response-cache `MaxEntries` eviction is
   SQLite-only; `Curated_memory_crud_and_filters` (PostgresStorageTests) still hand-copies contract methods.
-- [ ] **T5 — mid-stream CALLER-cancellation tests** (router after first committed chunk; agent session
-  mid-stream) — OCE must propagate, no fallback, no bogus terminal. **T9** — promote the remaining
-  SQLite-only memory-lifecycle semantics (TTL-refresh, recency-refresh, scoped/olderThan prune) into
-  `MemoryStoreContract`. **T10** — pin curated-dedup casing + write the parallel dedup race test.
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
   materialize. Not a license to reintroduce reflection serialization.

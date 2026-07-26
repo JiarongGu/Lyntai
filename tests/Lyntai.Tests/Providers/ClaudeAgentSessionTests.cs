@@ -380,6 +380,27 @@ public class ClaudeAgentSessionTests
         Assert.False(terminals[0].IsError);
     }
 
+    [Fact] // T5: CALLER cancellation MID-stream propagates — no fabricated terminal after the committed events
+    public async Task StreamAsync_mid_stream_caller_cancellation_propagates_without_a_bogus_terminal()
+    {
+        using var cts = new CancellationTokenSource();
+        var runner = new FakeProcessRunner(FullTranscript);
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
+
+        var received = new List<AgentStreamEvent>();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var e in session.StreamAsync(new AgentSessionOptions { Prompt = "hi" }, cts.Token))
+            {
+                received.Add(e);
+                cts.Cancel(); // bail right after the FIRST event
+            }
+        });
+
+        Assert.NotEmpty(received);                               // the committed events arrived
+        Assert.DoesNotContain(received, e => e is SessionEnded); // no fabricated terminal for a cancelled CALLER
+    }
+
     [Fact]
     public async Task StreamAsync_cancellation_propagates_as_operation_cancelled()
     {

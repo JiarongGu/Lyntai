@@ -5,9 +5,10 @@ namespace Lyntai.Tests.Storage;
 
 /// <summary>The v0.4 memory lifecycle against SQLite. Time is driven by an injected clock so expiry is
 /// deterministic (no wall-clock races). The contract-covered behaviors (dedup on remember, scope
-/// isolation, TTL expiry from recall) live in <see cref="MemoryStoreContract"/>
-/// (<see cref="SqliteMemoryStoreContractTests"/>); this file keeps only the unique lifecycle
-/// regressions (TTL refresh, prune accounting, cap-vs-expired eviction, recall-recency refresh).</summary>
+/// isolation, TTL expiry/refresh, recency refresh, scoped/olderThan prune) live in
+/// <see cref="MemoryStoreContract"/> (<see cref="SqliteMemoryStoreContractTests"/> + the InMemory/Postgres
+/// classes — T9 promoted the lifecycle semantics there); this file keeps only the SQLite-specific
+/// regressions (FTS-path expiry filtering, prune count accounting, cap-vs-expired eviction).</summary>
 public class MemoryLifecycleTests : IDisposable
 {
     private readonly TempDb _db = new();
@@ -31,17 +32,6 @@ public class MemoryLifecycleTests : IDisposable
     }
 
     [Fact]
-    public async Task Refreshing_a_fact_extends_its_ttl()
-    {
-        await _store.RememberAsync("task", "scope", "keep me", ttl: TimeSpan.FromMinutes(5));
-        _now += TimeSpan.FromMinutes(3);
-        await _store.RememberAsync("task", "scope", "keep me", ttl: TimeSpan.FromMinutes(5)); // refresh at t=3m
-        _now += TimeSpan.FromMinutes(4); // t=7m: past the original 5m expiry, within the refreshed 3m+5m=8m
-
-        Assert.Single(await _store.RecallAsync("task")); // still alive — the refresh reset the clock
-    }
-
-    [Fact]
     public async Task Prune_reaps_expired_entries_and_reports_the_count()
     {
         await _store.RememberAsync("task", "scope", "gone soon", ttl: TimeSpan.FromMinutes(5));
@@ -52,21 +42,6 @@ public class MemoryLifecycleTests : IDisposable
 
         Assert.Equal(1, removed);
         Assert.Single(await _store.RecallAsync("task"));
-    }
-
-    [Fact]
-    public async Task Prune_older_than_removes_by_age_regardless_of_ttl()
-    {
-        await _store.RememberAsync("task", "scope", "old fact"); // no TTL, at t=0
-        _now += TimeSpan.FromMinutes(10);
-        await _store.RememberAsync("task", "scope", "new fact"); // at t=10m
-
-        var removed = await _store.PruneAsync(olderThan: TimeSpan.FromMinutes(5));
-
-        Assert.Equal(1, removed); // "old fact" is 10m old (> 5m); "new fact" just written
-        var hits = await _store.RecallAsync("task");
-        Assert.Single(hits);
-        Assert.Equal("new fact", hits[0].Content);
     }
 
     [Fact]
@@ -89,37 +64,4 @@ public class MemoryLifecycleTests : IDisposable
         Assert.Equal(2, live.Count);
     }
 
-    [Fact]
-    public async Task Re_remembering_a_fact_refreshes_its_recall_recency()
-    {
-        // regression: recall ordered by id, so a re-remembered (deduped) fact kept its old id and
-        // recalled as OLD despite its refreshed created_at, contradicting the "refreshes recency" contract.
-        var store = new SqliteMemoryStore(_db.Factory,
-            new LyntaiOptions { MemoryCapPerScope = 100, MemoryRecallLimit = 100 }, clock: () => _now);
-        await store.RememberAsync("t", "s", "important");
-        _now += TimeSpan.FromMinutes(1);
-        await store.RememberAsync("t", "s", "trivial");
-        _now += TimeSpan.FromMinutes(1);
-        await store.RememberAsync("t", "s", "important"); // dedup refresh — should move to the top
-
-        var hits = await store.RecallAsync("t");
-        Assert.Equal("important", hits[0].Content); // most recently reinforced ⇒ first in recall
-    }
-
-    [Fact]
-    public async Task Prune_can_be_scoped_to_one_task()
-    {
-        await _store.RememberAsync("task-a", "s", "a", ttl: TimeSpan.FromMinutes(5));
-        await _store.RememberAsync("task-b", "s", "b", ttl: TimeSpan.FromMinutes(5));
-        _now += TimeSpan.FromMinutes(6);
-
-        var removed = await _store.PruneAsync(taskKey: "task-a");
-
-        Assert.Equal(1, removed);
-        Assert.Empty(await _store.RecallAsync("task-a"));
-        // task-b's expired entry survives the scoped prune (though recall still filters it)
-        using var conn = _db.Factory.Open();
-        Assert.Equal(1L, Dapper.SqlMapper.ExecuteScalar<long>(conn,
-            "SELECT COUNT(*) FROM lyntai_memory_entry WHERE task_key = 'task-b'"));
-    }
 }

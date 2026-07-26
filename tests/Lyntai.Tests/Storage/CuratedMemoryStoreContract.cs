@@ -108,6 +108,41 @@ public static class CuratedMemoryStoreContract
         Assert.Equal(4, (await store.ListAsync(taskKey: task)).Count);
     }
 
+    /// <summary>T10: the dedup identity is case-SENSITIVE on every backend (SQLite <c>IS</c>/BINARY,
+    /// Postgres <c>IS NOT DISTINCT FROM</c>, InMemory ordinal <c>==</c>) — a casing variant of kind,
+    /// content, or task is a DIFFERENT identity and inserts a new row even with dedup.</summary>
+    public static async Task Dedup_identity_is_case_sensitive(ICuratedMemoryStore store, string task = "dedup-case")
+    {
+        var exact = await store.AddAsync("confirmed", "the selector is .price", taskKey: task, dedup: true);
+        var contentCase = await store.AddAsync("confirmed", "The Selector is .price", taskKey: task, dedup: true);
+        var kindCase = await store.AddAsync("Confirmed", "the selector is .price", taskKey: task, dedup: true);
+        var taskCase = await store.AddAsync("confirmed", "the selector is .price", taskKey: task.ToUpperInvariant(), dedup: true);
+
+        Assert.NotEqual(exact, contentCase); // content casing differs → new row
+        Assert.NotEqual(exact, kindCase);    // kind casing differs → new row
+        Assert.NotEqual(exact, taskCase);    // task casing differs → new row
+
+        Assert.Equal(exact, await store.AddAsync("confirmed", "the selector is .price", taskKey: task, dedup: true));
+    }
+
+    /// <summary>T10: dedup under CONCURRENT writers of the same identity is BEST-EFFORT by contract (a
+    /// rare racing duplicate row is benign) — pin what DOES hold: every racing add succeeds, the row count
+    /// never exceeds the racer count, and dedup adds AFTER the race keep returning one stable id (the
+    /// first row's, by the lowest-id tiebreak).</summary>
+    public static async Task Dedup_add_race_settles_to_a_stable_id(ICuratedMemoryStore store, string task = "dedup-race")
+    {
+        var ids = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+            store.AddAsync("confirmed", "raced fact", taskKey: task, dedup: true))));
+
+        var a = await store.AddAsync("confirmed", "raced fact", taskKey: task, dedup: true);
+        var b = await store.AddAsync("confirmed", "raced fact", taskKey: task, dedup: true);
+        Assert.Equal(a, b);          // post-race dedup adds are stable...
+        Assert.Equal(ids.Min(), a);  // ...and pinned to the FIRST row ever written
+
+        var rows = await store.ListAsync(kind: "confirmed", taskKey: task);
+        Assert.InRange(rows.Count, 1, ids.Length); // usually 1; the benign race bound is the racer count
+    }
+
     /// <summary>CMEM3 — optional <c>Title</c>: a short label alongside the longer content (glossary term,
     /// persona trait, note title). Round-trips on add, updates with COALESCE semantics ("" clears, null
     /// leaves unchanged), and stays OUT of the dedup identity (display metadata, like source).</summary>

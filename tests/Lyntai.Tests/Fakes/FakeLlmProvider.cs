@@ -45,6 +45,7 @@ public sealed class FakeLlmProvider(string id) : ILlmProvider
         foreach (var chunk in chunks)
         {
             await Task.Yield();
+            ct.ThrowIfCancellationRequested(); // like a real provider: a cancelled caller stops the stream
             yield return chunk;
         }
     }

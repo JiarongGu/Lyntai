@@ -1393,6 +1393,23 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   (a timer can never fire EARLY, so only the global leaking through — the regression under test — can
   fail it). The `DelayHandler` was already ct-driven; the margins were the residual flake.
 
+- [x] **T5 — mid-stream CALLER-cancellation tests** (router after first committed chunk; agent session
+  mid-stream) — OCE must propagate, no fallback, no bogus terminal. **T9** — promote the remaining
+  SQLite-only memory-lifecycle semantics (TTL-refresh, recency-refresh, scoped/olderThan prune) into
+  `MemoryStoreContract`. **T10** — pin curated-dedup casing + write the parallel dedup race test.
+  ✅ done 2026-07-27 — Outcome: **T5** — router pin (cancel after the first committed chunk → OCE
+  propagates, no fabricated terminal Error, zero fallback calls; `FakeLlmProvider` now observes ct
+  between chunks like a real provider) + agent-session pin (cancel after the first event → OCE, no
+  fabricated `SessionEnded`); both pass against existing code — the hardening-pass semantics hold, now
+  pinned. **T9** — four contract methods (`Refreshing_a_fact_extends_its_ttl`,
+  `Re_remembering_refreshes_recall_recency`, `Prune_older_than_removes_by_age_within_a_task` —
+  task-scoped so the shared PG container is safe — and `Prune_scoped_to_one_task_leaves_the_sibling`,
+  proving survival via a second scoped prune instead of a SQLite table peek) wired to all 3 backends;
+  the SQLite-only originals removed from `MemoryLifecycleTests` (now genuinely unique regressions only).
+  **T10** — dedup identity pinned case-SENSITIVE ×3 backends (kind/content/task casing variants each
+  insert); the 8-writer race test pins the documented best-effort contract (post-race dedup adds return
+  ONE stable id = the first row's; row count bounded by racer count). 999 tests green.
+
 ---
 
 ## Notes for the implementer

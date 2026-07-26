@@ -130,6 +130,10 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Memory_dedup() => Pg(() => MemoryStoreContract.Remembering_an_identical_fact_dedups(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_scope_dedup() => Pg(() => MemoryStoreContract.Different_scopes_are_not_deduped_together(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_ttl() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(PgMemory(mc), Uid(), mc.Advance)); }
+    [SkippableFact] public Task Memory_ttl_refresh() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Refreshing_a_fact_extends_its_ttl(PgMemory(mc), Uid(), mc.Advance)); }
+    [SkippableFact] public Task Memory_recency_refresh() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Re_remembering_refreshes_recall_recency(PgMemory(mc), Uid(), mc.Advance)); }
+    [SkippableFact] public Task Memory_prune_by_age() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Prune_older_than_removes_by_age_within_a_task(PgMemory(mc), Uid(), mc.Advance)); }
+    [SkippableFact] public Task Memory_prune_scoped() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Prune_scoped_to_one_task_leaves_the_sibling(PgMemory(mc), Uid(), mc.Advance)); }
     [SkippableFact] public Task Memory_cap() => Pg(() => MemoryStoreContract.Cap_trims_to_the_newest_entries(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_limit_scope() => Pg(() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_forget() => Pg(() => MemoryStoreContract.Forget_clears_a_task(PgMemory(), Uid()));
@@ -356,6 +360,8 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         // Unique task/scope so the shared container doesn't cross-contaminate the absolute-count asserts.
         await CuratedMemoryStoreContract.Dedup_add_is_idempotent(store, Uid() + "-dd", "site:" + Uid());
         await CuratedMemoryStoreContract.List_filters_by_scope(store, Uid() + "-sc");
+        await CuratedMemoryStoreContract.Dedup_identity_is_case_sensitive(store, Uid() + "-dc");
+        await CuratedMemoryStoreContract.Dedup_add_race_settles_to_a_stable_id(store, Uid() + "-dr");
     }
 
     [SkippableFact]

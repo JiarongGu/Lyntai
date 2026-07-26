@@ -95,6 +95,61 @@ public static class MemoryStoreContract
         Assert.True(await store.PruneAsync() >= 1);       // reaped by prune
     }
 
+    /// <summary>T9 (promoted from the SQLite-only lifecycle tests): re-remembering an identical fact
+    /// dedups AND resets its TTL clock — the refresh keeps it alive past the original expiry.</summary>
+    public static async Task Refreshing_a_fact_extends_its_ttl(IMemoryStore store, string key, Action<TimeSpan> advance)
+    {
+        await store.RememberAsync(key, "s", "keep me", ttl: TimeSpan.FromMinutes(5));
+        advance(TimeSpan.FromMinutes(3));
+        await store.RememberAsync(key, "s", "keep me", ttl: TimeSpan.FromMinutes(5)); // dedup refresh at t=3m
+        advance(TimeSpan.FromMinutes(4)); // t=7m: past the original 5m expiry, within the refreshed 3m+5m=8m
+
+        Assert.Single(await store.RecallAsync(key)); // still alive — the refresh reset the clock
+    }
+
+    /// <summary>T9: a re-remembered (deduped) fact refreshes its recall RECENCY — bare (no-query) recall is
+    /// recency-ordered on every backend, so the reinforced fact must come back first.</summary>
+    public static async Task Re_remembering_refreshes_recall_recency(IMemoryStore store, string key, Action<TimeSpan> advance)
+    {
+        await store.RememberAsync(key, "s", "important");
+        advance(TimeSpan.FromMinutes(1));
+        await store.RememberAsync(key, "s", "trivial");
+        advance(TimeSpan.FromMinutes(1));
+        await store.RememberAsync(key, "s", "important"); // dedup refresh — must move to the top
+
+        var hits = await store.RecallAsync(key);
+        Assert.Equal("important", hits[0].Content); // most recently reinforced ⇒ first in recall
+    }
+
+    /// <summary>T9: <c>PruneAsync(olderThan:)</c> removes by AGE regardless of TTL. Task-scoped so it is
+    /// safe on the shared Postgres container (an unscoped age prune would reap other tests' rows).</summary>
+    public static async Task Prune_older_than_removes_by_age_within_a_task(IMemoryStore store, string key, Action<TimeSpan> advance)
+    {
+        await store.RememberAsync(key, "s", "old fact"); // no TTL, at t=0
+        advance(TimeSpan.FromMinutes(10));
+        await store.RememberAsync(key, "s", "new fact"); // at t=10m
+
+        var removed = await store.PruneAsync(taskKey: key, olderThan: TimeSpan.FromMinutes(5));
+
+        Assert.Equal(1, removed); // "old fact" is 10m old (> 5m); "new fact" just written
+        var hits = await store.RecallAsync(key);
+        Assert.Single(hits);
+        Assert.Equal("new fact", hits[0].Content);
+    }
+
+    /// <summary>T9: a task-scoped prune reaps only that task — the sibling task's expired row survives
+    /// (proved by its own scoped prune still finding it, so no cross-backend table peeking).</summary>
+    public static async Task Prune_scoped_to_one_task_leaves_the_sibling(IMemoryStore store, string key, Action<TimeSpan> advance)
+    {
+        await store.RememberAsync(key + "-a", "s", "a", ttl: TimeSpan.FromMinutes(5));
+        await store.RememberAsync(key + "-b", "s", "b", ttl: TimeSpan.FromMinutes(5));
+        advance(TimeSpan.FromMinutes(6));
+
+        Assert.Equal(1, await store.PruneAsync(taskKey: key + "-a"));
+        Assert.Empty(await store.RecallAsync(key + "-a"));
+        Assert.Equal(1, await store.PruneAsync(taskKey: key + "-b")); // still there → untouched by the scoped prune
+    }
+
     public static async Task Cap_trims_to_the_newest_entries(IMemoryStore store, string key)
     {
         // The store must be built with MemoryCapPerScope = 3. Assert the COUNT and SET membership only —

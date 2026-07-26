@@ -18,6 +18,8 @@ public class InMemoryCuratedMemoryStoreTests
     [Fact] public Task ForComposition() => CuratedMemoryStoreContract.ForComposition_filters_by_task_and_scope(New());
     [Fact] public Task Title() => CuratedMemoryStoreContract.Title_round_trips_updates_and_clears(New());
     [Fact] public Task Search() => CuratedMemoryStoreContract.Search_matches_content_and_title_with_filters(New());
+    [Fact] public Task Dedup_case() => CuratedMemoryStoreContract.Dedup_identity_is_case_sensitive(New());
+    [Fact] public Task Dedup_race() => CuratedMemoryStoreContract.Dedup_add_race_settles_to_a_stable_id(New());
     [Fact] public Task Search_cjk() => CuratedMemoryStoreContract.Search_recalls_cjk_substrings(New());
 }
 
@@ -39,5 +41,7 @@ public class SqliteCuratedMemoryStoreTests : IDisposable
     [Fact] public Task ForComposition() => CuratedMemoryStoreContract.ForComposition_filters_by_task_and_scope(Store);
     [Fact] public Task Title() => CuratedMemoryStoreContract.Title_round_trips_updates_and_clears(Store);
     [Fact] public Task Search() => CuratedMemoryStoreContract.Search_matches_content_and_title_with_filters(Store);
+    [Fact] public Task Dedup_case() => CuratedMemoryStoreContract.Dedup_identity_is_case_sensitive(Store);
+    [Fact] public Task Dedup_race() => CuratedMemoryStoreContract.Dedup_add_race_settles_to_a_stable_id(Store);
     [Fact] public Task Search_cjk() => CuratedMemoryStoreContract.Search_recalls_cjk_substrings(Store);
 }
