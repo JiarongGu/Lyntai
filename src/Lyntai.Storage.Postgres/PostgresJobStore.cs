@@ -42,28 +42,14 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
         var now = _clock();
         var staleBefore = now - lease;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // candidate predicate is the SHARED dialect-neutral text; only this FOR UPDATE SKIP LOCKED
+        // locking frame is Postgres-specific
         var row = await conn.QuerySingleOrDefaultAsync<JobRow>(new CommandDefinition($"""
             UPDATE lyntai_job j
             SET status='Running', claimed_by=@workerId, claimed_at=@now, attempts=attempts+1, updated_at=@now
             FROM (
                 SELECT id FROM lyntai_job c
-                WHERE c.lane=@lane
-                  AND ((c.status='Pending' AND c.available_at<=@now)
-                    OR (c.status='Running' AND c.claimed_at<@staleBefore))
-                  -- actor-mailbox partition guard: NULL partition_key ⇒ unguarded (current semantics)
-                  AND (c.partition_key IS NULL OR (
-                    -- one-at-a-time: no OTHER live-leased Running of this (lane, partition)
-                    NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
-                                  AND p.id<>c.id AND p.status='Running' AND p.claimed_at>=@staleBefore)
-                    -- a Pending candidate: no Running of the partition AT ALL (a stale Running is RECLAIMED
-                    -- first, not skipped), and it's the EARLIEST available Pending of the partition (FIFO)
-                    AND (c.status<>'Pending' OR (
-                      NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
-                                    AND p.status='Running')
-                      AND NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
-                                    AND p.status='Pending' AND p.available_at<=@now
-                                    AND (p.available_at<c.available_at
-                                      OR (p.available_at=c.available_at AND p.id<c.id)))))))
+                WHERE {JobStoreSql.ClaimCandidateWhere}
                 ORDER BY c.priority DESC, c.available_at, c.id
                 FOR UPDATE SKIP LOCKED LIMIT 1) pick
             WHERE j.id = pick.id

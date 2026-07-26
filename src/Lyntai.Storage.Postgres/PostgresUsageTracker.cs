@@ -37,8 +37,16 @@ public sealed class PostgresUsageTracker(IDbConnectionFactory factory) : IUsageT
                        COALESCE(SUM(calls),0)::bigint AS calls
                 FROM lyntai_usage
                 """)
-            : conn.QuerySingleOrDefault<Row>(
-                "SELECT input_tokens, output_tokens, cost_usd, calls FROM lyntai_usage WHERE consumer = @consumer", new { consumer });
+            // SUM + lower(): rows keep their exact casing (the TEXT PK), but consumer identity is
+            // case-insensitive library-wide (every options map is OrdinalIgnoreCase) — the per-consumer
+            // total AGGREGATES across casings so a mixed-casing app can't split its spend past one cap
+            : conn.QuerySingleOrDefault<Row>("""
+                SELECT COALESCE(SUM(input_tokens),0)::bigint AS input_tokens,
+                       COALESCE(SUM(output_tokens),0)::bigint AS output_tokens,
+                       COALESCE(SUM(cost_usd),0)::double precision AS cost_usd,
+                       COALESCE(SUM(calls),0)::bigint AS calls
+                FROM lyntai_usage WHERE lower(consumer) = lower(@consumer)
+                """, new { consumer });
         return row is null ? UsageTotals.Empty : new UsageTotals(row.InputTokens, row.OutputTokens, row.CostUsd, row.Calls);
     }
 
@@ -46,7 +54,7 @@ public sealed class PostgresUsageTracker(IDbConnectionFactory factory) : IUsageT
     {
         using var conn = factory.Open();
         if (consumer is null) conn.Execute("DELETE FROM lyntai_usage");
-        else conn.Execute("DELETE FROM lyntai_usage WHERE consumer = @consumer", new { consumer });
+        else conn.Execute("DELETE FROM lyntai_usage WHERE lower(consumer) = lower(@consumer)", new { consumer });
     }
 
     private sealed class Row

@@ -57,6 +57,21 @@ public class LlmRouterCompleteTests
         Assert.True(tracker.IsDead("p1"));
     }
 
+    [Fact] // R4: a THROWN exception whose text matches refusal keywords is a transport fault — never terminal Refused
+    public async Task A_thrown_error_with_refusal_keywords_still_falls_over()
+    {
+        // an error page from a proxy/CDN mentioning "content filter" — the MODEL never declined anything
+        var p1 = new FakeLlmProvider("p1")
+        { CompleteThrow = new HttpRequestException("<html>Blocked by corporate content filter</html>") };
+        var p2 = new FakeLlmProvider("p2");
+        p2.Replies.Enqueue(new LlmReply("from p2", LlmVerdict.Ok));
+
+        var reply = await Router(null, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
+
+        Assert.Equal("from p2", reply.Text); // clamped to Failed → advance; NOT Refused → terminal surface
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+    }
+
     [Fact]
     public async Task All_failed_returns_the_last_error()
     {

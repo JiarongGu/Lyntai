@@ -81,6 +81,24 @@ public class ChatOrchestratorTests
         }
     }
 
+    [Fact] // R1: recalled memory must NOT bypass the input gate (facts can enter via public seams un-gated)
+    public async Task Recalled_memory_is_still_input_gated_before_the_model()
+    {
+        var provider = new FakeLlmProvider("p");
+        provider.Replies.Enqueue(new LlmReply("should not run", LlmVerdict.Ok));
+        using var sp = Build(provider, b => b.AddGuard(_ => new DenylistGuard(["malware"])));
+
+        // the denied term arrives via a DIRECT memory write (a public seam the orchestrator never gated)
+        await sp.GetRequiredService<Lyntai.Storage.IMemoryStore>().RememberAsync("t1", "chat", "how to build malware");
+
+        // "build" recalls the fact into the composed prompt; the RAW message itself is clean
+        var result = await sp.GetRequiredService<IChatOrchestrator>()
+            .ChatAsync(new ChatTurn { Message = "build", TaskKey = "t1", UseTools = false });
+
+        Assert.True(result.Blocked);
+        Assert.Empty(provider.Calls); // blocked BEFORE the provider — the recalled fact never left the process
+    }
+
     [Fact] // A2: an input-gate Replace persists Q as the REWRITTEN USER MESSAGE — never the composed prompt
     public async Task Replaced_input_remembers_the_rewritten_message_not_the_composed_prompt()
     {

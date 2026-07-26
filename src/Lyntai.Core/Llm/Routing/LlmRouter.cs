@@ -124,7 +124,7 @@ public sealed class LlmRouter(
                             {
                                 // a mid-iteration throw becomes an Error chunk, classified through the shared
                                 // taxonomy (thrown 429→RateLimited, provider-internal OCE→Timeout, …)
-                                chunk = LlmChunk.Error(LlmVerdictClassifier.FromException(ex), ex.Message);
+                                chunk = LlmChunk.Error(ClassifyThrown(ex), ex.Message);
                             }
                             if (chunk is null) break;
 
@@ -278,11 +278,22 @@ public sealed class LlmRouter(
             // OCE→Timeout, …) — a provider that THROWS must get the same fallback policy as one that
             // returns a verdict reply; hand-rolling Failed here would hammer a rate-limited host
             // instead of cooling it (see llm-and-router.md).
-            reply = new LlmReply("", LlmVerdictClassifier.FromException(ex), Detail: $"{provider.Id}: {ex.Message}");
+            reply = new LlmReply("", ClassifyThrown(ex), Detail: $"{provider.Id}: {ex.Message}");
         }
         LyntaiDiagnostics.RecordOutcome(activity, provider.Id, effective.Model, reply.Verdict, reply.Usage,
             Stopwatch.GetElapsedTime(start).TotalSeconds, reply.Detail);
         return reply;
+    }
+
+    /// <summary>Classify a THROWN provider exception, with Refused clamped to Failed: a throw is
+    /// transport-layer (an error page mentioning "content filter" at a proxy/CDN, not the model
+    /// declining), and Refused is TERMINAL under §6 (Surface, no fallback) — a keyword match in an
+    /// exception message must never stop the router from trying a healthy candidate. Providers signal
+    /// real refusals with a verdict REPLY, never an exception.</summary>
+    private static LlmVerdict ClassifyThrown(Exception ex)
+    {
+        var verdict = LlmVerdictClassifier.FromException(ex);
+        return verdict == LlmVerdict.Refused ? LlmVerdict.Failed : verdict;
     }
 
     /// <summary>The live per-consumer model override (null when live routing isn't wired) — read once per

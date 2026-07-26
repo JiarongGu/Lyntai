@@ -9,9 +9,11 @@ public sealed class InMemoryUsageTracker : IUsageTracker
     private sealed class Totals { public long In, Out, Calls; public double Cost; }
 
     private readonly object _gate = new();
-    // case-SENSITIVE (Ordinal) to match the SQL trackers' TEXT primary key — "App" and "app" are distinct
-    // consumers on every backend, so budget totals don't diverge by store
-    private readonly Dictionary<string, Totals> _byConsumer = new(StringComparer.Ordinal);
+    // case-INSENSITIVE, matching every consumer-keyed options map (Budget/RateLimit PerConsumer,
+    // DefaultModelByConsumer, …): "App" and "app" are ONE consumer identity, so a mixed-casing app can't
+    // silently accrue two separate totals against one cap. The SQL trackers keep per-casing ROWS (their
+    // TEXT PK) but AGGREGATE reads case-insensitively — totals agree across backends.
+    private readonly Dictionary<string, Totals> _byConsumer = new(StringComparer.OrdinalIgnoreCase);
     private readonly Totals _global = new();
 
     public void Record(string consumer, LlmUsage usage)

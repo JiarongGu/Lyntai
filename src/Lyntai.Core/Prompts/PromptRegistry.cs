@@ -45,13 +45,18 @@ public sealed partial class PromptRegistry(
                 template = @override;
         }
 
-        // SINGLE-PASS regex substitution, not sequential Replace: a var VALUE containing "{otherKey}"
-        // must stay literal (sequential replacement re-scanned substituted values — order-dependent
-        // injection over nondeterministic dictionary order). Unmatched placeholders stay literal; keys
-        // are identifier-shaped, matching ValidateOverride's placeholder grammar.
-        if (vars is not null)
-            template = PlaceholderRegex().Replace(template,
-                m => vars.TryGetValue(m.Groups[1].Value, out var v) ? v : m.Value);
+        // SINGLE-PASS substitution built from the KEYS themselves (escaped), not sequential Replace and
+        // not a fixed grammar: a var VALUE containing "{otherKey}" stays literal (sequential replacement
+        // re-scanned substituted values — order-dependent injection over nondeterministic dictionary
+        // order), and the key grammar is UNRESTRICTED — hyphen/dot/CJK keys all substitute, as they always
+        // did (ValidateOverride's identifier grammar governs override validation only, not rendering).
+        // Longest key first so an overlapping shorter key can't shadow a longer one; unmatched
+        // placeholders stay literal.
+        if (vars is { Count: > 0 })
+        {
+            var pattern = "\\{(" + string.Join("|", vars.Keys.OrderByDescending(k => k.Length).Select(Regex.Escape)) + ")\\}";
+            template = Regex.Replace(template, pattern, m => vars[m.Groups[1].Value]);
+        }
         return template;
     }
 

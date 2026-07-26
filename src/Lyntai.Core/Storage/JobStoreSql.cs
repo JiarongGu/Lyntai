@@ -27,6 +27,31 @@ public static class JobStoreSql
     /// <summary>The write fence: a mutating statement lands only while THIS worker holds the Running claim.</summary>
     public const string FenceWhere = "WHERE id=@id AND claimed_by=@workerId AND status='Running'";
 
+    /// <summary>The dialect-NEUTRAL claim-candidate predicate — pending/stale-lease-reclaim selection plus
+    /// the actor-mailbox partition guard and its FIFO tiebreak; the most correctness-critical text in the
+    /// subsystem, shared so the two backends' claim statements can only differ in their LOCKING frame
+    /// (single-writer <c>UPDATE…RETURNING</c> vs <c>FOR UPDATE SKIP LOCKED</c>). Written against the
+    /// candidate alias <c>c</c>; parameters: <c>@lane</c>, <c>@now</c>, <c>@staleBefore</c>.</summary>
+    public const string ClaimCandidateWhere = """
+        c.lane=@lane
+          AND ((c.status='Pending' AND c.available_at<=@now)
+            OR (c.status='Running' AND c.claimed_at<@staleBefore))
+          -- actor-mailbox partition guard: NULL partition_key ⇒ unguarded (current semantics)
+          AND (c.partition_key IS NULL OR (
+            -- one-at-a-time: no OTHER live-leased Running of this (lane, partition)
+            NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
+                          AND p.id<>c.id AND p.status='Running' AND p.claimed_at>=@staleBefore)
+            -- a Pending candidate: no Running of the partition AT ALL (a stale Running is RECLAIMED
+            -- first, not skipped), and it's the EARLIEST available Pending of the partition (FIFO)
+            AND (c.status<>'Pending' OR (
+              NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
+                            AND p.status='Running')
+              AND NOT EXISTS (SELECT 1 FROM lyntai_job p WHERE p.lane=c.lane AND p.partition_key=c.partition_key
+                            AND p.status='Pending' AND p.available_at<=@now
+                            AND (p.available_at<c.available_at
+                              OR (p.available_at=c.available_at AND p.id<c.id)))))))
+        """;
+
     // ── fenced SET clauses (compose as $"UPDATE lyntai_job {SetX} {FenceWhere}") ─────────────────────
     public const string SetCheckpoint = "SET checkpoint=@checkpoint, claimed_at=@now, updated_at=@now";
     public const string SetProgress = "SET progress=@done, total=@total, stage=@stage, updated_at=@now";

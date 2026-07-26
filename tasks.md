@@ -66,11 +66,8 @@ with the reason; pick up when the trade-off changes.
   `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
   materialize. Not a license to reintroduce reflection serialization.
 
-> The pass's REJECTED findings (deliberately not taken, don't re-open without new evidence): S14/I8
-> (a shared clock-default helper — 1 line per class, public-surface cost outweighs it), I12b (the
-> "duplicate" AdmitAll default serves DI vs direct construction), I15 (builder `Collect` helpers — the
-> per-seam XML docs are the value, the bodies are 2 lines), L12 (cache-TTL dual default — harmless,
-> env-governed), P13 (ClaudeCli `id` ctor param — two same-process claude registrations is exotic).
+> The pass's REJECTED findings (deliberately not taken) are recorded in `docs/DECISIONS.md` **D18** —
+> per the task-lifecycle rule this file holds open tasks only; don't-relitigate rationale lives there.
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a

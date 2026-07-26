@@ -205,6 +205,30 @@ public class OpenAiCompatibleProviderTests
         Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
     }
 
+    [Fact] // R5: the trailing stream_options usage chunk (EMPTY choices, sent AFTER finish_reason) lands on Final
+    public async Task Sse_trailing_usage_chunk_lands_on_the_final_chunk()
+    {
+        const string sse = """
+            data: {"choices":[{"delta":{"content":"hi"}}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"stop"}]}
+
+            data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":3}}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        var final = chunks[^1];
+        Assert.Equal(LlmChunkKind.Final, final.Kind);
+        Assert.Equal(12, final.Usage!.InputTokens);   // streamed calls now feed budget/telemetry
+        Assert.Equal(3, final.Usage.OutputTokens);
+    }
+
     [Fact]
     public async Task Sse_tool_calls_finish_with_no_content_surfaces_unsupported()
     {

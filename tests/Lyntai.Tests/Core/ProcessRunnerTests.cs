@@ -185,6 +185,30 @@ public class ProcessRunnerTests
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(30), $"took {sw.Elapsed} — kill didn't work");
     }
 
+    [Fact] // R3: a child actively DRAINING a large stdin is ALIVE — each drained slice re-arms the clock
+    public async Task Child_actively_draining_stdin_past_the_window_is_not_killed()
+    {
+        // stdout closes instantly; the child then SIPS stdin (take one pipe-buffer's worth, nap 150ms,
+        // repeat — ~4 KB per sip on Windows) so the TOTAL drain time far exceeds the 2s inactivity window,
+        // but it never goes SILENT for the window: each sip frees pipe space, the parent's next slice write
+        // completes, and that progress re-arms the clock. Pre-fix, the single fixed post-EOF window killed
+        // this healthy child mid-drain.
+        const string script = """
+            process.stdout.end();
+            process.stdin.on('end', () => process.exit(0));
+            process.stdin.on('data', () => {
+              process.stdin.pause();
+              setTimeout(() => process.stdin.resume(), 150);
+            });
+            """;
+        var result = await _runner.RunAsync("node", ["-e", script],
+            stdin: new string('x', 300_000), timeout: TimeSpan.FromSeconds(2))
+            .WaitAsync(TimeSpan.FromSeconds(60)); // guard: fail loud instead of hanging the suite
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.False(result.TimedOut); // drain progress counted as activity — the healthy child finished
+    }
+
     [Fact] // I2: the stdin observe after stdout EOF is bounded by the inactivity clock (no unbounded hang)
     public async Task Child_that_closes_stdout_but_never_drains_stdin_is_killed_by_the_inactivity_clock()
     {

@@ -105,7 +105,9 @@ public sealed class ProcessRunner : IProcessRunner
         // first would deadlock a child that emits stdout before reading stdin. A child that never drains
         // its pipe is killed by the inactivity clock, which unblocks the writer. (Mirrors StreamLinesAsync.)
         if (timeout is not null) idleCts.CancelAfter(timeout.Value);
-        var stdinTask = WriteStdinAsync(process, stdin, killCts.Token);
+        // each drained stdin slice re-arms the clock: a child actively CONSUMING a large prompt is alive
+        var stdinTask = WriteStdinAsync(process, stdin,
+            onProgress: () => { if (timeout is not null) idleCts.CancelAfter(timeout.Value); }, killCts.Token);
 
         try
         {
@@ -130,14 +132,17 @@ public sealed class ProcessRunner : IProcessRunner
                 if (n == 0) break; // EOF — child closed stdout
                 stdout.Append(buffer, 0, n);
             }
-            // Re-arm a FRESH window covering the stdin observe AND the final reap: a child that closed
-            // stdout but never drains its stdin pipe would otherwise block the writer (and us) forever —
-            // the clock must stay armed here so the kill breaks the pipes and unblocks both awaits.
+            // Fresh window for the stdin observe: a child that closed stdout but never drains its stdin
+            // pipe would otherwise block the writer (and us) forever. With the writer's per-slice re-arms,
+            // a child actively DRAINING keeps resetting the clock — only true drain-silence kills (and the
+            // kill breaks the pipes, unblocking the writer).
             if (timeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(timeout.Value);
 
             // observe the concurrent stdin write (a broken pipe from an early child exit is already swallowed)
             try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / TimedOut */ }
 
+            // fresh window for the final reap too (a child that drained everything but lingers)
+            if (timeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(timeout.Value);
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
 
@@ -188,8 +193,14 @@ public sealed class ProcessRunner : IProcessRunner
             // both pipes (parent blocked writing stdin, child blocked writing stdout) — the child never starts its turn.
             // Firing the write lets the read loop drain stdout so the child keeps draining stdin. (RunAsync reads-first
             // for the same reason; StreamLinesAsync must not serialize write-then-read on a big prompt.)
+            // Writer-progress re-arms are gated OFF until the stdout loop ends: during the loop the clock is
+            // deliberately STOPPED while the consumer works, and a writer re-arm there would leave it running
+            // through consumer dwell — killing a healthy stream under a slow reader.
+            var observeStdin = false;
             if (timeout is not null) timeoutCts.CancelAfter(timeout.Value); // arm for the first read
-            var stdinTask = WriteStdinAsync(process, stdin, timeoutCts.Token);
+            var stdinTask = WriteStdinAsync(process, stdin,
+                onProgress: () => { if (timeout is not null && Volatile.Read(ref observeStdin)) timeoutCts.CancelAfter(timeout.Value); },
+                timeoutCts.Token);
 
             while (!timedOut && !timeoutCts.IsCancellationRequested)
             {
@@ -214,9 +225,11 @@ public sealed class ProcessRunner : IProcessRunner
                 yield return line;
             }
 
-            // The stdout loop ended (child closed stdout, or a timeout). Re-arm a FRESH window covering the
-            // stdin observe AND the final reap FIRST — a child that closed stdout but never drains its stdin
-            // pipe would otherwise block the writer (and us) forever; the armed clock's kill breaks the pipes.
+            // The stdout loop ended (child closed stdout, or a timeout). Enable writer-progress re-arms and
+            // arm a FRESH window for the stdin observe — a child that closed stdout but never drains its
+            // stdin pipe would otherwise block the writer (and us) forever, while a child actively DRAINING
+            // keeps re-arming and lives; the armed clock's kill breaks the pipes either way.
+            Volatile.Write(ref observeStdin, true);
             if (timeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(timeout.Value);
 
             // Observe the concurrent stdin write so it's never left unobserved. A broken pipe (child exited
@@ -224,10 +237,15 @@ public sealed class ProcessRunner : IProcessRunner
             // loop reported. The real signal is exit code / stderr.
             try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / timedOut */ }
 
+            // fresh window for the final reap too (a child that drained everything but lingers)
+            if (timeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(timeout.Value);
             await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
+            // a kill that fired during the stdin observe / reap is a TIMEOUT, not a child failure — classify
+            // it as one (unless the child actually finished cleanly first: the kill can race a clean exit)
+            if (timeoutCts.IsCancellationRequested && process.ExitCode != 0) timedOut = true;
             if (timedOut)
                 throw new ProcessTimeoutException(command, timeout ?? TimeSpan.Zero);
             if (process.ExitCode != 0)
@@ -313,6 +331,10 @@ public sealed class ProcessRunner : IProcessRunner
     /// launcher shim can't be exec'd directly by CreateProcess, so on Windows it is hosted in PowerShell
     /// (<c>powershell -NoProfile -ExecutionPolicy Bypass -File &lt;path&gt;</c>); a resolved <c>.cmd</c>/<c>.exe</c>
     /// (the common case) runs directly. Both explicit <c>.ps1</c> paths and where.exe-resolved ones are wrapped.
+    /// CAVEAT — the one scoped exception to the "never a shell" spawn rule: PowerShell RE-PARSES the argv it
+    /// forwards to a <c>-File</c> script, so an argument with embedded double quotes or a trailing backslash
+    /// can arrive mangled. Prompts already travel via stdin (never argv); keep <c>.ps1</c>-shim argv to simple
+    /// flags, or supply a BYO <see cref="IProcessRunner"/> for a CLI that needs exotic args through a .ps1 shim.
     /// Stream encoding is forced to BOM-less UTF-8 by <see cref="Start"/> regardless.</summary>
     private static (string Exe, IReadOnlyList<string> PrefixArgs) ResolveLauncher(string command)
     {
@@ -322,12 +344,29 @@ public sealed class ProcessRunner : IProcessRunner
         return (resolved, []);
     }
 
-    private static async Task WriteStdinAsync(System.Diagnostics.Process process, string? stdin, CancellationToken ct)
+    private static async Task WriteStdinAsync(System.Diagnostics.Process process, string? stdin,
+        Action? onProgress, CancellationToken ct)
     {
         try
         {
             if (stdin is not null)
-                await process.StandardInput.WriteAsync(stdin.AsMemory(), ct).ConfigureAwait(false);
+            {
+                // Write in small slices and report progress after each: on a payload past the OS pipe
+                // buffer, a slice write only completes as the child DRAINS ahead of it — so progress ≈ the
+                // child actively consuming stdin, and the caller re-arms its inactivity clock on it. A child
+                // that stops draining (true silence) stops the progress and is killed by the clock, which
+                // breaks the pipe and unblocks this writer. The slice is deliberately near the OS pipe
+                // buffer's granularity (Windows child-stdin pipes are ~4 KB): a large slice would complete
+                // only once per MANY drained buffers, making a slowly-but-actively draining child look
+                // silent for whole windows.
+                const int Slice = 8 * 1024;
+                for (var offset = 0; offset < stdin.Length; offset += Slice)
+                {
+                    await process.StandardInput.WriteAsync(
+                        stdin.AsMemory(offset, Math.Min(Slice, stdin.Length - offset)), ct).ConfigureAwait(false);
+                    onProgress?.Invoke();
+                }
+            }
             process.StandardInput.Close(); // always signal EOF — CLIs that read stdin would hang otherwise
         }
         catch (IOException)

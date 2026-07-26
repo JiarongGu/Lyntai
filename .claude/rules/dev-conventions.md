@@ -34,8 +34,12 @@ by candidate id; `IScoringService` iterates `IEnumerable<IScorer>`; `ILlmProvide
   first token**; dead-host cooldown instead of exponential backoff; log every attempt.
 - **CLI spawn hygiene** (`ProcessRunner`): `UseShellExecute=false`, `ArgumentList` only (prompts carry
   newlines/metacharacters — never a shell), prompt over **stdin**, **BOM-less UTF-8** both directions,
-  resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`), `Kill(entireProcessTree:true)` on
-  cancel, per-call timeout. Tests stub the CLI via `LYNTAI_PROVIDER_CMD` (`devtools/scripts/provider-stub.mjs`).
+  resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`, then `.ps1`), `Kill(entireProcessTree:true)`
+  on cancel, per-call timeout. **One scoped exception to "never a shell":** a `.ps1`-only launcher shim is
+  hosted via `powershell -NoProfile -ExecutionPolicy Bypass -File` (CreateProcess can't exec it) — PowerShell
+  re-parses argv there, so args with embedded quotes/trailing backslashes can arrive mangled; keep `.ps1`-shim
+  args to simple flags (prompts already travel via stdin) or supply a BYO `IProcessRunner`. Tests stub the CLI
+  via `LYNTAI_PROVIDER_CMD` (`devtools/scripts/provider-stub.mjs`).
 
 ## Storage (Lyntai.Storage.Sqlite)
 

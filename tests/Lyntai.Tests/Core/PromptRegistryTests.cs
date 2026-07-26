@@ -19,6 +19,22 @@ public class PromptRegistryTests
         Assert.Equal("Summarize the text in English.", rendered);
     }
 
+    [Fact] // R2: ANY key grammar substitutes — hyphens, dots, CJK (the single-pass rewrite must not narrow it)
+    public async Task Non_identifier_and_cjk_keys_still_substitute()
+    {
+        var registry = new PromptRegistry(_kv);
+
+        var rendered = await registry.RenderAsync("p", "{user-name} does {任务} at {step.1}",
+            new Dictionary<string, string>
+            {
+                ["user-name"] = "Ada",
+                ["任务"] = "翻译",
+                ["step.1"] = "dawn",
+            });
+
+        Assert.Equal("Ada does 翻译 at dawn", rendered);
+    }
+
     [Fact] // A3: substitution is SINGLE-PASS — a var VALUE containing a placeholder must stay literal
     public async Task Var_values_containing_placeholders_are_not_resubstituted()
     {

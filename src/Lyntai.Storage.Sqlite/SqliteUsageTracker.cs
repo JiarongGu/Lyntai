@@ -36,9 +36,13 @@ public sealed class SqliteUsageTracker(IDbConnectionFactory factory) : IUsageTra
                        CAST(COALESCE(SUM(cost_usd),0) AS REAL) AS cost_usd, COALESCE(SUM(calls),0) AS calls
                 FROM lyntai_usage
                 """)
+            // SUM + COLLATE NOCASE: rows keep their exact casing (the TEXT PK), but consumer identity is
+            // case-insensitive library-wide (every options map is OrdinalIgnoreCase) — the per-consumer
+            // total AGGREGATES across casings so a mixed-casing app can't split its spend past one cap
             : conn.QuerySingleOrDefault<Row>("""
-                SELECT input_tokens, output_tokens, CAST(cost_usd AS REAL) AS cost_usd, calls
-                FROM lyntai_usage WHERE consumer = @consumer
+                SELECT COALESCE(SUM(input_tokens),0) AS input_tokens, COALESCE(SUM(output_tokens),0) AS output_tokens,
+                       CAST(COALESCE(SUM(cost_usd),0) AS REAL) AS cost_usd, COALESCE(SUM(calls),0) AS calls
+                FROM lyntai_usage WHERE consumer = @consumer COLLATE NOCASE
                 """, new { consumer });
         return row is null ? UsageTotals.Empty : new UsageTotals(row.InputTokens, row.OutputTokens, row.CostUsd, row.Calls);
     }
@@ -47,7 +51,7 @@ public sealed class SqliteUsageTracker(IDbConnectionFactory factory) : IUsageTra
     {
         using var conn = factory.Open();
         if (consumer is null) conn.Execute("DELETE FROM lyntai_usage");
-        else conn.Execute("DELETE FROM lyntai_usage WHERE consumer = @consumer", new { consumer });
+        else conn.Execute("DELETE FROM lyntai_usage WHERE consumer = @consumer COLLATE NOCASE", new { consumer });
     }
 
     private sealed class Row

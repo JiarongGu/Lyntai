@@ -71,7 +71,10 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
 
     private async Task CreateSchemaAsync()
     {
-        using var conn = factory.Open();
+        // async open, deliberately UNLINKED from any caller token: this task is SHARED across every first
+        // caller (see EnsureSchemaAsync) — one caller's cancellation must not fault the schema task the
+        // others are awaiting. The retry-on-fault gate re-creates it if it genuinely fails.
+        await using var conn = await factory.OpenAsync(CancellationToken.None).ConfigureAwait(false);
         await conn.ExecuteAsync("CREATE EXTENSION IF NOT EXISTS vector").ConfigureAwait(false);
         await conn.ExecuteAsync("""
             CREATE TABLE IF NOT EXISTS lyntai_vector (

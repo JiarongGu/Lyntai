@@ -188,7 +188,10 @@ public sealed class OpenAiCompatibleProvider(
                 sawContent = true;
                 yield return LlmChunk.Content(text);
             }
-            if (isFinal) done = true;
+            // finish_reason terminates an NDJSON (Ollama) stream. An SSE stream instead runs on to its
+            // [DONE] sentinel (or EOF) so the trailing stream_options usage chunk — sent AFTER the
+            // finish_reason line, with an EMPTY choices array — is still read into `usage`.
+            if (isFinal && _flavor == ProviderDetect.Ollama) done = true;
         }
 
         // a streamed content filter must end as Refused, not a benign Final — same verdict the
@@ -369,6 +372,12 @@ public sealed class OpenAiCompatibleProvider(
                     finishReason = fr.GetString();
                 return (text, ExtractUsage(root), finishReason is not null, finishReason);
             }
+
+            // OpenAI stream_options usage chunk: the trailing data line AFTER finish_reason carries usage
+            // with an EMPTY choices array (the branch above requires a non-empty one) — usage only, not a
+            // terminator ([DONE] follows it)
+            if (root.TryGetProperty("usage", out var trailing) && trailing.ValueKind == JsonValueKind.Object)
+                return (null, ExtractUsage(root), false, null);
 
             // Ollama NDJSON: message.content per line, done:true on the last (with eval counts)
             if (root.TryGetProperty("message", out var message))

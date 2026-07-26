@@ -79,18 +79,21 @@ public class SqliteGovernanceStoreTests : IDisposable
         Assert.Equal(UsageTotals.Empty, tracker.Total("never-seen"));
     }
 
-    [Fact] // T6: the consumer key must be case-SENSITIVE on every backend (SQL PK is)
-    public void UsageTracker_consumer_key_is_case_sensitive_on_every_backend()
+    [Fact] // R6: consumer identity is case-INSENSITIVE everywhere — totals AGGREGATE across casings, so
+    // the budget cap (whose PerConsumer map is OrdinalIgnoreCase, like every options map) can't be
+    // overspent 2x by tagging "App" in one code path and "app" in another. (Supersedes the earlier
+    // case-sensitive pin, which matched the SQL PK but let each casing accrue its own uncapped total.)
+    public void UsageTracker_consumer_totals_aggregate_across_casings_on_every_backend()
     {
         IUsageTracker[] trackers = [new InMemoryUsageTracker(), new SqliteUsageTracker(_db.Factory)];
         foreach (var t in trackers)
         {
             t.Record("App", new LlmUsage(10, 0, CostUsd: 0.10));
             t.Record("app", new LlmUsage(20, 0, CostUsd: 0.20));
-            Assert.Equal(1, t.Total("App").Calls);           // "App" and "app" are DISTINCT consumers
-            Assert.Equal(1, t.Total("app").Calls);
-            Assert.Equal(0.10, t.Total("App").CostUsd, 5);
-            Assert.Equal(0.20, t.Total("app").CostUsd, 5);
+            Assert.Equal(2, t.Total("App").Calls);           // ONE consumer identity, either casing
+            Assert.Equal(2, t.Total("app").Calls);
+            Assert.Equal(30, t.Total("APP").InputTokens);
+            Assert.Equal(0.30, t.Total("app").CostUsd, 5);
         }
     }
 

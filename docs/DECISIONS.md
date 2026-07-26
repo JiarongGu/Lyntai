@@ -167,3 +167,18 @@ and the wire formats (claude stream-json, OpenAI-compatible dialects) are vendor
 and could type the STABLE response envelopes (OpenAI `choices/message/usage`, SSE delta shell) for
 compile-checked field names, at the cost of a DTO set per dialect with `JsonElement` interiors anyway. Do
 that only if envelope-parsing bugs actually materialize; don't re-litigate the reflection route.
+
+## D18 — Findings deliberately REJECTED in the 2026-07-26 hardening pass (don't re-open without new evidence)
+The whole-library review pass triaged ~80 findings into fixed / deferred (the `tasks.md` backlog) /
+**rejected**. The rejected ones, with why — so a future review pass doesn't re-litigate them:
+- **Shared clock-default helper** (`clock ?? (() => DateTimeOffset.UtcNow)` in ~15 classes): one line per
+  class; a shared helper is either public-surface bloat or unusable from adapters (internal). Revisit only
+  as part of a real `TimeProvider` migration at a major bump.
+- **AdmitAll admission "duplicate default"** (DI registration + ctor fallback): NOT redundant — the DI
+  registration serves container resolution, the ctor fallback serves direct construction (tests/BYO).
+- **Builder `Collect` helpers** for the ~18 two-line `Add*` methods: the per-seam XML docs are the value;
+  collapsing the bodies saves nothing readers need.
+- **Cache-TTL dual default** (decorator passes `options.Cache.Ttl`; `InMemoryResponseCache` re-falls-back
+  to the same): harmless, env-governed redundancy; removing either side changes BYO-cache behavior.
+- **ClaudeCli `id` ctor parameter**: two same-process `claude` registrations with different commands is
+  exotic; additive if a consumer ever asks.
