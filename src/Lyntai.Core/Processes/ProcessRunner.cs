@@ -183,7 +183,10 @@ public sealed class ProcessRunner : IProcessRunner
     {
         using var process = Start(command, args, workingDirectory, environment);
 
-        var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        // only the 500-char TAIL is ever reported (ProcessRunException) — drain stderr bounded, so a
+        // child spewing MBs of diagnostics while streaming can't grow the parent's memory with it.
+        // (RunAsync's full-stderr buffer is contract — its ProcessResult returns the whole stream.)
+        var stderrTask = ReadTailAsync(process.StandardError);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         // killing the tree unblocks a pending read/write with EOF/IOException — no cancellable read needed
@@ -392,6 +395,25 @@ public sealed class ProcessRunner : IProcessRunner
         catch { /* already exited */ }
     }
 
-    private static string Tail(string text, int max = 500) =>
+    private const int StdErrTailChars = 500;
+
+    private static string Tail(string text, int max = StdErrTailChars) =>
         text.Length <= max ? text.Trim() : text[^max..].Trim();
+
+    /// <summary>Drain a diagnostic stream to EOF keeping only the last <paramref name="max"/> chars — a
+    /// rolling window, so the capture is bounded no matter how much the child writes. Completes when the
+    /// child exits (its side of the pipe closes), like <c>ReadToEndAsync</c> did.</summary>
+    private static async Task<string> ReadTailAsync(StreamReader reader, int max = StdErrTailChars)
+    {
+        var buffer = new char[4096];
+        var tail = new StringBuilder(max + buffer.Length);
+        while (true)
+        {
+            var n = await reader.ReadAsync(buffer.AsMemory(), CancellationToken.None).ConfigureAwait(false);
+            if (n == 0) break; // EOF — child closed stderr
+            tail.Append(buffer, 0, n);
+            if (tail.Length > max) tail.Remove(0, tail.Length - max); // keep the END of the stream
+        }
+        return tail.ToString();
+    }
 }

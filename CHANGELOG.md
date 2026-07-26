@@ -50,6 +50,12 @@ changes** (renamed C# members map onto the frozen columns via SELECT aliases).
 - **`IProcessRunner.StreamLinesAsync` `maxDuration`** — an optional wall-clock backstop alongside the
   inactivity window (a slowly-dripping stream can no longer run unbounded).
 
+### Fixed
+- **Streamed runs no longer buffer unbounded stderr**: `ProcessRunner.StreamLinesAsync` drains stderr
+  as a rolling 500-char tail (all it ever reported) instead of `ReadToEndAsync` — a child spewing MBs
+  of diagnostics while streaming can't grow the parent's memory. `RunAsync` still returns full stderr
+  (that's its contract).
+
 ### Breaking (pre-1.0, unreleased batch)
 - **`LyntaiBuilder.DefaultCandidates` → `UseDefaultCandidates`** — hard rename, no shim: the method SETS
   (replaces) the fallback chain, and "Use" is the set-semantics builder family.

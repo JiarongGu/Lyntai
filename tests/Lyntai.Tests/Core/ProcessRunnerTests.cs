@@ -72,6 +72,26 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public async Task Stream_stderr_tail_keeps_the_END_of_a_large_stderr()
+    {
+        // the streamed path captures stderr as a BOUNDED tail (it only ever reports the last 500 chars) —
+        // a child spewing hundreds of KB of stderr must yield the END of it, not the start, and the tail
+        // must be correct across chunk boundaries (a ring/trim bug would scramble or truncate it)
+        var ex = await Assert.ThrowsAsync<ProcessRunException>(async () =>
+        {
+            await foreach (var _ in _runner.StreamLinesAsync("node",
+                ["-e", "process.stderr.write('BEGIN-' + 'x'.repeat(600000) + '-END-MARKER', () => process.exit(5))"]))
+            {
+            }
+        });
+
+        Assert.Equal(5, ex.ExitCode);
+        Assert.True(ex.StdErrTail.Length <= 500, $"tail is {ex.StdErrTail.Length} chars — not bounded");
+        Assert.EndsWith("-END-MARKER", ex.StdErrTail);
+        Assert.DoesNotContain("BEGIN-", ex.StdErrTail);
+    }
+
+    [Fact]
     public async Task Stdin_write_is_covered_by_the_timeout()
     {
         // a child that never reads stdin + a payload beyond the OS pipe buffer used to block the

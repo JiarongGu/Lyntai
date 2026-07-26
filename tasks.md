@@ -54,8 +54,6 @@ with the reason; pick up when the trade-off changes.
   sleeps → bounded polling; `PerRequestTimeoutTests`' real-delay races → a ct-driven `DelayHandler`).
 - [ ] **L10/L11 — rate-limiter half-live options claim + `LlmVerdictClassifier` custom-matcher
   lock/copy-per-call** — both small; bundle with the next LLM-area task.
-- [ ] **I14 — bound `StreamLinesAsync`'s stderr capture** (it buffers ALL stderr but only ever uses a
-  500-char tail) with a ring/tail reader.
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
   materialize. Not a license to reintroduce reflection serialization.

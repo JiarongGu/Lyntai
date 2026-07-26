@@ -1342,6 +1342,19 @@ and the agent; two generic gaps stopped `ICuratedMemoryStore` from being that ca
 
 ---
 
+## Part 23 — Deferred-findings burn-down (post-sign-off maintenance)
+
+The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the 1.0-prep batch.
+
+- [x] **I14 — bound `StreamLinesAsync`'s stderr capture** (it buffers ALL stderr but only ever uses a
+  500-char tail) with a ring/tail reader.
+  ✅ done 2026-07-27 — Outcome: `ReadTailAsync` (rolling 500-char StringBuilder window, chunked reads,
+  completes on child EOF like `ReadToEndAsync` did) replaces the unbounded read on the STREAMED path only
+  (`RunAsync`'s full stderr is contract). Test pins tail semantics across chunk boundaries on a 600 KB
+  stderr spew (ends-with marker, ≤500 chars, start dropped). `verify` green (982 tests).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
