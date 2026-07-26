@@ -30,9 +30,6 @@ with the reason; pick up when the trade-off changes.
   of spawn/stderr-drain/kill-registration/reap scaffolding. The I2 hang fix already landed; the extraction
   is cleanliness. Keep the two CLOCK topologies separate (buffered dual-clock vs streamed single-clock —
   they are different contracts).
-- [ ] **S8 — move the remaining 4 Row-DTO pairs (trace/score/prompt-version/usage) to Core** like
-  `JobRow`. Deferred: pure materialization with zero dialect content — inert duplication, no fencing-style
-  drift risk; weigh the Core-surface bloat before doing it.
 - [ ] **T11 — convert the storage contract classes to abstract-class-with-[Fact]s** so a backend can't
   silently skip a contract method (the mechanism that produced the PG coverage holes). Postgres keeps its
   deliberate Uid-subset delegators.

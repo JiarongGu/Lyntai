@@ -182,6 +182,13 @@ The whole-library review pass triaged ~80 findings into fixed / deferred (the `t
   to the same): harmless, env-governed redundancy; removing either side changes BYO-cache behavior.
 - **ClaudeCli `id` ctor parameter**: two same-process `claude` registrations with different commands is
   exotic; additive if a consumer ever asks.
+- **S8 — moving the 4 remaining Row-DTO pairs (trace/score/prompt-version/usage) to Core like `JobRow`**
+  (rejected 2026-07-27, after deferral): Core internals aren't visible to the adapter packages, so the
+  move means 7–8 new PUBLIC materialization types — surface bloat on the API the 1.0 sign-off just
+  deliberately shrank (wire-format types went internal), for duplication the review itself rated inert
+  (settable-property DTOs with zero dialect content; `JobRow` earned its move because the job stores
+  share a whole SQL state machine where drift is dangerous). A mapping drift here fails the
+  cross-backend contract tests immediately. Revisit only if a third relational backend materializes.
 
 ## D19 — 1.0 API sign-off decisions (2026-07-27; pre-1.0 breaks batched, unreleased)
 The final public-surface sign-off pass (18 findings) closed with these calls — recorded so the surface

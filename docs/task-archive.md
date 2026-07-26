@@ -1423,6 +1423,15 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   ids instead of `id+9999`, cross-kind enabled filter asserted by containment not table-wide count).
   1002 tests green.
 
+- [x] **S8 — move the remaining 4 Row-DTO pairs (trace/score/prompt-version/usage) to Core** like
+  `JobRow`. Deferred: pure materialization with zero dialect content — inert duplication, no fencing-style
+  drift risk; weigh the Core-surface bloat before doing it.
+  ✅ closed 2026-07-27 — **REJECTED after weighing** (the weighing was the open question): the move
+  requires making 7–8 materialization DTOs PUBLIC (adapters can't see Core internals) — surface bloat
+  against the direction of the 1.0 sign-off — for duplication rated inert; drift fails the cross-backend
+  contract tests immediately. Rationale recorded in `docs/DECISIONS.md` D18; revisit only if a third
+  relational backend materializes.
+
 ---
 
 ## Notes for the implementer
