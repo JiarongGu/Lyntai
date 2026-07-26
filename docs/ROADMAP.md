@@ -201,14 +201,44 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   Postgres. **Still deferred from v0.14 (the last item):** cross-process GLOBAL concurrency limits (the
   per-process cap + atomic claim cover most needs; a shared cap needs a distributed counter).
 
-## Planned
+### v0.28.x — recoverable secrets, job admission, curated memory (2026-07)
+- ✅ **DEK-envelope secret vault** — a Lyntai-managed data-encryption key double-wrapped by a machine
+  protector (new **`Lyntai.Secrets.Dpapi`** on Windows) + a one-time recovery key (`GenerateMasterKeyAsync`/
+  `RecoverAsync` for machine migration), instead of BYO-key-only.
+- ✅ **Job admission control + pause + live progress** — `IJobAdmissionController` (transient whole-lane
+  hold), `JobStatus.Paused` (persistent single-job hold), `ReportProgressAsync`/`ReportStepAsync` readable
+  while running.
+- ✅ **Curated memory catalog** (`ICuratedMemoryStore`) — operator-managed, per-kind composable entries,
+  distinct from the automatic remember/recall log. Plus **per-request refusal screening**
+  (`LlmRequest.RefusalPattern`) in the patch series.
 
-### Blocked on user-provided infrastructure
-These need something only the maintainer can provision; the design admits them without breaking changes.
-- **Real `PackageProjectUrl`/`RepositoryUrl`** + **SourceLink activation** — gated on the repo being
-  hosted. Sources are already embedded in the PDBs via `EmbedAllSources`, so step-into debugging works
-  today; SourceLink is a one-package add once there's a remote to resolve. (Docs live in the repo —
-  README + `docs/` on GitHub — no separate docs site planned.)
+### v0.29.x — app-owned storage adoption (2026-07)
+- ✅ **Typed multi-kind conversation event store** — `ChatMessage` = (GUID `Id`, per-thread `Seq`, `Kind`,
+  `Payload`, per-message `Metadata`); thread-level metadata; the **`IConversationEnricher`** seam (extend
+  writes without forking the store).
+- ✅ **`StorageFeature` toggles** — a disabled domain registers no store and lands NO table (tag-driven
+  selective migration).
+- ✅ **Actor/mailbox durable jobs** — `JobSpec.PartitionKey`: per-partition FIFO one-at-a-time, parallel
+  across keys. Plus the typed **`IRefusalMatcher`** seam and a generic-sustainability review sweep.
+- ✅ **0.29.1–0.29.3 patches** — consumer-driven generic gaps (curated `task`/`scope`, conversation paging,
+  memory retention policy + prune cron) and CLI-runner hardening (large-prompt stream deadlock; buffered
+  INACTIVITY dead detection + `maxDuration` backstop).
+
+### Unreleased → v0.30.0 — consumer ergonomics + foundation hardening (2026-07)
+Sitting in `CHANGELOG.md § Unreleased`, ready to release:
+- **Part 13 consumer gaps** — headless `SkipAllPermissions` for the claude agent session, `ToolLoopResult.Usage`,
+  live **`IToolLoop.StreamAsync`**, `.ps1` launcher-shim hosting, curated-memory dedup-on-add + `scope` filter.
+- **Whole-library foundation-hardening pass** — 6 parallel reviews (~80 findings) → correctness fixes
+  (router/rate-limiter/guards/orchestrator/prompts/storage/DI), structural dedup (`JobStoreSql`+`JobRow`,
+  `DelegatingLlmClient`, `LazyMigratingConnectionFactory`, async `OpenAsync` sweep), and test-suite hygiene —
+  then a second **adversarial review of the pass itself** (48-agent workflow) that caught and fixed 5
+  regressions round 1 introduced. Carries small pre-1.0 BREAKS (`ChatResult.BlockReason`→`Detail`,
+  `IRateLimiter` cancellation semantics, tracker totals now case-insensitive) — minor-bump release.
+- The pass's **deferred findings are the active backlog** (`tasks.md`): P5 streaming-loop extraction,
+  async `IUsageTracker`, Azure preset verification, remaining Row-DTO/dedup items, PG coverage holes,
+  contract-class mechanism, de-flaking. Rejected findings are recorded in `docs/DECISIONS.md` D18.
+
+## Planned
 
 ### v1.0 — API freeze
 - ✅ **Public-API baseline** — an approval test (`ApiSurfaceTests`) snapshots every packable
@@ -216,22 +246,30 @@ These need something only the maintainer can provision; the design admits them w
   deliberately, so pre-1.0 breaks are visible in review and post-1.0 gate a major bump.
 - ✅ **Semver policy** — stated in `CHANGELOG.md` and here: pre-1.0 minor versions may carry breaking
   changes (each called out in the changelog); 1.0 commits to SemVer 2.0.0 (no breaks without a major bump).
-- ✅ **Consolidation review** — two adversarial-review passes over the tool-calling and platform-kit code
-  (v0.10–v0.15), all confirmed defects fixed (the AES-GCM crypto reviewed and confirmed correct).
-- ✅ **Docs sweep** — README/CHANGELOG/ROADMAP/CLAUDE + the design §9 amendment reconciled to the shipped
-  surface.
-- Remaining before tagging 1.0: **host the repo** (the one blocker — unblocks SourceLink + the real
-  package/repo URLs, a one-package add once there's a remote), then tag 1.0 to freeze the public API
-  (`ApiSurfaceTests` already guards it).
+- ✅ **Consolidation reviews** — two adversarial passes over the tool-calling/platform-kit code (v0.10–v0.15),
+  and the 2026-07-26 whole-library hardening pass (two rounds, incl. a 48-agent adversarial review of its
+  own diff). All confirmed defects fixed.
+- ✅ **Repo hosted** — github.com/JiarongGu/Lyntai with release CI (`release.yml`); nuget.org is the
+  canonical package feed; real `PackageProjectUrl`/`RepositoryUrl` in `Directory.Build.props`.
+- Remaining before tagging 1.0, in order:
+  1. **Release v0.30.0** (the Unreleased section — carries the last planned pre-1.0 breaks).
+  2. **Burn down or consciously defer the `tasks.md` backlog** — the API-shape items matter most
+     (async `IUsageTracker` L8 is a breaking interface change; do it BEFORE the freeze or never).
+  3. **Add SourceLink** (`Microsoft.SourceLink.GitHub` — a one-package add, now unblocked; sources are
+     already embedded in PDBs via `EmbedAllSources`, so this is polish, not a gate).
+  4. Tag **1.0** to freeze the public API (`ApiSurfaceTests` then gates majors).
 
-### The platform kit (design §9) — SHIPPED (v0.8–v0.15)
-Delivered additively on the existing seams, no breaking changes to the substrate: `Lyntai.Providers.Local`
-· the agentic tool loop + native tool-calling (HTTP/MEAI/CLI) + MCP-client tool source · durable jobs ·
-guards · two-gate chat orchestration · secret vault · vision/multimodal. The only §9 item still out of
-scope is the **server/host/launcher + auto-update** (an application concern — Lyntai stays host-free).
-Smaller per-feature deferrals remain open (each low priority): streaming tool-calls; native tool-calling
-through the MEAI bridge is done, but ClaudeCli/Local stay on the prompt fallback; durable-job cron/
-priorities/dead-letter-queue/cross-process-global-limits/running-job-cancellation.
+### The platform kit (design §9) — SHIPPED (v0.8–v0.15, deferrals closed through v0.27)
+Delivered additively on the existing seams: `Lyntai.Providers.Local` · the agentic tool loop + native
+tool-calling (HTTP/MEAI/CLI) + MCP-client tool source · durable jobs · guards · two-gate chat orchestration
+· secret vault · vision/multimodal. The v0.14 job deferrals subsequently shipped too (priorities + DLQ
+v0.24, scheduling v0.25, cron v0.26, running-job cancellation v0.27). Still open, each deliberately:
+- **Server/host/launcher + auto-update** — permanently out of scope (an application concern; Lyntai is
+  host-free — the one standing §9 exclusion).
+- **Cross-process GLOBAL concurrency limits** — the last v0.14 deferral (needs a distributed counter; the
+  per-process cap + atomic claim cover most needs).
+- **Streaming tool-calls** (the `LlmChunk` contract carries no tool-call payload) and native tool-calling
+  for the ClaudeCli/Local providers (both stay on the prompt fallback) — low value, revisit on demand.
 
 ## Standing maintenance policies
 - **MEAI churn watch**: Microsoft.Extensions.AI ships roughly monthly with breaks in
