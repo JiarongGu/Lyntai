@@ -367,6 +367,16 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     }
 
     [SkippableFact]
+    public async Task Curated_memory_search()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var store = new PostgresCuratedMemoryStore(pg.Factory);
+        // Unique tasks so the shared container doesn't cross-contaminate the absolute-membership asserts.
+        await CuratedMemoryStoreContract.Search_matches_content_and_title_with_filters(store, Uid() + "-se");
+        await CuratedMemoryStoreContract.Search_recalls_cjk_substrings(store, Uid() + "-cjk");
+    }
+
+    [SkippableFact]
     public async Task Job_progress_and_steps_are_readable_while_running()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");

@@ -1,16 +1,24 @@
 using Dapper;
 using Lyntai.Storage;
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Storage.Sqlite;
 
 /// <summary>SQLite <see cref="ICuratedMemoryStore"/> over <c>lyntai_curated_memory</c>. Small managed
-/// catalog — plain CRUD, no FTS/cap/TTL. Timestamps are TEXT (the shared DateTimeOffset handler);
-/// <c>enabled</c> is an INTEGER bool.</summary>
-public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<DateTimeOffset>? clock = null) : ICuratedMemoryStore
+/// catalog — CRUD plus keyword <see cref="SearchAsync"/> over the <c>lyntai_curated_fts</c> trigram index
+/// (bm25-ranked, LIKE fallback, fail-open — the same machinery as <see cref="SqliteMemoryStore"/>).
+/// Timestamps are TEXT (the shared DateTimeOffset handler); <c>enabled</c> is an INTEGER bool.</summary>
+public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
+    ILogger<SqliteCuratedMemoryStore>? logger = null, Func<DateTimeOffset>? clock = null) : ICuratedMemoryStore
 {
     // the released schema's column is `task`; the record property is TaskKey — alias so Dapper's
     // MatchNamesWithUnderscores maps task_key → TaskKey. WHERE/INSERT keep the bare `task` column name.
     private const string Cols = "id, kind, content, source, enabled, created_at, updated_at, task AS task_key, scope, title";
+    // the same columns `m.`-qualified, for the FTS JOIN in SearchAsync
+    private const string ColsM = "m.id, m.kind, m.content, m.source, m.enabled, m.created_at, m.updated_at, m.task AS task_key, m.scope, m.title";
+    private readonly ILogger _logger = logger ?? NullLogger<SqliteCuratedMemoryStore>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
     public async Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
@@ -82,6 +90,56 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory, Func<
             LIMIT @limit
             """, new { kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => r.ToRecord())];
+    }
+
+    public async Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null, string? taskKey = null,
+        string? scope = null, bool enabledOnly = false, int? limit = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return [];
+        try
+        {
+            await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+
+            var match = FtsQuery.Build(query);
+            if (match is not null)
+            {
+                try
+                {
+                    var hits = (await conn.QueryAsync<Row>(new CommandDefinition($"""
+                        SELECT {ColsM}
+                        FROM lyntai_curated_fts JOIN lyntai_curated_memory m ON m.id = lyntai_curated_fts.rowid
+                        WHERE lyntai_curated_fts MATCH @match
+                          AND (@kind IS NULL OR m.kind = @kind) AND (@task IS NULL OR m.task = @task)
+                          AND (@scope IS NULL OR m.scope = @scope) AND (@enabledOnly = 0 OR m.enabled = 1)
+                        ORDER BY bm25(lyntai_curated_fts), m.id DESC LIMIT @limit -- id tiebreak: equal-score rows must page deterministically
+                        """, new { match, kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 },
+                        cancellationToken: ct)).ConfigureAwait(false)).AsList();
+                    if (hits.Count > 0) return [.. hits.Select(r => r.ToRecord())];
+                    // no trigram hit → fall through to LIKE (covers punctuation-heavy / <3-char queries)
+                }
+                catch (SqliteException ex)
+                {
+                    _logger.LogWarning(ex, "curated FTS search failed; falling back to LIKE");
+                }
+            }
+
+            var pattern = LikePattern.Contains(query);
+            var likeHits = await conn.QueryAsync<Row>(new CommandDefinition($"""
+                SELECT {Cols} FROM lyntai_curated_memory
+                WHERE (content LIKE @pattern ESCAPE '\' OR title LIKE @pattern ESCAPE '\')
+                  AND (@kind IS NULL OR kind = @kind) AND (@task IS NULL OR task = @task)
+                  AND (@scope IS NULL OR scope = @scope) AND (@enabledOnly = 0 OR enabled = 1)
+                ORDER BY created_at DESC, id DESC LIMIT @limit
+                """, new { pattern, kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 },
+                cancellationToken: ct)).ConfigureAwait(false);
+            return [.. likeHits.Select(r => r.ToRecord())];
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "curated search failed; returning empty (fail-open)");
+            return [];
+        }
     }
 
     public async Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey, IEnumerable<string> scopes,

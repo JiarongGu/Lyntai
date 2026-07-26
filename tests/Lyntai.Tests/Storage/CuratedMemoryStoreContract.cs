@@ -140,6 +140,51 @@ public static class CuratedMemoryStoreContract
         Assert.Equal("label A", (await store.GetAsync(first))!.Title); // dedup does not mutate the matched row
     }
 
+    /// <summary>CMEM4 — keyword <see cref="ICuratedMemoryStore.SearchAsync"/>: matches CONTENT and TITLE,
+    /// composes with the ListAsync-family strict filters (kind/taskKey/scope, enabledOnly default false),
+    /// caps via limit, and returns empty on a whitespace or unmatched query. Sticks to single ≥3-char
+    /// lowercase tokens — the portable cross-backend guarantee (FTS5-trigram / ILIKE / Contains).</summary>
+    public static async Task Search_matches_content_and_title_with_filters(ICuratedMemoryStore store, string task = "search")
+    {
+        var byContent = await store.AddAsync("glossary", "the data encryption key wraps secrets", taskKey: task);
+        var byTitle   = await store.AddAsync("notes", "rotate quarterly", title: "encryption schedule", taskKey: task);
+        var disabled  = await store.AddAsync("glossary", "legacy encryption note", enabled: false, taskKey: task);
+        var scoped    = await store.AddAsync("glossary", "scoped encryption fact", taskKey: task, scope: "site:a");
+        await store.AddAsync("glossary", "unrelated parsing fact", taskKey: task);
+        await store.AddAsync("glossary", "encryption fact of another task", taskKey: task + "-other");
+
+        // matches content AND title; includes disabled by default (the admin/catalog family, like ListAsync);
+        // strict task filter keeps other tasks out
+        var hits = (await store.SearchAsync("encryption", taskKey: task)).Select(e => e.Id).ToHashSet();
+        Assert.Equal(new HashSet<long> { byContent, byTitle, disabled, scoped }, hits);
+
+        // enabledOnly composes
+        var enabledHits = (await store.SearchAsync("encryption", taskKey: task, enabledOnly: true)).Select(e => e.Id).ToHashSet();
+        Assert.Equal(new HashSet<long> { byContent, byTitle, scoped }, enabledHits);
+
+        // kind narrows; scope is strict equality (does NOT pull in null-scope rows)
+        var glossary = (await store.SearchAsync("encryption", kind: "glossary", taskKey: task)).Select(e => e.Id).ToHashSet();
+        Assert.Equal(new HashSet<long> { byContent, disabled, scoped }, glossary);
+        Assert.Equal([scoped], (await store.SearchAsync("encryption", taskKey: task, scope: "site:a")).Select(e => e.Id));
+
+        // limit caps; whitespace query → empty (search NEEDS a query — ListAsync is the enumeration path);
+        // unmatched query → empty
+        Assert.Single(await store.SearchAsync("encryption", taskKey: task, limit: 1));
+        Assert.Empty(await store.SearchAsync("   ", taskKey: task));
+        Assert.Empty(await store.SearchAsync("zzz-not-there", taskKey: task));
+    }
+
+    /// <summary>CMEM4 — the CJK-substring recall the per-backend index machinery exists for: a ≥3-char
+    /// token contained as a substring hits on every backend, and a 2-char CJK token still hits via each
+    /// backend's substring fallback (a trigram index can't serve it; LIKE/ILIKE/Contains can).</summary>
+    public static async Task Search_recalls_cjk_substrings(ICuratedMemoryStore store, string task = "search-cjk")
+    {
+        var id = await store.AddAsync("glossary", "灵台是数据加密密钥的管理平台", taskKey: task);
+
+        Assert.Contains(id, (await store.SearchAsync("加密密钥", taskKey: task)).Select(e => e.Id));
+        Assert.Contains(id, (await store.SearchAsync("平台", taskKey: task)).Select(e => e.Id));
+    }
+
     public static async Task Update_with_empty_source_clears_it(ICuratedMemoryStore store)
     {
         var id = await store.AddAsync("k", "content", source: "original");

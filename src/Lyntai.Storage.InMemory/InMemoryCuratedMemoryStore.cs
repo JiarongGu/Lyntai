@@ -80,6 +80,29 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
         }
     }
 
+    public Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null, string? taskKey = null,
+        string? scope = null, bool enabledOnly = false, int? limit = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return Task.FromResult<IReadOnlyList<CuratedMemory>>([]);
+        var needle = query.Trim();
+        lock (_lock)
+        {
+            // contiguous-substring match over content OR title, recency-ranked — the same semantics as
+            // InMemoryMemoryStore.RecallAsync (see the divergence note on ICuratedMemoryStore.SearchAsync)
+            IEnumerable<CuratedMemory> q = _entries.Where(e =>
+                e.Content.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || (e.Title?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false));
+            if (kind is not null) q = q.Where(e => e.Kind == kind);
+            if (taskKey is not null) q = q.Where(e => e.TaskKey == taskKey); // strict equality (admin filter)
+            if (scope is not null) q = q.Where(e => e.Scope == scope);
+            if (enabledOnly) q = q.Where(e => e.Enabled);
+            q = q.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
+            if (limit is { } n) q = q.Take(n);
+            IReadOnlyList<CuratedMemory> result = [.. q];
+            return Task.FromResult(result);
+        }
+    }
+
     public Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey, IEnumerable<string> scopes,
         bool enabledOnly = true, CancellationToken ct = default)
     {

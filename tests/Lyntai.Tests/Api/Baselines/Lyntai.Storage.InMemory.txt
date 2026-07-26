@@ -18,6 +18,7 @@ sealed class Lyntai.Storage.InMemory.InMemoryCuratedMemoryStore
     GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
     ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
+    SearchAsync(String, String=, String=, String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, String=, CancellationToken=) : Task<Boolean>
 sealed class Lyntai.Storage.InMemory.InMemoryJobStore
     .ctor(Func<DateTimeOffset>=, Int32=)

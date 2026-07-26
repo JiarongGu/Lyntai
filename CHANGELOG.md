@@ -12,6 +12,16 @@ ROADMAP). Decisions recorded in `docs/DECISIONS.md` D19. No new migration; **no 
 changes** (renamed C# members map onto the frozen columns via SELECT aliases).
 
 ### Added
+- **`ICuratedMemoryStore.SearchAsync`** (CMEM4): keyword search over the curated catalog — matches
+  content AND title, with the `ListAsync`-family strict filters (`kind`/`taskKey`/`scope`,
+  `enabledOnly` default false) and a `limit` cap; a whitespace query returns empty (`ListAsync` is the
+  enumeration path). Reuses the lexical-memory index machinery per backend, with the same documented
+  divergence and fail-open behavior as `IMemoryStore.RecallAsync`: SQLite matches any ≥3-char token via
+  a new `lyntai_curated_fts` FTS5-trigram table (bm25-ranked, LIKE fallback; migration `202607270002`
+  with sync triggers + backfill); Postgres matches a contiguous substring via pg_trgm-accelerated ILIKE
+  (recency-ranked; GIN indexes in migration `202607270002`); InMemory substring/recency. The SQL curated
+  stores gained the optional `ILogger` constructor parameter the memory stores already had. Together
+  with `Title` below, `ICuratedMemoryStore` is now a full titled + searchable note catalog.
 - **`CuratedMemory.Title`** (CMEM3): an optional short display label alongside the longer content (a
   glossary term, a persona trait, a note title). `AddAsync(..., title:)` (after `dedup`, so no existing
   positional call re-binds) and `UpdateAsync(..., title:)` with the source conventions (COALESCE update;

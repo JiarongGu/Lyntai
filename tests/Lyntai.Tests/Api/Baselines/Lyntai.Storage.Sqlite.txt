@@ -76,6 +76,10 @@ sealed class Lyntai.Storage.Sqlite.Migrations.M202607270001_CuratedMemoryTitle
     .ctor()
     Down() : Void
     Up() : Void
+sealed class Lyntai.Storage.Sqlite.Migrations.M202607270002_CuratedMemorySearch
+    .ctor()
+    Down() : Void
+    Up() : Void
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
     static MigrateUp(String) : Void
     static MigrateUp(String, StorageFeature) : Void
@@ -96,12 +100,13 @@ sealed class Lyntai.Storage.Sqlite.SqliteConversationStore
     ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String, String, CancellationToken=) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
-    .ctor(IDbConnectionFactory, Func<DateTimeOffset>=)
+    .ctor(IDbConnectionFactory, ILogger<SqliteCuratedMemoryStore>=, Func<DateTimeOffset>=)
     AddAsync(String, String, String=, Boolean=, String=, String=, Boolean=, String=, CancellationToken=) : Task<Int64>
     ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
     ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
+    SearchAsync(String, String=, String=, String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, String=, CancellationToken=) : Task<Boolean>
 sealed class Lyntai.Storage.Sqlite.SqliteJobStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=, Int32=)

@@ -63,24 +63,6 @@ with the reason; pick up when the trade-off changes.
 > The pass's REJECTED findings (deliberately not taken) are recorded in `docs/DECISIONS.md` **D18** —
 > per the task-lifecycle rule this file holds open tasks only; don't-relitigate rationale lives there.
 
-### Curated-memory as a titled, searchable catalog (requested by the desktop AI-manager integration, 2026-07-26)
-The desktop adopter models its agent memory as a **single titled, source-tagged, keyword-searchable,
-individually-CRUD-able note catalog** written by BOTH a human (owner) and the agent. Lyntai's
-`ICuratedMemoryStore` (`src/Lyntai.Core/Storage/ICuratedMemoryStore.cs`) already covers kind / source /
-enable / task / scope / CRUD — but two gaps stop it from BEING that catalog, so the adopter can't retire
-its own FTS5 store yet. Both are generic (any curated-catalog UI / agent-recallable operator knowledge
-base wants them), app-agnostic, and additive.
-
-- [ ] **CMEM4 — keyword `SearchAsync` on `ICuratedMemoryStore`.** The curated store is List-by-kind only
-  (`ListAsync`/`ForCompositionAsync`); there is no relevance/keyword lookup, so a consumer building a
-  searchable curated catalog — or letting an agent `recall` from the curated set — must load-all-and-filter
-  in-app. Add `SearchAsync(query, kind?, task?, scope?, enabledOnly?, limit?)` reusing the SAME per-backend
-  index machinery `IMemoryStore` already has (SQLite FTS5-trigram + bm25, Postgres pg_trgm, InMemory
-  substring/recency) so the semantics + backend-divergence notes match the lexical store's documented
-  guarantee. Keeps the catalog "small and deliberate" — search is an added read path, not capping/TTL.
-  Together with CMEM3 this makes `ICuratedMemoryStore` a full titled+searchable catalog an app can adopt
-  wholesale (owner rows `source="owner"`, agent rows `source="agent"` via the existing `dedup` add).
-
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
 > `[x]` here.

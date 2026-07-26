@@ -79,7 +79,8 @@ public static class SqliteStorageBuilderExtensions
             builder.Services.TryAddSingleton<IJobStore>(sp => new SqliteJobStore(
                 sp.GetRequiredService<IDbConnectionFactory>(), stepLogCap: sp.GetRequiredService<LyntaiOptions>().Jobs.MaxStepLog));
         if (features.HasFlag(StorageFeature.CuratedMemory))
-            builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(sp.GetRequiredService<IDbConnectionFactory>()));
+            builder.Services.TryAddSingleton<ICuratedMemoryStore>(sp => new SqliteCuratedMemoryStore(
+                sp.GetRequiredService<IDbConnectionFactory>(), sp.GetService<ILogger<SqliteCuratedMemoryStore>>()));
         return builder;
     }
 

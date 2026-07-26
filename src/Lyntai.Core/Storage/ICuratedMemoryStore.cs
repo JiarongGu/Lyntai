@@ -20,7 +20,8 @@ public sealed record CuratedMemory(
 /// enable/disable-able and editable — as opposed to <see cref="IMemoryStore"/>'s automatic, bounded,
 /// dedup/TTL remember-recall LOG. Use it for durable, operator-curated context (persona facts, house
 /// style, domain glossaries) composed into a prompt per kind (see <c>CuratedMemorySections</c>). No
-/// capping/TTL/relevance search — the catalog is small and deliberate.
+/// capping/TTL — the catalog is small and deliberate; <see cref="SearchAsync"/> is an added READ path
+/// (keyword lookup for a catalog UI / agent recall), not lifecycle management.
 /// </summary>
 public interface ICuratedMemoryStore
 {
@@ -62,6 +63,22 @@ public interface ICuratedMemoryStore
     /// Postgres orders <c>COLLATE "C"</c> to match SQLite/InMemory) then creation.</summary>
     Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
         string? taskKey = null, string? scope = null, int? limit = null, CancellationToken ct = default);
+
+    /// <summary>Keyword search over the catalog — the relevance READ path for a searchable curated UI or an
+    /// agent recalling from the curated set (<see cref="ListAsync"/> is the enumeration path; this one NEEDS a
+    /// <paramref name="query"/> — null/whitespace returns empty). Matches <see cref="CuratedMemory.Content"/>
+    /// AND <see cref="CuratedMemory.Title"/>. The filters mirror <see cref="ListAsync"/>: strict-equality
+    /// <paramref name="kind"/>/<paramref name="taskKey"/>/<paramref name="scope"/>, <paramref name="enabledOnly"/>
+    /// default false (admin/catalog view — pass true for the recall path); null <paramref name="limit"/> = no cap.
+    /// <para>Backend DIVERGENCE (by design, same as <see cref="IMemoryStore.RecallAsync"/> — the three backends
+    /// use three index engines): SQLite matches ANY ≥3-char query token via the FTS5-trigram index ranked by
+    /// bm25 relevance (falling back to LIKE-substring when no token is indexable); Postgres (pg_trgm-accelerated
+    /// ILIKE) and InMemory match the query as one contiguous substring, ranked by recency. The portable
+    /// guarantee: an entry whose content or title contains a ≥3-char query token as an (ASCII-case-insensitive)
+    /// substring is found on every backend. Fail-open like recall: storage faults degrade to an empty result,
+    /// never a throw (only cancellation propagates).</para></summary>
+    Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null, string? taskKey = null,
+        string? scope = null, bool enabledOnly = false, int? limit = null, CancellationToken ct = default);
 
     /// <summary>The READ-for-prompt filter: enabled entries whose <see cref="CuratedMemory.TaskKey"/> matches
     /// <paramref name="taskKey"/> (or is null — a null-task-key row applies to every task) AND whose

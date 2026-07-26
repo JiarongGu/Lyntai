@@ -1,13 +1,19 @@
 using Dapper;
 using Lyntai.Storage;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Storage.Postgres;
 
-/// <summary>PostgreSQL <see cref="ICuratedMemoryStore"/> over <c>lyntai_curated_memory</c>. Plain CRUD
-/// (no FTS/cap/TTL); <c>enabled</c> is a native BOOLEAN and timestamps are <c>timestamptz</c>. Nullable
-/// update params carry <c>::</c> casts so a NULL "leave unchanged" resolves its type.</summary>
-public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Func<DateTimeOffset>? clock = null) : ICuratedMemoryStore
+/// <summary>PostgreSQL <see cref="ICuratedMemoryStore"/> over <c>lyntai_curated_memory</c>. CRUD plus
+/// keyword <see cref="SearchAsync"/> (pg_trgm-accelerated ILIKE substring over content/title,
+/// recency-ranked, fail-open — the same machinery as <see cref="PostgresMemoryStore"/>); <c>enabled</c>
+/// is a native BOOLEAN and timestamps are <c>timestamptz</c>. Nullable update params carry <c>::</c>
+/// casts so a NULL "leave unchanged" resolves its type.</summary>
+public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
+    ILogger<PostgresCuratedMemoryStore>? logger = null, Func<DateTimeOffset>? clock = null) : ICuratedMemoryStore
 {
+    private readonly ILogger _logger = logger ?? NullLogger<PostgresCuratedMemoryStore>.Instance;
     // the released schema's column is `task`; the record parameter is TaskKey — alias so Dapper's
     // constructor-name matching maps task_key → TaskKey. WHERE/INSERT keep the bare `task` column name.
     private const string Cols = "id, kind, content, source, enabled, created_at, updated_at, task AS task_key, scope, title";
@@ -109,6 +115,42 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory, Fun
             limit = (object?)limit ?? DBNull.Value,
         }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
+    }
+
+    public async Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null, string? taskKey = null,
+        string? scope = null, bool enabledOnly = false, int? limit = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return [];
+        try
+        {
+            var pattern = LikePattern.Contains(query);
+            await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+            // contiguous-substring ILIKE over content OR title (trigram-accelerated by the gin indexes),
+            // recency-ranked — same semantics as PostgresMemoryStore.RecallAsync (see the divergence note
+            // on ICuratedMemoryStore.SearchAsync). A NULL title never matches (NULL ILIKE → NULL → false).
+            var rows = await conn.QueryAsync<CuratedMemory>(new CommandDefinition($"""
+                SELECT {Cols} FROM lyntai_curated_memory
+                WHERE (content ILIKE @pattern ESCAPE '\' OR title ILIKE @pattern ESCAPE '\')
+                  AND (@kind::text IS NULL OR kind = @kind) AND (@task::text IS NULL OR task = @task)
+                  AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled)
+                ORDER BY created_at DESC, id DESC
+                LIMIT @limit
+                """, new
+            {
+                pattern, enabledOnly,
+                kind = (object?)kind ?? DBNull.Value,
+                task = (object?)taskKey ?? DBNull.Value,
+                scope = (object?)scope ?? DBNull.Value,
+                limit = (object?)limit ?? DBNull.Value,
+            }, cancellationToken: ct)).ConfigureAwait(false);
+            return [.. rows];
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "curated search failed; returning empty (fail-open)");
+            return [];
+        }
     }
 
     public async Task<IReadOnlyList<CuratedMemory>> ForCompositionAsync(string taskKey, IEnumerable<string> scopes,

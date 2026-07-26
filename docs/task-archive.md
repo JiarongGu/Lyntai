@@ -1318,6 +1318,28 @@ and the agent; two generic gaps stopped `ICuratedMemoryStore` from being that ca
   `Title_round_trips_updates_and_clears` wired to all 3 backends + a Compose rendering test; 4 ApiSurface
   baselines regenerated; migration-count pins bumped to 14. `verify` green (976 tests).
 
+- [x] **CMEM4 — keyword `SearchAsync` on `ICuratedMemoryStore`.** The curated store is List-by-kind only
+  (`ListAsync`/`ForCompositionAsync`); there is no relevance/keyword lookup, so a consumer building a
+  searchable curated catalog — or letting an agent `recall` from the curated set — must load-all-and-filter
+  in-app. Add `SearchAsync(query, kind?, task?, scope?, enabledOnly?, limit?)` reusing the SAME per-backend
+  index machinery `IMemoryStore` already has (SQLite FTS5-trigram + bm25, Postgres pg_trgm, InMemory
+  substring/recency) so the semantics + backend-divergence notes match the lexical store's documented
+  guarantee. Keeps the catalog "small and deliberate" — search is an added read path, not capping/TTL.
+  Together with CMEM3 this makes `ICuratedMemoryStore` a full titled+searchable catalog an app can adopt
+  wholesale (owner rows `source="owner"`, agent rows `source="agent"` via the existing `dedup` add).
+  ✅ done 2026-07-27 — Outcome: `SearchAsync(query, kind?, taskKey?, scope?, enabledOnly?, limit?)` matching
+  CONTENT + TITLE with the ListAsync-family strict filters (enabledOnly default false; whitespace query →
+  empty — ListAsync is the enumeration path). Backends mirror `IMemoryStore.RecallAsync` exactly, incl.
+  the documented divergence + fail-open: SQLite any-token FTS5-trigram bm25 over a new
+  `lyntai_curated_fts` (content+title) external-content table with 3 sync triggers + backfill
+  (`M202607270002`), LIKE fallback; Postgres pg_trgm GIN indexes on content/title + ILIKE, recency-ranked
+  (`M202607270002`, extension create repeated so CuratedMemory-only builds don't depend on Memory);
+  InMemory OrdinalIgnoreCase substring, recency-ranked. SQL curated stores gained the family's optional
+  `ILogger` ctor param (fail-open logging), wired in DI. Contract tests
+  `Search_matches_content_and_title_with_filters` + `Search_recalls_cjk_substrings` (the portable
+  ≥3-char-substring guarantee + 2-char CJK via the substring fallbacks) wired to all 3 backends;
+  4 ApiSurface baselines regenerated; migration pins bumped to 15. `verify` green (981 tests).
+
 ---
 
 ## Notes for the implementer
