@@ -1443,6 +1443,19 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   derived classes. Postgres deliberately does not derive (documented on each base: shared container →
   Uid-namespaced subset). Fact count identical before/after (1002) — nothing lost in the conversion.
 
+- [x] **I5 — ProcessRunner shared session/reap extraction.** `RunAsync`/`StreamLinesAsync` share ~45 lines
+  of spawn/stderr-drain/kill-registration/reap scaffolding. The I2 hang fix already landed; the extraction
+  is cleanliness. Keep the two CLOCK topologies separate (buffered dual-clock vs streamed single-clock —
+  they are different contracts).
+  ✅ done 2026-07-27 — Outcome: the genuinely shared piece post-hardening is the post-read-loop tail —
+  the I2 fresh-window discipline (fresh window for the stdin observe → observe the writer → fresh window
+  for the reap → reap → drained stderr) — now `ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
+  reArm, killed)`, with each path passing its OWN clock re-arm (the buffered dual-clock/tagged-reason and
+  streamed single-clock topologies stay separate exactly as the deferral demanded; `Start`/
+  `WriteStdinAsync`/`KillTree` were already shared, and the stderr readers differ deliberately —
+  full-buffer contract vs bounded tail). Pure refactor; the ProcessRunner suite (timeout/drain-liveness/
+  stdin-coverage/kill/maxDuration) is the net — 1002 green.
+
 ---
 
 ## Notes for the implementer

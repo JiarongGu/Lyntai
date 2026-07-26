@@ -133,19 +133,9 @@ public sealed class ProcessRunner : IProcessRunner
                 if (n == 0) break; // EOF — child closed stdout
                 stdout.Append(buffer, 0, n);
             }
-            // Fresh window for the stdin observe: a child that closed stdout but never drains its stdin
-            // pipe would otherwise block the writer (and us) forever. With the writer's per-slice re-arms,
-            // a child actively DRAINING keeps resetting the clock — only true drain-silence kills (and the
-            // kill breaks the pipes, unblocking the writer).
-            if (inactivityTimeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(inactivityTimeout.Value);
-
-            // observe the concurrent stdin write (a broken pipe from an early child exit is already swallowed)
-            try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / TimedOut */ }
-
-            // fresh window for the final reap too (a child that drained everything but lingers)
-            if (inactivityTimeout is not null && !killCts.IsCancellationRequested) idleCts.CancelAfter(inactivityTimeout.Value);
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-            var stderr = await stderrTask.ConfigureAwait(false);
+            var stderr = await ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
+                reArm: () => { if (inactivityTimeout is not null) idleCts.CancelAfter(inactivityTimeout.Value); },
+                killed: () => killCts.IsCancellationRequested).ConfigureAwait(false);
 
             if (killCts.IsCancellationRequested)
             {
@@ -237,22 +227,12 @@ public sealed class ProcessRunner : IProcessRunner
                 yield return line;
             }
 
-            // The stdout loop ended (child closed stdout, or a timeout). Enable writer-progress re-arms and
-            // arm a FRESH window for the stdin observe — a child that closed stdout but never drains its
-            // stdin pipe would otherwise block the writer (and us) forever, while a child actively DRAINING
-            // keeps re-arming and lives; the armed clock's kill breaks the pipes either way.
+            // The stdout loop ended (child closed stdout, or a timeout). Enable writer-progress re-arms,
+            // then run the shared observe-stdin/reap tail below.
             Volatile.Write(ref observeStdin, true);
-            if (inactivityTimeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(inactivityTimeout.Value);
-
-            // Observe the concurrent stdin write so it's never left unobserved. A broken pipe (child exited
-            // before draining) is already swallowed in WriteStdinAsync; a cancel/timeout is the same one the
-            // loop reported. The real signal is exit code / stderr.
-            try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / timedOut */ }
-
-            // fresh window for the final reap too (a child that drained everything but lingers)
-            if (inactivityTimeout is not null && !timeoutCts.IsCancellationRequested) timeoutCts.CancelAfter(inactivityTimeout.Value);
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-            var stderr = await stderrTask.ConfigureAwait(false);
+            var stderr = await ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
+                reArm: () => { if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value); },
+                killed: () => timeoutCts.IsCancellationRequested).ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
             // a kill that fired during the stdin observe / reap is a TIMEOUT, not a child failure — classify
@@ -387,6 +367,28 @@ public sealed class ProcessRunner : IProcessRunner
             // stderr path reports the real story; this is not a spawn failure
             try { process.StandardInput.Close(); } catch (IOException) { }
         }
+    }
+
+    /// <summary>The shared post-read-loop tail of BOTH run shapes (the I2 fresh-window discipline, kept in
+    /// one place so the two paths can't drift on it): give the stdin observe a FRESH inactivity window (a
+    /// child that closed stdout but never drains its stdin pipe would otherwise block the writer — and us —
+    /// forever, while a child actively DRAINING keeps re-arming via the writer's per-slice progress and
+    /// lives; the armed clock's kill breaks the pipes either way), observe the concurrent stdin write so it
+    /// is never left unobserved (a broken pipe from an early child exit is already swallowed in
+    /// <see cref="WriteStdinAsync"/>), give the final reap a fresh window too (a child that drained
+    /// everything but lingers), then reap and return the drained stderr. <paramref name="reArm"/> re-arms
+    /// the caller's OWN inactivity clock — the two run shapes deliberately keep their distinct clock
+    /// topologies (buffered dual-clock with tagged reasons vs streamed single-clock) — and
+    /// <paramref name="killed"/> reports the caller's kill state so a fired clock is never re-armed.</summary>
+    private static async Task<string> ObserveStdinAndReapAsync(System.Diagnostics.Process process,
+        Task stdinTask, Task<string> stderrTask, Action reArm, Func<bool> killed)
+    {
+        if (!killed()) reArm();
+        try { await stdinTask.ConfigureAwait(false); } catch { /* reflected in exit code / timeout */ }
+
+        if (!killed()) reArm();
+        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+        return await stderrTask.ConfigureAwait(false);
     }
 
     private static void KillTree(System.Diagnostics.Process process)
