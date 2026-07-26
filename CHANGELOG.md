@@ -65,6 +65,20 @@ semantics (above). `ApiSurface` baselines updated deliberately for all of the ab
 `ClearAllPools()` re-introductions replaced with per-db pool clears; duplicated contract tests removed;
 `RecallAsync(limit:)`/scoped `ForgetAsync` and the `SkipAllPermissions`+ReadOnly matrix now pinned.
 
+**Round 2 (adversarial review of the pass itself)** — a workflow-backed review of this branch's own diff
+confirmed and fixed five regressions the pass had introduced: the chat orchestrator now gates the
+COMPOSED prompt too (recalled memory can't bypass input guards; the memory-compounding fix stands);
+prompt placeholder keys are unrestricted again (hyphen/dot/CJK keys substitute — the single-pass rewrite
+had narrowed them to ASCII identifiers); the stdin inactivity clock counts a child's active DRAINING as
+liveness (pipe-granular slice writes re-arm it) and an observe/reap kill classifies as Timeout; a THROWN
+transport error can no longer surface as a terminal Refused on a keyword match; and streamed OpenAI usage
+is actually read (the SSE loop runs to `[DONE]` and parses the trailing empty-choices usage chunk).
+Plus: consumer identity is now case-insensitive END-TO-END (usage-tracker totals aggregate across casings
+— closes a 2× per-consumer budget overspend; **behavior note** for the SQL trackers' `Total(consumer)`/
+`Reset(consumer)`), the dialect-neutral job-claim predicate is shared (`JobStoreSql.ClaimCandidateWhere`),
+the one remaining sync connection open is async, and the `.ps1`-hosting exception to the spawn-hygiene
+rule is documented where the rule lives.
+
 ### Added
 - **Headless "skip all permissions" for the Claude agent session (CLI1)** — `ClaudeAgentOptions` gains an
   opt-in `SkipAllPermissions` bool. When set, `ClaudeAgentArgs.Build` emits `--dangerously-skip-permissions`
