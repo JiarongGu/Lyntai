@@ -146,8 +146,14 @@ public sealed class ExtensionsAiProvider(
     private static ChatMessage ToChatMessage(LlmMessage m)
     {
         if (m.ToolCalls is { Count: > 0 })
-            return new ChatMessage(ChatRole.Assistant,
-                [.. m.ToolCalls.Select(tc => (AIContent)new FunctionCallContent(tc.Id, tc.Name, ParseArgs(tc.ArgumentsJson)))]);
+        {
+            // prose the model emitted ALONGSIDE its calls must survive the transcript replay (the tool
+            // loop preserves it; the reverse bridge's AssistantMessage keeps it too — the mappers agree)
+            var contents = new List<AIContent>();
+            if (!string.IsNullOrEmpty(m.Content)) contents.Add(new TextContent(m.Content));
+            contents.AddRange(m.ToolCalls.Select(tc => (AIContent)new FunctionCallContent(tc.Id, tc.Name, ParseArgs(tc.ArgumentsJson))));
+            return new ChatMessage(ChatRole.Assistant, contents);
+        }
         if (m.ToolCallId is not null)
             return new ChatMessage(ChatRole.Tool, [new FunctionResultContent(m.ToolCallId, m.Content)]);
         if (m.Role == "user" && m.Attachments is { Count: > 0 }) // images only make sense on a user turn

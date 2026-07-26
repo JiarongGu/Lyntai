@@ -16,6 +16,9 @@ public static class OpenAiPayload
             ["messages"] = new JsonArray([.. req.Messages.Select(ToMessage)]),
             ["stream"] = stream,
         };
+        // ask the server to append a usage chunk to the SSE stream — without it a streamed call ends with
+        // Final(usage: null) and silently bypasses budget/telemetry accounting (buffered calls report fine)
+        if (stream) payload["stream_options"] = new JsonObject { ["include_usage"] = true };
         if (req.MaxTokens is not null) payload["max_tokens"] = req.MaxTokens;
         if (req.Temperature is not null) payload["temperature"] = req.Temperature;
 
@@ -57,7 +60,9 @@ public static class OpenAiPayload
             return new JsonObject
             {
                 ["role"] = "assistant",
-                ["content"] = null, // OpenAI wants null content on a tool-call turn
+                // prose the model emitted ALONGSIDE its calls is legal next to tool_calls and must survive
+                // the transcript replay (the tool loop preserves it); only a silent turn sends null content
+                ["content"] = string.IsNullOrEmpty(m.Content) ? null : m.Content,
                 ["tool_calls"] = new JsonArray([.. m.ToolCalls.Select(tc => (JsonNode)new JsonObject
                 {
                     ["id"] = tc.Id,

@@ -30,11 +30,14 @@ public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBia
         if (!mitigatePositionBias)
             return await JudgeAsync(input, outputA, outputB, ct).ConfigureAwait(false);
 
-        // the forward and position-swapped passes are independent judge calls — run them concurrently
+        // the forward and position-swapped passes are independent judge calls — run them concurrently,
+        // but observe BOTH before reading either: if the first await threw (cancel/transport), the other
+        // pass would be abandoned unobserved and keep spending judge tokens with nothing to reap it
         var forwardTask = JudgeAsync(input, outputA, outputB, ct);
         var swappedTask = JudgeAsync(input, outputB, outputA, ct);
-        var first = await forwardTask.ConfigureAwait(false);
-        var swapped = await swappedTask.ConfigureAwait(false);
+        await Task.WhenAll(forwardTask, swappedTask).ConfigureAwait(false);
+        var first = forwardTask.Result;
+        var swapped = swappedTask.Result;
 
         // a's-vs-b's identities are tracked, not the slot
         var secondForA = swapped.Winner switch

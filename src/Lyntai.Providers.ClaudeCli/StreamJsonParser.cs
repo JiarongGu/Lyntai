@@ -63,18 +63,10 @@ public static class StreamJsonParser
             ? r.GetString() ?? ""
             : "";
 
-        LlmUsage? usage = null;
-        if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
-        {
-            double? cost = root.TryGetProperty("total_cost_usd", out var c) && c.ValueKind == JsonValueKind.Number
-                ? c.GetDouble()
-                : null;
-            usage = new LlmUsage(
-                StreamJsonFields.GetLong(u, "input_tokens"),
-                StreamJsonFields.GetLong(u, "output_tokens"),
-                StreamJsonFields.GetLong(u, "cache_read_input_tokens"),
-                cost);
-        }
+        // shared wire read; LlmUsage projects cost + cache-read (it has no cache-create field)
+        var usage = StreamJsonFields.ReadUsage(root) is { } w
+            ? new LlmUsage(w.Input, w.Output, w.CacheRead, w.CostUsd)
+            : null;
         return new StreamJsonEvent(StreamJsonEventKind.Result, text, usage);
     }
 }

@@ -48,18 +48,10 @@ public static class McpToolset
     }
 
     /// <summary>JSON arguments string → the dictionary the MCP call wants (values kept as detached
-    /// <see cref="JsonNode"/>s — the SDK serializes them on the wire).</summary>
-    private static IReadOnlyDictionary<string, object?> ParseArgs(string argsJson)
-    {
-        if (string.IsNullOrWhiteSpace(argsJson)) return EmptyArgs;
-        try
-        {
-            return JsonNode.Parse(argsJson) is JsonObject obj
-                ? obj.ToDictionary(kv => kv.Key, kv => (object?)kv.Value?.DeepClone())
-                : EmptyArgs;
-        }
-        catch (JsonException) { return EmptyArgs; }
-    }
+    /// <see cref="JsonNode"/>s — the SDK serializes them on the wire). Delegates to the shared
+    /// <see cref="Lyntai.Text.JsonArgs"/> (the exact reason it exists — parallel parsers drift).</summary>
+    private static IReadOnlyDictionary<string, object?> ParseArgs(string argsJson) =>
+        Lyntai.Text.JsonArgs.Parse(argsJson) as IReadOnlyDictionary<string, object?> ?? EmptyArgs;
 
     private static readonly IReadOnlyDictionary<string, object?> EmptyArgs = new Dictionary<string, object?>();
 }

@@ -69,6 +69,38 @@ public class ChatOrchestratorTests
         Assert.Equal("", result.Answer);
     }
 
+    private sealed class PiiRewriteGuard : IGuard
+    {
+        public string Name => "pii";
+        public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default)
+        {
+            var text = req.Messages[^1].Content;
+            return Task.FromResult(text.Contains("hunter2")
+                ? GuardOutcome.Replace(text.Replace("hunter2", "[redacted]"))
+                : GuardOutcome.Allow);
+        }
+    }
+
+    [Fact] // A2: an input-gate Replace persists Q as the REWRITTEN USER MESSAGE — never the composed prompt
+    public async Task Replaced_input_remembers_the_rewritten_message_not_the_composed_prompt()
+    {
+        var provider = new FakeLlmProvider("p");
+        provider.Replies.Enqueue(new LlmReply("done", LlmVerdict.Ok));
+        using var sp = Build(provider, b => b.AddGuard(_ => new PiiRewriteGuard()));
+
+        var memory = sp.GetRequiredService<Lyntai.Storage.IMemoryStore>();
+        await memory.RememberAsync("t1", "chat", "an old learned fact"); // recalled + composed into the prompt
+
+        await sp.GetRequiredService<IChatOrchestrator>()
+            .ChatAsync(new ChatTurn { Message = "my key is hunter2", TaskKey = "t1", UseTools = false });
+
+        var recalled = await memory.RecallAsync("t1", scope: "chat");
+        var record = Assert.Single(recalled, m => m.Content.StartsWith("Q:"));
+        Assert.Contains("[redacted]", record.Content);              // the rewrite was persisted…
+        Assert.DoesNotContain("hunter2", record.Content);           // …never the raw secret…
+        Assert.DoesNotContain("old learned fact", record.Content);  // …and never the recalled/composed facts
+    }
+
     [Fact]
     public async Task Remembers_the_exchange_to_both_memory_stores_when_embeddings_are_wired()
     {

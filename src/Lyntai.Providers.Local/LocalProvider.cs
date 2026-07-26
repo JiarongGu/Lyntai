@@ -54,6 +54,10 @@ public sealed class LocalProvider(
                 case LlmChunkKind.Error: return new LlmReply("", chunk.Verdict, Detail: chunk.Detail);
             }
         }
+        // the empty-as-Ok trap, enforced locally: if the stream contract ever broke (a Final with no
+        // content), an empty aggregate must fall over at the router, not report a clean empty answer
+        if (text.Length == 0)
+            return new LlmReply("", LlmVerdict.Failed, Detail: $"{Id}: empty response");
         return new LlmReply(text.ToString(), LlmVerdict.Ok, usage);
     }
 

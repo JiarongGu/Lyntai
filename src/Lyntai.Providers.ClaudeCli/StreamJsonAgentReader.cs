@@ -223,16 +223,10 @@ internal sealed class StreamJsonAgentReader
         if (string.IsNullOrWhiteSpace(finalText) && !string.IsNullOrEmpty(_lastAssistantText))
             finalText = _lastAssistantText;
 
-        // UsageFinal first (if usage present), then SessionEnded
-        if (root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
-        {
-            yield return new UsageFinal(
-                StreamJsonFields.GetLong(usage, "input_tokens"),
-                StreamJsonFields.GetLong(usage, "output_tokens"),
-                StreamJsonFields.GetLong(usage, "cache_read_input_tokens"),
-                StreamJsonFields.GetLong(usage, "cache_creation_input_tokens"),
-                _model);
-        }
+        // UsageFinal first (if usage present), then SessionEnded — shared wire read; UsageFinal projects
+        // the raw counts incl. cache-create (it deliberately carries no cost — the app prices itself)
+        if (StreamJsonFields.ReadUsage(root) is { } w)
+            yield return new UsageFinal(w.Input, w.Output, w.CacheRead, w.CacheCreate, _model);
 
         yield return new SessionEnded(
             Verdict: isError ? LlmVerdict.Failed : LlmVerdict.Ok,

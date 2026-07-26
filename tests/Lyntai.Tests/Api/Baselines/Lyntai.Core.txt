@@ -482,6 +482,7 @@ class Lyntai.Guards.GuardRail
     .ctor(IEnumerable<IGuard>, ILogger<GuardRail>=)
     InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
     InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+    InspectToolCallAsync(String, String, CancellationToken=) : Task<GuardOutcome>
 class Lyntai.Guards.GuardedLlmClient
     .ctor(ILlmClient, IGuardRail)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>

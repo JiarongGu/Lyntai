@@ -66,6 +66,33 @@ public class GuardTests
         Assert.Equal(GuardOutcome.Kind.Block, (await rail.InspectResponseAsync(reply)).Result);
     }
 
+    private sealed class ArgsGuard(string find, string replaceWith) : IGuard
+    {
+        public string Name => $"args:{find}";
+        public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default)
+        {
+            var args = req.Messages[^1].ToolCalls?[0].ArgumentsJson ?? "";
+            return Task.FromResult(args.Contains(find)
+                ? GuardOutcome.Replace(args.Replace(find, replaceWith))
+                : GuardOutcome.Allow);
+        }
+    }
+
+    [Fact] // A1: chained arg-rewriting guards COMPOSE on the tool-call gate (guard 2 sees guard 1's rewrite)
+    public async Task Tool_call_gate_chains_arg_rewrites_across_guards()
+    {
+        var rail = new GuardRail([
+            new ArgsGuard("secret", "[red1]"),
+            new ArgsGuard("[red1]", "[red2]"), // only fires if it sees guard 1's REWRITE, not the original
+        ]);
+
+        var outcome = await rail.InspectToolCallAsync("t", """{"x":"secret"}""");
+
+        Assert.Equal(GuardOutcome.Kind.Replace, outcome.Result);
+        Assert.Contains("[red2]", outcome.Replacement);
+        Assert.DoesNotContain("secret", outcome.Replacement);
+    }
+
     [Fact]
     public async Task Rail_chains_a_replacement_into_later_guards()
     {

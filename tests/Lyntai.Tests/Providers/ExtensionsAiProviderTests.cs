@@ -48,6 +48,53 @@ public class ExtensionsAiProviderTests
         Assert.Equal(0.5f, options.Temperature);
     }
 
+    [Fact] // P2: prose the model emitted ALONGSIDE its tool calls survives the transcript replay
+    public async Task Assistant_tool_call_turn_keeps_its_prose_through_the_forward_bridge()
+    {
+        var client = new FakeChatClient();
+        var req = new LlmRequest
+        {
+            Messages =
+            [
+                LlmMessage.User("go"),
+                LlmMessage.AssistantToolCalls([new LlmToolCall("c1", "search", """{"q":"x"}""")], "let me check"),
+                LlmMessage.ToolResult("c1", "found it"),
+            ],
+        };
+
+        await Provider(client).CompleteAsync(req);
+
+        var (messages, _) = client.Calls.Single();
+        var toolCallTurn = messages[1];
+        Assert.Contains(toolCallTurn.Contents, c => c is FunctionCallContent { Name: "search" });
+        Assert.Contains(toolCallTurn.Contents, c => c is TextContent { Text: "let me check" }); // prose preserved
+    }
+
+    private sealed class DeclOnlyTool : AIFunctionDeclaration
+    {
+        private static readonly System.Text.Json.JsonElement Schema = System.Text.Json.JsonDocument
+            .Parse("""{"type":"object","properties":{"x":{"type":"number"}}}""").RootElement.Clone();
+        public override string Name => "decl-only";
+        public override string Description => "declaration-only tool";
+        public override System.Text.Json.JsonElement JsonSchema => Schema;
+    }
+
+    [Fact] // P1: a declaration-only AITool (AIFunctionDeclaration, not AIFunction) keeps its schema in reverse
+    public async Task Reverse_bridge_carries_a_declaration_only_tools_schema()
+    {
+        var inner = new FakeLlmClient();
+        inner.Replies.Enqueue(new LlmReply("ok", LlmVerdict.Ok));
+        var chat = inner.AsChatClient();
+
+        await chat.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")],
+            new ChatOptions { Tools = [new DeclOnlyTool()] });
+
+        var sent = Assert.Single(inner.Calls);
+        var tool = Assert.Single(sent.Tools!);
+        Assert.Equal("decl-only", tool.Name);
+        Assert.Contains("\"x\"", tool.ParametersJsonSchema); // the schema arrived, not null
+    }
+
     [Fact]
     public async Task Json_schema_maps_to_response_format()
     {

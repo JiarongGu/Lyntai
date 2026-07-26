@@ -70,7 +70,14 @@ internal sealed class McpCliToolProvisioner(IEnumerable<ITool> tools) : ICliTool
     private static string WriteTemp(string kind, string content)
     {
         var path = Path.Combine(Path.GetTempPath(), $"lyntai-{kind}-{Guid.NewGuid():N}.json");
-        File.WriteAllText(path, content);
+        // the mcp config carries the loopback bearer token — create OWNER-ONLY on Unix so another local
+        // user can't read the token and drive the tool host during the CLI window (Windows %TEMP% is
+        // already per-user ACL'd; UnixCreateMode throws there)
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
+        if (!OperatingSystem.IsWindows())
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        using var writer = new StreamWriter(new FileStream(path, options));
+        writer.Write(content);
         return path;
     }
 

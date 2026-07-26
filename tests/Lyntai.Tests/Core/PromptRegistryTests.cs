@@ -19,6 +19,22 @@ public class PromptRegistryTests
         Assert.Equal("Summarize the text in English.", rendered);
     }
 
+    [Fact] // A3: substitution is SINGLE-PASS — a var VALUE containing a placeholder must stay literal
+    public async Task Var_values_containing_placeholders_are_not_resubstituted()
+    {
+        var registry = new PromptRegistry(_kv);
+
+        var rendered = await registry.RenderAsync("p", "{a} and {b}", new Dictionary<string, string>
+        {
+            ["a"] = "literal {b} inside a value",
+            ["b"] = "B",
+        });
+
+        // sequential Replace used to re-scan a's substituted value and turn its "{b}" into "B"
+        // (order-dependent injection); single-pass keeps values inert
+        Assert.Equal("literal {b} inside a value and B", rendered);
+    }
+
     [Fact]
     public async Task Override_wins_when_it_keeps_all_placeholders()
     {

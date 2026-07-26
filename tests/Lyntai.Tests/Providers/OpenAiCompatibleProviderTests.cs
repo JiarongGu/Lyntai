@@ -2,12 +2,35 @@ using System.Net;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Providers.OpenAiCompatible.Payloads;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
 public class OpenAiCompatibleProviderTests
 {
+    [Fact] // P2: prose alongside native tool calls survives the payload replay (content is legal with tool_calls)
+    public void Payload_tool_call_turn_preserves_assistant_prose()
+    {
+        var chatty = new LlmRequest
+        { Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("c1", "t", "{}")], "thinking out loud")] };
+        var msg = OpenAiPayload.Build(chatty, "m", stream: false)["messages"]![0]!;
+        Assert.Equal("thinking out loud", msg["content"]!.GetValue<string>());
+
+        var silent = new LlmRequest { Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("c1", "t", "{}")])] };
+        var silentMsg = OpenAiPayload.Build(silent, "m", stream: false)["messages"]![0]!;
+        Assert.Null(silentMsg["content"]); // no prose → null content (OpenAI's canonical tool-call shape)
+    }
+
+    [Fact] // P6: streamed requests opt into usage reporting so the Final chunk carries tokens for budget/telemetry
+    public void Streaming_payload_requests_usage_via_stream_options()
+    {
+        var req = new LlmRequest { Messages = [LlmMessage.User("q")] };
+        var streamed = OpenAiPayload.Build(req, "m", stream: true);
+        Assert.True(streamed["stream_options"]!["include_usage"]!.GetValue<bool>());
+        Assert.Null(OpenAiPayload.Build(req, "m", stream: false)["stream_options"]);
+    }
+
     private const string OkBody = """
         {"choices":[{"message":{"role":"assistant","content":"hello from http"},"finish_reason":"stop"}],
          "usage":{"prompt_tokens":10,"completion_tokens":4}}

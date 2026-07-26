@@ -103,10 +103,12 @@ public sealed class LyntaiChatClient(ILlmClient client) : IChatClient
     private static IReadOnlyList<LlmTool>? MapTools(IList<AITool>? tools)
     {
         if (tools is not { Count: > 0 }) return null;
+        // AIFunctionDeclaration (the base) is where JsonSchema lives — casting to AIFunction would
+        // silently drop the schema of any declaration-only tool (incl. our own LyntaiToolDeclaration)
         return [.. tools.Select(t => new LlmTool(
             t.Name,
             string.IsNullOrEmpty(t.Description) ? null : t.Description,
-            (t as AIFunction)?.JsonSchema.GetRawText()))];
+            (t as AIFunctionDeclaration)?.JsonSchema.GetRawText()))];
     }
 
     /// <summary>Build the assistant reply message — carrying the model's native tool calls as

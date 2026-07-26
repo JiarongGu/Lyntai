@@ -20,7 +20,10 @@ public interface IGuardRail
     /// <summary>Gate a tool call the model wants to make (its name + JSON arguments) BEFORE it executes —
     /// inside the agent tool loop, not just at the chat boundary. Modelled as an outbound request carrying
     /// the tool-call turn, so existing request guards (which already scan a tool call's <c>ArgumentsJson</c>)
-    /// inspect it with no new per-guard surface. Block to refuse the call; Replace to rewrite the args JSON.</summary>
+    /// inspect it with no new per-guard surface. Block to refuse the call; Replace to rewrite the args JSON.
+    /// NOTE: this DEFAULT can't compose CHAINED Replace guards (there is no user message for the request
+    /// gate's re-thread to rewrite, so each guard sees the original args) — the built-in <see cref="GuardRail"/>
+    /// overrides it with an args-aware re-thread; a BYO rail with multiple rewriting guards should too.</summary>
     Task<GuardOutcome> InspectToolCallAsync(string toolName, string argumentsJson, CancellationToken ct = default) =>
         InspectRequestAsync(new LlmRequest { Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("", toolName, argumentsJson)])] }, ct);
 
@@ -37,55 +40,57 @@ public sealed class GuardRail(IEnumerable<IGuard> guards, ILogger<GuardRail>? lo
     private readonly IReadOnlyList<IGuard> _guards = [.. guards];
     private readonly ILogger _logger = logger ?? NullLogger<GuardRail>.Instance;
 
-    public async Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default)
+    public Task<GuardOutcome> InspectRequestAsync(LlmRequest req, CancellationToken ct = default) =>
+        InspectCoreAsync(req, "input", "request",
+            static (g, cur, ct) => g.InspectRequestAsync(cur, ct),
+            static (cur, replacement) => RewriteLastUser(cur, replacement), ct);
+
+    public Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default) =>
+        InspectCoreAsync(reply, "output", "response",
+            static (g, cur, ct) => g.InspectResponseAsync(cur, ct),
+            // re-thread the rewritten text AND clear ToolCalls/Detail — a Replace redacts the whole
+            // reply, so later guards (and the applied result) must not see the un-redacted originals
+            static (cur, replacement) => cur with { Text = replacement, ToolCalls = null, Detail = null }, ct);
+
+    /// <summary>Tool-call gate with an ARGS-aware re-thread: a Replace rewrites the arguments JSON, and
+    /// later guards must inspect the REWRITE (the interface default routes through the request gate,
+    /// whose last-user re-thread is a silent no-op on a synthetic assistant-only probe — chained
+    /// arg-rewriting guards wouldn't compose there).</summary>
+    public Task<GuardOutcome> InspectToolCallAsync(string toolName, string argumentsJson, CancellationToken ct = default) =>
+        InspectCoreAsync(ToolCallProbe(toolName, argumentsJson), "input", $"tool call '{toolName}'",
+            static (g, cur, ct) => g.InspectRequestAsync(cur, ct),
+            (_, replacement) => ToolCallProbe(toolName, replacement), ct);
+
+    /// <summary>The one guard loop every gate shares: iterate the guards over the current (possibly
+    /// re-threaded) subject; a Block short-circuits, a Replace is logged/counted, re-threaded via
+    /// <paramref name="rethread"/> so later guards see it, and the LAST Replace outcome is returned.</summary>
+    private async Task<GuardOutcome> InspectCoreAsync<T>(T current, string gate, string what,
+        Func<IGuard, T, CancellationToken, Task<GuardOutcome>> inspect,
+        Func<T, string, T> rethread, CancellationToken ct)
     {
-        var current = req;
         var effective = GuardOutcome.Allow;
         foreach (var guard in _guards)
         {
-            var outcome = await guard.InspectRequestAsync(current, ct).ConfigureAwait(false);
+            var outcome = await inspect(guard, current, ct).ConfigureAwait(false);
             if (outcome.Result == GuardOutcome.Kind.Block)
             {
-                _logger.LogInformation("guard '{Guard}' blocked the request: {Reason}", guard.Name, outcome.Reason);
-                LyntaiDiagnostics.RecordGuardDecision("input", guard.Name, "block");
+                _logger.LogInformation("guard '{Guard}' blocked the {What}: {Reason}", guard.Name, what, outcome.Reason);
+                LyntaiDiagnostics.RecordGuardDecision(gate, guard.Name, "block");
                 return outcome; // a block is terminal
             }
             if (outcome.Result == GuardOutcome.Kind.Replace)
             {
-                _logger.LogInformation("guard '{Guard}' rewrote the request", guard.Name);
-                LyntaiDiagnostics.RecordGuardDecision("input", guard.Name, "replace");
+                _logger.LogInformation("guard '{Guard}' rewrote the {What}", guard.Name, what);
+                LyntaiDiagnostics.RecordGuardDecision(gate, guard.Name, "replace");
                 effective = outcome;
-                current = RewriteLastUser(current, outcome.Replacement!); // re-thread so later guards see the rewrite
+                current = rethread(current, outcome.Replacement!); // re-thread so later guards see the rewrite
             }
         }
         return effective;
     }
 
-    public async Task<GuardOutcome> InspectResponseAsync(LlmReply reply, CancellationToken ct = default)
-    {
-        var current = reply;
-        var effective = GuardOutcome.Allow;
-        foreach (var guard in _guards)
-        {
-            var outcome = await guard.InspectResponseAsync(current, ct).ConfigureAwait(false);
-            if (outcome.Result == GuardOutcome.Kind.Block)
-            {
-                _logger.LogInformation("guard '{Guard}' blocked the response: {Reason}", guard.Name, outcome.Reason);
-                LyntaiDiagnostics.RecordGuardDecision("output", guard.Name, "block");
-                return outcome;
-            }
-            if (outcome.Result == GuardOutcome.Kind.Replace)
-            {
-                _logger.LogInformation("guard '{Guard}' rewrote the response", guard.Name);
-                LyntaiDiagnostics.RecordGuardDecision("output", guard.Name, "replace");
-                effective = outcome;
-                // re-thread the rewritten text AND clear ToolCalls/Detail — a Replace redacts the whole
-                // reply, so later guards (and the applied result) must not see the un-redacted originals
-                current = current with { Text = outcome.Replacement!, ToolCalls = null, Detail = null };
-            }
-        }
-        return effective;
-    }
+    private static LlmRequest ToolCallProbe(string toolName, string argumentsJson) =>
+        new() { Messages = [LlmMessage.AssistantToolCalls([new LlmToolCall("", toolName, argumentsJson)])] };
 
     /// <summary>Rewrite the LAST user message's content (request-gate Replace only rewrites the last user
     /// turn — a guard can't redact an earlier one through this contract).</summary>

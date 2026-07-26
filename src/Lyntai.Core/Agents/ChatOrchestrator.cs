@@ -23,28 +23,27 @@ public sealed class ChatOrchestrator(
 
     public async Task<ChatResult> ChatAsync(ChatTurn turn, CancellationToken ct = default)
     {
-        // recall task-scoped memory into the user message (fail-open; no TaskKey → the message as-is)
-        var userText = turn.TaskKey is null
-            ? turn.Message
-            : await composer.ComposeAsync(turn.Message, turn.TaskKey, turn.MemoryScope, turn.Message, ct: ct).ConfigureAwait(false);
-
+        // GATE 1 — input, on the RAW user message (BEFORE memory composition): a Replace then maps 1:1 to
+        // the text we run AND remember. Gating the composed prompt used to persist the whole redacted
+        // COMPOSED text — re-storing the recalled facts as a new record every Replace turn (compounding
+        // growth). Recalled memory is deliberately not re-inspected here: it was already gated when stored.
         var messages = new List<LlmMessage>();
         if (!string.IsNullOrEmpty(turn.System)) messages.Add(LlmMessage.System(turn.System));
-        messages.Add(LlmMessage.User(userText));
-        var req = new LlmRequest { Messages = messages, Consumer = turn.Consumer };
+        messages.Add(LlmMessage.User(turn.Message));
 
-        // GATE 1 — input
-        var pre = await guards.InspectRequestAsync(req, ct).ConfigureAwait(false);
+        var pre = await guards.InspectRequestAsync(
+            new LlmRequest { Messages = messages, Consumer = turn.Consumer }, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
             return new ChatResult("", LlmVerdict.Refused, Blocked: true, pre.Reason, []);
         // what we persist to memory: the REDACTED text when the gate rewrote it (never re-store the raw
         // input a redaction guard just removed — that would re-inject the secret on the next recall)
-        var rememberedQuestion = turn.Message;
-        if (pre.Result == GuardOutcome.Kind.Replace)
-        {
-            req = req with { Messages = [.. messages[..^1], LlmMessage.User(pre.Replacement!)] };
-            rememberedQuestion = pre.Replacement!;
-        }
+        var rememberedQuestion = pre.Result == GuardOutcome.Kind.Replace ? pre.Replacement! : turn.Message;
+
+        // recall task-scoped memory into the (possibly rewritten) message (fail-open; no TaskKey → as-is)
+        var userText = turn.TaskKey is null
+            ? rememberedQuestion
+            : await composer.ComposeAsync(rememberedQuestion, turn.TaskKey, turn.MemoryScope, rememberedQuestion, ct: ct).ConfigureAwait(false);
+        var req = new LlmRequest { Messages = [.. messages[..^1], LlmMessage.User(userText)], Consumer = turn.Consumer };
 
         // run: the tool loop (model can call tools) or a plain completion
         string answer;
