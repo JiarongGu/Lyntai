@@ -15,7 +15,10 @@ public sealed class BudgetOptions
     public long? MaxTokens { get; set; }
 
     /// <summary>Per-consumer caps checked against that consumer's own running total, in addition to the
-    /// global caps. A consumer absent from the map is bound only by the global caps.</summary>
+    /// global caps. A consumer absent from the map is bound only by the global caps. NOTE: this cap lookup
+    /// is case-insensitive, but usage TOTALS are tracked case-sensitively (the SQL trackers key a TEXT
+    /// column) — use one consistent casing per consumer tag, or "Chat"/"chat" would each accrue a separate
+    /// total against the same cap.</summary>
     public Dictionary<string, ConsumerBudget> PerConsumer { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

@@ -41,6 +41,22 @@ public class LlmRouterCompleteTests
         Assert.Single(p2.Calls);
     }
 
+    [Fact] // L1: a THROWING provider is classified through LlmVerdictClassifier, not flattened to Failed
+    public async Task A_thrown_429_is_classified_RateLimited_and_cools_the_host()
+    {
+        var tracker = new DeadHostTracker();
+        var p1 = new FakeLlmProvider("p1")
+        { CompleteThrow = new HttpRequestException("throttled", null, System.Net.HttpStatusCode.TooManyRequests) };
+        var p2 = new FakeLlmProvider("p2");
+        p2.Replies.Enqueue(new LlmReply("from p2", LlmVerdict.Ok));
+
+        var reply = await Router(tracker, p1, p2).CompleteAsync([new("p1"), new("p2")], Req);
+
+        Assert.Equal("from p2", reply.Text);
+        // RateLimited → immediate cooldown; a hand-rolled Failed would only penalize (1/threshold)
+        Assert.True(tracker.IsDead("p1"));
+    }
+
     [Fact]
     public async Task All_failed_returns_the_last_error()
     {

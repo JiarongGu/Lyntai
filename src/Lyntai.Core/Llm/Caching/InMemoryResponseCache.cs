@@ -22,7 +22,9 @@ public sealed class InMemoryResponseCache(LyntaiOptions options, Func<DateTimeOf
         if (_entries.TryGetValue(key, out var e))
         {
             if (e.ExpiresAt > _clock()) return Task.FromResult<LlmReply?>(e.Reply);
-            _entries.TryRemove(key, out _); // lazily drop the expired entry on the way past
+            // lazily drop the expired entry on the way past — compare-and-remove (not TryRemove(key)),
+            // so a fresh entry a concurrent SetAsync just wrote between our read and this remove survives
+            _entries.TryRemove(KeyValuePair.Create(key, e));
         }
         return Task.FromResult<LlmReply?>(null);
     }

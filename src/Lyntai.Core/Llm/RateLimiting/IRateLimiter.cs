@@ -7,6 +7,8 @@ public interface IRateLimiter
 {
     /// <summary>Acquire permission to proceed for <paramref name="consumer"/>. Returns true when cleared
     /// (possibly after waiting for a permit to free up), or false if the limit can't be met within the
-    /// configured max wait (or the wait was cancelled) — the caller should then refuse the call.</summary>
+    /// configured max wait — the caller should then refuse the call. A cancelled wait PROPAGATES the
+    /// <see cref="OperationCanceledException"/> (caller cancel is not a rate refusal — it must not surface
+    /// as a fabricated RateLimited outcome).</summary>
     Task<bool> AcquireAsync(string consumer, CancellationToken ct = default);
 }

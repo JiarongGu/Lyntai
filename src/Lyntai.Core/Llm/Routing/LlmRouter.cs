@@ -143,9 +143,17 @@ public sealed class LlmRouter(
                             // becomes a fall-over-able Error chunk, not an abort of the whole stream
                             catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
                             {
-                                chunk = LlmChunk.Error(LlmVerdict.Failed, ex.Message); // a mid-iteration throw is an Error chunk
+                                // a mid-iteration throw becomes an Error chunk, classified through the shared
+                                // taxonomy (thrown 429→RateLimited, provider-internal OCE→Timeout, …)
+                                chunk = LlmChunk.Error(LlmVerdictClassifier.FromException(ex), ex.Message);
                             }
                             if (chunk is null) break;
+
+                            // Trust boundary: a Final with NO preceding content is the empty-reply trap in
+                            // stream form (pitfalls: empty output must be fall-over-able, never a clean end) —
+                            // convert it to an Error so the pre-content fallback path below handles it.
+                            if (chunk.Kind == LlmChunkKind.Final && !committed)
+                                chunk = LlmChunk.Error(LlmVerdict.Failed, $"{provider.Id}: empty stream (Final with no content)");
 
                             if (chunk.Kind == LlmChunkKind.Error)
                             {
@@ -189,14 +197,27 @@ public sealed class LlmRouter(
                                 continue;
                             }
 
-                            // Final, or an Error AFTER content committed: pass through unchanged
+                            // Final, or an Error AFTER content committed — the only kinds that reach here
+                            // (Content continues above; a pre-content Error/Final breaks/converts above).
+                            // Both are terminal: pass through unchanged and end the stream.
                             yield return chunk;
-                            if (chunk.Kind is LlmChunkKind.Final or LlmChunkKind.Error) yield break;
+                            yield break;
                         }
                     }
 
-                    if (committed) yield break;                     // ended after content — done
-                    if (retryVerdict == LlmVerdict.Ok) yield break; // clean empty stream — done
+                    if (committed) yield break; // ended after content — done
+                    if (retryVerdict == LlmVerdict.Ok)
+                    {
+                        // the enumerator ended with NO chunks at all — a contract-violating empty stream
+                        // (providers must end with exactly one Final or Error). Same trust-boundary rule as
+                        // an empty reply: treat as Failed and retry/advance rather than ending the router's
+                        // own stream silently with no terminal chunk.
+                        retryVerdict = LlmVerdict.Failed;
+                        outcome = LlmVerdict.Failed;
+                        outcomeDetail = "empty stream (no chunks)";
+                        lastError = LlmChunk.Error(LlmVerdict.Failed, $"{provider.Id}: empty stream (no chunks)");
+                        _logger.LogWarning("router: {Provider} produced an empty stream (no chunks); treating as Failed", provider.Id);
+                    }
                 }
                 finally
                 {
@@ -258,7 +279,11 @@ public sealed class LlmRouter(
         }
         catch (Exception ex)
         {
-            reply = new LlmReply("", LlmVerdict.Failed, Detail: $"{provider.Id}: {ex.Message}");
+            // classify through the shared taxonomy (thrown 429→RateLimited, 401/403→AuthFailed,
+            // OCE→Timeout, …) — a provider that THROWS must get the same fallback policy as one that
+            // returns a verdict reply; hand-rolling Failed here would hammer a rate-limited host
+            // instead of cooling it (see llm-and-router.md).
+            reply = new LlmReply("", LlmVerdictClassifier.FromException(ex), Detail: $"{provider.Id}: {ex.Message}");
         }
         LyntaiDiagnostics.RecordOutcome(activity, provider.Id, effective.Model, reply.Verdict, reply.Usage,
             Stopwatch.GetElapsedTime(start).TotalSeconds, reply.Detail);

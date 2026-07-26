@@ -14,7 +14,10 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
 {
     private readonly LyntaiOptions _options;
     private readonly Func<DateTimeOffset> _clock;
-    private readonly ConcurrentDictionary<string, Bucket> _consumerBuckets = new();
+    // MUST match RateLimitOptions.PerConsumer's comparer (OrdinalIgnoreCase): the options map admits
+    // "Chat" and "chat" as the same limit, so they must share ONE bucket — a case-sensitive map here
+    // would hand each casing its own full rate (~2x overshoot).
+    private readonly ConcurrentDictionary<string, Bucket> _consumerBuckets = new(StringComparer.OrdinalIgnoreCase);
     private readonly Bucket? _global;
 
     public TokenBucketRateLimiter(LyntaiOptions options, Func<DateTimeOffset>? clock = null)
@@ -43,9 +46,12 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
             catch (OperationCanceledException)
             {
                 // the caller bailed before its slot — hand the reserved permit back, else a burst of
-                // cancelled waits would throttle legitimate callers for a slot no request ever used
+                // cancelled waits would throttle legitimate callers for a slot no request ever used.
+                // The cancellation then PROPAGATES (matching the router: caller cancel is not a rate
+                // refusal — a cancelled caller must not receive a fabricated RateLimited reply or
+                // pollute the refusal metric).
                 BucketFor(consumer)?.Refund();
-                return false;
+                throw;
             }
         }
         return true;

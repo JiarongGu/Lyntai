@@ -72,6 +72,42 @@ public class LlmRouterStreamTests
         Assert.Equal(1, p2.StreamCalls); // the empty chunk didn't commit, so it fell over
     }
 
+    [Fact] // L4: zero chunks = a contract-violating empty stream → Failed + fall over (not a silent end)
+    public async Task Zero_chunk_stream_falls_over_to_the_next_candidate()
+    {
+        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [] };
+        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()] };
+
+        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+
+        Assert.Equal("recovered", string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal(1, p2.StreamCalls);
+    }
+
+    [Fact] // L4: with no fallback left, the empty stream still ends with a terminal Error chunk (never silence)
+    public async Task Zero_chunk_stream_with_no_fallback_yields_a_terminal_error()
+    {
+        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [] };
+
+        var chunks = await Collect(Router(p1).StreamAsync([new("p1")], Req));
+
+        var only = Assert.Single(chunks);
+        Assert.Equal(LlmChunkKind.Error, only.Kind);
+        Assert.Equal(LlmVerdict.Failed, only.Verdict);
+    }
+
+    [Fact] // L4: a Final with NO preceding content is the empty-reply trap at the trust boundary → falls over
+    public async Task Pre_content_final_falls_over_instead_of_passing_an_empty_end_through()
+    {
+        var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [LlmChunk.Final()] };
+        var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()] };
+
+        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+
+        Assert.Equal("recovered", string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
+        Assert.Equal(1, p2.StreamCalls);
+    }
+
     [Fact]
     public async Task Mid_stream_error_after_a_token_passes_through_no_second_candidate()
     {

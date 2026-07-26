@@ -20,6 +20,9 @@ public sealed class FakeLlmProvider(string id) : ILlmProvider
     /// <summary>When set, StreamAsync throws this BEFORE yielding (a provider-side stream failure).</summary>
     public Exception? StreamThrow { get; set; }
 
+    /// <summary>When set, CompleteAsync throws this (a provider that throws instead of returning a verdict reply).</summary>
+    public Exception? CompleteThrow { get; set; }
+
     public List<LlmRequest> Calls { get; } = [];
 
     public int StreamCalls { get; private set; }
@@ -27,6 +30,7 @@ public sealed class FakeLlmProvider(string id) : ILlmProvider
     public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         Calls.Add(req);
+        if (CompleteThrow is not null) throw CompleteThrow;
         return Task.FromResult(Replies.Count > 0
             ? Replies.Dequeue()
             : new LlmReply($"{Id} default reply", LlmVerdict.Ok));

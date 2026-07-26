@@ -78,6 +78,20 @@ public class RateLimitTests
         for (var i = 0; i < 5; i++) Assert.Equal(TimeSpan.Zero, limiter.TryReserve("c", T0));
     }
 
+    [Fact] // L3: the bucket map must share the options map's case-insensitivity — else "Chat"/"chat" each get a full rate
+    public void Per_consumer_bucket_is_shared_across_consumer_casings()
+    {
+        var limiter = Limiter(o =>
+        {
+            o.PermitsPerSecond = 0;
+            o.MaxWait = TimeSpan.Zero;
+            o.PerConsumer["tight"] = new ConsumerRate(PermitsPerSecond: 1, Burst: 1);
+        });
+
+        Assert.Equal(TimeSpan.Zero, limiter.TryReserve("tight", T0)); // spends the one permit
+        Assert.Null(limiter.TryReserve("TIGHT", T0)); // SAME bucket (the options map is OrdinalIgnoreCase) → refused
+    }
+
     // ---- decorator -----------------------------------------------------------------------------------
 
     [Fact]
@@ -123,8 +137,8 @@ public class RateLimitTests
 
     // ---- DI + composition with the cache -------------------------------------------------------------
 
-    [Fact]
-    public async Task A_cancelled_wait_refunds_its_reserved_permit()
+    [Fact] // L7: caller cancel is NOT a rate refusal — it propagates (no synthetic RateLimited downstream)
+    public async Task A_cancelled_wait_refunds_its_permit_and_propagates_the_cancellation()
     {
         // rate 1/s, burst 1, generous MaxWait so the 2nd acquire WAITS rather than refuses
         var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.FromSeconds(60); });
@@ -132,9 +146,11 @@ public class RateLimitTests
 
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
-        Assert.False(await limiter.AcquireAsync("c", cts.Token)); // would wait ~1s; cancelled → refund
+        // would wait ~1s; the cancel propagates as OCE (matching the router: a cancelled caller must not
+        // see a fabricated RateLimited reply or pollute the refusal metric)
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => limiter.AcquireAsync("c", cts.Token));
 
-        // if the permit was refunded, tokens are back to 0 → the next reserve needs 1s (a single deficit),
+        // the reserved permit was handed back: the next reserve needs 1s (a single deficit),
         // NOT 2s (which is what a lost/un-refunded permit would leave)
         Assert.Equal(TimeSpan.FromSeconds(1), limiter.TryReserve("c", T0));
     }
