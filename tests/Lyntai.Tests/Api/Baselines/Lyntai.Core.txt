@@ -1325,6 +1325,7 @@ sealed class Lyntai.Storage.MemoryEntry
     ToString() : String
 static class Lyntai.Storage.MemoryEviction
     static ApplyAsync(MemoryRetentionPolicy, DateTimeOffset, Func<CancellationToken,Task<IReadOnlyList<Row>>>, Func<IReadOnlyList<Int64>,CancellationToken,Task>, CancellationToken=) : Task
+    static CapEvictSql(MemoryEvictionMode) : String
     static Survivors(MemoryRetentionPolicy, IEnumerable<Row>, DateTimeOffset) : HashSet<Int64>
 struct Lyntai.Storage.MemoryEviction+Row
     .ctor(Int64, DateTimeOffset, DateTimeOffset, Nullable<DateTimeOffset>, Int32)

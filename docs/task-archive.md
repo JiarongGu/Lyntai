@@ -1364,6 +1364,16 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   instead of lock+copy per classification. 3 new tests (live global enable, per-consumer retune,
   zero-rate refusal). 985 tests green.
 
+- [x] **S3 — shared cap-evict SQL for the memory stores.** The `DELETE … NOT IN (SELECT … LIMIT @cap)`
+  statement is char-identical in both dialects (count-cap semantics now in three places incl.
+  `MemoryEviction.Survivors`). A raw-`DbCommand` helper beside `MemoryEviction.ApplyAsync` would
+  single-source it without giving Core a Dapper dependency.
+  ✅ done 2026-07-27 — Outcome: `MemoryEviction.CapEvictSql(mode)` in Core returns the one statement;
+  both stores' `CapEvictAsync` collapse to a Dapper one-liner executing it (binding stays per-driver —
+  a raw-`DbCommand` helper was deliberately NOT taken: a raw SQLite parameter bind would bypass the
+  Dapper `DateTimeOffset` handler and risk a TEXT-format mismatch in `expires_at > @now`; sharing the
+  STATEMENT is what kills the drift risk). Existing eviction tests are the net; Core baseline +1 line.
+
 ---
 
 ## Notes for the implementer

@@ -48,6 +48,27 @@ public static class MemoryEviction
 
     private static bool IsLive(Row r, DateTimeOffset now) => r.ExpiresAt is null || r.ExpiresAt > now;
 
+    /// <summary>The atomic COUNT-CAP eviction statement (the common fast path that skips
+    /// <see cref="ApplyAsync"/>'s fetch→survivors→delete round-trip): keep the newest <c>@cap</c> LIVE
+    /// entries of a <c>(@taskKey, @scope)</c> group — expired rows sort last so they evict first, recency is
+    /// created-at (FIFO) or last-access (LRU), id breaks ties — and delete the rest. The text is
+    /// dialect-identical (SQLite + Postgres both accept <c>NOT IN (SELECT … LIMIT @cap)</c>), so it lives
+    /// ONCE here and reproduces <see cref="Survivors"/>' count-cap ordering exactly; each backend binds
+    /// <c>@taskKey/@scope/@cap/@now</c> through its own driver. The recency expression is one of two fixed
+    /// column expressions (no user input) — safe to interpolate.</summary>
+    public static string CapEvictSql(MemoryEvictionMode mode)
+    {
+        var recency = mode == MemoryEvictionMode.Lru ? "COALESCE(last_accessed_at, created_at)" : "created_at";
+        return $"""
+            DELETE FROM lyntai_memory_entry
+            WHERE task_key = @taskKey AND scope = @scope AND id NOT IN (
+                SELECT id FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
+                ORDER BY (CASE WHEN expires_at IS NULL OR expires_at > @now THEN 0 ELSE 1 END),
+                         {recency} DESC, id DESC
+                LIMIT @cap)
+            """;
+    }
+
     /// <summary>Drives on-write eviction for a store backend: no-op when the policy has no size bound, else
     /// fetch the scoped group's metadata, compute the survivors, and delete the rest. The backend supplies
     /// only its storage-specific <paramref name="fetchScoped"/> + <paramref name="deleteByIds"/> — so this

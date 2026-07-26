@@ -52,23 +52,12 @@ public sealed class SqliteMemoryStore(
             await CapEvictAsync(conn, taskKey, scope, cap, policy.Eviction, now, ct).ConfigureAwait(false);
     }
 
-    // Count-cap eviction as ONE atomic statement: keep the newest @cap LIVE entries (expired sort last, so
-    // they're evicted first), recency by created_at (FIFO) or last_accessed_at (LRU). Reproduces
-    // MemoryEviction.Survivors' count-cap branch, but race-free and without reading the scope into memory.
+    // Count-cap eviction as ONE atomic statement (race-free, no scope fetch) — the statement itself is
+    // single-sourced in Core (MemoryEviction.CapEvictSql) so the two SQL backends can't drift on it.
     private static Task CapEvictAsync(IDbConnection conn, string taskKey, string scope, int cap,
-        MemoryEvictionMode mode, DateTimeOffset now, CancellationToken ct)
-    {
-        // `recency` is one of two fixed column expressions (no user input) — safe to interpolate.
-        var recency = mode == MemoryEvictionMode.Lru ? "COALESCE(last_accessed_at, created_at)" : "created_at";
-        return conn.ExecuteAsync(new CommandDefinition($"""
-            DELETE FROM lyntai_memory_entry
-            WHERE task_key = @taskKey AND scope = @scope AND id NOT IN (
-                SELECT id FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
-                ORDER BY (CASE WHEN expires_at IS NULL OR expires_at > @now THEN 0 ELSE 1 END),
-                         {recency} DESC, id DESC
-                LIMIT @cap)
-            """, new { taskKey, scope, cap, now }, cancellationToken: ct));
-    }
+        MemoryEvictionMode mode, DateTimeOffset now, CancellationToken ct) =>
+        conn.ExecuteAsync(new CommandDefinition(MemoryEviction.CapEvictSql(mode),
+            new { taskKey, scope, cap, now }, cancellationToken: ct));
 
     private static async Task<IReadOnlyList<MemoryEviction.Row>> FetchScopedAsync(IDbConnection conn, string taskKey, string scope, CancellationToken ct)
     {

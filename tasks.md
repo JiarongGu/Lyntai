@@ -33,10 +33,6 @@ with the reason; pick up when the trade-off changes.
 - [ ] **S8 — move the remaining 4 Row-DTO pairs (trace/score/prompt-version/usage) to Core** like
   `JobRow`. Deferred: pure materialization with zero dialect content — inert duplication, no fencing-style
   drift risk; weigh the Core-surface bloat before doing it.
-- [ ] **S3 — shared cap-evict SQL for the memory stores.** The `DELETE … NOT IN (SELECT … LIMIT @cap)`
-  statement is char-identical in both dialects (count-cap semantics now in three places incl.
-  `MemoryEviction.Survivors`). A raw-`DbCommand` helper beside `MemoryEviction.ApplyAsync` would
-  single-source it without giving Core a Dapper dependency.
 - [ ] **S11 — drop the `(object?)x ?? DBNull.Value` dance in the Postgres stores** for typed nullable
   params (Dapper binds C# null as DBNull already); keep `::type` casts only where Npgsql can't infer.
   Do under the Testcontainers suite — Npgsql null-inference has edge cases.
