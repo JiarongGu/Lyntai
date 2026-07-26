@@ -154,3 +154,16 @@ On-write eviction only bounds scopes you keep writing to; a COLD `(taskKey, scop
 rows. So GC of cold/expired entries is an **opt-in cron job** — `AddMemoryPruneJob(cron, olderThan?)`
 registers an `IJobHandler` over `PruneAsync` on the existing durable-jobs + cron machinery. Lyntai owns the
 prune work; the **app owns the pump** (no self-run timer — Lyntai is a library, D9/D14).
+
+## D17 — Wire JSON is hand-walked `JsonNode`/`JsonDocument`, not reflection `JsonSerializer` (2026-07-26)
+Asked directly ("why can't we use a proper JSON converter?"): reflection-based `System.Text.Json`
+serialization is **excluded by the trim/AOT posture (D8)** — the analyzers flag it, and consumers that
+Native-AOT/trim their apps would break on runtime property discovery. Beyond that, most of Lyntai's JSON
+has **no static type to converge on** (tool-call arguments and parameter schemas are defined by the app's
+tools and the model — `JsonNode` IS the right representation there, via the shared `Lyntai.Text.JsonArgs`),
+and the wire formats (claude stream-json, OpenAI-compatible dialects) are vendor-drifting, where per-field
+`TryGetProperty` reads degrade gracefully instead of failing a whole deserialize on one unexpected field.
+**Open option, not taken:** System.Text.Json **source generators** (`JsonSerializerContext`) are AOT-safe
+and could type the STABLE response envelopes (OpenAI `choices/message/usage`, SSE delta shell) for
+compile-checked field names, at the cost of a DTO set per dialect with `JsonElement` interiors anyway. Do
+that only if envelope-parsing bugs actually materialize; don't re-litigate the reflection route.

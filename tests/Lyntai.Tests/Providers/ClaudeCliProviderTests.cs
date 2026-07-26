@@ -2,6 +2,7 @@ using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
@@ -12,8 +13,7 @@ public class ClaudeCliProviderTests
     {
         get
         {
-            var stub = Path.GetFullPath(Path.Combine(
-                AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "scripts", "provider-stub.mjs"));
+            var stub = Path.Combine(TestPaths.DevtoolsDir("scripts"), "provider-stub.mjs");
             return $"node \"{stub}\"";
         }
     }

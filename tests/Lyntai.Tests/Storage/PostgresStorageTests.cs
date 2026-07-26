@@ -4,6 +4,7 @@ using Lyntai.Jobs;
 using Lyntai.Storage;
 using Lyntai.Storage.Postgres;
 using Lyntai.Storage.Postgres.Migrations;
+using Lyntai.Tests.Fakes;
 using Lyntai.Tests.Jobs;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -127,7 +128,9 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Memory_scope_dedup() => Pg(() => MemoryStoreContract.Different_scopes_are_not_deduped_together(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_ttl() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(PgMemory(mc), Uid(), mc.Advance)); }
     [SkippableFact] public Task Memory_cap() => Pg(() => MemoryStoreContract.Cap_trims_to_the_newest_entries(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_limit_scope() => Pg(() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_forget() => Pg(() => MemoryStoreContract.Forget_clears_a_task(PgMemory(), Uid()));
+    [SkippableFact] public Task Memory_forget_scoped() => Pg(() => MemoryStoreContract.Forget_scoped_clears_only_that_scope(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_fail_open() => Pg(() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(PgMemory(), Uid()));
     [SkippableFact] public Task Memory_lru() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Lru_evicts_least_recently_recalled(PgMemoryWith(MemoryRetentionPolicy.CountCap(3, MemoryEvictionMode.Lru), mc), Uid(), mc.Advance)); }
     [SkippableFact] public Task Memory_lru_bare() { var mc = new MutableClock(); return Pg(() => MemoryStoreContract.Lru_bare_recall_does_not_refresh_recency(PgMemoryWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru), mc), Uid(), mc.Advance)); }

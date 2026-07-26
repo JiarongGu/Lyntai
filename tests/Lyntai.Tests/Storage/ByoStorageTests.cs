@@ -51,32 +51,18 @@ public class ByoStorageTests : IDisposable
     [Fact]
     public async Task Migrate_false_leaves_schema_ownership_to_the_app()
     {
-        // fresh path, migrate:false → Lyntai creates NO tables; a store op fails because the app was
-        // supposed to own/provision the schema and didn't here
-        var dir = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-dbs"));
-        Directory.CreateDirectory(dir);
-        var freshPath = Path.Combine(dir, $"noschema-{Guid.NewGuid():N}.db");
-        try
-        {
-            var services = new ServiceCollection();
-            services.AddLyntai(b => b
-                .AddProvider(_ => new FakeLlmProvider("p"))
-                .UseSqliteStorage(freshPath, migrate: false));
-            using var sp = services.BuildServiceProvider();
+        // fresh un-migrated path, migrate:false → Lyntai creates NO tables; a store op fails because
+        // the app was supposed to own/provision the schema and didn't here
+        using var fresh = new TempDbPath("noschema");
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .UseSqliteStorage(fresh.Path, migrate: false));
+        using var sp = services.BuildServiceProvider();
 
-            // no lyntai_kv table → the store throws (proving Lyntai skipped migration)
-            await Assert.ThrowsAnyAsync<SqliteException>(() =>
-                sp.GetRequiredService<IKeyValueStore>().SetAsync("k", "v"));
-        }
-        finally
-        {
-            SqliteConnection.ClearAllPools();
-            foreach (var f in new[] { freshPath, freshPath + "-wal", freshPath + "-shm" })
-            {
-                try { File.Delete(f); } catch { }
-            }
-        }
+        // no lyntai_kv table → the store throws (proving Lyntai skipped migration)
+        await Assert.ThrowsAnyAsync<SqliteException>(() =>
+            sp.GetRequiredService<IKeyValueStore>().SetAsync("k", "v"));
     }
 
     [Fact]

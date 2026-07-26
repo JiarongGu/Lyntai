@@ -5,10 +5,65 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## Unreleased
 
-Consumer-driven generic ergonomics from an agent-manager desktop adopter (CLI1/TL1/TL2/PR1) plus the
-source-study curated-memory papercuts (CM1/CM2). All additive; public surface grew (`ApiSurface` baselines
-updated) — no removals, existing calls source-compatible. No new migration (both curated columns already
-shipped in 0.29).
+Two bodies of work: (1) consumer-driven generic ergonomics from an agent-manager desktop adopter
+(CLI1/TL1/TL2/PR1) plus the source-study curated-memory papercuts (CM1/CM2) — all additive; and (2) a
+**whole-library foundation-hardening pass** (six parallel reviews → ~80 findings → correctness fixes,
+structural dedup, and test-suite hygiene across every package). No new migration.
+
+### Changed / Fixed — foundation-hardening pass
+**Correctness (behavior fixes):**
+- **Router:** thrown provider errors now classify through `LlmVerdictClassifier` (a thrown 429 cools the
+  host instead of hammering it); an EMPTY provider stream (zero chunks, or Final with no content) is a
+  failure that falls over / ends with a terminal Error chunk — never a silent end.
+- **Rate limiter:** per-consumer buckets are case-insensitive like their options map ("Chat"/"chat" no
+  longer each get a full rate); a cancelled wait refunds its permit and PROPAGATES the cancellation
+  (was: a fabricated `RateLimited` reply + a polluted refusal metric). **Behavior note** for BYO
+  `IRateLimiter` impls: cancellation should now throw, not return false.
+- **Env config:** every numeric `LYNTAI_*` knob parses invariant — on a comma-decimal locale (de-DE)
+  `"1.5"` used to parse as **15** (a silently 10x-wrong timeout).
+- **ProcessRunner:** the stdin observe after stdout EOF is bounded by the inactivity clock (a child that
+  closed stdout but never drained stdin could hang the call forever without a `maxDuration`).
+- **Guards:** chained arg-rewriting guards now COMPOSE on the tool-call gate (`GuardRail` overrides
+  `InspectToolCallAsync` with an args-aware re-thread; the interface default couldn't compose).
+- **Chat orchestration:** the input gate runs on the RAW user message BEFORE memory composition — an
+  input-gate Replace used to persist the whole redacted composed prompt, re-storing recalled facts as a
+  new record every turn (compounding memory growth).
+- **Prompts:** placeholder substitution is single-pass — a var value containing `{otherKey}` stays
+  literal (was order-dependent injection over dictionary order).
+- **Bridges:** prose alongside native tool calls survives transcript replay (OpenAI payload + MEAI
+  forward bridge); the reverse bridge maps declaration-only tool schemas (`AIFunctionDeclaration`);
+  streamed OpenAI-flavor requests send `stream_options.include_usage` so streams stop bypassing
+  budget/telemetry accounting; the ephemeral MCP config (bearer token) is owner-only on Unix.
+- **Jobs/scheduler:** a corrupt persisted next-run self-heals (re-anchor + overwrite) instead of
+  silently freezing the schedule forever; the impossible-cron error names the expression.
+- **DI:** `AddLyntai` now also throws when an `ILlmClient` is pre-registered and an `IRefusalMatcher`
+  was added (it would have been silently ignored); conversation-enrichment wrapping preserves a BYO
+  store's lifetime; `AddEnvelopeSecretVault` + a BYO `ISecretVault` no longer throws `InvalidCastException`.
+- **Storage:** all async store methods open connections via `OpenAsync` (Postgres no longer blocks a
+  threadpool thread per call); FTS recall has a deterministic id tiebreak; `InMemoryConversationStore`
+  throws on a duplicate thread id like the SQL backends; Postgres `AppendMessageAsync` retries a
+  transient seq race instead of surfacing a raw unique-violation.
+
+**Structural dedup (drift-prevention):**
+- **`JobStoreSql` + `JobRow` (Core):** the relational job stores' state machine (fence predicate, every
+  transition, insert, reads) and row materialization live once — executed by both backends with booleans
+  bound as parameters; only the claim statement stays per-dialect.
+- **`DelegatingLlmClient` (Core, public):** the decorator base all five front-door decorators now derive
+  from — BYO decorators can too.
+- **`LazyMigratingConnectionFactory` (Core, public):** the once-only/retry-on-transient-failure lazy
+  migration gate (now also covering `OpenAsync`), wrapped by both packages' migrating factories.
+- **`VectorMath.Cosine` (Core, public)**, **`StorageFeatures.TagPasses`**, `StreamJsonFields.ReadUsage`,
+  `GuardRail` shared gate loop + `Redact`, router `LiveCandidates` preamble, shared `JsonArgs` in the
+  MCP toolset, one `LyntaiOptions` env-parse helper set, one non-convergence tail in `ToolLoop`.
+
+**Breaking (pre-1.0):** `ChatResult.BlockReason` → `Detail` (the old name lied for non-blocked failures);
+`GuardOutcome.IsAllow` removed (unused); `CandidateDedup` is now internal; `IRateLimiter` cancellation
+semantics (above). `ApiSurface` baselines updated deliberately for all of the above.
+
+**Tests:** +~30 targeted regression tests (TDD per fix); shared `Fakes/` helpers (`TestPaths`,
+`TempDbPath`, one `FakeProcessRunner`, `MutableClock` relocated); the six process-global
+`ClearAllPools()` re-introductions replaced with per-db pool clears; duplicated contract tests removed;
+`RecallAsync(limit:)`/scoped `ForgetAsync` and the `SkipAllPermissions`+ReadOnly matrix now pinned.
 
 ### Added
 - **Headless "skip all permissions" for the Claude agent session (CLI1)** — `ClaudeAgentOptions` gains an

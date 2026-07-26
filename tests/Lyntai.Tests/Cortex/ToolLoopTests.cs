@@ -319,13 +319,6 @@ public class ToolLoopTests
 
     // ---- TL2: live-progress StreamAsync ------------------------------------------------------------
 
-    private static async Task<List<AgentStreamEvent>> Collect(IAsyncEnumerable<AgentStreamEvent> stream)
-    {
-        var events = new List<AgentStreamEvent>();
-        await foreach (var e in stream) events.Add(e);
-        return events;
-    }
-
     [Fact]
     public async Task StreamAsync_prompt_path_yields_toolcall_result_text_then_terminal_in_order()
     {
@@ -333,7 +326,7 @@ public class ToolLoopTests
         client.Replies.Enqueue(new LlmReply("""{"tool":"echo","arguments":{"x":1}}""", LlmVerdict.Ok));
         client.Replies.Enqueue(new LlmReply("""{"final":"all done"}""", LlmVerdict.Ok));
 
-        var events = await Collect(Loop(client, Echo()).StreamAsync(Ask()));
+        var events = await Loop(client, Echo()).StreamAsync(Ask()).ToListAsync();
 
         var call = events.OfType<ToolCall>().Single();
         Assert.Equal("echo", call.Name);
@@ -360,7 +353,7 @@ public class ToolLoopTests
         { ToolCalls = [new LlmToolCall("call_1", "echo", """{"x":1}""")] });
         client.Replies.Enqueue(new LlmReply("all done", LlmVerdict.Ok));
 
-        var events = await Collect(NativeLoop(client, Echo()).StreamAsync(Ask()));
+        var events = await NativeLoop(client, Echo()).StreamAsync(Ask()).ToListAsync();
 
         var call = events.OfType<ToolCall>().Single();
         Assert.Equal("echo", call.Name);
@@ -376,7 +369,7 @@ public class ToolLoopTests
         var client = new FakeLlmClient();
         client.Replies.Enqueue(new LlmReply("", LlmVerdict.Refused, Detail: "policy"));
 
-        var events = await Collect(Loop(client, Echo()).StreamAsync(Ask()));
+        var events = await Loop(client, Echo()).StreamAsync(Ask()).ToListAsync();
 
         Assert.Empty(events.OfType<ToolCall>());
         var ended = events.OfType<SessionEnded>().Single();
@@ -392,7 +385,7 @@ public class ToolLoopTests
         client.Replies.Enqueue(new LlmReply("""{"tool":"echo","arguments":{}}""", LlmVerdict.Ok, new LlmUsage(10, 5)));
         client.Replies.Enqueue(new LlmReply("""{"final":"done"}""", LlmVerdict.Ok, new LlmUsage(20, 8)));
 
-        var events = await Collect(Loop(client, Echo()).StreamAsync(Ask()));
+        var events = await Loop(client, Echo()).StreamAsync(Ask()).ToListAsync();
 
         var usage = events.OfType<UsageFinal>().Single();
         Assert.Equal(30, usage.Input);
@@ -409,7 +402,7 @@ public class ToolLoopTests
         client.Replies.Enqueue(new LlmReply("""{"tool":"boom","arguments":{}}""", LlmVerdict.Ok));
         client.Replies.Enqueue(new LlmReply("""{"final":"handled"}""", LlmVerdict.Ok));
 
-        var events = await Collect(Loop(client, boom).StreamAsync(Ask()));
+        var events = await Loop(client, boom).StreamAsync(Ask()).ToListAsync();
 
         var res = events.OfType<ToolResult>().Single();
         Assert.True(res.IsError);
@@ -423,7 +416,7 @@ public class ToolLoopTests
         // the interface's default StreamAsync.
         IToolLoop byo = new RunOnlyLoop();
 
-        var events = await Collect(byo.StreamAsync(Ask()));
+        var events = await byo.StreamAsync(Ask()).ToListAsync();
 
         Assert.Contains(events, e => e is ToolCall { Name: "t" });
         Assert.Contains(events, e => e is ToolResult { Content: "obs" });

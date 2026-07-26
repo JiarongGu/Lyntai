@@ -1,11 +1,11 @@
 using System.Net;
-using System.Runtime.CompilerServices;
 using System.Text;
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Providers.OpenAiCompatible;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Providers;
 
@@ -58,37 +58,20 @@ public class PerRequestTimeoutTests
 
     // ---- ClaudeCli threads the resolved timeout into the process runner (deterministic) ----
 
-    private sealed class CapturingRunner : IProcessRunner
+    private const string ResultJson =
+        """{"type":"result","result":"ok","usage":{"input_tokens":1,"output_tokens":1}}""";
+
+    /// <summary>The shared fake with a canned Ok result on both the buffered and streamed paths;
+    /// the tests read the captured Timeout / MaxDuration back off it.</summary>
+    private static FakeProcessRunner CapturingRunner() => new(streamLines: [ResultJson])
     {
-        public TimeSpan? LastTimeout;
-        private const string ResultJson =
-            """{"type":"result","result":"ok","usage":{"input_tokens":1,"output_tokens":1}}""";
-
-        public TimeSpan? LastMaxDuration;
-
-        public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
-            TimeSpan? timeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
-            IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
-        {
-            LastTimeout = timeout;
-            LastMaxDuration = maxDuration;
-            return Task.FromResult(new ProcessResult(0, ResultJson, "", TimedOut: false));
-        }
-
-        public async IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
-            string? stdin = null, TimeSpan? timeout = null, string? workingDirectory = null,
-            IReadOnlyDictionary<string, string>? environment = null, [EnumeratorCancellation] CancellationToken ct = default)
-        {
-            LastTimeout = timeout;
-            yield return ResultJson;
-            await Task.CompletedTask;
-        }
-    }
+        RunResult = new ProcessResult(0, ResultJson, "", TimedOut: false),
+    };
 
     [Fact]
     public async Task ClaudeCli_passes_the_resolved_timeout_to_the_runner()
     {
-        var runner = new CapturingRunner();
+        var runner = CapturingRunner();
         var opts = new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(60) };
         opts.TimeoutByConsumer["study"] = TimeSpan.FromMinutes(15);
         var provider = new ClaudeCliProvider(runner, opts, command: "claude");
@@ -109,7 +92,7 @@ public class PerRequestTimeoutTests
         // The buffered path gets BOTH a resolved inactivity window (timeout) AND an absolute ceiling
         // (maxDuration) so a chatty-but-endless child is still bounded. The backstop is MaxProviderTimeout,
         // but never SMALLER than the inactivity window (a consumer budget above the ceiling raises it).
-        var runner = new CapturingRunner();
+        var runner = CapturingRunner();
         var opts = new LyntaiOptions
         {
             ProviderTimeout = TimeSpan.FromSeconds(60),

@@ -1,6 +1,7 @@
 using Lyntai.Jobs;
 using Lyntai.Storage;
 using Lyntai.Storage.Sqlite;
+using Lyntai.Tests.Fakes;
 using Lyntai.Tests.Storage;
 
 namespace Lyntai.Tests.Jobs;

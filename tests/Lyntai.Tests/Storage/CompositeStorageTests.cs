@@ -2,7 +2,6 @@ using Lyntai;
 using Lyntai.Storage;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Storage;
@@ -12,24 +11,9 @@ namespace Lyntai.Tests.Storage;
 /// the in-memory backend — resolves each domain to the intended backend without touching consumers.</summary>
 public class CompositeStorageTests : IDisposable
 {
-    private readonly string _dbPath;
+    private readonly TempDbPath _db = new("composite"); // fresh un-migrated path (UseSqliteStorage migrates)
 
-    public CompositeStorageTests()
-    {
-        var dir = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-dbs"));
-        Directory.CreateDirectory(dir);
-        _dbPath = Path.Combine(dir, $"composite-{Guid.NewGuid():N}.db");
-    }
-
-    public void Dispose()
-    {
-        SqliteConnection.ClearAllPools();
-        foreach (var f in new[] { _dbPath, _dbPath + "-wal", _dbPath + "-shm" })
-        {
-            try { File.Delete(f); } catch { }
-        }
-    }
+    public void Dispose() => _db.Dispose();
 
     [Fact]
     public async Task Sqlite_for_most_domains_in_memory_for_one()
@@ -38,7 +22,7 @@ public class CompositeStorageTests : IDisposable
         services.AddLyntai(b =>
         {
             b.AddProvider(_ => new FakeLlmProvider("p"));
-            b.UseSqliteStorage(_dbPath);   // all domains → SQLite (TryAdd)
+            b.UseSqliteStorage(_db.Path);   // all domains → SQLite (TryAdd)
             // route memory to the in-memory backend instead — last registration wins in DI
             b.Services.AddSingleton<IMemoryStore>(sp => new InMemoryMemoryStore(sp.GetRequiredService<LyntaiOptions>()));
         });

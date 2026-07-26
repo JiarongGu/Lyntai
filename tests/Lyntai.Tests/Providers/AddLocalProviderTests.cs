@@ -1,6 +1,7 @@
 using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Providers.Local;
+using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
@@ -16,13 +17,7 @@ public class AddLocalProviderTests
     private static LlmRequest Ask(string prompt = "hi") => new() { Messages = [LlmMessage.User(prompt)] };
 
     // scratch under devtools/_* (family rule: never OS temp), gitignored
-    private static string ScratchDir()
-    {
-        var dir = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-models"));
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
+    private static string ScratchDir() => TestPaths.DevtoolsDir("_test-models");
 
     private static string MissingModel() => Path.Combine(ScratchDir(), $"does-not-exist-{Guid.NewGuid():N}.gguf");
 

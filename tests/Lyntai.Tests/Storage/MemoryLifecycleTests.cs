@@ -3,8 +3,11 @@ using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>The v0.4 memory lifecycle: dedup on remember, per-entry TTL, and prune. Time is driven by
-/// an injected clock so expiry is deterministic (no wall-clock races).</summary>
+/// <summary>The v0.4 memory lifecycle against SQLite. Time is driven by an injected clock so expiry is
+/// deterministic (no wall-clock races). The contract-covered behaviors (dedup on remember, scope
+/// isolation, TTL expiry from recall) live in <see cref="MemoryStoreContract"/>
+/// (<see cref="SqliteMemoryStoreContractTests"/>); this file keeps only the unique lifecycle
+/// regressions (TTL refresh, prune accounting, cap-vs-expired eviction, recall-recency refresh).</summary>
 public class MemoryLifecycleTests : IDisposable
 {
     private readonly TempDb _db = new();
@@ -16,43 +19,6 @@ public class MemoryLifecycleTests : IDisposable
             new LyntaiOptions { MemoryCapPerScope = 100, MemoryRecallLimit = 100 }, clock: () => _now);
 
     public void Dispose() => _db.Dispose();
-
-    [Fact]
-    public async Task Remembering_an_identical_fact_refreshes_instead_of_duplicating()
-    {
-        await _store.RememberAsync("task", "scope", "the same fact");
-        await _store.RememberAsync("task", "scope", "the same fact");
-        await _store.RememberAsync("task", "scope", "the same fact");
-
-        var hits = await _store.RecallAsync("task");
-
-        Assert.Single(hits); // one entry, not three
-        Assert.Equal("the same fact", hits[0].Content);
-    }
-
-    [Fact]
-    public async Task Different_scopes_are_not_deduped_together()
-    {
-        await _store.RememberAsync("task", "a", "shared text");
-        await _store.RememberAsync("task", "b", "shared text");
-
-        Assert.Equal(2, (await _store.RecallAsync("task")).Count);
-    }
-
-    [Fact]
-    public async Task Expired_entries_are_not_recalled()
-    {
-        await _store.RememberAsync("task", "scope", "ephemeral", ttl: TimeSpan.FromMinutes(5));
-        await _store.RememberAsync("task", "scope", "durable");
-
-        Assert.Equal(2, (await _store.RecallAsync("task")).Count); // both live now
-
-        _now += TimeSpan.FromMinutes(6); // past the ephemeral entry's TTL
-
-        var hits = await _store.RecallAsync("task");
-        Assert.Single(hits);
-        Assert.Equal("durable", hits[0].Content);
-    }
 
     [Fact]
     public async Task Expired_entries_are_excluded_from_query_recall_too()

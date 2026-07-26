@@ -3,7 +3,6 @@ using Lyntai;
 using Lyntai.Llm;
 using Lyntai.Llm.Caching;
 using Lyntai.Tests.Fakes;
-using Lyntai.Tests.Jobs;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Llm;

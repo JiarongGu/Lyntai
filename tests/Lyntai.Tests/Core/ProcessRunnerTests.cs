@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Lyntai.Processes;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Core;
 
@@ -249,10 +250,7 @@ public class ProcessRunnerTests
     [Fact]
     public async Task Abandoning_the_stream_kills_the_child_process()
     {
-        var dir = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-dbs"));
-        Directory.CreateDirectory(dir);
-        var heartbeat = Path.Combine(dir, $"heartbeat-{Guid.NewGuid():N}.txt");
+        var heartbeat = Path.Combine(TestPaths.TestDbsDir, $"heartbeat-{Guid.NewGuid():N}.txt");
         try
         {
             // child appends a heartbeat every 100ms forever; the enumerator is abandoned after
@@ -298,10 +296,7 @@ public class ProcessRunnerTests
         // shim's child .exe writes its own bytes through the inherited pipe; PS 5.1 doesn't re-encode them).
         if (!OperatingSystem.IsWindows()) return; // .ps1 hosting via powershell.exe is a Windows concern
 
-        var dir = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-scratch"));
-        Directory.CreateDirectory(dir);
-        var ps1 = Path.Combine(dir, $"shim-{Guid.NewGuid():N}.ps1");
+        var ps1 = Path.Combine(TestPaths.TestScratchDir, $"shim-{Guid.NewGuid():N}.ps1");
         await File.WriteAllTextAsync(ps1, "param($arg) Write-Output \"ps1-shim-ran:$arg\"\n");
         try
         {

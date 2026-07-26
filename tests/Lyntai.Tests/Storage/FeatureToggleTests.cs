@@ -5,7 +5,6 @@ using Lyntai.Storage;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Storage.Sqlite.Migrations;
 using Lyntai.Tests.Fakes;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Storage;
@@ -14,24 +13,18 @@ namespace Lyntai.Tests.Storage;
 /// driven by per-migration <c>[Tags(nameof(StorageFeature.X))]</c> + the runner's active tag set.</summary>
 public class FeatureToggleTests : IDisposable
 {
-    private readonly string _dir = System.IO.Path.GetFullPath(System.IO.Path.Combine(
-        AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-dbs"));
-    private readonly List<string> _paths = [];
+    private readonly List<TempDbPath> _dbs = [];
 
     private string FreshPath()
     {
-        System.IO.Directory.CreateDirectory(_dir);
-        var p = System.IO.Path.Combine(_dir, $"features-{Guid.NewGuid():N}.db");
-        _paths.Add(p);
-        return p;
+        var db = new TempDbPath("features"); // fresh un-migrated path — selective migration is the point
+        _dbs.Add(db);
+        return db.Path;
     }
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
-        foreach (var p in _paths)
-            foreach (var f in new[] { p, p + "-wal", p + "-shm" })
-                try { System.IO.File.Delete(f); } catch { /* gitignored scratch */ }
+        foreach (var db in _dbs) db.Dispose();
     }
 
     private static bool TableExists(SqliteConnectionFactory factory, string table)

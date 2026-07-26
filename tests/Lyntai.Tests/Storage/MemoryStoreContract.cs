@@ -233,11 +233,36 @@ public static class MemoryStoreContract
         Assert.Equal(12, (await store.RecallAsync(key)).Count); // no cap/budget → all kept
     }
 
+    public static async Task Limit_caps_results_and_composes_with_scope(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "a", "alpha fact one");
+        await store.RememberAsync(key, "a", "alpha fact two");
+        await store.RememberAsync(key, "a", "alpha fact three");
+        await store.RememberAsync(key, "b", "beta fact");
+
+        var hits = await store.RecallAsync(key, scope: "a", limit: 2);
+        Assert.Equal(2, hits.Count);                       // limit caps the result count...
+        Assert.All(hits, h => Assert.Equal("a", h.Scope)); // ...and composes with the scope filter
+    }
+
     public static async Task Forget_clears_a_task(IMemoryStore store, string key)
     {
         await store.RememberAsync(key, "s", "x");
         await store.ForgetAsync(key);
         Assert.Empty(await store.RecallAsync(key));
+    }
+
+    public static async Task Forget_scoped_clears_only_that_scope(IMemoryStore store, string key)
+    {
+        await store.RememberAsync(key, "a", "fact in a");
+        await store.RememberAsync(key, "b", "fact in b");
+
+        await store.ForgetAsync(key, scope: "a");
+
+        Assert.Empty(await store.RecallAsync(key, scope: "a")); // the forgotten scope is empty
+        var b = await store.RecallAsync(key, scope: "b");       // the sibling scope is untouched
+        Assert.Single(b);
+        Assert.Equal("fact in b", b[0].Content);
     }
 
     public static async Task Recall_is_fail_open_on_empty_query(IMemoryStore store, string key)

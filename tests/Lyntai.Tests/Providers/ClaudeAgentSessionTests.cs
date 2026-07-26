@@ -1,65 +1,17 @@
-using System.Runtime.CompilerServices;
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Llm;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
+using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Providers;
 
-/// <summary>Tests for ClaudeAgentArgs, ClaudeAgentSession, ClaudeToolCalls, and the DI registration.</summary>
+/// <summary>Tests for ClaudeAgentArgs, ClaudeAgentSession, ClaudeToolCalls, and the DI registration.
+/// The process seam is the shared <see cref="FakeProcessRunner"/> (scripted stream lines, yield-then-throw).</summary>
 public class ClaudeAgentSessionTests
 {
-    // ── Fake runner ───────────────────────────────────────────────────────────
-
-    private sealed class FakeAgentRunner : IProcessRunner
-    {
-        private readonly IReadOnlyList<string> _lines;
-        private readonly Exception? _throws;
-
-        public string? LastCommand { get; private set; }
-        public IReadOnlyList<string>? LastArgs { get; private set; }
-        public string? LastStdin { get; private set; }
-        public string? LastWorkingDirectory { get; private set; }
-
-        public FakeAgentRunner(IReadOnlyList<string>? lines = null, Exception? throws = null)
-        {
-            _lines = lines ?? [];
-            _throws = throws;
-        }
-
-        public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
-            TimeSpan? timeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
-            IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
-            => Task.FromResult(new ProcessResult(0, string.Empty, string.Empty, TimedOut: false));
-
-        public async IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,
-            string? stdin = null, TimeSpan? timeout = null, string? workingDirectory = null,
-            IReadOnlyDictionary<string, string>? environment = null,
-            [EnumeratorCancellation] CancellationToken ct = default)
-        {
-            LastCommand = command;
-            LastArgs = args;
-            LastStdin = stdin;
-            LastWorkingDirectory = workingDirectory;
-
-            foreach (var line in _lines)
-            {
-                ct.ThrowIfCancellationRequested();
-                yield return line;
-                await Task.Yield();
-            }
-
-            if (_throws is not null)
-            {
-                // yield lines first, then throw (as ProcessRunner does: yields lines so far, then throws)
-                await Task.Yield();
-                throw _throws;
-            }
-        }
-    }
-
     // ── Shared stream-json fixture ────────────────────────────────────────────
 
     private static readonly string[] FullTranscript =
@@ -279,6 +231,25 @@ public class ClaudeAgentSessionTests
     }
 
     [Fact]
+    public void Build_skip_all_permissions_with_readonly_policy_keeps_write_tools_disallowed()
+    {
+        // the documented invariant: the ReadOnly denial is still honored under the bypass — skipping
+        // permission PROMPTS must not re-enable the write tools the policy disallows
+        var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.ReadOnly, SkipAllPermissions = true };
+        var argv = ClaudeAgentArgs.Build(opts).ToList();
+
+        Assert.Contains("--dangerously-skip-permissions", argv);
+        Assert.DoesNotContain("--permission-mode", argv); // the CLI rejects combining the two
+
+        var dtIdx = argv.IndexOf("--disallowed-tools");
+        Assert.True(dtIdx >= 0, "ReadOnly denial must survive the bypass");
+        var dtVal = argv[dtIdx + 1];
+        Assert.Contains("Edit", dtVal);
+        Assert.Contains("Write", dtVal);
+        Assert.Contains("NotebookEdit", dtVal);
+    }
+
+    [Fact]
     public void Build_without_skip_all_permissions_does_not_emit_dangerous_flag()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write };
@@ -293,7 +264,7 @@ public class ClaudeAgentSessionTests
     [Fact]
     public async Task StreamAsync_happy_path_yields_ordered_events_with_correct_session_id()
     {
-        var runner = new FakeAgentRunner(FullTranscript);
+        var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         var opts = new AgentSessionOptions { Prompt = "do the thing", WorkingDirectory = "/work/dir" };
@@ -312,7 +283,7 @@ public class ClaudeAgentSessionTests
     [Fact]
     public async Task StreamAsync_prompt_goes_over_stdin_not_argv()
     {
-        var runner = new FakeAgentRunner(FullTranscript);
+        var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         var opts = new AgentSessionOptions { Prompt = "my prompt text", WorkingDirectory = "/work" };
@@ -325,7 +296,7 @@ public class ClaudeAgentSessionTests
     [Fact]
     public async Task StreamAsync_working_directory_passed_to_runner()
     {
-        var runner = new FakeAgentRunner(FullTranscript);
+        var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         var opts = new AgentSessionOptions { Prompt = "hi", WorkingDirectory = "/project/root" };
@@ -337,7 +308,7 @@ public class ClaudeAgentSessionTests
     [Fact]
     public async Task RunAsync_fold_returns_final_text_and_session_id()
     {
-        var runner = new FakeAgentRunner(FullTranscript);
+        var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         var result = await session.RunAsync(new AgentSessionOptions { Prompt = "fold me" });
@@ -351,7 +322,7 @@ public class ClaudeAgentSessionTests
     public async Task StreamAsync_process_run_exception_yields_error_terminal_event()
     {
         var ex = new ProcessRunException("claude", 1, "boom stderr");
-        var runner = new FakeAgentRunner(throws: ex);
+        var runner = new FakeProcessRunner(throwsAfterLines: ex);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         var events = await session.StreamAsync(new AgentSessionOptions { Prompt = "hi" }).ToListAsync();
@@ -365,7 +336,7 @@ public class ClaudeAgentSessionTests
     public async Task StreamAsync_process_timeout_yields_timeout_terminal_event()
     {
         var ex = new ProcessTimeoutException("claude", TimeSpan.FromSeconds(30));
-        var runner = new FakeAgentRunner(throws: ex);
+        var runner = new FakeProcessRunner(throwsAfterLines: ex);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         var events = await session.StreamAsync(new AgentSessionOptions { Prompt = "hi" }).ToListAsync();
@@ -379,7 +350,7 @@ public class ClaudeAgentSessionTests
     public async Task StreamAsync_no_output_yields_failed_terminal_event()
     {
         // Fake runner yields zero lines and exits cleanly (no exception)
-        var runner = new FakeAgentRunner([]);
+        var runner = new FakeProcessRunner([]);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         var events = await session.StreamAsync(new AgentSessionOptions { Prompt = "hi" }).ToListAsync();
@@ -396,7 +367,7 @@ public class ClaudeAgentSessionTests
         // The result line makes the reader emit SessionEnded(Ok); the process then throws. The
         // !sawTerminal guard must suppress a second terminal — exactly one SessionEnded, and it's the Ok one.
         var ex = new ProcessRunException("claude", 1, "boom stderr");
-        var runner = new FakeAgentRunner(FullTranscript, ex);
+        var runner = new FakeProcessRunner(FullTranscript, ex);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         var events = new List<AgentStreamEvent>();
@@ -415,7 +386,7 @@ public class ClaudeAgentSessionTests
         using var cts = new CancellationTokenSource();
 
         // A runner that yields one line then checks cancellation
-        var runner = new FakeAgentRunner(FullTranscript);
+        var runner = new FakeProcessRunner(FullTranscript);
         var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
 
         cts.Cancel(); // cancel immediately
@@ -478,7 +449,7 @@ public class ClaudeAgentSessionTests
     [Fact]
     public void AddClaudeCliAgentSession_registers_IAgentSession_as_ClaudeAgentSession()
     {
-        var runner = new FakeAgentRunner();
+        var runner = new FakeProcessRunner();
         var services = new ServiceCollection();
         services.AddSingleton<IProcessRunner>(runner);
         services.AddLyntai(b => b.AddClaudeCliAgentSession());
@@ -486,17 +457,5 @@ public class ClaudeAgentSessionTests
 
         var agentSession = sp.GetRequiredService<IAgentSession>();
         Assert.IsType<ClaudeAgentSession>(agentSession);
-    }
-}
-
-// Helper extension to collect async enumerable
-file static class AsyncEnumerableExtensions
-{
-    public static async Task<List<T>> ToListAsync<T>(this IAsyncEnumerable<T> source, CancellationToken ct = default)
-    {
-        var list = new List<T>();
-        await foreach (var item in source.WithCancellation(ct).ConfigureAwait(false))
-            list.Add(item);
-        return list;
     }
 }

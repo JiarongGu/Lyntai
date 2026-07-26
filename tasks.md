@@ -15,10 +15,62 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ## Active backlog
 
-_None — backlog clear._ The last close (2026-07-26) was Part 13: the agent-manager desktop-adoption gaps
-(CLI1 headless skip-permissions · TL1 tool-loop usage · TL2 `IToolLoop.StreamAsync` · PR1 `.ps1` shim
-hosting) and the Sonora curated-memory papercuts (CM1 dedup-on-add · CM2 `scope` filter on `ListAsync`) —
-see [`docs/task-archive.md`](docs/task-archive.md).
+### Deferred from the 2026-07-26 foundation-hardening pass
+The whole-library review (6 parallel reviewers, ~80 findings) landed its correctness + dedup clusters
+(see `CHANGELOG.md` Unreleased). These remaining findings were TRIAGED AND DEFERRED deliberately — each
+with the reason; pick up when the trade-off changes.
+
+- [ ] **P5 — extract the 5×-copied provider streaming read-loop into a Core helper.** Every streaming
+  provider (`ExtensionsAiProvider`, `OpenAiCompatibleProvider`, `LocalProvider`, `ClaudeCliProvider`,
+  `ClaudeAgentSession`) hand-rolls the same manual-enumerator + inactivity-clock re-arm + OCE-filter +
+  map-exception-to-terminal loop — the exact pattern that shipped the wall-clock bug twice. Deferred:
+  yield/finally semantics must be preserved exactly; do it TDD against the existing inactivity tests as
+  its own focused task, not inside a broad pass. Sketch in the review: `Lyntai.Llm.Streaming.ReadWithInactivityClock<T>`.
+- [ ] **I5 — ProcessRunner shared session/reap extraction.** `RunAsync`/`StreamLinesAsync` share ~45 lines
+  of spawn/stderr-drain/kill-registration/reap scaffolding. The I2 hang fix already landed; the extraction
+  is cleanliness. Keep the two CLOCK topologies separate (buffered dual-clock vs streamed single-clock —
+  they are different contracts).
+- [ ] **P3 — Azure OpenAI preset endpoint shape.** `AddAzureOpenAiProvider`'s documented endpoint example
+  likely 404s (`/v1/...` vs `/openai/v1/...`) and Azure key auth conventionally uses the `api-key` header.
+  Needs verification against a real Azure resource before changing `Endpoint()` — don't fix blind.
+- [ ] **L8 — async `IUsageTracker`.** The sync `Total()` is a pre-call read on EVERY budgeted request — a
+  blocking network round-trip with the Postgres tracker. Breaking interface change (3 impls + baseline);
+  do as its own task.
+- [ ] **S8 — move the remaining 4 Row-DTO pairs (trace/score/prompt-version/usage) to Core** like
+  `JobRow`. Deferred: pure materialization with zero dialect content — inert duplication, no fencing-style
+  drift risk; weigh the Core-surface bloat before doing it.
+- [ ] **S3 — shared cap-evict SQL for the memory stores.** The `DELETE … NOT IN (SELECT … LIMIT @cap)`
+  statement is char-identical in both dialects (count-cap semantics now in three places incl.
+  `MemoryEviction.Survivors`). A raw-`DbCommand` helper beside `MemoryEviction.ApplyAsync` would
+  single-source it without giving Core a Dapper dependency.
+- [ ] **S11 — drop the `(object?)x ?? DBNull.Value` dance in the Postgres stores** for typed nullable
+  params (Dapper binds C# null as DBNull already); keep `::type` casts only where Npgsql can't infer.
+  Do under the Testcontainers suite — Npgsql null-inference has edge cases.
+- [ ] **T11 — convert the storage contract classes to abstract-class-with-[Fact]s** so a backend can't
+  silently skip a contract method (the mechanism that produced the PG coverage holes). Postgres keeps its
+  deliberate Uid-subset delegators.
+- [ ] **T4 remnants — Postgres coverage:** `IJobStore.FailAsync` (retry-requeue timestamp math) has no PG
+  test; the usage-tracker case-sensitivity test lacks its PG leg; response-cache `MaxEntries` eviction is
+  SQLite-only; `Curated_memory_crud_and_filters` (PostgresStorageTests) still hand-copies contract methods.
+- [ ] **T5 — mid-stream CALLER-cancellation tests** (router after first committed chunk; agent session
+  mid-stream) — OCE must propagate, no fallback, no bogus terminal. **T9** — promote the remaining
+  SQLite-only memory-lifecycle semantics (TTL-refresh, recency-refresh, scoped/olderThan prune) into
+  `MemoryStoreContract`. **T10** — pin curated-dedup casing + write the parallel dedup race test.
+- [ ] **T14 — de-flake the two wall-clock-coupled tests** (`Abandoning_the_stream_kills_the_child`'s fixed
+  sleeps → bounded polling; `PerRequestTimeoutTests`' real-delay races → a ct-driven `DelayHandler`).
+- [ ] **L10/L11 — rate-limiter half-live options claim + `LlmVerdictClassifier` custom-matcher
+  lock/copy-per-call** — both small; bundle with the next LLM-area task.
+- [ ] **I14 — bound `StreamLinesAsync`'s stderr capture** (it buffers ALL stderr but only ever uses a
+  500-char tail) with a ring/tail reader.
+- [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
+  `JsonSerializerContext` DTOs for the STABLE response envelopes only, if envelope-parsing bugs ever
+  materialize. Not a license to reintroduce reflection serialization.
+
+> The pass's REJECTED findings (deliberately not taken, don't re-open without new evidence): S14/I8
+> (a shared clock-default helper — 1 line per class, public-surface cost outweighs it), I12b (the
+> "duplicate" AdmitAll default serves DI vs direct construction), I15 (builder `Collect` helpers — the
+> per-seam XML docs are the value, the bodies are 2 lines), L12 (cache-TTL dual default — harmless,
+> env-governed), P13 (ClaudeCli `id` ctor param — two same-process claude registrations is exotic).
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a

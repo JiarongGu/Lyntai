@@ -2,31 +2,15 @@ using Lyntai;
 using Lyntai.Cortex;
 using Lyntai.Storage;
 using Lyntai.Tests.Fakes;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Storage;
 
 public class UseSqliteStorageTests : IDisposable
 {
-    private readonly string _dbPath;
+    private readonly TempDbPath _db = new("use-sqlite"); // fresh un-migrated path (UseSqliteStorage migrates)
 
-    public UseSqliteStorageTests()
-    {
-        var dir = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-dbs"));
-        Directory.CreateDirectory(dir);
-        _dbPath = Path.Combine(dir, $"use-sqlite-{Guid.NewGuid():N}.db");
-    }
-
-    public void Dispose()
-    {
-        SqliteConnection.ClearAllPools();
-        foreach (var f in new[] { _dbPath, _dbPath + "-wal", _dbPath + "-shm" })
-        {
-            try { File.Delete(f); } catch { }
-        }
-    }
+    public void Dispose() => _db.Dispose();
 
     [Fact]
     public async Task Every_store_resolves_and_round_trips()
@@ -34,7 +18,7 @@ public class UseSqliteStorageTests : IDisposable
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("fake"))
-            .UseSqliteStorage(_dbPath));
+            .UseSqliteStorage(_db.Path));
         using var sp = services.BuildServiceProvider();
 
         var kv = sp.GetRequiredService<IKeyValueStore>();

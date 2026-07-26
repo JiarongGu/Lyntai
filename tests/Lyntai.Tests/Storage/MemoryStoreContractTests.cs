@@ -23,7 +23,9 @@ public class InMemoryMemoryStoreContractTests
     [Fact] public Task Scope_dedup() => MemoryStoreContract.Different_scopes_are_not_deduped_together(New(), "k");
     [Fact] public Task Ttl() { var s = New(); return MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(s, "k", by => _now += by); }
     [Fact] public Task Cap() => MemoryStoreContract.Cap_trims_to_the_newest_entries(New(), "k");
+    [Fact] public Task Limit_scope() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(New(), "k");
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
+    [Fact] public Task Forget_scoped() => MemoryStoreContract.Forget_scoped_clears_only_that_scope(New(), "k");
     [Fact] public Task Fail_open() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(New(), "k");
     [Fact] public Task Lru() { var s = NewWith(MemoryRetentionPolicy.CountCap(3, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_evicts_least_recently_recalled(s, "k", by => _now += by); }
     [Fact] public Task Lru_bare() { var s = NewWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_bare_recall_does_not_refresh_recency(s, "k", by => _now += by); }
@@ -56,7 +58,9 @@ public class SqliteMemoryStoreContractTests : IDisposable
     [Fact] public Task Scope_dedup() => MemoryStoreContract.Different_scopes_are_not_deduped_together(New(), "k");
     [Fact] public Task Ttl() { var s = New(); return MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(s, "k", by => _now += by); }
     [Fact] public Task Cap() => MemoryStoreContract.Cap_trims_to_the_newest_entries(New(), "k");
+    [Fact] public Task Limit_scope() => MemoryStoreContract.Limit_caps_results_and_composes_with_scope(New(), "k");
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
+    [Fact] public Task Forget_scoped() => MemoryStoreContract.Forget_scoped_clears_only_that_scope(New(), "k");
     [Fact] public Task Fail_open() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(New(), "k");
     [Fact] public Task Lru() { var s = NewWith(MemoryRetentionPolicy.CountCap(3, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_evicts_least_recently_recalled(s, "k", by => _now += by); }
     [Fact] public Task Lru_bare() { var s = NewWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru)); return MemoryStoreContract.Lru_bare_recall_does_not_refresh_recency(s, "k", by => _now += by); }

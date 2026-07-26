@@ -12,13 +12,6 @@ public class LlmRouterStreamTests
     private static LlmRouter Router(params ILlmProvider[] providers) =>
         new(providers, new DeadHostTracker(), new LyntaiOptions());
 
-    private static async Task<List<LlmChunk>> Collect(IAsyncEnumerable<LlmChunk> stream)
-    {
-        var chunks = new List<LlmChunk>();
-        await foreach (var c in stream) chunks.Add(c);
-        return chunks;
-    }
-
     [Fact]
     public async Task Pre_content_failure_falls_over_to_next_candidate()
     {
@@ -31,7 +24,7 @@ public class LlmRouterStreamTests
             StreamScript = _ => [LlmChunk.Content("hello "), LlmChunk.Content("world"), LlmChunk.Final()],
         };
 
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal(["hello ", "world"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
         Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
@@ -45,7 +38,7 @@ public class LlmRouterStreamTests
         var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("hi"), LlmChunk.Final()] };
 
         // no caller cancellation → the provider's OWN OCE must not abort the router; it falls over to p2
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal(["hi"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
         Assert.Equal(1, p2.StreamCalls);
@@ -65,7 +58,7 @@ public class LlmRouterStreamTests
             StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()],
         };
 
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal("recovered",
             string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content && c.Text.Length > 0).Select(c => c.Text)));
@@ -78,7 +71,7 @@ public class LlmRouterStreamTests
         var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [] };
         var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()] };
 
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal("recovered", string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(1, p2.StreamCalls);
@@ -89,7 +82,7 @@ public class LlmRouterStreamTests
     {
         var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [] };
 
-        var chunks = await Collect(Router(p1).StreamAsync([new("p1")], Req));
+        var chunks = await Router(p1).StreamAsync([new("p1")], Req).ToListAsync();
 
         var only = Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, only.Kind);
@@ -102,7 +95,7 @@ public class LlmRouterStreamTests
         var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [LlmChunk.Final()] };
         var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Content("recovered"), LlmChunk.Final()] };
 
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal("recovered", string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
         Assert.Equal(1, p2.StreamCalls);
@@ -117,7 +110,7 @@ public class LlmRouterStreamTests
         };
         var p2 = new FakeLlmProvider("p2");
 
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal(2, chunks.Count);
         Assert.Equal("partial", chunks[0].Text);
@@ -134,7 +127,7 @@ public class LlmRouterStreamTests
                 LlmChunk.Final(new LlmUsage(10, 3))],
         };
 
-        var chunks = await Collect(Router(p1).StreamAsync([new("p1")], Req));
+        var chunks = await Router(p1).StreamAsync([new("p1")], Req).ToListAsync();
 
         Assert.Equal(["a", "b", "c"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
         Assert.Equal(10, chunks[^1].Usage!.InputTokens);
@@ -153,7 +146,7 @@ public class LlmRouterStreamTests
             StreamScript = _ => [LlmChunk.Content("fallback stream"), LlmChunk.Final()],
         };
 
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Equal("fallback stream",
             string.Concat(chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text)));
@@ -169,7 +162,7 @@ public class LlmRouterStreamTests
         };
         var p2 = new FakeLlmProvider("p2");
 
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Single(chunks);
         Assert.Equal(LlmVerdict.Refused, chunks[0].Verdict);
@@ -182,7 +175,7 @@ public class LlmRouterStreamTests
         var p1 = new FakeLlmProvider("p1") { StreamScript = _ => [LlmChunk.Error(LlmVerdict.Failed, "one")] };
         var p2 = new FakeLlmProvider("p2") { StreamScript = _ => [LlmChunk.Error(LlmVerdict.Timeout, "two")] };
 
-        var chunks = await Collect(Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req));
+        var chunks = await Router(p1, p2).StreamAsync([new("p1"), new("p2")], Req).ToListAsync();
 
         Assert.Single(chunks);
         Assert.Equal(LlmVerdict.Timeout, chunks[0].Verdict);

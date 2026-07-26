@@ -8,7 +8,6 @@ using Lyntai.Jobs;
 using Lyntai.Llm;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
-using Lyntai.Tests.Jobs;
 
 namespace Lyntai.Tests.Core;
 

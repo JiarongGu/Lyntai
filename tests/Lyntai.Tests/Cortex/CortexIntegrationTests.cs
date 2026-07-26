@@ -4,7 +4,7 @@ using Lyntai.Cortex.Scorers;
 using Lyntai.Llm;
 using Lyntai.Prompts;
 using Lyntai.Storage;
-using Microsoft.Data.Sqlite;
+using Lyntai.Tests.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Cortex;
@@ -14,22 +14,17 @@ namespace Lyntai.Tests.Cortex;
 [Collection("provider-cmd-env")] // uses LYNTAI_PROVIDER_CMD for the judge's claude-cli call
 public class CortexIntegrationTests : IDisposable
 {
-    private readonly string _dbPath;
+    private readonly TempDbPath _db = new("cortex"); // fresh un-migrated path (UseSqliteStorage migrates)
     private readonly ServiceProvider _sp;
 
     public CortexIntegrationTests()
     {
         Environment.SetEnvironmentVariable("LYNTAI_PROVIDER_CMD", Providers.ClaudeCliProviderTests.StubCommand);
 
-        var dir = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "devtools", "_test-dbs"));
-        Directory.CreateDirectory(dir);
-        _dbPath = Path.Combine(dir, $"cortex-{Guid.NewGuid():N}.db");
-
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddClaudeCliProvider()
-            .UseSqliteStorage(_dbPath)
+            .UseSqliteStorage(_db.Path)
             .AddScorer<OutcomeScorer>()
             .AddScorer<RelevancyScorer>()
             .DefaultCandidates("claude-cli"));
@@ -40,11 +35,7 @@ public class CortexIntegrationTests : IDisposable
     {
         _sp.Dispose();
         Environment.SetEnvironmentVariable("LYNTAI_PROVIDER_CMD", null);
-        SqliteConnection.ClearAllPools();
-        foreach (var f in new[] { _dbPath, _dbPath + "-wal", _dbPath + "-shm" })
-        {
-            try { File.Delete(f); } catch { }
-        }
+        _db.Dispose();
     }
 
     [Fact] // 5.1 — prompt override persisted in SQLite KV changes the rendered prompt
