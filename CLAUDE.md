@@ -45,8 +45,13 @@ v0.30 = agent-adoption ergonomics — headless `SkipAllPermissions`, `ToolLoopRe
 `IToolLoop.StreamAsync`, `.ps1` shim hosting, curated dedup/`scope` — plus a TWO-ROUND whole-library
 hardening pass: correctness fixes across router/guards/orchestrator/prompts/storage/DI, structural dedup
 (`JobStoreSql`+`JobRow` shared state machine, `DelegatingLlmClient` decorator base,
-`LazyMigratingConnectionFactory`, async `OpenAsync` sweep), case-insensitive consumer identity end-to-end,
-and the deferred findings recorded as the `tasks.md` backlog / `docs/DECISIONS.md` D18):
+`LazyMigratingConnectionFactory`, async `OpenAsync` sweep), case-insensitive consumer identity end-to-end.
+**UNRELEASED on master (post-0.30, held for adoption — see CHANGELOG `Unreleased` + ROADMAP):** the
+1.0-prep batch (push/PR CI, SourceLink, Azure OpenAI flavor, the final API sign-off's breaking
+renames/reshapes — `docs/DECISIONS.md` D19), the titled+searchable curated catalog (CMEM3 `Title` /
+CMEM4 `SearchAsync`), and the FULL hardening-deferral burn-down (archive Part 23; `GuardedStream`
+provider read-loop, live rate-limiter options, contract-facts test bases, PG coverage closed — the
+rejected items are D18). 1.0 is ADOPTION-gated, all technical gates done):
 `ILlmClient` front door (to a
 consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
