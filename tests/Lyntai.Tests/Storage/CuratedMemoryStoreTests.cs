@@ -19,11 +19,11 @@ public abstract class CuratedMemoryStoreContractFacts
     [Fact] public Task Dedup_add() => CuratedMemoryStoreContract.Dedup_add_is_idempotent(NewStore());
     [Fact] public Task Dedup_case() => CuratedMemoryStoreContract.Dedup_identity_is_case_sensitive(NewStore());
     [Fact] public Task Dedup_race() => CuratedMemoryStoreContract.Dedup_add_race_settles_to_a_stable_id(NewStore());
-    [Fact] public Task Clear_source() => CuratedMemoryStoreContract.Update_with_empty_source_clears_it(NewStore());
     [Fact] public Task Remove() => CuratedMemoryStoreContract.Remove_deletes(NewStore());
     [Fact] public Task ForComposition() => CuratedMemoryStoreContract.ForComposition_filters_by_task_and_scope(NewStore());
-    [Fact] public Task Title() => CuratedMemoryStoreContract.Title_round_trips_updates_and_clears(NewStore());
-    [Fact] public Task Search() => CuratedMemoryStoreContract.Search_matches_content_and_title_with_filters(NewStore());
+    [Fact] public Task Metadata() => CuratedMemoryStoreContract.Metadata_round_trips_updates_and_clears(NewStore());
+    [Fact] public Task Metadata_filter() => CuratedMemoryStoreContract.Metadata_filter_matches_all_pairs(NewStore());
+    [Fact] public Task Search() => CuratedMemoryStoreContract.Search_matches_content_with_filters(NewStore());
     [Fact] public Task Search_cjk() => CuratedMemoryStoreContract.Search_recalls_cjk_substrings(NewStore());
 }
 

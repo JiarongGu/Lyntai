@@ -41,8 +41,6 @@ public static class CuratedMemorySections
             foreach (var entry in group.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id))
             {
                 sb.Append(bullet);
-                // a titled entry leads with its bold label; null/empty title = untitled, content-only
-                if (!string.IsNullOrEmpty(entry.Title)) sb.Append("**").Append(entry.Title).Append("**: ");
                 sb.Append(entry.Content).Append('\n');
             }
         }

@@ -1,3 +1,5 @@
+using System.Data.Common;
+using System.Text;
 using Dapper;
 using Lyntai.Storage;
 using Microsoft.Extensions.Logging;
@@ -6,24 +8,30 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Storage.Postgres;
 
 /// <summary>PostgreSQL <see cref="ICuratedMemoryStore"/> over <c>lyntai_curated_memory</c>. CRUD plus
-/// keyword <see cref="SearchAsync"/> (pg_trgm-accelerated ILIKE substring over content/title,
-/// recency-ranked, fail-open — the same machinery as <see cref="PostgresMemoryStore"/>); <c>enabled</c>
-/// is a native BOOLEAN and timestamps are <c>timestamptz</c>. Nullable update params carry <c>::</c>
-/// casts so a NULL "leave unchanged" resolves its type.</summary>
+/// keyword <see cref="SearchAsync"/> (content-only pg_trgm-accelerated ILIKE substring, recency-ranked,
+/// fail-open — the same machinery as <see cref="PostgresMemoryStore"/>); <c>enabled</c> is a native BOOLEAN
+/// and timestamps are <c>timestamptz</c>. Arbitrary <c>string→string</c> metadata is one opaque JSON
+/// <c>metadata</c> TEXT column (via <see cref="CuratedMetadataJson"/> — no <c>jsonb</c> needed, the query
+/// index does the work); each pair is mirrored into the plain relational <c>lyntai_curated_meta</c> index
+/// (kept in sync in the write transaction; the FK cascade clears it on delete). Nullable update params
+/// carry <c>::</c> casts so a NULL "leave unchanged" resolves its type.</summary>
 public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
     ILogger<PostgresCuratedMemoryStore>? logger = null, Func<DateTimeOffset>? clock = null) : ICuratedMemoryStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<PostgresCuratedMemoryStore>.Instance;
-    // the released schema's column is `task`; the record parameter is TaskKey — alias so Dapper's
-    // constructor-name matching maps task_key → TaskKey. WHERE/INSERT keep the bare `task` column name.
-    private const string Cols = "id, kind, content, source, enabled, created_at, updated_at, task AS task_key, scope, title";
+    // the released schema's column is `task`; the row property is TaskKey — alias so Dapper's
+    // name matching maps task_key → TaskKey. WHERE/INSERT keep the bare `task` column name.
+    private const string Cols = "id, kind, content, enabled, created_at, updated_at, task AS task_key, scope, metadata";
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
-    public async Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? taskKey = null, string? scope = null, bool dedup = false, string? title = null, CancellationToken ct = default)
+    public async Task<long> AddAsync(string kind, string content, bool enabled = true,
+        string? taskKey = null, string? scope = null, bool dedup = false,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
     {
         var now = _clock();
+        var metaJson = CuratedMetadataJson.Serialize(metadata);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
         if (dedup)
         {
             // idempotent on the (kind, content, taskKey, scope) identity. IS NOT DISTINCT FROM is the null-safe
@@ -33,37 +41,50 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
                 WHERE kind = @kind AND content = @content
                   AND task IS NOT DISTINCT FROM @task::text AND scope IS NOT DISTINCT FROM @scope::text
                 ORDER BY id LIMIT 1
-                """, new { kind, content, task = taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
-            if (existing is { } id) return id;
+                """, new { kind, content, task = taskKey, scope }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (existing is { } dupId) { await tx.CommitAsync(ct).ConfigureAwait(false); return dupId; }
         }
-        return await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
-            INSERT INTO lyntai_curated_memory (kind, content, source, enabled, created_at, updated_at, task, scope, title)
-            VALUES (@kind, @content, @source, @enabled, @now, @now, @task, @scope, @title)
+        var id = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
+            INSERT INTO lyntai_curated_memory (kind, content, enabled, created_at, updated_at, task, scope, metadata)
+            VALUES (@kind, @content, @enabled, @now, @now, @task, @scope, @metaJson::text)
             RETURNING id
-            """, new { kind, content, enabled, now, source, task = taskKey, scope, title }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { kind, content, enabled, now, task = taskKey, scope, metaJson }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        await WriteMetaAsync(conn, tx, id, metadata, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return id;
     }
 
-    public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
-        string? title = null, string? kind = null, CancellationToken ct = default)
+    public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
     {
         var now = _clock();
+        var replaceMeta = metadata is not null;                    // non-null (incl. empty) = replace; null = leave
+        var metaJson = replaceMeta ? CuratedMetadataJson.Serialize(metadata) : null;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var n = await conn.ExecuteAsync(new CommandDefinition("""
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var n = await conn.ExecuteAsync(new CommandDefinition($$"""
             UPDATE lyntai_curated_memory
             SET content = COALESCE(@content::text, content),
                 enabled = COALESCE(@enabled::boolean, enabled),
-                source  = COALESCE(@source::text, source),
-                title   = COALESCE(@title::text, title),
                 kind    = COALESCE(@kind::text, kind),
+                {{(replaceMeta ? "metadata = @metaJson::text," : "")}}
                 updated_at = @now
             WHERE id = @id
-            """, new { id, now, content, enabled, source, title, kind }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { id, now, content, enabled, kind, metaJson }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (replaceMeta && n > 0)
+        {
+            await conn.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM lyntai_curated_meta WHERE memory_id = @id", new { id }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+            await WriteMetaAsync(conn, tx, id, metadata, ct).ConfigureAwait(false);
+        }
+        await tx.CommitAsync(ct).ConfigureAwait(false);
         return n > 0;
     }
 
     public async Task<bool> RemoveAsync(long id, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // lyntai_curated_meta FK is ON DELETE CASCADE — index rows go with the entry
         var n = await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM lyntai_curated_memory WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
         return n > 0;
@@ -72,47 +93,52 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
     public async Task<CuratedMemory?> GetAsync(long id, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        return await conn.QuerySingleOrDefaultAsync<CuratedMemory>(new CommandDefinition(
+        var row = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
             $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
+        return row?.ToRecord();
     }
 
     public async Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
-        string? taskKey = null, string? scope = null, int? limit = null, CancellationToken ct = default)
+        string? taskKey = null, string? scope = null, int? limit = null,
+        IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
+        var p = new DynamicParameters(new { kind, enabledOnly, task = taskKey, scope, limit });
+        var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // @limit NULL → LIMIT ALL (no cap); enabledOnly is a plain bool predicate; taskKey/scope are strict equality
-        var rows = await conn.QueryAsync<CuratedMemory>(new CommandDefinition($"""
+        var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (@kind::text IS NULL OR kind = @kind) AND (@task::text IS NULL OR task = @task)
-              AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled)
+              AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled){meta}
             -- COLLATE "C" (byte-ordinal) so the text sort matches SQLite's default BINARY collation rather
             -- than the Postgres DB locale collation — identical curated list order across backends.
             ORDER BY kind COLLATE "C", created_at, id
             LIMIT @limit
-            """, new { kind, enabledOnly, task = taskKey, scope, limit }, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows];
+            """, p, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows.Select(r => r.ToRecord())];
     }
 
     public async Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null, string? taskKey = null,
-        string? scope = null, bool enabledOnly = false, int? limit = null, CancellationToken ct = default)
+        string? scope = null, bool enabledOnly = false, int? limit = null,
+        IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(query)) return [];
         try
         {
-            var pattern = LikePattern.Contains(query);
+            var p = new DynamicParameters(new { pattern = LikePattern.Contains(query), enabledOnly, kind, task = taskKey, scope, limit });
+            var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-            // contiguous-substring ILIKE over content OR title (trigram-accelerated by the gin indexes),
-            // recency-ranked — same semantics as PostgresMemoryStore.RecallAsync (see the divergence note
-            // on ICuratedMemoryStore.SearchAsync). A NULL title never matches (NULL ILIKE → NULL → false).
-            var rows = await conn.QueryAsync<CuratedMemory>(new CommandDefinition($"""
+            // contiguous-substring ILIKE over CONTENT (trigram-accelerated by the gin index), recency-ranked —
+            // same semantics as PostgresMemoryStore.RecallAsync (see the divergence note on ICuratedMemoryStore.SearchAsync).
+            var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
                 SELECT {Cols} FROM lyntai_curated_memory
-                WHERE (content ILIKE @pattern ESCAPE '\' OR title ILIKE @pattern ESCAPE '\')
+                WHERE content ILIKE @pattern ESCAPE '\'
                   AND (@kind::text IS NULL OR kind = @kind) AND (@task::text IS NULL OR task = @task)
-                  AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled)
+                  AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled){meta}
                 ORDER BY created_at DESC, id DESC
                 LIMIT @limit
-                """, new { pattern, enabledOnly, kind, task = taskKey, scope, limit }, cancellationToken: ct)).ConfigureAwait(false);
-            return [.. rows];
+                """, p, cancellationToken: ct)).ConfigureAwait(false);
+            return [.. rows.Select(r => r.ToRecord())];
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -130,11 +156,57 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         // the requested scopes (= ANY(...) binds a native array via Npgsql). task-null rows apply to every task.
         var scopeClause = scopeArr.Length == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope = ANY(@scopes))";
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<CuratedMemory>(new CommandDefinition($"""
+        var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (NOT @enabledOnly OR enabled) AND (task IS NULL OR task = @task){scopeClause}
             ORDER BY kind COLLATE "C", created_at, id
             """, new { task = taskKey, enabledOnly, scopes = scopeArr }, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows];
+        return [.. rows.Select(r => r.ToRecord())];
+    }
+
+    // mirror each metadata pair into the relational index (the queryable side of the opaque JSON column)
+    private static async Task WriteMetaAsync(DbConnection conn, DbTransaction tx, long id,
+        IReadOnlyDictionary<string, string>? metadata, CancellationToken ct)
+    {
+        if (metadata is null || metadata.Count == 0) return;
+        foreach (var kv in metadata)
+            await conn.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO lyntai_curated_meta(memory_id, key, value) VALUES (@id, @k, @v)",
+                new { id, k = kv.Key, v = kv.Value }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    // metadataMatch → an AND of EXISTS against the relational index (params bound; no interpolated user text)
+    private static string BuildMetaClause(IReadOnlyDictionary<string, string>? match, string idExpr, DynamicParameters p)
+    {
+        if (match is null || match.Count == 0) return "";
+        var sb = new StringBuilder();
+        var i = 0;
+        foreach (var kv in match)
+        {
+            p.Add("mk" + i, kv.Key);
+            p.Add("mv" + i, kv.Value);
+            sb.Append(" AND EXISTS (SELECT 1 FROM lyntai_curated_meta mm").Append(i)
+              .Append(" WHERE mm").Append(i).Append(".memory_id = ").Append(idExpr)
+              .Append(" AND mm").Append(i).Append(".key = @mk").Append(i)
+              .Append(" AND mm").Append(i).Append(".value = @mv").Append(i).Append(')');
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    private sealed class Row
+    {
+        public long Id { get; set; }
+        public string Kind { get; set; } = "";
+        public string Content { get; set; } = "";
+        public bool Enabled { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+        public string? TaskKey { get; set; }
+        public string? Scope { get; set; }
+        public string? Metadata { get; set; }
+
+        public CuratedMemory ToRecord() => new(Id, Kind, Content, Enabled, CreatedAt, UpdatedAt,
+            TaskKey, Scope, CuratedMetadataJson.Deserialize(Metadata));
     }
 }

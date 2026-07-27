@@ -319,7 +319,6 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         await CuratedMemoryStoreContract.Update_changes_only_the_provided_fields(store);
         await CuratedMemoryStoreContract.Update_can_recategorise_kind_in_place(store, Uid() + "-from", Uid() + "-to");
         await CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(store, Uid() + "-a", Uid() + "-b");
-        await CuratedMemoryStoreContract.Update_with_empty_source_clears_it(store);
         await CuratedMemoryStoreContract.Remove_deletes(store);
     }
 
@@ -345,11 +344,13 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     }
 
     [SkippableFact]
-    public async Task Curated_memory_title()
+    public async Task Curated_memory_metadata()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        // Unique task so the shared container doesn't cross-contaminate the list assert.
-        await CuratedMemoryStoreContract.Title_round_trips_updates_and_clears(new PostgresCuratedMemoryStore(pg.Factory), Uid() + "-ti");
+        var store = new PostgresCuratedMemoryStore(pg.Factory);
+        // Unique kind/task so the shared container doesn't cross-contaminate.
+        await CuratedMemoryStoreContract.Metadata_round_trips_updates_and_clears(store, Uid() + "-md");
+        await CuratedMemoryStoreContract.Metadata_filter_matches_all_pairs(store, Uid() + "-mf");
     }
 
     [SkippableFact]
@@ -358,7 +359,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
         var store = new PostgresCuratedMemoryStore(pg.Factory);
         // Unique tasks so the shared container doesn't cross-contaminate the absolute-membership asserts.
-        await CuratedMemoryStoreContract.Search_matches_content_and_title_with_filters(store, Uid() + "-se");
+        await CuratedMemoryStoreContract.Search_matches_content_with_filters(store, Uid() + "-se");
         await CuratedMemoryStoreContract.Search_recalls_cjk_substrings(store, Uid() + "-cjk");
     }
 

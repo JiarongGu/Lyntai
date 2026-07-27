@@ -1169,22 +1169,24 @@ sealed class Lyntai.Storage.ChatThread
     Title : String
     ToString() : String
 sealed class Lyntai.Storage.CuratedMemory
-    .ctor(Int64, String, String, String, Boolean, DateTimeOffset, DateTimeOffset, String=, String=, String=)
+    .ctor(Int64, String, String, Boolean, DateTimeOffset, DateTimeOffset, String=, String=, IReadOnlyDictionary<String,String>=)
     Content : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Int64&, String&, String&, String&, Boolean&, DateTimeOffset&, DateTimeOffset&, String&, String&, String&) : Void
+    Deconstruct(Int64&, String&, String&, Boolean&, DateTimeOffset&, DateTimeOffset&, String&, String&, IReadOnlyDictionary`2&) : Void
     Enabled : Boolean
     Equals(CuratedMemory) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
     Id : Int64
     Kind : String
+    Metadata : IReadOnlyDictionary<String,String>
     Scope : String
-    Source : String
     TaskKey : String
-    Title : String
     ToString() : String
     UpdatedAt : DateTimeOffset
+static class Lyntai.Storage.CuratedMetadataJson
+    static Deserialize(String) : IReadOnlyDictionary<String,String>
+    static Serialize(IReadOnlyDictionary<String,String>) : String
 sealed class Lyntai.Storage.EnrichingConversationStore
     .ctor(IConversationStore, IEnumerable<IConversationEnricher>)
     AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
@@ -1212,13 +1214,13 @@ interface Lyntai.Storage.IConversationStore
     ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
     SetThreadMetadataAsync(String, String, CancellationToken=) : Task
 interface Lyntai.Storage.ICuratedMemoryStore
-    AddAsync(String, String, String=, Boolean=, String=, String=, Boolean=, String=, CancellationToken=) : Task<Int64>
+    AddAsync(String, String, Boolean=, String=, String=, Boolean=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<Int64>
     ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
-    ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
+    ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
-    SearchAsync(String, String=, String=, String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, String=, String=, CancellationToken=) : Task<Boolean>
+    SearchAsync(String, String=, String=, String=, Boolean=, Nullable<Int32>=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
+    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IDbConnectionFactory
     Open() : DbConnection
     OpenAsync(CancellationToken=) : Task<DbConnection>

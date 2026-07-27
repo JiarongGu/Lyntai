@@ -49,8 +49,9 @@ hardening pass: correctness fixes across router/guards/orchestrator/prompts/stor
 **UNRELEASED on master (post-0.30, held for adoption — see CHANGELOG `Unreleased` + ROADMAP):** the
 1.0-prep batch (SourceLink, Azure OpenAI flavor, the final API sign-off's breaking
 renames/reshapes — `docs/DECISIONS.md` D19; verification + releases stay MANUAL by decision, D20 — no
-push/PR CI), the titled+searchable curated catalog (CMEM3 `Title` /
-CMEM4 `SearchAsync`), and the FULL hardening-deferral burn-down (archive Part 23; `GuardedStream`
+push/PR CI), the searchable, metadata-carrying curated catalog (CMEM4 `SearchAsync` / CMEM5 updatable
+`kind` / CMEM6 generic `Metadata` field + relational query index — folds & drops `Source`/`Title`), and the
+FULL hardening-deferral burn-down (archive Part 23; `GuardedStream`
 provider read-loop, live rate-limiter options, contract-facts test bases, PG coverage closed — the
 rejected items are D18). 1.0 is ADOPTION-gated, all technical gates done):
 `ILlmClient` front door (to a

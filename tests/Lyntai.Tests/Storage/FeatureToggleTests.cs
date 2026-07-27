@@ -58,7 +58,7 @@ public class FeatureToggleTests : IDisposable
         var factory = new SqliteConnectionFactory(path);
 
         foreach (var t in new[] { "lyntai_kv", "lyntai_thread", "lyntai_message", "lyntai_memory_entry",
-            "lyntai_score_result", "lyntai_run_trace", "lyntai_prompt_version", "lyntai_job", "lyntai_curated_memory" })
+            "lyntai_score_result", "lyntai_run_trace", "lyntai_prompt_version", "lyntai_job", "lyntai_curated_memory", "lyntai_curated_meta" })
             Assert.True(TableExists(factory, t), $"{t} should exist under All");
     }
 

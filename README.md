@@ -145,11 +145,13 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
 - **Memory recall is bounded and fail-open:** FTS5 trigram match (works for CJK substrings), LIKE
   fallback, capped per (task, scope) — and it never throws into your prompt path.
 - **Curated memory catalog** (`ICuratedMemoryStore`) sits beside the recall log for hand-managed context:
-  entries grouped by `Kind`, each individually enable/disable-able and editable (`UpdateAsync`), with an
-  optional short `Title` (rendered as the entry's lead) and keyword `SearchAsync` over content + title
-  (same index machinery and fail-open semantics as memory recall), rendered into per-kind prompt sections
-  by `CuratedMemorySections.Compose` — across all three backends. A full titled, source-tagged,
-  searchable, individually-CRUD-able note catalog.
+  entries grouped by `Kind`, each individually enable/disable-able and editable (`UpdateAsync`, incl.
+  re-categorising `kind` in place), with an arbitrary app-owned `string→string` `Metadata` map (title,
+  source, author, …) that is both stored (as one opaque JSON field per backend) and queryable by exact
+  key/value (`metadataMatch` on `ListAsync`/`SearchAsync`, backed by a plain relational index — identical
+  across backends), plus keyword `SearchAsync` over content (same index machinery and fail-open semantics as
+  memory recall), rendered into per-kind prompt sections by `CuratedMemorySections.Compose` — across all
+  three backends.
 - **Env overrides beat code config:** `LYNTAI_TIMEOUT_SECONDS`, `LYNTAI_MAX_TIMEOUT_SECONDS`,
   `LYNTAI_DEADHOST_THRESHOLD`, `LYNTAI_DEADHOST_COOLDOWN_SECONDS`, `LYNTAI_DEFAULT_CANDIDATES`
   (`providerId[:model],…`), `LYNTAI_MODEL_<CONSUMER>` (+ `LYNTAI_DEFAULT_MODEL` alias),

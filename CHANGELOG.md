@@ -15,29 +15,28 @@ changes** (renamed C# members map onto the frozen columns via SELECT aliases).
 > A push/PR CI workflow was briefly added here and then removed by decision: verification stays MANUAL
 > (`node devtools/dev.mjs verify` before any commit/release) and releases stay manual (`release.yml`,
 > triggered by hand) — see `docs/DECISIONS.md` D20.
-- **`ICuratedMemoryStore.UpdateAsync(..., kind:)`** (CMEM5): re-categorise a curated entry in place. The
-  update gains an optional trailing `kind` (after `title`, before the cancellation token, so no existing
-  positional call re-binds) with the same COALESCE semantics as the other fields — null leaves the kind
-  unchanged. Moving a note between kinds now keeps its id and `created_at` instead of forcing a
-  remove+re-add. All three backends; no migration (the `kind` column already exists, and SQLite's FTS
-  stays correct — the update re-syncs the unchanged content/title as a no-op).
-- **`ICuratedMemoryStore.SearchAsync`** (CMEM4): keyword search over the curated catalog — matches
-  content AND title, with the `ListAsync`-family strict filters (`kind`/`taskKey`/`scope`,
-  `enabledOnly` default false) and a `limit` cap; a whitespace query returns empty (`ListAsync` is the
-  enumeration path). Reuses the lexical-memory index machinery per backend, with the same documented
-  divergence and fail-open behavior as `IMemoryStore.RecallAsync`: SQLite matches any ≥3-char token via
-  a new `lyntai_curated_fts` FTS5-trigram table (bm25-ranked, LIKE fallback; migration `202607270002`
-  with sync triggers + backfill); Postgres matches a contiguous substring via pg_trgm-accelerated ILIKE
-  (recency-ranked; GIN indexes in migration `202607270002`); InMemory substring/recency. The SQL curated
-  stores gained the optional `ILogger` constructor parameter the memory stores already had. Together
-  with `Title` below, `ICuratedMemoryStore` is now a full titled + searchable note catalog.
-- **`CuratedMemory.Title`** (CMEM3): an optional short display label alongside the longer content (a
-  glossary term, a persona trait, a note title). `AddAsync(..., title:)` (after `dedup`, so no existing
-  positional call re-binds) and `UpdateAsync(..., title:)` with the source conventions (COALESCE update;
-  `""` clears; null leaves unchanged); title is display metadata — OUT of the dedup identity.
-  `CuratedMemorySections.Compose` renders a titled entry as `- **{Title}**: {Content}` (untitled entries
-  unchanged). New nullable `title` column via migration `202607270001` on SQLite + Postgres (no backfill;
-  existing rows read as untitled).
+- **`ICuratedMemoryStore` metadata field + query index** (CMEM6): `CuratedMemory` gains an arbitrary
+  app-owned `string→string` `Metadata` map (`title`, `source`, `author`, `category`, …) — stored as one
+  opaque JSON field per backend (via `CuratedMetadataJson`) and made QUERYABLE by a `metadataMatch` argument
+  on `ListAsync`/`SearchAsync` (matches every given key/value pair exactly — AND). A plain relational
+  `lyntai_curated_meta(memory_id, key, value)` index backs the query, so metadata filtering is identical
+  across SQLite/Postgres/InMemory with no `jsonb`/JSON-function divergence; migration `202607270003` adds the
+  column + index. **Breaking (pre-1.0):** `CuratedMemory` drops `Source` and `Title`, and `AddAsync`/
+  `UpdateAsync` drop those params — both fold into `Metadata`. The migration backfills the existing
+  `source`/`title` values into it before dropping the columns (data-preserving); a titled prompt lead is now
+  rendered app-side from a `title` metadata key, and `SearchAsync` narrows to content-only. See
+  `docs/2026-07-27-curated-metadata-design.md`.
+- **`ICuratedMemoryStore.UpdateAsync(..., kind:)`** (CMEM5): re-categorise a curated entry in place — an
+  optional `kind` (COALESCE; null = leave unchanged) moves a note between kinds keeping its id and
+  `created_at` instead of forcing a remove+re-add. All three backends.
+- **`ICuratedMemoryStore.SearchAsync`** (CMEM4): keyword search over the curated catalog — matches CONTENT,
+  with the `ListAsync`-family strict filters (`kind`/`taskKey`/`scope`, `enabledOnly` default false, the
+  `metadataMatch` map) and a `limit` cap; a whitespace query returns empty (`ListAsync` is the enumeration
+  path). Reuses the lexical-memory index machinery per backend, with the same documented divergence and
+  fail-open behavior as `IMemoryStore.RecallAsync`: SQLite matches any ≥3-char token via a `lyntai_curated_fts`
+  FTS5-trigram table (bm25-ranked, LIKE fallback); Postgres matches a contiguous substring via
+  pg_trgm-accelerated ILIKE (recency-ranked, GIN-indexed); InMemory substring/recency. The SQL curated stores
+  gained the optional `ILogger` constructor parameter the memory stores already had.
 - **SourceLink / deterministic release builds** (`src/Directory.Build.props`): `PublishRepositoryUrl` +
   `ContinuousIntegrationBuild` under GitHub Actions (the manual `release.yml` pipeline) — stepping into
   Lyntai from a consuming app resolves sources from the repo.

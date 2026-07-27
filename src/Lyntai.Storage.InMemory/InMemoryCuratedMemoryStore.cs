@@ -12,8 +12,14 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     private long _nextId = 1;
 
-    public Task<long> AddAsync(string kind, string content, string? source = null, bool enabled = true,
-        string? taskKey = null, string? scope = null, bool dedup = false, string? title = null, CancellationToken ct = default)
+    // defensive copy so a caller mutating its dict can't reach into the store (ordinal keys, like the
+    // SQL backends' codec round-trip); null/empty collapses to null so "no metadata" is uniform.
+    private static IReadOnlyDictionary<string, string>? Copy(IReadOnlyDictionary<string, string>? m)
+        => m is null || m.Count == 0 ? null : new Dictionary<string, string>(m, StringComparer.Ordinal);
+
+    public Task<long> AddAsync(string kind, string content, bool enabled = true,
+        string? taskKey = null, string? scope = null, bool dedup = false,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
     {
         var now = _clock();
         lock (_lock)
@@ -21,19 +27,19 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
             if (dedup)
             {
                 // idempotent on the (kind, content, taskKey, scope) identity — return the existing row's id.
-                // Title is display metadata (like source): OUT of the identity, and the matched row keeps its own.
+                // Metadata is display/payload (like source/title were): OUT of the identity; matched row kept.
                 var hit = _entries.FirstOrDefault(e =>
                     e.Kind == kind && e.Content == content && e.TaskKey == taskKey && e.Scope == scope);
                 if (hit is not null) return Task.FromResult(hit.Id);
             }
             var id = _nextId++;
-            _entries.Add(new CuratedMemory(id, kind, content, source, enabled, now, now, taskKey, scope, title));
+            _entries.Add(new CuratedMemory(id, kind, content, enabled, now, now, taskKey, scope, Copy(metadata)));
             return Task.FromResult(id);
         }
     }
 
-    public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
-        string? title = null, string? kind = null, CancellationToken ct = default)
+    public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
+        IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
     {
         var now = _clock();
         lock (_lock)
@@ -43,11 +49,10 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
             var e = _entries[i];
             _entries[i] = e with
             {
-                Content = content ?? e.Content,
+                Content = content ?? e.Content,        // null = unchanged (COALESCE)
                 Enabled = enabled ?? e.Enabled,
-                Source = source ?? e.Source, // null = unchanged; "" clears
-                Title = title ?? e.Title,    // same convention as source
-                Kind = kind ?? e.Kind,       // null = unchanged; re-categorises in place
+                Kind = kind ?? e.Kind,                  // null = unchanged; re-categorises in place
+                Metadata = metadata is null ? e.Metadata : Copy(metadata), // null = unchanged; non-null REPLACES
                 UpdatedAt = now,
             };
             return Task.FromResult(true);
@@ -64,8 +69,14 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
         lock (_lock) return Task.FromResult(_entries.FirstOrDefault(e => e.Id == id));
     }
 
+    // an entry satisfies metadataMatch when it carries every requested pair exactly (AND); null/empty = no filter
+    private static bool Matches(CuratedMemory e, IReadOnlyDictionary<string, string>? match)
+        => match is null || match.Count == 0
+           || (e.Metadata is { } md && match.All(kv => md.TryGetValue(kv.Key, out var v) && v == kv.Value));
+
     public Task<IReadOnlyList<CuratedMemory>> ListAsync(string? kind = null, bool enabledOnly = false,
-        string? taskKey = null, string? scope = null, int? limit = null, CancellationToken ct = default)
+        string? taskKey = null, string? scope = null, int? limit = null,
+        IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
         lock (_lock)
         {
@@ -74,6 +85,7 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
             if (taskKey is not null) q = q.Where(e => e.TaskKey == taskKey); // strict equality (admin filter)
             if (scope is not null) q = q.Where(e => e.Scope == scope); // strict equality (admin filter)
             if (enabledOnly) q = q.Where(e => e.Enabled);
+            q = q.Where(e => Matches(e, metadataMatch));
             q = q.OrderBy(e => e.Kind, StringComparer.Ordinal).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id);
             if (limit is { } n) q = q.Take(n);
             IReadOnlyList<CuratedMemory> result = [.. q];
@@ -82,21 +94,22 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
     }
 
     public Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null, string? taskKey = null,
-        string? scope = null, bool enabledOnly = false, int? limit = null, CancellationToken ct = default)
+        string? scope = null, bool enabledOnly = false, int? limit = null,
+        IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(query)) return Task.FromResult<IReadOnlyList<CuratedMemory>>([]);
         var needle = query.Trim();
         lock (_lock)
         {
-            // contiguous-substring match over content OR title, recency-ranked — the same semantics as
+            // contiguous-substring match over CONTENT, recency-ranked — the same semantics as
             // InMemoryMemoryStore.RecallAsync (see the divergence note on ICuratedMemoryStore.SearchAsync)
             IEnumerable<CuratedMemory> q = _entries.Where(e =>
-                e.Content.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                || (e.Title?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false));
+                e.Content.Contains(needle, StringComparison.OrdinalIgnoreCase));
             if (kind is not null) q = q.Where(e => e.Kind == kind);
             if (taskKey is not null) q = q.Where(e => e.TaskKey == taskKey); // strict equality (admin filter)
             if (scope is not null) q = q.Where(e => e.Scope == scope);
             if (enabledOnly) q = q.Where(e => e.Enabled);
+            q = q.Where(e => Matches(e, metadataMatch));
             q = q.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
             if (limit is { } n) q = q.Take(n);
             IReadOnlyList<CuratedMemory> result = [.. q];

@@ -1296,7 +1296,7 @@ Decisions → `docs/DECISIONS.md` D19; user-visible detail → CHANGELOG Unrelea
 
 ---
 
-## Part 22 — Curated-memory as a titled, searchable catalog (CMEM3/CMEM4/CMEM5)
+## Part 22 — Curated-memory as a searchable, metadata-carrying catalog (CMEM3–CMEM6)
 
 Requested by the desktop AI-manager integration (2026-07-26): its agent memory is a single titled,
 source-tagged, keyword-searchable, individually-CRUD-able note catalog written by both a human (owner)
@@ -1359,6 +1359,30 @@ path rather than its read path:
   no-op → NO migration, the column already exists), InMemory `Kind = kind ?? e.Kind`. A re-categorise now
   keeps the id + `created_at`. Contract test `Update_can_recategorise_kind_in_place` wired to all 3 backends
   (InMemory/SQLite facts + the Postgres shared-container CRUD suite); 4 ApiSurface baselines updated.
+  `verify` green (build · test · e2e · check-sensitive).
+
+A design pass (2026-07-27) then generalised the whole payload story — and in doing so REVERTED the
+unreleased CMEM3 `Title` and folded the released `Source` into the new field:
+
+- [x] **CMEM6 — generic `Metadata` field + relational query index; fold & drop `Source`/`Title`.** Rather
+  than keep adding a typed column per payload field (task/scope/title/kind), `CuratedMemory` gains one
+  arbitrary app-owned `string→string` `Metadata` map, stored as an opaque JSON `metadata` column per backend
+  (via the new Core `CuratedMetadataJson` codec — hand-written `Utf8JsonWriter`/`JsonDocument`, AOT-clean) and
+  made QUERYABLE by a plain relational `lyntai_curated_meta(memory_id, key, value)` index — chosen over
+  Postgres `jsonb` so filtering is IDENTICAL across all backends (no JSON-function divergence). The
+  purpose-built `Source` (released) and `Title` (unreleased CMEM3) columns are RETIRED into `Metadata`.
+  Breaking, inside the pre-1.0 D19 window; design in `docs/2026-07-27-curated-metadata-design.md`.
+  ✅ done 2026-07-27 — Outcome: `CuratedMemory` drops `Source`/`Title`, gains
+  `IReadOnlyDictionary<string,string>? Metadata`; `AddAsync`/`UpdateAsync` drop the `source`/`title` params
+  and gain `metadata` (Update REPLACES the whole map; null = unchanged, empty = clear); `ListAsync`/
+  `SearchAsync` gain a `metadataMatch` AND-of-pairs filter; search is now content-only and
+  `CuratedMemorySections.Compose` drops the bold Title lead. Storage: opaque `metadata` TEXT column +
+  `lyntai_curated_meta` index (FK `ON DELETE CASCADE`; written in the Add/Update transaction; `metadataMatch`
+  → `EXISTS` per pair). Append-only, data-preserving migration `M202607270003_CuratedMetadata` ×2 backends —
+  add column+index, backfill `source`/`title` into metadata, rebuild the SQLite FTS content-only / drop the
+  Postgres title trigram index, then `DROP COLUMN`. Contract tests `Metadata_round_trips_updates_and_clears`
+  + `Metadata_filter_matches_all_pairs` (+ reworked search/CRUD; the `Title_*` test retired) on all 3
+  backends; 4 ApiSurface baselines regenerated; migration-count pins 15 → 16.
   `verify` green (build · test · e2e · check-sensitive).
 
 ---

@@ -6,17 +6,20 @@ namespace Lyntai.Tests.Storage;
 /// and Postgres test classes so the curated-catalog CRUD + filter semantics are pinned identically.</summary>
 public static class CuratedMemoryStoreContract
 {
+    private static Dictionary<string, string> Meta(params (string k, string v)[] pairs)
+        => pairs.ToDictionary(p => p.k, p => p.v, StringComparer.Ordinal);
+
     /// <summary>Kind-parameterized so the Postgres leg runs on the shared container (a unique kind
     /// isolates it); the fresh InMemory/SQLite backends pass the default.</summary>
     public static async Task Add_get_list_round_trips(ICuratedMemoryStore store, string kind = "persona")
     {
-        var id = await store.AddAsync(kind, "You are terse.", source: "handbook");
+        var id = await store.AddAsync(kind, "You are terse.", metadata: Meta(("source", "handbook")));
 
         var got = await store.GetAsync(id);
         Assert.NotNull(got);
         Assert.Equal(kind, got!.Kind);
         Assert.Equal("You are terse.", got.Content);
-        Assert.Equal("handbook", got.Source);
+        Assert.Equal("handbook", got.Metadata?["source"]);
         Assert.True(got.Enabled);
 
         var all = await store.ListAsync();
@@ -26,45 +29,40 @@ public static class CuratedMemoryStoreContract
 
     public static async Task Update_changes_only_the_provided_fields(ICuratedMemoryStore store)
     {
-        var id = await store.AddAsync("style", "original", source: "src-a");
+        var id = await store.AddAsync("style", "original");
 
-        // toggle enabled only — content + source untouched
+        // toggle enabled only — content untouched
         Assert.True(await store.UpdateAsync(id, enabled: false));
         var after = await store.GetAsync(id);
         Assert.False(after!.Enabled);
         Assert.Equal("original", after.Content);
-        Assert.Equal("src-a", after.Source);
 
         // change just the content
         Assert.True(await store.UpdateAsync(id, content: "revised"));
         after = await store.GetAsync(id);
         Assert.Equal("revised", after!.Content);
         Assert.False(after.Enabled);      // still disabled (null = unchanged)
-        Assert.Equal("src-a", after.Source);
 
         Assert.False(await store.UpdateAsync(-1, content: "x")); // missing → false (ids are positive)
     }
 
-    /// <summary>CMEM5 — <see cref="ICuratedMemoryStore.UpdateAsync"/> gains an optional <c>kind</c> (COALESCE
-    /// like the other fields; null = leave unchanged) so a catalog editor can RE-CATEGORISE an entry between
-    /// kinds IN PLACE — keeping its id and created_at — instead of remove+re-add. A kind-only change leaves
-    /// content/source/title untouched; a later null-kind update keeps the new kind. Kind-parameterized so the
-    /// Postgres shared container can run it isolated.</summary>
+    /// <summary>CMEM5 — <see cref="ICuratedMemoryStore.UpdateAsync"/>'s optional <c>kind</c> RE-CATEGORISES an
+    /// entry between kinds IN PLACE — keeping its id, created_at, and metadata — instead of remove+re-add.
+    /// Kind-parameterized so the Postgres shared container can run it isolated.</summary>
     public static async Task Update_can_recategorise_kind_in_place(ICuratedMemoryStore store,
         string fromKind = "inbox", string toKind = "glossary")
     {
-        var id = await store.AddAsync(fromKind, "a fact worth keeping", source: "import", title: "the label");
+        var id = await store.AddAsync(fromKind, "a fact worth keeping", metadata: Meta(("source", "import"), ("title", "the label")));
         var created = (await store.GetAsync(id))!.CreatedAt;
 
-        // move it between kinds in place — id + created_at + the OTHER fields all survive (the whole point:
-        // an in-place re-categorise, not a remove+re-add that would lose the id and created_at)
+        // move it between kinds in place — id + created_at + the OTHER fields all survive
         Assert.True(await store.UpdateAsync(id, kind: toKind));
         var moved = await store.GetAsync(id);
         Assert.Equal(toKind, moved!.Kind);
-        Assert.Equal("a fact worth keeping", moved.Content); // untouched
-        Assert.Equal("import", moved.Source);                // untouched
-        Assert.Equal("the label", moved.Title);              // untouched
-        Assert.Equal(created, moved.CreatedAt);              // same row, not a new one
+        Assert.Equal("a fact worth keeping", moved.Content);   // untouched
+        Assert.Equal("import", moved.Metadata?["source"]);     // metadata untouched (kind-only update)
+        Assert.Equal("the label", moved.Metadata?["title"]);
+        Assert.Equal(created, moved.CreatedAt);                // same row, not a new one
 
         // null kind = leave unchanged (COALESCE): a content-only edit keeps the new kind
         Assert.True(await store.UpdateAsync(id, content: "revised fact"));
@@ -182,59 +180,96 @@ public static class CuratedMemoryStoreContract
         Assert.InRange(rows.Count, 1, ids.Length); // usually 1; the benign race bound is the racer count
     }
 
-    /// <summary>CMEM3 — optional <c>Title</c>: a short label alongside the longer content (glossary term,
-    /// persona trait, note title). Round-trips on add, updates with COALESCE semantics ("" clears, null
-    /// leaves unchanged), and stays OUT of the dedup identity (display metadata, like source).</summary>
-    public static async Task Title_round_trips_updates_and_clears(ICuratedMemoryStore store, string task = "titles")
+    /// <summary>CMEM6 — arbitrary <c>string→string</c> <see cref="CuratedMemory.Metadata"/>: round-trips on add
+    /// (incl. a value with quotes + CJK, exercising the JSON codec); a null map on update leaves it unchanged,
+    /// a non-null map REPLACES the whole set, an empty map clears it; and it stays OUT of the dedup identity.</summary>
+    public static async Task Metadata_round_trips_updates_and_clears(ICuratedMemoryStore store, string kind = "meta")
     {
-        var titled = await store.AddAsync("glossary", "data encryption key", title: "DEK", taskKey: task);
-        var untitled = await store.AddAsync("glossary", "no label", taskKey: task);
+        var withMeta = await store.AddAsync(kind, "body one", metadata: Meta(("author", "jo"), ("lang", "zh")));
+        var noMeta   = await store.AddAsync(kind, "body two");
 
-        Assert.Equal("DEK", (await store.GetAsync(titled))!.Title);
-        Assert.Null((await store.GetAsync(untitled))!.Title);   // default = untitled
-        Assert.Equal("DEK", (await store.ListAsync(kind: "glossary", taskKey: task)).First(e => e.Id == titled).Title);
+        var got = await store.GetAsync(withMeta);
+        Assert.Equal("jo", got!.Metadata?["author"]);
+        Assert.Equal("zh", got.Metadata?["lang"]);
+        Assert.Null((await store.GetAsync(noMeta))!.Metadata);           // no metadata = null
 
-        // COALESCE update: title-only change leaves content untouched; content-only change keeps the title
-        Assert.True(await store.UpdateAsync(titled, title: "DEK (key wrapping)"));
-        var after = await store.GetAsync(titled);
-        Assert.Equal("DEK (key wrapping)", after!.Title);
-        Assert.Equal("data encryption key", after.Content);
+        // a value with quotes + unicode round-trips through the JSON codec intact
+        var tricky = await store.AddAsync(kind, "body three", metadata: Meta(("note", "say \"灵台\" — ok")));
+        Assert.Equal("say \"灵台\" — ok", (await store.GetAsync(tricky))!.Metadata?["note"]);
 
-        Assert.True(await store.UpdateAsync(titled, content: "data encryption key, wrapped by the KEK"));
-        Assert.Equal("DEK (key wrapping)", (await store.GetAsync(titled))!.Title);
+        // a non-null map REPLACES the whole set (author dropped, lang changed, region added)
+        Assert.True(await store.UpdateAsync(withMeta, metadata: Meta(("lang", "ja"), ("region", "jp"))));
+        var replaced = await store.GetAsync(withMeta);
+        Assert.False(replaced!.Metadata!.ContainsKey("author"));
+        Assert.Equal("ja", replaced.Metadata["lang"]);
+        Assert.Equal("jp", replaced.Metadata["region"]);
+        Assert.Equal("body one", replaced.Content);                      // content untouched (metadata-only update)
 
-        // "" clears the title (null means "leave unchanged" — same convention as source)
-        Assert.True(await store.UpdateAsync(titled, title: ""));
-        Assert.Equal("", (await store.GetAsync(titled))!.Title);
+        // null metadata = leave unchanged
+        Assert.True(await store.UpdateAsync(withMeta, content: "body one edited"));
+        Assert.Equal("ja", (await store.GetAsync(withMeta))!.Metadata?["lang"]);
 
-        // dedup identity is (kind, content, task, scope) — a DIFFERENT title still dedups to the same row
-        var first = await store.AddAsync("confirmed", "fact body", title: "label A", taskKey: task, dedup: true);
-        var again = await store.AddAsync("confirmed", "fact body", title: "label B", taskKey: task, dedup: true);
-        Assert.Equal(first, again);
-        Assert.Equal("label A", (await store.GetAsync(first))!.Title); // dedup does not mutate the matched row
+        // an empty map clears metadata to null
+        Assert.True(await store.UpdateAsync(withMeta, metadata: new Dictionary<string, string>()));
+        Assert.Null((await store.GetAsync(withMeta))!.Metadata);
+
+        // metadata is display/payload — OUT of the dedup identity (a different map still dedups to the same row)
+        var f1 = await store.AddAsync("confirmed", "fact body", taskKey: kind, metadata: Meta(("a", "1")), dedup: true);
+        var f2 = await store.AddAsync("confirmed", "fact body", taskKey: kind, metadata: Meta(("a", "2")), dedup: true);
+        Assert.Equal(f1, f2);
+        Assert.Equal("1", (await store.GetAsync(f1))!.Metadata?["a"]);   // dedup does not mutate the matched row
     }
 
-    /// <summary>CMEM4 — keyword <see cref="ICuratedMemoryStore.SearchAsync"/>: matches CONTENT and TITLE,
-    /// composes with the ListAsync-family strict filters (kind/taskKey/scope, enabledOnly default false),
-    /// caps via limit, and returns empty on a whitespace or unmatched query. Sticks to single ≥3-char
-    /// lowercase tokens — the portable cross-backend guarantee (FTS5-trigram / ILIKE / Contains).</summary>
-    public static async Task Search_matches_content_and_title_with_filters(ICuratedMemoryStore store, string task = "search")
+    /// <summary>CMEM6 — the queryable side of metadata: <c>metadataMatch</c> on <see cref="ICuratedMemoryStore.ListAsync"/>
+    /// and <see cref="ICuratedMemoryStore.SearchAsync"/> requires EVERY given key/value pair exactly (AND), composes
+    /// with the other strict filters, and a null/empty map is no filter. Task-parameterized for the shared container.</summary>
+    public static async Task Metadata_filter_matches_all_pairs(ICuratedMemoryStore store, string task = "mfilter")
+    {
+        var zhTerm = await store.AddAsync("glossary", "the encryption key alpha", taskKey: task, metadata: Meta(("lang", "zh"), ("role", "term")));
+        var zhOnly = await store.AddAsync("glossary", "the encryption key beta",  taskKey: task, metadata: Meta(("lang", "zh")));
+        var jaTerm = await store.AddAsync("glossary", "the encryption key gamma", taskKey: task, metadata: Meta(("lang", "ja"), ("role", "term")));
+        await store.AddAsync("glossary", "the encryption key delta", taskKey: task);   // no metadata
+
+        // ListAsync AND-of-pairs — only the entry carrying BOTH lang=zh AND role=term
+        Assert.Equal([zhTerm], (await store.ListAsync(taskKey: task, metadataMatch: Meta(("lang", "zh"), ("role", "term")))).Select(e => e.Id));
+
+        // a single pair matches every entry carrying it
+        var zh = (await store.ListAsync(taskKey: task, metadataMatch: Meta(("lang", "zh")))).Select(e => e.Id).ToHashSet();
+        Assert.Equal(new HashSet<long> { zhTerm, zhOnly }, zh);
+
+        // a value mismatch → nothing
+        Assert.Empty(await store.ListAsync(taskKey: task, metadataMatch: Meta(("lang", "de"))));
+
+        // composes with SearchAsync (content query AND metadata filter)
+        var searched = (await store.SearchAsync("encryption", taskKey: task, metadataMatch: Meta(("role", "term")))).Select(e => e.Id).ToHashSet();
+        Assert.Equal(new HashSet<long> { zhTerm, jaTerm }, searched);
+
+        // null/empty match = no metadata filter (all four rows of the task)
+        Assert.Equal(4, (await store.ListAsync(taskKey: task)).Count);
+        Assert.Equal(4, (await store.ListAsync(taskKey: task, metadataMatch: new Dictionary<string, string>())).Count);
+    }
+
+    /// <summary>CMEM4 (content-only after CMEM6) — keyword <see cref="ICuratedMemoryStore.SearchAsync"/> matches
+    /// CONTENT, composes with the ListAsync-family strict filters (kind/taskKey/scope, enabledOnly default false),
+    /// caps via limit, and returns empty on a whitespace or unmatched query. Sticks to single ≥3-char lowercase
+    /// tokens — the portable cross-backend guarantee (FTS5-trigram / ILIKE / Contains).</summary>
+    public static async Task Search_matches_content_with_filters(ICuratedMemoryStore store, string task = "search")
     {
         var byContent = await store.AddAsync("glossary", "the data encryption key wraps secrets", taskKey: task);
-        var byTitle   = await store.AddAsync("notes", "rotate quarterly", title: "encryption schedule", taskKey: task);
+        var inNotes   = await store.AddAsync("notes", "rotate the encryption schedule quarterly", taskKey: task);
         var disabled  = await store.AddAsync("glossary", "legacy encryption note", enabled: false, taskKey: task);
         var scoped    = await store.AddAsync("glossary", "scoped encryption fact", taskKey: task, scope: "site:a");
         await store.AddAsync("glossary", "unrelated parsing fact", taskKey: task);
         await store.AddAsync("glossary", "encryption fact of another task", taskKey: task + "-other");
 
-        // matches content AND title; includes disabled by default (the admin/catalog family, like ListAsync);
+        // matches content; includes disabled by default (the admin/catalog family, like ListAsync);
         // strict task filter keeps other tasks out
         var hits = (await store.SearchAsync("encryption", taskKey: task)).Select(e => e.Id).ToHashSet();
-        Assert.Equal(new HashSet<long> { byContent, byTitle, disabled, scoped }, hits);
+        Assert.Equal(new HashSet<long> { byContent, inNotes, disabled, scoped }, hits);
 
         // enabledOnly composes
         var enabledHits = (await store.SearchAsync("encryption", taskKey: task, enabledOnly: true)).Select(e => e.Id).ToHashSet();
-        Assert.Equal(new HashSet<long> { byContent, byTitle, scoped }, enabledHits);
+        Assert.Equal(new HashSet<long> { byContent, inNotes, scoped }, enabledHits);
 
         // kind narrows; scope is strict equality (does NOT pull in null-scope rows)
         var glossary = (await store.SearchAsync("encryption", kind: "glossary", taskKey: task)).Select(e => e.Id).ToHashSet();
@@ -259,19 +294,9 @@ public static class CuratedMemoryStoreContract
         Assert.Contains(id, (await store.SearchAsync("平台", taskKey: task)).Select(e => e.Id));
     }
 
-    public static async Task Update_with_empty_source_clears_it(ICuratedMemoryStore store)
-    {
-        var id = await store.AddAsync("k", "content", source: "original");
-        Assert.Equal("original", (await store.GetAsync(id))!.Source);
-
-        // "" clears the source (null would mean "leave unchanged")
-        Assert.True(await store.UpdateAsync(id, source: ""));
-        Assert.Equal("", (await store.GetAsync(id))!.Source);
-    }
-
     public static async Task Remove_deletes(ICuratedMemoryStore store)
     {
-        var id = await store.AddAsync("k", "gone soon");
+        var id = await store.AddAsync("k", "gone soon", metadata: Meta(("a", "1")));
         Assert.True(await store.RemoveAsync(id));
         Assert.Null(await store.GetAsync(id));
         Assert.False(await store.RemoveAsync(id)); // already gone → false
