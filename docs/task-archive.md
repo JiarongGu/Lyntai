@@ -1520,6 +1520,37 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
 
 ---
 
+## Part 24 — Built-in embedder for the OpenAI-compatible provider (2026-07-27)
+
+Requested by the desktop AI-manager integration: an app already on an OpenAI-compatible chat endpoint had
+no way to turn on semantic memory without writing its own `IEmbedder`.
+
+- [x] **EMB1 — ship an `IEmbedder` over an OpenAI-compatible `/v1/embeddings` endpoint.** Today Lyntai
+  defines the `IEmbedder` interface (`src/Lyntai.Core/Embeddings/IEmbedder.cs`) + `AddEmbeddings(...)`, but
+  ships NO implementation — every consumer of `ISemanticMemory` must BYO one, which is the sole blocker to
+  turning on semantic recall for an app that ALREADY talks to an OpenAI-compatible chat endpoint via
+  `Lyntai.Providers.OpenAiCompatible` (the desktop hits Ollama / LM Studio / OpenAI). Add a built-in
+  `HttpEmbedder` in the `Lyntai.Providers.OpenAiCompatible` package (POST `/v1/embeddings`, `{model, input[]}`
+  → `data[].embedding`, batched) + an `AddOpenAiCompatibleEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
+  builder method, reusing the same BYO-`HttpClient` seam + endpoint-flavor detection the chat provider has.
+  Ollama (`/api/embeddings` / its OpenAI-compat `/v1/embeddings`) + OpenAI + LM Studio all speak this, so one
+  impl unlocks local **and** hosted embeddings. Generic + app-agnostic; pairs with the existing
+  `UseSqliteVectorStore` / pgvector path. Live-gate against a real endpoint like the chat provider's Ollama test.
+  ✅ done 2026-07-27 — Outcome: `HttpEmbedder` + `OpenAiCompatibleEmbedderOptions` +
+  `builder.AddOpenAiCompatibleEmbedder(id, cfg, httpClient?)` in `Lyntai.Providers.OpenAiCompatible`
+  (`HttpEmbedder.cs`, `OpenAiCompatibleEmbedderOptions.cs`, `OpenAiCompatibleBuilderExtensions.cs`). One
+  `{model, input[]}` body serves every flavor; `TryExtractVectors` reads BOTH the OpenAI/LM-Studio
+  `data[].embedding` shape (re-ordered by the authoritative `index`) and Ollama's `embeddings[[…]]` shape
+  (plus the legacy single `embedding[]`). Endpoint/flavor reuse the chat provider's `ProviderDetect`
+  (Ollama → native `/api/embed`; bare Azure resource → `/openai/v1/embeddings`; else `/v1/embeddings`,
+  not double-prefixing a `/v1` base); same BYO-`HttpClient` seam + `lyntai.embedder.{id}` named client;
+  per-call deadline is `LyntaiOptions.ProviderTimeout`; failures THROW (Recall is fail-open, Remember
+  surfaces). `BatchSize` splits an over-cap input list. 11 unit tests (StubHttpHandler) + a live-gated
+  Ollama embedding test (`LYNTAI_LIVE_OLLAMA` / `LYNTAI_OLLAMA_EMBED_MODEL`). Core untouched; OpenAiCompatible
+  API baseline +3 types (additive, no break). `verify` green (build · test · e2e · leak scan).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

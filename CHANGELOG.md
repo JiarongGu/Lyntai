@@ -5,7 +5,20 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## Unreleased
 
-_Nothing yet._
+### Added
+- **Built-in `IEmbedder` for OpenAI-compatible endpoints** (EMB1): `Lyntai.Providers.OpenAiCompatible` now
+  ships `HttpEmbedder` + a `builder.AddOpenAiCompatibleEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
+  method, so an app already talking to an OpenAI-compatible chat endpoint can turn on semantic memory
+  (`ISemanticMemory`) **without a BYO embedder**. It POSTs the batched `{model, input[]}` body and extracts
+  vectors tolerantly from either the OpenAI/LM-Studio `data[].embedding` shape (re-ordered by the
+  authoritative `index`) or Ollama's `embeddings[[…]]` shape — one impl covers OpenAI, LM Studio, OpenRouter,
+  Azure, and local Ollama. Endpoint + flavor reuse the chat provider's `ProviderDetect` (Ollama → native
+  `/api/embed`; a bare Azure resource → `/openai/v1/embeddings`; else `/v1/embeddings`, not double-prefixing a
+  `/v1` base) and the same BYO-`HttpClient` seam; the per-call deadline is `LyntaiOptions.ProviderTimeout`.
+  `OpenAiCompatibleEmbedderOptions.BatchSize` splits an over-cap input list into several requests. Pairs with
+  the existing in-memory / `UseSqliteVectorStore` / pgvector vector stores. Additive — no breaking change.
+  Live-gated Ollama coverage sits alongside the chat provider's (`LYNTAI_LIVE_OLLAMA`, embed model via
+  `LYNTAI_OLLAMA_EMBED_MODEL`, default `nomic-embed-text`).
 
 ## 0.31.0 — 1.0-prep API sign-off + the curated metadata catalog (2026-07-27)
 

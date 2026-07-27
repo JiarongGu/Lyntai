@@ -16,7 +16,8 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 ## Active backlog
 
 _The 2026-07-26 hardening-pass deferrals are all closed (implemented or rejected-with-rationale) — see
-`docs/task-archive.md` Part 23 and `docs/DECISIONS.md` D18. One CONDITIONAL item stands:_
+`docs/task-archive.md` Part 23 and `docs/DECISIONS.md` D18. EMB1 (built-in OpenAI-compatible embedder)
+landed 2026-07-27 — see archive Part 24. One CONDITIONAL item stands:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` DTOs for the STABLE response envelopes only, **if envelope-parsing bugs ever

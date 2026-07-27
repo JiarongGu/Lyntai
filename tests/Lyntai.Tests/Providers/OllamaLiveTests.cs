@@ -17,8 +17,10 @@ namespace Lyntai.Tests.Providers;
 public class OllamaLiveTests
 {
     private const string DefaultModel = "llama3.2:3b";
+    private const string DefaultEmbedModel = "nomic-embed-text";
     private static string BaseUrl => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
     private static string Model => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_MODEL") ?? DefaultModel;
+    private static string EmbedModel => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? DefaultEmbedModel;
 
     private static OpenAiCompatibleProvider Provider() =>
         new("ollama",
@@ -80,6 +82,24 @@ public class OllamaLiveTests
         Assert.False(string.IsNullOrWhiteSpace(content.ToString()), "expected streamed content");
         Assert.NotNull(last);
         Assert.Equal(LlmChunkKind.Final, last!.Kind); // clean termination, not an error
+    }
+
+    [Fact]
+    public async Task Embeddings_against_real_ollama_return_batched_vectors_of_one_dimension()
+    {
+        if (!await LiveAsync()) return; // requires the embed model pulled: `ollama pull nomic-embed-text`
+
+        var embedder = new HttpEmbedder("ollama",
+            new OpenAiCompatibleEmbedderOptions { BaseUrl = BaseUrl, Model = EmbedModel },
+            () => new HttpClient(),
+            new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
+
+        var vectors = await embedder.EmbedAsync(["the sky is blue", "grass is green"]);
+
+        Assert.Equal(2, vectors.Count);                              // one vector per input, batched in one call
+        Assert.True(vectors[0].Length > 0, "expected a non-empty embedding");
+        Assert.Equal(vectors[0].Length, vectors[1].Length);         // uniform dimension (the IEmbedder contract)
+        Assert.Contains(vectors[0], f => f != 0f);                  // a real model, not an all-zero stub
     }
 
     [Fact]

@@ -91,5 +91,46 @@ public static class OpenAiCompatibleBuilderExtensions
             o.DefaultModel = defaultModel;
         }, httpClient);
 
+    // ---- embeddings ------------------------------------------------------------------------------
+
+    /// <summary>Register an <see cref="Lyntai.Embeddings.IEmbedder"/> over an OpenAI-compatible
+    /// <c>/v1/embeddings</c> endpoint (OpenAI, LM Studio, OpenRouter, Azure) or Ollama's native batched
+    /// <c>/api/embed</c> — enabling semantic memory (<see cref="Lyntai.Memory.ISemanticMemory"/>) without a
+    /// BYO embedder. The flavor/endpoint is derived from <see cref="OpenAiCompatibleEmbedderOptions.BaseUrl"/>
+    /// via the same <see cref="ProviderDetect"/> the chat provider uses, and the BYO-HttpClient seam is
+    /// identical: pass <paramref name="httpClient"/> to own the client's lifecycle (else Lyntai registers a
+    /// named client with an infinite HttpClient timeout so the per-call
+    /// <see cref="LyntaiOptions.ProviderTimeout"/> owns deadlines). <paramref name="id"/> names the client
+    /// and appears in error/log messages; there is one embedder slot, so a later registration wins.</summary>
+    public static LyntaiBuilder AddOpenAiCompatibleEmbedder(this LyntaiBuilder builder, string id,
+        Action<OpenAiCompatibleEmbedderOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
+    {
+        var config = new OpenAiCompatibleEmbedderOptions();
+        configure(config);
+
+        Func<IServiceProvider, Func<HttpClient>> resolveClient;
+        var byo = httpClient is not null;
+        if (byo)
+        {
+            resolveClient = sp => () => httpClient!(sp); // app-owned client + lifecycle — never disposed by Lyntai
+        }
+        else
+        {
+            builder.Services.AddHttpClient(EmbedderHttpClientName(id))
+                .ConfigureHttpClient(c => c.Timeout = Timeout.InfiniteTimeSpan);
+            resolveClient = sp => () => sp.GetRequiredService<IHttpClientFactory>().CreateClient(EmbedderHttpClientName(id));
+        }
+
+        builder.AddEmbeddings(sp => new HttpEmbedder(
+            id,
+            config,
+            resolveClient(sp),
+            sp.GetRequiredService<LyntaiOptions>(),
+            sp.GetService<ILogger<HttpEmbedder>>(),
+            disposeHttpClient: !byo)); // dispose only Lyntai-created clients
+        return builder;
+    }
+
     internal static string HttpClientName(string id) => $"lyntai.provider.{id}";
+    internal static string EmbedderHttpClientName(string id) => $"lyntai.embedder.{id}";
 }

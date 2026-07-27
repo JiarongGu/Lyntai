@@ -208,7 +208,13 @@ cosine similarity, so a query finds relevant memories without sharing keywords.
 ```csharp
 services.AddLyntai(cfg => cfg
     .AddOpenAiProvider(/* … */)
-    .AddEmbeddings(myEmbedder));   // your IEmbedder — an embeddings endpoint or local model
+    // built-in embedder over any OpenAI-compatible /v1/embeddings (OpenAI, LM Studio, Ollama, Azure)
+    .AddOpenAiCompatibleEmbedder("embeddings", o =>
+    {
+        o.BaseUrl = "http://localhost:11434";   // e.g. local Ollama
+        o.Model = "nomic-embed-text";
+    }));
+    // …or bring your own: .AddEmbeddings(myEmbedder)  // any IEmbedder — a hosted endpoint or local model
 
 var memory = sp.GetRequiredService<ISemanticMemory>();
 await memory.RememberAsync(task: "support", scope: "faq", "You can cancel your subscription anytime.");

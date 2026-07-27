@@ -1,9 +1,20 @@
 static class Lyntai.OpenAiCompatibleBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder, String, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
     static AddOllamaProvider(LyntaiBuilder, String=, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOpenAiCompatibleEmbedder(LyntaiBuilder, String, Action<OpenAiCompatibleEmbedderOptions>, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
     static AddOpenAiCompatibleProvider(LyntaiBuilder, String, Action<OpenAiCompatibleOptions>, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
     static AddOpenAiProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
     static AddOpenRouterProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+sealed class Lyntai.Providers.OpenAiCompatible.HttpEmbedder
+    .ctor(String, OpenAiCompatibleEmbedderOptions, Func<HttpClient>, LyntaiOptions, ILogger<HttpEmbedder>=, Boolean=)
+    EmbedAsync(IReadOnlyList<String>, CancellationToken=) : Task<IReadOnlyList<Single[]>>
+sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleEmbedderOptions
+    .ctor()
+    ApiKey : String
+    BaseUrl : String
+    BatchSize : Int32
+    Flavor : String
+    Model : String
 sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
     .ctor()
     ApiKey : String
