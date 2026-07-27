@@ -33,7 +33,7 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
     }
 
     public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
-        string? title = null, CancellationToken ct = default)
+        string? title = null, string? kind = null, CancellationToken ct = default)
     {
         var now = _clock();
         lock (_lock)
@@ -47,6 +47,7 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
                 Enabled = enabled ?? e.Enabled,
                 Source = source ?? e.Source, // null = unchanged; "" clears
                 Title = title ?? e.Title,    // same convention as source
+                Kind = kind ?? e.Kind,       // null = unchanged; re-categorises in place
                 UpdatedAt = now,
             };
             return Task.FromResult(true);

@@ -317,6 +317,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         // unique kinds isolate the shared container; the id-scoped methods need no namespacing
         await CuratedMemoryStoreContract.Add_get_list_round_trips(store, Uid() + "-k");
         await CuratedMemoryStoreContract.Update_changes_only_the_provided_fields(store);
+        await CuratedMemoryStoreContract.Update_can_recategorise_kind_in_place(store, Uid() + "-from", Uid() + "-to");
         await CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(store, Uid() + "-a", Uid() + "-b");
         await CuratedMemoryStoreContract.Update_with_empty_source_clears_it(store);
         await CuratedMemoryStoreContract.Remove_deletes(store);

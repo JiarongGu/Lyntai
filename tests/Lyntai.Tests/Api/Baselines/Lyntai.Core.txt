@@ -1218,7 +1218,7 @@ interface Lyntai.Storage.ICuratedMemoryStore
     ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     SearchAsync(String, String=, String=, String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, String=, CancellationToken=) : Task<Boolean>
+    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, String=, String=, CancellationToken=) : Task<Boolean>
 interface Lyntai.Storage.IDbConnectionFactory
     Open() : DbConnection
     OpenAsync(CancellationToken=) : Task<DbConnection>

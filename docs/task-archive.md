@@ -1296,7 +1296,7 @@ Decisions → `docs/DECISIONS.md` D19; user-visible detail → CHANGELOG Unrelea
 
 ---
 
-## Part 22 — Curated-memory as a titled, searchable catalog (CMEM3/CMEM4)
+## Part 22 — Curated-memory as a titled, searchable catalog (CMEM3/CMEM4/CMEM5)
 
 Requested by the desktop AI-manager integration (2026-07-26): its agent memory is a single titled,
 source-tagged, keyword-searchable, individually-CRUD-able note catalog written by both a human (owner)
@@ -1340,6 +1340,26 @@ and the agent; two generic gaps stopped `ICuratedMemoryStore` from being that ca
   `Search_matches_content_and_title_with_filters` + `Search_recalls_cjk_substrings` (the portable
   ≥3-char-substring guarantee + 2-char CJK via the substring fallbacks) wired to all 3 backends;
   4 ApiSurface baselines regenerated; migration pins bumped to 15. `verify` green (981 tests).
+
+A later follow-up from the same adopter (2026-07-27) closed a third gap — this time in the catalog's EDIT
+path rather than its read path:
+
+- [x] **CMEM5 — `kind` on `ICuratedMemoryStore.UpdateAsync`.** `UpdateAsync(id, content?, enabled?, source?,
+  title?)` can change everything about a curated entry EXCEPT its `kind` (the section it belongs to). A
+  catalog-editor consumer that lets the user re-categorise an existing note must therefore remove+re-add
+  (losing the id + created_at) just to move it between kinds — the desktop AI-manager adopter does exactly
+  this as a workaround. Add an optional `kind:` param to `UpdateAsync` (COALESCE semantics like the other
+  fields; `null` = leave unchanged) across all three backends so a re-categorise is a true in-place update.
+  Small + additive; generic (any curated-catalog UI wants it). `src/Lyntai.Core/Storage/ICuratedMemoryStore.cs`
+  + the SQLite/Postgres/InMemory impls.
+  ✅ done 2026-07-27 — Outcome: `UpdateAsync` gains a trailing optional `kind` param (placed AFTER `title`,
+  before `ct`, so no pre-existing positional call site silently re-binds) with COALESCE semantics (null =
+  leave unchanged) across all three backends — SQLite/Postgres `kind = COALESCE(@kind, kind)` in the UPDATE
+  (`kind` isn't in the FTS, and the SQLite `_au` trigger just re-syncs the unchanged content/title as a
+  no-op → NO migration, the column already exists), InMemory `Kind = kind ?? e.Kind`. A re-categorise now
+  keeps the id + `created_at`. Contract test `Update_can_recategorise_kind_in_place` wired to all 3 backends
+  (InMemory/SQLite facts + the Postgres shared-container CRUD suite); 4 ApiSurface baselines updated.
+  `verify` green (build · test · e2e · check-sensitive).
 
 ---
 

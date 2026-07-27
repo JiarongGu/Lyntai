@@ -45,20 +45,22 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
     }
 
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
-        string? title = null, CancellationToken ct = default)
+        string? title = null, string? kind = null, CancellationToken ct = default)
     {
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        // COALESCE: only the provided (non-null) fields change; null leaves the column as-is
+        // COALESCE: only the provided (non-null) fields change; null leaves the column as-is. kind
+        // re-categorises in place (the _au trigger re-syncs the unchanged content/title into FTS — a no-op).
         var n = await conn.ExecuteAsync(new CommandDefinition("""
             UPDATE lyntai_curated_memory
             SET content = COALESCE(@content, content),
                 enabled = COALESCE(@enabled, enabled),
                 source  = COALESCE(@source, source),
                 title   = COALESCE(@title, title),
+                kind    = COALESCE(@kind, kind),
                 updated_at = @now
             WHERE id = @id
-            """, new { id, content, enabled, source, title, now }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { id, content, enabled, source, title, kind, now }, cancellationToken: ct)).ConfigureAwait(false);
         return n > 0;
     }
 

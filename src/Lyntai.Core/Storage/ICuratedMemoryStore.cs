@@ -46,9 +46,13 @@ public interface ICuratedMemoryStore
 
     /// <summary>Update an entry in place — only the non-null arguments change (COALESCE semantics), so
     /// passing just <paramref name="enabled"/> toggles it without touching the content. To CLEAR the
-    /// source or title, pass an empty string (null means "leave unchanged"). Returns whether a row was updated.</summary>
+    /// source or title, pass an empty string (null means "leave unchanged"). <paramref name="kind"/>
+    /// RE-CATEGORISES the entry in place (COALESCE too; null = leave unchanged) — moving a note between kinds
+    /// keeps its id and <c>created_at</c> instead of forcing a remove+re-add; it sits after
+    /// <paramref name="title"/> so no pre-existing positional call site silently re-binds. Returns whether a
+    /// row was updated.</summary>
     Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
-        string? title = null, CancellationToken ct = default);
+        string? title = null, string? kind = null, CancellationToken ct = default);
 
     /// <summary>Delete an entry. Returns whether one was removed.</summary>
     Task<bool> RemoveAsync(long id, CancellationToken ct = default);

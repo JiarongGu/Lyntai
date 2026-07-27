@@ -15,6 +15,12 @@ changes** (renamed C# members map onto the frozen columns via SELECT aliases).
 > A push/PR CI workflow was briefly added here and then removed by decision: verification stays MANUAL
 > (`node devtools/dev.mjs verify` before any commit/release) and releases stay manual (`release.yml`,
 > triggered by hand) — see `docs/DECISIONS.md` D20.
+- **`ICuratedMemoryStore.UpdateAsync(..., kind:)`** (CMEM5): re-categorise a curated entry in place. The
+  update gains an optional trailing `kind` (after `title`, before the cancellation token, so no existing
+  positional call re-binds) with the same COALESCE semantics as the other fields — null leaves the kind
+  unchanged. Moving a note between kinds now keeps its id and `created_at` instead of forcing a
+  remove+re-add. All three backends; no migration (the `kind` column already exists, and SQLite's FTS
+  stays correct — the update re-syncs the unchanged content/title as a no-op).
 - **`ICuratedMemoryStore.SearchAsync`** (CMEM4): keyword search over the curated catalog — matches
   content AND title, with the `ListAsync`-family strict filters (`kind`/`taskKey`/`scope`,
   `enabledOnly` default false) and a `limit` cap; a whitespace query returns empty (`ListAsync` is the

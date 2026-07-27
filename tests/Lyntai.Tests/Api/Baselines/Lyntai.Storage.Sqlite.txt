@@ -107,7 +107,7 @@ sealed class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
     ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
     RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
     SearchAsync(String, String=, String=, String=, Boolean=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, String=, CancellationToken=) : Task<Boolean>
+    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, String=, String=, CancellationToken=) : Task<Boolean>
 sealed class Lyntai.Storage.Sqlite.SqliteJobStore
     .ctor(IDbConnectionFactory, Func<DateTimeOffset>=, Int32=)
     ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>

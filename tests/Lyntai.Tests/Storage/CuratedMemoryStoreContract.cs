@@ -45,6 +45,36 @@ public static class CuratedMemoryStoreContract
         Assert.False(await store.UpdateAsync(-1, content: "x")); // missing → false (ids are positive)
     }
 
+    /// <summary>CMEM5 — <see cref="ICuratedMemoryStore.UpdateAsync"/> gains an optional <c>kind</c> (COALESCE
+    /// like the other fields; null = leave unchanged) so a catalog editor can RE-CATEGORISE an entry between
+    /// kinds IN PLACE — keeping its id and created_at — instead of remove+re-add. A kind-only change leaves
+    /// content/source/title untouched; a later null-kind update keeps the new kind. Kind-parameterized so the
+    /// Postgres shared container can run it isolated.</summary>
+    public static async Task Update_can_recategorise_kind_in_place(ICuratedMemoryStore store,
+        string fromKind = "inbox", string toKind = "glossary")
+    {
+        var id = await store.AddAsync(fromKind, "a fact worth keeping", source: "import", title: "the label");
+        var created = (await store.GetAsync(id))!.CreatedAt;
+
+        // move it between kinds in place — id + created_at + the OTHER fields all survive (the whole point:
+        // an in-place re-categorise, not a remove+re-add that would lose the id and created_at)
+        Assert.True(await store.UpdateAsync(id, kind: toKind));
+        var moved = await store.GetAsync(id);
+        Assert.Equal(toKind, moved!.Kind);
+        Assert.Equal("a fact worth keeping", moved.Content); // untouched
+        Assert.Equal("import", moved.Source);                // untouched
+        Assert.Equal("the label", moved.Title);              // untouched
+        Assert.Equal(created, moved.CreatedAt);              // same row, not a new one
+
+        // null kind = leave unchanged (COALESCE): a content-only edit keeps the new kind
+        Assert.True(await store.UpdateAsync(id, content: "revised fact"));
+        Assert.Equal(toKind, (await store.GetAsync(id))!.Kind);
+
+        // and it's now discoverable under the new kind, not the old one
+        Assert.Contains(id, (await store.ListAsync(kind: toKind)).Select(e => e.Id));
+        Assert.DoesNotContain(id, (await store.ListAsync(kind: fromKind)).Select(e => e.Id));
+    }
+
     /// <summary>Kind-parameterized for the shared Postgres container; the cross-kind enabled filter is
     /// asserted by CONTAINMENT (a table-wide count would see other tests' rows there).</summary>
     public static async Task List_filters_by_kind_and_enabled(ICuratedMemoryStore store,

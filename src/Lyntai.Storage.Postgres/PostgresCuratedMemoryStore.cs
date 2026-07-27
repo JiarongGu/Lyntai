@@ -44,7 +44,7 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
     }
 
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? source = null,
-        string? title = null, CancellationToken ct = default)
+        string? title = null, string? kind = null, CancellationToken ct = default)
     {
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -54,9 +54,10 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
                 enabled = COALESCE(@enabled::boolean, enabled),
                 source  = COALESCE(@source::text, source),
                 title   = COALESCE(@title::text, title),
+                kind    = COALESCE(@kind::text, kind),
                 updated_at = @now
             WHERE id = @id
-            """, new { id, now, content, enabled, source, title }, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { id, now, content, enabled, source, title, kind }, cancellationToken: ct)).ConfigureAwait(false);
         return n > 0;
     }
 
