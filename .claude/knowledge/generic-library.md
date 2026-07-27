@@ -13,7 +13,7 @@ ship the consumer's shape (its tool names, its file-path argument, its domain vo
 posture) the library rots into a private fork with public packaging: the next adopter can't use the
 feature, the `ApiSurface` baseline accumulates app-specific noise, and Core stops being neutral. The whole
 value proposition — "a new project gets this without rebuilding it" — depends on refusing that. This is the
-standing rule stated in `CLAUDE.md` and `tasks.md`; this doc is *how* to satisfy it.
+standing rule stated in `CLAUDE.md` and `TASKS.md`; this doc is *how* to satisfy it.
 
 ## How to apply
 
@@ -68,7 +68,7 @@ When a task says "app X wants Y," run it through this before writing code:
 
 ## Related
 
-- `CLAUDE.md` / `tasks.md` (the standing "this is a generic library" rule this doc expands).
+- `CLAUDE.md` / `TASKS.md` (the standing "this is a generic library" rule this doc expands).
 - `.claude/rules/dev-conventions.md` — package layout (interface in Core, impl in adapter, never
   adapter→adapter), variation points = DI collections.
 - `.claude/knowledge/extending-lyntai.md` — the four extension seams a generalization usually rides on.

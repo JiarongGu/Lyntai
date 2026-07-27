@@ -223,7 +223,7 @@ rule is documented where the rule lives.
 
 ## 0.29.3 — 2026-07-23
 
-The 0.29.1–0.29.3 patch series: consumer-driven generic gaps (tasks.md Part 11 · Part 12) plus CLI-runner
+The 0.29.1–0.29.3 patch series: consumer-driven generic gaps (TASKS.md Part 11 · Part 12) plus CLI-runner
 hardening (the `StreamLinesAsync` large-prompt deadlock, then buffered inactivity/dead detection). All
 additive; public surface grew (`ApiSurface` baselines updated) — no removals, existing calls
 source-compatible. One seam signature grew: the buffered `IProcessRunner.RunAsync` gained an optional
@@ -1434,7 +1434,7 @@ Production-hardening release: everything surfaced by the multi-agent code review
 
 ## 0.1.0 — 2026-07-17
 
-Initial implementation: the full `tasks.md` sequence (phases 0–7). Core abstractions + fallback
+Initial implementation: the full `TASKS.md` sequence (phases 0–7). Core abstractions + fallback
 router, SQLite storage with FTS5-trigram memory, claude-CLI / OpenAI-compatible / MEAI providers,
 cortex layer (prompt registry, scorers incl. LLM judge, traces, memory composition), Playground,
 devtools e2e harness, NuGet packaging.

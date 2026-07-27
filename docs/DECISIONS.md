@@ -169,7 +169,7 @@ compile-checked field names, at the cost of a DTO set per dialect with `JsonElem
 that only if envelope-parsing bugs actually materialize; don't re-litigate the reflection route.
 
 ## D18 — Findings deliberately REJECTED in the 2026-07-26 hardening pass (don't re-open without new evidence)
-The whole-library review pass triaged ~80 findings into fixed / deferred (the `tasks.md` backlog) /
+The whole-library review pass triaged ~80 findings into fixed / deferred (the `TASKS.md` backlog) /
 **rejected**. The rejected ones, with why — so a future review pass doesn't re-litigate them:
 - **Shared clock-default helper** (`clock ?? (() => DateTimeOffset.UtcNow)` in ~15 classes): one line per
   class; a shared helper is either public-surface bloat or unusable from adapters (internal). Revisit only

@@ -7,7 +7,7 @@ the tests) while being wrong. Skim before touching the relevant area.
 
 - **This machine's console is GBK/CP936.** Writing UTF-8 through it (PowerShell `Set-Content`/`Out-File`
   without `-Encoding utf8`, `echo >`, a shell heredoc) **double-encodes and lossily corrupts** non-ASCII
-  content — it once mangled every `灵台`/`—`/`§` in `tasks.md` irreversibly. **Always write files with
+  content — it once mangled every `灵台`/`—`/`§` in `TASKS.md` irreversibly. **Always write files with
   the Write/Edit tools** (they emit UTF-8 directly) or, in scripts, `fs.writeFileSync`/`-Encoding utf8`.
   Verify with an ASCII-safe check (codepoints), not by eyeballing console output (which re-mangles it).
 - Sources are BOM-less UTF-8 + `<CodePage>65001</CodePage>` (in `Directory.Build.props`) — without it

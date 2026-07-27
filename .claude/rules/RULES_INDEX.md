@@ -15,7 +15,7 @@ always-loaded, but the on-demand rule *bodies* are not, so this table is how you
 |---|---|---|
 | [sensitive-info.md](sensitive-info.md) | EVERY commit / tracked-file edit | No dev-machine paths or private tokens in the repo; pre-commit guard + `local/sensitive-patterns.txt` |
 | [dev-conventions.md](dev-conventions.md) | Any code change | Package layout (interface in Core, impl in adapter, never adapter→adapter), async Dapper + FluentMigrator numbering + FTS5-trigram, spawn hygiene + fallback semantics, DI-collection variation points, xUnit + provider-stub testing, devtools loop |
-| [task-lifecycle.md](task-lifecycle.md) | Adding / finishing a task; editing `tasks.md` | `tasks.md` = OPEN backlog only; a completed task MOVES to `docs/task-archive.md` (not left checked-off). Use the `archive-task` skill |
+| [task-lifecycle.md](task-lifecycle.md) | Adding / finishing a task; editing `TASKS.md` | `TASKS.md` = OPEN backlog only; a completed task MOVES to `docs/task-archive.md` (not left checked-off). Use the `archive-task` skill |
 | [no-global-memory.md](no-global-memory.md) | Tempted to save a project fact to global auto-memory | Project facts live IN-REPO (`.claude/rules` / `.claude/knowledge` / `docs/DECISIONS.md`); global `~/.claude/*/memory/` is ONLY for user-specific prefs |
 | [minimise-bash-prompts.md](minimise-bash-prompts.md) | EVERY task that inspects files; a destructive/irreversible shell command | File ops via `Read`/`Grep`/`Glob` NOT `Bash cat/find/ls/sed -n`; shell (`dev.mjs`/git/dotnet/node) is blanket-allowed so destructive commands need care; NEVER route shell through a side channel to evade the gate |
 | [no-tmp-for-repo-files.md](no-tmp-for-repo-files.md) | Composing a repo file; needing a scratch/probe file or a dev helper | Compose finals with `Write`/`Edit`; scratch/dumps → git-ignored `devtools/_*`, reusable tooling → `devtools/`; never OS temp (`/tmp`, `C:\Temp`) for repo content |
@@ -32,7 +32,7 @@ always-loaded, but the on-demand rule *bodies* are not, so this table is how you
 
 **Skills** live in `.claude/skills/` — extension tasks (`add-provider`, `add-storage-backend`,
 `add-scorer`, `add-migration`) and process (`archive-task`). The design contract is
-`docs/2026-07-17-lyntai-design.md`; decisions in `docs/DECISIONS.md`. The **active** backlog is `tasks.md`
+`docs/2026-07-17-lyntai-design.md`; decisions in `docs/DECISIONS.md`. The **active** backlog is `TASKS.md`
 (open tasks only); **completed** work is archived in `docs/task-archive.md`.
 
 ## How to use

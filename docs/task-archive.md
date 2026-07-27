@@ -1,8 +1,8 @@
 # Lyntai (灵台) — Completed Task Archive
 
 > **This is the ARCHIVE of finished work — the historical implementation plan + closed backlog, kept for
-> the record. The ACTIVE backlog lives in [`../tasks.md`](../tasks.md) (open tasks only).** Per the
-> task-lifecycle rule (`.claude/rules/task-lifecycle.md`), an entry is moved here from `tasks.md` once it is
+> the record. The ACTIVE backlog lives in [`../TASKS.md`](../TASKS.md) (open tasks only).** Per the
+> task-lifecycle rule (`.claude/rules/task-lifecycle.md`), an entry is moved here from `TASKS.md` once it is
 > fully done (committed + verified). `CHANGELOG.md` stays the release-facing log; this file is the
 > task-level record (why/how, per-task).
 >
@@ -1245,7 +1245,7 @@ app-agnostic library surface (see `.claude/knowledge/generic-library.md`, create
 
 ## Part 20 — Whole-library foundation-hardening pass (2026-07-26)
 
-✅ done 2026-07-26 — Not a `tasks.md` task but the archive records it as the third consolidation review:
+✅ done 2026-07-26 — Not a `TASKS.md` task but the archive records it as the third consolidation review:
 six parallel subsystem reviews (~80 findings) → verified per finding → three correctness clusters
 (router/rate-limiter/cache · infra/DI/scheduler/vault · provider bridges/guards/orchestrator/prompts), a
 storage refactor (async `OpenAsync` sweep, `JobStoreSql`+`JobRow` shared state machine,
@@ -1256,7 +1256,7 @@ Then a **round-2 adversarial review of the pass's own diff** (48-agent workflow)
 round 1 introduced — composed-prompt gating, placeholder key-grammar narrowing, stdin drain-liveness,
 thrown-Refused terminality, inert streamed-usage fix — all fixed with regression tests, plus
 case-insensitive consumer identity end-to-end and the shared claim predicate. Deferred findings → the
-`tasks.md` backlog (with reasons); rejected findings → `docs/DECISIONS.md` D18; the JSON-approach
+`TASKS.md` backlog (with reasons); rejected findings → `docs/DECISIONS.md` D18; the JSON-approach
 rationale → D17. Nine commits, `verify` green throughout (954 tests · e2e 3/3 · leak scan).
 **Shipped in 0.30.0.**
 
@@ -1265,7 +1265,7 @@ rationale → D17. Nine commits, `verify` green throughout (954 tests · e2e 3/3
 ## Part 21 — 1.0-prep: infrastructure + final API sign-off (2026-07-27; unreleased)
 
 Everything technically gating 1.0, implemented now but deliberately NOT released — 1.0 itself is
-adoption-gated (more applications must adopt Lyntai first; see ROADMAP). Two `tasks.md` items closed as
+adoption-gated (more applications must adopt Lyntai first; see ROADMAP). Two `TASKS.md` items closed as
 part of it:
 
 - [x] **P3 — Azure OpenAI preset endpoint shape.** `AddAzureOpenAiProvider`'s documented endpoint example
@@ -1281,7 +1281,7 @@ part of it:
   backends + `BudgetedLlmClient`; per-consumer totals aggregate case-insensitively (COLLATE NOCASE /
   `lower()`). Commit `ac519fa`.
 
-✅ done 2026-07-27 — Also in the part (not `tasks.md` items): push/PR CI running the full `verify` gate
+✅ done 2026-07-27 — Also in the part (not `TASKS.md` items): push/PR CI running the full `verify` gate
 [later removed the same day at the owner's direction — process is fully manual, see `DECISIONS.md` D20];
 SourceLink/deterministic CI builds; the design-contract reconciliation amendment; and the **final API
 sign-off pass** — an 18-finding audit of the whole public surface, closed by a batch of pre-1.0 breaking

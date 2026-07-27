@@ -1,6 +1,6 @@
 # 2026-07-19 — Agent-session primitive: a generic self-driving-agent loop
 
-> Design for Part 6 of `tasks.md` ("Agentic CLI session"), reworked so the primitive is **generic**
+> Design for Part 6 of `TASKS.md` ("Agentic CLI session"), reworked so the primitive is **generic**
 > (interface + event model in Core; the `claude` CLI is adapter #1), not a claude-CLI-shaped surface.
 > Read `docs/2026-07-17-lyntai-design.md` (§6 CLI hygiene, §9 platform kit) first — this extends it.
 >

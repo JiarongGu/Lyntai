@@ -17,7 +17,7 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.30.0).** All of `tasks.md`, a review/research hardening pass, then roadmap
+**Implemented + hardened (v0.30.0).** All of `TASKS.md`, a review/research hardening pass, then roadmap
 v0.3–v0.30 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
 + `migrate:false`, provider presets — the app owns resource lifecycle, Lyntai provides the interface;
 v0.8 = `Lyntai.Providers.Local` in-process GGUF inference via LLamaSharp, managed-only so the app picks
@@ -70,7 +70,7 @@ Tests/e2e green.
 - `docs/ROADMAP.md` — the forward sequence (v0.4+ and standing maintenance policies).
 - `CHANGELOG.md` — per-release detail; breaking changes called out.
 - `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
-- `tasks.md` — the **active** backlog (open tasks only); `docs/task-archive.md` — the completed-task
+- `TASKS.md` — the **active** backlog (open tasks only); `docs/task-archive.md` — the completed-task
   history (the frozen implementation plan + closed backlogs). See the `task-lifecycle.md` rule.
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (router engine) /
@@ -88,7 +88,7 @@ Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (rout
 - **`.claude/rules/`** (always-on) — `dev-conventions.md` (package layout, async Dapper + `snake_case` +
   `CAST(x AS REAL)`, FluentMigrator numbering, FTS5-trigram, spawn hygiene, DI-collection variation
   points, the devtools loop), `sensitive-info.md` (no dev-machine paths / private tokens; pre-commit
-  guard — install once with `node devtools/dev.mjs install-hooks`), `task-lifecycle.md` (`tasks.md` =
+  guard — install once with `node devtools/dev.mjs install-hooks`), `task-lifecycle.md` (`TASKS.md` =
   OPEN backlog only; a completed task MOVES to `docs/task-archive.md`), `no-global-memory.md` (project
   facts live IN-REPO — `.claude/**` / `docs/DECISIONS.md` — global memory is user-prefs only),
   `minimise-bash-prompts.md` (inspect files with `Read`/`Grep`/`Glob` not `Bash cat/ls/find`; never evade
@@ -100,9 +100,9 @@ Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (rout
   trigram triggers/pragmas/`lyntai_` prefix), **`pitfalls.md` (traps that pass the build/tests while
   being wrong — read before extending)**.
 - **`.claude/skills/`** — extension tasks (`add-provider`, `add-storage-backend`, `add-scorer`,
-  `add-migration`) and process (`archive-task` — move a finished task from `tasks.md` to the archive).
+  `add-migration`) and process (`archive-task` — move a finished task from `TASKS.md` to the archive).
 - **TDD** (failing test first) and **commit per task**. **Never commit without explicit user approval.**
-- **Backlog vs archive:** `tasks.md` holds only OPEN tasks; completed work is moved to
+- **Backlog vs archive:** `TASKS.md` holds only OPEN tasks; completed work is moved to
   `docs/task-archive.md` (see `task-lifecycle.md`), and `CHANGELOG.md` is the release-facing log.
 - Working files (probes, scratch) go under `devtools/_*` (gitignored), never OS temp.
 - **This machine's console is GBK** — write files with the Write/Edit tools or `-Encoding utf8`, never

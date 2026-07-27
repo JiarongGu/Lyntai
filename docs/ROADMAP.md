@@ -7,7 +7,7 @@
 ## Shipped
 
 ### v0.1.0 — the substrate (2026-07)
-Full `tasks.md` sequence: core abstractions + fallback router, SQLite storage (FTS5-trigram
+Full `TASKS.md` sequence: core abstractions + fallback router, SQLite storage (FTS5-trigram
 memory), claude-CLI / OpenAI-compatible / MEAI providers, cortex layer, Playground, e2e, packaging.
 
 ### v0.2.0 — production hardening (2026-07)
@@ -233,7 +233,7 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   then a second **adversarial review of the pass itself** (48-agent workflow) that caught and fixed 5
   regressions round 1 introduced. Carries small pre-1.0 BREAKS (`ChatResult.BlockReason`→`Detail`,
   `IRateLimiter` cancellation semantics, tracker totals now case-insensitive) — minor-bump release.
-- The pass's **deferred findings went to the backlog** (`tasks.md`): P5 streaming-loop extraction,
+- The pass's **deferred findings went to the backlog** (`TASKS.md`): P5 streaming-loop extraction,
   remaining Row-DTO/dedup items, PG coverage holes, contract-class mechanism, de-flaking (async
   `IUsageTracker` and the Azure preset closed in the 1.0-prep batch). Rejected findings are recorded
   in `docs/DECISIONS.md` D18.
@@ -265,7 +265,7 @@ Every technical prerequisite is implemented (2026-07-27, unreleased — see CHAN
 
 **The remaining gate is ADOPTION, not code:** 1.0 tags only after more applications adopt Lyntai in
 anger and the surface survives that contact (the sibling apps + at least the agent-manager desktop
-integration running on it). Until then the sign-off batch stays unreleased on master; the `tasks.md`
+integration running on it). Until then the sign-off batch stays unreleased on master; the `TASKS.md`
 backlog (all non-breaking-shape items now) burns down as normal minor releases. When adoption says go:
 tag **1.0**, freezing the public API (`ApiSurfaceTests` then gates majors).
 
