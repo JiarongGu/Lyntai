@@ -17,7 +17,7 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.30.0).** All of `TASKS.md`, a review/research hardening pass, then roadmap
+**Implemented + hardened (v0.30.0; latest release v0.31.0).** All of `TASKS.md`, a review/research hardening pass, then roadmap
 v0.3–v0.30 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
 + `migrate:false`, provider presets — the app owns resource lifecycle, Lyntai provides the interface;
 v0.8 = `Lyntai.Providers.Local` in-process GGUF inference via LLamaSharp, managed-only so the app picks
@@ -46,7 +46,7 @@ v0.30 = agent-adoption ergonomics — headless `SkipAllPermissions`, `ToolLoopRe
 hardening pass: correctness fixes across router/guards/orchestrator/prompts/storage/DI, structural dedup
 (`JobStoreSql`+`JobRow` shared state machine, `DelegatingLlmClient` decorator base,
 `LazyMigratingConnectionFactory`, async `OpenAsync` sweep), case-insensitive consumer identity end-to-end.
-**UNRELEASED on master (post-0.30, held for adoption — see CHANGELOG `Unreleased` + ROADMAP):** the
+**Released in v0.31.0 (2026-07-27) — see CHANGELOG + ROADMAP:** the
 1.0-prep batch (SourceLink, Azure OpenAI flavor, the final API sign-off's breaking
 renames/reshapes — `docs/DECISIONS.md` D19; verification + releases stay MANUAL by decision, D20 — no
 push/PR CI), the searchable, metadata-carrying curated catalog (CMEM4 `SearchAsync` / CMEM5 updatable

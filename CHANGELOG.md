@@ -5,11 +5,17 @@ Pre-1.0: minor bumps may carry breaking changes; each is called out below.
 
 ## Unreleased
 
-**1.0-prep: infrastructure + the final API sign-off pass.** The whole public surface was audited
-name-by-name against the design contract and the naming conventions of the .NET ecosystem; the resulting
-breaks are batched HERE, pre-1.0 and deliberately unreleased (1.0 itself is adoption-gated — see
-ROADMAP). Decisions recorded in `docs/DECISIONS.md` D19. No new migration; **no released DB column
-changes** (renamed C# members map onto the frozen columns via SELECT aliases).
+_Nothing yet._
+
+## 0.31.0 — 1.0-prep API sign-off + the curated metadata catalog (2026-07-27)
+
+**1.0-prep: infrastructure + the final API sign-off pass**, plus the curated catalog's evolution into a
+searchable, metadata-carrying store. The whole public surface was audited name-by-name against the design
+contract and the .NET ecosystem's naming conventions; the resulting breaks are pre-1.0 (1.0 itself is
+adoption-gated — see ROADMAP). Decisions recorded in `docs/DECISIONS.md` D19. **One released DB change:**
+the CMEM6 migration `202607270003` folds the released `Source` and the same-batch `Title` into the new
+`Metadata` field and drops both columns (data-preserving backfill); every other renamed C# member maps onto
+a frozen column via SELECT aliases.
 
 ### Added
 > A push/PR CI workflow was briefly added here and then removed by decision: verification stays MANUAL

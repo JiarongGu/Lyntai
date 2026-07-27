@@ -241,7 +241,7 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
 ## Planned
 
 ### v1.0 — API freeze (technical gates DONE; release is ADOPTION-GATED)
-Every technical prerequisite is implemented (2026-07-27, unreleased — see CHANGELOG Unreleased):
+Every technical prerequisite is implemented and shipped in v0.31.0 (2026-07-27 — see CHANGELOG):
 - ✅ **Public-API baseline** — an approval test (`ApiSurfaceTests`) snapshots every packable
   assembly's public/protected surface (incl. sealed/abstract/static/required modifiers); any
   add/remove/rename fails until the baseline is updated deliberately, so pre-1.0 breaks are visible in
@@ -265,7 +265,7 @@ Every technical prerequisite is implemented (2026-07-27, unreleased — see CHAN
 
 **The remaining gate is ADOPTION, not code:** 1.0 tags only after more applications adopt Lyntai in
 anger and the surface survives that contact (the sibling apps + at least the agent-manager desktop
-integration running on it). Until then the sign-off batch stays unreleased on master; the `TASKS.md`
+integration running on it). The sign-off batch shipped in v0.31.0; until 1.0 the `TASKS.md`
 backlog (all non-breaking-shape items now) burns down as normal minor releases. When adoption says go:
 tag **1.0**, freezing the public API (`ApiSurfaceTests` then gates majors).
 
