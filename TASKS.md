@@ -29,6 +29,34 @@ landed 2026-07-27 — see archive Part 24. One CONDITIONAL item stands:_
 
 ---
 
+## Part 25 — post-1.0 backlog (deferred at the 1.0 API-review triage, 2026-07-28)
+
+_Additive / non-breaking items surfaced by the 1.0 adversarial API review + consumer-usage review (the
+working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISIONS.md` D21). None block
+1.0 — each is safe to add in a post-1.0 minor._
+
+- [ ] **async migration entry points** — `MigrateUpAsync(…, CancellationToken)` twins alongside the sync
+  `MigrationRunnerService.MigrateUp` (SQLite + Postgres), for apps owning their schema under
+  `SchemaMigration.None`.
+- [ ] **semantic-memory wiring helper** — a DI seam / `Use*` helper so an app enabling semantic recall
+  doesn't hand-construct `SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` /
+  `HttpEmbedder` (a consumer does this today). Those concrete types STAY public for 1.0.
+- [ ] **`AddMcpTools` convenience overload** — `params ITool[]` and/or document the
+  `await McpToolset.FromClientAsync` → `AddMcpTools` two-step as the intended shape.
+- [ ] **verdict helpers** — `reply.IsOk()` / `reply.IsRateLimited()` extension(s) to cut the 3-branch
+  `LlmVerdict` pattern at call sites.
+- [ ] **curated-memory ergonomics** — a `Source`/metadata convenience accessor (apps unpack
+  `metadata["source"]` by hand after CMEM6); reconsider the delete+re-add for immutable `kind`/`task`/`scope`.
+- [ ] **agent-event contract** — `ClaudeToolCalls.FilePathOf` should also read `notebook_path`/`path`;
+  consider a discoverable event-shape contract instead of anonymous objects apps reflect over.
+- [ ] **member/type XML docs** — `ExtensionsAiProvider` public ctor, `LyntaiChatClientExtensions` type
+  summary, `ClaudeCliProvider` interface members, `AddMcpTools` intended-shape doc.
+- [ ] **`OpenAiCompatibleOptions.ContextSize` legibility** — Ollama-only option with a generic name; a
+  rename (e.g. `OllamaContextSize`) is BREAKING, so it's a major-bump-or-never item — accepted as-is for
+  1.0, revisit only if it causes real confusion.
+
+---
+
 ## How to work a task (evergreen)
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. Read

@@ -223,3 +223,29 @@ stays settled and the breaks don't get re-litigated at 1.0:
   `GetAsync`/`RemoveAsync`, `IJobQueue` read side, fully-async `IUsageTracker`.
 - **These breaks are deliberately UNRELEASED.** 1.0 is adoption-gated (the user's call: more applications
   must adopt Lyntai first); this batch rides in whatever release precedes it, versioned then.
+
+## D21 — 1.0 pre-freeze API review: applied, rejected, and two D19 reversals (2026-07-28)
+A fresh adversarial public-API review across all packable assemblies (33 findings, 22 survived adversarial
+verify) plus a read-only usage review of the three real consumer apps, run before the permanent 1.0 surface
+freeze — the adoption gate having been met (three consumers on 0.31.1). Working record was `devtools/_review/*`.
+- **Applied (fix-now)** — surface-shrink that can't be undone post-1.0, plus breaking-if-late interface
+  fixes: migration classes dropped from the frozen surface (see next bullet); `McpTool` /
+  `ProviderDetect.Detect(string)` / `LyntaiChatClient` → `internal`; `LocalModelOptions.AntiPrompts` →
+  `StopSequences`; non-obvious-semantics XML docs; `IScoringService` honors `IScorer.Applies()`;
+  `IConversationStore.AppendMessageAsync` returns the assigned per-thread `Seq`; `IVectorStore.DeleteAsync`;
+  `OpenAiCompatibleOptions.Flavor` string → `OpenAiFlavor` enum. Full applied list in the 1.0 CHANGELOG.
+- **Migration types off the frozen surface via SURFACE EXCLUSION, not `internal`.** The ~30 dated
+  `*.Migrations.*` classes are impl detail that leaked into the API baseline. A verifier empirically proved
+  that making `[Migration]` classes `internal` **breaks FluentMigrator 8.0.1 discovery** (its assembly scan
+  finds exported types only) — so they STAY public and are instead excluded from `ApiSurfaceTests`
+  (`ApiSurface.Render` filters the `*.Migrations` namespace). Don't re-propose the `internal` route.
+- **Rejected (don't re-litigate without new evidence, cf. D18):**
+  - `IScoringService.EvaluateAsync(bool persist)` → options-object reshape — the flag is a niche dry-run
+    escape hatch, always called `persist:`-named and documented in XML; reshaping for one flag is over-eng.
+  - Narrowing `SqliteMemoryStore` / `SqliteResponseCache` ctors off `LyntaiOptions` — the concrete SQLite
+    stores stay PUBLIC (a consumer news them up for semantic-memory wiring), so their ctors stay too.
+  - `ClaudeCliProvider.ProviderId` dual const/`Id`, and `McpToolset` → `McpTools` rename — cosmetic; frozen.
+- **Two D19 calls reversed by real consumer contact** (D19 had accepted both as-is, "additive post-1.0 if a
+  BYO consumer asks" — one did): `IVectorStore` single-item removal is now added (`DeleteAsync`), and
+  `Flavor` becomes a typed enum (the old string consts become enum members; the reserved `OpenRouter` /
+  `AzureOpenAi` values are preserved). These supersede the corresponding D19 "accepted as-is" notes.
