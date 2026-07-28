@@ -25,7 +25,9 @@ public sealed class OpenAiCompatibleProvider(
     bool disposeHttpClient = true) : ILlmProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<OpenAiCompatibleProvider>.Instance;
-    private readonly string _flavor = config.Flavor ?? ProviderDetect.Detect(config.BaseUrl);
+    private readonly OpenAiFlavor _flavor = config.Flavor == OpenAiFlavor.Auto
+        ? ProviderDetect.Detect(config.BaseUrl)
+        : config.Flavor;
 
     public string Id => id;
 
@@ -181,7 +183,7 @@ public sealed class OpenAiCompatibleProvider(
             // finish_reason terminates an NDJSON (Ollama) stream. An SSE stream instead runs on to its
             // [DONE] sentinel (or EOF) so the trailing stream_options usage chunk — sent AFTER the
             // finish_reason line, with an EMPTY choices array — is still read into `usage`.
-            if (isFinal && _flavor == ProviderDetect.Ollama) break;
+            if (isFinal && _flavor == OpenAiFlavor.Ollama) break;
         }
 
         // a streamed content filter must end as Refused, not a benign Final — same verdict the
@@ -214,7 +216,7 @@ public sealed class OpenAiCompatibleProvider(
 
     private HttpRequestMessage BuildRequest(LlmRequest req, string model, bool stream)
     {
-        var payload = _flavor == ProviderDetect.Ollama
+        var payload = _flavor == OpenAiFlavor.Ollama
             ? OllamaPayload.Build(req, model, stream, config.ContextSize)
             : OpenAiPayload.Build(req, model, stream);
 
@@ -227,7 +229,7 @@ public sealed class OpenAiCompatibleProvider(
             request.Headers.Authorization = new("Bearer", config.ApiKey);
             // Azure key auth conventionally travels in the api-key header; its v1 surface accepts either,
             // so sending BOTH keeps the key path and a BYO Entra-token Bearer flow on one code path
-            if (_flavor == ProviderDetect.AzureOpenAi)
+            if (_flavor == OpenAiFlavor.AzureOpenAi)
                 request.Headers.TryAddWithoutValidation("api-key", config.ApiKey);
         }
         return request;
@@ -238,11 +240,11 @@ public sealed class OpenAiCompatibleProvider(
         var baseUrl = config.BaseUrl.TrimEnd('/');
         var path = _flavor switch
         {
-            ProviderDetect.Ollama => "/api/chat",
+            OpenAiFlavor.Ollama => "/api/chat",
             // Azure's OpenAI-COMPATIBLE (v1) surface lives under /openai/v1 on the resource host — a bare
             // resource URL (https://my-res.openai.azure.com) would otherwise compose /v1/… and 404. A base
             // that already includes /openai(…/v1) falls through to the generic suffix logic below.
-            ProviderDetect.AzureOpenAi when !baseUrl.Contains("/openai", StringComparison.OrdinalIgnoreCase)
+            OpenAiFlavor.AzureOpenAi when !baseUrl.Contains("/openai", StringComparison.OrdinalIgnoreCase)
                 => "/openai/v1/chat/completions",
             _ => baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
                 ? "/chat/completions"

@@ -66,6 +66,7 @@ public static class OpenAiCompatibleBuilderExtensions
         {
             o.BaseUrl = baseUrl ?? "http://localhost:11434";
             o.DefaultModel = defaultModel;
+            o.Flavor = OpenAiFlavor.Ollama;
         }, httpClient);
 
     /// <summary>OpenRouter (openrouter.ai). Default id "openrouter".</summary>
@@ -76,6 +77,7 @@ public static class OpenAiCompatibleBuilderExtensions
             o.BaseUrl = "https://openrouter.ai/api/v1";
             o.ApiKey = apiKey;
             o.DefaultModel = defaultModel;
+            o.Flavor = OpenAiFlavor.OpenRouter;
         }, httpClient);
 
     /// <summary>Azure OpenAI, targeting the resource's OpenAI-COMPATIBLE <c>v1</c> surface.
@@ -89,6 +91,7 @@ public static class OpenAiCompatibleBuilderExtensions
             o.BaseUrl = endpoint;
             o.ApiKey = apiKey;
             o.DefaultModel = defaultModel;
+            o.Flavor = OpenAiFlavor.AzureOpenAi;
         }, httpClient);
 
     // ---- embeddings ------------------------------------------------------------------------------

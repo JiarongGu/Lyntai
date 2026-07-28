@@ -17,9 +17,9 @@ public sealed class OpenAiCompatibleEmbedderOptions
     /// <summary>Bearer token; null for keyless endpoints (local Ollama / LM Studio).</summary>
     public string? ApiKey { get; set; }
 
-    /// <summary>Pin the payload flavor ("openai" | "ollama" | "openrouter" | "azure-openai"); null →
-    /// detect from <see cref="BaseUrl"/> via <see cref="ProviderDetect"/>.</summary>
-    public string? Flavor { get; set; }
+    /// <summary>Pin the payload flavor; <see cref="OpenAiFlavor.Auto"/> (default) detects it from
+    /// <see cref="BaseUrl"/>.</summary>
+    public OpenAiFlavor Flavor { get; set; } = OpenAiFlavor.Auto;
 
     /// <summary>Max inputs per HTTP request; a larger call list is split into this many at a time (real
     /// endpoints cap input counts — OpenAI at 2048, Azure historically at 16). <c>0</c> (default) sends the

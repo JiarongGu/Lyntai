@@ -12,8 +12,8 @@ public sealed class OpenAiCompatibleOptions
     /// <summary>Model used when neither the request nor the candidate pins one.</summary>
     public string? DefaultModel { get; set; }
 
-    /// <summary>Pin the payload flavor ("openai" | "ollama" | "openrouter"); null → detect from BaseUrl.</summary>
-    public string? Flavor { get; set; }
+    /// <summary>Pin the payload flavor; <see cref="OpenAiFlavor.Auto"/> (default) detects it from BaseUrl.</summary>
+    public OpenAiFlavor Flavor { get; set; } = OpenAiFlavor.Auto;
 
     /// <summary>Ollama context-window override (maps to Ollama's <c>options.num_ctx</c> wire option;
     /// ignored by the other flavors).</summary>

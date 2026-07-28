@@ -27,7 +27,9 @@ public sealed class HttpEmbedder(
     bool disposeHttpClient = true) : IEmbedder
 {
     private readonly ILogger _logger = logger ?? NullLogger<HttpEmbedder>.Instance;
-    private readonly string _flavor = config.Flavor ?? ProviderDetect.Detect(config.BaseUrl);
+    private readonly OpenAiFlavor _flavor = config.Flavor == OpenAiFlavor.Auto
+        ? ProviderDetect.Detect(config.BaseUrl)
+        : config.Flavor;
 
     /// <summary>Get the per-call HttpClient. Lyntai-created clients are disposed after each call; an
     /// APP-supplied (BYO) client is NEVER disposed — the app owns its lifetime.</summary>
@@ -111,7 +113,7 @@ public sealed class HttpEmbedder(
         {
             request.Headers.Authorization = new("Bearer", config.ApiKey);
             // Azure key auth conventionally travels in the api-key header (mirrors the chat provider)
-            if (_flavor == ProviderDetect.AzureOpenAi)
+            if (_flavor == OpenAiFlavor.AzureOpenAi)
                 request.Headers.TryAddWithoutValidation("api-key", config.ApiKey);
         }
         return request;
@@ -123,11 +125,11 @@ public sealed class HttpEmbedder(
         var path = _flavor switch
         {
             // Ollama's native batched embeddings endpoint (parallel to the chat provider's /api/chat)
-            ProviderDetect.Ollama => "/api/embed",
+            OpenAiFlavor.Ollama => "/api/embed",
             // Azure's OpenAI-COMPATIBLE (v1) surface lives under /openai/v1 on the resource host — a bare
             // resource URL would otherwise compose /v1/… and 404. A base already carrying /openai(…/v1)
             // falls through to the generic suffix logic below.
-            ProviderDetect.AzureOpenAi when !baseUrl.Contains("/openai", StringComparison.OrdinalIgnoreCase)
+            OpenAiFlavor.AzureOpenAi when !baseUrl.Contains("/openai", StringComparison.OrdinalIgnoreCase)
                 => "/openai/v1/embeddings",
             _ => baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
                 ? "/embeddings"
