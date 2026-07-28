@@ -2,11 +2,11 @@ static class Lyntai.LocalBuilderExtensions
     static AddLocalProvider(LyntaiBuilder, String, Action<LocalModelOptions>=, String=) : LyntaiBuilder
 sealed class Lyntai.Providers.Local.LocalModelOptions
     .ctor()
-    AntiPrompts : IReadOnlyList<String>
     ContextSize : Nullable<Int32>
     GpuLayerCount : Int32
     MaxTokens : Nullable<Int32>
     ModelPath : String
+    StopSequences : IReadOnlyList<String>
     Temperature : Single
 sealed class Lyntai.Providers.Local.LocalProvider
     .ctor(String, LocalModelOptions, LyntaiOptions, ILogger<LocalProvider>=)

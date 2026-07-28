@@ -34,4 +34,3 @@ static class Lyntai.Providers.OpenAiCompatible.ProviderDetect
     Ollama : String const
     OpenAi : String const
     OpenRouter : String const
-    static Detect(String) : String

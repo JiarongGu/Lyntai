@@ -16,7 +16,7 @@ public static class ProviderDetect
     /// conventionally travels in the <c>api-key</c> header — this flavor makes both adjustments.</summary>
     public const string AzureOpenAi = "azure-openai";
 
-    public static string Detect(string? baseUrl)
+    internal static string Detect(string? baseUrl)
     {
         if (string.IsNullOrWhiteSpace(baseUrl) ||
             !Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri))

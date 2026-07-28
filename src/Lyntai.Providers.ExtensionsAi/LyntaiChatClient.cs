@@ -11,7 +11,7 @@ namespace Lyntai.Providers.ExtensionsAi;
 /// (MEAI's failure idiom), except <see cref="LlmVerdict.Refused"/> which maps to a
 /// <see cref="ChatFinishReason.ContentFilter"/> response.
 /// </summary>
-public sealed class LyntaiChatClient(ILlmClient client) : IChatClient
+internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
 {
     public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, CancellationToken cancellationToken = default)

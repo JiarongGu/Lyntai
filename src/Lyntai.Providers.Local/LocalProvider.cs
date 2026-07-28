@@ -165,7 +165,7 @@ public sealed class LocalProvider(
     private InferenceParams BuildInferenceParams(LlmRequest req) => new()
     {
         MaxTokens = req.MaxTokens ?? options.MaxTokens ?? -1, // -1 = run to EOS
-        AntiPrompts = options.AntiPrompts,
+        AntiPrompts = options.StopSequences,
         SamplingPipeline = new DefaultSamplingPipeline { Temperature = (float)(req.Temperature ?? options.Temperature) },
     };
 

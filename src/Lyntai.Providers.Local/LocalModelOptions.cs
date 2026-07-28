@@ -26,6 +26,7 @@ public sealed class LocalModelOptions
     public float Temperature { get; set; } = 0.7f;
 
     /// <summary>Extra stop strings that end generation early (beyond the model's own EOS token) —
-    /// e.g. a role tag a base (non-chat) model would otherwise hallucinate.</summary>
-    public IReadOnlyList<string> AntiPrompts { get; set; } = [];
+    /// e.g. a role tag a base (non-chat) model would otherwise hallucinate. (LLamaSharp calls these
+    /// "anti-prompts"; named for the library's own vocabulary here.)</summary>
+    public IReadOnlyList<string> StopSequences { get; set; } = [];
 }

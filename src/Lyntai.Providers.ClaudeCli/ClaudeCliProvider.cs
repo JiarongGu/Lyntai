@@ -32,6 +32,13 @@ public sealed class ClaudeCliProvider(
 
     public string Id => ProviderId;
 
+    /// <summary>Whether the <c>claude</c> CLI looks callable. For the built-in <see cref="ProcessRunner"/>
+    /// this probes the resolved command on the local PATH (an explicit override is trusted without probing).</summary>
+    /// <remarks>OPTIMISTIC for a BYO <see cref="IProcessRunner"/>: a custom runner (sandbox / remote / audited
+    /// execution) resolves the command in ITS OWN environment, not the host's local PATH — so this returns
+    /// <c>true</c> without probing rather than skip the provider and never reach the runner. A truly missing
+    /// binary then surfaces as a <see cref="LlmVerdict.Failed"/> verdict on the actual call, and the router
+    /// falls over to the next candidate.</remarks>
     public bool IsAvailable
     {
         get

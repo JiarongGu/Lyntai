@@ -21,6 +21,10 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
     private readonly object _lock = new();
     private Task? _schema;
 
+    /// <summary>Insert or replace the vector (+ its payload) at <paramref name="id"/> within
+    /// <paramref name="collection"/> — an upsert on the <c>(collection, vec_id)</c> primary key, so a repeat
+    /// id overwrites the prior embedding and payload rather than duplicating. Creates the pgvector schema on
+    /// first use (see the type remarks). Vectors are dimension-agnostic (an unbounded <c>vector</c> column).</summary>
     public async Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
         await EnsureSchemaAsync().ConfigureAwait(false);
@@ -32,6 +36,14 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
             """, new { collection, id, embedding = Literal(vector), payload }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
+    /// <summary>Return the <paramref name="k"/> nearest vectors in <paramref name="collection"/> to
+    /// <paramref name="query"/>, most-similar first. Each match's score is COSINE SIMILARITY in
+    /// <c>[-1, 1]</c> (computed as <c>1 - cosine_distance</c>, so 1 = identical direction) — matching the
+    /// other <see cref="IVectorStore"/> implementations. The search is an EXACT (brute-force) scan: the
+    /// column is unindexed, so pgvector compares the query against every row in the collection (no ANN
+    /// approximation). <paramref name="k"/> &lt;= 0 returns an empty list without touching the database.</summary>
+    /// <returns>Up to <paramref name="k"/> matches ordered by descending similarity; empty when the
+    /// collection has no rows or <paramref name="k"/> &lt;= 0.</returns>
     public async Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default)
     {
         if (k <= 0) return [];
@@ -47,6 +59,9 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
         return [.. rows.Select(r => new VectorMatch(r.VecId, r.Payload, r.Score))];
     }
 
+    /// <summary>Delete every vector in <paramref name="collection"/>. Idempotent — a missing/empty
+    /// collection is a no-op (the underlying <c>DELETE</c> simply matches no rows). The table and the
+    /// pgvector extension are left in place; only the collection's rows are removed.</summary>
     public async Task RemoveCollectionAsync(string collection, CancellationToken ct = default)
     {
         await EnsureSchemaAsync().ConfigureAwait(false);

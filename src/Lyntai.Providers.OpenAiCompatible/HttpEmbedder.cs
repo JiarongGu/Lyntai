@@ -33,6 +33,17 @@ public sealed class HttpEmbedder(
     /// APP-supplied (BYO) client is NEVER disposed — the app owns its lifetime.</summary>
     private HttpClient? OwnedClient() => disposeHttpClient ? httpFactory() : null;
 
+    /// <summary>Embed <paramref name="texts"/>, returning one vector per input in the SAME order (batched
+    /// per <see cref="OpenAiCompatibleEmbedderOptions.BatchSize"/> and concatenated). An empty input returns
+    /// an empty list without any HTTP call. Failure THROWS (an embedding call has no verdict/fallback) — the
+    /// caller decides whether to swallow it (recall is fail-open) or surface it (remember is not).</summary>
+    /// <returns>One <c>float[]</c> per input text, in input order.</returns>
+    /// <exception cref="HttpRequestException">The endpoint returned a non-2xx status.</exception>
+    /// <exception cref="TimeoutException">No response within <see cref="LyntaiOptions.ProviderTimeout"/>
+    /// (the per-call deadline; distinct from caller cancellation).</exception>
+    /// <exception cref="InvalidOperationException">The response was malformed / carried no vectors, or the
+    /// vector count did not match the batch size.</exception>
+    /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled.</exception>
     public async Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default)
     {
         if (texts.Count == 0) return [];

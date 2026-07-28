@@ -42,7 +42,7 @@ public class ApiSurfaceTests
         ["Lyntai.Providers.OpenAiCompatible"] = typeof(Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider).Assembly,
         ["Lyntai.Providers.ExtensionsAi"] = typeof(Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider).Assembly,
         ["Lyntai.Providers.Local"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,
-        ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpTool).Assembly,
+        ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpToolset).Assembly,
         ["Lyntai.Providers.ClaudeCli.Mcp"] = typeof(Lyntai.ClaudeCliMcpBuilderExtensions).Assembly,
         ["Lyntai.Secrets.Dpapi"] = typeof(Lyntai.Secrets.DpapiSecretProtector).Assembly,
     };

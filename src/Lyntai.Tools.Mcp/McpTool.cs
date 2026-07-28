@@ -8,7 +8,7 @@ namespace Lyntai.Tools.Mcp;
 /// stays out of the contract and the adapter is unit-testable with a fake. <see cref="McpToolset"/>
 /// builds these from a connected client; the app owns the client's lifecycle (BYO connection).
 /// </summary>
-public sealed class McpTool(
+internal sealed class McpTool(
     string name,
     string? description,
     string? parametersJsonSchema,

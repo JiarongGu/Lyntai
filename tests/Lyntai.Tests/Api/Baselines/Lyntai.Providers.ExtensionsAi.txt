@@ -8,11 +8,5 @@ sealed class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
     IsAvailable : Boolean
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls : Boolean
-sealed class Lyntai.Providers.ExtensionsAi.LyntaiChatClient
-    .ctor(ILlmClient)
-    Dispose() : Void
-    GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions=, CancellationToken=) : Task<ChatResponse>
-    GetService(Type, Object=) : Object
-    GetStreamingResponseAsync(IEnumerable<ChatMessage>, ChatOptions=, CancellationToken=) : IAsyncEnumerable<ChatResponseUpdate>
 static class Lyntai.Providers.ExtensionsAi.LyntaiChatClientExtensions
     static AsChatClient(ILlmClient) : IChatClient

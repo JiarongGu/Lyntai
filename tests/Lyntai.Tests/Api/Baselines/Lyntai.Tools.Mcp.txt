@@ -1,10 +1,4 @@
 static class Lyntai.McpBuilderExtensions
     static AddMcpTools(LyntaiBuilder, IEnumerable<ITool>) : LyntaiBuilder
-sealed class Lyntai.Tools.Mcp.McpTool
-    .ctor(String, String, String, Func<String,CancellationToken,Task<String>>)
-    Description : String
-    InvokeAsync(String, CancellationToken=) : Task<String>
-    Name : String
-    ParametersJsonSchema : String
 static class Lyntai.Tools.Mcp.McpToolset
     static FromClientAsync(McpClient, CancellationToken=) : Task<IReadOnlyList<ITool>>

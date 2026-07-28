@@ -12,6 +12,14 @@ internal static class ApiSurface
         var sb = new StringBuilder();
         foreach (var type in assembly.GetExportedTypes().OrderBy(t => t.FullName, StringComparer.Ordinal))
         {
+            // FluentMigrator migration classes are impl detail the 1.0 squash will rewrite — consumers
+            // never name them, so they don't belong in the frozen surface. Detect the attribute by name
+            // (mirrors IsRequired) so this test project needs no FluentMigrator reference. This drops only
+            // the M<digits>_* migration classes; MigrationRunnerService / LyntaiVersionTable carry no
+            // [Migration] attribute and stay in the baseline.
+            if (type.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "FluentMigrator.MigrationAttribute"))
+                continue;
+
             sb.Append(Kind(type)).Append(' ').Append(type.FullName).Append('\n');
             foreach (var member in Members(type).OrderBy(m => m, StringComparer.Ordinal))
                 sb.Append("    ").Append(member).Append('\n');
