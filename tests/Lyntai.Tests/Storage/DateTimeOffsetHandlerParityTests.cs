@@ -30,12 +30,12 @@ public class DateTimeOffsetHandlerParityTests
     [Fact]
     public void SetValue_writes_the_same_value_on_both()
     {
-        var dto = new DateTimeOffset(2026, 7, 20, 8, 30, 0, TimeSpan.FromHours(5));
+        var offset = new DateTimeOffset(2026, 7, 20, 8, 30, 0, TimeSpan.FromHours(5));
         var a = new SqliteParameter();
         var b = new SqliteParameter();
 
-        Sqlite.SetValue(a, dto);
-        Postgres.SetValue(b, dto);
+        Sqlite.SetValue(a, offset);
+        Postgres.SetValue(b, offset);
 
         Assert.Equal(a.Value, b.Value); // both write value.UtcDateTime
     }

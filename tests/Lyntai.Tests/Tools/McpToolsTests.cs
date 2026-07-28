@@ -10,7 +10,7 @@ namespace Lyntai.Tests.Tools;
 
 /// <summary>The MCP→ITool adapter, tested without a real server: the call is a delegate seam so the
 /// SDK's concrete client stays out of the way; the result-flattening is tested against constructed
-/// protocol DTOs; and AddMcpTools is proven end-to-end through the tool loop.</summary>
+/// protocol result types; and AddMcpTools is proven end-to-end through the tool loop.</summary>
 public class McpToolsTests
 {
     [Fact]

@@ -78,7 +78,7 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
 
         public override DateTimeOffset Parse(object value) => value switch
         {
-            DateTimeOffset dto => dto.ToUniversalTime(),
+            DateTimeOffset offset => offset.ToUniversalTime(),
             DateTime dt => new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)),
             string s => DateTimeOffset.Parse(s, CultureInfo.InvariantCulture,
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),

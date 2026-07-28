@@ -20,9 +20,10 @@ durations) are fine uncast. `ScoreStoreTests.Doubles_round_trip_exactly_the_affi
 
 **Bool from INTEGER + a positional record:** Dapper will NOT bind a SQLite `INTEGER` (0/1) column to a
 `bool` parameter of a **positional record constructor** — it fails with "no matching constructor". Bind
-into a settable-property Row DTO (Dapper converts INTEGER→bool for a property setter) and project to the
-record — see `SqliteCuratedMemoryStore.Row` / `SqliteJobStore.Row`. (Postgres native `BOOLEAN` binds
-straight to a record ctor, so its stores skip the Row DTO.)
+into a settable-property **row type** (Dapper converts INTEGER→bool for a property setter) and project to
+the record — see `SqliteCuratedMemoryStore.Row` / `SqliteJobStore.Row`. (Postgres native `BOOLEAN` binds
+straight to a record ctor, so its stores skip the row type.) Name it `Row` / `<Thing>Row` — **never
+`*Dto`**, per the naming rule in `dev-conventions.md`.
 
 ## Per-connection pragmas
 

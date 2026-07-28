@@ -170,7 +170,7 @@ and the wire formats (claude stream-json, OpenAI-compatible dialects) are vendor
 `TryGetProperty` reads degrade gracefully instead of failing a whole deserialize on one unexpected field.
 **Open option, not taken:** System.Text.Json **source generators** (`JsonSerializerContext`) are AOT-safe
 and could type the STABLE response envelopes (OpenAI `choices/message/usage`, SSE delta shell) for
-compile-checked field names, at the cost of a DTO set per dialect with `JsonElement` interiors anyway. Do
+compile-checked field names, at the cost of an envelope-type set per dialect with `JsonElement` interiors anyway. Do
 that only if envelope-parsing bugs actually materialize; don't re-litigate the reflection route.
 
 ## D18 — Findings deliberately REJECTED in the 2026-07-26 hardening pass (don't re-open without new evidence)

@@ -17,6 +17,23 @@ Sonora — same family patterns); deviations need a reason. The design contract 
 - **DI-first.** The public entry is `services.AddLyntai(cfg => …)`. Provider/storage packages extend the
   `LyntaiBuilder` with their own `Add*`/`Use*` methods. Nothing is constructed by hand by consumers.
 
+## Naming
+
+- **Never `Dto`/`DTO` in a type, member, file or namespace name.** A name says what the thing IS in the
+  domain, not which layer it crosses — `LlmRequest`, `LlmReply`, `MemoryEntry`, `JobRow`,
+  `ClaudeAgentOptions`, `ToolLoopResult`, `AgentStreamEvent`. "DTO" says only "bag of fields in transit",
+  which is plumbing, not a name. The tree currently contains **zero** `Dto` identifiers — keep it that way.
+- Suffixes already established here, reach for one of these: `*Options` (config), `*Request`/`*Reply` (a
+  call's in/out), `*Result` (an operation's outcome), `*Entry`/`*Record` (a stored item), `*Row` (a
+  settable-property Dapper materialization type — see `storage.md`), `*Event`, `*Args`, `*Policy`.
+- **Don't write "DTO" in prose about Lyntai types either** (docs, XML doc comments) — it seeds the name
+  back in on the next change. Say "the row type", "the request record", "the wire/envelope type".
+  Historical entries in `docs/task-archive.md` keep their original wording — that's a record, not a
+  prescription.
+- Otherwise the standard .NET conventions: `I`-prefixed interfaces, `Async` suffix on awaitables,
+  PascalCase members, `_camelCase` private fields. `dto` is not an abbreviation for `DateTimeOffset`
+  in a local, either.
+
 ## Variation points = DI collections, never if/else
 
 Pluggable sets (providers, scorers, storage domains) are resolved as `IEnumerable<T>` and iterated —

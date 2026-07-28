@@ -20,7 +20,7 @@ _The 2026-07-26 hardening-pass deferrals are all closed (implemented or rejected
 landed 2026-07-27 — see archive Part 24. One CONDITIONAL item stands:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
-  `JsonSerializerContext` DTOs for the STABLE response envelopes only, **if envelope-parsing bugs ever
+  `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
   materialize** (none have). Not a license to reintroduce reflection serialization.
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
