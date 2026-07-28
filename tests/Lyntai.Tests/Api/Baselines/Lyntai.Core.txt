@@ -280,6 +280,7 @@ interface Lyntai.Cortex.IPairwiseComparer
 interface Lyntai.Cortex.IPromptComposer
     ComposeAsync(String, String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<String>
 interface Lyntai.Cortex.IScorer
+    Applies(ScoreContext) : Boolean
     Description : String
     Group : String
     Id : String

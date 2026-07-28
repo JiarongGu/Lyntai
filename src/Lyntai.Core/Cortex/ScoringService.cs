@@ -21,10 +21,14 @@ public sealed class ScoringService(
         var results = new List<ScoredResult>();
         foreach (var scorer in scorers)
         {
+            // Declarative gate, checked BEFORE any work: a scorer that doesn't apply spends nothing.
+            // Kept outside the try so a buggy predicate surfaces (a predicate is contractually pure/cheap;
+            // swallowing here would hide a real bug the same way a broken registration would).
+            if (!scorer.Applies(ctx)) continue;
             try
             {
                 var r = await scorer.ScoreAsync(ctx, ct).ConfigureAwait(false);
-                if (r is null) continue; // not applicable to this context
+                if (r is null) continue; // ran, but not applicable to this context (no score)
                 results.Add(new ScoredResult(scorer.Id, scorer.Name, scorer.Group, scorer.IsLlm, r.Score, r.Reason));
             }
             catch (OperationCanceledException) { throw; }

@@ -40,6 +40,59 @@ public class ScoringServiceTests
     }
 
     [Fact]
+    public async Task Scorer_whose_Applies_is_false_is_not_scored()
+    {
+        // Applies(ctx) == false must gate the scorer BEFORE ScoreAsync — so ScoreAsync is never invoked
+        // and the scorer contributes no ScoredResult. (Distinct from ScoreAsync returning null, which
+        // means "ran, but not applicable".)
+        var gated = new FakeScorer(
+            "gated",
+            score: _ => throw new InvalidOperationException("ScoreAsync must not be called when Applies is false"),
+            applies: _ => false);
+        var ok = new FakeScorer("ok", score: _ => new ScoreResult(0.8));
+        var service = new ScoringService([gated, ok]);
+
+        var results = await service.EvaluateAsync(Ctx);
+
+        Assert.Single(results);
+        Assert.Equal("ok", results[0].ScorerId);
+        Assert.Equal(0, gated.Invocations); // never ran
+    }
+
+    [Fact]
+    public async Task Default_Applies_is_true_and_null_result_still_omitted()
+    {
+        // Regression guard for the null path: a scorer with the DEFAULT Applies (true) whose ScoreAsync
+        // returns null still ran but contributes nothing.
+        var na = new FakeScorer("not-applicable", score: _ => null); // default Applies => true
+        var a = new FakeScorer("a", score: _ => new ScoreResult(1.0));
+        var service = new ScoringService([na, a]);
+
+        var results = await service.EvaluateAsync(Ctx);
+
+        Assert.Single(results);
+        Assert.Equal("a", results[0].ScorerId);
+        Assert.Equal(1, na.Invocations); // it ran (Applies true), it just didn't apply
+    }
+
+    [Fact]
+    public async Task Applicable_scorer_still_scores_and_persists()
+    {
+        var store = new InMemoryScoreStore();
+        var gated = new FakeScorer("gated", score: _ => new ScoreResult(0.3), applies: _ => false);
+        var ok = new FakeScorer("ok", score: _ => new ScoreResult(0.9), applies: _ => true);
+        var service = new ScoringService([gated, ok], store);
+
+        var results = await service.EvaluateAsync(Ctx);
+
+        Assert.Single(results);
+        Assert.Equal("ok", results[0].ScorerId);
+        var persisted = await store.GetAsync("s1");
+        Assert.Single(persisted);
+        Assert.Equal("ok", persisted[0].ScorerId); // only the applicable scorer was persisted
+    }
+
+    [Fact]
     public async Task Faulted_scorer_is_skipped_fail_open()
     {
         var boom = new FakeScorer("boom", score: _ => throw new InvalidOperationException("scorer bug"));
