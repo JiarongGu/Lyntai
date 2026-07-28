@@ -1,11 +1,43 @@
 # Changelog
 
 All packages version in lockstep from `src/Directory.Build.props` (`VersionPrefix`).
-Pre-1.0: minor bumps may carry breaking changes; each is called out below.
+From 1.0, **SemVer 2.0** applies: breaking public-API changes require a major bump (gated by
+`ApiSurfaceTests`; see `docs/DECISIONS.md` D22). Pre-1.0 (≤ 0.31.x) minor bumps could carry breaking
+changes — each is called out below.
 
-## Unreleased
+## 1.0.0 — API freeze (2026-07-28)
+
+**Lyntai 1.0.** The adoption gate is met (three sibling apps on 0.31.1) and, before the permanent surface
+freeze, a multi-agent adversarial API review + a read-only consumer-usage review settled the public
+surface (`docs/DECISIONS.md` D21). **From 1.0, SemVer 2.0 is in force** — no breaking public-API change
+without a major bump, gated by `ApiSurfaceTests` (D22). This release also collapses the accreted 0.x
+migration ledger into clean per-domain baselines (D12 one-time exception).
+
+### Breaking
+- **Migration baseline reset (consumer action required).** The 0.x SQLite (16) and Postgres (14)
+  migrations are collapsed into **9 per-`StorageFeature` baselines** each (`202607280001..0009`). The NET
+  schema is UNCHANGED — a schema-equivalence gate (`MigrationSchemaSnapshotTests` byte-level for SQLite,
+  `PgMigrationSchemaSnapshotTests` catalog-level for Postgres) proves it — but the ledger is renumbered.
+  **Before the first 1.0 run, drop your `lyntai_*` tables (including `lyntai_version_info`) or delete the
+  dev database**; Lyntai recreates them. One-time, pre-1.0 only — post-1.0 the ledger is append-only.
+- **Public-surface shrink/settle** (pre-freeze): `Lyntai.Tools.Mcp.McpTool`,
+  `Lyntai.Providers.OpenAiCompatible.ProviderDetect` (incl. `Detect`), and
+  `Lyntai.Providers.ExtensionsAi.LyntaiChatClient` → `internal`; FluentMigrator migration classes removed
+  from the public surface; `LocalModelOptions.AntiPrompts` → `StopSequences`;
+  `OpenAiCompatibleOptions.Flavor`/`OpenAiCompatibleEmbedderOptions.Flavor` `string` → `OpenAiFlavor` enum;
+  `IVectorStore` gains a required `DeleteAsync(collection, id)`.
 
 ### Added
+- **`IScorer.Applies(ScoreContext)`** — an optional default-interface predicate to gate a scorer
+  declaratively, checked by `IScoringService` before `ScoreAsync` (distinct from `ScoreAsync` returning
+  null = "ran, no score"). Non-breaking to existing scorers.
+- **`IVectorStore.DeleteAsync(collection, id)`** — single-vector removal across InMemory / SQLite /
+  Postgres (pgvector), for incremental collection updates without a full rebuild.
+- **`OpenAiFlavor` enum** (`Auto`/`OpenAi`/`Ollama`/`OpenRouter`/`AzureOpenAi`) — a typo-safe replacement
+  for the old magic-string flavor; `Auto` = URL-detected.
+- Member-level XML docs on non-obvious frozen surface: `PostgresVectorStore` search/upsert/remove,
+  `HttpEmbedder.EmbedAsync` (throw contract), `DpapiSecretProtector` (all-input → `CryptographicException`),
+  `ClaudeCliProvider.IsAvailable` (optimistic BYO-runner).
 - **Built-in `IEmbedder` for OpenAI-compatible endpoints** (EMB1): `Lyntai.Providers.OpenAiCompatible` now
   ships `HttpEmbedder` + a `builder.AddOpenAiCompatibleEmbedder(id, o => { o.BaseUrl; o.Model; o.ApiKey; })`
   method, so an app already talking to an OpenAI-compatible chat endpoint can turn on semantic memory

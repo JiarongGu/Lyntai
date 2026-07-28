@@ -238,10 +238,9 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   `IUsageTracker` and the Azure preset closed in the 1.0-prep batch). Rejected findings are recorded
   in `docs/DECISIONS.md` D18.
 
-## Planned
-
-### v1.0 — API freeze (technical gates DONE; release is ADOPTION-GATED)
-Every technical prerequisite is implemented and shipped in v0.31.0 (2026-07-27 — see CHANGELOG):
+### v1.0.0 — API freeze (2026-07-28)
+The adoption gate is met and **1.0 is cut**. Every technical prerequisite shipped by v0.31.0; the
+pre-freeze review + the migration baseline squash landed for 1.0.0. The technical gates (all ✅):
 - ✅ **Public-API baseline** — an approval test (`ApiSurfaceTests`) snapshots every packable
   assembly's public/protected surface (incl. sealed/abstract/static/required modifiers); any
   add/remove/rename fails until the baseline is updated deliberately, so pre-1.0 breaks are visible in
@@ -263,11 +262,14 @@ Every technical prerequisite is implemented and shipped in v0.31.0 (2026-07-27 �
   `IUsageTracker`, process-runner inactivity/maxDuration reshape, honesty renames, wire internals) —
   decisions in `docs/DECISIONS.md` D19; the surface is now the one 1.0 will freeze.
 
-**The remaining gate is ADOPTION, not code:** 1.0 tags only after more applications adopt Lyntai in
-anger and the surface survives that contact (the sibling apps + at least the agent-manager desktop
-integration running on it). The sign-off batch shipped in v0.31.0; until 1.0 the `TASKS.md`
-backlog (all non-breaking-shape items now) burns down as normal minor releases. When adoption says go:
-tag **1.0**, freezing the public API (`ApiSurfaceTests` then gates majors).
+**The adoption gate is met** — three sibling apps run on 0.31.1, and a pre-freeze adversarial API +
+read-only consumer-usage review (`docs/DECISIONS.md` D21) settled the surface (surface-shrink, a few
+breaking-if-late interface additions). **1.0.0 is cut (2026-07-28):** the public API is now frozen under
+SemVer 2.0 — `ApiSurfaceTests` gates a major bump (D22) — the 0.x SQLite/Postgres migration ledgers are
+squashed into 9 per-domain baselines each with the net schema unchanged (D12 one-time exception), and the
+release itself is the manual tag + `release.yml` (D20). The `TASKS.md` backlog is now post-1.0 additive work.
+
+## Planned
 
 ### The platform kit (design §9) — SHIPPED (v0.8–v0.15, deferrals closed through v0.27)
 Delivered additively on the existing seams: `Lyntai.Providers.Local` · the agentic tool loop + native

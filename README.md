@@ -38,7 +38,15 @@ hosting, curated-memory dedup-on-add + `scope` filtering — and a **whole-libra
 pass**: two adversarial review rounds (~95 findings triaged), correctness fixes across the router, guards,
 orchestrator, prompts, storage, and DI wiring, structural dedup (a shared relational job-store state
 machine, a `DelegatingLlmClient` decorator base, async connection opens throughout), and case-insensitive
-consumer identity end-to-end (v0.30.0).
+consumer identity end-to-end (v0.30.0). **v1.0.0** freezes the public API under SemVer 2.0 — following a
+pre-freeze adversarial API + consumer-usage review — and collapses the 0.x migrations into clean
+per-`StorageFeature` baselines.
+
+> **Versioning.** From **1.0**, Lyntai follows **SemVer 2.0**: no breaking public-API change without a major
+> bump (the `ApiSurfaceTests` baseline gates it). **Upgrading 0.31 → 1.0:** the 0.x migrations were collapsed
+> into per-domain 1.0 baselines — the net schema is identical but the migration ledger is renumbered, so
+> **drop your `lyntai_*` tables (including `lyntai_version_info`) or delete the dev database before the first
+> 1.0 run**; Lyntai recreates them. One-time; the ledger is append-only thereafter.
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
 - `docs/ROADMAP.md` — what's shipped, what's next, and the remaining path to 1.0.

@@ -87,6 +87,11 @@ migration (`ALTER TABLE …`), never a fold (adopters already applied the releas
 `202607220001` migration (the table shipped in 0.28). Editing a migration changes the fresh-db schema —
 update the count/version-list guards (`MigrationRunnerTests`, `DeferredMigrationTests`) and keep the
 SQLite + Postgres parallels of the same number in sync.
+**One-time pre-1.0 exception (2026-07-28):** for the 1.0 cut the entire accreted 0.x ledger was collapsed
+into **9 per-`StorageFeature` baselines** per backend (SQLite 16→9 byte-identical DDL; Postgres 14→9 via a
+normalized-catalog equivalence gate), renumbered `202607280001..0009`. Adopters reset their `lyntai_*`
+tables (disposable pre-1.0 data — the user's call). This is THE exception; **post-1.0 the append-only rule
+is absolute** (no more squashes — a released baseline is frozen forever). See D22.
 
 ## D13 — Lyntai OWNS its storage schema; apps EXTEND, never fork ("configurable table names" rejected)
 Lyntai's `lyntai_*` tables + migrations are Lyntai's, and Lyntai evolves the schema. An adopting app does
@@ -249,3 +254,16 @@ freeze — the adoption gate having been met (three consumers on 0.31.1). Workin
   BYO consumer asks" — one did): `IVectorStore` single-item removal is now added (`DeleteAsync`), and
   `Flavor` becomes a typed enum (the old string consts become enum members; the reserved `OpenRouter` /
   `AzureOpenAi` values are preserved). These supersede the corresponding D19 "accepted as-is" notes.
+
+## D22 — 1.0 API freeze: the surface is now frozen under SemVer 2.0 (2026-07-28)
+The adoption gate stated in the ROADMAP ("1.0 tags only after applications adopt Lyntai in anger and the
+surface survives that contact") is **met**: three sibling apps run on 0.31.1, and a pre-freeze adversarial
+API review + read-only consumer-usage review (D21) confirmed/settled the surface. So 1.0 is cut:
+- **The public API is frozen.** `ApiSurfaceTests` (D11) now gates a MAJOR bump — post-1.0, any add/remove/
+  rename of public/protected surface requires a major version. Pre-1.0's "minor may break" (stated in
+  `CHANGELOG.md`) ends here; **SemVer 2.0 is in force**.
+- **What shipped in the freeze batch** (see the 1.0.0 CHANGELOG): the D21 surface-shrink + interface
+  additions, and the D12 one-time baseline squash. The migration reset is the only consumer-visible break.
+- **Verification + releases stay MANUAL** (D20) — the 1.0 tag + `release.yml` are triggered by hand.
+- This is a policy line, not a code change: the value of 1.0 is the *commitment*. Don't reopen a settled
+  surface item without a major-bump rationale.
