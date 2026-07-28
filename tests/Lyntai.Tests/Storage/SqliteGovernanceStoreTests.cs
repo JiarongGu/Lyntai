@@ -156,6 +156,21 @@ public class SqliteGovernanceStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task VectorStore_delete_removes_one_by_id_and_absent_is_a_no_op()
+    {
+        var store = new SqliteVectorStore(_db.Factory);
+        await store.UpsertAsync("c", "keep", [1f, 0f], "KEEP");
+        await store.UpsertAsync("c", "drop", [0f, 1f], "DROP");
+
+        await store.DeleteAsync("c", "drop");   // remove one by id
+        await store.DeleteAsync("c", "never");  // absent id → no-op, no throw
+
+        var hits = await store.SearchAsync("c", [1f, 1f], k: 5);
+        Assert.Single(hits);
+        Assert.Equal("KEEP", hits[0].Payload);  // only the un-deleted vector remains (persisted)
+    }
+
+    [Fact]
     public async Task Semantic_memory_works_over_the_sqlite_vector_store()
     {
         // the whole point of the seam: SemanticMemory is unchanged, just its vector backend is SQLite

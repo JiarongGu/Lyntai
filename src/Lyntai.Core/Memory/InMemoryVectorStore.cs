@@ -34,6 +34,13 @@ public sealed class InMemoryVectorStore : IVectorStore
         return Task.FromResult<IReadOnlyList<VectorMatch>>(ranked);
     }
 
+    public Task DeleteAsync(string collection, string id, CancellationToken ct = default)
+    {
+        if (_collections.TryGetValue(collection, out var col))
+            col.TryRemove(id, out _); // no-op if the id (or collection) is absent
+        return Task.CompletedTask;
+    }
+
     public Task RemoveCollectionAsync(string collection, CancellationToken ct = default)
     {
         _collections.TryRemove(collection, out _);

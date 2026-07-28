@@ -43,6 +43,21 @@ public class SemanticMemoryTests
     }
 
     [Fact]
+    public async Task Vector_store_delete_removes_one_by_id_and_absent_is_a_no_op()
+    {
+        var store = new InMemoryVectorStore();
+        await store.UpsertAsync("c", "keep", [1f, 0f], "KEEP");
+        await store.UpsertAsync("c", "drop", [0f, 1f], "DROP");
+
+        await store.DeleteAsync("c", "drop");         // remove one by id
+        await store.DeleteAsync("c", "never");        // absent id → no-op, no throw
+
+        var hits = await store.SearchAsync("c", [1f, 1f], k: 5);
+        Assert.Single(hits);
+        Assert.Equal("KEEP", hits[0].Payload);        // only the un-deleted vector remains
+    }
+
+    [Fact]
     public async Task Vector_store_tolerates_a_dimension_mismatch_scoring_it_zero()
     {
         // a stray wrong-dimension row (e.g. from a prior embedding model) must NOT throw and sink the whole
@@ -129,6 +144,7 @@ public class SemanticMemoryTests
         public Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default) =>
             throw new InvalidOperationException("different vector dimensions"); // mimics pgvector's error
+        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) => Task.CompletedTask;
         public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) => Task.CompletedTask;
     }
 

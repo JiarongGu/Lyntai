@@ -59,6 +59,18 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
         return [.. rows.Select(r => new VectorMatch(r.VecId, r.Payload, r.Score))];
     }
 
+    /// <summary>Remove the single vector stored under <paramref name="id"/> within
+    /// <paramref name="collection"/>. Idempotent — a missing (collection, id) is a no-op (the underlying
+    /// <c>DELETE</c> matches no rows). For dropping an entire collection use <see cref="RemoveCollectionAsync"/>.</summary>
+    public async Task DeleteAsync(string collection, string id, CancellationToken ct = default)
+    {
+        await EnsureSchemaAsync().ConfigureAwait(false);
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM lyntai_vector WHERE collection = @collection AND vec_id = @id",
+            new { collection, id }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
     /// <summary>Delete every vector in <paramref name="collection"/>. Idempotent — a missing/empty
     /// collection is a no-op (the underlying <c>DELETE</c> simply matches no rows). The table and the
     /// pgvector extension are left in place; only the collection's rows are removed.</summary>

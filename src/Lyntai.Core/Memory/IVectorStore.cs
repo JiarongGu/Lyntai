@@ -17,6 +17,10 @@ public interface IVectorStore
     /// <paramref name="query"/> by cosine similarity, highest score first.</summary>
     Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default);
 
+    /// <summary>Remove the single vector stored under <paramref name="id"/> in <paramref name="collection"/>.
+    /// No-op if absent. (Whole-collection drop is <see cref="RemoveCollectionAsync"/>.)</summary>
+    Task DeleteAsync(string collection, string id, CancellationToken ct = default);
+
     /// <summary>Drop an entire collection (backs <see cref="ISemanticMemory.ForgetAsync"/>).</summary>
     Task RemoveCollectionAsync(string collection, CancellationToken ct = default);
 }

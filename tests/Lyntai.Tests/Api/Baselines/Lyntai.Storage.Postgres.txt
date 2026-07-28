@@ -107,6 +107,7 @@ sealed class Lyntai.Storage.Postgres.PostgresUsageTracker
     TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
 sealed class Lyntai.Storage.Postgres.PostgresVectorStore
     .ctor(IDbConnectionFactory)
+    DeleteAsync(String, String, CancellationToken=) : Task
     RemoveCollectionAsync(String, CancellationToken=) : Task
     SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
     UpsertAsync(String, String, Single[], String, CancellationToken=) : Task

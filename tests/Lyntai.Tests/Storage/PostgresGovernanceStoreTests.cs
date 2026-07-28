@@ -131,6 +131,25 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     }
 
     [SkippableFact]
+    public async Task VectorStore_pgvector_delete_removes_one_by_id_and_absent_is_a_no_op()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        var c = Uid();
+        var store = new PostgresVectorStore(pg.Factory);
+        await store.UpsertAsync(c, "keep", [1f, 0f, 0f], "KEEP");
+        await store.UpsertAsync(c, "drop", [0f, 1f, 0f], "DROP");
+
+        await store.DeleteAsync(c, "drop");   // remove one by id
+        await store.DeleteAsync(c, "never");  // absent id → no-op, no throw
+
+        var hits = await store.SearchAsync(c, [0.5f, 0.5f, 0f], k: 5);
+        Assert.Single(hits);
+        Assert.Equal("KEEP", hits[0].Payload); // only the un-deleted vector remains
+
+        await store.RemoveCollectionAsync(c);  // hygiene: shared container
+    }
+
+    [SkippableFact]
     public async Task Semantic_memory_works_over_the_pgvector_store()
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");

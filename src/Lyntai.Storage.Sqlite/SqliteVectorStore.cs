@@ -36,6 +36,14 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IVectorSto
             .Take(k)];
     }
 
+    public async Task DeleteAsync(string collection, string id, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM lyntai_vector WHERE collection = @collection AND vec_id = @id",
+            new { collection, id }, cancellationToken: ct)).ConfigureAwait(false); // no-op if absent
+    }
+
     public async Task RemoveCollectionAsync(string collection, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);

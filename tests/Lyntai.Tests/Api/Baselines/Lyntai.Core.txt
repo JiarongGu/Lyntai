@@ -993,11 +993,13 @@ interface Lyntai.Memory.ISemanticMemory
     RecallAsync(String, String, String, Int32=, Double=, CancellationToken=) : Task<IReadOnlyList<SemanticHit>>
     RememberAsync(String, String, String, CancellationToken=) : Task
 interface Lyntai.Memory.IVectorStore
+    DeleteAsync(String, String, CancellationToken=) : Task
     RemoveCollectionAsync(String, CancellationToken=) : Task
     SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
     UpsertAsync(String, String, Single[], String, CancellationToken=) : Task
 sealed class Lyntai.Memory.InMemoryVectorStore
     .ctor()
+    DeleteAsync(String, String, CancellationToken=) : Task
     RemoveCollectionAsync(String, CancellationToken=) : Task
     SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
     UpsertAsync(String, String, Single[], String, CancellationToken=) : Task
