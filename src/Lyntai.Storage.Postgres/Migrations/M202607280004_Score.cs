@@ -2,14 +2,15 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Postgres.Migrations;
 
-[Migration(202607170004)]
+/// <summary>Baseline (1.0 squash) — the scoring/eval results table (Postgres leg, parallels the SQLite
+/// baseline of the same number). <c>UNIQUE(session_id, scorer_id)</c> makes SaveAsync an upsert
+/// (re-scoring replaces) and serves the session-prefix lookups, so no separate session index is needed.</summary>
+[Migration(202607280004)]
 [Tags(nameof(StorageFeature.Score), StorageFeatures.AllTag)]
-public sealed class M202607170004_Score : Migration
+public sealed class M202607280004_Score : Migration
 {
     public override void Up()
     {
-        // UNIQUE(session_id, scorer_id) makes SaveAsync an upsert (re-scoring replaces) and serves the
-        // session-prefix lookups, so no separate session index is needed.
         Execute.Sql("""
             CREATE TABLE lyntai_score_result (
                 id BIGSERIAL PRIMARY KEY,

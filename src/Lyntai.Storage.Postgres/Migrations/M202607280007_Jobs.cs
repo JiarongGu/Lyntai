@@ -2,13 +2,13 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Postgres.Migrations;
 
-/// <summary>Durable jobs (design §9): the <c>lyntai_job</c> queue, with <c>priority</c> (higher runs
-/// first). Parallels the SQLite migration of the same number. Timestamps are real <c>timestamptz</c>
-/// (Npgsql-native — no string-compare trap); id + status are TEXT (same as SQLite, so no native-uuid/
-/// Dapper-handler divergence). The dead-letter state (<c>Dead</c>) needs no column — status is TEXT.</summary>
-[Migration(202607180001)]
+/// <summary>Baseline (1.0 squash) — the durable-jobs queue (Postgres leg, parallels the SQLite baseline of
+/// the same number): <c>lyntai_job</c> (lane/status/checkpoint, the atomic-claim lease columns, priority,
+/// live progress/step-log, actor partition key) with the claim index and the partition index. Timestamps
+/// are native <c>timestamptz</c>; id + status are TEXT (same as SQLite).</summary>
+[Migration(202607280007)]
 [Tags(nameof(StorageFeature.Jobs), StorageFeatures.AllTag)]
-public sealed class M202607180001_Jobs : Migration
+public sealed class M202607280007_Jobs : Migration
 {
     public override void Up()
     {
@@ -44,6 +44,8 @@ public sealed class M202607180001_Jobs : Migration
 
     public override void Down()
     {
-        Delete.Table("lyntai_job");
+        Execute.Sql("DROP INDEX IF EXISTS ix_lyntai_job_partition");
+        Execute.Sql("DROP INDEX IF EXISTS ix_lyntai_job_claim");
+        Execute.Sql("DROP TABLE IF EXISTS lyntai_job CASCADE");
     }
 }

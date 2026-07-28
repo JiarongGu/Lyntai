@@ -2,12 +2,12 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Postgres.Migrations;
 
-/// <summary>Run traces: <c>lyntai_run_trace</c> + <c>lyntai_trace_step</c>. The ambient W3C
-/// <c>trace_id</c> (the join key to a distributed trace in an OTel backend) is folded into the header
-/// table here (the SQLite backend added it via a later ALTER; a greenfield split has it from the start).</summary>
-[Migration(202607170005)]
+/// <summary>Baseline (1.0 squash) — run traces (Postgres leg, parallels the SQLite baseline of the same
+/// number): <c>lyntai_run_trace</c> (incl. the ambient W3C <c>trace_id</c> join key) + <c>lyntai_trace_step</c>
+/// with the FK cascade from step → trace and the per-session step index.</summary>
+[Migration(202607280005)]
 [Tags(nameof(StorageFeature.Trace), StorageFeatures.AllTag)]
-public sealed class M202607170005_Trace : Migration
+public sealed class M202607280005_Trace : Migration
 {
     public override void Up()
     {

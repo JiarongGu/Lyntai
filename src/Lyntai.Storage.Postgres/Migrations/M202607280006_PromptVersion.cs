@@ -2,13 +2,16 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Postgres.Migrations;
 
-[Migration(202607170006)]
+/// <summary>Baseline (1.0 squash) — versioned prompt overrides (Postgres leg, parallels the SQLite baseline
+/// of the same number): monotonic version per name, exactly one active at a time. The unique
+/// (name, version) index guards monotonicity; the partial index on the single active row per name serves
+/// the hot GetActive read.</summary>
+[Migration(202607280006)]
 [Tags(nameof(StorageFeature.PromptVersion), StorageFeatures.AllTag)]
-public sealed class M202607170006_PromptVersion : Migration
+public sealed class M202607280006_PromptVersion : Migration
 {
     public override void Up()
     {
-        // versioned prompt overrides: monotonic version per name, exactly one active at a time
         Execute.Sql("""
             CREATE TABLE lyntai_prompt_version (
                 id BIGSERIAL PRIMARY KEY,

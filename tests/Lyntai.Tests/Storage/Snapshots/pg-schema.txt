@@ -1,0 +1,132 @@
+== columns ==
+lyntai_curated_memory|content|text|NO|
+lyntai_curated_memory|created_at|timestamp with time zone|NO|
+lyntai_curated_memory|enabled|boolean|NO|true
+lyntai_curated_memory|id|bigint|NO|nextval('lyntai_curated_memory_id_seq'::regclass)
+lyntai_curated_memory|kind|text|NO|
+lyntai_curated_memory|metadata|text|YES|
+lyntai_curated_memory|scope|text|YES|
+lyntai_curated_memory|task|text|YES|
+lyntai_curated_memory|updated_at|timestamp with time zone|NO|
+lyntai_curated_meta|key|text|NO|
+lyntai_curated_meta|memory_id|bigint|NO|
+lyntai_curated_meta|value|text|NO|
+lyntai_job|attempts|integer|NO|
+lyntai_job|available_at|timestamp with time zone|NO|
+lyntai_job|cancel_requested|boolean|NO|false
+lyntai_job|checkpoint|text|YES|
+lyntai_job|claimed_at|timestamp with time zone|YES|
+lyntai_job|claimed_by|text|YES|
+lyntai_job|created_at|timestamp with time zone|NO|
+lyntai_job|id|text|NO|
+lyntai_job|lane|text|NO|
+lyntai_job|last_error|text|YES|
+lyntai_job|max_attempts|integer|NO|
+lyntai_job|partition_key|text|YES|
+lyntai_job|payload|text|NO|
+lyntai_job|priority|integer|NO|0
+lyntai_job|progress|integer|NO|0
+lyntai_job|stage|text|YES|
+lyntai_job|status|text|NO|
+lyntai_job|step_log|text|YES|
+lyntai_job|total|integer|NO|0
+lyntai_job|type|text|NO|
+lyntai_job|updated_at|timestamp with time zone|NO|
+lyntai_kv|key|text|NO|
+lyntai_kv|updated_at|timestamp with time zone|NO|
+lyntai_kv|value|text|NO|
+lyntai_memory_entry|content|text|NO|
+lyntai_memory_entry|created_at|timestamp with time zone|NO|
+lyntai_memory_entry|expires_at|timestamp with time zone|YES|
+lyntai_memory_entry|id|bigint|NO|nextval('lyntai_memory_entry_id_seq'::regclass)
+lyntai_memory_entry|last_accessed_at|timestamp with time zone|YES|
+lyntai_memory_entry|scope|text|NO|
+lyntai_memory_entry|task_key|text|NO|
+lyntai_message|created_at|timestamp with time zone|NO|
+lyntai_message|id|text|NO|
+lyntai_message|kind|text|NO|
+lyntai_message|metadata|text|YES|
+lyntai_message|payload|text|NO|
+lyntai_message|seq|bigint|NO|
+lyntai_message|thread_id|text|NO|
+lyntai_prompt_version|author|text|YES|
+lyntai_prompt_version|created_at|timestamp with time zone|NO|
+lyntai_prompt_version|id|bigint|NO|nextval('lyntai_prompt_version_id_seq'::regclass)
+lyntai_prompt_version|is_active|boolean|NO|
+lyntai_prompt_version|name|text|NO|
+lyntai_prompt_version|template|text|NO|
+lyntai_prompt_version|version|integer|NO|
+lyntai_response_cache|cache_key|text|NO|
+lyntai_response_cache|created_at|timestamp with time zone|NO|
+lyntai_response_cache|expires_at|timestamp with time zone|NO|
+lyntai_response_cache|reply_json|text|NO|
+lyntai_run_trace|ended_at|timestamp with time zone|YES|
+lyntai_run_trace|mode|text|NO|
+lyntai_run_trace|session_id|text|NO|
+lyntai_run_trace|started_at|timestamp with time zone|NO|
+lyntai_run_trace|trace_id|text|YES|
+lyntai_score_result|created_at|timestamp with time zone|NO|
+lyntai_score_result|id|bigint|NO|nextval('lyntai_score_result_id_seq'::regclass)
+lyntai_score_result|is_llm|boolean|NO|
+lyntai_score_result|reason|text|YES|
+lyntai_score_result|score|double precision|NO|
+lyntai_score_result|score_group|text|NO|
+lyntai_score_result|scorer_id|text|NO|
+lyntai_score_result|scorer_name|text|NO|
+lyntai_score_result|session_id|text|NO|
+lyntai_thread|created_at|timestamp with time zone|NO|
+lyntai_thread|id|text|NO|
+lyntai_thread|metadata|text|YES|
+lyntai_thread|title|text|YES|
+lyntai_trace_step|cost_usd|double precision|NO|
+lyntai_trace_step|detail|text|YES|
+lyntai_trace_step|duration_ms|bigint|NO|
+lyntai_trace_step|id|bigint|NO|nextval('lyntai_trace_step_id_seq'::regclass)
+lyntai_trace_step|input_tokens|bigint|NO|
+lyntai_trace_step|kind|text|NO|
+lyntai_trace_step|label|text|NO|
+lyntai_trace_step|offset_ms|bigint|NO|0
+lyntai_trace_step|output_tokens|bigint|NO|
+lyntai_trace_step|seq|integer|NO|
+lyntai_trace_step|session_id|text|NO|
+lyntai_usage|calls|bigint|NO|0
+lyntai_usage|consumer|text|NO|
+lyntai_usage|cost_usd|double precision|NO|0
+lyntai_usage|input_tokens|bigint|NO|0
+lyntai_usage|output_tokens|bigint|NO|0
+
+== indexes ==
+lyntai_curated_memory|ix_lyntai_curated_content_trgm|CREATE INDEX ix_lyntai_curated_content_trgm ON public.lyntai_curated_memory USING gin (content gin_trgm_ops)
+lyntai_curated_memory|ix_lyntai_curated_memory_kind|CREATE INDEX ix_lyntai_curated_memory_kind ON public.lyntai_curated_memory USING btree (kind, enabled)
+lyntai_curated_memory|ix_lyntai_curated_memory_task|CREATE INDEX ix_lyntai_curated_memory_task ON public.lyntai_curated_memory USING btree (task, enabled)
+lyntai_curated_memory|lyntai_curated_memory_pkey|CREATE UNIQUE INDEX lyntai_curated_memory_pkey ON public.lyntai_curated_memory USING btree (id)
+lyntai_curated_meta|ix_lyntai_curated_meta_kv|CREATE INDEX ix_lyntai_curated_meta_kv ON public.lyntai_curated_meta USING btree (key, value)
+lyntai_curated_meta|lyntai_curated_meta_pkey|CREATE UNIQUE INDEX lyntai_curated_meta_pkey ON public.lyntai_curated_meta USING btree (memory_id, key)
+lyntai_job|ix_lyntai_job_claim|CREATE INDEX ix_lyntai_job_claim ON public.lyntai_job USING btree (lane, status, priority DESC, available_at)
+lyntai_job|ix_lyntai_job_partition|CREATE INDEX ix_lyntai_job_partition ON public.lyntai_job USING btree (lane, partition_key)
+lyntai_job|lyntai_job_pkey|CREATE UNIQUE INDEX lyntai_job_pkey ON public.lyntai_job USING btree (id)
+lyntai_kv|lyntai_kv_pkey|CREATE UNIQUE INDEX lyntai_kv_pkey ON public.lyntai_kv USING btree (key)
+lyntai_memory_entry|ix_lyntai_memory_content_trgm|CREATE INDEX ix_lyntai_memory_content_trgm ON public.lyntai_memory_entry USING gin (content gin_trgm_ops)
+lyntai_memory_entry|ix_lyntai_memory_task_scope|CREATE INDEX ix_lyntai_memory_task_scope ON public.lyntai_memory_entry USING btree (task_key, scope)
+lyntai_memory_entry|lyntai_memory_entry_pkey|CREATE UNIQUE INDEX lyntai_memory_entry_pkey ON public.lyntai_memory_entry USING btree (id)
+lyntai_memory_entry|ux_lyntai_memory_dedup|CREATE UNIQUE INDEX ux_lyntai_memory_dedup ON public.lyntai_memory_entry USING btree (task_key, scope, md5(content))
+lyntai_message|ix_lyntai_message_thread_seq|CREATE UNIQUE INDEX ix_lyntai_message_thread_seq ON public.lyntai_message USING btree (thread_id, seq)
+lyntai_message|lyntai_message_pkey|CREATE UNIQUE INDEX lyntai_message_pkey ON public.lyntai_message USING btree (id)
+lyntai_prompt_version|ix_lyntai_prompt_active|CREATE INDEX ix_lyntai_prompt_active ON public.lyntai_prompt_version USING btree (name) WHERE is_active
+lyntai_prompt_version|lyntai_prompt_version_pkey|CREATE UNIQUE INDEX lyntai_prompt_version_pkey ON public.lyntai_prompt_version USING btree (id)
+lyntai_prompt_version|ux_lyntai_prompt_name_version|CREATE UNIQUE INDEX ux_lyntai_prompt_name_version ON public.lyntai_prompt_version USING btree (name, version)
+lyntai_response_cache|ix_lyntai_response_cache_created|CREATE INDEX ix_lyntai_response_cache_created ON public.lyntai_response_cache USING btree (created_at)
+lyntai_response_cache|ix_lyntai_response_cache_expiry|CREATE INDEX ix_lyntai_response_cache_expiry ON public.lyntai_response_cache USING btree (expires_at)
+lyntai_response_cache|lyntai_response_cache_pkey|CREATE UNIQUE INDEX lyntai_response_cache_pkey ON public.lyntai_response_cache USING btree (cache_key)
+lyntai_run_trace|lyntai_run_trace_pkey|CREATE UNIQUE INDEX lyntai_run_trace_pkey ON public.lyntai_run_trace USING btree (session_id)
+lyntai_score_result|lyntai_score_result_pkey|CREATE UNIQUE INDEX lyntai_score_result_pkey ON public.lyntai_score_result USING btree (id)
+lyntai_score_result|lyntai_score_result_session_id_scorer_id_key|CREATE UNIQUE INDEX lyntai_score_result_session_id_scorer_id_key ON public.lyntai_score_result USING btree (session_id, scorer_id)
+lyntai_thread|lyntai_thread_pkey|CREATE UNIQUE INDEX lyntai_thread_pkey ON public.lyntai_thread USING btree (id)
+lyntai_trace_step|ix_lyntai_trace_step_session|CREATE INDEX ix_lyntai_trace_step_session ON public.lyntai_trace_step USING btree (session_id, seq)
+lyntai_trace_step|lyntai_trace_step_pkey|CREATE UNIQUE INDEX lyntai_trace_step_pkey ON public.lyntai_trace_step USING btree (id)
+lyntai_usage|lyntai_usage_pkey|CREATE UNIQUE INDEX lyntai_usage_pkey ON public.lyntai_usage USING btree (consumer)
+
+== foreign_keys ==
+lyntai_curated_meta|memory_id|lyntai_curated_memory|id|CASCADE
+lyntai_message|thread_id|lyntai_thread|id|CASCADE
+lyntai_trace_step|session_id|lyntai_run_trace|session_id|CASCADE

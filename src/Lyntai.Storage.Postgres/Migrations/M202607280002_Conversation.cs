@@ -2,9 +2,12 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Postgres.Migrations;
 
-[Migration(202607170002)]
+/// <summary>Baseline (1.0 squash) — the typed conversation event store (Postgres leg, parallels the SQLite
+/// baseline of the same number): <c>lyntai_thread</c> + <c>lyntai_message</c> with the per-thread seq
+/// unique index and the FK cascade from message → thread.</summary>
+[Migration(202607280002)]
 [Tags(nameof(StorageFeature.Conversation), StorageFeatures.AllTag)]
-public sealed class M202607170002_Conversation : Migration
+public sealed class M202607280002_Conversation : Migration
 {
     public override void Up()
     {

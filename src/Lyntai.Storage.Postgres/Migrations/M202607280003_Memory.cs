@@ -2,13 +2,17 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Postgres.Migrations;
 
-/// <summary>lyntai_memory_entry + the <c>pg_trgm</c> extension and its GIN trigram index over
-/// <c>content</c> — makes ILIKE substring search (including CJK substrings) fast, the Postgres analogue
-/// of the SQLite FTS5-trigram approach. The extension is created with Memory (the only domain that needs
-/// it), so a build that disables Memory never requires pg_trgm.</summary>
-[Migration(202607170003)]
+/// <summary>Baseline (1.0 squash) — the remember/recall memory log (Postgres leg, parallels the SQLite
+/// baseline of the same number). Folds the original table (M202607170003) and the later
+/// <c>last_accessed_at</c> LRU column (M202607220002 — appended LAST to keep the same column order as the
+/// accreted set). Installs <c>pg_trgm</c> and its GIN trigram index over <c>content</c> for fast ILIKE
+/// substring recall (incl. CJK substrings — the Postgres analogue of SQLite's FTS5-trigram), a
+/// (task_key, scope) btree, and a <c>md5(content)</c> unique dedup index (raw-TEXT unique could exceed the
+/// btree size limit). The extension is created with Memory (the only domain that needs it here), so a
+/// build that disables Memory never requires pg_trgm.</summary>
+[Migration(202607280003)]
 [Tags(nameof(StorageFeature.Memory), StorageFeatures.AllTag)]
-public sealed class M202607170003_Memory : Migration
+public sealed class M202607280003_Memory : Migration
 {
     public override void Up()
     {
@@ -20,7 +24,8 @@ public sealed class M202607170003_Memory : Migration
                 scope TEXT NOT NULL,
                 content TEXT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL,
-                expires_at TIMESTAMPTZ NULL
+                expires_at TIMESTAMPTZ NULL,
+                last_accessed_at TIMESTAMPTZ NULL
             )
             """);
         Execute.Sql("CREATE INDEX ix_lyntai_memory_task_scope ON lyntai_memory_entry(task_key, scope)");

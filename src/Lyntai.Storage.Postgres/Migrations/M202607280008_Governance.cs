@@ -2,15 +2,16 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Postgres.Migrations;
 
-/// <summary>Persistent backends for the front-door governance seams: the response cache
-/// (<c>IResponseCache</c>) and usage accounting (<c>IUsageTracker</c>). Parallels the SQLite migration of
-/// the same number. Timestamps are native <c>timestamptz</c>; cost is <c>double precision</c>.
-/// <para>The vector store's table is created LAZILY by <c>PostgresVectorStore</c> (it needs the
-/// <c>vector</c>/pgvector extension), NOT here — so <c>UsePostgresStorage</c> does not require pgvector;
-/// only <c>UsePostgresVectorStore</c> does.</para></summary>
-[Migration(202607180002)]
+/// <summary>Baseline (1.0 squash) — the front-door governance backends (Postgres leg, parallels the SQLite
+/// baseline of the same number): the response cache (+ its expiry/created eviction indexes) and
+/// per-consumer usage accounting. Timestamps are native <c>timestamptz</c>; cost is <c>double precision</c>.
+/// <para>The vector store's table (<c>lyntai_vector</c>) is created LAZILY by <c>PostgresVectorStore</c> (it
+/// needs the <c>vector</c>/pgvector extension), NOT here — so <c>UsePostgresStorage</c> does not require
+/// pgvector; only <c>UsePostgresVectorStore</c> does. (This is where the SQLite leg differs: SQLite's
+/// vector store is a plain TEXT table, so it lands in that backend's Governance baseline.)</para></summary>
+[Migration(202607280008)]
 [Tags(nameof(StorageFeature.Governance), StorageFeatures.AllTag)]
-public sealed class M202607180002_Governance : Migration
+public sealed class M202607280008_Governance : Migration
 {
     public override void Up()
     {
@@ -38,7 +39,7 @@ public sealed class M202607180002_Governance : Migration
 
     public override void Down()
     {
-        Delete.Table("lyntai_usage");
-        Delete.Table("lyntai_response_cache");
+        Execute.Sql("DROP TABLE IF EXISTS lyntai_usage CASCADE");
+        Execute.Sql("DROP TABLE IF EXISTS lyntai_response_cache CASCADE");
     }
 }

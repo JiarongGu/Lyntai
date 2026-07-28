@@ -2,11 +2,12 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Postgres.Migrations;
 
-// All Lyntai tables carry the lyntai_ prefix: the storage package may be pointed at a consumer's
-// existing database and must never collide with its tables.
-[Migration(202607170001)]
+/// <summary>Baseline (1.0 squash) — the key/value store table (Postgres leg, parallels the SQLite baseline
+/// of the same number). All Lyntai tables carry the lyntai_ prefix: the package may be pointed at a
+/// consumer's existing database and must never collide.</summary>
+[Migration(202607280001)]
 [Tags(nameof(StorageFeature.KeyValue), StorageFeatures.AllTag)]
-public sealed class M202607170001_KeyValue : Migration
+public sealed class M202607280001_KeyValue : Migration
 {
     public override void Up()
     {
