@@ -2,14 +2,13 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Sqlite.Migrations;
 
-/// <summary>Durable jobs (design §9): the <c>lyntai_job</c> queue with lane/status/checkpoint + the
-/// lease columns the atomic claim keys on, plus <c>priority</c> (higher runs first) and the live
-/// progress/step-log columns. Timestamps are ISO-8601 TEXT (the shared DateTimeOffset handler); id +
-/// status are TEXT (no new Dapper type handler → no process-global registry collision). The dead-letter
-/// (<c>Dead</c>) and <c>Paused</c> states need no column — status is TEXT.</summary>
-[Migration(202607180001)]
+/// <summary>Baseline (1.0 squash) — the durable-jobs queue (<c>lyntai_job</c>: lane/status/checkpoint,
+/// the atomic-claim lease columns, priority, live progress/step-log, actor partition key) with the claim
+/// index and the partition index. Raw SQL reproduces the exact stored DDL of the accreted pre-1.0
+/// migrations (byte-identical net schema).</summary>
+[Migration(202607280007)]
 [Tags(nameof(StorageFeature.Jobs), StorageFeatures.AllTag)]
-public sealed class M202607180001_Jobs : Migration
+public sealed class M202607280007_Jobs : Migration
 {
     public override void Up()
     {
@@ -38,14 +37,14 @@ public sealed class M202607180001_Jobs : Migration
                 partition_key TEXT NULL
             )
             """);
-        // the claim picks by (lane, status, priority DESC, available_at); this index serves it
         Execute.Sql("CREATE INDEX ix_lyntai_job_claim ON lyntai_job(lane, status, priority DESC, available_at)");
-        // the partition guard's self-referencing subqueries key on (lane, partition_key); this serves them
         Execute.Sql("CREATE INDEX ix_lyntai_job_partition ON lyntai_job(lane, partition_key)");
     }
 
     public override void Down()
     {
-        Delete.Table("lyntai_job");
+        Execute.Sql("DROP INDEX IF EXISTS ix_lyntai_job_partition");
+        Execute.Sql("DROP INDEX IF EXISTS ix_lyntai_job_claim");
+        Execute.Sql("DROP TABLE IF EXISTS lyntai_job");
     }
 }

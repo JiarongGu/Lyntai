@@ -2,15 +2,16 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Sqlite.Migrations;
 
-[Migration(202607170004)]
+/// <summary>Baseline (1.0 squash) — the scoring/eval result table. Raw SQL reproduces the exact stored DDL
+/// of the accreted pre-1.0 migrations (byte-identical net schema). <c>score_group</c> avoids the "group"
+/// keyword; <c>UNIQUE(session_id, scorer_id)</c> makes SaveAsync an upsert and doubles as the session-prefix
+/// index.</summary>
+[Migration(202607280004)]
 [Tags(nameof(StorageFeature.Score), StorageFeatures.AllTag)]
-public sealed class M202607170004_Score : Migration
+public sealed class M202607280004_Score : Migration
 {
     public override void Up()
     {
-        // score_group instead of the "group" keyword; score is REAL but SELECTs still CAST (affinity trap).
-        // UNIQUE(session_id, scorer_id) makes SaveAsync an upsert (re-scoring replaces, not accumulates) and
-        // doubles as the session-prefix index, so no separate session index is needed.
         Execute.Sql("""
             CREATE TABLE lyntai_score_result (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,6 +30,6 @@ public sealed class M202607170004_Score : Migration
 
     public override void Down()
     {
-        Delete.Table("lyntai_score_result");
+        Execute.Sql("DROP TABLE IF EXISTS lyntai_score_result");
     }
 }

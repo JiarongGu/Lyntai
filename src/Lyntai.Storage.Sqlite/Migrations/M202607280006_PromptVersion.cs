@@ -2,13 +2,15 @@ using FluentMigrator;
 
 namespace Lyntai.Storage.Sqlite.Migrations;
 
-[Migration(202607170006)]
+/// <summary>Baseline (1.0 squash) — the versioned prompt-override table (monotonic version per name, exactly
+/// one active at a time) with its uniqueness index and the partial active-row index. Raw SQL reproduces the
+/// exact stored DDL of the accreted pre-1.0 migrations (byte-identical net schema).</summary>
+[Migration(202607280006)]
 [Tags(nameof(StorageFeature.PromptVersion), StorageFeatures.AllTag)]
-public sealed class M202607170006_PromptVersion : Migration
+public sealed class M202607280006_PromptVersion : Migration
 {
     public override void Up()
     {
-        // versioned prompt overrides: monotonic version per name, exactly one active at a time
         Execute.Sql("""
             CREATE TABLE lyntai_prompt_version (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,12 +23,13 @@ public sealed class M202607170006_PromptVersion : Migration
             )
             """);
         Execute.Sql("CREATE UNIQUE INDEX ux_lyntai_prompt_name_version ON lyntai_prompt_version(name, version)");
-        // partial index: the single active row per name is the hot read (GetActive)
         Execute.Sql("CREATE INDEX ix_lyntai_prompt_active ON lyntai_prompt_version(name) WHERE is_active = 1");
     }
 
     public override void Down()
     {
-        Delete.Table("lyntai_prompt_version");
+        Execute.Sql("DROP INDEX IF EXISTS ix_lyntai_prompt_active");
+        Execute.Sql("DROP INDEX IF EXISTS ux_lyntai_prompt_name_version");
+        Execute.Sql("DROP TABLE IF EXISTS lyntai_prompt_version");
     }
 }
