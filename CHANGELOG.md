@@ -10,6 +10,39 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+A host can now show what its LLM backend actually IS — version, and where the backend can say so, model —
+without spending a turn to find out, and can drive that backend's own updater. Generic: the claude CLI is
+the first implementer of a Core capability, not the shape of it.
+
+### Added
+- **`IProviderInstallation` + `ProviderProbeResult`** (Core, `Lyntai.Llm`) — an OPTIONAL provider
+  capability: `ProbeAsync` asks the backend what it is **without running a completion** (no tokens, no model
+  call) and reports `{ Available, Version, Model?, Detail }`. Stronger than `ILlmProvider.IsAvailable`,
+  which is a cheap guess that never contacts anything. Fails safe — an absent/stalled/erroring backend is
+  `Available: false` with the reason in `Detail`, never a throw. A separate interface rather than members on
+  `ILlmProvider`, so a provider that can't answer cheaply simply doesn't implement it and callers
+  pattern-match (`provider is IProviderInstallation p`) over the registered provider collection.
+- **`IProviderUpdater` + `ProviderUpdateResult`** (Core, `Lyntai.Llm`) — the sibling capability for a backend
+  that ships its own updater: `UpdateAsync` runs it and reports `{ Succeeded, Updated, FromVersion,
+  ToVersion, Detail }`. Backends have no check-only mode, so "was an update available?" is answered after the
+  fact by `Updated` (the version moved). Lyntai drives the updater the backend already ships; it never
+  provisions, downloads or pins a binary (that stays the host's concern).
+- **`ClaudeCliProvider` implements both** — `claude --version` for the probe, `claude update` for the
+  updater, through the same BYO `IProcessRunner` / `LYNTAI_PROVIDER_CMD` / `CLAUDE_CMD` seams as a
+  completion, from the neutral working directory, with no stdin. `--version` is the ONLY turn-free question
+  asked, deliberately: the CLI treats an unrecognized token as a **prompt** and spends a turn answering it,
+  so probing by guessing subcommands would silently cost tokens. A probe stalls out after 30s (a version
+  readout is sub-second work); an update gets the configured provider clocks, since it legitimately
+  downloads.
+- `ProviderProbeResult.Model` is **null against today's claude CLI** — it has no turn-free way to report its
+  resolved model, and the probe never guesses one. Read the model actually used from
+  `AgentStreamEvent.UsageFinal.Model` after a turn; the field fills in only if a build labels one on its
+  version line (`model: x`), or for a backend that knows its loaded weights.
+- The provider stub answers `--version` and `update|upgrade` before reading stdin, so both paths are
+  covered by a real spawn in tests.
+
 ## 1.1.0 — generic CLI tool-hosting (2026-07-29)
 
 CLI tool-hosting is no longer claude-shaped: the host is generic and each CLI contributes only its flags

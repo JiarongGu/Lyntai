@@ -15,7 +15,22 @@
 //   "AGENT_SESSION" -> full multi-tool agentic transcript: init + text delta + tool_use + tool_result +
 //                      result; honours --resume <id> from argv (uses that value as session_id)
 //   else            -> echo a short deterministic completion derived from the prompt
+//
+// Maintenance argv (answered BEFORE stdin is read, like the real CLI's non-prompt paths):
+//   --version       -> print a stub version line (the ClaudeCli provider's turn-free probe)
+//   update|upgrade  -> print an "up to date" line and exit 0 (the self-update seam; installs nothing)
 import process from 'node:process';
+
+// Maintenance flags/commands first: these take no prompt, so they must not block on stdin.
+const argv0 = process.argv.slice(2);
+if (argv0.includes('--version')) {
+  process.stdout.write('0.0.0-stub (provider-stub)\n');
+  process.exit(0);
+}
+if (argv0.includes('update') || argv0.includes('upgrade')) {
+  process.stdout.write('provider-stub is up to date (0.0.0-stub)\n');
+  process.exit(0);
+}
 
 const chunks = [];
 for await (const c of process.stdin) chunks.push(c);

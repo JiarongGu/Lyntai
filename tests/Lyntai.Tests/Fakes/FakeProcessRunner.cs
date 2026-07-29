@@ -28,6 +28,12 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// <summary>Canned result returned by <see cref="RunAsync"/>.</summary>
     public ProcessResult RunResult { get; set; } = new(0, string.Empty, string.Empty);
 
+    /// <summary>Per-call result selector for <see cref="RunAsync"/>, so a test can script a SEQUENCE of
+    /// buffered runs by inspecting (command, args) — e.g. a version probe, then an update, then a
+    /// re-probe. Falls back to <see cref="RunResult"/> when null; may throw to simulate a missing binary
+    /// (the call is still recorded in <see cref="Calls"/>).</summary>
+    public Func<string, IReadOnlyList<string>, ProcessResult>? RunHandler { get; set; }
+
     /// <summary>Every invocation, in order. Streamed calls record at enumeration time (when the
     /// iterator body first runs), like the real runner spawns lazily.</summary>
     public List<Call> Calls { get; } = [];
@@ -44,7 +50,7 @@ public sealed class FakeProcessRunner : IProcessRunner
         IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
     {
         Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration));
-        return Task.FromResult(RunResult);
+        return Task.FromResult(RunHandler is null ? RunResult : RunHandler(command, args));
     }
 
     public async IAsyncEnumerable<string> StreamLinesAsync(string command, IReadOnlyList<string> args,

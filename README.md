@@ -343,6 +343,46 @@ services.AddSingleton<IProcessRunner>(new MySandboxedProcessRunner());
 Anything you register wins over Lyntai's default (the defaults use `TryAdd`), and every storage domain
 is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement wholesale.
 
+### Backend version + guided upgrade (`IProviderInstallation` / `IProviderUpdater`)
+
+Two **optional** provider capabilities, so a host can show what its backend actually is — and offer an
+upgrade — instead of hardcoding a version it will drift away from. Both are discovered by pattern-matching
+over the registered providers, and both **fail safe**: an absent, stalled or erroring backend is reported,
+never thrown.
+
+```csharp
+foreach (var provider in serviceProvider.GetServices<ILlmProvider>())
+{
+    if (provider is not IProviderInstallation installation) continue;
+
+    var probe = await installation.ProbeAsync(ct);   // NO completion is run: no tokens, no model call
+    Console.WriteLine(probe.Available
+        ? $"{provider.Id} {probe.Version} {probe.Model ?? "(model unknown until a turn runs)"}"
+        : $"{provider.Id} unavailable — {probe.Detail}");
+
+    // the backend's OWN updater, when it ships one — gate it behind a user action, it installs software
+    if (probe.Available && provider is IProviderUpdater updater)
+    {
+        var result = await updater.UpdateAsync(ct);
+        Console.WriteLine(result.Updated
+            ? $"updated {result.FromVersion} → {result.ToVersion}"
+            : result.Detail);                        // "up to date", or why it failed
+    }
+}
+```
+
+`ClaudeCliProvider` implements both (`claude --version` / `claude update`) through the same BYO
+`IProcessRunner` and command seams as a completion. Two notes on what the probe will and won't tell you:
+
+- **`Version` is exact; `Model` is null against today's claude CLI** — it has no turn-free way to report
+  its resolved model, and the probe never guesses one. Read the model actually used from
+  `AgentStreamEvent.UsageFinal.Model` after a turn (see the agent-session section). The field is populated
+  by backends that *can* answer cheaply — a local runtime naming its loaded weights, a build that labels a
+  model on its version line.
+- **Only `--version` is asked.** The CLI treats an unrecognized token as a *prompt* and spends a turn
+  answering it, so a probe that guessed subcommands would quietly cost tokens. Lyntai drives the updater
+  the backend already ships — it never downloads or pins a binary itself; provisioning stays yours.
+
 ### Local in-process inference (`Lyntai.Providers.Local`)
 
 Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess. Reference the

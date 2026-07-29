@@ -1613,6 +1613,52 @@ app-hosted, out-of-process MCP server and does not go through `ICliToolProvision
 
 ---
 
+## Part 27 — Backend version & upgrade awareness (2026-07-30)
+
+_Filed in `TASKS.md` as "Part 26 — Claude CLI version & upgrade awareness (CLI2/CLI3)"; renumbered here
+because the archive's Part 26 was already taken by the MCP-hosting split. Net-new capability (CLI1 is
+archived, unrelated). The ClaudeCli provider reported only binary PRESENCE (`ClaudeCliProvider.IsAvailable`)
+and the ACTUAL resolved model only as post-run telemetry (`AgentStreamEvent.UsageFinal.Model`, scraped
+per-turn from the CLI stream-json). A consumer desktop showing a stale hardcoded model needed the installed
+CLI **version** + the **resolved default model** WITHOUT running a turn, plus a seam to drive the CLI's own
+self-update — a real version on a fresh install, and a guided upgrade._
+
+- [x] **CLI2 — Claude CLI version/model probe** — an app-agnostic probe on the ClaudeCli provider that,
+  without running an agent turn, reports the installed CLI **version** (`claude --version`) and — where the
+  CLI can report it cheaply — the **resolved default model**. Behind the SAME BYO `IProcessRunner` /
+  `ClaudeCommand.Resolve` env seams; fails safe (CLI absent/unreachable → null, like `IsAvailable`).
+- [x] **CLI3 — CLI self-update seam** — an app-agnostic way to run the CLI's OWN updater (`claude update`)
+  and/or report "update available", so a host offers one-click upgrade instead of hand-shelling a terminal.
+  Managed/pinned-binary PROVISIONING stays OUT of scope (the host's concern).
+
+✅ done 2026-07-30 — **Outcome:** shipped as a **Core capability pair with the claude CLI as first
+implementer**, not as adapter-only methods (mid-task steer: "building for one provider often means adding
+the interface in Core so other providers implement their own logic"). `IProviderInstallation.ProbeAsync` →
+`ProviderProbeResult { Available, Version, Model?, Detail }` and `IProviderUpdater.UpdateAsync` →
+`ProviderUpdateResult { Succeeded, Updated, FromVersion, ToVersion, Detail }` (Core, `Lyntai.Llm`) — two
+OPTIONAL interfaces rather than members on `ILlmProvider`, so a backend that can't answer cheaply just
+doesn't implement one and callers pattern-match over the registered provider collection. The capability
+generalizes beyond CLIs (a server version endpoint, a local runtime naming its loaded weights).
+`ClaudeCliProvider` implements both via `--version` / `update` through the existing `IProcessRunner` +
+`ClaudeCommand` seams, neutral cwd, no stdin; parsing is `ClaudeVersionLine` (internal, source-gen regex).
+Probe: 30s stall detector (a version readout is sub-second, and a probe must not hang a settings screen for
+the 2-minute provider timeout); update: the configured provider clocks, since it downloads. `Updated` is a
+before/after version comparison — the CLI has NO check-only mode, so "was an update available?" can only be
+answered after the fact. **Live-probe finding that shaped the design:** `--version` is the only turn-free
+question the CLI can be asked — an unrecognized token is treated as a PROMPT and spends a turn (`claude
+zzznotacommand` answered in prose), and `config`/`models` hang; so `Model` is null against today's CLI
+rather than invented (documented, with `UsageFinal.Model` as the caller's fallback), and the field fills in
+only from an explicitly labelled `model:` on a version line. 20 tests (`ClaudeCliProbeTests`: fake-runner
+unit coverage of both happy paths + missing binary / nonzero exit / stall, the version-line parser, a
+capability-discoverability assertion pinning the Core seam, and two real-spawn tests against the stub);
+`FakeProcessRunner` gained a `RunHandler` selector so a test can script a probe → update → re-probe
+sequence; the provider stub answers `--version` / `update|upgrade` before reading stdin. Both API baselines
+updated (purely additive: Core +2 interfaces +2 records, ClaudeCli +2 methods). Docs: CHANGELOG Unreleased,
+README "Backend version + guided upgrade", `.claude/knowledge/pitfalls.md` (the unrecognized-token trap).
+`verify` green (build · 1053 tests · e2e 3/3 · leak scan).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

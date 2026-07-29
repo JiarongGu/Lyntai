@@ -744,6 +744,10 @@ interface Lyntai.Llm.ILlmRouter
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
+interface Lyntai.Llm.IProviderInstallation
+    ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
+interface Lyntai.Llm.IProviderUpdater
+    UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
 interface Lyntai.Llm.IRefusalMatcher
     IsRefusal(LlmRequest, String) : Boolean
 sealed class Lyntai.Llm.LlmAttachment
@@ -880,6 +884,29 @@ static class Lyntai.Llm.LlmVerdictClassifier
     static FromErrorText(String, LlmVerdict=) : LlmVerdict
     static FromException(Exception) : LlmVerdict
     static FromHttpFailure(HttpStatusCode, String) : LlmVerdict
+sealed class Lyntai.Llm.ProviderProbeResult
+    .ctor(Boolean, String=, String=, String=)
+    Available : Boolean
+    Deconstruct(Boolean&, String&, String&, String&) : Void
+    Detail : String
+    Equals(Object) : Boolean
+    Equals(ProviderProbeResult) : Boolean
+    GetHashCode() : Int32
+    Model : String
+    ToString() : String
+    Version : String
+sealed class Lyntai.Llm.ProviderUpdateResult
+    .ctor(Boolean, Boolean, String=, String=, String=)
+    Deconstruct(Boolean&, Boolean&, String&, String&, String&) : Void
+    Detail : String
+    Equals(Object) : Boolean
+    Equals(ProviderUpdateResult) : Boolean
+    FromVersion : String
+    GetHashCode() : Int32
+    Succeeded : Boolean
+    ToString() : String
+    ToVersion : String
+    Updated : Boolean
 interface Lyntai.Llm.RateLimiting.IRateLimiter
     AcquireAsync(String, CancellationToken=) : Task<Boolean>
 sealed class Lyntai.Llm.RateLimiting.RateLimitedLlmClient

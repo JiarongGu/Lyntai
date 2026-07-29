@@ -26,7 +26,9 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
+    ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
     ProviderId : String const
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
 static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
     static FilePathOf(ToolCall) : String

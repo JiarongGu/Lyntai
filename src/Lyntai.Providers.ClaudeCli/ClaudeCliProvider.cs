@@ -19,7 +19,7 @@ public sealed class ClaudeCliProvider(
     LyntaiOptions options,
     ILogger<ClaudeCliProvider>? logger = null,
     string? command = null,
-    ICliToolProvisioner? provisioner = null) : ILlmProvider
+    ICliToolProvisioner? provisioner = null) : ILlmProvider, IProviderInstallation, IProviderUpdater
 {
     public const string ProviderId = "claude-cli";
 
@@ -186,6 +186,96 @@ public sealed class ClaudeCliProvider(
             yield return LlmChunk.Final(usage);
         else
             yield return LlmChunk.Error(LlmVerdict.Failed, "no output produced");
+    }
+
+    /// <summary>How long a maintenance spawn may go SILENT before it's treated as unreachable. A version
+    /// readout is sub-second work, so this is a stall detector, not a work budget — deliberately not the
+    /// provider timeout (a probe must not hang a settings screen for two minutes).</summary>
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>Report the installed CLI without running a turn: <c>claude --version</c> through the same
+    /// BYO <see cref="IProcessRunner"/> / <see cref="ClaudeCommand"/> seams as a completion, from the
+    /// neutral working directory, with no stdin.</summary>
+    /// <remarks>
+    /// <para><c>--version</c> is the ONLY turn-free question asked, deliberately: the CLI treats an
+    /// unrecognized token as a PROMPT and spends a turn answering it, so probing by guessing subcommands
+    /// would silently cost tokens.</para>
+    /// <para><see cref="ProviderProbeResult.Model"/> is therefore null against today's CLI — it has no
+    /// turn-free way to report its resolved model. Read the model the CLI ACTUALLY used from
+    /// <see cref="UsageFinal.Model"/> on an agent run; this fills in only if a future build labels one on
+    /// its version line.</para>
+    /// </remarks>
+    public async Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default)
+    {
+        var (exe, prefixArgs) = ResolveCommand();
+        ProcessResult result;
+        try
+        {
+            result = await runner.RunAsync(exe, [.. prefixArgs, "--version"], stdin: null,
+                inactivityTimeout: ProbeTimeout, maxDuration: ProbeTimeout,
+                workingDirectory: NeutralWorkingDirectory, ct: ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            return new ProviderProbeResult(false, Detail: $"probe failed: {ex.Message}");
+        }
+
+        if (result.TimedOut)
+            return new ProviderProbeResult(false, Detail: $"claude CLI reported no version within {ProbeTimeout}");
+        if (result.ExitCode != 0)
+            return new ProviderProbeResult(false, Detail: $"exit {result.ExitCode}: {Tail(result.StdErr)}");
+
+        // some launchers print the banner on stderr; the first non-empty line is the version line
+        var line = ClaudeVersionLine.FirstLine(result.StdOut);
+        if (line.Length == 0) line = ClaudeVersionLine.FirstLine(result.StdErr);
+        var (version, model) = ClaudeVersionLine.Parse(line);
+        return new ProviderProbeResult(true, version, model, line.Length > 0 ? line : null);
+    }
+
+    /// <summary>Run the CLI's OWN updater (<c>claude update</c>) and report what changed: probe → update →
+    /// re-probe. The CLI has no check-only mode, so "an update was available" is reported after the fact as
+    /// <see cref="ProviderUpdateResult.Updated"/> (the version moved). Installing/pinning a binary is NOT
+    /// done here — this only drives the updater the CLI already ships.</summary>
+    /// <remarks>Unlike a probe this can legitimately run for minutes (it downloads), so it gets the
+    /// configured provider clocks: <see cref="LyntaiOptions.ProviderTimeout"/> as the inactivity window and
+    /// <see cref="LyntaiOptions.MaxProviderTimeout"/> as the absolute backstop, never below it.</remarks>
+    public async Task<ProviderUpdateResult> UpdateAsync(CancellationToken ct = default)
+    {
+        var before = await ProbeAsync(ct).ConfigureAwait(false);
+        var (exe, prefixArgs) = ResolveCommand();
+        var inactivity = options.ProviderTimeout;
+        var maxDuration = options.MaxProviderTimeout < inactivity ? inactivity : options.MaxProviderTimeout;
+
+        ProcessResult result;
+        try
+        {
+            result = await runner.RunAsync(exe, [.. prefixArgs, "update"], stdin: null,
+                inactivityTimeout: inactivity, maxDuration: maxDuration,
+                workingDirectory: NeutralWorkingDirectory, ct: ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            return Unchanged($"update failed: {ex.Message}");
+        }
+
+        if (result.TimedOut)
+            return Unchanged($"claude update stalled — no output for {inactivity}");
+        if (result.ExitCode != 0)
+            return Unchanged($"exit {result.ExitCode}: {Tail(result.StdErr)}");
+
+        // the updater's own wording is the diagnostic; whether anything CHANGED is the version comparison
+        var after = await ProbeAsync(ct).ConfigureAwait(false);
+        var updated = before.Version is { } from && after.Version is { } to &&
+            !string.Equals(from, to, StringComparison.OrdinalIgnoreCase);
+        var output = Tail(result.StdOut.Length > 0 ? result.StdOut : result.StdErr);
+        return new ProviderUpdateResult(true, updated, before.Version, after.Version,
+            output.Length > 0 ? output : null);
+
+        // a failed update installed nothing: the "after" version is the "before" one, not a fresh probe
+        ProviderUpdateResult Unchanged(string detail) =>
+            new(false, false, before.Version, before.Version, detail);
     }
 
     /// <summary>Resolve the command override / env seams into exe + prefix args (see <see cref="ClaudeCommand"/>).</summary>

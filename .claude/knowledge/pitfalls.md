@@ -27,6 +27,13 @@ the tests) while being wrong. Skim before touching the relevant area.
   stack frame must not trip a verdict that benches a healthy host.
 - **Empty provider output as `Ok`** — must be `Failed` (and a terminal `Error` chunk when streaming) so
   the router can fall over.
+- **Asking the `claude` CLI a question it doesn't recognize SPENDS A TURN.** An unrecognized token is
+  treated as a PROMPT, not an error (`claude zzznotacommand` answers in prose), and `config`/`models` hang
+  waiting on a session. So a turn-free probe may use **flags only** — `--version` is the one safe question
+  (`ClaudeCliProvider.ProbeAsync`); `update`/`upgrade` are the only documented subcommands. Never "just try"
+  a plausible subcommand to see what it reports: the build stays green while every call quietly costs tokens.
+  Corollary: the CLI has no turn-free model readout — `ProviderProbeResult.Model` is null there by design,
+  and the resolved model comes from `AgentStreamEvent.UsageFinal.Model` after a turn.
 - The retry in `CompleteJsonAsync` must **differ** from the first attempt (feed back the bad reply + a
   corrective instruction) — re-sending the identical request to a temperature-0 model just repeats it.
 
