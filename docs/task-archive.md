@@ -1659,6 +1659,53 @@ README "Backend version + guided upgrade", `.claude/knowledge/pitfalls.md` (the 
 
 ---
 
+## Part 28 — Provider probe/update CLI spawn on Windows (2026-07-30)
+
+_Filed in `TASKS.md` as "Part 26 — provider probe/update CLI spawn on Windows (CLI2)"; the `CLI2` id is
+reused (Part 27's CLI2 shipped the probe itself — this is a spawn bug found while CONSUMING it). Bug found
+consuming 1.2.0 on Windows: the turn-free `IProviderInstallation.ProbeAsync` + `IProviderUpdater.UpdateAsync`
+appeared not to resolve/spawn the backend command the way the COMPLETION path does, so a Windows npm/nvm CLI
+shim broke. App-agnostic — hits any host on Windows whose `claude` is an npm-installed shim rather than a
+real `.exe`._
+
+- [x] **CLI2 — probe/update spawn the RAW resolved command → fail on a Windows npm/nvm shim** —
+  `ClaudeCliProvider`'s `ProbeAsync` (`claude --version`) and `UpdateAsync` (`claude update`) spawn the
+  resolved command directly, so when `claude` resolves to an EXTENSIONLESS npm/nvm shim (a `claude` launcher
+  script with no `.cmd`/`.exe` on the nodejs bin dir) the spawn throws **"The specified executable is not a
+  valid application for this OS platform"** → `ProviderProbeResult.Available=false` /
+  `ProviderUpdateResult.Succeeded=false` (observed via the consumer's host stderr). The COMPLETION path
+  (`StreamAsync`) runs the SAME `claude` fine on that machine, so probe/update should resolve + spawn via the
+  SAME Windows shim handling (`.cmd`/`.exe` resolution, or a `cmd.exe /c` wrapper) as a completion — not a
+  bare spawn of the resolved path. Impl: `src/Lyntai.Providers.ClaudeCli/ClaudeCliProvider.cs` (the
+  `IProviderInstallation`/`IProviderUpdater` members). Fail-safe is intact (false, not a throw) — the gap is
+  that it should SUCCEED for a shimmed install. (Consumer workaround already in place — a host-side shell
+  `cmd.exe /c claude --version` / terminal `claude update` fallback — to be removed once this lands.)
+
+✅ done 2026-07-30 — **Outcome:** fixed **one layer below where it was filed**. The report's premise (probe/
+update spawn differently from a completion) doesn't hold in the code: `ProbeAsync`/`UpdateAsync` already go
+through the same `ClaudeCommand.Resolve` + `IProcessRunner` seams as `CompleteAsync`/`StreamAsync`. The real
+defect was in the SHARED spawn path — `ProcessRunner.ResolveLauncher` special-cased only `.ps1`, so any
+resolved launcher CreateProcess can't exec was spawned raw. An npm/nvm global install writes three launchers
+side by side (`claude` = a POSIX `sh` script, `claude.cmd`, `claude.ps1`); whenever resolution landed on the
+extensionless one — a `where.exe` hit list without the `.cmd` (`Locate`'s `hits[0]` fallback), or a
+caller-supplied/`CLAUDE_CMD` path pointing straight at the shim, which bypasses `where.exe` entirely — the
+spawn threw Win32 193. Fix: `ResolveLauncher` now swaps a non-exec'able launcher for its spawnable **sibling**
+(`.cmd`/`.bat`/`.exe`/`.com`, then `.ps1` via the existing PowerShell host), probing siblings only for paths
+with a directory component so a bare name can never be answered by a same-named file in the current
+directory. Deliberately NOT a `cmd.exe /c` wrapper (that would re-introduce a shell into the argv path, and
+`cmd /c <extensionless sh script>` fails too) and deliberately NOT a fix at the provider call site — the
+runner is the single place that knows how to launch things, so completions, the agent session and the
+maintenance seams are all fixed at once. Repro'd first: 3 tests failing with the exact field error
+("The specified executable is not a valid application for this OS platform") — two in `ProcessRunnerTests`
+(extensionless shim rescued by a `.cmd` sibling; by a `.ps1`-only sibling) and one in `ClaudeCliProbeTests`
+(`Probe_and_update_work_against_a_windows_npm_shim_install` — probe + update over a REAL spawn of an
+npm-shaped shim wrapping the provider stub). No public API change (all-private), so no baseline update.
+Docs: CHANGELOG (plus stamping the never-stamped `1.2.0` heading, which the automated release commit left as
+"Unreleased"), `dev-conventions.md` + `llm-and-router.md` (shim handling belongs in the runner, never at a
+call site), `pitfalls.md`. `verify` green (build · 1056 tests · e2e 3/3 · leak scan).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

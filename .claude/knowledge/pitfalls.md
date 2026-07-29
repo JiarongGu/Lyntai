@@ -34,6 +34,14 @@ the tests) while being wrong. Skim before touching the relevant area.
   a plausible subcommand to see what it reports: the build stays green while every call quietly costs tokens.
   Corollary: the CLI has no turn-free model readout — `ProviderProbeResult.Model` is null there by design,
   and the resolved model comes from `AgentStreamEvent.UsageFinal.Model` after a turn.
+- **Spawning a Windows CLI by its EXTENSIONLESS npm/nvm shim** — a global npm install writes three
+  launchers side by side (`claude`, `claude.cmd`, `claude.ps1`); the extensionless one is a POSIX `sh`
+  script, and CreateProcess rejects it with *"The specified executable is not a valid application for this
+  OS platform"*. Green on every dev box whose `where.exe` happens to list the `.cmd` first, broken on the
+  one whose PATH/PATHEXT doesn't — and broken for any caller handed the bare shim path directly
+  (`CLAUDE_CMD`, a BYO command). `ProcessRunner.ResolveLauncher` swaps in the spawnable sibling; keep shim
+  handling THERE, never at a call site, or the paths that don't go through it (the turn-free probe/update
+  seams did) silently regress on shimmed installs.
 - The retry in `CompleteJsonAsync` must **differ** from the first attempt (feed back the bad reply + a
   corrective instruction) — re-sending the identical request to a temperature-0 model just repeats it.
 

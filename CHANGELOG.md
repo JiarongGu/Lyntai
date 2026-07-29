@@ -12,6 +12,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ## Unreleased
 
+### Fixed
+- **A Windows npm/nvm CLI shim now spawns** (`ProcessRunner`, Core) — an npm/nvm global install drops
+  three launchers side by side: an EXTENSIONLESS POSIX script (`claude`), a `claude.cmd` and a
+  `claude.ps1`. CreateProcess can't exec the extensionless one, so whenever the command resolved to it —
+  a `where.exe` hit list without the `.cmd`, or a caller-supplied/`CLAUDE_CMD` path pointing straight at
+  the shim — every spawn failed with *"The specified executable is not a valid application for this OS
+  platform"* on an install that otherwise works. The runner now swaps a non-exec'able launcher for its
+  spawnable **sibling** (`.cmd`/`.bat`/`.exe`/`.com`, then `.ps1` via the existing PowerShell host).
+  Only paths with a directory component are probed, so a bare command name can never pick up a same-named
+  file from the current directory. This is in the shared spawn path, so it fixes every caller at once —
+  the reported symptom was `ClaudeCliProvider.ProbeAsync`/`UpdateAsync` reporting `Available: false` /
+  `Succeeded: false` for a working shimmed CLI (`TASKS.md` CLI2, found consuming 1.2.0 on Windows).
+
+## 1.2.0 — turn-free backend probe + self-update seam (2026-07-29)
+
 A host can now show what its LLM backend actually IS — version, and where the backend can say so, model —
 without spending a turn to find out, and can drive that backend's own updater. Generic: the claude CLI is
 the first implementer of a Core capability, not the shape of it.

@@ -319,10 +319,27 @@ public sealed class ProcessRunner : IProcessRunner
         return process;
     }
 
-    /// <summary>Resolve a command to the executable + any prefix args needed to launch it. A <c>.ps1</c>
-    /// launcher shim can't be exec'd directly by CreateProcess, so on Windows it is hosted in PowerShell
-    /// (<c>powershell -NoProfile -ExecutionPolicy Bypass -File &lt;path&gt;</c>); a resolved <c>.cmd</c>/<c>.exe</c>
-    /// (the common case) runs directly. Both explicit <c>.ps1</c> paths and where.exe-resolved ones are wrapped.
+    /// <summary>Extensions Windows' own CreateProcess can launch (it hosts <c>.bat</c>/<c>.cmd</c> in the
+    /// command interpreter itself). Anything else — an extensionless POSIX launcher script, a <c>.ps1</c>,
+    /// a <c>.js</c> — needs an explicit host or a spawnable sibling.</summary>
+    private static readonly string[] SpawnableExtensions = [".exe", ".com", ".cmd", ".bat"];
+
+    /// <summary>Sibling launchers to try, best first, when the resolved command isn't spawnable itself.</summary>
+    private static readonly string[] SiblingExtensions = [".cmd", ".bat", ".exe", ".com", ".ps1"];
+
+    /// <summary>Resolve a command to the executable + any prefix args needed to launch it. A resolved
+    /// <c>.cmd</c>/<c>.exe</c> (the common case) runs directly. Two Windows shim shapes can't be exec'd by
+    /// CreateProcess and are mapped onto something that can:
+    /// <list type="bullet">
+    /// <item>an EXTENSIONLESS (or otherwise un-exec'able) launcher script — the npm/nvm global-install shape,
+    /// where a POSIX <c>tool</c> shim sits beside <c>tool.cmd</c>/<c>tool.ps1</c> — is swapped for its
+    /// spawnable SIBLING. Without this, a command that resolves to (or is handed in as) the bare shim fails
+    /// with "The specified executable is not a valid application for this OS platform" on an install that
+    /// otherwise works; only paths with a directory component are probed, so a bare name never picks up a
+    /// same-named file from the current directory.</item>
+    /// <item>a <c>.ps1</c> (supplied directly, where.exe-resolved, or reached as the sibling above) is hosted
+    /// in PowerShell (<c>powershell -NoProfile -ExecutionPolicy Bypass -File &lt;path&gt;</c>).</item>
+    /// </list>
     /// CAVEAT — the one scoped exception to the "never a shell" spawn rule: PowerShell RE-PARSES the argv it
     /// forwards to a <c>-File</c> script, so an argument with embedded double quotes or a trailing backslash
     /// can arrive mangled. Prompts already travel via stdin (never argv); keep <c>.ps1</c>-shim argv to simple
@@ -331,9 +348,30 @@ public sealed class ProcessRunner : IProcessRunner
     private static (string Exe, IReadOnlyList<string> PrefixArgs) ResolveLauncher(string command)
     {
         var resolved = ResolveCommandPath(command);
-        if (OperatingSystem.IsWindows() && resolved.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
+        if (!OperatingSystem.IsWindows()) return (resolved, []);
+
+        if (!IsSpawnable(resolved)) resolved = SpawnableSibling(resolved) ?? resolved;
+        if (resolved.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
             return ("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", resolved]);
         return (resolved, []);
+    }
+
+    private static bool IsSpawnable(string path) =>
+        SpawnableExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The same launcher with a Windows-runnable extension, if one is sitting next to it. Only
+    /// a path with a directory component is probed — a bare name that PATH lookup couldn't resolve must
+    /// NOT be answered by a same-named file in the process's current directory.</summary>
+    private static string? SpawnableSibling(string path)
+    {
+        if (Path.GetDirectoryName(path) is not { Length: > 0 }) return null;
+        var stem = Path.GetExtension(path).Length == 0 ? path : Path.ChangeExtension(path, null);
+        foreach (var extension in SiblingExtensions)
+        {
+            var candidate = stem + extension;
+            if (File.Exists(candidate)) return candidate;
+        }
+        return null;
     }
 
     private static async Task WriteStdinAsync(System.Diagnostics.Process process, string? stdin,

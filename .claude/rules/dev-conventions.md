@@ -52,7 +52,9 @@ by candidate id; `IScoringService` iterates `IEnumerable<IScorer>`; `ILlmProvide
 - **CLI spawn hygiene** (`ProcessRunner`): `UseShellExecute=false`, `ArgumentList` only (prompts carry
   newlines/metacharacters — never a shell), prompt over **stdin**, **BOM-less UTF-8** both directions,
   resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`, then `.ps1`), `Kill(entireProcessTree:true)`
-  on cancel, per-call timeout. **One scoped exception to "never a shell":** a `.ps1`-only launcher shim is
+  on cancel, per-call timeout. A resolved launcher CreateProcess can't exec — the EXTENSIONLESS npm/nvm shim
+  that sits beside `tool.cmd`/`tool.ps1` — is swapped for that spawnable **sibling** (bare names aren't
+  probed, so the current directory can never answer a PATH lookup). **One scoped exception to "never a shell":** a `.ps1`-only launcher shim is
   hosted via `powershell -NoProfile -ExecutionPolicy Bypass -File` (CreateProcess can't exec it) — PowerShell
   re-parses argv there, so args with embedded quotes/trailing backslashes can arrive mangled; keep `.ps1`-shim
   args to simple flags (prompts already travel via stdin) or supply a BYO `IProcessRunner`. Tests stub the CLI

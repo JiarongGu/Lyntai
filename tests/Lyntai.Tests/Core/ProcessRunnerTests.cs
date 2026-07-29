@@ -397,6 +397,69 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public async Task Runs_an_extensionless_npm_shim_through_its_cmd_sibling()
+    {
+        // CLI2: an npm/nvm global install drops THREE launchers side by side — an extensionless `tool`
+        // (a POSIX sh script, for Git Bash), `tool.cmd`, and `tool.ps1`. CreateProcess can't exec the
+        // extensionless one ("The specified executable is not a valid application for this OS platform"),
+        // and it's exactly what a caller-supplied path (or a where.exe hit list without the .cmd) can
+        // resolve to — so the runner must launch the spawnable SIBLING instead of failing.
+        if (!OperatingSystem.IsWindows()) return; // an extensionless shim is executable as-is elsewhere
+
+        var (dir, shim) = await WriteShimAsync("cmdsib",
+            (".cmd", "@echo off\r\necho cmd-sibling-ran:%1\r\n"));
+        try
+        {
+            var result = await _runner.RunAsync(shim, ["ok"]);
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.False(result.TimedOut);
+            Assert.Contains("cmd-sibling-ran:ok", result.StdOut);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task Runs_an_extensionless_shim_through_its_ps1_sibling_when_there_is_no_cmd()
+    {
+        // Same shape with only a PowerShell sibling present: the shim resolves to the .ps1, which is
+        // itself un-exec'able and gets the powershell.exe host (the existing .ps1 launcher path).
+        if (!OperatingSystem.IsWindows()) return;
+
+        var (dir, shim) = await WriteShimAsync("ps1sib",
+            (".ps1", "param($arg) Write-Output \"ps1-sibling-ran:$arg\"\n"));
+        try
+        {
+            var result = await _runner.RunAsync(shim, ["ok"]);
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Contains("ps1-sibling-ran:ok", result.StdOut);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
+    /// <summary>Write an npm-style launcher trio into a fresh scratch dir: the extensionless POSIX shim
+    /// (what CreateProcess chokes on) plus the given Windows sibling(s). Returns the dir + the
+    /// extensionless shim path.</summary>
+    private static async Task<(string Dir, string Shim)> WriteShimAsync(
+        string name, params (string Extension, string Content)[] siblings)
+    {
+        var dir = Path.Combine(TestPaths.TestScratchDir, $"shim-{name}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var shim = Path.Combine(dir, "mytool");
+        await File.WriteAllTextAsync(shim, "#!/bin/sh\nexec node \"$0.mjs\" \"$@\"\n"); // a real npm shim: sh, not PE
+        foreach (var (extension, content) in siblings)
+            await File.WriteAllTextAsync(shim + extension, content);
+        return (dir, shim);
+    }
+
+    [Fact]
     public void Resolve_command_path_finds_node_and_caches()
     {
         var resolved = ProcessRunner.ResolveCommandPath("node");

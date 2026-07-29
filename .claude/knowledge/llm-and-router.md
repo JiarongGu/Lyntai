@@ -83,7 +83,11 @@ immediately (RateLimited/AuthFailed); `RecordFailure` counts toward the threshol
 `UseShellExecute=false`; `ArgumentList` only (never a shell — prompts carry newlines/metacharacters);
 dynamic content (the prompt) travels via **stdin**, never argv; BOM-less UTF-8 on stdin, stdout, stderr;
 resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`); `Kill(entireProcessTree:true)` on
-cancel/timeout. **Both** paths measure child **inactivity**, never wall-clock: the buffered `RunAsync`
+cancel/timeout. **Windows shim handling lives in `ResolveLauncher`, so every caller gets it** (completions,
+the agent session, the turn-free probe/update — they all funnel through the runner): a launcher CreateProcess
+can't exec is remapped — an EXTENSIONLESS npm/nvm shim to its spawnable sibling (`.cmd`/`.bat`/`.exe`/`.com`,
+then `.ps1`), a `.ps1` to the PowerShell host. Never add shim handling to a CALL SITE; the runner is the one
+place that knows how to launch things. **Both** paths measure child **inactivity**, never wall-clock: the buffered `RunAsync`
 reads stdout in chunks and re-arms `timeout` on each (stdin written concurrently, its clock re-armed too),
 so a slow-but-alive turn finishes while a child gone SILENT for the window is killed — matching
 `StreamLinesAsync`. The buffered path also takes an absolute `maxDuration` backstop (a child that never
