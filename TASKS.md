@@ -57,6 +57,28 @@ working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISI
 
 ---
 
+## Part 26 — provider probe/update CLI spawn on Windows (CLI2)
+
+_Bug found while consuming 1.2.0 (the Aurelia desktop, on Windows). The turn-free
+`IProviderInstallation.ProbeAsync` + `IProviderUpdater.UpdateAsync` don't resolve/spawn the backend command
+the way the COMPLETION path does, so a Windows npm/nvm CLI shim breaks. App-agnostic — hits any host on
+Windows whose `claude` is an npm-installed shim rather than a real `.exe`._
+
+- [ ] **CLI2 — probe/update spawn the RAW resolved command → fail on a Windows npm/nvm shim** —
+  `ClaudeCliProvider`'s `ProbeAsync` (`claude --version`) and `UpdateAsync` (`claude update`) spawn the
+  resolved command directly, so when `claude` resolves to an EXTENSIONLESS npm/nvm shim (a `claude` launcher
+  script with no `.cmd`/`.exe` on the nodejs bin dir) the spawn throws **"The specified executable is not a
+  valid application for this OS platform"** → `ProviderProbeResult.Available=false` /
+  `ProviderUpdateResult.Succeeded=false` (observed via the consumer's host stderr). The COMPLETION path
+  (`StreamAsync`) runs the SAME `claude` fine on that machine, so probe/update should resolve + spawn via the
+  SAME Windows shim handling (`.cmd`/`.exe` resolution, or a `cmd.exe /c` wrapper) as a completion — not a
+  bare spawn of the resolved path. Impl: `src/Lyntai.Providers.ClaudeCli/ClaudeCliProvider.cs` (the
+  `IProviderInstallation`/`IProviderUpdater` members). Fail-safe is intact (false, not a throw) — the gap is
+  that it should SUCCEED for a shimmed install. (Consumer workaround already in place — a host-side shell
+  `cmd.exe /c claude --version` / terminal `claude update` fallback — to be removed once this lands.)
+
+---
+
 ## How to work a task (evergreen)
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. Read
