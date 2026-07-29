@@ -102,15 +102,31 @@ jobs:
             Write-Host "normalized version: $final"
           }
 
-          $changed = "false"
           if ($final -ne $current) {
             $p = "src/Directory.Build.props"
             $c = Get-Content $p -Raw
             $c = $c -replace "(<VersionPrefix>)[^<]*(</VersionPrefix>)", ('${1}' + $final + '${2}')
             Set-Content $p $c -NoNewline -Encoding utf8
-            $changed = "true"
             Write-Host "wrote version $final to $p (commit deferred until the gate + publish pass)"
           }
+
+          # Stamp the CHANGELOG's `## Unreleased` heading for this release, exactly as VersionPrefix (above)
+          # and the README `## Status` headline (in Pack) are stamped — this was the one release edit still
+          # left to a human, and 1.2.0 shipped with its section titled "Unreleased" because of it. The
+          # stamper is idempotent (a re-cut of an already-stamped version rewrites nothing) and never
+          # invents prose: `## Unreleased` becomes `## X.Y.Z — <date>`, and an author-supplied
+          # `## Unreleased — <title>` becomes `## X.Y.Z — <title> (<date>)`.
+          node devtools/dev.mjs changelog --fix --version $final
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::changelog stamp failed — CHANGELOG.md unreadable or unwritable"
+            exit 1
+          }
+
+          # Did the bump and/or the stamp actually rewrite anything? Asking git (rather than tracking a flag
+          # per edit) keeps this honest when only one of them moved, and a re-run that rewrites NEITHER must
+          # not produce an empty release commit.
+          $changed = if (git status --porcelain -- src/Directory.Build.props CHANGELOG.md) { "true" } else { "false" }
+          Write-Host "release files rewritten: $changed"
 
           "changed=$changed" >> $env:GITHUB_OUTPUT
           "version=$final" >> $env:GITHUB_OUTPUT
@@ -142,15 +158,18 @@ jobs:
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
-      # Commit the version bump ONLY now that the gate + publish succeeded — a failed release burns no version.
-      # The Pack step auto-synced the README `## Status` headline to the bumped VersionPrefix, so commit both.
+      # Commit the release bookkeeping ONLY now that the gate + publish succeeded — a failed release burns no
+      # version. Three files move in lock-step with a release and are committed together: VersionPrefix (the
+      # Determine step), the README `## Status` headline (auto-synced by Pack), and the stamped CHANGELOG
+      # heading (the Determine step). `git add` names them explicitly so nothing else the job touched — a
+      # publish/ artifact, a scratch file — can ride along into a release commit.
       - name: Commit version bump
         if: steps.version.outputs.changed == 'true'
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/Directory.Build.props README.md
+          git add src/Directory.Build.props README.md CHANGELOG.md
           git commit -m "chore: release v${{ steps.version.outputs.version }}"
           git push
 

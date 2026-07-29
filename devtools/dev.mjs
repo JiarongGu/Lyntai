@@ -5,6 +5,8 @@
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
 //   node devtools/dev.mjs pack             - dotnet pack the packable libraries -> publish/packages/
 //   node devtools/dev.mjs doctor [--fix]   - check README ## Status version == VersionPrefix (--fix syncs it)
+//   node devtools/dev.mjs changelog [--fix] [--version X.Y.Z] [--date YYYY-MM-DD]
+//                                          - check/stamp the CHANGELOG `## Unreleased` heading for a release
 //   node devtools/dev.mjs install-hooks    - git core.hooksPath -> devtools/hooks (pre-commit guard)
 //   node devtools/dev.mjs check-sensitive  - scan staged changes (--tree for all tracked files)
 import { spawn, spawnSync } from 'node:child_process';
@@ -52,6 +54,51 @@ const packDoctor = ({ fix = false } = {}) => {
   return false;
 };
 
+// changelog-doctor: stamp the CHANGELOG's `## Unreleased` heading with the version being released, the way
+// the release pipeline already stamps VersionPrefix + the README `## Status` headline. Cutting a release is
+// otherwise the ONE place a human had to remember a manual edit — and v1.2.0 shipped with its section still
+// titled "Unreleased" because of it.
+//
+// Two heading shapes are produced, matching what the file already uses:
+//   `## Unreleased`                → `## X.Y.Z — 2026-07-30`
+//   `## Unreleased — <title>`      → `## X.Y.Z — <title> (2026-07-30)`
+// so an author who wants a titled release writes the title on the Unreleased heading in advance; nothing is
+// ever invented here. IDEMPOTENT: a heading for the version already present means the release was already
+// stamped (a pipeline re-run), and the file is left untouched.
+const unreleasedHeading = /^## Unreleased[ \t]*(?:[—–-][ \t]*(.+?))?[ \t]*$/m;
+
+const changelogDoctor = ({ fix = false, version = config.version, date } = {}) => {
+  const file = path.join(repo, 'CHANGELOG.md');
+  const changelog = fs.readFileSync(file, 'utf8');
+  const stamped = new RegExp(`^## ${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[ \t]|$)`, 'm');
+
+  if (stamped.test(changelog)) {
+    console.log(`changelog-doctor: CHANGELOG already has a "## ${version}" heading ✓`);
+    return true;
+  }
+
+  const match = changelog.match(unreleasedHeading);
+  if (!match) {
+    // Neither a section for this version nor an Unreleased one to promote: nothing DOCUMENTS what is being
+    // shipped. Report it, but never fail a release over a doc heading — the packages are the deliverable.
+    console.warn(`changelog-doctor: no "## ${version}" and no "## Unreleased" heading in CHANGELOG.md — ` +
+      'nothing to stamp (add the section by hand).');
+    return true;
+  }
+  if (!fix) {
+    console.error(`changelog-doctor: CHANGELOG "## Unreleased" is not stamped for ${version} — ` +
+      'run `node devtools/dev.mjs changelog --fix` (the release workflow does this for you).');
+    return false;
+  }
+
+  const title = match[1]?.trim();
+  const on = date ?? new Date().toISOString().slice(0, 10); // UTC — the release runs on a UTC runner
+  const heading = title ? `## ${version} — ${title} (${on})` : `## ${version} — ${on}`;
+  fs.writeFileSync(file, changelog.replace(unreleasedHeading, heading));
+  console.log(`changelog-doctor: stamped "${match[0]}" → "${heading}"`);
+  return true;
+};
+
 switch (cmd) {
   case 'build':
     run('dotnet', ['build', config.solution, '-v', 'minimal']);
@@ -84,6 +131,22 @@ switch (cmd) {
   case 'doctor':
     process.exitCode = packDoctor({ fix: args.includes('--fix') }) ? 0 : 1;
     break;
+
+  case 'changelog': {
+    // Deliberately NOT folded into `doctor`/`pack`: those run on every local pack, and rewriting a
+    // history-facing document as a side effect of building packages would be a surprise. Stamping is an
+    // explicit act of RELEASING — the release workflow calls this, and a manual release runs the same line.
+    const valueOf = (flag) => {
+      const at = args.indexOf(flag);
+      return at >= 0 ? args[at + 1] : undefined;
+    };
+    process.exitCode = changelogDoctor({
+      fix: args.includes('--fix'),
+      version: valueOf('--version') ?? config.version,
+      date: valueOf('--date'),
+    }) ? 0 : 1;
+    break;
+  }
 
   case 'pack': {
     // auto-sync the README `## Status` version to VersionPrefix, then pack — the release pipeline bumps the

@@ -14,7 +14,10 @@ small and scannable so the next open task is obvious. The completed record lives
 - **Three records, three jobs, no duplication:**
   - `TASKS.md` — what's still TODO (open backlog).
   - `docs/task-archive.md` — the per-task history (why/how each closed item was done; the frozen plan).
-  - `CHANGELOG.md` — the release-facing, user-visible log (per `VersionPrefix` release).
+  - `CHANGELOG.md` — the release-facing, user-visible log (per `VersionPrefix` release). Write under
+    `## Unreleased`; the release workflow **stamps that heading** with the version + date (`node
+    devtools/dev.mjs changelog --fix`), so never hand-stamp it. Want a titled release? Pre-title the
+    heading — `## Unreleased — <title>` becomes `## X.Y.Z — <title> (<date>)`.
 - **Keep the top banner honest.** The `## Active backlog` section reflects reality — `_None …_` when empty;
   never a stale "all done" banner over open items, nor open items under a "done" banner.
 
