@@ -90,14 +90,16 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   `@modelcontextprotocol/server-everything`.
 
 ### v0.13.0 — proper tool-calling for the claude CLI (2026-07)
-- ✅ **`Lyntai.Providers.ClaudeCli.Mcp`** — the CLI runs its own agent loop and reaches custom tools only
+- ✅ **`Lyntai.Providers.ClaudeCli.Mcp`** _(package since removed — see the note below)_ — the CLI runs its own agent loop and reaches custom tools only
   over MCP, so this hosts the app's `ITool`s as an ephemeral, localhost-only HTTP MCP server (Kestrel)
   and wires `claude -p` to it (`--mcp-config` + `--settings` allow-list). Opt-in `AddClaudeCliMcpTools()`;
   a small Core seam (`ICliToolProvisioner`) keeps the host dependency out of the base provider. A
   deliberate, scoped exception to "no host". **Remaining on the tool-calling track:** streaming
   tool-calls (lower value).
-  _Generalized 2026-07-29 (see below): the host moved to `Lyntai.Tools.Mcp.Hosting` and the claude flags
-  to a `ClaudeCliMcpDialect`; `AddClaudeCliMcpTools()` is unchanged._
+  _Generalized 2026-07-29 (`docs/DECISIONS.md` D23): the host moved to the provider-neutral
+  `Lyntai.Tools.Mcp.Hosting` and the claude flags to a `ClaudeCliMcpDialect` in the claude provider
+  package. The `Lyntai.Providers.ClaudeCli.Mcp` package and `AddClaudeCliMcpTools()` were **removed** —
+  use `AddMcpToolHost(new ClaudeCliMcpDialect())`._
 
 ### v0.14.0 — durable jobs (2026-07)
 - ✅ **Durable jobs** (`Lyntai.Jobs` + `IJobStore`, design §9 "durable jobs — lanes + checkpoint/resume")

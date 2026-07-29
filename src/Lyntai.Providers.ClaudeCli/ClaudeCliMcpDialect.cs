@@ -13,8 +13,9 @@ namespace Lyntai.Providers.ClaudeCli;
 /// The Kestrel host that consumes it lives in <c>Lyntai.Tools.Mcp.Hosting</c>, which is what keeps ASP.NET
 /// Core off the dependency graph of apps that use the plain CLI provider.</para>
 ///
-/// <para>Pair it with <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c> (or the equivalent
-/// <c>AddClaudeCliMcpTools()</c> shorthand in <c>Lyntai.Providers.ClaudeCli.Mcp</c>).</para>
+/// <para>Wire it with <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c> from
+/// <c>Lyntai.Tools.Mcp.Hosting</c>, alongside <c>AddClaudeCliProvider()</c> and your tool
+/// registrations.</para>
 /// </summary>
 public sealed class ClaudeCliMcpDialect : IMcpCliDialect
 {

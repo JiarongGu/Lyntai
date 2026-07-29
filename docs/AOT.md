@@ -14,7 +14,7 @@ packable project, which turns on the trim, single-file, and AOT analyzers. Per-p
 | `Lyntai.Storage.Postgres` | ⚠️ **opts out** | Same as Sqlite — Npgsql + Dapper + FluentMigrator reflection. Analyzer on for our code. |
 | `Lyntai.Providers.Local` | ⚠️ **opts out** | Same stance — LLamaSharp loads the native llama.cpp backend dynamically and materializes options via reflection; a native-interop package can't honestly claim AOT/trim compatibility. Analyzer on for our code. |
 | `Lyntai.Tools.Mcp` | ⚠️ **opts out** | MCP argument/result marshaling is dynamic JSON (reflection). Analyzer on for our code. |
-| `Lyntai.Providers.ClaudeCli.Mcp` | ⚠️ **opts out** | Hosts Kestrel + dynamic-JSON tool marshaling — a hosting package can't claim trim/AOT. Analyzer on for our code. |
+| `Lyntai.Tools.Mcp.Hosting` | ⚠️ **opts out** | Hosts Kestrel + dynamic-JSON tool marshaling — a hosting package can't claim trim/AOT. Analyzer on for our code. Deliberately kept OFF `Lyntai.Providers.ClaudeCli`'s dependency graph so the provider stays AOT-compatible (`docs/DECISIONS.md` D23). |
 
 ## Why the project-level analyzer isn't the whole story
 

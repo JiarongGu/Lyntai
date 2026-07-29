@@ -267,6 +267,9 @@ API review + read-only consumer-usage review (D21) confirmed/settled the surface
 - **Verification + releases stay MANUAL** (D20) — the 1.0 tag + `release.yml` are triggered by hand.
 - This is a policy line, not a code change: the value of 1.0 is the *commitment*. Don't reopen a settled
   surface item without a major-bump rationale.
+- **AMENDED 2026-07-29 by D24** — while every consumer is one of the owner's own apps, a documented break
+  may ship in a MINOR. The `ApiSurfaceTests` gate and the documentation duty are unchanged; only the
+  version-number consequence is relaxed, and it expires the moment a third party depends on Lyntai.
 
 ## D23 — MCP tool hosting is generic; the CLI dialect lives in the provider package (2026-07-29)
 `Lyntai.Providers.ClaudeCli.Mcp` was named for one consumer but was ~85% provider-neutral machinery — its
@@ -287,14 +290,39 @@ It is now split along the seam that actually exists:
   plain CLI provider. Keeping host/transport dependencies out of the base provider is the entire reason
   `ICliToolProvisioner` exists as a seam — so only the *dialect* moved into the provider package, never the
   host. This is why the split isn't simply "fold the add-on into the provider".
-- **`Lyntai.Providers.ClaudeCli.Mcp` survives as a composition package** — its whole body is
-  `AddClaudeCliMcpTools()` → `AddMcpToolHost(new ClaudeCliMcpDialect())`. It is the ONE deliberate
-  exception to D3's "never adapter→adapter": a package whose only purpose is to compose two others, so
-  neither half has to know about the other. Don't generalize the exception; don't add logic here.
+- **`Lyntai.Providers.ClaudeCli.Mcp` is DELETED, not kept as a shim.** It briefly survived as a
+  composition package (`AddClaudeCliMcpTools()` → `AddMcpToolHost(new ClaudeCliMcpDialect())`) and was
+  removed the same day: a whole NuGet package whose only value was saving the caller `new
+  ClaudeCliMcpDialect()` is not worth its own id, versioning surface and doc footprint. Apps compose the
+  two halves themselves, which is the normal DI story. **Consequence worth keeping:** D3's "never
+  adapter→adapter" now has ZERO exceptions in the tree again — don't reintroduce a glue package.
 - **The provisioner is resolved KEYED by `IMcpCliDialect.ProviderId`**, with the first registration also
   taking the unkeyed slot as a fallback. The old unkeyed-only `TryAddSingleton` meant two CLI providers
   that each run their own agent loop would collide — first registration won and the wrong dialect was
   injected into both. That was a real defect, not a naming issue.
-- **Cost: a MINOR bump, not a major.** All the relocated machinery was `internal`, so the frozen surface
-  only gained members (verified against the `ApiSurfaceTests` baselines — additions only, no removals or
-  renames). D22 holds.
+- **Cost: a MINOR bump, by the D24 amendment.** The relocation itself was additive (all the moved
+  machinery was `internal`), but deleting the shim removes `AddClaudeCliMcpTools` and a published package
+  id — a break under a strict reading of D22. See **D24** for why that is allowed right now.
+
+## D24 — SemVer strictness is deferred while every consumer is first-party (2026-07-29)
+D22 froze the public surface under SemVer 2.0 at 1.0. **Amendment, at the owner's direction:** while
+**every** Lyntai consumer is one of the owner's own applications, a breaking surface change may ship in a
+MINOR release, provided it is documented. The commitment D22 encodes is to *external* adopters, and there
+are none yet; paying a major bump to protect callers you control yourself buys nothing and inflates the
+version number past any useful meaning.
+
+What this does and does not license:
+- **Does:** removing/renaming public surface in a minor, when the change is a genuine simplification and
+  the CHANGELOG entry says plainly what broke and what replaces it. The first application of this is the
+  D23 shim deletion.
+- **Does NOT:** skipping the documentation. The `ApiSurfaceTests` baselines still gate every surface
+  change, breaks are still called out under a **Breaking** heading in `CHANGELOG.md`, and the rationale
+  still lands in this file. The gate is unchanged; only the *version-number consequence* is relaxed.
+- **Does NOT:** silent behavior changes, storage/migration breaks, or anything a consumer can't detect at
+  compile time. Those stay major-bump material regardless — a compile error is recoverable, a corrupted
+  database is not.
+
+**Reinstate strict D22 SemVer the moment a third party depends on Lyntai** — a public NuGet consumer
+outside the owner's apps, or any external contributor. At that point this amendment expires and the next
+breaking change takes a major bump. Anyone reading D22 and finding a 1.x release with a `Breaking`
+section should land here, not assume the policy was violated.

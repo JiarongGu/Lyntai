@@ -59,7 +59,7 @@ public sealed class ClaudeCliProvider(
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         WarnIfRequestToolsIgnored(req);
-        // when a provisioner is registered (the ClaudeCli.Mcp add-on), it stands up an MCP host exposing
+        // when a provisioner is registered (AddMcpToolHost + the claude dialect), it stands up an MCP host exposing
         // the app's tools and hands back the CLI args; the session tears it down after the process exits
         await using var session = provisioner is null ? null : await provisioner.ProvisionAsync(ct).ConfigureAwait(false);
         var (exe, prefixArgs) = ResolveCommand();
@@ -207,7 +207,7 @@ public sealed class ClaudeCliProvider(
         if (req.Tools is { Count: > 0 })
             _logger.LogWarning(
                 "claude-cli ignores LlmRequest.Tools ({Count} declaration(s) dropped) — the CLI provider " +
-                "doesn't take request-level tool declarations; expose tools via the ClaudeCli.Mcp provisioner (AddMcp…) instead.",
+                "doesn't take request-level tool declarations; expose tools via AddMcpToolHost(new ClaudeCliMcpDialect()) instead.",
                 req.Tools.Count);
     }
 }

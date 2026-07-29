@@ -22,7 +22,6 @@
     <ProjectReference Include="..\..\src\Lyntai.Providers.Local\Lyntai.Providers.Local.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Tools.Mcp.Hosting\Lyntai.Tools.Mcp.Hosting.csproj" />
-    <ProjectReference Include="..\..\src\Lyntai.Providers.ClaudeCli.Mcp\Lyntai.Providers.ClaudeCli.Mcp.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Secrets.Dpapi\Lyntai.Secrets.Dpapi.csproj" />
   </ItemGroup>
 

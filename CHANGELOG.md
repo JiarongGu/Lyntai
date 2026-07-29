@@ -5,31 +5,49 @@ From 1.0, **SemVer 2.0** applies: breaking public-API changes require a major bu
 `ApiSurfaceTests`; see `docs/DECISIONS.md` D22). Pre-1.0 (≤ 0.31.x) minor bumps could carry breaking
 changes — each is called out below.
 
+**Amended 2026-07-29 (`docs/DECISIONS.md` D24):** while every consumer is one of the owner's own
+applications, a **documented** break may ship in a MINOR release. Every break is still gated by
+`ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
+consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
+
 ## Unreleased
 
+CLI tool-hosting is no longer claude-shaped: the host is generic and each CLI contributes only its flags
+and config-file shapes. Rationale in `docs/DECISIONS.md` **D23**; the minor-with-a-break versioning call
+is **D24**.
+
+### Breaking
+- **`Lyntai.Providers.ClaudeCli.Mcp` is removed** (package and its `AddClaudeCliMcpTools()` extension).
+  It had shrunk to one line of sugar, which does not justify a package id. **Migration — replace the
+  package reference with `Lyntai.Tools.Mcp.Hosting` and the call with the dialect:**
+  ```diff
+  - .AddClaudeCliMcpTools()
+  + .AddMcpToolHost(new ClaudeCliMcpDialect())     // Lyntai.Tools.Mcp.Hosting + Lyntai.Providers.ClaudeCli
+  ```
+  Host tweaks that would have gone to `AddClaudeCliMcpTools(configure)` go to the second parameter of
+  `AddMcpToolHost(dialect, configure)`. Behavior is unchanged. Shipping in a minor per D24 (every consumer
+  is currently first-party).
+
 ### Added
-- **`Lyntai.Tools.Mcp.Hosting`** — the provider-neutral half of CLI tool-hosting, split out of
-  `Lyntai.Providers.ClaudeCli.Mcp` (which was named for one consumer but referenced only `Lyntai.Core`).
-  It owns the ephemeral loopback MCP server, the `ITool` bridge, token minting, temp-file handling and
-  teardown; `AddMcpToolHost(dialect)` wires it. The OUTBOUND twin of `Lyntai.Tools.Mcp`. See
-  `docs/DECISIONS.md` D23.
+- **`Lyntai.Tools.Mcp.Hosting`** — the provider-neutral half of CLI tool-hosting, split out of the removed
+  package (which was named for one consumer but referenced only `Lyntai.Core`). It owns the ephemeral
+  loopback MCP server, the `ITool` bridge, token minting, temp-file handling and teardown;
+  `AddMcpToolHost(dialect, configure?)` wires it. The OUTBOUND twin of `Lyntai.Tools.Mcp`.
 - **`IMcpCliDialect` / `McpEndpoint` / `McpCliContext`** (Core, `Lyntai.Agents`) — the per-CLI half:
   flag names and config-file shapes, and nothing else. Supporting another CLI that runs its own agent
   loop is now one small class, no new package and no change to the host. In Core (not the host package)
-  so a provider can ship a dialect without taking on the ASP.NET Core dependency.
+  so a provider can ship a dialect without taking on the ASP.NET Core dependency — which would also cost
+  the provider its AOT compatibility.
 - **`ClaudeCliMcpDialect`** (`Lyntai.Providers.ClaudeCli`) — the `claude` flags/config shapes, now living
   with the claude provider. Costs that package no new dependencies.
-- **`AddClaudeCliMcpTools(Action<McpToolHostOptions>)`** overload, and `McpToolHostOptions` — the MCP
-  server name and bind address are configurable instead of hard-coded.
+- **`McpToolHostOptions`** — the MCP server name and bind address are configurable instead of hard-coded.
 
 ### Changed
 - **`ICliToolProvisioner` is resolved KEYED by provider id**, first registration also taking the unkeyed
   slot as a fallback. Previously an unkeyed `TryAddSingleton`, so two CLI providers that each run their
   own agent loop collided — first registration won and the wrong dialect was injected into both.
-
-_Non-breaking: every relocated type was `internal`, so the frozen 1.0 surface only gains members
-(`ApiSurfaceTests` baselines show additions only). `AddClaudeCliMcpTools()` and the
-`Lyntai.Providers.ClaudeCli.Mcp` package id are unchanged; the package is now a composition shim._
+- **`Lyntai.Providers.ClaudeCli` stays AOT-compatible and ASP.NET-free.** Only the dialect moved into it;
+  the Kestrel host did not. Apps using the plain CLI provider gain no new runtime requirement.
 
 ## 1.0.0 — API freeze (2026-07-28)
 

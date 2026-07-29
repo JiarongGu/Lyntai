@@ -204,7 +204,7 @@ public sealed record ClaudeAgentOptions : AgentSessionOptions
   `ClaudeCliProvider.NeutralWorkingDirectory`: the interactive gate *is* the product, so the CLI must run
   in the app's project root to load its `CLAUDE.md`/knowledge. Never the hardcoded neutral cwd.
 - **Composes with, does not replace, `ICliToolProvisioner`.** `--mcp-config` points at the app's own
-  out-of-process server; the in-proc `AddClaudeCliMcpTools` provisioner path is a separate, orthogonal way
+  out-of-process server; the in-proc `AddMcpToolHost` provisioner path is a separate, orthogonal way
   to expose Lyntai-hosted `ITool`s. Both can be present.
 - **`StreamJsonAgentReader`** (a new stateful, per-run reader — NOT an edit to the existing static
   `StreamJsonParser`, which stays the provider's text path) — emit the §4.1 events from the fuller

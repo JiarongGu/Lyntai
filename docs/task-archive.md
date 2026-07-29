@@ -1576,16 +1576,19 @@ the constraints that shaped the split are `docs/DECISIONS.md` D23._
   referencing the host package. Deviation from the planned shape: `McpCliLaunch(ExtraArgs, TempFiles)` was
   dropped in favor of `McpCliContext.WriteTempFile` + returning args only; cleanup then lives in one place
   and can't be forgotten by a dialect.
-- [x] **MCPH3 — claude dialect into the PROVIDER package; the add-on becomes a composition shim.**
+- [x] **MCPH3 — claude dialect into the PROVIDER package; the add-on package removed.**
   ✅ done 2026-07-29 — **Outcome:** `ClaudeCliMcpDialect` ships in `Lyntai.Providers.ClaudeCli` (owner's
   call) at **zero new dependencies** — it is JSON + strings over Core types.
-  `Lyntai.Providers.ClaudeCli.Mcp` shrank to a single extension method
-  (`AddClaudeCliMcpTools()` → `AddMcpToolHost(new ClaudeCliMcpDialect())`) and is the ONE sanctioned
-  exception to D3's never-adapter→adapter. **Constraint that shaped this:** the provider package must NOT
-  reference the hosting package, or `Microsoft.AspNetCore.App` lands in every app using the plain CLI
-  provider — which is exactly what the `ICliToolProvisioner` seam exists to prevent. So only the dialect
-  moved, never the host. New `AddClaudeCliMcpTools(Action<McpToolHostOptions>)` added as an OVERLOAD, not
-  an optional parameter (an optional param would have been binary-breaking post-1.0).
+  **Constraint that shaped this:** the provider package must NOT reference the hosting package, or
+  `Microsoft.AspNetCore.App` lands in every app using the plain CLI provider (a WinForms/console consumer
+  would then need the ASP.NET Core runtime) *and* the provider loses `IsAotCompatible`. That is exactly
+  what the `ICliToolProvisioner` seam exists to prevent, so only the dialect moved, never the host.
+  `Lyntai.Providers.ClaudeCli.Mcp` first shrank to a one-line composition shim, then was **deleted
+  outright in a follow-up** — a package id worth only `new ClaudeCliMcpDialect()` of typing doesn't earn
+  its versioning + doc footprint, and removing it restores D3's never-adapter→adapter to zero exceptions.
+  Callers use `AddMcpToolHost(new ClaudeCliMcpDialect())`. Breaking, shipped as a MINOR under the new
+  **D24** amendment (all consumers are first-party today; strict SemVer resumes on the first third-party
+  dependant).
 - [x] **MCPH4 — keyed `ICliToolProvisioner` resolution** — the real defect behind the naming issue.
   ✅ done 2026-07-29 — **Outcome:** `AddMcpToolHost` registers keyed on `IMcpCliDialect.ProviderId`, with
   the first registration also taking the unkeyed slot as fallback; `AddClaudeCliProvider` prefers the
@@ -1593,12 +1596,17 @@ the constraints that shaped the split are `docs/DECISIONS.md` D23._
   `TryAddSingleton` won and the wrong dialect was injected into both). Covered by
   `CliToolProvisionerResolutionTests`.
 
-**Outcome (whole part):** 5 new files in a new package + 1 in the provider package; 3 files deleted from
-the add-on. Purely ADDITIVE to the frozen 1.0 surface — every relocated type was `internal`, and the
-`ApiSurfaceTests` diffs are additions only (Core +3 types, ClaudeCli +1, ClaudeCli.Mcp +1 overload, new
-Hosting baseline). D22 holds; the version bump is the release pipeline's job. Docs: DECISIONS D23,
-CHANGELOG Unreleased, README (generic host + a worked custom-dialect example), ROADMAP v0.13 note,
-`.claude/knowledge/extending-lyntai.md` gained a fifth extension point. `verify` green.
+**Outcome (whole part):** shipped in two commits — the split (additive), then the shim removal
+(breaking). Net: a new `Lyntai.Tools.Mcp.Hosting` package (5 files), `ClaudeCliMcpDialect` +
+`IMcpCliDialect`/`McpEndpoint`/`McpCliContext`, and `Lyntai.Providers.ClaudeCli.Mcp` gone — 11 packable
+projects, down one from 1.0. The relocation itself touched no public surface (every moved type was
+`internal`); the only break is the removed package + `AddClaudeCliMcpTools`, migrated by
+`AddMcpToolHost(new ClaudeCliMcpDialect())`. Version consequence settled by **D24** (documented breaks
+may ship in a minor while all consumers are first-party); the bump itself is the release pipeline's job.
+Docs: DECISIONS D23 + D24 (+ a forward pointer on D22), CHANGELOG header amendment and an Unreleased
+**Breaking** entry with a migration diff, README (generic host + worked custom-dialect example), AOT.md,
+ROADMAP, CLAUDE.md, both design docs, and `.claude/knowledge/extending-lyntai.md` gained a fifth
+extension point. `verify` green on both commits.
 
 _Out of scope (unchanged): the `ClaudeAgentSession` path — its `ClaudeAgentOptions.McpConfigPath` is an
 app-hosted, out-of-process MCP server and does not go through `ICliToolProvisioner`._

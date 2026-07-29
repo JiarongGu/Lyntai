@@ -11,9 +11,9 @@ public static class ClaudeCliBuilderExtensions
 {
     /// <summary>Register the `claude` CLI provider (id "claude-cli"). The spawned command honors
     /// <c>LYNTAI_PROVIDER_CMD</c> / <c>CLAUDE_CMD</c> env overrides (tests/e2e point these at the
-    /// deterministic provider stub). If an <see cref="ICliToolProvisioner"/> is registered (via
-    /// <c>AddClaudeCliMcpTools()</c> or <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c>), the CLI is given
-    /// the app's registered tools over MCP; otherwise it runs tool-free as before.</summary>
+    /// deterministic provider stub). If an <see cref="ICliToolProvisioner"/> is registered — via
+    /// <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c> from <c>Lyntai.Tools.Mcp.Hosting</c> — the CLI is
+    /// given the app's registered tools over MCP; otherwise it runs tool-free as before.</summary>
     public static LyntaiBuilder AddClaudeCliProvider(this LyntaiBuilder builder)
     {
         builder.AddProvider(sp => new ClaudeCliProvider(

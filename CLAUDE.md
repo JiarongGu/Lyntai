@@ -29,9 +29,9 @@ v0.12 = `Lyntai.Tools.Mcp` — expose an MCP server's tools as `ITool`s via `Add
 MCP client; v0.13 = the reverse direction — proper CLI tool-calling by hosting the app's
 `ITool`s as an ephemeral localhost MCP server via the `ICliToolProvisioner` seam,
 a scoped opt-in exception to "no host" (**generalized post-1.0**: the host is the provider-neutral
-`Lyntai.Tools.Mcp.Hosting` + `AddMcpToolHost`, per-CLI flags/config are an `IMcpCliDialect` in Core,
-`ClaudeCliMcpDialect` ships in the claude provider package, and `Lyntai.Providers.ClaudeCli.Mcp` is now
-just the one-call composition of the two — see `docs/DECISIONS.md` D23); v0.14 = durable jobs `Lyntai.Jobs` — `IJobStore` (lanes +
+`Lyntai.Tools.Mcp.Hosting` + `AddMcpToolHost`, per-CLI flags/config are an `IMcpCliDialect` in Core, and
+`ClaudeCliMcpDialect` ships in the claude provider package — the old `Lyntai.Providers.ClaudeCli.Mcp`
+package is GONE, see `docs/DECISIONS.md` D23); v0.14 = durable jobs `Lyntai.Jobs` — `IJobStore` (lanes +
 atomic claim + checkpoint/resume across all 3 backends) + `IJobRunner`/`IJobHandler`/`AddJobHandler`,
 multi-agent parallel with per-lane + global `MaxConcurrency` control, app owns the pump; v0.15 = rest of
 §9 platform kit — `Lyntai.Guards` (scope-guard/jail hooks + `GuardedLlmClient`), two-gate

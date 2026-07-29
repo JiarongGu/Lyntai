@@ -133,8 +133,10 @@ Load-bearing details:
 - **Derive names from `ctx.Endpoint.ServerName`**, never hard-code `"lyntai"` — it's configurable via
   `McpToolHostOptions`, and CLIs that build permission patterns from it (`mcp__<server>__*`) break if the
   two disagree.
-- A one-call `Add<X>McpTools()` shim composing host + dialect is optional, and the ONLY sanctioned
-  adapter→adapter reference (see `Lyntai.Providers.ClaudeCli.Mcp`). Keep such a package body to one line.
+- **Don't add a convenience package that composes host + dialect.** One existed
+  (`Lyntai.Providers.ClaudeCli.Mcp`) and was deleted: a package id whose only value is saving the caller
+  `new MyDialect()` isn't worth its versioning and doc footprint, and it was the tree's only
+  adapter→adapter reference. The app composes the two halves itself — that's the normal DI story.
 
 Tests need no CLI binary: hand `BuildArgsAsync` an `McpCliContext` with a recording writer and assert the
 argv + file contents (`ClaudeCliMcpDialectTests`). The host itself is covered generically by

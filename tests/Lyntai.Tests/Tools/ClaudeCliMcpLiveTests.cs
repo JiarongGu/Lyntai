@@ -1,13 +1,14 @@
 using Lyntai;
 using Lyntai.Agents;
 using Lyntai.Llm;
+using Lyntai.Providers.ClaudeCli;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Tools;
 
 /// <summary>
 /// OPT-IN end-to-end proof with the REAL <c>claude</c> binary: registers a tool whose answer the model
-/// can't know, hosts it (AddClaudeCliMcpTools), and asserts the CLI actually called it and surfaced the
+/// can't know, hosts it (AddMcpToolHost + the claude dialect), and asserts the CLI actually called it and surfaced the
 /// value. Runs only when <c>LYNTAI_LIVE_CLI_TOOLS</c> is set AND an authenticated <c>claude</c> is on
 /// PATH; otherwise a no-op pass (it consumes real tokens, so it's never in the default suite).
 ///
@@ -26,7 +27,7 @@ public class ClaudeCliMcpLiveTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddClaudeCliProvider()
-            .AddClaudeCliMcpTools()
+            .AddMcpToolHost(new ClaudeCliMcpDialect())
             .AddTool(_ => new FunctionTool("get_secret_word",
                 (_, _) => { Interlocked.Increment(ref called); return Task.FromResult("banana"); },
                 "Returns today's secret word. Call this to learn the secret word.",

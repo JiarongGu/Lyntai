@@ -1,5 +1,5 @@
 using Lyntai.Agents;
-using Lyntai.Tools.Mcp.Hosting;
+using Lyntai.Providers.ClaudeCli;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Tests.Tools;
@@ -47,7 +47,7 @@ public class CliToolProvisionerResolutionTests
         var services = new ServiceCollection();
         services.AddLyntai(b => b
             .AddMcpToolHost(new StubDialect("gemini-cli", "--gemini-flag"))   // registered FIRST — owns the unkeyed slot
-            .AddClaudeCliMcpTools()
+            .AddMcpToolHost(new ClaudeCliMcpDialect())
             .AddTool(_ => new FunctionTool("echo", (a, _) => Task.FromResult(a))));
         using var sp = services.BuildServiceProvider();
 

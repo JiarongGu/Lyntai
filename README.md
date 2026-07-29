@@ -66,8 +66,7 @@ per-`StorageFeature` baselines.
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
 | `Lyntai.Tools.Mcp` | Expose a Model Context Protocol (MCP) server's tools as Lyntai `ITool`s for the tool loop. |
-| `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server so a CLI that runs its own agent loop can call them. Per-CLI wiring is an `IMcpCliDialect`. |
-| `Lyntai.Providers.ClaudeCli.Mcp` | One-call composition of the two above for `claude` — `AddClaudeCliMcpTools()`. |
+| `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server so a CLI that runs its own agent loop can call them. Per-CLI wiring is an `IMcpCliDialect` (`ClaudeCliMcpDialect` ships with the claude provider). |
 
 Each `src/*` is an independent NuGet package depending only on `Lyntai.Core` — add just what you need.
 
@@ -429,15 +428,16 @@ tools:
 services.AddLyntai(b => b
     .AddClaudeCliProvider()
     .AddTool(_ => new FunctionTool("get_weather", (a, ct) => Task.FromResult("""{"tempC":21}"""), "Current weather"))
-    .AddClaudeCliMcpTools()        // hosts the tools over MCP for the CLI
+    .AddMcpToolHost(new ClaudeCliMcpDialect())   // hosts the tools over MCP for the CLI
     .UseDefaultCandidates("claude-cli"));
 // var reply = await llm.CompleteAsync(...);  → the CLI calls get_weather and answers
 ```
 
-`AddClaudeCliMcpTools()` (from the one-call `Lyntai.Providers.ClaudeCli.Mcp` package) is shorthand for
-`AddMcpToolHost(new ClaudeCliMcpDialect())`. The host itself is provider-neutral: **which** CLI connects
-and **how** it's told to is an `IMcpCliDialect` — flag names plus config-file shapes, and nothing else.
-Supporting a different CLI is one small class, no new package and no change to the host:
+The host is provider-neutral: **which** CLI connects and **how** it's told to is the `IMcpCliDialect` —
+flag names plus config-file shapes, and nothing else. `ClaudeCliMcpDialect` ships with the claude provider
+package (it costs that package no extra dependencies; the Kestrel host stays here, so apps using the plain
+CLI provider stay ASP.NET-free and AOT-compatible). Supporting a different CLI is one small class, no new
+package and no change to the host:
 
 ```csharp
 public sealed class MyCliMcpDialect : IMcpCliDialect
