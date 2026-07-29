@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased
+## 1.1.0 — generic CLI tool-hosting (2026-07-29)
 
 CLI tool-hosting is no longer claude-shaped: the host is generic and each CLI contributes only its flags
 and config-file shapes. Rationale in `docs/DECISIONS.md` **D23**; the minor-with-a-break versioning call
