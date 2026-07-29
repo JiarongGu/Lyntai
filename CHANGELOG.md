@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased
+## 1.2.1 — 2026-07-29
 
 ### Fixed
 - **A Windows npm/nvm CLI shim now spawns** (`ProcessRunner`, Core) — an npm/nvm global install drops
