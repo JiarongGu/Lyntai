@@ -1,8 +1,16 @@
 using System.Diagnostics.CodeAnalysis;
 using Lyntai.Agents;
 using Lyntai.Cortex;
+using Lyntai.Embeddings;
+using Lyntai.Guards;
+using Lyntai.Jobs;
 using Lyntai.Llm;
+using Lyntai.Llm.Budgeting;
+using Lyntai.Llm.Caching;
+using Lyntai.Llm.RateLimiting;
 using Lyntai.Llm.Routing;
+using Lyntai.Memory;
+using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -75,44 +83,44 @@ public sealed class LyntaiBuilder
         return this;
     }
 
-    /// <summary>Register an <see cref="Lyntai.Storage.IConversationEnricher"/> into the enricher collection —
+    /// <summary>Register an <see cref="IConversationEnricher"/> into the enricher collection —
     /// the app's "add additional info" seam. Lyntai owns the conversation store; each registered enricher is
     /// invoked after a thread/message write to persist the app's own info (in its own store), without
     /// replacing the store. Add a class + one registration, never a fork.</summary>
     public LyntaiBuilder AddConversationEnricher<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
-        where T : class, Lyntai.Storage.IConversationEnricher
+        where T : class, IConversationEnricher
     {
-        Services.AddSingleton<Lyntai.Storage.IConversationEnricher, T>();
+        Services.AddSingleton<IConversationEnricher, T>();
         return this;
     }
 
     /// <summary>Register a conversation enricher built from the service provider.</summary>
-    public LyntaiBuilder AddConversationEnricher(Func<IServiceProvider, Lyntai.Storage.IConversationEnricher> factory)
+    public LyntaiBuilder AddConversationEnricher(Func<IServiceProvider, IConversationEnricher> factory)
     {
         Services.AddSingleton(factory);
         return this;
     }
 
-    /// <summary>Register a typed <see cref="Lyntai.Llm.IRefusalMatcher"/> into the refusal-screening front
+    /// <summary>Register a typed <see cref="IRefusalMatcher"/> into the refusal-screening front
     /// door — the structured alternative to a per-request <c>RefusalPattern</c> regex. Every registered
     /// matcher runs on an Ok reply's text (after the central patterns + the request pattern); any that
     /// returns true surfaces the reply as <c>Refused</c> (no fallback). Add a class + one registration.</summary>
     public LyntaiBuilder AddRefusalMatcher<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
-        where T : class, Lyntai.Llm.IRefusalMatcher
+        where T : class, IRefusalMatcher
     {
-        Services.AddSingleton<Lyntai.Llm.IRefusalMatcher, T>();
+        Services.AddSingleton<IRefusalMatcher, T>();
         return this;
     }
 
     /// <summary>Register a refusal matcher instance.</summary>
-    public LyntaiBuilder AddRefusalMatcher(Lyntai.Llm.IRefusalMatcher matcher)
+    public LyntaiBuilder AddRefusalMatcher(IRefusalMatcher matcher)
     {
         Services.AddSingleton(matcher);
         return this;
     }
 
     /// <summary>Register a refusal matcher built from the service provider.</summary>
-    public LyntaiBuilder AddRefusalMatcher(Func<IServiceProvider, Lyntai.Llm.IRefusalMatcher> factory)
+    public LyntaiBuilder AddRefusalMatcher(Func<IServiceProvider, IRefusalMatcher> factory)
     {
         Services.AddSingleton(factory);
         return this;
@@ -134,57 +142,57 @@ public sealed class LyntaiBuilder
         return this;
     }
 
-    /// <summary>Register an <see cref="Lyntai.Jobs.IJobHandler"/> into the durable-job handler collection
+    /// <summary>Register an <see cref="IJobHandler"/> into the durable-job handler collection
     /// (keyed by its <c>Type</c>).</summary>
     public LyntaiBuilder AddJobHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
-        where T : class, Lyntai.Jobs.IJobHandler
+        where T : class, IJobHandler
     {
-        Services.AddSingleton<Lyntai.Jobs.IJobHandler, T>();
+        Services.AddSingleton<IJobHandler, T>();
         return this;
     }
 
     /// <summary>Register a job handler built from the service provider.</summary>
-    public LyntaiBuilder AddJobHandler(Func<IServiceProvider, Lyntai.Jobs.IJobHandler> factory)
+    public LyntaiBuilder AddJobHandler(Func<IServiceProvider, IJobHandler> factory)
     {
         Services.AddSingleton(factory);
         return this;
     }
 
-    /// <summary>Replace the default admit-all <see cref="Lyntai.Jobs.IJobAdmissionController"/> with one the
+    /// <summary>Replace the default admit-all <see cref="IJobAdmissionController"/> with one the
     /// runner consults per lane before claiming — so the app can throttle lanes by external load / a
     /// maintenance window. Registered as the singleton controller (last registration wins).</summary>
     public LyntaiBuilder AddJobAdmissionController<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
-        where T : class, Lyntai.Jobs.IJobAdmissionController
+        where T : class, IJobAdmissionController
     {
-        Services.AddSingleton<Lyntai.Jobs.IJobAdmissionController, T>();
+        Services.AddSingleton<IJobAdmissionController, T>();
         return this;
     }
 
     /// <summary>Register a job admission controller instance (or one built from the provider).</summary>
-    public LyntaiBuilder AddJobAdmissionController(Func<IServiceProvider, Lyntai.Jobs.IJobAdmissionController> factory)
+    public LyntaiBuilder AddJobAdmissionController(Func<IServiceProvider, IJobAdmissionController> factory)
     {
         Services.AddSingleton(factory);
         return this;
     }
 
-    /// <summary>Register a recurring job: every <paramref name="every"/>, the <see cref="Lyntai.Jobs.IJobScheduler"/>
+    /// <summary>Register a recurring job: every <paramref name="every"/>, the <see cref="IJobScheduler"/>
     /// enqueues a <paramref name="type"/> job on <paramref name="lane"/> with <paramref name="payload"/>.
     /// <paramref name="name"/> must be stable + unique (it keys the persisted next-run). The app drives the
     /// scheduler's pump (TickAsync/RunAsync).</summary>
     public LyntaiBuilder AddJobSchedule(string name, string lane, string type, string payload, TimeSpan every, int priority = 0) =>
-        AddJobSchedule(new Lyntai.Jobs.JobSchedule(name, lane, type, payload, every, priority));
+        AddJobSchedule(new JobSchedule(name, lane, type, payload, every, priority));
 
     /// <summary>Register a recurring job on a <b>cron</b> schedule (5-field <c>min hour dom month dow</c>, or
     /// a macro like <c>@daily</c>; evaluated in UTC). The expression is validated now — a bad one throws
     /// here rather than being silently skipped at tick time. The app drives the scheduler pump.</summary>
     public LyntaiBuilder AddCronSchedule(string name, string lane, string type, string payload, string cron, int priority = 0)
     {
-        _ = Lyntai.Jobs.CronExpression.Parse(cron); // fail fast on a malformed expression
-        return AddJobSchedule(new Lyntai.Jobs.JobSchedule(name, lane, type, payload, Cron: cron, Priority: priority));
+        _ = CronExpression.Parse(cron); // fail fast on a malformed expression
+        return AddJobSchedule(new JobSchedule(name, lane, type, payload, Cron: cron, Priority: priority));
     }
 
-    /// <summary>Register a recurring <see cref="Lyntai.Jobs.JobSchedule"/>.</summary>
-    public LyntaiBuilder AddJobSchedule(Lyntai.Jobs.JobSchedule schedule)
+    /// <summary>Register a recurring <see cref="JobSchedule"/>.</summary>
+    public LyntaiBuilder AddJobSchedule(JobSchedule schedule)
     {
         Services.AddSingleton(schedule);
         return this;
@@ -202,23 +210,23 @@ public sealed class LyntaiBuilder
         string lane = "default", string name = "lyntai-memory-prune", int priority = 0)
     {
         // one handler regardless of how many schedules (TryAddEnumerable dedups by implementation type)
-        Services.TryAddEnumerable(ServiceDescriptor.Singleton<Lyntai.Jobs.IJobHandler, Lyntai.Jobs.MemoryPruneJobHandler>());
-        var payload = new Lyntai.Jobs.MemoryPruneRequest(taskKey, olderThan?.TotalSeconds).ToJson();
-        return AddCronSchedule(name, lane, Lyntai.Jobs.MemoryPruneJobHandler.JobType, payload, cron, priority);
+        Services.TryAddEnumerable(ServiceDescriptor.Singleton<IJobHandler, MemoryPruneJobHandler>());
+        var payload = new MemoryPruneRequest(taskKey, olderThan?.TotalSeconds).ToJson();
+        return AddCronSchedule(name, lane, MemoryPruneJobHandler.JobType, payload, cron, priority);
     }
 
     /// <summary>Register a scope-guard / jail hook into the guard-rail collection (applied at the chat
     /// orchestration's gates, or by a <c>GuardedLlmClient</c>).</summary>
     public LyntaiBuilder AddGuard<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
-        where T : class, Lyntai.Guards.IGuard
+        where T : class, IGuard
     {
-        Services.AddSingleton<Lyntai.Guards.IGuard, T>();
+        Services.AddSingleton<IGuard, T>();
         return this;
     }
 
     /// <summary>Register a guard built from the service provider (or an inline one, e.g. a
     /// <c>DenylistGuard</c>).</summary>
-    public LyntaiBuilder AddGuard(Func<IServiceProvider, Lyntai.Guards.IGuard> factory)
+    public LyntaiBuilder AddGuard(Func<IServiceProvider, IGuard> factory)
     {
         Services.AddSingleton(factory);
         return this;
@@ -227,34 +235,34 @@ public sealed class LyntaiBuilder
     /// <summary>Enable read-through response caching on the front door: identical cacheable requests (same
     /// messages / model / params) return a stored Ok completion instead of hitting a provider — cutting
     /// cost + latency and making repeated runs deterministic. Uses the in-process
-    /// <see cref="Lyntai.Llm.Caching.InMemoryResponseCache"/> by default; register your own
-    /// <see cref="Lyntai.Llm.Caching.IResponseCache"/> before this to back it with a persistent/shared
+    /// <see cref="InMemoryResponseCache"/> by default; register your own
+    /// <see cref="IResponseCache"/> before this to back it with a persistent/shared
     /// store. Streaming, native tool requests, and non-Ok replies are never cached.</summary>
     public LyntaiBuilder AddResponseCache(Action<CacheOptions>? configure = null)
     {
         configure?.Invoke(Options.Cache);
-        Services.TryAddSingleton<Lyntai.Llm.Caching.IResponseCache>(_ => new Lyntai.Llm.Caching.InMemoryResponseCache(Options));
+        Services.TryAddSingleton<IResponseCache>(_ => new InMemoryResponseCache(Options));
         // Decorate the front door (folded over the base client by AddLyntai, so it composes with any other
         // decorator) — every ILlmClient resolution (tool loop, orchestrator, scorers) reads through it.
-        AddFrontDoorDecorator(CacheDecoratorOrder, (sp, inner) => new Lyntai.Llm.Caching.CachingLlmClient(
-            inner, sp.GetRequiredService<Lyntai.Llm.Caching.IResponseCache>(), Options,
-            sp.GetService<ILogger<Lyntai.Llm.Caching.CachingLlmClient>>(),
-            sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>()));
+        AddFrontDoorDecorator(CacheDecoratorOrder, (sp, inner) => new CachingLlmClient(
+            inner, sp.GetRequiredService<IResponseCache>(), Options,
+            sp.GetService<ILogger<CachingLlmClient>>(),
+            sp.GetService<IModelRoutingStore>()));
         return this;
     }
 
     /// <summary>Enable LIVE per-consumer model routing: the router (and response cache) read a
     /// <c>lyntai.model.&lt;consumer&gt;</c> override from the key-value store on each call, so an admin retune
     /// of a consumer's model takes effect WITHOUT a restart (the model analogue of a prompt override). Needs a
-    /// registered <see cref="Lyntai.Storage.IKeyValueStore"/>; opt-in, so apps that don't want the per-call
+    /// registered <see cref="IKeyValueStore"/>; opt-in, so apps that don't want the per-call
     /// lookup pay nothing. Precedence: explicit request/candidate model → live override → configured
     /// per-consumer default → provider default.</summary>
     public LyntaiBuilder AddLiveModelRouting()
     {
-        Services.TryAddSingleton<Lyntai.Llm.Routing.IModelRoutingStore>(sp =>
-            new Lyntai.Llm.Routing.KeyValueModelRoutingStore(
-                sp.GetService<Lyntai.Storage.IKeyValueStore>(),
-                sp.GetService<ILogger<Lyntai.Llm.Routing.KeyValueModelRoutingStore>>(),
+        Services.TryAddSingleton<IModelRoutingStore>(sp =>
+            new KeyValueModelRoutingStore(
+                sp.GetService<IKeyValueStore>(),
+                sp.GetService<ILogger<KeyValueModelRoutingStore>>(),
                 Options.ModelKeyPrefix));
         return this;
     }
@@ -282,15 +290,15 @@ public sealed class LyntaiBuilder
     /// <c>LYNTAI_BUDGET_MAX_COST_USD</c> / <c>LYNTAI_BUDGET_MAX_TOKENS</c>. The applicable total is checked
     /// BEFORE each call (a call whose cost isn't yet known can push a total slightly past the cap — a soft
     /// ceiling). Query or reset spend at runtime via the registered
-    /// <see cref="Lyntai.Llm.Budgeting.IUsageTracker"/>; register your own before this to override the
+    /// <see cref="IUsageTracker"/>; register your own before this to override the
     /// in-memory default.</summary>
     public LyntaiBuilder AddUsageBudget(Action<BudgetOptions>? configure = null)
     {
         configure?.Invoke(Options.Budget);
-        Services.TryAddSingleton<Lyntai.Llm.Budgeting.IUsageTracker, Lyntai.Llm.Budgeting.InMemoryUsageTracker>();
-        AddFrontDoorDecorator(BudgetDecoratorOrder, (sp, inner) => new Lyntai.Llm.Budgeting.BudgetedLlmClient(
-            inner, sp.GetRequiredService<Lyntai.Llm.Budgeting.IUsageTracker>(), Options,
-            sp.GetService<ILogger<Lyntai.Llm.Budgeting.BudgetedLlmClient>>()));
+        Services.TryAddSingleton<IUsageTracker, InMemoryUsageTracker>();
+        AddFrontDoorDecorator(BudgetDecoratorOrder, (sp, inner) => new BudgetedLlmClient(
+            inner, sp.GetRequiredService<IUsageTracker>(), Options,
+            sp.GetService<ILogger<BudgetedLlmClient>>()));
         return this;
     }
 
@@ -298,42 +306,42 @@ public sealed class LyntaiBuilder
     /// to <see cref="RateLimitOptions.MaxWait"/>, then is refused (a <c>RateLimited</c> reply). Global rate
     /// via <see cref="RateLimitOptions"/> (<c>PermitsPerSecond</c>/<c>Burst</c>) with optional per-consumer
     /// rates; also <c>LYNTAI_RATELIMIT_*</c>. Sits inside the response cache, so cached hits don't spend a
-    /// permit. Register your own <see cref="Lyntai.Llm.RateLimiting.IRateLimiter"/> before this for a
+    /// permit. Register your own <see cref="IRateLimiter"/> before this for a
     /// distributed/shared limiter.</summary>
     public LyntaiBuilder AddRateLimit(Action<RateLimitOptions>? configure = null)
     {
         configure?.Invoke(Options.RateLimit);
-        Services.TryAddSingleton<Lyntai.Llm.RateLimiting.IRateLimiter>(_ => new Lyntai.Llm.RateLimiting.TokenBucketRateLimiter(Options));
+        Services.TryAddSingleton<IRateLimiter>(_ => new TokenBucketRateLimiter(Options));
         AddFrontDoorDecorator(RateLimitDecoratorOrder, (sp, inner) =>
         {
-            var limiter = sp.GetRequiredService<Lyntai.Llm.RateLimiting.IRateLimiter>();
+            var limiter = sp.GetRequiredService<IRateLimiter>();
             // the built-in token bucket with no positive global/per-consumer rate throttles NOTHING — warn
             // rather than silently no-op (mirrors the pre-registered-client guard's intent). Evaluated after
             // env overrides; a BYO IRateLimiter owns its own effectiveness, so we only check ours.
-            if (limiter is Lyntai.Llm.RateLimiting.TokenBucketRateLimiter { HasEffectiveLimit: false })
-                sp.GetService<ILogger<Lyntai.Llm.RateLimiting.RateLimitedLlmClient>>()?.LogWarning(
+            if (limiter is TokenBucketRateLimiter { HasEffectiveLimit: false })
+                sp.GetService<ILogger<RateLimitedLlmClient>>()?.LogWarning(
                     "AddRateLimit resolved to no effective limit (RateLimit.PermitsPerSecond=0 and no per-consumer " +
                     "rate) — it will not throttle. Set RateLimit.PermitsPerSecond (or a PerConsumer rate, or the " +
                     "LYNTAI_RATELIMIT_PERMITS_PER_SECOND env var) to enable throttling.");
-            return new Lyntai.Llm.RateLimiting.RateLimitedLlmClient(
-                inner, limiter, sp.GetService<ILogger<Lyntai.Llm.RateLimiting.RateLimitedLlmClient>>());
+            return new RateLimitedLlmClient(
+                inner, limiter, sp.GetService<ILogger<RateLimitedLlmClient>>());
         });
         return this;
     }
 
     /// <summary>Register the app's embedding model, enabling semantic memory
-    /// (<see cref="Lyntai.Memory.ISemanticMemory"/>). BYO — an OpenAI/Ollama embeddings endpoint, a local
+    /// (<see cref="ISemanticMemory"/>). BYO — an OpenAI/Ollama embeddings endpoint, a local
     /// model, etc.; Lyntai owns the recall machinery. Pair with your own
-    /// <see cref="Lyntai.Memory.IVectorStore"/> (registered before <c>AddLyntai</c>) for a persistent/scaled
+    /// <see cref="IVectorStore"/> (registered before <c>AddLyntai</c>) for a persistent/scaled
     /// vector backend, or take the in-memory default.</summary>
-    public LyntaiBuilder AddEmbeddings(Lyntai.Embeddings.IEmbedder embedder)
+    public LyntaiBuilder AddEmbeddings(IEmbedder embedder)
     {
         Services.AddSingleton(embedder);
         return this;
     }
 
     /// <summary>Register the embedder from the service provider (for config/dependency-parameterized ones).</summary>
-    public LyntaiBuilder AddEmbeddings(Func<IServiceProvider, Lyntai.Embeddings.IEmbedder> factory)
+    public LyntaiBuilder AddEmbeddings(Func<IServiceProvider, IEmbedder> factory)
     {
         Services.AddSingleton(factory);
         return this;
@@ -342,9 +350,9 @@ public sealed class LyntaiBuilder
     /// <summary>Register the embedder by type (DI constructs it) — completing the instance/factory/generic
     /// trio the other collection seams offer.</summary>
     public LyntaiBuilder AddEmbeddings<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEmbedder>()
-        where TEmbedder : class, Lyntai.Embeddings.IEmbedder
+        where TEmbedder : class, IEmbedder
     {
-        Services.AddSingleton<Lyntai.Embeddings.IEmbedder, TEmbedder>();
+        Services.AddSingleton<IEmbedder, TEmbedder>();
         return this;
     }
 
@@ -383,9 +391,9 @@ public sealed class LyntaiBuilder
 
     /// <summary>Tune how <c>IMemoryStore</c> bounds its size — count cap + eviction mode (FIFO/LRU), default
     /// TTL, size budget. The defaults reproduce the historical 500-entry FIFO cap; use a
-    /// <see cref="Lyntai.Storage.MemoryRetentionPolicy"/> preset (e.g.
+    /// <see cref="MemoryRetentionPolicy"/> preset (e.g.
     /// <c>b.ConfigureMemory(p => { p.Eviction = MemoryEvictionMode.Lru; p.DefaultTtl = TimeSpan.FromDays(7); })</c>).</summary>
-    public LyntaiBuilder ConfigureMemory(Action<Lyntai.Storage.MemoryRetentionPolicy> configure)
+    public LyntaiBuilder ConfigureMemory(Action<MemoryRetentionPolicy> configure)
     {
         configure(Options.MemoryRetention);
         return this;

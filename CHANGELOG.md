@@ -49,6 +49,14 @@ is **D24**.
 - **`Lyntai.Providers.ClaudeCli` stays AOT-compatible and ASP.NET-free.** Only the dialect moved into it;
   the Kestrel host did not. Apps using the plain CLI provider gain no new runtime requirement.
 
+### Internal (no public surface change)
+- **OpenAI-compatible endpoint/auth rules deduped** into `OpenAiEndpoint`. `OpenAiCompatibleProvider` and
+  `HttpEmbedder` each carried their own copy of the flavor resolution, the Azure `/openai/v1` rule, the
+  `/v1`-suffix logic and the `api-key` header block — differing only in route name. A drift between the two
+  copies would have been silent (chat keeps working while embeddings 404, or the reverse).
+- **`LyntaiBuilder` qualification cleanup** — ~55 fully-qualified `Lyntai.Llm.Caching.…`-style references
+  replaced with usings.
+
 ## 1.0.0 — API freeze (2026-07-28)
 
 **Lyntai 1.0.** The adoption gate is met (three sibling apps on 0.31.1) and, before the permanent surface

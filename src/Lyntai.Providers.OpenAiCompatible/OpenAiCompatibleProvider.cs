@@ -25,9 +25,7 @@ public sealed class OpenAiCompatibleProvider(
     bool disposeHttpClient = true) : ILlmProvider
 {
     private readonly ILogger _logger = logger ?? NullLogger<OpenAiCompatibleProvider>.Instance;
-    private readonly OpenAiFlavor _flavor = config.Flavor == OpenAiFlavor.Auto
-        ? ProviderDetect.Detect(config.BaseUrl)
-        : config.Flavor;
+    private readonly OpenAiFlavor _flavor = OpenAiEndpoint.ResolveFlavor(config.Flavor, config.BaseUrl);
 
     public string Id => id;
 
@@ -224,34 +222,14 @@ public sealed class OpenAiCompatibleProvider(
         {
             Content = new StringContent(payload.ToJsonString(), new UTF8Encoding(false), "application/json"),
         };
-        if (!string.IsNullOrEmpty(config.ApiKey))
-        {
-            request.Headers.Authorization = new("Bearer", config.ApiKey);
-            // Azure key auth conventionally travels in the api-key header; its v1 surface accepts either,
-            // so sending BOTH keeps the key path and a BYO Entra-token Bearer flow on one code path
-            if (_flavor == OpenAiFlavor.AzureOpenAi)
-                request.Headers.TryAddWithoutValidation("api-key", config.ApiKey);
-        }
+        OpenAiEndpoint.ApplyAuth(request, config.ApiKey, _flavor);
         return request;
     }
 
-    internal Uri Endpoint()
-    {
-        var baseUrl = config.BaseUrl.TrimEnd('/');
-        var path = _flavor switch
-        {
-            OpenAiFlavor.Ollama => "/api/chat",
-            // Azure's OpenAI-COMPATIBLE (v1) surface lives under /openai/v1 on the resource host — a bare
-            // resource URL (https://my-res.openai.azure.com) would otherwise compose /v1/… and 404. A base
-            // that already includes /openai(…/v1) falls through to the generic suffix logic below.
-            OpenAiFlavor.AzureOpenAi when !baseUrl.Contains("/openai", StringComparison.OrdinalIgnoreCase)
-                => "/openai/v1/chat/completions",
-            _ => baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
-                ? "/chat/completions"
-                : "/v1/chat/completions",
-        };
-        return new Uri(baseUrl + path);
-    }
+    /// <summary>The chat endpoint — Ollama's native <c>/api/chat</c>, otherwise the OpenAI-compatible
+    /// <c>chat/completions</c> route.</summary>
+    internal Uri Endpoint() =>
+        OpenAiEndpoint.Build(config.BaseUrl, _flavor, ollamaNativePath: "/api/chat", openAiRoute: "chat/completions");
 
     private LlmReply MapHttpFailure(HttpStatusCode status, string body)
     {
