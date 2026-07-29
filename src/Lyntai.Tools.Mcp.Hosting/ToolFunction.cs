@@ -2,7 +2,7 @@ using System.Text.Json;
 using Lyntai.Agents;
 using Microsoft.Extensions.AI;
 
-namespace Lyntai.Providers.ClaudeCli.Mcp;
+namespace Lyntai.Tools.Mcp.Hosting;
 
 /// <summary>
 /// An invocable <see cref="AIFunction"/> over a Lyntai <see cref="ITool"/> — the bridge that lets an

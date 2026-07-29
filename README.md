@@ -66,7 +66,8 @@ per-`StorageFeature` baselines.
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
 | `Lyntai.Tools.Mcp` | Expose a Model Context Protocol (MCP) server's tools as Lyntai `ITool`s for the tool loop. |
-| `Lyntai.Providers.ClaudeCli.Mcp` | Give the claude CLI real tool-calling — hosts your `ITool`s over MCP so the CLI's agent calls them. |
+| `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server so a CLI that runs its own agent loop can call them. Per-CLI wiring is an `IMcpCliDialect`. |
+| `Lyntai.Providers.ClaudeCli.Mcp` | One-call composition of the two above for `claude` — `AddClaudeCliMcpTools()`. |
 
 Each `src/*` is an independent NuGet package depending only on `Lyntai.Core` — add just what you need.
 
@@ -418,10 +419,11 @@ var mcpTools = await McpToolset.FromClientAsync(mcp);   // list + adapt the serv
 services.AddLyntai(b => b.AddClaudeCliProvider().AddMcpTools(mcpTools).UseDefaultCandidates("claude-cli"));
 ```
 
-**Tools for the claude CLI** (`Lyntai.Providers.ClaudeCli.Mcp`) — the CLI runs its own agent loop and
-reaches custom tools only over MCP, so this add-on hosts your registered `ITool`s as an ephemeral,
-localhost-only HTTP MCP server (started/stopped per CLI call) and wires `claude -p` to it. Opt in and a
-completion routed to the CLI lets its agent call your tools:
+**Hosting your tools for a CLI agent** (`Lyntai.Tools.Mcp.Hosting`) — the reverse direction. A CLI that
+runs its own agent loop reaches custom tools only over MCP, so this package hosts your registered
+`ITool`s as an ephemeral, localhost-only HTTP MCP server (started/stopped per CLI call) and passes the
+CLI whatever flags point it there. Opt in and a completion routed to that CLI lets its agent call your
+tools:
 
 ```csharp
 services.AddLyntai(b => b
@@ -432,8 +434,30 @@ services.AddLyntai(b => b
 // var reply = await llm.CompleteAsync(...);  → the CLI calls get_weather and answers
 ```
 
-(This runs an ephemeral Kestrel listener on `127.0.0.1` only during each CLI call — a deliberate, scoped
-exception to Lyntai's otherwise host-free design, isolated in this opt-in package.)
+`AddClaudeCliMcpTools()` (from the one-call `Lyntai.Providers.ClaudeCli.Mcp` package) is shorthand for
+`AddMcpToolHost(new ClaudeCliMcpDialect())`. The host itself is provider-neutral: **which** CLI connects
+and **how** it's told to is an `IMcpCliDialect` — flag names plus config-file shapes, and nothing else.
+Supporting a different CLI is one small class, no new package and no change to the host:
+
+```csharp
+public sealed class MyCliMcpDialect : IMcpCliDialect
+{
+    public string ProviderId => "my-cli";
+
+    public ValueTask<IReadOnlyList<string>> BuildArgsAsync(McpCliContext ctx, CancellationToken ct = default)
+    {
+        // write whatever config file the CLI reads (JSON, TOML, …) — the host deletes it for you
+        var path = ctx.WriteTempFile("mcp", $$"""{"servers":{"{{ctx.Endpoint.ServerName}}":{"url":"{{ctx.Endpoint.Url}}"}}}""");
+        return ValueTask.FromResult<IReadOnlyList<string>>(["--mcp-config", path]);
+    }
+}
+
+services.AddLyntai(b => b.AddMcpToolHost(new MyCliMcpDialect()));
+```
+
+The provisioner is registered keyed on `ProviderId`, so several CLI providers can host tools side by side
+with different dialects. (This runs an ephemeral Kestrel listener on loopback only during each CLI call —
+a deliberate, scoped exception to Lyntai's otherwise host-free design, isolated in this opt-in package.)
 
 ### CLI-agent session vs `IToolLoop` (`IAgentSession`)
 

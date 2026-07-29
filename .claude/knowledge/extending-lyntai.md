@@ -1,6 +1,6 @@
 # Extending Lyntai
 
-On-demand detail for the four extension points. Read the one you're touching. The always-on rules are
+On-demand detail for the five extension points. Read the one you're touching. The always-on rules are
 in `.claude/rules/dev-conventions.md`; the correctness invariants are in `llm-and-router.md` and
 `storage.md`; the traps are in `pitfalls.md`.
 
@@ -98,6 +98,47 @@ Register into the DI collection: `builder.AddScorer<MyScorer>()`. `ScoringServic
 stringly-typed so Core stays domain-agnostic; **serialize non-scalar values** (a list → JSON or a
 delimiter the scorer splits). Persist a preview run without writing rows via
 `EvaluateAsync(ctx, persist: false)`; the store upserts on `(session, scorer)` so re-scoring replaces.
+
+---
+
+## Add a CLI tool-hosting dialect (`IMcpCliDialect`)
+
+For a CLI provider whose model runs its OWN agent loop and can only reach custom tools over MCP (the
+`claude` CLI is the reference case). **No new package** — a class + `AddMcpToolHost(new MyDialect())`.
+`Lyntai.Tools.Mcp.Hosting` already owns everything neutral: the ephemeral loopback MCP server, bearer
+token, temp-file writing, teardown, and the no-tools short-circuit. You supply only the flags and the
+config-file shape.
+
+```csharp
+public sealed class MyCliMcpDialect : IMcpCliDialect
+{
+    public string ProviderId => "my-cli";        // the provisioner is registered KEYED on this
+
+    public ValueTask<IReadOnlyList<string>> BuildArgsAsync(McpCliContext ctx, CancellationToken ct = default)
+    {
+        var path = ctx.WriteTempFile("mcp", /* JSON or TOML, from ctx.Endpoint */);
+        return ValueTask.FromResult<IReadOnlyList<string>>(["--mcp-config", path]);
+    }
+}
+```
+
+Load-bearing details:
+- **Write config files ONLY through `ctx.WriteTempFile`.** It applies owner-only permissions (the file
+  carries the bearer token) and registers the path for deletion when the session ends. A file you write
+  yourself leaks a credential into temp.
+- **`IMcpCliDialect` lives in Core, deliberately** — so a *provider* package can ship its dialect without
+  referencing the hosting package. **Never make a provider package reference `Lyntai.Tools.Mcp.Hosting`**:
+  that drags `Microsoft.AspNetCore.App` into every app using the plain provider, which is the exact thing
+  the `ICliToolProvisioner` seam exists to prevent (`docs/DECISIONS.md` D23).
+- **Derive names from `ctx.Endpoint.ServerName`**, never hard-code `"lyntai"` — it's configurable via
+  `McpToolHostOptions`, and CLIs that build permission patterns from it (`mcp__<server>__*`) break if the
+  two disagree.
+- A one-call `Add<X>McpTools()` shim composing host + dialect is optional, and the ONLY sanctioned
+  adapter→adapter reference (see `Lyntai.Providers.ClaudeCli.Mcp`). Keep such a package body to one line.
+
+Tests need no CLI binary: hand `BuildArgsAsync` an `McpCliContext` with a recording writer and assert the
+argv + file contents (`ClaudeCliMcpDialectTests`). The host itself is covered generically by
+`McpToolHostTests`.
 
 ---
 

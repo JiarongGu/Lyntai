@@ -1,0 +1,8 @@
+static class Lyntai.McpToolHostBuilderExtensions
+    static AddMcpToolHost(LyntaiBuilder, IMcpCliDialect, Action<McpToolHostOptions>=) : LyntaiBuilder
+sealed class Lyntai.Tools.Mcp.Hosting.McpToolHostOptions
+    .ctor()
+    BindAddress : String
+    DefaultBindAddress : String const
+    DefaultServerName : String const
+    ServerName : String

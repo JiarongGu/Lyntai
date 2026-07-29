@@ -96,6 +96,8 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   a small Core seam (`ICliToolProvisioner`) keeps the host dependency out of the base provider. A
   deliberate, scoped exception to "no host". **Remaining on the tool-calling track:** streaming
   tool-calls (lower value).
+  _Generalized 2026-07-29 (see below): the host moved to `Lyntai.Tools.Mcp.Hosting` and the claude flags
+  to a `ClaudeCliMcpDialect`; `AddClaudeCliMcpTools()` is unchanged._
 
 ### v0.14.0 — durable jobs (2026-07)
 - ✅ **Durable jobs** (`Lyntai.Jobs` + `IJobStore`, design §9 "durable jobs — lanes + checkpoint/resume")

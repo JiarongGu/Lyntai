@@ -5,6 +5,32 @@ From 1.0, **SemVer 2.0** applies: breaking public-API changes require a major bu
 `ApiSurfaceTests`; see `docs/DECISIONS.md` D22). Pre-1.0 (≤ 0.31.x) minor bumps could carry breaking
 changes — each is called out below.
 
+## Unreleased
+
+### Added
+- **`Lyntai.Tools.Mcp.Hosting`** — the provider-neutral half of CLI tool-hosting, split out of
+  `Lyntai.Providers.ClaudeCli.Mcp` (which was named for one consumer but referenced only `Lyntai.Core`).
+  It owns the ephemeral loopback MCP server, the `ITool` bridge, token minting, temp-file handling and
+  teardown; `AddMcpToolHost(dialect)` wires it. The OUTBOUND twin of `Lyntai.Tools.Mcp`. See
+  `docs/DECISIONS.md` D23.
+- **`IMcpCliDialect` / `McpEndpoint` / `McpCliContext`** (Core, `Lyntai.Agents`) — the per-CLI half:
+  flag names and config-file shapes, and nothing else. Supporting another CLI that runs its own agent
+  loop is now one small class, no new package and no change to the host. In Core (not the host package)
+  so a provider can ship a dialect without taking on the ASP.NET Core dependency.
+- **`ClaudeCliMcpDialect`** (`Lyntai.Providers.ClaudeCli`) — the `claude` flags/config shapes, now living
+  with the claude provider. Costs that package no new dependencies.
+- **`AddClaudeCliMcpTools(Action<McpToolHostOptions>)`** overload, and `McpToolHostOptions` — the MCP
+  server name and bind address are configurable instead of hard-coded.
+
+### Changed
+- **`ICliToolProvisioner` is resolved KEYED by provider id**, first registration also taking the unkeyed
+  slot as a fallback. Previously an unkeyed `TryAddSingleton`, so two CLI providers that each run their
+  own agent loop collided — first registration won and the wrong dialect was injected into both.
+
+_Non-breaking: every relocated type was `internal`, so the frozen 1.0 surface only gains members
+(`ApiSurfaceTests` baselines show additions only). `AddClaudeCliMcpTools()` and the
+`Lyntai.Providers.ClaudeCli.Mcp` package id are unchanged; the package is now a composition shim._
+
 ## 1.0.0 — API freeze (2026-07-28)
 
 **Lyntai 1.0.** The adoption gate is met (three sibling apps on 0.31.1) and, before the permanent surface

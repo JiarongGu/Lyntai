@@ -89,6 +89,9 @@ interface Lyntai.Agents.IChatOrchestrator
     ChatAsync(ChatTurn, CancellationToken=) : Task<ChatResult>
 interface Lyntai.Agents.ICliToolProvisioner
     ProvisionAsync(CancellationToken=) : Task<CliToolSession>
+interface Lyntai.Agents.IMcpCliDialect
+    BuildArgsAsync(McpCliContext, CancellationToken=) : ValueTask<IReadOnlyList<String>>
+    ProviderId : String
 interface Lyntai.Agents.ITool
     Description : String
     InvokeAsync(String, CancellationToken=) : Task<String>
@@ -100,6 +103,20 @@ interface Lyntai.Agents.IToolLoop
 interface Lyntai.Agents.IToolRegistry
     Find(String) : ITool
     Tools : IReadOnlyList<ITool>
+sealed class Lyntai.Agents.McpCliContext
+    .ctor(McpEndpoint, Func<String,String,String>)
+    Endpoint : McpEndpoint
+    WriteTempFile(String, String) : String
+sealed class Lyntai.Agents.McpEndpoint
+    .ctor(String, String, String)
+    AuthToken : String
+    Deconstruct(String&, String&, String&) : Void
+    Equals(McpEndpoint) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    ServerName : String
+    ToString() : String
+    Url : String
 sealed class Lyntai.Agents.SessionEnded
     .ctor(LlmVerdict, Boolean, String, String, String, String)
     Deconstruct(LlmVerdict&, Boolean&, String&, String&, String&, String&) : Void

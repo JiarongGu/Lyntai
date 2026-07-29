@@ -7,17 +7,16 @@ using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
-namespace Lyntai.Providers.ClaudeCli.Mcp;
+namespace Lyntai.Tools.Mcp.Hosting;
 
 /// <summary>
 /// An ephemeral, localhost-only HTTP MCP server (Kestrel) exposing the given <see cref="ITool"/>s as MCP
-/// tools under the server name <c>lyntai</c>. Started on an OS-assigned port and stopped on dispose —
-/// it lives only for the duration of one claude-CLI invocation, so nothing is exposed beyond that call.
+/// tools. Started on an OS-assigned port and stopped on dispose — it lives only for the duration of one
+/// CLI invocation, so nothing is exposed beyond that call. Provider-neutral: which CLI connects, and how
+/// it is told to, is the <see cref="IMcpCliDialect"/>'s business.
 /// </summary>
 internal sealed class McpToolHost : IAsyncDisposable
 {
-    public const string ServerName = "lyntai";
-
     private readonly WebApplication _app;
 
     private McpToolHost(WebApplication app, string url)
@@ -32,18 +31,21 @@ internal sealed class McpToolHost : IAsyncDisposable
     /// <summary>Start the host. <paramref name="authToken"/> is required as a bearer token on every
     /// request — the endpoint EXECUTES the app's tools, so even on loopback another local process must
     /// not be able to invoke them.</summary>
-    public static async Task<McpToolHost> StartAsync(IReadOnlyList<ITool> tools, string authToken, CancellationToken ct = default)
+    public static async Task<McpToolHost> StartAsync(
+        IReadOnlyList<ITool> tools, string authToken, McpToolHostOptions? options = null, CancellationToken ct = default)
     {
-        var builder = WebApplication.CreateSlimBuilder();
-        builder.Logging.ClearProviders();                 // stay silent — this is an internal transport
-        builder.WebHost.UseUrls("http://127.0.0.1:0");    // 0 → OS assigns a free port
+        options ??= new McpToolHostOptions();
 
-        builder.Services.AddMcpServer(options =>
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.Logging.ClearProviders();                     // stay silent — this is an internal transport
+        builder.WebHost.UseUrls(options.BindAddress);         // default: loopback, port 0 → OS assigns a free one
+
+        builder.Services.AddMcpServer(mcp =>
         {
-            options.ServerInfo = new Implementation { Name = ServerName, Version = "1.0.0" };
-            options.ToolCollection ??= [];
+            mcp.ServerInfo = new Implementation { Name = options.ServerName, Version = "1.0.0" };
+            mcp.ToolCollection ??= [];
             foreach (var tool in tools)
-                options.ToolCollection.Add(McpServerTool.Create(new ToolFunction(tool)));
+                mcp.ToolCollection.Add(McpServerTool.Create(new ToolFunction(tool)));
         }).WithHttpTransport();
 
         var app = builder.Build();
@@ -63,7 +65,7 @@ internal sealed class McpToolHost : IAsyncDisposable
             app.MapMcp("/mcp");
             await app.StartAsync(ct).ConfigureAwait(false);
 
-            // after Start, Urls reflects the actual bound address (127.0.0.1 + the assigned port)
+            // after Start, Urls reflects the actual bound address (loopback + the assigned port)
             var address = (app.Urls.FirstOrDefault()
                 ?? throw new InvalidOperationException("MCP host bound no address")).TrimEnd('/');
             return new McpToolHost(app, $"{address}/mcp");

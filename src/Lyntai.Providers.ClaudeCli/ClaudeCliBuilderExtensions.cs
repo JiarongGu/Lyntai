@@ -11,8 +11,8 @@ public static class ClaudeCliBuilderExtensions
 {
     /// <summary>Register the `claude` CLI provider (id "claude-cli"). The spawned command honors
     /// <c>LYNTAI_PROVIDER_CMD</c> / <c>CLAUDE_CMD</c> env overrides (tests/e2e point these at the
-    /// deterministic provider stub). If an <see cref="ICliToolProvisioner"/> is registered (the
-    /// <c>Lyntai.Providers.ClaudeCli.Mcp</c> add-on via <c>AddClaudeCliMcpTools()</c>), the CLI is given
+    /// deterministic provider stub). If an <see cref="ICliToolProvisioner"/> is registered (via
+    /// <c>AddClaudeCliMcpTools()</c> or <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c>), the CLI is given
     /// the app's registered tools over MCP; otherwise it runs tool-free as before.</summary>
     public static LyntaiBuilder AddClaudeCliProvider(this LyntaiBuilder builder)
     {
@@ -20,9 +20,17 @@ public static class ClaudeCliBuilderExtensions
             sp.GetRequiredService<IProcessRunner>(),
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<ClaudeCliProvider>>(),
-            provisioner: sp.GetService<ICliToolProvisioner>()));
+            provisioner: ResolveProvisioner(sp)));
         return builder;
     }
+
+    /// <summary>Prefer the provisioner registered for THIS provider's id — several CLI providers can each
+    /// host tools with their own dialect, and an unkeyed lookup would hand us whichever was registered
+    /// first. The unkeyed service stays as the fallback so a hand-rolled
+    /// <see cref="ICliToolProvisioner"/> registration (no dialect, no key) keeps working.</summary>
+    private static ICliToolProvisioner? ResolveProvisioner(IServiceProvider sp) =>
+        sp.GetKeyedService<ICliToolProvisioner>(ClaudeCliProvider.ProviderId)
+        ?? sp.GetService<ICliToolProvisioner>();
 
     /// <summary>Register <see cref="ClaudeAgentSession"/> as the <see cref="IAgentSession"/> singleton.
     /// The spawned command honors <c>LYNTAI_PROVIDER_CMD</c> / <c>CLAUDE_CMD</c> env overrides so

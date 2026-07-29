@@ -267,3 +267,34 @@ API review + read-only consumer-usage review (D21) confirmed/settled the surface
 - **Verification + releases stay MANUAL** (D20) — the 1.0 tag + `release.yml` are triggered by hand.
 - This is a policy line, not a code change: the value of 1.0 is the *commitment*. Don't reopen a settled
   surface item without a major-bump rationale.
+
+## D23 — MCP tool hosting is generic; the CLI dialect lives in the provider package (2026-07-29)
+`Lyntai.Providers.ClaudeCli.Mcp` was named for one consumer but was ~85% provider-neutral machinery — its
+csproj referenced only `Lyntai.Core`, so there was never any code coupling to the claude adapter at all.
+It is now split along the seam that actually exists:
+- **`Lyntai.Tools.Mcp.Hosting`** (new package) owns everything neutral: the ephemeral loopback Kestrel MCP
+  server, the `ITool` → `AIFunction` bridge, bearer-token minting, owner-only temp-file writing, teardown
+  ordering, and the no-tools-registered short-circuit. It is the OUTBOUND twin of `Lyntai.Tools.Mcp`
+  (inbound: an MCP server's tools → `ITool`), and it is named for the concept, not a consumer.
+- **`IMcpCliDialect` + `McpEndpoint` + `McpCliContext` live in CORE**, not in the host package. That
+  placement is load-bearing: it lets a provider package ship its own dialect **without** referencing the
+  host. An `IMcpCliDialect` is an INTERFACE, not a format string, because the variation across CLIs is
+  structural — flag names differ and the config file is JSON for some CLIs, TOML for others.
+- **`ClaudeCliMcpDialect` lives in `Lyntai.Providers.ClaudeCli`** — knowledge about `claude` belongs with
+  the claude provider, and it costs that package **no new dependencies** (JSON + strings over Core types).
+- **What must NOT happen: `Lyntai.Providers.ClaudeCli` must never reference the hosting package.** Doing so
+  would drag `Microsoft.AspNetCore.App` + `ModelContextProtocol.AspNetCore` into every app that uses the
+  plain CLI provider. Keeping host/transport dependencies out of the base provider is the entire reason
+  `ICliToolProvisioner` exists as a seam — so only the *dialect* moved into the provider package, never the
+  host. This is why the split isn't simply "fold the add-on into the provider".
+- **`Lyntai.Providers.ClaudeCli.Mcp` survives as a composition package** — its whole body is
+  `AddClaudeCliMcpTools()` → `AddMcpToolHost(new ClaudeCliMcpDialect())`. It is the ONE deliberate
+  exception to D3's "never adapter→adapter": a package whose only purpose is to compose two others, so
+  neither half has to know about the other. Don't generalize the exception; don't add logic here.
+- **The provisioner is resolved KEYED by `IMcpCliDialect.ProviderId`**, with the first registration also
+  taking the unkeyed slot as a fallback. The old unkeyed-only `TryAddSingleton` meant two CLI providers
+  that each run their own agent loop would collide — first registration won and the wrong dialect was
+  injected into both. That was a real defect, not a naming issue.
+- **Cost: a MINOR bump, not a major.** All the relocated machinery was `internal`, so the frozen surface
+  only gained members (verified against the `ApiSurfaceTests` baselines — additions only, no removals or
+  renames). D22 holds.

@@ -17,6 +17,10 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
     .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeAgentSession>=, String=)
     StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
+sealed class Lyntai.Providers.ClaudeCli.ClaudeCliMcpDialect
+    .ctor()
+    BuildArgsAsync(McpCliContext, CancellationToken=) : ValueTask<IReadOnlyList<String>>
+    ProviderId : String
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeCliProvider>=, String=, ICliToolProvisioner=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>

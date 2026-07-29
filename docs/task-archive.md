@@ -1551,6 +1551,60 @@ no way to turn on semantic memory without writing its own `IEmbedder`.
 
 ---
 
+## Part 26 — Generalize the MCP tool-hosting seam (2026-07-29)
+
+_Raised in review: `Lyntai.Providers.ClaudeCli.Mcp` was named for one consumer but its csproj referenced
+**only `Lyntai.Core`** — ~85% of it was provider-neutral machinery with no code coupling to the claude
+adapter at all. The genuinely vendor-specific slice was ~35 lines of strings (the
+`--mcp-config`/`--settings`/`--allowedTools` flags, the `mcpServers` and `permissions.allow` JSON shapes,
+the `mcp__<server>__*` pattern). It also read as an asymmetry: `Lyntai.Tools.Mcp` is the INBOUND direction
+and is named for the concept; this was the OUTBOUND direction and was named for a consumer. Rationale +
+the constraints that shaped the split are `docs/DECISIONS.md` D23._
+
+- [x] **MCPH1 — extract `Lyntai.Tools.Mcp.Hosting`** — a new Core-only package carrying the Kestrel +
+  `ModelContextProtocol.AspNetCore` weight, owning the neutral lifecycle (bearer token, host start/stop,
+  owner-only temp files, teardown, no-tools short-circuit) plus `McpToolHostOptions` (server name, bind
+  address — previously a hard-coded const).
+  ✅ done 2026-07-29 — **Outcome:** `src/Lyntai.Tools.Mcp.Hosting/` with `McpToolHost`, `ToolFunction`,
+  `McpToolHostProvisioner`, `McpToolHostOptions`, `AddMcpToolHost(dialect, configure?)`. Temp-file paths
+  are tracked by the PROVISIONER (handed to the dialect as a `WriteTempFile` callback), so a dialect
+  cannot leak a token-bearing file. Covered by `McpToolHostTests` (7 tests incl. dialect-throws teardown).
+- [x] **MCPH2 — `IMcpCliDialect` seam** — an interface, not a format string: the variation across CLIs is
+  structural (JSON vs TOML config, different flags and allow-list conventions).
+  ✅ done 2026-07-29 — **Outcome:** `IMcpCliDialect` + `McpEndpoint` + `McpCliContext` in **Core**
+  (`Lyntai.Agents`). Core placement is load-bearing — it lets a provider package ship a dialect without
+  referencing the host package. Deviation from the planned shape: `McpCliLaunch(ExtraArgs, TempFiles)` was
+  dropped in favor of `McpCliContext.WriteTempFile` + returning args only; cleanup then lives in one place
+  and can't be forgotten by a dialect.
+- [x] **MCPH3 — claude dialect into the PROVIDER package; the add-on becomes a composition shim.**
+  ✅ done 2026-07-29 — **Outcome:** `ClaudeCliMcpDialect` ships in `Lyntai.Providers.ClaudeCli` (owner's
+  call) at **zero new dependencies** — it is JSON + strings over Core types.
+  `Lyntai.Providers.ClaudeCli.Mcp` shrank to a single extension method
+  (`AddClaudeCliMcpTools()` → `AddMcpToolHost(new ClaudeCliMcpDialect())`) and is the ONE sanctioned
+  exception to D3's never-adapter→adapter. **Constraint that shaped this:** the provider package must NOT
+  reference the hosting package, or `Microsoft.AspNetCore.App` lands in every app using the plain CLI
+  provider — which is exactly what the `ICliToolProvisioner` seam exists to prevent. So only the dialect
+  moved, never the host. New `AddClaudeCliMcpTools(Action<McpToolHostOptions>)` added as an OVERLOAD, not
+  an optional parameter (an optional param would have been binary-breaking post-1.0).
+- [x] **MCPH4 — keyed `ICliToolProvisioner` resolution** — the real defect behind the naming issue.
+  ✅ done 2026-07-29 — **Outcome:** `AddMcpToolHost` registers keyed on `IMcpCliDialect.ProviderId`, with
+  the first registration also taking the unkeyed slot as fallback; `AddClaudeCliProvider` prefers the
+  keyed lookup. Two CLI providers with different dialects no longer collide (previously first
+  `TryAddSingleton` won and the wrong dialect was injected into both). Covered by
+  `CliToolProvisionerResolutionTests`.
+
+**Outcome (whole part):** 5 new files in a new package + 1 in the provider package; 3 files deleted from
+the add-on. Purely ADDITIVE to the frozen 1.0 surface — every relocated type was `internal`, and the
+`ApiSurfaceTests` diffs are additions only (Core +3 types, ClaudeCli +1, ClaudeCli.Mcp +1 overload, new
+Hosting baseline). D22 holds; the version bump is the release pipeline's job. Docs: DECISIONS D23,
+CHANGELOG Unreleased, README (generic host + a worked custom-dialect example), ROADMAP v0.13 note,
+`.claude/knowledge/extending-lyntai.md` gained a fifth extension point. `verify` green.
+
+_Out of scope (unchanged): the `ClaudeAgentSession` path — its `ClaudeAgentOptions.McpConfigPath` is an
+app-hosted, out-of-process MCP server and does not go through `ICliToolProvisioner`._
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
