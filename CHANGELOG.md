@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased — turn-free backend auth + pinned self-install
+## 1.2.2 — turn-free backend auth + pinned self-install (2026-08-03)
 
 Completes the "ask and drive the backend about itself, without spending a turn" family that 1.2.0 started
 (`ProbeAsync` / `UpdateAsync`): a host can now also find out **whether the backend is signed in, and as
