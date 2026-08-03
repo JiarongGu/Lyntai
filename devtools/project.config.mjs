@@ -40,6 +40,7 @@ export default {
     'src/Lyntai.Storage.InMemory',
     'src/Lyntai.Storage.Postgres',
     'src/Lyntai.Providers.ClaudeCli',
+    'src/Lyntai.Providers.CodexCli',
     'src/Lyntai.Providers.OpenAiCompatible',
     'src/Lyntai.Providers.ExtensionsAi',
     'src/Lyntai.Providers.Local',

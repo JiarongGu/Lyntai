@@ -12,14 +12,60 @@ adapter) + **a `LyntaiBuilder` extension method** so the consumer wires it with 
 
 ## Add an LLM provider
 
-Two paths — pick the cheaper one:
+Three paths — pick the cheapest one that reaches your backend:
 
 **A. Bridge an existing `Microsoft.Extensions.AI` `IChatClient` (preferred).** OpenAI, Azure, Ollama,
 Anthropic-API, etc. already have MEAI clients. You do *nothing* but register:
 `builder.AddExtensionsAiProvider("my-id", theChatClient)`. `ExtensionsAiProvider` handles the mapping,
 streaming, usage, and verdict-from-exception. **Only write a native provider if MEAI can't reach it.**
 
-**B. Native `ILlmProvider`** (like `ClaudeCliProvider`, `OpenAiCompatibleProvider`). New package
+**A2. A SPAWNED CLI → write a DIALECT, not a provider.** If the backend is a command-line agent
+(`claude`, `codex`, or a sibling), do NOT re-implement the spawn/verdict/streaming rules — they are already in
+`CliProviderEngine` (Core, `Lyntai.Llm.Cli`), and re-deriving them is exactly how they drifted apart before
+(D27). Read `ClaudeCliDialect` and `CodexCliDialect` side by side first: they are the two worked examples, and
+their differences (stdin vs. required repo-check flag, JSON vs. prose auth, `auth logout` vs. top-level
+`logout`, pinning vs. no pinning) show what a dialect is for. Derive from `CliProviderDialectBase` and supply
+only what is specific to that CLI:
+
+```csharp
+public sealed class MyCliDialect : CliProviderDialectBase
+{
+    public override string Id => "my-cli";
+    public override string DefaultCommand => "mycli";                   // resolved on PATH (shim-safe)
+    public override IReadOnlyList<string> CommandEnvironmentVariables    // shared stub seam first
+        => ["LYNTAI_PROVIDER_CMD", "MYCLI_CMD"];
+    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r) => ["exec", "--json"];
+    public override CliOutputEvent ParseLine(string line) => /* → Content / Result / Ignored */;
+
+    // OPTIONAL, and only when VERIFIED against the real binary (see below):
+    public override IReadOnlyList<string>? UpdateArgs => ["update"];
+    public override IReadOnlyList<string>? AuthStatusArgs => ["login", "status"];
+}
+```
+
+Then a ~40-line provider that composes engine + dialect and declares which optional capabilities the
+backend *actually* has (`IProviderInstallation` / `IProviderUpdater` / `IProviderVersionInstaller` /
+`IProviderAuth`) — copy `ClaudeCliProvider`, which is nothing but forwarding members. The engine owns:
+command resolution, neutral cwd, prompt delivery (stdin or trailing argument — set `PromptDelivery`),
+inactivity clocks + backstop, `LlmVerdictClassifier`, empty→`Failed`, streaming order, and probe → run →
+re-probe maintenance.
+
+Rules specific to this path:
+- **Never name a maintenance command you haven't verified against the real binary** (`--help` it). The base
+  class claims NOTHING optional by default for this reason. A CLI that treats an unrecognized token as a
+  prompt will answer it — spending tokens on every call while the build stays green (`pitfalls.md`).
+- **Never forward a free-form value into argv.** `TryBuildLoginArgs`/`TryBuildInstallArgs` must REFUSE a
+  mode the backend doesn't have and a flag-shaped value (`FlagShaped` on the base) — `ArgumentList` stops
+  shell injection, not the backend's own option parser.
+- **Map an in-band failure to `CliOutputEvent.Failure`, and ONLY the terminal one.** A CLI can report a failed
+  turn in its output and still exit 0 (codex does). But error-ish lines that aren't terminal — a retry notice,
+  a warning item — must stay `Ignored`, or healthy calls fail on retries they recovered from.
+- **Check what your CLI assumes about its working directory.** The engine spawns from a neutral temp dir; codex
+  needs `--skip-git-repo-check` because of it.
+- **Portable installs are free if you don't fight them** — the host passes `command` (+ `environment`) to your
+  builder extension (D28); pass both straight through to the engine and don't read env vars yourself.
+
+**B. Native `ILlmProvider`** for anything else (like `OpenAiCompatibleProvider`). New package
 `src/Lyntai.Providers.<Name>/`, ref Core only. Implement:
 
 ```csharp

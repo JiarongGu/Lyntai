@@ -18,8 +18,13 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 _The 2026-07-26 hardening-pass deferrals are all closed (implemented or rejected-with-rationale) — see
 `docs/task-archive.md` Part 23 and `docs/DECISIONS.md` D18. EMB1 (built-in OpenAI-compatible embedder)
 landed 2026-07-27 — see archive Part 24. CLI2 (the Windows npm-shim spawn bug found consuming 1.2.0) landed
-2026-07-30 — see archive Part 28. Open work is the post-1.0 backlog in Part 25 below, plus one CONDITIONAL
-item:_
+2026-07-30 — see archive Part 28. **CLI3 + CLI4** (the turn-free auth seam and the backend's pinned
+self-install) landed 2026-08-04 — see archive Part 29 and `docs/DECISIONS.md` D26, which settles where the
+"Lyntai never provisions a binary" line now sits. **REL1** (the version-authorship guard) landed 2026-08-04 —
+see archive Part 30 and D25. The **CLI provider seam is now generic** (`CliProviderEngine` + a per-CLI
+`ICliProviderDialect`) with a second backend (`Lyntai.Providers.CodexCli`) and portable-install support —
+landed 2026-08-04, see archive Part 31 and D27/D28. Open work is the post-1.0 backlog in Part 25 below, plus
+one CONDITIONAL item:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever

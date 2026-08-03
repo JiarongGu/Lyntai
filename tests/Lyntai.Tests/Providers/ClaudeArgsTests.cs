@@ -1,8 +1,13 @@
 using Lyntai.Llm;
+using Lyntai.Llm.Cli;
 using Lyntai.Providers.ClaudeCli;
 
 namespace Lyntai.Tests.Providers;
 
+/// <summary>The claude CLI's own argv vocabulary (<see cref="ClaudeArgs"/>) plus the SHARED prompt
+/// flattening it relies on (<see cref="CliPrompt"/>, which every CLI dialect gets from
+/// <see cref="CliProviderDialectBase"/> — a CLI takes one blob of text, so nothing about that is
+/// claude-specific).</summary>
 public class ClaudeArgsTests
 {
     [Fact]
@@ -30,7 +35,7 @@ public class ClaudeArgsTests
         var args = ClaudeArgs.Build(req.Model);
 
         Assert.DoesNotContain(args, a => a.Contains("secret"));
-        Assert.Equal(prompt, ClaudeArgs.BuildPrompt(req)); // it travels via stdin instead
+        Assert.Equal(prompt, CliPrompt.Flatten(req)); // it travels via stdin instead
     }
 
     [Fact]
@@ -41,7 +46,7 @@ public class ClaudeArgsTests
             Messages = [LlmMessage.System("be brief"), LlmMessage.User("hi")],
         };
 
-        var prompt = ClaudeArgs.BuildPrompt(req);
+        var prompt = CliPrompt.Flatten(req);
 
         Assert.Contains("[system]\nbe brief", prompt);
         Assert.Contains("[user]\nhi", prompt);
@@ -56,7 +61,7 @@ public class ClaudeArgsTests
             JsonSchema = """{"type":"object"}""",
         };
 
-        var prompt = ClaudeArgs.BuildPrompt(req);
+        var prompt = CliPrompt.Flatten(req);
 
         Assert.Contains("single JSON object", prompt);
         Assert.Contains("""{"type":"object"}""", prompt);

@@ -724,6 +724,87 @@ sealed class Lyntai.Llm.Caching.InMemoryResponseCache
     SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
 static class Lyntai.Llm.Caching.ResponseCacheKey
     static For(LlmRequest, String=) : String
+static class Lyntai.Llm.Cli.CliCommand
+    static Resolve(String, String, IReadOnlyList<String>, Func<String,String>=) : ValueTuple<String,IReadOnlyList<String>>
+    static Tokenize(String) : List<String>
+sealed class Lyntai.Llm.Cli.CliOutputEvent
+    .ctor(CliOutputEventKind, String=, LlmUsage=)
+    Deconstruct(CliOutputEventKind&, String&, LlmUsage&) : Void
+    Equals(CliOutputEvent) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Kind : CliOutputEventKind
+    Text : String
+    ToString() : String
+    Usage : LlmUsage
+    static Content(String) : CliOutputEvent
+    static Failure(String) : CliOutputEvent
+    static Ignored : CliOutputEvent
+    static Result(String, LlmUsage=) : CliOutputEvent
+enum Lyntai.Llm.Cli.CliOutputEventKind
+    Content : CliOutputEventKind const
+    Failure : CliOutputEventKind const
+    Ignored : CliOutputEventKind const
+    Result : CliOutputEventKind const
+    value__ : Int32
+enum Lyntai.Llm.Cli.CliPromptDelivery
+    Argument : CliPromptDelivery const
+    Stdin : CliPromptDelivery const
+    value__ : Int32
+abstract class Lyntai.Llm.Cli.CliProviderDialectBase
+    .ctor()
+    AuthStatusArgs : IReadOnlyList<String>
+    BuildCompletionArgs(LlmRequest) : IReadOnlyList<String>
+    BuildPrompt(LlmRequest) : String
+    CommandEnvironmentVariables : IReadOnlyList<String>
+    DefaultCommand : String
+    Id : String
+    LoginTimeout : TimeSpan
+    LogoutArgs : IReadOnlyList<String>
+    MaintenanceTimeout : TimeSpan
+    ParseAuthStatus(String) : ProviderAuthStatus
+    ParseLine(String) : CliOutputEvent
+    ParseVersionLine(String) : ValueTuple<String,String>
+    PromptDelivery : CliPromptDelivery
+    SupportsToolCalls : Boolean
+    TryBuildInstallArgs(ProviderInstallRequest, IReadOnlyList`1&, String&) : Boolean
+    TryBuildLoginArgs(ProviderLoginRequest, IReadOnlyList`1&, String&) : Boolean
+    UpdateArgs : IReadOnlyList<String>
+    VersionArgs : IReadOnlyList<String>
+    static FlagShaped(String) : Boolean
+sealed class Lyntai.Llm.Cli.CliProviderEngine
+    .ctor(ICliProviderDialect, IProcessRunner, LyntaiOptions, ILogger=, String=, ICliToolProvisioner=, IReadOnlyDictionary<String,String>=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    Id : String
+    InstallAsync(ProviderInstallRequest=, CancellationToken=) : Task<ProviderUpdateResult>
+    IsAvailable : Boolean
+    LoginAsync(ProviderLoginRequest=, CancellationToken=) : Task<ProviderAuthResult>
+    LogoutAsync(CancellationToken=) : Task<ProviderAuthResult>
+    ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
+    ResolveCommand() : ValueTuple<String,IReadOnlyList<String>>
+    StatusAsync(CancellationToken=) : Task<ProviderAuthStatus>
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
+    static NeutralWorkingDirectory : String
+interface Lyntai.Llm.Cli.ICliProviderDialect
+    AuthStatusArgs : IReadOnlyList<String>
+    BuildCompletionArgs(LlmRequest) : IReadOnlyList<String>
+    BuildPrompt(LlmRequest) : String
+    CommandEnvironmentVariables : IReadOnlyList<String>
+    DefaultCommand : String
+    Id : String
+    LoginTimeout : TimeSpan
+    LogoutArgs : IReadOnlyList<String>
+    MaintenanceTimeout : TimeSpan
+    ParseAuthStatus(String) : ProviderAuthStatus
+    ParseLine(String) : CliOutputEvent
+    ParseVersionLine(String) : ValueTuple<String,String>
+    PromptDelivery : CliPromptDelivery
+    SupportsToolCalls : Boolean
+    TryBuildInstallArgs(ProviderInstallRequest, IReadOnlyList`1&, String&) : Boolean
+    TryBuildLoginArgs(ProviderLoginRequest, IReadOnlyList`1&, String&) : Boolean
+    UpdateArgs : IReadOnlyList<String>
+    VersionArgs : IReadOnlyList<String>
 abstract class Lyntai.Llm.DelegatingLlmClient
     .ctor(ILlmClient)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
@@ -744,10 +825,16 @@ interface Lyntai.Llm.ILlmRouter
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
+interface Lyntai.Llm.IProviderAuth
+    LoginAsync(ProviderLoginRequest=, CancellationToken=) : Task<ProviderAuthResult>
+    LogoutAsync(CancellationToken=) : Task<ProviderAuthResult>
+    StatusAsync(CancellationToken=) : Task<ProviderAuthStatus>
 interface Lyntai.Llm.IProviderInstallation
     ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
 interface Lyntai.Llm.IProviderUpdater
     UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
+interface Lyntai.Llm.IProviderVersionInstaller
+    InstallAsync(ProviderInstallRequest=, CancellationToken=) : Task<ProviderUpdateResult>
 interface Lyntai.Llm.IRefusalMatcher
     IsRefusal(LlmRequest, String) : Boolean
 sealed class Lyntai.Llm.LlmAttachment
@@ -884,6 +971,46 @@ static class Lyntai.Llm.LlmVerdictClassifier
     static FromErrorText(String, LlmVerdict=) : LlmVerdict
     static FromException(Exception) : LlmVerdict
     static FromHttpFailure(HttpStatusCode, String) : LlmVerdict
+sealed class Lyntai.Llm.ProviderAuthResult
+    .ctor(Boolean, ProviderAuthStatus=, String=)
+    Deconstruct(Boolean&, ProviderAuthStatus&, String&) : Void
+    Detail : String
+    Equals(Object) : Boolean
+    Equals(ProviderAuthResult) : Boolean
+    GetHashCode() : Int32
+    Status : ProviderAuthStatus
+    Succeeded : Boolean
+    ToString() : String
+sealed class Lyntai.Llm.ProviderAuthStatus
+    .ctor(Boolean, String=, String=, String=)
+    Account : String
+    Authenticated : Boolean
+    Deconstruct(Boolean&, String&, String&, String&) : Void
+    Detail : String
+    Equals(Object) : Boolean
+    Equals(ProviderAuthStatus) : Boolean
+    GetHashCode() : Int32
+    Method : String
+    ToString() : String
+sealed class Lyntai.Llm.ProviderInstallRequest
+    .ctor(String=, Boolean=)
+    Deconstruct(String&, Boolean&) : Void
+    Equals(Object) : Boolean
+    Equals(ProviderInstallRequest) : Boolean
+    Force : Boolean
+    GetHashCode() : Int32
+    ToString() : String
+    Version : String
+sealed class Lyntai.Llm.ProviderLoginRequest
+    .ctor(String=, String=, Boolean=)
+    Deconstruct(String&, String&, Boolean&) : Void
+    Email : String
+    Equals(Object) : Boolean
+    Equals(ProviderLoginRequest) : Boolean
+    GetHashCode() : Int32
+    Mode : String
+    Sso : Boolean
+    ToString() : String
 sealed class Lyntai.Llm.ProviderProbeResult
     .ctor(Boolean, String=, String=, String=)
     Available : Boolean
@@ -1097,6 +1224,7 @@ sealed class Lyntai.Processes.ProcessRunner
     .ctor()
     RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
     StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>
+    static CommandExists(String) : Boolean
     static ResolveCommandPath(String) : String
 sealed class Lyntai.Processes.ProcessTimeoutException
     .ctor(String, TimeSpan)

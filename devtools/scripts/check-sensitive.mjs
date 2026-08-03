@@ -72,10 +72,19 @@ if (tree) {
 
 const hits = [];
 const unreadable = [];
+const goneFromWorkingTree = [];
 for (const f of files) {
   let text;
   try { text = decodeText(bytesOf(f)); }
-  catch (e) { unreadable.push(`${f}: ${e.message}`); continue; }  // don't silently pass an unscannable file
+  catch (e) {
+    // A tracked file that is GONE from the working tree is a pending deletion (a rename or refactor whose
+    // removal isn't staged yet) — there is no content left to leak, so it is skipped, not fail-closed. Only
+    // a file we cannot READ blocks: that could be hiding something. (Distinguishing the two matters — the
+    // old behaviour blocked `verify` mid-refactor with what looked like a leak report.)
+    if (e?.code === 'ENOENT') { goneFromWorkingTree.push(f); continue; }
+    unreadable.push(`${f}: ${e.message}`);                          // don't silently pass an unscannable file
+    continue;
+  }
   if (text === null) continue; // genuine binary
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
@@ -90,6 +99,12 @@ for (const f of files) {
 if (unreadable.length > 0) {
   console.error('check-sensitive: could not scan these files (fail-closed):\n  ' + unreadable.join('\n  '));
   process.exit(1);
+}
+
+// Reported, not silent: a scan that skipped files should say so, so "clean" is never mistaken for "complete".
+if (goneFromWorkingTree.length > 0) {
+  console.log(`check-sensitive: ${goneFromWorkingTree.length} tracked file(s) deleted in the working tree ` +
+    `(deletion not staged yet) — nothing to scan:\n  ${goneFromWorkingTree.join('\n  ')}`);
 }
 
 if (hits.length === 0) {

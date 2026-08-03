@@ -8,8 +8,9 @@ Sonora — same family patterns); deviations need a reason. The design contract 
 
 - **Interface in Core, impl in an adapter.** Every abstraction (`ILlmProvider`, the storage domain
   interfaces, `IScorer`, …) lives in `Lyntai.Core`. Concrete implementations live in adapter packages
-  (`Lyntai.Storage.Sqlite`, `Lyntai.Providers.ClaudeCli`, `Lyntai.Providers.OpenAiCompatible`,
-  `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`) that depend **only on Core** —
+  (`Lyntai.Storage.Sqlite`, `Lyntai.Providers.ClaudeCli`, `Lyntai.Providers.CodexCli`,
+  `Lyntai.Providers.OpenAiCompatible`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`)
+  that depend **only on Core** —
   **never adapter→adapter**. Consumers
   compose via DI. This is what lets a new backend/provider be a new package, not a fork.
 - **Each `src/*` is NuGet-packable** (`IsPackable=true`, `PackageId`, description). `samples/` and `tests/`
@@ -42,6 +43,11 @@ by candidate id; `IScoringService` iterates `IEnumerable<IScorer>`; `ILlmProvide
 
 ## LLM provider seam
 
+- **A spawned-CLI backend is a DIALECT, not a provider.** `CliProviderEngine` + `ICliProviderDialect`
+  (Core, `Lyntai.Llm.Cli`) own command resolution, spawn hygiene, clocks, verdicts, streaming order and the
+  probe/update/install/auth maintenance shape; a CLI contributes only its vocabulary (`ClaudeCliDialect`,
+  `CodexCliDialect`). Never write a second copy of those rules — see `DECISIONS.md` D27, and D28 for
+  portable (app-bundled) installs.
 - **Own seam is primary** (`ILlmProvider`): CLI-first, `LlmVerdict` classification (Ok/RateLimited/
   Refused/Failed/Timeout), streaming-aware fallback. The `ExtensionsAi` bridge adapts any
   `Microsoft.Extensions.AI` `IChatClient` into an `ILlmProvider` — that's how OpenAI/Azure/Ollama/etc.

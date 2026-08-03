@@ -262,6 +262,24 @@ public sealed class ProcessRunner : IProcessRunner
         return PathCache.GetOrAdd(command, static cmd => Locate(cmd) ?? cmd);
     }
 
+    /// <summary>Whether <paramref name="command"/> looks spawnable RIGHT NOW — the presence check behind a
+    /// provider's <c>IsAvailable</c>. A bare name must resolve on PATH; a PATH-shaped command (an app's own
+    /// PORTABLE copy of a CLI, not a global install) must exist on disk, or have a spawnable sibling the way
+    /// <see cref="Start"/> would resolve it (an extensionless npm-shaped shim next to its <c>.cmd</c>).</summary>
+    /// <remarks>Presence only — it never runs the command. A command that exists but is broken still surfaces
+    /// as a verdict on the actual call.</remarks>
+    public static bool CommandExists(string command)
+    {
+        if (string.IsNullOrWhiteSpace(command)) return false;
+        var resolved = ResolveCommandPath(command);
+
+        // a bare name that PATH lookup couldn't answer comes back unchanged — not found. (Never probed as a
+        // relative file: the process's current directory must not answer a PATH lookup.)
+        if (Path.GetDirectoryName(resolved) is not { Length: > 0 }) return false;
+
+        return File.Exists(resolved) || (OperatingSystem.IsWindows() && SpawnableSibling(resolved) is not null);
+    }
+
     private static string? Locate(string command)
     {
         var locator = OperatingSystem.IsWindows() ? "where.exe" : "which";

@@ -19,6 +19,11 @@
 // Maintenance argv (answered BEFORE stdin is read, like the real CLI's non-prompt paths):
 //   --version       -> print a stub version line (the ClaudeCli provider's turn-free probe)
 //   update|upgrade  -> print an "up to date" line and exit 0 (the self-update seam; installs nothing)
+//   install [target]-> print an "installed" line and exit 0 (the PINNED-install seam; installs nothing)
+//   auth status     -> print the CLI's auth-status JSON shape (the turn-free auth seam). Signed in by
+//                      default; LYNTAI_STUB_AUTH=out reports a signed-out state instead.
+//   auth login|logout -> print a line and exit 0 (drivable auth; the stub is stateless, so a following
+//                      `auth status` still reports whatever LYNTAI_STUB_AUTH says)
 import process from 'node:process';
 
 // Maintenance flags/commands first: these take no prompt, so they must not block on stdin.
@@ -29,6 +34,23 @@ if (argv0.includes('--version')) {
 }
 if (argv0.includes('update') || argv0.includes('upgrade')) {
   process.stdout.write('provider-stub is up to date (0.0.0-stub)\n');
+  process.exit(0);
+}
+if (argv0.includes('install')) {
+  const target = argv0[argv0.indexOf('install') + 1];
+  process.stdout.write(`provider-stub install ${target && !target.startsWith('--') ? target : 'stable'}: nothing to do (0.0.0-stub)\n`);
+  process.exit(0);
+}
+if (argv0[0] === 'auth') {
+  const loggedIn = process.env.LYNTAI_STUB_AUTH !== 'out';
+  if (argv0[1] === 'status') {
+    // the real shape of `claude auth status --json` (v2.1.220), with stub values
+    process.stdout.write(JSON.stringify(loggedIn
+      ? { loggedIn: true, authMethod: 'provider-stub', apiProvider: 'provider-stub', email: 'stub@example.invalid', orgId: 'stub-org', orgName: 'Stub Org', subscriptionType: 'stub' }
+      : { loggedIn: false }) + '\n');
+    process.exit(0);
+  }
+  process.stdout.write(`provider-stub ${argv0[1] === 'logout' ? 'logged out' : 'logged in'} (stateless stub)\n`);
   process.exit(0);
 }
 

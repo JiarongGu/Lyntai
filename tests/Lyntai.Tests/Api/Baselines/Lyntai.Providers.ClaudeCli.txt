@@ -1,6 +1,6 @@
 static class Lyntai.ClaudeCliBuilderExtensions
-    static AddClaudeCliAgentSession(LyntaiBuilder) : LyntaiBuilder
-    static AddClaudeCliProvider(LyntaiBuilder) : LyntaiBuilder
+    static AddClaudeCliAgentSession(LyntaiBuilder, String=) : LyntaiBuilder
+    static AddClaudeCliProvider(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=) : LyntaiBuilder
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     .ctor()
     AllowedTools : IReadOnlyList<String>
@@ -17,17 +17,34 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
     .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeAgentSession>=, String=)
     StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
+sealed class Lyntai.Providers.ClaudeCli.ClaudeCliDialect
+    .ctor()
+    AuthStatusArgs : IReadOnlyList<String>
+    BuildCompletionArgs(LlmRequest) : IReadOnlyList<String>
+    CommandEnvironmentVariables : IReadOnlyList<String>
+    DefaultCommand : String
+    Id : String
+    LogoutArgs : IReadOnlyList<String>
+    ParseAuthStatus(String) : ProviderAuthStatus
+    ParseLine(String) : CliOutputEvent
+    TryBuildInstallArgs(ProviderInstallRequest, IReadOnlyList`1&, String&) : Boolean
+    TryBuildLoginArgs(ProviderLoginRequest, IReadOnlyList`1&, String&) : Boolean
+    UpdateArgs : IReadOnlyList<String>
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliMcpDialect
     .ctor()
     BuildArgsAsync(McpCliContext, CancellationToken=) : ValueTask<IReadOnlyList<String>>
     ProviderId : String
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
-    .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeCliProvider>=, String=, ICliToolProvisioner=)
+    .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeCliProvider>=, String=, ICliToolProvisioner=, IReadOnlyDictionary<String,String>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
     Id : String
+    InstallAsync(ProviderInstallRequest=, CancellationToken=) : Task<ProviderUpdateResult>
     IsAvailable : Boolean
+    LoginAsync(ProviderLoginRequest=, CancellationToken=) : Task<ProviderAuthResult>
+    LogoutAsync(CancellationToken=) : Task<ProviderAuthResult>
     ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
     ProviderId : String const
+    StatusAsync(CancellationToken=) : Task<ProviderAuthStatus>
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
 static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls

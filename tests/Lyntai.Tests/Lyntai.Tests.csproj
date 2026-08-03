@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\src\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Storage.Postgres\Lyntai.Storage.Postgres.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.ClaudeCli\Lyntai.Providers.ClaudeCli.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Providers.CodexCli\Lyntai.Providers.CodexCli.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.OpenAiCompatible\Lyntai.Providers.OpenAiCompatible.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.ExtensionsAi\Lyntai.Providers.ExtensionsAi.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.Local\Lyntai.Providers.Local.csproj" />

@@ -29,11 +29,46 @@ the tests) while being wrong. Skim before touching the relevant area.
   the router can fall over.
 - **Asking the `claude` CLI a question it doesn't recognize SPENDS A TURN.** An unrecognized token is
   treated as a PROMPT, not an error (`claude zzznotacommand` answers in prose), and `config`/`models` hang
-  waiting on a session. So a turn-free probe may use **flags only** — `--version` is the one safe question
-  (`ClaudeCliProvider.ProbeAsync`); `update`/`upgrade` are the only documented subcommands. Never "just try"
-  a plausible subcommand to see what it reports: the build stays green while every call quietly costs tokens.
+  waiting on a session. So a turn-free question must be a **flag** or a **verified** subcommand — `--version`
+  (`ProbeAsync`), and `update`/`install`/`auth {status,login,logout}`, each checked against the installed CLI's
+  own `--help` before being wired. Never "just try" a plausible subcommand to see what it reports: the build
+  stays green while every call quietly costs tokens.
   Corollary: the CLI has no turn-free model readout — `ProviderProbeResult.Model` is null there by design,
   and the resolved model comes from `AgentStreamEvent.UsageFinal.Model` after a turn.
+- **A subcommand you rely on may not exist on an OLDER install — pin a FLAG so it fails loudly.**
+  `auth status --json` sends `--json` explicitly even though it is the CLI's default (measured on v2.1.220),
+  precisely because a build predating `auth` rejects the unknown *flag* (exit non-zero, no turn) instead of
+  billing a turn to answer the sentence "auth status". Same reasoning as above, one step further out.
+- **Trusting the exit code over the machine-readable answer.** A signed-out `auth status` may report its
+  state AND exit non-zero — that's an ANSWER, not a broken backend. Parse first, then fall back to the exit
+  code (`ClaudeCliProvider.StatusAsync`). And parse the WHOLE body: the `Tail()` helper keeps the LAST 500
+  chars, which would decapitate a JSON document.
+- **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in
+  `CliProviderEngine` (Core, `Lyntai.Llm.Cli`); a new CLI is an `ICliProviderDialect`, never a fresh
+  `ILlmProvider` (`docs/DECISIONS.md` D27). The reason these traps were fixable at all is that there is now
+  ONE copy.
+- **Assuming a non-zero exit means failure — a CLI can report failure IN BAND and exit 0.** Measured on
+  codex-cli 0.146.0: a 401 turn prints `{"type":"turn.failed","error":{"message":"… 401 Unauthorized …"}}`
+  and the process still exits cleanly. Map it to `CliOutputEvent.Failure` so the message is classified
+  (`AuthFailed` cools the host; a bare `Failed` just advances). Ignoring it yields "no output produced" —
+  right verdict class, no reason, wrong routing.
+- **…and the mirror image: treating every error-ish line as terminal.** Also measured on codex: a bare
+  `{"type":"error","message":"Reconnecting... 2/5"}` and an `item.completed` whose item type is `error`
+  ("Model metadata not found") both appeared in a run that went on to **succeed**. Only the terminal event
+  (`turn.failed`) may fail a call, or healthy calls die on a retry they recovered from.
+- **A neutral working directory can break a CLI that expects a repo.** The engine spawns from a temp dir on
+  purpose (§6 hygiene). codex refuses to run outside a git repository, so its dialect MUST pass
+  `--skip-git-repo-check` — every completion would fail on a perfectly good install otherwise. Check what
+  your CLI assumes about its cwd.
+- **Trusting an explicit command without checking it exists.** For a PORTABLE install (an app's own bundled
+  CLI copy) `IsAvailable` must verify presence — `ProcessRunner.CommandExists`, which also accepts an
+  extensionless launcher with a spawnable sibling. Returning true for a path that isn't there turns a
+  skippable candidate into a failed turn.
+- **Forwarding a free-form option value straight into argv.** `ProviderLoginRequest.Mode` /
+  `ProviderInstallRequest.Version` are free-form so other backends fit the contract — but an adapter must
+  REFUSE a value it doesn't recognize instead of synthesizing `--<whatever>`, and must refuse a flag-shaped
+  value in a data slot (`Email: "--dangerously-x"`, `Version: "--force"`). `ArgumentList` prevents *shell*
+  injection, not the backend's own argument parser reading your value as an option.
 - **Spawning a Windows CLI by its EXTENSIONLESS npm/nvm shim** — a global npm install writes three
   launchers side by side (`claude`, `claude.cmd`, `claude.ps1`); the extensionless one is a POSIX `sh`
   script, and CreateProcess rejects it with *"The specified executable is not a valid application for this

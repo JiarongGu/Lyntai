@@ -62,6 +62,7 @@ per-`StorageFeature` baselines.
 | `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain with SQLite. |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` memory recall) for a server-backed deployment. |
 | `Lyntai.Providers.ClaudeCli` | The authenticated `claude` CLI as a provider (no API key). |
+| `Lyntai.Providers.CodexCli` | The authenticated OpenAI `codex` CLI as a provider (`codex exec --json`, no API key). |
 | `Lyntai.Providers.OpenAiCompatible` | OpenAI / Ollama / OpenRouter-style endpoints over HttpClient. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
@@ -343,12 +344,14 @@ services.AddSingleton<IProcessRunner>(new MySandboxedProcessRunner());
 Anything you register wins over Lyntai's default (the defaults use `TryAdd`), and every storage domain
 is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement wholesale.
 
-### Backend version + guided upgrade (`IProviderInstallation` / `IProviderUpdater`)
+### Backend self-maintenance: version · upgrade · pinned install · auth
 
-Two **optional** provider capabilities, so a host can show what its backend actually is — and offer an
-upgrade — instead of hardcoding a version it will drift away from. Both are discovered by pattern-matching
-over the registered providers, and both **fail safe**: an absent, stalled or erroring backend is reported,
-never thrown.
+Four **optional** provider capabilities (`IProviderInstallation`, `IProviderUpdater`,
+`IProviderVersionInstaller`, `IProviderAuth`), so a host can show what its backend actually is, whether it
+is usable at all, and offer an upgrade — instead of hardcoding a version it will drift away from, or
+burning a turn to discover the backend isn't signed in. All are discovered by pattern-matching over the
+registered providers, none runs a completion, and all **fail safe**: an absent, stalled or erroring backend
+is reported, never thrown.
 
 ```csharp
 foreach (var provider in serviceProvider.GetServices<ILlmProvider>())
@@ -371,17 +374,123 @@ foreach (var provider in serviceProvider.GetServices<ILlmProvider>())
 }
 ```
 
-`ClaudeCliProvider` implements both (`claude --version` / `claude update`) through the same BYO
-`IProcessRunner` and command seams as a completion. Two notes on what the probe will and won't tell you:
+`ClaudeCliProvider` implements all four through the same BYO `IProcessRunner` and command seams as a
+completion. Two notes on what the probe will and won't tell you:
 
 - **`Version` is exact; `Model` is null against today's claude CLI** — it has no turn-free way to report
   its resolved model, and the probe never guesses one. Read the model actually used from
   `AgentStreamEvent.UsageFinal.Model` after a turn (see the agent-session section). The field is populated
   by backends that *can* answer cheaply — a local runtime naming its loaded weights, a build that labels a
   model on its version line.
-- **Only `--version` is asked.** The CLI treats an unrecognized token as a *prompt* and spends a turn
-  answering it, so a probe that guessed subcommands would quietly cost tokens. Lyntai drives the updater
-  the backend already ships — it never downloads or pins a binary itself; provisioning stays yours.
+- **Nothing is guessed.** The CLI treats an unrecognized token as a *prompt* and spends a turn answering
+  it, so every maintenance question is flag-shaped or a documented subcommand. Lyntai drives the tooling the
+  backend already ships — it never downloads a backend that isn't there; provisioning stays yours
+  (`docs/DECISIONS.md` D26).
+
+Two more capabilities in the same family, discovered the same way:
+
+```csharp
+// "Is this backend signed in, and as whom?" — NO completion is run, so no turn is spent finding out
+if (provider is IProviderAuth auth)
+{
+    var status = await auth.StatusAsync(ct);
+    if (!status.Authenticated)
+    {
+        // "not signed in" is a VALUE, not an exception. LoginAsync BLOCKS while the browser flow runs
+        // (bounded, cancellable) — show a spinner; you don't need to poll StatusAsync afterwards.
+        var result = await auth.LoginAsync(new ProviderLoginRequest(Mode: "console"), ct);
+        Console.WriteLine(result.Status?.Authenticated == true
+            ? $"signed in as {result.Status.Account}"
+            : $"sign-in did not complete — {result.Detail}");
+    }
+    else Console.WriteLine($"{status.Method}: {status.Account}");   // e.g. "claude.ai: you@example.com"
+}
+
+// PIN a known-good backend version, instead of taking whatever `update` gives you
+if (provider is IProviderVersionInstaller installer)
+{
+    var pinned = await installer.InstallAsync(new ProviderInstallRequest("2.1.220"), ct);
+    Console.WriteLine($"{pinned.FromVersion} → {pinned.ToVersion}");   // Updated covers a downgrade too
+}
+```
+
+`Method` and `ProviderLoginRequest.Mode` are free-form strings (`"console"`/`"api"`,
+`"claudeai"`/`"subscription"` for the claude CLI) so another backend's account kinds fit without an enum
+change — an adapter **refuses** a value it doesn't recognize rather than inventing a flag from it. **Lyntai
+never stores credentials**: the backend owns its own, and this seam only asks and drives. Because
+`Authenticated: false` covers both "signed out" and "couldn't be asked", call `ProbeAsync` first when you
+need to tell those apart.
+
+### CLI backends: `claude`, `codex`, or your own (`CliProviderEngine` + a dialect)
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .AddClaudeCliProvider()                       // the authenticated `claude` CLI
+    .AddCodexCliProvider()                        // the authenticated OpenAI `codex` CLI
+    .UseDefaultCandidates("claude-cli", "codex-cli"));   // one falls over to the other
+```
+
+Both are the same composition — a shared engine plus a per-CLI dialect — and each advertises only the
+capabilities its backend really has. `codex` has no way to install a *named* version of itself, so
+`CodexCliProvider` doesn't implement `IProviderVersionInstaller` at all; pattern-matching a capability is
+therefore a real answer, not a maybe.
+
+**Portable (non-global) installs.** If your app ships or unpacks its own copy of a CLI, pass the path — and,
+where the backend has one, that install's own home directory so it neither reads nor mutates the machine-wide
+install's state:
+
+```csharp
+cfg.AddCodexCliProvider(
+    command: Path.Combine(AppContext.BaseDirectory, "tools", "codex.exe"),
+    environment: new Dictionary<string, string> { ["CODEX_HOME"] = portableHome });
+
+cfg.AddClaudeCliProvider(command: bundledClaudePath);   // …and the same value for AddClaudeCliAgentSession
+```
+
+`IsAvailable` then checks that the file is actually *there* (including an extensionless launcher rescued by
+its `.cmd` sibling), so a missing portable copy makes the router skip that candidate instead of discovering
+the absence as a failed turn. The maintenance seams (`ProbeAsync`, auth, update) honour the same command and
+environment, so they report the portable install's state rather than a global one's.
+
+**Writing your own.** Every CLI-agent backend needs the same things done right — no shell, a neutral working
+directory, prompt over stdin (or as an argument), timeouts as an *inactivity* clock, verdicts from the shared
+classifier, empty output as a failure, an in-band `turn failed` event classified rather than swallowed,
+exactly one terminal stream chunk, and probe → run → re-probe for self-maintenance. Those live once, in
+`CliProviderEngine` (`Lyntai.Llm.Cli`). A new CLI supplies only its own vocabulary:
+
+```csharp
+public sealed class MyCliDialect : CliProviderDialectBase
+{
+    public override string Id => "my-cli";
+    public override string DefaultCommand => "mycli";
+    public override IReadOnlyList<string> CommandEnvironmentVariables => ["LYNTAI_PROVIDER_CMD", "MYCLI_CMD"];
+    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r) => ["exec", "--json"];
+    public override CliOutputEvent ParseLine(string line) =>   // → Content / Result / Failure / Ignored
+        MyWireFormat.Read(line);
+
+    // claim an optional capability ONLY where the real binary has it — the base claims none by default
+    public override IReadOnlyList<string>? UpdateArgs => ["update"];
+}
+```
+
+…plus a provider that forwards to the engine and declares which capability interfaces that backend actually
+has (`ClaudeCliProvider` is exactly this, and nothing else):
+
+```csharp
+public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) : ILlmProvider, IProviderUpdater
+{
+    private readonly CliProviderEngine _engine = new(new MyCliDialect(), runner, options);
+    public string Id => "my-cli";
+    public bool IsAvailable => _engine.IsAvailable;
+    public Task<LlmReply> CompleteAsync(LlmRequest r, CancellationToken ct = default) => _engine.CompleteAsync(r, ct);
+    public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest r, CancellationToken ct = default) => _engine.StreamAsync(r, ct);
+    public Task<ProviderUpdateResult> UpdateAsync(CancellationToken ct = default) => _engine.UpdateAsync(ct);
+}
+```
+
+If your CLI takes the prompt positionally rather than on stdin, set `PromptDelivery = CliPromptDelivery.Argument`
+— the engine appends it last. Free-form values (`ProviderLoginRequest.Mode`, `ProviderInstallRequest.Version`)
+must be *refused* by the dialect when it doesn't recognize them, never turned into an invented flag.
 
 ### Local in-process inference (`Lyntai.Providers.Local`)
 

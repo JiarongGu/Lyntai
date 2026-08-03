@@ -18,6 +18,12 @@ small and scannable so the next open task is obvious. The completed record lives
     `## Unreleased`; the release workflow **stamps that heading** with the version + date (`node
     devtools/dev.mjs changelog --fix`), so never hand-stamp it. Want a titled release? Pre-title the
     heading — `## Unreleased — <title>` becomes `## X.Y.Z — <title> (<date>)`.
+- **NEVER hand-edit `<VersionPrefix>`** (`src/Directory.Build.props`) or the `## Unreleased` heading. The
+  release workflow bumps the version **from whatever that file currently says**, so a manual bump silently
+  moves the baseline and the next release publishes the version AFTER the intended one — the skipped version
+  is simply gone (this happened in a sibling repo; `docs/DECISIONS.md` D25). Both edits are blocked by the
+  `check-version-bump` pre-commit guard, and `node devtools/dev.mjs doctor` fails when `VersionPrefix` no
+  longer matches the newest `v*` tag. Releasing, or repairing a botched release? `LYNTAI_RELEASE=1`.
 - **Keep the top banner honest.** The `## Active backlog` section reflects reality — `_None …_` when empty;
   never a stale "all done" banner over open items, nor open items under a "done" banner.
 

@@ -77,7 +77,9 @@ Tests/e2e green.
 - `TASKS.md` — the **active** backlog (open tasks only); `docs/task-archive.md` — the completed-task
   history (the frozen implementation plan + closed backlogs). See the `task-lifecycle.md` rule.
 
-Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (router engine) /
+Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Cli` (the shared spawned-CLI engine +
+per-CLI `ICliProviderDialect` — a new CLI backend is a dialect, never a new provider; see `DECISIONS.md`
+D27/D28) / `Lyntai.Llm.Routing` (router engine) /
 `Lyntai.Llm.Caching` (response cache) / `Lyntai.Llm.Budgeting` (usage budget) /
 `Lyntai.Llm.RateLimiting` (rate limiter) /
 `Lyntai.Embeddings` (embedder seam) / `Lyntai.Memory` (semantic memory + vector store) /
@@ -125,3 +127,6 @@ Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Routing` (rout
 - `node devtools/dev.mjs bench [-- --filter *X*]` — BenchmarkDotNet (Release) router/FTS benchmarks.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.
 - `node devtools/dev.mjs check-sensitive [--tree]` — leak scan.
+- `node devtools/dev.mjs doctor [--fix]` — README `## Status` version ↔ `VersionPrefix`, and `VersionPrefix`
+  ↔ the newest `v*` tag (**never hand-edit the version** — see `task-lifecycle.md` / `DECISIONS.md` D25).
+- `node devtools/dev.mjs check-version` — the pre-commit version-authorship guard, run by hand.

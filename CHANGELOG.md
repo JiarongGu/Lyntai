@@ -10,6 +10,109 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased — turn-free backend auth + pinned self-install
+
+Completes the "ask and drive the backend about itself, without spending a turn" family that 1.2.0 started
+(`ProbeAsync` / `UpdateAsync`): a host can now also find out **whether the backend is signed in, and as
+whom**, drive sign-in/sign-out, and **pin a named version** of the backend. All generic Core capabilities —
+the claude CLI is the first implementer, not the shape.
+
+### Added
+- **`IProviderAuth` + `ProviderAuthStatus` / `ProviderLoginRequest` / `ProviderAuthResult`** (Core,
+  `Lyntai.Llm`) — an OPTIONAL provider capability answering the one thing every consumer needs settled
+  before a turn can possibly succeed: `StatusAsync` reports `{ Authenticated, Method?, Account?, Detail? }`
+  **without running a completion**. Previously a consumer either ran a completion and pattern-matched the
+  failure string (a wasted, possibly billed turn) or shelled out to the backend's CLI itself — the bespoke
+  provider handling Lyntai exists to remove. **"Not signed in" is a VALUE, not an exception.** `LoginAsync`
+  / `LogoutAsync` drive the backend's own flows. Discovered by pattern-matching
+  (`provider is IProviderAuth a`) like the other capabilities, so a backend with no login story (an
+  API-key provider, a local GGUF runtime) simply doesn't implement it. `Method` and
+  `ProviderLoginRequest.Mode` are free-form strings on purpose: another backend's account kinds must fit
+  without an enum change. **Lyntai never stores credentials** — the backend owns its own.
+- **`IProviderVersionInstaller` + `ProviderInstallRequest`** (Core, `Lyntai.Llm`) — drive the backend's own
+  installer for a **named** version (`{ Version?, Force }` → the existing `ProviderUpdateResult`, so
+  callers keep one result type for all self-maintenance). This is the difference between *pinning* a
+  known-good version and merely taking whatever `UpdateAsync` gives you; `Updated` therefore also covers a
+  deliberate **downgrade**. Lyntai still never downloads or stores a binary itself — see
+  `docs/DECISIONS.md` D26 for where that line now sits.
+- **`ClaudeCliProvider` implements both** — `claude auth status --json` / `auth login [--claudeai|--console]
+  [--email <e>] [--sso]` / `auth logout`, and `claude install [stable|latest|<version>] [--force]`, through
+  the same BYO `IProcessRunner` + command seams (and therefore the same Windows npm-shim handling) as a
+  completion, from the neutral working directory, with no stdin. Notes on the contract a UI can rely on:
+  `--json` is passed **explicitly** even though it is the CLI's default, so a build that predates `auth`
+  rejects an unknown *flag* instead of treating the words as a **prompt** and spending a turn; the parsed
+  state **wins over the exit code** (a signed-out CLI may report its state and still exit non-zero — that
+  is an answer, not a broken backend); `LoginAsync` **blocks** until the browser flow finishes, fails, or a
+  bounded 10-minute budget expires (never a hang), and `ct` abandons the wait; an unrecognized login `Mode`
+  or a flag-shaped `Email`/`Version` is **refused without spawning anything**, so a free-form value can
+  never become an invented backend flag.
+
+- **`Lyntai.Providers.CodexCli`** — a NEW package: the authenticated OpenAI `codex` CLI as a provider
+  (`AddCodexCliProvider()`, id `codex-cli`), so a fallback chain can span two independent CLI agents. It is
+  the second implementer of the shared CLI seam below, which is what proves that seam generic rather than
+  claude-shaped. Every command, flag and event shape was **measured against codex-cli 0.146.0** — `--help` for
+  the argv, plus one real successful turn (through the `--oss` local-model path, so no tokens were spent) and
+  one real failed turn for the JSONL. Three measured details that a guess would have gotten wrong:
+  `--skip-git-repo-check` is **required** (codex refuses to run outside a git repo, and the engine spawns from
+  a neutral temp dir); `codex login status` prints **prose** and rejects `--json`, so its auth parse is a
+  conservative prose sniffer that returns "unknown" rather than guessing a signed-in state; and a bare `error`
+  line — plus an `item.completed` whose item type is `error` — are **not** terminal (both appeared in the run
+  that went on to succeed), so only `turn.failed` fails a call. It deliberately does **not** implement
+  `IProviderVersionInstaller`: `codex update` takes no target, so this backend genuinely cannot pin a version.
+  Completions run `--sandbox read-only` by default (a text completion shouldn't edit your disk); raise it with
+  `new CodexCliDialect { SandboxMode = "workspace-write" }`.
+- **Portable (non-global) CLI installs are a first-class wiring** — `AddClaudeCliProvider(command, environment)`,
+  `AddClaudeCliAgentSession(command)` and `AddCodexCliProvider(command, environment, dialect)` now take the
+  path to a CLI your app ships or unpacks itself, plus extra environment variables for that install (its own
+  `CODEX_HOME` / `CLAUDE_CONFIG_DIR`), so a bundled backend needs no process-wide environment variable. The
+  environment applies to the maintenance spawns too, so a probe/auth check reports the PORTABLE install's
+  state rather than the machine-wide one's. `IsAvailable` now **verifies an explicit command exists** (via the
+  new `ProcessRunner.CommandExists`, including an extensionless launcher rescued by its `.cmd` sibling)
+  instead of trusting it — a missing portable copy makes the router skip that candidate rather than surface as
+  a failed turn.
+- **`CliProviderEngine` + `ICliProviderDialect` / `CliProviderDialectBase` / `CliOutputEvent` /
+  `CliPromptDelivery` / `CliCommand`** (Core, `Lyntai.Llm.Cli`) — the generic engine behind ANY spawned-CLI
+  backend, so adding one is a **dialect class plus a forwarding provider**, not a second copy of the rules.
+  The engine owns everything that isn't backend-specific: command resolution (explicit override → the
+  dialect's env vars → its default exe), spawn hygiene (no shell, neutral cwd, Windows launcher shims),
+  timeouts as an inactivity clock with an absolute backstop, `LlmVerdictClassifier` verdicts, empty output as
+  `Failed`, streaming order (content chunks then exactly one `Final`/`Error`), and probe → run → re-probe
+  self-maintenance. A dialect supplies the vocabulary: argv, prompt delivery (stdin **or** a trailing
+  argument), line parsing, and only those maintenance commands the backend verifiably has —
+  `CliProviderDialectBase` claims **no** optional capability by default, so a backend is never credited with
+  one that wasn't measured. `ClaudeCliProvider` is now this composition (`ClaudeCliDialect` + the engine);
+  its members are unchanged and its ~90 existing tests pass untouched. A dialect can also report an **in-band
+  turn failure** (`CliOutputEvent.Failure`) — needed because a CLI can print `turn.failed` and still exit 0,
+  which would otherwise be flattened to a bare `Failed` with no reason; the message is classified, so a 401
+  becomes `AuthFailed` (cools the host) rather than a generic retry.
+
+### Fixed
+- **The leak scan no longer fails closed on a pending deletion** (`devtools/scripts/check-sensitive.mjs
+  --tree`) — a tracked file already removed from the working tree but whose deletion isn't staged yet (an
+  ordinary mid-refactor state) read as "unscannable" and blocked `verify` with what looked like a leak report.
+  A file that is *gone* has no content to leak, so it is now skipped and **reported** (never silently — a scan
+  that skipped something must not print a bare "clean"). Fail-closed still applies to a file that exists but
+  cannot be READ, which is the case that could actually hide something; both directions are covered by a
+  reproduction of the original failure and an unreadable-path check.
+
+### Note on binary compatibility
+The optional parameters added to `ClaudeCliProvider`'s constructor and to the `AddClaudeCli*` extensions are
+**source**-compatible but not **binary**-compatible: recompile against this version rather than dropping the
+assembly in. Allowed in a minor by `docs/DECISIONS.md` D24 (all consumers are first-party and build from
+source); no member or type was removed.
+
+### Changed
+- **`node devtools/dev.mjs doctor` also checks version AUTHORSHIP** — `VersionPrefix` must equal the newest
+  `v*` release tag, which is true by construction between releases (the release workflow bumps it *as part
+  of* releasing). A new `check-version-bump` pre-commit guard blocks a staged hand-edit of `<VersionPrefix>`
+  or a hand-stamp/removal of the CHANGELOG's `## Unreleased` heading, with `LYNTAI_RELEASE=1` as the
+  pipeline's (and a deliberate repair's) escape hatch. This closes a real failure mode measured in a
+  sibling repo: the release workflow bumps *from* whatever `VersionPrefix` says, so a helpful-looking manual
+  bump silently moves the baseline and the next release publishes the version **after** the intended one
+  (a hand-edited `0.1.2 → 0.2.0` published `0.3.0`; `0.2.0` went from unreleased to skipped). The existing
+  consistency checks all stayed green through it — consistency was never the property at risk, authorship
+  was. See `docs/DECISIONS.md` D25.
+
 ## 1.2.1 — 2026-07-29
 
 ### Fixed

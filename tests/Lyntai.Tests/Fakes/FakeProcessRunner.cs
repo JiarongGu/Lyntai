@@ -11,7 +11,8 @@ public sealed class FakeProcessRunner : IProcessRunner
 {
     /// <summary>One captured invocation (RunAsync or StreamLinesAsync).</summary>
     public readonly record struct Call(string Command, IReadOnlyList<string> Args, string? Stdin,
-        string? WorkingDirectory, TimeSpan? InactivityTimeout, TimeSpan? MaxDuration);
+        string? WorkingDirectory, TimeSpan? InactivityTimeout, TimeSpan? MaxDuration,
+        IReadOnlyDictionary<string, string>? Environment = null);
 
     public FakeProcessRunner(IReadOnlyList<string>? streamLines = null, Exception? throwsAfterLines = null)
     {
@@ -44,12 +45,13 @@ public sealed class FakeProcessRunner : IProcessRunner
     public string? LastWorkingDirectory => Calls.Count > 0 ? Calls[^1].WorkingDirectory : null;
     public TimeSpan? LastInactivityTimeout => Calls.Count > 0 ? Calls[^1].InactivityTimeout : null;
     public TimeSpan? LastMaxDuration => Calls.Count > 0 ? Calls[^1].MaxDuration : null;
+    public IReadOnlyDictionary<string, string>? LastEnvironment => Calls.Count > 0 ? Calls[^1].Environment : null;
 
     public Task<ProcessResult> RunAsync(string command, IReadOnlyList<string> args, string? stdin = null,
         TimeSpan? inactivityTimeout = null, TimeSpan? maxDuration = null, string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null, CancellationToken ct = default)
     {
-        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration));
+        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
         return Task.FromResult(RunHandler is null ? RunResult : RunHandler(command, args));
     }
 
@@ -58,7 +60,7 @@ public sealed class FakeProcessRunner : IProcessRunner
         IReadOnlyDictionary<string, string>? environment = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration));
+        Calls.Add(new Call(command, args, stdin, workingDirectory, inactivityTimeout, maxDuration, environment));
 
         foreach (var line in StreamLines)
         {

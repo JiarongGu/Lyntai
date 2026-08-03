@@ -326,3 +326,124 @@ What this does and does not license:
 outside the owner's apps, or any external contributor. At that point this amendment expires and the next
 breaking change takes a major bump. Anyone reading D22 and finding a 1.x release with a `Breaking`
 section should land here, not assume the policy was violated.
+
+## D25 — the version and the CHANGELOG heading are authored by the RELEASE PIPELINE only (2026-08-04)
+`<VersionPrefix>` in `src/Directory.Build.props` is the single version source, and `release.yml` bumps it
+**from its current value** when no explicit version input is given. That makes the file's current value a
+*baseline*, not a note — so a session that bumps it by hand ("ready for the next release", which looks
+helpful) silently moves the baseline and the next release publishes the version AFTER the intended one.
+
+**This is measured, not theoretical:** in a sibling repo a hand-edited `0.1.2 → 0.2.0` published `0.3.0`,
+and `0.2.0` went from unreleased to *skipped* without anyone deciding to skip it. The same slip on a
+post-1.0 repo lands on a MAJOR. The second half of the same failure: the workflow **stamps** the
+CHANGELOG's `## Unreleased` heading with the version + date, so a commit that stamps or deletes that
+heading by hand leaves nothing to stamp and the release ships with the wrong section title.
+
+**Why nothing caught it:** `doctor` verified the version was *consistent* across props/README — and a
+hand-bump keeps them consistent. Consistency was never the property at risk; **authorship** was.
+
+Two layers guard it, both sabotage-verified here:
+- **State** — `node devtools/dev.mjs doctor` compares `VersionPrefix` to the newest `v*` tag. Between
+  releases they are equal by construction, so any difference means a hand-edit — and being state-based it
+  also catches a bad merge/rebase. Silent when there are no tags (a shallow CI checkout or fresh clone).
+  Deliberately NOT in `verify`/`pack`: during a real release the version is *supposed* to be ahead of the
+  newest tag.
+- **Act** — `devtools/scripts/check-version-bump.mjs` (pre-commit) blocks a staged change to
+  `<VersionPrefix>` or a removal of the `## Unreleased` heading. A newly ADDED props file has no removal
+  line, so seeding a repo is never blocked.
+
+`LYNTAI_RELEASE=1` is the escape hatch for both — set by the workflow's commit step, and by a human
+deliberately repairing a botched release (where the version being written is a considered choice).
+**Write release notes under `## Unreleased` and leave the heading alone; cut releases from the Actions tab.**
+
+## D26 — Lyntai DRIVES a backend's own self-maintenance (probe · update · pinned install · auth); it never OWNS credentials or binaries (2026-08-04)
+The line for "what a provider capability may do to its own backend" kept getting drawn ad hoc, so here it
+is once. Lyntai may **drive tooling the backend already ships**, without spending a turn:
+`IProviderInstallation` (what is it), `IProviderUpdater` (update itself), `IProviderVersionInstaller`
+(install a NAMED version of itself), `IProviderAuth` (is it signed in, and drive sign-in/out). Each is an
+OPTIONAL interface discovered by pattern-matching, never a member on `ILlmProvider` — a backend that can't
+answer simply doesn't implement it.
+
+**The pinning question, settled** (it read as a contradiction of "Lyntai never provisions or pins a
+binary"): that rule is about **fetching a binary from nowhere**, where a host owns its own download,
+storage and trust policy. Driving an already-present backend's own installer is the *update path with an
+argument* — `claude install 2.1.220` is the same class of act as `claude update` — and pinning a known-good
+version is exactly what a host needs that `update` cannot express. So it is IN, reporting the same
+`ProviderUpdateResult` (where `Updated` also covers a deliberate downgrade).
+
+Still OUT, and not by accident:
+- **Credential storage.** The backend owns its credentials; `IProviderAuth` asks and drives, never stores.
+- **Binary provisioning.** Downloading/placing a backend that isn't there stays the host's concern.
+- **Guessing.** A capability reports what the backend SAID (`Detail` verbatim) or nothing. Unreadable
+  output is "unknown", never an invented signed-in state or version.
+- **Forwarding a free-form value as a flag.** `Mode`/`Version` are free-form so other backends fit the
+  contract; an adapter that doesn't recognize one must REFUSE rather than synthesize `--<whatever>`, and a
+  flag-shaped `Email`/`Version` is refused without spawning.
+
+**Corollary for the CLI:** every maintenance question must be **flag-shaped or a documented subcommand** —
+the claude CLI treats an unrecognized token as a PROMPT and spends a turn answering it. `auth status` is
+sent with an explicit `--json` (its default) precisely so an older build rejects an unknown *flag* instead
+of billing a turn for the sentence "auth status".
+
+## D27 — a CLI-backed provider is `CliProviderEngine` + a DIALECT, never a second copy of the rules (2026-08-04)
+Driving a command-line agent involves a dozen invariants that have nothing to do with *which* CLI it is: no
+shell, `ArgumentList` only, a neutral working directory, prompt over stdin (or as a trailing argument),
+timeouts as a per-chunk **inactivity** clock with an absolute backstop, verdicts through
+`LlmVerdictClassifier`, empty output as `Failed`, exactly one terminal stream chunk, and probe → run →
+re-probe for self-maintenance. Every one of those has been gotten wrong at least once in this repo's
+history (`pitfalls.md` is largely a list of them), and the reason a fix didn't stick was that the logic
+existed per provider.
+
+**So: those invariants live once, in `CliProviderEngine` (Core, `Lyntai.Llm.Cli`), and a CLI backend
+contributes only its VOCABULARY** through an `ICliProviderDialect` — command name + env vars, completion
+argv, prompt delivery, line parsing, and the maintenance commands it has. A provider package is then a
+dialect plus a forwarding `ILlmProvider` that declares which optional capability interfaces the backend
+supports. This is the same split D23 chose for MCP tool-hosting (generic host in Core, per-CLI flags in an
+`IMcpCliDialect`), applied to the provider itself.
+
+Two properties of the split are deliberate, not incidental:
+- **`CliProviderDialectBase` claims NOTHING optional by default** — no updater, no pinned install, no auth,
+  and its only default maintenance command is the flag `--version`. A capability appears only when a dialect
+  names the command for it, so a backend is never credited with something nobody measured. (For a CLI that
+  answers unrecognized tokens as prompts, a guessed subcommand costs tokens on every call while the build
+  stays green — D26's corollary.)
+- **The engine is composed, not inherited.** `ClaudeCliProvider` keeps its name, its public surface and its
+  ~90 tests unchanged, and holds an engine; it does not derive from a base provider. A second CLI package
+  therefore adds nothing to Core and breaks nothing existing.
+
+Consequence for anyone adding a backend: **if it is a spawned CLI, write a dialect** (`.claude/skills/
+add-provider` → the CLI checklist). Reaching for a fresh `ILlmProvider` for a CLI is the thing this
+decision exists to prevent.
+
+**Validated by a second implementer, immediately.** `Lyntai.Providers.CodexCli` was built on the seam the
+same day, and the differences it surfaced are why one implementer is never enough: codex takes its prompt on
+stdin but needs `--skip-git-repo-check` (it refuses to run outside a git repo, and the engine's cwd is a
+neutral temp dir); its auth readout is **prose**, with no `--json` at all; its logout is a TOP-LEVEL command
+(`codex logout`, not `auth logout`); it cannot pin a version, so it doesn't implement
+`IProviderVersionInstaller`; and — the one that changed the interface — it reports a failed turn **in band and
+exits 0**, which the dialect vocabulary had no way to express. That became
+`CliOutputEventKind.Failure`, whose message is classified (a 401 → `AuthFailed` cools the host) instead of
+being flattened into "no output produced". A seam validated by one CLI is that CLI's shape wearing a generic
+name.
+
+## D28 — a CLI backend may be PORTABLE (app-bundled), not just a global install (2026-08-04)
+A host may ship, unpack or side-load its own copy of a CLI rather than depend on a machine-wide install
+(offline/air-gapped deployment, a pinned known-good build, a desktop app that shouldn't require the user to
+`npm i -g` anything). Lyntai supports that as a first-class wiring, not a workaround:
+
+- **The path is a parameter, not an environment variable.** `AddClaudeCliProvider(command, environment)` /
+  `AddClaudeCliAgentSession(command)` / `AddCodexCliProvider(command, environment, dialect)` take it, so a host
+  reads it from its own configuration. The env seams (`LYNTAI_PROVIDER_CMD`, `CLAUDE_CMD`, `CODEX_CMD`) remain
+  for tests/e2e and ad-hoc overrides — they were never a good place for an app's own deployment layout.
+- **Per-spawn environment comes with it.** A bundled CLI usually needs its own home/config dir (`CODEX_HOME`,
+  `CLAUDE_CONFIG_DIR`) so it neither reads nor mutates the machine-wide install's credentials and settings. The
+  engine applies it to the MAINTENANCE spawns too — otherwise a probe or auth check would report the global
+  install's state while completions used the portable one, which is worse than not supporting portability.
+- **Presence is verified, not assumed.** `IsAvailable` checks that an explicitly-supplied command actually
+  exists (`ProcessRunner.CommandExists`, which also accepts an extensionless launcher with a spawnable
+  sibling — the CLI2 shim shape). Previously any explicit command was trusted; for a portable install that
+  turns "this candidate isn't deployed" into a failed turn instead of a skipped candidate. A BYO
+  `IProcessRunner` is still trusted optimistically, because it resolves commands in its own environment.
+
+**Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
+the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.

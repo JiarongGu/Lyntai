@@ -1,13 +1,13 @@
 using System.Text.RegularExpressions;
-using Lyntai.Llm;
 
-namespace Lyntai.Providers.ClaudeCli;
+namespace Lyntai.Llm.Cli;
 
-/// <summary>Reads what a <c>claude --version</c> line can tell us. Tolerant by design: the line is the
-/// CLI's own free-form banner (<c>"2.1.220 (Claude Code)"</c> today), so anything unrecognized yields null
+/// <summary>Reads what a CLI's <c>--version</c> banner can tell us. Tolerant by design: the line is the
+/// backend's own free-form text (<c>"2.1.220 (Claude Code)"</c>), so anything unrecognized yields null
 /// rather than a throw or a guess — the raw line is still handed back to the caller as
-/// <see cref="ProviderProbeResult.Detail"/>.</summary>
-internal static partial class ClaudeVersionLine
+/// <see cref="ProviderProbeResult.Detail"/>. Shared by every CLI dialect that doesn't override
+/// <see cref="ICliProviderDialect.ParseVersionLine"/>.</summary>
+internal static partial class CliVersionLine
 {
     /// <summary>Extract the dotted version number and — only if the line explicitly labels one — a model id.</summary>
     public static (string? Version, string? Model) Parse(string line)
@@ -38,7 +38,7 @@ internal static partial class ClaudeVersionLine
     private static partial Regex VersionPattern();
 
     /// <summary>An explicitly LABELLED model id (<c>model: x</c> / <c>model=x</c>). Only a label counts —
-    /// no CLI build reports one today, and inferring a model from an unlabelled token would invent data.</summary>
+    /// inferring a model from an unlabelled token would invent data.</summary>
     [GeneratedRegex(@"model\s*[:=]\s*""?([A-Za-z0-9._\-]+)""?", RegexOptions.IgnoreCase)]
     private static partial Regex ModelPattern();
 }

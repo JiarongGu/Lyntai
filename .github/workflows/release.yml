@@ -166,6 +166,13 @@ jobs:
       - name: Commit version bump
         if: steps.version.outputs.changed == 'true'
         shell: pwsh
+        # LYNTAI_RELEASE marks this as THE authorized author of a version bump / CHANGELOG stamp. The
+        # pre-commit guard (devtools/scripts/check-version-bump.mjs) blocks those two edits by hand,
+        # because the workflow bumps FROM whatever VersionPrefix says — a manual bump silently skips a
+        # version. Hooks are a local `core.hooksPath` setting and so aren't installed on a fresh runner;
+        # this is set anyway, so the step stays correct if that ever changes.
+        env:
+          LYNTAI_RELEASE: '1'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

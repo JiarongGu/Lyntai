@@ -5,6 +5,8 @@
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
 //   node devtools/dev.mjs pack             - dotnet pack the packable libraries -> publish/packages/
 //   node devtools/dev.mjs doctor [--fix]   - check README ## Status version == VersionPrefix (--fix syncs it)
+//                                            AND VersionPrefix == the newest v* release tag (authorship)
+//   node devtools/dev.mjs check-version    - the pre-commit version-authorship guard, run by hand
 //   node devtools/dev.mjs changelog [--fix] [--version X.Y.Z] [--date YYYY-MM-DD]
 //                                          - check/stamp the CHANGELOG `## Unreleased` heading for a release
 //   node devtools/dev.mjs install-hooks    - git core.hooksPath -> devtools/hooks (pre-commit guard)
@@ -15,7 +17,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import config from './project.config.mjs';
+import config, { toSemver } from './project.config.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const [cmd, ...args] = process.argv.slice(2);
@@ -51,6 +53,46 @@ const packDoctor = ({ fix = false } = {}) => {
   }
   console.error(`pack-doctor: README "## Status" version (${found ?? 'none found'}) != VersionPrefix ` +
     `(${config.version}) — run \`node devtools/dev.mjs doctor --fix\` (or \`pack\`, which auto-syncs it).`);
+  return false;
+};
+
+// version-doctor: VersionPrefix must equal the LAST RELEASED tag. The release workflow bumps VersionPrefix
+// as PART of releasing, so between releases the two are equal by construction — any other value means the
+// version was authored by hand, and the next release will bump FROM that hand-written baseline and publish
+// the version after the intended one (a sibling repo lost 0.2.0 exactly this way: a manual 0.1.2 → 0.2.0
+// became a published 0.3.0). This is the STATE check, so it also catches a bad merge or rebase that moved
+// the version; check-version-bump.mjs catches the ACT at commit time.
+//
+// Deliberately NOT part of `verify` or `pack`: the release workflow writes the NEW version before running
+// both, so during a legitimate release VersionPrefix is *supposed* to be ahead of the newest tag. Silent
+// when there are no tags (a shallow CI checkout or a fresh clone has none) and when LYNTAI_RELEASE=1.
+const newestReleaseTag = () => {
+  const r = spawnSync('git', ['tag', '--list', 'v*', '--sort=-v:refname'],
+    { cwd: repo, encoding: 'utf8', shell: false });
+  return (r.stdout ?? '').split('\n').map((s) => s.trim()).filter(Boolean)[0] ?? null;
+};
+
+const versionDoctor = () => {
+  if (process.env.LYNTAI_RELEASE === '1') {
+    console.log('version-doctor: skipped (LYNTAI_RELEASE=1 — release pipeline or deliberate repair)');
+    return true;
+  }
+  const tag = newestReleaseTag();
+  if (!tag) {
+    console.log('version-doctor: no v* release tags to compare against — skipped ✓');
+    return true;
+  }
+  const tagged = toSemver(tag.replace(/^v/, ''));
+  if (tagged === config.version) {
+    console.log(`version-doctor: VersionPrefix matches the newest release tag (${tag}) ✓`);
+    return true;
+  }
+  console.error(`version-doctor: VersionPrefix (${config.version}) != newest release tag (${tag}) — the ` +
+    'version looks HAND-EDITED.\n  Between releases they are equal by construction (the release workflow ' +
+    'bumps VersionPrefix as part of releasing).\n  A moved baseline makes the next release publish the ' +
+    `version AFTER the intended one — restore <VersionPrefix> to ${tagged} in src/Directory.Build.props ` +
+    'and let the workflow bump it.\n  Mid-release, or repairing one on purpose? LYNTAI_RELEASE=1 ' +
+    'node devtools/dev.mjs doctor');
   return false;
 };
 
@@ -128,8 +170,18 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'check-sensitive.mjs'), ...args]);
     break;
 
-  case 'doctor':
-    process.exitCode = packDoctor({ fix: args.includes('--fix') }) ? 0 : 1;
+  case 'doctor': {
+    // both checks always run (no short-circuit) so drift is reported in one pass. `--fix` syncs the README
+    // headline; it deliberately does NOT "fix" the version — a hand-authored version is the problem, not
+    // the symptom, so it is restored by hand or by letting the release workflow bump it.
+    const readmeOk = packDoctor({ fix: args.includes('--fix') });
+    const versionOk = versionDoctor();
+    process.exitCode = readmeOk && versionOk ? 0 : 1;
+    break;
+  }
+
+  case 'check-version':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-version-bump.mjs'), ...args]);
     break;
 
   case 'changelog': {
@@ -321,6 +373,7 @@ switch (cmd) {
   }
 
   default:
-    console.log('usage: node devtools/dev.mjs <build|test|e2e|verify|playground|bench|pack|doctor|new-migration|install-hooks|check-sensitive>');
+    console.log('usage: node devtools/dev.mjs <build|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
+      'new-migration|install-hooks|check-sensitive|check-version>');
     process.exitCode = cmd ? 1 : 0;
 }

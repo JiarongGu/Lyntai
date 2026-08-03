@@ -1,5 +1,6 @@
 using Lyntai;
 using Lyntai.Llm;
+using Lyntai.Llm.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
@@ -123,7 +124,9 @@ public class ClaudeCliProbeTests
     [InlineData("", null)]
     public void Version_line_parser_takes_the_dotted_number(string line, string? expected)
     {
-        Assert.Equal(expected, ClaudeVersionLine.Parse(line).Version);
+        // the parse is a dotted number + an optionally LABELLED model, which is not claude-specific — it is
+        // the shared CliProviderDialectBase.ParseVersionLine every dialect inherits
+        Assert.Equal(expected, CliVersionLine.Parse(line).Version);
     }
 
     // ── CLI3: the self-update seam ───────────────────────────────────────────
@@ -201,6 +204,113 @@ public class ClaudeCliProbeTests
         Assert.Null(result.FromVersion);
     }
 
+    // ── CLI4: the PINNED install (a named version of the backend) ────────────
+
+    [Fact]
+    public void The_pinned_install_capability_is_discoverable_through_the_core_seam()
+    {
+        ILlmProvider provider = Provider(new FakeProcessRunner());
+
+        Assert.IsAssignableFrom<IProviderVersionInstaller>(provider);
+    }
+
+    [Fact]
+    public async Task Install_asks_the_backend_for_a_NAMED_version()
+    {
+        // the difference between pinning a known-good version and taking whatever `update` hands you.
+        // Still the backend's OWN tooling — Lyntai drives it; it never fetches a binary itself.
+        var runner = new FakeProcessRunner
+        {
+            RunHandler = (_, args) => args[^1] == "--version" ? Ok("2.1.220 (Claude Code)") : Ok("installed"),
+        };
+
+        await Provider(runner).InstallAsync(new ProviderInstallRequest("2.1.220"));
+
+        Assert.Equal(["install", "2.1.220"], runner.Calls[1].Args);
+    }
+
+    [Fact]
+    public async Task Install_without_a_target_leaves_the_choice_to_the_backend()
+    {
+        var runner = new FakeProcessRunner
+        {
+            RunHandler = (_, args) => args[^1] == "--version" ? Ok("2.1.220 (Claude Code)") : Ok("installed"),
+        };
+
+        await Provider(runner).InstallAsync();
+
+        Assert.Equal(["install"], runner.Calls[1].Args);
+    }
+
+    [Fact]
+    public async Task Install_can_force_a_reinstall_of_a_version_already_present()
+    {
+        var runner = new FakeProcessRunner
+        {
+            RunHandler = (_, args) => args[^1] == "--version" ? Ok("2.1.220 (Claude Code)") : Ok("installed"),
+        };
+
+        await Provider(runner).InstallAsync(new ProviderInstallRequest("stable", Force: true));
+
+        Assert.Equal(["install", "stable", "--force"], runner.Calls[1].Args);
+    }
+
+    [Fact]
+    public async Task Install_reports_the_versions_it_moved_between()
+    {
+        // one result type for both self-maintenance paths: probe → run → re-probe, exactly as UpdateAsync
+        var versions = new Queue<string>(["2.2.0 (Claude Code)", "2.1.220 (Claude Code)"]);
+        var runner = new FakeProcessRunner
+        {
+            RunHandler = (_, args) => args[^1] == "--version"
+                ? Ok(versions.Dequeue())
+                : Ok("Installed Claude Code 2.1.220"),
+        };
+
+        var result = await Provider(runner).InstallAsync(new ProviderInstallRequest("2.1.220"));
+
+        Assert.True(result.Succeeded);
+        Assert.True(result.Updated);                  // the installed version CHANGED (a downgrade counts)
+        Assert.Equal("2.2.0", result.FromVersion);
+        Assert.Equal("2.1.220", result.ToVersion);
+        Assert.Contains("Installed", result.Detail);
+        Assert.Equal(3, runner.Calls.Count);
+    }
+
+    [Fact]
+    public async Task Install_fails_safe_when_the_installer_errors()
+    {
+        var runner = new FakeProcessRunner
+        {
+            RunHandler = (_, args) => args[^1] == "--version"
+                ? Ok("2.2.0 (Claude Code)")
+                : new ProcessResult(1, "", "no such version"),
+        };
+
+        var result = await Provider(runner).InstallAsync(new ProviderInstallRequest("9.9.9"));
+
+        Assert.False(result.Succeeded);
+        Assert.False(result.Updated);
+        Assert.Equal("2.2.0", result.FromVersion);
+        Assert.Equal("2.2.0", result.ToVersion);      // nothing was installed
+        Assert.Contains("no such version", result.Detail);
+        Assert.Equal(2, runner.Calls.Count);          // no re-probe after a failed install
+    }
+
+    [Fact]
+    public async Task Install_refuses_a_flag_shaped_target_without_spawning()
+    {
+        // Version is free-form so any backend's channel names fit — but a value the backend would read as
+        // a FLAG is not a version, and must never reach its argv
+        var runner = new FakeProcessRunner();
+
+        var result = await Provider(runner).InstallAsync(new ProviderInstallRequest("--force"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("--force", result.Detail);
+        Assert.Empty(runner.Calls);
+    }
+
     // ── the real ProcessRunner, against the deterministic stub ───────────────
 
     [Fact]
@@ -226,6 +336,18 @@ public class ClaudeCliProbeTests
         Assert.True(result.Succeeded);
         Assert.False(result.Updated);
         Assert.Equal(result.FromVersion, result.ToVersion);
+    }
+
+    [Fact]
+    public async Task Install_against_the_provider_stub_drives_a_pinned_target_over_a_real_spawn()
+    {
+        var provider = new ClaudeCliProvider(new ProcessRunner(), new LyntaiOptions(),
+            command: ClaudeCliProviderTests.StubCommand);
+
+        var result = await provider.InstallAsync(new ProviderInstallRequest("stable"));
+
+        Assert.True(result.Succeeded, $"install failed: {result.Detail}");
+        Assert.Equal(result.FromVersion, result.ToVersion);   // the stub installs nothing
     }
 
     [Fact]
