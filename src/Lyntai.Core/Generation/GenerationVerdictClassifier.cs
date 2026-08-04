@@ -50,9 +50,13 @@ public static class GenerationVerdictClassifier
     public static GenerationVerdict FromException(Exception ex) =>
         Translate(LlmVerdictClassifier.FromException(ex));
 
-    /// <summary>Map the shared taxonomy onto media's. Verdicts with no media meaning
-    /// (<see cref="LlmVerdict.ContextWindowExceeded"/>) collapse to <see cref="GenerationVerdict.Failed"/> rather
-    /// than being surfaced as something a media caller cannot act on.</summary>
+    /// <summary>Map the shared taxonomy onto media's. Verdicts media shares (including
+    /// <see cref="LlmVerdict.NotConfigured"/>, which means the same thing in both domains) keep their meaning;
+    /// verdicts with no media meaning collapse to <see cref="GenerationVerdict.Failed"/> rather than being
+    /// surfaced as something a media caller cannot act on. <see cref="LlmVerdict.ContextWindowExceeded"/> is
+    /// the intended case; <see cref="LlmVerdict.Unsupported"/> currently collapses too although
+    /// <see cref="GenerationVerdict.Unsupported"/> exists and means the same thing — a known gap, tracked in
+    /// <c>TASKS.md</c>, left alone because changing it changes released behaviour.</summary>
     private static GenerationVerdict Translate(LlmVerdict verdict) => verdict switch
     {
         LlmVerdict.Ok => GenerationVerdict.Ok,

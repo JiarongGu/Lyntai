@@ -448,6 +448,63 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D38 — "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real failure (2026-08-05)
+`LlmVerdict.NotConfigured` — the first member added to that enum since the 1.0 freeze, and the first
+consumer-visible cost accepted on the frozen surface. Recorded here because the alternatives were real and
+someone will reach for them again.
+
+**The defect.** A 401/403 answered to a call that carried no credentials was classified `AuthFailed`, which
+maps to `CooldownAndAdvance` — so a backend a consumer merely *listed* without configuring was benched for
+the whole cooldown window, on every first attempt, for a fact known before the call. The generation domain
+had already drawn the distinction (`GenerationVerdict.NotConfigured`, 2.0.1). Two domains disagreeing about
+the same situation is the thing worth fixing; the benching is just how it showed up.
+
+**Why a new enum member and not an existing one.** There was no `NotConfigured`-equivalent, and no member was
+both semantically honest and routing-correct: `Unsupported` maps to `Surface`, which would STOP the run at
+the unconfigured candidate — strictly worse than benching it — and `ContextWindowExceeded` has the right
+action (`Advance`) but says something entirely different, which would corrupt telemetry and every consumer
+`switch`. A verdict that lies is worse than a verdict that is missing.
+
+**The accepted cost.** Adding an enum member is **binary-compatible** — it is APPENDED last, so no existing
+member's numeric value moves and a compiled consumer keeps working. The cost is source-level: a consumer's
+**non-exhaustive `switch` expression** over `LlmVerdict` now raises **CS8509**, a warning in their build.
+Accepted as the right price in an additive minor: the alternative was leaving the two domains permanently
+disagreeing, and this library's own generation domain already paid the same price. Called out in
+`CHANGELOG.md` so nobody is surprised.
+
+**The enum and the policy must move together.** `RoutingPolicy.ActionFor` falls back to
+`PenalizeAndAdvance` for an unmapped verdict. Adding the member *without* mapping it to
+`FallbackAction.Advance` would have left `NotConfigured` counting toward the dead-host threshold — a
+different wrong outcome, not a fix. A future verdict addition has the same obligation.
+
+**A blameless verdict must never MASK a real one.** Introducing a verdict that advances without blame
+created a second-order bug the routers had not needed to guard: `LlmRouter` remembered the *last* failure
+unconditionally, so `[downHost → Failed, neverConfigured → NotConfigured]` told the caller "not configured"
+and sent them to set up a key while the backend they HAD configured was down. Blameless verdicts
+(`NotConfigured`, `Unsupported`) are now remembered SEPARATELY on both the streaming and non-streaming paths
+and reported only when there was no real failure at all — matching the guard `GenerationRouter` already had.
+Two things deliberately unchanged: *which* substantive failure wins (this router keeps the LAST, generation
+the FIRST — released behaviour for every other verdict), and the eligibility test is keyed on the VERDICT
+rather than on `FallbackAction.Advance`, which would also swallow `ContextWindowExceeded` — "your prompt is
+too big" is a real, actionable answer.
+
+**The promotion rule is stated TWICE, deliberately, not shared.** D30 keeps the pattern *corpus* ("what does
+a 429 look like") single-sourced in `LlmVerdictClassifier`, and that is untouched. But
+`authFailure && !hasCredentials` is two terms, and a shared helper for it would be indirection without drift
+protection — what can actually drift is the *reasoning*, which a boolean helper does not hold. The domains
+also reach different populations: every LLM backend that authenticates by login SESSION rather than a
+supplied key (the CLI dialects, the primary seam here) classifies from error text and has no
+`hasCredentials` fact at all. Each site states the rule with its reasoning and cross-references the other.
+
+**Not "a key is required."** An OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama)
+legitimately needs none, so a missing key alone means nothing — only a missing key AND a server that
+*demanded* one is a configuration gap. A pre-flight "require a key" guard would break every local backend.
+
+**Embedders are out of scope, by shape.** `HttpEmbedder` reports no verdict — it THROWS, and there is no
+embedder router — so there is no "advance without blame" for it to reach. Giving embedders a verdict/fallback
+seam is a much larger design change than this warranted. Its 401 message now says `(not configured: no
+ApiKey)` so a host can still tell setup from a rejected key. Message only.
+
 ## D37 — provider LIFETIME is a registered strategy, and everything about it is keyed on the CONFIGURATION rather than the provider id (2026-08-05)
 Filed as GEN12, designed in `docs/superpowers/specs/2026-08-05-provider-pool-design.md`, shipped as
 `Lyntai.Lifecycle`. It applies **only** where backend configuration is owned OUTSIDE the deployment — by an

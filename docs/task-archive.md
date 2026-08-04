@@ -2440,7 +2440,7 @@ verdict half closed 2026-08-05, emptying the part._
   passes whether it carried a key, so a 401 to an unconfigured backend advances with no cooldown and no
   dead-host penalty while a REJECTED key still cools the host.
 
-  Three findings worth keeping:
+  Four findings worth keeping (the fourth came out of review, in a follow-up commit):
 
   - **The enum member was the whole question.** There was no `NotConfigured`-equivalent on the LLM side and no
     member that both meant the right thing and produced the right action — `Unsupported` maps to `Surface`
@@ -2459,13 +2459,25 @@ verdict half closed 2026-08-05, emptying the part._
     without drift protection, so each site states it and cross-references the other. `GenerationVerdictClassifier`
     also stopped flattening a `NotConfigured` from the shared corpus to `Failed` (reachable via a
     consumer-registered `AddErrorTextMatcher`).
+  - **A blameless verdict could MASK a real one** (caught in review). `LlmRouter` remembered the last failure
+    unconditionally, so `[downHost → Failed, neverConfigured → NotConfigured]` reported "not configured" and
+    sent the caller to set up a key while the backend they HAD configured was down. `GenerationRouter` already
+    guarded exactly this; introducing a blameless verdict is what made the LLM side need it. Blameless
+    verdicts are now remembered separately on both routing paths and reported only when there was no real
+    failure. Deliberately unchanged: WHICH substantive failure wins (this router keeps the last, generation
+    the first), and the test is keyed on the verdict rather than on `FallbackAction.Advance` — that would
+    also swallow `ContextWindowExceeded`, which is a real, actionable answer. **Generalisation: adding a
+    verdict that advances without blame obliges you to check every "remember the failure" accumulator, not
+    just the policy table.**
 
   **`HttpEmbedder` was deliberately left alone**, contrary to the task's premise: it reports no verdict at all,
   it THROWS (its type doc states that contract), and there is no embedder router — so there is no "advance
   without blame" for it to reach and nothing to route around. The only thing a host can act on is the wording,
   so its 401 now says `(not configured: no ApiKey)` when no key was supplied. Message only.
 
-  `verify` green at 7 gates, 1480 tests, e2e 3/3, 0 warnings. Public surface: additive only.
+  `verify` green at 7 gates, 1486 tests, e2e 3/3, 0 warnings. Public surface: additive only. Reasoning
+  recorded as `docs/DECISIONS.md` **D38**; the `Unsupported` translation gap found alongside is filed as
+  Part 38 in `TASKS.md`, deliberately not fixed here.
 
 ---
 

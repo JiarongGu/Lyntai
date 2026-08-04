@@ -120,6 +120,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
     `switch` expression** over `LlmVerdict` will now raise **CS8509** in your build — a warning, not an
     error. Code that treated the old `AuthFailed` as "check your API key" should handle `NotConfigured` as
     "no API key is set" rather than falling into its default branch.
+  - **A blameless verdict no longer masks a real failure in the reported reply.** Introducing a verdict that
+    advances without blame exposed a second-order bug: `LlmRouter` remembered the last failure
+    unconditionally, so for candidates `[a host that is down → Failed, one you never configured →
+    NotConfigured]` you were told **"not configured"** and sent to set up a key while the backend you *had*
+    configured was the actual problem. `NotConfigured` and `Unsupported` are now remembered separately on
+    both the streaming and non-streaming paths and reported only when there was no real failure at all —
+    the guard `GenerationRouter` already had. **Unchanged:** which substantive failure wins (still the last
+    one attempted), and `ContextWindowExceeded` still surfaces normally — "your prompt is too big" is a real
+    answer. When every candidate is unconfigured you still get `NotConfigured`, not a generic error.
   - **`HttpEmbedder` deliberately unchanged in behaviour:** an embedding call has no verdict and no
     fallback — it throws — so there is nothing for it to route around. Its 401 message now says
     `(not configured: no ApiKey)` when no key was supplied, so a host can tell setup from a rejected key.

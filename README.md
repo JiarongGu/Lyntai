@@ -174,6 +174,8 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   and no dead-host penalty (`AuthFailed` — a key that WAS supplied and got rejected — still cools the host).
   It isn't "a key is required": a locally-run OpenAI-compatible server legitimately needs none, so only the
   server actually demanding one makes a missing key a configuration gap. Same rule as the generation router.
+  A blameless verdict never *masks* a real one either — if one candidate is down and the next is merely
+  unconfigured, you're told about the outage, not sent to check a key.
 - **Streaming never falls back after the first token** — pre-content failures move to the next
   candidate, mid-stream errors pass through unchanged (your consumer never sees duplicated output).
 - **Per-request refusal check** — set `LlmRequest.RefusalPattern` (a regex) and an otherwise-`Ok` reply

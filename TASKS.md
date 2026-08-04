@@ -20,7 +20,8 @@ restructure, the 2.0.1 release hardening, the generation-ergonomics follow-ups a
 has shipped and is archived — see `docs/task-archive.md` Parts 29–37 and `docs/DECISIONS.md` D25–D37. Part 34's
 verdict-parity finding closed 2026-08-05 (`LlmVerdict.NotConfigured`), emptying that part. What remains open is
 below: the generation follow-ups in Part 33 (**all** now needing a real service, a vendor pick or a design call — none is
-codeable from here), the post-1.0 additive backlog in Part 25, and one conditional item:_
+codeable from here), the verdict-translation gap in Part 38 (found while closing Part 34), the post-1.0
+additive backlog in Part 25, and one conditional item:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
@@ -113,7 +114,24 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
 
 ---
 
-## Part 25 — post-1.0 backlog (deferred at the 1.0 API-review triage, 2026-07-28)
+## Part 38 — verdict-translation gaps found while closing Part 34 (2026-08-05)
+
+_Found while adding `LlmVerdict.NotConfigured` (`docs/DECISIONS.md` D38). Not fixed there: each changes
+RELEASED generation behaviour and deserves its own considered commit, exactly as the Part 34 verdict change
+did — not a rider on an unrelated one._
+
+- [ ] **`GenerationVerdictClassifier.Translate` flattens `Unsupported` to `Failed`** —
+  `src/Lyntai.Core/Generation/GenerationVerdictClassifier.cs:52`. `LlmVerdict.Unsupported` falls through the
+  `_ =>` arm to `GenerationVerdict.Failed`, even though `GenerationVerdict.Unsupported` exists and means the
+  same thing ("this backend cannot do THIS request — a capability gap, not a fault"). The method's own doc
+  contradicted the code until 2026-08-05, naming `ContextWindowExceeded` as the only intended collapse; the
+  doc now records the gap instead of hiding it. **What a consumer observes:** a capability gap arriving
+  through the shared corpus — a consumer-registered `AddErrorTextMatcher` returning `Unsupported`, or an
+  exception classified into it — is reported as a generic `Failed`, so `GenerationRoutingPolicy` gives it
+  `PenalizeAndAdvance` (counts toward the dead-host threshold) instead of `Advance`, and repeated capability
+  gaps bench a healthy backend. Same shape as the Part 34 masking bug, one translation layer along. Fix is
+  one arm, but it changes a released verdict mapping: needs its own commit, a `CHANGELOG.md` entry, and a
+  test that a translated `Unsupported` is not penalised.
 
 _Additive / non-breaking items surfaced by the 1.0 adversarial API review + consumer-usage review (the
 working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISIONS.md` D21). None block
