@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Lyntai.Generation.Http;
 
@@ -133,14 +134,15 @@ public sealed class OpenAiImageProvider(OpenAiImageOptions options, Func<HttpCli
 
     private HttpRequestMessage Generation(GenerationRequest request)
     {
-        var payload = JsonSerializer.Serialize(new
+        // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
+        var payload = new JsonObject
         {
-            model = Model(request),
-            prompt = request.Prompt ?? "",
-            n = 1,
-            size = Size(request),
-            response_format = "b64_json",
-        });
+            ["model"] = Model(request),
+            ["prompt"] = request.Prompt ?? "",
+            ["n"] = 1,
+            ["size"] = Size(request),
+            ["response_format"] = "b64_json",
+        }.ToJsonString();
         var message = new HttpRequestMessage(HttpMethod.Post, $"{Root}/images/generations")
         {
             Content = new StringContent(payload, Encoding.UTF8, "application/json"),

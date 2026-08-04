@@ -1,5 +1,6 @@
 // Lyntai devtools dispatcher (family pattern: one entry, project-specific inputs in project.config.mjs).
 //   node devtools/dev.mjs build            - dotnet build the solution
+//   node devtools/dev.mjs check-warnings   - FAIL if any src/ project compiles with a warning (--list for all)
 //   node devtools/dev.mjs test [args]      - dotnet test the test project (extra args pass through)
 //   node devtools/dev.mjs e2e [all|pN|pN-pM|p1,p3] [--build] [--parallel[=N]] - Playground e2e suites
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
@@ -145,6 +146,37 @@ switch (cmd) {
   case 'build':
     run('dotnet', ['build', config.solution, '-v', 'minimal']);
     break;
+
+  // A LIBRARY-specific gate: the published projects must compile warning-free. Not style policing —
+  // it's how a shipped claim stops rotting silently. `IsAotCompatible=true` stamps IsTrimmable into the
+  // assembly, telling a consumer's trimmer "safe to trim"; the only thing that catches code which breaks
+  // that promise is an IL2026/IL3050 warning, and a warning nobody fails on is a warning nobody reads
+  // (four of them shipped into Lyntai.Providers.Default this way). Doc-comment warnings matter for the same
+  // reason: unresolved crefs ship inside the XML docs consumers read in IntelliSense.
+  // Scoped to src/ — tests and samples are free to warn. Pass --list to see them all.
+  case 'check-warnings': {
+    const label = 'check-warnings';
+    // -warnaserror is deliberately NOT used: it stops the build at the first project, hiding the rest.
+    const r = spawnSync('dotnet', ['build', config.solution, '-v', 'normal', '--no-incremental'],
+      { cwd: repo, encoding: 'utf8' });
+    const lines = [...new Set((r.stdout || '').split(/\r?\n/).filter((l) =>
+      /warning [A-Z]{2,4}\d+/.test(l) && /[\\/]src[\\/]/.test(l)))];
+    if (r.status !== 0) {
+      console.error(`${label}: build FAILED — fix the build first`);
+      process.exitCode = r.status ?? 1;
+      break;
+    }
+    if (!lines.length) {
+      console.log(`${label}: src/ compiles warning-free ✓`);
+      break;
+    }
+    const show = args.includes('--list') ? lines : lines.slice(0, 15);
+    console.error(`${label}: ✗ ${lines.length} warning(s) in src/ — a published project must compile clean`);
+    for (const l of show) console.error(`  ${l.replace(repo, '.').trim()}`);
+    if (show.length < lines.length) console.error(`  … ${lines.length - show.length} more (--list to see all)`);
+    process.exitCode = 1;
+    break;
+  }
 
   case 'test':
     run('dotnet', ['test', config.testProject, '-v', 'minimal', ...args]);
@@ -309,7 +341,8 @@ switch (cmd) {
 
   case 'verify': {
     // the single "am I done?" gate: build → test → e2e → leak scan, stopping at the first failure.
-    const steps = [['build', []], ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
+    const steps = [['build', []], ['check-warnings', []], ['test', []], ['e2e', []],
+      ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {
       console.log(`\n=== verify: ${step} ===`);
@@ -317,7 +350,7 @@ switch (cmd) {
       if (r.status !== 0) { failed = step; process.exitCode = r.status ?? 1; break; }
     }
     if (failed) console.error(`\nverify: ✗ FAILED at ${failed}`);
-    else console.log('\nverify: ✓ all gates green (build · test · e2e · check-sensitive)');
+    else console.log('\nverify: ✓ all gates green (build · warnings · test · e2e · check-sensitive)');
     break;
   }
 
@@ -373,7 +406,7 @@ switch (cmd) {
   }
 
   default:
-    console.log('usage: node devtools/dev.mjs <build|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
+    console.log('usage: node devtools/dev.mjs <build|check-warnings|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
       'new-migration|install-hooks|check-sensitive|check-version>');
     process.exitCode = cmd ? 1 : 0;
 }

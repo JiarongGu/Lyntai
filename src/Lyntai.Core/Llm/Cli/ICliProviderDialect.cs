@@ -49,7 +49,7 @@ public interface ICliProviderDialect
 
     /// <summary>The static argv for one completion — print/non-interactive mode, output format, model
     /// selection. The PROMPT is not included here: it is delivered per
-    /// <see cref="PromptDelivery"/>.</summary>
+    /// <see cref="CliPromptDelivery"/>.</summary>
     IReadOnlyList<string> BuildCompletionArgs(LlmRequest request);
 
     /// <summary>Flatten the request's messages into the single prompt this CLI takes.</summary>

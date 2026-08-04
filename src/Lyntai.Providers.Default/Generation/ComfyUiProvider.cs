@@ -136,7 +136,8 @@ public sealed class ComfyUiProvider(ComfyUiOptions options, Func<HttpClient> htt
             request.Option(options.PromptPathOption) is { Length: > 0 } path)
             Substitute(graph, path, prompt);
 
-        var payload = JsonSerializer.Serialize(new { prompt = graph });
+        // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
+        var payload = new JsonObject { ["prompt"] = graph }.ToJsonString();
 
         using var http = httpFactory();
         try

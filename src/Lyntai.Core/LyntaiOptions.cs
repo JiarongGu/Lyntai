@@ -26,7 +26,7 @@ namespace Lyntai;
 public sealed class LyntaiOptions
 {
     /// <summary>Per-call provider timeout (CLI spawn / HTTP call) — the default when a request/consumer
-    /// doesn't override it. See <see cref="ResolveTimeout"/> / <see cref="LlmRequest.TimeoutSeconds"/> /
+    /// doesn't override it. See <see cref="ResolveTimeout(LlmRequest)"/> / <see cref="LlmRequest.TimeoutSeconds"/> /
     /// <see cref="TimeoutByConsumer"/>.</summary>
     public TimeSpan ProviderTimeout { get; set; } = TimeSpan.FromMinutes(2);
 

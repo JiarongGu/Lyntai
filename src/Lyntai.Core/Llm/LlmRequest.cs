@@ -24,7 +24,7 @@ public sealed record LlmRequest
     /// legitimately runs far longer than the global <see cref="LyntaiOptions.ProviderTimeout"/> (e.g. a
     /// CLI-agent run driving many steps) without inflating the timeout of every short call. Null = the
     /// resolved default (per-consumer, then global). Clamped to <see cref="LyntaiOptions.MaxProviderTimeout"/>.
-    /// See <see cref="LyntaiOptions.ResolveTimeout"/>.</summary>
+    /// See <see cref="LyntaiOptions.ResolveTimeout(LlmRequest)"/>.</summary>
     public int? TimeoutSeconds { get; init; }
 
     /// <summary>An optional per-request refusal regex (case-insensitive). If an otherwise-<c>Ok</c> reply's

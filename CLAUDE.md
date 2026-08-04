@@ -122,6 +122,10 @@ capability-aware seam; in Core because it has no dependency to isolate, `DECISIO
 - **`node devtools/dev.mjs verify`** — the "am I done?" gate: build → test → e2e → leak scan. Run before
   claiming a change is complete.
 - `node devtools/dev.mjs build` — build the solution.
+- `node devtools/dev.mjs check-warnings [--list]` — **fail if any `src/` project compiles with a warning** (part
+  of `verify`). Not style policing: `IsAotCompatible=true` stamps `IsTrimmable` into the assembly, so an
+  unfailed IL2026/IL3050 is a FALSE trim promise shipping to consumers (four did), and an unresolved doc cref
+  ships inside the XML docs consumers read.
 - `node devtools/dev.mjs test [args]` — run the xUnit tests.
 - `node devtools/dev.mjs e2e [pN|all] [--build] [--parallel]` — boot `Lyntai.Playground` against the
   deterministic provider-stub (`LYNTAI_PROVIDER_CMD`) over isolated `devtools/_e2e-*` data folders.

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Lyntai.Generation.Http;
 
@@ -97,25 +98,22 @@ public sealed class Automatic1111Provider(Automatic1111Options options, Func<Htt
                 "img2img needs the source BYTES; supply GenerationInput.Data rather than a URI");
 
         var (width, height) = Size(request);
-        var payload = source is null
-            ? JsonSerializer.Serialize(new
-            {
-                prompt = request.Prompt ?? "",
-                steps = options.Steps,
-                width,
-                height,
-                cfg_scale = options.CfgScale,
-            })
-            : JsonSerializer.Serialize(new
-            {
-                init_images = new[] { Convert.ToBase64String(source.Data!) },
-                prompt = request.Prompt ?? "",
-                denoising_strength = options.DenoisingStrength,
-                steps = options.Steps,
-                width,
-                height,
-                cfg_scale = options.CfgScale,
-            });
+        // JsonObject, not an anonymous type: reflection serialization would break this package's
+        // trim/AOT claim (IL2026/IL3050) — same reason as Payloads/OpenAiPayload
+        var payloadBody = new JsonObject
+        {
+            ["prompt"] = request.Prompt ?? "",
+            ["steps"] = options.Steps,
+            ["width"] = width,
+            ["height"] = height,
+            ["cfg_scale"] = options.CfgScale,
+        };
+        if (source is not null)
+        {
+            payloadBody["init_images"] = new JsonArray(Convert.ToBase64String(source.Data!));
+            payloadBody["denoising_strength"] = options.DenoisingStrength;
+        }
+        var payload = payloadBody.ToJsonString();
         var endpoint = source is null ? "txt2img" : "img2img";
 
         using var http = httpFactory();

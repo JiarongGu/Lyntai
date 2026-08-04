@@ -44,6 +44,17 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+- **Honest trim/AOT metadata in `Lyntai.Providers.Default`** — three generation backends (`OpenAiImageProvider`,
+  `Automatic1111Provider`, `ComfyUiProvider`) built their request bodies by reflection-serializing anonymous
+  types, in a package that stamps `IsTrimmable` into its assembly to tell a consumer's trimmer it is safe to
+  trim. The claim was false: those calls break under trimming/AOT. They now build `JsonObject`s and serialize
+  reflection-free, matching the chat payloads in the same package (`Payloads/OpenAiPayload`). **`verify` now
+  fails on ANY warning in a published project** (`node devtools/dev.mjs check-warnings`), because a warning
+  nobody fails on is how a shipped claim rots silently — this is what caught it.
+- **`GuardedStream.ReadAll` honours `WithCancellation`** — the public async iterator's `CancellationToken`
+  parameter lacked `[EnumeratorCancellation]`, so a consumer's `.WithCancellation(ct)` was silently dropped and
+  a cancelled caller could receive a fabricated terminal instead of an `OperationCanceledException`. Affects an
+  external provider author using the shared read-loop; Lyntai's own providers pass the token explicitly.
 - **Governance + telemetry parity for generation (`AddGenerationUsageBudget()`, `AddGenerationRateLimit()`,
   cooldown by default)** — the generation domain now has the LLM front door's governance, REUSING that machinery
   rather than duplicating it: `DeadHostTracker` benches a backend that rate-limits or rejects a key (and counts

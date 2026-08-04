@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Lyntai.Llm.Streaming;
 
 /// <summary>The inactivity clock a streaming provider arms around each read (design §6): <see cref="Arm"/>
@@ -22,7 +24,7 @@ public sealed class InactivityClock(CancellationTokenSource cts, TimeSpan timeou
 /// shipped twice. <see cref="ReadAll"/> yields each item as <c>(Item, null)</c>, a clean end-of-stream by
 /// completing, and a mapped fault as a final <c>(null, Terminal)</c> — the caller yields its terminal and
 /// stops. Ownership stays with the caller: it disposes its own source enumerator/reader, keeps its own
-/// clock topology (pass <paramref name="clock"/> only when the provider owns the timeout; CLI providers
+/// clock topology (pass <c>clock</c> only when the provider owns the timeout; CLI providers
 /// delegate theirs to <c>ProcessRunner</c> and pass none), and decides per-exception whether to map or
 /// propagate.
 /// </summary>
@@ -37,7 +39,11 @@ public static class GuardedStream
     public static async IAsyncEnumerable<(TItem? Item, TTerminal? Terminal)> ReadAll<TItem, TTerminal>(
         Func<ValueTask<TItem?>> readNext,
         Func<Exception, TTerminal?> onFault,
-        CancellationToken callerCt,
+        // [EnumeratorCancellation] so a consumer's .WithCancellation(ct) is HONOURED rather than silently
+        // dropped: this parameter decides whether an OperationCanceledException is the caller's (rethrow) or
+        // the provider's (map to a terminal), and getting that wrong hands a cancelled caller a fabricated
+        // terminal. The token arrives combined with the explicit argument, so either source cancelling counts.
+        [EnumeratorCancellation] CancellationToken callerCt,
         InactivityClock? clock = null)
         where TItem : class
         where TTerminal : class
