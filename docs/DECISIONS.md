@@ -614,7 +614,7 @@ Applying the rule consistently resolved two questions in OPPOSITE directions, an
   i.e. a version-conflict surface. Core must not pin someone else's abstraction, least of all the one D1
   deliberately treats as secondary to our own seam. Note also that the part that matters most is *already* in
   Core: `ITool`, `IToolLoop`, `IToolRegistry` and `AddTool` are Core types — only the MCP **wire adapter** sits
-  outside. **It IS in the `Lyntai` metapackage**, so a typical consumer gets MCP on the first install anyway.
+  outside. **It IS in the `Lyntai` bundle**, so a typical consumer gets MCP on the first install anyway.
 - **ASP.NET Core was removed from MCP hosting rather than tolerated** (2026-08-04). The framework reference on
   `Microsoft.AspNetCore.App` turned out to be avoidable: the MCP protocol lives in `ModelContextProtocol.Core`
   (`StreamableHttpServerTransport` works on plain `Stream`s) and the ASP.NET package supplied only Kestrel
@@ -630,8 +630,13 @@ Applying the rule consistently resolved two questions in OPPOSITE directions, an
 package.** Hence `Lyntai` (`src/Lyntai.Bundle`, ships no assembly) — one install for the dependency-free set,
 with everything costly left an explicit opt-in.
 
-The resulting graph is 10 packages + the metapackage, and every boundary now answers "which dependency does
-this isolate?" with something concrete. `Lyntai.Storage.InMemory` is the one dependency-free package that stays
+**Amended by D34 (2026-08-04):** dependency isolation is no longer the ONLY justification for a boundary — a
+split for release cadence/maturity is also allowed, and `Lyntai.Generation` was created under it. The graph as
+released at 2.0.1 is **twelve packages**: ten libraries, the `Lyntai` starting bundle, and `Lyntai.Generation`.
+Every boundary still answers a question with something concrete — D31's dependency, or D34's cadence.
+
+The graph immediately after this restructure was 10 packages + the bundle, and every boundary answered "which
+dependency does this isolate?" with something concrete. `Lyntai.Storage.InMemory` is the one dependency-free package that stays
 separate, for a different and equally explicit reason: it is an *implementation*, and Core holds contracts.
 
 ## D30 — generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)

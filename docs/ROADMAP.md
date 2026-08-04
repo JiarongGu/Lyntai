@@ -2,7 +2,9 @@
 
 > The design contract is `2026-07-17-lyntai-design.md`; §9 lists what was deliberately deferred.
 > This file sequences how the deferred and newly-identified work lands. Dates are intentions,
-> not promises; pre-1.0 minor versions may carry breaking changes (called out in `CHANGELOG.md`).
+> not promises. **From 1.0 the public API is frozen under SemVer 2.0** — no break without a major bump,
+> gated by `ApiSurfaceTests` — with one carve-out: `Lyntai.Generation.*` ships EXPERIMENTAL until
+> GEN-VERIFY closes. Released detail lives in `CHANGELOG.md`; the reasoning in `DECISIONS.md`.
 
 ## Shipped
 
@@ -273,6 +275,41 @@ SemVer 2.0 — `ApiSurfaceTests` gates a major bump (D22) — the 0.x SQLite/Pos
 squashed into 9 per-domain baselines each with the net schema unchanged (D12 one-time exception), and the
 release itself is the manual tag + `release.yml` (D20). The `TASKS.md` backlog is now post-1.0 additive work.
 
+### v1.1–v1.2.2 — CLI tool-hosting + turn-free backend maintenance (2026-07-29 → 08-03)
+Post-freeze additive work, all behind existing seams: **1.1** generalized CLI tool-hosting into the
+provider-neutral `Lyntai.Tools.Mcp.Hosting` + an `IMcpCliDialect` in Core (the per-consumer
+`Lyntai.Providers.ClaudeCli.Mcp` package was deleted, D23). **1.2.0** added a turn-free backend probe and a
+self-update seam; **1.2.1** a Windows npm-shim spawn fix found while consuming 1.2.0; **1.2.2** turn-free auth
+(`IProviderAuth`) and a backend's pinned self-install (`IProviderVersionInstaller`, D26). See `CHANGELOG.md`.
+
+### v2.0.1 — the generation platform + a coherent package graph (2026-08-04)
+Two things landed together, and the major was the vehicle for the second.
+
+**The generation platform** — one capability-aware seam for image/video/audio/3d with **three delivery modes**,
+because real backends genuinely differ: inline, async job (submit → poll → fetch, universal for video), and
+streaming (TTS, no implementation yet). Async operations expose their **operation id**, so a render survives a
+restart and composes with `Lyntai.Jobs` — the operation id is checkpointed BEFORE the first poll, so a crash
+resumes the render already running instead of paying for a second one. Backends declare
+`GenerationCapabilities` and the router pre-filters on them; per-verdict fallback, spend caps, throttling and
+dead-host cooldown all reuse the LLM side's machinery rather than copying it. Five backends: OpenAI images,
+Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue. It reaches agents as five `ITool`s —
+the *entire* coupling between the two domains (D30). It ships **EXPERIMENTAL**: two backends were written from
+vendor docs with no key to call, one argv is ported rather than measured, and nothing implements the streaming
+seam yet (`TASKS.md` GEN-VERIFY).
+
+**A package graph with rules, and gates that enforce them.** Boundaries exist where a dependency needs
+isolating (D31) — three provider ids merged into `Lyntai.Providers.Default`. Bundle membership is a budget, not
+a preference (D32). Many small packages is the intended shape, paid for in tooling rather than merging (D33).
+And a package may also be split for release CADENCE when a domain's churn or maturity differs from its host's
+(D34) — which is why the media backends ended up in their own `Lyntai.Generation` package after all, with their
+namespaces corrected to `Lyntai.Generation.Providers`. Twelve packages: ten libraries, the `Lyntai` starting
+bundle, and `Lyntai.Generation`. Four new build gates keep all of it honest — `check-warnings`,
+`check-packages`, `check-bundle`, and `consumer-smoke` (which packs and then restores/builds/runs a fresh
+consumer app; run by hand before this release it found two defects nothing else could).
+
+**Why 2.0.1 and not 2.0.0:** 2.0.0 is permanently taken on nuget.org (published, then unlisted, on 10 of the
+ids), and `--skip-duplicate` would have silently published nothing for those. See D29.
+
 ## Planned
 
 ### The platform kit (design §9) — SHIPPED (v0.8–v0.15, deferrals closed through v0.27)
@@ -287,31 +324,17 @@ v0.24, scheduling v0.25, cron v0.26, running-job cancellation v0.27). Still open
 - **Streaming tool-calls** (the `LlmChunk` contract carries no tool-call payload) and native tool-calling
   for the ClaudeCli/Local providers (both stay on the prompt fallback) — low value, revisit on demand.
 
-### v2.0.1 — the generation platform + a coherent package graph (2026-08)
-Two things land together, and the major is the vehicle for the second.
-
-**The generation platform** (`Lyntai.Generation` namespace, in Core) — one capability-aware seam for
-image/video/audio/3d with **three delivery modes**, because real backends genuinely differ: inline, async job
-(submit → poll → fetch, universal for video), and streaming (TTS). Async operations expose their **operation
-id**, so a render survives a restart and composes with `Lyntai.Jobs`. Backends declare `GenerationCapabilities`
-and the router pre-filters on them; per-verdict fallback is a configurable policy. Four backends shipped
-(OpenAI-compatible images, Automatic1111, ComfyUI, plus the fakes the platform is tested against). See
-`docs/DECISIONS.md` D30 and `docs/2026-08-04-generation-platform-plan.md`.
-
-**A package graph with one rule** (D31): boundaries exist only where a dependency needs isolating. Three
-provider ids merged into `Lyntai.Providers.Default`; `Lyntai.Generation` + `.Http` folded into Core and
-`Providers.Default`; a `Lyntai` metapackage added for one-line installs. 10 packages + metapackage, down from
-14 ids. **No namespace changed**, so consumers edit `PackageReference`s only —
-`docs/2026-08-04-restructure-2.0.1-plan.md` has the one-line migration table.
-
-**Why 2.0.1 and not 2.0.0:** 2.0.0 is permanently taken on nuget.org (published, then unlisted, on 10 of the
-ids), and `--skip-duplicate` would have silently published nothing for those. See D29.
-
-### Next: generation Plans 3–7
-In order: the local subprocess backend (`sd-cli` through `IProcessRunner`); async video composed with
-`Lyntai.Jobs` (fal.ai's queue API, reaching the Wan/Kling/Veo-class models through one integration);
-governance/telemetry parity for generation (cost, rate limits, cooldown, OTel); the `ITool`/MCP bridge plus
-streaming TTS; then pipelines (3d → image → video). Audio order is TTS before music.
+### Next — generation, to close the experimental carve-out
+In priority order, each needing its own measurement:
+1. **GEN-VERIFY** — run `sd-cli` and fal.ai for real, confirm the argv/clamp and the wire format, then drop the
+   "documented, not measured" notes. This is what lets `Lyntai.Generation` lose the EXPERIMENTAL label.
+2. **Streaming TTS** — the one contract in the platform no real backend exercises
+   (`IGenerationStreamProvider`). TTS before music. Needs a vendor pick and a measured wire format.
+3. **Pipelines** (3d → image → video) — ordered stages feeding `artifact.ToInput(role)` forward. Deferred until
+   ≥2 real backends exist so the runner isn't designed on guesses; needs a 3D-backend survey first (mesh vs
+   turntable stills — only the latter chains into today's video backends).
+4. **Generation wiring helpers** — `AddOpenAiImageProvider()` and friends, so a consumer stops hand-constructing
+   a backend and its `HttpClient` factory. The obvious first addition to the new package.
 
 ## Standing maintenance policies
 - **MEAI churn watch**: Microsoft.Extensions.AI ships roughly monthly with breaks in

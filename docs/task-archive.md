@@ -2122,6 +2122,51 @@ be grouped by vendor across both domains, and cost is a first-class metric (`lyn
 there is no token proxy for it. Spans are per ATTEMPT, so a trace of a fallback run shows the backend that
 failed as well as the one that worked. 24 tests; `verify` green (build · 1332 tests · e2e 3/3 · leak scan).
 
+## Part 35 — the 2.0.1 release hardening + a packaging policy with gates (2026-08-04)
+
+_Not a planned backlog item: this came out of the owner asking, before cutting 2.0.1, whether the library was
+"good enough for a production grade library" — and then, as the package count grew, how bundling should be
+decided at all. Recorded here because the answers became load-bearing rules (D32–D34) and four build gates._
+
+- [x] **A pre-release audit of the shipped artifact, not the repo.**
+- [x] **A bundle membership policy (D32) + a dependency-budget gate.**
+- [x] **Granularity settled (D33) + an inventory gate + a package scaffolder.**
+- [x] **The media backends split out (D34) and generation marked EXPERIMENTAL.**
+
+✅ done 2026-08-04 — **Outcome:** the audit found six real defects, and the most serious was self-inflicted:
+`Lyntai.Providers.Default` stamped `IsTrimmable` into its assembly — a promise to a consumer's trimmer — while
+three generation backends built request bodies by reflection-serializing anonymous types. The warnings had been
+there all along; nothing failed on them. Also fixed: docs pointing consumers at three package ids the
+restructure had deleted (an install line that cannot restore), `GuardedStream.ReadAll` silently dropping
+`WithCancellation` on a public async iterator, an empty symbol package on the new bundle, an unconfigured image
+backend reporting `AuthFailed` (so the new cooldown benched it) instead of `NotConfigured`, and two dead package
+pins left by the ASP.NET removal.
+
+The systemic half mattered more than any single fix. **`check-warnings`**: a warning in a published project now
+fails `verify`, because an unfailed IL2026 is a false trim claim shipping to consumers. **`check-bundle`**: the
+bundle's third-party closure cannot grow without a recorded decision (D32 — membership is a budget, since an
+untrimmed publish copies the whole graph and analyses nothing; measured at 3.2 MB for an app that calls only
+`AddLyntai`). **`check-packages`**: a package must appear in all nine registries, because the dangerous misses
+are silent — no `ApiSurfaceTests` entry means no API gate at all (D33). **`consumer-smoke`**: packs every
+package and then restores, builds and runs a fresh app against them, the only check that exercises what ships;
+run by hand it found two of the six defects. Plus **`new-package`**, so the granularity D33 settles on is paid
+for in tooling rather than in merging.
+
+Then the media backends left `Lyntai.Providers.Default` for their own `Lyntai.Generation` package (D34), a split
+justified by release CADENCE rather than dependency isolation — media is where the growth is, and every new
+backend would otherwise churn the package every chat consumer installs. Their namespaces were corrected in the
+same move (`Lyntai.Generation.Http` had contained a *subprocess* backend), which was only free because
+generation had never shipped. And generation itself ships EXPERIMENTAL, exempt from the SemVer promise until
+GEN-VERIFY closes — marked rather than pretended, since two of its backends have never been run against a real
+service.
+
+**Two lessons worth keeping, both about the tooling itself:** `check-packages` PASSED on its first run with two
+registries deliberately broken (a presence check against a big file almost always passes), and `new-package`
+reported "already present" for five registries it had never written (its guard tested the anchor line, not the
+inserted line). Both were caught the same way — run the thing against a tree you broke on purpose and read the
+output instead of trusting the exit code. `verify` green at 7 gates, 1337 tests; `consumer-smoke` green across
+12 packages.
+
 ---
 
 ## Notes for the implementer

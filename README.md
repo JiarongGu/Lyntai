@@ -15,32 +15,23 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 <!-- version-indicator: the **vX.Y.Z below is AUTO-SYNCED from src/Directory.Build.props <VersionPrefix> by
      `node devtools/dev.mjs pack` / `doctor --fix` (the release pipeline bumps the version, pack updates this
      headline). Don't hand-edit the version here to release — bump VersionPrefix; the header follows. -->
-**v2.0.1 — a hardened, batteries-included cortex substrate.** On the v0.1.0 base (all of `TASKS.md`) plus
-a multi-agent review/research pass (v0.2): configurable routing (v0.3), LLM-ops depth (v0.4), public-API
-baseline + a second storage backend (v0.5), a PostgreSQL backend + live-Ollama validation (v0.6), IoC
-seams so the app owns its resource lifecycle — process execution, HttpClient, DB connection/schema,
-provider presets (v0.7), a local GGUF provider via LLamaSharp (v0.8), an agentic tool-calling loop (v0.9),
-native (structured) function-calling with a prompt fallback + MEAI-bridged tool-calls (v0.10–v0.11), MCP
-tools (v0.12) and CLI tool-calling via an ephemeral MCP server (v0.13), durable multi-agent jobs (v0.14),
-the §9 platform kit — guards + two-gate orchestration, secret vault, vision/multimodal (v0.15) — then the
-post-kit expansion (v0.16–v0.28): OTel telemetry; cache/budget/rate-limit front-door governance; semantic
-memory over a BYO embedder + vector store (incl. pgvector); durable-job priorities/DLQ/cron/cancellation +
-admission control + live progress; a DPAPI + recovery-key envelope vault; per-request refusal screening;
-curated memory; and the agentic **self-driving-agent session** primitive (v0.28.5). **v0.29** adds a typed
-multi-kind **conversation event store** (GUID ids + per-thread seq + metadata) with an `IConversationEnricher`
-seam for app-owned extension, **storage feature toggles** (enable only the domains you use — a disabled
-feature lands no table), **actor/mailbox durable jobs** (jobs sharing a partition key run one-at-a-time in
-FIFO, parallel across keys), and a generic sustainability review pass across the surface — a typed
-`IRefusalMatcher` seam, full reverse-MEAI-bridge parity, explicit trace-step timelines, and more (v0.29.0).
-**v0.30** delivers agent-adoption ergonomics — a headless `SkipAllPermissions` posture for the CLI agent
-session, per-run `ToolLoopResult.Usage`, a live **`IToolLoop.StreamAsync`** event door, `.ps1` launcher-shim
-hosting, curated-memory dedup-on-add + `scope` filtering — and a **whole-library foundation-hardening
-pass**: two adversarial review rounds (~95 findings triaged), correctness fixes across the router, guards,
-orchestrator, prompts, storage, and DI wiring, structural dedup (a shared relational job-store state
-machine, a `DelegatingLlmClient` decorator base, async connection opens throughout), and case-insensitive
-consumer identity end-to-end (v0.30.0). **v1.0.0** freezes the public API under SemVer 2.0 — following a
-pre-freeze adversarial API + consumer-usage review — and collapses the 0.x migrations into clean
-per-`StorageFeature` baselines.
+**v2.0.1 — a hardened, batteries-included cortex substrate, now with a media generation platform.**
+Twelve packages, one public front door, and a public API frozen under SemVer 2.0 since 1.0.
+
+What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / MEAI-bridged
+backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling.
+**Generation** *(experimental)* — one capability-aware seam for image/video/audio/3d with three delivery modes
+(inline, submit→poll→fetch, streaming), durable renders over `Lyntai.Jobs`, and five backends.
+**Storage** — SQLite / Postgres / InMemory, mixable per domain, with FTS5-trigram recall and feature toggles.
+**Agents** — a tool loop, two-gate chat orchestration, guards, and both halves of MCP. **Ops** — prompt
+registry, scoring/eval, run traces, task-scoped + semantic + curated memory, durable jobs with priorities /
+DLQ / cron / cancellation, a secret vault, OTel across all three domains, and front-door governance (cache,
+budget, rate limit).
+
+Since 1.0 froze the API (2026-07-28): **1.1** generic CLI tool-hosting · **1.2** turn-free backend probe,
+auth and pinned self-install · **2.0.1** the generation platform plus a coherent package graph — one rule for
+package boundaries, a starting bundle, and four build gates that keep the packaging claims honest.
+`CHANGELOG.md` has the per-release detail; `docs/DECISIONS.md` has the reasoning behind the load-bearing calls.
 
 > **Versioning.** From **1.0**, Lyntai follows **SemVer 2.0**: no breaking public-API change without a major
 > bump (the `ApiSurfaceTests` baseline gates it).

@@ -17,59 +17,24 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Implemented + hardened (v0.30.0; latest release v0.31.0).** All of `TASKS.md`, a review/research hardening pass, then roadmap
-v0.3–v0.30 (v0.7 = bring-your-own resources: `IProcessRunner`, BYO HttpClient, BYO `IDbConnectionFactory`
-+ `migrate:false`, provider presets — the app owns resource lifecycle, Lyntai provides the interface;
-v0.8 = `Lyntai.Providers.Local` in-process GGUF inference via LLamaSharp, managed-only so the app picks
-the backend; v0.9 = agentic tool-calling `Lyntai.Agents` — `IToolLoop` over `ILlmClient`, `ITool`/`AddTool`
-DI collection, first platform-kit §9 cut; v0.10 = NATIVE tool-calling — `LlmReply.ToolCalls` +
-`SupportsToolCalls` capability, OpenAI/Ollama `tool_calls` parsed, loop prefers native + prompt
-fallback; v0.11 = native tool-calling through the MEAI bridge too, so any `IChatClient` gets it;
-v0.12 = `Lyntai.Tools.Mcp` — expose an MCP server's tools as `ITool`s via `AddMcpTools`, app owns the
-MCP client; v0.13 = the reverse direction — proper CLI tool-calling by hosting the app's
-`ITool`s as an ephemeral localhost MCP server via the `ICliToolProvisioner` seam,
-a scoped opt-in exception to "no host" (**generalized post-1.0**: the host is the provider-neutral
-`Lyntai.Tools.Mcp.Hosting` + `AddMcpToolHost`, per-CLI flags/config are an `IMcpCliDialect` in Core, and
-`ClaudeCliMcpDialect` ships in the claude provider package — the old `Lyntai.Providers.ClaudeCli.Mcp`
-package is GONE, see `docs/DECISIONS.md` D23); v0.14 = durable jobs `Lyntai.Jobs` — `IJobStore` (lanes +
-atomic claim + checkpoint/resume across all 3 backends) + `IJobRunner`/`IJobHandler`/`AddJobHandler`,
-multi-agent parallel with per-lane + global `MaxConcurrency` control, app owns the pump; v0.15 = rest of
-§9 platform kit — `Lyntai.Guards` (scope-guard/jail hooks + `GuardedLlmClient`), two-gate
-`IChatOrchestrator`, `Lyntai.Secrets` (AES-GCM vault + access gate), vision/multimodal via
-`LlmMessage.Attachments`; v0.16–v0.28 = post-kit expansion — OTel telemetry; cache/budget/rate-limit
-front-door governance decorators; semantic memory via BYO `IEmbedder`+`IVectorStore` (incl. pgvector);
-durable-job priorities/DLQ/cron/cancellation + admission-control + `Paused` + live progress; DPAPI +
-recovery-key envelope vault (`Lyntai.Secrets.Dpapi`); per-request refusal screening; curated memory
-(`ICuratedMemoryStore`); v0.29 = app-owned storage adoption — a typed multi-kind conversation event store
-(GUID ids + per-thread seq + metadata) with an `IConversationEnricher` seam, `StorageFeature` toggles (a
-disabled domain lands no table, tag-driven selective migration), actor/mailbox durable jobs (per-partition
-FIFO, parallel across keys), a typed `IRefusalMatcher` seam, and a generic sustainability review sweep;
-v0.30 = agent-adoption ergonomics — headless `SkipAllPermissions`, `ToolLoopResult.Usage`, live
-`IToolLoop.StreamAsync`, `.ps1` shim hosting, curated dedup/`scope` — plus a TWO-ROUND whole-library
-hardening pass: correctness fixes across router/guards/orchestrator/prompts/storage/DI, structural dedup
-(`JobStoreSql`+`JobRow` shared state machine, `DelegatingLlmClient` decorator base,
-`LazyMigratingConnectionFactory`, async `OpenAsync` sweep), case-insensitive consumer identity end-to-end.
-**Released in v0.31.0 (2026-07-27) — see CHANGELOG + ROADMAP:** the
-1.0-prep batch (SourceLink, Azure OpenAI flavor, the final API sign-off's breaking
-renames/reshapes — `docs/DECISIONS.md` D19; verification + releases stay MANUAL by decision, D20 — no
-push/PR CI), the searchable, metadata-carrying curated catalog (CMEM4 `SearchAsync` / CMEM5 updatable
-`kind` / CMEM6 generic `Metadata` field + relational query index — folds & drops `Source`/`Title`), and the
-FULL hardening-deferral burn-down (archive Part 23; `GuardedStream`
-provider read-loop, live rate-limiter options, contract-facts test bases, PG coverage closed — the
-rejected items are D18). 1.0 is ADOPTION-gated, all technical gates done):
-`ILlmClient` front door (to a
-consumer, Lyntai behaves like ONE provider — keep new surface
-behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
-`RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel
-telemetry (`LyntaiDiagnostics`: GenAI `Lyntai.Llm` + agentic `Lyntai.Agents` + media `Lyntai.Generation`
-source/meter) +
-`RunTrace.TraceId` bridging, structured output (`CompleteJsonAsync`),
-versioned prompts (`IPromptVersionStore`), judge calibration (`JudgeAgreement`/`IPairwiseComparer`),
-memory lifecycle (dedup/TTL/`PruneAsync`), **three storage backends** (`Sqlite`, `InMemory`, `Postgres`
-— pg_trgm recall, Testcontainers-tested) mixable per-domain via DI, deferred migrations,
-`lyntai_`-prefixed objects, BenchmarkDotNet, an opt-in live-Ollama test (`LYNTAI_LIVE_OLLAMA`), and a
-public-API baseline (`ApiSurfaceTests` — update the baseline deliberately on any public-surface change).
-Tests/e2e green.
+**Released: v2.0.1 (2026-08-04).** Twelve packages; public API frozen under SemVer 2.0 since 1.0 — with ONE
+carve-out, `Lyntai.Generation.*`, which ships EXPERIMENTAL until `TASKS.md` GEN-VERIFY closes.
+
+Everything through the roadmap's v0.3–v0.31 shipped (routing depth, LLM-ops, three storage backends, BYO
+resource seams, local GGUF, agentic tool-calling native + prompt, MCP both directions, durable jobs, the §9
+platform kit, OTel, governance decorators, semantic + curated memory, the agent-session primitive), then
+**1.0** froze the API, **1.1** generalized CLI tool-hosting, **1.2** added turn-free backend probe/auth +
+pinned self-install, and **2.0.1** landed the generation platform and the package graph it needed. Per-release
+detail is `CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D34).
+
+**The packaging rules are now gated, not remembered** — `verify` runs seven checks, four of them added at
+2.0.1: `check-warnings` (a warning in a published project fails the build, because an unfailed IL2026 is a
+FALSE trim promise), `check-packages` (a package must be registered in all nine registries — a missing
+`ApiSurfaceTests` entry means no API gate at all), `check-bundle` (the bundle's dependency closure cannot
+grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
+against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
+
+Tests/e2e green: 1337 tests, e2e 3/3.
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
   note the dated §6 amendments; §6 is now the default `RoutingPolicy`). Read it first.
 - `docs/ROADMAP.md` — the forward sequence (v0.4+ and standing maintenance policies).

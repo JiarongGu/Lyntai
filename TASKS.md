@@ -15,17 +15,11 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ## Active backlog
 
-_The 2026-07-26 hardening-pass deferrals are all closed (implemented or rejected-with-rationale) — see
-`docs/task-archive.md` Part 23 and `docs/DECISIONS.md` D18. EMB1 (built-in OpenAI-compatible embedder)
-landed 2026-07-27 — see archive Part 24. CLI2 (the Windows npm-shim spawn bug found consuming 1.2.0) landed
-2026-07-30 — see archive Part 28. **CLI3 + CLI4** (the turn-free auth seam and the backend's pinned
-self-install) landed 2026-08-04 — see archive Part 29 and `docs/DECISIONS.md` D26, which settles where the
-"Lyntai never provisions a binary" line now sits. **REL1** (the version-authorship guard) landed 2026-08-04 —
-see archive Part 30 and D25. The **CLI provider seam is now generic** (`CliProviderEngine` + a per-CLI
-`ICliProviderDialect`) with a second CLI backend and portable-install support — archive Part 31, D27/D28. The
-**generation platform** and the **2.0.1 package restructure** landed 2026-08-04 — archive Part 32, D30/D31;
-its remaining slices are Part 33 below. Open work is the post-1.0 backlog in Part 25 below, plus
-one CONDITIONAL item:_
+_**v2.0.1 is released (2026-08-04).** Everything up to and including the generation platform, the package
+restructure and the 2.0.1 release hardening has shipped and is archived — see `docs/task-archive.md` Parts 29–35
+and `docs/DECISIONS.md` D25–D34. What remains open is below: the generation follow-ups in Part 33 (all needing a
+real service or a vendor pick), the two consumer-ergonomics findings in Part 34, the post-1.0 additive backlog in
+Part 25, and one conditional item:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
@@ -64,7 +58,7 @@ ported-not-measured, and fal's wire format is documented-not-measured._
 
 ## Part 34 — findings from the pre-2.0.1 consumer smoke (2026-08-04)
 
-_Restoring the packed metapackage into a fresh app and compiling against the 2.0.1 surface (rather than project
+_Restoring the packed bundle into a fresh app and compiling against the 2.0.1 surface (rather than project
 references) proved the install story works, and exposed two asymmetries between the domains. Neither blocks the
 release; both are additive._
 
