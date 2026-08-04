@@ -2553,6 +2553,23 @@ pass because they were all small and all found by the same review. Shape decisio
   only its `ProviderId` const was bare, and now says how a candidate list uses it. No test — a documentation
   change has nothing to assert beyond the build gate that every `<see cref/>` resolves, which `verify` runs.
 
+- [x] **async migration entry points** — `MigrateUpAsync(…, CancellationToken)` twins alongside the sync
+  `MigrationRunnerService.MigrateUp` (SQLite + Postgres), for apps owning their schema under
+  `SchemaMigration.None`.
+  ✅ done 2026-08-05 — Outcome: shipped on both backends, deliberately **narrow and documented as such**
+  (`docs/DECISIONS.md` **D40**). FluentMigrator's runner is synchronous and takes no token, so the honest
+  promise is exactly two things: the migration runs INLINE on the calling thread (never `Task.Run` — that
+  would occupy a pool thread for the whole migration *and* still be uncancellable, i.e. worse than the sync
+  call), and the token is honoured before any work (a cancelled token leaves the SQLite file uncreated /
+  never dials the Postgres connection string) and between feature passes, each of which the version table has
+  already committed. Under the default `StorageFeature.All` there is one pass, so there it degenerates to
+  "before starting" — the XML docs say so under explicit *what it can do* / *what it cannot do* headings, and
+  the README repeats it where `SchemaMigration.None` is described. SQLite's twin is genuinely `async` (its
+  pragma seed is real ADO.NET); Postgres has no await point and returns a completed task with faults funnelled
+  through `Task.FromException`/`Task.FromCanceled` so a `Task`-returning method never throws synchronously.
+  Seven tests in `AsyncMigrationTests` plus a Postgres idempotence leg; one pins the no-offload property so
+  nobody "improves" it into a `Task.Run`.
+
 ---
 
 ## Notes for the implementer

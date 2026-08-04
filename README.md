@@ -397,6 +397,13 @@ services.AddLyntai(cfg =>
 services.AddSingleton<IProcessRunner>(new MySandboxedProcessRunner());
 ```
 
+Owning the schema means running Lyntai's migrations yourself, on your own terms —
+`MigrationRunnerService.MigrateUp(path[, features])`, or its awaitable twin `MigrateUpAsync(…, ct)` for an
+async startup path. Read the twin's documentation before relying on the token: FluentMigrator's runner is
+synchronous, so `MigrateUpAsync` runs **inline on the calling thread** (deliberately not a `Task.Run`) and
+the token is honoured only *before* any work and *between* feature passes — a pass in flight cannot be
+cancelled, and the default `StorageFeature.All` is a single pass.
+
 Anything you register wins over Lyntai's default (the defaults use `TryAdd`), and every storage domain
 is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement wholesale.
 

@@ -102,6 +102,13 @@ skipped). Use `dev.mjs new-migration` to get a unique monotonic number. Composit
 the things FluentMigrator's fluent API can't express (FTS virtual tables, triggers, `ON DELETE CASCADE`).
 The runner is idempotent.
 
+**`MigrateUpAsync` cannot be more than it is.** FluentMigrator's runner is synchronous and takes no
+`CancellationToken`, so the awaitable twins run the migration **inline on the calling thread** — never
+`Task.Run`, which would burn a pool thread for the whole migration and *still* be uncancellable — and honour
+the token only *before* any work and *between* feature passes. `StorageFeature.All` is a single pass, so
+there it means "before starting" only. Say exactly that in any doc you write about it; see `DECISIONS.md`
+**D40**, and `AsyncMigrationTests` pins the no-offload property.
+
 ## Conventions
 
 - **`lyntai_` prefix on every table/index/trigger/FTS object** — Lyntai may share a database with the

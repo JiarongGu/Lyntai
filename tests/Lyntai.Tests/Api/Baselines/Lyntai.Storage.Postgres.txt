@@ -23,6 +23,8 @@ sealed class Lyntai.Storage.Postgres.Migrations.LyntaiVersionTable
 static class Lyntai.Storage.Postgres.Migrations.MigrationRunnerService
     static MigrateUp(String) : Void
     static MigrateUp(String, StorageFeature) : Void
+    static MigrateUpAsync(String, CancellationToken=) : Task
+    static MigrateUpAsync(String, StorageFeature, CancellationToken=) : Task
 sealed class Lyntai.Storage.Postgres.PostgresConnectionFactory
     .ctor(String)
     Open() : DbConnection

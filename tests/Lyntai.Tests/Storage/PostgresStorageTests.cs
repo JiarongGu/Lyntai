@@ -70,6 +70,22 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         Assert.True(await TableExists(factory, "lyntai_version_info"));  // version table always
     }
 
+    /// <summary>The awaitable twin lands the same schema on Postgres — run against the already-migrated
+    /// shared fixture db, so it also pins that a second pass is a no-op. Cancellation semantics (the token
+    /// honoured before any work) are covered without Docker in <see cref="AsyncMigrationTests"/>.</summary>
+    [SkippableFact]
+    public async Task MigrateUpAsync_is_idempotent_against_a_migrated_database()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+
+        await MigrationRunnerService.MigrateUpAsync(pg.ConnectionString);
+
+        using var conn = pg.Factory.Open();
+        var applied = await Dapper.SqlMapper.ExecuteScalarAsync<long>(conn,
+            "SELECT COUNT(*) FROM lyntai_version_info");
+        Assert.Equal(9L, applied);
+    }
+
     private static async Task<bool> TableExists(IDbConnectionFactory factory, string table)
     {
         using var conn = factory.Open();

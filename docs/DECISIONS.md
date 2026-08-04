@@ -448,6 +448,33 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D40 — an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else (2026-08-05)
+Part 25 asked for `MigrateUpAsync(…, CancellationToken)` twins beside the sync `MigrationRunnerService.MigrateUp`
+on both backends, for apps owning their schema under `SchemaMigration.None`. **FluentMigrator's runner is
+synchronous and its `MigrateUp()` takes no token** — there is no async entry point and nothing reaches the DDL
+execution. That constrains what the twin can truthfully offer, and the constraint is the decision:
+
+- **REJECTED: `Task.Run(() => MigrateUp(...))`.** It is worse than not shipping the method. It occupies a
+  thread-pool thread for the entire duration of a schema migration, it cannot cancel anything, and it makes a
+  caller who cancels believe the migration stopped. A decorative `async` is a lie with a signature.
+- **The migration runs INLINE on the calling thread.** SQLite's twin is `async` because its pragma seed is
+  real ADO.NET (mirroring `SqliteConnectionFactory.OpenAsync`); Postgres has no await point at all on this
+  path and returns an already-completed task, faults funnelled through `Task.FromException` /
+  `Task.FromCanceled` so a `Task`-returning method never throws synchronously. `AsyncMigrationTests` pins the
+  no-offload property so nobody "improves" it into a `Task.Run` later.
+- **The token is honoured at the only two points that exist:** before any work — a cancelled token leaves the
+  SQLite file uncreated and never dials the Postgres connection string — and between feature passes, each of
+  which is a separate runner invocation whose applied versions the version table has already committed. Under
+  the default `StorageFeature.All` there is exactly **one** pass, so there the token degenerates to "before
+  starting". Both XML docs say this in as many words, under explicit *what it can do* / *what it cannot do*
+  headings, because the whole hazard is a caller assuming more.
+- **What it is genuinely for:** composing in an async startup path (`IHostedService.StartAsync`) without
+  `GetAwaiter().GetResult()`, and refusing to start work a cancelled startup already abandoned. That is a
+  small, real benefit — and it is the entire benefit.
+- **Mid-pass cancellation stays impossible** until FluentMigrator itself offers a token. Do not simulate it by
+  killing the connection: a half-applied DDL pass with a committed version row is a corrupted schema, which is
+  strictly worse than a migration that finished.
+
 ## D39 — the post-1.0 ergonomics batch: category predicates over per-member helpers, and two halves left open on purpose (2026-08-05)
 The additive tail of the D21 review (the items filed as Part 25) worked in one pass. Recorded because three
 of the five were decided on SHAPE rather than implemented as filed, and two of the filed items turned out to

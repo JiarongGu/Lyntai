@@ -85,6 +85,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   constructor parameters and its `IsAvailable`/`SupportsToolCalls` (why both are unconditionally true),
   `LyntaiChatClientExtensions` (which direction of the MEAI bridge it is), `McpBuilderExtensions`, and
   `ClaudeCliProvider.ProviderId`.
+- **`MigrationRunnerService.MigrateUpAsync(…, CancellationToken)`** on both storage backends — the awaitable
+  twin an app owning its schema (`SchemaMigration.None`) calls from an async startup path, instead of a
+  `GetAwaiter().GetResult()`. **Read what it promises before reaching for it**, because FluentMigrator's
+  runner is synchronous and takes no token: the migration runs **inline on the calling thread** (no
+  `Task.Run` — that would occupy a pool thread for the whole migration *and* still be uncancellable), and
+  the token is honoured at the only two points that exist — **before any work** (a cancelled token leaves
+  the SQLite file uncreated / never dials the Postgres connection string) and **between feature passes**.
+  Under the default `StorageFeature.All` there is exactly one pass, so there it means "before starting"
+  only. A pass in flight cannot be cancelled. See `docs/DECISIONS.md` **D40**.
 
 ### Fixed
 - **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already

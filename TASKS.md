@@ -143,11 +143,9 @@ working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISI
 
 _The ergonomics batch (verdict helpers, the `AddMcpTools` overload, the agent-event contract, the
 curated-metadata accessor, the member/type docs) closed 2026-08-05 — see `docs/task-archive.md` Part 25 and
-`docs/DECISIONS.md` **D39**. What is left below is the work that was never additive or never small._
+`docs/DECISIONS.md` **D39**. The async migration entry points closed 2026-08-05 too —
+`docs/DECISIONS.md` **D40**. What is left below is the work that was never additive or never small._
 
-- [ ] **async migration entry points** — `MigrateUpAsync(…, CancellationToken)` twins alongside the sync
-  `MigrationRunnerService.MigrateUp` (SQLite + Postgres), for apps owning their schema under
-  `SchemaMigration.None`.
 - [ ] **semantic-memory wiring helper** — a DI seam / `Use*` helper so an app enabling semantic recall
   doesn't hand-construct `SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` /
   `HttpEmbedder` (a consumer does this today). Those concrete types STAY public for 1.0.
