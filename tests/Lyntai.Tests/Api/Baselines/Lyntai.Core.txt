@@ -469,6 +469,8 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
     ActivitySourceName : String const
     AgentActivitySourceName : String const
     AgentMeterName : String const
+    GenerationActivitySourceName : String const
+    GenerationMeterName : String const
     MeterName : String const
 static class Lyntai.Embeddings.EmbedderExtensions
     static EmbedAsync(IEmbedder, String, CancellationToken=) : Task<Single[]>
@@ -571,6 +573,7 @@ sealed class Lyntai.Generation.GenerationProbeResult
     Version : String
 sealed class Lyntai.Generation.GenerationRequest
     .ctor()
+    Consumer : String
     Equals(GenerationRequest) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32
@@ -656,7 +659,7 @@ sealed class Lyntai.Generation.Jobs.GenerationRenderJob
     ToString() : String
     static Parse(String) : GenerationRenderJob
 sealed class Lyntai.Generation.Jobs.GenerationRenderJobHandler
-    .ctor(IGenerationRouter, IEnumerable<IGenerationProvider>, IGenerationArtifactSink, GenerationRenderJobOptions=)
+    .ctor(IGenerationRouter, IEnumerable<IGenerationProvider>, IGenerationArtifactSink, GenerationRenderJobOptions=, IUsageTracker=)
     HandleAsync(JobContext, CancellationToken=) : Task<JobOutcome>
     JobType : String const
     Type : String
@@ -671,6 +674,11 @@ sealed class Lyntai.Generation.Jobs.GenerationRenderJobOptions
     ToString() : String
 interface Lyntai.Generation.Jobs.IGenerationArtifactSink
     ReceiveAsync(GenerationArtifactDelivery, CancellationToken=) : Task
+sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
+    .ctor(IGenerationRouter, IUsageTracker, LyntaiOptions, ILogger<BudgetedGenerationRouter>=)
+    GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+    static RecordAsync(IUsageTracker, String, GenerationUsage, CancellationToken=) : ValueTask
 sealed class Lyntai.Generation.Routing.GenerationCandidate
     .ctor(String, String=)
     Deconstruct(String&, String&) : Void
@@ -682,15 +690,18 @@ sealed class Lyntai.Generation.Routing.GenerationCandidate
     ToString() : String
 enum Lyntai.Generation.Routing.GenerationFallbackAction
     Advance : GenerationFallbackAction const
+    CooldownAndAdvance : GenerationFallbackAction const
+    PenalizeAndAdvance : GenerationFallbackAction const
     Surface : GenerationFallbackAction const
     value__ : Int32
 sealed class Lyntai.Generation.Routing.GenerationRouter
-    .ctor(IEnumerable<IGenerationProvider>, GenerationRoutingPolicy=)
+    .ctor(IEnumerable<IGenerationProvider>, GenerationRoutingPolicy=, DeadHostTracker=)
     GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
     SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
     .ctor()
     ActionFor(GenerationVerdict) : GenerationFallbackAction
+    ExemptSoleCandidate : Boolean
     On(GenerationVerdict, GenerationFallbackAction) : GenerationRoutingPolicy
 sealed class Lyntai.Generation.Routing.GenerationSubmission
     .ctor(String, GenerationOperation)
@@ -702,6 +713,10 @@ sealed class Lyntai.Generation.Routing.GenerationSubmission
     ProviderId : String
     ToString() : String
 interface Lyntai.Generation.Routing.IGenerationRouter
+    GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+sealed class Lyntai.Generation.Routing.RateLimitedGenerationRouter
+    .ctor(IGenerationRouter, IRateLimiter, ILogger<RateLimitedGenerationRouter>=)
     GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
     SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Tools.GenerationBackendsTool
@@ -717,7 +732,8 @@ sealed class Lyntai.Generation.Tools.GenerationFetchTool
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationInlineTool
-    .ctor(IGenerationRouter, GenerationOptions, IGenerationArtifactSink=)
+    .ctor(IGenerationRouter, GenerationOptions, IGenerationArtifactSink=, String=)
+    Consumer : String
     Description : String
     InvokeAsync(String, CancellationToken=) : Task<String>
     Name : String
@@ -729,19 +745,23 @@ sealed class Lyntai.Generation.Tools.GenerationStatusTool
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationSubmitTool
-    .ctor(IGenerationRouter, GenerationOptions)
+    .ctor(IGenerationRouter, GenerationOptions, String=)
+    Consumer : String
     Description : String
     InvokeAsync(String, CancellationToken=) : Task<String>
     Name : String
     ParametersJsonSchema : String
 static class Lyntai.GenerationBuilderExtensions
     static AddGenerationProvider(LyntaiBuilder, Func<IServiceProvider,IGenerationProvider>) : LyntaiBuilder
+    static AddGenerationRateLimit(LyntaiBuilder, Action<RateLimitOptions>=, Func<IServiceProvider,IRateLimiter>=) : LyntaiBuilder
     static AddGenerationTools(LyntaiBuilder) : LyntaiBuilder
+    static AddGenerationUsageBudget(LyntaiBuilder, Action<BudgetOptions>=) : LyntaiBuilder
     static ConfigureGenerationRouting(LyntaiBuilder, Action<GenerationRoutingPolicy>) : LyntaiBuilder
     static UseDefaultGenerationCandidates(LyntaiBuilder, String[]) : LyntaiBuilder
 sealed class Lyntai.GenerationOptions
     .ctor()
     DefaultCandidates : List<GenerationCandidate>
+    RateLimit : RateLimitOptions
 sealed class Lyntai.Guards.DenylistGuard
     .ctor(IReadOnlyList<String>, String=)
     InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
@@ -1310,6 +1330,7 @@ sealed class Lyntai.Llm.RateLimiting.RateLimitedLlmClient
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
 sealed class Lyntai.Llm.RateLimiting.TokenBucketRateLimiter
     .ctor(LyntaiOptions, Func<DateTimeOffset>=)
+    .ctor(RateLimitOptions, Func<DateTimeOffset>=)
     AcquireAsync(String, CancellationToken=) : Task<Boolean>
 sealed class Lyntai.Llm.RefusalScreeningLlmClient
     .ctor(ILlmClient, IEnumerable<IRefusalMatcher>=, ILogger<RefusalScreeningLlmClient>=)

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Lyntai.Generation;
 using Lyntai.Llm;
 
 namespace Lyntai.Diagnostics;
@@ -209,4 +210,111 @@ public static class LyntaiDiagnostics
         if (RateLimitRefusals.Enabled)
             RateLimitRefusals.Add(1, new TagList { { "lyntai.consumer", consumer } });
     }
+
+    // ---- generation telemetry (image / video / audio / 3d) -------------------------------------------
+    // A THIRD source/meter, separate from both of the above. Not folded into the GenAI source because a
+    // render is not a gen_ai.* chat operation and mixing them would corrupt token/duration aggregates a
+    // dashboard computes over the LLM source; not folded into the agentic one because generation is a
+    // domain, not part of the agent loop. The two tags that DO carry over keep their GenAI names
+    // (gen_ai.system = the backend, gen_ai.request.model), so one dashboard can still group spend by vendor
+    // across both domains. Subscribe with AddSource("Lyntai.Generation") / AddMeter("Lyntai.Generation").
+
+    public const string GenerationActivitySourceName = "Lyntai.Generation";
+    public const string GenerationMeterName = "Lyntai.Generation";
+
+    internal static readonly ActivitySource GenerationSource = new(GenerationActivitySourceName);
+    internal static readonly Meter GenerationMeter = new(GenerationMeterName);
+
+    /// <summary>Seconds per backend attempt. Tagged with the backend, the medium and (on failure) the
+    /// verdict, so "which backend is slow" and "which backend is failing" are one query each.</summary>
+    internal static readonly Histogram<double> GenerationDuration =
+        GenerationMeter.CreateHistogram<double>("lyntai.generation.duration", unit: "s",
+            description: "Duration of one generation backend attempt");
+
+    /// <summary>What a render REPORTED costing, in USD — never inferred from a rate card. The number a host
+    /// running hosted video actually watches; there is no token proxy for it.</summary>
+    internal static readonly Histogram<double> GenerationCost =
+        GenerationMeter.CreateHistogram<double>("lyntai.generation.cost", unit: "{USD}",
+            description: "Reported cost of one generation, when the backend reports one");
+
+    /// <summary>Artifacts produced, tagged by backend + medium.</summary>
+    internal static readonly Counter<long> GenerationArtifacts =
+        GenerationMeter.CreateCounter<long>("lyntai.generation.artifacts",
+            description: "Artifacts produced by generation backends");
+
+    /// <summary>Start a span for one backend attempt. <paramref name="operation"/> is <c>generate</c> (inline)
+    /// or <c>submit</c> (asynchronous) — a durable render's span must be distinguishable from an inline one
+    /// because their durations mean different things.</summary>
+    internal static Activity? StartGeneration(string operation, string backend, string kind, string? model)
+    {
+        var activity = GenerationSource.StartActivity($"{operation} {kind}", ActivityKind.Client);
+        if (activity is not null)
+        {
+            activity.SetTag("lyntai.generation.operation", operation);
+            activity.SetTag("lyntai.generation.kind", kind);
+            activity.SetTag("gen_ai.system", backend);
+            if (model is not null) activity.SetTag("gen_ai.request.model", model);
+        }
+        return activity;
+    }
+
+    internal static void RecordGeneration(Activity? activity, string backend, string kind,
+        GenerationVerdict verdict, GenerationUsage? usage, double elapsedSeconds, string? detail = null)
+    {
+        var errorType = verdict == GenerationVerdict.Ok ? null : verdict.ToString();
+
+        if (activity is not null)
+        {
+            if (errorType is not null)
+            {
+                activity.SetTag("error.type", errorType);
+                activity.SetStatus(ActivityStatusCode.Error, detail);
+            }
+            if (usage is not null)
+            {
+                if (usage.Count is { } count) activity.SetTag("lyntai.generation.artifacts", count);
+                if (usage.Seconds is { } seconds) activity.SetTag("lyntai.generation.media_seconds", seconds);
+                if (usage.CostUsd is { } cost) activity.SetTag("gen_ai.usage.cost", cost);
+            }
+        }
+
+        if (GenerationDuration.Enabled)
+        {
+            var tags = GenerationTags(backend, kind);
+            if (errorType is not null) tags.Add("error.type", errorType);
+            GenerationDuration.Record(elapsedSeconds, tags);
+        }
+
+        if (usage?.CostUsd is { } reported && GenerationCost.Enabled)
+            GenerationCost.Record(reported, GenerationTags(backend, kind));
+
+        if (usage?.Count is { } produced && produced > 0 && GenerationArtifacts.Enabled)
+            GenerationArtifacts.Add(produced, GenerationTags(backend, kind));
+    }
+
+    /// <summary>Tag a submission's span with the operation id — the handle a durable render is resumed by,
+    /// and the only way to correlate a trace with the backend's own dashboard.</summary>
+    internal static void RecordSubmission(Activity? activity, string backend, string kind,
+        string operationId, GenerationOperationStatus status, double elapsedSeconds)
+    {
+        if (activity is not null)
+        {
+            if (operationId is { Length: > 0 }) activity.SetTag("lyntai.generation.operation_id", operationId);
+            activity.SetTag("lyntai.generation.status", status.ToString());
+            if (status == GenerationOperationStatus.Failed) activity.SetStatus(ActivityStatusCode.Error);
+        }
+
+        if (GenerationDuration.Enabled)
+        {
+            var tags = GenerationTags(backend, kind);
+            if (status == GenerationOperationStatus.Failed) tags.Add("error.type", "Failed");
+            GenerationDuration.Record(elapsedSeconds, tags);
+        }
+    }
+
+    private static TagList GenerationTags(string backend, string kind) => new()
+    {
+        { "gen_ai.system", backend },
+        { "lyntai.generation.kind", kind },
+    };
 }

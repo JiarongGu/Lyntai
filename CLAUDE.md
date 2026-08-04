@@ -61,7 +61,8 @@ rejected items are D18). 1.0 is ADOPTION-gated, all technical gates done):
 consumer, Lyntai behaves like ONE provider — keep new surface
 behind it), `AsChatClient()` reverse bridge, shared `LlmVerdictClassifier`, configurable
 `RoutingPolicy` (the §6 switch is now its default — tune via `ConfigureRouting`/`LYNTAI_*`), OTel
-telemetry (`LyntaiDiagnostics`: GenAI `Lyntai.Llm` + agentic `Lyntai.Agents` source/meter) +
+telemetry (`LyntaiDiagnostics`: GenAI `Lyntai.Llm` + agentic `Lyntai.Agents` + media `Lyntai.Generation`
+source/meter) +
 `RunTrace.TraceId` bridging, structured output (`CompleteJsonAsync`),
 versioned prompts (`IPromptVersionStore`), judge calibration (`JudgeAgreement`/`IPairwiseComparer`),
 memory lifecycle (dedup/TTL/`PruneAsync`), **three storage backends** (`Sqlite`, `InMemory`, `Postgres`

@@ -14,7 +14,7 @@ namespace Lyntai.Llm.RateLimiting;
 /// </summary>
 public sealed class TokenBucketRateLimiter : IRateLimiter
 {
-    private readonly LyntaiOptions _options;
+    private readonly RateLimitOptions _limits;
     private readonly Func<DateTimeOffset> _clock;
     // MUST match RateLimitOptions.PerConsumer's comparer (OrdinalIgnoreCase): the options map admits
     // "Chat" and "chat" as the same limit, so they must share ONE bucket — a case-sensitive map here
@@ -24,9 +24,17 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
     // construction (env override / admin retune) still gets its bucket — nothing is frozen at ctor time
     private Bucket? _global;
 
+    /// <summary>Throttle using the LLM front door's rate (<see cref="LyntaiOptions.RateLimit"/>).</summary>
     public TokenBucketRateLimiter(LyntaiOptions options, Func<DateTimeOffset>? clock = null)
+        : this(options.RateLimit, clock) { }
+
+    /// <summary>Throttle using a rate config the caller owns — how the generation domain gets its OWN rate
+    /// instead of sharing the chat one (different vendors, often different accounts; one shared bucket would
+    /// have a render starve the chat that asked for it). <see cref="LyntaiOptions.RateLimit"/> is a fixed
+    /// instance, so both constructors read live: a retune applies to existing buckets on their next acquire.</summary>
+    public TokenBucketRateLimiter(RateLimitOptions limits, Func<DateTimeOffset>? clock = null)
     {
-        _options = options;
+        _limits = limits;
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 
@@ -35,8 +43,8 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
     /// passthrough); the <c>AddRateLimit</c> wiring warns in that case. Read live, so it honors
     /// <c>LYNTAI_RATELIMIT_*</c> env overrides applied after construction (as does every acquire).</summary>
     internal bool HasEffectiveLimit =>
-        _options.RateLimit.PermitsPerSecond > 0 ||
-        _options.RateLimit.PerConsumer.Values.Any(r => r.PermitsPerSecond > 0);
+        _limits.PermitsPerSecond > 0 ||
+        _limits.PerConsumer.Values.Any(r => r.PermitsPerSecond > 0);
 
     public async Task<bool> AcquireAsync(string consumer, CancellationToken ct = default)
     {
@@ -65,7 +73,7 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
     internal TimeSpan? TryReserve(string consumer, DateTimeOffset now)
     {
         if (Resolve(consumer) is not { } scope) return TimeSpan.Zero; // no limit configured → unlimited
-        return scope.Bucket.Reserve(now, scope.Rate, scope.Burst, _options.RateLimit.MaxWait);
+        return scope.Bucket.Reserve(now, scope.Rate, scope.Burst, _limits.MaxWait);
     }
 
     /// <summary>The bucket + its CURRENT rate/burst for <paramref name="consumer"/> (per-consumer wins over
@@ -73,7 +81,7 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
     /// bucket is a state holder only, so a retune applies to existing buckets immediately.</summary>
     private (Bucket Bucket, double Rate, int Burst)? Resolve(string consumer)
     {
-        var rl = _options.RateLimit;
+        var rl = _limits;
         if (rl.PerConsumer.TryGetValue(consumer, out var rate))
         {
             var burst = Math.Max(1, rate.Burst);

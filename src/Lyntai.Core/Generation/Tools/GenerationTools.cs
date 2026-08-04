@@ -82,7 +82,8 @@ internal static class GenerationToolJson
     /// <summary>Turn the request fields a model may supply into a <see cref="GenerationRequest"/>. Unknown
     /// members become pass-through <see cref="GenerationRequest.Options"/>, so a model can use a backend's own
     /// knobs (duration, aspect, voice) without Lyntai enumerating them.</summary>
-    public static GenerationRequest ReadRequest(JsonElement root, out IReadOnlyList<string> candidates)
+    public static GenerationRequest ReadRequest(
+        JsonElement root, string consumer, out IReadOnlyList<string> candidates)
     {
         var candidateList = new List<string>();
         if (root.TryGetProperty("backends", out var backends) && backends.ValueKind == JsonValueKind.Array)
@@ -93,7 +94,9 @@ internal static class GenerationToolJson
 
         var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "kind", "prompt", "model", "backends", "imageUrl" };
+            // "consumer" is reserved and IGNORED, not read: the billing/cap tag is the host's to set, and a
+            // model that could name it could route around a per-consumer cap
+            { "kind", "prompt", "model", "backends", "imageUrl", "consumer" };
         if (root.ValueKind == JsonValueKind.Object)
             foreach (var property in root.EnumerateObject())
                 if (!reserved.Contains(property.Name) && property.Value.ValueKind is JsonValueKind.String or JsonValueKind.Number)
@@ -106,6 +109,7 @@ internal static class GenerationToolJson
         return new GenerationRequest
         {
             Kind = Str(root, "kind") ?? GenerationKinds.Image,
+            Consumer = consumer,
             Prompt = Str(root, "prompt"),
             Model = Str(root, "model"),
             Options = options,
@@ -193,8 +197,15 @@ public sealed class GenerationBackendsTool(IEnumerable<IGenerationProvider> prov
 public sealed class GenerationInlineTool(
     IGenerationRouter router,
     GenerationOptions options,
-    IGenerationArtifactSink? sink = null) : ITool
+    IGenerationArtifactSink? sink = null,
+    string consumer = "agent") : ITool
 {
+    /// <summary>The spend/rate-limit tag renders from this tool bill to — <c>"agent"</c> by default, NOT the
+    /// platform's <c>"default"</c>. A tool loop is the runaway-spend case (a model retrying a render in a
+    /// loop), so it is capped separately out of the box: set <c>Budget.PerConsumer["agent"]</c> and it binds
+    /// agent-driven renders without touching what a user pressing a button may spend.</summary>
+    public string Consumer { get; } = consumer;
+
     /// <inheritdoc/>
     public string Name => "generate";
 
@@ -220,7 +231,7 @@ public sealed class GenerationInlineTool(
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         using var args = GenerationToolJson.Parse(argumentsJson);
-        var request = GenerationToolJson.ReadRequest(args.RootElement, out var named);
+        var request = GenerationToolJson.ReadRequest(args.RootElement, Consumer, out var named);
         if (request.Prompt is null && request.Inputs.Count == 0)
             return GenerationToolJson.Error("a prompt (or an imageUrl to edit) is required");
 
@@ -248,8 +259,13 @@ public sealed class GenerationInlineTool(
 
 /// <summary>Submits an ASYNCHRONOUS generation and returns the handle to poll. The shape a video render
 /// actually has — an agent that tried to wait inline would block for minutes.</summary>
-public sealed class GenerationSubmitTool(IGenerationRouter router, GenerationOptions options) : ITool
+public sealed class GenerationSubmitTool(
+    IGenerationRouter router, GenerationOptions options, string consumer = "agent") : ITool
 {
+    /// <summary>The spend/rate-limit tag submissions from this tool bill to — see
+    /// <see cref="GenerationInlineTool.Consumer"/>.</summary>
+    public string Consumer { get; } = consumer;
+
     /// <inheritdoc/>
     public string Name => "generate_submit";
 
@@ -275,7 +291,7 @@ public sealed class GenerationSubmitTool(IGenerationRouter router, GenerationOpt
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         using var args = GenerationToolJson.Parse(argumentsJson);
-        var request = GenerationToolJson.ReadRequest(args.RootElement, out var named);
+        var request = GenerationToolJson.ReadRequest(args.RootElement, Consumer, out var named);
         if (request.Prompt is null && request.Inputs.Count == 0)
             return GenerationToolJson.Error("a prompt (or an imageUrl) is required");
 

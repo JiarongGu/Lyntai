@@ -309,6 +309,9 @@ tracerProviderBuilder.AddSource(LyntaiDiagnostics.ActivitySourceName);        //
 meterProviderBuilder.AddMeter(LyntaiDiagnostics.MeterName);                   // duration, token usage,
                                                                               // time_to_first_chunk
 // the agentic subsystems (tool loop, durable jobs, guards) emit on a second source/meter:
+tracerProviderBuilder.AddSource(LyntaiDiagnostics.GenerationActivitySourceName);  // "Lyntai.Generation" spans
+meterProviderBuilder.AddMeter(LyntaiDiagnostics.GenerationMeterName);         // render duration + reported cost
+
 tracerProviderBuilder.AddSource(LyntaiDiagnostics.AgentActivitySourceName);   // "Lyntai.Agents" spans
 meterProviderBuilder.AddMeter(LyntaiDiagnostics.AgentMeterName);              // tool/job/guard metrics
 ```

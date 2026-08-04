@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Lyntai.Generation.Routing;
 using Lyntai.Jobs;
+using Lyntai.Llm.Budgeting;
 
 namespace Lyntai.Generation.Jobs;
 
@@ -36,11 +37,15 @@ public sealed record GenerationRenderJobOptions(TimeSpan? PollDelay = null)
 /// <param name="providers">The registered backends — used to find the one that owns a checkpointed operation.</param>
 /// <param name="sink">Where finished artifacts go (the app's concern, D30).</param>
 /// <param name="options">Poll cadence.</param>
+/// <param name="usage">Optional spend ledger. A durable render's cost is only known when it FINISHES, and by
+/// then the request that submitted it is long gone — so the handler is the only place that can bill it. Wired
+/// automatically when <c>AddGenerationUsageBudget()</c> is configured.</param>
 public sealed class GenerationRenderJobHandler(
     IGenerationRouter router,
     IEnumerable<IGenerationProvider> providers,
     IGenerationArtifactSink sink,
-    GenerationRenderJobOptions? options = null) : IJobHandler
+    GenerationRenderJobOptions? options = null,
+    IUsageTracker? usage = null) : IJobHandler
 {
     /// <summary>The job type this handler serves.</summary>
     public const string JobType = "lyntai.generation.render";
@@ -58,7 +63,7 @@ public sealed class GenerationRenderJobHandler(
 
         // A checkpoint means a render is ALREADY RUNNING at a backend: poll it. Never re-submit.
         if (RenderCheckpoint.Parse(ctx.Checkpoint) is { } checkpoint)
-            return await PollAsync(ctx, checkpoint, ct).ConfigureAwait(false);
+            return await PollAsync(ctx, checkpoint, job, ct).ConfigureAwait(false);
 
         return await SubmitAsync(ctx, job, ct).ConfigureAwait(false);
     }
@@ -86,7 +91,8 @@ public sealed class GenerationRenderJobHandler(
         return JobOutcome.Retry(_options.EffectivePollDelay);
     }
 
-    private async Task<JobOutcome> PollAsync(JobContext ctx, RenderCheckpoint checkpoint, CancellationToken ct)
+    private async Task<JobOutcome> PollAsync(
+        JobContext ctx, RenderCheckpoint checkpoint, GenerationRenderJob job, CancellationToken ct)
     {
         if (Backend(checkpoint.ProviderId) is not { } backend)
             return JobOutcome.Fail(
@@ -111,6 +117,13 @@ public sealed class GenerationRenderJobHandler(
                     return JobOutcome.Fail(
                         $"operation {checkpoint.OperationId} succeeded but its artifacts could not be " +
                         $"fetched: {result.Detail}");
+
+                // bill the render BEFORE delivery: a sink that throws makes the job retry, and the money is
+                // already spent either way — recording it after delivery would lose it on that retry, while
+                // recording it here at worst double-counts a render whose delivery keeps failing
+                if (usage is not null)
+                    await BudgetedGenerationRouter.RecordAsync(usage, job.Request.Consumer, result.Usage, ct)
+                        .ConfigureAwait(false);
 
                 // the sink may throw — a store that is momentarily unavailable should retry, not lose the render
                 await sink.ReceiveAsync(new GenerationArtifactDelivery(

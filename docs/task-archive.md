@@ -2035,6 +2035,8 @@ verification task stay open._
 
 - [x] **GEN3 — local subprocess backend** (`sd-cli` / stable-diffusion.cpp) through `IProcessRunner`.
 - [x] **GEN4 — async video composed with `Lyntai.Jobs`** (the durable half + the fal.ai queue backend).
+- [x] **GEN6 (tool/MCP bridge half)** — `AddGenerationTools()`: generation reachable from an agent as `ITool`s.
+- [x] **GEN5 — governance/telemetry parity for generation** (cost/budget, rate limiting, cooldown, OTel).
 
 ✅ done 2026-08-04 — **Outcome:** `LocalDiffusionProvider` runs stable-diffusion.cpp locally — no key, no
 network, no content policy in the path, which is what makes it the local half of the pair
@@ -2069,6 +2071,56 @@ rather than inventing one, and say so in their XML docs. GEN-VERIFY in `TASKS.md
 runs for real — at the owner's direction ("okay to not test fully today; we are building the foundation").
 
 `verify` green (build · 1296 tests · e2e 3/3 · leak scan).
+
+✅ **GEN6 (tool/MCP bridge half)** done 2026-08-04 — **Outcome:** `AddGenerationTools()` registers five
+`ITool`s, and that registration is the ENTIRE coupling between the generation and LLM domains: neither
+references the other's concrete types, and because the LLM side already knows `ITool`, they work in the
+in-process tool loop *and* — with `AddMcpToolHost(...)` — for a CLI agent running its own loop over MCP (the
+owner's loose-coupling requirement, D30). Five tools rather than one because a model must DISCOVER before it can
+choose: `generate_backends` reports what exists and what each backend supports, `generate` is inline, and
+`generate_submit` → `generate_status` → `generate_fetch` is the asynchronous path a video render actually needs
+(submitting to an inline-only backend returns one clear sentence, not a crash). **Bytes never enter an
+observation** — a base64 image would blow the context window for nothing: artifacts go to the
+`IGenerationArtifactSink` when one is registered, otherwise the observation reports type/size/URI. Bad arguments
+come back readable so a model can correct itself, and unknown arguments pass through as backend options so a
+model can use a backend's own knobs without Lyntai enumerating them. Lives in Core (needs only the `ITool`
+contract already there, D31). One trap recorded: inside `namespace Lyntai`, a relative `Tools.X` binds to
+`Lyntai.Tools` (the MCP package), so the registrations are fully qualified. 12 tests; `verify` green
+(1308 tests).
+
+✅ **GEN5** done 2026-08-04 — **Outcome:** the generation domain now has the LLM front door's governance, and
+every piece REUSES that machinery rather than growing a second copy (the task's own constraint):
+`DeadHostTracker` for cooldown, `IUsageTracker` for spend, `IRateLimiter`/`TokenBucketRateLimiter` for
+throttling. What the reuse forced into the open were the two places the domains must NOT bleed together, both
+pinned by tests: cooldown keys are **domain-prefixed** (`generation::<id>`), so a host whose chat provider and
+image backend share an id — plausible, e.g. both "openai" — never has a chat outage bench its image renders;
+and generation **throttles on its own `RateLimitOptions`** (`GenerationOptions.RateLimit`), because a render and
+a chat turn hit different vendors' limits and one shared bucket would let a render starve the chat that asked
+for it. The limiter is passed to the decorator rather than registered as `IRateLimiter`, so it can never
+overwrite the chat one; `TokenBucketRateLimiter` gained a `RateLimitOptions` ctor for it (the `LyntaiOptions` one
+now delegates — a pure addition).
+
+Spend, by contrast, is deliberately SHARED: renders record into the same `IUsageTracker` as chat, because "what
+has this app spent" has to be one number. Only COST caps bind a render — it spends no tokens and claims none, so
+refusing one because chat exhausted a token budget would be governance by coincidence. The cap is checked before
+a render AND before a **submission**, since submitting is what commits the money for a hosted video whether or
+not anyone fetches it; the completed cost is recorded by `GenerationRenderJobHandler`, the only place that still
+exists when a durable render finishes (billed BEFORE delivery, so a retrying sink cannot lose the charge). Two
+supporting additions fell out of this: `GenerationRequest.Consumer` (round-tripped through the durable-job
+payload, so a render resumed in another process still bills to whoever asked), and the agent tools defaulting to
+consumer `"agent"` — a tool loop is the runaway-spend case, so `Budget.PerConsumer["agent"]` fences it off
+without touching what a user pressing a button may spend. A model cannot name its own consumer (the key is
+reserved and ignored in the tool schema) or it could route around its own cap.
+
+The router's policy gained the two actions its own doc-comment had promised (`PenalizeAndAdvance`,
+`CooldownAndAdvance`) with defaults mirroring design §6, plus `ExemptSoleCandidate` — benching the only capable
+backend converts an actionable "rate limited, try in a minute" into a useless "no capable backend". Telemetry is
+a **third** source/meter (`Lyntai.Generation`), not folded into the GenAI one: a render is not a `gen_ai.*` chat
+operation and mixing them would corrupt token/duration aggregates a dashboard computes over the LLM source. The
+two tags that do carry over keep their GenAI names (`gen_ai.system`, `gen_ai.request.model`) so spend can still
+be grouped by vendor across both domains, and cost is a first-class metric (`lyntai.generation.cost`) because
+there is no token proxy for it. Spans are per ATTEMPT, so a trace of a fallback run shows the backend that
+failed as well as the one that worked. 24 tests; `verify` green (build · 1332 tests · e2e 3/3 · leak scan).
 
 ---
 

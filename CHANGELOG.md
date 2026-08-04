@@ -44,6 +44,26 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+- **Governance + telemetry parity for generation (`AddGenerationUsageBudget()`, `AddGenerationRateLimit()`,
+  cooldown by default)** — the generation domain now has the LLM front door's governance, REUSING that machinery
+  rather than duplicating it: `DeadHostTracker` benches a backend that rate-limits or rejects a key (and counts
+  repeated transient faults toward the threshold), `IUsageTracker` accounts spend, and the same token bucket
+  throttles. Two boundaries are deliberate and tested. **Cooldown keys are domain-prefixed**, so a host whose
+  chat provider and image backend share an id never has a chat outage bench its renders. **Throttling is
+  configured separately** (`GenerationOptions.RateLimit`), because a render and a chat turn hit different
+  vendors' limits and one shared bucket would let a render starve the chat that requested it. **Spend, by
+  contrast, is shared on purpose** — renders record into the same tracker as chat, so "what has this app spent"
+  stays one number; only COST caps bind a render (it spends no tokens and claims none). The cap is checked before
+  a render *and* before a submission, since submitting is what commits the money for a hosted video whether or
+  not anyone fetches it, and `GenerationRenderJobHandler` records what a finished durable render cost — the only
+  place that still exists by then. New: `GenerationRequest.Consumer` (round-tripped through the durable-job
+  payload, so a resumed render still bills to whoever asked), `GenerationRoutingPolicy.ExemptSoleCandidate` plus
+  the `PenalizeAndAdvance`/`CooldownAndAdvance` actions, and a THIRD OTel source/meter `Lyntai.Generation`
+  (per-attempt spans, `lyntai.generation.duration`/`.cost`/`.artifacts`) — kept out of the GenAI source because a
+  render is not a `gen_ai.*` chat operation, while `gen_ai.system`/`gen_ai.request.model` carry over so spend can
+  still be grouped by vendor across both domains. Agent-driven renders default to consumer `"agent"`, so
+  `Budget.PerConsumer["agent"]` fences off the runaway-spend case without limiting what a user's own click may
+  spend; a model cannot name its own consumer.
 - **Generation as agent tools (`AddGenerationTools()`)** — the generation domain exposed as five `ITool`s, which
   is the **entire coupling** between the generation and LLM domains: neither references the other's concrete
   types, and because the LLM side already knows `ITool`, these work in the in-process tool loop *and* — with

@@ -38,21 +38,19 @@ _Part 32 (MED1: the generation platform + the 2.0.1 package restructure) landed 
 `docs/2026-08-04-generation-platform-plan.md` + `docs/2026-08-04-restructure-2.0.1-plan.md`. What remains are
 that plan's Plans 3–7, each a separate pass because each needs its own measurement._
 
-_GEN3 (local `sd-cli`) and GEN4 (durable renders + the fal.ai queue backend) landed 2026-08-04 — see
-`docs/task-archive.md` Part 33. Both carry an **unmeasured-surface** caveat to close the first time they run
-for real: the `sd-cli` argv/size clamping is ported-not-measured, and fal's wire format is documented-not-
-measured._
+_GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
+GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33. GEN3/GEN4 carry
+an **unmeasured-surface** caveat to close the first time they run for real: the `sd-cli` argv/size clamping is
+ported-not-measured, and fal's wire format is documented-not-measured._
 
 - [ ] **GEN-VERIFY — confirm the two unmeasured backends against reality.** For `sd-cli`: run one render and
   check the argv, the multiple-of-64 clamp and the binary-directory working dir. For fal: one submit → poll →
   fetch with a real key, checking the status vocabulary, the result field names and what `cost` reports. Then
   delete the "unverified" notes from the XML docs — or fix the mappings and keep them.
-- [ ] **GEN5 — governance/telemetry parity for generation**: cost/budget accounting, rate limiting, dead-host
-  cooldown for candidates, OTel spans/metrics — reusing the existing decorator patterns, not a second copy.
-- [ ] **GEN6 — streaming audio (TTS).** The tool/MCP bridge half LANDED 2026-08-04 (`AddGenerationTools()`:
-  five `ITool`s covering discovery, the inline path and the async path; bytes go to the sink, never into an
-  observation). What remains is a streaming TTS backend to exercise `IGenerationStreamProvider` end to end —
-  nothing implements that seam yet. **TTS before music** (owner).
+- [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend to exercise `IGenerationStreamProvider` end to
+  end — nothing implements that seam yet, so it is the one contract in the platform no real backend has
+  exercised. **TTS before music** (owner). Needs a vendor pick and a MEASURED wire format (the GEN-VERIFY
+  lesson), so it waits on a key rather than shipping another documented-not-measured surface.
 - [ ] **GEN7 — pipelines (3d → image → video)**: ordered stages feeding `artifact.ToInput(role)` forward, with
   per-stage candidates and per-stage failure semantics. Deferred until ≥2 real backends exist so the runner
   isn't designed on guesses. Needs a 3D-backend survey first (mesh vs turntable stills — only the latter chains

@@ -20,6 +20,10 @@ public sealed class FakeGenerationProvider : IGenerationProvider
     public Queue<GenerationVerdict> Verdicts { get; } = new();
 
     public bool ProbeAvailable { get; set; } = true;
+
+    /// <summary>What each successful render REPORTS costing — for the spend-governance tests.</summary>
+    public double? CostUsd { get; set; }
+
     public int GenerateCalls { get; private set; }
     public int ProbeCalls { get; private set; }
 
@@ -37,7 +41,8 @@ public sealed class FakeGenerationProvider : IGenerationProvider
             : Verdicts.Count == 1 ? Verdicts.Peek()
             : GenerationVerdict.Ok;
         return Task.FromResult(verdict == GenerationVerdict.Ok
-            ? GenerationResult.Success([new GenerationArtifact("image/png", Data: [0x89])], new GenerationUsage(Count: 1))
+            ? GenerationResult.Success([new GenerationArtifact("image/png", Data: [0x89])],
+                new GenerationUsage(Count: 1, CostUsd: CostUsd))
             : GenerationResult.Failure(verdict, $"fake {verdict}"));
     }
 }

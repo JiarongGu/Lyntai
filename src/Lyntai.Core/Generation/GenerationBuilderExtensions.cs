@@ -1,7 +1,11 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
+using Lyntai.Llm.Budgeting;
+using Lyntai.Llm.RateLimiting;
+using Lyntai.Llm.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 // Lives in the Lyntai namespace so the Add*/Use* methods appear on the builder.
 namespace Lyntai;
@@ -13,6 +17,12 @@ public sealed class GenerationOptions
     /// <c>LyntaiOptions.DefaultCandidates</c>, and mutable for the same reason: the builder sets it at
     /// configure time.</summary>
     public List<GenerationCandidate> DefaultCandidates { get; } = [];
+
+    /// <summary>Throttling for generation, SEPARATE from <c>LyntaiOptions.RateLimit</c> (which governs chat).
+    /// A render and a chat turn hit different vendors' limits — often different accounts — so one shared
+    /// bucket would have an image render starve the chat that asked for it. Applied by
+    /// <c>AddGenerationRateLimit()</c>; the machinery is the same token bucket.</summary>
+    public RateLimitOptions RateLimit { get; } = new();
 }
 
 public static class GenerationBuilderExtensions
@@ -24,10 +34,79 @@ public static class GenerationBuilderExtensions
         this LyntaiBuilder builder, Func<IServiceProvider, IGenerationProvider> factory)
     {
         builder.Services.AddSingleton(factory);
-        GenerationOptionsFor(builder);   // ensure the options singleton exists even with no candidates configured
-        builder.Services.TryAddSingleton<IGenerationRouter>(sp => new GenerationRouter(
-            sp.GetServices<IGenerationProvider>(), sp.GetService<GenerationRoutingPolicy>()));
+        EnsureRouter(builder);
         return builder;
+    }
+
+    /// <summary>Meter what generation COSTS and refuse renders once a configured cap is reached. Reads the same
+    /// <see cref="BudgetOptions"/> as the LLM front door and records into the same
+    /// <see cref="IUsageTracker"/>, so "what has this app spent" stays ONE number across chat and media — a
+    /// host paying one vendor for both would otherwise have to add up two ledgers.
+    ///
+    /// <para>Only COST caps bind a render (it spends no tokens and claims none), so set
+    /// <see cref="BudgetOptions.MaxCostUsd"/> or a per-consumer cost cap. The cap is checked before a render
+    /// and before a SUBMISSION — submitting is what commits the money for a hosted video, whether or not
+    /// anyone fetches the result. Register your own <see cref="IUsageTracker"/> before this to share spend
+    /// across processes.</para></summary>
+    public static LyntaiBuilder AddGenerationUsageBudget(this LyntaiBuilder builder, Action<BudgetOptions>? configure = null)
+    {
+        configure?.Invoke(builder.Options.Budget);
+        builder.Services.TryAddSingleton<IUsageTracker, InMemoryUsageTracker>();
+        builder.Services.TryAddSingleton<GenerationBudgetGovernance>();
+        EnsureRouter(builder);
+        return builder;
+    }
+
+    /// <summary>Throttle generation with a token-bucket limiter on its OWN rate
+    /// (<see cref="GenerationOptions.RateLimit"/> — not the chat one; see that property for why). Over the
+    /// rate a call waits up to <see cref="RateLimitOptions.MaxWait"/> and is then refused with
+    /// <c>RateLimited</c> without hitting a backend.</summary>
+    /// <param name="builder">The builder.</param>
+    /// <param name="configure">Tune the generation rate.</param>
+    /// <param name="limiter">BYO limiter (a distributed one shared across processes). Null = the built-in
+    /// token bucket over <see cref="GenerationOptions.RateLimit"/>. Deliberately a PARAMETER rather than an
+    /// <see cref="IRateLimiter"/> registration: the LLM front door already owns that service, and two
+    /// registrations of it would silently make one domain throttle at the other's rate.</param>
+    public static LyntaiBuilder AddGenerationRateLimit(
+        this LyntaiBuilder builder,
+        Action<RateLimitOptions>? configure = null,
+        Func<IServiceProvider, IRateLimiter>? limiter = null)
+    {
+        var options = GenerationOptionsFor(builder);
+        configure?.Invoke(options.RateLimit);
+        builder.Services.TryAddSingleton(sp => new GenerationRateLimitGovernance(
+            limiter?.Invoke(sp) ?? new TokenBucketRateLimiter(options.RateLimit)));
+        EnsureRouter(builder);
+        return builder;
+    }
+
+    /// <summary>Register the <see cref="IGenerationRouter"/> as the base router folded in whatever governance
+    /// is configured. One registration for every entry point (a provider, a budget, a rate limit) because
+    /// <c>TryAddSingleton</c> keeps the FIRST factory — so the factory has to be the composing one no matter
+    /// which <c>Add*</c> ran first, and it reads the governance markers at RESOLVE time.
+    ///
+    /// <para>Order mirrors the LLM front door: the rate limiter sits INSIDE the budget, so a call refused for
+    /// spend never consumes a permit.</para></summary>
+    private static void EnsureRouter(LyntaiBuilder builder)
+    {
+        GenerationOptionsFor(builder);   // ensure the options singleton exists even with nothing configured
+        builder.Services.TryAddSingleton<IGenerationRouter>(sp =>
+        {
+            IGenerationRouter router = new GenerationRouter(
+                sp.GetServices<IGenerationProvider>(),
+                sp.GetService<GenerationRoutingPolicy>(),
+                sp.GetService<DeadHostTracker>());
+
+            if (sp.GetService<GenerationRateLimitGovernance>() is { } throttle)
+                router = new RateLimitedGenerationRouter(router, throttle.Limiter,
+                    sp.GetService<ILogger<RateLimitedGenerationRouter>>());
+
+            if (sp.GetService<GenerationBudgetGovernance>() is not null)
+                router = new BudgetedGenerationRouter(router, sp.GetRequiredService<IUsageTracker>(),
+                    sp.GetRequiredService<LyntaiOptions>(), sp.GetService<ILogger<BudgetedGenerationRouter>>());
+
+            return router;
+        });
     }
 
     /// <summary>Tune per-verdict fallback for generation routing. The defaults reproduce the LLM router's
@@ -111,6 +190,17 @@ public static class GenerationBuilderExtensions
     /// <summary>Get-or-register a singleton INSTANCE for this builder. Registering the instance (not a
     /// factory) is what lets configure-time mutation be visible to the resolved service — the same
     /// immediate-mutation model the builder's own <c>Options</c> uses.</summary>
+    /// <summary>Marker: spend governance is configured. INTERNAL — it is wiring state, not a knob, and the
+    /// public surface should not grow a type whose only job is to exist.</summary>
+    internal sealed class GenerationBudgetGovernance;
+
+    /// <summary>Marker carrying the generation limiter — carried rather than registered as
+    /// <see cref="IRateLimiter"/> so it can never be mistaken for (or overwrite) the chat limiter.</summary>
+    internal sealed class GenerationRateLimitGovernance(IRateLimiter limiter)
+    {
+        public IRateLimiter Limiter { get; } = limiter;
+    }
+
     private static T InstanceFor<T>(LyntaiBuilder builder, Func<T> create) where T : class
     {
         foreach (var descriptor in builder.Services)

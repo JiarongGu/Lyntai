@@ -25,6 +25,9 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Gener
             writer.WriteEndArray();
 
             writer.WriteString("kind", Request.Kind);
+            // the consumer tag rides along so a render RESUMED in another process still bills to whoever
+            // asked for it — a durable job outlives the request that created it
+            if (Request.Consumer != "default") writer.WriteString("consumer", Request.Consumer);
             if (Request.Prompt is { } prompt) writer.WriteString("prompt", prompt);
             if (Request.Model is { } model) writer.WriteString("model", model);
             if (Request.TimeoutSeconds is { } timeout) writer.WriteNumber("timeoutSeconds", timeout);
@@ -98,6 +101,7 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Gener
             return new GenerationRenderJob(candidates, new GenerationRequest
             {
                 Kind = kind,
+                Consumer = Str(root, "consumer") ?? "default",
                 Prompt = Str(root, "prompt"),
                 Model = Str(root, "model"),
                 Options = options,

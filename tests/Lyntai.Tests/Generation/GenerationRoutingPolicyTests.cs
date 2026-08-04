@@ -15,15 +15,19 @@ public class GenerationRoutingPolicyTests
     private static GenerationRequest Image() => new() { Kind = GenerationKinds.Image, Prompt = "x" };
 
     [Fact]
-    public void By_default_a_refusal_surfaces_and_everything_else_advances()
+    public void The_defaults_mirror_the_LLM_router_so_one_mental_model_covers_both_domains()
     {
         var policy = new GenerationRoutingPolicy();
 
+        // a content judgement ends the run; a capability gap is nobody's fault; a backend that told us to
+        // back off gets benched; a maybe-transient fault counts toward the threshold
         Assert.Equal(GenerationFallbackAction.Surface, policy.ActionFor(GenerationVerdict.Refused));
-        Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(GenerationVerdict.Failed));
-        Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(GenerationVerdict.RateLimited));
         Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(GenerationVerdict.NotConfigured));
         Assert.Equal(GenerationFallbackAction.Advance, policy.ActionFor(GenerationVerdict.Unsupported));
+        Assert.Equal(GenerationFallbackAction.CooldownAndAdvance, policy.ActionFor(GenerationVerdict.RateLimited));
+        Assert.Equal(GenerationFallbackAction.CooldownAndAdvance, policy.ActionFor(GenerationVerdict.AuthFailed));
+        Assert.Equal(GenerationFallbackAction.PenalizeAndAdvance, policy.ActionFor(GenerationVerdict.Failed));
+        Assert.Equal(GenerationFallbackAction.PenalizeAndAdvance, policy.ActionFor(GenerationVerdict.Timeout));
     }
 
     [Fact]
