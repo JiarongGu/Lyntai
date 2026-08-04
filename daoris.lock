@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "canonVersion": "0.1.0",
+  "source": "github:OWNER/daoris#v0.1.0",
+  "entries": [
+    {
+      "pack": "dotnet-library",
+      "source": "packs/dotnet-library/knowledge/library-api-design.md",
+      "target": "knowledge/library-api-design.md",
+      "canonVersion": "0.1.0",
+      "sha256": "0c34eb6f84732e74e5be48e2d932d339276019056b6d3a6e7b1fad91488653c6"
+    },
+    {
+      "pack": "storage-sql",
+      "source": "packs/storage-sql/knowledge/sql-storage.md",
+      "target": "knowledge/sql-storage.md",
+      "canonVersion": "0.1.0",
+      "sha256": "fc0bb5af213d6cd0c443e94eaf997880c93c1f5dc36d057d2e7a5ad6c30167fa"
+    },
+    {
+      "pack": "dotnet-library",
+      "source": "packs/dotnet-library/rules/dotnet-package-layout.md",
+      "target": "rules/dotnet-package-layout.md",
+      "canonVersion": "0.1.0",
+      "sha256": "ef7f9b16bfc3579a83ed84a561203c2cfe0ebe7f4517d5cf49c5adace1456a29"
+    },
+    {
+      "pack": "core",
+      "source": "core/file-tool-discipline.md",
+      "target": "rules/file-tool-discipline.md",
+      "canonVersion": "0.1.0",
+      "sha256": "4f7dab1b790f31b5a22dacf4e2ff1e365457e8995d245019220cea22703a0fc5"
+    },
+    {
+      "pack": "core",
+      "source": "core/no-global-memory.md",
+      "target": "rules/no-global-memory.md",
+      "canonVersion": "0.1.0",
+      "sha256": "f38fe516a9588c7cba6cc3f86088d5c6428e73bfe0f1fada6a235b86a1c6745d"
+    },
+    {
+      "pack": "core",
+      "source": "core/no-tmp-for-repo-files.md",
+      "target": "rules/no-tmp-for-repo-files.md",
+      "canonVersion": "0.1.0",
+      "sha256": "c28d3f0e2b68bb03cf49d4b82da729f11d66005a8048fea493a07cf29c054970"
+    },
+    {
+      "pack": "core",
+      "source": "core/persist-working-state.md",
+      "target": "rules/persist-working-state.md",
+      "canonVersion": "0.1.0",
+      "sha256": "48ef7f02a18c7a00e1c712dc4cc49806917080ff4efb8da4b531bd888ab07cf7"
+    },
+    {
+      "pack": "core",
+      "source": "core/sensitive-info.md",
+      "target": "rules/sensitive-info.md",
+      "canonVersion": "0.1.0",
+      "sha256": "9f090594b839f6652a07780f417e634177f701a9c933389c0d8c0fa918d607eb"
+    },
+    {
+      "pack": "core",
+      "source": "core/task-lifecycle.md",
+      "target": "rules/task-lifecycle.md",
+      "canonVersion": "0.1.0",
+      "sha256": "d8fb9aab0580fde4ac9743ae510f6c8aacefa78acf3ac3a3d47e1615a5d8666e"
+    },
+    {
+      "pack": "windows-machine",
+      "source": "packs/windows-machine/rules/windows-machine.md",
+      "target": "rules/windows-machine.md",
+      "canonVersion": "0.1.0",
+      "sha256": "17714286496d7053c6b248e2bb76e47d8509ab96bf8ba5826651f7a48bfeb4f0"
+    }
+  ]
+}

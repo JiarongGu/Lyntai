@@ -1,43 +1,33 @@
-# Task lifecycle — `TASKS.md` is the ACTIVE backlog; completed work moves to the archive
+<!-- daoris: core/core/task-lifecycle.md @ 0.1.0 — canonical; edit via `daoris upstream` -->
+---
+name: task-lifecycle
+applies_when: adding or finishing a task, or editing the backlog
+enforces: the backlog holds OPEN work only; a finished task MOVES to the archive; three records, three jobs
+---
 
-`TASKS.md` is a *living backlog of open work*, not a growing checklist of everything ever done. It stays
-small and scannable so the next open task is obvious. The completed record lives elsewhere.
+# Task lifecycle — the backlog is open work; finished work moves to the archive
 
-## The rule
+**The backlog file is a living list of what is still to do, not a growing checklist of everything ever
+done.** When a task is genuinely finished, its entry is *removed* from the backlog and *appended* to the
+archive — not checked off in place.
 
-- **`TASKS.md` holds OPEN tasks only.** Add new work here as checklist items (`- [ ] **id** …`), grouped
-  under a `## Part N — <theme>` heading, with a `file:line` where known.
-- **On completion, MOVE — don't just check off.** When a task is fully done (implemented, tested,
-  committed, and verified), **remove its entry from `TASKS.md`** and **append it to
-  `docs/task-archive.md`** with the completion date and a one-line **Outcome** (what shipped + where).
-  Don't accumulate `[x]` items in `TASKS.md`.
-- **Three records, three jobs, no duplication:**
-  - `TASKS.md` — what's still TODO (open backlog).
-  - `docs/task-archive.md` — the per-task history (why/how each closed item was done; the frozen plan).
-  - `CHANGELOG.md` — the release-facing, user-visible log (per `VersionPrefix` release). Write under
-    `## Unreleased`; the release workflow **stamps that heading** with the version + date (`node
-    devtools/dev.mjs changelog --fix`), so never hand-stamp it. Want a titled release? Pre-title the
-    heading — `## Unreleased — <title>` becomes `## X.Y.Z — <title> (<date>)`.
-- **NEVER hand-edit `<VersionPrefix>`** (`src/Directory.Build.props`) or the `## Unreleased` heading. The
-  release workflow bumps the version **from whatever that file currently says**, so a manual bump silently
-  moves the baseline and the next release publishes the version AFTER the intended one — the skipped version
-  is simply gone (this happened in a sibling repo; `docs/DECISIONS.md` D25). Both edits are blocked by the
-  `check-version-bump` pre-commit guard, and `node devtools/dev.mjs doctor` fails when `VersionPrefix` no
-  longer matches the newest `v*` tag. Releasing, or repairing a botched release? `LYNTAI_RELEASE=1`.
-- **The next MAJOR is `2.0.1`, not `2.0.0`** — 2.0.0 is already taken (published then unlisted) on 10 of the
-  12 package ids, and an unlisted version's number is never freed. A 2.0.0 release would report success while
-  `--skip-duplicate` silently published nothing for those 10. Cut it with an explicit `version: 2.0.1` +
-  `bump: none` on the release workflow. See `docs/DECISIONS.md` D29.
-- **Keep the top banner honest.** The `## Active backlog` section reflects reality — `_None …_` when empty;
-  never a stale "all done" banner over open items, nor open items under a "done" banner.
+## Why
+
+A backlog that accumulates completed items stops being scannable, and the next open task stops being
+obvious. Checking items off in place feels like record-keeping, but it buries the one thing the file
+exists to answer: what is left?
+
+Keeping the record in a separate archive loses nothing. It gains a per-task history — why and how each
+item was closed — that a checked-off line never carried anyway.
 
 ## How to apply
 
-- Finishing a task? In the SAME change (or its follow-up doc commit): cut the entry out of `TASKS.md`,
-  paste it under the right Part heading in `docs/task-archive.md`, and add `✅ done <YYYY-MM-DD> — <Outcome>`.
-  Preserve the original task text so the archive stays a faithful record.
-- Use the **`archive-task`** skill for the mechanical move.
-- Never delete a completed task outright (the archive is the record) and never leave a completed task in
-  `TASKS.md` (the backlog must show only open work).
-- Adding a task mid-work you can't finish now? Leave it `- [ ]` in `TASKS.md` — that's exactly what the
-  backlog is for.
+- **Backlog:** open tasks only, as checklist items grouped by theme, with a `file:line` where known.
+- **On completion — move, don't tick.** In the same change or its follow-up: cut the entry out of the
+  backlog, paste it into the archive under the right heading, and add the completion date plus a one-line
+  outcome. Preserve the original wording so the archive stays a faithful record.
+- **Three records, three jobs, no duplication:** the backlog is what is still TODO; the archive is the
+  per-task history; the changelog is the release-facing, user-visible log.
+- **Keep the summary honest.** If the top of the backlog claims everything is done, that must be true.
+  Never leave a stale "all done" banner over open items, nor open items under a "done" banner.
+- Picking up work you cannot finish now? Leave it open in the backlog. That is exactly what it is for.

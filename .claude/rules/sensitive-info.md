@@ -1,26 +1,30 @@
-# Sensitive info — keep dev-machine specifics and private tokens out of tracked files
+<!-- daoris: core/core/sensitive-info.md @ 0.1.0 — canonical; edit via `daoris upstream` -->
+---
+name: sensitive-info
+applies_when: writing any tracked file or commit message, or rewriting history
+enforces: no machine paths, no private repo names, no credentials; a committed leak is a history problem
+---
 
-Lyntai is a reusable library shaped to be published. Keep the repo clean of anything machine- or
-person-specific.
+# Sensitive info — keep machine specifics and private names out of tracked files
 
-## The rules (never in a tracked file or commit message)
+**Never put a developer-machine absolute path, a private repository's name, or any credential into a
+tracked file or a commit message.**
 
-- **No dev-machine absolute paths.** No `C:\Users\<name>\…`, no dev-root paths. Use repo-relative paths or
-  neutral placeholders.
-- **No private tokens / secrets.** API keys, access tokens, credentials — none in tracked files or history.
-  Tests use the deterministic provider-stub, never a real key.
-- **No other repos' private names or paths.** Refer to sibling/related projects **neutrally** ("a sibling
-  project"), never by name, and never by their on-disk path — same reason as machine paths: this repo is
-  shaped to be published.
-- **Commit messages are history too.** Describe changes structurally, never with machine/person specifics.
+## Why
+
+A repository shaped to be published carries its history with it. A machine path or a private project
+name is invisible to the person who wrote it and obvious to everyone who reads it afterwards — and once
+committed it lives in the history, where deleting the line does not remove it.
+
+Commit messages are history too, and they are the easiest place to forget this: the change itself gets
+reviewed, the message rarely does.
 
 ## How to apply
 
-- **An automated pre-commit guard enforces this** — `devtools/scripts/check-sensitive.mjs` (run by
-  `devtools/hooks/pre-commit`) scans staged changes and blocks the commit on any hit. Install once per
-  clone: `node devtools/dev.mjs install-hooks` (sets `core.hooksPath`). Any real private tokens go in the
-  gitignored `local/sensitive-patterns.txt` (one JS regex per line) — never in a tracked file. Scan the
-  whole tree any time: `node devtools/scripts/check-sensitive.mjs --tree`.
-- If the guard blocks you: use a repo-relative path / neutral placeholder, or move the value to `local/`.
-- A leak already committed is a **history** problem, not a working-tree problem — it needs a history
-  rewrite (bundle backup first), not just an edit.
+- Use repository-relative paths, or a neutral placeholder, in every tracked file.
+- Refer to sibling projects neutrally unless the project is genuinely public under that name.
+- Keep private context — real names, machine paths, tokens — in an untracked directory.
+- Credentials belong in the environment or a secret store, never in a file the repository tracks. Tests
+  use a deterministic stub, never a real key.
+- A leak that is already committed is a **history** problem, not a working-tree problem. It needs a
+  history rewrite, and a backup before you start — an edit only hides it from the current checkout.
