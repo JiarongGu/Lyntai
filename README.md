@@ -573,9 +573,15 @@ services.AddHttpClient(GenerationProviderBuilderExtensions.HttpClientName("fal")
 for the queue ones (`ComfyUiOptions`, `FalQueueOptions`, whose calls are submit/status/fetch round-trips rather
 than renders) — and a request's own `TimeoutSeconds` overrides it where a request exists. A fired deadline is a
 `GenerationVerdict.Timeout` **result**, not a throw; your own `CancellationToken` keeps its own meaning and
-still surfaces as cancellation. Set `Timeout = System.Threading.Timeout.InfiniteTimeSpan` to own timeouts
-entirely. For a queue backend the deadline bounds one HTTP call, never the render — the render outlives every
-call, and bounding it is the durable job's retry budget to do.
+still surfaces as cancellation. Set `Timeout = System.Threading.Timeout.InfiniteTimeSpan` to drop the backend's
+own deadline — a request that names its own `TimeoutSeconds` still gets one, since the more specific
+instruction wins either way.
+
+For a queue backend the deadline bounds one HTTP call, never the render — the render outlives every call, and
+bounding it is the durable job's retry budget to do. One consequence is worth knowing: a **submit** that gets no
+answer comes back `Failed` **and `Inconclusive`**, and the router then *surfaces* it rather than trying the next
+backend, because a queue that never answered may already hold a billable render and the next candidate would buy
+the same generation twice. It is not counted against the backend's cooldown either.
 
 Inputs — an init image, a first frame, a style reference, a voice sample — are built with the **named
 factories**, never the positional constructor:

@@ -1,5 +1,8 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
+using Lyntai.Generation.Routing;
+using Lyntai.Llm.Routing;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
@@ -170,6 +173,83 @@ public class GenerationTimeoutTests
             new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
             .FetchAsync("prompt-1");
         Assert.Equal(GenerationVerdict.Timeout, comfy.Verdict);
+    }
+
+    [Fact]
+    public async Task A_BYO_clients_OWN_timeout_also_surfaces_as_a_verdict_rather_than_escaping()
+    {
+        // the shape the consumer who filed this is running today: their own client with an explicit finite
+        // Timeout (180s there, 150ms here) instead of the shim's infinite one. HttpClient raises that as a
+        // TaskCanceledException with the caller's token untouched — which used to escape GenerateAsync
+        // uncaught, breaking the fail-safe contract for precisely the people who bounded their own client.
+        var provider = new OpenAiImageProvider(
+            new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Timeout = Unreachable },
+            () => new HttpClient(new StallingHandler()) { Timeout = Short });
+
+        var result = await provider.GenerateAsync(Ask());      // no caller cancellation anywhere
+
+        Assert.Equal(GenerationVerdict.Timeout, result.Verdict);
+        Assert.Contains("HttpClient", result.Detail);          // says WHICH clock fired: the fix differs
+    }
+
+    // ---- a submit with no answer must not become a SECOND paid submission ----
+
+    private static FalQueueProvider StalledFal() => new(
+        new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling());
+
+    private static GenerationRequest Video() =>
+        new() { Kind = GenerationKinds.Video, Prompt = "a wave" };
+
+    [Fact]
+    public async Task A_timed_out_submit_is_INCONCLUSIVE_rather_than_a_plain_failure()
+    {
+        // "the queue refused the job" and "the queue never answered" are both Failed today, and the router
+        // advances on Failed — so without this flag a submit that may already be enqueued is submitted again
+        // somewhere else, which is the duplicate paid render the whole checkpoint-first design exists to avoid
+        var operation = await StalledFal().SubmitAsync(Video());
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.True(operation.Inconclusive);
+        Assert.Contains("may still have been enqueued", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_plain_submit_failure_is_NOT_inconclusive_so_fallback_still_works()
+    {
+        // the counterweight: an answered rejection is conclusive, and must keep advancing to the next backend
+        var operation = await new FalQueueProvider(new FalQueueOptions { ApiKey = "k" }, Stalling())
+            .SubmitAsync(Video());     // no model named anywhere: refused before any HTTP call
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.False(operation.Inconclusive);
+    }
+
+    [Fact]
+    public async Task A_timed_out_submit_does_not_cause_a_SECOND_backend_to_be_submitted_to()
+    {
+        var second = new FakeGenerationJobProvider { Id = "fake-video" };
+        var router = new GenerationRouter([StalledFal(), second]);
+
+        var submission = await router.SubmitAsync(
+            [new GenerationCandidate("fal"), new GenerationCandidate("fake-video")], Video());
+
+        Assert.Equal(0, second.SubmitCalls);                       // the whole point: nobody pays twice
+        Assert.Equal("fal", submission.ProviderId);                // and the caller learns WHO may hold it
+        Assert.True(submission.Operation.Inconclusive);
+    }
+
+    [Fact]
+    public async Task A_timed_out_submit_does_not_bench_the_backend()
+    {
+        // no answer is no evidence of ill health — benching on it would take a working backend out of rotation
+        var tracker = new DeadHostTracker(threshold: 1);
+        var router = new GenerationRouter([StalledFal(), new FakeGenerationJobProvider { Id = "fake-video" }],
+            deadHosts: tracker);
+
+        await router.SubmitAsync(
+            [new GenerationCandidate("fal"), new GenerationCandidate("fake-video")], Video());
+
+        Assert.False(tracker.IsDead("generation::fal"));
     }
 
     // ---- the caller's own cancellation is NOT a timeout ----

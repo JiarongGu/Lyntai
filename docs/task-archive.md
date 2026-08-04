@@ -2169,9 +2169,29 @@ a timed-out **status poll reports Running**, not Failed (no answer is not a fail
 terminal would abandon a submitted, billed generation; this also aligns ComfyUI's poll with fal's existing
 transport-failure treatment), and a timed-out **submit** says the request may still have been enqueued.
 
-Public surface additive only — four `Timeout : TimeSpan` lines in the API baseline, nothing removed or
-re-signed. 10 tests in `tests/Lyntai.Tests/Generation/GenerationTimeoutTests.cs`; `verify` green
-(build · warnings · packages · bundle · 1464 tests · e2e 3/3 · leak scan).
+**Review round 1 found one Important defect in the above, now fixed.** Mapping a timed-out submit to `Failed`
+was correct as far as it went, but `GenerationRouter.SubmitAsync` advances to the next candidate on exactly that
+status — so the detail string said "the request may still have been enqueued" and the router then enqueued it
+somewhere else, buying the same render twice, and benched the first backend on a single timeout. `Failed` cannot
+express the difference between *the queue answered "no"* (retry elsewhere, free) and *the queue never answered*
+(may already be billable). So `GenerationOperation` gained an additive **`Inconclusive`** flag: the status stays
+`Failed`, every existing status check behaves exactly as before, and only the router opts in — it SURFACES an
+inconclusive submission carrying the provider id (so the caller learns who might hold it) instead of advancing,
+and skips `RecordFailure`, since no answer is no evidence of ill health. `GenerationRenderJobHandler` fails such
+a job with the backend NAMED and states it is deliberately not retried, mirroring the lost-lease path's
+manual-recovery message. Pinned by mutation again: stubbing the router's guard to `false` fails exactly the two
+new router tests. This is the same reasoning already applied to polls, applied to the call that commits money.
+
+Three minor review items landed in the same commit: the `Timeout.InfiniteTimeSpan` docs said "opts out
+entirely" when a positive `GenerationRequest.TimeoutSeconds` still re-imposes a deadline through `Resolve` (the
+precedence is right, the sentence was not); the BYO-`HttpClient.Timeout` claim rested on reasoning and now has a
+test; and `OperationCanceledException.CancellationToken` carries the LINKED token, not the caller's, so a
+consumer filtering on `e.CancellationToken == myToken` will not match — noted where the discriminator is
+explained.
+
+Public surface additive only — four `Timeout : TimeSpan` lines plus `GenerationOperation.Inconclusive`, nothing
+removed or re-signed. 15 tests in `tests/Lyntai.Tests/Generation/GenerationTimeoutTests.cs`; `verify` green
+(build · warnings · packages · bundle · 1469 tests · e2e 3/3 · leak scan).
 
 ## Part 35 — the 2.0.1 release hardening + a packaging policy with gates (2026-08-04)
 

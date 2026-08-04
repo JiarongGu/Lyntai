@@ -33,8 +33,10 @@ public sealed record Automatic1111Options
     /// the host's own GPU legitimately runs for minutes (which is why <c>AddAutomatic1111Provider</c> gives its
     /// client an infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded: a
     /// WebUI wedged mid-render answers nothing at all, and without a deadline that hangs a background render
-    /// forever. A request's own <see cref="GenerationRequest.TimeoutSeconds"/> overrides it;
-    /// <see cref="Timeout.InfiniteTimeSpan"/> opts out entirely.</summary>
+    /// forever. A request's own <see cref="GenerationRequest.TimeoutSeconds"/> overrides it.
+    /// <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline — a request that carries its own
+    /// <see cref="GenerationRequest.TimeoutSeconds"/> still imposes one, since the more specific instruction
+    /// wins either way.</summary>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(10);
 }
 

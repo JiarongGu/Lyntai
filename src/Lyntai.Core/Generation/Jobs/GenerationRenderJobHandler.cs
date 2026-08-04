@@ -74,8 +74,16 @@ public sealed class GenerationRenderJobHandler(
         var submission = await router.SubmitAsync(candidates, job.Request, ct).ConfigureAwait(false);
 
         if (submission.Operation.Status == GenerationOperationStatus.Failed)
-            // nothing accepted it: a capability/config problem, which a retry cannot fix
-            return JobOutcome.Fail(submission.Operation.Detail ?? "no backend accepted the generation");
+            // An INCONCLUSIVE submission is the one failure that must not be retried blind: the backend never
+            // answered, so it may already be running a billable render this job knows no id for. Fail with the
+            // backend NAMED, the same manual-recovery move the lost-lease path below makes — a human can check
+            // that account, and re-running the job is their call to make, not ours.
+            return JobOutcome.Fail(submission.Operation.Inconclusive
+                ? $"submission to '{submission.ProviderId}' had no answer, so it may already be running: " +
+                  $"{submission.Operation.Detail}. Check that backend before re-running this job — it is not " +
+                  "retried automatically, because a duplicate submission is a duplicate charge."
+                // nothing accepted it: a capability/config problem, which a retry cannot fix
+                : submission.Operation.Detail ?? "no backend accepted the generation");
 
         // Checkpoint FIRST — before reporting progress, before returning. Everything after this point can be
         // redone safely; the submission cannot, because it costs money.

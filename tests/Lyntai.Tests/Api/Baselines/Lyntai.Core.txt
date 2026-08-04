@@ -560,6 +560,7 @@ sealed class Lyntai.Generation.GenerationOperation
     Equals(Object) : Boolean
     GetHashCode() : Int32
     Id : String
+    Inconclusive : Boolean
     IsTerminal : Boolean
     Progress : Nullable<Double>
     Status : GenerationOperationStatus

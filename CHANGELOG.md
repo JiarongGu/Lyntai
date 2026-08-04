@@ -81,6 +81,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   fails with a detail saying the request may still have been enqueued.
 - Probes (`OpenAiImageProvider`, `Automatic1111Provider`, `ComfyUiProvider`) are bounded by the same option — with
   the shim's infinite client they could otherwise stall indefinitely against a host that accepts connections.
+- **A submission that gets no answer no longer causes a second, paid submission elsewhere.** `GenerationOperation`
+  gained an additive **`Inconclusive`** flag for the one case the `Failed` status cannot express: *the backend
+  never answered, so nobody knows whether it took the work*. `GenerationRouter.SubmitAsync` now **surfaces** such a
+  submission — carrying the provider id, so the caller learns who might hold it — instead of advancing to the next
+  candidate, which would buy the same render twice; and it does not count it against dead-host cooldown, because
+  no answer is no evidence of ill health. The status stays `Failed`, so every existing status check behaves
+  exactly as before. `GenerationRenderJobHandler` fails such a job with the backend **named** and says it is
+  deliberately not retried, since a duplicate submission is a duplicate charge. This is the same reasoning that
+  makes a timed-out poll report `Running`, applied to the call that commits the money.
 
 ### Changed
 - `LlmRouter` and `GenerationRouter` gained two **optional** trailing constructor parameters (`configuration`,

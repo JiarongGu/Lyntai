@@ -56,7 +56,9 @@ public sealed record ComfyUiOptions
     /// <para>Shorter than the inline backends' default because these calls are queue operations rather than
     /// renders — none of them should take minutes. On <c>SubmitAsync</c> a request's
     /// <see cref="GenerationRequest.TimeoutSeconds"/> still overrides it (it is the most specific thing that
-    /// caller can say about that call); <see cref="Timeout.InfiniteTimeSpan"/> opts out entirely.</para></summary>
+    /// caller can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a
+    /// submit whose request carries its own <see cref="GenerationRequest.TimeoutSeconds"/> still has
+    /// one.</para></summary>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(2);
 }
 
@@ -150,8 +152,13 @@ public sealed class ComfyUiProvider(
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => SubmitCoreAsync(request, token),
-            // a submit that timed out may still have been queued — say so rather than implying nothing happened
-            reason => Failed($"the submit {reason}; the workflow may still have been accepted"));
+            // A submit that timed out may still have been queued — say so rather than implying nothing
+            // happened, and mark it inconclusive so the router surfaces it instead of queueing the same
+            // workflow at the next backend (a local GPU is not free either).
+            reason => Failed($"the submit {reason}; the workflow may still have been accepted") with
+            {
+                Inconclusive = true,
+            });
 
     private async Task<GenerationOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
     {

@@ -19,7 +19,13 @@ namespace Lyntai.Generation.Providers;
 /// domains rather than two that drift.</para>
 ///
 /// <para>A caller who cancels at the same instant the deadline fires gets cancellation, not a timeout: the
-/// caller's intent is the more specific statement.</para></summary>
+/// caller's intent is the more specific statement.</para>
+///
+/// <para><b>One consequence worth knowing when you catch that exception:</b> its
+/// <see cref="OperationCanceledException.CancellationToken"/> is the LINKED token this helper built, not the
+/// one the caller passed in — so <c>catch (OperationCanceledException e) when (e.CancellationToken == myToken)</c>
+/// will not match. Test the token itself (<c>myToken.IsCancellationRequested</c>), which is what this helper
+/// does.</para></summary>
 internal static class GenerationDeadline
 {
     /// <summary>Resolve one call's budget: an explicit <see cref="GenerationRequest.TimeoutSeconds"/> wins
@@ -35,8 +41,10 @@ internal static class GenerationDeadline
     /// rather than replacing it. Returns whatever the call returns; on a fired deadline returns
     /// <paramref name="timedOut"/>'s value instead, and on the caller's cancellation rethrows.</summary>
     /// <typeparam name="T">The call's result shape — a result, an operation, a probe.</typeparam>
-    /// <param name="budget">The ceiling. Non-positive (including <see cref="Timeout.InfiniteTimeSpan"/>) means
-    /// no deadline — the documented escape hatch for a host that wants to own timeouts entirely.</param>
+    /// <param name="budget">The ceiling, already resolved by <see cref="Resolve"/>. Non-positive (including
+    /// <see cref="Timeout.InfiniteTimeSpan"/>) means no deadline — the escape hatch for a host that owns
+    /// timeouts itself. Note this is the RESOLVED value: an options default of
+    /// <see cref="Timeout.InfiniteTimeSpan"/> does not survive a request that names its own budget.</param>
     /// <param name="ct">The caller's token, which keeps its own meaning.</param>
     /// <param name="call">The work, handed the composed token.</param>
     /// <param name="timedOut">Builds this call's timeout-shaped answer from a reason phrase.</param>

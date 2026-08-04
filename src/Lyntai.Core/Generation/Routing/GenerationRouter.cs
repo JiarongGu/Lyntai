@@ -20,7 +20,12 @@ namespace Lyntai.Generation.Routing;
 ///   the cooldown window; a timeout or an outright failure counts toward the threshold.</item>
 /// <item>everything else advances, keeping the FIRST substantive failure as the reported reason: the first
 ///   backend's error explains the run better than the last one's.</item>
-/// </list></summary>
+/// </list>
+///
+/// <para><b>Submission has one rule of its own:</b> a failed submission marked
+/// <see cref="GenerationOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that never
+/// answered may already hold a billable render and the next candidate would buy the same generation
+/// twice.</para></summary>
 /// <param name="providers">The registered backends.</param>
 /// <param name="policy">Per-verdict fallback behaviour; null = the defaults above.</param>
 /// <param name="deadHosts">Cooldown bookkeeping — the SAME <see cref="DeadHostTracker"/> the LLM router uses,
@@ -141,6 +146,14 @@ public sealed class GenerationRouter(
                     deadHosts?.RecordSuccess(CooldownKey(provider));
                     return new GenerationSubmission(provider.Id, operation);
                 }
+
+                // An INCONCLUSIVE submission SURFACES, like a refusal does: the backend never answered, so it
+                // may already hold a billable render, and trying the next candidate would buy the same
+                // generation twice — the duplicate-payment case the job handler's checkpoint-first ordering
+                // exists to prevent. The provider id rides along because "who might have it?" is the only
+                // question worth asking next. No RecordFailure either: no answer is no evidence of ill health,
+                // and benching a working backend on a slow network helps nobody.
+                if (operation.Inconclusive) return new GenerationSubmission(provider.Id, operation);
 
                 // a queue that won't take the job is exactly the dead-host case the LLM side benches for: the
                 // next submission a second later has no reason to fare better

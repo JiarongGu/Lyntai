@@ -55,7 +55,9 @@ public sealed record FalQueueOptions
     /// <para>Shorter than the inline backends' default because these are queue operations rather than renders.
     /// On <see cref="FalQueueProvider.SubmitAsync"/> a request's
     /// <see cref="GenerationRequest.TimeoutSeconds"/> still overrides it (the most specific thing that caller
-    /// can say about that call); <see cref="Timeout.InfiniteTimeSpan"/> opts out entirely.</para></summary>
+    /// can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a submit
+    /// whose request carries its own <see cref="GenerationRequest.TimeoutSeconds"/> still has
+    /// one.</para></summary>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(2);
 }
 
@@ -130,9 +132,13 @@ public sealed class FalQueueProvider(
         GenerationDeadline.GuardAsync(
             GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
             token => SubmitCoreAsync(request, token),
-            // a submit that timed out may still have been ACCEPTED — and a queued render is billable, so this
-            // must not read as "nothing happened"
-            reason => Failed($"the submit {reason}; the request may still have been enqueued"));
+            // A submit that timed out may still have been ACCEPTED — and a queued render is billable, so this
+            // must not read as "nothing happened". Inconclusive is what stops the router trying the NEXT
+            // backend and paying for the same generation twice.
+            reason => Failed($"the submit {reason}; the request may still have been enqueued") with
+            {
+                Inconclusive = true,
+            });
 
     private async Task<GenerationOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
     {
