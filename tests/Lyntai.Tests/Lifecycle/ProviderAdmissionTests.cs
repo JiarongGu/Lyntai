@@ -114,4 +114,62 @@ public class ProviderAdmissionTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await waiting);
         held.Dispose();
     }
+
+    // Coverage added in fix round 1: the table must be bounded by calls in flight, not by every
+    // configuration ever seen (a ConcurrentDictionary that never removed entries was the finding).
+
+    [Fact]
+    public async Task A_gate_is_removed_once_its_last_holder_disposes()
+    {
+        var options = new ProviderAdmissionOptions();
+        options.BySlot["local-diffusion"] = 1;
+        var admission = new ProviderAdmission(options);
+
+        var handle = await admission.EnterAsync(Key("a"));
+        Assert.Equal(1, admission.GateCount);
+
+        handle.Dispose();
+
+        Assert.Equal(0, admission.GateCount);   // nothing left to hold it alive — no eviction policy needed
+    }
+
+    // The path this rewrite most easily gets wrong: a cancelled waiter never took a permit, so it must
+    // still decrement the holder count it added before waiting, or the gate is pinned forever.
+    [Fact]
+    public async Task A_cancelled_waiter_does_not_pin_a_gate()
+    {
+        var options = new ProviderAdmissionOptions();
+        options.BySlot["local-diffusion"] = 1;
+        var admission = new ProviderAdmission(options);
+        using var cts = new CancellationTokenSource();
+
+        var held = await admission.EnterAsync(Key("a"));
+        var waiting = admission.EnterAsync(Key("a"), cts.Token);
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await waiting);
+
+        held.Dispose();
+
+        Assert.Equal(0, admission.GateCount);   // the cancelled waiter's holder count was released too
+    }
+
+    [Fact]
+    public async Task Concurrent_callers_on_one_key_share_one_gate()
+    {
+        var options = new ProviderAdmissionOptions();
+        options.BySlot["local-diffusion"] = 1;
+        var admission = new ProviderAdmission(options);
+
+        var first = await admission.EnterAsync(Key("a"));
+        var second = admission.EnterAsync(Key("a"), CancellationToken.None);
+        var third = admission.EnterAsync(Key("a"), CancellationToken.None);
+
+        Assert.Equal(1, admission.GateCount);   // one key, one gate, however many callers are queued on it
+
+        first.Dispose();
+        (await second).Dispose();
+        (await third).Dispose();
+
+        Assert.Equal(0, admission.GateCount);
+    }
 }
