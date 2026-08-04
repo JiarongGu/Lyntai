@@ -88,6 +88,68 @@ the tests) while being wrong. Skim before touching the relevant area.
 - The retry in `CompleteJsonAsync` must **differ** from the first attempt (feed back the bad reply + a
   corrective instruction) — re-sending the identical request to a temperature-0 model just repeats it.
 
+## Provider lifetime, cooldown & admission (`Lyntai.Lifecycle`; details in `docs/DECISIONS.md` D37)
+
+Every one of these is a *silent* failure: the build is green, the tests are green, and the damage is a
+benched tenant, an unbounded engine or a render nobody cancelled.
+
+- **Hoisting a member into a new BASE interface, and deleting it from the derived one, breaks every
+  pre-compiled caller.** Adding a base interface is binary-safe; removing the member from the interface that
+  used to declare it is not, and the refactor that does both in one step reads as pure cleanup. A consumer
+  compiled against the old surface emits `callvirt ILlmProvider::get_Id`, and member resolution **does not
+  walk base interfaces** — so `provider.Id` throws `MissingMethodException` until that assembly is
+  *recompiled*, which upgrading a package reference does not do. Nothing in this repository catches it:
+  `check-warnings` is silent, the API baseline shows a line moving from one interface to another, and
+  **`consumer-smoke` cannot see it at all** because it rebuilds its consumer from source every run. To test a
+  binary-compatibility claim you must compile a probe against the OLD assembly and run it against the new one
+  (a `callvirt` on a `null` argument is enough — `NullReferenceException` means the member resolved,
+  `MissingMethodException` means it did not). `ILlmProvider` and `IGenerationProvider` therefore keep their
+  own `new string Id { get; }` next to `IProviderIdentity`; the declarations are the compatibility, and a
+  test pins them. Implementors are unaffected either way — one implicit `public string Id` satisfies both
+  slots — so an implementor-only compatibility check proves nothing about callers.
+- **Disposing a replaced instance aborts in-flight work.** Retiring an entry looks like it should clean up
+  after itself, and "clean up" reads as `Dispose`. It isn't: retirement removes the entry and drops the
+  pool's reference, and the runtime reclaims the instance once the last caller finishes. **Without leases a
+  pool cannot know when that is**, so disposing on retirement means disposing while callers may still be
+  running — and with configuration arriving from a source that changes at any moment, a routine poll then
+  kills a healthy render that had minutes to go. `IHttpClientFactory` is the model: an expired handler leaves
+  the lookup so new callers get the fresh one, while existing users keep the old one until they're done.
+  **Expiry is not disposal.** Pinned by a disposable fake whose flag must stay false through `Retire`,
+  `RetireSlot`, LRU eviction and idle eviction.
+- **Cooldown keyed on the provider id benches other tenants.** The key was `generation::{providerId}`. With
+  two configurations of one backend live under different credentials, the one that exhausts its quota benches
+  the other, whose key was fine — while two consumers of the same downed self-hosted host *should* share a
+  bench and don't. Key on the `ProviderKey` (`configuration` delegate → `pool.TryGetKey`) and both are right;
+  key on the id and exactly one is wrong, only in production, and only under multi-tenancy no test simulates.
+- **A per-instance concurrency semaphore admits everyone under a no-reuse strategy.** A `SemaphoreSlim` field
+  on a provider (or on a decorator over one) bounds anything only while the instance is shared. Register
+  `TransientProviderPool` and every call builds its own limiter with its own fresh permits, so the local
+  engine the limit exists to protect thrashes exactly as it would with no limit configured. Keyed and shared
+  (`ProviderAdmission`) is the only shape that survives both strategies.
+- **A key derived from the options object is right for some backends and silently wrong for others.** Four of
+  the five generation options types are records with `init` members and compare structurally; but
+  `LocalDiffusionOptions` is a plain class and compares by **reference**, and `ComfyUiOptions.Kinds` is an
+  `IReadOnlyList<string>` that record equality also compares by reference. So automatic derivation reuses
+  correctly for three backends and rebuilds-or-reuses arbitrarily for two. Name every contribution
+  (`ProviderKey.For(id).With("baseUrl", …).WithSecret("apiKey", …)`) so a forgotten member is visible in
+  review — and include values the backend resolves at **runtime** (a downloaded engine's binary/model paths
+  appear when the download completes; the saved configuration has not changed, yet a pooled instance holding
+  empty paths keeps failing forever).
+- **Decorating a provider erases its optional capability interfaces.** The generation seam expresses
+  long-running and streaming delivery as *additional* interfaces the router type-tests:
+  `if (provider is not IGenerationJobProvider job) continue;` (`GenerationRouter.SubmitAsync`). Any wrapper
+  implementing only `IGenerationProvider` makes a queue backend invisible, so **every video render stops
+  routing while every image render keeps working and every inline-only test stays green.** This is why
+  admission is applied by the router rather than by a decorator — and the trap applies to *any* future
+  wrapper (telemetry, retries, redaction), not just this one. If you must wrap, forward every optional
+  interface the wrapped instance implements, and prove it with a test that submits a job.
+- **A `using` that is one frame shallower than you think.** `GenerationRouter.GenerateAsync`'s `Surface` arm
+  `return`s from inside the fallback switch, which is safe **only** because the admission permit is held in
+  `AttemptAsync`, one frame deeper. Inlining `AttemptAsync` in the name of simplification turns that return
+  into a permanent gate leak. More generally: every `ProviderAdmission.EnterAsync` result must reach a
+  `using` on **every** path — fallback, refusal, cancellation — because a caller that abandons the `ValueTask`
+  without disposing the handle pins its gate forever.
+
 ## Storage (details in `storage.md`)
 
 - **Missing FTS `'delete'` trigger row on delete/update** — silent index corruption. Three triggers,
@@ -109,6 +171,21 @@ the tests) while being wrong. Skim before touching the relevant area.
 - **A documented option/env-var that isn't wired** — the `LYNTAI_MODEL_<CONSUMER>` override and the OTel
   cost attribute were both documented but silently dropped, and no test caught it. When you add a
   documented knob, add the test that exercises the documented path.
+- **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built
+  registration.** `AddLyntai` invokes `configure(builder)` (`ServiceCollectionExtensions.cs:39`, in
+  `AddLyntai`) well before it calls `RegisterLlmFrontDoor` (`:60`, in `AddLyntai`), and that method
+  (`:98`, `RegisterLlmFrontDoor`'s signature) is where the `DeadHostTracker` built from `LyntaiOptions` is
+  registered (`:101`, in `RegisterLlmFrontDoor`). **Names first, lines second** — these numbers rot, and this very
+  entry was made stale by a change inside the branch that added it; follow the method names if a line
+  disagrees. So a `TryAddSingleton<DeadHostTracker>()` added inside a `Use*`/`Add*` extension reaches the
+  collection FIRST, and `TryAdd` keeps the first — silently swapping the configured `DeadHostThreshold`,
+  `DeadHostCooldown` and logger for the parameterless defaults, **for both domains**. Nothing in 1427 tests
+  noticed; it was found by mutation (adding the line failed exactly one new guard test and nothing else) and
+  confirmed twice. The rule:
+  inside a builder callback, resolve what `AddLyntai` registers later with `GetRequiredService<T>()` — never
+  seed it with a `TryAdd`, and if you need a service that must exist regardless, register it in the
+  Register* block that owns it. `RegisterProviderLifetime` is all `TryAdd` deliberately for the mirror-image
+  reason: everything it seeds is meant to lose to a host or a `Use*` call.
 
 ## Testing
 
@@ -119,3 +196,16 @@ the tests) while being wrong. Skim before touching the relevant area.
 - 221 passing tests didn't catch any of the LLM/contract bugs above — **tests passing ≠ correct.** For
   load-bearing semantics (fallback, streaming, verdicts, FTS sync) reason about the code, then add the
   test that would have caught the bug.
+- **This repo has TWO independent ways for a targeted test run to verify nothing.** (1) `dotnet test
+  --filter` **reports success when it matches zero tests** — a filter naming `LlmRouterTests`, a class that
+  does not exist (the real ones are `LlmRouterCompleteTests` / `LlmRouterStreamTests`), passed vacuously and
+  looked like a clean regression run. (2) `node devtools/dev.mjs test -- --filter "X"` **does not forward the
+  filter at all** — it runs the whole suite, which is slow but honest, and is easy to mistake for the
+  filtered run you asked for. **Always read the matched/total count**, and prefer a broad filter over an
+  exact class name (`~Router|~Routing|~DeadHost`) so a renamed class degrades to running too much rather than
+  to running nothing.
+- **A test that HANGS on the failure it detects is worse than no test.** A permit-leak test that blocks a
+  second caller on a gate proves the leak by never completing — which turns `verify` into an opaque hang
+  instead of a red test, and the next person bisects the harness rather than reading the failure. Bound every
+  await that can block on a permit (a timeout on the wait, asserting the timeout is what fails), so the
+  regression the test exists for arrives as an assertion.

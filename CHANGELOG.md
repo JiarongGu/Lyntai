@@ -10,6 +10,61 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+### Added
+- **Provider lifetime as a library seam (`Lyntai.Lifecycle`)** — for the app whose backend configuration is
+  owned **outside** the deployment (an end user, or a store the process polls), where several configurations
+  of one backend are live at once and any of them can change mid-render. `IProviderPool<TProvider>` takes a
+  `ProviderKey` and a factory and hands back the instance for that configuration; `BoundedProviderPool` (the
+  default, LRU + idle bounds) reuses while the key is unchanged, `TransientProviderPool` never reuses, and the
+  interface is the BYO seam for anything else. **Which one is registered is the only thing that decides
+  reuse** — `b.UseProviderPool()` / `b.UseTransientProviders()` at startup, with no edit at any call site.
+  A replaced entry is **retired, never disposed**: in-flight calls hold their own reference and finish
+  normally, because without leases a pool cannot know when the last of them is done. See
+  `docs/DECISIONS.md` **D37**.
+- **`ProviderKey` and its builder** — the pool's connection string, and the unit reuse, cooldown and
+  admission are all keyed on. Every contribution is **named** (`ProviderKey.For(id).With("baseUrl", …)
+  .WithSecret("apiKey", …).Build()`), so a forgotten member is visible in review rather than inferred;
+  `WithSecret` folds in a digest and never retains the value, and the key's string form carries no secret
+  material.
+- **Router factories — `IGenerationRouterFactory` and `ILlmRouterFactory`** — one injected thing that
+  composes a fully-governed router over the provider set a **caller** chooses, resolving each registration
+  through the pool. The long-lived bookkeeping (dead-host tracker, rate limiter, usage ledger, admission
+  table) stays a shared singleton across every router they hand out, which is precisely what per-call
+  hand-construction throws away: a consumer that rebuilds its tracker with its router can never bench a
+  failing backend. Both are registered by `AddLyntai`; the container-composed path is unchanged.
+- **Cooldown and admission keyed on the CONFIGURATION, not the provider id.** Both routers take an optional
+  `Func<TProvider, ProviderKey?> configuration` delegate (the factories bind it to `pool.TryGetKey`). Without
+  it, behaviour is exactly as before — `p => p.Id`. With it, one tenant exhausting its quota no longer benches
+  every other tenant sharing that backend, while two consumers of the same downed self-hosted host do share a
+  bench.
+- **`IProviderAdmission` / `ProviderAdmission` / `b.ConfigureProviderAdmission(…)`** — bounds how many calls
+  may run against one configuration at a time, for a locally-run engine where simultaneous renders contend
+  for a CPU or GPU. The shipped table bounds one PROCESS; the interface is the seam for a host that has to
+  bound a shared engine across several (a distributed lock or lease service behind the same
+  `EnterAsync`) — the routers and both factories take the interface, so nothing above it changes.
+  Limits are declared per **slot** and enforced per **key**. Applied by the routers rather than by a decorator
+  around a provider, because a wrapper implementing only the base seam erases the optional capability
+  interfaces the generation router type-tests — which would silently stop every queued render from routing.
+  Completion paths only: streams are deliberately not gated, since a stream would hold its permit for the
+  whole response.
+- **`IProviderIdentity`** — the `string Id { get; }` both `ILlmProvider` and `IGenerationProvider` already
+  declared, now a shared base interface so the pool can be one generic type over either seam. **Both
+  interfaces keep their own `Id` declaration** (as `new`), so this is binary-compatible for CALLERS as well
+  as for implementors: adding a base interface is safe, but removing the member from the derived interface
+  would throw `MissingMethodException` in every pre-compiled consumer that reads `provider.Id`, since member
+  resolution does not walk base interfaces. The only caveat is source-level and rare — a consumer that
+  implemented `Id` *explicitly* (`string ILlmProvider.Id => …`) must now also implement
+  `IProviderIdentity.Id`; implicit implementation is unaffected.
+
+### Changed
+- `LlmRouter` and `GenerationRouter` gained two **optional** trailing constructor parameters (`configuration`,
+  `admission`). Source-compatible — existing constructions compile and behave identically — but **not binary
+  compatible**: a pre-compiled consumer calling the old constructor gets `MissingMethodException` until it
+  recompiles against this version. Nothing else changes for an app that configures its backends at startup;
+  the routers `AddLyntai` builds still pass neither.
+
 ## 2.1.0 — 2026-08-04
 
 ### Added

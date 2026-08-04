@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
+using Lyntai.Lifecycle;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -9,15 +10,51 @@ namespace Lyntai.Llm.Routing;
 /// <summary>Fallback router over the DI collection of <see cref="ILlmProvider"/>s (design §6).
 /// Behavior is driven by <see cref="RoutingPolicy"/> (<see cref="LyntaiOptions.Routing"/>): the
 /// defaults reproduce §6 exactly, so an untouched policy behaves as documented.</summary>
+/// <param name="providers">The registered backends. First registration wins on a duplicate id.</param>
+/// <param name="deadHosts">Cooldown bookkeeping — the same tracker the generation router uses, with keys
+/// prefixed per domain so a chat outage never benches a media backend sharing its id.</param>
+/// <param name="options">Platform options; <see cref="LyntaiOptions.Routing"/> supplies the fallback policy,
+/// retry budgets and cooldown granularity.</param>
+/// <param name="logger">Null = no logging.</param>
+/// <param name="modelRouting">Live per-consumer model overrides; null = the configured defaults alone.</param>
+/// <param name="configuration">Which CONFIGURATION a provider is running under, used to key dead-host
+/// cooldown and admission. Null (or a null return) = key cooldown on
+/// <see cref="Lyntai.Lifecycle.IProviderIdentity.Id"/> and apply no admission, which is the historical
+/// behaviour and correct for a single-configuration deployment. Supply one when several configurations of a
+/// backend id are live at once — otherwise one tenant's rate limit benches every other tenant sharing that
+/// backend, and two consumers of one downed self-hosted host fail to share a bench that would have spared
+/// them both. <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source. Composes with
+/// <see cref="CooldownScope.ProviderAndModel"/>: granularity by model is orthogonal to identity by
+/// configuration, so that scope still appends the model.
+///
+/// <para><b>Must return a STABLE key for a given instance.</b> One routing attempt invokes it more than once
+/// — for the candidate's cooldown key, for admission, and for the record that follows — so a delegate whose
+/// answer varies between those calls would record cooldown under a key different from the one checked,
+/// producing a bench that silently never takes effect. Look the key up (as a pool does); never recompute it
+/// from live state.</para></param>
+/// <param name="admission">Bounds concurrent completions per configuration — for a locally-run engine where
+/// simultaneous calls contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by wrapping a
+/// provider, so no optional capability interface a caller type-tests for is erased by a decorator.
+///
+/// <para><b>Completions only — <see cref="StreamAsync"/> is deliberately NOT gated.</b> A stream holds its
+/// permit for the whole response, and paired with the no-fallback-after-the-first-token rule that means a
+/// consumer which simply stops enumerating would hold a permit until its enumerator is finally disposed.
+/// Bounding a long-lived stream needs a lease the consumer cannot forget, which this is not.</para></param>
 public sealed class LlmRouter(
     IEnumerable<ILlmProvider> providers,
     DeadHostTracker deadHosts,
     LyntaiOptions options,
     ILogger<LlmRouter>? logger = null,
-    IModelRoutingStore? modelRouting = null) : ILlmRouter
+    IModelRoutingStore? modelRouting = null,
+    Func<ILlmProvider, ProviderKey?>? configuration = null,
+    IProviderAdmission? admission = null) : ILlmRouter
 {
     private readonly ILogger _logger = logger ?? NullLogger<LlmRouter>.Instance;
     private RoutingPolicy Policy => options.Routing;
+
+    // resolved once: the no-delegate case must cost nothing per candidate, and a null-returning delegate must
+    // be indistinguishable from no delegate at all
+    private readonly Func<ILlmProvider, ProviderKey?> _configuration = configuration ?? (_ => null);
 
     // provider lookup by id, built once — O(1) per candidate/retry instead of a linear scan. First
     // registration wins on a duplicate id (preserving the prior FirstOrDefault semantics).
@@ -254,12 +291,17 @@ public sealed class LlmRouter(
                 _logger.LogDebug("router: skipping {Candidate} — {Reason}", candidate.ProviderId, skipReason);
                 continue;
             }
-            yield return (provider, effectiveModel, CooldownKey(provider.Id, effectiveModel));
+            yield return (provider, effectiveModel, CooldownKey(provider, effectiveModel));
         }
     }
 
     private async Task<LlmReply> TryCompleteAsync(ILlmProvider provider, string? effectiveModel, LlmRequest req, CancellationToken ct)
     {
+        // the permit is taken BEFORE the span opens, so a queued call's wait never inflates the backend's
+        // reported latency. Scoped with `using`, so the verdict return, the rethrown caller cancel and the
+        // classified provider throw below all release it — a permit that escapes pins its gate forever.
+        using var permit = await EnterAdmissionAsync(provider, ct).ConfigureAwait(false);
+
         var effective = req with { Model = effectiveModel };
         using var activity = LyntaiDiagnostics.StartChat(provider.Id, effective.Model);
         var start = Stopwatch.GetTimestamp();
@@ -302,11 +344,26 @@ public sealed class LlmRouter(
     private async Task<string?> LiveModelAsync(string consumer, CancellationToken ct) =>
         modelRouting is null ? null : await modelRouting.GetModelOverrideAsync(consumer, ct).ConfigureAwait(false);
 
-    /// <summary>The dead-host key for a candidate, at the configured cooldown granularity.</summary>
-    private string CooldownKey(string providerId, string? effectiveModel) =>
-        Policy.CooldownScope == CooldownScope.ProviderAndModel
-            ? $"{providerId}::{effectiveModel ?? "(default)"}"
-            : providerId;
+    /// <summary>Take a concurrency permit for this provider's CONFIGURATION, or nothing at all when no
+    /// admission is wired or the configuration is unknown. Never returns a handle the caller may skip
+    /// disposing: a permit that is not returned pins its gate for the life of the process, so the call site
+    /// scopes the result with <c>using</c> and lets success, failure, a throw and cancellation all release it
+    /// the same way.</summary>
+    private async ValueTask<IDisposable?> EnterAdmissionAsync(ILlmProvider provider, CancellationToken ct) =>
+        admission is not null && _configuration(provider) is { } key
+            ? await admission.EnterAsync(key, ct).ConfigureAwait(false)
+            : null;
+
+    /// <summary>The dead-host key for a candidate: its CONFIGURATION when one is known, else its provider id
+    /// — so two configurations of one backend bench independently while two consumers of one downed host
+    /// share a bench — at the configured cooldown granularity, which composes on top either way.</summary>
+    private string CooldownKey(ILlmProvider provider, string? effectiveModel)
+    {
+        var identity = _configuration(provider)?.ToString() ?? provider.Id;
+        return Policy.CooldownScope == CooldownScope.ProviderAndModel
+            ? $"{identity}::{effectiveModel ?? "(default)"}"
+            : identity;
+    }
 
     private ILlmProvider? SelectLive(LlmCandidate candidate, string? effectiveModel, bool soleCandidate, out string skipReason)
     {
@@ -317,7 +374,7 @@ public sealed class LlmRouter(
         // sole-candidate exemption: benching the only option just guarantees a synthetic failure —
         // try it and let it fail with a real error / maybe succeed if the cooldown was stale
         var exempt = soleCandidate && Policy.ExemptSoleCandidate;
-        if (!exempt && deadHosts.IsDead(CooldownKey(provider.Id, effectiveModel)))
+        if (!exempt && deadHosts.IsDead(CooldownKey(provider, effectiveModel)))
         {
             skipReason = "dead-host cooldown";
             return null;

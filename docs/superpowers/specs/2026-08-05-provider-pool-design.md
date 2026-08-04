@@ -1,6 +1,10 @@
 # Provider pool — instance lifetime as a library seam (GEN12)
 
-> **Status:** design approved 2026-08-05, not yet implemented.
+> **Status:** design approved 2026-08-05; **implemented and shipped 2026-08-05** (`Lyntai.Lifecycle`; task
+> archived as `docs/task-archive.md` Part 37, reasoning in `docs/DECISIONS.md` D37). §4.1 and §4.7 carry
+> dated amendments where the shipped shape differs from what was specified — §4.1's **corrects a
+> compatibility claim this document got wrong**, and is the one to read before touching either provider
+> interface.
 > **Task:** `TASKS.md` GEN12. **Domain:** Core (`Lyntai.Lifecycle`), consumed by both the LLM and
 > generation routing domains. **Compatibility:** additive only — no breaking change to the frozen 1.0
 > surface.
@@ -90,6 +94,30 @@ public interface IProviderIdentity
 `ILlmProvider` and `IGenerationProvider` gain it as a base interface. Both already declare exactly
 `string Id { get; }` (as does `IScorer`), so every existing implementor satisfies it unchanged. Adding a
 base interface is source- and binary-compatible, which is what makes this legal on the frozen surface.
+
+**Amended 2026-08-05 — the sentence above is only half true, and the half it omits is a binary break.**
+Adding the base interface is indeed safe. *Deleting the derived interface's own `Id` declaration* — which is
+what the first implementation did, on the reasoning that the base now supplies it — is not, and the two are
+easy to conflate:
+
+- A consumer compiled against 1.0 emits `callvirt instance string Lyntai.Llm.ILlmProvider::get_Id()`.
+  CoreCLR resolves that `MemberRef` against `ILlmProvider` itself and **does not walk base interfaces**, so
+  the call throws `MissingMethodException` against a Lyntai built without the declaration. Every consumer
+  assembly that reads `provider.Id` through either seam breaks until it is *recompiled* — which is precisely
+  what upgrading a package reference does not do for an assembly nobody rebuilt.
+- `consumer-smoke` cannot see this. It compiles a fresh consumer from source against the packed packages, so
+  the old IL that would fault never exists in the run. It was reproduced deliberately, with a probe assembly
+  compiled against the old Lyntai and then run against the new one.
+
+**What shipped:** both interfaces keep their own `string Id { get; }`, marked `new` (required, or CS0108
+fails `check-warnings`). A single `public string Id` on an implementing class still satisfies both slots
+implicitly, so no implementor changes and the API baseline shows `IProviderIdentity` added with **nothing
+removed**. `ProviderIdentityTests.Both_seams_still_declare_Id_themselves` pins it, because the declarations
+look redundant and the next cleanup that deletes them would otherwise pass every gate in the repository.
+
+The one residual source-level caveat, inherent to adding the base at all: a consumer that implemented `Id`
+*explicitly* (`string ILlmProvider.Id => …`) must now also implement `IProviderIdentity.Id`. Implicit
+implementation — what every implementor in this repository and every documented pattern uses — is unaffected.
 
 ### 4.2 `ProviderKey` and its builder
 
@@ -267,16 +295,25 @@ passes neither and behaves exactly as it does now.
 
 ### 4.7 Admission control, keyed like the tracker
 
-A shared table of semaphores indexed by `ProviderKey`, resolved **per attempt** rather than captured per
+A shared table of gates indexed by `ProviderKey`, resolved **per attempt** rather than captured per
 instance:
 
 ```csharp
-public sealed class ProviderAdmission
+// Amended 2026-08-05: the ROUTERS and both factories take the interface, not the class — a host
+// bounding one self-hosted engine shared by several PROCESSES implements it over a distributed
+// lock or lease service. Extracting it later would have been a break, because the concrete type
+// was already on constructor parameters this branch adds to the public surface.
+public interface IProviderAdmission
 {
-    /// Waits for a permit, then returns the release handle. When the slot's limit is 0
+    ValueTask<IDisposable> EnterAsync(ProviderKey key, CancellationToken ct = default);
+}
+
+public sealed class ProviderAdmission : IProviderAdmission
+{
+    /// Waits for a permit, then returns the release handle. When the slot's limit is 0 or less
     /// (unlimited) this completes synchronously and returns a no-op handle — never null,
     /// so the call site is one `using` with no branch.
-    public ValueTask<IDisposable> EnterAsync(ProviderKey key, CancellationToken ct);
+    public ValueTask<IDisposable> EnterAsync(ProviderKey key, CancellationToken ct = default);
 }
 
 public sealed class ProviderAdmissionOptions
@@ -292,6 +329,28 @@ Limits are **declared per slot** (a backend type has a natural capacity: "a loca
 at a time") but **enforced per key** (the contended resource belongs to a configuration). That split is
 deliberate and gives the behaviour that matters: two consumers pointing at the *same* self-hosted engine
 share its capacity, while two tenants on different hosted endpoints do not throttle each other.
+
+**Amended 2026-08-05 — what shipped is better than what this section originally described, and the change is
+worth stating because it removes configuration rather than adding it.** The table above was specified as an
+unbounded keyed table of `SemaphoreSlim`s, which is a leak in the one deployment this feature exists for: the
+admission table is a process-lifetime singleton, so a store rotating many tenants' credentials through
+`ProviderKey` accumulates one permanent semaphore per configuration ever presented. The obvious fixes —
+a cap, or an idle timeout — both add a knob that has to be tuned against a workload nobody can predict.
+
+The shipped `ProviderAdmission` is instead bounded by **calls in flight**. Each gate carries a count of
+callers holding *or waiting on* it, incremented before the wait begins (so a merely-queued caller keeps its
+own gate alive), decremented when a handle is disposed **or** when a wait is cancelled before a permit ever
+arrives; the entry is removed the instant that count reaches zero. So the table's size is bounded by
+concurrency right now rather than by history, an idle process holds no gates at all, and — unlike
+`ProviderPoolOptions` — there is nothing left to cap or expire, so `ProviderAdmission` takes no bounds
+options of its own.
+
+Two consequences that follow, both documented on the type: a configuration's limit is read once, when its
+gate is created, because a `SemaphoreSlim` has a fixed max count — but since a gate is discarded as soon as
+it goes idle, only a configuration under contention *right now* keeps a stale limit, and only until it goes
+idle. And every `EnterAsync` result must reach a `using` on **every** path (fallback, refusal, cancellation):
+a caller that abandons the `ValueTask` without disposing the handle pins its gate forever, which is the one
+way back to the leak this shape removes.
 
 **Applied by the routers, not by a decorator.** An earlier revision wrapped each provider in a
 concurrency-limiting decorator. That fails twice over: it puts the limit back on the instance (the trap in
@@ -414,8 +473,11 @@ fail every replacement test.
 - `.claude/knowledge/llm-and-router.md` (the cooldown key is no longer the provider id),
   `.claude/knowledge/pitfalls.md` (§7), and the README.
 - `TASKS.md` — GEN12 moves to `docs/task-archive.md` on completion, per `task-lifecycle.md`.
-- Frozen LLM surface: additive only — a base interface on an existing interface, and optional constructor
-  parameters.
+- Frozen LLM surface: additive only — a base interface **added alongside** each interface's existing `Id`
+  declaration (never replacing it: see the §4.1 amendment of 2026-08-05, where dropping the declaration is a
+  `MissingMethodException` for every pre-compiled caller), and optional constructor parameters. The optional
+  parameters are source-compatible but not binary-compatible for a caller that constructs `LlmRouter` or
+  `GenerationRouter` directly — called out under **Changed** in `CHANGELOG.md`.
 
 ## 10. Naming, settled and open
 

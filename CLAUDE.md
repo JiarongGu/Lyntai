@@ -59,6 +59,8 @@ capability-aware seam; the CONTRACTS are in Core, the BACKENDS are the `Lyntai.G
 `Lyntai.Prompts` / `Lyntai.Cortex` (+ `.Scorers`) / `Lyntai.Agents` (tool loop + chat orchestration) /
 `Lyntai.Jobs` (durable jobs) / `Lyntai.Guards` (guard rail) / `Lyntai.Secrets` (secret vault: AES-GCM/BYO
 + recovery-key envelope; DPAPI binding in the `Lyntai.Secrets.Dpapi` adapter) /
+`Lyntai.Lifecycle` (provider POOL + `ProviderKey` + admission — for an app whose backend configuration is
+owned outside the deployment; `DECISIONS.md` D37) /
 `Lyntai.Storage` / `Lyntai.Processes` / `Lyntai.Text`; builder + `Add*`/`Use*` extensions live in the
 `Lyntai` namespace.
 
