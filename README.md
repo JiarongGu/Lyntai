@@ -79,7 +79,7 @@ carries the smallest footprint of all, because it is the one package you cannot 
 ## Consuming Lyntai
 
 ```bash
-dotnet add package Lyntai          # Core + the default backends + in-memory storage
+dotnet add package Lyntai          # Core + the default backends + in-memory storage + both halves of MCP
 dotnet add package Lyntai.Storage.Sqlite   # …and persistence, when you want it
 ```
 
