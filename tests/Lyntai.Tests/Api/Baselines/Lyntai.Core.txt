@@ -984,6 +984,23 @@ static class Lyntai.Jobs.JobStepLog
     static Parse(String) : IReadOnlyList<JobStep>
 interface Lyntai.Lifecycle.IProviderIdentity
     Id : String
+struct Lyntai.Lifecycle.ProviderKey
+    .ctor(String, String)
+    Deconstruct(String&, String&) : Void
+    Equals(Object) : Boolean
+    Equals(ProviderKey) : Boolean
+    Fingerprint : String
+    GetHashCode() : Int32
+    Slot : String
+    ToString() : String
+    static For(String) : ProviderKeyBuilder
+sealed class Lyntai.Lifecycle.ProviderKeyBuilder
+    Build() : ProviderKey
+    With(String, Boolean) : ProviderKeyBuilder
+    With(String, Double) : ProviderKeyBuilder
+    With(String, Int32) : ProviderKeyBuilder
+    With(String, String) : ProviderKeyBuilder
+    WithSecret(String, String) : ProviderKeyBuilder
 sealed class Lyntai.Llm.Budgeting.BudgetedLlmClient
     .ctor(ILlmClient, IUsageTracker, LyntaiOptions, ILogger<BudgetedLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
