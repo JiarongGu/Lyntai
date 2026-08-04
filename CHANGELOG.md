@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased — the generation platform + a coherent package graph
+## 2.0.1 — the generation platform + a coherent package graph (2026-08-04)
 
 ### Breaking — package graph only; **no namespace, type or API changed**
 Every move below is a one-line `PackageReference` edit. No `using`, type name or `Add*` extension changes,
