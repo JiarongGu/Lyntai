@@ -70,9 +70,10 @@ capability-aware seam; the CONTRACTS are in Core, the BACKENDS are the `Lyntai.G
   guard — install once with `node devtools/dev.mjs install-hooks`), `task-lifecycle.md` (`TASKS.md` =
   OPEN backlog only; a completed task MOVES to `docs/task-archive.md`), `no-global-memory.md` (project
   facts live IN-REPO — `.claude/**` / `docs/DECISIONS.md` — global memory is user-prefs only),
-  `minimise-bash-prompts.md` (inspect files with `Read`/`Grep`/`Glob` not `Bash cat/ls/find`; never evade
+  `file-tool-discipline.md` (inspect files with `Read`/`Grep`/`Glob` not `Bash cat/ls/find`; never evade
   the permission gate), and `no-tmp-for-repo-files.md` (compose with `Write`; scratch → `devtools/_*`,
-  never OS temp). See `.claude/rules/RULES_INDEX.md`.
+  never OS temp). The canonical rules state the PRINCIPLE; this repo's concrete bindings — guard scripts,
+  version-authorship policy, scratch paths — live in `repo-mechanics.md`. See `.claude/rules/RULES_INDEX.md`.
 - **`.claude/knowledge/`** (on-demand deep dives — read the one you're touching):
   `extending-lyntai.md` (the four extension points), `llm-and-router.md` (verdict taxonomy, fallback §6
   amended, streaming-commit + inactivity-clock invariants, CLI hygiene), `storage.md` (Dapper/CAST/FTS5

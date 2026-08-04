@@ -508,6 +508,11 @@ question with **nothing**: it is `HttpClient` plus one subprocess, zero third-pa
 it belonged in `Lyntai.Providers.Default` forever, which is where it started. It is now its own package anyway,
 so the rule needs the second axis stated rather than quietly bent.
 
+_**Amended 2.1.0 (2026-08-04):** the package now carries one dependency — `Microsoft.Extensions.Http`, for the
+per-backend `Add*` shims' named clients. That does **not** retro-justify the split under D31: it is the same
+dependency `Providers.Default` already had, so isolating it buys a consumer nothing. The reasoning below stands
+unchanged; only the "zero dependencies" premise has moved, and it was never what carried the argument._
+
 **A package boundary is also justified when a domain's CHURN or MATURITY differs from its host's.** Concretely,
 what forced it here:
 

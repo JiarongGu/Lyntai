@@ -15,7 +15,7 @@ packable project, which turns on the trim, single-file, and AOT analyzers. Per-p
 | `Lyntai.Providers.Local` | ⚠️ **opts out** | Same stance — LLamaSharp loads the native llama.cpp backend dynamically and materializes options via reflection; a native-interop package can't honestly claim AOT/trim compatibility. Analyzer on for our code. |
 | `Lyntai.Tools.Mcp` | ⚠️ **opts out** | MCP argument/result marshaling is dynamic JSON (reflection). Analyzer on for our code. |
 | `Lyntai.Tools.Mcp.Hosting` | ⚠️ **opts out** | Dynamic-JSON tool marshaling through the MCP SDK's server transport. Deliberately kept OFF the CLI providers' dependency graph so they stay AOT-compatible (`docs/DECISIONS.md` D23). Analyzer on for our code. (It hosts on `System.Net.HttpListener` — the ASP.NET/Kestrel dependency was removed; that is not why it opts out.) |
-| `Lyntai.Generation` | ✅ compatible | The media backends: `HttpClient` + `JsonDocument`/`JsonObject`, and one subprocess through `IProcessRunner`. **Zero third-party dependencies** — it is split from `Providers.Default` for release cadence, not dependency isolation (`docs/DECISIONS.md` D34). |
+| `Lyntai.Generation` | ✅ compatible | The media backends: `HttpClient` + `JsonDocument`/`JsonObject`, and one subprocess through `IProcessRunner`. Its only dependency is managed `Microsoft.Extensions.Http` (2.1.0, for the per-backend `Add*` shims' named clients) — it is split from `Providers.Default` for release cadence, not dependency isolation (`docs/DECISIONS.md` D34). |
 | `Lyntai` (the bundle) | n/a | Ships no assembly (`IncludeBuildOutput=false`) — its status is whatever its references are. |
 
 ## Keeping the ✅ rows honest

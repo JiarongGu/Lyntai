@@ -30,7 +30,9 @@ budget, rate limit).
 
 Since 1.0 froze the API (2026-07-28): **1.1** generic CLI tool-hosting · **1.2** turn-free backend probe,
 auth and pinned self-install · **2.0.1** the generation platform plus a coherent package graph — one rule for
-package boundaries, a starting bundle, and four build gates that keep the packaging claims honest.
+package boundaries, a starting bundle, and four build gates that keep the packaging claims honest ·
+**2.1.0** generation ergonomics — named input factories, an `Add*` per media backend, and BYO-`HttpClient`
+ownership brought in line with the LLM side.
 `CHANGELOG.md` has the per-release detail; `docs/DECISIONS.md` has the reasoning behind the load-bearing calls.
 
 > **Versioning.** From **1.0**, Lyntai follows **SemVer 2.0**: no breaking public-API change without a major
@@ -67,7 +69,7 @@ package boundaries, a starting bundle, and four build gates that keep the packag
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
-| `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video. Zero third-party dependencies; the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D34). |
+| `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D34). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
 dependency does this isolate?" with something concrete. Backends that need nothing extra share
