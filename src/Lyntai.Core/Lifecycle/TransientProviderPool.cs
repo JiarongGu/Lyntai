@@ -5,7 +5,7 @@ namespace Lyntai.Lifecycle;
 /// <summary>The NEVER-REUSE strategy: every call builds a fresh instance.
 ///
 /// <para>For the host that wants configuration re-read and applied on every single call. Registering this
-/// instead of <c>BoundedProviderPool{TProvider}</c> changes that behaviour without touching a
+/// instead of <see cref="BoundedProviderPool{TProvider}"/> changes that behaviour without touching a
 /// single call site — which is the point of pooling being a strategy rather than something the library
 /// imposes.</para>
 ///

@@ -13,7 +13,7 @@ namespace Lyntai.Lifecycle;
 /// configuration" has to FAIL rather than silently succeed against a different one and bill that
 /// credential. A pool selects what was chosen; a router selects what is healthy.</para>
 ///
-/// <para>Two strategies ship: <c>BoundedProviderPool{TProvider}</c> reuses while the key is
+/// <para>Two strategies ship: <see cref="BoundedProviderPool{TProvider}"/> reuses while the key is
 /// unchanged, and <see cref="TransientProviderPool{TProvider}"/> never reuses. Both keep
 /// <see cref="TryGetKey"/> answering, which is what lets cooldown and admission stay keyed on the
 /// configuration under either. Implement this interface for anything else — a pool shared across
@@ -66,7 +66,7 @@ public interface IProviderPool<TProvider> where TProvider : class, IProviderIden
 /// <param name="Retired">Entries removed, whether explicitly or by eviction.</param>
 public readonly record struct ProviderPoolStatistics(int Live, long Created, long Reused, long Retired);
 
-/// <summary>Bounds for <c>BoundedProviderPool{TProvider}</c>.
+/// <summary>Bounds for <see cref="BoundedProviderPool{TProvider}"/>.
 ///
 /// <para>Defaults ship rather than forcing a choice: an unconfigured pool that grows without limit is a
 /// worse default than one with generous bounds, and a host wanting unbounded can say so by setting both to

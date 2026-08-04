@@ -982,6 +982,13 @@ static class Lyntai.Jobs.JobStepLog
     DefaultCap : Int32 const
     static Append(String, String, DateTimeOffset, Int32=) : String
     static Parse(String) : IReadOnlyList<JobStep>
+sealed class Lyntai.Lifecycle.BoundedProviderPool`1
+    .ctor(ProviderPoolOptions=, Func<DateTimeOffset>=)
+    GetOrAdd(ProviderKey, Func<TProvider>) : TProvider
+    Retire(ProviderKey) : Boolean
+    RetireSlot(String) : Int32
+    Statistics : ProviderPoolStatistics
+    TryGetKey(TProvider, ProviderKey&) : Boolean
 interface Lyntai.Lifecycle.IProviderIdentity
     Id : String
 interface Lyntai.Lifecycle.IProviderPool`1
