@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Lyntai.Core/Lyntai.Core.csproj" />
-    <Project Path="src/Lyntai.Meta/Lyntai.Meta.csproj" />
+    <Project Path="src/Lyntai.Bundle/Lyntai.Bundle.csproj" />
     <Project Path="src/Lyntai.Providers.Default/Lyntai.Providers.Default.csproj" />
     <Project Path="src/Lyntai.Storage.Sqlite/Lyntai.Storage.Sqlite.csproj" />
     <Project Path="src/Lyntai.Storage.InMemory/Lyntai.Storage.InMemory.csproj" />

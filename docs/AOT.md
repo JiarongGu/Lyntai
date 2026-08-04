@@ -15,7 +15,7 @@ packable project, which turns on the trim, single-file, and AOT analyzers. Per-p
 | `Lyntai.Providers.Local` | ⚠️ **opts out** | Same stance — LLamaSharp loads the native llama.cpp backend dynamically and materializes options via reflection; a native-interop package can't honestly claim AOT/trim compatibility. Analyzer on for our code. |
 | `Lyntai.Tools.Mcp` | ⚠️ **opts out** | MCP argument/result marshaling is dynamic JSON (reflection). Analyzer on for our code. |
 | `Lyntai.Tools.Mcp.Hosting` | ⚠️ **opts out** | Dynamic-JSON tool marshaling through the MCP SDK's server transport. Deliberately kept OFF the CLI providers' dependency graph so they stay AOT-compatible (`docs/DECISIONS.md` D23). Analyzer on for our code. (It hosts on `System.Net.HttpListener` — the ASP.NET/Kestrel dependency was removed; that is not why it opts out.) |
-| `Lyntai` (metapackage) | n/a | Ships no assembly (`IncludeBuildOutput=false`) — its status is whatever its references are. |
+| `Lyntai` (the bundle) | n/a | Ships no assembly (`IncludeBuildOutput=false`) — its status is whatever its references are. |
 
 ## Keeping the ✅ rows honest
 
@@ -43,6 +43,23 @@ you actually AOT-publish an app that uses `Lyntai.Storage.Sqlite`.
 
 - Using only the AOT-compatible packages (Core + `Lyntai.Providers.Default` + `Lyntai.Storage.InMemory`)
   publishes clean under `PublishAot=true` / `PublishTrimmed=true`.
+- **What trimming actually buys, measured** on a console app that references the `Lyntai` bundle but calls only
+  `AddLyntai` + `ILlmClient`:
+
+  | | Plain `publish` | `PublishTrimmed=true` |
+  |---|---|---|
+  | `Lyntai.Core.dll` | 528 KB | **40 KB** |
+  | `Lyntai.Providers.Default.dll` | 158 KB | **11 KB** |
+  | `Microsoft.Extensions.AI.Abstractions.dll` | 656 KB | **removed** |
+  | `ModelContextProtocol.Core.dll` | 1188 KB | **removed** |
+  | `Lyntai.Tools.Mcp` + `.Hosting`, `Storage.InMemory` | 90 KB | **removed** |
+  | Lyntai's total footprint | 3.2 MB | **0.21 MB** |
+
+  The removals answer "does an unused dependency ship?" — no, once trimming is on. The 93% shrink of the
+  assemblies that ARE used is the payoff for honest `IsTrimmable` metadata: an assembly without it is copied
+  **whole** under the default partial trim mode. A library cannot enable trimming for its consumer (it needs a
+  self-contained publish, which is the app's decision) — all a library controls is whether trimming pays off
+  when they do.
 - Using `Lyntai.Storage.Sqlite` under trimming/AOT is **not currently supported without warnings**.
   The path to fixing it: evaluate **Dapper.AOT** (source-generated command materialization) for the async +
   `MatchNamesWithUnderscores` + FluentMigrator combination, or provide an alternative source-generated storage

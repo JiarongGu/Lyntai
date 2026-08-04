@@ -13,12 +13,16 @@
 
     Ships NO assembly of its own (IncludeBuildOutput=false) — it is references only, so there is no public
     surface to baseline and nothing to load at runtime.
+
+    Named "Bundle" rather than "Meta": NuGet's own term for this is "metapackage", but the project name is read
+    by people deciding where code goes, and "a bundle of packages" says that without the jargon. The PUBLISHED
+    id is unchanged and must stay `Lyntai` — that is what consumers install.
   -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai</PackageId>
-    <AssemblyName>Lyntai.Meta</AssemblyName>
-    <RootNamespace>Lyntai.Meta</RootNamespace>
+    <AssemblyName>Lyntai.Bundle</AssemblyName>
+    <RootNamespace>Lyntai.Bundle</RootNamespace>
     <Description>One-line install for Lyntai: the core library, the dependency-free default backends (claude/codex CLI, OpenAI-compatible chat/embeddings/images, Automatic1111, ComfyUI), in-memory storage, and both halves of MCP (consume an MCP server's tools, and host your own tools for a CLI agent — no ASP.NET needed). Add Lyntai.Storage.Sqlite, Lyntai.Providers.Local, Lyntai.Providers.ExtensionsAi or Lyntai.Secrets.Dpapi when you need them.</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>

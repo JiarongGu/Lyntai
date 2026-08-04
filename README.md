@@ -83,6 +83,21 @@ dotnet add package Lyntai          # Core + the default backends + in-memory sto
 dotnet add package Lyntai.Storage.Sqlite   # …and persistence, when you want it
 ```
 
+**Convenience vs size.** `Lyntai` is a bundle with no code of its own — it just pulls a curated set. A
+framework-dependent `dotnet publish` copies the **whole** dependency graph and analyses nothing, so that lands
+~3.2 MB of assemblies in your output folder whether or not you call into them — most of it the MCP SDK (1.9 MB
+including the `Microsoft.Extensions.AI.Abstractions` it pins). Two levers, either of which removes it:
+
+- **Reference only the packages you use** instead of the bundle. `Lyntai.Core` + one provider is the lean path,
+  and the boundaries exist precisely so this is possible (`docs/DECISIONS.md` D31).
+- **`PublishTrimmed=true`** (needs a self-contained publish). Unused assemblies are dropped outright *and* the
+  used ones are trimmed internally. Measured on a router-only app, Lyntai's whole footprint goes **3.2 MB →
+  0.21 MB** (`Lyntai.Core` alone 528 KB → 40 KB), because every compatible package carries honest `IsTrimmable`
+  metadata — see [`docs/AOT.md`](docs/AOT.md).
+
+Either way an unused dependency costs **nothing at runtime**: assemblies load on first type reference, so one you
+never touch is never opened.
+
 Then compose in DI:
 
 ```csharp

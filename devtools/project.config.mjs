@@ -36,7 +36,7 @@ export default {
   /** Packable library projects (`pack` runs `dotnet pack` over each → publish/packages/). */
   packableProjects: [
     'src/Lyntai.Core',
-    'src/Lyntai.Meta',
+    'src/Lyntai.Bundle',
     'src/Lyntai.Providers.Default',
     'src/Lyntai.Storage.Sqlite',
     'src/Lyntai.Storage.InMemory',

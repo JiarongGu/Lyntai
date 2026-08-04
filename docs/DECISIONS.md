@@ -506,7 +506,7 @@ Applying the rule consistently resolved two questions in OPPOSITE directions, an
   single raw POST answered correctly).
 
 **So: "most consumers want X" is an argument for a METAPACKAGE, never for a dependency in the mandatory
-package.** Hence `Lyntai` (`src/Lyntai.Meta`, ships no assembly) — one install for the dependency-free set,
+package.** Hence `Lyntai` (`src/Lyntai.Bundle`, ships no assembly) — one install for the dependency-free set,
 with everything costly left an explicit opt-in.
 
 The resulting graph is 10 packages + the metapackage, and every boundary now answers "which dependency does
