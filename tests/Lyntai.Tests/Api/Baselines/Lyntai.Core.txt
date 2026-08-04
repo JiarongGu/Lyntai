@@ -1624,6 +1624,10 @@ sealed class Lyntai.Prompts.PromptRegistry
     KeyPrefix : String
     RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
     ValidateOverride(String, String) : IReadOnlyList<String>
+static class Lyntai.ProviderPoolBuilderExtensions
+    static ConfigureProviderAdmission(LyntaiBuilder, Action<ProviderAdmissionOptions>) : LyntaiBuilder
+    static UseProviderPool(LyntaiBuilder, ProviderPoolOptions=) : LyntaiBuilder
+    static UseTransientProviders(LyntaiBuilder) : LyntaiBuilder
 sealed class Lyntai.RateLimitOptions
     .ctor()
     Burst : Int32

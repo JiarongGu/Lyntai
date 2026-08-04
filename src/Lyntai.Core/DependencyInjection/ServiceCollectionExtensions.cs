@@ -56,6 +56,7 @@ public static class LyntaiServiceCollectionExtensions
         // Compose per feature area — each block is self-contained and order-independent across areas (they
         // register distinct service types; the front-door decorators fold at resolution, not registration).
         services.AddSingleton(options);
+        RegisterProviderLifetime(services);
         RegisterLlmFrontDoor(services, builder, options);
         RegisterCortex(services, options);
         RegisterConversationEnrichment(services);
@@ -65,6 +66,30 @@ public static class LyntaiServiceCollectionExtensions
         RegisterGuardsAndChat(services);
 
         return services;
+    }
+
+    /// <summary>Provider LIFETIME, for the app whose backend configuration is owned outside the deployment:
+    /// the pooling strategy and the concurrency-admission table, both shared by the two router factories.
+    ///
+    /// <para>Registered unconditionally, so the pooled overloads work with no opt-in — and entirely with
+    /// <c>TryAdd</c>, so a <c>Use*</c>/<c>Configure*</c> call inside the configure callback (which runs
+    /// BEFORE this) or a host registration made before <c>AddLyntai</c> always wins.</para>
+    ///
+    /// <para>Additive by construction: an app that touches none of this resolves the container-composed
+    /// routers exactly as before, over the DI provider collection and keyed on the provider id. The pool is
+    /// only ever consulted through a router factory's POOLED overload, and unconfigured admission admits
+    /// everyone. DELIBERATELY not registering <see cref="DeadHostTracker"/> here — the LLM front door below
+    /// builds it from <see cref="LyntaiOptions"/>, and a <c>TryAdd</c> that reached the collection first
+    /// would silently discard the configured threshold, cooldown and logger for BOTH domains.</para></summary>
+    private static void RegisterProviderLifetime(IServiceCollection services)
+    {
+        // Open generic: ONE registration serves every provider seam (ILlmProvider, IGenerationProvider).
+        // Never a concrete backend type — IProviderPool<SomeProvider> would be a different pool that no
+        // router consults.
+        services.TryAddSingleton(typeof(Lyntai.Lifecycle.IProviderPool<>), typeof(Lyntai.Lifecycle.BoundedProviderPool<>));
+        services.TryAddSingleton<Lyntai.Lifecycle.ProviderPoolOptions>();
+        services.TryAddSingleton<Lyntai.Lifecycle.ProviderAdmissionOptions>();
+        services.TryAddSingleton<Lyntai.Lifecycle.ProviderAdmission>();
     }
 
     /// <summary>The LLM front door: process runner, dead-host tracker, router, and the consumer
@@ -78,6 +103,18 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<ILlmRouter>(sp => new LlmRouter(
             sp.GetServices<ILlmProvider>(), sp.GetRequiredService<DeadHostTracker>(), options,
             sp.GetService<ILogger<LlmRouter>>(), modelRouting: sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>()));
+        // The chat counterpart of IGenerationRouterFactory: a router per CALLER's provider set, over the
+        // ONE tracker and the ONE admission table registered above — which is the bookkeeping a consumer
+        // hand-building a router per call inevitably rebuilds, and thereby throws away. Registered for the
+        // same reason the generation one is: without it half the feature is unreachable through DI.
+        // The container's own ILlmRouter above is left exactly as it was — no governance composes here (chat
+        // spend/caching/throttling live on the ILlmClient front door), so routing it through the factory
+        // would change the wiring of every existing app to no end.
+        services.TryAddSingleton<ILlmRouterFactory>(sp => new LlmRouterFactory(
+            sp.GetRequiredService<Lyntai.Lifecycle.IProviderPool<ILlmProvider>>(),
+            sp.GetRequiredService<DeadHostTracker>(), options,
+            sp.GetService<ILoggerFactory>(), sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>(),
+            sp.GetService<Lyntai.Lifecycle.ProviderAdmission>()));
         // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
         // are folded over the base client in ascending Order (the decorator's declared position — NOT raw
         // registration order), so they compose predictably instead of clobbering.
