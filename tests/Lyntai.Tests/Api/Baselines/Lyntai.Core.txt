@@ -705,7 +705,7 @@ enum Lyntai.Generation.Routing.GenerationFallbackAction
     Surface : GenerationFallbackAction const
     value__ : Int32
 sealed class Lyntai.Generation.Routing.GenerationRouter
-    .ctor(IEnumerable<IGenerationProvider>, GenerationRoutingPolicy=, DeadHostTracker=)
+    .ctor(IEnumerable<IGenerationProvider>, GenerationRoutingPolicy=, DeadHostTracker=, Func<IGenerationProvider,Nullable<ProviderKey>>=, ProviderAdmission=)
     GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
     SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
@@ -1434,7 +1434,7 @@ sealed class Lyntai.Llm.Routing.LlmClient
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(LlmRequest) : Boolean
 sealed class Lyntai.Llm.Routing.LlmRouter
-    .ctor(IEnumerable<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILogger<LlmRouter>=, IModelRoutingStore=)
+    .ctor(IEnumerable<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILogger<LlmRouter>=, IModelRoutingStore=, Func<ILlmProvider,Nullable<ProviderKey>>=, ProviderAdmission=)
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
