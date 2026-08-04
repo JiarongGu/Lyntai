@@ -78,6 +78,10 @@ Tests/e2e green.
 - `TASKS.md` — the **active** backlog (open tasks only); `docs/task-archive.md` — the completed-task
   history (the frozen implementation plan + closed backlogs). See the `task-lifecycle.md` rule.
 
+**`Lyntai.Generation.*` is EXPERIMENTAL as of 2.0.1** — exempt from the SemVer promise until GEN-VERIFY closes
+(unmeasured backends + an unimplemented stream seam), so it may be reshaped in a minor. Say so in the docs
+before changing it; every other domain needs a major.
+
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Cli` (the shared spawned-CLI engine +
 per-CLI `ICliProviderDialect` — a new CLI backend is a dialect, never a new provider; see `DECISIONS.md`
 D27/D28) / `Lyntai.Generation` (+ `.Routing`) (the generation platform — image/video/audio/3d behind one
@@ -145,6 +149,10 @@ capability-aware seam; in Core because it has no dependency to isolate, `DECISIO
 - `node devtools/dev.mjs playground` — run the sample console app.
 - `node devtools/dev.mjs bench [-- --filter *X*]` — BenchmarkDotNet (Release) router/FTS benchmarks.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.
+- `node devtools/dev.mjs consumer-smoke` — **the release gate**: packs every package to a scratch feed under a
+  throwaway version, then restores + builds + runs a fresh console app against the PACKAGES (not project
+  references). The only check that exercises what actually ships — nuspecs, dependency groups, symbol packages,
+  the bundle restore. Minutes, so deliberately NOT in `verify`; run before a release or after touching packaging.
 - `node devtools/dev.mjs check-sensitive [--tree]` — leak scan.
 - `node devtools/dev.mjs doctor [--fix]` — README `## Status` version ↔ `VersionPrefix`, and `VersionPrefix`
   ↔ the newest `v*` tag (**never hand-edit the version** — see `task-lifecycle.md` / `DECISIONS.md` D25).

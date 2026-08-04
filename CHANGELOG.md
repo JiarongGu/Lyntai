@@ -48,6 +48,18 @@ because the restructure was designed around keeping namespaces fixed.
   (`IChatClient` → provider, and `AsChatClient()` back) on the one-line install. It is free: MCP already pins
   `Microsoft.Extensions.AI.Abstractions`, so the bundle's third-party closure is unchanged at 15 packages (only a
   version unification), for 38 KB of managed code that trimming removes entirely.
+- **`Lyntai.Generation.*` ships EXPERIMENTAL, exempt from the SemVer promise** until GEN-VERIFY closes. The
+  platform is complete and tested, but two backends were written from vendor docs with no key to call, one's argv
+  is ported rather than measured, and `IGenerationStreamProvider` has no implementation yet — so its shape is
+  expected to change on contact with reality. Marking it costs nothing; freezing it would force either a major
+  bump for a fix we already anticipate or a known-wrong API left in place. Every other domain carries the full
+  promise.
+- **`node devtools/dev.mjs consumer-smoke`** — a repeatable RELEASE gate that packs every package to a scratch
+  feed and then restores, builds and runs a fresh console app against them. Everything else tests the repo via
+  project references; this is the only check that exercises what actually ships (nuspecs, dependency groups,
+  symbol packages, the bundle restore). Run by hand once before this release it found two defects nothing else
+  could — an empty symbol package on the new bundle, and an unconfigured backend reporting the wrong verdict.
+  Deliberately not in `verify`: it is minutes, not seconds.
 - **`node devtools/dev.mjs new-package <Lyntai.X>`** — scaffolds an adapter package (csproj + the conventional
   `Add*` builder entry point, which doubles as the API-gate anchor type) and registers it in all seven mechanical
   registries; the API baseline seeds on the next test run. Bundle membership is deliberately not automatic — that

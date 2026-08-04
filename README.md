@@ -43,7 +43,15 @@ pre-freeze adversarial API + consumer-usage review — and collapses the 0.x mig
 per-`StorageFeature` baselines.
 
 > **Versioning.** From **1.0**, Lyntai follows **SemVer 2.0**: no breaking public-API change without a major
-> bump (the `ApiSurfaceTests` baseline gates it). **Upgrading 0.31 → 1.0:** the 0.x migrations were collapsed
+> bump (the `ApiSurfaceTests` baseline gates it).
+>
+> **One carve-out, stated plainly: `Lyntai.Generation.*` is EXPERIMENTAL as of 2.0.1** and is exempt from that
+> promise until its backends have been verified against real services (`TASKS.md` GEN-VERIFY). It is a complete,
+> tested platform — but two of its backends were written from vendor documentation with no key to call, a third's
+> argv is ported rather than measured, and `IGenerationStreamProvider` has no implementation at all yet. Shapes
+> that meet reality tend to change. Freezing that under SemVer would mean either a major bump for a fix we
+> already expect, or leaving a known-wrong shape in place — so it is marked instead of pretended. Everything
+> else (LLM routing, storage, cortex, jobs, guards, secrets, memory, tools) carries the full promise. **Upgrading 0.31 → 1.0:** the 0.x migrations were collapsed
 > into per-domain 1.0 baselines — the net schema is identical but the migration ledger is renumbered, so
 > **drop your `lyntai_*` tables (including `lyntai_version_info`) or delete the dev database before the first
 > 1.0 run**; Lyntai recreates them. One-time; the ledger is append-only thereafter.

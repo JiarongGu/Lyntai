@@ -4,6 +4,7 @@
 //   node devtools/dev.mjs check-bundle     - FAIL if the `Lyntai` bundle's dependency closure drifted (D32)
 //   node devtools/dev.mjs check-packages   - FAIL if a package is missing from any registry it needs (D33)
 //   node devtools/dev.mjs new-package <Id> - scaffold an adapter package + register it in all nine registries
+//   node devtools/dev.mjs consumer-smoke   - pack, then restore/build/run a fresh app against the PACKAGES
 //   node devtools/dev.mjs test [args]      - dotnet test the test project (extra args pass through)
 //   node devtools/dev.mjs e2e [all|pN|pN-pM|p1,p3] [--build] [--parallel[=N]] - Playground e2e suites
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
@@ -253,6 +254,13 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'new-package.mjs'), ...args]);
     break;
 
+  // A RELEASE gate, not a dev-loop one: packs every package to a scratch feed and restores/builds/runs a fresh
+  // consumer app against it. Minutes, not seconds — deliberately out of `verify`. Run before a release or
+  // after touching packaging; it is the only check that exercises what actually SHIPS.
+  case 'consumer-smoke':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'consumer-smoke.mjs'), ...args]);
+    break;
+
   case 'test':
     run('dotnet', ['test', config.testProject, '-v', 'minimal', ...args]);
     break;
@@ -483,6 +491,6 @@ switch (cmd) {
 
   default:
     console.log('usage: node devtools/dev.mjs <build|check-warnings|check-bundle|check-packages|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
-      'new-migration|new-package|install-hooks|check-sensitive|check-version>');
+      'new-migration|new-package|consumer-smoke|install-hooks|check-sensitive|check-version>');
     process.exitCode = cmd ? 1 : 0;
 }
