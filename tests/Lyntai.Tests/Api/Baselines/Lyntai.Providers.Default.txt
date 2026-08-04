@@ -48,6 +48,30 @@ sealed class Lyntai.Generation.Http.ComfyUiProvider
     PollAsync(String, CancellationToken=) : Task<GenerationOperation>
     ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
     SubmitAsync(GenerationRequest, CancellationToken=) : Task<GenerationOperation>
+sealed class Lyntai.Generation.Http.FalQueueOptions
+    .ctor()
+    ApiKey : String
+    BaseUrl : String
+    Equals(FalQueueOptions) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    Kinds : IReadOnlyList<String>
+    Model : String
+    RequestsSegment : String
+    StatusSegment : String
+    ToString() : String
+    WebhookQueryParameter : String
+sealed class Lyntai.Generation.Http.FalQueueProvider
+    .ctor(FalQueueOptions, Func<HttpClient>)
+    CancelAsync(String, CancellationToken=) : Task<GenerationOperation>
+    Capabilities : GenerationCapabilities
+    FetchAsync(String, CancellationToken=) : Task<GenerationResult>
+    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    Id : String
+    PollAsync(String, CancellationToken=) : Task<GenerationOperation>
+    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
+    SubmitAsync(GenerationRequest, CancellationToken=) : Task<GenerationOperation>
 sealed class Lyntai.Generation.Http.OpenAiImageOptions
     .ctor()
     ApiKey : String

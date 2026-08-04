@@ -2028,6 +2028,50 @@ governance/telemetry parity; the tool/MCP bridge + streaming TTS; pipelines). `v
 
 ---
 
+## Part 33 — Generation backends: local engine, durable renders, first remote queue (2026-08-04)
+
+_The remaining slices of the generation plan, filed in `TASKS.md` as GEN3–GEN7. Three landed; GEN5–GEN7 and a
+verification task stay open._
+
+- [x] **GEN3 — local subprocess backend** (`sd-cli` / stable-diffusion.cpp) through `IProcessRunner`.
+- [x] **GEN4 — async video composed with `Lyntai.Jobs`** (the durable half + the fal.ai queue backend).
+
+✅ done 2026-08-04 — **Outcome:** `LocalDiffusionProvider` runs stable-diffusion.cpp locally — no key, no
+network, no content policy in the path, which is what makes it the local half of the pair
+`GenerationRoutingPolicy` exists for. Its argv and size clamping are PORTED from a sibling app's working
+implementation (no engine on the dev machine) and pinned by exact-argv tests, because that failure would
+otherwise land on a user's render rather than on CI. Two ported details that look incidental and are not, both
+asserted: the spawn's working directory is the BINARY's directory (the engine loads `ggml*.dll` from beside
+itself) and sizes clamp to multiples of 64 within 256–768 (an engine requirement, and above that a CPU render is
+minutes of waiting). It improves on the source implementation by going through `IProcessRunner` rather than
+`Process`: BYO-runner seam, kill-tree cancellation, and an INACTIVITY clock with an absolute backstop instead of
+one wall clock that would kill a healthy slow render.
+
+`GenerationRenderJobHandler` + `IGenerationArtifactSink` make an asynchronous generation a durable job, and this
+is where the platform earns its keep over a thin client: the operation id is **checkpointed before the first
+poll**, so a crash, deploy or restart resumes polling the render already in flight instead of paying for a
+second one. Each poll re-checkpoints to renew the lease; a LOST lease stops the handler outright (operation id
+in the error, for manual recovery) rather than letting two workers drive one paid render. A submission no
+candidate accepts FAILS (config, not transient) while a still-working backend retries, and a throwing sink
+leaves the job to retry so a momentarily unavailable store cannot lose a finished render. Payload and checkpoint
+JSON are hand-written per the `MemoryPruneJobHandler` precedent, keeping Core's trim/AOT claim honest.
+
+`FalQueueProvider` is the first remote backend, chosen after research: one aggregator integration reaches the
+Wan/Kling/Veo-class models behind a single queue shape, versus another auth and envelope per vendor for models
+that are moderated at the API layer either way. The **operation id carries its model** (`"model#requestId"`)
+because the queue's URLs need the model while a resumed job only has an operation id. A transport failure while
+polling reports **Running, not Failed** — a 500 says nothing about a paid render still in progress — and an
+unknown status is likewise non-terminal.
+
+**Two unmeasured surfaces, deliberately shipped and flagged** rather than blocked: `sd-cli`'s argv (ported) and
+fal's wire format (documented, no API key). Both make every path/field an option, degrade to "no artifacts"
+rather than inventing one, and say so in their XML docs. GEN-VERIFY in `TASKS.md` closes them the first time each
+runs for real — at the owner's direction ("okay to not test fully today; we are building the foundation").
+
+`verify` green (build · 1296 tests · e2e 3/3 · leak scan).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

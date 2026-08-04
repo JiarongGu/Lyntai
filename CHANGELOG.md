@@ -44,6 +44,15 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+- **`FalQueueProvider`** (in `Lyntai.Providers.Default`) — the first remote video backend, over **fal.ai's
+  queue API**: submit → poll → fetch, pairing with the durable render handler so one integration reaches the
+  Wan/Kling/Veo-class models. The **operation id carries its model** (`"model#requestId"`), because the queue's
+  status and result URLs need the model while a resumed job hands back only an operation id. A transport failure
+  while polling reports **Running, not Failed** — a 500 says nothing about a render that is already paid for and
+  probably still going — and an unknown status is likewise not terminal. Artifact reading is shape-tolerant
+  (models return `video`/`images`/`audio`), and an unrecognised result is a failure rather than an empty success.
+  Cost comes from the response, never inferred from a rate card. **Surface is documented, not measured** (no API
+  key to call), so paths are options and the flag says so in the XML docs.
 - **`LocalDiffusionProvider`** (in `Lyntai.Providers.Default`) — image generation on a locally-installed
   **stable-diffusion.cpp** (`sd-cli`): no key, no network, no content policy in the path. Inline delivery, since
   a local render blocks until the file exists. The engine and its weights stay the host's to provide (D26); the

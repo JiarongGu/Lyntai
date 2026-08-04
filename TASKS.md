@@ -38,16 +38,15 @@ _Part 32 (MED1: the generation platform + the 2.0.1 package restructure) landed 
 `docs/2026-08-04-generation-platform-plan.md` + `docs/2026-08-04-restructure-2.0.1-plan.md`. What remains are
 that plan's Plans 3–7, each a separate pass because each needs its own measurement._
 
-- [x] **GEN3 — local subprocess backend** — LANDED 2026-08-04 (`LocalDiffusionProvider` in
-  `Lyntai.Providers.Default`, through `IProcessRunner` with an inactivity clock + backstop; argv and size
-  clamping ported and flagged as not-measured-here; probe checks binary + weights, free). Confirm against a
-  real engine the first time it is used in anger.
-- [ ] **GEN4 — async video: the fal.ai queue backend.** The `Lyntai.Jobs` composition half LANDED 2026-08-04
-  (`GenerationRenderJobHandler` + `IGenerationArtifactSink`: checkpoint-before-poll, lease-aware, app-owned
-  sink). What remains is the backend itself — an `IGenerationJobProvider` over fal.ai's queue API (owner's
-  choice: one integration reaches the Wan/Kling/Veo-class models). Per-call cost belongs in
-  `GenerationUsage.CostUsd` — aggregator pricing is per model AND per resolution. Its surface will be
-  documented-not-measured without an API key, so flag it and make endpoints options, as ComfyUI does.
+_GEN3 (local `sd-cli`) and GEN4 (durable renders + the fal.ai queue backend) landed 2026-08-04 — see
+`docs/task-archive.md` Part 33. Both carry an **unmeasured-surface** caveat to close the first time they run
+for real: the `sd-cli` argv/size clamping is ported-not-measured, and fal's wire format is documented-not-
+measured._
+
+- [ ] **GEN-VERIFY — confirm the two unmeasured backends against reality.** For `sd-cli`: run one render and
+  check the argv, the multiple-of-64 clamp and the binary-directory working dir. For fal: one submit → poll →
+  fetch with a real key, checking the status vocabulary, the result field names and what `cost` reports. Then
+  delete the "unverified" notes from the XML docs — or fix the mappings and keep them.
 - [ ] **GEN5 — governance/telemetry parity for generation**: cost/budget accounting, rate limiting, dead-host
   cooldown for candidates, OTel spans/metrics — reusing the existing decorator patterns, not a second copy.
 - [ ] **GEN6 — the tool/MCP bridge + streaming audio**: `AddGenerationTools()` exposing generate/submit/status/
