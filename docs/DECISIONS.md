@@ -448,6 +448,39 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D33 — MANY small packages is the intended shape; the cost is paid in tooling, not in merging (2026-08-04)
+At the owner's call, after reviewing the full inventory: a package as small as `Lyntai.Secrets.Dpapi` (8 KB of
+code) is FINE, so keep splitting by D31's dependency test and never merge packages just to reduce the count.
+The stated condition was the real decision — *"if we can have a good way to manage all those, this is not a big
+issue"* — so the granularity is paid for with tooling.
+
+**Why granularity wins here.** The alternative to a tiny package is a bigger one that forces its dependency on
+someone who didn't want it. `Secrets.Dpapi` is the clearest case: 8 KB of code behind a Windows-only API, so it
+can never be in Core and never in the bundle — merging it anywhere makes that package unusable off Windows. The
+size of a package is not the cost; its DEPENDENCY is. Small adapters in front of heavy or platform-bound
+dependencies are the point of the layout, not an accident of it (`Tools.Mcp` is 15 KB in front of a 1.19 MB SDK;
+`Providers.Local` is 20 KB in front of LLamaSharp plus a hardware backend).
+
+**What the growth actually costs, and what pays it.** Shipping a package means registering it in NINE places,
+and the failure modes are silent: miss the `ApiSurfaceTests` entry and the package ships with NO public-API gate —
+the very thing that makes the SemVer promise real — with nothing to tell you. Miss a docs row and the published
+docs describe a package set that does not exist; that already happened (the docs sent consumers to
+`Lyntai.Generation.Http` for two releases after it was folded away, an install line that cannot restore).
+
+So `node devtools/dev.mjs check-packages` (in `verify`) treats the FILESYSTEM as the source of truth — every
+`src/*` project with `IsPackable=true` is a package — and fails unless each one is in `packableProjects`, the
+solution, `ApiSurfaceTests.Assemblies()`, the `Loaded` anchor map, the test project's references, a baseline
+file, the `docs/AOT.md` table and the README table; plus the reverse, so a deleted package cannot leave an
+orphan baseline or a stale registry entry behind. A package that ships no assembly (the bundle) is exempt from
+the assembly-shaped checks.
+
+**A gate has to be TESTED against a broken tree, or it certifies nothing.** The first version of this one passed
+while two registries were deliberately broken: searching the whole test file for the assembly name found it in
+the *other* registry, and searching the README for the package name found it in prose. Both are now scoped —
+`Assemblies()` and `Loaded` are extracted and checked separately, and a docs mention must be a table ROW. That
+mistake is worth recording because it is the general failure mode of consistency gates: a presence check against
+a big file almost always passes.
+
 ## D32 — what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate (2026-08-04)
 D31 decides when something becomes its own package. This decides the complementary question, asked at the
 owner's prompting because the package count only grows: **when a new package ships, does it join the one-line

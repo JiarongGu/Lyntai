@@ -48,6 +48,15 @@ because the restructure was designed around keeping namespaces fixed.
   (`IChatClient` → provider, and `AsChatClient()` back) on the one-line install. It is free: MCP already pins
   `Microsoft.Extensions.AI.Abstractions`, so the bundle's third-party closure is unchanged at 15 packages (only a
   version unification), for 38 KB of managed code that trimming removes entirely.
+- **Many small packages is now the settled shape, with tooling to match (`docs/DECISIONS.md` D33)** — a package
+  as small as `Lyntai.Secrets.Dpapi` (8 KB) earns its id, because the cost of a package is its DEPENDENCY, not its
+  size: merging a Windows-only 8 KB adapter into anything larger makes that larger thing unusable off Windows. So
+  granularity stays, and the growth is paid for in tooling: `node devtools/dev.mjs check-packages` (now in
+  `verify`) treats the filesystem as the source of truth and fails unless every packable project is registered in
+  all nine places that must know about it — `packableProjects`, the solution, `ApiSurfaceTests` (both the list and
+  the anchor map), the test project's references, a baseline file, the `docs/AOT.md` table and the README table —
+  plus the reverse, so a deleted package leaves no orphan baseline or stale entry. The miss that matters most is
+  silent: no `ApiSurfaceTests` entry means the package ships with **no public-API gate at all**.
 - **A bundle membership POLICY, enforced (`docs/DECISIONS.md` D32)** — with the package count set to keep growing,
   what belongs in the one-line install is now a written rule plus a gate rather than a per-package argument. A
   package joins only if it adds no third-party dependency outside the `Microsoft.Extensions.*` band, or if it is

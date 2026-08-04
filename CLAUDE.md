@@ -122,6 +122,11 @@ capability-aware seam; in Core because it has no dependency to isolate, `DECISIO
 - **`node devtools/dev.mjs verify`** — the "am I done?" gate: build → test → e2e → leak scan. Run before
   claiming a change is complete.
 - `node devtools/dev.mjs build` — build the solution.
+- `node devtools/dev.mjs check-packages` — **fail if a package is missing from any registry it needs** (part of
+  `verify`): `packableProjects`, the solution, `ApiSurfaceTests` (list + anchor map), the test project's
+  references, a baseline, the `docs/AOT.md` table, the README table — plus the reverse, so a deleted package
+  leaves nothing stale behind. Shipping a package touches NINE registries and the misses are silent (no
+  `ApiSurfaceTests` entry = no API gate at all). Many small packages is the intended shape — `DECISIONS.md` D33.
 - `node devtools/dev.mjs check-bundle` — **fail if the `Lyntai` bundle's dependency closure drifted** (part of
   `verify`). The bundle forces every dependency on every one-line-install consumer (an untrimmed publish copies
   the whole graph), so membership is a budget: see `docs/DECISIONS.md` **D32** for the rule and

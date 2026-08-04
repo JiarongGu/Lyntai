@@ -2,6 +2,7 @@
 //   node devtools/dev.mjs build            - dotnet build the solution
 //   node devtools/dev.mjs check-warnings   - FAIL if any src/ project compiles with a warning (--list for all)
 //   node devtools/dev.mjs check-bundle     - FAIL if the `Lyntai` bundle's dependency closure drifted (D32)
+//   node devtools/dev.mjs check-packages   - FAIL if a package is missing from any registry it needs (D33)
 //   node devtools/dev.mjs test [args]      - dotnet test the test project (extra args pass through)
 //   node devtools/dev.mjs e2e [all|pN|pN-pM|p1,p3] [--build] [--parallel[=N]] - Playground e2e suites
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
@@ -240,6 +241,11 @@ switch (cmd) {
     break;
   }
 
+  // The package INVENTORY is consistent across every registry that must know about a package (D33).
+  case 'check-packages':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-packages.mjs'), ...args]);
+    break;
+
   case 'test':
     run('dotnet', ['test', config.testProject, '-v', 'minimal', ...args]);
     break;
@@ -403,8 +409,8 @@ switch (cmd) {
 
   case 'verify': {
     // the single "am I done?" gate: build → test → e2e → leak scan, stopping at the first failure.
-    const steps = [['build', []], ['check-warnings', []], ['check-bundle', []], ['test', []], ['e2e', []],
-      ['check-sensitive', ['--tree']]];
+    const steps = [['build', []], ['check-warnings', []], ['check-packages', []], ['check-bundle', []],
+      ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {
       console.log(`\n=== verify: ${step} ===`);
@@ -412,7 +418,8 @@ switch (cmd) {
       if (r.status !== 0) { failed = step; process.exitCode = r.status ?? 1; break; }
     }
     if (failed) console.error(`\nverify: ✗ FAILED at ${failed}`);
-    else console.log('\nverify: ✓ all gates green (build · warnings · bundle · test · e2e · check-sensitive)');
+    else console.log('\nverify: ✓ all gates green ' +
+      '(build · warnings · packages · bundle · test · e2e · check-sensitive)');
     break;
   }
 
@@ -468,7 +475,7 @@ switch (cmd) {
   }
 
   default:
-    console.log('usage: node devtools/dev.mjs <build|check-warnings|check-bundle|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
+    console.log('usage: node devtools/dev.mjs <build|check-warnings|check-bundle|check-packages|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
       'new-migration|install-hooks|check-sensitive|check-version>');
     process.exitCode = cmd ? 1 : 0;
 }
