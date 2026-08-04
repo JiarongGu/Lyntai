@@ -49,9 +49,10 @@ measured._
   delete the "unverified" notes from the XML docs — or fix the mappings and keep them.
 - [ ] **GEN5 — governance/telemetry parity for generation**: cost/budget accounting, rate limiting, dead-host
   cooldown for candidates, OTel spans/metrics — reusing the existing decorator patterns, not a second copy.
-- [ ] **GEN6 — the tool/MCP bridge + streaming audio**: `AddGenerationTools()` exposing generate/submit/status/
-  probe as `ITool`s (so both the in-process loop and a CLI agent over the MCP host can drive generation), plus a
-  streaming TTS backend to exercise `IGenerationStreamProvider` end to end. **TTS before music** (owner).
+- [ ] **GEN6 — streaming audio (TTS).** The tool/MCP bridge half LANDED 2026-08-04 (`AddGenerationTools()`:
+  five `ITool`s covering discovery, the inline path and the async path; bytes go to the sink, never into an
+  observation). What remains is a streaming TTS backend to exercise `IGenerationStreamProvider` end to end —
+  nothing implements that seam yet. **TTS before music** (owner).
 - [ ] **GEN7 — pipelines (3d → image → video)**: ordered stages feeding `artifact.ToInput(role)` forward, with
   per-stage candidates and per-stage failure semantics. Deferred until ≥2 real backends exist so the runner
   isn't designed on guesses. Needs a 3D-backend survey first (mesh vs turntable stills — only the latter chains

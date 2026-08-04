@@ -704,8 +704,39 @@ sealed class Lyntai.Generation.Routing.GenerationSubmission
 interface Lyntai.Generation.Routing.IGenerationRouter
     GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
     SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+sealed class Lyntai.Generation.Tools.GenerationBackendsTool
+    .ctor(IEnumerable<IGenerationProvider>)
+    Description : String
+    InvokeAsync(String, CancellationToken=) : Task<String>
+    Name : String
+    ParametersJsonSchema : String
+sealed class Lyntai.Generation.Tools.GenerationFetchTool
+    .ctor(IEnumerable<IGenerationProvider>, IGenerationArtifactSink=)
+    Description : String
+    InvokeAsync(String, CancellationToken=) : Task<String>
+    Name : String
+    ParametersJsonSchema : String
+sealed class Lyntai.Generation.Tools.GenerationInlineTool
+    .ctor(IGenerationRouter, GenerationOptions, IGenerationArtifactSink=)
+    Description : String
+    InvokeAsync(String, CancellationToken=) : Task<String>
+    Name : String
+    ParametersJsonSchema : String
+sealed class Lyntai.Generation.Tools.GenerationStatusTool
+    .ctor(IEnumerable<IGenerationProvider>)
+    Description : String
+    InvokeAsync(String, CancellationToken=) : Task<String>
+    Name : String
+    ParametersJsonSchema : String
+sealed class Lyntai.Generation.Tools.GenerationSubmitTool
+    .ctor(IGenerationRouter, GenerationOptions)
+    Description : String
+    InvokeAsync(String, CancellationToken=) : Task<String>
+    Name : String
+    ParametersJsonSchema : String
 static class Lyntai.GenerationBuilderExtensions
     static AddGenerationProvider(LyntaiBuilder, Func<IServiceProvider,IGenerationProvider>) : LyntaiBuilder
+    static AddGenerationTools(LyntaiBuilder) : LyntaiBuilder
     static ConfigureGenerationRouting(LyntaiBuilder, Action<GenerationRoutingPolicy>) : LyntaiBuilder
     static UseDefaultGenerationCandidates(LyntaiBuilder, String[]) : LyntaiBuilder
 sealed class Lyntai.GenerationOptions

@@ -61,6 +61,41 @@ public static class GenerationBuilderExtensions
         }
     }
 
+    /// <summary>Expose the generation domain to AGENTS as <see cref="Lyntai.Agents.ITool"/>s: <c>generate_backends</c>
+    /// (discover what is available), <c>generate</c> (inline), and <c>generate_submit</c> /
+    /// <c>generate_status</c> / <c>generate_fetch</c> (the asynchronous path a video render needs).
+    ///
+    /// This is the whole coupling between the two domains: the LLM side already knows <c>ITool</c>, so these
+    /// work in the in-process tool loop and — with <c>AddMcpToolHost(...)</c> from
+    /// <c>Lyntai.Tools.Mcp.Hosting</c> — for a CLI agent that runs its own loop over MCP. Neither domain
+    /// references the other's concrete types (<c>docs/DECISIONS.md</c> D30).</summary>
+    /// <remarks>Bytes are never returned in a tool observation (a base64 image would blow the context window for
+    /// no benefit): if an <see cref="Lyntai.Generation.Jobs.IGenerationArtifactSink"/> is registered the artifacts are delivered to
+    /// it and the observation says where they went, otherwise it reports their type/size/URI.</remarks>
+    public static LyntaiBuilder AddGenerationTools(this LyntaiBuilder builder)
+    {
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationBackendsTool(
+            sp.GetServices<IGenerationProvider>()));
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationInlineTool(
+            sp.GetRequiredService<Lyntai.Generation.Routing.IGenerationRouter>(),
+            GenerationOptionsFor(sp),
+            sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>()));
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationSubmitTool(
+            sp.GetRequiredService<Lyntai.Generation.Routing.IGenerationRouter>(),
+            GenerationOptionsFor(sp)));
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationStatusTool(
+            sp.GetServices<IGenerationProvider>()));
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationFetchTool(
+            sp.GetServices<IGenerationProvider>(),
+            sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>()));
+        return builder;
+    }
+
+    /// <summary>Resolved options, or defaults — the tools work before any candidate order is configured (a model
+    /// can always name backends explicitly).</summary>
+    private static GenerationOptions GenerationOptionsFor(IServiceProvider sp) =>
+        sp.GetService<GenerationOptions>() ?? new GenerationOptions();
+
     /// <summary>The single <see cref="GenerationOptions"/> instance for this builder, registered as a singleton
     /// INSTANCE. Registering the instance (not a factory) is what lets configure-time mutation be visible to
     /// the resolved service — the same immediate-mutation model the builder's own <c>Options</c> uses.</summary>

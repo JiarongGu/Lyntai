@@ -44,6 +44,17 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+- **Generation as agent tools (`AddGenerationTools()`)** — the generation domain exposed as five `ITool`s, which
+  is the **entire coupling** between the generation and LLM domains: neither references the other's concrete
+  types, and because the LLM side already knows `ITool`, these work in the in-process tool loop *and* — with
+  `AddMcpToolHost(...)` — for a CLI agent running its own loop over MCP. `generate_backends` lets a model
+  discover what exists and what each backend supports before choosing; `generate` is the inline path; and
+  `generate_submit` → `generate_status` → `generate_fetch` is the asynchronous path a video render actually
+  needs. **Bytes never enter a tool observation** (a base64 image would blow the context window for nothing): if
+  an `IGenerationArtifactSink` is registered the artifacts are delivered to it and the observation says so,
+  otherwise it reports type/size/URI. Bad arguments come back as a readable error rather than a throw, so a model
+  can correct itself, and unknown arguments pass through as backend options so a model can use a backend's own
+  knobs without Lyntai enumerating them.
 - **`FalQueueProvider`** (in `Lyntai.Providers.Default`) — the first remote video backend, over **fal.ai's
   queue API**: submit → poll → fetch, pairing with the durable render handler so one integration reaches the
   Wan/Kling/Veo-class models. The **operation id carries its model** (`"model#requestId"`), because the queue's
