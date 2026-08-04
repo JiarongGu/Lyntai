@@ -40,7 +40,6 @@ export default {
     'src/Lyntai.Storage.Sqlite',
     'src/Lyntai.Storage.InMemory',
     'src/Lyntai.Storage.Postgres',
-    'src/Lyntai.Generation',
     'src/Lyntai.Generation.Http',
     'src/Lyntai.Providers.ExtensionsAi',
     'src/Lyntai.Providers.Local',

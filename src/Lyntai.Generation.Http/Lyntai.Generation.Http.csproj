@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
-    <ProjectReference Include="..\Lyntai.Generation\Lyntai.Generation.csproj" />
   </ItemGroup>
 
   <ItemGroup>

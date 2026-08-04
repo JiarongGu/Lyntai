@@ -474,6 +474,204 @@ static class Lyntai.Embeddings.EmbedderExtensions
     static EmbedAsync(IEmbedder, String, CancellationToken=) : Task<Single[]>
 interface Lyntai.Embeddings.IEmbedder
     EmbedAsync(IReadOnlyList<String>, CancellationToken=) : Task<IReadOnlyList<Single[]>>
+sealed class Lyntai.Generation.GenerationArtifact
+    .ctor(String, Byte[]=, String=, IReadOnlyDictionary<String,String>=)
+    Data : Byte[]
+    Deconstruct(String&, Byte[]&, String&, IReadOnlyDictionary`2&) : Void
+    Equals(GenerationArtifact) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    Metadata : IReadOnlyDictionary<String,String>
+    ToInput(String=) : GenerationInput
+    ToString() : String
+    Uri : String
+sealed class Lyntai.Generation.GenerationCapabilities
+    .ctor()
+    Deliveries : IReadOnlyList<GenerationDelivery>
+    Equals(GenerationCapabilities) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Kinds : IReadOnlyList<String>
+    Limits : IReadOnlyDictionary<String,String>
+    Models : IReadOnlyList<String>
+    Supports(GenerationRequest, GenerationDelivery) : Boolean
+    SupportsInputs : Boolean
+    ToString() : String
+sealed class Lyntai.Generation.GenerationChunk
+    .ctor(Byte[]=, String=, Nullable<GenerationVerdict>=, String=, Boolean=, GenerationUsage=)
+    Data : Byte[]
+    Deconstruct(Byte[]&, String&, Nullable`1&, String&, Boolean&, GenerationUsage&) : Void
+    Detail : String
+    Equals(GenerationChunk) : Boolean
+    Equals(Object) : Boolean
+    Error : Nullable<GenerationVerdict>
+    Final : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    ToString() : String
+    Usage : GenerationUsage
+    static Completed(GenerationUsage=) : GenerationChunk
+    static Content(Byte[], String=) : GenerationChunk
+    static Failure(GenerationVerdict, String=) : GenerationChunk
+enum Lyntai.Generation.GenerationDelivery
+    Inline : GenerationDelivery const
+    Job : GenerationDelivery const
+    Stream : GenerationDelivery const
+    value__ : Int32
+sealed class Lyntai.Generation.GenerationInput
+    .ctor(String, Byte[]=, String=, String=)
+    Data : Byte[]
+    Deconstruct(String&, Byte[]&, String&, String&) : Void
+    Equals(GenerationInput) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    Role : String
+    ToString() : String
+    Uri : String
+static class Lyntai.Generation.GenerationInputRoles
+    FirstFrame : String const
+    Init : String const
+    Reference : String const
+    Voice : String const
+static class Lyntai.Generation.GenerationKinds
+    Audio : String const
+    Image : String const
+    Model3d : String const
+    Video : String const
+sealed class Lyntai.Generation.GenerationOperation
+    .ctor(String, GenerationOperationStatus, Nullable<Double>=, String=)
+    Deconstruct(String&, GenerationOperationStatus&, Nullable`1&, String&) : Void
+    Detail : String
+    Equals(GenerationOperation) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    IsTerminal : Boolean
+    Progress : Nullable<Double>
+    Status : GenerationOperationStatus
+    ToString() : String
+enum Lyntai.Generation.GenerationOperationStatus
+    Cancelled : GenerationOperationStatus const
+    Failed : GenerationOperationStatus const
+    Queued : GenerationOperationStatus const
+    Running : GenerationOperationStatus const
+    Succeeded : GenerationOperationStatus const
+    value__ : Int32
+sealed class Lyntai.Generation.GenerationProbeResult
+    .ctor(Boolean, String=, String=)
+    Available : Boolean
+    Deconstruct(Boolean&, String&, String&) : Void
+    Detail : String
+    Equals(GenerationProbeResult) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    ToString() : String
+    Version : String
+sealed class Lyntai.Generation.GenerationRequest
+    .ctor()
+    Equals(GenerationRequest) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Inputs : IReadOnlyList<GenerationInput>
+    Kind : String required
+    Model : String
+    Option(String) : String
+    Options : IReadOnlyDictionary<String,String>
+    Prompt : String
+    TimeoutSeconds : Nullable<Int32>
+    ToString() : String
+sealed class Lyntai.Generation.GenerationResult
+    .ctor(GenerationVerdict, IReadOnlyList<GenerationArtifact>, GenerationUsage=, String=)
+    Artifacts : IReadOnlyList<GenerationArtifact>
+    Deconstruct(GenerationVerdict&, IReadOnlyList`1&, GenerationUsage&, String&) : Void
+    Detail : String
+    Equals(GenerationResult) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    IsOk : Boolean
+    ToString() : String
+    Usage : GenerationUsage
+    Verdict : GenerationVerdict
+    static Failure(GenerationVerdict, String=) : GenerationResult
+    static Success(IReadOnlyList<GenerationArtifact>, GenerationUsage=, String=) : GenerationResult
+sealed class Lyntai.Generation.GenerationUsage
+    .ctor(Nullable<Int32>=, Nullable<Double>=, Nullable<Double>=)
+    CostUsd : Nullable<Double>
+    Count : Nullable<Int32>
+    Deconstruct(Nullable`1&, Nullable`1&, Nullable`1&) : Void
+    Equals(GenerationUsage) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Seconds : Nullable<Double>
+    ToString() : String
+enum Lyntai.Generation.GenerationVerdict
+    AuthFailed : GenerationVerdict const
+    Failed : GenerationVerdict const
+    NotConfigured : GenerationVerdict const
+    Ok : GenerationVerdict const
+    RateLimited : GenerationVerdict const
+    Refused : GenerationVerdict const
+    Timeout : GenerationVerdict const
+    Unsupported : GenerationVerdict const
+    value__ : Int32
+static class Lyntai.Generation.GenerationVerdictClassifier
+    static FromErrorText(String) : GenerationVerdict
+    static FromException(Exception) : GenerationVerdict
+    static FromHttpFailure(HttpStatusCode, String) : GenerationVerdict
+interface Lyntai.Generation.IGenerationJobProvider
+    CancelAsync(String, CancellationToken=) : Task<GenerationOperation>
+    FetchAsync(String, CancellationToken=) : Task<GenerationResult>
+    PollAsync(String, CancellationToken=) : Task<GenerationOperation>
+    SubmitAsync(GenerationRequest, CancellationToken=) : Task<GenerationOperation>
+interface Lyntai.Generation.IGenerationProvider
+    Capabilities : GenerationCapabilities
+    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    Id : String
+    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
+interface Lyntai.Generation.IGenerationStreamProvider
+    StreamAsync(GenerationRequest, CancellationToken=) : IAsyncEnumerable<GenerationChunk>
+sealed class Lyntai.Generation.Routing.GenerationCandidate
+    .ctor(String, String=)
+    Deconstruct(String&, String&) : Void
+    Equals(GenerationCandidate) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Model : String
+    ProviderId : String
+    ToString() : String
+enum Lyntai.Generation.Routing.GenerationFallbackAction
+    Advance : GenerationFallbackAction const
+    Surface : GenerationFallbackAction const
+    value__ : Int32
+sealed class Lyntai.Generation.Routing.GenerationRouter
+    .ctor(IEnumerable<IGenerationProvider>, GenerationRoutingPolicy=)
+    GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
+    .ctor()
+    ActionFor(GenerationVerdict) : GenerationFallbackAction
+    On(GenerationVerdict, GenerationFallbackAction) : GenerationRoutingPolicy
+sealed class Lyntai.Generation.Routing.GenerationSubmission
+    .ctor(String, GenerationOperation)
+    Deconstruct(String&, GenerationOperation&) : Void
+    Equals(GenerationSubmission) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Operation : GenerationOperation
+    ProviderId : String
+    ToString() : String
+interface Lyntai.Generation.Routing.IGenerationRouter
+    GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+static class Lyntai.GenerationBuilderExtensions
+    static AddGenerationProvider(LyntaiBuilder, Func<IServiceProvider,IGenerationProvider>) : LyntaiBuilder
+    static ConfigureGenerationRouting(LyntaiBuilder, Action<GenerationRoutingPolicy>) : LyntaiBuilder
+    static UseDefaultGenerationCandidates(LyntaiBuilder, String[]) : LyntaiBuilder
+sealed class Lyntai.GenerationOptions
+    .ctor()
+    DefaultCandidates : List<GenerationCandidate>
 sealed class Lyntai.Guards.DenylistGuard
     .ctor(IReadOnlyList<String>, String=)
     InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
