@@ -984,6 +984,12 @@ static class Lyntai.Jobs.JobStepLog
     static Parse(String) : IReadOnlyList<JobStep>
 interface Lyntai.Lifecycle.IProviderIdentity
     Id : String
+interface Lyntai.Lifecycle.IProviderPool`1
+    GetOrAdd(ProviderKey, Func<TProvider>) : TProvider
+    Retire(ProviderKey) : Boolean
+    RetireSlot(String) : Int32
+    Statistics : ProviderPoolStatistics
+    TryGetKey(TProvider, ProviderKey&) : Boolean
 struct Lyntai.Lifecycle.ProviderKey
     .ctor(String, String)
     Deconstruct(String&, String&) : Void
@@ -1001,6 +1007,28 @@ sealed class Lyntai.Lifecycle.ProviderKeyBuilder
     With(String, Int32) : ProviderKeyBuilder
     With(String, String) : ProviderKeyBuilder
     WithSecret(String, String) : ProviderKeyBuilder
+sealed class Lyntai.Lifecycle.ProviderPoolOptions
+    .ctor()
+    IdleTimeout : Nullable<TimeSpan>
+    MaxEntries : Nullable<Int32>
+struct Lyntai.Lifecycle.ProviderPoolStatistics
+    .ctor(Int32, Int64, Int64, Int64)
+    Created : Int64
+    Deconstruct(Int32&, Int64&, Int64&, Int64&) : Void
+    Equals(Object) : Boolean
+    Equals(ProviderPoolStatistics) : Boolean
+    GetHashCode() : Int32
+    Live : Int32
+    Retired : Int64
+    Reused : Int64
+    ToString() : String
+sealed class Lyntai.Lifecycle.TransientProviderPool`1
+    .ctor()
+    GetOrAdd(ProviderKey, Func<TProvider>) : TProvider
+    Retire(ProviderKey) : Boolean
+    RetireSlot(String) : Int32
+    Statistics : ProviderPoolStatistics
+    TryGetKey(TProvider, ProviderKey&) : Boolean
 sealed class Lyntai.Llm.Budgeting.BudgetedLlmClient
     .ctor(ILlmClient, IUsageTracker, LyntaiOptions, ILogger<BudgetedLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
