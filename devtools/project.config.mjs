@@ -42,6 +42,7 @@ export default {
     'src/Lyntai.Providers.ClaudeCli',
     'src/Lyntai.Providers.CodexCli',
     'src/Lyntai.Generation',
+    'src/Lyntai.Generation.Http',
     'src/Lyntai.Providers.OpenAiCompatible',
     'src/Lyntai.Providers.ExtensionsAi',
     'src/Lyntai.Providers.Local',
