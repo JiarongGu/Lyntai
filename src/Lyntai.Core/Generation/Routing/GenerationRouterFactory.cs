@@ -13,7 +13,12 @@ namespace Lyntai.Generation.Routing;
 /// cheap; what must NOT be rebuilt is the bookkeeping, so the tracker, the limiter and the usage ledger are
 /// injected once and shared by every router this factory hands out. That is precisely what per-call
 /// hand-construction gets wrong: a consumer that rebuilds its tracker with its router can never bench a
-/// failing backend, because the knowledge that it is failing is thrown away between calls.</para></summary>
+/// failing backend, because the knowledge that it is failing is thrown away between calls.</para>
+///
+/// <para><b>An EMPTY set needs an explicit element type</b> — plausible for a tenant with nothing configured
+/// — because <c>For([])</c> matches both overloads equally and fails to compile (CS0121); write
+/// <c>For(Array.Empty&lt;ProviderRegistration&lt;IGenerationProvider&gt;&gt;())</c> or
+/// <c>For(Array.Empty&lt;IGenerationProvider&gt;())</c> to say which one you mean.</para></summary>
 public interface IGenerationRouterFactory
 {
     /// <summary>Route over POOLED backends: each registration is resolved through the pool, and each
@@ -55,7 +60,7 @@ public sealed class GenerationRouterFactory(
     IUsageTracker? usage = null,
     LyntaiOptions? options = null,
     ILoggerFactory? loggers = null,
-    ProviderAdmission? admission = null) : IGenerationRouterFactory
+    IProviderAdmission? admission = null) : IGenerationRouterFactory
 {
     /// <inheritdoc/>
     public IGenerationRouter For(IReadOnlyList<ProviderRegistration<IGenerationProvider>> providers)

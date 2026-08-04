@@ -51,7 +51,7 @@ public sealed class GenerationRouter(
     GenerationRoutingPolicy? policy = null,
     DeadHostTracker? deadHosts = null,
     Func<IGenerationProvider, ProviderKey?>? configuration = null,
-    ProviderAdmission? admission = null) : IGenerationRouter
+    IProviderAdmission? admission = null) : IGenerationRouter
 {
     private readonly IReadOnlyList<IGenerationProvider> _providers = [.. providers];
     private readonly GenerationRoutingPolicy _policy = policy ?? new GenerationRoutingPolicy();

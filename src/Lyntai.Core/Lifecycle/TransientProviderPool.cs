@@ -47,8 +47,14 @@ public sealed class TransientProviderPool<TProvider> : IProviderPool<TProvider>
     public bool Retire(ProviderKey key) => false;
 
     /// <inheritdoc/>
-    /// <remarks>Always 0 — see <see cref="Retire"/>.</remarks>
-    public int RetireSlot(string slot) => 0;
+    /// <remarks>Always 0 — see <see cref="Retire"/>. The blank-slot guard still runs: swapping which strategy
+    /// is registered must change REUSE and nothing else, so a call that is a bug under
+    /// <see cref="BoundedProviderPool{TProvider}"/> cannot quietly succeed here.</remarks>
+    public int RetireSlot(string slot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(slot);
+        return 0;
+    }
 
     /// <inheritdoc/>
     public ProviderPoolStatistics Statistics =>

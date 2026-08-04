@@ -15,6 +15,16 @@ namespace Lyntai.Generation;
 /// </summary>
 public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity
 {
+    /// <summary>The candidate id routing selects on (<c>"openai-images"</c>, <c>"a1111"</c>,
+    /// <c>"local-diffusion"</c>).</summary>
+    /// <remarks><b>Declared here as well as on <see cref="Lyntai.Lifecycle.IProviderIdentity"/> on purpose,
+    /// and <c>new</c> only to silence CS0108.</b> Adding the base interface is binary-compatible; DELETING
+    /// this declaration is not. A pre-compiled caller emits <c>callvirt IGenerationProvider::get_Id</c>, and
+    /// member resolution does not walk base INTERFACES, so every consumer assembly built against the
+    /// published surface would throw <see cref="MissingMethodException"/> until recompiled. Pinned by
+    /// <c>ProviderIdentityTests.Both_seams_still_declare_Id_themselves</c> — do not "clean it up".</remarks>
+    new string Id { get; }
+
     /// <summary>What this backend can serve. Read by the router BEFORE spending anything.</summary>
     GenerationCapabilities Capabilities { get; }
 

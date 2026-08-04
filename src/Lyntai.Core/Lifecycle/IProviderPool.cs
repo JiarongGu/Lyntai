@@ -31,6 +31,9 @@ public interface IProviderPool<TProvider> where TProvider : class, IProviderIden
     /// <exception cref="ArgumentException">The built instance's <see cref="IProviderIdentity.Id"/> does not
     /// match <see cref="ProviderKey.Slot"/> — which would leave the instance unroutable, because routers
     /// match candidates on the id.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="factory"/> returned null. Nothing is
+    /// stored, and the caller sees the failure at the registration that caused it rather than as a
+    /// <see cref="NullReferenceException"/> from inside a router later.</exception>
     /// <remarks><b><paramref name="factory"/> may run while an implementation's internal lock is held</b> —
     /// that is what lets concurrent calls for the same key build exactly once instead of racing. A factory
     /// must therefore not block, await, or call back into this pool (including a reentrant call to
@@ -58,7 +61,11 @@ public interface IProviderPool<TProvider> where TProvider : class, IProviderIden
     bool Retire(ProviderKey key);
 
     /// <summary>Retire EVERY configuration of one backend — the backend the user removed outright.</summary>
-    /// <returns>How many entries were retired.</returns>
+    /// <param name="slot">The backend id, compared case-insensitively. Must not be blank.</param>
+    /// <returns>How many entries were retired. A strategy that retains nothing returns 0 — and still
+    /// validates <paramref name="slot"/>, because swapping which strategy is registered must change reuse
+    /// and nothing else.</returns>
+    /// <exception cref="ArgumentException"><paramref name="slot"/> is null, empty or whitespace.</exception>
     int RetireSlot(string slot);
 
     /// <summary>Counters for diagnostics and tests.</summary>

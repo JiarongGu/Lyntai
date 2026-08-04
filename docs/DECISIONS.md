@@ -514,7 +514,23 @@ the limit protects thrashes as if unlimited), and decorating a provider **erases
 interfaces**: a wrapper implementing only `IGenerationProvider` is not an `IGenerationJobProvider`, so
 `GenerationRouter.SubmitAsync`'s type test skips it and every queued video render stops routing while image
 renders and every inline-only test stay green. Limits are declared per **slot** (capacity is a property of
-the backend kind) and enforced per **key** (the contended resource belongs to a configuration).
+the backend kind) and enforced per **key** (the contended resource belongs to a configuration). Admission is
+an **interface** (`IProviderAdmission`) for the same reason the pool is: the shipped table bounds one
+*process*, and "two consumers pointing at the same self-hosted engine share its capacity" — the behaviour it
+exists for — is exactly what stops being true once those consumers are two replicas. A host in that position
+implements the seam over whatever it already coordinates with; the routers and both factories take the
+interface, so nothing above changes.
+
+**The frozen surface, and the one thing that nearly broke it.** `IProviderIdentity` is a base interface
+*added to* `ILlmProvider` and `IGenerationProvider`, which is binary-safe — but the first implementation also
+*deleted* each interface's own `string Id { get; }` on the reasoning that the base now supplies it, and that
+is not. A consumer compiled against 1.0 emits `callvirt ILlmProvider::get_Id`; member resolution does not
+walk base interfaces, so every pre-compiled caller of `provider.Id` would throw `MissingMethodException`
+until recompiled — and `consumer-smoke` cannot see it, because it rebuilds the consumer from source, which is
+the one step upgrading a package reference does not do. Both interfaces therefore keep their own declaration
+(`new`), pinned by `ProviderIdentityTests.Both_seams_still_declare_Id_themselves` so the next cleanup that
+finds them redundant fails a test instead of shipping. Reproduced and closed with an old-lib → probe →
+new-lib run; the spec's §4.1 carries the amendment.
 
 **One shipped improvement over the spec, recorded because the spec now says so too:** `ProviderAdmission`'s
 gate table is bounded by **calls in flight**, not by keys ever seen. Each gate counts callers holding or

@@ -1,11 +1,19 @@
 namespace Lyntai.Llm;
 
 /// <summary>One LLM backend (CLI spawn, HTTP endpoint, MEAI bridge, …). Implementations are
-/// registered into DI as an <see cref="IEnumerable{ILlmProvider}"/> keyed by
-/// <see cref="Lyntai.Lifecycle.IProviderIdentity.Id"/>;
+/// registered into DI as an <see cref="IEnumerable{ILlmProvider}"/> keyed by <see cref="Id"/>;
 /// the router selects among them by candidate id — never an if/else over provider kinds.</summary>
 public interface ILlmProvider : Lyntai.Lifecycle.IProviderIdentity
 {
+    /// <summary>Stable id the router matches candidates against ("claude-cli", "openai", "ollama", …).</summary>
+    /// <remarks><b>Declared here as well as on <see cref="Lyntai.Lifecycle.IProviderIdentity"/> on purpose,
+    /// and <c>new</c> only to silence CS0108.</b> Adding the base interface is binary-compatible; DELETING
+    /// this declaration is not. A pre-compiled caller emits <c>callvirt ILlmProvider::get_Id</c>, and member
+    /// resolution does not walk base INTERFACES, so every consumer assembly built against 1.0 would throw
+    /// <see cref="MissingMethodException"/> until recompiled. Pinned by
+    /// <c>ProviderIdentityTests.Both_seams_still_declare_Id_themselves</c> — do not "clean it up".</remarks>
+    new string Id { get; }
+
     /// <summary>Cheap availability probe (binary on PATH, endpoint configured, …).</summary>
     bool IsAvailable { get; }
 

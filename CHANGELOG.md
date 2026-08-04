@@ -39,16 +39,24 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   it, behaviour is exactly as before — `p => p.Id`. With it, one tenant exhausting its quota no longer benches
   every other tenant sharing that backend, while two consumers of the same downed self-hosted host do share a
   bench.
-- **`ProviderAdmission` / `b.ConfigureProviderAdmission(…)`** — bounds how many calls may run against one
-  configuration at a time, for a locally-run engine where simultaneous renders contend for a CPU or GPU.
+- **`IProviderAdmission` / `ProviderAdmission` / `b.ConfigureProviderAdmission(…)`** — bounds how many calls
+  may run against one configuration at a time, for a locally-run engine where simultaneous renders contend
+  for a CPU or GPU. The shipped table bounds one PROCESS; the interface is the seam for a host that has to
+  bound a shared engine across several (a distributed lock or lease service behind the same
+  `EnterAsync`) — the routers and both factories take the interface, so nothing above it changes.
   Limits are declared per **slot** and enforced per **key**. Applied by the routers rather than by a decorator
   around a provider, because a wrapper implementing only the base seam erases the optional capability
   interfaces the generation router type-tests — which would silently stop every queued render from routing.
   Completion paths only: streams are deliberately not gated, since a stream would hold its permit for the
   whole response.
 - **`IProviderIdentity`** — the `string Id { get; }` both `ILlmProvider` and `IGenerationProvider` already
-  declared, now a shared base interface so the pool can be one generic type over either seam. Source- and
-  binary-compatible for every existing implementor.
+  declared, now a shared base interface so the pool can be one generic type over either seam. **Both
+  interfaces keep their own `Id` declaration** (as `new`), so this is binary-compatible for CALLERS as well
+  as for implementors: adding a base interface is safe, but removing the member from the derived interface
+  would throw `MissingMethodException` in every pre-compiled consumer that reads `provider.Id`, since member
+  resolution does not walk base interfaces. The only caveat is source-level and rare — a consumer that
+  implemented `Id` *explicitly* (`string ILlmProvider.Id => …`) must now also implement
+  `IProviderIdentity.Id`; implicit implementation is unaffected.
 
 ### Changed
 - `LlmRouter` and `GenerationRouter` gained two **optional** trailing constructor parameters (`configuration`,

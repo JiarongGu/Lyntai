@@ -90,6 +90,12 @@ public static class LyntaiServiceCollectionExtensions
         services.TryAddSingleton<Lyntai.Lifecycle.ProviderPoolOptions>();
         services.TryAddSingleton<Lyntai.Lifecycle.ProviderAdmissionOptions>();
         services.TryAddSingleton<Lyntai.Lifecycle.ProviderAdmission>();
+        // The routers consume the SEAM, so a host coordinating admission across processes registers its own
+        // IProviderAdmission before AddLyntai and this TryAdd stands down. The concrete type stays registered
+        // either way — ConfigureProviderAdmission configures THAT one, and resolving it directly must keep
+        // working — but the interface is what anything downstream asks for.
+        services.TryAddSingleton<Lyntai.Lifecycle.IProviderAdmission>(
+            sp => sp.GetRequiredService<Lyntai.Lifecycle.ProviderAdmission>());
     }
 
     /// <summary>The LLM front door: process runner, dead-host tracker, router, and the consumer
@@ -114,7 +120,7 @@ public static class LyntaiServiceCollectionExtensions
             sp.GetRequiredService<Lyntai.Lifecycle.IProviderPool<ILlmProvider>>(),
             sp.GetRequiredService<DeadHostTracker>(), options,
             sp.GetService<ILoggerFactory>(), sp.GetService<Lyntai.Llm.Routing.IModelRoutingStore>(),
-            sp.GetService<Lyntai.Lifecycle.ProviderAdmission>()));
+            sp.GetService<Lyntai.Lifecycle.IProviderAdmission>()));
         // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
         // are folded over the base client in ascending Order (the decorator's declared position — NOT raw
         // registration order), so they compose predictably instead of clobbering.

@@ -93,6 +93,20 @@ the tests) while being wrong. Skim before touching the relevant area.
 Every one of these is a *silent* failure: the build is green, the tests are green, and the damage is a
 benched tenant, an unbounded engine or a render nobody cancelled.
 
+- **Hoisting a member into a new BASE interface, and deleting it from the derived one, breaks every
+  pre-compiled caller.** Adding a base interface is binary-safe; removing the member from the interface that
+  used to declare it is not, and the refactor that does both in one step reads as pure cleanup. A consumer
+  compiled against the old surface emits `callvirt ILlmProvider::get_Id`, and member resolution **does not
+  walk base interfaces** — so `provider.Id` throws `MissingMethodException` until that assembly is
+  *recompiled*, which upgrading a package reference does not do. Nothing in this repository catches it:
+  `check-warnings` is silent, the API baseline shows a line moving from one interface to another, and
+  **`consumer-smoke` cannot see it at all** because it rebuilds its consumer from source every run. To test a
+  binary-compatibility claim you must compile a probe against the OLD assembly and run it against the new one
+  (a `callvirt` on a `null` argument is enough — `NullReferenceException` means the member resolved,
+  `MissingMethodException` means it did not). `ILlmProvider` and `IGenerationProvider` therefore keep their
+  own `new string Id { get; }` next to `IProviderIdentity`; the declarations are the compatibility, and a
+  test pins them. Implementors are unaffected either way — one implicit `public string Id` satisfies both
+  slots — so an implementor-only compatibility check proves nothing about callers.
 - **Disposing a replaced instance aborts in-flight work.** Retiring an entry looks like it should clean up
   after itself, and "clean up" reads as `Dispose`. It isn't: retirement removes the entry and drops the
   pool's reference, and the runtime reclaims the instance once the last caller finishes. **Without leases a

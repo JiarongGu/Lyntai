@@ -47,7 +47,7 @@ public sealed class LlmRouter(
     ILogger<LlmRouter>? logger = null,
     IModelRoutingStore? modelRouting = null,
     Func<ILlmProvider, ProviderKey?>? configuration = null,
-    ProviderAdmission? admission = null) : ILlmRouter
+    IProviderAdmission? admission = null) : ILlmRouter
 {
     private readonly ILogger _logger = logger ?? NullLogger<LlmRouter>.Instance;
     private RoutingPolicy Policy => options.Routing;

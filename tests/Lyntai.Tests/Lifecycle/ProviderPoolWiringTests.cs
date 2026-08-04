@@ -19,6 +19,16 @@ public class ProviderPoolWiringTests
 {
     private static ProviderKey Key(string value) => ProviderKey.For("a1111").With("v", value).Build();
 
+    /// <summary>How long an await on a GATED permit waits before failing the test outright. Generous enough
+    /// never to fire on a loaded machine, short enough that the failure is legible.
+    ///
+    /// <para>The regression the admission tests below exist to catch — a permit that is never returned —
+    /// makes the waiting caller wait FOREVER, so an unbounded await turns a red test into an indefinite hang:
+    /// <c>verify</c> stops producing output at all and no test names the problem, destroying the signal for
+    /// every other test in the run. Same constant, same reason, as
+    /// <c>RouterCooldownKeyTests.GateWait</c>.</para></summary>
+    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
+
     private static ServiceProvider Provider(Action<LyntaiBuilder> configure)
     {
         var services = new ServiceCollection();
@@ -201,7 +211,7 @@ public class ProviderPoolWiringTests
 
         Assert.False(second.IsCompleted);      // the only permit is held
         first.Dispose();
-        (await second).Dispose();
+        (await second.AsTask().WaitAsync(GateWait)).Dispose();
     }
 
     // Two calls compose onto ONE options instance rather than the second silently replacing the first.
@@ -221,7 +231,7 @@ public class ProviderPoolWiringTests
 
             Assert.False(queued.IsCompleted);
             held.Dispose();
-            (await queued).Dispose();
+            (await queued.AsTask().WaitAsync(GateWait)).Dispose();
         }
     }
 

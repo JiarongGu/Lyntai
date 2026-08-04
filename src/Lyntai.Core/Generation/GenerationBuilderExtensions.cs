@@ -116,7 +116,7 @@ public static class GenerationBuilderExtensions
                 budgeted ? sp.GetRequiredService<IUsageTracker>() : null,
                 budgeted ? sp.GetRequiredService<LyntaiOptions>() : null,
                 sp.GetService<ILoggerFactory>(),
-                sp.GetService<ProviderAdmission>());
+                sp.GetService<IProviderAdmission>());
         });
 
         builder.Services.TryAddSingleton<IGenerationRouter>(sp =>

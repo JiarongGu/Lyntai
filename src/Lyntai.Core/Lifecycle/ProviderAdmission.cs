@@ -1,6 +1,8 @@
 namespace Lyntai.Lifecycle;
 
-/// <summary>How many calls may be in flight against one CONFIGURATION at a time.
+/// <summary>The in-process <see cref="IProviderAdmission"/>: how many calls may be in flight against one
+/// CONFIGURATION at a time, bounded by a keyed table of semaphores. A host coordinating across PROCESSES
+/// implements the interface instead — see it for why that seam exists.
 ///
 /// <para>Limits are declared per SLOT because capacity is a property of the backend kind ("a local engine
 /// renders one image at a time"), and enforced per KEY because the contended resource belongs to a
@@ -28,7 +30,7 @@ namespace Lyntai.Lifecycle;
 /// process holds no gates at all, so — unlike <see cref="ProviderPoolOptions"/> — there is no cap or
 /// timeout to configure here; there is nothing left to bound.</para></summary>
 /// <param name="options">Limits. Null = unlimited everywhere.</param>
-public sealed class ProviderAdmission(ProviderAdmissionOptions? options = null)
+public sealed class ProviderAdmission(ProviderAdmissionOptions? options = null) : IProviderAdmission
 {
     private static readonly IDisposable Unlimited = new NoopHandle();
 
@@ -36,12 +38,9 @@ public sealed class ProviderAdmission(ProviderAdmissionOptions? options = null)
     private readonly Dictionary<ProviderKey, Gate> _gates = [];
     private readonly Lock _lock = new();
 
-    /// <summary>Wait for a permit for this configuration, then return the handle that releases it.
-    ///
-    /// <para>When the slot's limit is 0 (unlimited) this completes synchronously and returns a no-op
-    /// handle — never null, so a call site is one <c>using</c> with no branch.</para></summary>
-    /// <param name="key">The configuration being called.</param>
-    /// <param name="ct">Cancels the wait.</param>
+    /// <inheritdoc/>
+    /// <remarks>When the slot's limit is 0 — or any negative value, which reads the same way: nothing to
+    /// enforce — this completes synchronously and returns the shared no-op handle.</remarks>
     public ValueTask<IDisposable> EnterAsync(ProviderKey key, CancellationToken ct = default)
     {
         var limit = LimitFor(key.Slot);
@@ -163,8 +162,8 @@ public sealed class ProviderAdmission(ProviderAdmissionOptions? options = null)
 public sealed class ProviderAdmissionOptions
 {
     /// <summary>Concurrent calls allowed per configuration when the slot has no entry in
-    /// <see cref="BySlot"/>. 0 = unlimited, which is the default: the HTTP backends are stateless and a
-    /// limit would only ever slow them down.</summary>
+    /// <see cref="BySlot"/>. 0 — or any negative value, which says the same thing — = unlimited, which is the
+    /// default: the HTTP backends are stateless and a limit would only ever slow them down.</summary>
     public int Default { get; set; }
 
     /// <summary>Per-slot limits — the one that matters in practice is a locally-run engine, where several

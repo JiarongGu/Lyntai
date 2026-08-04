@@ -657,17 +657,22 @@ each backend, and it does the rest:
 ```csharp
 var cfg = await _settings.ForTenantAsync(tenantId, ct);   // your source; Lyntai never asks where it lives
 
+var openAiKey = ProviderKey.For(cfg.OpenAi.Id)
+    .With("baseUrl", cfg.OpenAi.BaseUrl).With("model", cfg.OpenAi.Model)
+    .WithSecret("apiKey", cfg.OpenAi.ApiKey)               // hashed into the key, never retained
+    .Build();
+
+var localKey = ProviderKey.For(cfg.Local.Id)
+    .With("binary", cfg.Local.BinaryPath).With("model", cfg.Local.ModelPath)
+    .With("steps", cfg.Local.Steps)
+    .Build();
+
 var router = _routers.For([                                // IGenerationRouterFactory, injected
-    new(KeyFor(cfg.OpenAi), () => new OpenAiImageProvider(cfg.OpenAi, _httpFactory, disposeHttpClient: false)),
-    new(KeyFor(cfg.Local),  () => new LocalDiffusionProvider(cfg.Local, _runner)),
+    new(openAiKey, () => new OpenAiImageProvider(cfg.OpenAi, _httpFactory, disposeHttpClient: false)),
+    new(localKey,  () => new LocalDiffusionProvider(cfg.Local, _runner)),
 ]);
 
 var result = await router.GenerateAsync(candidates, request, ct);
-
-static ProviderKey KeyFor(OpenAiImageOptions o) => ProviderKey.For(o.Id)
-    .With("baseUrl", o.BaseUrl).With("model", o.Model)
-    .WithSecret("apiKey", o.ApiKey)      // hashed into the key, never retained
-    .Build();
 ```
 
 Name every contribution to the key, and include the values the backend resolves at **runtime** as well as

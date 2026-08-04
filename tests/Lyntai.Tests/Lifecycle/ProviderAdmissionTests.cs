@@ -7,6 +7,15 @@ public class ProviderAdmissionTests
     private static ProviderKey Key(string value, string slot = "local-diffusion") =>
         ProviderKey.For(slot).With("v", value).Build();
 
+    /// <summary>How long an await on a GATED permit waits before failing the test outright. Generous enough
+    /// never to fire on a loaded machine, short enough that the failure is legible.
+    ///
+    /// <para>The regression these tests exist to catch — a permit that is never returned — makes the waiting
+    /// caller wait FOREVER, so an unbounded await turns a red test into an indefinite hang: <c>verify</c>
+    /// stops producing output at all and no test names the problem, destroying the signal for every other
+    /// test in the run. Same constant, same reason, as <c>RouterCooldownKeyTests.GateWait</c>.</para></summary>
+    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
+
     [Fact]
     public async Task With_no_limit_configured_everything_is_admitted_immediately()
     {
@@ -31,7 +40,7 @@ public class ProviderAdmissionTests
 
         Assert.False(second.IsCompleted);       // blocked behind the first
         first.Dispose();
-        (await second).Dispose();               // released, so it completes
+        (await second.AsTask().WaitAsync(GateWait)).Dispose();   // released, so it completes
     }
 
     // The whole reason admission is keyed rather than carried on an instance: one tenant must not throttle
@@ -63,7 +72,7 @@ public class ProviderAdmissionTests
 
         Assert.False(two.IsCompleted);
         one.Dispose();
-        (await two).Dispose();
+        (await two.AsTask().WaitAsync(GateWait)).Dispose();
     }
 
     [Fact]
@@ -76,7 +85,7 @@ public class ProviderAdmissionTests
 
         Assert.False(second.IsCompleted);
         first.Dispose();
-        (await second).Dispose();
+        (await second.AsTask().WaitAsync(GateWait)).Dispose();
     }
 
     [Fact]
@@ -167,8 +176,8 @@ public class ProviderAdmissionTests
         Assert.Equal(1, admission.GateCount);   // one key, one gate, however many callers are queued on it
 
         first.Dispose();
-        (await second).Dispose();
-        (await third).Dispose();
+        (await second.AsTask().WaitAsync(GateWait)).Dispose();
+        (await third.AsTask().WaitAsync(GateWait)).Dispose();
 
         Assert.Equal(0, admission.GateCount);
     }

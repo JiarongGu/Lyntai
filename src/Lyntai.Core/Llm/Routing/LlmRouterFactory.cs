@@ -15,7 +15,12 @@ namespace Lyntai.Llm.Routing;
 ///
 /// <para>Unlike the generation side there is no governance to compose here: chat spend caps, response
 /// caching and throttling live on the <see cref="ILlmClient"/> front door, ABOVE the router, so a router
-/// built by this factory is the bare routing engine.</para></summary>
+/// built by this factory is the bare routing engine.</para>
+///
+/// <para><b>An EMPTY set needs an explicit element type</b> — plausible for a tenant with nothing configured
+/// — because <c>For([])</c> matches both overloads equally and fails to compile (CS0121); write
+/// <c>For(Array.Empty&lt;ProviderRegistration&lt;ILlmProvider&gt;&gt;())</c> or
+/// <c>For(Array.Empty&lt;ILlmProvider&gt;())</c> to say which one you mean.</para></summary>
 public interface ILlmRouterFactory
 {
     /// <summary>Route over POOLED backends: each registration is resolved through the pool, and each
@@ -52,7 +57,7 @@ public sealed class LlmRouterFactory(
     LyntaiOptions options,
     ILoggerFactory? loggers = null,
     IModelRoutingStore? modelRouting = null,
-    ProviderAdmission? admission = null) : ILlmRouterFactory
+    IProviderAdmission? admission = null) : ILlmRouterFactory
 {
     /// <inheritdoc/>
     public ILlmRouter For(IReadOnlyList<ProviderRegistration<ILlmProvider>> providers)
