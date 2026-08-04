@@ -87,4 +87,25 @@ public class ProviderKeyTests
     [InlineData("   ")]
     public void A_blank_slot_is_rejected(string slot) =>
         Assert.Throws<ArgumentException>(() => ProviderKey.For(slot));
+
+    // A name that embeds the framing delimiters ("=1:X;b") must not be able to forge the boundary between
+    // two separate contributions — the name has to be length-prefixed the same way the value already is.
+    [Fact]
+    public void A_delimiter_embedded_in_a_name_cannot_forge_a_different_contribution_sequence()
+    {
+        var forged = ProviderKey.For("x").With("a=1:X;b", "Y").Build();
+        var real   = ProviderKey.For("x").With("a", "X").With("b", "Y").Build();
+
+        Assert.NotEqual(forged, real);
+    }
+
+    // default(ProviderKey) is reachable (e.g. an out parameter on a TryGetKey-style miss); ToString() must
+    // degrade rather than throw on its null Fingerprint.
+    [Fact]
+    public void ToString_does_not_throw_on_a_defaulted_key()
+    {
+        var key = default(ProviderKey);
+
+        Assert.Equal("#(unset)", key.ToString());
+    }
 }

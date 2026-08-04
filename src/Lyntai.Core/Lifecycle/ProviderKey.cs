@@ -20,8 +20,13 @@ public readonly record struct ProviderKey(string Slot, string Fingerprint)
     /// <exception cref="ArgumentException">The slot is null, empty or whitespace.</exception>
     public static ProviderKeyBuilder For(string slot) => new(slot);
 
-    /// <summary>A short, log-safe rendering. Contains no secret material.</summary>
-    public override string ToString() => $"{Slot}#{Fingerprint[..Math.Min(12, Fingerprint.Length)]}";
+    /// <summary>A short, log-safe rendering. Contains no secret material. Never throws — including for a
+    /// <c>default</c> instance (reachable, for example, from a <c>TryGetKey</c>-style out parameter on a
+    /// miss), which renders with an <c>(unset)</c> fingerprint instead of faulting.</summary>
+    public override string ToString() =>
+        string.IsNullOrEmpty(Fingerprint)
+            ? $"{Slot}#(unset)"
+            : $"{Slot}#{Fingerprint[..Math.Min(12, Fingerprint.Length)]}";
 }
 
 /// <summary>Accumulates the values a backend actually reads into a <see cref="ProviderKey"/>.
@@ -52,8 +57,11 @@ public sealed class ProviderKeyBuilder
     public ProviderKeyBuilder With(string name, string? value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        // name AND length are both folded in, so With("a","bc") cannot produce the digest of With("ab","c")
-        _parts.Append(name).Append('=')
+        // name AND value are each length-prefixed before being appended, so neither one's own text can
+        // forge a delimiter and be mistaken for a boundary between contributions: With("a=1:X;b", "Y")
+        // cannot fold to the same digest as With("a","X").With("b","Y") the way an unlengthed name could.
+        _parts.Append(name.Length.ToString(CultureInfo.InvariantCulture)).Append(':').Append(name)
+              .Append('=')
               .Append(value?.Length.ToString(CultureInfo.InvariantCulture) ?? "~")
               .Append(':').Append(value).Append(';');
         return this;
