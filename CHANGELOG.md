@@ -32,8 +32,31 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `LlmVerdictClassifier`), so there is one definition of what a 429 or a content refusal means. Lyntai
   generates nothing itself: no inference, no engine/weights provisioning, no webhook host, no artifact storage
   (`docs/DECISIONS.md` D26, D30). The LLM stack gains **zero** dependency on media — the bridge is `ITool`/MCP.
-  Backends, async-video/`Jobs` composition, governance parity, the tool bridge and pipelines follow in
-  `docs/2026-08-04-generation-platform-plan.md` Plans 2–7.
+  Async-video/`Jobs` composition, governance parity, the tool bridge and pipelines follow in
+  `docs/2026-08-04-generation-platform-plan.md` Plans 4–7.
+- **`Lyntai.Generation.Http`** — a NEW package with the first three backends, each an independently registered
+  `IGenerationProvider` over a BYO `HttpClient`:
+  - **`OpenAiImageProvider`** (inline) — `/images/generations`, switching to `/images/edits` (multipart) when
+    the request carries an input image. Both response variants are handled because both occur: inline
+    `b64_json`, and a `url`, which is returned **as a URI artifact rather than downloaded** — the platform
+    doesn't spend your bandwidth, or guess at auth for someone else's host, uninvited. A URI-only *input* is
+    refused for the same reason. A content-policy rejection classifies as **`Refused`**, which is what the
+    routing policy acts on.
+  - **`Automatic1111Provider`** (inline) — a locally-run Stable Diffusion WebUI: `txt2img`, or `img2img` with
+    `init_images` when source bytes are supplied; base64 decodes with or without a `data:` prefix. A WebUI
+    that isn't running reports **`NotConfigured`**, not `Failed` — on a fresh machine that's the normal state,
+    so routing skips it without penalising it. Its probe asks which **checkpoints are loaded**, because a
+    WebUI with none is up but cannot generate.
+  - **`ComfyUiProvider`** (**job** delivery) — local and **workflow-driven**: the caller supplies the graph in
+    `Options["workflow"]` and optionally `Options["prompt-path"]` (e.g. `"6.inputs.text"`) to say where the
+    prompt belongs, so `Prompt` may be null and no default graph is ever invented. Submit → poll history →
+    fetch, with outputs returned as **view URIs** (a local video is easily 100 MB). An empty history reads as
+    *running*, not failed. **Its surface is documented rather than measured** — no instance was available —
+    so every endpoint path is a settable option and the parsing degrades to "not finished" rather than
+    inventing an artifact.
+
+  Shapes for the first two are ported from a sibling app's production implementation. 42 tests, all through a
+  stubbed handler — nothing leaves the machine and no generation is billed.
 
 ## 1.2.2 — turn-free backend auth + pinned self-install (2026-08-03)
 

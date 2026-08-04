@@ -80,7 +80,8 @@ largest AI capability currently living in an app rather than the library._
   owner's direction ("not a generation engine — a media generation **platform**", spanning image/video/audio
   and 3d → image → video chaining), so there is deliberately **no separate `IVideoProvider`**: video is
   `Kind = "video"` plus the async-job delivery mode, because what differs is how a backend DELIVERS, not which
-  medium it makes. Remaining: Plan 2 (HTTP image backends), Plan 3 (local subprocess backend), Plan 4 (async
+  medium it makes. **Plan 2 landed** (`Lyntai.Generation.Http`: OpenAI-compatible images, SD WebUI, and a local
+  workflow-driven ComfyUI job backend). Remaining: Plan 3 (local subprocess backend), Plan 4 (async
   video + `Lyntai.Jobs` composition), Plan 5 (governance/telemetry parity), Plan 6 (tool/MCP bridge +
   streaming audio), Plan 7 (pipelines). Open questions for the owner are listed at the end of the plan.
 

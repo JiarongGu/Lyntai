@@ -66,7 +66,8 @@ per-`StorageFeature` baselines.
 | `Lyntai.Providers.OpenAiCompatible` | OpenAI / Ollama / OpenRouter-style endpoints over HttpClient. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
-| `Lyntai.Generation` | Media generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
+| `Lyntai.Generation` | Generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
+| `Lyntai.Generation.Http` | Three generation backends over HTTP: OpenAI-compatible images, Stable Diffusion WebUI (Automatic1111), and a local ComfyUI (async, workflow-driven). |
 | `Lyntai.Tools.Mcp` | Expose a Model Context Protocol (MCP) server's tools as Lyntai `ITool`s for the tool loop. |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server so a CLI that runs its own agent loop can call them. Per-CLI wiring is an `IMcpCliDialect` (`ClaudeCliMcpDialect` ships with the claude provider). |
 
@@ -502,9 +503,15 @@ submit/poll/stream, capability and routing machinery.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddGenerationProvider(sp => new MyImageBackend(...))
-    .AddGenerationProvider(sp => new MyVideoBackend(...))
-    .UseDefaultGenerationCandidates("my-image-backend", "my-video-backend"));
+    // hosted: an OpenAI-compatible images API
+    .AddGenerationProvider(sp => new OpenAiImageProvider(
+        new OpenAiImageOptions { BaseUrl = "https://api.openai.com/v1", ApiKey = key, Model = "gpt-image-1" },
+        () => httpFactory.CreateClient()))
+    // local: a Stable Diffusion WebUI on this machine
+    .AddGenerationProvider(sp => new Automatic1111Provider(
+        new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" },
+        () => httpFactory.CreateClient()))
+    .UseDefaultGenerationCandidates("openai-images", "a1111"));
 ```
 
 Backends declare what they can do, and the router **skips a candidate that can't serve the request** before
@@ -549,6 +556,14 @@ cfg.ConfigureGenerationRouting(p =>
 
 Backends come in the same three shapes as LLM providers — **remote** (HTTP), **spawned CLI**, and **local
 in-process** — and which one handles a given request is expressed by candidate order, not by a flag.
+
+`Lyntai.Generation.Http` ships three of them:
+
+| Backend | Delivery | Notes |
+|---|---|---|
+| `OpenAiImageProvider` | Inline | `/images/generations`, or `/images/edits` when the request carries an input image. A `url` response comes back as a URI artifact — never downloaded for you |
+| `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`. Not running reports **NotConfigured** (skipped, not blamed), and its probe checks a checkpoint is *loaded* — "up" isn't "usable" |
+| `ComfyUiProvider` | **Job** | Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs. Every endpoint path is an option, because this surface is documented rather than measured |
 
 **Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook
 endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D26 and D30.
