@@ -1954,6 +1954,80 @@ CLI-backend checklist that starts with "measure the CLI first"), `pitfalls.md` (
 
 ---
 
+## Part 32 — Generation platform + a coherent package graph (2026-08-04)
+
+_Filed in `TASKS.md` as MED1 (Part 32) by a consuming app, then widened twice by the owner: from "a media
+domain" to **"not a generation engine — a media generation PLATFORM"**, and from media to **any generated kind**
+(hence `Lyntai.Generation`, not `Lyntai.Media`). The 2.0.1 package restructure is recorded here too because it
+was driven by the same work._
+
+- [x] **MED1 — a generation domain as a Lyntai platform** (filed as `IMediaProvider`/`IVideoProvider`; see the
+  deviation below). Plans of record: `docs/2026-08-04-generation-platform-plan.md` (the platform, Plans 1–7)
+  and `docs/2026-08-04-restructure-2.0.1-plan.md` (the package graph).
+
+✅ done 2026-08-04 (Plans 1–2 + the restructure; Plans 3–7 remain open) — **Outcome:** research changed the
+contract before any code was written, and that is the part worth keeping. Measured across the August-2026
+provider landscape: image generation is **inline**, video is **universally an async job** (WAN documents 1–5
+minute renders as create-task-then-poll; Kling is `POST /v1/videos/generations` then `GET /v1/tasks/{id}`), and
+audio **splits** — TTS streams (playback before generation ends) while music is a batch job. A single
+`GenerateAsync` can therefore only express image, so the seam is three OPTIONAL capabilities
+(`IGenerationProvider` inline, `IGenerationJobProvider` submit→poll→fetch, `IGenerationStreamProvider`), with
+the **operation id exposed** so a paid render survives a process restart and composes with `Lyntai.Jobs`.
+Two further findings: aggregators serve 1,000+ models across image/video/audio/**3D** behind ONE queue API, so
+routing selects **backend + model** (`GenerationCandidate`) rather than one-provider-per-model; and capability
+declaration is load-bearing here unlike LLM routing (chat models all take text, whereas a video backend simply
+cannot serve an image request), so the router **pre-filters** on `GenerationCapabilities` and "nothing here can
+do that" is `Unsupported` — a configuration answer, not a runtime fault.
+
+**Deviations from the filed task, all deliberate:** (1) **no separate `IVideoProvider`** — video is
+`Kind = "video"` plus a delivery mode, because what differs between media is how a backend DELIVERS, not which
+medium it makes; a per-medium interface would need a third for audio and a fourth for 3D. (2) **`Kind` is an
+open string** (`GenerationKinds.Image/Video/Audio/Model3d`), so a kind nobody has modelled is not a breaking
+change, and no `Custom` constant was added because an open string already accepts any value. (3) **Chaining is
+first-class** — `artifact.ToInput(role)` carries bytes-or-URI into the next stage (3d → image → video), tested
+rather than assumed, though the pipeline RUNNER is deferred to Plan 7 until ≥2 real backends exist. (4) Media
+keeps its own `GenerationVerdict` but **shares the failure corpus** (`GenerationVerdictClassifier` delegates to
+`LlmVerdictClassifier`), so there is one definition of what a 429 means (D27's rule against a second copy).
+(5) Fallback is a **policy**, not a law — `GenerationRoutingPolicy` defaults to §6 semantics but a host pairing
+a hosted backend with a permissive local one can set `On(Refused, Advance)`; that was the owner's R18
+requirement, and it is the host's call, not the library's.
+
+**Shipped:** Plan 1 (contracts, capability model, three delivery seams, verdicts, capability-aware router, DI,
+routing policy) and Plan 2 (three HTTP backends: OpenAI-compatible images with both `b64_json` and `url`
+responses; a Stable Diffusion WebUI reporting `NotConfigured` when not running and probing for a LOADED
+checkpoint; and a local **ComfyUI** job backend that is graph-shaped — the caller supplies the workflow, so
+`Prompt` may be null and no default graph is invented). Artifacts are returned as **URIs where the backend
+gave one** — never downloaded uninvited, on either the input or output side. ComfyUI's surface is documented
+rather than measured (no instance available), so every endpoint path is a settable option and its 15 tests were
+**mutation-checked**; the same discipline applied to the codex dialect earlier. Backend order set by the owner
+after research: an aggregator (fal.ai) first for remote video — ~985 endpoints, one queue shape, 30–50%
+cheaper than the nearest comparable — with a direct single-vendor integration rejected as the first backend
+since hosted models are moderated at the API layer either way; TTS before music for audio; and a local
+ComfyUI, because every hosted model enforces its provider's policy and a host cannot opt out
+(`local/r18-backend-notes.md`, gitignored, holds those specifics — R18 support is a requirement of the
+platform, not a goal of it).
+
+**The 2.0.1 restructure** (`docs/DECISIONS.md` D31 + amendment): packages are split by **dependency
+footprint**, never by vendor or size. `Lyntai.Providers.ClaudeCli`/`.CodexCli`/`.OpenAiCompatible` merged into
+`Lyntai.Providers.Default`; `Lyntai.Generation` + `.Http` folded into Core and `Providers.Default` (both had
+zero dependencies, so their boundaries isolated nothing); a `Lyntai` metapackage added for one-line installs;
+**ASP.NET Core removed from MCP hosting** by moving `McpToolHost` onto `System.Net.HttpListener` +
+`StreamableHttpServerTransport` (the ASP.NET package only supplied Kestrel routing glue), which is what let MCP
+join the metapackage while Core stays free of the MCP SDK's pinned MEAI abstraction. 14 ids → 10 packages + a
+metapackage. **No namespace, type or API changed** — every consumer edit is one `PackageReference` line — and
+each fold was verified as an exact baseline UNION (byte-identical added lines, zero removals) with **0 test
+files edited** across 1252 tests, which is what proves nothing moved. Two MCP findings recorded in D31 because
+they are easy to re-break: the Streamable HTTP client needs the `Mcp-Session-Id` response header to pass
+`initialize`, and requests must be handled CONCURRENTLY (the client holds a long-lived GET SSE stream open while
+POSTing, so a sequential accept loop deadlocks — it presented as a 60s "Initialization timed out" while a raw
+single POST answered in milliseconds).
+
+**Still open:** generation Plans 3–7 (local subprocess backend; async video composed with `Lyntai.Jobs`;
+governance/telemetry parity; the tool/MCP bridge + streaming TTS; pipelines). `verify` green throughout
+(build · 1252 tests · e2e 3/3 · leak scan).
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
