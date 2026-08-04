@@ -1789,12 +1789,13 @@ beneath its **Done when** paragraph — do NOT archive Part 32 until the later p
 Deliberately separate plans, per the scope rule — the core above is testable and shippable without any of
 them, and each of these needs its own research/measurement pass.
 
-**Plan 2 — HTTP image backends.** `Lyntai.Generation.OpenAiCompatible` (`/images/generations` + `/images/edits`,
-`b64_json` and `url` responses) and `Lyntai.Generation.Automatic1111` (`/sdapi/v1/txt2img`, `/img2img`). Two
-packages, NOT one class with a vendor branch — the sibling app's `if (provider == "automatic1111")` becomes
-two registrations. Real probes: A1111 has `/sdapi/v1/sd-models`; the OpenAI-compatible one lists models. Tests
-use a stubbed `HttpMessageHandler`. **Port the response-parsing from the sibling app** — it is
-production-proven — but re-shape the seam.
+**Plan 2 — HTTP backends (three of them).** `Lyntai.Generation.OpenAiCompatible` (`/images/generations` +
+`/images/edits`, `b64_json` and `url` responses), `Lyntai.Generation.Automatic1111` (`/sdapi/v1/txt2img`,
+`/img2img`), and **`Lyntai.Generation.ComfyUi`** (local, graph-shaped — see decision 3). Separate packages, NOT
+one class with a vendor branch — the sibling app's `if (provider == "automatic1111")` becomes separate
+registrations. Real probes: A1111 has `/sdapi/v1/sd-models`; ComfyUI has system-stats/object-info; the
+OpenAI-compatible one lists models. Tests use a stubbed `HttpMessageHandler`. **Port the response-parsing from
+the sibling app** — it is production-proven — but re-shape the seam.
 
 **Plan 3 — the local subprocess backend.** `Lyntai.Generation.LocalDiffusion` over a provisioned
 stable-diffusion.cpp binary, through `IProcessRunner` (never `Process` directly — that is what the sibling app
@@ -1802,11 +1803,13 @@ does, and it loses kill-tree, the inactivity clock and the BYO seam). Argv is PO
 implementation and must be marked in the XML docs as *ported, not measured here* (no engine on the dev
 machine). Probe = binary + model present, which is genuinely free.
 
-**Plan 4 — async video, composed with `Lyntai.Jobs`.** An `IGenerationJobProvider` backend for a create-task/poll
-API (WAN via Model Studio is the reference: create → poll, 1–5 min, text/image/reference→video, ≤10s,
-480p–1080p), plus a `MediaRenderJobHandler : IJobHandler` that checkpoints the operation id so a restart
-resumes polling instead of re-submitting a paid render. This is the plan where the platform's value over a
-thin client becomes visible.
+**Plan 4 — async video, composed with `Lyntai.Jobs`.** An `IGenerationJobProvider` backend for **fal.ai's queue
+API** (decision 1: `submit` → `request_id` → poll `status`/`result`, or a webhook the app owns), which reaches
+the Wan/Kling/Veo-class models through one integration — plus a `GenerationRenderJobHandler : IJobHandler` that
+checkpoints the operation id so a restart resumes polling instead of re-submitting a paid render. Reference
+behaviour for the shape: create-task then poll, 1–5 minute renders, text/image/reference→video, ~10s clips,
+480p–1080p. This is the plan where the platform's value over a thin client becomes visible — and where the
+per-call cost must land in `GenerationUsage.CostUsd`, since aggregator pricing is per model AND per resolution.
 
 **Plan 5 — governance + telemetry parity.** Cost/budget accounting on `GenerationUsage`, rate limiting, dead-host
 cooldown for media candidates, and OTel spans/metrics on the media source — reusing the existing decorator
@@ -1816,7 +1819,7 @@ patterns rather than a second implementation.
 `ITool`s (so both the in-process loop and a CLI agent over the MCP host can drive media), plus a streaming TTS
 backend to exercise `IGenerationStreamProvider` end to end.
 
-**Plan 7 — pipelines (3d → image → video).** A `MediaPipeline` that runs ordered stages, feeding each stage's
+**Plan 7 — pipelines (3d → image → video).** A `GenerationPipeline` that runs ordered stages, feeding each stage's
 artifacts into the next via `ToInput(role)`, with per-stage candidates so every stage routes independently, and
 per-stage failure semantics (a refusal at stage 2 must not silently retry stage 1's paid output). Deferred on
 purpose: a pipeline runner designed before two real backends exist would encode guesses about what stages need
@@ -1827,13 +1830,39 @@ only the latter chains into today's video backends.
 
 ---
 
-## Open questions for the owner
+## Decisions (2026-08-04)
 
-1. **Which video backend first** — WAN through Alibaba Model Studio directly, or through an aggregator
-   (one integration, many models, one webhook shape)? The aggregator is less code for more coverage; the
-   direct integration avoids a middleman.
-2. **Audio priority** — TTS (streaming) or music (batch job)? They exercise different halves of the platform.
-3. **Does `Lyntai.Generation` want its own storage domain later** (an artifact/generation ledger, so a render is
+1. **First remote backend: an AGGREGATOR — fal.ai.** Researched today: it carries ~985 endpoints (≈600+
+   models vs Replicate's ≈200), is typically 30–50% cheaper than Replicate, spans image/video/audio/**3D**
+   behind ONE queue API (`submit` → `request_id` → poll `status`/`result`, or a webhook), and video runs
+   ≈$0.05/s (Wan-class) to ≈$0.40/s (Veo-class). One integration therefore exercises the async-job seam AND
+   covers most of the models worth reaching, with a single auth and a single envelope to parse.
+   A direct Model Studio integration was rejected as the *first* backend: it adds another auth and envelope
+   for one vendor's family, and buys nothing in exchange — the hosted models are moderated at the API layer
+   either way (see the note below), so "direct" is not more capable, just more code. Add it later if a
+   specific model is only reachable there.
+   **Watch the billing:** fal prices per model, and the headline rate often buys a lower tier — compare the
+   exact model **and resolution**, and record what a call actually cost in `GenerationUsage.CostUsd` rather
+   than inferring it.
+2. **Audio: TTS first, then music.** TTS exercises `IGenerationStreamProvider` (playback before completion);
+   music exercises the batch-job path, which Plan 4 already covers for video.
+3. **A locally-run backend is not optional, for a structural reason.** Every hosted model enforces its
+   provider's content policy **at the API layer**, and a host cannot opt out of it — which is precisely why
+   `GenerationRoutingPolicy` exists and why the local shape is a first-class backend rather than a
+   nice-to-have. Relevant capability facts found today: open weights for the strongest local video model are
+   **Apache-2.0 and ComfyUI-native**, while the newer versions of the same family are **closed-weight,
+   hosted-only and moderated** — so "run it locally" and "call the newest hosted version" are genuinely
+   different products, not two routes to one thing.
+   **`ComfyUI` is therefore the local backend to build first** — and it earns three things at once: the
+   local/self-hosted shape, a **graph-shaped** backend (it takes a workflow + node overrides, so `Prompt` may
+   be null and `Options` carries the workflow id — the shape this plan promised to tolerate), and an
+   end-to-end test of `Refused → Advance` against a real pair of backends rather than fakes. Note it is
+   **local but HTTP**, so it belongs with Plan 2's backends, not Plan 3's subprocess one; its probe is free and
+   exact (a system-stats/object-info endpoint answers "up, and what's loaded?" without generating).
+
+### Still open
+
+4. **Does `Lyntai.Generation` want its own storage domain later** (an artifact/generation ledger, so a render is
    auditable and re-fetchable)? Out of scope here per MED1, but it is the obvious next platform concern after
    Plan 4 — and a prerequisite for pipelines worth resuming.
 4. **Is MED1's `IVideoProvider` satisfied by this generalization?** This plan deliberately does NOT create a
