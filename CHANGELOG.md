@@ -44,6 +44,17 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+- **Durable renders (`GenerationRenderJobHandler`, `IGenerationArtifactSink`)** — an asynchronous generation
+  run as a `Lyntai.Jobs` job, which is where the platform earns its keep over a thin HTTP client: the backend's
+  operation id is **checkpointed before the first poll**, so a crash, deploy or restart resumes polling the
+  render already in flight instead of submitting — and paying for — a second one. Progress is reported for a UI,
+  each poll renews the lease, and a **lost lease stops the handler** (with the operation id in the error) rather
+  than letting two workers drive one paid render. A submission no candidate accepts FAILS (a config problem a
+  retry can't fix) while a still-working backend retries. Finished artifacts go to an app-implemented
+  `IGenerationArtifactSink` — the platform routes and tracks the render; where bytes land stays the app's call
+  (D26/D30). Composes with the existing job machinery (lanes, priorities, backoff, DLQ, cancellation) rather
+  than reimplementing any of it, and the payload/checkpoint JSON is hand-written so Core keeps its AOT claim.
+
 ### Changed
 - **`Lyntai.Tools.Mcp.Hosting` no longer requires ASP.NET Core.** The framework reference on
   `Microsoft.AspNetCore.App` is gone: the MCP protocol lives in `ModelContextProtocol.Core`

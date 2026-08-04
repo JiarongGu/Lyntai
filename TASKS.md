@@ -41,10 +41,12 @@ that plan's Plans 3–7, each a separate pass because each needs its own measure
 - [ ] **GEN3 — local subprocess backend** (`sd-cli` / stable-diffusion.cpp) through `IProcessRunner`, never
   `Process` directly. Argv is PORTED from a sibling app's working implementation and must be marked in the XML
   docs as ported-not-measured (no engine on the dev machine). Probe = binary + model present, which is free.
-- [ ] **GEN4 — async video composed with `Lyntai.Jobs`.** An `IGenerationJobProvider` over fal.ai's queue API
-  (owner's choice: one integration reaches the Wan/Kling/Veo-class models), plus a render job handler that
-  CHECKPOINTS the operation id so a restart resumes polling instead of re-submitting a paid render. Per-call
-  cost belongs in `GenerationUsage.CostUsd` — aggregator pricing is per model AND per resolution.
+- [ ] **GEN4 — async video: the fal.ai queue backend.** The `Lyntai.Jobs` composition half LANDED 2026-08-04
+  (`GenerationRenderJobHandler` + `IGenerationArtifactSink`: checkpoint-before-poll, lease-aware, app-owned
+  sink). What remains is the backend itself — an `IGenerationJobProvider` over fal.ai's queue API (owner's
+  choice: one integration reaches the Wan/Kling/Veo-class models). Per-call cost belongs in
+  `GenerationUsage.CostUsd` — aggregator pricing is per model AND per resolution. Its surface will be
+  documented-not-measured without an API key, so flag it and make endpoints options, as ComfyUI does.
 - [ ] **GEN5 — governance/telemetry parity for generation**: cost/budget accounting, rate limiting, dead-host
   cooldown for candidates, OTel spans/metrics — reusing the existing decorator patterns, not a second copy.
 - [ ] **GEN6 — the tool/MCP bridge + streaming audio**: `AddGenerationTools()` exposing generate/submit/status/

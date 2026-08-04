@@ -632,6 +632,45 @@ interface Lyntai.Generation.IGenerationProvider
     ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
 interface Lyntai.Generation.IGenerationStreamProvider
     StreamAsync(GenerationRequest, CancellationToken=) : IAsyncEnumerable<GenerationChunk>
+sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
+    .ctor(Guid, String, String, IReadOnlyList<GenerationArtifact>, GenerationUsage=)
+    Artifacts : IReadOnlyList<GenerationArtifact>
+    Deconstruct(Guid&, String&, String&, IReadOnlyList`1&, GenerationUsage&) : Void
+    Equals(GenerationArtifactDelivery) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    JobId : Guid
+    OperationId : String
+    ProviderId : String
+    ToString() : String
+    Usage : GenerationUsage
+sealed class Lyntai.Generation.Jobs.GenerationRenderJob
+    .ctor(IReadOnlyList<String>, GenerationRequest)
+    Candidates : IReadOnlyList<String>
+    Deconstruct(IReadOnlyList`1&, GenerationRequest&) : Void
+    Equals(GenerationRenderJob) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Request : GenerationRequest
+    ToJson() : String
+    ToString() : String
+    static Parse(String) : GenerationRenderJob
+sealed class Lyntai.Generation.Jobs.GenerationRenderJobHandler
+    .ctor(IGenerationRouter, IEnumerable<IGenerationProvider>, IGenerationArtifactSink, GenerationRenderJobOptions=)
+    HandleAsync(JobContext, CancellationToken=) : Task<JobOutcome>
+    JobType : String const
+    Type : String
+sealed class Lyntai.Generation.Jobs.GenerationRenderJobOptions
+    .ctor(Nullable<TimeSpan>=)
+    Deconstruct(Nullable`1&) : Void
+    EffectivePollDelay : TimeSpan
+    Equals(GenerationRenderJobOptions) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    PollDelay : Nullable<TimeSpan>
+    ToString() : String
+interface Lyntai.Generation.Jobs.IGenerationArtifactSink
+    ReceiveAsync(GenerationArtifactDelivery, CancellationToken=) : Task
 sealed class Lyntai.Generation.Routing.GenerationCandidate
     .ctor(String, String=)
     Deconstruct(String&, String&) : Void

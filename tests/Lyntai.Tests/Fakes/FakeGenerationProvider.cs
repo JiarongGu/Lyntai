@@ -58,6 +58,12 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
 
     public int SubmitCalls => _submits;
 
+    /// <summary>What the next poll reports — Succeeded by default, so a job test reaches delivery in one hop.</summary>
+    public GenerationOperationStatus PollStatus { get; set; } = GenerationOperationStatus.Succeeded;
+
+    /// <summary>Detail carried on the polled operation (a failure reason, a queue position).</summary>
+    public string? PollDetail { get; set; }
+
     public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
         Task.FromResult(new GenerationProbeResult(true, "fake video ready"));
 
@@ -69,7 +75,8 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
         Task.FromResult(new GenerationOperation($"op-{++_submits}", GenerationOperationStatus.Queued));
 
     public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
-        Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Succeeded, Progress: 1));
+        Task.FromResult(new GenerationOperation(operationId, PollStatus,
+            Progress: PollStatus == GenerationOperationStatus.Succeeded ? 1 : 0.5, Detail: PollDetail));
 
     public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
         Task.FromResult(GenerationResult.Success(
