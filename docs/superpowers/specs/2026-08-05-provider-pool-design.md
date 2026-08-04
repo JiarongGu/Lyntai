@@ -64,7 +64,7 @@ selects what is healthy.
 | Occupancy | Many live entries, keyed by configuration | A backend id is not single-occupancy — several configurations run concurrently |
 | Strategies | `Bounded`, `Transient`, and the interface | Reuse vs never-reuse is a semantic difference, not a setting; unbounded is Bounded with limits unset |
 | Front door | Router factory that pulls from the pool | One injected thing, one call; swapping strategy needs no call-site edit |
-| Retirement | Retire, then release when unused | Expiry is not disposal — in-flight renders must finish |
+| Retirement | Retire and drop the reference; never dispose | Expiry is not disposal — in-flight renders must finish, and without leases the pool cannot know when they have (§4.5) |
 | Cooldown key | The pool key, not the provider id | Same config shares a bench; different credentials never bench each other |
 | Admission | Keyed and shared, not per-instance | A per-instance semaphore admits everyone once instances are per-call |
 | Eviction | `MaxEntries` (LRU) + `IdleTimeout` | Churn must not grow without limit; an idle credential must not sit in memory |
@@ -158,7 +158,7 @@ public interface IProviderPool<TProvider> where TProvider : class, IProviderIden
 }
 
 public readonly record struct ProviderPoolStatistics(
-    int Live, int Draining, long Created, long Reused, long Evicted);
+    int Live, long Created, long Reused, long Retired);
 ```
 
 `TryGetKey` is backed by a `ConditionalWeakTable<TProvider, object>` populated at construction, so it
@@ -180,10 +180,10 @@ the drain list immediately. This is the "new options every time" path, and it is
 than a different call site. It still records the key, which is why cooldown and admission keep working
 under it.
 
-Both strategies compose the same internal drain component (§4.5) — the weak-reference list, the sweep
-timer, and the release rules — so retirement behaves identically whichever is registered, and both pools
-are `IDisposable` because they own that timer. Only the *reuse* decision differs between them, which is
-what makes the pair a strategy rather than two implementations of overlapping behaviour.
+Both strategies follow the same retirement rule (§4.5), so retirement behaves identically whichever is
+registered. Only the *reuse* decision differs between them, which is what makes the pair a strategy rather
+than two implementations of overlapping behaviour. Neither pool owns a timer or a background thread, so
+neither is `IDisposable`.
 
 Anything else is BYO through the interface: a pool sharing state across processes, one reporting to the
 host's telemetry, one with a different eviction policy.
@@ -194,11 +194,8 @@ public sealed class ProviderPoolOptions
     /// Live entries before least-recently-used eviction. Null = unbounded.
     public int? MaxEntries { get; set; } = 64;
 
-    /// Retire an entry unused for this long. Null = never on idle.
+    /// Retire an entry unused for this long, evaluated on access. Null = never on idle.
     public TimeSpan? IdleTimeout { get; set; } = TimeSpan.FromMinutes(10);
-
-    /// How often the sweep runs. Also drives release of drained entries.
-    public TimeSpan SweepInterval { get; set; } = TimeSpan.FromMinutes(1);
 }
 ```
 
@@ -207,18 +204,29 @@ default than one with generous bounds, and a host that wants unbounded can say s
 
 ### 4.5 Retirement and release
 
-A retired entry moves to a drain list holding a **weak reference**. A single periodic sweep — one timer,
-shared with idle eviction — releases entries whose last user has gone, disposing them only if they
-implement `IDisposable` or `IAsyncDisposable`. Nothing implements either today, so the sweep is inert;
-writing the contract now means a future warm-subprocess backend does not reopen it.
+**Retiring an entry removes it from the lookup and drops the pool's reference. The pool never disposes a
+provider.** In-flight callers hold their own reference and finish normally; the garbage collector reclaims
+the instance once the last of them is done.
 
-No lease is taken and none returned, so there is no forgotten-return failure mode. The price is that
-release timing is not deterministic — acceptable precisely because the resources involved are, today,
-nothing.
+This follows from the two decisions above rather than being a third one, and the entailment is worth
+stating because an earlier revision of this spec got it wrong. **You cannot both refuse to break in-flight
+work and dispose deterministically, without leases.** `IHttpClientFactory` appears to manage both only
+because the object callers hold (`HttpClient`) is *not* the object it disposes (the handler) — it tracks
+the cheap one weakly and holds the expensive one strongly. Here the caller holds the provider itself, so
+once it is collectable the pool no longer has it to dispose, and while it is alive the pool cannot know
+whether anyone is still using it. Any scheme that disposes on retirement is therefore disposing while
+callers may still be running — trap §7.1, reintroduced.
 
-The clock and the sweep are injected/exposed for deterministic tests, matching `DeadHostTracker`'s existing
-`Func<DateTimeOffset>? clock` convention: `BoundedProviderPool` takes a clock and exposes `Sweep()`, which
-the timer calls and a test can call directly.
+So: no leases, no drain list, no sweep timer, and neither pool is `IDisposable`. A provider that owns
+something needing prompt release must be pooled by a **lease-based `IProviderPool` of the host's own** —
+which is precisely what the interface being a seam is for. Nothing in the library implements
+`IDisposable` today, so this costs nothing now; what it buys is that the contract never has to lie.
+
+Idle eviction needs no timer either: `BoundedProviderPool` evaluates expiry **on access**, inside
+`GetOrAdd`, against an injected clock — matching `DeadHostTracker`'s existing `Func<DateTimeOffset>? clock`
+convention and keeping tests deterministic with no background thread in a library. The documented
+consequence is that a pool nobody calls stops evicting, which is acceptable: an idle process is not
+holding contended resources, and the next call cleans up before it does anything else.
 
 ### 4.6 Router factories — the one injected thing
 
@@ -252,9 +260,10 @@ must be kept in step. The existing singleton registration then becomes a call to
 over `sp.GetServices<IGenerationProvider>()`, which is why an app that never touches the pool keeps its
 current behaviour bit for bit: same provider set, same `p => p.Id` cooldown key, same decorator order.
 
-The routers themselves change in exactly one way: an **optional** `Func<TProvider, string>? cooldownKey`
-constructor parameter, defaulting to today's `p => p.Id`. The factory binds it to `pool.TryGetKey`.
-Untouched wiring behaves exactly as it does now.
+The routers themselves gain exactly two **optional** constructor parameters: a
+`Func<TProvider, ProviderKey?>? configuration` delegate (§4.7) and a `ProviderAdmission? admission`. The
+factory binds the delegate to `pool.TryGetKey` and passes the shared admission table. Untouched wiring
+passes neither and behaves exactly as it does now.
 
 ### 4.7 Admission control, keyed like the tracker
 
@@ -283,6 +292,18 @@ Limits are **declared per slot** (a backend type has a natural capacity: "a loca
 at a time") but **enforced per key** (the contended resource belongs to a configuration). That split is
 deliberate and gives the behaviour that matters: two consumers pointing at the *same* self-hosted engine
 share its capacity, while two tenants on different hosted endpoints do not throttle each other.
+
+**Applied by the routers, not by a decorator.** An earlier revision wrapped each provider in a
+concurrency-limiting decorator. That fails twice over: it puts the limit back on the instance (the trap in
+§7.3, merely relocated), and decorating a provider **erases its optional capability interfaces** — a
+decorator over `FalQueueProvider` is no longer an `IGenerationJobProvider`, so `GenerationRouter.SubmitAsync`
+skips it and every queued video render silently stops routing. Instead each router takes an optional
+`ProviderAdmission` and enters around its own attempt, which touches no provider type at all.
+
+That means the routers need one delegate answering "which configuration is this provider?" —
+`Func<TProvider, ProviderKey?>` — from which both the cooldown key and the admission key are derived.
+Returning null (the default, and the case for a container-composed provider) keeps today's `p => p.Id`
+cooldown key and skips admission entirely.
 
 ## 5. The consuming shape
 
@@ -319,18 +340,18 @@ so a host replaces it by registering first — the convention already used for `
 - **`instance.Id != key.Slot` throws at registration** (`ArgumentException`). This is what the generic
   constraint buys; without it the mismatch stays invisible until routing quietly cannot find the candidate,
   because the router matches candidates on `p.Id`.
-- **Release failures are swallowed and logged.** A misbehaving `Dispose` must not stall the sweep or break
-  a reconfiguration.
-- **Eviction retires, never tears down.** Both bounds go through the drain path.
+- **Eviction retires, never tears down.** Both bounds go through the same retirement path as an explicit
+  `Retire`, so hitting a pool limit can never abort a running call.
 - **Concurrent `GetOrAdd` on one key builds once** under `Bounded` — two requests for a newly-configured
   tenant arriving together must not produce two instances each holding half the history. Under `Transient`
   it builds twice by definition: that is the contract, not a race.
 - **Thread safety** is the pool's responsibility, not the caller's. A UI request and a background job
   arrive together by default.
-- **A host-supplied `HttpClient` is never disposed by the pool.** The ownership rule already centralised in
-  `GenerationProviderBuilderExtensions.HttpBackend` is carried forward, not re-decided. Under `Transient`
-  this stops being theoretical — instances retire constantly, so a wrong answer here fails on the second
-  call rather than eventually.
+- **The pool disposes nothing at all** (§4.5), so the existing `HttpClient` ownership rule centralised in
+  `GenerationProviderBuilderExtensions.HttpBackend` is carried forward untouched rather than re-decided.
+  This matters most under `Transient`, where instances retire constantly: a pool that disposed on
+  retirement would throw `ObjectDisposedException` on the second call of any backend built over a
+  host-supplied client.
 
 ## 7. Traps this design exists to avoid
 
@@ -357,6 +378,15 @@ Each of these passes a build and a plausible test suite while being wrong. They 
 4. **A key derived from the options object is right for some backends and silently wrong for others** — see
    §4.2.
 
+5. **Decorating a provider erases its optional capability interfaces.** The generation seam expresses
+   long-running and streaming delivery as *additional* interfaces (`IGenerationJobProvider`,
+   `IGenerationStreamProvider`) which the router type-tests: `if (provider is not IGenerationJobProvider
+   job) continue;` (`GenerationRouter.cs:100`). Any wrapper — for admission, telemetry, retries — that
+   implements only `IGenerationProvider` makes a queue backend invisible to `SubmitAsync`, so every video
+   render stops routing while every image render keeps working and every test that only covers inline
+   generation stays green. This is why admission is applied by the router rather than by a decorator
+   (§4.7).
+
 ## 8. Testing
 
 TDD per the repo convention: failing test first. Every behavioural test runs against **both** shipped
@@ -369,11 +399,11 @@ fail every replacement test.
 | Strategy | `Bounded` reuses and `Transient` does not, from the same call site with no code change. **Cooldown accumulates correctly under `Transient`** |
 | Retirement | **A call in flight completes normally after its instance is retired.** A retired entry leaves the lookup immediately; a new call gets the new instance; release happens only once nothing references the old one |
 | Admission | The concurrency limit holds under **both** strategies; two consumers sharing one configuration share its capacity |
-| Eviction | LRU eviction at `MaxEntries`; retirement after `IdleTimeout` against an injected clock; neither aborts an in-flight call; both limits unset means no eviction |
+| Eviction | LRU eviction at `MaxEntries`; retirement after `IdleTimeout` against an injected clock, evaluated on access; neither aborts an in-flight call; both limits unset means no eviction |
 | Cooldown | Two configurations of one backend bench independently; two consumers sharing a configuration share the bench; history survives a configuration change |
 | Concurrency | Parallel `GetOrAdd` on one key invokes the factory exactly once under `Bounded` |
 | Keys | Two logically identical configurations produce equal keys; a changed secret produces a different key; the secret never appears in the key's string form; name/value framing prevents concatenation collisions |
-| Release | Disposal invoked for a disposable provider; a disposal exception is swallowed and does not stall the sweep; a host-supplied `HttpClient` is never disposed |
+| Release | A retired provider is **not** disposed, proven with a disposable fake whose `Dispose` flag stays false through `Retire`, `RetireSlot`, LRU eviction and idle eviction — the contract in §4.5, pinned so a later "helpful" disposal reintroduces trap §7.1 as a test failure |
 | Compatibility | An existing `AddLyntai` + `Add*Provider` app routes identically with no pool configured |
 
 ## 9. Surfaces touched
@@ -403,7 +433,10 @@ fail every replacement test.
 
 - **Leases / reference counting.** Deterministic release and an answer to "how many calls are running on
   this configuration", at the price of a `using` block at every call site and a forgotten return pinning an
-  instance forever. Revisit only if a provider ever holds something that must be released promptly.
+  instance forever. This is the *only* way to get deterministic disposal without breaking in-flight work
+  (§4.5), so it is the designated escape hatch: a host whose provider owns something needing prompt release
+  implements a lease-based `IProviderPool` of its own. Revisit in-library only if a shipped provider ever
+  becomes `IDisposable`.
 - **A max instance lifetime** (`IHttpClientFactory`'s two-minute handler rotation). That exists to pick up
   DNS changes; here the `HttpClient` and its handler are owned by `IHttpClientFactory` already, so the
   provider has no such staleness to rotate away.
