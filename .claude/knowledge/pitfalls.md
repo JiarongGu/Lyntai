@@ -158,12 +158,15 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   cost attribute were both documented but silently dropped, and no test caught it. When you add a
   documented knob, add the test that exercises the documented path.
 - **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built
-  registration.** `configure(builder)` runs at `ServiceCollectionExtensions.cs:39`, well before
-  `RegisterLlmFrontDoor` at `:59` whose `:76` registers `DeadHostTracker` from `LyntaiOptions`. So a
-  `TryAddSingleton<DeadHostTracker>()` added inside a `Use*`/`Add*` extension reaches the collection FIRST,
-  and `TryAdd` keeps the first — silently swapping the configured `DeadHostThreshold`, `DeadHostCooldown` and
-  logger for the parameterless defaults, **for both domains**. Nothing in 1427 tests noticed; it was found by
-  mutation (adding the line failed exactly one new guard test and nothing else) and confirmed twice. The rule:
+  registration.** `AddLyntai` invokes `configure(builder)` (`ServiceCollectionExtensions.cs:39`) well before
+  it calls `RegisterLlmFrontDoor` (`:60`), and that method (`:98`) is where the `DeadHostTracker` built from
+  `LyntaiOptions` is registered (`:101`). **Names first, lines second** — these numbers rot, and this very
+  entry was made stale by a change inside the branch that added it; follow the method names if a line
+  disagrees. So a `TryAddSingleton<DeadHostTracker>()` added inside a `Use*`/`Add*` extension reaches the
+  collection FIRST, and `TryAdd` keeps the first — silently swapping the configured `DeadHostThreshold`,
+  `DeadHostCooldown` and logger for the parameterless defaults, **for both domains**. Nothing in 1427 tests
+  noticed; it was found by mutation (adding the line failed exactly one new guard test and nothing else) and
+  confirmed twice. The rule:
   inside a builder callback, resolve what `AddLyntai` registers later with `GetRequiredService<T>()` — never
   seed it with a `TryAdd`, and if you need a service that must exist regardless, register it in the
   Register* block that owns it. `RegisterProviderLifetime` is all `TryAdd` deliberately for the mirror-image
