@@ -1,6 +1,7 @@
 // Lyntai devtools dispatcher (family pattern: one entry, project-specific inputs in project.config.mjs).
 //   node devtools/dev.mjs build            - dotnet build the solution
 //   node devtools/dev.mjs check-warnings   - FAIL if any src/ project compiles with a warning (--list for all)
+//   node devtools/dev.mjs check-bundle     - FAIL if the `Lyntai` bundle's dependency closure drifted (D32)
 //   node devtools/dev.mjs test [args]      - dotnet test the test project (extra args pass through)
 //   node devtools/dev.mjs e2e [all|pN|pN-pM|p1,p3] [--build] [--parallel[=N]] - Playground e2e suites
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
@@ -178,6 +179,67 @@ switch (cmd) {
     break;
   }
 
+  // The `Lyntai` bundle's DEPENDENCY BUDGET (docs/DECISIONS.md D32). Membership in the one-line install is
+  // not free: an untrimmed `dotnet publish` copies the whole graph and analyses nothing, so every package the
+  // bundle references lands in every bundle consumer's output folder whether they call it or not. This fails
+  // when the bundle's third-party closure gains an id nobody decided on — the drift that a growing package
+  // graph produces silently, since adding one ProjectReference can pull a whole SDK behind it.
+  // The Microsoft.Extensions.* band is auto-allowed (runtime version band; present in any DI app).
+  case 'check-bundle': {
+    const label = 'check-bundle';
+    const cfg = config.bundle;
+    if (!cfg) { console.log(`${label}: no bundle configured — skipped`); break; }
+
+    // restore so the assets file reflects the CURRENT ProjectReferences (fast when already up to date)
+    const restore = spawnSync('dotnet', ['restore', path.join(cfg.project, path.basename(cfg.project) + '.csproj'),
+      '-v', 'quiet'], { cwd: repo, encoding: 'utf8' });
+    if (restore.status !== 0) {
+      console.error(`${label}: restore failed — cannot read the dependency closure\n${restore.stdout ?? ''}`);
+      process.exitCode = restore.status ?? 1;
+      break;
+    }
+
+    const assetsPath = path.join(repo, cfg.project, 'obj', 'project.assets.json');
+    if (!fs.existsSync(assetsPath)) {
+      console.error(`${label}: no project.assets.json at ${cfg.project}/obj — run a restore/build first`);
+      process.exitCode = 1;
+      break;
+    }
+
+    const libs = JSON.parse(fs.readFileSync(assetsPath, 'utf8')).libraries ?? {};
+    const closure = Object.entries(libs)
+      .filter(([, v]) => v.type === 'package')
+      .map(([k]) => ({ id: k.split('/')[0], version: k.split('/')[1] }));
+    const band = closure.filter((p) => p.id.startsWith('Microsoft.Extensions.'));
+    const outside = closure.filter((p) => !p.id.startsWith('Microsoft.Extensions.'));
+    const allowed = new Set(cfg.allowedThirdParty ?? []);
+
+    const unexpected = outside.filter((p) => !allowed.has(p.id));
+    const stale = [...allowed].filter((id) => !outside.some((p) => p.id === id));
+
+    console.log(`${label}: ${closure.length} third-party packages in the bundle closure ` +
+      `(${band.length} on the Microsoft.Extensions.* band, auto-allowed)`);
+    for (const p of outside) console.log(`  outside the band: ${p.id} ${p.version}`);
+
+    if (unexpected.length) {
+      console.error(`\n${label}: ✗ ${unexpected.length} package(s) nobody decided on:`);
+      for (const p of unexpected) console.error(`    ${p.id} ${p.version}`);
+      console.error('  The bundle forces these on EVERY one-line-install consumer, used or not.\n' +
+        '  Either keep the package out of the bundle (consumers reference it directly), or accept the cost:\n' +
+        '  add the id to `bundle.allowedThirdParty` in devtools/project.config.mjs and record why in D32.');
+      process.exitCode = 1;
+      break;
+    }
+    if (stale.length) {
+      console.error(`\n${label}: ✗ allowlist is stale — no longer in the closure: ${stale.join(', ')}\n` +
+        '  Remove it from `bundle.allowedThirdParty` (and D32) so the budget keeps meaning something.');
+      process.exitCode = 1;
+      break;
+    }
+    console.log(`${label}: bundle dependency budget respected ✓`);
+    break;
+  }
+
   case 'test':
     run('dotnet', ['test', config.testProject, '-v', 'minimal', ...args]);
     break;
@@ -341,7 +403,7 @@ switch (cmd) {
 
   case 'verify': {
     // the single "am I done?" gate: build → test → e2e → leak scan, stopping at the first failure.
-    const steps = [['build', []], ['check-warnings', []], ['test', []], ['e2e', []],
+    const steps = [['build', []], ['check-warnings', []], ['check-bundle', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {
@@ -350,7 +412,7 @@ switch (cmd) {
       if (r.status !== 0) { failed = step; process.exitCode = r.status ?? 1; break; }
     }
     if (failed) console.error(`\nverify: ✗ FAILED at ${failed}`);
-    else console.log('\nverify: ✓ all gates green (build · warnings · test · e2e · check-sensitive)');
+    else console.log('\nverify: ✓ all gates green (build · warnings · bundle · test · e2e · check-sensitive)');
     break;
   }
 
@@ -406,7 +468,7 @@ switch (cmd) {
   }
 
   default:
-    console.log('usage: node devtools/dev.mjs <build|check-warnings|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
+    console.log('usage: node devtools/dev.mjs <build|check-warnings|check-bundle|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
       'new-migration|install-hooks|check-sensitive|check-version>');
     process.exitCode = cmd ? 1 : 0;
 }

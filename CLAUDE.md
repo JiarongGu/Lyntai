@@ -122,6 +122,10 @@ capability-aware seam; in Core because it has no dependency to isolate, `DECISIO
 - **`node devtools/dev.mjs verify`** — the "am I done?" gate: build → test → e2e → leak scan. Run before
   claiming a change is complete.
 - `node devtools/dev.mjs build` — build the solution.
+- `node devtools/dev.mjs check-bundle` — **fail if the `Lyntai` bundle's dependency closure drifted** (part of
+  `verify`). The bundle forces every dependency on every one-line-install consumer (an untrimmed publish copies
+  the whole graph), so membership is a budget: see `docs/DECISIONS.md` **D32** for the rule and
+  `bundle.allowedThirdParty` in `devtools/project.config.mjs` for the approved list.
 - `node devtools/dev.mjs check-warnings [--list]` — **fail if any `src/` project compiles with a warning** (part
   of `verify`). Not style policing: `IsAotCompatible=true` stamps `IsTrimmable` into the assembly, so an
   unfailed IL2026/IL3050 is a FALSE trim promise shipping to consumers (four did), and an unresolved doc cref

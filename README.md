@@ -57,10 +57,10 @@ per-`StorageFeature` baselines.
 
 | Package | What it gives you |
 |---|---|
-| **`Lyntai`** | **One-line install** — Core + the dependency-free default backends + in-memory storage + **both halves of MCP**. Add the rest below only when you need them. |
+| **`Lyntai`** | **One-line install** — Core + the dependency-free default backends + in-memory storage + the MEAI bridge + **both halves of MCP**. Add the rest below only when you need them. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI. Deps: DI + Logging abstractions only. |
 | `Lyntai.Providers.Default` | The dependency-free backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat, embeddings **and images**; a Stable Diffusion WebUI (Automatic1111); a local ComfyUI. |
-| `Lyntai.Providers.ExtensionsAi` | Bridge, both directions: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider, and `AsChatClient()` back. |
+| `Lyntai.Providers.ExtensionsAi` | Bridge, both directions: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider, and `AsChatClient()` back. *(In the bundle — MCP already pins the MEAI abstractions, so it costs no new dependency.)* |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
@@ -75,6 +75,11 @@ dependency does this isolate?" with something concrete. Backends that need nothi
 (Windows DPAPI) or a heavy framework (ASP.NET Core, via MCP hosting) stays its own package — and `Lyntai.Core`
 carries the smallest footprint of all, because it is the one package you cannot opt out of
 (`docs/DECISIONS.md` D31).
+
+What goes **in the bundle** is a separate, budgeted decision (D32): a package joins only if it adds no
+third-party dependency beyond the `Microsoft.Extensions.*` band, or if it is near-universal and the cost is
+accepted explicitly — never if it carries a native payload or a platform-specific API. `node devtools/dev.mjs
+check-bundle` fails the build if that closure ever drifts, so the one-line install can't quietly grow heavy.
 
 ## Consuming Lyntai
 

@@ -44,6 +44,20 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+- **The `Lyntai` bundle now includes `Lyntai.Providers.ExtensionsAi`** — the MEAI bridge in both directions
+  (`IChatClient` → provider, and `AsChatClient()` back) on the one-line install. It is free: MCP already pins
+  `Microsoft.Extensions.AI.Abstractions`, so the bundle's third-party closure is unchanged at 15 packages (only a
+  version unification), for 38 KB of managed code that trimming removes entirely.
+- **A bundle membership POLICY, enforced (`docs/DECISIONS.md` D32)** — with the package count set to keep growing,
+  what belongs in the one-line install is now a written rule plus a gate rather than a per-package argument. A
+  package joins only if it adds no third-party dependency outside the `Microsoft.Extensions.*` band, or if it is
+  near-universal and the cost is accepted explicitly and recorded; never if it carries a native payload or a
+  platform-specific API. `node devtools/dev.mjs check-bundle` (now in `verify`) reads the bundle's resolved
+  dependency closure and fails when anything unapproved appears — or when the allowlist goes stale. Also settled:
+  ONE bundle, never a family of curated subsets (they multiply combinatorially and every one is an id that can
+  never be unpublished — D29).
+- **Renamed the project behind the bundle `Lyntai.Meta` → `Lyntai.Bundle`** (the published id is unchanged and
+  stays `Lyntai`). "Metapackage" is NuGet's term, but a project name is read by people deciding where code goes.
 - **An unconfigured image backend is skipped, not benched** — `OpenAiImageProvider` guarded `BaseUrl` but not
   `ApiKey`, so with no key it made a live call, got a 401 and reported `AuthFailed`, which (with the new GEN5
   cooldown) benched the backend for the cooldown window on every first attempt. It now reports `NotConfigured` —

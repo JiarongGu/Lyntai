@@ -47,4 +47,24 @@ export default {
     'src/Lyntai.Tools.Mcp.Hosting',
     'src/Lyntai.Secrets.Dpapi',
   ],
+  /**
+   * The `Lyntai` bundle's dependency budget, enforced by `dev.mjs check-bundle` (part of `verify`).
+   *
+   * Membership in the bundle is not free: an untrimmed `dotnet publish` copies the WHOLE dependency graph
+   * and analyses nothing, so every package here lands in every bundle consumer's output folder whether they
+   * call it or not. The `Microsoft.Extensions.*` band is auto-allowed — those ship on the runtime's own
+   * version band and any DI app already has them. Anything OUTSIDE that band is a deliberate decision that
+   * must be listed here, which is why this list is meant to stay nearly empty.
+   *
+   * Adding an id = accepting its full size for every consumer of the one-line install. See
+   * `docs/DECISIONS.md` D32 for the rule and the current justification of each entry.
+   */
+  bundle: {
+    project: 'src/Lyntai.Bundle',
+    allowedThirdParty: [
+      // 1.19 MB, and it drags Microsoft.Extensions.AI.Abstractions (656 KB). In by explicit exception:
+      // MCP is near-universal for the agentic consumers this library targets (D31/D32).
+      'ModelContextProtocol.Core',
+    ],
+  },
 };

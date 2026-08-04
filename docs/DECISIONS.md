@@ -448,6 +448,51 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D32 — what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate (2026-08-04)
+D31 decides when something becomes its own package. This decides the complementary question, asked at the
+owner's prompting because the package count only grows: **when a new package ships, does it join the one-line
+install?** Settling it once beats arguing it per package, and a rule nobody can check is a rule that drifts.
+
+**The measurement that decides it.** A framework-dependent `dotnet publish` copies the WHOLE dependency graph
+and analyses nothing — so every package in the bundle lands in every bundle consumer's output folder whether
+they call it or not. Measured on a console app referencing `Lyntai` but calling only `AddLyntai` + `ILlmClient`:
+3.2 MB of assemblies, 21 DLLs, including the 1188 KB MCP SDK and the 656 KB MEAI abstractions it never touches.
+Under `PublishTrimmed=true` all of it disappears (and the used assemblies shrink 93%) — but trimming needs a
+self-contained publish, which is the APP's decision, not ours. So the cost is real for the common case and a
+library cannot wish it away.
+
+**The rule.** A package joins the bundle only if:
+1. it adds **no new third-party dependency** outside the `Microsoft.Extensions.*` band — that band ships on the
+   runtime's own version line and any DI app already has it, so it is effectively free; or
+2. it is **near-universal for this library's consumers**, and the cost is accepted EXPLICITLY and recorded here.
+
+And never, regardless of either: a package carrying a **native payload or a platform-specific API**. Forcing a
+native SQLite binary, LLamaSharp, or a Windows-only DPAPI call on a one-line install would make the bundle
+unusable for someone who wanted none of it — those stay opt-in permanently.
+
+**Current membership, each against the rule:**
+
+| In the bundle | Why it qualifies |
+|---|---|
+| `Lyntai.Core` | mandatory; its own deps are DI + Logging abstractions only |
+| `Lyntai.Providers.Default` | the bundle is pointless without a backend; adds only `Microsoft.Extensions.Http` (band) |
+| `Lyntai.Storage.InMemory` | zero dependencies — an app runs with no storage setup at all |
+| `Lyntai.Tools.Mcp` + `.Hosting` | **rule 2, the one explicit exception.** Brings `ModelContextProtocol.Core` (1.19 MB) + the MEAI abstractions it pins (656 KB) — by far the bundle's largest cost. Accepted because MCP is near-universal for agentic consumers, and because the tool CONTRACT is already in Core so only the wire adapter is outside (D31) |
+| `Lyntai.Providers.ExtensionsAi` | **rule 1, free.** MCP already drags `Microsoft.Extensions.AI.Abstractions`, so adding the bridge changes the closure by ZERO packages (verified: 15 before, 15 after — only a version unification 10.5.2 → 10.8.0). 38 KB of managed code, 0 after trimming, and it completes the MEAI bridge in both directions |
+| *excluded* | `Storage.Sqlite` (native binary), `Providers.Local` (LLamaSharp + a hardware backend), `Storage.Postgres` (Npgsql), `Secrets.Dpapi` (Windows-only) |
+
+**Enforced, not just written down:** `node devtools/dev.mjs check-bundle` (in `verify`) reads the bundle's
+resolved `project.assets.json`, strips the auto-allowed `Microsoft.Extensions.*` band, and FAILS when anything
+else appears that is not in `bundle.allowedThirdParty` (devtools/project.config.mjs) — or when an allowlisted id
+has left the closure, so the budget can't rot into a list of things that used to matter. The failure message
+states the choice: keep the package out, or accept the cost for every consumer and record it here. That list is
+meant to stay nearly empty; today it has exactly one entry.
+
+**ONE bundle, not a family.** No `Lyntai.All` / `Lyntai.Server` / `Lyntai.Agents` variants. Bundle sets multiply
+combinatorially, every one is a published id that can never be unpublished (D29 — 2.0.0 is burned on 10 ids for
+exactly that reason), and the answer to "I want a different subset" is already good: reference the packages you
+want. One convenient default plus honest granularity scales; a family of curated subsets does not.
+
 ## D31 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
 Lyntai had one package per backend, which read as "a package per vendor". The owner's observation — *if we're
 not shipping a large amount of binary, they can share a bundle* — is right, and the corrected axis is
