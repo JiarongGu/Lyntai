@@ -23,7 +23,7 @@
     <PackageId>Lyntai</PackageId>
     <AssemblyName>Lyntai.Bundle</AssemblyName>
     <RootNamespace>Lyntai.Bundle</RootNamespace>
-    <Description>One-line install for Lyntai: the core library, the dependency-free default backends (claude/codex CLI, OpenAI-compatible chat/embeddings/images, Automatic1111, ComfyUI), in-memory storage, the Microsoft.Extensions.AI bridge (both directions), and both halves of MCP (consume an MCP server's tools, and host your own tools for a CLI agent — no ASP.NET needed). Add Lyntai.Storage.Sqlite, Lyntai.Providers.Local or Lyntai.Secrets.Dpapi when you need them.</Description>
+    <Description>The recommended STARTING set for Lyntai — not the whole library (6 of 12 packages). You get: the core library, the dependency-free LLM backends (claude/codex CLI, any OpenAI-compatible endpoint for chat + embeddings), the Microsoft.Extensions.AI bridge, both halves of MCP, and IN-MEMORY storage. Two things to know: storage is in-memory, so ADD Lyntai.Storage.Sqlite (or .Postgres) for anything that must survive a restart; and image/video/audio generation is NOT included — add Lyntai.Generation. Also opt-in: Lyntai.Providers.Local (local GGUF) and Lyntai.Secrets.Dpapi (Windows). Everything left out is left out because it drags a native payload, a platform-specific API, or an unverified surface.</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
     <!-- nothing is compiled here, so the doc-file and trim analyzers have nothing to say -->
