@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The DEFAULT provider set: everything that reaches an LLM without dragging a heavy or platform-specific
+    dependency — the spawned CLIs (`claude`, `codex`) and any OpenAI-compatible HTTP endpoint (OpenAI, Ollama,
+    OpenRouter, Azure), plus the HTTP embedder. One package because their dependency footprint is the same
+    (Core + managed Microsoft.Extensions.Http; no native payload), so bundling costs a consumer nothing.
+
+    Packages stay SEPARATE when they drag something a consumer may not want: Lyntai.Providers.Local
+    (LLamaSharp + a native backend), Lyntai.Providers.ExtensionsAi (Microsoft.Extensions.AI),
+    Lyntai.Storage.Sqlite (a native SQLite binary), Lyntai.Tools.Mcp.Hosting (ASP.NET Core),
+    Lyntai.Secrets.Dpapi (Windows-only). See docs/DECISIONS.md D31.
+
+    NAMESPACES ARE UNCHANGED (Lyntai.Providers.ClaudeCli / .CodexCli / .OpenAiCompatible) — merging the
+    packages must not force a consumer to edit `using` directives; only the PackageReference changes.
+  -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Providers.Default</PackageId>
+    <Description>The default Lyntai provider set: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible HTTP endpoint (OpenAI/Ollama/OpenRouter/Azure) and its embedder — bundled because they share one dependency footprint and ship no native payload. Heavier backends (local GGUF, MEAI bridge) remain separate packages.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
+</Project>

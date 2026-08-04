@@ -14,9 +14,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lyntai.Core\Lyntai.Core.csproj" />
+    <ProjectReference Include="..\..\src\Lyntai.Providers.Default\Lyntai.Providers.Default.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Storage.Sqlite\Lyntai.Storage.Sqlite.csproj" />
-    <ProjectReference Include="..\..\src\Lyntai.Providers.ClaudeCli\Lyntai.Providers.ClaudeCli.csproj" />
-    <ProjectReference Include="..\..\src\Lyntai.Providers.OpenAiCompatible\Lyntai.Providers.OpenAiCompatible.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Providers.ExtensionsAi\Lyntai.Providers.ExtensionsAi.csproj" />
   </ItemGroup>
 

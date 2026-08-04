@@ -10,7 +10,20 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased — the media generation platform
+## Unreleased — the generation platform
+
+### Breaking
+- **`Lyntai.Providers.ClaudeCli`, `Lyntai.Providers.CodexCli` and `Lyntai.Providers.OpenAiCompatible` are
+  merged into `Lyntai.Providers.Default`.** Packages are now split by **dependency footprint, not by vendor**
+  (`docs/DECISIONS.md` D31): those three need nothing beyond Core and managed `Microsoft.Extensions.Http`, so
+  bundling them costs a consumer nothing and removes two ids plus their release ceremony. Everything that
+  drags something stays separate — `Providers.Local` (LLamaSharp + native backend), `Storage.Sqlite` (native
+  SQLite binary), `Tools.Mcp.Hosting` (ASP.NET Core), `Secrets.Dpapi` (Windows-only), `Providers.ExtensionsAi`
+  (MEAI) — because a console app wanting the `claude` CLI must not acquire llama.cpp to get it.
+  **Migration is one line:** replace those `PackageReference`s with `Lyntai.Providers.Default`. **No code
+  changes** — the namespaces (`Lyntai.Providers.ClaudeCli`, `.CodexCli`, `.OpenAiCompatible`) are unchanged, so
+  every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
+  1.2.2.
 
 ### Added
 - **`Lyntai.Generation`** — a NEW package: the generation **platform** (image · video · audio · 3d, and any

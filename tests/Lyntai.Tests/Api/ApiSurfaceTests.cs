@@ -19,14 +19,12 @@ public class ApiSurfaceTests
     public static TheoryData<string> Assemblies() =>
     [
         "Lyntai.Core",
+        "Lyntai.Providers.Default",
         "Lyntai.Storage.Sqlite",
         "Lyntai.Storage.InMemory",
         "Lyntai.Storage.Postgres",
-        "Lyntai.Providers.ClaudeCli",
-        "Lyntai.Providers.CodexCli",
         "Lyntai.Generation",
         "Lyntai.Generation.Http",
-        "Lyntai.Providers.OpenAiCompatible",
         "Lyntai.Providers.ExtensionsAi",
         "Lyntai.Providers.Local",
         "Lyntai.Tools.Mcp",
@@ -38,14 +36,12 @@ public class ApiSurfaceTests
     private static readonly Dictionary<string, System.Reflection.Assembly> Loaded = new()
     {
         ["Lyntai.Core"] = typeof(ILlmProvider).Assembly,
+        ["Lyntai.Providers.Default"] = typeof(Lyntai.Providers.ClaudeCli.ClaudeCliProvider).Assembly,
         ["Lyntai.Storage.Sqlite"] = typeof(SqliteConnectionFactory).Assembly,
         ["Lyntai.Storage.InMemory"] = typeof(InMemoryKeyValueStore).Assembly,
         ["Lyntai.Storage.Postgres"] = typeof(PostgresConnectionFactory).Assembly,
-        ["Lyntai.Providers.ClaudeCli"] = typeof(Lyntai.Providers.ClaudeCli.ClaudeCliProvider).Assembly,
-        ["Lyntai.Providers.CodexCli"] = typeof(Lyntai.Providers.CodexCli.CodexCliProvider).Assembly,
         ["Lyntai.Generation"] = typeof(Lyntai.Generation.IGenerationProvider).Assembly,
         ["Lyntai.Generation.Http"] = typeof(Lyntai.Generation.Http.OpenAiImageProvider).Assembly,
-        ["Lyntai.Providers.OpenAiCompatible"] = typeof(Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider).Assembly,
         ["Lyntai.Providers.ExtensionsAi"] = typeof(Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider).Assembly,
         ["Lyntai.Providers.Local"] = typeof(Lyntai.Providers.Local.LocalProvider).Assembly,
         ["Lyntai.Tools.Mcp"] = typeof(Lyntai.Tools.Mcp.McpToolset).Assembly,

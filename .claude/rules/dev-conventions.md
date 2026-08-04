@@ -8,11 +8,16 @@ Sonora — same family patterns); deviations need a reason. The design contract 
 
 - **Interface in Core, impl in an adapter.** Every abstraction (`ILlmProvider`, the storage domain
   interfaces, `IScorer`, …) lives in `Lyntai.Core`. Concrete implementations live in adapter packages
-  (`Lyntai.Storage.Sqlite`, `Lyntai.Providers.ClaudeCli`, `Lyntai.Providers.CodexCli`,
-  `Lyntai.Providers.OpenAiCompatible`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`)
-  that depend **only on Core** —
+  (`Lyntai.Storage.Sqlite`, `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`,
+  `Lyntai.Providers.Local`, `Lyntai.Generation.Http`) that depend **only on Core** (or on a domain package
+  like `Lyntai.Generation`) —
   **never adapter→adapter**. Consumers
   compose via DI. This is what lets a new backend/provider be a new package, not a fork.
+- **Split packages by DEPENDENCY FOOTPRINT, not by vendor** (`docs/DECISIONS.md` D31): backends that need
+  nothing extra share a bundle (`Lyntai.Providers.Default` = the two CLIs + OpenAI-compatible;
+  `Lyntai.Generation.Http` = three HTTP backends), and a backend gets its OWN package the moment it drags a
+  native runtime, a platform-specific API, or a dependency a consumer might refuse. Merging packages must NOT
+  change namespaces — a consumer edits one `PackageReference`, never their `using` directives.
 - **Each `src/*` is NuGet-packable** (`IsPackable=true`, `PackageId`, description). `samples/` and `tests/`
   are not. Version comes from `src/Directory.Build.props` (`VersionPrefix`) — the single source.
 - **DI-first.** The public entry is `services.AddLyntai(cfg => …)`. Provider/storage packages extend the

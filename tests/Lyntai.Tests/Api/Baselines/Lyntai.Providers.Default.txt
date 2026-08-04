@@ -1,0 +1,116 @@
+static class Lyntai.ClaudeCliBuilderExtensions
+    static AddClaudeCliAgentSession(LyntaiBuilder, String=) : LyntaiBuilder
+    static AddClaudeCliProvider(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=) : LyntaiBuilder
+static class Lyntai.CodexCliBuilderExtensions
+    static AddCodexCliProvider(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=, CodexCliDialect=) : LyntaiBuilder
+static class Lyntai.OpenAiCompatibleBuilderExtensions
+    static AddAzureOpenAiProvider(LyntaiBuilder, String, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOllamaProvider(LyntaiBuilder, String=, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOpenAiCompatibleEmbedder(LyntaiBuilder, String, Action<OpenAiCompatibleEmbedderOptions>, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOpenAiCompatibleProvider(LyntaiBuilder, String, Action<OpenAiCompatibleOptions>, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOpenAiProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+    static AddOpenRouterProvider(LyntaiBuilder, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
+sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
+    .ctor()
+    AllowedTools : IReadOnlyList<String>
+    EqualityContract : Type
+    Equals(AgentSessionOptions) : Boolean
+    Equals(ClaudeAgentOptions) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    McpConfigPath : String
+    PrintMembers(StringBuilder) : Boolean
+    SettingsPath : String
+    SkipAllPermissions : Boolean
+    ToString() : String
+sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
+    .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeAgentSession>=, String=)
+    StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
+sealed class Lyntai.Providers.ClaudeCli.ClaudeCliDialect
+    .ctor()
+    AuthStatusArgs : IReadOnlyList<String>
+    BuildCompletionArgs(LlmRequest) : IReadOnlyList<String>
+    CommandEnvironmentVariables : IReadOnlyList<String>
+    DefaultCommand : String
+    Id : String
+    LogoutArgs : IReadOnlyList<String>
+    ParseAuthStatus(String) : ProviderAuthStatus
+    ParseLine(String) : CliOutputEvent
+    TryBuildInstallArgs(ProviderInstallRequest, IReadOnlyList`1&, String&) : Boolean
+    TryBuildLoginArgs(ProviderLoginRequest, IReadOnlyList`1&, String&) : Boolean
+    UpdateArgs : IReadOnlyList<String>
+sealed class Lyntai.Providers.ClaudeCli.ClaudeCliMcpDialect
+    .ctor()
+    BuildArgsAsync(McpCliContext, CancellationToken=) : ValueTask<IReadOnlyList<String>>
+    ProviderId : String
+sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
+    .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeCliProvider>=, String=, ICliToolProvisioner=, IReadOnlyDictionary<String,String>=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    Id : String
+    InstallAsync(ProviderInstallRequest=, CancellationToken=) : Task<ProviderUpdateResult>
+    IsAvailable : Boolean
+    LoginAsync(ProviderLoginRequest=, CancellationToken=) : Task<ProviderAuthResult>
+    LogoutAsync(CancellationToken=) : Task<ProviderAuthResult>
+    ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
+    ProviderId : String const
+    StatusAsync(CancellationToken=) : Task<ProviderAuthStatus>
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
+static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
+    static FilePathOf(ToolCall) : String
+sealed class Lyntai.Providers.CodexCli.CodexCliDialect
+    .ctor()
+    AuthStatusArgs : IReadOnlyList<String>
+    BuildCompletionArgs(LlmRequest) : IReadOnlyList<String>
+    CommandEnvironmentVariables : IReadOnlyList<String>
+    DefaultCommand : String
+    Id : String
+    LogoutArgs : IReadOnlyList<String>
+    ParseAuthStatus(String) : ProviderAuthStatus
+    ParseLine(String) : CliOutputEvent
+    SandboxMode : String
+    TryBuildLoginArgs(ProviderLoginRequest, IReadOnlyList`1&, String&) : Boolean
+    UpdateArgs : IReadOnlyList<String>
+sealed class Lyntai.Providers.CodexCli.CodexCliProvider
+    .ctor(IProcessRunner, LyntaiOptions, ILogger<CodexCliProvider>=, String=, ICliToolProvisioner=, IReadOnlyDictionary<String,String>=, CodexCliDialect=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    Id : String
+    IsAvailable : Boolean
+    LoginAsync(ProviderLoginRequest=, CancellationToken=) : Task<ProviderAuthResult>
+    LogoutAsync(CancellationToken=) : Task<ProviderAuthResult>
+    ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
+    ProviderId : String const
+    StatusAsync(CancellationToken=) : Task<ProviderAuthStatus>
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
+sealed class Lyntai.Providers.OpenAiCompatible.HttpEmbedder
+    .ctor(String, OpenAiCompatibleEmbedderOptions, Func<HttpClient>, LyntaiOptions, ILogger<HttpEmbedder>=, Boolean=)
+    EmbedAsync(IReadOnlyList<String>, CancellationToken=) : Task<IReadOnlyList<Single[]>>
+sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleEmbedderOptions
+    .ctor()
+    ApiKey : String
+    BaseUrl : String
+    BatchSize : Int32
+    Flavor : OpenAiFlavor
+    Model : String
+sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleOptions
+    .ctor()
+    ApiKey : String
+    BaseUrl : String
+    ContextSize : Nullable<Int32>
+    DefaultModel : String
+    Flavor : OpenAiFlavor
+sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
+    .ctor(String, OpenAiCompatibleOptions, Func<HttpClient>, LyntaiOptions, ILogger<OpenAiCompatibleProvider>=, Boolean=)
+    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    Id : String
+    IsAvailable : Boolean
+    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls : Boolean
+enum Lyntai.Providers.OpenAiCompatible.OpenAiFlavor
+    Auto : OpenAiFlavor const
+    AzureOpenAi : OpenAiFlavor const
+    Ollama : OpenAiFlavor const
+    OpenAi : OpenAiFlavor const
+    OpenRouter : OpenAiFlavor const
+    value__ : Int32

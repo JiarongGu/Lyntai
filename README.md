@@ -58,12 +58,10 @@ per-`StorageFeature` baselines.
 | Package | What it gives you |
 |---|---|
 | `Lyntai.Core` | Interfaces + the fallback router + cortex (prompt/scoring/trace) + DI. No heavy deps. |
+| `Lyntai.Providers.Default` | The default provider set, bundled because they share one dependency footprint and ship no native payload: the authenticated `claude` and `codex` CLIs, plus any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) and its embedder. |
 | `Lyntai.Storage.Sqlite` | SQLite implementation of every storage domain (Dapper + FluentMigrator + FTS5). |
 | `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain with SQLite. |
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` memory recall) for a server-backed deployment. |
-| `Lyntai.Providers.ClaudeCli` | The authenticated `claude` CLI as a provider (no API key). |
-| `Lyntai.Providers.CodexCli` | The authenticated OpenAI `codex` CLI as a provider (`codex exec --json`, no API key). |
-| `Lyntai.Providers.OpenAiCompatible` | OpenAI / Ollama / OpenRouter-style endpoints over HttpClient. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
 | `Lyntai.Generation` | Generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
@@ -72,6 +70,9 @@ per-`StorageFeature` baselines.
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server so a CLI that runs its own agent loop can call them. Per-CLI wiring is an `IMcpCliDialect` (`ClaudeCliMcpDialect` ships with the claude provider). |
 
 Each `src/*` is an independent NuGet package depending only on `Lyntai.Core` — add just what you need.
+Packages are split by **dependency footprint, not by vendor**: backends that share one (and ship no native
+payload) are bundled, while anything dragging a heavy or platform-specific dependency stays separate so you
+never take LLamaSharp, a native SQLite binary or ASP.NET Core to use something else (`docs/DECISIONS.md` D31).
 
 ## Consuming Lyntai
 

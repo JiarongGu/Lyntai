@@ -36,14 +36,12 @@ export default {
   /** Packable library projects (`pack` runs `dotnet pack` over each → publish/packages/). */
   packableProjects: [
     'src/Lyntai.Core',
+    'src/Lyntai.Providers.Default',
     'src/Lyntai.Storage.Sqlite',
     'src/Lyntai.Storage.InMemory',
     'src/Lyntai.Storage.Postgres',
-    'src/Lyntai.Providers.ClaudeCli',
-    'src/Lyntai.Providers.CodexCli',
     'src/Lyntai.Generation',
     'src/Lyntai.Generation.Http',
-    'src/Lyntai.Providers.OpenAiCompatible',
     'src/Lyntai.Providers.ExtensionsAi',
     'src/Lyntai.Providers.Local',
     'src/Lyntai.Tools.Mcp',

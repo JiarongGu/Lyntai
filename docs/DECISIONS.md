@@ -448,6 +448,38 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D31 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
+Lyntai had one package per backend, which read as "a package per vendor". The owner's observation — *if we're
+not shipping a large amount of binary, they can share a bundle* — is right, and the corrected axis is
+**dependency footprint**: bundle backends that need the same things and ship no native payload; keep a package
+separate when it drags something a consumer would otherwise not take.
+
+Measured 2026-08-04 (external `PackageReference`s per project):
+
+| Bundle-safe — Core/BCL only | Drags a dependency |
+|---|---|
+| ClaudeCli, CodexCli, Generation, Generation.Http, Storage.InMemory | Local → **LLamaSharp** + a native backend (hundreds of MB); Storage.Sqlite → **SQLitePCLRaw native binary** + Dapper + FluentMigrator; Storage.Postgres → Npgsql; Tools.Mcp(.Hosting) → MCP SDK / **ASP.NET Core**; Secrets.Dpapi → **Windows-only** ProtectedData; ExtensionsAi → MEAI; OpenAiCompatible → Microsoft.Extensions.Http (managed only) |
+
+**So `Lyntai.Providers.Default` merges ClaudeCli + CodexCli + OpenAiCompatible** — the CLIs are dependency-free
+and share `CliProviderEngine`, and the HTTP one adds only managed `Microsoft.Extensions.Http`, so bundling
+costs a consumer nothing and removes two package ids plus their release ceremony. Everything in the right-hand
+column stays separate: a console app that wants the `claude` CLI must not acquire a native SQLite binary,
+llama.cpp, ASP.NET Core or Windows-only code to get it. Size was never the reason to split — *transitive
+cost* is.
+
+**Namespaces did NOT change** (`Lyntai.Providers.ClaudeCli`, `.CodexCli`, `.OpenAiCompatible` all still exist
+inside the one assembly). That is deliberate: consolidating packages must not force consumers to edit `using`
+directives — only the `PackageReference` changes, which is a one-line edit rather than a sweep.
+
+**Cost, stated plainly:** three published ids (`Lyntai.Providers.ClaudeCli` with 20 published versions,
+`.CodexCli`, `.OpenAiCompatible`) are abandoned at 1.2.2. Permitted in a minor by D24 while every consumer is
+first-party, and per D29 an abandoned id must not be resurrected for a different purpose.
+
+**Applying it later:** a new backend joins `Providers.Default` if it needs nothing new; it gets its own package
+the moment it needs a native runtime, a platform-specific API, or a dependency a consumer might refuse. The
+same rule already governs `Lyntai.Generation.Http` (three HTTP backends, one package) and the future split of a
+native-runtime generation backend (D30).
+
 ## D30 — generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
 `Lyntai.Generation` is a separate domain package with its own contracts and its own `GenerationVerdict`, not an extension
 of the LLM stack. At the owner's direction: **"our goal is not to make a generation engine, it is to make a
