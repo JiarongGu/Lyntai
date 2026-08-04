@@ -42,6 +42,19 @@ public sealed class BoundedProviderPool<TProvider>(
     }
 
     /// <inheritdoc/>
+    /// <remarks><para><paramref name="factory"/> runs while this pool's internal lock is held — construction
+    /// inside the lock is what makes concurrent calls for one key build exactly once instead of racing (see
+    /// <c>Concurrent_calls_on_one_key_build_exactly_once</c>). It must not block, await, or call back into
+    /// this pool: a factory that does I/O (reads a credential from a vault, probes an endpoint, blocks on an
+    /// async build) serializes EVERY tenant and EVERY key behind it, not just its own; it also blocks
+    /// <see cref="Statistics"/>, so a health endpoint stalls behind one slow construction; and a factory that
+    /// blocks on another thread which itself calls into this pool deadlocks outright.</para>
+    /// <para><see cref="System.Threading.Lock"/> is reentrant, so a factory that synchronously calls
+    /// <see cref="GetOrAdd"/> again for the SAME key is not rejected — it builds and stores its own entry,
+    /// and the outer frame then overwrites <c>_entries[key]</c> with its own on return. <c>Created</c> counts
+    /// both, <c>Retired</c> counts neither, and the inner instance is now held by its caller with no entry
+    /// pointing at it. This is the one path where "build exactly once" is not actually enforced — the fix is
+    /// simply never re-entering, not a code change.</para></remarks>
     public TProvider GetOrAdd(ProviderKey key, Func<TProvider> factory)
     {
         ArgumentNullException.ThrowIfNull(factory);

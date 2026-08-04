@@ -31,6 +31,13 @@ public interface IProviderPool<TProvider> where TProvider : class, IProviderIden
     /// <exception cref="ArgumentException">The built instance's <see cref="IProviderIdentity.Id"/> does not
     /// match <see cref="ProviderKey.Slot"/> — which would leave the instance unroutable, because routers
     /// match candidates on the id.</exception>
+    /// <remarks><b><paramref name="factory"/> may run while an implementation's internal lock is held</b> —
+    /// that is what lets concurrent calls for the same key build exactly once instead of racing. A factory
+    /// must therefore not block, await, or call back into this pool (including a reentrant call to
+    /// <see cref="GetOrAdd"/> for the SAME key): doing I/O inside it can serialize every other key and
+    /// caller behind it — including a concurrent read of <see cref="Statistics"/> — and blocking on another
+    /// thread that itself touches the pool can deadlock outright. This binds every implementation of this
+    /// interface, not only the ones shipped here.</remarks>
     TProvider GetOrAdd(ProviderKey key, Func<TProvider> factory);
 
     /// <summary>Which configuration produced an instance. This is how a router attributes dead-host

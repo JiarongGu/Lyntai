@@ -195,6 +195,56 @@ public class BoundedProviderPoolTests
         Assert.Equal(0, pool.Statistics.Live);
     }
 
+    [Fact]
+    public void TryGetKey_answers_for_a_live_entry()
+    {
+        var pool = Pool();
+        var key = Key("a");
+        var instance = pool.GetOrAdd(key, () => new FakeGenerationProvider());
+
+        Assert.True(pool.TryGetKey(instance, out var found));
+        Assert.Equal(key, found);
+    }
+
+    // Load-bearing per IProviderPool<TProvider>'s own remarks on TryGetKey: a router attributes dead-host
+    // cooldown to the CONFIGURATION of a call that is still in flight on a provider the pool already
+    // dropped. If this answered false the moment Retire ran, cooldown would silently fall back to the
+    // backend id and bench every other tenant sharing it.
+    [Fact]
+    public void TryGetKey_still_answers_after_the_entry_is_retired()
+    {
+        var pool = Pool();
+        var key = Key("a");
+        var instance = pool.GetOrAdd(key, () => new FakeGenerationProvider());
+
+        pool.Retire(key);
+
+        Assert.True(pool.TryGetKey(instance, out var found));
+        Assert.Equal(key, found);
+    }
+
+    // Same load-bearing case as retirement, but via LRU eviction rather than an explicit Retire call.
+    [Fact]
+    public void TryGetKey_still_answers_after_the_entry_is_evicted()
+    {
+        var pool = Pool(maxEntries: 1);
+        var key = Key("a");
+        var instance = pool.GetOrAdd(key, () => new FakeGenerationProvider());
+
+        pool.GetOrAdd(Key("b"), () => new FakeGenerationProvider());   // evicts "a" at the cap of 1
+
+        Assert.True(pool.TryGetKey(instance, out var found));
+        Assert.Equal(key, found);
+    }
+
+    [Fact]
+    public void TryGetKey_is_false_for_an_instance_the_pool_never_built()
+    {
+        var pool = Pool();
+
+        Assert.False(pool.TryGetKey(new FakeGenerationProvider(), out _));
+    }
+
     private sealed class DisposableProvider : Lyntai.Lifecycle.IProviderIdentity, IDisposable
     {
         public string Id => "disposable";
