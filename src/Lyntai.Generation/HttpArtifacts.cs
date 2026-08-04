@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Lyntai.Text;
 
-namespace Lyntai.Generation.Http;
+namespace Lyntai.Generation.Providers;
 
 /// <summary>Shared reading of what an HTTP generation backend sends back. Lives once because all three
 /// backends in this package face the same two questions — "did it fail, and what does that mean?" and "where

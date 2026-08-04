@@ -46,6 +46,7 @@ export default {
     'src/Lyntai.Tools.Mcp',
     'src/Lyntai.Tools.Mcp.Hosting',
     'src/Lyntai.Secrets.Dpapi',
+    'src/Lyntai.Generation',
   ],
   /**
    * The `Lyntai` bundle's dependency budget, enforced by `dev.mjs check-bundle` (part of `verify`).

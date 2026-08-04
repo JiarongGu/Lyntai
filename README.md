@@ -67,7 +67,7 @@ per-`StorageFeature` baselines.
 |---|---|
 | **`Lyntai`** | **One-line install** — Core + the dependency-free default backends + in-memory storage + the MEAI bridge + **both halves of MCP**. Add the rest below only when you need them. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI. Deps: DI + Logging abstractions only. |
-| `Lyntai.Providers.Default` | The dependency-free backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat, embeddings **and images**; a Stable Diffusion WebUI (Automatic1111); a local ComfyUI. |
+| `Lyntai.Providers.Default` | The dependency-free **LLM** backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat and embeddings. Media backends moved to `Lyntai.Generation`. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge, both directions: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider, and `AsChatClient()` back. *(In the bundle — MCP already pins the MEAI abstractions, so it costs no new dependency.)* |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. |
 | `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
@@ -76,6 +76,7 @@ per-`StorageFeature` baselines.
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
+| `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video. Zero third-party dependencies; the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D34). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
 dependency does this isolate?" with something concrete. Backends that need nothing extra share
@@ -596,7 +597,7 @@ cfg.ConfigureGenerationRouting(p =>
 Backends come in the same three shapes as LLM providers — **remote** (HTTP), **spawned CLI**, and **local
 in-process** — and which one handles a given request is expressed by candidate order, not by a flag.
 
-`Lyntai.Providers.Default` ships five of them. **Measured vs documented matters here** — the two marked
+`Lyntai.Generation` ships five of them (`dotnet add package Lyntai.Generation` — it pulls Core with it). **Measured vs documented matters here** — the two marked
 *documented* were written from vendor docs without a key or an engine to call, so treat the first run as the
 verification: every endpoint path and field name is an option, and an unrecognised response degrades to a
 failure rather than inventing an artifact.

@@ -60,6 +60,13 @@ fs.writeFileSync(path.join(dir, `${id}.csproj`), `<Project Sdk="Microsoft.NET.Sd
     <ProjectReference Include="..\\Lyntai.Core\\Lyntai.Core.csproj" />
   </ItemGroup>
 
+  <!-- Every package here grants this: internals are implementation detail, and their tests reach them.
+       Omitting it breaks the build the moment a moved/new type has an internal member under test — which is
+       exactly how this line came to be in the template. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
 </Project>
 `);
 

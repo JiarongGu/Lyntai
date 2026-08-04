@@ -1,5 +1,5 @@
 using Lyntai.Generation;
-using Lyntai.Generation.Local;
+using Lyntai.Generation.Providers;
 using Lyntai.Processes;
 using Lyntai.Tests.Fakes;
 

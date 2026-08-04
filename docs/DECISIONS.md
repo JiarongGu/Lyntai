@@ -448,6 +448,40 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D34 — a package may also be split for RELEASE CADENCE, not only for dependency isolation (2026-08-04)
+D31's test is "which dependency does this isolate?" `Lyntai.Generation` — the media backend set — answers that
+question with **nothing**: it is `HttpClient` plus one subprocess, zero third-party dependencies. By D31's letter
+it belonged in `Lyntai.Providers.Default` forever, which is where it started. It is now its own package anyway,
+so the rule needs the second axis stated rather than quietly bent.
+
+**A package boundary is also justified when a domain's CHURN or MATURITY differs from its host's.** Concretely,
+what forced it here:
+
+- **Blast radius.** Media is where the roadmap's growth is (video, TTS, music, 3D). Every new backend is public
+  API, so under the old layout each one churned the baseline of the package that every CHAT consumer installs —
+  and a media reshape after GEN-VERIFY would force a major bump on them for a domain they never call.
+- **Maturity mismatch.** `Lyntai.Generation.*` ships EXPERIMENTAL (two backends written from vendor docs with no
+  key to call, one ported argv, an unimplemented stream seam). Battle-tested CLI/chat code and unverified vendor
+  backends cannot share one package id and one SemVer promise; the carve-out is only credible if the unverified
+  part is separable.
+- **The names were already lying**, which is the symptom that made it obvious: `Lyntai.Generation.Http` contained
+  `LocalDiffusionProvider`, a SUBPROCESS backend, and its actual namespace `Lyntai.Generation.Local` read as the
+  package `Lyntai.Providers.Local` — an unrelated thing (in-process GGUF inference). Both are now
+  `Lyntai.Generation.Providers`.
+- **It cost 40% of a package's surface.** `Providers.Default` was 10 of 26 public types media.
+
+**Why this was safe to do at 2.0.1 and not later.** Generation has never appeared in a release, so the namespace
+change had ZERO consumers to protect — D31's "merging must not change namespaces" exists to spare consumers a
+`using` churn, and there were none. After 2.0.1 the same fix costs a major bump. A naming error is cheapest to
+correct in the window before anyone can depend on it.
+
+**The limit, so this does not become an excuse.** Cadence is a real axis but a weaker one than dependency
+isolation, and it is only available when the split ALSO leaves both sides coherent — a domain with its own
+contracts, its own verdict vocabulary and its own routing (D30). It is not a licence to split by taste, by file
+count, or by "this feels separate". A package still has to answer *some* question with something concrete: D31's
+dependency, or this one's cadence/maturity. `Lyntai.Generation` is NOT in the bundle for the same reason it was
+split — an unverified domain most consumers do not use should not arrive with a one-line install (D32).
+
 ## D33 — MANY small packages is the intended shape; the cost is paid in tooling, not in merging (2026-08-04)
 At the owner's call, after reviewing the full inventory: a package as small as `Lyntai.Secrets.Dpapi` (8 KB of
 code) is FINE, so keep splitting by D31's dependency test and never merge packages just to reduce the count.

@@ -84,8 +84,9 @@ before changing it; every other domain needs a major.
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Cli` (the shared spawned-CLI engine +
 per-CLI `ICliProviderDialect` — a new CLI backend is a dialect, never a new provider; see `DECISIONS.md`
-D27/D28) / `Lyntai.Generation` (+ `.Routing`) (the generation platform — image/video/audio/3d behind one
-capability-aware seam; in Core because it has no dependency to isolate, `DECISIONS.md` D30/D31) /
+D27/D28) / `Lyntai.Generation` (+ `.Routing`/`.Jobs`/`.Tools`) (the generation platform — image/video/audio/3d behind one
+capability-aware seam; the CONTRACTS are in Core, the BACKENDS are the `Lyntai.Generation` package under
+`Lyntai.Generation.Providers` — split for release cadence, `DECISIONS.md` D30/D31/D34) /
 `Lyntai.Llm.Routing` (router engine) /
 `Lyntai.Llm.Caching` (response cache) / `Lyntai.Llm.Budgeting` (usage budget) /
 `Lyntai.Llm.RateLimiting` (rate limiter) /

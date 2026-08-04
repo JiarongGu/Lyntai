@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Lyntai.Text;
 
-namespace Lyntai.Generation.Http;
+namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="FalQueueProvider"/>.</summary>
 /// <remarks>Every URL segment is settable because this backend's surface is <b>documented, not measured</b> —

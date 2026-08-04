@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Lyntai.Generation.Http;
+namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="Automatic1111Provider"/>.</summary>
 public sealed record Automatic1111Options

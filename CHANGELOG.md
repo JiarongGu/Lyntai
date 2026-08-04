@@ -48,6 +48,17 @@ because the restructure was designed around keeping namespaces fixed.
   (`IChatClient` → provider, and `AsChatClient()` back) on the one-line install. It is free: MCP already pins
   `Microsoft.Extensions.AI.Abstractions`, so the bundle's third-party closure is unchanged at 15 packages (only a
   version unification), for 38 KB of managed code that trimming removes entirely.
+- **NEW PACKAGE `Lyntai.Generation`** — the five media backends move out of `Lyntai.Providers.Default` into
+  their own package, and their namespaces are corrected to `Lyntai.Generation.Providers`. The old names were
+  wrong: `Lyntai.Generation.Http` contained `LocalDiffusionProvider`, a *subprocess* backend, whose own namespace
+  `Lyntai.Generation.Local` read as the unrelated package `Lyntai.Providers.Local` (GGUF inference). The
+  generation *contracts* stay in Core; this is the backend set, and it has **zero third-party dependencies**.
+  `dotnet add package Lyntai.Generation` pulls Core with it. **It is deliberately NOT in the `Lyntai` bundle** —
+  an experimental domain most consumers don't use should not arrive with the one-line install (D32). Justified by
+  a new axis (`docs/DECISIONS.md` **D34**): a split for release CADENCE, since media is where the growth is and
+  every new backend would otherwise churn the package every chat consumer installs — 10 of `Providers.Default`'s
+  26 public types were media. Done at 2.0.1 precisely because generation has never shipped, so the namespace
+  change had zero consumers to protect; after this release the same fix would cost a major bump.
 - **`Lyntai.Generation.*` ships EXPERIMENTAL, exempt from the SemVer promise** until GEN-VERIFY closes. The
   platform is complete and tested, but two backends were written from vendor docs with no key to call, one's argv
   is ported rather than measured, and `IGenerationStreamProvider` has no implementation yet — so its shape is

@@ -1,6 +1,6 @@
 using Lyntai.Processes;
 
-namespace Lyntai.Generation.Local;
+namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="LocalDiffusionProvider"/>. The engine and its weights are the HOST's
 /// to provide — Lyntai drives what is already on disk and never downloads either (<c>docs/DECISIONS.md</c>

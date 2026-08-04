@@ -17,7 +17,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Providers.Default</PackageId>
-    <Description>The default Lyntai backend set: the authenticated `claude` and `codex` CLIs, any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings + images, a Stable Diffusion WebUI (Automatic1111) backend and a local ComfyUI generation backend — bundled because they share one dependency footprint and ship no native payload. Heavier backends (local GGUF, the MEAI bridge) remain separate packages.</Description>
+    <Description>The default Lyntai LLM backend set: the authenticated `claude` and `codex` CLIs, and any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat + embeddings — bundled because they share one dependency footprint and ship no native payload. Media backends live in Lyntai.Generation; heavier ones (local GGUF, the MEAI bridge) are their own packages.</Description>
   </PropertyGroup>
 
   <ItemGroup>

@@ -68,8 +68,10 @@ _Restoring the packed metapackage into a fresh app and compiling against the 2.0
 references) proved the install story works, and exposed two asymmetries between the domains. Neither blocks the
 release; both are additive._
 
-- [ ] **generation backend wiring helpers** — the LLM side has `AddOllamaProvider()` / `AddOpenAiProvider()` /
-  `AddAzureOpenAiProvider()`, while every generation backend must be hand-constructed WITH its `Func<HttpClient>`:
+- [ ] **generation backend wiring helpers** — now the obvious first addition to the new `Lyntai.Generation`
+  package, which ships five backends and no `Add*` methods. The LLM side has `AddOllamaProvider()` /
+  `AddOpenAiProvider()` / `AddAzureOpenAiProvider()`, while every generation backend must be hand-constructed
+  WITH its `Func<HttpClient>`:
   `.AddGenerationProvider(_ => new OpenAiImageProvider(options, () => new HttpClient()))`. Add the matching
   `AddOpenAiImageProvider()` / `AddAutomatic1111Provider()` / `AddComfyUiProvider()` / `AddFalProvider()` shims
   (BYO `HttpClient` staying optional, per v0.7). Same class of gap as the semantic-memory wiring helper below.

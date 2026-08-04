@@ -1,6 +1,6 @@
 using System.Net;
 using Lyntai.Generation;
-using Lyntai.Generation.Http;
+using Lyntai.Generation.Providers;
 using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;

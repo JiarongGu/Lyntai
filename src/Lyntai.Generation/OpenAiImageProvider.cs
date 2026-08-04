@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Lyntai.Generation.Http;
+namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="OpenAiImageProvider"/>.</summary>
 /// <remarks>Credentials are passed IN by the host and never stored (D26/D30) — read

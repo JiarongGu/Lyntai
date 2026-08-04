@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Lyntai.Generation — an ADAPTER package: it may depend on Lyntai.Core (or a domain package), never on another adapter.
+    Its reason to exist is the dependency it ISOLATES (docs/DECISIONS.md D31) — state that in the Description.
+
+    If this package drags a reflection-heavy dependency (an ORM, a serializer, a native runtime), it must OPT
+    OUT of the trim/AOT claim rather than inherit it — a false IsTrimmable tells a consumer's trimmer this code
+    survives trimming when it does not:
+      <IsAotCompatible>false</IsAotCompatible>
+      <IsTrimmable>false</IsTrimmable>
+      <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    Then change its row in docs/AOT.md to match. `verify` fails on any warning here, which is what keeps that
+    claim honest.
+  -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai.Generation</PackageId>
+    <Description>Generation backends: OpenAI images, Automatic1111, ComfyUI, a local sd-cli subprocess, and the fal.ai queue for video. The generation CONTRACTS live in Lyntai.Core — this is the backend set, split out so media can iterate without churning the LLM packages.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Lyntai.Tests" />
+  </ItemGroup>
+
+</Project>
