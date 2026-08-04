@@ -149,12 +149,18 @@ public sealed class MyFeature(
 
         var reply = await llm.CompleteAsync(
             new LlmRequest { Messages = [LlmMessage.User(prompt)], Consumer = "myfeature" }, ct);
-        return reply.Verdict == LlmVerdict.Ok ? reply.Text : throw new InvalidOperationException(reply.Detail);
+        return reply.Verdict.IsOk() ? reply.Text : throw new InvalidOperationException(reply.Detail);
     }
 }
 ```
 
 (`ILlmRouter` stays available for call sites that genuinely need their own candidate list.)
+
+`LlmVerdict` also carries two call-site predicates — `IsOk()` and `IsTransient()` ("may the same request
+succeed later?", true for `Failed`/`Timeout`/`RateLimited`). They are categories rather than one method per
+verdict, on purpose: the enum grows, and a single member is already best expressed as
+`verdict == LlmVerdict.RateLimited`. They hang off the enum, so they read the same off `LlmReply`,
+`LlmChunk`, `SessionEnded`, `AgentSessionResult` and `ToolLoopResult`.
 
 And if your app already speaks `Microsoft.Extensions.AI`, consume Lyntai **as** an `IChatClient` —
 routing, fallback, and the ops layer come along silently:

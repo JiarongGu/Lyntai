@@ -1,4 +1,5 @@
 static class Lyntai.McpBuilderExtensions
     static AddMcpTools(LyntaiBuilder, IEnumerable<ITool>) : LyntaiBuilder
+    static AddMcpTools(LyntaiBuilder, ITool[]) : LyntaiBuilder
 static class Lyntai.Tools.Mcp.McpToolset
     static FromClientAsync(McpClient, CancellationToken=) : Task<IReadOnlyList<ITool>>

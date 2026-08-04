@@ -1352,6 +1352,9 @@ static class Lyntai.Llm.LlmVerdictClassifier
     static FromException(Exception) : LlmVerdict
     static FromHttpFailure(HttpStatusCode, String) : LlmVerdict
     static FromHttpFailure(HttpStatusCode, String, Boolean) : LlmVerdict
+static class Lyntai.Llm.LlmVerdictExtensions
+    static IsOk(LlmVerdict) : Boolean
+    static IsTransient(LlmVerdict) : Boolean
 sealed class Lyntai.Llm.ProviderAuthResult
     .ctor(Boolean, ProviderAuthStatus=, String=)
     Deconstruct(Boolean&, ProviderAuthStatus&, String&) : Void
@@ -1752,6 +1755,8 @@ sealed class Lyntai.Storage.CuratedMemory
     TaskKey : String
     ToString() : String
     UpdatedAt : DateTimeOffset
+static class Lyntai.Storage.CuratedMemoryExtensions
+    static MetadataValue(CuratedMemory, String) : String
 static class Lyntai.Storage.CuratedMetadataJson
     static Deserialize(String) : IReadOnlyDictionary<String,String>
     static Serialize(IReadOnlyDictionary<String,String>) : String

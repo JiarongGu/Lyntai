@@ -57,6 +57,29 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   resolution does not walk base interfaces. The only caveat is source-level and rare — a consumer that
   implemented `Id` *explicitly* (`string ILlmProvider.Id => …`) must now also implement
   `IProviderIdentity.Id`; implicit implementation is unaffected.
+- **Call-site verdict predicates — `verdict.IsOk()` and `verdict.IsTransient()`** (`LlmVerdictExtensions`).
+  They hang off `LlmVerdict` itself, not off `LlmReply`, so the five released types that carry a verdict
+  (`LlmReply`, `LlmChunk`, `SessionEnded`, `AgentSessionResult`, `ToolLoopResult`) share one definition.
+  Deliberately **categories, not one method per member**: the enum grows (`NotConfigured` was appended after
+  the 1.0 freeze), so an `IsRateLimited`/`IsRefused`/… set would make every future verdict a public-surface
+  addition and leave the newest one as the only member without a helper — while `verdict == LlmVerdict.RateLimited`
+  already expresses a single member perfectly. `IsTransient()` answers "may the SAME request succeed later?"
+  — true for `Failed`/`Timeout`/`RateLimited`, false for everything terminal as sent (and for an unknown
+  value, so an unrecognized verdict can never provoke a retry loop). See `docs/DECISIONS.md` **D39**.
+- **`CuratedMemory.MetadataValue(key)`** — the null-safe read of the curated-memory metadata map, which is
+  `null` on every entry written without any, so `entry.Metadata!["source"]` both throws on a missing key and
+  NREs on the common case. Generic on purpose: CMEM6 retired the purpose-built `Source`/`Title` columns into
+  one arbitrary map so a new payload field needs no schema or API change, and a typed accessor per key would
+  re-privilege the same handful of names one layer up.
+- **`AddMcpTools(params ITool[])`** — an inline overload beside the existing sequence one, for a hand-picked
+  subset of a server's toolset or a BYO `ITool` alongside them. The sequence overload remains the one
+  `McpToolset.FromClientAsync`'s result flows into, and its documentation now states the two-step
+  connect-then-adapt shape as intentional: connecting an MCP client is async and its lifetime outlives
+  registration, so the app owns the client and hands Lyntai only the adapted tools.
+- **Member and type documentation** on surface the 1.0 review found bare: `ExtensionsAiProvider`'s
+  constructor parameters and its `IsAvailable`/`SupportsToolCalls` (why both are unconditionally true),
+  `LyntaiChatClientExtensions` (which direction of the MEAI bridge it is), `McpBuilderExtensions`, and
+  `ClaudeCliProvider.ProviderId`.
 
 ### Fixed
 - **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already

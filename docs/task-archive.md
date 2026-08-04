@@ -2481,6 +2481,74 @@ verdict half closed 2026-08-05, emptying the part._
 
 ---
 
+## Part 25 — post-1.0 additive ergonomics from the 1.0 API review (2026-08-05)
+
+_Additive / non-breaking items surfaced by the 1.0 adversarial API review + consumer-usage review (the
+working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISIONS.md` D21). Worked as one
+pass because they were all small and all found by the same review. Shape decisions →
+`docs/DECISIONS.md` **D39**. The non-additive remainder of the curated-memory item stays OPEN in `TASKS.md`._
+
+- [x] **verdict helpers** — `reply.IsOk()` / `reply.IsRateLimited()` extension(s) to cut the 3-branch
+  `LlmVerdict` pattern at call sites.
+  ✅ done 2026-08-05 — Outcome: shipped as `LlmVerdictExtensions.IsOk()` / `IsTransient()` on the ENUM rather
+  than as per-verdict methods on `LlmReply`. Two reasons, both about growth (D39): the enum grows —
+  `NotConfigured` was appended after the freeze — so a helper per member would owe a public addition every
+  time while leaving the newest verdict the only one without one, and five released types carry a verdict, so
+  an extension on the enum is one definition instead of five. `IsTransient()` answers "may the SAME request
+  succeed later?" (true for `Failed`/`Timeout`/`RateLimited`; false for everything terminal as sent, and for
+  an unknown value, so an unrecognized verdict can never provoke a retry loop). Deliberately not derived from
+  `RoutingPolicy` — that table answers what the ROUTER does and gives `RateLimited`/`AuthFailed` the same
+  action, which is the one distinction that matters here. Pinned by
+  `LlmVerdictExtensionsTests.Every_verdict_is_deliberately_classified`, which fails if a member is added
+  without a decision — the D38 "the enum and the policy move together" obligation, now covering a third thing.
+
+- [x] **`AddMcpTools` convenience overload** — `params ITool[]` and/or document the
+  `await McpToolset.FromClientAsync` → `AddMcpTools` two-step as the intended shape.
+  ✅ done 2026-08-05 — Outcome: both. `AddMcpTools(params ITool[])` sits beside the sequence overload and
+  delegates to it (an array argument binds to the params overload — same behavior, existing call sites
+  unaffected), and the sequence overload's doc now states WHY the two-step is intentional rather than
+  incidental: connecting an MCP client is async and its lifetime outlives registration, so the app owns the
+  client and Lyntai only adapts its tools. `McpBuilderExtensions` also gained the type summary naming it the
+  INBOUND half of the MCP story (`Lyntai.Tools.Mcp.Hosting` being the outbound twin).
+
+- [x] **agent-event contract** — `ClaudeToolCalls.FilePathOf` should also read `notebook_path`/`path`;
+  consider a discoverable event-shape contract instead of anonymous objects apps reflect over.
+  ✅ done 2026-08-05 — Outcome: **no code change; the item was stale on both halves.** `FilePathOf` already
+  reads `file_path` → `notebook_path` → `path` in that order, with six tests, landed pre-1.0. The
+  "discoverable event-shape contract" is already `AgentStreamEvent` — a sealed abstract record with eight
+  concrete cases, yielded by both `IAgentSession.StreamAsync` and `IToolLoop.StreamAsync` — and Lyntai's
+  public surface contains zero anonymous objects (the only `new { }` in the tree are Dapper parameter objects
+  inside the storage adapters, which never leave the assembly). The reflection the review saw was
+  consumer-side code over its OWN hand-parsed CLI JSON; the gap there is a missing ADAPTER, not a missing
+  contract, and is already filed as Part 33's CLI11 (`CodexAgentSession`). Recorded in D39 so it is not
+  re-proposed as new surface.
+
+- [x] **curated-memory ergonomics** — a `Source`/metadata convenience accessor (apps unpack
+  `metadata["source"]` by hand after CMEM6); reconsider the delete+re-add for immutable `kind`/`task`/`scope`.
+  ✅ **accessor half** done 2026-08-05 — Outcome: `CuratedMemoryExtensions.MetadataValue(key)`, the null-safe
+  read of a map that is null on every entry written without metadata (so `entry.Metadata!["source"]` both
+  throws on a missing key and NREs on the common case). Deliberately generic: CMEM6 retired the purpose-built
+  `Source`/`Title` COLUMNS into one arbitrary map so a new payload field needs no schema or API change, and a
+  `Source()` accessor would re-privilege that name one layer up, where the storage layer can no longer see the
+  decision. Conventional key names stay documentation. **Mutability half NOT done and left open in `TASKS.md`**:
+  `kind` is already updatable (CMEM5), and making `taskKey`/`scope` updatable is a signature change on a
+  released interface (not additive) with an unanswered semantics question attached — those fields are the
+  DEDUP IDENTITY, so an in-place move can silently produce the duplicate `AddAsync(dedup: true)` promises not
+  to. See D39.
+
+- [x] **member/type XML docs** — `ExtensionsAiProvider` public ctor, `LyntaiChatClientExtensions` type
+  summary, `ClaudeCliProvider` interface members, `AddMcpTools` intended-shape doc.
+  ✅ done 2026-08-05 — Outcome: `ExtensionsAiProvider` gained `<param>` docs for all four constructor slots
+  (notably that `id` is a LABEL for one configured client, not a vendor name, and that the client is BYO and
+  never disposed here) plus `<inheritdoc/>` on the interface members and real summaries on
+  `IsAvailable`/`SupportsToolCalls`, which are both unconditionally `true` for reasons worth stating.
+  `LyntaiChatClientExtensions` gained a type summary saying which DIRECTION of the MEAI bridge it is.
+  `ClaudeCliProvider`'s interface members were already documented (`<inheritdoc/>` + per-capability summaries);
+  only its `ProviderId` const was bare, and now says how a candidate list uses it. No test — a documentation
+  change has nothing to assert beyond the build gate that every `<see cref/>` resolves, which `verify` runs.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

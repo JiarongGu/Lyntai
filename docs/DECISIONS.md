@@ -448,6 +448,55 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D39 — the post-1.0 ergonomics batch: category predicates over per-member helpers, and two halves left open on purpose (2026-08-05)
+The additive tail of the D21 review (the items filed as Part 25) worked in one pass. Recorded because three
+of the five were decided on SHAPE rather than implemented as filed, and two of the filed items turned out to
+be already done — which is exactly the kind of thing that gets re-proposed.
+
+**Verdict helpers are CATEGORIES over the enum, not one method per member.** The item asked for
+`reply.IsOk()` / `reply.IsRateLimited()`. Shipped instead as `LlmVerdictExtensions.IsOk()` /
+`IsTransient()`, hanging off `LlmVerdict` rather than off `LlmReply`. Two reasons, both about growth:
+- **A helper per member does not scale on a frozen surface.** D38 has just shown the enum grows. Each new
+  member would owe a new public method, and until it got one the NEWEST verdict — the one nobody has code
+  for yet — would be the only member without a helper. A caller who wants exactly one member already has the
+  clearest possible expression of it (`verdict == LlmVerdict.RateLimited`); what that cannot express is a
+  CATEGORY spanning several members, which is the only thing a helper adds.
+- **Five released types carry a verdict** (`LlmReply`, `LlmChunk`, `SessionEnded`, `AgentSessionResult`,
+  `ToolLoopResult`). A property on `LlmReply` would be one of five copies, each owing an update on the next
+  verdict-carrying type. An extension on the enum is one definition for all of them. The asymmetry with
+  `GenerationResult.IsOk` (a property) is accepted: nothing else in the generation domain carries a verdict.
+
+`IsTransient()` is deliberately **not** derived from `RoutingPolicy`, which answers a different question:
+`RateLimited` and `AuthFailed` share `CooldownAndAdvance` there, while here one recovers on its own and the
+other never does. It is its own two-line classification, guarded by a test that fails if a verdict is added
+without a decision — the same obligation D38 places on the policy table, now covering a third thing.
+
+**The agent-event contract was already shipped; nothing was added.** The item asked to consider "a
+discoverable event-shape contract instead of anonymous objects apps reflect over". `AgentStreamEvent` is
+already that contract — a sealed abstract record with eight concrete cases, yielded by both
+`IAgentSession.StreamAsync` and `IToolLoop.StreamAsync`, switched on by type. Lyntai's public surface
+contains **zero** anonymous objects (the only `new { }` in the tree are Dapper parameter objects inside the
+storage adapters, which never leave the assembly). The reflection the review observed was consumer-side code
+over its OWN hand-parsed CLI JSON, and the remaining gap there is not a contract but a missing adapter —
+already filed as Part 33's CLI11 (`CodexAgentSession`). Adding a second event abstraction would have been
+surface with no consumer. `ClaudeToolCalls.FilePathOf` likewise already read `notebook_path`/`path`
+(pre-1.0, with six tests); the backlog entry was stale.
+
+**Curated-memory mutability stays open, because it is a BREAK and a semantics question.** `kind` is already
+updatable (CMEM5). Making `taskKey`/`scope` updatable means new parameters on
+`ICuratedMemoryStore.UpdateAsync` — a signature change on a released interface that every BYO implementation
+would have to follow, so it is not additive and is out of scope for an additive batch. It also has a real
+design question attached: `(kind, content, taskKey, scope)` is the DEDUP IDENTITY of `AddAsync(dedup: true)`,
+so an in-place move mutates identity and can silently collide with an existing row that the dedup contract
+promises is unique. `kind` already carries that hole. The fix should settle all four together with a
+decision, not widen the hole by two. Left open in `TASKS.md` with that reasoning.
+
+**The metadata accessor is generic on purpose.** The item said "a `Source`/metadata convenience accessor".
+Shipped as `MetadataValue(key)` and nothing else: CMEM6 retired the purpose-built `Source`/`Title` COLUMNS
+into one arbitrary map precisely so a new payload field needs no schema or API change, and a `Source()`
+accessor would re-privilege that name one layer up — re-opening the decision in a place the storage layer
+can no longer see. Conventional key names stay documentation, not API.
+
 ## D38 — "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real failure (2026-08-05)
 `LlmVerdict.NotConfigured` — the first member added to that enum since the 1.0 freeze, and the first
 consumer-visible cost accepted on the frozen surface. Recorded here because the alternatives were real and

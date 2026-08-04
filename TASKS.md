@@ -133,9 +133,17 @@ did — not a rider on an unrelated one._
   one arm, but it changes a released verdict mapping: needs its own commit, a `CHANGELOG.md` entry, and a
   test that a translated `Unsupported` is not penalised.
 
+---
+
+## Part 25 — post-1.0 additive backlog (1.0 API review)
+
 _Additive / non-breaking items surfaced by the 1.0 adversarial API review + consumer-usage review (the
 working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISIONS.md` D21). None block
 1.0 — each is safe to add in a post-1.0 minor._
+
+_The ergonomics batch (verdict helpers, the `AddMcpTools` overload, the agent-event contract, the
+curated-metadata accessor, the member/type docs) closed 2026-08-05 — see `docs/task-archive.md` Part 25 and
+`docs/DECISIONS.md` **D39**. What is left below is the work that was never additive or never small._
 
 - [ ] **async migration entry points** — `MigrateUpAsync(…, CancellationToken)` twins alongside the sync
   `MigrationRunnerService.MigrateUp` (SQLite + Postgres), for apps owning their schema under
@@ -143,16 +151,18 @@ working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISI
 - [ ] **semantic-memory wiring helper** — a DI seam / `Use*` helper so an app enabling semantic recall
   doesn't hand-construct `SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` /
   `HttpEmbedder` (a consumer does this today). Those concrete types STAY public for 1.0.
-- [ ] **`AddMcpTools` convenience overload** — `params ITool[]` and/or document the
-  `await McpToolset.FromClientAsync` → `AddMcpTools` two-step as the intended shape.
-- [ ] **verdict helpers** — `reply.IsOk()` / `reply.IsRateLimited()` extension(s) to cut the 3-branch
-  `LlmVerdict` pattern at call sites.
-- [ ] **curated-memory ergonomics** — a `Source`/metadata convenience accessor (apps unpack
-  `metadata["source"]` by hand after CMEM6); reconsider the delete+re-add for immutable `kind`/`task`/`scope`.
-- [ ] **agent-event contract** — `ClaudeToolCalls.FilePathOf` should also read `notebook_path`/`path`;
-  consider a discoverable event-shape contract instead of anonymous objects apps reflect over.
-- [ ] **member/type XML docs** — `ExtensionsAiProvider` public ctor, `LyntaiChatClientExtensions` type
-  summary, `ClaudeCliProvider` interface members, `AddMcpTools` intended-shape doc.
+- [ ] **curated-memory: can `taskKey`/`scope` move in place?** — the half of the old "curated-memory
+  ergonomics" item that is NOT additive. The metadata accessor shipped 2026-08-05; re-scoping an entry still
+  means delete + re-add. Two reasons it was left rather than done (`docs/DECISIONS.md` D39):
+  - **It is a break, not an addition.** `kind` is already updatable (CMEM5); adding `taskKey`/`scope` means
+    new parameters on `ICuratedMemoryStore.UpdateAsync` — a signature change on a released interface that
+    every BYO implementation must follow. Out of scope for an additive batch; needs the D24 documented-break
+    route and its own commit.
+  - **It has an unanswered semantics question.** `(kind, content, taskKey, scope)` is the DEDUP IDENTITY of
+    `AddAsync(dedup: true)`, so moving one of those fields in place mutates identity and can silently produce
+    the duplicate the dedup contract promises not to. `kind` already has this hole. Settle all four together
+    — decide whether an identity-mutating update collides, refuses, or merges — rather than widening it by
+    two. Contract tests would then need a case per backend (`CuratedMemoryStoreContract`).
 - [ ] **`OpenAiCompatibleOptions.ContextSize` legibility** — Ollama-only option with a generic name; a
   rename (e.g. `OllamaContextSize`) is BREAKING, so it's a major-bump-or-never item — accepted as-is for
   1.0, revisit only if it causes real confusion.
