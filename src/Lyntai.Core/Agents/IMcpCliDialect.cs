@@ -18,7 +18,8 @@ namespace Lyntai.Agents;
 /// </summary>
 public interface IMcpCliDialect
 {
-    /// <summary>The <see cref="Llm.ILlmProvider.Id"/> this dialect configures (e.g. <c>claude-cli</c>).
+    /// <summary>The <see cref="Llm.ILlmProvider"/>'s <see cref="Lyntai.Lifecycle.IProviderIdentity.Id"/> this
+    /// dialect configures (e.g. <c>claude-cli</c>).
     /// The provisioner is registered keyed on this, so several CLI providers can host tools side by side
     /// with different dialects.</summary>
     string ProviderId { get; }

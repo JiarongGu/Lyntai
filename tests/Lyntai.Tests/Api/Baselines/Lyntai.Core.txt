@@ -642,7 +642,6 @@ interface Lyntai.Generation.IGenerationJobProvider
 interface Lyntai.Generation.IGenerationProvider
     Capabilities : GenerationCapabilities
     GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
-    Id : String
     ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
 interface Lyntai.Generation.IGenerationStreamProvider
     StreamAsync(GenerationRequest, CancellationToken=) : IAsyncEnumerable<GenerationChunk>
@@ -983,6 +982,8 @@ static class Lyntai.Jobs.JobStepLog
     DefaultCap : Int32 const
     static Append(String, String, DateTimeOffset, Int32=) : String
     static Parse(String) : IReadOnlyList<JobStep>
+interface Lyntai.Lifecycle.IProviderIdentity
+    Id : String
 sealed class Lyntai.Llm.Budgeting.BudgetedLlmClient
     .ctor(ILlmClient, IUsageTracker, LyntaiOptions, ILogger<BudgetedLlmClient>=)
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
@@ -1116,7 +1117,6 @@ interface Lyntai.Llm.ILlmClient
     SupportsToolCalls(LlmRequest) : Boolean
 interface Lyntai.Llm.ILlmProvider
     CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
-    Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls : Boolean
