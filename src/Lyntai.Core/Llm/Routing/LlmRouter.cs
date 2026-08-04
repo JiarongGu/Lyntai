@@ -25,7 +25,13 @@ namespace Lyntai.Llm.Routing;
 /// backend, and two consumers of one downed self-hosted host fail to share a bench that would have spared
 /// them both. <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source. Composes with
 /// <see cref="CooldownScope.ProviderAndModel"/>: granularity by model is orthogonal to identity by
-/// configuration, so that scope still appends the model.</param>
+/// configuration, so that scope still appends the model.
+///
+/// <para><b>Must return a STABLE key for a given instance.</b> One routing attempt invokes it more than once
+/// — for the candidate's cooldown key, for admission, and for the record that follows — so a delegate whose
+/// answer varies between those calls would record cooldown under a key different from the one checked,
+/// producing a bench that silently never takes effect. Look the key up (as a pool does); never recompute it
+/// from live state.</para></param>
 /// <param name="admission">Bounds concurrent completions per configuration — for a locally-run engine where
 /// simultaneous calls contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by wrapping a
 /// provider, so no optional capability interface a caller type-tests for is erased by a decorator.

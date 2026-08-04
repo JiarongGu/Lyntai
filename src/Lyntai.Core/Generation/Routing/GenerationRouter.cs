@@ -34,7 +34,13 @@ namespace Lyntai.Generation.Routing;
 /// behaviour and correct for a single-configuration deployment. Supply one when several configurations of a
 /// backend id are live at once — otherwise one tenant's rate limit benches every other tenant sharing that
 /// backend, and two consumers of one downed self-hosted host fail to share a bench that would have spared
-/// them both. <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source.</param>
+/// them both. <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source.
+///
+/// <para><b>Must return a STABLE key for a given instance.</b> One routing attempt invokes it more than once
+/// — for the bench check, for admission, and for the record that follows — so a delegate whose answer varies
+/// between those calls would record cooldown under a key different from the one checked, producing a bench
+/// that silently never takes effect. Look the key up (as a pool does); never recompute it from live
+/// state.</para></param>
 /// <param name="admission">Bounds concurrent attempts per configuration — for a locally-run engine where
 /// simultaneous renders contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by
 /// wrapping a provider, because a wrapper implementing only <see cref="IGenerationProvider"/> erases the

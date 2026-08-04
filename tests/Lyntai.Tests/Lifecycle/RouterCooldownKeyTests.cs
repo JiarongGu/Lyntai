@@ -20,6 +20,17 @@ public class RouterCooldownKeyTests
     private static List<GenerationCandidate> Candidates(params string[] ids) =>
         [.. ids.Select(id => new GenerationCandidate(id))];
 
+    /// <summary>How long a bounded await waits before failing the test outright. Generous enough never to
+    /// fire on a loaded machine, short enough that the failure is legible.
+    ///
+    /// <para>Every await on a gated call in this class is bounded by it, because the regression these tests
+    /// exist to catch — a permit that is never returned — makes the waiting caller wait FOREVER. An
+    /// unbounded await would turn that regression into an indefinite hang: <c>verify</c> stops producing
+    /// output at all and no test names the problem, which destroys the signal for every other test in the
+    /// run. A <see cref="TimeoutException"/> at the assertion that matters is the difference between a red
+    /// test and a dead run.</para></summary>
+    private static readonly TimeSpan GateWait = TimeSpan.FromSeconds(5);
+
     // Default behaviour must be untouched: an app that never supplies a delegate benches by provider id,
     // exactly as it does today.
     [Fact]
@@ -83,15 +94,17 @@ public class RouterCooldownKeyTests
         var router = new GenerationRouter([backend], null, new DeadHostTracker(), _ => key, admission);
 
         var first = router.GenerateAsync(Candidates("a1111"), Request());
-        await backend.Entered.Task;                       // first attempt is inside the provider
+        await backend.Entered.Task.WaitAsync(GateWait);   // first attempt is inside the provider
         var second = router.GenerateAsync(Candidates("a1111"), Request());
 
         Assert.False(second.IsCompleted);                 // held at the gate, not at the backend
         Assert.Equal(1, backend.Concurrent);
 
         backend.Release();
-        await first;
-        await second;
+        await first.WaitAsync(GateWait);
+        // bounded deliberately: if the permit `first` took is ever leaked, this is the await that would
+        // otherwise hang the whole run instead of failing (see GateWait)
+        await second.WaitAsync(GateWait);
     }
 
     // Every permit taken must come back, or the gate is pinned for the life of the process. Asserting the
@@ -151,6 +164,33 @@ public class RouterCooldownKeyTests
 
         Assert.True(tracker.IsDead(cfg.ToString()));
         Assert.False(tracker.IsDead("openai"));
+    }
+
+    // Identity by configuration and granularity by model are ORTHOGONAL, so they compose rather than one
+    // replacing the other. The full table the two knobs produce:
+    //   no delegate + Provider          -> "openai"
+    //   no delegate + ProviderAndModel  -> "openai::gpt-5"        (covered by the existing router tests)
+    //   delegate    + Provider          -> "openai#<fp12>"        (covered above)
+    //   delegate    + ProviderAndModel  -> "openai#<fp12>::gpt-5" (this test — the only untested cell)
+    [Fact]
+    public async Task The_delegate_composes_with_the_ProviderAndModel_cooldown_scope()
+    {
+        var tracker = new DeadHostTracker(threshold: 1);
+        var options = new LyntaiOptions();
+        options.Routing.CooldownScope = CooldownScope.ProviderAndModel;
+        var cfg = ProviderKey.For("openai").With("tenant", "a").Build();
+
+        var provider = new FakeLlmProvider("openai");
+        provider.Replies.Enqueue(new LlmReply("nope", LlmVerdict.RateLimited));
+
+        var router = new LlmRouter([provider], tracker, options, configuration: _ => cfg);
+
+        await router.CompleteAsync([new LlmCandidate("openai", "gpt-5")],
+            new LlmRequest { Messages = [LlmMessage.User("hi")] });
+
+        Assert.True(tracker.IsDead($"{cfg}::gpt-5"));      // the configuration AND the model
+        Assert.False(tracker.IsDead(cfg.ToString()));      // not the configuration alone
+        Assert.False(tracker.IsDead("openai::gpt-5"));     // and never the bare provider id
     }
 
     // The LLM side gates completions the same way, and must return the permit on the fallback path too —
