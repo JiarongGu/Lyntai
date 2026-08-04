@@ -474,12 +474,21 @@ file, the `docs/AOT.md` table and the README table; plus the reverse, so a delet
 orphan baseline or a stale registry entry behind. A package that ships no assembly (the bundle) is exempt from
 the assembly-shaped checks.
 
+**The chore is also removed, not just checked:** `node devtools/dev.mjs new-package <Lyntai.X>` scaffolds the
+csproj plus the conventional `Add*` entry point (which doubles as the API-gate anchor type) and writes all seven
+mechanical registry entries; the baseline seeds on the next test run, and bundle membership stays a human call
+under D32. Verified end to end on a throwaway package: scaffold → clean build → seeded baseline → all gates
+green, then a deliberate half-removal to confirm the reverse checks fire.
+
 **A gate has to be TESTED against a broken tree, or it certifies nothing.** The first version of this one passed
 while two registries were deliberately broken: searching the whole test file for the assembly name found it in
 the *other* registry, and searching the README for the package name found it in prose. Both are now scoped —
 `Assemblies()` and `Loaded` are extracted and checked separately, and a docs mention must be a table ROW. That
 mistake is worth recording because it is the general failure mode of consistency gates: a presence check against
-a big file almost always passes.
+a big file almost always passes. The scaffolder had the mirror-image bug on ITS first run — an idempotency guard
+that tested the anchor line instead of the inserted line, so it reported "already present" for five registries it
+had never written. Both were found the same way: run the thing against a tree you broke on purpose, and read the
+output instead of trusting the exit code.
 
 ## D32 — what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate (2026-08-04)
 D31 decides when something becomes its own package. This decides the complementary question, asked at the

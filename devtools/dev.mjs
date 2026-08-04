@@ -3,6 +3,7 @@
 //   node devtools/dev.mjs check-warnings   - FAIL if any src/ project compiles with a warning (--list for all)
 //   node devtools/dev.mjs check-bundle     - FAIL if the `Lyntai` bundle's dependency closure drifted (D32)
 //   node devtools/dev.mjs check-packages   - FAIL if a package is missing from any registry it needs (D33)
+//   node devtools/dev.mjs new-package <Id> - scaffold an adapter package + register it in all nine registries
 //   node devtools/dev.mjs test [args]      - dotnet test the test project (extra args pass through)
 //   node devtools/dev.mjs e2e [all|pN|pN-pM|p1,p3] [--build] [--parallel[=N]] - Playground e2e suites
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
@@ -246,6 +247,12 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'check-packages.mjs'), ...args]);
     break;
 
+  // Scaffold an adapter package AND register it in all nine registries — the companion to check-packages.
+  // Bundle membership stays a human decision (D32); everything mechanical is done for you.
+  case 'new-package':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'new-package.mjs'), ...args]);
+    break;
+
   case 'test':
     run('dotnet', ['test', config.testProject, '-v', 'minimal', ...args]);
     break;
@@ -476,6 +483,6 @@ switch (cmd) {
 
   default:
     console.log('usage: node devtools/dev.mjs <build|check-warnings|check-bundle|check-packages|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
-      'new-migration|install-hooks|check-sensitive|check-version>');
+      'new-migration|new-package|install-hooks|check-sensitive|check-version>');
     process.exitCode = cmd ? 1 : 0;
 }

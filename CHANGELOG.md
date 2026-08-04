@@ -48,6 +48,10 @@ because the restructure was designed around keeping namespaces fixed.
   (`IChatClient` → provider, and `AsChatClient()` back) on the one-line install. It is free: MCP already pins
   `Microsoft.Extensions.AI.Abstractions`, so the bundle's third-party closure is unchanged at 15 packages (only a
   version unification), for 38 KB of managed code that trimming removes entirely.
+- **`node devtools/dev.mjs new-package <Lyntai.X>`** — scaffolds an adapter package (csproj + the conventional
+  `Add*` builder entry point, which doubles as the API-gate anchor type) and registers it in all seven mechanical
+  registries; the API baseline seeds on the next test run. Bundle membership is deliberately not automatic — that
+  is a budgeted decision under D32. Adding the next package is now one command plus writing the adapter.
 - **Many small packages is now the settled shape, with tooling to match (`docs/DECISIONS.md` D33)** — a package
   as small as `Lyntai.Secrets.Dpapi` (8 KB) earns its id, because the cost of a package is its DEPENDENCY, not its
   size: merging a Windows-only 8 KB adapter into anything larger makes that larger thing unusable off Windows. So

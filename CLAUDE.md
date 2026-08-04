@@ -139,6 +139,9 @@ capability-aware seam; in Core because it has no dependency to isolate, `DECISIO
 - `node devtools/dev.mjs e2e [pN|all] [--build] [--parallel]` — boot `Lyntai.Playground` against the
   deterministic provider-stub (`LYNTAI_PROVIDER_CMD`) over isolated `devtools/_e2e-*` data folders.
 - `node devtools/dev.mjs new-migration <name>` — scaffold the next FluentMigrator migration (unique number).
+- `node devtools/dev.mjs new-package <Lyntai.X> [--description "…"]` — scaffold an adapter package (csproj +
+  its `Add*` entry point) and register it in all **nine** registries `check-packages` gates. Bundle membership
+  is deliberately NOT automatic (D32). See `DECISIONS.md` D33.
 - `node devtools/dev.mjs playground` — run the sample console app.
 - `node devtools/dev.mjs bench [-- --filter *X*]` — BenchmarkDotNet (Release) router/FTS benchmarks.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.
