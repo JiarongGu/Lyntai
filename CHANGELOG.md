@@ -58,6 +58,30 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   implemented `Id` *explicitly* (`string ILlmProvider.Id => …`) must now also implement
   `IProviderIdentity.Id`; implicit implementation is unaffected.
 
+### Fixed
+- **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already
+  resting on** (`TASKS.md` GEN11). 2.1.0's `Add*` shims register a client with `Timeout.InfiniteTimeSpan`
+  because a render routinely outlives the 100-second default — but no deadline existed to take over:
+  `GenerationRequest.TimeoutSeconds` was on the contract and **read by nothing**, so a backend that accepted the
+  connection and then stalled hung until the caller's token fired, and a background render with no cancel waited
+  forever. Unbounded and silent is worse than the cut-off it replaced. Each of `OpenAiImageOptions`,
+  `Automatic1111Options`, `ComfyUiOptions` and `FalQueueOptions` now carries a **`Timeout`** — 10 minutes for the
+  inline render backends, 2 minutes for the queue ones — overridden per call by `GenerationRequest.TimeoutSeconds`
+  where a request exists, and opted out of with `Timeout.InfiniteTimeSpan`. A fired deadline is a
+  **`GenerationVerdict.Timeout` result, not a throw** (these backends are contractually fail-safe), while the
+  caller's own cancellation still propagates as `OperationCanceledException` — the two are told apart by the
+  caller's token, the same discriminator `OpenAiCompatibleProvider` uses on the LLM side. A BYO client's own
+  `HttpClient.Timeout` now also surfaces as that verdict instead of escaping as `TaskCanceledException`.
+- **What a deadline means for the queue backends is now stated rather than assumed.** For `FalQueueProvider` and
+  `ComfyUiProvider` it bounds **one HTTP call** — submit, status, fetch, cancel — never the render, which
+  outlives every individual call and is polled across job re-dispatches and process restarts by
+  `GenerationRenderJobHandler`; bounding the whole operation is the job's retry budget to do, not the provider's.
+  Consequently a timed-out **status poll reports the operation as still `Running`**: no answer is not a failed
+  render, and reading it as terminal would abandon a submitted (and billed) generation. A timed-out **submit**
+  fails with a detail saying the request may still have been enqueued.
+- Probes (`OpenAiImageProvider`, `Automatic1111Provider`, `ComfyUiProvider`) are bounded by the same option — with
+  the shim's infinite client they could otherwise stall indefinitely against a host that accepts connections.
+
 ### Changed
 - `LlmRouter` and `GenerationRouter` gained two **optional** trailing constructor parameters (`configuration`,
   `admission`). Source-compatible — existing constructions compile and behave identically — but **not binary

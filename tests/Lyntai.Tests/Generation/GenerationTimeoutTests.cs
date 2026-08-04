@@ -1,0 +1,200 @@
+using Lyntai.Generation;
+using Lyntai.Generation.Providers;
+
+namespace Lyntai.Tests.Generation;
+
+/// <summary>The per-call deadline the HTTP generation backends were missing (GEN11). The shims configure their
+/// named client with <see cref="Timeout.InfiniteTimeSpan"/> on the grounds that "the per-call deadline owns
+/// cancellation" — so a deadline has to exist, or a backend that accepts the connection and then stalls hangs
+/// until the caller's token fires, and a background render with no cancel waits forever.
+///
+/// <para>Two things are pinned here beyond "it stops": a fired deadline is a <see cref="GenerationVerdict.Timeout"/>
+/// RESULT (these backends are contractually fail-safe — a transport failure is a verdict, not a throw), while the
+/// CALLER's own cancellation still propagates as an <see cref="OperationCanceledException"/>. A naive linked-token
+/// implementation reports one as the other.</para></summary>
+public class GenerationTimeoutTests
+{
+    /// <summary>A backend that accepts the connection and then never answers — the exact failure the deadline
+    /// exists for. It honours the token it is given, so only a clock can end the call.</summary>
+    private sealed class StallingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
+    private static Func<HttpClient> Stalling() => () => new HttpClient(new StallingHandler());
+
+    private static GenerationRequest Ask(int? timeoutSeconds = null) =>
+        new() { Kind = GenerationKinds.Image, Prompt = "a red square", TimeoutSeconds = timeoutSeconds };
+
+    private static readonly TimeSpan Short = TimeSpan.FromMilliseconds(150);
+
+    // a budget no test can reach, so a test that ends did so for the reason it names
+    private static readonly TimeSpan Unreachable = TimeSpan.FromMinutes(30);
+
+    // ---- there IS a bounded default (the bug: none at all) ----
+
+    [Fact]
+    public void Every_http_backend_defaults_to_a_generous_but_FINITE_budget()
+    {
+        // "no deadline" is the defect; an infinite default would reintroduce it silently. Generous because a
+        // render legitimately runs for minutes — the 100s HttpClient default is what the shims rightly dropped.
+        foreach (var (name, budget) in ((string, TimeSpan)[])
+        [
+            (nameof(OpenAiImageOptions), new OpenAiImageOptions { BaseUrl = "x" }.Timeout),
+            (nameof(Automatic1111Options), new Automatic1111Options { BaseUrl = "x" }.Timeout),
+            (nameof(ComfyUiOptions), new ComfyUiOptions { BaseUrl = "x" }.Timeout),
+            (nameof(FalQueueOptions), new FalQueueOptions().Timeout),
+        ])
+        {
+            Assert.True(budget > TimeSpan.FromMinutes(1), $"{name}: not generous enough ({budget})");
+            Assert.True(budget < TimeSpan.FromHours(1), $"{name}: not a bound ({budget})");
+        }
+    }
+
+    // ---- precedence: the request wins, the options default is the fallback ----
+
+    [Fact]
+    public void An_explicit_request_timeout_wins_over_the_options_default()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(5), GenerationDeadline.Resolve(5, Unreachable));
+        Assert.Equal(Unreachable, GenerationDeadline.Resolve(null, Unreachable));
+        Assert.Equal(Unreachable, GenerationDeadline.Resolve(0, Unreachable));    // 0/<=0 is not a budget
+        Assert.Equal(Unreachable, GenerationDeadline.Resolve(-1, Unreachable));
+    }
+
+    [Fact]
+    public async Task A_longer_per_request_budget_outlasts_a_short_options_default()
+    {
+        // deterministic in both directions: a timer can never fire EARLY, so a stalled call under a 60s
+        // override can only end via the 150ms options default leaking through — the regression under test
+        var provider = new OpenAiImageProvider(
+            new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Timeout = Short }, Stalling());
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => provider.GenerateAsync(Ask(timeoutSeconds: 60), cts.Token));
+    }
+
+    // ---- a fired deadline is a VERDICT, on every HTTP-calling entry point ----
+
+    [Fact]
+    public async Task OpenAi_images_reports_a_stalled_render_as_a_Timeout_verdict()
+    {
+        var provider = new OpenAiImageProvider(
+            new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Timeout = Unreachable }, Stalling());
+
+        var result = await provider.GenerateAsync(Ask(timeoutSeconds: 1));
+
+        Assert.Equal(GenerationVerdict.Timeout, result.Verdict);
+    }
+
+    [Fact]
+    public async Task Automatic1111_reports_a_stalled_render_as_a_Timeout_verdict()
+    {
+        var provider = new Automatic1111Provider(
+            new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860", Timeout = Short }, Stalling());
+
+        var result = await provider.GenerateAsync(Ask());
+
+        Assert.Equal(GenerationVerdict.Timeout, result.Verdict);
+    }
+
+    [Fact]
+    public async Task A_probe_is_bounded_too_because_the_shim_client_has_no_timeout_of_its_own()
+    {
+        var openAi = await new OpenAiImageProvider(
+            new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Timeout = Short }, Stalling())
+            .ProbeAsync();
+        Assert.False(openAi.Available);
+
+        var a1111 = await new Automatic1111Provider(
+            new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860", Timeout = Short }, Stalling())
+            .ProbeAsync();
+        Assert.False(a1111.Available);
+
+        var comfy = await new ComfyUiProvider(
+            new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
+            .ProbeAsync();
+        Assert.False(comfy.Available);
+    }
+
+    // ---- the queue backends: a deadline bounds ONE HTTP call, and a timed-out POLL keeps the render ----
+
+    [Fact]
+    public async Task A_stalled_submit_fails_rather_than_hanging_on_both_queue_backends()
+    {
+        var fal = await new FalQueueProvider(
+            new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", Timeout = Short }, Stalling())
+            .SubmitAsync(new GenerationRequest { Kind = GenerationKinds.Video, Prompt = "a wave" });
+        Assert.Equal(GenerationOperationStatus.Failed, fal.Status);
+
+        var comfy = await new ComfyUiProvider(
+            new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
+            .SubmitAsync(new GenerationRequest
+            {
+                Kind = GenerationKinds.Image,
+                Options = new Dictionary<string, string> { ["workflow"] = "{}" },
+            });
+        Assert.Equal(GenerationOperationStatus.Failed, comfy.Status);
+    }
+
+    [Fact]
+    public async Task A_timed_out_status_POLL_leaves_the_render_running_rather_than_abandoning_it()
+    {
+        // a slow status call is NO ANSWER, not a failed render — reading it as terminal would abandon a
+        // submitted (and billed) generation that is merely still going
+        var fal = await new FalQueueProvider(
+            new FalQueueOptions { ApiKey = "k", Timeout = Short }, Stalling())
+            .PollAsync("fal-ai/wan-t2v#abc");
+        Assert.Equal(GenerationOperationStatus.Running, fal.Status);
+
+        var comfy = await new ComfyUiProvider(
+            new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
+            .PollAsync("prompt-1");
+        Assert.Equal(GenerationOperationStatus.Running, comfy.Status);
+    }
+
+    [Fact]
+    public async Task A_timed_out_FETCH_is_a_Timeout_verdict_on_both_queue_backends()
+    {
+        var fal = await new FalQueueProvider(
+            new FalQueueOptions { ApiKey = "k", Timeout = Short }, Stalling())
+            .FetchAsync("fal-ai/wan-t2v#abc");
+        Assert.Equal(GenerationVerdict.Timeout, fal.Verdict);
+
+        var comfy = await new ComfyUiProvider(
+            new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Short }, Stalling())
+            .FetchAsync("prompt-1");
+        Assert.Equal(GenerationVerdict.Timeout, comfy.Verdict);
+    }
+
+    // ---- the caller's own cancellation is NOT a timeout ----
+
+    [Fact]
+    public async Task The_callers_cancellation_still_propagates_instead_of_becoming_a_Timeout_verdict()
+    {
+        // the subtle half: the deadline is generous and unreachable here, so anything that ends these calls
+        // is the caller's token — which must surface as cancellation, never as a Timeout RESULT
+        using var cts = new CancellationTokenSource(Short);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new OpenAiImageProvider(
+            new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Timeout = Unreachable }, Stalling())
+            .GenerateAsync(Ask(), cts.Token));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new Automatic1111Provider(
+            new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860", Timeout = Unreachable }, Stalling())
+            .GenerateAsync(Ask(), cts.Token));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new FalQueueProvider(
+            new FalQueueOptions { ApiKey = "k", Timeout = Unreachable }, Stalling())
+            .PollAsync("fal-ai/wan-t2v#abc", cts.Token));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new ComfyUiProvider(
+            new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Timeout = Unreachable }, Stalling())
+            .ProbeAsync(cts.Token));
+    }
+}

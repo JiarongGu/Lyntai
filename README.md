@@ -568,6 +568,15 @@ services.AddHttpClient(GenerationProviderBuilderExtensions.HttpClientName("fal")
         .AddHttpMessageHandler<MyLoggingHandler>();
 ```
 
+**That deadline is per backend, and infinite there does not mean unbounded.** Every options record carries a
+`Timeout` — 10 minutes for the inline render backends (`OpenAiImageOptions`, `Automatic1111Options`), 2 minutes
+for the queue ones (`ComfyUiOptions`, `FalQueueOptions`, whose calls are submit/status/fetch round-trips rather
+than renders) — and a request's own `TimeoutSeconds` overrides it where a request exists. A fired deadline is a
+`GenerationVerdict.Timeout` **result**, not a throw; your own `CancellationToken` keeps its own meaning and
+still surfaces as cancellation. Set `Timeout = System.Threading.Timeout.InfiniteTimeSpan` to own timeouts
+entirely. For a queue backend the deadline bounds one HTTP call, never the render — the render outlives every
+call, and bounding it is the durable job's retry budget to do.
+
 Inputs — an init image, a first frame, a style reference, a voice sample — are built with the **named
 factories**, never the positional constructor:
 

@@ -43,6 +43,21 @@ public sealed record ComfyUiOptions
     /// <summary>The option key holding a dotted path to the node input that receives
     /// <see cref="GenerationRequest.Prompt"/> (e.g. <c>"6.inputs.text"</c>).</summary>
     public string PromptPathOption { get; init; } = "prompt-path";
+
+    /// <summary>Ceiling for ONE HTTP call to the server — a submit, a history read, an interrupt, a probe.
+    ///
+    /// <para><b>It does not bound the render.</b> This backend is submit → poll → fetch, and the run outlives
+    /// any single call: <c>GenerationRenderJobHandler</c> polls it across job re-dispatches and process
+    /// restarts, so poll and fetch arrive with no memory of when the submit happened and no request in hand. A
+    /// whole-operation deadline could only live where the operation does — in the job's own retry budget. What
+    /// this bounds is the thing that was genuinely unbounded: a server that accepts a connection and never
+    /// answers.</para>
+    ///
+    /// <para>Shorter than the inline backends' default because these calls are queue operations rather than
+    /// renders — none of them should take minutes. On <c>SubmitAsync</c> a request's
+    /// <see cref="GenerationRequest.TimeoutSeconds"/> still overrides it (it is the most specific thing that
+    /// caller can say about that call); <see cref="Timeout.InfiniteTimeSpan"/> opts out entirely.</para></summary>
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(2);
 }
 
 /// <summary>
@@ -93,8 +108,13 @@ public sealed class ComfyUiProvider(
         SupportsInputs = true,   // a workflow can take an init image; the graph decides how
     };
 
-    /// <summary>Reads server info — free, and it answers "is it up, and which build?" without generating.</summary>
-    public async Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)
+    /// <summary>Reads server info — free, and it answers "is it up, and which build?" without generating.
+    /// Bounded by <see cref="ComfyUiOptions.Timeout"/>.</summary>
+    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct, ProbeCoreAsync,
+            reason => new GenerationProbeResult(false, $"probe {reason}"));
+
+    private async Task<GenerationProbeResult> ProbeCoreAsync(CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
@@ -124,7 +144,16 @@ public sealed class ComfyUiProvider(
             "ComfyUI generates asynchronously: use submit → poll → fetch (IGenerationJobProvider)"));
 
     /// <inheritdoc/>
-    public async Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+    /// <remarks>Bounded by the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it carries one, else
+    /// <see cref="ComfyUiOptions.Timeout"/> — the QUEUEING call only, not the run it starts.</remarks>
+    public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(
+            GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
+            token => SubmitCoreAsync(request, token),
+            // a submit that timed out may still have been queued — say so rather than implying nothing happened
+            reason => Failed($"the submit {reason}; the workflow may still have been accepted"));
+
+    private async Task<GenerationOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return Failed("no BaseUrl configured");
@@ -172,8 +201,16 @@ public sealed class ComfyUiProvider(
     }
 
     /// <summary>Reads the run's history entry. An EMPTY history means "not landed yet" — reporting that as a
-    /// failure would fail every run that simply hasn't finished.</summary>
-    public async Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default)
+    /// failure would fail every run that simply hasn't finished. A history read that TIMES OUT is treated the
+    /// same way, and for the same reason: no answer is not a failed render, and reading it as terminal would
+    /// abandon a run that is merely still going.</summary>
+    public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct,
+            token => PollCoreAsync(operationId, token),
+            reason => new GenerationOperation(operationId, GenerationOperationStatus.Running,
+                Detail: $"the status call {reason} — the run is still assumed to be going"));
+
+    private async Task<GenerationOperation> PollCoreAsync(string operationId, CancellationToken ct)
     {
         var (body, failure) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
         if (failure is not null) return new GenerationOperation(operationId, GenerationOperationStatus.Failed, Detail: failure);
@@ -185,7 +222,14 @@ public sealed class ComfyUiProvider(
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default)
+    /// <remarks>Bounded by <see cref="ComfyUiOptions.Timeout"/>; a fired deadline is a
+    /// <see cref="GenerationVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
+    public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct,
+            token => FetchCoreAsync(operationId, token),
+            reason => GenerationResult.Failure(GenerationVerdict.Timeout, $"the result fetch {reason}"));
+
+    private async Task<GenerationResult> FetchCoreAsync(string operationId, CancellationToken ct)
     {
         var (body, failure) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
         if (failure is not null) return GenerationResult.Failure(GenerationVerdict.Failed, failure);
@@ -202,8 +246,16 @@ public sealed class ComfyUiProvider(
     }
 
     /// <summary>Interrupts the RUNNING job. ComfyUI's interrupt is server-wide rather than per-id, so this
-    /// stops whatever is executing — documented here because it matters if a host queues several.</summary>
-    public async Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default)
+    /// stops whatever is executing — documented here because it matters if a host queues several. Bounded by
+    /// <see cref="ComfyUiOptions.Timeout"/>; an interrupt that timed out may or may not have landed, so the run
+    /// is reported as still going rather than assumed stopped.</summary>
+    public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct,
+            token => CancelCoreAsync(operationId, token),
+            reason => new GenerationOperation(operationId, GenerationOperationStatus.Running,
+                Detail: $"the interrupt {reason}"));
+
+    private async Task<GenerationOperation> CancelCoreAsync(string operationId, CancellationToken ct)
     {
         var http = httpFactory();
         using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours

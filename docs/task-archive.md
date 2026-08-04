@@ -2122,6 +2122,57 @@ be grouped by vendor across both domains, and cost is a first-class metric (`lyn
 there is no token proxy for it. Spans are per ATTEMPT, so a trace of a fallback run shows the backend that
 failed as well as the one that worked. 24 tests; `verify` green (build · 1332 tests · e2e 3/3 · leak scan).
 
+- [x] **GEN11 — the `Add*` shims' infinite HTTP timeout rests on a per-call deadline that does not exist.**
+  Found 2026-08-04 by the consuming app adopting 2.1.0, from reading the release note rather than from a hang.
+
+  `GenerationProviderBuilderExtensions` configures the named client with `Timeout.InfiniteTimeSpan`, and the
+  changelog gives the reason: *"the per-call deadline owns cancellation (a render routinely outlives the
+  100-second default)"*. The first half is right — 100s is genuinely too short for a render. But **there is no
+  per-call deadline for the HTTP generation backends.** `GenerationRequest.TimeoutSeconds` exists on the
+  contract and, as of 2.1.0, **no source file reads it** (grep of `src/` finds it only in XML docs and the
+  compiled DLL); only `LocalDiffusionProvider` — the subprocess one — has its own timeout.
+
+  So a consumer using `AddOpenAiImageProvider` / `AddAutomatic1111Provider` gets: infinite HttpClient timeout,
+  no request deadline, no options deadline. A backend that accepts the connection and then stalls hangs the
+  render until the caller's `ct` fires — and a UI that offers no cancel (a background job, a scheduled task)
+  waits forever. That is a worse failure than the 100s cut-off it replaced, because it is unbounded and silent.
+
+  **Suggested:** honour `GenerationRequest.TimeoutSeconds` in the HTTP backends (it already exists, so this is
+  wiring not API), and/or give the options a `Timeout` like `LocalDiffusionOptions` has, defaulted generously.
+  Then the shim's infinite client timeout becomes true rather than aspirational.
+
+  **What the consumer did meanwhile**, in case it is useful as a data point: it constructs its own client with
+  an explicit **180s** timeout — deliberately NOT infinite — because that restores the ceiling its pre-migration
+  code had and keeps a bounded failure. It will switch to the shims once a deadline exists.
+
+✅ done 2026-08-05 — **Outcome:** the premise was verified before it was fixed (`TimeoutSeconds` was read by
+nothing but the durable-job payload's own serializer). The deadline is now real: an internal `GenerationDeadline`
+(`src/Lyntai.Generation/GenerationDeadline.cs`) wraps every HTTP-calling entry point of all four backends, and
+each options record carries a `Timeout` — 10 minutes for the inline render backends, 2 minutes for the queue ones
+— overridden by `GenerationRequest.TimeoutSeconds` wherever a request is in hand.
+
+**The load-bearing part is telling a fired deadline from the caller's cancellation**, since both arrive as
+`OperationCanceledException` through the same linked token. The discriminator is the caller's own token: if `ct`
+is cancelled the exception is theirs and is rethrown; otherwise the only clocks left are ours and the client's,
+and both mean timeout — so a deadline yields a `GenerationVerdict.Timeout` RESULT (the seam is contractually
+fail-safe) while cancellation still propagates. That is the LLM side's existing idiom
+(`OpenAiCompatibleProvider.CompleteAsync`), reused rather than reinvented, and it is pinned by mutation: dropping
+the `when (!ct.IsCancellationRequested)` filter fails exactly the two cancellation tests and no others. A bonus
+fix falls out — a BYO client's own `HttpClient.Timeout` (what the consumer above is using, at 180s) previously
+escaped as a raw `TaskCanceledException` and is now that same verdict.
+
+**For the queue backends the deadline bounds ONE HTTP call, never the render** — recorded because the choice is
+invisible in the code. The render outlives every individual call: `GenerationRenderJobHandler` polls it across
+job re-dispatches and process restarts, so poll and fetch arrive with no memory of the submit and no request in
+hand, and a whole-operation deadline could only live in the job's retry budget. Two consequences are deliberate:
+a timed-out **status poll reports Running**, not Failed (no answer is not a failed render — reading it as
+terminal would abandon a submitted, billed generation; this also aligns ComfyUI's poll with fal's existing
+transport-failure treatment), and a timed-out **submit** says the request may still have been enqueued.
+
+Public surface additive only — four `Timeout : TimeSpan` lines in the API baseline, nothing removed or
+re-signed. 10 tests in `tests/Lyntai.Tests/Generation/GenerationTimeoutTests.cs`; `verify` green
+(build · warnings · packages · bundle · 1464 tests · e2e 3/3 · leak scan).
+
 ## Part 35 — the 2.0.1 release hardening + a packaging policy with gates (2026-08-04)
 
 _Not a planned backlog item: this came out of the owner asking, before cutting 2.0.1, whether the library was

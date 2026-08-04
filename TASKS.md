@@ -73,29 +73,6 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   the experimental marker needn't block anything._
 
-- [ ] **GEN11 — the `Add*` shims' infinite HTTP timeout rests on a per-call deadline that does not exist.**
-  Found 2026-08-04 by the consuming app adopting 2.1.0, from reading the release note rather than from a hang.
-
-  `GenerationProviderBuilderExtensions` configures the named client with `Timeout.InfiniteTimeSpan`, and the
-  changelog gives the reason: *"the per-call deadline owns cancellation (a render routinely outlives the
-  100-second default)"*. The first half is right — 100s is genuinely too short for a render. But **there is no
-  per-call deadline for the HTTP generation backends.** `GenerationRequest.TimeoutSeconds` exists on the
-  contract and, as of 2.1.0, **no source file reads it** (grep of `src/` finds it only in XML docs and the
-  compiled DLL); only `LocalDiffusionProvider` — the subprocess one — has its own timeout.
-
-  So a consumer using `AddOpenAiImageProvider` / `AddAutomatic1111Provider` gets: infinite HttpClient timeout,
-  no request deadline, no options deadline. A backend that accepts the connection and then stalls hangs the
-  render until the caller's `ct` fires — and a UI that offers no cancel (a background job, a scheduled task)
-  waits forever. That is a worse failure than the 100s cut-off it replaced, because it is unbounded and silent.
-
-  **Suggested:** honour `GenerationRequest.TimeoutSeconds` in the HTTP backends (it already exists, so this is
-  wiring not API), and/or give the options a `Timeout` like `LocalDiffusionOptions` has, defaulted generously.
-  Then the shim's infinite client timeout becomes true rather than aspirational.
-
-  **What the consumer did meanwhile**, in case it is useful as a data point: it constructs its own client with
-  an explicit **180s** timeout — deliberately NOT infinite — because that restores the ceiling its pre-migration
-  code had and keeps a bounded failure. It will switch to the shims once a deadline exists.
-
 - [ ] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
   consuming app that wanted to delete its hand-rolled codex integration and could not.
 

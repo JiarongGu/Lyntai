@@ -27,6 +27,14 @@ public sealed record OpenAiImageOptions
 
     /// <summary>Size used when the request doesn't ask for one.</summary>
     public string DefaultSize { get; init; } = "1024x1024";
+
+    /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because an image
+    /// render legitimately runs for minutes (which is why <c>AddOpenAiImageProvider</c> gives its client an
+    /// infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded, because a
+    /// backend that accepts the connection and then stalls would otherwise hang a background render forever.
+    /// A request's own <see cref="GenerationRequest.TimeoutSeconds"/> overrides it;
+    /// <see cref="Timeout.InfiniteTimeSpan"/> opts out entirely.</summary>
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(10);
 }
 
 /// <summary>
@@ -68,8 +76,14 @@ public sealed class OpenAiImageProvider(
     };
 
     /// <summary>Lists models (<c>GET {BaseUrl}/models</c>) — a real answer to "is this usable?" that costs
-    /// nothing, instead of the generate-and-discard test this replaces.</summary>
-    public async Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)
+    /// nothing, instead of the generate-and-discard test this replaces. Bounded by
+    /// <see cref="OpenAiImageOptions.Timeout"/>: the shim's client has no timeout of its own, so an
+    /// unresponsive host would otherwise stall the probe indefinitely.</summary>
+    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct, ProbeCoreAsync,
+            reason => new GenerationProbeResult(false, $"probe {reason}"));
+
+    private async Task<GenerationProbeResult> ProbeCoreAsync(CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
@@ -100,7 +114,17 @@ public sealed class OpenAiImageProvider(
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
+    /// <remarks>Runs under a deadline: the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it
+    /// carries one, else <see cref="OpenAiImageOptions.Timeout"/>. A fired deadline is a
+    /// <see cref="GenerationVerdict.Timeout"/> result; <paramref name="ct"/> keeps its own meaning and still
+    /// propagates as cancellation.</remarks>
+    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(
+            GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
+            token => GenerateCoreAsync(request, token),
+            reason => GenerationResult.Failure(GenerationVerdict.Timeout, $"the render {reason}"));
+
+    private async Task<GenerationResult> GenerateCoreAsync(GenerationRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return GenerationResult.Failure(GenerationVerdict.NotConfigured, "no BaseUrl configured");
