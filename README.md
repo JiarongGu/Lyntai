@@ -57,26 +57,33 @@ per-`StorageFeature` baselines.
 
 | Package | What it gives you |
 |---|---|
-| `Lyntai.Core` | Interfaces + the fallback router + cortex (prompt/scoring/trace) + DI. No heavy deps. |
-| `Lyntai.Providers.Default` | The default provider set, bundled because they share one dependency footprint and ship no native payload: the authenticated `claude` and `codex` CLIs, plus any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) and its embedder. |
-| `Lyntai.Storage.Sqlite` | SQLite implementation of every storage domain (Dapper + FluentMigrator + FTS5). |
-| `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain with SQLite. |
-| `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` memory recall) for a server-backed deployment. |
-| `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
-| `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
-| `Lyntai.Generation` | Generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
-| `Lyntai.Generation.Http` | Three generation backends over HTTP: OpenAI-compatible images, Stable Diffusion WebUI (Automatic1111), and a local ComfyUI (async, workflow-driven). |
-| `Lyntai.Tools.Mcp` | Expose a Model Context Protocol (MCP) server's tools as Lyntai `ITool`s for the tool loop. |
-| `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server so a CLI that runs its own agent loop can call them. Per-CLI wiring is an `IMcpCliDialect` (`ClaudeCliMcpDialect` ships with the claude provider). |
+| **`Lyntai`** | **One-line install** — Core + the dependency-free default backends + in-memory storage. Add the rest below only when you need them. |
+| `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI. Deps: DI + Logging abstractions only. |
+| `Lyntai.Providers.Default` | The dependency-free backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat, embeddings **and images**; a Stable Diffusion WebUI (Automatic1111); a local ComfyUI. |
+| `Lyntai.Providers.ExtensionsAi` | Bridge, both directions: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider, and `AsChatClient()` back. |
+| `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp — add an `LLamaSharp.Backend.*` for your hardware. |
+| `Lyntai.Storage.Sqlite` | SQLite for every storage domain (Dapper + FluentMigrator + FTS5; ships a native SQLite binary). |
+| `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
+| `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain. |
+| `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
+| `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server for a CLI that runs its own agent loop. Needs ASP.NET Core. |
+| `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
 
-Each `src/*` is an independent NuGet package depending only on `Lyntai.Core` — add just what you need.
-Packages are split by **dependency footprint, not by vendor**: backends that share one (and ship no native
-payload) are bundled, while anything dragging a heavy or platform-specific dependency stays separate so you
-never take LLamaSharp, a native SQLite binary or ASP.NET Core to use something else (`docs/DECISIONS.md` D31).
+Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
+dependency does this isolate?" with something concrete. Backends that need nothing extra share
+`Providers.Default`; anything dragging a native runtime (LLamaSharp, native SQLite), a platform-specific API
+(Windows DPAPI) or a heavy framework (ASP.NET Core, via MCP hosting) stays its own package — and `Lyntai.Core`
+carries the smallest footprint of all, because it is the one package you cannot opt out of
+(`docs/DECISIONS.md` D31).
 
 ## Consuming Lyntai
 
-Install `Lyntai.Core` plus the provider/storage packages you want, then compose in DI:
+```bash
+dotnet add package Lyntai          # Core + the default backends + in-memory storage
+dotnet add package Lyntai.Storage.Sqlite   # …and persistence, when you want it
+```
+
+Then compose in DI:
 
 ```csharp
 using Lyntai;                       // the builder + Add*/Use* extensions

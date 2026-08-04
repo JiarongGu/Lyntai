@@ -13,11 +13,14 @@ Sonora — same family patterns); deviations need a reason. The design contract 
   like `Lyntai.Generation`) —
   **never adapter→adapter**. Consumers
   compose via DI. This is what lets a new backend/provider be a new package, not a fork.
-- **Split packages by DEPENDENCY FOOTPRINT, not by vendor** (`docs/DECISIONS.md` D31): backends that need
-  nothing extra share a bundle (`Lyntai.Providers.Default` = the two CLIs + OpenAI-compatible;
-  `Lyntai.Generation.Http` = three HTTP backends), and a backend gets its OWN package the moment it drags a
-  native runtime, a platform-specific API, or a dependency a consumer might refuse. Merging packages must NOT
-  change namespaces — a consumer edits one `PackageReference`, never their `using` directives.
+- **Split packages by DEPENDENCY FOOTPRINT, not by vendor** (`docs/DECISIONS.md` D31): every boundary must
+  answer "which dependency does this isolate?". Backends needing nothing extra share `Lyntai.Providers.Default`
+  (CLIs, OpenAI-compatible chat/embeddings/images, A1111, ComfyUI); a backend gets its OWN package the moment it
+  drags a native runtime, a platform-specific API, or a dependency a consumer might refuse. **`Lyntai.Core` is
+  mandatory, so it carries the smallest footprint of all** — never add a third-party dependency to it (that is
+  why MCP stays out even though most consumers use it; the `ITool` CONTRACT is already in Core, only the wire
+  adapter is outside). "Most consumers want X" → a metapackage (`Lyntai`), never a Core dependency. Merging or
+  moving packages must NOT change namespaces — a consumer edits one `PackageReference`, never a `using`.
 - **Each `src/*` is NuGet-packable** (`IsPackable=true`, `PackageId`, description). `samples/` and `tests/`
   are not. Version comes from `src/Directory.Build.props` (`VersionPrefix`) — the single source.
 - **DI-first.** The public entry is `services.AddLyntai(cfg => …)`. Provider/storage packages extend the

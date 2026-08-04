@@ -79,7 +79,9 @@ Tests/e2e green.
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Cli` (the shared spawned-CLI engine +
 per-CLI `ICliProviderDialect` — a new CLI backend is a dialect, never a new provider; see `DECISIONS.md`
-D27/D28) / `Lyntai.Llm.Routing` (router engine) /
+D27/D28) / `Lyntai.Generation` (+ `.Routing`) (the generation platform — image/video/audio/3d behind one
+capability-aware seam; in Core because it has no dependency to isolate, `DECISIONS.md` D30/D31) /
+`Lyntai.Llm.Routing` (router engine) /
 `Lyntai.Llm.Caching` (response cache) / `Lyntai.Llm.Budgeting` (usage budget) /
 `Lyntai.Llm.RateLimiting` (rate limiter) /
 `Lyntai.Embeddings` (embedder seam) / `Lyntai.Memory` (semantic memory + vector store) /

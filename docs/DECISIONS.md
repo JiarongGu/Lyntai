@@ -477,8 +477,31 @@ first-party, and per D29 an abandoned id must not be resurrected for a different
 
 **Applying it later:** a new backend joins `Providers.Default` if it needs nothing new; it gets its own package
 the moment it needs a native runtime, a platform-specific API, or a dependency a consumer might refuse. The
-same rule already governs `Lyntai.Generation.Http` (three HTTP backends, one package) and the future split of a
-native-runtime generation backend (D30).
+same rule governs the future split of a native-runtime generation backend (D30).
+
+### Amendment (2026-08-04): Core is MANDATORY, so it carries the smallest footprint of any package
+
+Applying the rule consistently resolved two questions in OPPOSITE directions, and the reason is worth keeping:
+
+- **Folded IN, because they isolated nothing.** `Lyntai.Generation` and `Lyntai.Generation.Http` had zero
+  external dependencies, so their package boundaries bought no isolation — they existed only because they were
+  created before this rule was written. Generation's contracts moved into `Lyntai.Core`
+  (`src/Lyntai.Core/Generation/`) and its HTTP backends into `Lyntai.Providers.Default`.
+- **Kept OUT, on measurement, despite being widely used.** `Lyntai.Tools.Mcp` was proposed for Core on the
+  grounds that most consumers use it. Rejected: `ModelContextProtocol.Core` drags
+  `Microsoft.Extensions.AI.Abstractions` **10.5.2** — a *different* version than our own MEAI bridge pins,
+  i.e. a version-conflict surface — and `ModelContextProtocol.AspNetCore` carries a framework reference on
+  **`Microsoft.AspNetCore.App`**. Either in Core would hand an ASP.NET/MEAI dependency to a consumer who only
+  wanted SQLite storage. Note also that the part that matters most is *already* in Core: `ITool`, `IToolLoop`,
+  `IToolRegistry` and `AddTool` are Core types — only the MCP **wire adapter** sits outside.
+
+**So: "most consumers want X" is an argument for a METAPACKAGE, never for a dependency in the mandatory
+package.** Hence `Lyntai` (`src/Lyntai.Meta`, ships no assembly) — one install for the dependency-free set,
+with everything costly left an explicit opt-in.
+
+The resulting graph is 10 packages + the metapackage, and every boundary now answers "which dependency does
+this isolate?" with something concrete. `Lyntai.Storage.InMemory` is the one dependency-free package that stays
+separate, for a different and equally explicit reason: it is an *implementation*, and Core holds contracts.
 
 ## D30 — generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
 `Lyntai.Generation` is a separate domain package with its own contracts and its own `GenerationVerdict`, not an extension

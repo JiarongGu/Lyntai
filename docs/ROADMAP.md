@@ -287,6 +287,32 @@ v0.24, scheduling v0.25, cron v0.26, running-job cancellation v0.27). Still open
 - **Streaming tool-calls** (the `LlmChunk` contract carries no tool-call payload) and native tool-calling
   for the ClaudeCli/Local providers (both stay on the prompt fallback) — low value, revisit on demand.
 
+### v2.0.1 — the generation platform + a coherent package graph (2026-08)
+Two things land together, and the major is the vehicle for the second.
+
+**The generation platform** (`Lyntai.Generation` namespace, in Core) — one capability-aware seam for
+image/video/audio/3d with **three delivery modes**, because real backends genuinely differ: inline, async job
+(submit → poll → fetch, universal for video), and streaming (TTS). Async operations expose their **operation
+id**, so a render survives a restart and composes with `Lyntai.Jobs`. Backends declare `GenerationCapabilities`
+and the router pre-filters on them; per-verdict fallback is a configurable policy. Four backends shipped
+(OpenAI-compatible images, Automatic1111, ComfyUI, plus the fakes the platform is tested against). See
+`docs/DECISIONS.md` D30 and `docs/2026-08-04-generation-platform-plan.md`.
+
+**A package graph with one rule** (D31): boundaries exist only where a dependency needs isolating. Three
+provider ids merged into `Lyntai.Providers.Default`; `Lyntai.Generation` + `.Http` folded into Core and
+`Providers.Default`; a `Lyntai` metapackage added for one-line installs. 10 packages + metapackage, down from
+14 ids. **No namespace changed**, so consumers edit `PackageReference`s only —
+`docs/2026-08-04-restructure-2.0.1-plan.md` has the one-line migration table.
+
+**Why 2.0.1 and not 2.0.0:** 2.0.0 is permanently taken on nuget.org (published, then unlisted, on 10 of the
+ids), and `--skip-duplicate` would have silently published nothing for those. See D29.
+
+### Next: generation Plans 3–7
+In order: the local subprocess backend (`sd-cli` through `IProcessRunner`); async video composed with
+`Lyntai.Jobs` (fal.ai's queue API, reaching the Wan/Kling/Veo-class models through one integration);
+governance/telemetry parity for generation (cost, rate limits, cooldown, OTel); the `ITool`/MCP bridge plus
+streaming TTS; then pipelines (3d → image → video). Audio order is TTS before music.
+
 ## Standing maintenance policies
 - **MEAI churn watch**: Microsoft.Extensions.AI ships roughly monthly with breaks in
   experimental/tool-content surfaces; review release notes on each bump. The bridge references

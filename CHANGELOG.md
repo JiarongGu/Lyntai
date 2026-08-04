@@ -10,9 +10,28 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased — the generation platform
+## Unreleased — the generation platform + a coherent package graph
 
-### Breaking
+### Breaking — package graph only; **no namespace, type or API changed**
+Every move below is a one-line `PackageReference` edit. No `using`, type name or `Add*` extension changes,
+because the restructure was designed around keeping namespaces fixed.
+
+| Was | Now |
+|---|---|
+| `Lyntai.Providers.ClaudeCli` / `.CodexCli` / `.OpenAiCompatible` | `Lyntai.Providers.Default` |
+| `Lyntai.Generation` | `Lyntai.Core` (drop the reference — you already have Core) |
+| `Lyntai.Generation.Http` | `Lyntai.Providers.Default` |
+| a typical app's whole set | **`Lyntai`** (new metapackage) |
+
+- **`Lyntai.Generation` and `Lyntai.Generation.Http` are gone as packages** — folded into `Lyntai.Core` and
+  `Lyntai.Providers.Default` respectively. Both had **zero** external dependencies, so their boundaries
+  isolated nothing (`docs/DECISIONS.md` D31). Verified as an exact union: the merged API baselines gained
+  precisely the lines the deleted ones held, with zero removals, and all tests pass unedited.
+- **New `Lyntai` metapackage** — `dotnet add package Lyntai` gets Core + the dependency-free default backends
+  + in-memory storage. It ships no assembly. Anything costly stays an explicit opt-in: `Storage.Sqlite` (native
+  binary), `Providers.Local` (LLamaSharp), `Tools.Mcp*` (MEAI/ASP.NET Core), `Secrets.Dpapi` (Windows-only).
+  This is deliberately how "most consumers use X" is served — **not** by adding X's dependencies to the
+  mandatory package.
 - **`Lyntai.Providers.ClaudeCli`, `Lyntai.Providers.CodexCli` and `Lyntai.Providers.OpenAiCompatible` are
   merged into `Lyntai.Providers.Default`.** Packages are now split by **dependency footprint, not by vendor**
   (`docs/DECISIONS.md` D31): those three need nothing beyond Core and managed `Microsoft.Extensions.Http`, so
