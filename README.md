@@ -57,7 +57,7 @@ per-`StorageFeature` baselines.
 
 | Package | What it gives you |
 |---|---|
-| **`Lyntai`** | **One-line install** — Core + the dependency-free default backends + in-memory storage. Add the rest below only when you need them. |
+| **`Lyntai`** | **One-line install** — Core + the dependency-free default backends + in-memory storage + **both halves of MCP**. Add the rest below only when you need them. |
 | `Lyntai.Core` | Every domain's contracts and engines: LLM routing/fallback, generation, cortex (prompt/scoring/trace), jobs, guards, secrets, memory, storage interfaces, tools, DI. Deps: DI + Logging abstractions only. |
 | `Lyntai.Providers.Default` | The dependency-free backends: authenticated `claude` and `codex` CLIs; any OpenAI-compatible endpoint (OpenAI/Ollama/OpenRouter/Azure) for chat, embeddings **and images**; a Stable Diffusion WebUI (Automatic1111); a local ComfyUI. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge, both directions: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider, and `AsChatClient()` back. |
@@ -66,7 +66,7 @@ per-`StorageFeature` baselines.
 | `Lyntai.Storage.Postgres` | PostgreSQL storage (Npgsql + `pg_trgm` recall) for a server-backed deployment. |
 | `Lyntai.Storage.InMemory` | Zero-dependency in-memory storage — tests, ephemeral use, or mixed per-domain. |
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
-| `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server for a CLI that runs its own agent loop. Needs ASP.NET Core. |
+| `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which

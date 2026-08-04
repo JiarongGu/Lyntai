@@ -1,13 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The one-line install: `dotnet add package Lyntai` gets Core plus the dependency-free default backends and
-    in-memory storage. Everything with a real dependency stays an explicit opt-in — Lyntai.Storage.Sqlite's
-    native binary, Lyntai.Providers.Local's LLamaSharp, Lyntai.Tools.Mcp*'s MEAI/ASP.NET, Lyntai.Secrets.Dpapi's
-    Windows-only API. See docs/DECISIONS.md D31.
+    The one-line install: `dotnet add package Lyntai` gets Core, the dependency-free default backends,
+    in-memory storage, and BOTH halves of MCP. Everything with a heavy or platform-specific dependency stays an
+    explicit opt-in — Lyntai.Storage.Sqlite's native binary, Lyntai.Providers.Local's LLamaSharp,
+    Lyntai.Secrets.Dpapi's Windows-only API, Lyntai.Providers.ExtensionsAi's MEAI. See docs/DECISIONS.md D31.
 
     This is how "most consumers want X" is served WITHOUT putting X's dependencies in front of someone who only
-    wanted storage: a metapackage is opt-in convenience, whereas Core is mandatory.
+    wanted storage: a metapackage is opt-in convenience, whereas Core is mandatory. MCP is included here rather
+    than in Core precisely because of that split — it is near-universal in practice, but its SDK still pins a
+    MEAI abstraction version, and Core must stay free of that.
 
     Ships NO assembly of its own (IncludeBuildOutput=false) — it is references only, so there is no public
     surface to baseline and nothing to load at runtime.
@@ -17,7 +19,7 @@
     <PackageId>Lyntai</PackageId>
     <AssemblyName>Lyntai.Meta</AssemblyName>
     <RootNamespace>Lyntai.Meta</RootNamespace>
-    <Description>One-line install for Lyntai: the core library plus the dependency-free default backends (claude/codex CLI, OpenAI-compatible chat/embeddings/images, Automatic1111, ComfyUI) and in-memory storage. Add Lyntai.Storage.Sqlite, Lyntai.Providers.Local, Lyntai.Providers.ExtensionsAi, Lyntai.Tools.Mcp or Lyntai.Secrets.Dpapi when you need them.</Description>
+    <Description>One-line install for Lyntai: the core library, the dependency-free default backends (claude/codex CLI, OpenAI-compatible chat/embeddings/images, Automatic1111, ComfyUI), in-memory storage, and both halves of MCP (consume an MCP server's tools, and host your own tools for a CLI agent — no ASP.NET needed). Add Lyntai.Storage.Sqlite, Lyntai.Providers.Local, Lyntai.Providers.ExtensionsAi or Lyntai.Secrets.Dpapi when you need them.</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
     <!-- nothing is compiled here, so the doc-file and trim analyzers have nothing to say -->
@@ -29,6 +31,8 @@
     <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
     <ProjectReference Include="..\Lyntai.Providers.Default\Lyntai.Providers.Default.csproj" />
     <ProjectReference Include="..\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
+    <ProjectReference Include="..\Lyntai.Tools.Mcp\Lyntai.Tools.Mcp.csproj" />
+    <ProjectReference Include="..\Lyntai.Tools.Mcp.Hosting\Lyntai.Tools.Mcp.Hosting.csproj" />
   </ItemGroup>
 
 </Project>

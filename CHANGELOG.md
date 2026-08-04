@@ -44,6 +44,18 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+### Changed
+- **`Lyntai.Tools.Mcp.Hosting` no longer requires ASP.NET Core.** The framework reference on
+  `Microsoft.AspNetCore.App` is gone: the MCP protocol lives in `ModelContextProtocol.Core`
+  (`StreamableHttpServerTransport` works on plain `Stream`s), and the ASP.NET package only supplied Kestrel
+  routing glue. The per-call host now runs on `System.Net.HttpListener` — the right fit for a loopback-only
+  ephemeral endpoint, needing no URL ACL or elevation for `127.0.0.1`. A console or desktop app no longer
+  acquires the ASP.NET shared framework just to let a CLI agent call its tools. Public API unchanged; the
+  existing MCP round-trip tests and the p3 e2e suite pass untouched (and the round-trip now completes in
+  under a second).
+- **MCP is in the `Lyntai` metapackage**, so a typical install gets both halves without Core acquiring the
+  MCP SDK's pinned MEAI abstraction (`docs/DECISIONS.md` D31).
+
 ### Added
 - **`Lyntai.Generation`** — a NEW package: the generation **platform** (image · video · audio · 3d, and any
   kind you define — `Kind` is an open string, so a non-media artifact uses the same machinery and no `Custom`

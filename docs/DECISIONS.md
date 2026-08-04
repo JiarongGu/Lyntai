@@ -487,13 +487,23 @@ Applying the rule consistently resolved two questions in OPPOSITE directions, an
   external dependencies, so their package boundaries bought no isolation — they existed only because they were
   created before this rule was written. Generation's contracts moved into `Lyntai.Core`
   (`src/Lyntai.Core/Generation/`) and its HTTP backends into `Lyntai.Providers.Default`.
-- **Kept OUT, on measurement, despite being widely used.** `Lyntai.Tools.Mcp` was proposed for Core on the
-  grounds that most consumers use it. Rejected: `ModelContextProtocol.Core` drags
+- **Kept OUT of Core, on measurement, despite being near-universal.** `Lyntai.Tools.Mcp` was proposed for Core
+  on the grounds that most consumers use it. Rejected: `ModelContextProtocol.Core` drags
   `Microsoft.Extensions.AI.Abstractions` **10.5.2** — a *different* version than our own MEAI bridge pins,
-  i.e. a version-conflict surface — and `ModelContextProtocol.AspNetCore` carries a framework reference on
-  **`Microsoft.AspNetCore.App`**. Either in Core would hand an ASP.NET/MEAI dependency to a consumer who only
-  wanted SQLite storage. Note also that the part that matters most is *already* in Core: `ITool`, `IToolLoop`,
-  `IToolRegistry` and `AddTool` are Core types — only the MCP **wire adapter** sits outside.
+  i.e. a version-conflict surface. Core must not pin someone else's abstraction, least of all the one D1
+  deliberately treats as secondary to our own seam. Note also that the part that matters most is *already* in
+  Core: `ITool`, `IToolLoop`, `IToolRegistry` and `AddTool` are Core types — only the MCP **wire adapter** sits
+  outside. **It IS in the `Lyntai` metapackage**, so a typical consumer gets MCP on the first install anyway.
+- **ASP.NET Core was removed from MCP hosting rather than tolerated** (2026-08-04). The framework reference on
+  `Microsoft.AspNetCore.App` turned out to be avoidable: the MCP protocol lives in `ModelContextProtocol.Core`
+  (`StreamableHttpServerTransport` works on plain `Stream`s) and the ASP.NET package supplied only Kestrel
+  routing glue. `McpToolHost` now runs on `System.Net.HttpListener` (BCL) — the right fit for a loopback-only
+  ephemeral endpoint, needing no URL ACL or elevation for `127.0.0.1`. A console or desktop app no longer
+  acquires the ASP.NET shared framework to let a CLI call its tools. Two findings from doing it, both worth
+  keeping: the Streamable HTTP client requires the **`Mcp-Session-Id`** response header to get past
+  `initialize`, and requests **must be handled concurrently** — the client holds a long-lived GET SSE stream
+  open while POSTing, so a sequential accept loop deadlocks (it presented as "Initialization timed out" while a
+  single raw POST answered correctly).
 
 **So: "most consumers want X" is an argument for a METAPACKAGE, never for a dependency in the mandatory
 package.** Hence `Lyntai` (`src/Lyntai.Meta`, ships no assembly) — one install for the dependency-free set,

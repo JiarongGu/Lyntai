@@ -3,25 +3,27 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Tools.Mcp.Hosting</PackageId>
-    <Description>The OUTBOUND half of Lyntai's MCP support: hosts the app's registered Lyntai ITools as an ephemeral, localhost-only HTTP MCP server so a CLI provider that runs its own agent loop can call them. Provider-neutral — a per-CLI IMcpCliDialect supplies the flags and config-file shapes (Lyntai.Providers.ClaudeCli ships one for `claude`). Wired via builder.AddMcpToolHost(dialect). Uses Kestrel (ASP.NET Core) for the per-call host.</Description>
-    <!-- Hosts Kestrel: needs the ASP.NET Core shared framework. Dynamic-JSON tool marshaling + hosting
-         mean this can't honestly claim trim/AOT. Analyzer stays on for our code. -->
+    <Description>The OUTBOUND half of Lyntai's MCP support: hosts the app's registered Lyntai ITools as an ephemeral, localhost-only HTTP MCP server so a CLI provider that runs its own agent loop can call them. Provider-neutral — a per-CLI IMcpCliDialect supplies the flags and config-file shapes (Lyntai.Providers.Default ships one for `claude`). Wired via builder.AddMcpToolHost(dialect). Runs on System.Net.HttpListener, so it needs NO ASP.NET Core.</Description>
+    <!-- Dynamic-JSON tool marshaling means this can't honestly claim trim/AOT. Analyzer stays on for our code. -->
     <IsAotCompatible>false</IsAotCompatible>
     <IsTrimmable>false</IsTrimmable>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
   </PropertyGroup>
 
-  <!-- Kestrel/hosting comes from the ASP.NET Core shared framework (no extra NuGet weight). -->
-  <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-
+  <!--
+    NO FrameworkReference on Microsoft.AspNetCore.App, deliberately. The MCP protocol itself lives in
+    ModelContextProtocol.Core (StreamableHttpServerTransport works on plain Streams); the ASP.NET package only
+    ever supplied Kestrel routing glue. The per-call host runs on System.Net.HttpListener from the BCL, which
+    fits a loopback-only ephemeral endpoint exactly and needs no URL ACL or elevation for 127.0.0.1 — so a
+    console or desktop consumer no longer acquires the ASP.NET shared framework just to let a CLI call its
+    tools. See docs/DECISIONS.md D31.
+  -->
   <ItemGroup>
     <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+    <PackageReference Include="ModelContextProtocol.Core" />
   </ItemGroup>
 
   <ItemGroup>
