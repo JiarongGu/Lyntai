@@ -38,9 +38,10 @@ _Part 32 (MED1: the generation platform + the 2.0.1 package restructure) landed 
 `docs/2026-08-04-generation-platform-plan.md` + `docs/2026-08-04-restructure-2.0.1-plan.md`. What remains are
 that plan's Plans 3–7, each a separate pass because each needs its own measurement._
 
-- [ ] **GEN3 — local subprocess backend** (`sd-cli` / stable-diffusion.cpp) through `IProcessRunner`, never
-  `Process` directly. Argv is PORTED from a sibling app's working implementation and must be marked in the XML
-  docs as ported-not-measured (no engine on the dev machine). Probe = binary + model present, which is free.
+- [x] **GEN3 — local subprocess backend** — LANDED 2026-08-04 (`LocalDiffusionProvider` in
+  `Lyntai.Providers.Default`, through `IProcessRunner` with an inactivity clock + backstop; argv and size
+  clamping ported and flagged as not-measured-here; probe checks binary + weights, free). Confirm against a
+  real engine the first time it is used in anger.
 - [ ] **GEN4 — async video: the fal.ai queue backend.** The `Lyntai.Jobs` composition half LANDED 2026-08-04
   (`GenerationRenderJobHandler` + `IGenerationArtifactSink`: checkpoint-before-poll, lease-aware, app-owned
   sink). What remains is the backend itself — an `IGenerationJobProvider` over fal.ai's queue API (owner's

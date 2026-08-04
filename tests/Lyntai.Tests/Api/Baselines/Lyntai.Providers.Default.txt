@@ -65,6 +65,23 @@ sealed class Lyntai.Generation.Http.OpenAiImageProvider
     GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
     Id : String
     ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
+sealed class Lyntai.Generation.Local.LocalDiffusionOptions
+    .ctor()
+    BinaryPath : String
+    CfgScale : Double
+    Id : String
+    InactivityTimeout : TimeSpan
+    ModelPath : String
+    Steps : Int32
+    Strength : Double
+    Timeout : TimeSpan
+    WorkDirectory : String
+sealed class Lyntai.Generation.Local.LocalDiffusionProvider
+    .ctor(LocalDiffusionOptions, IProcessRunner)
+    Capabilities : GenerationCapabilities
+    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    Id : String
+    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
 static class Lyntai.OpenAiCompatibleBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder, String, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
     static AddOllamaProvider(LyntaiBuilder, String=, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder

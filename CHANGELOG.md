@@ -44,6 +44,16 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+- **`LocalDiffusionProvider`** (in `Lyntai.Providers.Default`) — image generation on a locally-installed
+  **stable-diffusion.cpp** (`sd-cli`): no key, no network, no content policy in the path. Inline delivery, since
+  a local render blocks until the file exists. The engine and its weights stay the host's to provide (D26); the
+  probe is free and exact (both files present). Two ported details that look incidental and are not: the spawn's
+  working directory is the **binary's** directory, because the engine loads `ggml*.dll` from beside itself, and
+  sizes are clamped to multiples of 64 within 256–768, which the engine requires and a CPU render makes
+  advisable. Unlike the implementation this was ported from, the spawn goes through **`IProcessRunner`** — so it
+  gains the BYO-runner seam, kill-the-tree cancellation, and an **inactivity clock with an absolute backstop**
+  instead of one wall clock that would kill a healthy slow render. Argv and clamping are production-proven but
+  **not measured here** (no engine on the dev machine), so they are pinned by exact-argv tests.
 - **Durable renders (`GenerationRenderJobHandler`, `IGenerationArtifactSink`)** — an asynchronous generation
   run as a `Lyntai.Jobs` job, which is where the platform earns its keep over a thin HTTP client: the backend's
   operation id is **checkpointed before the first poll**, so a crash, deploy or restart resumes polling the
