@@ -23,8 +23,9 @@
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
 
-    <!-- Microsoft.Extensions.AI bridge -->
-    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.8.0" />
+    <!-- Microsoft.Extensions.AI bridge. ABSTRACTIONS ONLY: the bridge adapts an IChatClient a consumer
+         already owns, so it needs the contracts, never the implementation package. Note MCP pins this same
+         id transitively (ModelContextProtocol.Core -> 10.5.2), and NuGet unifies upward to the version here. -->
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.0" />
 
     <!-- in-process local inference (managed only; the consumer app picks an LLamaSharp.Backend.*) -->
@@ -32,8 +33,6 @@
 
     <!-- MCP (Model Context Protocol) client — for exposing an MCP server's tools as Lyntai ITools -->
     <PackageVersion Include="ModelContextProtocol.Core" Version="1.4.1" />
-    <!-- MCP HTTP server hosting (Kestrel) — to expose the app's ITools to the claude CLI over MCP -->
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.4.1" />
 
     <!-- tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
