@@ -76,15 +76,14 @@ public class BoundedProviderPoolTests
 
     // Trap 7.1: a configuration change must never abort work already running on the old instance.
     [Fact]
-    public void A_retired_instance_is_still_usable_by_whoever_holds_it()
+    public async Task A_retired_instance_is_still_usable_by_whoever_holds_it()
     {
         var pool = Pool();
         var inFlight = pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider());
 
         pool.Retire(Key("a"));
 
-        var result = inFlight.GenerateAsync(new GenerationRequest { Kind = "image", Prompt = "a cat" })
-            .GetAwaiter().GetResult();
+        var result = await inFlight.GenerateAsync(new GenerationRequest { Kind = "image", Prompt = "a cat" });
         Assert.True(result.IsOk);
     }
 

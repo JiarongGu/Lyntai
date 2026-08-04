@@ -28,7 +28,9 @@ public class ProviderPoolWiringTests
 
     private static IProviderPool<IGenerationProvider> PoolFrom(Action<LyntaiBuilder> configure)
     {
-        var sp = Provider(configure);
+        // A pool is not IDisposable (it disposes nothing, ever), so it outlives the container that built
+        // it — dispose the container anyway, so every test here leaves nothing behind.
+        using var sp = Provider(configure);
         return sp.GetRequiredService<IProviderPool<IGenerationProvider>>();
     }
 
@@ -92,6 +94,36 @@ public class ProviderPoolWiringTests
         Assert.Equal(1, pool.Statistics.Live);
     }
 
+    // Bounds passed once must survive a LATER bare call, which is why the null branch only ensures a
+    // default exists (TryAdd) instead of registering a fresh default-valued one. Registering one
+    // unconditionally is the obvious-looking line, and it silently reverts the bounds to 64: the second
+    // registration wins on resolution and nothing else in this file notices.
+    [Fact]
+    public void A_bare_UseProviderPool_after_one_carrying_bounds_keeps_the_bounds()
+    {
+        var pool = PoolFrom(b => b
+            .UseProviderPool(new ProviderPoolOptions { MaxEntries = 1 })
+            .UseProviderPool());
+        pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider { Id = "a1111" });
+        pool.GetOrAdd(Key("b"), () => new FakeGenerationProvider { Id = "a1111" });
+
+        Assert.Equal(1, pool.Statistics.Live);
+    }
+
+    // …and the other order: bounds stated explicitly are a decision, so they REPLACE whatever default is
+    // already registered rather than losing to it.
+    [Fact]
+    public void Bounds_passed_after_a_bare_UseProviderPool_still_win()
+    {
+        var pool = PoolFrom(b => b
+            .UseProviderPool()
+            .UseProviderPool(new ProviderPoolOptions { MaxEntries = 1 }));
+        pool.GetOrAdd(Key("a"), () => new FakeGenerationProvider { Id = "a1111" });
+        pool.GetOrAdd(Key("b"), () => new FakeGenerationProvider { Id = "a1111" });
+
+        Assert.Equal(1, pool.Statistics.Live);
+    }
+
     [Fact]
     public void The_pool_is_a_singleton_so_reuse_spans_resolutions()
     {
@@ -129,8 +161,8 @@ public class ProviderPoolWiringTests
         services.AddSingleton<IProviderPool<IGenerationProvider>>(new TransientProviderPool<IGenerationProvider>());
         services.AddLyntai(_ => { });
 
-        var pool = services.BuildServiceProvider().GetRequiredService<IProviderPool<IGenerationProvider>>();
-        Assert.IsType<TransientProviderPool<IGenerationProvider>>(pool);
+        using var sp = services.BuildServiceProvider();
+        Assert.IsType<TransientProviderPool<IGenerationProvider>>(sp.GetRequiredService<IProviderPool<IGenerationProvider>>());
     }
 
     // A Use* method runs inside the configure callback, BEFORE AddLyntai's own TryAdd defaults — so the
