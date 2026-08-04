@@ -66,6 +66,7 @@ per-`StorageFeature` baselines.
 | `Lyntai.Providers.OpenAiCompatible` | OpenAI / Ollama / OpenRouter-style endpoints over HttpClient. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
+| `Lyntai.Media` | Media generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
 | `Lyntai.Tools.Mcp` | Expose a Model Context Protocol (MCP) server's tools as Lyntai `ITool`s for the tool loop. |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server so a CLI that runs its own agent loop can call them. Per-CLI wiring is an `IMcpCliDialect` (`ClaudeCliMcpDialect` ships with the claude provider). |
 
@@ -491,6 +492,52 @@ public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) 
 If your CLI takes the prompt positionally rather than on stdin, set `PromptDelivery = CliPromptDelivery.Argument`
 — the engine appends it last. Free-form values (`ProviderLoginRequest.Mode`, `ProviderInstallRequest.Version`)
 must be *refused* by the dialect when it doesn't recognize them, never turned into an invented flag.
+
+### Media generation (`Lyntai.Media`)
+
+The same idea as the LLM front door, for generated media: you register backends, Lyntai routes across them.
+It is a **platform, not an engine** — every pixel and sample is produced by a backend you choose.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .AddMediaProvider(sp => new MyImageBackend(...))
+    .AddMediaProvider(sp => new MyVideoBackend(...))
+    .UseDefaultMediaCandidates("my-image-backend", "my-video-backend"));
+```
+
+Backends declare what they can do, and the router **skips a candidate that can't serve the request** before
+spending anything — media backends differ far more than chat models do (medium, input roles, duration
+ceilings, model catalogues):
+
+```csharp
+var result = await router.GenerateAsync(candidates, new MediaRequest
+{
+    Kind = MediaKinds.Image,                 // open string: image / video / audio / 3d / whatever's next
+    Prompt = "a red square on white",
+    Options = new Dictionary<string, string> { ["size"] = "1024x1024" },
+});
+if (result.IsOk) Save(result.Artifacts[0].Data!);
+```
+
+**Three delivery modes**, because real backends genuinely differ — and a seam that modelled only one would
+force the others to lie:
+
+| Mode | Interface | Typical of |
+|---|---|---|
+| Inline | `IMediaProvider.GenerateAsync` | image generation |
+| Async job | `IMediaJobProvider` (submit → poll → fetch) | video, batch music — renders take minutes |
+| Streaming | `IMediaStreamProvider` | text-to-speech, where playback starts before generation ends |
+
+An async render exposes its **operation id**, so it survives a process restart and composes with
+`Lyntai.Jobs`; if your backend delivers by webhook, your app owns the endpoint and calls
+`FetchAsync(operationId)` when it fires. Chaining is first-class — `artifact.ToInput(role)` feeds one stage's
+output into the next (3d → image → video).
+
+Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
+never has to pay for a test image.
+
+**Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook
+endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D26 and D30.
 
 ### Local in-process inference (`Lyntai.Providers.Local`)
 

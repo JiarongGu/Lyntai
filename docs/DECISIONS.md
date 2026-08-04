@@ -448,6 +448,49 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D30 — media generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
+`Lyntai.Media` is a separate domain package with its own contracts and its own `MediaVerdict`, not an extension
+of the LLM stack. At the owner's direction: **"our goal is not to make a generation engine, it is to make a
+media generation platform"** — so the value is contracts, capability-aware routing, delivery-mode handling and
+lifecycle, with every pixel and sample produced by a backend the host chooses.
+
+Three researched findings forced the shape, and a future session must not "simplify" them away:
+
+- **Three delivery modes, not one.** Image is inline (request → bytes); video is **universally** an async job
+  (submit → poll/webhook → fetch — WAN documents 1–5 minute renders as create-task-then-poll; Kling is
+  `POST /v1/videos/generations` then `GET /v1/tasks/{id}`); audio splits (TTS streams, playback starting before
+  generation ends; music/dubbing are batch jobs). One `GenerateAsync` can only express image — so
+  `IMediaJobProvider` and `IMediaStreamProvider` are separate optional capabilities, and the **operation id is
+  exposed** so a render survives a process restart, composes with `Lyntai.Jobs`, and works with a
+  webhook-delivering backend.
+- **A backend is not a model.** Aggregators serve 1,000+ models across image/video/audio/**3D** behind one
+  queue endpoint, and the same model (WAN) is reachable through several backends. Routing selects
+  backend **+** model (`MediaCandidate`), or every aggregator becomes N fake providers.
+- **Capability declaration is load-bearing**, unlike LLM routing. Chat models all take text; media backends
+  differ by medium, delivery, input role (text→video vs first-frame→video vs reference→video), duration
+  ceiling and model catalogue. The router **pre-filters** on `MediaCapabilities.Supports` before spending
+  anything, and "nothing here can do that" is `Unsupported` — a configuration answer, not a runtime fault.
+
+**Media CHAINS.** `3d → image → video` is a first-class use case, so `MediaArtifact.ToInput(role)` carries
+bytes-or-URI into the next stage and `Kind` is an open string (3D already ships on real aggregators). The
+pipeline RUNNER is deferred until ≥2 real backends exist, but nothing in the core may make it impossible.
+
+**Coupling, at the owner's direction:** the LLM stack gains **ZERO** dependency on media. The bridge is
+`ITool` (and therefore MCP, via `Lyntai.Tools.Mcp.Hosting`), so an agent can generate media without either
+domain referencing the other's concrete types. Where media wants an LLM (prompt rewriting), it takes
+`ILlmClient` — handed in, never owned. Failure PATTERNS are still shared: `MediaVerdictClassifier` delegates to
+`LlmVerdictClassifier` so there is one corpus of "what does a 429 mean", per D27's rule against a second copy
+of the rules.
+
+**Not a generation engine (extends D26):** no inference, no ffmpeg pipeline authoring, no engine/weights
+provisioning, **no webhook hosting** (Lyntai is a library — the app owns its endpoint and calls `FetchAsync`),
+no artifact storage, no credential storage. A backend that cannot be checked without generating reports
+"unavailable" rather than billing a probe — replacing the generate-and-discard test that pattern otherwise
+requires.
+
+Plan of record: `docs/2026-08-04-media-platform-plan.md` (Plan 1 = this core; Plans 2–7 = HTTP backends, local
+subprocess, async video + Jobs, governance parity, tool bridge + audio, pipelines).
+
 ## D29 — the next major release is 2.0.1; 2.0.0 is BURNED on nuget.org (2026-08-04)
 **2.0.0 was published and then unlisted** for 10 of the 12 package ids (all except
 `Lyntai.Providers.CodexCli` and `Lyntai.Tools.Mcp.Hosting`, which have no 2.x at all). Unlisting hides a

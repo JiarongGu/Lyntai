@@ -1,0 +1,189 @@
+interface Lyntai.Media.IMediaJobProvider
+    CancelAsync(String, CancellationToken=) : Task<MediaOperation>
+    FetchAsync(String, CancellationToken=) : Task<MediaResult>
+    PollAsync(String, CancellationToken=) : Task<MediaOperation>
+    SubmitAsync(MediaRequest, CancellationToken=) : Task<MediaOperation>
+interface Lyntai.Media.IMediaProvider
+    Capabilities : MediaCapabilities
+    GenerateAsync(MediaRequest, CancellationToken=) : Task<MediaResult>
+    Id : String
+    ProbeAsync(CancellationToken=) : Task<MediaProbeResult>
+interface Lyntai.Media.IMediaStreamProvider
+    StreamAsync(MediaRequest, CancellationToken=) : IAsyncEnumerable<MediaChunk>
+sealed class Lyntai.Media.MediaArtifact
+    .ctor(String, Byte[]=, String=, IReadOnlyDictionary<String,String>=)
+    Data : Byte[]
+    Deconstruct(String&, Byte[]&, String&, IReadOnlyDictionary`2&) : Void
+    Equals(MediaArtifact) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    Metadata : IReadOnlyDictionary<String,String>
+    ToInput(String=) : MediaInput
+    ToString() : String
+    Uri : String
+sealed class Lyntai.Media.MediaCapabilities
+    .ctor()
+    Deliveries : IReadOnlyList<MediaDelivery>
+    Equals(MediaCapabilities) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Kinds : IReadOnlyList<String>
+    Limits : IReadOnlyDictionary<String,String>
+    Models : IReadOnlyList<String>
+    Supports(MediaRequest, MediaDelivery) : Boolean
+    SupportsInputs : Boolean
+    ToString() : String
+sealed class Lyntai.Media.MediaChunk
+    .ctor(Byte[]=, String=, Nullable<MediaVerdict>=, String=, Boolean=, MediaUsage=)
+    Data : Byte[]
+    Deconstruct(Byte[]&, String&, Nullable`1&, String&, Boolean&, MediaUsage&) : Void
+    Detail : String
+    Equals(MediaChunk) : Boolean
+    Equals(Object) : Boolean
+    Error : Nullable<MediaVerdict>
+    Final : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    ToString() : String
+    Usage : MediaUsage
+    static Completed(MediaUsage=) : MediaChunk
+    static Content(Byte[], String=) : MediaChunk
+    static Failure(MediaVerdict, String=) : MediaChunk
+enum Lyntai.Media.MediaDelivery
+    Inline : MediaDelivery const
+    Job : MediaDelivery const
+    Stream : MediaDelivery const
+    value__ : Int32
+sealed class Lyntai.Media.MediaInput
+    .ctor(String, Byte[]=, String=, String=)
+    Data : Byte[]
+    Deconstruct(String&, Byte[]&, String&, String&) : Void
+    Equals(MediaInput) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    MediaType : String
+    Role : String
+    ToString() : String
+    Uri : String
+static class Lyntai.Media.MediaInputRoles
+    FirstFrame : String const
+    Init : String const
+    Reference : String const
+    Voice : String const
+static class Lyntai.Media.MediaKinds
+    Audio : String const
+    Image : String const
+    Model3d : String const
+    Video : String const
+sealed class Lyntai.Media.MediaOperation
+    .ctor(String, MediaOperationStatus, Nullable<Double>=, String=)
+    Deconstruct(String&, MediaOperationStatus&, Nullable`1&, String&) : Void
+    Detail : String
+    Equals(MediaOperation) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    IsTerminal : Boolean
+    Progress : Nullable<Double>
+    Status : MediaOperationStatus
+    ToString() : String
+enum Lyntai.Media.MediaOperationStatus
+    Cancelled : MediaOperationStatus const
+    Failed : MediaOperationStatus const
+    Queued : MediaOperationStatus const
+    Running : MediaOperationStatus const
+    Succeeded : MediaOperationStatus const
+    value__ : Int32
+sealed class Lyntai.Media.MediaProbeResult
+    .ctor(Boolean, String=, String=)
+    Available : Boolean
+    Deconstruct(Boolean&, String&, String&) : Void
+    Detail : String
+    Equals(MediaProbeResult) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    ToString() : String
+    Version : String
+sealed class Lyntai.Media.MediaRequest
+    .ctor()
+    Equals(MediaRequest) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Inputs : IReadOnlyList<MediaInput>
+    Kind : String required
+    Model : String
+    Option(String) : String
+    Options : IReadOnlyDictionary<String,String>
+    Prompt : String
+    TimeoutSeconds : Nullable<Int32>
+    ToString() : String
+sealed class Lyntai.Media.MediaResult
+    .ctor(MediaVerdict, IReadOnlyList<MediaArtifact>, MediaUsage=, String=)
+    Artifacts : IReadOnlyList<MediaArtifact>
+    Deconstruct(MediaVerdict&, IReadOnlyList`1&, MediaUsage&, String&) : Void
+    Detail : String
+    Equals(MediaResult) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    IsOk : Boolean
+    ToString() : String
+    Usage : MediaUsage
+    Verdict : MediaVerdict
+    static Failure(MediaVerdict, String=) : MediaResult
+    static Success(IReadOnlyList<MediaArtifact>, MediaUsage=, String=) : MediaResult
+sealed class Lyntai.Media.MediaUsage
+    .ctor(Nullable<Int32>=, Nullable<Double>=, Nullable<Double>=)
+    CostUsd : Nullable<Double>
+    Count : Nullable<Int32>
+    Deconstruct(Nullable`1&, Nullable`1&, Nullable`1&) : Void
+    Equals(MediaUsage) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Seconds : Nullable<Double>
+    ToString() : String
+enum Lyntai.Media.MediaVerdict
+    AuthFailed : MediaVerdict const
+    Failed : MediaVerdict const
+    NotConfigured : MediaVerdict const
+    Ok : MediaVerdict const
+    RateLimited : MediaVerdict const
+    Refused : MediaVerdict const
+    Timeout : MediaVerdict const
+    Unsupported : MediaVerdict const
+    value__ : Int32
+static class Lyntai.Media.MediaVerdictClassifier
+    static FromErrorText(String) : MediaVerdict
+    static FromException(Exception) : MediaVerdict
+    static FromHttpFailure(HttpStatusCode, String) : MediaVerdict
+interface Lyntai.Media.Routing.IMediaRouter
+    GenerateAsync(IReadOnlyList<MediaCandidate>, MediaRequest, CancellationToken=) : Task<MediaResult>
+    SubmitAsync(IReadOnlyList<MediaCandidate>, MediaRequest, CancellationToken=) : Task<MediaSubmission>
+sealed class Lyntai.Media.Routing.MediaCandidate
+    .ctor(String, String=)
+    Deconstruct(String&, String&) : Void
+    Equals(MediaCandidate) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Model : String
+    ProviderId : String
+    ToString() : String
+sealed class Lyntai.Media.Routing.MediaRouter
+    .ctor(IEnumerable<IMediaProvider>)
+    GenerateAsync(IReadOnlyList<MediaCandidate>, MediaRequest, CancellationToken=) : Task<MediaResult>
+    SubmitAsync(IReadOnlyList<MediaCandidate>, MediaRequest, CancellationToken=) : Task<MediaSubmission>
+sealed class Lyntai.Media.Routing.MediaSubmission
+    .ctor(String, MediaOperation)
+    Deconstruct(String&, MediaOperation&) : Void
+    Equals(MediaSubmission) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    Operation : MediaOperation
+    ProviderId : String
+    ToString() : String
+static class Lyntai.MediaBuilderExtensions
+    static AddMediaProvider(LyntaiBuilder, Func<IServiceProvider,IMediaProvider>) : LyntaiBuilder
+    static UseDefaultMediaCandidates(LyntaiBuilder, String[]) : LyntaiBuilder
+sealed class Lyntai.MediaOptions
+    .ctor()
+    DefaultCandidates : List<MediaCandidate>

@@ -30,6 +30,60 @@ one CONDITIONAL item:_
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
   materialize** (none have). Not a license to reintroduce reflection serialization.
 
+## Part 32 — a MEDIA domain (image + video generation)
+
+_Filed 2026-08-04 by a consuming app, on the owner's directive that **everything AI-related belongs in
+Lyntai — including whole new domains as new packages** — so an app stays business-central. This is the
+largest AI capability currently living in an app rather than the library._
+
+- [ ] **MED1 — `IMediaProvider` / `IVideoProvider` as a Lyntai domain (new package, e.g.
+  `Lyntai.Media` + per-backend provider packages).**
+
+  **The evidence.** A consuming desktop app currently owns **1,367 lines across 13 files** of image/video
+  generation: a provider abstraction, a factory that routes between backends, an OpenAI-compatible images
+  client, an Automatic1111 / SD-WebUI client, a local **stable-diffusion.cpp** subprocess backend, a video
+  provider seam, and template rendering. None of it is app-specific — it is the same shape as the LLM side
+  (abstraction + swappable backends + per-install config), just for a different medium. Every app the owner
+  builds that generates an image will otherwise re-write it.
+
+  **Precedent this follows:** Lyntai already does non-chat AI over HTTP (`Lyntai.Embeddings.IEmbedder` /
+  `HttpEmbedder`, EMB1), so "generation of a non-text medium" is not a category break — and `IProviderAuth` /
+  `IProviderVersionInstaller` just showed the optional-capability pattern working for a second concern.
+
+  **Suggested seam** (shape matters, not the steps):
+  - `IMediaProvider` — text→image and prompt-guided image→image edit, returning bytes plus what the backend
+    said about them; `IVideoProvider` for a composition→video render.
+  - Backends as separate packages, mirroring the provider layout: an OpenAI-compatible one, an
+    Automatic1111 HTTP one, and a **local subprocess** one (stable-diffusion.cpp) — the last of which proves
+    the seam isn't HTTP-shaped, exactly as `ClaudeCliProvider` proved the LLM seam isn't.
+  - A capability probe in the same spirit as `IProviderInstallation`: "is this backend usable?" answerable
+    **without** generating a billable image (the app currently does a tiny generate-and-discard, which is the
+    wasteful equivalent of the completion-to-test-auth problem CLI3 removed).
+  - Routing/fallback across media backends should reuse the existing router thinking rather than a second one.
+
+  **Explicitly NOT in scope, per D26** — and the app should keep these, so please don't absorb them:
+  - **Downloading the local engine or its model weights** (a ~1.7 GB GGUF, an `sd-cli.exe`): the host owns its
+    download, storage and trust policy.
+  - **Where output bytes land**, the media library, and the UI.
+  - **Credentials** for a cloud image backend.
+  - A **host-only renderer** (one app renders HTML→MP4 through its own embedded browser) — that is a host
+    capability reached over a loopback, not a library concern; the seam just needs to accept such an
+    implementation from outside.
+
+  **Done when:** an app can generate and edit an image, and render a video, through Lyntai seams with its own
+  backend choice + config, and can ask "is this backend usable?" without paying for a generation — with the
+  binary/model download, the output location and the credentials still owned by the app.
+
+  **Status 2026-08-04:** the platform CORE landed — `Lyntai.Media` (contracts, capability model, the three
+  delivery seams, verdicts, capability-aware router, DI). Plan of record:
+  `docs/2026-08-04-media-platform-plan.md`; rationale in `docs/DECISIONS.md` D30. Scope was generalized on the
+  owner's direction ("not a generation engine — a media generation **platform**", spanning image/video/audio
+  and 3d → image → video chaining), so there is deliberately **no separate `IVideoProvider`**: video is
+  `Kind = "video"` plus the async-job delivery mode, because what differs is how a backend DELIVERS, not which
+  medium it makes. Remaining: Plan 2 (HTTP image backends), Plan 3 (local subprocess backend), Plan 4 (async
+  video + `Lyntai.Jobs` composition), Plan 5 (governance/telemetry parity), Plan 6 (tool/MCP bridge +
+  streaming audio), Plan 7 (pipelines). Open questions for the owner are listed at the end of the plan.
+
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
 > `[x]` here.
