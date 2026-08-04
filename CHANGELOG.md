@@ -44,6 +44,14 @@ because the restructure was designed around keeping namespaces fixed.
   every `using`, type name and `Add*` extension still resolves. The three old ids stop receiving updates at
   1.2.2.
 
+- **An unconfigured image backend is skipped, not benched** — `OpenAiImageProvider` guarded `BaseUrl` but not
+  `ApiKey`, so with no key it made a live call, got a 401 and reported `AuthFailed`, which (with the new GEN5
+  cooldown) benched the backend for the cooldown window on every first attempt. It now reports `NotConfigured` —
+  routing skips the candidate blamelessly and a host can offer setup. The distinction lives in Core as
+  `GenerationVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`: an auth failure with nothing to
+  authenticate WITH is a configuration gap, while a REJECTED key stays `AuthFailed`. It is not simply "require a
+  key", because an OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama) legitimately has none — only
+  the server *demanding* one makes a missing key a config problem.
 - **Honest trim/AOT metadata in `Lyntai.Providers.Default`** — three generation backends (`OpenAiImageProvider`,
   `Automatic1111Provider`, `ComfyUiProvider`) built their request bodies by reflection-serializing anonymous
   types, in a package that stamps `IsTrimmable` into its assembly to tell a consumer's trimmer it is safe to

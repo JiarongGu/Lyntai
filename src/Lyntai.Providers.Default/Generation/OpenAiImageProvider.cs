@@ -76,9 +76,15 @@ public sealed class OpenAiImageProvider(OpenAiImageOptions options, Func<HttpCli
             Authorize(request);
             using var response = await http.SendAsync(request, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return response.IsSuccessStatusCode
-                ? new GenerationProbeResult(true, "models endpoint answered")
-                : new GenerationProbeResult(false, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+            if (response.IsSuccessStatusCode)
+                return new GenerationProbeResult(true, "models endpoint answered");
+            // the same distinction the generate path makes, so a probe's reason matches the verdict a render
+            // would get: "not configured" reads as a setup step, "rejected" reads as a wrong key
+            var unconfigured = GenerationVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials)
+                == GenerationVerdict.NotConfigured;
+            return new GenerationProbeResult(false, unconfigured
+                ? $"not configured: the endpoint requires an ApiKey ({(int)response.StatusCode})"
+                : $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -107,8 +113,11 @@ public sealed class OpenAiImageProvider(OpenAiImageOptions options, Func<HttpCli
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
+                // HasCredentials: a 401 with no key supplied is NOT_CONFIGURED (skip blamelessly, offer setup),
+                // not AUTH_FAILED (bench the backend for the cooldown window). An OpenAI-compatible endpoint run
+                // locally needs no key at all, so only the server DEMANDING one makes "no key" a config problem.
                 return GenerationResult.Failure(
-                    GenerationVerdictClassifier.FromHttpFailure(response.StatusCode, body),
+                    GenerationVerdictClassifier.FromHttpFailure(response.StatusCode, body, HasCredentials),
                     HttpArtifacts.FailureDetail(body));
 
             var artifacts = HttpArtifacts.FromOpenAiEnvelope(body);
@@ -125,6 +134,10 @@ public sealed class OpenAiImageProvider(OpenAiImageOptions options, Func<HttpCli
     }
 
     private string Root => options.BaseUrl.TrimEnd('/');
+
+    /// <summary>Whether this backend has anything to authenticate WITH — what separates "not set up yet" from
+    /// "your key was rejected" when the server answers 401/403.</summary>
+    private bool HasCredentials => !string.IsNullOrWhiteSpace(options.ApiKey);
 
     private string Size(GenerationRequest request) =>
         request.Option("size") is { Length: > 0 } size ? size : options.DefaultSize;

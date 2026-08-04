@@ -623,6 +623,7 @@ static class Lyntai.Generation.GenerationVerdictClassifier
     static FromErrorText(String) : GenerationVerdict
     static FromException(Exception) : GenerationVerdict
     static FromHttpFailure(HttpStatusCode, String) : GenerationVerdict
+    static FromHttpFailure(HttpStatusCode, String, Boolean) : GenerationVerdict
 interface Lyntai.Generation.IGenerationJobProvider
     CancelAsync(String, CancellationToken=) : Task<GenerationOperation>
     FetchAsync(String, CancellationToken=) : Task<GenerationResult>

@@ -17,6 +17,27 @@ public static class GenerationVerdictClassifier
     public static GenerationVerdict FromHttpFailure(HttpStatusCode status, string? body) =>
         Translate(LlmVerdictClassifier.FromHttpFailure(status, body));
 
+    /// <summary>Classify a failed HTTP response, distinguishing "no credentials were SUPPLIED" from
+    /// "the credentials were REJECTED". An auth failure with nothing to authenticate with is
+    /// <see cref="GenerationVerdict.NotConfigured"/>, not <see cref="GenerationVerdict.AuthFailed"/> — and the
+    /// difference is not cosmetic now that routing acts on it: NotConfigured skips the candidate blamelessly and
+    /// tells a host to offer setup, whereas AuthFailed BENCHES the backend for the cooldown window. A backend
+    /// nobody has configured yet would otherwise be penalised on every first attempt for a fact the platform
+    /// already knew before calling.
+    /// <para>Why not simply require a key up front: an OpenAI-COMPATIBLE endpoint run locally (LM Studio, vLLM,
+    /// Ollama) legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key AND the
+    /// server demanded one" does.</para></summary>
+    /// <param name="status">The failed response's status.</param>
+    /// <param name="body">The response body, for text-based classification.</param>
+    /// <param name="hasCredentials">Whether this call actually carried credentials.</param>
+    public static GenerationVerdict FromHttpFailure(HttpStatusCode status, string? body, bool hasCredentials)
+    {
+        var verdict = FromHttpFailure(status, body);
+        return verdict == GenerationVerdict.AuthFailed && !hasCredentials
+            ? GenerationVerdict.NotConfigured
+            : verdict;
+    }
+
     /// <summary>Classify an error message / response body.</summary>
     public static GenerationVerdict FromErrorText(string? text) =>
         Translate(LlmVerdictClassifier.FromErrorText(text));

@@ -26,6 +26,56 @@ public class OpenAiImageProviderTests
         new() { Kind = GenerationKinds.Image, Prompt = prompt };
 
     [Fact]
+    public async Task A_401_with_NO_key_supplied_is_NotConfigured_so_routing_skips_rather_than_benching()
+    {
+        // the distinction has teeth: NotConfigured skips the candidate blamelessly and tells a host to offer
+        // setup, while AuthFailed BENCHES the backend for the cooldown window. A backend nobody configured yet
+        // must not be penalised for a fact the platform knew before it called.
+        var (provider, http) = Provider(new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1" });
+        http.Enqueue(HttpStatusCode.Unauthorized, """{"error":{"message":"Missing bearer authentication"}}""");
+
+        var result = await provider.GenerateAsync(Ask());
+
+        Assert.Equal(GenerationVerdict.NotConfigured, result.Verdict);
+    }
+
+    [Fact]
+    public async Task A_401_with_a_key_supplied_is_AuthFailed_because_that_key_is_wrong()
+    {
+        var (provider, http) = Provider();   // carries ApiKey "k"
+        http.Enqueue(HttpStatusCode.Unauthorized, """{"error":{"message":"Incorrect API key provided"}}""");
+
+        var result = await provider.GenerateAsync(Ask());
+
+        Assert.Equal(GenerationVerdict.AuthFailed, result.Verdict);
+    }
+
+    [Fact]
+    public async Task A_local_keyless_endpoint_is_never_called_unconfigured_just_for_having_no_key()
+    {
+        // an OpenAI-compatible server run locally (LM Studio, vLLM, Ollama) needs no key — "no key" alone must
+        // never mean unconfigured, or every local image endpoint would be skipped
+        var (provider, http) = Provider(new OpenAiImageOptions { BaseUrl = "http://127.0.0.1:1234/v1" });
+        http.Enqueue(HttpStatusCode.OK, $"{{\"data\":[{{\"b64_json\":\"{OneByteBase64}\"}}]}}");
+
+        var result = await provider.GenerateAsync(Ask());
+
+        Assert.True(result.IsOk);
+    }
+
+    [Fact]
+    public async Task A_probe_reports_a_missing_key_as_a_setup_step_not_a_rejection()
+    {
+        var (provider, http) = Provider(new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1" });
+        http.Enqueue(HttpStatusCode.Unauthorized, """{"error":{"message":"Missing bearer authentication"}}""");
+
+        var probe = await provider.ProbeAsync();
+
+        Assert.False(probe.Available);
+        Assert.Contains("not configured", probe.Detail);
+    }
+
+    [Fact]
     public void It_declares_only_what_it_can_do()
     {
         var (provider, _) = Provider();

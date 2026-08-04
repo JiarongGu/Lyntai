@@ -62,6 +62,23 @@ ported-not-measured, and fal's wire format is documented-not-measured._
 
 ---
 
+## Part 34 — findings from the pre-2.0.1 consumer smoke (2026-08-04)
+
+_Restoring the packed metapackage into a fresh app and compiling against the 2.0.1 surface (rather than project
+references) proved the install story works, and exposed two asymmetries between the domains. Neither blocks the
+release; both are additive._
+
+- [ ] **generation backend wiring helpers** — the LLM side has `AddOllamaProvider()` / `AddOpenAiProvider()` /
+  `AddAzureOpenAiProvider()`, while every generation backend must be hand-constructed WITH its `Func<HttpClient>`:
+  `.AddGenerationProvider(_ => new OpenAiImageProvider(options, () => new HttpClient()))`. Add the matching
+  `AddOpenAiImageProvider()` / `AddAutomatic1111Provider()` / `AddComfyUiProvider()` / `AddFalProvider()` shims
+  (BYO `HttpClient` staying optional, per v0.7). Same class of gap as the semantic-memory wiring helper below.
+- [ ] **LLM-side parity for the no-credentials verdict** — `GenerationVerdictClassifier.FromHttpFailure(status,
+  body, hasCredentials)` now reports a 401 with NO key supplied as `NotConfigured` rather than `AuthFailed`, so
+  routing skips an unconfigured backend blamelessly instead of benching it. `OpenAiCompatibleProvider` /
+  `HttpEmbedder` have the same shape and still report `AuthFailed`. Deliberately NOT changed here: that is
+  released behaviour, and a verdict change belongs in its own considered commit, not a pre-release sweep.
+
 ## Part 25 — post-1.0 backlog (deferred at the 1.0 API-review triage, 2026-07-28)
 
 _Additive / non-breaking items surfaced by the 1.0 adversarial API review + consumer-usage review (the
