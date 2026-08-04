@@ -2419,6 +2419,56 @@ two existing interfaces, plus optional trailing constructor parameters on both r
 
 ---
 
+## Part 34 — findings from the pre-2.0.1 consumer smoke (2026-08-04)
+
+_Restoring the packed bundle into a fresh app and compiling against the 2.0.1 surface (rather than project
+references) proved the install story works, and exposed two asymmetries between the domains. Neither blocks the
+release; both are additive._
+
+_The generation wiring helpers landed 2026-08-04 — see Part 36 above and `docs/DECISIONS.md` D35/D36. The
+verdict half closed 2026-08-05, emptying the part._
+
+- [x] **LLM-side parity for the no-credentials verdict** — `GenerationVerdictClassifier.FromHttpFailure(status,
+  body, hasCredentials)` now reports a 401 with NO key supplied as `NotConfigured` rather than `AuthFailed`, so
+  routing skips an unconfigured backend blamelessly instead of benching it. `OpenAiCompatibleProvider` /
+  `HttpEmbedder` have the same shape and still report `AuthFailed`. Deliberately NOT changed here: that is
+  released behaviour, and a verdict change belongs in its own considered commit, not a pre-release sweep.
+
+  **Closed 2026-08-05. Outcome:** added `LlmVerdict.NotConfigured` (appended last — existing members keep their
+  numeric values, so it is binary-compatible) mapped to `FallbackAction.Advance` in the default `RoutingPolicy`,
+  plus `LlmVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`; `OpenAiCompatibleProvider` now
+  passes whether it carried a key, so a 401 to an unconfigured backend advances with no cooldown and no
+  dead-host penalty while a REJECTED key still cools the host.
+
+  Three findings worth keeping:
+
+  - **The enum member was the whole question.** There was no `NotConfigured`-equivalent on the LLM side and no
+    member that both meant the right thing and produced the right action — `Unsupported` maps to `Surface`
+    (which would STOP the run at the unconfigured candidate, strictly worse than benching it) and
+    `ContextWindowExceeded` has the right action but the wrong meaning. Escalated as a design call rather than
+    invented; approved as an additive minor. The cost is CS8509 in a consumer's non-exhaustive `switch`
+    expression — a warning in their build, called out in `CHANGELOG.md`.
+  - **`RoutingPolicy.ActionFor` falls back to `PenalizeAndAdvance`**, so adding the member WITHOUT the policy
+    entry would have produced a different wrong outcome (still counting toward the dead-host threshold) rather
+    than a fix. The two must always move together — noted in the policy source.
+  - **The rule is stated twice, deliberately, not shared.** `docs/DECISIONS.md` D30 keeps the pattern CORPUS
+    single-sourced in `LlmVerdictClassifier` (there is one answer to "what does a 429 look like"), but this
+    two-term promotion reaches different populations: every LLM backend that authenticates by login SESSION
+    rather than a supplied key — the CLI dialects, the primary seam — classifies from error text and has no
+    `hasCredentials` fact at all. A shared helper for `authFailure && !hasCredentials` would be indirection
+    without drift protection, so each site states it and cross-references the other. `GenerationVerdictClassifier`
+    also stopped flattening a `NotConfigured` from the shared corpus to `Failed` (reachable via a
+    consumer-registered `AddErrorTextMatcher`).
+
+  **`HttpEmbedder` was deliberately left alone**, contrary to the task's premise: it reports no verdict at all,
+  it THROWS (its type doc states that contract), and there is no embedder router — so there is no "advance
+  without blame" for it to reach and nothing to route around. The only thing a host can act on is the wording,
+  so its 401 now says `(not configured: no ApiKey)` when no key was supplied. Message only.
+
+  `verify` green at 7 gates, 1480 tests, e2e 3/3, 0 warnings. Public surface: additive only.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

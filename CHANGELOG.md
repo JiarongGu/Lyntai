@@ -101,6 +101,29 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   not the same incident — an operator investigating a possible double charge needs something to search on.
 
 ### Changed
+- **An unconfigured LLM backend is skipped, not benched — `LlmVerdict.NotConfigured`.** When an
+  OpenAI-compatible endpoint answers 401/403 to a call that carried **no** credentials,
+  `OpenAiCompatibleProvider` now reports the new `LlmVerdict.NotConfigured` instead of `AuthFailed`, and the
+  default `RoutingPolicy` maps it to `FallbackAction.Advance`. **What you observe:** a candidate you listed
+  but never configured is skipped with no cooldown and no dead-host penalty, where it previously benched that
+  provider for the whole cooldown window on every first attempt; when everything is unconfigured, the
+  surfaced verdict now says so, which a host can turn into a setup prompt. A key that WAS supplied and got
+  rejected still reports `AuthFailed` and still cools the host — the two cases were indistinguishable before.
+  It is deliberately not "a key is required": a locally-run OpenAI-compatible server (LM Studio, vLLM,
+  Ollama) legitimately needs none, so only the server *demanding* one makes a missing key a configuration
+  gap. This closes the asymmetry with the generation domain, which already drew the same distinction
+  (`GenerationVerdict.NotConfigured`, 2.0.1); both domains now answer the same situation the same way.
+  Also exposed as `LlmVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` for a custom provider,
+  and `GenerationVerdictClassifier` no longer flattens a `NotConfigured` from the shared corpus to `Failed`.
+  - **If you switch on `LlmVerdict`:** the enum gained a member (appended last, so existing members keep
+    their numeric values — binary-compatible, and a compiled consumer keeps working). A **non-exhaustive
+    `switch` expression** over `LlmVerdict` will now raise **CS8509** in your build — a warning, not an
+    error. Code that treated the old `AuthFailed` as "check your API key" should handle `NotConfigured` as
+    "no API key is set" rather than falling into its default branch.
+  - **`HttpEmbedder` deliberately unchanged in behaviour:** an embedding call has no verdict and no
+    fallback — it throws — so there is nothing for it to route around. Its 401 message now says
+    `(not configured: no ApiKey)` when no key was supplied, so a host can tell setup from a rejected key.
+    Message only; the exception type is still `HttpRequestException`.
 - `LlmRouter` and `GenerationRouter` gained two **optional** trailing constructor parameters (`configuration`,
   `admission`). Source-compatible — existing constructions compile and behave identically — but **not binary
   compatible**: a pre-compiled consumer calling the old constructor gets `MissingMethodException` until it

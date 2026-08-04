@@ -140,6 +140,24 @@ public class LlmRouterCompleteTests
     }
 
     [Fact]
+    public async Task An_unconfigured_candidate_is_skipped_blamelessly()
+    {
+        // the asymmetry this closes: a consumer who LISTS a backend they have not configured had it benched
+        // on cooldown for a fact the router knew before calling. NotConfigured advances with no penalty and
+        // no cooldown — the same thing the generation router already does (GenerationRoutingPolicy).
+        var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
+        var unset = new FakeLlmProvider("unset");
+        unset.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "no api key"));
+        var configured = new FakeLlmProvider("configured");
+        configured.Replies.Enqueue(new LlmReply("served", LlmVerdict.Ok));
+
+        var reply = await Router(tracker, unset, configured).CompleteAsync([new("unset"), new("configured")], Req);
+
+        Assert.Equal("served", reply.Text);
+        Assert.False(tracker.IsDead("unset")); // threshold is 1 — ANY recorded failure or cooldown benches it
+    }
+
+    [Fact]
     public async Task All_candidates_rate_limited_surfaces_the_rate_limit()
     {
         var p1 = new FakeLlmProvider("p1");

@@ -57,6 +57,40 @@ public class LlmVerdictClassifierTests
         Assert.Equal(LlmVerdict.AuthFailed, LlmVerdictClassifier.FromHttpFailure(HttpStatusCode.Forbidden, "denied"));
     }
 
+    // Parity with the generation domain (GenerationVerdictClassifier): an auth failure with nothing to
+    // authenticate WITH is a configuration gap, not a rejected credential — and the difference is not
+    // cosmetic, because AuthFailed BENCHES the host for the cooldown window while NotConfigured advances
+    // blamelessly. A backend nobody has configured would otherwise be penalised on every first attempt.
+    [Fact]
+    public void A_401_with_no_credentials_supplied_is_NotConfigured_not_AuthFailed()
+    {
+        Assert.Equal(LlmVerdict.NotConfigured,
+            LlmVerdictClassifier.FromHttpFailure(HttpStatusCode.Unauthorized, "missing api key", hasCredentials: false));
+        Assert.Equal(LlmVerdict.NotConfigured,
+            LlmVerdictClassifier.FromHttpFailure(HttpStatusCode.Forbidden, null, hasCredentials: false));
+        // the promotion follows the VERDICT, not the status — a body-text auth failure promotes too
+        Assert.Equal(LlmVerdict.NotConfigured,
+            LlmVerdictClassifier.FromHttpFailure(HttpStatusCode.BadRequest, "Incorrect API key provided", hasCredentials: false));
+    }
+
+    [Fact]
+    public void A_401_with_credentials_supplied_stays_AuthFailed_because_that_key_is_wrong()
+    {
+        Assert.Equal(LlmVerdict.AuthFailed,
+            LlmVerdictClassifier.FromHttpFailure(HttpStatusCode.Unauthorized, "invalid api key", hasCredentials: true));
+    }
+
+    [Fact]
+    public void The_no_credentials_promotion_applies_only_to_auth_failures()
+    {
+        // "no key" alone cannot mean unconfigured: an OpenAI-compatible endpoint run locally (LM Studio,
+        // vLLM, Ollama) legitimately needs none. Only "no key AND the server demanded one" does.
+        Assert.Equal(LlmVerdict.RateLimited,
+            LlmVerdictClassifier.FromHttpFailure(HttpStatusCode.TooManyRequests, null, hasCredentials: false));
+        Assert.Equal(LlmVerdict.Failed,
+            LlmVerdictClassifier.FromHttpFailure(HttpStatusCode.InternalServerError, "boom", hasCredentials: false));
+    }
+
     [Fact]
     public void Untyped_exceptions_classify_from_their_message()
     {

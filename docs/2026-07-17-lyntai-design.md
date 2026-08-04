@@ -294,12 +294,14 @@ these later without breaking changes.
 > `ToolLoopResult.Usage`) · **BYO resources** (v0.7: `IProcessRunner`, BYO `HttpClient`, BYO
 > `IDbConnectionFactory` + `migrate:false`, provider presets).
 > **§5 additive shape drift** (current shape = the baselines): `LlmVerdict` +`ContextWindowExceeded`/
-> `AuthFailed`/`Unsupported`; `LlmRequest` +`TimeoutSeconds`/`RefusalPattern`; `LlmReply` +`ToolCalls`;
+> `AuthFailed`/`Unsupported`/`NotConfigured`; `LlmRequest` +`TimeoutSeconds`/`RefusalPattern`; `LlmReply` +`ToolCalls`;
 > `LlmMessage` tool turns + `Attachments`; `IPromptRegistry.ValidateOverride`; `IScoringService`
 > read/aggregate/export members; new storage domains `IJobStore`/`IPromptVersionStore`/`ICuratedMemoryStore`;
 > three storage backends, 11 packages (adapter→Core-only rule unchanged and verified).
 > **§6 semantic additions:** AuthFailed = cool + advance; ContextWindowExceeded = advance, no penalty;
-> Unsupported = surface (D4) · streaming timeouts are INACTIVITY clocks + the empty-content commit gate
+> Unsupported = surface (D4); NotConfigured = advance, no penalty (2026-08-05 — a backend that was never set
+> up is skipped blamelessly, matching the generation router; the same rule in both domains) · streaming
+> timeouts are INACTIVITY clocks + the empty-content commit gate
 > (D5) · front-door decorators fold deterministically, cache outermost (D14) · `RefusalPattern` screening
 > re-screens even cached hits · usage-tracker totals are async by contract and case-insensitive per
 > consumer identity (v0.30).

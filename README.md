@@ -169,6 +169,11 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   `RateLimited` puts that host on immediate cooldown and advances to the next candidate (a 429 is
   terminal for the host's window, not for the fleet), `Refused` surfaces with no fallback (content
   policy follows the prompt, not the host).
+- **A backend you listed but never configured is skipped, not benched** — when a server answers 401/403 to a
+  call that carried no credentials, the verdict is `NotConfigured`, and the router advances with no cooldown
+  and no dead-host penalty (`AuthFailed` — a key that WAS supplied and got rejected — still cools the host).
+  It isn't "a key is required": a locally-run OpenAI-compatible server legitimately needs none, so only the
+  server actually demanding one makes a missing key a configuration gap. Same rule as the generation router.
 - **Streaming never falls back after the first token** — pre-content failures move to the next
   candidate, mid-stream errors pass through unchanged (your consumer never sees duplicated output).
 - **Per-request refusal check** — set `LlmRequest.RefusalPattern` (a regex) and an otherwise-`Ok` reply

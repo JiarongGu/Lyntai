@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -16,7 +17,8 @@ namespace Lyntai.Providers.OpenAiCompatible;
 /// Azure resource → <c>/openai/v1/embeddings</c>; everything else → <c>/v1/embeddings</c>). The per-call
 /// deadline is <see cref="LyntaiOptions.ProviderTimeout"/>. Failures THROW (an embedding call has no
 /// verdict/fallback) — <see cref="Lyntai.Memory.ISemanticMemory.RecallAsync"/> is fail-open and swallows them,
-/// while <c>RememberAsync</c> surfaces them by design.
+/// while <c>RememberAsync</c> surfaces them by design. Because there is no verdict, a 401 with no key supplied
+/// says so in the message instead: see <see cref="NotConfiguredHint"/>.
 /// </summary>
 public sealed class HttpEmbedder(
     string id,
@@ -76,7 +78,8 @@ public sealed class HttpEmbedder(
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
-                throw new HttpRequestException($"{id}: embeddings HTTP {(int)response.StatusCode} {Head(errorBody)}");
+                throw new HttpRequestException(
+                    $"{id}: embeddings HTTP {(int)response.StatusCode}{NotConfiguredHint(response.StatusCode)} {Head(errorBody)}");
             }
             body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
         }
@@ -176,6 +179,19 @@ public sealed class HttpEmbedder(
             vector[i++] = n.ValueKind == JsonValueKind.Number ? (float)n.GetDouble() : 0f;
         return vector;
     }
+
+    /// <summary>" (not configured: no ApiKey)" when the server demanded credentials this call never carried,
+    /// otherwise empty. An embedder has no verdict and no fallback — it THROWS — so unlike a chat provider it
+    /// has no <c>NotConfigured</c> outcome to report and nothing to route around; the wording is the only
+    /// thing a host can act on. Without it a 401 sends someone to check a key they never supplied, when the
+    /// answer is to set one. Same distinction as the provider side, expressed the only way this seam allows.
+    /// A local embeddings server (LM Studio, Ollama) needs no key, so the hint is tied to the server actually
+    /// answering 401/403 rather than to the key being absent.</summary>
+    private string NotConfiguredHint(HttpStatusCode status) =>
+        status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
+        && string.IsNullOrWhiteSpace(config.ApiKey)
+            ? " (not configured: no ApiKey)"
+            : "";
 
     private static async Task<string> SafeRead(HttpResponseMessage response, CancellationToken ct)
     {

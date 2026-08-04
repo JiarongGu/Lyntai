@@ -26,7 +26,11 @@ public static class GenerationVerdictClassifier
     /// already knew before calling.
     /// <para>Why not simply require a key up front: an OpenAI-COMPATIBLE endpoint run locally (LM Studio, vLLM,
     /// Ollama) legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key AND the
-    /// server demanded one" does.</para></summary>
+    /// server demanded one" does.</para>
+    /// <para>The LLM domain states the SAME rule over its own vocabulary
+    /// (<see cref="LlmVerdictClassifier.FromHttpFailure(System.Net.HttpStatusCode, string, bool)"/>), stated
+    /// separately rather than shared because the two reach different populations — see the note there. Change
+    /// one and check the other.</para></summary>
     /// <param name="status">The failed response's status.</param>
     /// <param name="body">The response body, for text-based classification.</param>
     /// <param name="hasCredentials">Whether this call actually carried credentials.</param>
@@ -56,6 +60,10 @@ public static class GenerationVerdictClassifier
         LlmVerdict.AuthFailed => GenerationVerdict.AuthFailed,
         LlmVerdict.Refused => GenerationVerdict.Refused,
         LlmVerdict.Timeout => GenerationVerdict.Timeout,
+        // both domains carry this one and it means the same thing; letting it fall to Failed would turn a
+        // blameless skip into a penalised failure on the way across the boundary (a consumer-registered
+        // matcher on the shared classifier can return it, so this is reachable, not theoretical)
+        LlmVerdict.NotConfigured => GenerationVerdict.NotConfigured,
         _ => GenerationVerdict.Failed,
     };
 }

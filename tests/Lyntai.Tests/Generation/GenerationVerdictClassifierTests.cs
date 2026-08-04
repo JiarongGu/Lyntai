@@ -1,5 +1,6 @@
 using System.Net;
 using Lyntai.Generation;
+using Lyntai.Llm;
 
 namespace Lyntai.Tests.Generation;
 
@@ -45,6 +46,20 @@ public class GenerationVerdictClassifierTests
     {
         // the LLM taxonomy has verdicts media cannot have; they must not leak through as a media verdict
         Assert.Equal(GenerationVerdict.Failed, GenerationVerdictClassifier.FromErrorText("maximum context length exceeded"));
+    }
+
+    [Fact]
+    public void A_NotConfigured_verdict_from_the_shared_corpus_stays_NotConfigured()
+    {
+        // both domains now have this verdict and it means the same thing in each. Flattening it to Failed
+        // would convert a blameless skip into a penalised failure on the way across the boundary.
+        using var _ = LlmVerdictClassifier.AddErrorTextMatcher(t =>
+            t.Contains("no endpoint configured", StringComparison.OrdinalIgnoreCase)
+                ? LlmVerdict.NotConfigured
+                : null);
+
+        Assert.Equal(GenerationVerdict.NotConfigured,
+            GenerationVerdictClassifier.FromErrorText("no endpoint configured"));
     }
 
     [Fact]

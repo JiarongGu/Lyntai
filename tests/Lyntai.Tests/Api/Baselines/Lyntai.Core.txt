@@ -1339,6 +1339,7 @@ enum Lyntai.Llm.LlmVerdict
     AuthFailed : LlmVerdict const
     ContextWindowExceeded : LlmVerdict const
     Failed : LlmVerdict const
+    NotConfigured : LlmVerdict const
     Ok : LlmVerdict const
     RateLimited : LlmVerdict const
     Refused : LlmVerdict const
@@ -1350,6 +1351,7 @@ static class Lyntai.Llm.LlmVerdictClassifier
     static FromErrorText(String, LlmVerdict=) : LlmVerdict
     static FromException(Exception) : LlmVerdict
     static FromHttpFailure(HttpStatusCode, String) : LlmVerdict
+    static FromHttpFailure(HttpStatusCode, String, Boolean) : LlmVerdict
 sealed class Lyntai.Llm.ProviderAuthResult
     .ctor(Boolean, ProviderAuthStatus=, String=)
     Deconstruct(Boolean&, ProviderAuthStatus&, String&) : Void

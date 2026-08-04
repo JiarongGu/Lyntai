@@ -231,11 +231,18 @@ public sealed class OpenAiCompatibleProvider(
     internal Uri Endpoint() =>
         OpenAiEndpoint.Build(config.BaseUrl, _flavor, ollamaNativePath: "/api/chat", openAiRoute: "chat/completions");
 
+    /// <summary>Whether this provider has anything to authenticate WITH — what separates "not set up yet"
+    /// from "your key was rejected" when the server answers 401/403.</summary>
+    private bool HasCredentials => !string.IsNullOrWhiteSpace(config.ApiKey);
+
     private LlmReply MapHttpFailure(HttpStatusCode status, string body)
     {
         var detail = $"{id}: HTTP {(int)status} {Head(body)}";
-        // typed status wins; body text goes through the ONE shared classifier (never local heuristics)
-        return new LlmReply("", LlmVerdictClassifier.FromHttpFailure(status, body), Detail: detail);
+        // typed status wins; body text goes through the ONE shared classifier (never local heuristics).
+        // hasCredentials separates "never set up" (NotConfigured — skipped blamelessly) from "your key was
+        // rejected" (AuthFailed — benched for the cooldown window). A local OpenAI-compatible server needs no
+        // key, so the missing key only means unconfigured once the server has actually demanded one.
+        return new LlmReply("", LlmVerdictClassifier.FromHttpFailure(status, body, HasCredentials), Detail: detail);
     }
 
     /// <summary>Tolerant extraction covering both response shapes:

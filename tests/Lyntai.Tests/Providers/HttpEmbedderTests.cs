@@ -28,6 +28,32 @@ public class HttpEmbedderTests
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromSeconds(30) });
     }
 
+    // An embedder has NO verdict and NO fallback — it throws (see the HttpEmbedder type doc), so there is no
+    // "advance without blame" for it to reach and no verdict change to make. The only thing a host can act on
+    // is the WORDING: "not configured" points at setup, while a bare 401 points at a key that was never
+    // supplied. Message-only parity with the provider-side NotConfigured distinction.
+    [Fact]
+    public async Task A_401_with_no_api_key_supplied_says_not_configured()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
+        var embedder = Embedder(handler, c => c.ApiKey = null);
+
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(async () => await embedder.EmbedAsync(["a"]));
+
+        Assert.Contains("not configured", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("401", ex.Message); // the status stays, for diagnosis
+    }
+
+    [Fact]
+    public async Task A_401_with_an_api_key_supplied_does_not_claim_it_is_unconfigured()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
+
+        var ex = await Assert.ThrowsAsync<HttpRequestException>(async () => await Embedder(handler).EmbedAsync(["a"]));
+
+        Assert.DoesNotContain("not configured", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task Openai_v1_embeddings_shape_parses_vectors_and_sends_model_input_and_bearer()
     {
