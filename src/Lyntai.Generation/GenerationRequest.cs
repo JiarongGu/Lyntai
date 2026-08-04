@@ -1,4 +1,4 @@
-namespace Lyntai.Media;
+namespace Lyntai.Generation;
 
 /// <summary>One generation request, for ANY medium. The medium is <see cref="Kind"/>; everything a specific
 /// backend needs beyond the common fields travels in <see cref="Options"/>, so adding a knob is never a
@@ -6,10 +6,10 @@ namespace Lyntai.Media;
 /// <remarks>Backend-specific options are string→string on purpose: they are passed THROUGH to a backend that
 /// documents them (size, duration, aspect ratio, voice id, steps, a workflow id for a graph-based engine).
 /// A platform that typed every backend's knobs would need a release per backend feature.</remarks>
-public sealed record MediaRequest
+public sealed record GenerationRequest
 {
-    /// <summary>Which medium to produce — a <see cref="MediaKinds"/> value, or any string a backend
-    /// advertises in <see cref="MediaCapabilities.Kinds"/>.</summary>
+    /// <summary>Which medium to produce — a <see cref="GenerationKinds"/> value, or any string a backend
+    /// advertises in <see cref="GenerationCapabilities.Kinds"/>.</summary>
     public required string Kind { get; init; }
 
     /// <summary>The text prompt, where the backend takes one. Null for a backend driven entirely by
@@ -18,7 +18,7 @@ public sealed record MediaRequest
 
     /// <summary>Source media the generation works FROM — an init image, a first frame, a style reference, a
     /// voice sample. Empty for pure text→media.</summary>
-    public IReadOnlyList<MediaInput> Inputs { get; init; } = [];
+    public IReadOnlyList<GenerationInput> Inputs { get; init; } = [];
 
     /// <summary>The model / endpoint id to use AT the selected backend, when it serves more than one (an
     /// aggregator serves hundreds). Null = the backend's own default.</summary>
@@ -42,9 +42,9 @@ public sealed record MediaRequest
 /// <param name="MediaType">The input's MIME type (<c>image/png</c>, <c>audio/wav</c>).</param>
 /// <param name="Data">Inline bytes, when the caller has them.</param>
 /// <param name="Uri">A location the BACKEND can read, when bytes would be wasteful.</param>
-/// <param name="Role">What this input is to the generation — a <see cref="MediaInputRoles"/> value or any
+/// <param name="Role">What this input is to the generation — a <see cref="GenerationInputRoles"/> value or any
 /// role a backend documents. Null = the backend's default interpretation.</param>
-public sealed record MediaInput(
+public sealed record GenerationInput(
     string MediaType,
     byte[]? Data = null,
     string? Uri = null,

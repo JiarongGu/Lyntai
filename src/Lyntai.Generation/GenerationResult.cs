@@ -1,10 +1,10 @@
-namespace Lyntai.Media;
+namespace Lyntai.Generation;
 
 /// <summary>Why a media call ended the way it did. The platform's OWN vocabulary — deliberately not
 /// <c>LlmVerdict</c>: media is a separate domain, and its results are consumed by media routing.
-/// (The transport-to-verdict PATTERNS are still shared — see <see cref="MediaVerdictClassifier"/> — so there
+/// (The transport-to-verdict PATTERNS are still shared — see <see cref="GenerationVerdictClassifier"/> — so there
 /// is one corpus of "what does a 429 mean", not two.)</summary>
-public enum MediaVerdict
+public enum GenerationVerdict
 {
     /// <summary>Artifacts were produced.</summary>
     Ok,
@@ -37,31 +37,31 @@ public enum MediaVerdict
 /// <summary>The outcome of a media generation.</summary>
 /// <param name="Verdict">Why it ended this way.</param>
 /// <param name="Artifacts">What was produced — empty unless <paramref name="Verdict"/> is
-/// <see cref="MediaVerdict.Ok"/>.</param>
+/// <see cref="GenerationVerdict.Ok"/>.</param>
 /// <param name="Usage">What the backend said it cost, when it says.</param>
 /// <param name="Detail">The backend's own words, or the failure reason. Surface verbatim rather than parsing:
 /// the wording belongs to the backend and changes.</param>
-public sealed record MediaResult(
-    MediaVerdict Verdict,
-    IReadOnlyList<MediaArtifact> Artifacts,
-    MediaUsage? Usage = null,
+public sealed record GenerationResult(
+    GenerationVerdict Verdict,
+    IReadOnlyList<GenerationArtifact> Artifacts,
+    GenerationUsage? Usage = null,
     string? Detail = null)
 {
     /// <summary>Whether the call produced media.</summary>
-    public bool IsOk => Verdict == MediaVerdict.Ok;
+    public bool IsOk => Verdict == GenerationVerdict.Ok;
 
     /// <summary>A successful result. Throws for an EMPTY artifact list: an "Ok" carrying nothing is the
     /// empty-Ok mistake the LLM side already paid for (<c>.claude/knowledge/pitfalls.md</c>) — it robs routing
     /// of its chance to fall over and hands the caller a successful nothing.</summary>
-    public static MediaResult Success(
-        IReadOnlyList<MediaArtifact> artifacts, MediaUsage? usage = null, string? detail = null)
+    public static GenerationResult Success(
+        IReadOnlyList<GenerationArtifact> artifacts, GenerationUsage? usage = null, string? detail = null)
     {
         if (artifacts.Count == 0)
             throw new ArgumentException("a successful media result needs at least one artifact", nameof(artifacts));
-        return new MediaResult(MediaVerdict.Ok, artifacts, usage, detail);
+        return new GenerationResult(GenerationVerdict.Ok, artifacts, usage, detail);
     }
 
     /// <summary>A failed result — no artifacts, a reason, and a verdict routing can act on.</summary>
-    public static MediaResult Failure(MediaVerdict verdict, string? detail = null) =>
+    public static GenerationResult Failure(GenerationVerdict verdict, string? detail = null) =>
         new(verdict, [], null, detail);
 }

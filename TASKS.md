@@ -36,8 +36,8 @@ _Filed 2026-08-04 by a consuming app, on the owner's directive that **everything
 Lyntai — including whole new domains as new packages** — so an app stays business-central. This is the
 largest AI capability currently living in an app rather than the library._
 
-- [ ] **MED1 — `IMediaProvider` / `IVideoProvider` as a Lyntai domain (new package, e.g.
-  `Lyntai.Media` + per-backend provider packages).**
+- [ ] **MED1 — `IGenerationProvider` / `IVideoProvider` as a Lyntai domain (new package, e.g.
+  `Lyntai.Generation` + per-backend provider packages).**
 
   **The evidence.** A consuming desktop app currently owns **1,367 lines across 13 files** of image/video
   generation: a provider abstraction, a factory that routes between backends, an OpenAI-compatible images
@@ -51,7 +51,7 @@ largest AI capability currently living in an app rather than the library._
   `IProviderVersionInstaller` just showed the optional-capability pattern working for a second concern.
 
   **Suggested seam** (shape matters, not the steps):
-  - `IMediaProvider` — text→image and prompt-guided image→image edit, returning bytes plus what the backend
+  - `IGenerationProvider` — text→image and prompt-guided image→image edit, returning bytes plus what the backend
     said about them; `IVideoProvider` for a composition→video render.
   - Backends as separate packages, mirroring the provider layout: an OpenAI-compatible one, an
     Automatic1111 HTTP one, and a **local subprocess** one (stable-diffusion.cpp) — the last of which proves
@@ -74,9 +74,9 @@ largest AI capability currently living in an app rather than the library._
   backend choice + config, and can ask "is this backend usable?" without paying for a generation — with the
   binary/model download, the output location and the credentials still owned by the app.
 
-  **Status 2026-08-04:** the platform CORE landed — `Lyntai.Media` (contracts, capability model, the three
+  **Status 2026-08-04:** the platform CORE landed — `Lyntai.Generation` (contracts, capability model, the three
   delivery seams, verdicts, capability-aware router, DI). Plan of record:
-  `docs/2026-08-04-media-platform-plan.md`; rationale in `docs/DECISIONS.md` D30. Scope was generalized on the
+  `docs/2026-08-04-generation-platform-plan.md`; rationale in `docs/DECISIONS.md` D30. Scope was generalized on the
   owner's direction ("not a generation engine — a media generation **platform**", spanning image/video/audio
   and 3d → image → video chaining), so there is deliberately **no separate `IVideoProvider`**: video is
   `Kind = "video"` plus the async-job delivery mode, because what differs is how a backend DELIVERS, not which

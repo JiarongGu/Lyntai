@@ -13,23 +13,27 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 ## Unreleased — the media generation platform
 
 ### Added
-- **`Lyntai.Media`** — a NEW package: the media generation **platform**. One capability-aware provider seam
+- **`Lyntai.Generation`** — a NEW package: the generation **platform** (image · video · audio · 3d, and any
+  kind you define — `Kind` is an open string, so a non-media artifact uses the same machinery and no `Custom`
+  constant is needed). Fallback is a **policy**: `GenerationRoutingPolicy` defaults to the LLM router's §6
+  semantics (a content `Refused` surfaces) but a host pairing a hosted backend with a permissive locally-run
+  one can set `On(Refused, Advance)` — that is the host's call, not the library's. One capability-aware provider seam
   spanning image, video and audio (and any medium next — `Kind` is an open string, as 3D already ships on real
-  aggregators), with three delivery modes because real backends genuinely differ: inline (`IMediaProvider`),
-  async job (`IMediaJobProvider` — submit → poll → fetch, universal for video and batch music) and streaming
-  (`IMediaStreamProvider` — TTS starts playback before generation ends). Async operations expose their
+  aggregators), with three delivery modes because real backends genuinely differ: inline (`IGenerationProvider`),
+  async job (`IGenerationJobProvider` — submit → poll → fetch, universal for video and batch music) and streaming
+  (`IGenerationStreamProvider` — TTS starts playback before generation ends). Async operations expose their
   **operation id**, so a render survives a restart, composes with `Lyntai.Jobs`, and works with a
   webhook-delivering backend (your app owns the endpoint and calls `FetchAsync`). Backends declare
-  `MediaCapabilities` and the router **pre-filters** on them — unlike chat models, a media backend often simply
+  `GenerationCapabilities` and the router **pre-filters** on them — unlike chat models, a media backend often simply
   cannot serve a request, and that is a skip rather than a failure. Every backend answers "are you usable?"
   via `ProbeAsync` **without generating anything**, replacing the generate-and-discard test that pattern
   otherwise requires. Chaining is first-class (`artifact.ToInput(role)` → 3d → image → video). Media keeps its
-  own `MediaVerdict` vocabulary but **shares the failure corpus** (`MediaVerdictClassifier` delegates to
+  own `GenerationVerdict` vocabulary but **shares the failure corpus** (`GenerationVerdictClassifier` delegates to
   `LlmVerdictClassifier`), so there is one definition of what a 429 or a content refusal means. Lyntai
   generates nothing itself: no inference, no engine/weights provisioning, no webhook host, no artifact storage
   (`docs/DECISIONS.md` D26, D30). The LLM stack gains **zero** dependency on media — the bridge is `ITool`/MCP.
   Backends, async-video/`Jobs` composition, governance parity, the tool bridge and pipelines follow in
-  `docs/2026-08-04-media-platform-plan.md` Plans 2–7.
+  `docs/2026-08-04-generation-platform-plan.md` Plans 2–7.
 
 ## 1.2.2 — turn-free backend auth + pinned self-install (2026-08-03)
 

@@ -66,7 +66,7 @@ per-`StorageFeature` baselines.
 | `Lyntai.Providers.OpenAiCompatible` | OpenAI / Ollama / OpenRouter-style endpoints over HttpClient. |
 | `Lyntai.Providers.ExtensionsAi` | Bridge: any `Microsoft.Extensions.AI` `IChatClient` → a Lyntai provider. |
 | `Lyntai.Providers.Local` | In-process local GGUF inference via LLamaSharp (llama.cpp) — add an `LLamaSharp.Backend.*`. |
-| `Lyntai.Media` | Media generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
+| `Lyntai.Generation` | Media generation platform — image/video/audio backends behind one capability-aware seam, with routing, probes and a tool bridge. |
 | `Lyntai.Tools.Mcp` | Expose a Model Context Protocol (MCP) server's tools as Lyntai `ITool`s for the tool loop. |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral local MCP server so a CLI that runs its own agent loop can call them. Per-CLI wiring is an `IMcpCliDialect` (`ClaudeCliMcpDialect` ships with the claude provider). |
 
@@ -493,16 +493,18 @@ If your CLI takes the prompt positionally rather than on stdin, set `PromptDeliv
 — the engine appends it last. Free-form values (`ProviderLoginRequest.Mode`, `ProviderInstallRequest.Version`)
 must be *refused* by the dialect when it doesn't recognize them, never turned into an invented flag.
 
-### Media generation (`Lyntai.Media`)
+### Generation: image · video · audio · 3d (`Lyntai.Generation`)
 
-The same idea as the LLM front door, for generated media: you register backends, Lyntai routes across them.
-It is a **platform, not an engine** — every pixel and sample is produced by a backend you choose.
+The same idea as the LLM front door, for generated artifacts: you register backends, Lyntai routes across
+them. It is a **platform, not an engine** — every pixel and sample is produced by a backend you choose.
+`Kind` is an open string, so a medium (or a non-media artifact) nobody has modelled yet uses the same
+submit/poll/stream, capability and routing machinery.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddMediaProvider(sp => new MyImageBackend(...))
-    .AddMediaProvider(sp => new MyVideoBackend(...))
-    .UseDefaultMediaCandidates("my-image-backend", "my-video-backend"));
+    .AddGenerationProvider(sp => new MyImageBackend(...))
+    .AddGenerationProvider(sp => new MyVideoBackend(...))
+    .UseDefaultGenerationCandidates("my-image-backend", "my-video-backend"));
 ```
 
 Backends declare what they can do, and the router **skips a candidate that can't serve the request** before
@@ -510,9 +512,9 @@ spending anything — media backends differ far more than chat models do (medium
 ceilings, model catalogues):
 
 ```csharp
-var result = await router.GenerateAsync(candidates, new MediaRequest
+var result = await router.GenerateAsync(candidates, new GenerationRequest
 {
-    Kind = MediaKinds.Image,                 // open string: image / video / audio / 3d / whatever's next
+    Kind = GenerationKinds.Image,                 // open string: image / video / audio / 3d / whatever's next
     Prompt = "a red square on white",
     Options = new Dictionary<string, string> { ["size"] = "1024x1024" },
 });
@@ -524,9 +526,9 @@ force the others to lie:
 
 | Mode | Interface | Typical of |
 |---|---|---|
-| Inline | `IMediaProvider.GenerateAsync` | image generation |
-| Async job | `IMediaJobProvider` (submit → poll → fetch) | video, batch music — renders take minutes |
-| Streaming | `IMediaStreamProvider` | text-to-speech, where playback starts before generation ends |
+| Inline | `IGenerationProvider.GenerateAsync` | image generation |
+| Async job | `IGenerationJobProvider` (submit → poll → fetch) | video, batch music — renders take minutes |
+| Streaming | `IGenerationStreamProvider` | text-to-speech, where playback starts before generation ends |
 
 An async render exposes its **operation id**, so it survives a process restart and composes with
 `Lyntai.Jobs`; if your backend delivers by webhook, your app owns the endpoint and calls
@@ -535,6 +537,18 @@ output into the next (3d → image → video).
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
 never has to pay for a test image.
+
+Fallback is a **policy**, not a law. The default matches the LLM router (a content `Refused` surfaces rather
+than being re-submitted elsewhere), but if you deliberately pair a hosted backend with a locally-run one, that
+is your call to change:
+
+```csharp
+cfg.ConfigureGenerationRouting(p =>
+    p.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance));   // local backend picks it up
+```
+
+Backends come in the same three shapes as LLM providers — **remote** (HTTP), **spawned CLI**, and **local
+in-process** — and which one handles a given request is expressed by candidate order, not by a flag.
 
 **Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook
 endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D26 and D30.

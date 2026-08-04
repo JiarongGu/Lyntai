@@ -448,11 +448,18 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
-## D30 — media generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
-`Lyntai.Media` is a separate domain package with its own contracts and its own `MediaVerdict`, not an extension
+## D30 — generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
+`Lyntai.Generation` is a separate domain package with its own contracts and its own `GenerationVerdict`, not an extension
 of the LLM stack. At the owner's direction: **"our goal is not to make a generation engine, it is to make a
 media generation platform"** — so the value is contracts, capability-aware routing, delivery-mode handling and
 lifecycle, with every pixel and sample produced by a backend the host chooses.
+
+**Named `Generation`, not `Media`** (owner's call, decided while the core was still uncommitted-to-consumers):
+the workflow is "generate an artifact of kind X", and `Kind` is an open string — so a kind that isn't media
+(a document, a dataset, something bespoke) fits the same submit/poll/stream, capability and routing machinery
+without the package name lying about it. No `Custom` constant is needed or wanted: an open string already
+accepts any value, and a well-known `"custom"` would mean nothing to a backend that matches on the kinds it
+serves.
 
 Three researched findings forced the shape, and a future session must not "simplify" them away:
 
@@ -460,25 +467,33 @@ Three researched findings forced the shape, and a future session must not "simpl
   (submit → poll/webhook → fetch — WAN documents 1–5 minute renders as create-task-then-poll; Kling is
   `POST /v1/videos/generations` then `GET /v1/tasks/{id}`); audio splits (TTS streams, playback starting before
   generation ends; music/dubbing are batch jobs). One `GenerateAsync` can only express image — so
-  `IMediaJobProvider` and `IMediaStreamProvider` are separate optional capabilities, and the **operation id is
+  `IGenerationJobProvider` and `IGenerationStreamProvider` are separate optional capabilities, and the **operation id is
   exposed** so a render survives a process restart, composes with `Lyntai.Jobs`, and works with a
   webhook-delivering backend.
 - **A backend is not a model.** Aggregators serve 1,000+ models across image/video/audio/**3D** behind one
   queue endpoint, and the same model (WAN) is reachable through several backends. Routing selects
-  backend **+** model (`MediaCandidate`), or every aggregator becomes N fake providers.
+  backend **+** model (`GenerationCandidate`), or every aggregator becomes N fake providers.
 - **Capability declaration is load-bearing**, unlike LLM routing. Chat models all take text; media backends
   differ by medium, delivery, input role (text→video vs first-frame→video vs reference→video), duration
-  ceiling and model catalogue. The router **pre-filters** on `MediaCapabilities.Supports` before spending
+  ceiling and model catalogue. The router **pre-filters** on `GenerationCapabilities.Supports` before spending
   anything, and "nothing here can do that" is `Unsupported` — a configuration answer, not a runtime fault.
 
-**Media CHAINS.** `3d → image → video` is a first-class use case, so `MediaArtifact.ToInput(role)` carries
+**Media CHAINS.** `3d → image → video` is a first-class use case, so `GenerationArtifact.ToInput(role)` carries
 bytes-or-URI into the next stage and `Kind` is an open string (3D already ships on real aggregators). The
 pipeline RUNNER is deferred until ≥2 real backends exist, but nothing in the core may make it impossible.
+
+**Fallback is a POLICY, not a law.** `GenerationRoutingPolicy` makes the per-verdict action configurable
+(defaults reproduce §6: `Refused` surfaces, everything else advances) because one real setup breaks the
+default: a host that deliberately lists a **hosted** backend and a **locally-run** one, where the hosted one
+refuses content the local one has no policy against. `On(Refused, Advance)` is then correct, and it is the
+HOST's decision — same reasoning and shape as D10 on the LLM side. The three backend shapes this implies
+(local / spawned-CLI / remote) need no contract support: they are implementation shapes the seam already
+spans, and locality preference is expressed through candidate ORDER, exactly as it is for LLM providers.
 
 **Coupling, at the owner's direction:** the LLM stack gains **ZERO** dependency on media. The bridge is
 `ITool` (and therefore MCP, via `Lyntai.Tools.Mcp.Hosting`), so an agent can generate media without either
 domain referencing the other's concrete types. Where media wants an LLM (prompt rewriting), it takes
-`ILlmClient` — handed in, never owned. Failure PATTERNS are still shared: `MediaVerdictClassifier` delegates to
+`ILlmClient` — handed in, never owned. Failure PATTERNS are still shared: `GenerationVerdictClassifier` delegates to
 `LlmVerdictClassifier` so there is one corpus of "what does a 429 mean", per D27's rule against a second copy
 of the rules.
 
@@ -488,8 +503,15 @@ no artifact storage, no credential storage. A backend that cannot be checked wit
 "unavailable" rather than billing a probe — replacing the generate-and-discard test that pattern otherwise
 requires.
 
-Plan of record: `docs/2026-08-04-media-platform-plan.md` (Plan 1 = this core; Plans 2–7 = HTTP backends, local
-subprocess, async video + Jobs, governance parity, tool bridge + audio, pipelines).
+**Packaging:** stays in the SHARED release pipeline while it is cheap — measured at 48 KB / 9 s, the same
+class as `Lyntai.Providers.ClaudeCli` (50 KB), and every planned backend is thin (HTTP clients, a subprocess
+shell-out). The split trigger is a **dependency**, not the domain: the first backend that needs a native
+runtime (ONNX/TensorRT/CUDA) or ships model files gets its own release action, so its build time and failure
+surface never bleed into an LLM release.
+
+Plan of record: `docs/2026-08-04-generation-platform-plan.md` (Plan 1 = this core; Plans 2–7 = HTTP backends, local
+subprocess, async video + Jobs, governance parity, tool bridge + audio, pipelines). Backend order set by the
+owner: **TTS before music** for audio; video backend choice (WAN direct vs. an aggregator) still open.
 
 ## D29 — the next major release is 2.0.1; 2.0.0 is BURNED on nuget.org (2026-08-04)
 **2.0.0 was published and then unlisted** for 10 of the 12 package ids (all except

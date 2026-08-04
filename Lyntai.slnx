@@ -6,7 +6,7 @@
     <Project Path="src/Lyntai.Storage.Postgres/Lyntai.Storage.Postgres.csproj" />
     <Project Path="src/Lyntai.Providers.ClaudeCli/Lyntai.Providers.ClaudeCli.csproj" />
     <Project Path="src/Lyntai.Providers.CodexCli/Lyntai.Providers.CodexCli.csproj" />
-    <Project Path="src/Lyntai.Media/Lyntai.Media.csproj" />
+    <Project Path="src/Lyntai.Generation/Lyntai.Generation.csproj" />
     <Project Path="src/Lyntai.Providers.OpenAiCompatible/Lyntai.Providers.OpenAiCompatible.csproj" />
     <Project Path="src/Lyntai.Providers.ExtensionsAi/Lyntai.Providers.ExtensionsAi.csproj" />
     <Project Path="src/Lyntai.Providers.Local/Lyntai.Providers.Local.csproj" />
