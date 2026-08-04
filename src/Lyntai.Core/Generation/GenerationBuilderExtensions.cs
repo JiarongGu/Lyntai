@@ -1,5 +1,6 @@
 using Lyntai.Generation;
 using Lyntai.Generation.Routing;
+using Lyntai.Lifecycle;
 using Lyntai.Llm.Budgeting;
 using Lyntai.Llm.RateLimiting;
 using Lyntai.Llm.Routing;
@@ -80,33 +81,46 @@ public static class GenerationBuilderExtensions
         return builder;
     }
 
-    /// <summary>Register the <see cref="IGenerationRouter"/> as the base router folded in whatever governance
-    /// is configured. One registration for every entry point (a provider, a budget, a rate limit) because
-    /// <c>TryAddSingleton</c> keeps the FIRST factory — so the factory has to be the composing one no matter
-    /// which <c>Add*</c> ran first, and it reads the governance markers at RESOLVE time.
+    /// <summary>Register the <see cref="IGenerationRouterFactory"/> that composes governance, and the
+    /// <see cref="IGenerationRouter"/> it builds over the REGISTERED backends. One registration for every
+    /// entry point (a provider, a budget, a rate limit) because <c>TryAddSingleton</c> keeps the FIRST
+    /// factory — so the factory has to be the composing one no matter which <c>Add*</c> ran first, and it
+    /// reads the governance markers at RESOLVE time.
+    ///
+    /// <para>The container's router goes through the same factory as a caller-built one, so there is ONE
+    /// composition path rather than two that have to be kept in step. It takes the INSTANCE overload: the
+    /// provider set is the DI collection and the cooldown key stays the provider id, which is what keeps an
+    /// app that never touches the pool behaving exactly as it did before pooling existed.</para>
     ///
     /// <para>Order mirrors the LLM front door: the rate limiter sits INSIDE the budget, so a call refused for
     /// spend never consumes a permit.</para></summary>
     private static void EnsureRouter(LyntaiBuilder builder)
     {
         GenerationOptionsFor(builder);   // ensure the options singleton exists even with nothing configured
-        builder.Services.TryAddSingleton<IGenerationRouter>(sp =>
+
+        // The pool the factory needs to be constructible. Registered here rather than left to the caller so
+        // the pooled overload works out of the box; a host swaps the strategy by registering its own.
+        // DELIBERATELY not registering DeadHostTracker: AddLyntai's LLM front door already registers one
+        // built from LyntaiOptions, and this method runs BEFORE it — a TryAddSingleton here would win and
+        // silently discard the configured threshold, cooldown and logger for BOTH domains.
+        builder.Services.TryAddSingleton(typeof(IProviderPool<>), typeof(BoundedProviderPool<>));
+
+        builder.Services.TryAddSingleton<IGenerationRouterFactory>(sp =>
         {
-            IGenerationRouter router = new GenerationRouter(
-                sp.GetServices<IGenerationProvider>(),
+            var budgeted = sp.GetService<GenerationBudgetGovernance>() is not null;
+            return new GenerationRouterFactory(
+                sp.GetRequiredService<IProviderPool<IGenerationProvider>>(),
+                sp.GetRequiredService<DeadHostTracker>(),
                 sp.GetService<GenerationRoutingPolicy>(),
-                sp.GetService<DeadHostTracker>());
-
-            if (sp.GetService<GenerationRateLimitGovernance>() is { } throttle)
-                router = new RateLimitedGenerationRouter(router, throttle.Limiter,
-                    sp.GetService<ILogger<RateLimitedGenerationRouter>>());
-
-            if (sp.GetService<GenerationBudgetGovernance>() is not null)
-                router = new BudgetedGenerationRouter(router, sp.GetRequiredService<IUsageTracker>(),
-                    sp.GetRequiredService<LyntaiOptions>(), sp.GetService<ILogger<BudgetedGenerationRouter>>());
-
-            return router;
+                sp.GetService<GenerationRateLimitGovernance>()?.Limiter,
+                budgeted ? sp.GetRequiredService<IUsageTracker>() : null,
+                budgeted ? sp.GetRequiredService<LyntaiOptions>() : null,
+                sp.GetService<ILoggerFactory>(),
+                sp.GetService<ProviderAdmission>());
         });
+
+        builder.Services.TryAddSingleton<IGenerationRouter>(sp =>
+            sp.GetRequiredService<IGenerationRouterFactory>().For([.. sp.GetServices<IGenerationProvider>()]));
     }
 
     /// <summary>Tune per-verdict fallback for generation routing. The defaults reproduce the LLM router's

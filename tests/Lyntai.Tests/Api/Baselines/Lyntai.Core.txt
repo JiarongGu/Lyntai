@@ -708,6 +708,10 @@ sealed class Lyntai.Generation.Routing.GenerationRouter
     .ctor(IEnumerable<IGenerationProvider>, GenerationRoutingPolicy=, DeadHostTracker=, Func<IGenerationProvider,Nullable<ProviderKey>>=, ProviderAdmission=)
     GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
     SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+sealed class Lyntai.Generation.Routing.GenerationRouterFactory
+    .ctor(IProviderPool<IGenerationProvider>, DeadHostTracker, GenerationRoutingPolicy=, IRateLimiter=, IUsageTracker=, LyntaiOptions=, ILoggerFactory=, ProviderAdmission=)
+    For(IReadOnlyList<IGenerationProvider>) : IGenerationRouter
+    For(IReadOnlyList<ProviderRegistration<IGenerationProvider>>) : IGenerationRouter
 sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
     .ctor()
     ActionFor(GenerationVerdict) : GenerationFallbackAction
@@ -725,6 +729,9 @@ sealed class Lyntai.Generation.Routing.GenerationSubmission
 interface Lyntai.Generation.Routing.IGenerationRouter
     GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
     SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+interface Lyntai.Generation.Routing.IGenerationRouterFactory
+    For(IReadOnlyList<IGenerationProvider>) : IGenerationRouter
+    For(IReadOnlyList<ProviderRegistration<IGenerationProvider>>) : IGenerationRouter
 sealed class Lyntai.Generation.Routing.RateLimitedGenerationRouter
     .ctor(IGenerationRouter, IRateLimiter, ILogger<RateLimitedGenerationRouter>=)
     GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
@@ -1035,6 +1042,15 @@ struct Lyntai.Lifecycle.ProviderPoolStatistics
     Live : Int32
     Retired : Int64
     Reused : Int64
+    ToString() : String
+struct Lyntai.Lifecycle.ProviderRegistration`1
+    .ctor(ProviderKey, Func<TProvider>)
+    Create : Func<TProvider>
+    Deconstruct(ProviderKey&, Func`1&) : Void
+    Equals(Object) : Boolean
+    Equals(ProviderRegistration<TProvider>) : Boolean
+    GetHashCode() : Int32
+    Key : ProviderKey
     ToString() : String
 sealed class Lyntai.Lifecycle.TransientProviderPool`1
     .ctor()
@@ -1421,6 +1437,9 @@ enum Lyntai.Llm.Routing.FallbackAction
     PenalizeAndAdvance : FallbackAction const
     Surface : FallbackAction const
     value__ : Int32
+interface Lyntai.Llm.Routing.ILlmRouterFactory
+    For(IReadOnlyList<ILlmProvider>) : ILlmRouter
+    For(IReadOnlyList<ProviderRegistration<ILlmProvider>>) : ILlmRouter
 interface Lyntai.Llm.Routing.IModelRoutingStore
     GetModelOverrideAsync(String, CancellationToken=) : Task<String>
 sealed class Lyntai.Llm.Routing.KeyValueModelRoutingStore
@@ -1438,6 +1457,10 @@ sealed class Lyntai.Llm.Routing.LlmRouter
     CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
+sealed class Lyntai.Llm.Routing.LlmRouterFactory
+    .ctor(IProviderPool<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILoggerFactory=, IModelRoutingStore=, ProviderAdmission=)
+    For(IReadOnlyList<ILlmProvider>) : ILlmRouter
+    For(IReadOnlyList<ProviderRegistration<ILlmProvider>>) : ILlmRouter
 sealed class Lyntai.Llm.Routing.RoutingPolicy
     .ctor()
     ActionFor(LlmVerdict) : FallbackAction
