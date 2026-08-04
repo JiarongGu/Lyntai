@@ -90,6 +90,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   exactly as before. `GenerationRenderJobHandler` fails such a job with the backend **named** and says it is
   deliberately not retried, since a duplicate submission is a duplicate charge. This is the same reasoning that
   makes a timed-out poll report `Running`, applied to the call that commits the money.
+- **The agent tool no longer invites the retry the router just refused.** `generate_submit` reported a failure
+  with the operation detail alone, dropping the `ProviderId` — and a model's default reaction to a tool error is
+  to call the tool again, which re-submits work a backend may already be billing for. That path has no human in
+  it, so it is the one that mattered most. An inconclusive submission now returns an observation that *instructs*:
+  it names the backend, says plainly not to retry and why, points at `generate_status` as the alternative, and
+  carries an `inconclusive: true` flag so a host can branch without parsing prose.
+- Telemetry distinguishes the two: `RecordSubmission` tags an inconclusive submit `error.type = "Inconclusive"`
+  (plus `lyntai.generation.inconclusive` on the span) rather than lumping it in with `"Failed"`. Same status, but
+  not the same incident — an operator investigating a possible double charge needs something to search on.
 
 ### Changed
 - `LlmRouter` and `GenerationRouter` gained two **optional** trailing constructor parameters (`configuration`,

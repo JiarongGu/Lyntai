@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
 using Lyntai.Generation.Routing;
+using Lyntai.Generation.Tools;
 using Lyntai.Llm.Routing;
 using Lyntai.Tests.Fakes;
 
@@ -250,6 +252,29 @@ public class GenerationTimeoutTests
             [new GenerationCandidate("fal"), new GenerationCandidate("fake-video")], Video());
 
         Assert.False(tracker.IsDead("generation::fal"));
+    }
+
+    [Fact]
+    public async Task The_agent_TOOL_names_the_backend_and_says_not_to_retry_an_inconclusive_submit()
+    {
+        // The agent path is the one with no human in it, and a model's default reaction to a tool error is to
+        // call the tool again — which re-submits, which is the double charge everything above exists to stop.
+        // So the observation must carry the backend the router deliberately kept, and must INSTRUCT rather
+        // than merely inform.
+        var options = new GenerationOptions();
+        var router = new GenerationRouter([StalledFal(), new FakeGenerationJobProvider { Id = "fake-video" }]);
+        var tool = new GenerationSubmitTool(router, options);
+
+        var observation = JsonDocument.Parse(await tool.InvokeAsync(
+            """{"kind":"video","prompt":"a wave","backends":["fal","fake-video"]}""")).RootElement;
+
+        Assert.False(observation.GetProperty("ok").GetBoolean());
+        var error = observation.GetProperty("error").GetString()!;
+        Assert.Contains("fal", error);                       // WHICH backend may already hold it
+        Assert.Contains("not", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("retry", error, StringComparison.OrdinalIgnoreCase);
+        // and the flag itself is on the observation, so a caller can branch without parsing prose
+        Assert.True(observation.GetProperty("inconclusive").GetBoolean());
     }
 
     // ---- the caller's own cancellation is NOT a timeout ----

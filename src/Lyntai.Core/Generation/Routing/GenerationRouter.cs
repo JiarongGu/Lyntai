@@ -139,7 +139,7 @@ public sealed class GenerationRouter(
                 using var span = LyntaiDiagnostics.StartGeneration("submit", provider.Id, resolved.Kind, resolved.Model);
                 var operation = await job.SubmitAsync(resolved, ct).ConfigureAwait(false);
                 LyntaiDiagnostics.RecordSubmission(span, provider.Id, resolved.Kind, operation.Id, operation.Status,
-                    Stopwatch.GetElapsedTime(started).TotalSeconds);
+                    Stopwatch.GetElapsedTime(started).TotalSeconds, operation.Inconclusive);
 
                 if (operation.Status != GenerationOperationStatus.Failed)
                 {

@@ -2189,9 +2189,18 @@ test; and `OperationCanceledException.CancellationToken` carries the LINKED toke
 consumer filtering on `e.CancellationToken == myToken` will not match — noted where the discriminator is
 explained.
 
+**Round 2 closed the same bug on the one path with no human in it.** `GenerationSubmitTool` returned the
+operation detail alone and dropped the provider id — so the caller most likely to re-submit (a model, whose
+default reaction to a tool error is to call the tool again) was handed "may still have been enqueued" without
+the backend name or any instruction, walking straight around the router's refusal to try a second candidate. The
+observation now names the backend, forbids the retry and says why, points at `generate_status` instead, and
+carries an `inconclusive` flag so a host can branch without parsing prose. `RecordSubmission` likewise tags such
+a submit `error.type = "Inconclusive"` rather than `"Failed"`: same status, different incident, and an operator
+chasing a possible double charge needs something to search on.
+
 Public surface additive only — four `Timeout : TimeSpan` lines plus `GenerationOperation.Inconclusive`, nothing
-removed or re-signed. 15 tests in `tests/Lyntai.Tests/Generation/GenerationTimeoutTests.cs`; `verify` green
-(build · warnings · packages · bundle · 1469 tests · e2e 3/3 · leak scan).
+removed or re-signed. 16 tests in `tests/Lyntai.Tests/Generation/GenerationTimeoutTests.cs`; `verify` green
+(build · warnings · packages · bundle · 1470 tests · e2e 3/3 · leak scan).
 
 ## Part 35 — the 2.0.1 release hardening + a packaging policy with gates (2026-08-04)
 
