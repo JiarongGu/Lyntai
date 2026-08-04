@@ -35,12 +35,34 @@ that plan's Plans 3–7, each a separate pass because each needs its own measure
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and
 GEN5 (governance + telemetry parity) all landed 2026-08-04 — see `docs/task-archive.md` Part 33. GEN3/GEN4 carry
 an **unmeasured-surface** caveat to close the first time they run for real: the `sd-cli` argv/size clamping is
-ported-not-measured, and fal's wire format is documented-not-measured._
+ported-not-measured, and fal's wire format is documented-not-measured. (`sd-cli`'s binary-directory working dir
+was the third such surface — a consuming app measured it 2026-08-04 and it is now confirmed.)_
 
-- [ ] **GEN-VERIFY — confirm the two unmeasured backends against reality.** For `sd-cli`: run one render and
-  check the argv, the multiple-of-64 clamp and the binary-directory working dir. For fal: one submit → poll →
-  fetch with a real key, checking the status vocabulary, the result field names and what `cost` reports. Then
-  delete the "unverified" notes from the XML docs — or fix the mappings and keep them.
+- [ ] **GEN-VERIFY — confirm the remaining unmeasured surfaces against reality.** For `sd-cli`: run one render
+  and check the argv and the multiple-of-64 clamp. For fal: one submit → poll → fetch with a real key, checking
+  the status vocabulary, the result field names and what `cost` reports. Then delete the remaining "unverified"
+  notes from the XML docs — or fix the mappings and keep them.
+
+  _**The binary-directory working dir is CONFIRMED (2026-08-04)** and no longer part of this task — measured by
+  a consuming app against a real downloaded release: the engine ships `ggml*.dll` beside the exe, so spawning
+  from anywhere else fails at load time on a perfectly good install. Already implemented
+  (`src/Lyntai.Generation/LocalDiffusionProvider.cs:139`) and pinned by a test._
+
+  _Two more facts from that same measurement, **already true here** — recorded so they aren't re-investigated:
+  the binary is `sd-cli.exe` (upstream renamed it from `sd.exe`), and the tree contains zero `sd.exe`
+  references while `LocalDiffusionOptions.BinaryPath` has no default at all, so there is nothing to correct;
+  and it is a plain CPU x64 build (no GPU, no CUDA), which is what makes it viable as a zero-setup backend.
+  **The hazard to respect IF binary resolution is ever added:** the release zip contains `sd-cli.exe` AND
+  `sd-server.exe`, so a loose `sd`-prefix match selects the SERVER — presenting as a HANG rather than an error,
+  because the server starts and waits. Today `BinaryPath` is an explicit host-supplied path with no PATH probe
+  and no prefix match, which is precisely why that hazard doesn't exist — don't introduce one._
+
+  _Expect the argv + clamp half to close **from use, not from a harness here**: that consumer's live test stops
+  at `--help` (a render needs a ~1.7 GB model download per run), but it is migrating its media stack onto
+  `Lyntai.Generation`, and driving a real render with real weights for a real use case is what that migration
+  does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
+  the experimental marker needn't block anything._
+
 - [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend to exercise `IGenerationStreamProvider` end to
   end — nothing implements that seam yet, so it is the one contract in the platform no real backend has
   exercised. **TTS before music** (owner). Needs a vendor pick and a MEASURED wire format (the GEN-VERIFY

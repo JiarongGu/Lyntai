@@ -46,14 +46,20 @@ public sealed class LocalDiffusionOptions
 /// delivery, because a local render blocks until the file exists; there is no operation id to resume.
 /// </summary>
 /// <remarks>
-/// <para>The argv and the size-clamping rules are <b>PORTED from a sibling app's working implementation</b>, not
-/// measured here (the engine isn't installed on the machine where this was written). They are
-/// production-proven, and pinned by exact-argv tests so a later edit can't drift from the shape a real
-/// <c>sd-cli</c> accepts. Confirm against a live engine before relying on it in anger.</para>
-/// <para>Two details that look incidental and are not: the spawn's working directory is the BINARY's directory,
-/// because the engine loads <c>ggml*.dll</c> from beside itself and fails at load time otherwise; and sizes are
-/// clamped to multiples of 64 within 256–768, because the engine requires the former and a CPU render above
-/// that is minutes of pointless waiting.</para>
+/// <para>The argv and the size-clamping rules are <b>PORTED from a working implementation</b>, not measured here
+/// (the engine isn't installed on the machine where this was written). They are production-proven, and pinned by
+/// exact-argv tests so a later edit can't drift from the shape a real <c>sd-cli</c> accepts. Confirm against a
+/// live engine before relying on them in anger.</para>
+/// <para>Two details that look incidental and are not. The spawn's working directory is the BINARY's directory,
+/// because the engine loads <c>ggml*.dll</c> from beside itself and fails at load time otherwise — no longer a
+/// ported guess: a consuming app confirmed it against a real release, whose zip ships those libraries next to
+/// the executable. And sizes are clamped to multiples of 64 within 256–768, because the engine requires the
+/// former and a CPU render above that is minutes of pointless waiting (this half is still ported, not
+/// measured).</para>
+/// <para>The executable is supplied by the host as a full path — deliberately no PATH probe and no name
+/// matching, because a real release ships <c>sd-cli.exe</c> AND <c>sd-server.exe</c> side by side, and a loose
+/// <c>sd</c>-prefix match would launch the server, which starts and then waits forever: a hang, not an
+/// error.</para>
 /// <para>Unlike the app implementation this was ported from, the spawn goes through
 /// <see cref="IProcessRunner"/> — so it inherits the BYO-runner seam, kill-the-tree cancellation, and a
 /// per-chunk INACTIVITY clock with an absolute backstop instead of one wall clock that would kill a healthy

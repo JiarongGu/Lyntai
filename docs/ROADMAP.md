@@ -327,7 +327,9 @@ v0.24, scheduling v0.25, cron v0.26, running-job cancellation v0.27). Still open
 ### Next — generation, to close the experimental carve-out
 In priority order, each needing its own measurement:
 1. **GEN-VERIFY** — run `sd-cli` and fal.ai for real, confirm the argv/clamp and the wire format, then drop the
-   "documented, not measured" notes. This is what lets `Lyntai.Generation` lose the EXPERIMENTAL label.
+   remaining "documented, not measured" notes. This is what lets `Lyntai.Generation` lose the EXPERIMENTAL
+   label. (One of the three ported `sd-cli` details — the binary-directory working dir — was confirmed against
+   a real release by a consuming app in 2026-08; argv and the size clamp are what's left.)
 2. **Streaming TTS** — the one contract in the platform no real backend exercises
    (`IGenerationStreamProvider`). TTS before music. Needs a vendor pick and a measured wire format.
 3. **Pipelines** (3d → image → video) — ordered stages feeding `artifact.ToInput(role)` forward. Deferred until

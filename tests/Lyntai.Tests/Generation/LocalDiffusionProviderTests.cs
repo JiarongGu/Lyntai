@@ -85,7 +85,7 @@ public class LocalDiffusionProviderTests
     public async Task It_spawns_from_the_BINARY_directory_so_the_engines_native_libraries_resolve()
     {
         // sd-cli loads ggml*.dll from beside itself; spawning from anywhere else fails at load time on a
-        // perfectly good install (ported detail, and the reason this assertion exists)
+        // perfectly good install — measured against a real release by a consuming app, not merely ported
         var (provider, runner, dir) = Provider();
         runner.RunHandler = ProducesImage();
 
