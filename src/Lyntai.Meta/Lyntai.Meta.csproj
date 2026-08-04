@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The one-line install: `dotnet add package Lyntai` gets Core plus the dependency-free default backends and
+    in-memory storage. Everything with a real dependency stays an explicit opt-in — Lyntai.Storage.Sqlite's
+    native binary, Lyntai.Providers.Local's LLamaSharp, Lyntai.Tools.Mcp*'s MEAI/ASP.NET, Lyntai.Secrets.Dpapi's
+    Windows-only API. See docs/DECISIONS.md D31.
+
+    This is how "most consumers want X" is served WITHOUT putting X's dependencies in front of someone who only
+    wanted storage: a metapackage is opt-in convenience, whereas Core is mandatory.
+
+    Ships NO assembly of its own (IncludeBuildOutput=false) — it is references only, so there is no public
+    surface to baseline and nothing to load at runtime.
+  -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Lyntai</PackageId>
+    <AssemblyName>Lyntai.Meta</AssemblyName>
+    <RootNamespace>Lyntai.Meta</RootNamespace>
+    <Description>One-line install for Lyntai: the core library plus the dependency-free default backends (claude/codex CLI, OpenAI-compatible chat/embeddings/images, Automatic1111, ComfyUI) and in-memory storage. Add Lyntai.Storage.Sqlite, Lyntai.Providers.Local, Lyntai.Providers.ExtensionsAi, Lyntai.Tools.Mcp or Lyntai.Secrets.Dpapi when you need them.</Description>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
+    <!-- nothing is compiled here, so the doc-file and trim analyzers have nothing to say -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />
+    <ProjectReference Include="..\Lyntai.Providers.Default\Lyntai.Providers.Default.csproj" />
+    <ProjectReference Include="..\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
+  </ItemGroup>
+
+</Project>
