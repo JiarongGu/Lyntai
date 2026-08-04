@@ -447,3 +447,30 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
+
+## D29 — the next major release is 2.0.1; 2.0.0 is BURNED on nuget.org (2026-08-04)
+**2.0.0 was published and then unlisted** for 10 of the 12 package ids (all except
+`Lyntai.Providers.CodexCli` and `Lyntai.Tools.Mcp.Hosting`, which have no 2.x at all). Unlisting hides a
+version from search and resolution but **never frees its number** — nuget.org will not accept that
+id+version again, ever.
+
+**Why this matters more than a cosmetic gap:** the release workflow pushes with
+`dotnet nuget push --skip-duplicate`, so cutting a 2.0.0 would **succeed loudly and publish nothing** for
+those 10 packages, while the 2 without a 2.0.0 *would* publish — a partial release that reports green and
+leaves the feed at 1.2.x for most of the library. That is the same silent-skip family as D25: the pipeline's
+"success" doesn't mean what it looks like.
+
+**The decision (owner's, 2026-08-04):** when the next breaking/major batch lands, go straight to **2.0.1**.
+Verified the same day: 2.0.1 is free on **all 12** ids. Skipping 2.0.0 is not a SemVer violation — SemVer
+requires that versions ORDER correctly, not that they be contiguous — and because all packages version in
+lockstep from `VersionPrefix`, the skip applies uniformly with no per-package divergence.
+
+**How to apply it:** run the release workflow with an explicit `version: 2.0.1` and `bump: none`. Do NOT
+reach 2.0.1 by hand-editing `<VersionPrefix>` (D25 — the pipeline authors the version), and do not rely on a
+bump input, which would produce 1.2.x or 2.0.0 depending on the baseline.
+
+**Generalization worth remembering:** before publishing any version you have reason to think was used before
+(a botched release, an unlisted push, a renamed package), check the feed *including unlisted* —
+`https://api.nuget.org/v3-flatcontainer/<id-lowercase>/index.json` lists every version that exists, listed or
+not. `--skip-duplicate` is the right default for re-runnability, and precisely because of that it cannot tell
+you that a publish was skipped.

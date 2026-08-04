@@ -24,6 +24,10 @@ small and scannable so the next open task is obvious. The completed record lives
   is simply gone (this happened in a sibling repo; `docs/DECISIONS.md` D25). Both edits are blocked by the
   `check-version-bump` pre-commit guard, and `node devtools/dev.mjs doctor` fails when `VersionPrefix` no
   longer matches the newest `v*` tag. Releasing, or repairing a botched release? `LYNTAI_RELEASE=1`.
+- **The next MAJOR is `2.0.1`, not `2.0.0`** — 2.0.0 is already taken (published then unlisted) on 10 of the
+  12 package ids, and an unlisted version's number is never freed. A 2.0.0 release would report success while
+  `--skip-duplicate` silently published nothing for those 10. Cut it with an explicit `version: 2.0.1` +
+  `bump: none` on the release workflow. See `docs/DECISIONS.md` D29.
 - **Keep the top banner honest.** The `## Active backlog` section reflects reality — `_None …_` when empty;
   never a stale "all done" banner over open items, nor open items under a "done" banner.
 
