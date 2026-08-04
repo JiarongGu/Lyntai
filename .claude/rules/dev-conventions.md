@@ -9,7 +9,7 @@ Sonora — same family patterns); deviations need a reason. The design contract 
 - **Interface in Core, impl in an adapter.** Every abstraction (`ILlmProvider`, the storage domain
   interfaces, `IScorer`, …) lives in `Lyntai.Core`. Concrete implementations live in adapter packages
   (`Lyntai.Storage.Sqlite`, `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`,
-  `Lyntai.Providers.Local`, `Lyntai.Generation.Http`) that depend **only on Core** (or on a domain package
+  `Lyntai.Providers.Local`) that depend **only on Core** (or on a domain package
   like `Lyntai.Generation`) —
   **never adapter→adapter**. Consumers
   compose via DI. This is what lets a new backend/provider be a new package, not a fork.

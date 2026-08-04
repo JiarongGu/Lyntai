@@ -568,13 +568,19 @@ cfg.ConfigureGenerationRouting(p =>
 Backends come in the same three shapes as LLM providers — **remote** (HTTP), **spawned CLI**, and **local
 in-process** — and which one handles a given request is expressed by candidate order, not by a flag.
 
-`Lyntai.Generation.Http` ships three of them:
+`Lyntai.Providers.Default` ships five of them. **Measured vs documented matters here** — the two marked
+*documented* were written from vendor docs without a key or an engine to call, so treat the first run as the
+verification: every endpoint path and field name is an option, and an unrecognised response degrades to a
+failure rather than inventing an artifact.
+
 
 | Backend | Delivery | Notes |
 |---|---|---|
 | `OpenAiImageProvider` | Inline | `/images/generations`, or `/images/edits` when the request carries an input image. A `url` response comes back as a URI artifact — never downloaded for you |
 | `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`. Not running reports **NotConfigured** (skipped, not blamed), and its probe checks a checkpoint is *loaded* — "up" isn't "usable" |
-| `ComfyUiProvider` | **Job** | Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs. Every endpoint path is an option, because this surface is documented rather than measured |
+| `ComfyUiProvider` | **Job** | *Documented, not measured.* Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs |
+| `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are ported from a working implementation rather than measured here |
+| `FalQueueProvider` | **Job** | *Documented, not measured.* One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
 
 **Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook
 endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D26 and D30.
@@ -585,7 +591,7 @@ Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess
 `LLamaSharp.Backend.*` that matches your hardware alongside `Lyntai.Providers.Local`:
 
 ```xml
-<PackageReference Include="Lyntai.Providers.Local" Version="0.30.0" />
+<PackageReference Include="Lyntai.Providers.Local" />                  <!-- version: the current release -->
 <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />  <!-- or .Cuda12 / .Vulkan / .Metal -->
 ```
 
@@ -705,7 +711,8 @@ Two consumption doors: `StreamAsync` (live event-by-event, for progress UI or st
 `RunAsync(onEvent)` (fold to a result for callers that only need the outcome).
 
 The `IAgentSession` interface is neutral Core (`Lyntai.Agents`); all claude-specific flags
-(`--settings`, `--mcp-config`, `AllowedTools`) live in the `Lyntai.Providers.ClaudeCli` adapter
+(`--settings`, `--mcp-config`, `AllowedTools`) live in the `Lyntai.Providers.Default` package (namespace
+`Lyntai.Providers.ClaudeCli`)
 (`ClaudeAgentSession` / `ClaudeAgentOptions`, registered via `AddClaudeCliAgentSession()`).
 
 ```csharp
