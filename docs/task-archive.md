@@ -2570,6 +2570,28 @@ pass because they were all small and all found by the same review. Shape decisio
   Seven tests in `AsyncMigrationTests` plus a Postgres idempotence leg; one pins the no-offload property so
   nobody "improves" it into a `Task.Run`.
 
+- [x] **semantic-memory wiring helper** — a DI seam / `Use*` helper so an app enabling semantic recall
+  doesn't hand-construct `SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` /
+  `HttpEmbedder` (a consumer does this today). Those concrete types STAY public for 1.0.
+  ✅ done 2026-08-05 — Outcome: shipped as `b.AddSemanticMemory(…)` in **Core**, not as a storage-package
+  composite (`docs/DECISIONS.md` **D41**). Auditing the four named types showed each already had a builder
+  call — `UseSqliteStorage` (curated store; migrating factory via `SchemaMigration.OnFirstUse`),
+  `UseSqliteVectorStore`, and `AddOpenAiCompatibleEmbedder`, the last two post-dating the consumer code the
+  review looked at — so the hand-construction was stale rather than unavoidable. The real defect was that
+  semantic memory had no NAME: it was enabled purely as a side effect of an `IEmbedder` being registered, so
+  forgetting one registered no `ISemanticMemory` at all and the prompt composer and chat orchestrator skipped
+  semantic recall on every turn, silently. `AddSemanticMemory` states the intent and `AddLyntai` now throws at
+  composition when no embedder reached the container. Overloads mirror `AddEmbeddings` (instance / factory /
+  by type) plus a no-argument one for a host-supplied embedder; it constructs no embedder (BYO by design — a
+  defaulted `HttpEmbedder` would point nowhere). Everything stays substitutable: the vector store and
+  `ISemanticMemory` are still `TryAdd`-registered, the concrete stores stay public, and `AddEmbeddings` alone
+  behaves exactly as before. A `UseSqliteSemanticMemory()` composite was REJECTED — a one-line alias, and the
+  version that also covered the embedder would have forced adapter-to-adapter (`Lyntai.Storage.Sqlite` →
+  `Lyntai.Providers.Default`). Six tests in `SemanticMemoryWiringTests`, including the persistent path end to
+  end over a temp SQLite db with zero hand-construction. Found and documented on the way: `lyntai_vector`
+  ships under `StorageFeature.Governance`, so a subset omitting it registers the store over a missing table —
+  now named in `UseSqliteVectorStore`'s doc, the README and `.claude/knowledge/storage.md`.
+
 ---
 
 ## Notes for the implementer

@@ -356,6 +356,48 @@ public sealed class LyntaiBuilder
         return this;
     }
 
+    /// <summary>Set by any <c>AddSemanticMemory</c> overload: the app has STATED it wants semantic recall,
+    /// so <c>AddLyntai</c> must fail rather than compose a container where <see cref="ISemanticMemory"/> is
+    /// silently absent. Intent only — the registrations themselves are unchanged.</summary>
+    internal bool SemanticMemoryRequested { get; private set; }
+
+    /// <summary>Turn on semantic (meaning-based) recall — <see cref="ISemanticMemory"/>, composed from the
+    /// registered <see cref="IEmbedder"/> and an <see cref="IVectorStore"/>. This overload registers NO
+    /// embedder: use it when one arrives from elsewhere (<see cref="AddEmbeddings(IEmbedder)"/>, a provider
+    /// package's <c>Add…Embedder</c>, or a host registration made before <c>AddLyntai</c>).
+    /// <para><b>Why state it at all.</b> Semantic memory is otherwise enabled as a SIDE EFFECT of an
+    /// embedder happening to be registered, which makes its absence silent: <see cref="ISemanticMemory"/>
+    /// is simply never registered and every recall path (prompt composer, chat orchestration) skips it
+    /// without complaint. Calling this makes the intent explicit, so <c>AddLyntai</c> THROWS at composition
+    /// when no embedder reached the container.</para>
+    /// <para><b>Everything stays substitutable.</b> Vectors land in the in-process
+    /// <see cref="InMemoryVectorStore"/> unless a persistent store is wired
+    /// (<c>UseSqliteVectorStore()</c> / <c>UsePostgresVectorStore()</c>) or you register your own
+    /// <see cref="IVectorStore"/>; that store and <see cref="ISemanticMemory"/> itself are
+    /// <c>TryAdd</c>-registered, so anything registered before <c>AddLyntai</c> wins. Nothing here needs to
+    /// be constructed by hand.</para></summary>
+    public LyntaiBuilder AddSemanticMemory()
+    {
+        SemanticMemoryRequested = true;
+        return this;
+    }
+
+    /// <summary>Turn on semantic recall with <paramref name="embedder"/> — the one-call common path
+    /// (equivalent to <see cref="AddEmbeddings(IEmbedder)"/> plus the explicit intent). See
+    /// <see cref="AddSemanticMemory()"/> for what the intent buys and how to persist the vectors.</summary>
+    public LyntaiBuilder AddSemanticMemory(IEmbedder embedder) => AddEmbeddings(embedder).AddSemanticMemory();
+
+    /// <summary>Turn on semantic recall with an embedder built from the service provider (for
+    /// config/dependency-parameterized ones). See <see cref="AddSemanticMemory()"/>.</summary>
+    public LyntaiBuilder AddSemanticMemory(Func<IServiceProvider, IEmbedder> factory) =>
+        AddEmbeddings(factory).AddSemanticMemory();
+
+    /// <summary>Turn on semantic recall with an embedder DI constructs by type — completing the
+    /// instance/factory/generic trio. See <see cref="AddSemanticMemory()"/>.</summary>
+    public LyntaiBuilder AddSemanticMemory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TEmbedder>()
+        where TEmbedder : class, IEmbedder =>
+        AddEmbeddings<TEmbedder>().AddSemanticMemory();
+
     /// <summary>Set the router fallback order used when callers don't pass explicit candidates.
     /// SETS (clears + replaces) the default candidate list — the last call wins; it does not append.
     /// Each provider id becomes an <see cref="LlmCandidate"/> with default options.</summary>

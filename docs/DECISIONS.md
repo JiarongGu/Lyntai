@@ -448,6 +448,39 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D41 — semantic memory gets a NAME so its absence is loud; the wiring stays three substitutable calls (2026-08-05)
+The Part 25 item asked for a `Use*` helper so an app enabling semantic recall stops hand-constructing
+`SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` / `HttpEmbedder`. Auditing
+the four showed each already had a builder call — `UseSqliteStorage` (which registers the curated store and,
+under `SchemaMigration.OnFirstUse`, the migrating factory), `UseSqliteVectorStore`, and
+`AddOpenAiCompatibleEmbedder`, the last two of which post-date the consumer code the review looked at. So the
+hand-construction was **stale**, not unavoidable, and a composite super-call would have been sugar over
+calls that already exist.
+
+**The real defect was that semantic memory had no NAME in the API.** Every other optional feature is a
+declared call — `AddResponseCache`, `AddUsageBudget`, `AddRateLimit`, `AddLiveModelRouting`. Semantic memory
+was enabled purely as a *side effect* of an `IEmbedder` happening to be in the collection, which makes the
+failure silent in the worst way: no embedder → `RegisterSemanticMemory` registers nothing → `IPromptComposer`
+and `ChatOrchestrator` resolve a null `ISemanticMemory` and skip semantic recall on **every turn**, with no
+exception, no log, and a container that builds fine. So `AddSemanticMemory(…)` was added, and its main job is
+to record intent: `AddLyntai` now throws when the intent is declared and no embedder reached the container,
+next to the existing pre-registered-`ILlmClient` contradiction guards.
+
+- **Overloads mirror `AddEmbeddings`** (instance / factory / by type) so the common path is one call, plus a
+  no-argument overload for "my embedder comes from `AddOpenAiCompatibleEmbedder` or from the host".
+- **It constructs no embedder.** An embedder is BYO by design and a defaulted `HttpEmbedder` would point at
+  nothing; the guard is the alternative to guessing.
+- **Nothing became mandatory.** The vector store and `ISemanticMemory` stay `TryAdd`-registered (a host's own
+  registration still wins), the concrete stores stay public, and `AddEmbeddings` alone still works exactly as
+  before — this is additive sugar, not a replacement.
+- **REJECTED: a `UseSqliteSemanticMemory()` composite** that would call `UseSqliteVectorStore()` plus the
+  intent. It is a one-line alias that earns no keep, and the same helper covering the embedder too would have
+  forced `Lyntai.Storage.Sqlite` → `Lyntai.Providers.Default`, i.e. adapter-to-adapter (`D31`/`D3`). The
+  storage half and the embedder half belong to different packages and must stay two calls.
+- **Trap documented rather than engineered around:** `lyntai_vector` ships under `StorageFeature.Governance`
+  (with the response cache and usage ledger), so a feature subset omitting Governance registers
+  `SqliteVectorStore` over a table that was never created. `UseSqliteVectorStore`'s XML doc now says so.
+
 ## D40 — an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else (2026-08-05)
 Part 25 asked for `MigrateUpAsync(…, CancellationToken)` twins beside the sync `MigrationRunnerService.MigrateUp`
 on both backends, for apps owning their schema under `SchemaMigration.None`. **FluentMigrator's runner is

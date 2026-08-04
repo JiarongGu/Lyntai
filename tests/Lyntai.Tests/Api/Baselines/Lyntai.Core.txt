@@ -1513,6 +1513,10 @@ sealed class Lyntai.LyntaiBuilder
     AddResponseCache(Action<CacheOptions>=) : LyntaiBuilder
     AddScorer() : LyntaiBuilder
     AddScorer(Func<IServiceProvider,IScorer>) : LyntaiBuilder
+    AddSemanticMemory() : LyntaiBuilder
+    AddSemanticMemory() : LyntaiBuilder
+    AddSemanticMemory(Func<IServiceProvider,IEmbedder>) : LyntaiBuilder
+    AddSemanticMemory(IEmbedder) : LyntaiBuilder
     AddTool() : LyntaiBuilder
     AddTool(Func<IServiceProvider,ITool>) : LyntaiBuilder
     AddUsageBudget(Action<BudgetOptions>=) : LyntaiBuilder

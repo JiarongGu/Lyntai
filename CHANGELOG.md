@@ -94,6 +94,18 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   the SQLite file uncreated / never dials the Postgres connection string) and **between feature passes**.
   Under the default `StorageFeature.All` there is exactly one pass, so there it means "before starting"
   only. A pass in flight cannot be cancelled. See `docs/DECISIONS.md` **D40**.
+- **`b.AddSemanticMemory(…)`** — the wiring seam for semantic recall, so an app enabling it composes with
+  builder calls instead of hand-constructing a vector store, a connection factory and an embedder. Overloads
+  mirror `AddEmbeddings` (instance / factory / by type), plus a no-argument one for when the embedder arrives
+  from elsewhere (`AddOpenAiCompatibleEmbedder`, or a host registration made before `AddLyntai`). Its real
+  value is that it **states the intent**: semantic memory was previously enabled purely as a side effect of
+  an `IEmbedder` being registered, so forgetting one registered no `ISemanticMemory` at all and every recall
+  path skipped it in silence. `AddLyntai` now throws at composition instead. Everything stays substitutable —
+  the vector store and `ISemanticMemory` are still `TryAdd`-registered, so a host's own registration wins,
+  and the concrete stores stay public for the hand-wired path. Persist the vectors with the existing
+  `UseSqliteVectorStore()` / `UsePostgresVectorStore()`; `UseSqliteVectorStore`'s documentation now names the
+  non-obvious prerequisite that `lyntai_vector` ships under `StorageFeature.Governance`. See
+  `docs/DECISIONS.md` **D41**.
 
 ### Fixed
 - **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already

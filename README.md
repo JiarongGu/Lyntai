@@ -275,8 +275,9 @@ services.AddLyntai(cfg => cfg
     {
         o.BaseUrl = "http://localhost:11434";   // e.g. local Ollama
         o.Model = "nomic-embed-text";
-    }));
-    // …or bring your own: .AddEmbeddings(myEmbedder)  // any IEmbedder — a hosted endpoint or local model
+    })
+    .AddSemanticMemory());                      // states the intent — see below
+    // …or bring your own in one call: .AddSemanticMemory(myEmbedder)  // any IEmbedder
 
 var memory = sp.GetRequiredService<ISemanticMemory>();
 await memory.RememberAsync(task: "support", scope: "faq", "You can cancel your subscription anytime.");
@@ -284,8 +285,15 @@ var hits = await memory.RecallAsync("support", "faq", query: "how do I stop payi
 // hits ranked by similarity, each with a Content + cosine Score
 ```
 
+`AddSemanticMemory()` is how you **say** you want semantic recall. Registering an embedder is what actually
+turns it on, so forgetting one used to be silent — no `ISemanticMemory` at all, and every recall path
+skipping it without complaint. Stating the intent turns that into a startup failure instead. Overloads take
+the embedder directly (`AddSemanticMemory(myEmbedder)`, a factory, or a type), and the no-argument form is
+for when the embedder arrives from elsewhere, as above.
+
 Vectors live in a swappable `IVectorStore` — the built-in `InMemoryVectorStore` (exact brute-force cosine)
-is the default; call `UseSqliteVectorStore()` to persist them in SQLite, or `UsePostgresVectorStore()` for
+is the default; call `UseSqliteVectorStore()` to persist them in SQLite (it needs
+`StorageFeature.Governance`, which carries the `lyntai_vector` table), or `UsePostgresVectorStore()` for
 **pgvector** (the cosine search runs in the database — SQL-side top-k, not brute-force in the app). Or
 register your own before `AddLyntai` for another vector DB — the recall code is unchanged. Scoped by (task,
 scope) like the lexical store; re-remembering identical content dedups.

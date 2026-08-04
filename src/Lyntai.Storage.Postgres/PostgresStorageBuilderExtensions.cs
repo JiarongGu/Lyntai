@@ -101,7 +101,8 @@ public static class PostgresStorageBuilderExtensions
         return builder;
     }
 
-    /// <summary>Back semantic-memory vectors (<c>AddEmbeddings</c>) with pgvector — the similarity search
+    /// <summary>Back semantic-memory vectors (<c>AddSemanticMemory</c> / <c>AddEmbeddings</c>) with
+    /// pgvector — the similarity search
     /// runs in the database (cosine <c>&lt;=&gt;</c> + SQL top-k), not brute-force in the app. Creates its
     /// <c>vector</c> extension + table lazily on first use (so this is the only thing that needs pgvector).
     /// Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory.</summary>

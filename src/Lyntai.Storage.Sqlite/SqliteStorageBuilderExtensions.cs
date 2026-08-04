@@ -107,8 +107,12 @@ public static class SqliteStorageBuilderExtensions
         return builder;
     }
 
-    /// <summary>Back semantic-memory vectors (<c>AddEmbeddings</c>) with SQLite so they survive restarts.
-    /// Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory + schema.</summary>
+    /// <summary>Back semantic-memory vectors (<c>AddSemanticMemory</c> / <c>AddEmbeddings</c>) with SQLite
+    /// so they survive restarts. Requires <see cref="UseSqliteStorage(LyntaiBuilder, string, SchemaMigration)"/>
+    /// for the factory + schema — and specifically <see cref="StorageFeature.Governance"/>, which is the
+    /// feature carrying the <c>lyntai_vector</c> table (it ships with the response cache and usage
+    /// accounting). A feature subset that omits Governance registers this store over a table that was never
+    /// created.</summary>
     public static LyntaiBuilder UseSqliteVectorStore(this LyntaiBuilder builder)
     {
         builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new SqliteVectorStore(

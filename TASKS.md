@@ -143,12 +143,10 @@ working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISI
 
 _The ergonomics batch (verdict helpers, the `AddMcpTools` overload, the agent-event contract, the
 curated-metadata accessor, the member/type docs) closed 2026-08-05 — see `docs/task-archive.md` Part 25 and
-`docs/DECISIONS.md` **D39**. The async migration entry points closed 2026-08-05 too —
-`docs/DECISIONS.md` **D40**. What is left below is the work that was never additive or never small._
+`docs/DECISIONS.md` **D39**. The storage/wiring pair (async migration entry points, the semantic-memory
+wiring helper) closed 2026-08-05 too — `docs/DECISIONS.md` **D40**/**D41**. What is left below is the work
+that was never additive or never small._
 
-- [ ] **semantic-memory wiring helper** — a DI seam / `Use*` helper so an app enabling semantic recall
-  doesn't hand-construct `SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` /
-  `HttpEmbedder` (a consumer does this today). Those concrete types STAY public for 1.0.
 - [ ] **curated-memory: can `taskKey`/`scope` move in place?** — the half of the old "curated-memory
   ergonomics" item that is NOT additive. The metadata accessor shipped 2026-08-05; re-scoping an entry still
   means delete + re-add. Two reasons it was left rather than done (`docs/DECISIONS.md` D39):

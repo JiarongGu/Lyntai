@@ -109,6 +109,11 @@ the token only *before* any work and *between* feature passes. `StorageFeature.A
 there it means "before starting" only. Say exactly that in any doc you write about it; see `DECISIONS.md`
 **D40**, and `AsyncMigrationTests` pins the no-offload property.
 
+**`lyntai_vector` ships under `StorageFeature.Governance`,** alongside the response cache and usage ledger —
+not under `Memory`, and there is no `Vector` feature. A feature subset that omits `Governance` therefore lets
+`UseSqliteVectorStore()` register a store over a table that was never created, and the failure lands at the
+first recall rather than at startup.
+
 ## Conventions
 
 - **`lyntai_` prefix on every table/index/trigger/FTS object** — Lyntai may share a database with the
