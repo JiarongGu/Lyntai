@@ -158,9 +158,10 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   cost attribute were both documented but silently dropped, and no test caught it. When you add a
   documented knob, add the test that exercises the documented path.
 - **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built
-  registration.** `AddLyntai` invokes `configure(builder)` (`ServiceCollectionExtensions.cs:39`) well before
-  it calls `RegisterLlmFrontDoor` (`:60`), and that method (`:98`) is where the `DeadHostTracker` built from
-  `LyntaiOptions` is registered (`:101`). **Names first, lines second** — these numbers rot, and this very
+  registration.** `AddLyntai` invokes `configure(builder)` (`ServiceCollectionExtensions.cs:39`, in
+  `AddLyntai`) well before it calls `RegisterLlmFrontDoor` (`:60`, in `AddLyntai`), and that method
+  (`:98`, `RegisterLlmFrontDoor`'s signature) is where the `DeadHostTracker` built from `LyntaiOptions` is
+  registered (`:101`, in `RegisterLlmFrontDoor`). **Names first, lines second** — these numbers rot, and this very
   entry was made stale by a change inside the branch that added it; follow the method names if a line
   disagrees. So a `TryAddSingleton<DeadHostTracker>()` added inside a `Use*`/`Add*` extension reaches the
   collection FIRST, and `TryAdd` keeps the first — silently swapping the configured `DeadHostThreshold`,
