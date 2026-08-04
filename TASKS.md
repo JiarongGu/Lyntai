@@ -17,10 +17,10 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 _**v2.0.1 is released (2026-08-04).** Everything up to and including the generation platform, the package
 restructure, the 2.0.1 release hardening, the generation-ergonomics follow-ups and the provider-lifetime seam
-has shipped and is archived — see `docs/task-archive.md` Parts 29–37 and `docs/DECISIONS.md` D25–D37. What
-remains open is below: the generation follow-ups in Part 33 (**all** now needing a real service, a vendor pick or a design call — none is
-codeable from here), the remaining verdict-parity finding in Part 34, the post-1.0 additive backlog in Part 25,
-and one conditional item:_
+has shipped and is archived — see `docs/task-archive.md` Parts 29–37 and `docs/DECISIONS.md` D25–D37. Part 34's
+verdict-parity finding closed 2026-08-05 (`LlmVerdict.NotConfigured`), emptying that part. What remains open is
+below: the generation follow-ups in Part 33 (**all** now needing a real service, a vendor pick or a design call — none is
+codeable from here), the post-1.0 additive backlog in Part 25, and one conditional item:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
