@@ -448,6 +448,89 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D37 — provider LIFETIME is a registered strategy, and everything about it is keyed on the CONFIGURATION rather than the provider id (2026-08-05)
+Filed as GEN12, designed in `docs/superpowers/specs/2026-08-05-provider-pool-design.md`, shipped as
+`Lyntai.Lifecycle`. It applies **only** where backend configuration is owned OUTSIDE the deployment — by an
+end user, or by a store the process polls. Then three things follow that a deployment-configured app never
+meets: the settings change at any moment, the *choice of backend* is itself one of those settings, and
+several configurations of one backend id are live **at the same time** (different tenants, different
+credentials, different endpoints). An app that registers its backends with `Add*` and never touches any of
+this is unaffected — the defaults are already registered for it and behave exactly as they did.
+
+**The filed premise was wrong, and correcting it relocated the fix.** GEN12 said a provider instance
+"accumulates" cooldown and dead-host knowledge that per-call construction discards. **Providers hold no such
+state**: every backend is a constructor and immutable fields. The state lives in `DeadHostTracker`, owned by
+the **router** — and both routers snapshot their provider set at construction (`GenerationRouter`
+materializes `[.. providers]`; `LlmRouter` memoizes a `Lazy<>` lookup, so even a live `IEnumerable` would be
+frozen after the first call). So a consumer wanting a different backend per call cannot keep one router; it
+rebuilds the router, which rebuilds the tracker, and *that* is what destroys the cooldown. Pooling instances
+alone would never have been visible to a long-lived router. The unit that has to be long-lived and correctly
+keyed is not the provider — it is the **bookkeeping keyed to a configuration**.
+
+**1. Pooling is a registered STRATEGY, not a library behaviour.** `BoundedProviderPool` reuses while the key
+is unchanged (LRU + idle bounds); `TransientProviderPool` never reuses; `IProviderPool<TProvider>` is the BYO
+seam for anything else (cross-process, host telemetry, a different eviction policy). The call site is
+**identical** under either — `UseProviderPool()` / `UseTransientProviders()` at startup is the only
+difference — and that is what makes the choice reversible. A host that discovers its backend is not safe to
+share changes one line, not every call. Reuse-vs-never-reuse is a semantic difference, so it is a type rather
+than a flag; "unbounded" is not a third type, it is `Bounded` with both limits unset.
+
+**2. A pool selects what was CHOSEN; a router selects what is HEALTHY.** They must not be conflated even
+though both take a set of backends. Routing *falls back*; a pool must **fail**. "The user chose this
+configuration" that quietly succeeds against a different one has billed the wrong credential and produced an
+artifact the user did not ask for — a failure no error surfaces. So the pool never substitutes, and
+`instance.Id != key.Slot` throws at registration rather than becoming a candidate the router silently cannot
+find. The two compose (the router factories resolve a caller's registrations through the pool, then govern
+them) precisely because each keeps its own job.
+
+**3. Retirement never disposes, and that is an ENTAILMENT rather than a preference.** Retiring drops the
+pool's reference and removes the entry; in-flight callers hold their own reference and finish normally; the
+runtime reclaims the instance when the last of them is done. **You cannot both refuse to break in-flight work
+and dispose deterministically, without leases.** `IHttpClientFactory` appears to manage both only because the
+object callers hold (`HttpClient`) is not the object it disposes (the handler). Here the caller holds the
+provider itself, so while it is alive the pool cannot know whether anyone is still using it, and once it is
+collectable the pool no longer has it to dispose. Any scheme that disposes on retirement is therefore
+disposing while callers may still be running — and with renders that legitimately take minutes and a
+configuration poll that can fire at any moment, that means a routine poll killing a healthy render. Leases
+are the documented escape hatch, not an omission: a host whose provider owns something needing prompt release
+implements a lease-based `IProviderPool` of its own. Nothing Lyntai ships is `IDisposable`, so this costs
+nothing today; what it buys is a contract that never has to lie. Pinned by a test whose disposable fake stays
+undisposed through `Retire`, `RetireSlot`, LRU eviction and idle eviction.
+
+**4. Dead-host cooldown and concurrency admission are keyed on the CONFIGURATION, not the provider id.** The
+cooldown key was `generation::{providerId}`. Once two configurations of `openai-images` are live under
+different credentials, one exhausting its quota benches the other, whose key was fine — and conversely two
+consumers pointing at the same self-hosted host *should* share a bench when that host is down. Keying on
+`ProviderKey` gets both right; keying on the id gets one wrong, and only in production. Both routers
+therefore take an optional `Func<TProvider, ProviderKey?> configuration` delegate, bound by the factories to
+`pool.TryGetKey`; passing nothing keeps `p => p.Id` exactly as before. The delegate must return a **stable**
+key per instance — one attempt invokes it for the bench check, for admission and for the record that follows,
+so a delegate that recomputes from live state can record a bench under a key nobody checks.
+
+**Admission is applied BY THE ROUTER, never by wrapping a provider** — twice-decided, because the obvious
+implementation is a concurrency-limiting decorator. A `SemaphoreSlim` on a per-instance decorator bounds
+nothing once instances are per-call (under `Transient` every call builds its own limiter, so the local engine
+the limit protects thrashes as if unlimited), and decorating a provider **erases its optional capability
+interfaces**: a wrapper implementing only `IGenerationProvider` is not an `IGenerationJobProvider`, so
+`GenerationRouter.SubmitAsync`'s type test skips it and every queued video render stops routing while image
+renders and every inline-only test stay green. Limits are declared per **slot** (capacity is a property of
+the backend kind) and enforced per **key** (the contended resource belongs to a configuration).
+
+**One shipped improvement over the spec, recorded because the spec now says so too:** `ProviderAdmission`'s
+gate table is bounded by **calls in flight**, not by keys ever seen. Each gate counts callers holding or
+waiting on it, incremented before the wait so a merely-queued caller keeps it alive, decremented on dispose
+*or* on a cancelled wait, and the entry is removed the instant the count reaches zero. So there is no cap and
+no timeout to tune, an idle process holds no gates, and a store rotating many tenants' credentials cannot
+accumulate one permanent semaphore per configuration ever presented.
+
+**Deliberately not done:** leases (above), a max instance lifetime (`IHttpClientFactory`'s handler rotation
+exists for DNS staleness the provider does not have), multiple instances per configuration (the backends are
+stateless — parallelism is gated by admission, not by instance count), automatic key derivation from an
+options object (right for the record-shaped options, silently wrong for a class compared by reference — and
+deriving it by reflection would break the trim promise `check-warnings` gates, which D17 already rejected),
+and any abstraction over the configuration SOURCE (reading the store, noticing a change and deciding when to
+re-resolve stays with the consumer; absorbing it would make this a framework rather than a seam).
+
 ## D36 — BYO means the HOST owns the client's lifetime; Lyntai disposes only what Lyntai created (2026-08-04)
 Every HTTP generation backend took a `Func<HttpClient>` and did `using var http = httpFactory()` — it disposed
 whatever the factory returned. That is right for a factory that MAKES a client per call (which is what the

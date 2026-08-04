@@ -646,6 +646,57 @@ failure rather than inventing an artifact.
 **Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook
 endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D26 and D30.
 
+### When your users own the backend configuration (`Lyntai.Lifecycle`)
+
+Everything above assumes the *deployment* configures the backends: you call `Add*` once and the container
+holds them. If instead an **end user** — or a store your process polls — owns that configuration, the
+settings change at any moment, the choice of backend is itself one of those settings, and several
+configurations of one backend are live at the same time. Hand the router factory a key and a way to build
+each backend, and it does the rest:
+
+```csharp
+var cfg = await _settings.ForTenantAsync(tenantId, ct);   // your source; Lyntai never asks where it lives
+
+var router = _routers.For([                                // IGenerationRouterFactory, injected
+    new(KeyFor(cfg.OpenAi), () => new OpenAiImageProvider(cfg.OpenAi, _httpFactory, disposeHttpClient: false)),
+    new(KeyFor(cfg.Local),  () => new LocalDiffusionProvider(cfg.Local, _runner)),
+]);
+
+var result = await router.GenerateAsync(candidates, request, ct);
+
+static ProviderKey KeyFor(OpenAiImageOptions o) => ProviderKey.For(o.Id)
+    .With("baseUrl", o.BaseUrl).With("model", o.Model)
+    .WithSecret("apiKey", o.ApiKey)      // hashed into the key, never retained
+    .Build();
+```
+
+Name every contribution to the key, and include the values the backend resolves at **runtime** as well as
+the ones the user typed — a locally-provisioned engine's binary and model paths appear when a download
+finishes, at which point the saved settings have not changed at all and an instance holding empty paths
+would keep failing forever.
+
+Whether that rebuilds the backend or reuses it is decided **at startup, not at the call site** — the code
+above is byte-for-byte the same under either:
+
+```csharp
+services.AddLyntai(b => b.UseProviderPool());        // reuse while the key is unchanged (the default)
+services.AddLyntai(b => b.UseTransientProviders());  // a fresh instance every call
+```
+
+That is the point of the seam: choosing wrong is a one-line change at startup rather than a rewrite, and
+`IProviderPool<TProvider>` is there for a strategy of your own. The same factory exists for chat
+(`ILlmRouterFactory`).
+
+What you get either way, and what a hand-rolled per-call cache gets wrong: **dead-host cooldown and
+concurrency admission are keyed on the configuration, not on the backend id** — so one tenant's rate limit
+never benches another's, while two consumers pointing at the same self-hosted host do share a bench. And a
+configuration that changes mid-render never aborts it: a replaced entry is **retired**, not disposed, so
+in-flight calls finish normally (`docs/DECISIONS.md` D37).
+
+```csharp
+services.AddLyntai(b => b.ConfigureProviderAdmission(a => a.BySlot["sd-local"] = 1));  // one render at a time
+```
+
 ### Local in-process inference (`Lyntai.Providers.Local`)
 
 Run a GGUF model in-process via LLamaSharp — no network, no key, no subprocess. Reference the

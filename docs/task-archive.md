@@ -2231,6 +2231,112 @@ is a constant*. The smoke app also now references `Lyntai.Generation` and assert
 consumer is most likely to meet on its own (not in the bundle) and the only one carrying a dependency the bundle
 never resolves, so a wrong dependency group in its nuspec would show up nowhere else.
 
+## Part 37 — provider lifetime: a pool keyed on the configuration, for externally-owned settings (2026-08-05)
+
+_Filed as GEN12 by a consuming app whose backend configuration is owned by its end users, reframed twice, and
+finally built against a written design (`docs/superpowers/specs/2026-08-05-provider-pool-design.md`, approved
+2026-08-05) rather than against the task text — because the task text turned out to be wrong about the
+mechanism. Nine tasks, each committed separately; the reasoning is `docs/DECISIONS.md` **D37**._
+
+- [x] **GEN12 — own the provider POOL: keep one instance per configuration and deprecate it when the
+  configuration changes.** Raised 2026-08-04, reframed twice; this is the version to build against.
+
+  _**Design of record: `docs/superpowers/specs/2026-08-05-provider-pool-design.md`** (approved 2026-08-05).
+  It supersedes the surface sketched below in three ways worth knowing before reading further: the pool holds
+  MANY live entries (several configurations of one backend run concurrently, from a source that keeps
+  changing), pooling itself is a registered STRATEGY (`Bounded` / `Transient` / BYO) so a consumer wanting a
+  fresh instance per call is served by the same call site, and a replaced entry is RETIRED rather than
+  disposed — disposing it would abort renders still running on it. The spec also corrects this entry's
+  premise: providers hold no cooldown state; `DeadHostTracker` does, owned by the router._ Earlier
+  drafts asked for per-call options resolution and then for a documentation note. Both were treating the
+  symptom — the underlying need is provider **lifecycle**, and it belongs in the library rather than in each
+  consumer.
+
+  **The situation.** Where configuration is owned by the deployment, `Add*` registration is right and nothing
+  here applies. Where configuration is owned by an END USER, three things follow: the settings can change at
+  any moment, the *choice of backend* is itself one of those settings, and (commonly) the process reading the
+  configuration is not the one that wrote it — so the configuration must be resolved per call.
+
+  **The trap that follows, which is the actual point.** "Resolve the config per call" quietly becomes
+  "construct the provider per call", and that is wrong twice over. It allocates a backend per request, and
+  more importantly it **discards everything a provider instance accumulates**. That was harmless when a
+  provider was a thin wrapper; it stopped being harmless in 2.1.0, when the generation domain gained cooldown
+  and dead-host tracking. A consumer that rebuilds per render can never bench a failing backend, because the
+  instance holding that knowledge is thrown away before it can be consulted twice. The library added the
+  state, so the library has the strongest interest in the instances being long-lived and correctly keyed.
+
+  **What the pool must do** — small, and the semantics matter more than the surface:
+  - **Reuse** while the resolved configuration is unchanged.
+  - **Deprecate** the entry the moment ANY part of that configuration changes — including a credential
+    rotation, which is easy to leave out of a key and means a pooled provider keeps using a revoked secret.
+  - Be **thread-safe** (a UI request and a background job can arrive together).
+  - Be explicitly **NOT routing.** Registering several backends so a router can choose has different
+    semantics: routing falls back, whereas "the user chose this backend" must FAIL rather than silently
+    succeed against a different one and bill that credential. A pool selects what the user chose; a router
+    selects what is healthy.
+  - Say what happens on eviction if a provider ever becomes `IDisposable` (today none are, so a dropped
+    reference suffices — but a consumer cannot rely on that staying true without being told).
+
+  **A key member that is easy to miss**, from building one: the key must include values the backend resolves
+  at RUNTIME, not just the saved settings. A locally-provisioned engine's binary and model paths appear when a
+  download completes — at which point the saved configuration has not changed at all, yet the pooled provider
+  is holding empty paths and will keep failing. Keying only on "the config the user typed" looks correct and
+  is not.
+
+  **Suggested surface:** something a consumer can hand a key and a factory to
+  (`IGenerationProviderPool.GetOrCreate(key, factory)`), usable WITHOUT a container so it serves the
+  direct-construction path too; or, for container users, `Add*` overloads that resolve options per resolution
+  and key the instance on the result. Either way the win is that consumers stop each writing the same cache
+  and getting the key subtly wrong.
+
+  _Reference implementation available: the reporting consumer now runs exactly this (config re-read per call,
+  provider rebuilt only on change), with the reuse and every deprecation path sabotage-verified — disabling
+  reuse fails the reuse test, ignoring the key fails all five deprecation tests. Happy to hand over the shape
+  if useful._
+
+✅ done 2026-08-05 — **Outcome:** `Lyntai.Lifecycle` in Core — `IProviderIdentity` (now the shared base of both
+provider seams), `ProviderKey` + its named-contribution builder, `IProviderPool<TProvider>` with two shipped
+strategies (`BoundedProviderPool` reuses within LRU + idle bounds, `TransientProviderPool` never reuses),
+`ProviderAdmission`, `ProviderRegistration`, and `IGenerationRouterFactory` / `ILlmRouterFactory` composing a
+governed router over a caller-chosen provider set; wired by `UseProviderPool` / `UseTransientProviders` /
+`ConfigureProviderAdmission`. **The task's premise was corrected during design and that correction is the
+reason the fix works:** providers hold no cooldown state at all — every backend is a constructor and immutable
+fields — so pooling instances alone would have changed nothing. `DeadHostTracker` holds it and the **router**
+owns it, and both routers snapshot their provider set at construction, so a consumer wanting a different
+backend per call rebuilds the router and *that* is what destroys the cooldown. The unit that has to be
+long-lived is the bookkeeping, which is why the deliverable is a router **factory** over a shared tracker as
+much as it is a pool. Additive throughout: an app that configures its backends at startup resolves the same
+routers over the same DI collection, keyed on the provider id exactly as before.
+
+**Two decisions the task asked for, answered as entailments rather than preferences.** Retirement **never
+disposes** — you cannot both refuse to break in-flight work and dispose deterministically without leases, and
+a lease-based `IProviderPool` is therefore the documented escape hatch rather than an omission (pinned by a
+disposable fake whose flag stays false through `Retire`, `RetireSlot` and both evictions). And cooldown and
+admission are keyed on the **configuration**, not the provider id: two configurations of one backend under
+different credentials must bench independently, while two consumers of one downed self-hosted host should
+share a bench. Admission is applied by the **router**, never by wrapping a provider, because a wrapper
+implementing only `IGenerationProvider` erases `IGenerationJobProvider` — every queued video render would stop
+routing while every image render and every inline-only test stayed green.
+
+**Three defects were found during execution that no plan could have anticipated, and all three were silent.**
+(1) The plan mandated a `TryAddSingleton<DeadHostTracker>()` inside the generation `EnsureRouter`; that runs
+during `configure(builder)`, which precedes the front-door registration that builds the tracker from
+`LyntaiOptions` — so the `TryAdd` would have won and silently discarded the configured threshold, cooldown and
+logger **for both domains**. Confirmed twice by mutation, and nothing in 1427 tests noticed; it was omitted and
+a guard test now catches reintroduction. (2) Two registrations sharing a backend id in one factory call routed
+silently to the first, leaving the second built, pooled and unreachable — now an `ArgumentException` naming the
+slot. (3) `ProviderAdmission`'s gate table, specified as unbounded, would have accumulated one permanent
+semaphore per configuration ever presented in a process-lifetime singleton; it now bounds itself by **calls in
+flight** (a holder count per gate, removed at zero), which needs no cap and no timeout — the spec's §4.7 was
+amended to match. Two more traps came from the *tooling*: `dotnet test --filter` reports success when it
+matches zero tests (a filter named a class that does not exist), and `node devtools/dev.mjs test -- --filter`
+does not forward the filter at all — two independent ways for a targeted run to verify nothing. All of it is
+in `.claude/knowledge/pitfalls.md`.
+
+`verify` green at 7 gates, 1451 tests, e2e 3/3, 0 warnings. Public surface: additive only (a base interface on
+two existing interfaces, plus optional trailing constructor parameters on both routers — source-compatible,
+**not** binary-compatible, called out in `CHANGELOG.md`).
+
 ---
 
 ## Notes for the implementer

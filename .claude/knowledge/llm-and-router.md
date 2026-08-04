@@ -73,10 +73,53 @@ not hand-roll the loop. The CLI providers pass NO clock (their window is `Proces
 
 ## Dead-host tracker
 
-Per **provider id** (not per model — that granularity is a roadmap item). N consecutive failures →
-dead for a cooldown window; any success resets. Clock is injected (`Func<DateTimeOffset>`), never
-`DateTime.Now`, so it's deterministically testable. All state access is under a lock. `MarkDead` benches
-immediately (RateLimited/AuthFailed); `RecordFailure` counts toward the threshold (Failed/Timeout).
+N consecutive failures → dead for a cooldown window; any success resets. Clock is injected
+(`Func<DateTimeOffset>`), never `DateTime.Now`, so it's deterministically testable. All state access is under
+a lock. `MarkDead` benches immediately (RateLimited/AuthFailed); `RecordFailure` counts toward the threshold
+(Failed/Timeout). Keys are prefixed per domain, so a chat outage never benches a generation backend that
+happens to share its id.
+
+**The bench key is no longer necessarily the provider id.** Both routers take an optional
+`Func<TProvider, ProviderKey?> configuration` delegate; the key for a candidate is
+`_configuration(provider)?.ToString() ?? provider.Id`. Passing nothing (the default, and the whole
+container-composed path) is the historical behaviour — `p => p.Id`, one bench per backend — and is correct
+for a deployment that configures each backend once.
+
+Supply the delegate when **several configurations of one backend id are live at once** (an end user or a
+polled store owns the configuration; tenants carry their own credentials and endpoints). Then the id is the
+wrong unit twice over: one tenant exhausting its quota benches every other tenant on that backend, and two
+consumers pointing at the *same* downed self-hosted host fail to share a bench that would have spared them
+both. `IProviderPool<T>.TryGetKey` is the intended source, and `ILlmRouterFactory` / `IGenerationRouterFactory`
+bind it for you on their pooled overloads — see `docs/DECISIONS.md` D37.
+
+Two properties to hold on to when touching this:
+
+- **The delegate must return a STABLE key for a given instance.** One routing attempt invokes it more than
+  once — for the bench check, for admission, and for the record that follows. A delegate that recomputes from
+  live state can record a bench under a key nobody ever checks, which is a cooldown that silently never takes
+  effect. Look it up (as a pool does); never derive it per call.
+- **It composes with `CooldownScope.ProviderAndModel`.** Granularity by model is orthogonal to identity by
+  configuration, so that scope still appends the model to whichever key the delegate produced.
+
+## Admission (`ProviderAdmission`) — completions, deliberately not streams
+
+Distinct from rate limiting: a rate limiter bounds calls per unit *time*, admission bounds calls *at once*
+against one configuration — the case that matters is a locally-run engine where simultaneous calls contend
+for one CPU or GPU. Limits are declared per **slot** (capacity belongs to the backend kind) and enforced per
+**key** (the contended resource belongs to a configuration). It is applied by the router around its own
+attempt, never by wrapping a provider: a wrapper implementing only the base seam erases the optional
+capability interfaces the generation router type-tests (`pitfalls.md`).
+
+**`CompleteAsync` is gated; `StreamAsync` is not, on purpose.** A stream holds its permit for the whole
+response, and paired with the no-fallback-after-the-first-token rule that means a consumer which simply stops
+enumerating holds a permit until its enumerator is finally disposed — an unbounded hold on a bounded
+resource, triggered by ordinary consumer code. Bounding a long-lived stream needs a lease the consumer cannot
+forget, which this is not. If you add gating to a streaming path, you are choosing that failure; say so.
+
+Two mechanics worth knowing before editing it: the gate table is bounded by **calls in flight** (a holder
+count per gate, entry removed at zero), so there is nothing to cap or expire and an idle process holds no
+gates; and every `EnterAsync` result must reach a `using` on **every** path — an abandoned `ValueTask` pins
+its gate forever.
 
 ## CLI hygiene (`ProcessRunner`)
 

@@ -1,6 +1,8 @@
 # Provider pool — instance lifetime as a library seam (GEN12)
 
-> **Status:** design approved 2026-08-05, not yet implemented.
+> **Status:** design approved 2026-08-05; **implemented and shipped 2026-08-05** (`Lyntai.Lifecycle`; task
+> archived as `docs/task-archive.md` Part 37, reasoning in `docs/DECISIONS.md` D37). §4.7 carries a dated
+> amendment where the shipped shape improves on what was specified.
 > **Task:** `TASKS.md` GEN12. **Domain:** Core (`Lyntai.Lifecycle`), consumed by both the LLM and
 > generation routing domains. **Compatibility:** additive only — no breaking change to the frozen 1.0
 > surface.
@@ -267,7 +269,7 @@ passes neither and behaves exactly as it does now.
 
 ### 4.7 Admission control, keyed like the tracker
 
-A shared table of semaphores indexed by `ProviderKey`, resolved **per attempt** rather than captured per
+A shared table of gates indexed by `ProviderKey`, resolved **per attempt** rather than captured per
 instance:
 
 ```csharp
@@ -292,6 +294,28 @@ Limits are **declared per slot** (a backend type has a natural capacity: "a loca
 at a time") but **enforced per key** (the contended resource belongs to a configuration). That split is
 deliberate and gives the behaviour that matters: two consumers pointing at the *same* self-hosted engine
 share its capacity, while two tenants on different hosted endpoints do not throttle each other.
+
+**Amended 2026-08-05 — what shipped is better than what this section originally described, and the change is
+worth stating because it removes configuration rather than adding it.** The table above was specified as an
+unbounded keyed table of `SemaphoreSlim`s, which is a leak in the one deployment this feature exists for: the
+admission table is a process-lifetime singleton, so a store rotating many tenants' credentials through
+`ProviderKey` accumulates one permanent semaphore per configuration ever presented. The obvious fixes —
+a cap, or an idle timeout — both add a knob that has to be tuned against a workload nobody can predict.
+
+The shipped `ProviderAdmission` is instead bounded by **calls in flight**. Each gate carries a count of
+callers holding *or waiting on* it, incremented before the wait begins (so a merely-queued caller keeps its
+own gate alive), decremented when a handle is disposed **or** when a wait is cancelled before a permit ever
+arrives; the entry is removed the instant that count reaches zero. So the table's size is bounded by
+concurrency right now rather than by history, an idle process holds no gates at all, and — unlike
+`ProviderPoolOptions` — there is nothing left to cap or expire, so `ProviderAdmission` takes no bounds
+options of its own.
+
+Two consequences that follow, both documented on the type: a configuration's limit is read once, when its
+gate is created, because a `SemaphoreSlim` has a fixed max count — but since a gate is discarded as soon as
+it goes idle, only a configuration under contention *right now* keeps a stale limit, and only until it goes
+idle. And every `EnterAsync` result must reach a `using` on **every** path (fallback, refusal, cancellation):
+a caller that abandons the `ValueTask` without disposing the handle pins its gate forever, which is the one
+way back to the leak this shape removes.
 
 **Applied by the routers, not by a decorator.** An earlier revision wrapped each provider in a
 concurrency-limiting decorator. That fails twice over: it puts the limit back on the instance (the trap in
