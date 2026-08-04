@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased
+## 2.1.0 — 2026-08-04
 
 ### Added
 - **Named factories for `GenerationInput`** — `GenerationInput.Init(bytes, "image/png")`, `.FirstFrame(…)`,
