@@ -73,6 +73,85 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   the experimental marker needn't block anything._
 
+- [ ] **GEN12 — own the provider POOL: keep one instance per configuration and deprecate it when the
+  configuration changes.** Raised 2026-08-04, reframed twice; this is the version to build against.
+
+  _**Design of record: `docs/superpowers/specs/2026-08-05-provider-pool-design.md`** (approved 2026-08-05).
+  It supersedes the surface sketched below in three ways worth knowing before reading further: the pool holds
+  MANY live entries (several configurations of one backend run concurrently, from a source that keeps
+  changing), pooling itself is a registered STRATEGY (`Bounded` / `Transient` / BYO) so a consumer wanting a
+  fresh instance per call is served by the same call site, and a replaced entry is RETIRED rather than
+  disposed — disposing it would abort renders still running on it. The spec also corrects this entry's
+  premise: providers hold no cooldown state; `DeadHostTracker` does, owned by the router._ Earlier
+  drafts asked for per-call options resolution and then for a documentation note. Both were treating the
+  symptom — the underlying need is provider **lifecycle**, and it belongs in the library rather than in each
+  consumer.
+
+  **The situation.** Where configuration is owned by the deployment, `Add*` registration is right and nothing
+  here applies. Where configuration is owned by an END USER, three things follow: the settings can change at
+  any moment, the *choice of backend* is itself one of those settings, and (commonly) the process reading the
+  configuration is not the one that wrote it — so the configuration must be resolved per call.
+
+  **The trap that follows, which is the actual point.** "Resolve the config per call" quietly becomes
+  "construct the provider per call", and that is wrong twice over. It allocates a backend per request, and
+  more importantly it **discards everything a provider instance accumulates**. That was harmless when a
+  provider was a thin wrapper; it stopped being harmless in 2.1.0, when the generation domain gained cooldown
+  and dead-host tracking. A consumer that rebuilds per render can never bench a failing backend, because the
+  instance holding that knowledge is thrown away before it can be consulted twice. The library added the
+  state, so the library has the strongest interest in the instances being long-lived and correctly keyed.
+
+  **What the pool must do** — small, and the semantics matter more than the surface:
+  - **Reuse** while the resolved configuration is unchanged.
+  - **Deprecate** the entry the moment ANY part of that configuration changes — including a credential
+    rotation, which is easy to leave out of a key and means a pooled provider keeps using a revoked secret.
+  - Be **thread-safe** (a UI request and a background job can arrive together).
+  - Be explicitly **NOT routing.** Registering several backends so a router can choose has different
+    semantics: routing falls back, whereas "the user chose this backend" must FAIL rather than silently
+    succeed against a different one and bill that credential. A pool selects what the user chose; a router
+    selects what is healthy.
+  - Say what happens on eviction if a provider ever becomes `IDisposable` (today none are, so a dropped
+    reference suffices — but a consumer cannot rely on that staying true without being told).
+
+  **A key member that is easy to miss**, from building one: the key must include values the backend resolves
+  at RUNTIME, not just the saved settings. A locally-provisioned engine's binary and model paths appear when a
+  download completes — at which point the saved configuration has not changed at all, yet the pooled provider
+  is holding empty paths and will keep failing. Keying only on "the config the user typed" looks correct and
+  is not.
+
+  **Suggested surface:** something a consumer can hand a key and a factory to
+  (`IGenerationProviderPool.GetOrCreate(key, factory)`), usable WITHOUT a container so it serves the
+  direct-construction path too; or, for container users, `Add*` overloads that resolve options per resolution
+  and key the instance on the result. Either way the win is that consumers stop each writing the same cache
+  and getting the key subtly wrong.
+
+  _Reference implementation available: the reporting consumer now runs exactly this (config re-read per call,
+  provider rebuilt only on change), with the reuse and every deprecation path sabotage-verified — disabling
+  reuse fails the reuse test, ignoring the key fails all five deprecation tests. Happy to hand over the shape
+  if useful._
+
+- [ ] **GEN11 — the `Add*` shims' infinite HTTP timeout rests on a per-call deadline that does not exist.**
+  Found 2026-08-04 by the consuming app adopting 2.1.0, from reading the release note rather than from a hang.
+
+  `GenerationProviderBuilderExtensions` configures the named client with `Timeout.InfiniteTimeSpan`, and the
+  changelog gives the reason: *"the per-call deadline owns cancellation (a render routinely outlives the
+  100-second default)"*. The first half is right — 100s is genuinely too short for a render. But **there is no
+  per-call deadline for the HTTP generation backends.** `GenerationRequest.TimeoutSeconds` exists on the
+  contract and, as of 2.1.0, **no source file reads it** (grep of `src/` finds it only in XML docs and the
+  compiled DLL); only `LocalDiffusionProvider` — the subprocess one — has its own timeout.
+
+  So a consumer using `AddOpenAiImageProvider` / `AddAutomatic1111Provider` gets: infinite HttpClient timeout,
+  no request deadline, no options deadline. A backend that accepts the connection and then stalls hangs the
+  render until the caller's `ct` fires — and a UI that offers no cancel (a background job, a scheduled task)
+  waits forever. That is a worse failure than the 100s cut-off it replaced, because it is unbounded and silent.
+
+  **Suggested:** honour `GenerationRequest.TimeoutSeconds` in the HTTP backends (it already exists, so this is
+  wiring not API), and/or give the options a `Timeout` like `LocalDiffusionOptions` has, defaulted generously.
+  Then the shim's infinite client timeout becomes true rather than aspirational.
+
+  **What the consumer did meanwhile**, in case it is useful as a data point: it constructs its own client with
+  an explicit **180s** timeout — deliberately NOT infinite — because that restores the ceiling its pre-migration
+  code had and keeps a bounded failure. It will switch to the shims once a deadline exists.
+
 - [ ] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
   consuming app that wanted to delete its hand-rolled codex integration and could not.
 
