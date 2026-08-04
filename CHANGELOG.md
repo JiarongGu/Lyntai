@@ -10,6 +10,47 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+### Added
+- **Named factories for `GenerationInput`** — `GenerationInput.Init(bytes, "image/png")`, `.FirstFrame(…)`,
+  `.Reference(…)`, `.Voice(…)`, and `.From(role, …)` for a role a backend documents itself, each with a
+  `System.Uri` overload. The positional constructor is a **silent-misbinding trap**: three of its four slots are
+  strings and `Role` is last, so `new GenerationInput(GenerationInputRoles.Init, bytes, "image/png")` compiles,
+  binds `"init"` to the media type and leaves `Role` null — an img2img request then degrades to text-to-image
+  with **no error anywhere**, the source image simply ignored. The factories make the role impossible to omit.
+  Purely additive; the constructor is unchanged. See `docs/DECISIONS.md` **D35**, which also records why
+  `GenerationArtifact` was checked and deliberately left alone.
+- **Per-backend `Add*` shims for `Lyntai.Generation`** — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
+  `AddComfyUiProvider`, `AddFalProvider` and `AddLocalDiffusionProvider`, the media counterpart of
+  `AddOpenAiProvider()` / `AddOllamaProvider()`. Every backend previously had to be hand-constructed with its own
+  `Func<HttpClient>`. BYO stays optional on all of them; omit it and Lyntai registers a named client with an
+  **infinite** `HttpClient` timeout so the per-call deadline owns cancellation (a render routinely outlives the
+  100-second default). `GenerationProviderBuilderExtensions.HttpClientName(id)` is public so a host can decorate
+  the same client without abandoning the shim.
+
+### Fixed
+- **A BYO `HttpClient` handed to a generation backend is no longer disposed by Lyntai.** The backends did
+  `using var http = httpFactory()`, so the natural BYO lambda `_ => _myClient` worked for the first render and
+  threw `ObjectDisposedException` on the **second**. BYO now means what it means on the LLM side: the host owns
+  the lifetime. See `docs/DECISIONS.md` **D36**.
+
+### Changed — `Lyntai.Generation` only (EXPERIMENTAL; source-compatible)
+- `OpenAiImageProvider`, `Automatic1111Provider`, `ComfyUiProvider` and `FalQueueProvider` take a third
+  `bool disposeHttpClient = true` constructor parameter. Defaulted to the previous behaviour, so existing
+  hand-constructions compile and behave identically; it is **binary**-breaking for a pre-compiled caller, which
+  the `Lyntai.Generation.*` experimental carve-out permits.
+- `Lyntai.Generation` now depends on `Microsoft.Extensions.Http` (managed, on the runtime's own version band).
+  The package is not in the `Lyntai` bundle, so the one-line install's closure is unchanged.
+
+### Tooling
+- **`consumer-smoke` was testing STALE packages** and now isn't. It packs under a fixed throwaway version, and
+  NuGet never re-extracts a version already in the global cache — so after the first run ever, every later run
+  restored that run's copies and reported success about code it had never compiled against. It now evicts
+  `<global-packages>/lyntai.*/<version>` after packing; the first eviction removed **9** stale packages. The
+  smoke app also now references `Lyntai.Generation` — the package a consumer is most likely to meet on its own,
+  and the only one carrying a dependency the bundle never resolves.
+
 ## 2.0.1 — the generation platform + a coherent package graph (2026-08-04)
 
 ### Breaking — package graph only; **no namespace, type or API changed**

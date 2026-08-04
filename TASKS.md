@@ -16,10 +16,11 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 ## Active backlog
 
 _**v2.0.1 is released (2026-08-04).** Everything up to and including the generation platform, the package
-restructure and the 2.0.1 release hardening has shipped and is archived — see `docs/task-archive.md` Parts 29–35
-and `docs/DECISIONS.md` D25–D34. What remains open is below: the generation follow-ups in Part 33 (all needing a
-real service or a vendor pick), the two consumer-ergonomics findings in Part 34, the post-1.0 additive backlog in
-Part 25, and one conditional item:_
+restructure, the 2.0.1 release hardening and the generation-ergonomics follow-ups has shipped and is archived —
+see `docs/task-archive.md` Parts 29–36 and `docs/DECISIONS.md` D25–D36. What remains open is below: the
+generation follow-ups in Part 33 (**all** now needing a real service, a vendor pick or a design call — none is
+codeable from here), the remaining verdict-parity finding in Part 34, the post-1.0 additive backlog in Part 25,
+and one conditional item:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
@@ -46,7 +47,16 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   _**The binary-directory working dir is CONFIRMED (2026-08-04)** and no longer part of this task — measured by
   a consuming app against a real downloaded release: the engine ships `ggml*.dll` beside the exe, so spawning
   from anywhere else fails at load time on a perfectly good install. Already implemented
-  (`src/Lyntai.Generation/LocalDiffusionProvider.cs:139`) and pinned by a test._
+  (`src/Lyntai.Generation/LocalDiffusionProvider.cs:145`) and pinned by a test._
+
+  _**A consumer's own clamp did more than round, and that difference is worth a decision (2026-08-04).** The
+  app that reported the working-dir finding has now migrated its image generation onto `Lyntai.Generation` and
+  deleted its backend. Its `ClampSize` rounded to a multiple of 64 **and capped a CPU render at 768px** — not
+  for correctness but for usability: on a laptop with no GPU, an accepted `1024x1792` request means ten
+  minutes of grinding, which is a worse experience than a refusal. That guard is now this backend's clamp.
+  Worth settling alongside the argv: should `LocalDiffusionOptions` carry a max-dimension (or should a CPU
+  build cap itself), or is an unbounded size the caller's problem? Either answer is fine written down; the
+  consumer will report what the engine actually does with `1024x1792` when it runs GEN-VERIFY's render._
 
   _Two more facts from that same measurement, **already true here** — recorded so they aren't re-investigated:
   the binary is `sd-cli.exe` (upstream renamed it from `sd.exe`), and the tree contains zero `sd.exe`
@@ -62,6 +72,31 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   `Lyntai.Generation`, and driving a real render with real weights for a real use case is what that migration
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   the experimental marker needn't block anything._
+
+- [ ] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
+  consuming app that wanted to delete its hand-rolled codex integration and could not.
+
+  **The gap.** `Lyntai.Providers.CodexCli.CodexCliProvider` gives `CompleteAsync`/`StreamAsync(LlmRequest)`
+  plus the maintenance capabilities — everything a ROUTER needs. But a desktop chat UI needs the other shape:
+  the streamed **tool steps** an agent takes, which is what `AgentStreamEvent` carries and what
+  `ClaudeAgentSession.StreamAsync(AgentSessionOptions)` produces. `LlmChunk` is `{ Kind, Text, Usage,
+  Verdict, Detail }` — there is nowhere for "the agent called tool X with these arguments" to go.
+
+  So a consumer that shows tool activity can adopt the codex provider for probe/update/auth, but must keep
+  hand-parsing `codex exec --json` for the chat path — which is precisely the bespoke provider handling
+  Lyntai exists to remove, and which has already cost that app two real defects (a bare `error` line failing a
+  turn that SUCCEEDED, and a missing `--skip-git-repo-check` that works in a dev git repo and breaks in a
+  shipped bundle — both of which YOUR measured codex work got right and theirs did not).
+
+  **Why this looks cheap now and wasn't before:** 2.0.1 extracted `CliProviderEngine` + `ICliProviderDialect`
+  specifically so a second CLI could reuse the first's machinery, and `CodexCliDialect` already knows codex's
+  JSONL vocabulary (`item.started`/`item.completed`, `turn.failed`, the terminal-event rule). The agent
+  session is the same events mapped to `AgentStreamEvent` instead of `LlmChunk`.
+
+  **Done when:** a consumer can drive codex through the same `IAgentSession` shape as claude — streamed text,
+  tool steps and usage — and delete its own JSONL parsing. If the answer is "the agent-session shape stays
+  claude-only by design", that is a fine outcome too; say so in `docs/DECISIONS.md` and the consumer will stop
+  waiting and own its codex parsing deliberately rather than provisionally.
 
 - [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend to exercise `IGenerationStreamProvider` end to
   end — nothing implements that seam yet, so it is the one contract in the platform no real backend has
@@ -84,13 +119,9 @@ _Restoring the packed bundle into a fresh app and compiling against the 2.0.1 su
 references) proved the install story works, and exposed two asymmetries between the domains. Neither blocks the
 release; both are additive._
 
-- [ ] **generation backend wiring helpers** — now the obvious first addition to the new `Lyntai.Generation`
-  package, which ships five backends and no `Add*` methods. The LLM side has `AddOllamaProvider()` /
-  `AddOpenAiProvider()` / `AddAzureOpenAiProvider()`, while every generation backend must be hand-constructed
-  WITH its `Func<HttpClient>`:
-  `.AddGenerationProvider(_ => new OpenAiImageProvider(options, () => new HttpClient()))`. Add the matching
-  `AddOpenAiImageProvider()` / `AddAutomatic1111Provider()` / `AddComfyUiProvider()` / `AddFalProvider()` shims
-  (BYO `HttpClient` staying optional, per v0.7). Same class of gap as the semantic-memory wiring helper below.
+_The generation wiring helpers landed 2026-08-04 — see `docs/task-archive.md` Part 36 and `docs/DECISIONS.md`
+D35/D36. What remains is the verdict half:_
+
 - [ ] **LLM-side parity for the no-credentials verdict** — `GenerationVerdictClassifier.FromHttpFailure(status,
   body, hasCredentials)` now reports a 401 with NO key supplied as `NotConfigured` rather than `AuthFailed`, so
   routing skips an unconfigured backend blamelessly instead of benching it. `OpenAiCompatibleProvider` /

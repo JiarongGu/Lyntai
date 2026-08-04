@@ -44,7 +44,12 @@ public sealed record Automatic1111Options
 /// that is the normal state, and routing should skip it without penalising it.</remarks>
 /// <param name="options">Endpoint and sampling defaults.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7).</param>
-public sealed class Automatic1111Provider(Automatic1111Options options, Func<HttpClient> httpFactory)
+/// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
+/// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
+/// client the HOST owns — disposing that leaves the second call throwing
+/// <see cref="ObjectDisposedException"/>. <c>AddAutomatic1111Provider</c> sets this for you.</param>
+public sealed class Automatic1111Provider(
+    Automatic1111Options options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
     : IGenerationProvider
 {
     /// <inheritdoc/>
@@ -66,7 +71,8 @@ public sealed class Automatic1111Provider(Automatic1111Options options, Func<Htt
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var response = await http.GetAsync($"{Root}/sdapi/v1/sd-models", ct).ConfigureAwait(false);
@@ -116,7 +122,8 @@ public sealed class Automatic1111Provider(Automatic1111Options options, Func<Htt
         var payload = payloadBody.ToJsonString();
         var endpoint = source is null ? "txt2img" : "img2img";
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");

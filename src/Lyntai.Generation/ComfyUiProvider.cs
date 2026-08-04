@@ -74,7 +74,12 @@ public sealed record ComfyUiOptions
 /// </remarks>
 /// <param name="options">Endpoint paths, declared kinds and option keys.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7).</param>
-public sealed class ComfyUiProvider(ComfyUiOptions options, Func<HttpClient> httpFactory)
+/// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
+/// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
+/// client the HOST owns — disposing that leaves the second call throwing
+/// <see cref="ObjectDisposedException"/>. <c>AddComfyUiProvider</c> sets this for you.</param>
+public sealed class ComfyUiProvider(
+    ComfyUiOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
     : IGenerationProvider, IGenerationJobProvider
 {
     /// <inheritdoc/>
@@ -94,7 +99,8 @@ public sealed class ComfyUiProvider(ComfyUiOptions options, Func<HttpClient> htt
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var response = await http.GetAsync(Url(options.SystemStatsPath), ct).ConfigureAwait(false);
@@ -139,7 +145,8 @@ public sealed class ComfyUiProvider(ComfyUiOptions options, Func<HttpClient> htt
         // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
         var payload = new JsonObject { ["prompt"] = graph }.ToJsonString();
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -198,7 +205,8 @@ public sealed class ComfyUiProvider(ComfyUiOptions options, Func<HttpClient> htt
     /// stops whatever is executing — documented here because it matters if a host queues several.</summary>
     public async Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default)
     {
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var content = new StringContent("{}", Encoding.UTF8, "application/json");
@@ -227,7 +235,8 @@ public sealed class ComfyUiProvider(ComfyUiOptions options, Func<HttpClient> htt
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl)) return (null, "no BaseUrl configured");
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var response = await http.GetAsync($"{Url(options.HistoryPath)}/{operationId}", ct).ConfigureAwait(false);

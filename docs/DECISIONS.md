@@ -448,6 +448,60 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D36 — BYO means the HOST owns the client's lifetime; Lyntai disposes only what Lyntai created (2026-08-04)
+Every HTTP generation backend took a `Func<HttpClient>` and did `using var http = httpFactory()` — it disposed
+whatever the factory returned. That is right for a factory that MAKES a client per call (which is what the
+backends' own tests pass), and wrong for the natural BYO lambda `_ => _myClient`: the first render succeeds and
+the **second throws `ObjectDisposedException`**. Found while adding the per-backend `Add*` shims (Part 34), whose
+whole point is to hand a consumer that BYO seam.
+
+The LLM side has always had this right — `OpenAiCompatibleProvider(..., disposeHttpClient: !byo)` — so this is
+stated as one rule for both domains rather than a patch to one:
+
+- **A host-supplied client is never disposed by Lyntai.** It outlives the call, it may carry a Polly pipeline, an
+  auth handler or service discovery, and its lifetime is the host's business. A consumer who news one up per call
+  in their own lambda leaks — that is their lambda, and the alternative (us disposing theirs) is strictly worse.
+- **A client Lyntai created is disposed by Lyntai.** The non-BYO path registers a named `IHttpClientFactory`
+  client; `CreateClient` returns a fresh wrapper over a POOLED handler, so disposing it is both correct and cheap.
+- The four generation backends therefore take `bool disposeHttpClient = true` — defaulted to today's behaviour so
+  every existing hand-construction is unchanged, and set to `false` by the `Add*` shims on the BYO path only.
+
+**Why this is worth a decision and not just a fix:** the failing call is the SECOND one. A hand-verified
+integration passes, a smoke test passes, and it breaks on the user's second render. The one-line
+`using var owned = disposeHttpClient ? http : null;` at each call site looks like noise and will read as
+deletable to someone tidying up — it is not.
+
+## D35 — a constructor whose slots can be silently transposed gets NAMED FACTORIES (2026-08-04)
+`GenerationInput(string MediaType, byte[]? Data, string? Uri, string? Role)` has three string slots with `Role`
+LAST, so the plausible positional call `new GenerationInput(GenerationInputRoles.Init, bytes, "image/png")`
+compiles clean, binds `"init"` to the media type, and leaves `Role` **null**. Reported by a consuming app writing
+an img2img adapter (TASKS.md GEN10).
+
+**What makes it worse than an ordinary argument mistake: nothing fails.** The backend receives a well-formed
+roleless input, so an img2img request silently degrades to text-to-image — the caller's source image is ignored,
+a plausible image comes back, and there is no error anywhere. The consumer caught it only because a test asserted
+on `input.Role`; a hand-verified integration would have shipped it.
+
+The fix is **static factories, one per `GenerationInputRoles` constant** (`Init`/`FirstFrame`/`Reference`/`Voice`)
+plus a `From(role, …)` escape hatch for a role a backend documents itself — the roles are open strings (D30), so
+the escape hatch has to be as safe as the named four, which is why `role` comes FIRST there. Purely additive; the
+constructor stays (records need it, and `ToInput` uses it).
+
+Two things settled alongside it:
+
+- **The URI overloads take `System.Uri`, not `string`.** Two adjacent strings would reintroduce exactly the
+  transposition being fixed. A wrong type is a compile error; a wrong string is a silent one.
+- **`GenerationArtifact` was checked and does NOT need the same treatment** — the task asked, so here is the
+  answer rather than a second round of guessing. Its layout is `(MediaType, Data, Uri, Metadata)`, and the only
+  same-typed pair is `MediaType`/`Uri`: transposing them requires explicitly passing `null` for the `byte[]` slot
+  in between, at which point the caller is demonstrably counting slots. There is also no role-shaped silent
+  degradation — a wrong media type surfaces immediately, and nothing branches on it. Adding factories there would
+  be surface that doesn't earn its keep.
+
+**The general rule:** when a positional constructor can be misbound into something that still WORKS, the fix is a
+named factory, not a doc comment. Reordering to put the significant parameter first would also fix it and is
+breaking; factories give the same safety additively.
+
 ## D34 — a package may also be split for RELEASE CADENCE, not only for dependency isolation (2026-08-04)
 D31's test is "which dependency does this isolate?" `Lyntai.Generation` — the media backend set — answers that
 question with **nothing**: it is `HttpClient` plus one subprocess, zero third-party dependencies. By D31's letter

@@ -47,7 +47,12 @@ public sealed record OpenAiImageOptions
 /// <param name="options">Endpoint, credential and defaults.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO, so the host owns pooling and
 /// lifetime (design §7).</param>
-public sealed class OpenAiImageProvider(OpenAiImageOptions options, Func<HttpClient> httpFactory) : IGenerationProvider
+/// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
+/// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
+/// client the HOST owns (a singleton, a Polly-decorated one): disposing that leaves the second call throwing
+/// <see cref="ObjectDisposedException"/>. <c>AddOpenAiImageProvider</c> sets this for you.</param>
+public sealed class OpenAiImageProvider(
+    OpenAiImageOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true) : IGenerationProvider
 {
     /// <inheritdoc/>
     public string Id => options.Id;
@@ -69,7 +74,8 @@ public sealed class OpenAiImageProvider(OpenAiImageOptions options, Func<HttpCli
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, $"{Root}/models");
@@ -105,7 +111,8 @@ public sealed class OpenAiImageProvider(OpenAiImageOptions options, Func<HttpCli
                 "this endpoint edits BYTES; supply GenerationInput.Data (a URI-only input would mean the " +
                 "platform downloading it for you, and guessing at auth for that host)");
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var message = edit is null ? Generation(request) : Edit(request, edit);

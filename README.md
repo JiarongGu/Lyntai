@@ -543,15 +543,46 @@ submit/poll/stream, capability and routing machinery.
 ```csharp
 services.AddLyntai(cfg => cfg
     // hosted: an OpenAI-compatible images API
-    .AddGenerationProvider(sp => new OpenAiImageProvider(
-        new OpenAiImageOptions { BaseUrl = "https://api.openai.com/v1", ApiKey = key, Model = "gpt-image-1" },
-        () => httpFactory.CreateClient()))
+    .AddOpenAiImageProvider(new OpenAiImageOptions
+        { BaseUrl = "https://api.openai.com/v1", ApiKey = key, Model = "gpt-image-1" })
     // local: a Stable Diffusion WebUI on this machine
-    .AddGenerationProvider(sp => new Automatic1111Provider(
-        new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" },
-        () => httpFactory.CreateClient()))
+    .AddAutomatic1111Provider(new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" })
     .UseDefaultGenerationCandidates("openai-images", "a1111"));
 ```
+
+Each backend has an `Add*` of its own — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
+`AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider` — and each takes an **options object**
+rather than a configure callback, because these options are records with `required` members: passing the
+instance is what keeps `required BaseUrl` compiler-enforced. `AddGenerationProvider(sp => …)` remains the BYO
+seam for a backend of your own.
+
+BYO `HttpClient` is optional on every one of them, and Lyntai **never disposes a client you supply** — it is
+yours, and it may be carrying a Polly pipeline or an auth handler. Omit it and Lyntai registers a named client
+with an *infinite* `HttpClient` timeout, so the per-call deadline owns cancellation rather than the 100-second
+default aborting a healthy render. To decorate Lyntai's own client instead of replacing it, reach it by name:
+
+```csharp
+services.AddHttpClient(GenerationProviderBuilderExtensions.HttpClientName("fal"))
+        .AddHttpMessageHandler<MyLoggingHandler>();
+```
+
+Inputs — an init image, a first frame, a style reference, a voice sample — are built with the **named
+factories**, never the positional constructor:
+
+```csharp
+new GenerationRequest
+{
+    Kind = GenerationKinds.Image,
+    Prompt = "the same room, at night",
+    Inputs = [GenerationInput.Init(sourcePng, "image/png")],   // role baked in; it cannot be omitted
+}
+```
+
+The constructor takes `(MediaType, Data, Uri, Role)` with `Role` **last**, so a plausible positional call
+compiles clean, binds the role string to the media type and leaves the role null — and then nothing fails: the
+backend gets a well-formed roleless input and your img2img request quietly becomes text-to-image. Use
+`Init` / `FirstFrame` / `Reference` / `Voice`, or `From(role, …)` for a role a backend documents itself
+(`docs/DECISIONS.md` D35).
 
 Backends declare what they can do, and the router **skips a candidate that can't serve the request** before
 spending anything — media backends differ far more than chat models do (medium, input roles, duration

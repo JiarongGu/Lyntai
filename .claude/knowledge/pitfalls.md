@@ -12,6 +12,14 @@ the tests) while being wrong. Skim before touching the relevant area.
   Verify with an ASCII-safe check (codepoints), not by eyeballing console output (which re-mangles it).
 - Sources are BOM-less UTF-8 + `<CodePage>65001</CodePage>` (in `Directory.Build.props`) — without it
   csc reads CJK string literals as ANSI mojibake on a CJK-locale machine.
+- **NuGet never re-extracts a package version it already has in the global cache**, so packing under a FIXED
+  throwaway version (`consumer-smoke`'s `9.9.9-smoke`) tests the packages only ONCE — every later run restores
+  the first run's copies from `~/.nuget/packages/` and reports success about code it never compiled against.
+  Found 2026-08-04: a newly-added public method was "missing" from a package that demonstrably contained it,
+  and evicting the cached ids reported **9 stale packages**. `consumer-smoke` now deletes
+  `<global-packages>/lyntai.*/<version>` after packing; keep that step if you touch the script, and remember the
+  general shape — *a distinct version is not enough on its own if the version is a constant.* Evicting by
+  id+version beats isolating `NUGET_PACKAGES`, which would re-download every third-party dependency per run.
 
 ## LLM / router (details in `llm-and-router.md`)
 

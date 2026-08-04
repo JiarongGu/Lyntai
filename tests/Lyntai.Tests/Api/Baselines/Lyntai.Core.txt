@@ -532,6 +532,16 @@ sealed class Lyntai.Generation.GenerationInput
     Role : String
     ToString() : String
     Uri : String
+    static FirstFrame(Byte[], String) : GenerationInput
+    static FirstFrame(Uri, String) : GenerationInput
+    static From(String, Byte[], String) : GenerationInput
+    static From(String, Uri, String) : GenerationInput
+    static Init(Byte[], String) : GenerationInput
+    static Init(Uri, String) : GenerationInput
+    static Reference(Byte[], String) : GenerationInput
+    static Reference(Uri, String) : GenerationInput
+    static Voice(Byte[], String) : GenerationInput
+    static Voice(Uri, String) : GenerationInput
 static class Lyntai.Generation.GenerationInputRoles
     FirstFrame : String const
     Init : String const

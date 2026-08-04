@@ -2167,6 +2167,70 @@ inserted line). Both were caught the same way — run the thing against a tree y
 output instead of trusting the exit code. `verify` green at 7 gates, 1337 tests; `consumer-smoke` green across
 12 packages.
 
+## Part 36 — generation ergonomics: the misbinding trap and the missing wiring (2026-08-04)
+
+_Both items were filed by consumers rather than found here — GEN10 by an app writing an img2img adapter, the
+wiring gap by the pre-2.0.1 consumer smoke. Taken together because they are the same complaint from two
+directions: the generation domain was correct but unpleasant to reach._
+
+- [x] **GEN10 — `GenerationInput`'s ctor order is a silent-misbinding trap; give `Role` a safer path.**
+  Filed 2026-08-04 by a consuming app that hit it while writing an img2img adapter. Real signature:
+  `GenerationInput(string MediaType, byte[]? Data = null, string? Uri = null, string? Role = null)` — three of
+  the four slots are strings and `Role` is LAST, so a plausible positional call
+  `new GenerationInput(GenerationInputRoles.Init, bytes, "image/png")` **compiles clean** and binds `"init"` to
+  `MediaType`, the bytes to `Data`, `"image/png"` to `Uri`, and leaves `Role` **null**. Suggested, cheapest
+  first: named factories, one per `GenerationInputRoles` constant. The same shape check was asked for
+  `GenerationArtifact`.
+- [x] **generation backend wiring helpers** — the new `Lyntai.Generation` package shipped five backends and no
+  `Add*` methods, while the LLM side has `AddOllamaProvider()` / `AddOpenAiProvider()` /
+  `AddAzureOpenAiProvider()`; every generation backend had to be hand-constructed WITH its `Func<HttpClient>`.
+
+✅ done 2026-08-04 — **Outcome:** ten static factories on `GenerationInput` (`Init`/`FirstFrame`/`Reference`/
+`Voice`, each with a bytes and a `System.Uri` overload, plus `From(role, …)` for a role a backend documents
+itself), and five `Add*` shims covering every backend the package ships — the fifth, `AddLocalDiffusionProvider`,
+takes `IProcessRunner` from DI rather than an `HttpClient`, since it spawns rather than calls. The URI overloads
+take `System.Uri` rather than `string` on purpose: two adjacent strings would reintroduce the exact
+transposition being fixed, and a wrong type is a compile error where a wrong string is a silent one. Reasoning
+in `docs/DECISIONS.md` **D35**.
+
+**`GenerationArtifact` was checked and deliberately left alone** — the task asked, so the answer is recorded
+rather than left to a second round of guessing. Its `(MediaType, Data, Uri, Metadata)` layout has only one
+same-typed pair, and transposing it requires explicitly passing `null` for the `byte[]` slot in between; there
+is also no role-shaped silent degradation, since a wrong media type surfaces immediately and nothing branches on
+it. Factories there would be surface that doesn't earn its keep.
+
+**Writing the shims surfaced a real defect the task hadn't asked about** (`docs/DECISIONS.md` **D36**): every
+HTTP generation backend did `using var http = httpFactory()` — it **disposed the client it was handed**. Correct
+for a factory that MAKES a client per call, which is what the backends' own tests pass, and wrong for the natural
+BYO lambda `_ => _myClient`: the first render succeeds and the **second** throws `ObjectDisposedException`. The
+LLM side had always had this right (`disposeHttpClient: !byo`), so the fix states one rule for both domains — a
+host-supplied client is never disposed by Lyntai; a client Lyntai created is. The four backends gained
+`bool disposeHttpClient = true`, defaulted to the previous behaviour so no existing construction changed. It is
+pinned by a test that renders TWICE, because a one-render test passes either way — which is precisely why the
+defect survived the release.
+
+Also public: `GenerationProviderBuilderExtensions.HttpClientName(id)`, so a host can decorate the same named
+client the backend uses (a Polly policy, a logging handler) instead of abandoning the shim to hand-construct.
+The options are passed as an OBJECT rather than an `Action<T>` configure callback — unlike the LLM presets —
+because these options are records with `required`/`init` members: there is nothing to mutate after construction,
+and passing the instance is what keeps `required BaseUrl` compiler-enforced instead of discovered at the first
+render. `Lyntai.Generation` picked up `Microsoft.Extensions.Http`; it is not in the bundle, so the one-line
+install's closure is unchanged (`check-bundle` green). 21 new tests; `verify` green at 7 gates, 1358 tests,
+e2e 3/3.
+
+**And the release gate itself turned out to be lying** — the third tooling defect this project has found by
+pointing a check at something it should have failed on. `consumer-smoke` packs under the FIXED throwaway version
+`9.9.9-smoke`, and NuGet never re-extracts a version already in its global cache: after the first run ever, every
+later run restored that run's packages and reported success about code it had never compiled against. It
+surfaced only because the smoke app was extended to call `GenerationInput.Init`, which the "restored" Core did
+not contain — a package that demonstrably did contain it. The script now evicts
+`<global-packages>/lyntai.*/<version>` after packing (**9** stale packages on the first eviction), which beats
+isolating `NUGET_PACKAGES` because third-party dependencies stay cached and the smoke stays minutes. Recorded in
+`.claude/knowledge/pitfalls.md`; the general shape is *a distinct version does not defeat a cache if the version
+is a constant*. The smoke app also now references `Lyntai.Generation` and asserts on it — it is the package a
+consumer is most likely to meet on its own (not in the bundle) and the only one carrying a dependency the bundle
+never resolves, so a wrong dependency group in its nuspec would show up nowhere else.
+
 ---
 
 ## Notes for the implementer

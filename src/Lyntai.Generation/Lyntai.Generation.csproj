@@ -24,6 +24,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The per-backend Add* shims register a named client with an infinite timeout, the same way
+         Lyntai.Providers.Default does. Managed, on the runtime's own version band, and this package is NOT in
+         the Lyntai bundle — so it adds nothing to the one-line install's closure (D32). -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Lyntai.Tests" />
   </ItemGroup>
 

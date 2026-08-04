@@ -67,7 +67,12 @@ public sealed record FalQueueOptions
 /// </remarks>
 /// <param name="options">Endpoint, credential and declared kinds.</param>
 /// <param name="httpFactory">Supplies the <see cref="HttpClient"/> — BYO (design §7).</param>
-public sealed class FalQueueProvider(FalQueueOptions options, Func<HttpClient> httpFactory)
+/// <param name="disposeHttpClient">Whether this provider disposes what <paramref name="httpFactory"/> returns.
+/// Default true, for the usual factory that MAKES a client per call. Pass false when the factory hands back a
+/// client the HOST owns — disposing that leaves the second call throwing
+/// <see cref="ObjectDisposedException"/>. <c>AddFalProvider</c> sets this for you.</param>
+public sealed class FalQueueProvider(
+    FalQueueOptions options, Func<HttpClient> httpFactory, bool disposeHttpClient = true)
     : IGenerationProvider, IGenerationJobProvider
 {
     /// <summary>Separates the model id from the queue's request id inside an operation id.</summary>
@@ -113,7 +118,8 @@ public sealed class FalQueueProvider(FalQueueOptions options, Func<HttpClient> h
         if (request.Option("webhook") is { Length: > 0 } webhook)
             url += $"?{options.WebhookQueryParameter}={Uri.EscapeDataString(webhook)}";
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, url)
@@ -189,7 +195,8 @@ public sealed class FalQueueProvider(FalQueueOptions options, Func<HttpClient> h
         if (requestId is null)
             return new GenerationOperation(operationId, GenerationOperationStatus.Failed, Detail: "malformed operation id");
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Put,
@@ -242,7 +249,8 @@ public sealed class FalQueueProvider(FalQueueOptions options, Func<HttpClient> h
     {
         if (Unconfigured() is { } missing) return (null, missing);
 
-        using var http = httpFactory();
+        var http = httpFactory();
+        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, url);

@@ -44,6 +44,27 @@ const nupkgs = feed.filter((f) => f.endsWith('.nupkg'));
 const snupkgs = feed.filter((f) => f.endsWith('.snupkg'));
 step(`${nupkgs.length} packages, ${snupkgs.length} symbol packages`);
 
+// ---- 1b. evict this version from the GLOBAL package cache ---------------------------------------------
+// The throwaway version is a constant, so the first run of it populates ~/.nuget/packages/lyntai.*/9.9.9-smoke —
+// and NuGet never re-extracts a version it already has. Every later run then silently restores the FIRST run's
+// packages and reports success about code it never compiled against. Caught when a newly-added public method
+// was "missing" from a package that demonstrably contained it. Evict by id+version rather than isolating
+// NUGET_PACKAGES entirely, so third-party dependencies stay cached and the smoke stays minutes, not tens.
+const locals = sh('dotnet', ['nuget', 'locals', 'global-packages', '--list'], repo);
+const globalPackages = (locals.stdout ?? '').split('\n')
+  .map((l) => l.replace(/^.*?global-packages:\s*/i, '').trim()).find((l) => l.length > 0);
+if (!globalPackages || !fs.existsSync(globalPackages))
+  bail('could not locate the NuGet global-packages folder', locals.stdout);
+
+let evicted = 0;
+for (const id of nupkgs.map((f) => f.slice(0, f.length - `.${version}.nupkg`.length).toLowerCase())) {
+  const cached = path.join(globalPackages, id, version);
+  if (!fs.existsSync(cached)) continue;
+  fs.rmSync(cached, { recursive: true, force: true });
+  evicted++;
+}
+step(`evicted ${evicted} stale ${version} package(s) from the global cache ✓`);
+
 // ---- 2. every symbol package must carry a PDB ---------------------------------------------------------
 // An empty .snupkg is pushed automatically alongside its .nupkg and offered to symbol validation for nothing.
 for (const s of snupkgs) {
@@ -75,13 +96,21 @@ fs.writeFileSync(path.join(app, 'app.csproj'), `<Project Sdk="Microsoft.NET.Sdk"
   <ItemGroup>
     <PackageReference Include="Lyntai" Version="${version}" />
     <PackageReference Include="Lyntai.Storage.Sqlite" Version="${version}" />
+    <PackageReference Include="Lyntai.Generation" Version="${version}" />
   </ItemGroup>
 </Project>
 `);
-// Deliberately exercises the BUNDLE plus one opt-in package, and asserts behaviour rather than just compiling:
+// Deliberately exercises the BUNDLE plus two opt-in packages, and asserts behaviour rather than just compiling:
 // an unconfigured backend must report a verdict a host can act on, never throw and never invent a result.
+//
+// Lyntai.Generation is here because it is the package a consumer is MOST likely to meet on its own: it is not in
+// the bundle (D32/D34), and it is the only one carrying a dependency of its own that the bundle never resolves —
+// so a wrong dependency group in its nuspec would show up nowhere else.
 fs.writeFileSync(path.join(app, 'Program.cs'), `using Lyntai;
 using Lyntai.Agents;
+using Lyntai.Generation;
+using Lyntai.Generation.Providers;
+using Lyntai.Generation.Routing;
 using Lyntai.Llm;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -89,7 +118,11 @@ using Microsoft.Extensions.DependencyInjection;
 var services = new ServiceCollection();
 services.AddLyntai(cfg => cfg
     .AddOllamaProvider(defaultModel: "qwen3:4b")
-    .UseSqliteStorage(Path.Combine(Path.GetTempPath(), $"lyntai-smoke-{Guid.NewGuid():N}.db")));
+    .UseSqliteStorage(Path.Combine(Path.GetTempPath(), $"lyntai-smoke-{Guid.NewGuid():N}.db"))
+    // the per-backend shim, through the PACKAGE — it registers a named HttpClient, which is what needs
+    // Microsoft.Extensions.Http to have travelled with Lyntai.Generation's nuspec
+    .AddOpenAiImageProvider(new OpenAiImageOptions { BaseUrl = "", ApiKey = null })
+    .UseDefaultGenerationCandidates("openai-images"));
 using var sp = services.BuildServiceProvider();
 
 // the front door and its decorator chain resolve through the PACKAGE graph
@@ -101,6 +134,18 @@ _ = sp.GetServices<ITool>().Count();
 
 // storage came from an opt-in package alongside the bundle
 if (sp.GetRequiredService<IKeyValueStore>() is null) throw new Exception("no IKeyValueStore");
+
+// the generation domain wires and ROUTES through the package graph, and an unconfigured backend reports a
+// verdict a host can act on rather than throwing or inventing an artifact
+var render = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
+    [new GenerationCandidate("openai-images")],
+    new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" });
+if (render.Verdict != GenerationVerdict.NotConfigured)
+    throw new Exception($"unconfigured image backend reported {render.Verdict}, expected NotConfigured");
+
+// the named factories are reachable from the package and bake the role in (D35)
+if (GenerationInput.Init(new byte[] { 1 }, "image/png").Role != GenerationInputRoles.Init)
+    throw new Exception("GenerationInput.Init did not carry its role");
 
 Console.WriteLine("CONSUMER SMOKE OK");
 `);
