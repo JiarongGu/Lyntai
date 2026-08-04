@@ -997,6 +997,13 @@ interface Lyntai.Lifecycle.IProviderPool`1
     RetireSlot(String) : Int32
     Statistics : ProviderPoolStatistics
     TryGetKey(TProvider, ProviderKey&) : Boolean
+sealed class Lyntai.Lifecycle.ProviderAdmission
+    .ctor(ProviderAdmissionOptions=)
+    EnterAsync(ProviderKey, CancellationToken=) : ValueTask<IDisposable>
+sealed class Lyntai.Lifecycle.ProviderAdmissionOptions
+    .ctor()
+    BySlot : IDictionary<String,Int32>
+    Default : Int32
 struct Lyntai.Lifecycle.ProviderKey
     .ctor(String, String)
     Deconstruct(String&, String&) : Void
