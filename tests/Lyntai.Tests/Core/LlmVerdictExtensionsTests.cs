@@ -15,41 +15,58 @@ public class LlmVerdictExtensionsTests
             Assert.Equal(verdict == LlmVerdict.Ok, verdict.IsOk());
     }
 
+    /// <summary>The enum-growth gate and the behavior table in one. It demands the DECISION, not merely a
+    /// registration: a new verdict fails the key-set assertion until someone adds a row, and a row cannot be
+    /// added without writing <c>true</c> or <c>false</c> — which IS the classification. A gate that checked
+    /// only membership would be greened by appending a name, letting a new verdict sail through to the
+    /// <c>false</c> default undecided. D38 already states that the enum and the routing policy must move
+    /// together; this makes the call-site helpers the third thing that moves with them.</summary>
     [Fact]
-    public void IsTransient_is_true_only_where_the_same_request_may_later_succeed()
+    public void Every_verdict_states_whether_it_is_transient()
     {
-        LlmVerdict[] transient = [LlmVerdict.Failed, LlmVerdict.Timeout, LlmVerdict.RateLimited];
+        // "may re-sending the SAME request later succeed?" — one row per member, no default
+        var expected = new Dictionary<LlmVerdict, bool>
+        {
+            [LlmVerdict.Ok] = false,                      // nothing to retry
+            [LlmVerdict.Failed] = true,                   // availability fault — AND the classifier's catch-all
+            [LlmVerdict.Timeout] = true,                  // the host may answer in time on another attempt
+            [LlmVerdict.RateLimited] = true,              // recovers on its own once the window rolls
+            [LlmVerdict.AuthFailed] = false,              // the same credentials never start working
+            [LlmVerdict.NotConfigured] = false,           // nothing to call until setup happens
+            [LlmVerdict.ContextWindowExceeded] = false,   // the prompt must shrink or the model must grow
+            [LlmVerdict.Refused] = false,                 // content policy follows the prompt, not the moment
+            [LlmVerdict.Unsupported] = false,             // a capability gap this path cannot close
+        };
 
-        foreach (var verdict in Enum.GetValues<LlmVerdict>())
-            Assert.Equal(transient.Contains(verdict), verdict.IsTransient());
+        Assert.Equal(Enum.GetValues<LlmVerdict>().OrderBy(v => v), expected.Keys.OrderBy(v => v));
+
+        foreach (var (verdict, isTransient) in expected)
+            Assert.Equal(isTransient, verdict.IsTransient());
     }
 
+    /// <summary>The documented over-report, pinned so it stays a KNOWN cost rather than a surprise.
+    /// <c>FromErrorText</c> falls back to <see cref="LlmVerdict.Failed"/> for anything it cannot recognize,
+    /// so that bucket holds permanent errors as well as transient ones. Kept deliberately:
+    /// <see cref="Lyntai.Llm.Routing.RoutingPolicy"/> only ever re-sends to the SAME candidate for
+    /// <c>Failed</c>/<c>Timeout</c>, so a predicate that said otherwise would contradict the router's own
+    /// retry rule.</summary>
     [Fact]
-    public void IsTransient_says_no_to_the_verdicts_a_retry_cannot_fix()
+    public void IsTransient_over_reports_on_the_classifiers_catch_all_and_that_is_deliberate()
     {
-        // each of these is terminal for the request AS SENT: the credentials are wrong, the backend was
-        // never set up, the prompt is too big, the content was refused, the path cannot carry the request
-        Assert.False(LlmVerdict.AuthFailed.IsTransient());
-        Assert.False(LlmVerdict.NotConfigured.IsTransient());
-        Assert.False(LlmVerdict.ContextWindowExceeded.IsTransient());
-        Assert.False(LlmVerdict.Refused.IsTransient());
-        Assert.False(LlmVerdict.Unsupported.IsTransient());
-    }
+        // an unrecognized PERMANENT error (a 400 whose body matches no pattern) lands in the catch-all…
+        var unrecognized = LlmVerdictClassifier.FromHttpFailure(
+            System.Net.HttpStatusCode.BadRequest, "invalid value for parameter 'top_p'");
+        Assert.Equal(LlmVerdict.Failed, unrecognized);
 
-    /// <summary>The enum-growth forcing function. A verdict added without a deliberate classification here
-    /// would silently answer <c>false</c> to <see cref="LlmVerdictExtensions.IsTransient"/> — safe, but
-    /// undecided. D38 already states that the enum and the routing policy must move together; this makes
-    /// the call-site helpers the third thing that moves with them, and fails the build's test gate if not.</summary>
-    [Fact]
-    public void Every_verdict_is_deliberately_classified()
-    {
-        LlmVerdict[] classified =
-        [
-            LlmVerdict.Ok, LlmVerdict.RateLimited, LlmVerdict.Refused, LlmVerdict.Failed, LlmVerdict.Timeout,
-            LlmVerdict.ContextWindowExceeded, LlmVerdict.AuthFailed, LlmVerdict.Unsupported, LlmVerdict.NotConfigured,
-        ];
+        // …and therefore reads transient. Documented on IsTransient: a caller needing certainty reads the
+        // specific verdict, and a caller that retries must BOUND it rather than loop.
+        Assert.True(unrecognized.IsTransient());
 
-        Assert.Equal(classified.OrderBy(v => v), Enum.GetValues<LlmVerdict>().OrderBy(v => v));
+        // the recognized buckets still classify correctly on either side of the line
+        Assert.False(LlmVerdictClassifier
+            .FromHttpFailure(System.Net.HttpStatusCode.Unauthorized, "invalid api key").IsTransient());
+        Assert.True(LlmVerdictClassifier
+            .FromHttpFailure(System.Net.HttpStatusCode.TooManyRequests, "slow down").IsTransient());
     }
 
     [Fact]

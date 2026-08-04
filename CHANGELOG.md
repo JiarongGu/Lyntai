@@ -65,7 +65,12 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   addition and leave the newest one as the only member without a helper — while `verdict == LlmVerdict.RateLimited`
   already expresses a single member perfectly. `IsTransient()` answers "may the SAME request succeed later?"
   — true for `Failed`/`Timeout`/`RateLimited`, false for everything terminal as sent (and for an unknown
-  value, so an unrecognized verdict can never provoke a retry loop). See `docs/DECISIONS.md` **D39**.
+  value, so an unrecognized verdict can never provoke a retry loop). **Known over-report, documented on the
+  method:** `Failed` is also the classifier's catch-all, so an unrecognized PERMANENT error (a 400 whose body
+  matches no pattern) reads transient. Kept deliberately — `RoutingPolicy.Retry` already re-sends to the same
+  candidate only for `Failed`/`Timeout`, and a call-site predicate contradicting the router's own retry rule
+  would be worse. Treat it as "worth one BOUNDED attempt", not as a licence to loop. See
+  `docs/DECISIONS.md` **D39**.
 - **`CuratedMemory.MetadataValue(key)`** — the null-safe read of the curated-memory metadata map, which is
   `null` on every entry written without any, so `entry.Metadata!["source"]` both throws on a missing key and
   NREs on the common case. Generic on purpose: CMEM6 retired the purpose-built `Source`/`Title` columns into

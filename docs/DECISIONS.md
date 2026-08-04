@@ -468,8 +468,22 @@ be already done — which is exactly the kind of thing that gets re-proposed.
 
 `IsTransient()` is deliberately **not** derived from `RoutingPolicy`, which answers a different question:
 `RateLimited` and `AuthFailed` share `CooldownAndAdvance` there, while here one recovers on its own and the
-other never does. It is its own two-line classification, guarded by a test that fails if a verdict is added
-without a decision — the same obligation D38 places on the policy table, now covering a third thing.
+other never does. It is its own classification, guarded by a test that fails until a newly added verdict is
+given a `true`/`false` — the same obligation D38 places on the policy table, now covering a third thing.
+The gate asserts the CLASSIFICATION, not membership in a list: a list can be greened by appending a name,
+which prompts nobody to decide anything and lets a new verdict inherit `false` silently.
+
+**`Failed` counts as transient although it is also the classifier's CATCH-ALL — a known over-report, kept.**
+`LlmVerdictClassifier.FromErrorText` falls back to `Failed` for any text it does not recognize, so that
+bucket holds both real availability faults (reset connection, 502, 503 — the common case) and PERMANENT
+errors nothing matched: a 400/422 whose body fits no pattern reads transient, and retrying it can never
+succeed. Kept anyway, because the library already takes that position where it costs something —
+`RoutingPolicy.Retry` only ever re-sends to the same candidate for the `PenalizeAndAdvance` verdicts, which
+are exactly `Failed` and `Timeout`, and the README's own example is `r.Retry(LlmVerdict.Failed, 1)`. A
+call-site predicate that contradicted the router's own retry rule would be a worse defect than one that
+over-reports. The doc names the false positive, the contract is "worth ONE bounded attempt, never a loop",
+and a caller needing certainty reads the specific verdict. Pinned by
+`IsTransient_over_reports_on_the_classifiers_catch_all_and_that_is_deliberate`, so it stays a known cost.
 
 **The agent-event contract was already shipped; nothing was added.** The item asked to consider "a
 discoverable event-shape contract instead of anonymous objects apps reflect over". `AgentStreamEvent` is

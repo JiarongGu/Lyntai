@@ -2499,8 +2499,14 @@ pass because they were all small and all found by the same review. Shape decisio
   an unknown value, so an unrecognized verdict can never provoke a retry loop). Deliberately not derived from
   `RoutingPolicy` — that table answers what the ROUTER does and gives `RateLimited`/`AuthFailed` the same
   action, which is the one distinction that matters here. Pinned by
-  `LlmVerdictExtensionsTests.Every_verdict_is_deliberately_classified`, which fails if a member is added
-  without a decision — the D38 "the enum and the policy move together" obligation, now covering a third thing.
+  `LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient`, which asserts the CLASSIFICATION
+  rather than membership in a list, so a new verdict cannot be greened by appending a name — the D38 "the
+  enum and the policy move together" obligation, now covering a third thing.
+  **Review follow-up (same day):** `Failed` is also `FromErrorText`'s catch-all, so an unrecognized PERMANENT
+  error reads transient. Reviewed and KEPT — `RoutingPolicy.Retry` already re-sends only for
+  `Failed`/`Timeout`, so narrowing the predicate would have put it at odds with the router's own retry rule —
+  with the false positive named in the XML doc and pinned by its own test, and the gate above strengthened
+  from a membership check to a classification check in the same pass.
 
 - [x] **`AddMcpTools` convenience overload** — `params ITool[]` and/or document the
   `await McpToolset.FromClientAsync` → `AddMcpTools` two-step as the intended shape.
