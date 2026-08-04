@@ -20,7 +20,14 @@ public interface ILlmRouterFactory
 {
     /// <summary>Route over POOLED backends: each registration is resolved through the pool, and each
     /// provider's dead-host cooldown is keyed on its <see cref="ProviderKey"/> — so one tenant's rate
-    /// limit never benches another's.</summary>
+    /// limit never benches another's.
+    ///
+    /// <para>One call composes ONE caller's provider set, in which each backend id appears at most once. A
+    /// router resolves candidates by id, so two configurations of one id in the same call cannot both be
+    /// reachable; that is a second CALLER's set, and belongs in its own call and its own router.</para></summary>
+    /// <param name="providers">The caller's backends, at most one per backend id.</param>
+    /// <exception cref="ArgumentException">Two registrations share a <see cref="ProviderKey.Slot"/>
+    /// (compared case-insensitively).</exception>
     ILlmRouter For(IReadOnlyList<ProviderRegistration<ILlmProvider>> providers);
 
     /// <summary>Route over already-constructed backends — the container-composed path. No pool is
@@ -51,6 +58,9 @@ public sealed class LlmRouterFactory(
     public ILlmRouter For(IReadOnlyList<ProviderRegistration<ILlmProvider>> providers)
     {
         ArgumentNullException.ThrowIfNull(providers);
+        // checked BEFORE anything is built, so a rejected call pools nothing
+        ProviderPoolGuard.EnsureDistinctSlots(providers, nameof(providers));
+
         var instances = new List<ILlmProvider>(providers.Count);
         // the caller's own delegate goes to the pool untouched: it runs under the pool's lock, so anything
         // added around it here would serialize every other key and caller behind it

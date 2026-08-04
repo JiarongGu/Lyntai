@@ -114,6 +114,109 @@ public class RouterFactoryTests
         Assert.Equal(0, pool.Statistics.Created);
     }
 
+    // ---- one call = one caller's provider set ----------------------------------------------------------
+
+    // Every instance built for a slot reports that slot as its Id, and a router resolves candidates by id
+    // with first-match-wins. Two configurations of one id in ONE call therefore leave the second built,
+    // pooled and unreachable — silently. Fail at the call that made the mistake instead.
+    [Fact]
+    public void Two_registrations_sharing_a_slot_in_one_call_throw_and_name_it()
+    {
+        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var factory = Factory(pool);
+
+        var error = Assert.Throws<ArgumentException>(() => factory.For([
+            new ProviderRegistration<IGenerationProvider>(Key("cfg-a"), () => new FakeGenerationProvider { Id = "a1111" }),
+            new ProviderRegistration<IGenerationProvider>(Key("cfg-b"), () => new FakeGenerationProvider { Id = "a1111" }),
+        ]));
+
+        Assert.Contains("a1111", error.Message);
+        Assert.Equal("providers", error.ParamName);
+        Assert.Equal(0, pool.Statistics.Created);   // rejected before anything was built or pooled
+    }
+
+    // Ids are matched case-insensitively everywhere else, so a slot that differs only in case is the SAME
+    // backend and must be rejected too — a case-sensitive check would let the bug straight back in.
+    [Fact]
+    public void Slots_differing_only_in_case_are_the_same_backend_and_throw()
+    {
+        var factory = Factory(new BoundedProviderPool<IGenerationProvider>());
+
+        Assert.Throws<ArgumentException>(() => factory.For([
+            new ProviderRegistration<IGenerationProvider>(Key("cfg-a", "a1111"), () => new FakeGenerationProvider { Id = "a1111" }),
+            new ProviderRegistration<IGenerationProvider>(Key("cfg-b", "A1111"), () => new FakeGenerationProvider { Id = "A1111" }),
+        ]));
+    }
+
+    [Fact]
+    public async Task Distinct_slots_in_one_call_still_compose_normally()
+    {
+        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var factory = Factory(pool);
+        var primary = new FakeGenerationProvider { Id = "a1111" };
+        var secondary = new FakeGenerationProvider { Id = "comfyui" };
+
+        var router = factory.For([
+            new ProviderRegistration<IGenerationProvider>(Key("cfg", "a1111"), () => primary),
+            new ProviderRegistration<IGenerationProvider>(Key("cfg", "comfyui"), () => secondary),
+        ]);
+        var result = await router.GenerateAsync([new GenerationCandidate("comfyui")], Request());
+
+        Assert.True(result.IsOk);
+        Assert.Equal(1, secondary.GenerateCalls);
+        Assert.Equal(0, primary.GenerateCalls);
+        Assert.Equal(2, pool.Statistics.Created);
+    }
+
+    // The single-registration path is the common one and must not have grown a cost or a false positive.
+    [Fact]
+    public async Task A_single_registration_is_unaffected_by_the_duplicate_check()
+    {
+        var pool = new BoundedProviderPool<IGenerationProvider>();
+        var backend = new FakeGenerationProvider { Id = "a1111" };
+
+        var router = Factory(pool).For([new ProviderRegistration<IGenerationProvider>(Key("a"), () => backend)]);
+        var result = await router.GenerateAsync([new GenerationCandidate("a1111")], Request());
+
+        Assert.True(result.IsOk);
+        Assert.Equal(1, pool.Statistics.Created);
+    }
+
+    // The instance overload never touches the pool, so it is not subject to the check at all — a caller
+    // that hands over two same-id instances is describing today's DI collection, which already de-duplicates
+    // by first-wins and must keep doing so.
+    [Fact]
+    public async Task The_instance_overload_is_not_subject_to_the_duplicate_check()
+    {
+        var first = new FakeGenerationProvider { Id = "a1111" };
+        var second = new FakeGenerationProvider { Id = "a1111" };
+
+        var router = Factory(new BoundedProviderPool<IGenerationProvider>()).For([first, (IGenerationProvider)second]);
+        var result = await router.GenerateAsync([new GenerationCandidate("a1111")], Request());
+
+        Assert.True(result.IsOk);
+        Assert.Equal(1, first.GenerateCalls);
+        Assert.Equal(0, second.GenerateCalls);
+    }
+
+    // The same guard on the LLM side: LlmRouter._byId is built with map.TryAdd, so first wins there too.
+    [Fact]
+    public void The_llm_factory_rejects_two_registrations_sharing_a_slot()
+    {
+        var pool = new BoundedProviderPool<ILlmProvider>();
+        var factory = LlmFactory(pool, new DeadHostTracker());
+
+        var error = Assert.Throws<ArgumentException>(() => factory.For([
+            new ProviderRegistration<ILlmProvider>(
+                ProviderKey.For("openai").With("tenant", "a").Build(), () => new FakeLlmProvider("openai")),
+            new ProviderRegistration<ILlmProvider>(
+                ProviderKey.For("OpenAI").With("tenant", "b").Build(), () => new FakeLlmProvider("OpenAI")),
+        ]));
+
+        Assert.Contains("OpenAI", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, pool.Statistics.Created);
+    }
+
     // ---- the container-composed path -------------------------------------------------------------------
 
     // The decorator order the factory now owns is load-bearing: the limiter sits INSIDE the budget, so a
