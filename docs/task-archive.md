@@ -2588,9 +2588,15 @@ pass because they were all small and all found by the same review. Shape decisio
   behaves exactly as before. A `UseSqliteSemanticMemory()` composite was REJECTED — a one-line alias, and the
   version that also covered the embedder would have forced adapter-to-adapter (`Lyntai.Storage.Sqlite` →
   `Lyntai.Providers.Default`). Six tests in `SemanticMemoryWiringTests`, including the persistent path end to
-  end over a temp SQLite db with zero hand-construction. Found and documented on the way: `lyntai_vector`
-  ships under `StorageFeature.Governance`, so a subset omitting it registers the store over a missing table —
-  now named in `UseSqliteVectorStore`'s doc, the README and `.claude/knowledge/storage.md`.
+  end over a temp SQLite db with zero hand-construction. Found on the way: `lyntai_vector` ships under
+  `StorageFeature.Governance`, so a subset omitting it registers the store over a missing table. First cut
+  only documented that; **review corrected it to a guard** — documenting a silent late failure while throwing
+  for its twin in the same commit is inconsistent by the change's own standard, and `UseSqliteStorage`'s doc
+  already states the rule the helper was breaking (a disabled domain is unresolvable, and that is the startup
+  signal). All five Governance-backed helpers now fail at wiring time naming the call and the feature
+  (`UsePostgresVectorStore` exempt — it creates its own schema lazily), order-independently via sentinel
+  descriptors, with five tests in `FeatureToggleTests` including the reverse call order and a narrow-but-valid
+  subset that still works. See the D41 amendment.
 
 ---
 

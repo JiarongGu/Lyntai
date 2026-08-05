@@ -477,9 +477,31 @@ next to the existing pre-registered-`ILlmClient` contradiction guards.
   intent. It is a one-line alias that earns no keep, and the same helper covering the embedder too would have
   forced `Lyntai.Storage.Sqlite` → `Lyntai.Providers.Default`, i.e. adapter-to-adapter (`D31`/`D3`). The
   storage half and the embedder half belong to different packages and must stay two calls.
-- **Trap documented rather than engineered around:** `lyntai_vector` ships under `StorageFeature.Governance`
-  (with the response cache and usage ledger), so a feature subset omitting Governance registers
-  `SqliteVectorStore` over a table that was never created. `UseSqliteVectorStore`'s XML doc now says so.
+**AMENDED same day — the `Governance` trap is GUARDED, not merely documented.** The first cut documented it
+in three places: `lyntai_vector` ships under `StorageFeature.Governance` (with the response cache and usage
+ledger), so a subset omitting Governance registers `SqliteVectorStore` over a table that was never created
+and the app finds out at the first recall. Review pointed out that this is inconsistent by this very
+change's own standard — the same commit had just decided that silent degradation discovered late was worth a
+**throw** for semantic memory — and that `UseSqliteStorage`'s own documentation states the house rule the
+helper was breaking: *a disabled domain's store isn't resolvable, and that unresolvability is the startup
+signal that a disabled feature is being used*. Prose a misconfiguring host will never read is not a fix.
+So the rule is now enforced:
+
+- **All five Governance-backed helpers check, not just the one that was reported** — `UseSqlite`
+  `{ResponseCache,UsageTracking,VectorStore}` and `UsePostgres{ResponseCache,UsageTracking}`. Guarding only
+  the reported one would have reproduced the same inconsistency one level down; `lyntai_response_cache` and
+  `lyntai_usage` are in the identical migration.
+- **`UsePostgresVectorStore` is deliberately EXEMPT.** `PostgresVectorStore` creates its `vector` extension
+  and table lazily on first use, outside the migration, precisely so pgvector isn't forced on consumers who
+  never use semantic memory — so it works with or without Governance. Don't "fix" the asymmetry.
+- **The check is ORDER-INDEPENDENT.** It needs both the feature selection and the helper call, and an app may
+  write them either way round, so each side records a sentinel `ServiceDescriptor` (nothing ever resolves
+  them) and verifies whatever the other side already recorded. A guard defeated by swapping two builder lines
+  is not a guard; a test pins the reverse order.
+- **No public surface changed**, and the throw fires only on a configuration that was already broken —
+  `StorageFeature.All` includes Governance, so every existing wiring is untouched. The message names the
+  offending call and the feature to add, matching the `AddSemanticMemory` throw's shape so the two read as
+  one rule.
 
 ## D40 — an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else (2026-08-05)
 Part 25 asked for `MigrateUpAsync(…, CancellationToken)` twins beside the sync `MigrationRunnerService.MigrateUp`

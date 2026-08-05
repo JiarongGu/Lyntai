@@ -81,4 +81,99 @@ public class FeatureToggleTests : IDisposable
         Assert.Null(sp.GetService<IConversationStore>());
         Assert.False(TableExists(new SqliteConnectionFactory(path), "lyntai_thread"));
     }
+
+    // ---- the Governance prerequisite ------------------------------------------------------------------
+    // lyntai_response_cache / lyntai_usage / lyntai_vector all ship in the ONE Governance migration, so the
+    // three helpers backed by them would otherwise register a store over a table that was never created and
+    // fail at the first call. UseSqliteStorage's contract is that a disabled domain is simply unresolvable
+    // and that unresolvability IS the startup signal — these are the calls that could break it.
+
+    [Theory]
+    [InlineData("UseSqliteResponseCache")]
+    [InlineData("UseSqliteUsageTracking")]
+    [InlineData("UseSqliteVectorStore")]
+    public void A_governance_backed_helper_fails_at_wiring_when_governance_is_toggled_off(string helper)
+    {
+        var path = FreshPath();
+        var services = new ServiceCollection();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b =>
+        {
+            b.AddProvider(_ => new FakeLlmProvider("p")).UseSqliteStorage(path, StorageFeature.Memory);
+            Apply(b, helper);
+        }));
+
+        Assert.Contains(helper, ex.Message);                    // names the call that is wrong
+        Assert.Contains("StorageFeature.Governance", ex.Message); // and the feature to add
+    }
+
+    /// <summary>The two calls can be written either way round, so the guard must not be defeatable by
+    /// swapping two builder lines — whichever lands second detects the contradiction.</summary>
+    [Fact]
+    public void The_governance_guard_catches_the_reverse_call_order_too()
+    {
+        var path = FreshPath();
+        var services = new ServiceCollection();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .UseSqliteVectorStore()                              // helper FIRST
+            .UseSqliteStorage(path, StorageFeature.Memory)));    // selection second
+
+        Assert.Contains("UseSqliteVectorStore", ex.Message);
+    }
+
+    /// <summary>A subset that INCLUDES Governance is wired normally and round-trips — the guard rejects the
+    /// broken configuration only, never a narrow-but-correct one.</summary>
+    [Fact]
+    public async Task A_subset_including_governance_wires_the_vector_store_and_recalls()
+    {
+        var path = FreshPath();
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .UseSqliteStorage(path, StorageFeature.Governance)   // narrow, but Governance is in
+            .UseSqliteVectorStore()
+            .UseSqliteResponseCache()
+            .UseSqliteUsageTracking()
+            .AddSemanticMemory(new FakeEmbedder()));
+        await using var sp = services.BuildServiceProvider();
+
+        var memory = sp.GetRequiredService<Lyntai.Memory.ISemanticMemory>();
+        await memory.RememberAsync("t", "s", "cancel subscription anytime");
+        var hits = await memory.RecallAsync("t", "s", "how to cancel", k: 1);
+
+        Assert.Single(hits);                                     // the lyntai_vector table really is there
+        Assert.Contains("cancel", hits[0].Content);
+    }
+
+    /// <summary>The default (<see cref="StorageFeature.All"/>) always includes Governance, so the historical
+    /// wiring is untouched by the guard.</summary>
+    [Fact]
+    public void The_default_feature_set_is_unaffected()
+    {
+        var path = FreshPath();
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .UseSqliteStorage(path)
+            .UseSqliteVectorStore()
+            .UseSqliteResponseCache()
+            .UseSqliteUsageTracking());
+        using var sp = services.BuildServiceProvider();
+
+        Assert.NotNull(sp.GetService<Lyntai.Memory.IVectorStore>());
+        Assert.NotNull(sp.GetService<Lyntai.Llm.Caching.IResponseCache>());
+        Assert.NotNull(sp.GetService<Lyntai.Llm.Budgeting.IUsageTracker>());
+    }
+
+    private static void Apply(LyntaiBuilder b, string helper)
+    {
+        switch (helper)
+        {
+            case "UseSqliteResponseCache": b.UseSqliteResponseCache(); break;
+            case "UseSqliteUsageTracking": b.UseSqliteUsageTracking(); break;
+            default: b.UseSqliteVectorStore(); break;
+        }
+    }
 }

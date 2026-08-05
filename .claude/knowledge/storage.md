@@ -110,9 +110,15 @@ there it means "before starting" only. Say exactly that in any doc you write abo
 **D40**, and `AsyncMigrationTests` pins the no-offload property.
 
 **`lyntai_vector` ships under `StorageFeature.Governance`,** alongside the response cache and usage ledger —
-not under `Memory`, and there is no `Vector` feature. A feature subset that omits `Governance` therefore lets
-`UseSqliteVectorStore()` register a store over a table that was never created, and the failure lands at the
-first recall rather than at startup.
+not under `Memory`, and there is no `Vector` feature. A subset omitting `Governance` would otherwise let
+`UseSqliteVectorStore()` register a store over a table that was never created, failing at the first recall
+rather than at startup, so **the three Governance-backed helpers now throw at wiring time**
+(`UseSqlite{ResponseCache,UsageTracking,VectorStore}` + the two Postgres equivalents). The check is
+order-independent — each side records a sentinel `ServiceDescriptor` and verifies whatever the other side
+already recorded — because a guard you can defeat by swapping two builder lines is not a guard. Add a fourth
+Governance-backed helper and it must call `RequireGovernance`. `UsePostgresVectorStore` is **exempt**:
+`PostgresVectorStore` creates its `vector` extension and table lazily, deliberately outside the migration, so
+pgvector is not forced on consumers who never use semantic memory.
 
 ## Conventions
 

@@ -150,6 +150,19 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   not the same incident — an operator investigating a possible double charge needs something to search on.
 
 ### Changed
+- **A Governance-backed `Use*` helper now fails at WIRING time when `StorageFeature.Governance` is toggled
+  off**, instead of registering a store over a table that was never created. `lyntai_response_cache`,
+  `lyntai_usage` and `lyntai_vector` all ship in the one Governance migration, so
+  `UseSqliteResponseCache` / `UseSqliteUsageTracking` / `UseSqliteVectorStore` (and the two Postgres
+  equivalents) were the only calls that could break `Use*Storage`'s own stated rule — a disabled domain is
+  simply unresolvable, and that unresolvability *is* the startup signal. **What you observe:** if you call
+  `UseSqliteStorage(path, StorageFeature.Memory)` and then `UseSqliteVectorStore()`, you now get an
+  `InvalidOperationException` at `AddLyntai` naming the offending call and the feature to add, where you
+  previously got a container that built cleanly and threw "no such table: lyntai_vector" at the first
+  recall. The check is order-independent (either call may come first) and fires only on a configuration
+  that was already broken — the default `StorageFeature.All` includes Governance, so existing wiring is
+  untouched. `UsePostgresVectorStore` is deliberately exempt: `PostgresVectorStore` creates its own schema
+  lazily, so it works with or without the Governance migration.
 - **An unconfigured LLM backend is skipped, not benched — `LlmVerdict.NotConfigured`.** When an
   OpenAI-compatible endpoint answers 401/403 to a call that carried **no** credentials,
   `OpenAiCompatibleProvider` now reports the new `LlmVerdict.NotConfigured` instead of `AuthFailed`, and the

@@ -293,7 +293,8 @@ for when the embedder arrives from elsewhere, as above.
 
 Vectors live in a swappable `IVectorStore` — the built-in `InMemoryVectorStore` (exact brute-force cosine)
 is the default; call `UseSqliteVectorStore()` to persist them in SQLite (it needs
-`StorageFeature.Governance`, which carries the `lyntai_vector` table), or `UsePostgresVectorStore()` for
+`StorageFeature.Governance`, which carries the `lyntai_vector` table — a feature subset that omits it fails
+at `AddLyntai` with a message saying so, rather than at the first recall), or `UsePostgresVectorStore()` for
 **pgvector** (the cosine search runs in the database — SQL-side top-k, not brute-force in the app). Or
 register your own before `AddLyntai` for another vector DB — the recall code is unchanged. Scoped by (task,
 scope) like the lexical store; re-remembering identical content dedups.
