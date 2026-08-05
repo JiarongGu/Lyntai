@@ -130,7 +130,12 @@ cancel/timeout. **Windows shim handling lives in `ResolveLauncher`, so every cal
 the agent session, the turn-free probe/update — they all funnel through the runner): a launcher CreateProcess
 can't exec is remapped — an EXTENSIONLESS npm/nvm shim to its spawnable sibling (`.cmd`/`.bat`/`.exe`/`.com`,
 then `.ps1`), a `.ps1` to the PowerShell host. Never add shim handling to a CALL SITE; the runner is the one
-place that knows how to launch things. **Both** paths measure child **inactivity**, never wall-clock: the buffered `RunAsync`
+place that knows how to launch things. **The `.ps1` host is the one scoped exception to "never a shell":**
+PowerShell re-parses the argv it is handed, so args carrying embedded quotes or trailing backslashes can
+arrive mangled. Prompts already travel via stdin, so keep `.ps1`-shim argv to simple flags — or supply a BYO
+`IProcessRunner` for a CLI that needs exotic args through one (`ProcessRunner.ResolveLauncher`'s XML doc).
+
+**Both** paths measure child **inactivity**, never wall-clock: the buffered `RunAsync`
 reads stdout in chunks and re-arms `timeout` on each (stdin written concurrently, its clock re-armed too),
 so a slow-but-alive turn finishes while a child gone SILENT for the window is killed — matching
 `StreamLinesAsync`. The buffered path also takes an absolute `maxDuration` backstop (a child that never

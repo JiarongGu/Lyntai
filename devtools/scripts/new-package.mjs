@@ -78,7 +78,7 @@ namespace Lyntai;
 public static class ${entryClass}
 {
     // TODO: the Add*/Use* method(s) that register this adapter's implementation into the DI collection its
-    // contract lives in — a variation point is a registration, never a switch (.claude/rules/dev-conventions.md).
+    // contract lives in — a variation point is a registration, never a switch (.claude/rules/dotnet-package-layout.md).
 }
 `);
 

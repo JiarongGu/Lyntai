@@ -73,23 +73,32 @@ owned outside the deployment; `DECISIONS.md` D37) /
 
 ## Rules, knowledge & skills
 
-- **`.claude/rules/`** (always-on) — `dev-conventions.md` (package layout, async Dapper + `snake_case` +
-  `CAST(x AS REAL)`, FluentMigrator numbering, FTS5-trigram, spawn hygiene, DI-collection variation
-  points, the devtools loop), `sensitive-info.md` (no dev-machine paths / private tokens; pre-commit
-  guard — install once with `node devtools/dev.mjs install-hooks`), `task-lifecycle.md` (`TASKS.md` =
-  OPEN backlog only; a completed task MOVES to `docs/task-archive.md`), `no-global-memory.md` (project
-  facts live IN-REPO — `.claude/**` / `docs/DECISIONS.md` — global memory is user-prefs only),
+- **`.claude/rules/`** (always-on) — `dotnet-package-layout.md` (contract in Core, impl in an adapter,
+  never adapter→adapter; split by dependency footprint; DI-collection variation points; naming),
+  `skills-workflow.md` (start a non-trivial task through the discovery skills — and READ what they route
+  you to), `sensitive-info.md` (no dev-machine paths / private tokens; pre-commit guard — install once
+  with `node devtools/dev.mjs install-hooks`), `task-lifecycle.md` (`TASKS.md` = OPEN backlog only; a
+  completed task MOVES to `docs/task-archive.md`), `persist-working-state.md` (checkpoint a decision or
+  finding to its in-repo home WHEN it happens, not at the end), `no-global-memory.md` (project facts live
+  IN-REPO — `.claude/**` / `docs/DECISIONS.md` — global memory is user-prefs only),
   `file-tool-discipline.md` (inspect files with `Read`/`Grep`/`Glob` not `Bash cat/ls/find`; never evade
-  the permission gate), and `no-tmp-for-repo-files.md` (compose with `Write`; scratch → `devtools/_*`,
-  never OS temp). The canonical rules state the PRINCIPLE; this repo's concrete bindings — guard scripts,
-  version-authorship policy, scratch paths — live in `repo-mechanics.md`. See `.claude/rules/RULES_INDEX.md`.
+  the permission gate), `no-tmp-for-repo-files.md` (compose with `Write`; scratch → `devtools/_*`, never
+  OS temp), and `windows-machine.md` (the traps that succeed WRONGLY — PowerShell 5 round-trips, BOMs,
+  lying exit codes). Those are canonical (synced by `daoris`) and state the PRINCIPLE; this repo's
+  concrete bindings — package names and the packable/version layout, the `Dto`-free naming invariant,
+  guard scripts, version-authorship policy, the dev loop and test conventions, scratch paths — live in
+  the local, never-synced `repo-mechanics.md`. See `.claude/rules/RULES_INDEX.md` (generated).
 - **`.claude/knowledge/`** (on-demand deep dives — read the one you're touching):
   `extending-lyntai.md` (the four extension points), `llm-and-router.md` (verdict taxonomy, fallback §6
   amended, streaming-commit + inactivity-clock invariants, CLI hygiene), `storage.md` (Dapper/CAST/FTS5
   trigram triggers/pragmas/`lyntai_` prefix), **`pitfalls.md` (traps that pass the build/tests while
-  being wrong — read before extending)**.
+  being wrong — read before extending)**, `generic-library.md` (turning a consumer ask into app-agnostic
+  surface) — plus the canonical `library-api-design.md` (generalize the ask, never ship its shape),
+  `sql-storage.md` (the SQL traps that return wrong data rather than failing), and `model-decoupling.md`
+  (which model is a DEPLOYMENT choice, never part of a feature's definition).
 - **`.claude/skills/`** — extension tasks (`add-provider`, `add-storage-backend`, `add-scorer`,
-  `add-migration`) and process (`archive-task` — move a finished task from `TASKS.md` to the archive).
+  `add-migration`), process (`archive-task` — move a finished task from `TASKS.md` to the archive), and
+  the canonical set (`doc-loader`, `pattern-finder`, `post-feature`, `fix-log`, `caveman`).
 - **TDD** (failing test first) and **commit per task**. **Never commit without explicit user approval.**
 - **Backlog vs archive:** `TASKS.md` holds only OPEN tasks; completed work is moved to
   `docs/task-archive.md` (see `task-lifecycle.md`), and `CHANGELOG.md` is the release-facing log.

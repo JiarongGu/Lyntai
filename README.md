@@ -1032,7 +1032,9 @@ node devtools/dev.mjs pack             # dotnet pack → publish/packages/
 node devtools/dev.mjs install-hooks    # enable the pre-commit sensitive-info guard
 ```
 
-See `.claude/rules/dev-conventions.md` for the load-bearing patterns.
+See `.claude/rules/dotnet-package-layout.md` (package boundaries, naming, variation points) and
+`.claude/rules/repo-mechanics.md` (this repo's dev loop and test conventions) for the load-bearing
+patterns.
 
 ## License
 

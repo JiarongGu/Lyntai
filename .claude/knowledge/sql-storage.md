@@ -1,9 +1,9 @@
-<!-- daoris: storage-sql/packs/storage-sql/knowledge/sql-storage.md @ 0.1.0 — canonical; edit via `daoris upstream` -->
 ---
 name: sql-storage
 applies_when: writing a query, adding a migration, or touching full-text search
 enforces: cast affinity-typed columns on read; never reuse a migration number; trigram FTS for non-Latin text; open connections with explicit pragmas
 ---
+<!-- daoris: storage-sql/packs/storage-sql/knowledge/sql-storage.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # SQL storage — the traps that return wrong data rather than failing
 

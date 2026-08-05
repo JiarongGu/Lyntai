@@ -1,8 +1,9 @@
 # Extending Lyntai
 
 On-demand detail for the five extension points. Read the one you're touching. The always-on rules are
-in `.claude/rules/dev-conventions.md`; the correctness invariants are in `llm-and-router.md` and
-`storage.md`; the traps are in `pitfalls.md`.
+in `.claude/rules/` — `dotnet-package-layout.md` for the boundaries, `repo-mechanics.md` for this repo's
+bindings; the correctness invariants are in `llm-and-router.md` and `storage.md`; the traps are in
+`pitfalls.md`.
 
 Lyntai's whole value is being extended without forking. Every extension is **an interface in
 `Lyntai.Core` + an implementation in an adapter package that depends only on Core** (never adapter →

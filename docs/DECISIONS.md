@@ -80,7 +80,8 @@ diff, copy it over the baseline, and note the break in `CHANGELOG.md`. Don't bli
 Pre-release there are no deployed databases, so prefer a **clean consolidated schema** over an accreting
 ALTER history: when a change modifies a table an existing (still-unreleased) migration created, fold it INTO
 that migration's `CREATE TABLE`/index and delete the redundant ALTER — this RELAXES the standing
-`dev-conventions.md` "never reuse a number" rule for the pre-release window only. **But once a migration has
+"never reuse a number" rule (`.claude/knowledge/sql-storage.md`, bound in `storage.md` §Migrations) for
+the pre-release window only. **But once a migration has
 shipped in a RELEASED version, it's frozen** — a schema change to a released table is a NEW numbered
 migration (`ALTER TABLE …`), never a fold (adopters already applied the released one). Applied both ways:
 `M…0003_JobPriority` folded into `M…0001_Jobs` (unreleased); CM1's `task`/`scope` shipped as a new

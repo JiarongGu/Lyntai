@@ -1,9 +1,9 @@
-<!-- daoris: dotnet-library/packs/dotnet-library/knowledge/library-api-design.md @ 0.1.0 — canonical; edit via `daoris upstream` -->
 ---
 name: library-api-design
 applies_when: designing or changing any public API, or a consumer asks for a feature
 enforces: generalize the request, never ship its shape; no consumer vocabulary in the library; seams over flags; every public type earns its keep
 ---
+<!-- daoris: dotnet-library/packs/dotnet-library/knowledge/library-api-design.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # Library API design — ship the general capability, not the caller's shape
 

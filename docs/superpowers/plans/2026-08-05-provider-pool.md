@@ -21,8 +21,14 @@ references below (§4.5 etc.) point into it.
 
 ## Global Constraints
 
-- **Read `.claude/rules/dev-conventions.md` first.** Package layout, DI-collection variation points, and
-  the naming vocabulary are load-bearing here.
+> **Superseded 2026-08-05 — this plan has landed** (`src/Lyntai.Core/Lifecycle/*`, archived as
+> `docs/task-archive.md` Part 37, reasoning in `docs/DECISIONS.md` D37). It is kept as the record of what
+> was planned; the unticked boxes below are history, not open work. Its rule references are the ones that
+> existed when it was written — `dev-conventions.md` has since been retired into
+> `.claude/rules/dotnet-package-layout.md` and `.claude/rules/repo-mechanics.md`.
+
+- **Read `.claude/rules/dotnet-package-layout.md` and `.claude/rules/repo-mechanics.md` first.** Package
+  layout, DI-collection variation points, and the naming vocabulary are load-bearing here.
 - **Never `Dto` in a type, member, file or namespace name** — and not in prose either. The tree contains
   zero `Dto` identifiers; keep it that way. Established suffixes: `*Options`, `*Request`/`*Reply`,
   `*Result`, `*Entry`/`*Record`, `*Row`, `*Event`, `*Args`, `*Policy`.

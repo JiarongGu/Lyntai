@@ -1,10 +1,10 @@
 {
-  "source": "github:OWNER/daoris#v0.1.0",
+  "source": "github:JiarongGu/Daoris#v0.0.1",
   "packs": [
     "dotnet-library",
     "storage-sql",
     "windows-machine"
   ],
   "target": ".claude",
-  "coreBudgetBytes": 40000
+  "coreBudgetBytes": 36000
 }

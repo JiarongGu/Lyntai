@@ -7,7 +7,6 @@ Rows marked _(local)_ are this repo's own and are never synced.
 | Rule | Applies when | Enforces |
 |---|---|---|
 | [TEMPLATE](TEMPLATE.md) _(local)_ | ⚠ needs frontmatter | ⚠ needs frontmatter |
-| [dev-conventions](dev-conventions.md) _(local)_ | ⚠ needs frontmatter | ⚠ needs frontmatter |
 | [dotnet-package-layout](dotnet-package-layout.md) | adding or moving a project, naming a public type, or adding a variation point | contract in core, implementation in an adapter, never adapter-to-adapter; split by dependency footprint; DI collections over conditionals |
 | [file-tool-discipline](file-tool-discipline.md) | inspecting files, or running a destructive or irreversible command | use the dedicated read/search/find tools, not shell equivalents; never route a command through a side channel to skip approval |
 | [no-global-memory](no-global-memory.md) | about to save a project fact to the assistant's global or cross-project memory | project facts live in the repository, versioned and reviewable; global memory is user preferences only |
@@ -15,6 +14,7 @@ Rows marked _(local)_ are this repo's own and are never synced.
 | [persist-working-state](persist-working-state.md) | any multi-step task — at each decision, finding, or milestone | checkpoint in-progress state to its durable home in the repository as you go, not at the end |
 | [repo-mechanics](repo-mechanics.md) _(local)_ | ⚠ needs frontmatter | ⚠ needs frontmatter |
 | [sensitive-info](sensitive-info.md) | writing any tracked file or commit message, or rewriting history | no machine paths, no private repo names, no credentials; a committed leak is a history problem |
+| [skills-workflow](skills-workflow.md) | starting any non-trivial task, and whenever a follow-up changes its scope | run the discovery skills before exploring code, actually read what they route you to, and re-run them when the scope moves |
 | [task-lifecycle](task-lifecycle.md) | adding or finishing a task, or editing the backlog | the backlog holds OPEN work only; a finished task MOVES to the archive; three records, three jobs |
 | [windows-machine](windows-machine.md) | running any shell command, script, or file write on a Windows development machine | never round-trip text through PowerShell 5; BOM and encoding traps; exit codes that lie; never kill a shared runtime by name |
 
@@ -26,6 +26,22 @@ Rows marked _(local)_ are this repo's own and are never synced.
 | [generic-library](../knowledge/generic-library.md) _(local)_ | ⚠ needs frontmatter | ⚠ needs frontmatter |
 | [library-api-design](../knowledge/library-api-design.md) | designing or changing any public API, or a consumer asks for a feature | generalize the request, never ship its shape; no consumer vocabulary in the library; seams over flags; every public type earns its keep |
 | [llm-and-router](../knowledge/llm-and-router.md) _(local)_ | ⚠ needs frontmatter | ⚠ needs frontmatter |
+| [model-decoupling](../knowledge/model-decoupling.md) | building any feature that uses a language model, an embedding model, or any AI service | specify the feature without naming a model; select the provider by deployment; report which tier ran |
 | [pitfalls](../knowledge/pitfalls.md) _(local)_ | ⚠ needs frontmatter | ⚠ needs frontmatter |
 | [sql-storage](../knowledge/sql-storage.md) | writing a query, adding a migration, or touching full-text search | cast affinity-typed columns on read; never reuse a migration number; trigram FTS for non-Latin text; open connections with explicit pragmas |
 | [storage](../knowledge/storage.md) _(local)_ | ⚠ needs frontmatter | ⚠ needs frontmatter |
+
+## Skills (invoke by name)
+
+| Skill | Use when |
+|---|---|
+| [add-migration](../skills/add-migration/SKILL.md) _(local)_ | Use when adding or changing a database schema in Lyntai.Storage.Sqlite (a new FluentMigrator migration — new… |
+| [add-provider](../skills/add-provider/SKILL.md) _(local)_ | Use when adding a new LLM provider to Lyntai (a new backend/model source behind ILlmProvider, or bridging an… |
+| [add-scorer](../skills/add-scorer/SKILL.md) _(local)_ | Use when adding an evaluation scorer to Lyntai's cortex layer (a new IScorer — deterministic or an LLM judge… |
+| [add-storage-backend](../skills/add-storage-backend/SKILL.md) _(local)_ | Use when adding a new storage backend to Lyntai (a new Lyntai.Storage.* package implementing one or more of… |
+| [archive-task](../skills/archive-task/SKILL.md) _(local)_ | Use when a task in TASKS.md is complete (implemented, tested, committed, verified) and needs to be moved out… |
+| [caveman](../skills/caveman/SKILL.md) | Terse output mode — strips prose to essentials while keeping every technical detail exact, and stops… |
+| [doc-loader](../skills/doc-loader/SKILL.md) | Load the documents a task actually needs before touching code — the repository's own doc router plus every… |
+| [fix-log](../skills/fix-log/SKILL.md) | After landing a non-trivial bug or regression fix, record its root cause, fix, and verification in the… |
+| [pattern-finder](../skills/pattern-finder/SKILL.md) | Find the existing exemplar to mirror before writing a new unit that has the same shape as something already in… |
+| [post-feature](../skills/post-feature/SKILL.md) | Audit a finished feature or fix before proposing a commit — every layer the change touched has its… |
