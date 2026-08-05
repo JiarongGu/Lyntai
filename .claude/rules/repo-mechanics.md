@@ -1,9 +1,16 @@
 # Repo mechanics — this repository's concrete bindings for the canonical rules
 
-**Local rule. Never synced.** The canonical rules installed by `daoris` state the principles; this file
-states how they are *enforced here* — the commands, paths, and version policy specific to this
-repository. When a canonical rule and this file appear to disagree, the canonical rule states the intent
-and this file states the mechanism.
+**Local rule.** The canonical rules installed by `daoris` state the principles; this file states how they
+are *enforced here* — the commands, paths, and version policy specific to this repository. When a
+canonical rule and this file appear to disagree, the canonical rule states the intent and this file states
+the mechanism.
+
+> **"Local" is not protection from a sync — measured 2026-08-05.** A `daoris` run **deleted**
+> `dev-conventions.md`, which was in no lock entry and had no provenance header, exactly like this file.
+> Most of it had been migrated first, but **three rules were lost outright** and survived only because a
+> review went looking. Nothing failed and no link dangled: a lost rule is invisible until someone repeats
+> the mistake it prevented. **After any sync, diff the deleted and modified rule files before committing**
+> and check every rule still has a home.
 
 ## Sensitive info — the guard that enforces it
 
