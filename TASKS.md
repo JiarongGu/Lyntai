@@ -130,8 +130,8 @@ half it could not fix, because the obstacle is the ROUTER's reporting rule, not 
 
 _**Renumbered from Part 39 on 2026-08-05.** `docs/task-archive.md` **Part 39** is the CLI11 entry that OPENED
 this one, so "Part 39" named a completed archive entry and an open backlog part at the same time and every
-cross-reference to it was ambiguous. The archive keeps 39 (it is history, and `CHANGELOG.md` points at it);
-this open part took the next free number instead._
+cross-reference to it was ambiguous. The archive keeps 39 — it is history, and history does not get
+renumbered; this open part took the next free number instead._
 
 _Opened while closing CLI11 (`CodexAgentSession`; see `docs/task-archive.md` Part 39 and
 `docs/DECISIONS.md` **D42**). CLI11 shipped the honest subset: the message/usage/terminal half of the codex
@@ -267,6 +267,14 @@ that was never additive or never small._
   carrying `Verdict` — every existing `catch (InvalidOperationException)` keeps working unchanged, as do the
   two tests at `tests/Lyntai.Tests/Providers/LyntaiChatClientTests.cs:48,90`. Purely additive: one type plus
   its baseline lines. `LyntaiChatClient` itself is `internal`, so it does not appear in a baseline at all.
+
+  **Acceptance criterion, because "additive" is not the same as "nothing is observable":** the exception
+  **message text must be preserved verbatim**. Two residual breaks survive the derive-from-`InvalidOperation-
+  Exception` trick and neither is caught by a `catch` clause — a consumer parsing `.Message` (which is today
+  the ONLY way to recover the verdict, so it is the likeliest thing anyone has written), and a consumer doing
+  an exact-type check (`ex.GetType() == typeof(InvalidOperationException)`, or a `when` filter equivalent).
+  Keeping the message identical closes the first; the second is unavoidable and should be called out in
+  `CHANGELOG.md` when this lands rather than discovered.
 
   **What is left to settle** (which is why this is filed rather than done): WHERE the type lives. In
   `Lyntai.Providers.ExtensionsAi` it serves only that bridge; in `Lyntai.Core` it could also carry the verdict

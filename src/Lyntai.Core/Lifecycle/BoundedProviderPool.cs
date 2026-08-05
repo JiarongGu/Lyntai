@@ -171,22 +171,32 @@ public sealed class BoundedProviderPool<TProvider>(
     /// <para>The victim is found by a linear scan for the lowest ticket rather than by sorting: an
     /// <c>OrderBy(…).First()</c> is O(n log n) and materialises an array on every single eviction, where
     /// finding a minimum is O(n) over the dictionary's struct enumerator and allocates nothing. Tickets are
-    /// unique (a monotonic counter), so both pick the same entry.</para></summary>
+    /// unique (a monotonic counter) and the scan keeps the FIRST minimum it meets, so it picks exactly the
+    /// entry a stable <c>OrderBy</c> would.</para></summary>
     private void EvictOverflow()
     {
         if (_options.MaxEntries is not { } max || max <= 0) return;
 
         while (_entries.Count > max)
         {
-            // the loop condition guarantees at least one entry, so this always finds a victim
+            // `found` rather than a long.MaxValue sentinel, deliberately: an entry whose Ticket happened to BE
+            // long.MaxValue could never beat that sentinel, so no victim would be selected, Remove would
+            // return false, and this loop would spin forever. It takes 2^63 GetOrAdd calls to reach and the
+            // OrderBy version this replaced could not fail that way at all — but an unreachable hang is still
+            // the worst shape a library bug can take, and the flag costs one predictable branch.
             ProviderKey oldest = default;
-            var oldestTicket = long.MaxValue;
+            var oldestTicket = 0L;
+            var found = false;
             foreach (var entry in _entries)
             {
-                if (entry.Value.Ticket >= oldestTicket) continue;
+                if (found && entry.Value.Ticket >= oldestTicket) continue;
                 oldestTicket = entry.Value.Ticket;
                 oldest = entry.Key;
+                found = true;
             }
+
+            // the loop condition guarantees at least one entry, so `found` is always true here
+            if (!found) break;
 
             _entries.Remove(oldest);
             _retired++;

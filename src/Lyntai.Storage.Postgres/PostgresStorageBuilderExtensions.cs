@@ -141,9 +141,15 @@ public static class PostgresStorageBuilderExtensions
     // unresolvability IS the startup signal; these are the only calls that could break it, so they enforce
     // it instead of degrading quietly. (lyntai_vector is exempt — PostgresVectorStore creates its own.)
     //
-    // Order-independent by construction: the check needs BOTH the feature selection and the helper call, and
-    // an app may write them either way round, so each side records a sentinel in the service collection and
-    // verifies whatever the other side already recorded. Nothing ever resolves these sentinels.
+    // Order-independent ACROSS THE STORAGE/HELPER PAIR: the check needs BOTH the feature selection and the
+    // helper call, and an app may write those two either way round, so each side records a sentinel in the
+    // service collection and verifies whatever the other side already recorded. Nothing ever resolves these
+    // sentinels.
+    //
+    // Scoped to the pair on purpose, because it does not generalise. Two Use*Storage calls are not a pair to
+    // be commuted, they are competing SELECTIONS, and the LAST one wins — so order is load-bearing there by
+    // design, in both directions: see Selection() for a narrow selection rejecting a helper that the final
+    // selection would have allowed, and the CONSEQUENCE note below for a BYO factory standing the guard down.
     // KEPT PARALLEL to the SQLite twin on purpose (see .claude/knowledge/storage.md) — the two backends'
     // builder extensions are deliberately not deduplicated.
     //

@@ -145,10 +145,15 @@ public static class SqliteStorageBuilderExtensions
     // resolvable and that unresolvability IS the startup signal; these three are the only calls that could
     // break it, so they enforce it instead of degrading quietly.
     //
-    // Order-independent by construction: the check needs BOTH the feature selection and the helper call, and
-    // an app may write them either way round, so each side records a sentinel in the service collection and
-    // verifies whatever the other side already recorded. Nothing ever resolves these sentinels — a guard you
-    // can defeat by swapping two builder lines is not a guard.
+    // Order-independent ACROSS THE STORAGE/HELPER PAIR: the check needs BOTH the feature selection and the
+    // helper call, and an app may write those two either way round, so each side records a sentinel in the
+    // service collection and verifies whatever the other side already recorded. Nothing ever resolves these
+    // sentinels — a guard you can defeat by swapping THOSE two builder lines is not a guard.
+    //
+    // Scoped to the pair on purpose, because it does not generalise. Two Use*Storage calls are not a pair to
+    // be commuted, they are competing SELECTIONS, and the LAST one wins — so order is load-bearing there by
+    // design, in both directions: see Selection() for a narrow selection rejecting a helper that the final
+    // selection would have allowed, and the CONSEQUENCE note below for a BYO factory standing the guard down.
     //
     // It applies ONLY where Lyntai owns the schema, which is why the selection carries LyntaiMigrates. Under
     // SchemaMigration.None or an app-supplied IDbConnectionFactory, Lyntai runs no migrations at all: the
