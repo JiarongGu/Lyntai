@@ -557,15 +557,31 @@ droppable. But the two halves of the mapping have very different standing.
   double-count if it does.
 
 **Why "documented-not-measured" is not the GEN-VERIFY violation it looks like.** That rule exists because a
-guessed surface *presents as knowledge*. The fix here is to make a wrong guess cost fewer events instead of
-wrong ones: the tool mapping is **shape-driven, not name-driven**. Any item whose type is not one of the
-three known message-ish types is surfaced as a tool step under **codex's own item-type name**, with
-**codex's own item object** as `ArgumentsJson`/`Content`. Nothing is renamed or normalised, so a codex
-release that adds or renames a tool item still flows through, and there is deliberately **no
-`CodexToolCalls`** helper — the claude twin parses argument names this repo has measured, and inventing the
-codex equivalent would be guessing field names. Where codex emits no `item.started`, the `ToolCall` is
-**synthesised from the completion** (correlated by item id, never twice), so the step stays visible whichever
-way the unmeasured detail falls.
+guessed surface *presents as knowledge*. The fix here is to BOUND what a wrong guess can cost: the tool
+mapping is **shape-driven, not name-driven**. Any item whose type is not one of the three recognised
+message-ish names is surfaced as a tool step under **codex's own item-type name**, with **codex's own item
+object** as `ArgumentsJson`/`Content`. Nothing is renamed or normalised, so a codex release that adds or
+renames a tool item still flows through, and there is deliberately **no `CodexToolCalls`** helper — the
+claude twin parses argument names this repo has measured, and inventing the codex equivalent would be
+guessing field names. Where codex emits no `item.started`, the `ToolCall` is **synthesised from the
+completion** (correlated by item id, never twice), so the step stays visible whichever way that detail falls.
+
+**And state the guarantee's LIMIT, because the first draft of this entry overclaimed it.** "A wrong guess
+costs fewer events, never wrong ones" is false, and its own inferred set falsifies it. What the mapping
+actually guarantees is two things: **no payload is invented or dropped**, and **every uncertainty is confined
+to the tool-step half** (session id, terminal and usage are measured and unaffected). It does *not* guarantee
+the right KIND of event, because the tool arm is reached by **elimination** against three names, one of which
+(`reasoning`) is itself a guess. So a renamed `reasoning` becomes a fabricated `ToolCall` carrying the model's
+thought as its arguments; a `todo_list`-style plan update becomes one too; a rename of `agent_message` would
+cost `TextDelta` *and* `FinalText` *and* emit the answer as a tool step. Each contradicts `ToolCall`'s own
+contract ("the agent invoked a tool"), so this is a semantics violation, not a taste one. Same shape on the
+failure side: `ToolResult.IsError: false` is a *positive claim of success*, not "unknown", so a nested or
+differently-named failure signal reads as a successful step — chosen over defaulting to `true`, which would
+mark every successful step of an unmeasured shape as failed. The honest instruction to a consumer is
+therefore **"a tool step's KIND is provisional, its PAYLOAD is reliable — switch on `ToolCall.Name`"**, and
+that is what the XML docs, the README and CLI12 now say. The general lesson: when marking a region INFERRED,
+state what the containment actually buys, because a safety claim that overreaches is itself a
+documented-not-measured surface.
 
 **Resume is REFUSED, not ignored and not guessed.** `AgentSessionOptions.ResumeToken` yields a single
 `SessionEnded(Unsupported)` **without spawning**. Guessing a resume subcommand is unusually expensive on this
@@ -583,6 +599,13 @@ of that argv is a second chance to lose it, and the agent session runs in the *c
 exactly where "it's a repo on my machine" is most tempting. `CodexEnvelope` does the same for the
 non-terminal-`error` rule. Both defects the consumer hit are now structurally shared rather than
 re-implemented, and both mutation-checked.
+
+**Known and deliberately not refactored:** what `CodexEnvelope` shares is the *vocabulary*, not the
+*decision*. The terminality rule is still enforced in two places — `CodexJsonlParser`'s `_ => Ignored` and
+`CodexAgentReader`'s switch-without-default each independently drop a bare `error`. Two call sites agreeing
+by construction is enough for two readers; it stops being enough at a third codex path, which is when the
+decision itself should move into `CodexEnvelope`. Recorded so that moment is recognised rather than
+rediscovered.
 
 ## D39 — the post-1.0 ergonomics batch: category predicates over per-member helpers, and two halves left open on purpose (2026-08-05)
 The additive tail of the D21 review (the items filed as Part 25) worked in one pass. Recorded because three

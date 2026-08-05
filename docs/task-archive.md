@@ -2668,7 +2668,25 @@ reviewed and updated. Both `Add*CliAgentSession` extensions now ALSO register ke
 registering both no longer has the unkeyed resolve depend on registration order. Docs: `CHANGELOG.md`,
 `README.md` (a codex subsection stating plainly what it cannot do), `DECISIONS.md` **D40**, `pitfalls.md`
 (+3 entries: the agent path's cwd trap, two seams over one wire format, and how to map a format you have not
-measured). Tests: 38 new, all labelled MEASURED or INFERRED in the source.
+measured). Tests: 40, all labelled MEASURED or INFERRED in the source.
+
+**Review round 1 (2026-08-05) — the safety CLAIM was overbroad and was scoped down.** Spec passed and both
+defect fixes were verified genuinely shared, but the review found that "a wrong guess costs fewer events,
+never wrong ones" is falsified by the reader's own inferred set: the tool arm is reached by ELIMINATION
+against three names, one of which (`reasoning`) is itself a guess — so a renamed `reasoning`, a `todo_list`
+plan update, or a renamed `agent_message` each produce a *fabricated* `ToolCall`, contradicting that type's
+documented meaning rather than merely missing an event; and `IsFailedItem` returning `false` is a positive
+claim of success, not "unknown". Nothing loses payload and all of it sits inside the region already marked
+INFERRED, but the docs are what a consumer reads. The claim is now scoped everywhere it appeared
+(`CodexAgentReader`, `CodexAgentSession`, README, `CHANGELOG.md`, D40) to what the code actually guarantees —
+no payload invented or dropped, uncertainty confined to the tool-step half, **kind provisional / payload
+reliable** — and CLI12 now names the four items to confirm first, worst-case first. Also from that round:
+the public remarks no longer `<see cref>` an internal type; the no-terminal fallback distinguishes "printed
+nothing" from "answered then never terminated" (two different bugs, two diagnostics, one new test); the
+in-band double-terminal dedup (`turn.completed` then `turn.failed`) gained the test it was missing and was
+mutation-checked (removing the guard fails it); and CLI13 gained a note that `IAgentSession` has no
+capability query, so the resume refusal is discoverable only at turn time — a Core change, left as an
+owner call.
 
 ---
 

@@ -21,8 +21,12 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   makes the unkeyed resolve depend on registration order.
   **Read the honesty note before adopting** (`docs/DECISIONS.md` **D40**): the message/usage/terminal half of
   the mapping is MEASURED against codex-cli 0.146.0, the **tool-step half is INFERRED** — the measured run
-  used no tools. It is written shape-driven so a wrong guess costs fewer events rather than wrong ones: a tool
-  step carries codex's own item-type name and its raw item object, nothing renamed or normalised. Not
+  used no tools. It is written shape-driven, which bounds the cost of a wrong guess to two things: **no
+  payload is invented or dropped** (a tool step carries codex's own item-type name and its raw item object,
+  nothing renamed or normalised) and **every uncertainty stays in the tool-step half**. It does NOT guarantee
+  the right KIND of event — the tool arm is reached by elimination against three names, so a non-tool item we
+  don't recognise arrives as a fabricated `ToolCall`. Treat a tool step's **kind as provisional, its payload
+  as reliable**, and switch on `ToolCall.Name`. Not
   emitted, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`, and
   token-level text deltas (a `TextDelta` is one whole assistant message). `ResumeToken` is **refused** with
   `LlmVerdict.Unsupported` and no spawn rather than guessed — `codex [OPTIONS] [PROMPT]` reads an unrecognized

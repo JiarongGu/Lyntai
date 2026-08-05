@@ -447,6 +447,45 @@ public class CodexAgentSessionTests
         Assert.Contains("no output", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact] // "printed nothing" and "answered then died" are different bugs — say which one happened
+    public async Task Content_without_a_terminal_reports_an_unterminated_turn_not_no_output()
+    {
+        var runner = new FakeProcessRunner([
+            """{"type":"thread.started","thread_id":"t"}""",
+            """{"type":"item.completed","item":{"id":"a","type":"agent_message","text":"half an answer"}}""",
+            // …and the process ends here: no turn.completed, no turn.failed
+        ]);
+
+        var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
+
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(LlmVerdict.Failed, ended.Verdict);
+        Assert.True(ended.IsError);
+        Assert.Contains("never terminated", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("no output produced", ended.Diagnostic);
+        // and the partial text is NOT dressed up as an answer (the fold's documented invariant)
+        Assert.Null(ended.FinalText);
+    }
+
+    [Fact] // the IN-BAND double terminal: codex reports failure at exit 0, so two terminals are printable
+    public async Task A_second_in_band_terminal_never_adds_a_second_ending()
+    {
+        var runner = new FakeProcessRunner([
+            """{"type":"thread.started","thread_id":"t"}""",
+            """{"type":"item.completed","item":{"id":"a","type":"agent_message","text":"done"}}""",
+            """{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}""",
+            // anything after the terminal may add events but must never re-end the session
+            """{"type":"turn.failed","error":{"message":"unexpected status 401 Unauthorized"}}""",
+        ]);
+
+        var events = await Session(runner).StreamAsync(Ask()).ToListAsync();
+
+        var ended = Assert.Single(events.OfType<SessionEnded>());
+        Assert.Equal(LlmVerdict.Ok, ended.Verdict);   // the FIRST terminal wins
+        Assert.False(ended.IsError);
+        Assert.Equal("done", ended.FinalText);
+    }
+
     [Fact]
     public async Task The_readers_terminal_wins_and_is_never_duplicated_by_a_later_process_fault()
     {

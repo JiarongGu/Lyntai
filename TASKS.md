@@ -121,17 +121,38 @@ here is codeable without a real codex run._
 
 - [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.**
   `src/Lyntai.Providers.Default/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
-  2026-08-04) ran a trivial `--oss` turn with **no tools**, so four things are inferred and marked as such in
-  the XML docs: (1) that `item.started` is emitted at all — if it is not, a `ToolCall` is synthesised from the
-  completion, which is a degradation, not a break; (2) the `reasoning` item type and its `text` field, mapped
-  to `Thinking`; (3) the per-item failure signals (`status: "failed"`, non-zero `exit_code`); (4) whether
-  `item.updated` carries partial text a UI should show — it is deliberately IGNORED today, because an
-  unmeasured accumulation rule risks double-counting the answer.
-  **What to do when a real codex run with tools is available:** capture the JSONL, confirm each of the four,
-  flip the docs from INFERRED to MEASURED where they hold, and extend `devtools/scripts/codex-stub.mjs` with
-  the real shapes (its header forbids inventing them — that is why the inferred cases are covered only by
-  `FakeProcessRunner` fixtures today). A friendlier `ToolResult.Content` projection (the readable output
-  field instead of the raw item JSON) becomes possible at the same time, and is additive.
+  2026-08-04) ran a trivial `--oss` turn with **no tools**, so the entire tool-step half is inferred and
+  marked as such in the XML docs.
+
+  **Why this is not merely cosmetic.** The reader recognises exactly three item names (`agent_message`,
+  `reasoning`, `error`) and routes everything else to the tool arm **by elimination**. So a wrong NAME is not
+  a missing event, it is a WRONG one: a renamed `reasoning` (codex's historical `agent_reasoning`) becomes a
+  fabricated `ToolCall` carrying the model's thought as its arguments, a `todo_list`-style plan update becomes
+  one too, and a rename of `agent_message` would cost the `TextDelta` AND `FinalText` AND emit the answer as a
+  tool step. Each contradicts `ToolCall`'s documented meaning ("the agent invoked a tool",
+  `src/Lyntai.Core/Agents/AgentStreamEvent.cs:18`). Payload is never invented or lost, and the measured
+  half (session id / terminal / usage) is unaffected — that is the whole of what the shape-driven mapping
+  buys.
+
+  **Confirm in this order — most costly wrong guess first:**
+  1. **`agent_message`** — a rename here is the worst case (loses the answer twice over *and* fabricates a
+     tool step). Measured today, so this is a regression check, not a discovery.
+  2. **`reasoning`** — INFERRED. Confirm the item-type name (vs `agent_reasoning`) and its text field.
+  3. **`todo_list`** (and any other non-tool, non-message item type the run emits) — each one currently
+     surfaces as a fabricated tool step. Decide per item: recognise and drop, or accept as a tool step.
+  4. **The per-item failure signal** — `IsFailedItem` reads only top-level `status`/`exit_code`, and returns
+     `false` as a POSITIVE claim of success, so a nested or differently-named signal makes a failed step look
+     successful to a failure-highlighting UI.
+  5. Then the cheaper two: whether `item.started` is emitted at all (if not, the synthesised `ToolCall` is a
+     degradation, not a break), and whether `item.updated` carries partial text worth showing — deliberately
+     IGNORED today, because an unmeasured accumulation rule risks double-counting the answer.
+
+  **Then:** flip the docs from INFERRED to MEASURED where they hold — including the scoped safety claim in
+  `CodexAgentReader`'s docblock, the README's codex bullet and `DECISIONS.md` D40 — and extend
+  `devtools/scripts/codex-stub.mjs` with the real shapes (its header forbids inventing them, which is why the
+  inferred cases are covered only by `FakeProcessRunner` fixtures today). A friendlier `ToolResult.Content`
+  projection (the readable output field instead of the raw item JSON) becomes possible at the same time, and
+  is additive.
 - [ ] **CLI13 — measure codex's resume command, so the session can honour `ResumeToken`.**
   `src/Lyntai.Providers.Default/CodexAgentSession.cs`. Today a non-null `ResumeToken` is REFUSED without
   spawning (a single `SessionEnded` with `LlmVerdict.Unsupported`) — silently ignoring it would start a fresh
@@ -139,6 +160,13 @@ here is codeable without a real codex run._
   `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a PROMPT and spends a turn answering the
   thread id. **Needs `codex exec --help` on a real install** to confirm the resume shape (and where the `-`
   stdin marker goes relative to it). Until then the refusal is the correct behaviour, not a placeholder.
+
+  _Decide alongside it — deliberately NOT done in CLI11:_ `IAgentSession` has **no capability query**, so a
+  UI written polymorphically over it discovers the refusal only at turn time (a wasted round trip and an error
+  state a "Continue" button could have been disabled for). Adding one is a CORE change to a released
+  interface, which is why it was not slipped into a provider commit. If codex turns out to support resume,
+  the question evaporates; if it does not, the choice is between a capability query on `IAgentSession` and
+  leaving the turn-time refusal as the only signal — an owner call, not a mechanical one.
 
 ---
 

@@ -930,7 +930,15 @@ var claude = sp.GetRequiredKeyedService<IAgentSession>("claude-cli");
 - **Inferred**: every **tool step**. The measured run used no tools. The mapping is therefore shape-driven —
   a tool step arrives under codex's *own* item-type name with codex's *own* item object as
   `ToolCall.ArgumentsJson` / `ToolResult.Content` (no normalised schema, and deliberately no `CodexToolCalls`
-  helper), so an unmeasured detail costs you fewer events rather than wrong ones.
+  helper). **What that guarantees, precisely:** no payload is ever invented or dropped, and every uncertainty
+  stays inside the tool-step half — the session id, terminal and usage are measured and unaffected. **What it
+  does not guarantee is the KIND of event.** The tool arm is reached by *elimination* against three
+  recognised names (`agent_message`, `reasoning`, `error`), so an item that is not one of them and not a tool
+  — a renamed `reasoning`, a `todo_list`-style plan update — arrives as a fabricated `ToolCall`, which is not
+  what `ToolCall` means. Treat a tool step's **kind as provisional and its payload as reliable**, and switch
+  on `ToolCall.Name` rather than assuming every one is a tool. Likewise `ToolResult.IsError` is a *positive*
+  claim of success when no top-level `status`/`exit_code` says otherwise — a nested failure signal would read
+  as a successful step.
 - **Not emitted**, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`,
   and token-level deltas — a codex `TextDelta` is one whole assistant message, not a token.
 - **`ResumeToken` is refused** (a single `SessionEnded` with `LlmVerdict.Unsupported`, no spawn): codex's

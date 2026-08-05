@@ -21,10 +21,17 @@ namespace Lyntai.Providers.CodexCli;
 /// then a plain <c>codex</c> from PATH — same env seams as the provider so tests/e2e can stub it.
 /// </summary>
 /// <remarks>
-/// <para><b>Read <see cref="CodexAgentReader"/> before relying on the tool-step events.</b> The measured
-/// codex capture behind this backend ran no tools, so the message/usage/terminal half of the mapping is
-/// MEASURED and the tool-step half is INFERRED — written shape-driven so a wrong guess yields fewer events
-/// rather than wrong ones.</para>
+/// <para><b>Half of this backend's event mapping is inferred — know which half before you rely on it.</b>
+/// The codex capture behind it ran NO TOOLS, so the session id, the assistant text, the final usage and the
+/// terminal are MEASURED, while every TOOL STEP is INFERRED. The inference is bounded, not eliminated: codex's
+/// item object is passed through verbatim, so <b>no payload is ever invented or dropped</b>, and every
+/// uncertainty is confined to the tool-step half. It does NOT guarantee the right KIND of event — an item
+/// whose type is not one of the three recognised message-ish names (<c>agent_message</c>, <c>reasoning</c>,
+/// <c>error</c>) is reported as a tool step by elimination, so a renamed <c>reasoning</c> or a
+/// <c>todo_list</c>-style plan update would arrive as a fabricated <see cref="ToolCall"/>. Treat a tool
+/// step's KIND as provisional and its PAYLOAD as reliable, and switch on <see cref="ToolCall.Name"/> (which
+/// is codex's own item type) rather than assuming every one is a tool. The README's codex subsection and
+/// task CLI12 in <c>TASKS.md</c> carry the full list of what is still to confirm.</para>
 /// <para><b>Three neutral options codex cannot honour</b>, each handled explicitly rather than silently:
 /// <see cref="AgentSessionOptions.ResumeToken"/> is REFUSED (see <see cref="StreamAsync"/>);
 /// <see cref="AgentSessionOptions.DisallowedTools"/> is logged as unhonoured — codex's tool gate is the
@@ -94,6 +101,7 @@ public sealed class CodexAgentSession : IAgentSession
 
         var reader = new CodexAgentReader();
         var sawTerminal = false;
+        var sawContent = false;
 
         var lines = _runner.StreamLinesAsync(exe, argv, stdin: CodexAgentArgs.BuildPrompt(options),
             inactivityTimeout: timeout, workingDirectory: options.WorkingDirectory, environment: _environment, ct: ct);
@@ -135,6 +143,10 @@ public sealed class CodexAgentSession : IAgentSession
                         if (sawTerminal) continue;
                         sawTerminal = true;
                     }
+                    else if (evt is TextDelta or ToolCall or ToolResult or Thinking)
+                    {
+                        sawContent = true;
+                    }
                     yield return evt;
                 }
             }
@@ -142,9 +154,17 @@ public sealed class CodexAgentSession : IAgentSession
 
         if (!sawTerminal)
         {
-            _logger.LogWarning("CodexAgentSession produced no terminal event; session={SessionId}", reader.ThreadId);
-            yield return new SessionEnded(LlmVerdict.Failed, true, null, reader.ThreadId, null,
-                "no output produced (no terminal result)");
+            // Two different problems, so two different diagnostics: a CLI that printed nothing at all (a bad
+            // invocation, a missing binary behind a BYO runner) versus one that answered and then died before
+            // turn.completed (a crash or a kill mid-turn). Collapsing both into "no output produced" sends
+            // whoever is debugging to look in the wrong place.
+            var diagnostic = sawContent
+                ? "the turn never terminated: codex streamed output but no turn.completed/turn.failed arrived " +
+                  "before the process ended"
+                : "no output produced (no terminal result)";
+            _logger.LogWarning("CodexAgentSession produced no terminal event ({Diagnostic}); session={SessionId}",
+                diagnostic, reader.ThreadId);
+            yield return new SessionEnded(LlmVerdict.Failed, true, null, reader.ThreadId, null, diagnostic);
         }
     }
 }
