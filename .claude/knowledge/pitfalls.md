@@ -77,10 +77,16 @@ the tests) while being wrong. Skim before touching the relevant area.
   about whether a turn failed.
 - **Mapping a wire format you have not measured, name by name.** The codex agent session's tool-step half is
   INFERRED (the measured capture ran no tools). It is written **shape-driven**: any unknown item type becomes
-  a tool step under the BACKEND's own name carrying the BACKEND's own payload, nothing renamed or normalised,
-  so a wrong guess yields fewer events rather than wrong ones. Mark every inferred member as inferred in the
+  a tool step under the BACKEND's own name carrying the BACKEND's own payload, nothing renamed or normalised.
+  **Be precise about what that buys, because the first draft of this entry was not:** it guarantees *no
+  payload is invented or dropped* and *every uncertainty stays inside the tool-step half* — it does NOT
+  guarantee the right KIND of event. `CodexAgentReader.ReadItem` reaches the tool arm by **elimination**
+  against three names, one of which (`reasoning`) is itself a guess, so a renamed `reasoning` surfaces the
+  model's thought as a *fabricated* `ToolCall`. A tool step's **kind is provisional, its payload is
+  reliable** — tell consumers to switch on `ToolCall.Name`. Mark every inferred member as inferred in the
   XML docs — and where a guess would COST something (codex reads an unrecognized subcommand as a prompt and
-  spends a turn), refuse instead of guessing, and refuse instead of silently ignoring.
+  spends a turn), refuse instead of guessing, and refuse instead of silently ignoring. A safety claim that
+  overreaches is itself a documented-not-measured surface (`docs/DECISIONS.md` D42).
 - **Trusting an explicit command without checking it exists.** For a PORTABLE install (an app's own bundled
   CLI copy) `IsAvailable` must verify presence — `ProcessRunner.CommandExists`, which also accepts an
   extensionless launcher with a spawnable sibling. Returning true for a path that isn't there turns a

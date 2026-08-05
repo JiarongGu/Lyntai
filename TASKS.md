@@ -97,7 +97,7 @@ RELEASED generation behaviour and deserves its own considered commit, exactly as
 did — not a rider on an unrelated one._
 
 - [ ] **`GenerationVerdictClassifier.Translate` flattens `Unsupported` to `Failed`** —
-  `src/Lyntai.Core/Generation/GenerationVerdictClassifier.cs:52`. `LlmVerdict.Unsupported` falls through the
+  `src/Lyntai.Core/Generation/GenerationVerdictClassifier.cs:71`. `LlmVerdict.Unsupported` falls through the
   `_ =>` arm to `GenerationVerdict.Failed`, even though `GenerationVerdict.Unsupported` exists and means the
   same thing ("this backend cannot do THIS request — a capability gap, not a fault"). The method's own doc
   contradicted the code until 2026-08-05, naming `ContextWindowExceeded` as the only intended collapse; the
@@ -114,10 +114,12 @@ did — not a rider on an unrelated one._
 ## Part 39 — CLI backends: the codex surface still to MEASURE (2026-08-05)
 
 _Opened while closing CLI11 (`CodexAgentSession`; see `docs/task-archive.md` Part 39 and
-`docs/DECISIONS.md` **D40**). CLI11 shipped the honest subset: the message/usage/terminal half of the codex
-mapping is measured, the tool-step half is inferred, and the inference is written shape-driven so a wrong
-guess costs fewer events rather than wrong ones. What is left is measurement, and measurement only — nothing
-here is codeable without a real codex run._
+`docs/DECISIONS.md` **D42**). CLI11 shipped the honest subset: the message/usage/terminal half of the codex
+mapping is measured, the tool-step half is inferred, and the inference is written shape-driven — which bounds
+what a wrong guess can cost to exactly two things: **no payload is invented or dropped**, and **every
+uncertainty stays inside the tool-step half**. It does NOT bound the KIND of event, so a tool step's kind is
+provisional and only its payload is reliable (the item below is the consequence). What is left is
+measurement, and measurement only — nothing here is codeable without a real codex run._
 
 - [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.**
   `src/Lyntai.Providers.Default/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
@@ -148,7 +150,7 @@ here is codeable without a real codex run._
      IGNORED today, because an unmeasured accumulation rule risks double-counting the answer.
 
   **Then:** flip the docs from INFERRED to MEASURED where they hold — including the scoped safety claim in
-  `CodexAgentReader`'s docblock, the README's codex bullet and `DECISIONS.md` D40 — and extend
+  `CodexAgentReader`'s docblock, the README's codex bullet and `DECISIONS.md` D42 — and extend
   `devtools/scripts/codex-stub.mjs` with the real shapes (its header forbids inventing them, which is why the
   inferred cases are covered only by `FakeProcessRunner` fixtures today). A friendlier `ToolResult.Content`
   projection (the readable output field instead of the raw item JSON) becomes possible at the same time, and

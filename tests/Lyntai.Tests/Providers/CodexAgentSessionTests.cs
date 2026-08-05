@@ -18,8 +18,10 @@ namespace Lyntai.Tests.Providers;
 /// different standing. MEASURED = the shape appears in the codex-cli 0.146.0 capture recorded in
 /// <c>CodexJsonlParser</c>'s docblock (one real successful turn via the <c>--oss</c> local-model path plus one
 /// real failed turn) or in its <c>--help</c>. INFERRED = the shape has NOT been observed here; the reader's
-/// tool-step mapping is deliberately written so that an inferred detail being wrong degrades (fewer events)
-/// rather than lies (a wrong event).</para>
+/// tool-step mapping is deliberately written so that an inferred detail being wrong costs exactly two things
+/// and no more — no payload is invented or dropped, and the uncertainty stays inside the tool-step half. It
+/// does NOT guarantee the right KIND of event (the tool arm is reached by elimination), so a tool step's kind
+/// is provisional and only its payload is reliable — see <c>docs/DECISIONS.md</c> D42.</para>
 ///
 /// Driven through <see cref="FakeProcessRunner"/> and the codex-shaped stub — never a real binary.
 /// </summary>

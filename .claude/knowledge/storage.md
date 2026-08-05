@@ -115,8 +115,12 @@ not under `Memory`, and there is no `Vector` feature. A subset omitting `Governa
 rather than at startup, so **the three Governance-backed helpers now throw at wiring time**
 (`UseSqlite{ResponseCache,UsageTracking,VectorStore}` + the two Postgres equivalents). The check is
 order-independent — each side records a sentinel `ServiceDescriptor` and verifies whatever the other side
-already recorded — because a guard you can defeat by swapping two builder lines is not a guard. Add a fourth
-Governance-backed helper and it must call `RequireGovernance`. `UsePostgresVectorStore` is **exempt**:
+already recorded — because a guard you can defeat by swapping two builder lines is not a guard. It is also
+scoped to **schema OWNERSHIP**: the selection carries a `LyntaiMigrates` flag and the check returns early
+under `SchemaMigration.None` or an app-supplied `IDbConnectionFactory`, because there Lyntai runs no
+migration, the feature set decides nothing, and "add `StorageFeature.Governance`" would create no table —
+the guard's whole premise is that Lyntai was going to create the table and the feature set stopped it. Add a
+fourth Governance-backed helper and it must call `RequireGovernance`. `UsePostgresVectorStore` is **exempt**:
 `PostgresVectorStore` creates its `vector` extension and table lazily, deliberately outside the migration, so
 pgvector is not forced on consumers who never use semantic memory.
 

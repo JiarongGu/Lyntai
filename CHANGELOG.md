@@ -19,7 +19,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   JSONL. Both `Add*CliAgentSession` extensions now also register **keyed** by provider id
   (`GetRequiredKeyedService<IAgentSession>("codex-cli")` / `"claude-cli"`), so registering both no longer
   makes the unkeyed resolve depend on registration order.
-  **Read the honesty note before adopting** (`docs/DECISIONS.md` **D40**): the message/usage/terminal half of
+  **Read the honesty note before adopting** (`docs/DECISIONS.md` **D42**): the message/usage/terminal half of
   the mapping is MEASURED against codex-cli 0.146.0, the **tool-step half is INFERRED** — the measured run
   used no tools. It is written shape-driven, which bounds the cost of a wrong guess to two things: **no
   payload is invented or dropped** (a tool step carries codex's own item-type name and its raw item object,
@@ -182,7 +182,10 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   previously got a container that built cleanly and threw "no such table: lyntai_vector" at the first
   recall. The check is order-independent (either call may come first) and fires only on a configuration
   that was already broken — the default `StorageFeature.All` includes Governance, so existing wiring is
-  untouched. `UsePostgresVectorStore` is deliberately exempt: `PostgresVectorStore` creates its own schema
+  untouched. It also applies **only where Lyntai owns the schema**: under `SchemaMigration.None` or an
+  app-supplied `IDbConnectionFactory` no migration was going to run, the feature set never decided which
+  tables exist, and adding `StorageFeature.Governance` would create nothing — so those wirings are left
+  alone. `UsePostgresVectorStore` is deliberately exempt too: `PostgresVectorStore` creates its own schema
   lazily, so it works with or without the Governance migration.
 - **An unconfigured LLM backend is skipped, not benched — `LlmVerdict.NotConfigured`.** When an
   OpenAI-compatible endpoint answers 401/403 to a call that carried **no** credentials,

@@ -294,7 +294,9 @@ for when the embedder arrives from elsewhere, as above.
 Vectors live in a swappable `IVectorStore` — the built-in `InMemoryVectorStore` (exact brute-force cosine)
 is the default; call `UseSqliteVectorStore()` to persist them in SQLite (it needs
 `StorageFeature.Governance`, which carries the `lyntai_vector` table — a feature subset that omits it fails
-at `AddLyntai` with a message saying so, rather than at the first recall), or `UsePostgresVectorStore()` for
+at `AddLyntai` with a message saying so, rather than at the first recall; that check applies only where
+Lyntai migrates, so `SchemaMigration.None` and a BYO `IDbConnectionFactory` are left to own their schema),
+or `UsePostgresVectorStore()` for
 **pgvector** (the cosine search runs in the database — SQL-side top-k, not brute-force in the app). Or
 register your own before `AddLyntai` for another vector DB — the recall code is unchanged. Scoped by (task,
 scope) like the lexical store; re-remembering identical content dedups.
@@ -922,7 +924,7 @@ var claude = sp.GetRequiredKeyedService<IAgentSession>("claude-cli");
 ```
 
 **Read this before adopting it** — the two halves of the codex mapping have different standing, and
-`docs/DECISIONS.md` **D40** has the full account:
+`docs/DECISIONS.md` **D42** has the full account:
 
 - **Measured** against codex-cli 0.146.0: session id, assistant text, final usage, and the terminal —
   including the rule that only `turn.failed` fails a turn (a bare `error` line and an `error` item both

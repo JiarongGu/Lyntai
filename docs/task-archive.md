@@ -2597,6 +2597,14 @@ pass because they were all small and all found by the same review. Shape decisio
   (`UsePostgresVectorStore` exempt — it creates its own schema lazily), order-independently via sentinel
   descriptors, with five tests in `FeatureToggleTests` including the reverse call order and a narrow-but-valid
   subset that still works. See the D41 amendment.
+  **Whole-branch review (2026-08-05) — the guard was too broad and is now scoped to schema OWNERSHIP.** It
+  checked the feature flags only, so it also fired under `SchemaMigration.None` and over an app-supplied
+  `IDbConnectionFactory`, where Lyntai runs no migrations and the feature set therefore decides nothing —
+  a regression on a documented, previously-working path whose offered remedy (add `StorageFeature.Governance`)
+  would have created no table anyway. `SqliteFeatureSelection`/`PostgresFeatureSelection` now carry a
+  `LyntaiMigrates` flag alongside the features and the verification returns early when it is false. Both
+  Postgres helpers also gained the theory cases the "all five check" claim had been asserting without
+  covering, and the two no-fire directions are pinned in both call orders.
 
 ---
 
@@ -2604,7 +2612,7 @@ pass because they were all small and all found by the same review. Shape decisio
 
 _Closes CLI11, filed 2026-08-04 by a consuming app that wanted to delete its hand-rolled codex integration
 and could not. The reasoning — and specifically WHICH half was built and why the other is marked rather than
-faked or withheld — is `docs/DECISIONS.md` **D40**. The measurement that remains is filed as Part 39
+faked or withheld — is `docs/DECISIONS.md` **D42**. The measurement that remains is filed as Part 39
 (CLI12/CLI13) in `TASKS.md`._
 
 - [x] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
@@ -2666,7 +2674,7 @@ cannot drift between the two readers). Both were **mutation-checked**: removing 
 Surface: additive only — `AddCodexCliAgentSession`, `CodexAgentSession`, `CodexAgentOptions`; baseline
 reviewed and updated. Both `Add*CliAgentSession` extensions now ALSO register keyed by provider id, so an app
 registering both no longer has the unkeyed resolve depend on registration order. Docs: `CHANGELOG.md`,
-`README.md` (a codex subsection stating plainly what it cannot do), `DECISIONS.md` **D40**, `pitfalls.md`
+`README.md` (a codex subsection stating plainly what it cannot do), `DECISIONS.md` **D42**, `pitfalls.md`
 (+3 entries: the agent path's cwd trap, two seams over one wire format, and how to map a format you have not
 measured). Tests: 40, all labelled MEASURED or INFERRED in the source.
 
@@ -2678,7 +2686,7 @@ plan update, or a renamed `agent_message` each produce a *fabricated* `ToolCall`
 documented meaning rather than merely missing an event; and `IsFailedItem` returning `false` is a positive
 claim of success, not "unknown". Nothing loses payload and all of it sits inside the region already marked
 INFERRED, but the docs are what a consumer reads. The claim is now scoped everywhere it appeared
-(`CodexAgentReader`, `CodexAgentSession`, README, `CHANGELOG.md`, D40) to what the code actually guarantees —
+(`CodexAgentReader`, `CodexAgentSession`, README, `CHANGELOG.md`, D42) to what the code actually guarantees —
 no payload invented or dropped, uncertainty confined to the tool-step half, **kind provisional / payload
 reliable** — and CLI12 now names the four items to confirm first, worst-case first. Also from that round:
 the public remarks no longer `<see cref>` an internal type; the no-terminal fallback distinguishes "printed

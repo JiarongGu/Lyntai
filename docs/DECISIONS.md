@@ -448,89 +448,7 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
-## D41 — semantic memory gets a NAME so its absence is loud; the wiring stays three substitutable calls (2026-08-05)
-The Part 25 item asked for a `Use*` helper so an app enabling semantic recall stops hand-constructing
-`SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` / `HttpEmbedder`. Auditing
-the four showed each already had a builder call — `UseSqliteStorage` (which registers the curated store and,
-under `SchemaMigration.OnFirstUse`, the migrating factory), `UseSqliteVectorStore`, and
-`AddOpenAiCompatibleEmbedder`, the last two of which post-date the consumer code the review looked at. So the
-hand-construction was **stale**, not unavoidable, and a composite super-call would have been sugar over
-calls that already exist.
-
-**The real defect was that semantic memory had no NAME in the API.** Every other optional feature is a
-declared call — `AddResponseCache`, `AddUsageBudget`, `AddRateLimit`, `AddLiveModelRouting`. Semantic memory
-was enabled purely as a *side effect* of an `IEmbedder` happening to be in the collection, which makes the
-failure silent in the worst way: no embedder → `RegisterSemanticMemory` registers nothing → `IPromptComposer`
-and `ChatOrchestrator` resolve a null `ISemanticMemory` and skip semantic recall on **every turn**, with no
-exception, no log, and a container that builds fine. So `AddSemanticMemory(…)` was added, and its main job is
-to record intent: `AddLyntai` now throws when the intent is declared and no embedder reached the container,
-next to the existing pre-registered-`ILlmClient` contradiction guards.
-
-- **Overloads mirror `AddEmbeddings`** (instance / factory / by type) so the common path is one call, plus a
-  no-argument overload for "my embedder comes from `AddOpenAiCompatibleEmbedder` or from the host".
-- **It constructs no embedder.** An embedder is BYO by design and a defaulted `HttpEmbedder` would point at
-  nothing; the guard is the alternative to guessing.
-- **Nothing became mandatory.** The vector store and `ISemanticMemory` stay `TryAdd`-registered (a host's own
-  registration still wins), the concrete stores stay public, and `AddEmbeddings` alone still works exactly as
-  before — this is additive sugar, not a replacement.
-- **REJECTED: a `UseSqliteSemanticMemory()` composite** that would call `UseSqliteVectorStore()` plus the
-  intent. It is a one-line alias that earns no keep, and the same helper covering the embedder too would have
-  forced `Lyntai.Storage.Sqlite` → `Lyntai.Providers.Default`, i.e. adapter-to-adapter (`D31`/`D3`). The
-  storage half and the embedder half belong to different packages and must stay two calls.
-**AMENDED same day — the `Governance` trap is GUARDED, not merely documented.** The first cut documented it
-in three places: `lyntai_vector` ships under `StorageFeature.Governance` (with the response cache and usage
-ledger), so a subset omitting Governance registers `SqliteVectorStore` over a table that was never created
-and the app finds out at the first recall. Review pointed out that this is inconsistent by this very
-change's own standard — the same commit had just decided that silent degradation discovered late was worth a
-**throw** for semantic memory — and that `UseSqliteStorage`'s own documentation states the house rule the
-helper was breaking: *a disabled domain's store isn't resolvable, and that unresolvability is the startup
-signal that a disabled feature is being used*. Prose a misconfiguring host will never read is not a fix.
-So the rule is now enforced:
-
-- **All five Governance-backed helpers check, not just the one that was reported** — `UseSqlite`
-  `{ResponseCache,UsageTracking,VectorStore}` and `UsePostgres{ResponseCache,UsageTracking}`. Guarding only
-  the reported one would have reproduced the same inconsistency one level down; `lyntai_response_cache` and
-  `lyntai_usage` are in the identical migration.
-- **`UsePostgresVectorStore` is deliberately EXEMPT.** `PostgresVectorStore` creates its `vector` extension
-  and table lazily on first use, outside the migration, precisely so pgvector isn't forced on consumers who
-  never use semantic memory — so it works with or without Governance. Don't "fix" the asymmetry.
-- **The check is ORDER-INDEPENDENT.** It needs both the feature selection and the helper call, and an app may
-  write them either way round, so each side records a sentinel `ServiceDescriptor` (nothing ever resolves
-  them) and verifies whatever the other side already recorded. A guard defeated by swapping two builder lines
-  is not a guard; a test pins the reverse order.
-- **No public surface changed**, and the throw fires only on a configuration that was already broken —
-  `StorageFeature.All` includes Governance, so every existing wiring is untouched. The message names the
-  offending call and the feature to add, matching the `AddSemanticMemory` throw's shape so the two read as
-  one rule.
-
-## D40 — an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else (2026-08-05)
-Part 25 asked for `MigrateUpAsync(…, CancellationToken)` twins beside the sync `MigrationRunnerService.MigrateUp`
-on both backends, for apps owning their schema under `SchemaMigration.None`. **FluentMigrator's runner is
-synchronous and its `MigrateUp()` takes no token** — there is no async entry point and nothing reaches the DDL
-execution. That constrains what the twin can truthfully offer, and the constraint is the decision:
-
-- **REJECTED: `Task.Run(() => MigrateUp(...))`.** It is worse than not shipping the method. It occupies a
-  thread-pool thread for the entire duration of a schema migration, it cannot cancel anything, and it makes a
-  caller who cancels believe the migration stopped. A decorative `async` is a lie with a signature.
-- **The migration runs INLINE on the calling thread.** SQLite's twin is `async` because its pragma seed is
-  real ADO.NET (mirroring `SqliteConnectionFactory.OpenAsync`); Postgres has no await point at all on this
-  path and returns an already-completed task, faults funnelled through `Task.FromException` /
-  `Task.FromCanceled` so a `Task`-returning method never throws synchronously. `AsyncMigrationTests` pins the
-  no-offload property so nobody "improves" it into a `Task.Run` later.
-- **The token is honoured at the only two points that exist:** before any work — a cancelled token leaves the
-  SQLite file uncreated and never dials the Postgres connection string — and between feature passes, each of
-  which is a separate runner invocation whose applied versions the version table has already committed. Under
-  the default `StorageFeature.All` there is exactly **one** pass, so there the token degenerates to "before
-  starting". Both XML docs say this in as many words, under explicit *what it can do* / *what it cannot do*
-  headings, because the whole hazard is a caller assuming more.
-- **What it is genuinely for:** composing in an async startup path (`IHostedService.StartAsync`) without
-  `GetAwaiter().GetResult()`, and refusing to start work a cancelled startup already abandoned. That is a
-  small, real benefit — and it is the entire benefit.
-- **Mid-pass cancellation stays impossible** until FluentMigrator itself offers a token. Do not simulate it by
-  killing the connection: a half-applied DDL pass with a committed version row is a corrupted schema, which is
-  strictly worse than a migration that finished.
-
-## D40 — the agent-session shape is NOT claude-only, but the codex half is half-measured: ship the honest subset, mark the inference, refuse the unmeasurable (2026-08-05)
+## D42 — the agent-session shape is NOT claude-only, but the codex half is half-measured: ship the honest subset, mark the inference, refuse the unmeasurable (2026-08-05)
 `CodexAgentSession` closes CLI11 (a consuming desktop chat UI wanted to delete its hand-rolled
 `codex exec --json` parsing and could not, because the codex backend offered only the router shape). Recorded
 because the interesting part is not that it was built — it is *which half* was built, and why the other half
@@ -606,6 +524,100 @@ re-implemented, and both mutation-checked.
 by construction is enough for two readers; it stops being enough at a third codex path, which is when the
 decision itself should move into `CodexEnvelope`. Recorded so that moment is recognised rather than
 rediscovered.
+
+## D41 — semantic memory gets a NAME so its absence is loud; the wiring stays three substitutable calls (2026-08-05)
+The Part 25 item asked for a `Use*` helper so an app enabling semantic recall stops hand-constructing
+`SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` / `HttpEmbedder`. Auditing
+the four showed each already had a builder call — `UseSqliteStorage` (which registers the curated store and,
+under `SchemaMigration.OnFirstUse`, the migrating factory), `UseSqliteVectorStore`, and
+`AddOpenAiCompatibleEmbedder`, the last two of which post-date the consumer code the review looked at. So the
+hand-construction was **stale**, not unavoidable, and a composite super-call would have been sugar over
+calls that already exist.
+
+**The real defect was that semantic memory had no NAME in the API.** Every other optional feature is a
+declared call — `AddResponseCache`, `AddUsageBudget`, `AddRateLimit`, `AddLiveModelRouting`. Semantic memory
+was enabled purely as a *side effect* of an `IEmbedder` happening to be in the collection, which makes the
+failure silent in the worst way: no embedder → `RegisterSemanticMemory` registers nothing → `IPromptComposer`
+and `ChatOrchestrator` resolve a null `ISemanticMemory` and skip semantic recall on **every turn**, with no
+exception, no log, and a container that builds fine. So `AddSemanticMemory(…)` was added, and its main job is
+to record intent: `AddLyntai` now throws when the intent is declared and no embedder reached the container,
+next to the existing pre-registered-`ILlmClient` contradiction guards.
+
+- **Overloads mirror `AddEmbeddings`** (instance / factory / by type) so the common path is one call, plus a
+  no-argument overload for "my embedder comes from `AddOpenAiCompatibleEmbedder` or from the host".
+- **It constructs no embedder.** An embedder is BYO by design and a defaulted `HttpEmbedder` would point at
+  nothing; the guard is the alternative to guessing.
+- **Nothing became mandatory.** The vector store and `ISemanticMemory` stay `TryAdd`-registered (a host's own
+  registration still wins), the concrete stores stay public, and `AddEmbeddings` alone still works exactly as
+  before — this is additive sugar, not a replacement.
+- **REJECTED: a `UseSqliteSemanticMemory()` composite** that would call `UseSqliteVectorStore()` plus the
+  intent. It is a one-line alias that earns no keep, and the same helper covering the embedder too would have
+  forced `Lyntai.Storage.Sqlite` → `Lyntai.Providers.Default`, i.e. adapter-to-adapter (`D31`/`D3`). The
+  storage half and the embedder half belong to different packages and must stay two calls.
+**AMENDED same day — the `Governance` trap is GUARDED, not merely documented.** The first cut documented it
+in three places: `lyntai_vector` ships under `StorageFeature.Governance` (with the response cache and usage
+ledger), so a subset omitting Governance registers `SqliteVectorStore` over a table that was never created
+and the app finds out at the first recall. Review pointed out that this is inconsistent by this very
+change's own standard — the same commit had just decided that silent degradation discovered late was worth a
+**throw** for semantic memory — and that `UseSqliteStorage`'s own documentation states the house rule the
+helper was breaking: *a disabled domain's store isn't resolvable, and that unresolvability is the startup
+signal that a disabled feature is being used*. Prose a misconfiguring host will never read is not a fix.
+So the rule is now enforced:
+
+- **All five Governance-backed helpers check, not just the one that was reported** — `UseSqlite`
+  `{ResponseCache,UsageTracking,VectorStore}` and `UsePostgres{ResponseCache,UsageTracking}`. Guarding only
+  the reported one would have reproduced the same inconsistency one level down; `lyntai_response_cache` and
+  `lyntai_usage` are in the identical migration.
+- **`UsePostgresVectorStore` is deliberately EXEMPT.** `PostgresVectorStore` creates its `vector` extension
+  and table lazily on first use, outside the migration, precisely so pgvector isn't forced on consumers who
+  never use semantic memory — so it works with or without Governance. Don't "fix" the asymmetry.
+- **The check is ORDER-INDEPENDENT.** It needs both the feature selection and the helper call, and an app may
+  write them either way round, so each side records a sentinel `ServiceDescriptor` (nothing ever resolves
+  them) and verifies whatever the other side already recorded. A guard defeated by swapping two builder lines
+  is not a guard; a test pins the reverse order.
+- **No public surface changed**, and the throw fires only on a configuration that was already broken —
+  `StorageFeature.All` includes Governance, so every existing wiring is untouched. The message names the
+  offending call and the feature to add, matching the `AddSemanticMemory` throw's shape so the two read as
+  one rule.
+- **AMENDED by the whole-branch review: the guard applies only where LYNTAI OWNS THE SCHEMA.** The first cut
+  checked the feature flags and nothing else, so it also fired under `SchemaMigration.None` and over an
+  app-supplied `IDbConnectionFactory` — the two documented paths on which Lyntai runs no migrations at all
+  (that overload's own doc says *"Lyntai runs no migrations here; own the schema"*). That is a regression on
+  a working configuration: an app that created `lyntai_vector` itself and passed a narrow feature set now
+  failed at startup, and the remedy the message offered was useless there, because adding
+  `StorageFeature.Governance` creates no table when nothing migrates. The premise — *Lyntai was going to
+  create this table and your feature set stopped it* — is simply false when Lyntai was never going to create
+  anything. So schema ownership now travels WITH the selection (`SqliteFeatureSelection` /
+  `PostgresFeatureSelection` carry a `LyntaiMigrates` flag recorded by the wiring call that knows the answer)
+  rather than being re-derived, and the verification returns early when it is false. Both directions are
+  pinned by tests, in both call orders — the skip has to be as order-independent as the throw.
+
+## D40 — an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else (2026-08-05)
+Part 25 asked for `MigrateUpAsync(…, CancellationToken)` twins beside the sync `MigrationRunnerService.MigrateUp`
+on both backends, for apps owning their schema under `SchemaMigration.None`. **FluentMigrator's runner is
+synchronous and its `MigrateUp()` takes no token** — there is no async entry point and nothing reaches the DDL
+execution. That constrains what the twin can truthfully offer, and the constraint is the decision:
+
+- **REJECTED: `Task.Run(() => MigrateUp(...))`.** It is worse than not shipping the method. It occupies a
+  thread-pool thread for the entire duration of a schema migration, it cannot cancel anything, and it makes a
+  caller who cancels believe the migration stopped. A decorative `async` is a lie with a signature.
+- **The migration runs INLINE on the calling thread.** SQLite's twin is `async` because its pragma seed is
+  real ADO.NET (mirroring `SqliteConnectionFactory.OpenAsync`); Postgres has no await point at all on this
+  path and returns an already-completed task, faults funnelled through `Task.FromException` /
+  `Task.FromCanceled` so a `Task`-returning method never throws synchronously. `AsyncMigrationTests` pins the
+  no-offload property so nobody "improves" it into a `Task.Run` later.
+- **The token is honoured at the only two points that exist:** before any work — a cancelled token leaves the
+  SQLite file uncreated and never dials the Postgres connection string — and between feature passes, each of
+  which is a separate runner invocation whose applied versions the version table has already committed. Under
+  the default `StorageFeature.All` there is exactly **one** pass, so there the token degenerates to "before
+  starting". Both XML docs say this in as many words, under explicit *what it can do* / *what it cannot do*
+  headings, because the whole hazard is a caller assuming more.
+- **What it is genuinely for:** composing in an async startup path (`IHostedService.StartAsync`) without
+  `GetAwaiter().GetResult()`, and refusing to start work a cancelled startup already abandoned. That is a
+  small, real benefit — and it is the entire benefit.
+- **Mid-pass cancellation stays impossible** until FluentMigrator itself offers a token. Do not simulate it by
+  killing the connection: a half-applied DDL pass with a committed version row is a corrupted schema, which is
+  strictly worse than a migration that finished.
 
 ## D39 — the post-1.0 ergonomics batch: category predicates over per-member helpers, and two halves left open on purpose (2026-08-05)
 The additive tail of the D21 review (the items filed as Part 25) worked in one pass. Recorded because three
