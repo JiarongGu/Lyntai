@@ -54,7 +54,14 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         return id;
     }
 
+    // taskKey/scope can't ride the SET's COALESCE: NULL is a LEGAL stored value there, so null keeps meaning
+    // "leave unchanged" and the empty string is the clear-to-NULL sentinel (interface doc). Resolved in C# so
+    // the collision check and the UPDATE write the identical value.
+    private static string? Rescope(string? argument, string? current)
+        => argument is null ? current : argument.Length == 0 ? null : argument;
+
     public async Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
+        string? taskKey = null, string? scope = null,
         IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
     {
         var now = _clock();
@@ -62,17 +69,46 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         var metaJson = replaceMeta ? CuratedMetadataJson.Serialize(metadata) : null;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
-        // COALESCE: only the provided (non-null) fields change; kind re-categorises in place. The metadata
-        // column is set only when a replacement is requested (@metaJson may be null → clears it).
+
+        // read the current row inside the transaction to resolve the RESULTING dedup identity
+        var cur = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
+            $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id", new { id },
+            transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+        if (cur is null) return false;                             // no such row (the tx rolls back on dispose)
+        var newKind = kind ?? cur.Kind;
+        var newContent = content ?? cur.Content;
+        var newTask = Rescope(taskKey, cur.TaskKey);
+        var newScope = Rescope(scope, cur.Scope);
+
+        // an identity-mutating update must not land on an identity ANOTHER row already holds — that is precisely
+        // the duplicate AddAsync(dedup: true) promises not to create. Refuse, writing nothing. Checked only when
+        // the identity actually MOVES, so an enabled/metadata-only edit never refuses and the duplicates
+        // dedup:false legitimately allows stay editable. `IS` is the null-safe compare, as in the dedup add.
+        if (newKind != cur.Kind || newContent != cur.Content || newTask != cur.TaskKey || newScope != cur.Scope)
+        {
+            var clash = await conn.ExecuteScalarAsync<long?>(new CommandDefinition("""
+                SELECT id FROM lyntai_curated_memory
+                WHERE id <> @id AND kind = @kind AND content = @content AND task IS @task AND scope IS @scope
+                LIMIT 1
+                """, new { id, kind = newKind, content = newContent, task = newTask, scope = newScope },
+                transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+            if (clash is not null) return false;                   // refused (the tx rolls back on dispose)
+        }
+
+        // the identity columns are written from the resolved values; enabled keeps COALESCE (no clear sentinel
+        // needed for a bool). The metadata column is set only when a replacement is requested (@metaJson may be
+        // null → clears it).
         var n = await conn.ExecuteAsync(new CommandDefinition($$"""
             UPDATE lyntai_curated_memory
-            SET content = COALESCE(@content, content),
+            SET content = @newContent,
                 enabled = COALESCE(@enabled, enabled),
-                kind    = COALESCE(@kind, kind),
+                kind    = @newKind,
+                task    = @newTask,
+                scope   = @newScope,
                 {{(replaceMeta ? "metadata = @metaJson," : "")}}
                 updated_at = @now
             WHERE id = @id
-            """, new { id, content, enabled, kind, metaJson, now }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+            """, new { id, newContent, enabled, newKind, newTask, newScope, metaJson, now }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
         if (replaceMeta && n > 0)
         {
             await conn.ExecuteAsync(new CommandDefinition(

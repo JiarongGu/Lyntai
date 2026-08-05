@@ -32,11 +32,13 @@ namespace Lyntai.Providers.CodexCli;
 /// step's KIND as provisional and its PAYLOAD as reliable, and switch on <see cref="ToolCall.Name"/> (which
 /// is codex's own item type) rather than assuming every one is a tool. The README's codex subsection and
 /// task CLI12 in <c>TASKS.md</c> carry the full list of what is still to confirm.</para>
-/// <para><b>Three neutral options codex cannot honour</b>, each handled explicitly rather than silently:
-/// <see cref="AgentSessionOptions.ResumeToken"/> is REFUSED (see <see cref="StreamAsync"/>);
+/// <para><b>Two neutral options codex cannot honour</b>, each handled explicitly rather than silently:
 /// <see cref="AgentSessionOptions.DisallowedTools"/> is logged as unhonoured — codex's tool gate is the
 /// sandbox, not a per-tool deny list; and <see cref="AgentSessionOptions.SystemPrompt"/> travels as a
-/// leading block of the prompt, since <c>codex exec</c> has no measured flag for one.</para>
+/// leading block of the prompt, since <c>codex exec</c> has no measured flag for one.
+/// <see cref="AgentSessionOptions.ResumeToken"/> used to be a third — it is HONOURED as of 2026-08-05, when
+/// <c>codex exec resume</c> was measured; see <see cref="StreamAsync"/> for the one token shape it still
+/// refuses.</para>
 /// </remarks>
 public sealed class CodexAgentSession : IAgentSession
 {
@@ -68,22 +70,26 @@ public sealed class CodexAgentSession : IAgentSession
     }
 
     /// <summary>Run one codex turn and stream what the agent does.</summary>
-    /// <param name="options">The turn. A non-null <see cref="AgentSessionOptions.ResumeToken"/> is REFUSED
-    /// without spawning — a single <see cref="SessionEnded"/> with
-    /// <see cref="LlmVerdict.Unsupported"/>. codex's resume shape is unmeasured here, and this CLI's usage is
-    /// <c>codex [OPTIONS] [PROMPT]</c>, so a guessed resume subcommand would be read as a PROMPT and spend a
-    /// turn answering the thread id; silently ignoring the token would instead start a FRESH session and drop
-    /// the conversation. Refusing is the only option that neither lies nor costs money.</param>
+    /// <param name="options">The turn. A non-null <see cref="AgentSessionOptions.ResumeToken"/> CONTINUES the
+    /// thread it names: the argv becomes <c>codex exec resume … &lt;SESSION_ID&gt; -</c>, measured against
+    /// codex-cli 0.146.0 on 2026-08-05 (<c>resume</c> is a real subcommand of <c>exec</c>, the id is its first
+    /// POSITIONAL, and the <c>-</c> stdin marker takes the PROMPT position after it — see
+    /// <see cref="CodexExecArgs.TryBuildResume"/>). The one token shape still REFUSED without spawning — a
+    /// single <see cref="SessionEnded"/> with <see cref="LlmVerdict.Unsupported"/> — is one the CLI would read
+    /// as an OPTION rather than as an id (blank, or starting with <c>-</c> such as its own <c>--last</c>),
+    /// because forwarding it would silently resume the WRONG thread.
+    /// <para>Whether codex re-announces <c>thread.started</c> on a resumed turn is NOT measured, so a resumed
+    /// turn's <see cref="SessionEnded.SessionId"/> may be null where a fresh one's is set. Nothing is
+    /// fabricated to cover that: a caller resuming already holds the id it passed in, and echoing it back
+    /// would report a request as an observation (the same reason <see cref="UsageFinal.Model"/> is null
+    /// here).</para></param>
     /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
         AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (options.ResumeToken is { Length: > 0 })
+        if (!CodexAgentArgs.TryBuild(options, out var agentArgs, out var refusal))
         {
-            yield return new SessionEnded(LlmVerdict.Unsupported, true, "resume-unsupported", null, null,
-                "codex-cli resume is not supported by this session: its resume command shape has not been " +
-                "measured, and `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a prompt, so a " +
-                "guess would silently spend a turn. Start a fresh session and replay the history in the prompt.");
+            yield return new SessionEnded(LlmVerdict.Unsupported, true, "resume-token-invalid", null, null, refusal);
             yield break;
         }
 
@@ -96,7 +102,7 @@ public sealed class CodexAgentSession : IAgentSession
         }
 
         var (exe, prefixArgs) = CodexCommand.Resolve(_command);
-        var argv = prefixArgs.Concat(CodexAgentArgs.Build(options)).ToList();
+        var argv = prefixArgs.Concat(agentArgs).ToList();
         var timeout = _options.ResolveTimeout(options.TimeoutSeconds);
 
         var reader = new CodexAgentReader();

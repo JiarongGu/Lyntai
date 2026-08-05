@@ -179,6 +179,17 @@ routing, fallback, and the ops layer come along silently:
 IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient();
 ```
 
+`IChatClient` has no verdict — it returns a response or throws — so the bridge throws
+**`LlmVerdictException`** (deriving from `InvalidOperationException`) carrying the `Verdict` that caused it.
+That matters for one verdict in particular: `NotConfigured` means *never set up*, so a host can offer setup
+instead of reporting an error, and through this bridge that would otherwise be recoverable only by parsing
+the message text.
+
+```csharp
+try { var response = await chat.GetResponseAsync(messages, ct); }
+catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { ShowSetup(ex.Detail); }
+```
+
 ### The semantics you're getting (design §6)
 
 - **Fallback router:** candidates are deduped and tried in order; `Failed`/`Timeout` advances,

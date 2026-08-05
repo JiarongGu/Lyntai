@@ -52,8 +52,30 @@ public interface ICuratedMemoryStore
     /// <paramref name="enabled"/> and <paramref name="kind"/> use COALESCE semantics (null = leave unchanged);
     /// <paramref name="kind"/> RE-CATEGORISES in place (keeps the id + <c>created_at</c>). <paramref name="metadata"/>
     /// is null = leave unchanged, or a non-null map REPLACES the whole metadata set (an empty map clears it).
-    /// Returns whether a row was updated.</summary>
+    /// <para><paramref name="taskKey"/>/<paramref name="scope"/> RE-SCOPE in place the same way <paramref name="kind"/>
+    /// re-categorises (same id, same <c>created_at</c>) — so retargeting an entry at another consumer or variant
+    /// is an edit, not delete+re-add. Null = leave unchanged, as everywhere else here; the EMPTY STRING is the
+    /// CLEAR sentinel, resetting the field to null ("applies everywhere" — see <see cref="ForCompositionAsync"/>),
+    /// because a plain null is already spoken for. That is this interface's established convention for a
+    /// nullable-string field (the retired <c>source</c>/<c>title</c> params cleared on <c>""</c> too) and it
+    /// mirrors the empty <paramref name="metadata"/> map; it destroys no legitimate value either, since an
+    /// empty scope ALREADY reads as "every scope" in composition and an entry keyed to a task literally named
+    /// <c>""</c> could never be composed. The sentinel is UPDATE-only — <see cref="AddAsync"/> stores what it
+    /// is given, since there a plain null already means "everywhere".</para>
+    /// <para>An identity-mutating update REFUSES a collision rather than creating one.
+    /// <c>(kind, content, taskKey, scope)</c> is the dedup identity of <see cref="AddAsync"/>, so moving an entry
+    /// onto an identity a DIFFERENT entry already holds would mint exactly the duplicate <c>dedup: true</c>
+    /// promises not to create — silently. Such an update is refused: NOTHING is written (not even the
+    /// non-identity fields carried on the same call) and it returns false. Merging the two entries was rejected —
+    /// it would silently destroy one of them. The check runs only when the resulting identity actually DIFFERS
+    /// from the entry's current one, so an <paramref name="enabled"/>/<paramref name="metadata"/>-only edit never
+    /// refuses, a same-value re-set is a no-op rather than a self-collision, and the duplicates
+    /// <c>dedup: false</c> legitimately allows stay editable. Like <see cref="AddAsync"/>'s dedup it is a
+    /// pre-write identity check rather than a unique index, so it is BEST-EFFORT under CONCURRENT writers.</para>
+    /// <para>Returns whether a row was updated — so false means "nothing changed" for EITHER reason: no such id,
+    /// or a refused collision. <see cref="GetAsync"/> tells them apart.</para></summary>
     Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
+        string? taskKey = null, string? scope = null,
         IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default);
 
     /// <summary>Delete an entry. Returns whether one was removed.</summary>

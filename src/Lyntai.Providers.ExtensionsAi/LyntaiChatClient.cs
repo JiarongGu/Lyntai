@@ -7,9 +7,10 @@ namespace Lyntai.Providers.ExtensionsAi;
 /// <summary>
 /// The reverse bridge: expose a whole Lyntai composition AS a <see cref="IChatClient"/>, so any
 /// MEAI-speaking application can adopt Lyntai as its chat provider and silently gain routing,
-/// fallback, dead-host cooldown, and the ops layer. Non-Ok verdicts surface as exceptions
-/// (MEAI's failure idiom), except <see cref="LlmVerdict.Refused"/> which maps to a
-/// <see cref="ChatFinishReason.ContentFilter"/> response.
+/// fallback, dead-host cooldown, and the ops layer. Non-Ok verdicts surface as an
+/// <see cref="LlmVerdictException"/> (MEAI's failure idiom, with the verdict still readable — an
+/// <see cref="ChatResponse"/> has nowhere to carry one), except <see cref="LlmVerdict.Refused"/> which
+/// maps to a <see cref="ChatFinishReason.ContentFilter"/> response.
 /// </summary>
 internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
 {
@@ -29,7 +30,10 @@ internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
                 FinishReason = ChatFinishReason.ContentFilter,
                 Usage = MapUsage(reply.Usage),
             },
-            _ => throw new InvalidOperationException($"lyntai: {reply.Verdict} — {reply.Detail}"),
+            // LlmVerdictException, not a bare InvalidOperationException (which it derives from, so every
+            // existing catch still catches): the verdict has to survive the crossing — a host answers
+            // NotConfigured with a setup prompt, not an error report. The MESSAGE is unchanged on purpose.
+            _ => throw new LlmVerdictException(reply.Verdict, reply.Detail),
         };
     }
 
@@ -50,7 +54,8 @@ internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
                     };
                     break;
                 case LlmChunkKind.Error:
-                    throw new InvalidOperationException($"lyntai: {chunk.Verdict} — {chunk.Detail}");
+                    // same type, same message shape as the buffered path above — the two must not diverge
+                    throw new LlmVerdictException(chunk.Verdict, chunk.Detail);
             }
         }
     }
@@ -140,6 +145,9 @@ internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
 /// unchanged, and routing, fallback, dead-host cooldown and the ops layer come along underneath it.</summary>
 public static class LyntaiChatClientExtensions
 {
-    /// <summary>Expose this Lyntai composition as a Microsoft.Extensions.AI <see cref="IChatClient"/>.</summary>
+    /// <summary>Expose this Lyntai composition as a Microsoft.Extensions.AI <see cref="IChatClient"/>.
+    /// A non-Ok outcome throws <see cref="LlmVerdictException"/> (an <see cref="InvalidOperationException"/>
+    /// carrying the <see cref="LlmVerdict"/>), except <see cref="LlmVerdict.Refused"/>, which comes back as a
+    /// <see cref="ChatFinishReason.ContentFilter"/> response rather than an exception.</summary>
     public static IChatClient AsChatClient(this ILlmClient client) => new LyntaiChatClient(client);
 }

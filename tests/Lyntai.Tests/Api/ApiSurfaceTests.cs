@@ -13,6 +13,11 @@ namespace Lyntai.Tests.Api;
 ///
 /// To update a baseline after an intentional change: delete the file and re-run (it re-seeds), or copy
 /// the emitted <c>.actual</c> file over it. Baselines seed automatically on first run.
+///
+/// <para>This test proves only that the surface still EQUALS its baseline — never that the rendering can
+/// SEE a given break. That second half is <see cref="ApiSurfaceRendererTests"/>, and it is not optional:
+/// a detail <see cref="ApiSurface"/> does not render has no place in the baseline at all, so a break in
+/// it passes here silently rather than failing.</para>
 /// </summary>
 public class ApiSurfaceTests
 {
@@ -31,8 +36,10 @@ public class ApiSurfaceTests
         "Lyntai.Generation",
     ];
 
-    // anchor a known public type from each assembly so it's loaded + resolvable by simple name
-    private static readonly Dictionary<string, System.Reflection.Assembly> Loaded = new()
+    // anchor a known public type from each assembly so it's loaded + resolvable by simple name.
+    // internal rather than private so ApiSurfaceRendererTests gates the SAME set this test does — a
+    // separate list would drift, and the assembly it stopped covering would be the silent one.
+    internal static readonly Dictionary<string, System.Reflection.Assembly> Loaded = new()
     {
         ["Lyntai.Core"] = typeof(ILlmProvider).Assembly,
         ["Lyntai.Providers.Default"] = typeof(Lyntai.Providers.ClaudeCli.ClaudeCliProvider).Assembly,

@@ -8,13 +8,35 @@ namespace Lyntai.Providers.CodexCli;
 /// <para>Two neutral options have no measured codex flag, and each is handled explicitly rather than
 /// silently: <see cref="AgentSessionOptions.SystemPrompt"/> is PREPENDED to the prompt (see
 /// <see cref="BuildPrompt"/>), and <see cref="AgentSessionOptions.DisallowedTools"/> is reported by
-/// <see cref="CodexAgentSession"/> as unhonoured — codex's tool gate is the sandbox, not a deny list.</para></summary>
+/// <see cref="CodexAgentSession"/> as unhonoured — codex's tool gate is the sandbox, not a deny list.
+/// <see cref="AgentSessionOptions.ResumeToken"/> is no longer one of them: <c>exec resume</c> was measured on
+/// 2026-08-05 and is honoured (see <see cref="CodexExecArgs.TryBuildResume"/>).</para></summary>
 internal static class CodexAgentArgs
 {
-    /// <summary>Build the argv for a codex agent session. The prompt is NOT included — it travels on stdin
-    /// (the trailing <c>-</c> in the argv is what tells codex to read it there).</summary>
-    public static IReadOnlyList<string> Build(AgentSessionOptions options) =>
-        CodexExecArgs.Build(SandboxFor(options), options.Model);
+    /// <summary>Build the argv for a codex agent session, or REFUSE the turn. The prompt is NOT included — it
+    /// travels on stdin (the trailing <c>-</c> in the argv is what tells codex to read it there).
+    ///
+    /// <para>The only refusal is a <see cref="AgentSessionOptions.ResumeToken"/> the CLI would read as an
+    /// OPTION rather than as a session id; every other neutral option either maps or is reported as
+    /// unhonoured. Building the resume argv through <see cref="CodexExecArgs"/> is what keeps the resumed
+    /// invocation flag-for-flag identical to the fresh one.</para></summary>
+    /// <param name="options">The turn.</param>
+    /// <param name="args">The argv, or empty when refused.</param>
+    /// <param name="refusal">Why the turn cannot be spawned, or null when it can.</param>
+    public static bool TryBuild(AgentSessionOptions options, out IReadOnlyList<string> args, out string? refusal)
+    {
+        if (options.ResumeToken is { Length: > 0 })
+        {
+            var built = CodexExecArgs.TryBuildResume(
+                SandboxFor(options), options.Model, options.ResumeToken, out var resumeArgs, out refusal);
+            args = resumeArgs;
+            return built;
+        }
+
+        args = CodexExecArgs.Build(SandboxFor(options), options.Model);
+        refusal = null;
+        return true;
+    }
 
     /// <summary>The <c>--sandbox</c> value: an explicit <see cref="CodexAgentOptions.SandboxMode"/> wins,
     /// otherwise the neutral <see cref="AgentToolPolicy"/> maps onto codex's measured sandbox values. The

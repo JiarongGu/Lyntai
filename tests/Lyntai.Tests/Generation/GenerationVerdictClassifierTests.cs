@@ -50,13 +50,17 @@ public class GenerationVerdictClassifierTests
     }
 
     [Fact]
-    public void A_context_window_verdict_has_no_media_meaning_and_becomes_Failed()
+    public void A_context_window_failure_lands_on_the_nearest_media_MEANING_a_capability_gap()
     {
-        // the ONE member with no media counterpart, and it collapses DELIBERATELY rather than by omission:
-        // Unsupported would describe it better and route better, but GenerationRouter does not report a
-        // blameless verdict over a real failure, so "your prompt is too long" — the one thing the caller can
-        // actually act on — would be swallowed when it is the only thing that went wrong. See DECISIONS D43.
-        Assert.Equal(GenerationVerdict.Failed, GenerationVerdictClassifier.FromErrorText("maximum context length exceeded"));
+        // the ONE member with no media counterpart. It collapsed to Failed until GenerationRouter learned to
+        // report a blameless reason when nothing substantive failed (TASKS Part 40): "too long for THIS
+        // backend" is a capability gap, and as Failed it took PenalizeAndAdvance, so repeated oversized
+        // prompts benched a perfectly healthy backend. Reportability is what kept it there, and the router
+        // now supplies it — which is why the order of those two changes was load-bearing (DECISIONS D43).
+        var verdict = GenerationVerdictClassifier.FromErrorText("maximum context length exceeded");
+
+        Assert.Equal(GenerationVerdict.Unsupported, verdict);
+        Assert.Equal(GenerationFallbackAction.Advance, new GenerationRoutingPolicy().ActionFor(verdict));
     }
 
     [Fact]
@@ -153,8 +157,9 @@ public class GenerationVerdictClassifierTests
             [LlmVerdict.NotConfigured] = GenerationVerdict.NotConfigured,  // blameless in both domains
             [LlmVerdict.Unsupported] = GenerationVerdict.Unsupported,      // ditto — a capability gap
             [LlmVerdict.Failed] = GenerationVerdict.Failed,
-            // the only member with no media counterpart; Failed keeps it REPORTABLE (DECISIONS D43)
-            [LlmVerdict.ContextWindowExceeded] = GenerationVerdict.Failed,
+            // the only member with no media counterpart; the nearest MEANING is a capability gap, which the
+            // router can now report as well as advance past blamelessly (DECISIONS D43 → TASKS Part 40)
+            [LlmVerdict.ContextWindowExceeded] = GenerationVerdict.Unsupported,
         };
 
         Assert.Equal(Enum.GetValues<LlmVerdict>().OrderBy(v => v), expected.Keys.OrderBy(v => v));

@@ -5,24 +5,24 @@ sealed class Lyntai.Generation.Providers.Automatic1111Options
     DefaultHeight : Int32
     DefaultWidth : Int32
     DenoisingStrength : Double
-    Equals(Automatic1111Options) : Boolean
-    Equals(Object) : Boolean
+    Equals(Automatic1111Options other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : String
     Steps : Int32
     Timeout : TimeSpan
     ToString() : String
 sealed class Lyntai.Generation.Providers.Automatic1111Provider
-    .ctor(Automatic1111Options, Func<HttpClient>, Boolean=)
+    .ctor(Automatic1111Options options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     Capabilities : GenerationCapabilities
-    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
-    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
+    ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
 sealed class Lyntai.Generation.Providers.ComfyUiOptions
     .ctor()
     BaseUrl : String required
-    Equals(ComfyUiOptions) : Boolean
-    Equals(Object) : Boolean
+    Equals(ComfyUiOptions other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     HistoryPath : String
     Id : String
@@ -36,22 +36,22 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     ViewPath : String
     WorkflowOption : String
 sealed class Lyntai.Generation.Providers.ComfyUiProvider
-    .ctor(ComfyUiOptions, Func<HttpClient>, Boolean=)
-    CancelAsync(String, CancellationToken=) : Task<GenerationOperation>
+    .ctor(ComfyUiOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
     Capabilities : GenerationCapabilities
-    FetchAsync(String, CancellationToken=) : Task<GenerationResult>
-    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
+    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
-    PollAsync(String, CancellationToken=) : Task<GenerationOperation>
-    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
-    SubmitAsync(GenerationRequest, CancellationToken=) : Task<GenerationOperation>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
+    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
 sealed class Lyntai.Generation.Providers.FalQueueOptions
     .ctor()
     ApiKey : String
     BaseUrl : String
     CancelSegment : String
-    Equals(FalQueueOptions) : Boolean
-    Equals(Object) : Boolean
+    Equals(FalQueueOptions other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : String
     Kinds : IReadOnlyList<String>
@@ -62,15 +62,15 @@ sealed class Lyntai.Generation.Providers.FalQueueOptions
     ToString() : String
     WebhookQueryParameter : String
 sealed class Lyntai.Generation.Providers.FalQueueProvider
-    .ctor(FalQueueOptions, Func<HttpClient>, Boolean=)
-    CancelAsync(String, CancellationToken=) : Task<GenerationOperation>
+    .ctor(FalQueueOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
     Capabilities : GenerationCapabilities
-    FetchAsync(String, CancellationToken=) : Task<GenerationResult>
-    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
+    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
-    PollAsync(String, CancellationToken=) : Task<GenerationOperation>
-    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
-    SubmitAsync(GenerationRequest, CancellationToken=) : Task<GenerationOperation>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
+    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
 sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     .ctor()
     BinaryPath : String
@@ -83,33 +83,33 @@ sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     Timeout : TimeSpan
     WorkDirectory : String
 sealed class Lyntai.Generation.Providers.LocalDiffusionProvider
-    .ctor(LocalDiffusionOptions, IProcessRunner)
+    .ctor(LocalDiffusionOptions options, IProcessRunner runner)
     Capabilities : GenerationCapabilities
-    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
-    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
+    ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
 sealed class Lyntai.Generation.Providers.OpenAiImageOptions
     .ctor()
     ApiKey : String
     BaseUrl : String required
     DefaultSize : String
-    Equals(Object) : Boolean
-    Equals(OpenAiImageOptions) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(OpenAiImageOptions other) : Boolean
     GetHashCode() : Int32
     Id : String
     Model : String
     Timeout : TimeSpan
     ToString() : String
 sealed class Lyntai.Generation.Providers.OpenAiImageProvider
-    .ctor(OpenAiImageOptions, Func<HttpClient>, Boolean=)
+    .ctor(OpenAiImageOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     Capabilities : GenerationCapabilities
-    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
-    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
+    ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
 static class Lyntai.GenerationProviderBuilderExtensions
-    static AddAutomatic1111Provider(LyntaiBuilder, Automatic1111Options, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-    static AddComfyUiProvider(LyntaiBuilder, ComfyUiOptions, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-    static AddFalProvider(LyntaiBuilder, FalQueueOptions, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-    static AddLocalDiffusionProvider(LyntaiBuilder, LocalDiffusionOptions, Func<IServiceProvider,IProcessRunner>=) : LyntaiBuilder
-    static AddOpenAiImageProvider(LyntaiBuilder, OpenAiImageOptions, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
-    static HttpClientName(String) : String
+    static AddAutomatic1111Provider(LyntaiBuilder builder, Automatic1111Options options, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddComfyUiProvider(LyntaiBuilder builder, ComfyUiOptions options, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddFalProvider(LyntaiBuilder builder, FalQueueOptions options, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddLocalDiffusionProvider(LyntaiBuilder builder, LocalDiffusionOptions options, Func<IServiceProvider,IProcessRunner> runner = null) : LyntaiBuilder
+    static AddOpenAiImageProvider(LyntaiBuilder builder, OpenAiImageOptions options, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static HttpClientName(String id) : String

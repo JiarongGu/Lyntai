@@ -73,6 +73,109 @@ public static class CuratedMemoryStoreContract
         Assert.DoesNotContain(id, (await store.ListAsync(kind: fromKind)).Select(e => e.Id));
     }
 
+    /// <summary>CMEM7 — <see cref="ICuratedMemoryStore.UpdateAsync"/>'s optional <c>taskKey</c>/<c>scope</c>
+    /// RE-SCOPE an entry IN PLACE (same id, same created_at), the half of "move it" that <c>kind</c> already
+    /// had: null leaves the field alone, the EMPTY STRING clears it back to null ("applies everywhere").
+    /// Task-parameterized so the Postgres shared container can run it isolated.</summary>
+    public static async Task Update_can_rescope_task_and_scope_in_place(ICuratedMemoryStore store,
+        string fromTask = "rescope-from", string toTask = "rescope-to")
+    {
+        // content is part of the dedup identity, so keep it unique per run too — this entry ends up at
+        // (glossary, body, null, null), which a second run on the shared container would otherwise collide with
+        var body = $"a term worth moving [{fromTask}]";
+        var id = await store.AddAsync("glossary", body,
+            taskKey: fromTask, scope: "lang:zh", metadata: Meta(("source", "import")));
+        var created = (await store.GetAsync(id))!.CreatedAt;
+
+        // retarget the task in place — id, created_at, content, metadata and the untouched scope all survive
+        Assert.True(await store.UpdateAsync(id, taskKey: toTask));
+        var moved = (await store.GetAsync(id))!;
+        Assert.Equal(toTask, moved.TaskKey);
+        Assert.Equal("lang:zh", moved.Scope);                  // null scope argument = unchanged
+        Assert.Equal(body, moved.Content);
+        Assert.Equal("import", moved.Metadata?["source"]);
+        Assert.Equal(created, moved.CreatedAt);                // same row, not a new one
+
+        // …and the strict-equality admin filter follows it
+        Assert.Contains(id, (await store.ListAsync(taskKey: toTask)).Select(e => e.Id));
+        Assert.DoesNotContain(id, (await store.ListAsync(taskKey: fromTask)).Select(e => e.Id));
+
+        // the scope moves the same way, leaving the task alone
+        Assert.True(await store.UpdateAsync(id, scope: "lang:ja"));
+        moved = (await store.GetAsync(id))!;
+        Assert.Equal("lang:ja", moved.Scope);
+        Assert.Equal(toTask, moved.TaskKey);
+
+        // null = leave unchanged (COALESCE), exactly like kind: a content-only edit keeps both
+        Assert.True(await store.UpdateAsync(id, content: body + " (edited)"));
+        moved = (await store.GetAsync(id))!;
+        Assert.Equal(toTask, moved.TaskKey);
+        Assert.Equal("lang:ja", moved.Scope);
+
+        // the EMPTY STRING is the clear sentinel (null already means "leave unchanged"): scope → every scope
+        Assert.True(await store.UpdateAsync(id, scope: ""));
+        Assert.Null((await store.GetAsync(id))!.Scope);
+        Assert.Contains(id, (await store.ForCompositionAsync(toTask, ["lang:de"])).Select(e => e.Id));
+
+        // …and taskKey → every task, which ForCompositionAsync now honours from the OLD task too
+        Assert.True(await store.UpdateAsync(id, taskKey: ""));
+        Assert.Null((await store.GetAsync(id))!.TaskKey);
+        Assert.Contains(id, (await store.ForCompositionAsync(fromTask, [])).Select(e => e.Id));
+        Assert.DoesNotContain(id, (await store.ListAsync(taskKey: toTask)).Select(e => e.Id)); // strict admin filter
+    }
+
+    /// <summary>CMEM7 — the semantics that made re-scoping wait: <c>(kind, content, taskKey, scope)</c> is the
+    /// dedup identity, so an update that would move an entry ONTO an identity another entry already holds is
+    /// REFUSED (returns false, writes nothing) instead of silently minting the duplicate
+    /// <c>AddAsync(dedup: true)</c> promises not to create. All FOUR identity fields are pinned — <c>kind</c>
+    /// had the hole before <c>taskKey</c>/<c>scope</c> existed. Parameterized for the shared container.</summary>
+    public static async Task Update_refuses_an_identity_collision(ICuratedMemoryStore store,
+        string task = "collide", string kind = "confirmed", string otherKind = "pitfall")
+    {
+        var atZh = await store.AddAsync(kind, "the selector is .price", taskKey: task, scope: "site:zh");
+        var atJa = await store.AddAsync(kind, "the selector is .price", taskKey: task, scope: "site:ja");
+
+        // moving atJa onto atZh's identity would duplicate it → refused, and atJa is untouched
+        Assert.False(await store.UpdateAsync(atJa, scope: "site:zh"));
+        Assert.Equal("site:ja", (await store.GetAsync(atJa))!.Scope);
+        Assert.Equal(2, (await store.ListAsync(kind: kind, taskKey: task)).Count);
+
+        // the same for each of the other three identity fields
+        var otherTask = task + "-b";
+        var elsewhere = await store.AddAsync(kind, "the selector is .price", taskKey: otherTask, scope: "site:zh");
+        Assert.False(await store.UpdateAsync(elsewhere, taskKey: task));           // taskKey collision
+        Assert.Equal(otherTask, (await store.GetAsync(elsewhere))!.TaskKey);
+
+        var miscategorised = await store.AddAsync(otherKind, "the selector is .price", taskKey: task, scope: "site:zh");
+        Assert.False(await store.UpdateAsync(miscategorised, kind: kind));         // kind collision (the older hole)
+        Assert.Equal(otherKind, (await store.GetAsync(miscategorised))!.Kind);
+
+        var otherBody = await store.AddAsync(kind, "the selector is .sku", taskKey: task, scope: "site:zh");
+        Assert.False(await store.UpdateAsync(otherBody, content: "the selector is .price")); // content collision
+        Assert.Equal("the selector is .sku", (await store.GetAsync(otherBody))!.Content);
+
+        // a refusal writes NOTHING — not even the non-identity fields carried on the same call
+        Assert.False(await store.UpdateAsync(atJa, scope: "site:zh", enabled: false, metadata: Meta(("x", "1"))));
+        var untouched = (await store.GetAsync(atJa))!;
+        Assert.True(untouched.Enabled);
+        Assert.Null(untouched.Metadata);
+
+        // the promise the refusal protects: the identity still resolves to exactly ONE row under dedup
+        Assert.Equal(atZh, await store.AddAsync(kind, "the selector is .price", taskKey: task, scope: "site:zh", dedup: true));
+
+        // a move to a FREE identity is allowed — refusing is about collisions, not about re-scoping
+        Assert.True(await store.UpdateAsync(atJa, scope: "site:de"));
+        Assert.Equal("site:de", (await store.GetAsync(atJa))!.Scope);
+
+        // the check fires only when the identity MOVES: a duplicate that dedup:false legitimately created stays
+        // editable, and re-setting a field to the value it already has is a no-op, not a self-collision
+        var twin = await store.AddAsync(kind, "the selector is .price", taskKey: task, scope: "site:zh");
+        Assert.NotEqual(atZh, twin);
+        Assert.True(await store.UpdateAsync(twin, enabled: false));
+        Assert.False((await store.GetAsync(twin))!.Enabled);
+        Assert.True(await store.UpdateAsync(twin, scope: "site:zh", content: "the selector is .price"));
+    }
+
     /// <summary>Kind-parameterized for the shared Postgres container; the cross-kind enabled filter is
     /// asserted by CONTAINMENT (a table-wide count would see other tests' rows there).</summary>
     public static async Task List_filters_by_kind_and_enabled(ICuratedMemoryStore store,

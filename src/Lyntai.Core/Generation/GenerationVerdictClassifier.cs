@@ -70,18 +70,20 @@ public static class GenerationVerdictClassifier
     /// CHANGES its fallback semantics. That is intended — each policy is right for its own domain — but it is
     /// invisible at the call site, so do not read a translated verdict as "the same thing will happen".</para>
     /// <para><see cref="LlmVerdict.ContextWindowExceeded"/> is the only member with no media counterpart, and
-    /// it collapses to <see cref="GenerationVerdict.Failed"/> DELIBERATELY rather than by omission
-    /// (<c>docs/DECISIONS.md</c> D43). <see cref="GenerationVerdict.Unsupported"/> would both describe and
-    /// route it better, but <see cref="Routing.GenerationRouter"/> deliberately never REPORTS a blameless
-    /// verdict over a real failure — so "your prompt is too long for this backend", the one thing the caller
-    /// can actually act on, would be swallowed exactly when it is the only thing that went wrong.
-    /// <b>The price of keeping it reportable is real and is not zero:</b> <see cref="GenerationVerdict.Failed"/>
-    /// carries <see cref="Routing.GenerationFallbackAction.PenalizeAndAdvance"/>, so repeated oversized prompts
-    /// count toward the dead-host threshold and can bench a perfectly healthy backend — the same harm the
-    /// <see cref="LlmVerdict.Unsupported"/> arm above exists to prevent, one member along. The LLM domain has
-    /// no such tension (it maps this verdict to <see cref="Llm.Routing.FallbackAction.Advance"/>), so the two
-    /// domains genuinely disagree here until a verdict that is BOTH blameless and reportable exists. Tracked in
-    /// <c>TASKS.md</c> Part 40.</para>
+    /// it maps to <see cref="GenerationVerdict.Unsupported"/>: "this prompt is too big for THIS backend" is a
+    /// capability gap, not ill health, so it must ADVANCE without counting toward the dead-host threshold —
+    /// the same harm the <see cref="LlmVerdict.Unsupported"/> arm above prevents, one member along. Both
+    /// domains now answer it the same way (<see cref="Llm.Routing.FallbackAction.Advance"/> there,
+    /// <see cref="Routing.GenerationFallbackAction.Advance"/> here).</para>
+    /// <para><b>It collapsed to <see cref="GenerationVerdict.Failed"/> until 2026-08-05, and only a ROUTER
+    /// change made this arm safe — so do not undo half of it</b> (<c>docs/DECISIONS.md</c> D43 filed the
+    /// trade; <c>TASKS.md</c> Part 40 closed it). <see cref="Routing.GenerationRouter"/> still never reports a
+    /// blameless verdict OVER a real failure, but it used to not report one at ALL — so a blameless mapping
+    /// swallowed "your prompt is too long", the one thing the caller can act on, exactly when it was the only
+    /// thing that went wrong. The router now keeps a second slot for the first blameless result that explained
+    /// itself and reports it when nothing substantive failed, which is what lets a verdict be blameless AND
+    /// reportable. Moving an arm into the blameless pair before that rule exists just swaps one cost for the
+    /// other.</para>
     /// <para><b>The discard covers undefined numeric values only, and returns <c>null</c> so a missing arm is
     /// detectable.</b> C# cannot make a switch over an enum exhaustive (<c>(LlmVerdict)99</c> is a legal
     /// value), so a discard is mandatory and the compiler can never be the growth gate: dropping it buys
@@ -112,8 +114,9 @@ public static class GenerationVerdictClassifier
         LlmVerdict.NotConfigured => GenerationVerdict.NotConfigured,
         LlmVerdict.Unsupported => GenerationVerdict.Unsupported,
         LlmVerdict.Failed => GenerationVerdict.Failed,
-        // stated explicitly so the discard holds nothing but undefined values — see the doc above
-        LlmVerdict.ContextWindowExceeded => GenerationVerdict.Failed,
+        // no media counterpart, so it lands on the nearest media MEANING (a capability gap) rather than on
+        // the nearest severity — see the doc above for why that needed the router's blameless slot first
+        LlmVerdict.ContextWindowExceeded => GenerationVerdict.Unsupported,
         _ => null,
     };
 }

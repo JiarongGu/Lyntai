@@ -1,15 +1,15 @@
 static class Lyntai.Agents.AgentSessionExtensions
-    static RunAsync(IAgentSession, AgentSessionOptions, Action<AgentStreamEvent>=, CancellationToken=) : Task<AgentSessionResult>
+    static RunAsync(IAgentSession session, AgentSessionOptions options, Action<AgentStreamEvent> onEvent = null, CancellationToken ct = default) : Task<AgentSessionResult>
 class Lyntai.Agents.AgentSessionOptions
     .ctor()
-    .ctor(AgentSessionOptions)
+    .ctor(AgentSessionOptions original)
     DisallowedTools : IReadOnlyList<String>
     EqualityContract : Type
-    Equals(AgentSessionOptions) : Boolean
-    Equals(Object) : Boolean
+    Equals(AgentSessionOptions other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Model : String
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     Prompt : String required
     ResumeToken : String
     SystemPrompt : String
@@ -18,11 +18,11 @@ class Lyntai.Agents.AgentSessionOptions
     ToolPolicy : AgentToolPolicy
     WorkingDirectory : String
 sealed class Lyntai.Agents.AgentSessionResult
-    .ctor(String, String, LlmVerdict, Boolean, String, String, UsageFinal)
-    Deconstruct(String&, String&, LlmVerdict&, Boolean&, String&, String&, UsageFinal&) : Void
+    .ctor(String SessionId, String FinalText, LlmVerdict Verdict, Boolean IsError, String Subtype, String Diagnostic, UsageFinal Usage)
+    Deconstruct(String& SessionId, String& FinalText, LlmVerdict& Verdict, Boolean& IsError, String& Subtype, String& Diagnostic, UsageFinal& Usage) : Void
     Diagnostic : String
-    Equals(AgentSessionResult) : Boolean
-    Equals(Object) : Boolean
+    Equals(AgentSessionResult other) : Boolean
+    Equals(Object obj) : Boolean
     FinalText : String
     GetHashCode() : Int32
     IsError : Boolean
@@ -33,28 +33,28 @@ sealed class Lyntai.Agents.AgentSessionResult
     Verdict : LlmVerdict
 abstract class Lyntai.Agents.AgentStreamEvent
     .ctor()
-    .ctor(AgentStreamEvent)
+    .ctor(AgentStreamEvent original)
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 enum Lyntai.Agents.AgentToolPolicy
     ReadOnly : AgentToolPolicy const
     Write : AgentToolPolicy const
     value__ : Int32
 sealed class Lyntai.Agents.ChatOrchestrator
-    .ctor(ILlmClient, IToolLoop, IToolRegistry, IGuardRail, IPromptComposer, IMemoryStore=, ISemanticMemory=, ILogger<ChatOrchestrator>=)
-    ChatAsync(ChatTurn, CancellationToken=) : Task<ChatResult>
+    .ctor(ILlmClient llm, IToolLoop toolLoop, IToolRegistry tools, IGuardRail guards, IPromptComposer composer, IMemoryStore memory = null, ISemanticMemory semantic = null, ILogger<ChatOrchestrator> logger = null)
+    ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
 sealed class Lyntai.Agents.ChatResult
-    .ctor(String, LlmVerdict, Boolean, String, IReadOnlyList<ToolStep>)
+    .ctor(String Answer, LlmVerdict Verdict, Boolean Blocked, String Detail, IReadOnlyList<ToolStep> ToolSteps)
     Answer : String
     Blocked : Boolean
-    Deconstruct(String&, LlmVerdict&, Boolean&, String&, IReadOnlyList`1&) : Void
+    Deconstruct(String& Answer, LlmVerdict& Verdict, Boolean& Blocked, String& Detail, IReadOnlyList`1& ToolSteps) : Void
     Detail : String
-    Equals(ChatResult) : Boolean
-    Equals(Object) : Boolean
+    Equals(ChatResult other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Ok : Boolean
     ToString() : String
@@ -64,8 +64,8 @@ sealed class Lyntai.Agents.ChatResult
 sealed class Lyntai.Agents.ChatTurn
     .ctor()
     Consumer : String
-    Equals(ChatTurn) : Boolean
-    Equals(Object) : Boolean
+    Equals(ChatTurn other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     MemoryScope : String
     Message : String required
@@ -75,122 +75,122 @@ sealed class Lyntai.Agents.ChatTurn
     ToString() : String
     UseTools : Boolean
 sealed class Lyntai.Agents.CliToolSession
-    .ctor(IReadOnlyList<String>, Func<ValueTask>=)
+    .ctor(IReadOnlyList<String> extraArgs, Func<ValueTask> dispose = null)
     DisposeAsync() : ValueTask
     ExtraArgs : IReadOnlyList<String>
 sealed class Lyntai.Agents.FunctionTool
-    .ctor(String, Func<String,CancellationToken,Task<String>>, String=, String=)
+    .ctor(String name, Func<String,CancellationToken,Task<String>> invoke, String description = null, String parametersJsonSchema = null)
     Description : String
-    InvokeAsync(String, CancellationToken=) : Task<String>
+    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
     ParametersJsonSchema : String
 interface Lyntai.Agents.IAgentSession
-    StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
+    StreamAsync(AgentSessionOptions options, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IChatOrchestrator
-    ChatAsync(ChatTurn, CancellationToken=) : Task<ChatResult>
+    ChatAsync(ChatTurn turn, CancellationToken ct = default) : Task<ChatResult>
 interface Lyntai.Agents.ICliToolProvisioner
-    ProvisionAsync(CancellationToken=) : Task<CliToolSession>
+    ProvisionAsync(CancellationToken ct = default) : Task<CliToolSession>
 interface Lyntai.Agents.IMcpCliDialect
-    BuildArgsAsync(McpCliContext, CancellationToken=) : ValueTask<IReadOnlyList<String>>
+    BuildArgsAsync(McpCliContext context, CancellationToken ct = default) : ValueTask<IReadOnlyList<String>>
     ProviderId : String
 interface Lyntai.Agents.ITool
     Description : String
-    InvokeAsync(String, CancellationToken=) : Task<String>
+    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
     ParametersJsonSchema : String
 interface Lyntai.Agents.IToolLoop
-    RunAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : Task<ToolLoopResult>
-    StreamAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
+    RunAsync(LlmRequest req, Nullable<Int32> maxIterations = null, CancellationToken ct = default) : Task<ToolLoopResult>
+    StreamAsync(LlmRequest req, Nullable<Int32> maxIterations = null, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 interface Lyntai.Agents.IToolRegistry
-    Find(String) : ITool
+    Find(String name) : ITool
     Tools : IReadOnlyList<ITool>
 sealed class Lyntai.Agents.McpCliContext
-    .ctor(McpEndpoint, Func<String,String,String>)
+    .ctor(McpEndpoint endpoint, Func<String,String,String> writeTempFile)
     Endpoint : McpEndpoint
-    WriteTempFile(String, String) : String
+    WriteTempFile(String kind, String content) : String
 sealed class Lyntai.Agents.McpEndpoint
-    .ctor(String, String, String)
+    .ctor(String Url, String AuthToken, String ServerName)
     AuthToken : String
-    Deconstruct(String&, String&, String&) : Void
-    Equals(McpEndpoint) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& Url, String& AuthToken, String& ServerName) : Void
+    Equals(McpEndpoint other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     ServerName : String
     ToString() : String
     Url : String
 sealed class Lyntai.Agents.SessionEnded
-    .ctor(LlmVerdict, Boolean, String, String, String, String)
-    Deconstruct(LlmVerdict&, Boolean&, String&, String&, String&, String&) : Void
+    .ctor(LlmVerdict Verdict, Boolean IsError, String Subtype, String SessionId, String FinalText, String Diagnostic)
+    Deconstruct(LlmVerdict& Verdict, Boolean& IsError, String& Subtype, String& SessionId, String& FinalText, String& Diagnostic) : Void
     Diagnostic : String
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
-    Equals(SessionEnded) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(SessionEnded other) : Boolean
     FinalText : String
     GetHashCode() : Int32
     IsError : Boolean
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     SessionId : String
     Subtype : String
     ToString() : String
     Verdict : LlmVerdict
 sealed class Lyntai.Agents.SessionStarted
-    .ctor(String)
-    Deconstruct(String&) : Void
+    .ctor(String SessionId)
+    Deconstruct(String& SessionId) : Void
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
-    Equals(SessionStarted) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(SessionStarted other) : Boolean
     GetHashCode() : Int32
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     SessionId : String
     ToString() : String
 sealed class Lyntai.Agents.TextDelta
-    .ctor(String)
-    Deconstruct(String&) : Void
+    .ctor(String Text)
+    Deconstruct(String& Text) : Void
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
-    Equals(TextDelta) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(TextDelta other) : Boolean
     GetHashCode() : Int32
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     Text : String
     ToString() : String
 sealed class Lyntai.Agents.Thinking
-    .ctor(String)
-    Deconstruct(String&) : Void
+    .ctor(String Text)
+    Deconstruct(String& Text) : Void
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
-    Equals(Thinking) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(Thinking other) : Boolean
     GetHashCode() : Int32
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     Text : String
     ToString() : String
 sealed class Lyntai.Agents.ToolCall
-    .ctor(String, String, String=)
+    .ctor(String Name, String ArgumentsJson, String CallId = null)
     ArgumentsJson : String
     CallId : String
-    Deconstruct(String&, String&, String&) : Void
+    Deconstruct(String& Name, String& ArgumentsJson, String& CallId) : Void
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
-    Equals(ToolCall) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(ToolCall other) : Boolean
     GetHashCode() : Int32
     Name : String
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 sealed class Lyntai.Agents.ToolLoop
-    .ctor(ILlmClient, IToolRegistry, LyntaiOptions, ILogger<ToolLoop>=, IGuardRail=)
-    RunAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : Task<ToolLoopResult>
-    StreamAsync(LlmRequest, Nullable<Int32>=, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
+    .ctor(ILlmClient client, IToolRegistry registry, LyntaiOptions options, ILogger<ToolLoop> logger = null, IGuardRail guards = null)
+    RunAsync(LlmRequest req, Nullable<Int32> maxIterations = null, CancellationToken ct = default) : Task<ToolLoopResult>
+    StreamAsync(LlmRequest req, Nullable<Int32> maxIterations = null, CancellationToken ct = default) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Agents.ToolLoopResult
-    .ctor(String, LlmVerdict, IReadOnlyList<ToolStep>, String=)
+    .ctor(String Answer, LlmVerdict Verdict, IReadOnlyList<ToolStep> Steps, String Detail = null)
     Answer : String
-    Deconstruct(String&, LlmVerdict&, IReadOnlyList`1&, String&) : Void
+    Deconstruct(String& Answer, LlmVerdict& Verdict, IReadOnlyList`1& Steps, String& Detail) : Void
     Detail : String
-    Equals(Object) : Boolean
-    Equals(ToolLoopResult) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(ToolLoopResult other) : Boolean
     GetHashCode() : Int32
     Ok : Boolean
     Steps : IReadOnlyList<ToolStep>
@@ -198,59 +198,59 @@ sealed class Lyntai.Agents.ToolLoopResult
     Usage : LlmUsage
     Verdict : LlmVerdict
 sealed class Lyntai.Agents.ToolRegistry
-    .ctor(IEnumerable<ITool>)
-    Find(String) : ITool
+    .ctor(IEnumerable<ITool> tools)
+    Find(String name) : ITool
     Tools : IReadOnlyList<ITool>
 sealed class Lyntai.Agents.ToolResult
-    .ctor(String, String, Boolean)
+    .ctor(String CallId, String Content, Boolean IsError)
     CallId : String
     Content : String
-    Deconstruct(String&, String&, Boolean&) : Void
+    Deconstruct(String& CallId, String& Content, Boolean& IsError) : Void
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
-    Equals(ToolResult) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(ToolResult other) : Boolean
     GetHashCode() : Int32
     IsError : Boolean
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 sealed class Lyntai.Agents.ToolStep
-    .ctor(String, String, String)
+    .ctor(String Tool, String ArgumentsJson, String Result)
     ArgumentsJson : String
-    Deconstruct(String&, String&, String&) : Void
-    Equals(Object) : Boolean
-    Equals(ToolStep) : Boolean
+    Deconstruct(String& Tool, String& ArgumentsJson, String& Result) : Void
+    Equals(Object obj) : Boolean
+    Equals(ToolStep other) : Boolean
     GetHashCode() : Int32
     Result : String
     ToString() : String
     Tool : String
 sealed class Lyntai.Agents.UsageFinal
-    .ctor(Int64, Int64, Int64, Int64, String)
+    .ctor(Int64 InputTokens, Int64 OutputTokens, Int64 CacheReadTokens, Int64 CacheCreateTokens, String Model)
     CacheCreateTokens : Int64
     CacheReadTokens : Int64
-    Deconstruct(Int64&, Int64&, Int64&, Int64&, String&) : Void
+    Deconstruct(Int64& InputTokens, Int64& OutputTokens, Int64& CacheReadTokens, Int64& CacheCreateTokens, String& Model) : Void
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
-    Equals(UsageFinal) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(UsageFinal other) : Boolean
     GetHashCode() : Int32
     InputTokens : Int64
     Model : String
     OutputTokens : Int64
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 sealed class Lyntai.Agents.UsageLive
-    .ctor(Int64, Int64, Int64)
+    .ctor(Int64 InputTokens, Int64 OutputTokens, Int64 CacheReadTokens)
     CacheReadTokens : Int64
-    Deconstruct(Int64&, Int64&, Int64&) : Void
+    Deconstruct(Int64& InputTokens, Int64& OutputTokens, Int64& CacheReadTokens) : Void
     EqualityContract : Type
-    Equals(AgentStreamEvent) : Boolean
-    Equals(Object) : Boolean
-    Equals(UsageLive) : Boolean
+    Equals(AgentStreamEvent other) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(UsageLive other) : Boolean
     GetHashCode() : Int32
     InputTokens : Int64
     OutputTokens : Int64
-    PrintMembers(StringBuilder) : Boolean
+    PrintMembers(StringBuilder builder) : Boolean
     ToString() : String
 sealed class Lyntai.BudgetOptions
     .ctor()
@@ -262,71 +262,71 @@ sealed class Lyntai.CacheOptions
     MaxEntries : Int32
     Ttl : TimeSpan
 sealed class Lyntai.ConsumerBudget
-    .ctor(Nullable<Double>=, Nullable<Int64>=)
-    Deconstruct(Nullable`1&, Nullable`1&) : Void
-    Equals(ConsumerBudget) : Boolean
-    Equals(Object) : Boolean
+    .ctor(Nullable<Double> MaxCostUsd = null, Nullable<Int64> MaxTokens = null)
+    Deconstruct(Nullable`1& MaxCostUsd, Nullable`1& MaxTokens) : Void
+    Equals(ConsumerBudget other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     MaxCostUsd : Nullable<Double>
     MaxTokens : Nullable<Int64>
     ToString() : String
 sealed class Lyntai.ConsumerRate
-    .ctor(Double, Int32=)
+    .ctor(Double PermitsPerSecond, Int32 Burst = 1)
     Burst : Int32
-    Deconstruct(Double&, Int32&) : Void
-    Equals(ConsumerRate) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(Double& PermitsPerSecond, Int32& Burst) : Void
+    Equals(ConsumerRate other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     PermitsPerSecond : Double
     ToString() : String
 sealed class Lyntai.Cortex.AgreementReport
-    .ctor(Int32, Double, Double, Nullable<Double>)
+    .ctor(Int32 Count, Double ExactAgreementRate, Double MeanAbsoluteError, Nullable<Double> PearsonCorrelation)
     Count : Int32
-    Deconstruct(Int32&, Double&, Double&, Nullable`1&) : Void
-    Equals(AgreementReport) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(Int32& Count, Double& ExactAgreementRate, Double& MeanAbsoluteError, Nullable`1& PearsonCorrelation) : Void
+    Equals(AgreementReport other) : Boolean
+    Equals(Object obj) : Boolean
     ExactAgreementRate : Double
     GetHashCode() : Int32
     MeanAbsoluteError : Double
     PearsonCorrelation : Nullable<Double>
     ToString() : String
 static class Lyntai.Cortex.CuratedMemorySections
-    static AppliesTo(CuratedMemory, String, IReadOnlyCollection<String>) : Boolean
-    static Compose(IEnumerable<CuratedMemory>, Func<String,String>=, String=, String=, IEnumerable<String>=) : String
+    static AppliesTo(CuratedMemory entry, String task, IReadOnlyCollection<String> scopes) : Boolean
+    static Compose(IEnumerable<CuratedMemory> entries, Func<String,String> header = null, String bullet = "- ", String task = null, IEnumerable<String> scopes = null) : String
 interface Lyntai.Cortex.IPairwiseComparer
-    CompareAsync(String, String, String, CancellationToken=) : Task<PairwiseResult>
+    CompareAsync(String input, String outputA, String outputB, CancellationToken ct = default) : Task<PairwiseResult>
 interface Lyntai.Cortex.IPromptComposer
-    ComposeAsync(String, String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<String>
+    ComposeAsync(String basePrompt, String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<String>
 interface Lyntai.Cortex.IScorer
-    Applies(ScoreContext) : Boolean
+    Applies(ScoreContext ctx) : Boolean
     Description : String
     Group : String
     Id : String
     IsLlm : Boolean
     Name : String
-    ScoreAsync(ScoreContext, CancellationToken=) : Task<ScoreResult>
+    ScoreAsync(ScoreContext ctx, CancellationToken ct = default) : Task<ScoreResult>
 interface Lyntai.Cortex.IScoringService
-    AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
-    EvaluateAsync(ScoreContext, Boolean, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
-    EvaluateAsync(ScoreContext, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
-    ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
-    GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
+    AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
+    EvaluateAsync(ScoreContext ctx, Boolean persist, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
+    EvaluateAsync(ScoreContext ctx, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
+    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportRow>>
+    GetAsync(String sessionId, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
 interface Lyntai.Cortex.ITraceRecorder
-    CompleteAsync(CancellationToken=) : Task
-    Record(TraceStep) : Void
+    CompleteAsync(CancellationToken ct = default) : Task
+    Record(TraceStep step) : Void
     SessionId : String
 interface Lyntai.Cortex.ITraceService
-    Begin(String, String) : ITraceRecorder
-    GetAsync(String, CancellationToken=) : Task<RunTrace>
+    Begin(String sessionId, String mode) : ITraceRecorder
+    GetAsync(String sessionId, CancellationToken ct = default) : Task<RunTrace>
 static class Lyntai.Cortex.JudgeAgreement
-    static Compare(IReadOnlyList<Double>, IReadOnlyList<Double>, Int32=) : AgreementReport
+    static Compare(IReadOnlyList<Double> a, IReadOnlyList<Double> b, Int32 buckets = 2) : AgreementReport
 sealed class Lyntai.Cortex.LlmPairwiseComparer
-    .ctor(ILlmClient, Boolean=)
-    CompareAsync(String, String, String, CancellationToken=) : Task<PairwiseResult>
+    .ctor(ILlmClient llm, Boolean mitigatePositionBias = true)
+    CompareAsync(String input, String outputA, String outputB, CancellationToken ct = default) : Task<PairwiseResult>
 abstract class Lyntai.Cortex.LlmScorerBase
-    .ctor(ILlmClient)
-    Applies(ScoreContext) : Boolean
-    BuildJudgePrompt(ScoreContext) : String
+    .ctor(ILlmClient llm)
+    Applies(ScoreContext ctx) : Boolean
+    BuildJudgePrompt(ScoreContext ctx) : String
     Consumer : String
     Group : String
     Id : String
@@ -334,15 +334,15 @@ abstract class Lyntai.Cortex.LlmScorerBase
     JudgeSystemPrompt : String
     Model : String
     Name : String
-    ScoreAsync(ScoreContext, CancellationToken=) : Task<ScoreResult>
+    ScoreAsync(ScoreContext ctx, CancellationToken ct = default) : Task<ScoreResult>
 sealed class Lyntai.Cortex.MemoryPromptComposer
-    .ctor(IMemoryStore=, ISemanticMemory=, ILogger<MemoryPromptComposer>=, Int32=)
-    ComposeAsync(String, String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<String>
+    .ctor(IMemoryStore memory = null, ISemanticMemory semantic = null, ILogger<MemoryPromptComposer> logger = null, Int32 maxChars = 4000)
+    ComposeAsync(String basePrompt, String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<String>
 sealed class Lyntai.Cortex.PairwiseResult
-    .ctor(PairwiseWinner, String=)
-    Deconstruct(PairwiseWinner&, String&) : Void
-    Equals(Object) : Boolean
-    Equals(PairwiseResult) : Boolean
+    .ctor(PairwiseWinner Winner, String Reason = null)
+    Deconstruct(PairwiseWinner& Winner, String& Reason) : Void
+    Equals(Object obj) : Boolean
+    Equals(PairwiseResult other) : Boolean
     GetHashCode() : Int32
     Reason : String
     ToString() : String
@@ -355,8 +355,8 @@ enum Lyntai.Cortex.PairwiseWinner
 sealed class Lyntai.Cortex.RunTrace
     .ctor()
     EndedAt : Nullable<DateTimeOffset>
-    Equals(Object) : Boolean
-    Equals(RunTrace) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(RunTrace other) : Boolean
     GetHashCode() : Int32
     Mode : String required
     SessionId : String required
@@ -369,8 +369,8 @@ sealed class Lyntai.Cortex.RunTrace
     TraceId : String
 sealed class Lyntai.Cortex.ScoreContext
     .ctor()
-    Equals(Object) : Boolean
-    Equals(ScoreContext) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(ScoreContext other) : Boolean
     Extra : IReadOnlyDictionary<String,String>
     GetHashCode() : Int32
     Input : String
@@ -378,29 +378,29 @@ sealed class Lyntai.Cortex.ScoreContext
     SessionId : String required
     ToString() : String
 sealed class Lyntai.Cortex.ScoreExportRow
-    .ctor(String, String, Double)
-    Deconstruct(String&, String&, Double&) : Void
-    Equals(Object) : Boolean
-    Equals(ScoreExportRow) : Boolean
+    .ctor(String SessionId, String ScorerId, Double Score)
+    Deconstruct(String& SessionId, String& ScorerId, Double& Score) : Void
+    Equals(Object obj) : Boolean
+    Equals(ScoreExportRow other) : Boolean
     GetHashCode() : Int32
     Score : Double
     ScorerId : String
     SessionId : String
     ToString() : String
 sealed class Lyntai.Cortex.ScoreResult
-    .ctor(Double, String=)
-    Deconstruct(Double&, String&) : Void
-    Equals(Object) : Boolean
-    Equals(ScoreResult) : Boolean
+    .ctor(Double Score, String Reason = null)
+    Deconstruct(Double& Score, String& Reason) : Void
+    Equals(Object obj) : Boolean
+    Equals(ScoreResult other) : Boolean
     GetHashCode() : Int32
     Reason : String
     Score : Double
     ToString() : String
 sealed class Lyntai.Cortex.ScoredResult
-    .ctor(String, String, String, Boolean, Double, String=)
-    Deconstruct(String&, String&, String&, Boolean&, Double&, String&) : Void
-    Equals(Object) : Boolean
-    Equals(ScoredResult) : Boolean
+    .ctor(String ScorerId, String ScorerName, String Group, Boolean IsLlm, Double Score, String Reason = null)
+    Deconstruct(String& ScorerId, String& ScorerName, String& Group, Boolean& IsLlm, Double& Score, String& Reason) : Void
+    Equals(Object obj) : Boolean
+    Equals(ScoredResult other) : Boolean
     GetHashCode() : Int32
     Group : String
     IsLlm : Boolean
@@ -410,12 +410,12 @@ sealed class Lyntai.Cortex.ScoredResult
     ScorerName : String
     ToString() : String
 sealed class Lyntai.Cortex.ScorerAggregate
-    .ctor(String, String, Double, Int32)
+    .ctor(String ScorerId, String ScorerName, Double AverageScore, Int32 Count)
     AverageScore : Double
     Count : Int32
-    Deconstruct(String&, String&, Double&, Int32&) : Void
-    Equals(Object) : Boolean
-    Equals(ScorerAggregate) : Boolean
+    Deconstruct(String& ScorerId, String& ScorerName, Double& AverageScore, Int32& Count) : Void
+    Equals(Object obj) : Boolean
+    Equals(ScorerAggregate other) : Boolean
     GetHashCode() : Int32
     ScorerId : String
     ScorerName : String
@@ -427,10 +427,10 @@ sealed class Lyntai.Cortex.Scorers.OutcomeScorer
     Id : String
     IsLlm : Boolean
     Name : String
-    ScoreAsync(ScoreContext, CancellationToken=) : Task<ScoreResult>
+    ScoreAsync(ScoreContext ctx, CancellationToken ct = default) : Task<ScoreResult>
 sealed class Lyntai.Cortex.Scorers.RelevancyScorer
-    .ctor(ILlmClient)
-    BuildJudgePrompt(ScoreContext) : String
+    .ctor(ILlmClient llm)
+    BuildJudgePrompt(ScoreContext ctx) : String
     Id : String
     Name : String
 sealed class Lyntai.Cortex.Scorers.StructureScorer
@@ -440,25 +440,25 @@ sealed class Lyntai.Cortex.Scorers.StructureScorer
     Id : String
     IsLlm : Boolean
     Name : String
-    ScoreAsync(ScoreContext, CancellationToken=) : Task<ScoreResult>
+    ScoreAsync(ScoreContext ctx, CancellationToken ct = default) : Task<ScoreResult>
 sealed class Lyntai.Cortex.ScoringService
-    .ctor(IEnumerable<IScorer>, IScoreStore=, ILogger<ScoringService>=)
-    AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
-    EvaluateAsync(ScoreContext, Boolean, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
-    EvaluateAsync(ScoreContext, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
-    ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
-    GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
+    .ctor(IEnumerable<IScorer> scorers, IScoreStore store = null, ILogger<ScoringService> logger = null)
+    AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
+    EvaluateAsync(ScoreContext ctx, Boolean persist, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
+    EvaluateAsync(ScoreContext ctx, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
+    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportRow>>
+    GetAsync(String sessionId, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
 sealed class Lyntai.Cortex.TraceService
-    .ctor(ITraceStore=, Func<DateTimeOffset>=, ILogger<TraceService>=)
-    Begin(String, String) : ITraceRecorder
-    GetAsync(String, CancellationToken=) : Task<RunTrace>
+    .ctor(ITraceStore store = null, Func<DateTimeOffset> clock = null, ILogger<TraceService> logger = null)
+    Begin(String sessionId, String mode) : ITraceRecorder
+    GetAsync(String sessionId, CancellationToken ct = default) : Task<RunTrace>
 sealed class Lyntai.Cortex.TraceStep
     .ctor()
     CostUsd : Double
     Detail : String
     DurationMs : Int64
-    Equals(Object) : Boolean
-    Equals(TraceStep) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(TraceStep other) : Boolean
     GetHashCode() : Int32
     InputTokens : Int64
     Kind : String required
@@ -475,75 +475,75 @@ static class Lyntai.Diagnostics.LyntaiDiagnostics
     GenerationMeterName : String const
     MeterName : String const
 static class Lyntai.Embeddings.EmbedderExtensions
-    static EmbedAsync(IEmbedder, String, CancellationToken=) : Task<Single[]>
+    static EmbedAsync(IEmbedder embedder, String text, CancellationToken ct = default) : Task<Single[]>
 interface Lyntai.Embeddings.IEmbedder
-    EmbedAsync(IReadOnlyList<String>, CancellationToken=) : Task<IReadOnlyList<Single[]>>
+    EmbedAsync(IReadOnlyList<String> texts, CancellationToken ct = default) : Task<IReadOnlyList<Single[]>>
 sealed class Lyntai.Generation.GenerationArtifact
-    .ctor(String, Byte[]=, String=, IReadOnlyDictionary<String,String>=)
+    .ctor(String MediaType, Byte[] Data = null, String Uri = null, IReadOnlyDictionary<String,String> Metadata = null)
     Data : Byte[]
-    Deconstruct(String&, Byte[]&, String&, IReadOnlyDictionary`2&) : Void
-    Equals(GenerationArtifact) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& MediaType, Byte[]& Data, String& Uri, IReadOnlyDictionary`2& Metadata) : Void
+    Equals(GenerationArtifact other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     MediaType : String
     Metadata : IReadOnlyDictionary<String,String>
-    ToInput(String=) : GenerationInput
+    ToInput(String role = null) : GenerationInput
     ToString() : String
     Uri : String
 sealed class Lyntai.Generation.GenerationCapabilities
     .ctor()
     Deliveries : IReadOnlyList<GenerationDelivery>
-    Equals(GenerationCapabilities) : Boolean
-    Equals(Object) : Boolean
+    Equals(GenerationCapabilities other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Kinds : IReadOnlyList<String>
     Limits : IReadOnlyDictionary<String,String>
     Models : IReadOnlyList<String>
-    Supports(GenerationRequest, GenerationDelivery) : Boolean
+    Supports(GenerationRequest request, GenerationDelivery delivery) : Boolean
     SupportsInputs : Boolean
     ToString() : String
 sealed class Lyntai.Generation.GenerationChunk
-    .ctor(Byte[]=, String=, Nullable<GenerationVerdict>=, String=, Boolean=, GenerationUsage=)
+    .ctor(Byte[] Data = null, String MediaType = null, Nullable<GenerationVerdict> Error = null, String Detail = null, Boolean Final = false, GenerationUsage Usage = null)
     Data : Byte[]
-    Deconstruct(Byte[]&, String&, Nullable`1&, String&, Boolean&, GenerationUsage&) : Void
+    Deconstruct(Byte[]& Data, String& MediaType, Nullable`1& Error, String& Detail, Boolean& Final, GenerationUsage& Usage) : Void
     Detail : String
-    Equals(GenerationChunk) : Boolean
-    Equals(Object) : Boolean
+    Equals(GenerationChunk other) : Boolean
+    Equals(Object obj) : Boolean
     Error : Nullable<GenerationVerdict>
     Final : Boolean
     GetHashCode() : Int32
     MediaType : String
     ToString() : String
     Usage : GenerationUsage
-    static Completed(GenerationUsage=) : GenerationChunk
-    static Content(Byte[], String=) : GenerationChunk
-    static Failure(GenerationVerdict, String=) : GenerationChunk
+    static Completed(GenerationUsage usage = null) : GenerationChunk
+    static Content(Byte[] data, String mediaType = null) : GenerationChunk
+    static Failure(GenerationVerdict verdict, String detail = null) : GenerationChunk
 enum Lyntai.Generation.GenerationDelivery
     Inline : GenerationDelivery const
     Job : GenerationDelivery const
     Stream : GenerationDelivery const
     value__ : Int32
 sealed class Lyntai.Generation.GenerationInput
-    .ctor(String, Byte[]=, String=, String=)
+    .ctor(String MediaType, Byte[] Data = null, String Uri = null, String Role = null)
     Data : Byte[]
-    Deconstruct(String&, Byte[]&, String&, String&) : Void
-    Equals(GenerationInput) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& MediaType, Byte[]& Data, String& Uri, String& Role) : Void
+    Equals(GenerationInput other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     MediaType : String
     Role : String
     ToString() : String
     Uri : String
-    static FirstFrame(Byte[], String) : GenerationInput
-    static FirstFrame(Uri, String) : GenerationInput
-    static From(String, Byte[], String) : GenerationInput
-    static From(String, Uri, String) : GenerationInput
-    static Init(Byte[], String) : GenerationInput
-    static Init(Uri, String) : GenerationInput
-    static Reference(Byte[], String) : GenerationInput
-    static Reference(Uri, String) : GenerationInput
-    static Voice(Byte[], String) : GenerationInput
-    static Voice(Uri, String) : GenerationInput
+    static FirstFrame(Byte[] data, String mediaType) : GenerationInput
+    static FirstFrame(Uri uri, String mediaType) : GenerationInput
+    static From(String role, Byte[] data, String mediaType) : GenerationInput
+    static From(String role, Uri uri, String mediaType) : GenerationInput
+    static Init(Byte[] data, String mediaType) : GenerationInput
+    static Init(Uri uri, String mediaType) : GenerationInput
+    static Reference(Byte[] data, String mediaType) : GenerationInput
+    static Reference(Uri uri, String mediaType) : GenerationInput
+    static Voice(Byte[] data, String mediaType) : GenerationInput
+    static Voice(Uri uri, String mediaType) : GenerationInput
 static class Lyntai.Generation.GenerationInputRoles
     FirstFrame : String const
     Init : String const
@@ -555,11 +555,11 @@ static class Lyntai.Generation.GenerationKinds
     Model3d : String const
     Video : String const
 sealed class Lyntai.Generation.GenerationOperation
-    .ctor(String, GenerationOperationStatus, Nullable<Double>=, String=)
-    Deconstruct(String&, GenerationOperationStatus&, Nullable`1&, String&) : Void
+    .ctor(String Id, GenerationOperationStatus Status, Nullable<Double> Progress = null, String Detail = null)
+    Deconstruct(String& Id, GenerationOperationStatus& Status, Nullable`1& Progress, String& Detail) : Void
     Detail : String
-    Equals(GenerationOperation) : Boolean
-    Equals(Object) : Boolean
+    Equals(GenerationOperation other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : String
     Inconclusive : Boolean
@@ -575,50 +575,50 @@ enum Lyntai.Generation.GenerationOperationStatus
     Succeeded : GenerationOperationStatus const
     value__ : Int32
 sealed class Lyntai.Generation.GenerationProbeResult
-    .ctor(Boolean, String=, String=)
+    .ctor(Boolean Available, String Detail = null, String Version = null)
     Available : Boolean
-    Deconstruct(Boolean&, String&, String&) : Void
+    Deconstruct(Boolean& Available, String& Detail, String& Version) : Void
     Detail : String
-    Equals(GenerationProbeResult) : Boolean
-    Equals(Object) : Boolean
+    Equals(GenerationProbeResult other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     ToString() : String
     Version : String
 sealed class Lyntai.Generation.GenerationRequest
     .ctor()
     Consumer : String
-    Equals(GenerationRequest) : Boolean
-    Equals(Object) : Boolean
+    Equals(GenerationRequest other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Inputs : IReadOnlyList<GenerationInput>
     Kind : String required
     Model : String
-    Option(String) : String
+    Option(String name) : String
     Options : IReadOnlyDictionary<String,String>
     Prompt : String
     TimeoutSeconds : Nullable<Int32>
     ToString() : String
 sealed class Lyntai.Generation.GenerationResult
-    .ctor(GenerationVerdict, IReadOnlyList<GenerationArtifact>, GenerationUsage=, String=)
+    .ctor(GenerationVerdict Verdict, IReadOnlyList<GenerationArtifact> Artifacts, GenerationUsage Usage = null, String Detail = null)
     Artifacts : IReadOnlyList<GenerationArtifact>
-    Deconstruct(GenerationVerdict&, IReadOnlyList`1&, GenerationUsage&, String&) : Void
+    Deconstruct(GenerationVerdict& Verdict, IReadOnlyList`1& Artifacts, GenerationUsage& Usage, String& Detail) : Void
     Detail : String
-    Equals(GenerationResult) : Boolean
-    Equals(Object) : Boolean
+    Equals(GenerationResult other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     IsOk : Boolean
     ToString() : String
     Usage : GenerationUsage
     Verdict : GenerationVerdict
-    static Failure(GenerationVerdict, String=) : GenerationResult
-    static Success(IReadOnlyList<GenerationArtifact>, GenerationUsage=, String=) : GenerationResult
+    static Failure(GenerationVerdict verdict, String detail = null) : GenerationResult
+    static Success(IReadOnlyList<GenerationArtifact> artifacts, GenerationUsage usage = null, String detail = null) : GenerationResult
 sealed class Lyntai.Generation.GenerationUsage
-    .ctor(Nullable<Int32>=, Nullable<Double>=, Nullable<Double>=)
+    .ctor(Nullable<Int32> Count = null, Nullable<Double> Seconds = null, Nullable<Double> CostUsd = null)
     CostUsd : Nullable<Double>
     Count : Nullable<Int32>
-    Deconstruct(Nullable`1&, Nullable`1&, Nullable`1&) : Void
-    Equals(GenerationUsage) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(Nullable`1& Count, Nullable`1& Seconds, Nullable`1& CostUsd) : Void
+    Equals(GenerationUsage other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Seconds : Nullable<Double>
     ToString() : String
@@ -633,28 +633,28 @@ enum Lyntai.Generation.GenerationVerdict
     Unsupported : GenerationVerdict const
     value__ : Int32
 static class Lyntai.Generation.GenerationVerdictClassifier
-    static FromErrorText(String) : GenerationVerdict
-    static FromException(Exception) : GenerationVerdict
-    static FromHttpFailure(HttpStatusCode, String) : GenerationVerdict
-    static FromHttpFailure(HttpStatusCode, String, Boolean) : GenerationVerdict
+    static FromErrorText(String text) : GenerationVerdict
+    static FromException(Exception ex) : GenerationVerdict
+    static FromHttpFailure(HttpStatusCode status, String body) : GenerationVerdict
+    static FromHttpFailure(HttpStatusCode status, String body, Boolean hasCredentials) : GenerationVerdict
 interface Lyntai.Generation.IGenerationJobProvider
-    CancelAsync(String, CancellationToken=) : Task<GenerationOperation>
-    FetchAsync(String, CancellationToken=) : Task<GenerationResult>
-    PollAsync(String, CancellationToken=) : Task<GenerationOperation>
-    SubmitAsync(GenerationRequest, CancellationToken=) : Task<GenerationOperation>
+    CancelAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    FetchAsync(String operationId, CancellationToken ct = default) : Task<GenerationResult>
+    PollAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
+    SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
 interface Lyntai.Generation.IGenerationProvider
     Capabilities : GenerationCapabilities
-    GenerateAsync(GenerationRequest, CancellationToken=) : Task<GenerationResult>
+    GenerateAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     Id : String
-    ProbeAsync(CancellationToken=) : Task<GenerationProbeResult>
+    ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
 interface Lyntai.Generation.IGenerationStreamProvider
-    StreamAsync(GenerationRequest, CancellationToken=) : IAsyncEnumerable<GenerationChunk>
+    StreamAsync(GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
 sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
-    .ctor(Guid, String, String, IReadOnlyList<GenerationArtifact>, GenerationUsage=)
+    .ctor(Guid JobId, String ProviderId, String OperationId, IReadOnlyList<GenerationArtifact> Artifacts, GenerationUsage Usage = null)
     Artifacts : IReadOnlyList<GenerationArtifact>
-    Deconstruct(Guid&, String&, String&, IReadOnlyList`1&, GenerationUsage&) : Void
-    Equals(GenerationArtifactDelivery) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(Guid& JobId, String& ProviderId, String& OperationId, IReadOnlyList`1& Artifacts, GenerationUsage& Usage) : Void
+    Equals(GenerationArtifactDelivery other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     JobId : Guid
     OperationId : String
@@ -662,42 +662,42 @@ sealed class Lyntai.Generation.Jobs.GenerationArtifactDelivery
     ToString() : String
     Usage : GenerationUsage
 sealed class Lyntai.Generation.Jobs.GenerationRenderJob
-    .ctor(IReadOnlyList<String>, GenerationRequest)
+    .ctor(IReadOnlyList<String> Candidates, GenerationRequest Request)
     Candidates : IReadOnlyList<String>
-    Deconstruct(IReadOnlyList`1&, GenerationRequest&) : Void
-    Equals(GenerationRenderJob) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(IReadOnlyList`1& Candidates, GenerationRequest& Request) : Void
+    Equals(GenerationRenderJob other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Request : GenerationRequest
     ToJson() : String
     ToString() : String
-    static Parse(String) : GenerationRenderJob
+    static Parse(String payload) : GenerationRenderJob
 sealed class Lyntai.Generation.Jobs.GenerationRenderJobHandler
-    .ctor(IGenerationRouter, IEnumerable<IGenerationProvider>, IGenerationArtifactSink, GenerationRenderJobOptions=, IUsageTracker=)
-    HandleAsync(JobContext, CancellationToken=) : Task<JobOutcome>
+    .ctor(IGenerationRouter router, IEnumerable<IGenerationProvider> providers, IGenerationArtifactSink sink, GenerationRenderJobOptions options = null, IUsageTracker usage = null)
+    HandleAsync(JobContext ctx, CancellationToken ct = default) : Task<JobOutcome>
     JobType : String const
     Type : String
 sealed class Lyntai.Generation.Jobs.GenerationRenderJobOptions
-    .ctor(Nullable<TimeSpan>=)
-    Deconstruct(Nullable`1&) : Void
+    .ctor(Nullable<TimeSpan> PollDelay = null)
+    Deconstruct(Nullable`1& PollDelay) : Void
     EffectivePollDelay : TimeSpan
-    Equals(GenerationRenderJobOptions) : Boolean
-    Equals(Object) : Boolean
+    Equals(GenerationRenderJobOptions other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     PollDelay : Nullable<TimeSpan>
     ToString() : String
 interface Lyntai.Generation.Jobs.IGenerationArtifactSink
-    ReceiveAsync(GenerationArtifactDelivery, CancellationToken=) : Task
+    ReceiveAsync(GenerationArtifactDelivery delivery, CancellationToken ct = default) : Task
 sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
-    .ctor(IGenerationRouter, IUsageTracker, LyntaiOptions, ILogger<BudgetedGenerationRouter>=)
-    GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
-    SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
-    static RecordAsync(IUsageTracker, String, GenerationUsage, CancellationToken=) : ValueTask
+    .ctor(IGenerationRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedGenerationRouter> logger = null)
+    GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
+    static RecordAsync(IUsageTracker tracker, String consumer, GenerationUsage usage, CancellationToken ct = default) : ValueTask
 sealed class Lyntai.Generation.Routing.GenerationCandidate
-    .ctor(String, String=)
-    Deconstruct(String&, String&) : Void
-    Equals(GenerationCandidate) : Boolean
-    Equals(Object) : Boolean
+    .ctor(String ProviderId, String Model = null)
+    Deconstruct(String& ProviderId, String& Model) : Void
+    Equals(GenerationCandidate other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Model : String
     ProviderId : String
@@ -709,165 +709,165 @@ enum Lyntai.Generation.Routing.GenerationFallbackAction
     Surface : GenerationFallbackAction const
     value__ : Int32
 sealed class Lyntai.Generation.Routing.GenerationRouter
-    .ctor(IEnumerable<IGenerationProvider>, GenerationRoutingPolicy=, DeadHostTracker=, Func<IGenerationProvider,Nullable<ProviderKey>>=, IProviderAdmission=)
-    GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
-    SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+    .ctor(IEnumerable<IGenerationProvider> providers, GenerationRoutingPolicy policy = null, DeadHostTracker deadHosts = null, Func<IGenerationProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
+    GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Routing.GenerationRouterFactory
-    .ctor(IProviderPool<IGenerationProvider>, DeadHostTracker, GenerationRoutingPolicy=, IRateLimiter=, IUsageTracker=, LyntaiOptions=, ILoggerFactory=, IProviderAdmission=)
-    For(IReadOnlyList<IGenerationProvider>) : IGenerationRouter
-    For(IReadOnlyList<ProviderRegistration<IGenerationProvider>>) : IGenerationRouter
+    .ctor(IProviderPool<IGenerationProvider> pool, DeadHostTracker deadHosts, GenerationRoutingPolicy policy = null, IRateLimiter rateLimiter = null, IUsageTracker usage = null, LyntaiOptions options = null, ILoggerFactory loggers = null, IProviderAdmission admission = null)
+    For(IReadOnlyList<IGenerationProvider> providers) : IGenerationRouter
+    For(IReadOnlyList<ProviderRegistration<IGenerationProvider>> providers) : IGenerationRouter
 sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
     .ctor()
-    ActionFor(GenerationVerdict) : GenerationFallbackAction
+    ActionFor(GenerationVerdict verdict) : GenerationFallbackAction
     ExemptSoleCandidate : Boolean
-    On(GenerationVerdict, GenerationFallbackAction) : GenerationRoutingPolicy
+    On(GenerationVerdict verdict, GenerationFallbackAction action) : GenerationRoutingPolicy
 sealed class Lyntai.Generation.Routing.GenerationSubmission
-    .ctor(String, GenerationOperation)
-    Deconstruct(String&, GenerationOperation&) : Void
-    Equals(GenerationSubmission) : Boolean
-    Equals(Object) : Boolean
+    .ctor(String ProviderId, GenerationOperation Operation)
+    Deconstruct(String& ProviderId, GenerationOperation& Operation) : Void
+    Equals(GenerationSubmission other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Operation : GenerationOperation
     ProviderId : String
     ToString() : String
 interface Lyntai.Generation.Routing.IGenerationRouter
-    GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
-    SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+    GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 interface Lyntai.Generation.Routing.IGenerationRouterFactory
-    For(IReadOnlyList<IGenerationProvider>) : IGenerationRouter
-    For(IReadOnlyList<ProviderRegistration<IGenerationProvider>>) : IGenerationRouter
+    For(IReadOnlyList<IGenerationProvider> providers) : IGenerationRouter
+    For(IReadOnlyList<ProviderRegistration<IGenerationProvider>> providers) : IGenerationRouter
 sealed class Lyntai.Generation.Routing.RateLimitedGenerationRouter
-    .ctor(IGenerationRouter, IRateLimiter, ILogger<RateLimitedGenerationRouter>=)
-    GenerateAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationResult>
-    SubmitAsync(IReadOnlyList<GenerationCandidate>, GenerationRequest, CancellationToken=) : Task<GenerationSubmission>
+    .ctor(IGenerationRouter inner, IRateLimiter limiter, ILogger<RateLimitedGenerationRouter> logger = null)
+    GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Tools.GenerationBackendsTool
-    .ctor(IEnumerable<IGenerationProvider>)
+    .ctor(IEnumerable<IGenerationProvider> providers)
     Description : String
-    InvokeAsync(String, CancellationToken=) : Task<String>
+    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationFetchTool
-    .ctor(IEnumerable<IGenerationProvider>, IGenerationArtifactSink=)
+    .ctor(IEnumerable<IGenerationProvider> providers, IGenerationArtifactSink sink = null)
     Description : String
-    InvokeAsync(String, CancellationToken=) : Task<String>
+    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationInlineTool
-    .ctor(IGenerationRouter, GenerationOptions, IGenerationArtifactSink=, String=)
+    .ctor(IGenerationRouter router, GenerationOptions options, IGenerationArtifactSink sink = null, String consumer = "agent")
     Consumer : String
     Description : String
-    InvokeAsync(String, CancellationToken=) : Task<String>
+    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationStatusTool
-    .ctor(IEnumerable<IGenerationProvider>)
+    .ctor(IEnumerable<IGenerationProvider> providers)
     Description : String
-    InvokeAsync(String, CancellationToken=) : Task<String>
+    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationSubmitTool
-    .ctor(IGenerationRouter, GenerationOptions, String=)
+    .ctor(IGenerationRouter router, GenerationOptions options, String consumer = "agent")
     Consumer : String
     Description : String
-    InvokeAsync(String, CancellationToken=) : Task<String>
+    InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
     ParametersJsonSchema : String
 static class Lyntai.GenerationBuilderExtensions
-    static AddGenerationProvider(LyntaiBuilder, Func<IServiceProvider,IGenerationProvider>) : LyntaiBuilder
-    static AddGenerationRateLimit(LyntaiBuilder, Action<RateLimitOptions>=, Func<IServiceProvider,IRateLimiter>=) : LyntaiBuilder
-    static AddGenerationTools(LyntaiBuilder) : LyntaiBuilder
-    static AddGenerationUsageBudget(LyntaiBuilder, Action<BudgetOptions>=) : LyntaiBuilder
-    static ConfigureGenerationRouting(LyntaiBuilder, Action<GenerationRoutingPolicy>) : LyntaiBuilder
-    static UseDefaultGenerationCandidates(LyntaiBuilder, String[]) : LyntaiBuilder
+    static AddGenerationProvider(LyntaiBuilder builder, Func<IServiceProvider,IGenerationProvider> factory) : LyntaiBuilder
+    static AddGenerationRateLimit(LyntaiBuilder builder, Action<RateLimitOptions> configure = null, Func<IServiceProvider,IRateLimiter> limiter = null) : LyntaiBuilder
+    static AddGenerationTools(LyntaiBuilder builder) : LyntaiBuilder
+    static AddGenerationUsageBudget(LyntaiBuilder builder, Action<BudgetOptions> configure = null) : LyntaiBuilder
+    static ConfigureGenerationRouting(LyntaiBuilder builder, Action<GenerationRoutingPolicy> configure) : LyntaiBuilder
+    static UseDefaultGenerationCandidates(LyntaiBuilder builder, String[] candidates) : LyntaiBuilder
 sealed class Lyntai.GenerationOptions
     .ctor()
     DefaultCandidates : List<GenerationCandidate>
     RateLimit : RateLimitOptions
 sealed class Lyntai.Guards.DenylistGuard
-    .ctor(IReadOnlyList<String>, String=)
-    InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
-    InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+    .ctor(IReadOnlyList<String> terms, String name = null)
+    InspectRequestAsync(LlmRequest req, CancellationToken ct = default) : Task<GuardOutcome>
+    InspectResponseAsync(LlmReply reply, CancellationToken ct = default) : Task<GuardOutcome>
     Name : String
 sealed class Lyntai.Guards.GuardOutcome
-    Equals(GuardOutcome) : Boolean
-    Equals(Object) : Boolean
+    Equals(GuardOutcome other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Reason : String
     Replacement : String
     Result : Kind
     ToString() : String
     static Allow : GuardOutcome
-    static Block(String) : GuardOutcome
-    static Replace(String, String=) : GuardOutcome
+    static Block(String reason) : GuardOutcome
+    static Replace(String replacement, String reason = null) : GuardOutcome
 enum Lyntai.Guards.GuardOutcome+Kind
     Allow : Kind const
     Block : Kind const
     Replace : Kind const
     value__ : Int32
 sealed class Lyntai.Guards.GuardRail
-    .ctor(IEnumerable<IGuard>, ILogger<GuardRail>=)
-    InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
-    InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
-    InspectToolCallAsync(String, String, CancellationToken=) : Task<GuardOutcome>
+    .ctor(IEnumerable<IGuard> guards, ILogger<GuardRail> logger = null)
+    InspectRequestAsync(LlmRequest req, CancellationToken ct = default) : Task<GuardOutcome>
+    InspectResponseAsync(LlmReply reply, CancellationToken ct = default) : Task<GuardOutcome>
+    InspectToolCallAsync(String toolName, String argumentsJson, CancellationToken ct = default) : Task<GuardOutcome>
 sealed class Lyntai.Guards.GuardedLlmClient
-    .ctor(ILlmClient, IGuardRail)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    .ctor(ILlmClient inner, IGuardRail rail)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 interface Lyntai.Guards.IGuard
-    InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
-    InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
+    InspectRequestAsync(LlmRequest req, CancellationToken ct = default) : Task<GuardOutcome>
+    InspectResponseAsync(LlmReply reply, CancellationToken ct = default) : Task<GuardOutcome>
     Name : String
 interface Lyntai.Guards.IGuardRail
-    InspectRequestAsync(LlmRequest, CancellationToken=) : Task<GuardOutcome>
-    InspectResponseAsync(LlmReply, CancellationToken=) : Task<GuardOutcome>
-    InspectToolCallAsync(String, String, CancellationToken=) : Task<GuardOutcome>
-    InspectToolResultAsync(String, String, CancellationToken=) : Task<GuardOutcome>
+    InspectRequestAsync(LlmRequest req, CancellationToken ct = default) : Task<GuardOutcome>
+    InspectResponseAsync(LlmReply reply, CancellationToken ct = default) : Task<GuardOutcome>
+    InspectToolCallAsync(String toolName, String argumentsJson, CancellationToken ct = default) : Task<GuardOutcome>
+    InspectToolResultAsync(String toolName, String result, CancellationToken ct = default) : Task<GuardOutcome>
 sealed class Lyntai.Jobs.AdmitAllAdmissionController
     .ctor()
-    CanClaimAsync(String, CancellationToken=) : ValueTask<Boolean>
+    CanClaimAsync(String lane, CancellationToken ct = default) : ValueTask<Boolean>
 sealed class Lyntai.Jobs.CronExpression
-    Next(DateTimeOffset) : DateTimeOffset
-    static Parse(String) : CronExpression
+    Next(DateTimeOffset after) : DateTimeOffset
+    static Parse(String expression) : CronExpression
 interface Lyntai.Jobs.IJobAdmissionController
-    CanClaimAsync(String, CancellationToken=) : ValueTask<Boolean>
+    CanClaimAsync(String lane, CancellationToken ct = default) : ValueTask<Boolean>
 interface Lyntai.Jobs.IJobHandler
-    HandleAsync(JobContext, CancellationToken=) : Task<JobOutcome>
+    HandleAsync(JobContext ctx, CancellationToken ct = default) : Task<JobOutcome>
     Type : String
 interface Lyntai.Jobs.IJobHandlerRegistry
-    Find(String) : IJobHandler
+    Find(String type) : IJobHandler
     Handlers : IReadOnlyList<IJobHandler>
 interface Lyntai.Jobs.IJobQueue
-    CancelAsync(Guid, CancellationToken=) : Task<Boolean>
-    EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
-    EnqueueAsync(String, String, String, Int32=, String=, CancellationToken=) : Task<Guid>
-    GetAsync(Guid, CancellationToken=) : Task<JobRecord>
-    ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
-    ListDeadAsync(String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
-    PauseAsync(Guid, CancellationToken=) : Task<Boolean>
-    ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
-    ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
+    CancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
+    EnqueueAsync(String lane, String type, String payload, Int32 priority = 0, String partitionKey = null, CancellationToken ct = default) : Task<Guid>
+    GetAsync(Guid id, CancellationToken ct = default) : Task<JobRecord>
+    ListAsync(Nullable<JobStatus> status = null, String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
+    ListDeadAsync(String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
+    PauseAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ResumeAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
 interface Lyntai.Jobs.IJobRunner
-    RunAsync(CancellationToken=) : Task
-    RunOnceAsync(CancellationToken=) : Task<Int32>
+    RunAsync(CancellationToken ct = default) : Task
+    RunOnceAsync(CancellationToken ct = default) : Task<Int32>
 interface Lyntai.Jobs.IJobScheduler
-    RunAsync(CancellationToken=) : Task
-    TickAsync(CancellationToken=) : Task<Int32>
+    RunAsync(CancellationToken ct = default) : Task
+    TickAsync(CancellationToken ct = default) : Task<Int32>
 sealed class Lyntai.Jobs.JobContext
-    .ctor(Guid, String, String, Int32, Func<String,CancellationToken,Task<Boolean>>, Func<Int32,Int32,String,CancellationToken,Task<Boolean>>=, Func<String,CancellationToken,Task<Boolean>>=, Int32=, Int32=, String=, String=)
+    .ctor(Guid jobId, String payload, String checkpoint, Int32 attempts, Func<String,CancellationToken,Task<Boolean>> saveCheckpoint, Func<Int32,Int32,String,CancellationToken,Task<Boolean>> reportProgress = null, Func<String,CancellationToken,Task<Boolean>> reportStep = null, Int32 progress = 0, Int32 total = 0, String stage = null, String stepLog = null)
     Attempts : Int32
     Checkpoint : String
     JobId : Guid
     Payload : String
     Progress : Int32
-    ReportProgressAsync(Int32, Int32, String=, CancellationToken=) : Task<Boolean>
-    ReportStepAsync(String, CancellationToken=) : Task<Boolean>
-    SaveCheckpointAsync(String, CancellationToken=) : Task<Boolean>
+    ReportProgressAsync(Int32 done, Int32 total, String stage = null, CancellationToken ct = default) : Task<Boolean>
+    ReportStepAsync(String message, CancellationToken ct = default) : Task<Boolean>
+    SaveCheckpointAsync(String checkpoint, CancellationToken ct = default) : Task<Boolean>
     Stage : String
     Steps : IReadOnlyList<JobStep>
     Total : Int32
 sealed class Lyntai.Jobs.JobHandlerRegistry
-    .ctor(IEnumerable<IJobHandler>)
-    Find(String) : IJobHandler
+    .ctor(IEnumerable<IJobHandler> handlers)
+    Find(String type) : IJobHandler
     Handlers : IReadOnlyList<IJobHandler>
 sealed class Lyntai.Jobs.JobOptions
     .ctor()
@@ -875,40 +875,40 @@ sealed class Lyntai.Jobs.JobOptions
     DefaultMaxAttempts : Int32
     LaneConcurrency : Dictionary<String,Int32>
     Lease : TimeSpan
-    LimitFor(String) : Int32
+    LimitFor(String lane) : Int32
     MaxConcurrency : Int32
     MaxStepLog : Int32
     PollInterval : TimeSpan
     RetryBackoff : TimeSpan
 sealed class Lyntai.Jobs.JobOutcome
-    Equals(JobOutcome) : Boolean
-    Equals(Object) : Boolean
+    Equals(JobOutcome other) : Boolean
+    Equals(Object obj) : Boolean
     Error : String
     GetHashCode() : Int32
     Result : Kind
     RetryDelay : Nullable<TimeSpan>
     ToString() : String
     static Complete : JobOutcome
-    static Fail(String) : JobOutcome
-    static Retry(Nullable<TimeSpan>=) : JobOutcome
+    static Fail(String error) : JobOutcome
+    static Retry(Nullable<TimeSpan> delay = null) : JobOutcome
 enum Lyntai.Jobs.JobOutcome+Kind
     Complete : Kind const
     Fail : Kind const
     Retry : Kind const
     value__ : Int32
 sealed class Lyntai.Jobs.JobQueue
-    .ctor(IJobStore, LyntaiOptions)
-    CancelAsync(Guid, CancellationToken=) : Task<Boolean>
-    EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
-    EnqueueAsync(String, String, String, Int32=, String=, CancellationToken=) : Task<Guid>
-    GetAsync(Guid, CancellationToken=) : Task<JobRecord>
-    ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
-    ListDeadAsync(String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
-    PauseAsync(Guid, CancellationToken=) : Task<Boolean>
-    ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
-    ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
+    .ctor(IJobStore store, LyntaiOptions options)
+    CancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
+    EnqueueAsync(String lane, String type, String payload, Int32 priority = 0, String partitionKey = null, CancellationToken ct = default) : Task<Guid>
+    GetAsync(Guid id, CancellationToken ct = default) : Task<JobRecord>
+    ListAsync(Nullable<JobStatus> status = null, String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
+    ListDeadAsync(String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
+    PauseAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ResumeAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
 sealed class Lyntai.Jobs.JobRecord
-    .ctor(Guid, String, String, String, JobStatus, String, Int32, Int32, String, DateTimeOffset, Nullable<DateTimeOffset>, String, DateTimeOffset, DateTimeOffset, Int32=, Boolean=, Int32=, Int32=, String=, String=, String=)
+    .ctor(Guid Id, String Lane, String Type, String Payload, JobStatus Status, String Checkpoint, Int32 Attempts, Int32 MaxAttempts, String LastError, DateTimeOffset AvailableAt, Nullable<DateTimeOffset> ClaimedAt, String ClaimedBy, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, Int32 Priority = 0, Boolean CancelRequested = false, Int32 Progress = 0, Int32 Total = 0, String Stage = null, String StepLog = null, String PartitionKey = null)
     Attempts : Int32
     AvailableAt : DateTimeOffset
     CancelRequested : Boolean
@@ -916,9 +916,9 @@ sealed class Lyntai.Jobs.JobRecord
     ClaimedAt : Nullable<DateTimeOffset>
     ClaimedBy : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Guid&, String&, String&, String&, JobStatus&, String&, Int32&, Int32&, String&, DateTimeOffset&, Nullable`1&, String&, DateTimeOffset&, DateTimeOffset&, Int32&, Boolean&, Int32&, Int32&, String&, String&, String&) : Void
-    Equals(JobRecord) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(Guid& Id, String& Lane, String& Type, String& Payload, JobStatus& Status, String& Checkpoint, Int32& Attempts, Int32& MaxAttempts, String& LastError, DateTimeOffset& AvailableAt, Nullable`1& ClaimedAt, String& ClaimedBy, DateTimeOffset& CreatedAt, DateTimeOffset& UpdatedAt, Int32& Priority, Boolean& CancelRequested, Int32& Progress, Int32& Total, String& Stage, String& StepLog, String& PartitionKey) : Void
+    Equals(JobRecord other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : Guid
     Lane : String
@@ -936,15 +936,15 @@ sealed class Lyntai.Jobs.JobRecord
     Type : String
     UpdatedAt : DateTimeOffset
 sealed class Lyntai.Jobs.JobRunner
-    .ctor(IJobStore, IJobHandlerRegistry, LyntaiOptions, ILogger<JobRunner>=, Func<DateTimeOffset>=, IJobAdmissionController=)
-    RunAsync(CancellationToken=) : Task
-    RunOnceAsync(CancellationToken=) : Task<Int32>
+    .ctor(IJobStore store, IJobHandlerRegistry handlers, LyntaiOptions options, ILogger<JobRunner> logger = null, Func<DateTimeOffset> clock = null, IJobAdmissionController admission = null)
+    RunAsync(CancellationToken ct = default) : Task
+    RunOnceAsync(CancellationToken ct = default) : Task<Int32>
 sealed class Lyntai.Jobs.JobSchedule
-    .ctor(String, String, String, String, Nullable<TimeSpan>=, Int32=, String=)
+    .ctor(String Name, String Lane, String Type, String Payload, Nullable<TimeSpan> Interval = null, Int32 Priority = 0, String Cron = null)
     Cron : String
-    Deconstruct(String&, String&, String&, String&, Nullable`1&, Int32&, String&) : Void
-    Equals(JobSchedule) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& Name, String& Lane, String& Type, String& Payload, Nullable`1& Interval, Int32& Priority, String& Cron) : Void
+    Equals(JobSchedule other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Interval : Nullable<TimeSpan>
     Lane : String
@@ -954,16 +954,16 @@ sealed class Lyntai.Jobs.JobSchedule
     ToString() : String
     Type : String
 sealed class Lyntai.Jobs.JobScheduler
-    .ctor(IJobQueue, IEnumerable<JobSchedule>, LyntaiOptions, IKeyValueStore=, ILogger<JobScheduler>=, Func<DateTimeOffset>=)
-    RunAsync(CancellationToken=) : Task
-    TickAsync(CancellationToken=) : Task<Int32>
+    .ctor(IJobQueue queue, IEnumerable<JobSchedule> schedules, LyntaiOptions options, IKeyValueStore store = null, ILogger<JobScheduler> logger = null, Func<DateTimeOffset> clock = null)
+    RunAsync(CancellationToken ct = default) : Task
+    TickAsync(CancellationToken ct = default) : Task<Int32>
 sealed class Lyntai.Jobs.JobSpec
-    .ctor(String, String, String, Nullable<Int32>=, Nullable<DateTimeOffset>=, Int32=, String=)
+    .ctor(String Lane, String Type, String Payload, Nullable<Int32> MaxAttempts = null, Nullable<DateTimeOffset> AvailableAt = null, Int32 Priority = 0, String PartitionKey = null)
     AvailableAt : Nullable<DateTimeOffset>
-    Deconstruct(String&, String&, String&, Nullable`1&, Nullable`1&, Int32&, String&) : Void
+    Deconstruct(String& Lane, String& Type, String& Payload, Nullable`1& MaxAttempts, Nullable`1& AvailableAt, Int32& Priority, String& PartitionKey) : Void
     DefaultMaxAttempts : Int32 const
-    Equals(JobSpec) : Boolean
-    Equals(Object) : Boolean
+    Equals(JobSpec other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Lane : String
     MaxAttempts : Nullable<Int32>
@@ -982,110 +982,110 @@ enum Lyntai.Jobs.JobStatus
     Succeeded : JobStatus const
     value__ : Int32
 sealed class Lyntai.Jobs.JobStep
-    .ctor(DateTimeOffset, String)
+    .ctor(DateTimeOffset At, String Message)
     At : DateTimeOffset
-    Deconstruct(DateTimeOffset&, String&) : Void
-    Equals(JobStep) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(DateTimeOffset& At, String& Message) : Void
+    Equals(JobStep other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Message : String
     ToString() : String
 static class Lyntai.Jobs.JobStepLog
     DefaultCap : Int32 const
-    static Append(String, String, DateTimeOffset, Int32=) : String
-    static Parse(String) : IReadOnlyList<JobStep>
+    static Append(String json, String message, DateTimeOffset at, Int32 cap = 200) : String
+    static Parse(String json) : IReadOnlyList<JobStep>
 sealed class Lyntai.Lifecycle.BoundedProviderPool`1
-    .ctor(ProviderPoolOptions=, Func<DateTimeOffset>=)
-    GetOrAdd(ProviderKey, Func<TProvider>) : TProvider
-    Retire(ProviderKey) : Boolean
-    RetireSlot(String) : Int32
+    .ctor(ProviderPoolOptions options = null, Func<DateTimeOffset> clock = null)
+    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
+    Retire(ProviderKey key) : Boolean
+    RetireSlot(String slot) : Int32
     Statistics : ProviderPoolStatistics
-    TryGetKey(TProvider, ProviderKey&) : Boolean
+    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
 interface Lyntai.Lifecycle.IProviderAdmission
-    EnterAsync(ProviderKey, CancellationToken=) : ValueTask<IDisposable>
+    EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
 interface Lyntai.Lifecycle.IProviderIdentity
     Id : String
 interface Lyntai.Lifecycle.IProviderPool`1
-    GetOrAdd(ProviderKey, Func<TProvider>) : TProvider
-    Retire(ProviderKey) : Boolean
-    RetireSlot(String) : Int32
+    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
+    Retire(ProviderKey key) : Boolean
+    RetireSlot(String slot) : Int32
     Statistics : ProviderPoolStatistics
-    TryGetKey(TProvider, ProviderKey&) : Boolean
+    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
 sealed class Lyntai.Lifecycle.ProviderAdmission
-    .ctor(ProviderAdmissionOptions=)
-    EnterAsync(ProviderKey, CancellationToken=) : ValueTask<IDisposable>
+    .ctor(ProviderAdmissionOptions options = null)
+    EnterAsync(ProviderKey key, CancellationToken ct = default) : ValueTask<IDisposable>
 sealed class Lyntai.Lifecycle.ProviderAdmissionOptions
     .ctor()
     BySlot : IDictionary<String,Int32>
     Default : Int32
 struct Lyntai.Lifecycle.ProviderKey
-    .ctor(String, String)
-    Deconstruct(String&, String&) : Void
-    Equals(Object) : Boolean
-    Equals(ProviderKey) : Boolean
+    .ctor(String Slot, String Fingerprint)
+    Deconstruct(String& Slot, String& Fingerprint) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderKey other) : Boolean
     Fingerprint : String
     GetHashCode() : Int32
     Slot : String
     ToString() : String
-    static For(String) : ProviderKeyBuilder
+    static For(String slot) : ProviderKeyBuilder
 sealed class Lyntai.Lifecycle.ProviderKeyBuilder
     Build() : ProviderKey
-    With(String, Boolean) : ProviderKeyBuilder
-    With(String, Double) : ProviderKeyBuilder
-    With(String, Int32) : ProviderKeyBuilder
-    With(String, String) : ProviderKeyBuilder
-    WithSecret(String, String) : ProviderKeyBuilder
+    With(String name, Boolean value) : ProviderKeyBuilder
+    With(String name, Double value) : ProviderKeyBuilder
+    With(String name, Int32 value) : ProviderKeyBuilder
+    With(String name, String value) : ProviderKeyBuilder
+    WithSecret(String name, String value) : ProviderKeyBuilder
 sealed class Lyntai.Lifecycle.ProviderPoolOptions
     .ctor()
     IdleTimeout : Nullable<TimeSpan>
     MaxEntries : Nullable<Int32>
 struct Lyntai.Lifecycle.ProviderPoolStatistics
-    .ctor(Int32, Int64, Int64, Int64)
+    .ctor(Int32 Live, Int64 Created, Int64 Reused, Int64 Retired)
     Created : Int64
-    Deconstruct(Int32&, Int64&, Int64&, Int64&) : Void
-    Equals(Object) : Boolean
-    Equals(ProviderPoolStatistics) : Boolean
+    Deconstruct(Int32& Live, Int64& Created, Int64& Reused, Int64& Retired) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderPoolStatistics other) : Boolean
     GetHashCode() : Int32
     Live : Int32
     Retired : Int64
     Reused : Int64
     ToString() : String
 struct Lyntai.Lifecycle.ProviderRegistration`1
-    .ctor(ProviderKey, Func<TProvider>)
+    .ctor(ProviderKey Key, Func<TProvider> Create)
     Create : Func<TProvider>
-    Deconstruct(ProviderKey&, Func`1&) : Void
-    Equals(Object) : Boolean
-    Equals(ProviderRegistration<TProvider>) : Boolean
+    Deconstruct(ProviderKey& Key, Func`1& Create) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderRegistration<TProvider> other) : Boolean
     GetHashCode() : Int32
     Key : ProviderKey
     ToString() : String
 sealed class Lyntai.Lifecycle.TransientProviderPool`1
     .ctor()
-    GetOrAdd(ProviderKey, Func<TProvider>) : TProvider
-    Retire(ProviderKey) : Boolean
-    RetireSlot(String) : Int32
+    GetOrAdd(ProviderKey key, Func<TProvider> factory) : TProvider
+    Retire(ProviderKey key) : Boolean
+    RetireSlot(String slot) : Int32
     Statistics : ProviderPoolStatistics
-    TryGetKey(TProvider, ProviderKey&) : Boolean
+    TryGetKey(TProvider instance, ProviderKey& key) : Boolean
 sealed class Lyntai.Llm.Budgeting.BudgetedLlmClient
-    .ctor(ILlmClient, IUsageTracker, LyntaiOptions, ILogger<BudgetedLlmClient>=)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    .ctor(ILlmClient inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedLlmClient> logger = null)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 interface Lyntai.Llm.Budgeting.IUsageTracker
-    RecordAsync(String, LlmUsage, CancellationToken=) : ValueTask
-    ResetAsync(String=, CancellationToken=) : ValueTask
-    TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
+    RecordAsync(String consumer, LlmUsage usage, CancellationToken ct = default) : ValueTask
+    ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
+    TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Llm.Budgeting.InMemoryUsageTracker
     .ctor()
-    RecordAsync(String, LlmUsage, CancellationToken=) : ValueTask
-    ResetAsync(String=, CancellationToken=) : ValueTask
-    TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
+    RecordAsync(String consumer, LlmUsage usage, CancellationToken ct = default) : ValueTask
+    ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
+    TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Llm.Budgeting.UsageTotals
-    .ctor(Int64, Int64, Double, Int64)
+    .ctor(Int64 InputTokens, Int64 OutputTokens, Double CostUsd, Int64 Calls)
     Calls : Int64
     CostUsd : Double
-    Deconstruct(Int64&, Int64&, Double&, Int64&) : Void
-    Equals(Object) : Boolean
-    Equals(UsageTotals) : Boolean
+    Deconstruct(Int64& InputTokens, Int64& OutputTokens, Double& CostUsd, Int64& Calls) : Void
+    Equals(Object obj) : Boolean
+    Equals(UsageTotals other) : Boolean
     GetHashCode() : Int32
     InputTokens : Int64
     OutputTokens : Int64
@@ -1093,36 +1093,36 @@ sealed class Lyntai.Llm.Budgeting.UsageTotals
     TotalTokens : Int64
     static Empty : UsageTotals
 sealed class Lyntai.Llm.Caching.CachingLlmClient
-    .ctor(ILlmClient, IResponseCache, LyntaiOptions, ILogger<CachingLlmClient>=, IModelRoutingStore=)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    .ctor(ILlmClient inner, IResponseCache cache, LyntaiOptions options, ILogger<CachingLlmClient> logger = null, IModelRoutingStore modelRouting = null)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
 interface Lyntai.Llm.Caching.IResponseCache
-    GetAsync(String, CancellationToken=) : Task<LlmReply>
-    RemoveAsync(String, CancellationToken=) : Task
-    SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
+    GetAsync(String key, CancellationToken ct = default) : Task<LlmReply>
+    RemoveAsync(String key, CancellationToken ct = default) : Task
+    SetAsync(String key, LlmReply reply, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
 sealed class Lyntai.Llm.Caching.InMemoryResponseCache
-    .ctor(LyntaiOptions, Func<DateTimeOffset>=)
-    GetAsync(String, CancellationToken=) : Task<LlmReply>
-    RemoveAsync(String, CancellationToken=) : Task
-    SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
+    .ctor(LyntaiOptions options, Func<DateTimeOffset> clock = null)
+    GetAsync(String key, CancellationToken ct = default) : Task<LlmReply>
+    RemoveAsync(String key, CancellationToken ct = default) : Task
+    SetAsync(String key, LlmReply reply, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
 static class Lyntai.Llm.Caching.ResponseCacheKey
-    static For(LlmRequest, String=) : String
+    static For(LlmRequest req, String effectiveModel = null) : String
 static class Lyntai.Llm.Cli.CliCommand
-    static Resolve(String, String, IReadOnlyList<String>, Func<String,String>=) : ValueTuple<String,IReadOnlyList<String>>
-    static Tokenize(String) : List<String>
+    static Resolve(String command, String defaultCommand, IReadOnlyList<String> environmentVariables, Func<String,String> environmentLookup = null) : ValueTuple<String,IReadOnlyList<String>>
+    static Tokenize(String commandLine) : List<String>
 sealed class Lyntai.Llm.Cli.CliOutputEvent
-    .ctor(CliOutputEventKind, String=, LlmUsage=)
-    Deconstruct(CliOutputEventKind&, String&, LlmUsage&) : Void
-    Equals(CliOutputEvent) : Boolean
-    Equals(Object) : Boolean
+    .ctor(CliOutputEventKind Kind, String Text = "", LlmUsage Usage = null)
+    Deconstruct(CliOutputEventKind& Kind, String& Text, LlmUsage& Usage) : Void
+    Equals(CliOutputEvent other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Kind : CliOutputEventKind
     Text : String
     ToString() : String
     Usage : LlmUsage
-    static Content(String) : CliOutputEvent
-    static Failure(String) : CliOutputEvent
+    static Content(String text) : CliOutputEvent
+    static Failure(String message) : CliOutputEvent
     static Ignored : CliOutputEvent
-    static Result(String, LlmUsage=) : CliOutputEvent
+    static Result(String text, LlmUsage usage = null) : CliOutputEvent
 enum Lyntai.Llm.Cli.CliOutputEventKind
     Content : CliOutputEventKind const
     Failure : CliOutputEventKind const
@@ -1136,106 +1136,106 @@ enum Lyntai.Llm.Cli.CliPromptDelivery
 abstract class Lyntai.Llm.Cli.CliProviderDialectBase
     .ctor()
     AuthStatusArgs : IReadOnlyList<String>
-    BuildCompletionArgs(LlmRequest) : IReadOnlyList<String>
-    BuildPrompt(LlmRequest) : String
+    BuildCompletionArgs(LlmRequest request) : IReadOnlyList<String>
+    BuildPrompt(LlmRequest request) : String
     CommandEnvironmentVariables : IReadOnlyList<String>
     DefaultCommand : String
     Id : String
     LoginTimeout : TimeSpan
     LogoutArgs : IReadOnlyList<String>
     MaintenanceTimeout : TimeSpan
-    ParseAuthStatus(String) : ProviderAuthStatus
-    ParseLine(String) : CliOutputEvent
-    ParseVersionLine(String) : ValueTuple<String,String>
+    ParseAuthStatus(String output) : ProviderAuthStatus
+    ParseLine(String line) : CliOutputEvent
+    ParseVersionLine(String line) : ValueTuple<String,String>
     PromptDelivery : CliPromptDelivery
     SupportsToolCalls : Boolean
-    TryBuildInstallArgs(ProviderInstallRequest, IReadOnlyList`1&, String&) : Boolean
-    TryBuildLoginArgs(ProviderLoginRequest, IReadOnlyList`1&, String&) : Boolean
+    TryBuildInstallArgs(ProviderInstallRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
+    TryBuildLoginArgs(ProviderLoginRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
     UpdateArgs : IReadOnlyList<String>
     VersionArgs : IReadOnlyList<String>
-    static FlagShaped(String) : Boolean
+    static FlagShaped(String value) : Boolean
 sealed class Lyntai.Llm.Cli.CliProviderEngine
-    .ctor(ICliProviderDialect, IProcessRunner, LyntaiOptions, ILogger=, String=, ICliToolProvisioner=, IReadOnlyDictionary<String,String>=)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    .ctor(ICliProviderDialect dialect, IProcessRunner runner, LyntaiOptions options, ILogger logger = null, String command = null, ICliToolProvisioner provisioner = null, IReadOnlyDictionary<String,String> environment = null)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Id : String
-    InstallAsync(ProviderInstallRequest=, CancellationToken=) : Task<ProviderUpdateResult>
+    InstallAsync(ProviderInstallRequest request = null, CancellationToken ct = default) : Task<ProviderUpdateResult>
     IsAvailable : Boolean
-    LoginAsync(ProviderLoginRequest=, CancellationToken=) : Task<ProviderAuthResult>
-    LogoutAsync(CancellationToken=) : Task<ProviderAuthResult>
-    ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
+    LoginAsync(ProviderLoginRequest request = null, CancellationToken ct = default) : Task<ProviderAuthResult>
+    LogoutAsync(CancellationToken ct = default) : Task<ProviderAuthResult>
+    ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
     ResolveCommand() : ValueTuple<String,IReadOnlyList<String>>
-    StatusAsync(CancellationToken=) : Task<ProviderAuthStatus>
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
+    StatusAsync(CancellationToken ct = default) : Task<ProviderAuthStatus>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
     static NeutralWorkingDirectory : String
 interface Lyntai.Llm.Cli.ICliProviderDialect
     AuthStatusArgs : IReadOnlyList<String>
-    BuildCompletionArgs(LlmRequest) : IReadOnlyList<String>
-    BuildPrompt(LlmRequest) : String
+    BuildCompletionArgs(LlmRequest request) : IReadOnlyList<String>
+    BuildPrompt(LlmRequest request) : String
     CommandEnvironmentVariables : IReadOnlyList<String>
     DefaultCommand : String
     Id : String
     LoginTimeout : TimeSpan
     LogoutArgs : IReadOnlyList<String>
     MaintenanceTimeout : TimeSpan
-    ParseAuthStatus(String) : ProviderAuthStatus
-    ParseLine(String) : CliOutputEvent
-    ParseVersionLine(String) : ValueTuple<String,String>
+    ParseAuthStatus(String output) : ProviderAuthStatus
+    ParseLine(String line) : CliOutputEvent
+    ParseVersionLine(String line) : ValueTuple<String,String>
     PromptDelivery : CliPromptDelivery
     SupportsToolCalls : Boolean
-    TryBuildInstallArgs(ProviderInstallRequest, IReadOnlyList`1&, String&) : Boolean
-    TryBuildLoginArgs(ProviderLoginRequest, IReadOnlyList`1&, String&) : Boolean
+    TryBuildInstallArgs(ProviderInstallRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
+    TryBuildLoginArgs(ProviderLoginRequest request, IReadOnlyList`1& args, String& refusal) : Boolean
     UpdateArgs : IReadOnlyList<String>
     VersionArgs : IReadOnlyList<String>
 abstract class Lyntai.Llm.DelegatingLlmClient
-    .ctor(ILlmClient)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    .ctor(ILlmClient inner)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Inner : ILlmClient
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(LlmRequest) : Boolean
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest req) : Boolean
 interface Lyntai.Llm.ILlmClient
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(LlmRequest) : Boolean
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest req) : Boolean
 interface Lyntai.Llm.ILlmProvider
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls : Boolean
 interface Lyntai.Llm.ILlmRouter
-    CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
+    CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
 interface Lyntai.Llm.IProviderAuth
-    LoginAsync(ProviderLoginRequest=, CancellationToken=) : Task<ProviderAuthResult>
-    LogoutAsync(CancellationToken=) : Task<ProviderAuthResult>
-    StatusAsync(CancellationToken=) : Task<ProviderAuthStatus>
+    LoginAsync(ProviderLoginRequest request = null, CancellationToken ct = default) : Task<ProviderAuthResult>
+    LogoutAsync(CancellationToken ct = default) : Task<ProviderAuthResult>
+    StatusAsync(CancellationToken ct = default) : Task<ProviderAuthStatus>
 interface Lyntai.Llm.IProviderInstallation
-    ProbeAsync(CancellationToken=) : Task<ProviderProbeResult>
+    ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 interface Lyntai.Llm.IProviderUpdater
-    UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
+    UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
 interface Lyntai.Llm.IProviderVersionInstaller
-    InstallAsync(ProviderInstallRequest=, CancellationToken=) : Task<ProviderUpdateResult>
+    InstallAsync(ProviderInstallRequest request = null, CancellationToken ct = default) : Task<ProviderUpdateResult>
 interface Lyntai.Llm.IRefusalMatcher
-    IsRefusal(LlmRequest, String) : Boolean
+    IsRefusal(LlmRequest request, String replyText) : Boolean
 sealed class Lyntai.Llm.LlmAttachment
-    .ctor(String, Byte[]=, String=)
+    .ctor(String MediaType, Byte[] Data = null, String Uri = null)
     Data : Byte[]
     DataUrl() : String
-    Deconstruct(String&, Byte[]&, String&) : Void
-    Equals(LlmAttachment) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& MediaType, Byte[]& Data, String& Uri) : Void
+    Equals(LlmAttachment other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     MediaType : String
     ToString() : String
     Uri : String
     Url() : String
 sealed class Lyntai.Llm.LlmCandidate
-    .ctor(String, String=)
-    Deconstruct(String&, String&) : Void
-    Equals(LlmCandidate) : Boolean
-    Equals(Object) : Boolean
+    .ctor(String ProviderId, String Model = null)
+    Deconstruct(String& ProviderId, String& Model) : Void
+    Equals(LlmCandidate other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Model : String
     ProviderId : String
@@ -1243,47 +1243,47 @@ sealed class Lyntai.Llm.LlmCandidate
 sealed class Lyntai.Llm.LlmChunk
     .ctor()
     Detail : String
-    Equals(LlmChunk) : Boolean
-    Equals(Object) : Boolean
+    Equals(LlmChunk other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Kind : LlmChunkKind required
     Text : String
     ToString() : String
     Usage : LlmUsage
     Verdict : LlmVerdict
-    static Content(String) : LlmChunk
-    static Error(LlmVerdict, String=) : LlmChunk
-    static Final(LlmUsage=, String=) : LlmChunk
+    static Content(String text) : LlmChunk
+    static Error(LlmVerdict verdict, String detail = null) : LlmChunk
+    static Final(LlmUsage usage = null, String detail = null) : LlmChunk
 enum Lyntai.Llm.LlmChunkKind
     Content : LlmChunkKind const
     Error : LlmChunkKind const
     Final : LlmChunkKind const
     value__ : Int32
 sealed class Lyntai.Llm.LlmMessage
-    .ctor(String, String)
+    .ctor(String Role, String Content)
     Attachments : IReadOnlyList<LlmAttachment>
     Content : String
-    Deconstruct(String&, String&) : Void
-    Equals(LlmMessage) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& Role, String& Content) : Void
+    Equals(LlmMessage other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Role : String
     ToString() : String
     ToolCallId : String
     ToolCalls : IReadOnlyList<LlmToolCall>
-    static Assistant(String) : LlmMessage
-    static AssistantToolCalls(IReadOnlyList<LlmToolCall>, String=) : LlmMessage
-    static System(String) : LlmMessage
-    static ToolResult(String, String) : LlmMessage
-    static User(String) : LlmMessage
-    static UserWithImage(String, Byte[], String) : LlmMessage
-    static UserWithImageUrl(String, String, String=) : LlmMessage
+    static Assistant(String content) : LlmMessage
+    static AssistantToolCalls(IReadOnlyList<LlmToolCall> toolCalls, String content = "") : LlmMessage
+    static System(String content) : LlmMessage
+    static ToolResult(String toolCallId, String content) : LlmMessage
+    static User(String content) : LlmMessage
+    static UserWithImage(String text, Byte[] imageBytes, String mediaType) : LlmMessage
+    static UserWithImageUrl(String text, String imageUrl, String mediaType = "image/jpeg") : LlmMessage
 sealed class Lyntai.Llm.LlmReply
-    .ctor(String, LlmVerdict, LlmUsage=, String=)
-    Deconstruct(String&, LlmVerdict&, LlmUsage&, String&) : Void
+    .ctor(String Text, LlmVerdict Verdict, LlmUsage Usage = null, String Detail = null)
+    Deconstruct(String& Text, LlmVerdict& Verdict, LlmUsage& Usage, String& Detail) : Void
     Detail : String
-    Equals(LlmReply) : Boolean
-    Equals(Object) : Boolean
+    Equals(LlmReply other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Text : String
     ToString() : String
@@ -1293,8 +1293,8 @@ sealed class Lyntai.Llm.LlmReply
 sealed class Lyntai.Llm.LlmRequest
     .ctor()
     Consumer : String
-    Equals(LlmRequest) : Boolean
-    Equals(Object) : Boolean
+    Equals(LlmRequest other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     JsonSchema : String
     MaxTokens : Nullable<Int32>
@@ -1306,34 +1306,34 @@ sealed class Lyntai.Llm.LlmRequest
     ToString() : String
     Tools : IReadOnlyList<LlmTool>
 static class Lyntai.Llm.LlmStructuredExtensions
-    static CompleteJsonAsync(ILlmClient, LlmRequest, CancellationToken=) : Task<LlmReply>
+    static CompleteJsonAsync(ILlmClient client, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
 sealed class Lyntai.Llm.LlmTool
-    .ctor(String, String=, String=)
-    Deconstruct(String&, String&, String&) : Void
+    .ctor(String Name, String Description = null, String ParametersJsonSchema = null)
+    Deconstruct(String& Name, String& Description, String& ParametersJsonSchema) : Void
     Description : String
-    Equals(LlmTool) : Boolean
-    Equals(Object) : Boolean
+    Equals(LlmTool other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Name : String
     ParametersJsonSchema : String
     ToString() : String
 sealed class Lyntai.Llm.LlmToolCall
-    .ctor(String, String, String)
+    .ctor(String Id, String Name, String ArgumentsJson)
     ArgumentsJson : String
-    Deconstruct(String&, String&, String&) : Void
-    Equals(LlmToolCall) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& Id, String& Name, String& ArgumentsJson) : Void
+    Equals(LlmToolCall other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : String
     Name : String
     ToString() : String
 sealed class Lyntai.Llm.LlmUsage
-    .ctor(Int64, Int64, Int64=, Nullable<Double>=)
+    .ctor(Int64 InputTokens, Int64 OutputTokens, Int64 CacheReadTokens = 0, Nullable<Double> CostUsd = null)
     CacheReadTokens : Int64
     CostUsd : Nullable<Double>
-    Deconstruct(Int64&, Int64&, Int64&, Nullable`1&) : Void
-    Equals(LlmUsage) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(Int64& InputTokens, Int64& OutputTokens, Int64& CacheReadTokens, Nullable`1& CostUsd) : Void
+    Equals(LlmUsage other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     InputTokens : Int64
     OutputTokens : Int64
@@ -1350,71 +1350,75 @@ enum Lyntai.Llm.LlmVerdict
     Unsupported : LlmVerdict const
     value__ : Int32
 static class Lyntai.Llm.LlmVerdictClassifier
-    static AddErrorTextMatcher(Func<String,Nullable<LlmVerdict>>) : IDisposable
-    static FromErrorText(String, LlmVerdict=) : LlmVerdict
-    static FromException(Exception) : LlmVerdict
-    static FromHttpFailure(HttpStatusCode, String) : LlmVerdict
-    static FromHttpFailure(HttpStatusCode, String, Boolean) : LlmVerdict
-static class Lyntai.Llm.LlmVerdictExtensions
-    static IsOk(LlmVerdict) : Boolean
-    static IsTransient(LlmVerdict) : Boolean
-sealed class Lyntai.Llm.ProviderAuthResult
-    .ctor(Boolean, ProviderAuthStatus=, String=)
-    Deconstruct(Boolean&, ProviderAuthStatus&, String&) : Void
+    static AddErrorTextMatcher(Func<String,Nullable<LlmVerdict>> matcher) : IDisposable
+    static FromErrorText(String text, LlmVerdict fallback = LlmVerdict.Failed) : LlmVerdict
+    static FromException(Exception ex) : LlmVerdict
+    static FromHttpFailure(HttpStatusCode status, String body) : LlmVerdict
+    static FromHttpFailure(HttpStatusCode status, String body, Boolean hasCredentials) : LlmVerdict
+sealed class Lyntai.Llm.LlmVerdictException
+    .ctor(LlmVerdict verdict, String detail = null)
     Detail : String
-    Equals(Object) : Boolean
-    Equals(ProviderAuthResult) : Boolean
+    Verdict : LlmVerdict
+static class Lyntai.Llm.LlmVerdictExtensions
+    static IsOk(LlmVerdict verdict) : Boolean
+    static IsTransient(LlmVerdict verdict) : Boolean
+sealed class Lyntai.Llm.ProviderAuthResult
+    .ctor(Boolean Succeeded, ProviderAuthStatus Status = null, String Detail = null)
+    Deconstruct(Boolean& Succeeded, ProviderAuthStatus& Status, String& Detail) : Void
+    Detail : String
+    Equals(Object obj) : Boolean
+    Equals(ProviderAuthResult other) : Boolean
     GetHashCode() : Int32
     Status : ProviderAuthStatus
     Succeeded : Boolean
     ToString() : String
 sealed class Lyntai.Llm.ProviderAuthStatus
-    .ctor(Boolean, String=, String=, String=)
+    .ctor(Boolean Authenticated, String Method = null, String Account = null, String Detail = null)
     Account : String
     Authenticated : Boolean
-    Deconstruct(Boolean&, String&, String&, String&) : Void
+    Deconstruct(Boolean& Authenticated, String& Method, String& Account, String& Detail) : Void
     Detail : String
-    Equals(Object) : Boolean
-    Equals(ProviderAuthStatus) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(ProviderAuthStatus other) : Boolean
     GetHashCode() : Int32
     Method : String
     ToString() : String
 sealed class Lyntai.Llm.ProviderInstallRequest
-    .ctor(String=, Boolean=)
-    Deconstruct(String&, Boolean&) : Void
-    Equals(Object) : Boolean
-    Equals(ProviderInstallRequest) : Boolean
+    .ctor(String Version = null, Boolean Force = false)
+    Deconstruct(String& Version, Boolean& Force) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProviderInstallRequest other) : Boolean
     Force : Boolean
     GetHashCode() : Int32
     ToString() : String
     Version : String
 sealed class Lyntai.Llm.ProviderLoginRequest
-    .ctor(String=, String=, Boolean=)
-    Deconstruct(String&, String&, Boolean&) : Void
+    .ctor(String Mode = null, String Email = null, Boolean Sso = false)
+    Deconstruct(String& Mode, String& Email, Boolean& Sso) : Void
     Email : String
-    Equals(Object) : Boolean
-    Equals(ProviderLoginRequest) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(ProviderLoginRequest other) : Boolean
     GetHashCode() : Int32
     Mode : String
     Sso : Boolean
     ToString() : String
 sealed class Lyntai.Llm.ProviderProbeResult
-    .ctor(Boolean, String=, String=, String=)
+    .ctor(Boolean Available, String Version = null, String Model = null, String Detail = null)
     Available : Boolean
-    Deconstruct(Boolean&, String&, String&, String&) : Void
+    Deconstruct(Boolean& Available, String& Version, String& Model, String& Detail) : Void
     Detail : String
-    Equals(Object) : Boolean
-    Equals(ProviderProbeResult) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(ProviderProbeResult other) : Boolean
     GetHashCode() : Int32
     Model : String
     ToString() : String
     Version : String
 sealed class Lyntai.Llm.ProviderUpdateResult
-    .ctor(Boolean, Boolean, String=, String=, String=)
-    Deconstruct(Boolean&, Boolean&, String&, String&, String&) : Void
+    .ctor(Boolean Succeeded, Boolean Updated, String FromVersion = null, String ToVersion = null, String Detail = null)
+    Deconstruct(Boolean& Succeeded, Boolean& Updated, String& FromVersion, String& ToVersion, String& Detail) : Void
     Detail : String
-    Equals(Object) : Boolean
-    Equals(ProviderUpdateResult) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(ProviderUpdateResult other) : Boolean
     FromVersion : String
     GetHashCode() : Int32
     Succeeded : Boolean
@@ -1422,28 +1426,28 @@ sealed class Lyntai.Llm.ProviderUpdateResult
     ToVersion : String
     Updated : Boolean
 interface Lyntai.Llm.RateLimiting.IRateLimiter
-    AcquireAsync(String, CancellationToken=) : Task<Boolean>
+    AcquireAsync(String consumer, CancellationToken ct = default) : Task<Boolean>
 sealed class Lyntai.Llm.RateLimiting.RateLimitedLlmClient
-    .ctor(ILlmClient, IRateLimiter, ILogger<RateLimitedLlmClient>=)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    .ctor(ILlmClient inner, IRateLimiter limiter, ILogger<RateLimitedLlmClient> logger = null)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
 sealed class Lyntai.Llm.RateLimiting.TokenBucketRateLimiter
-    .ctor(LyntaiOptions, Func<DateTimeOffset>=)
-    .ctor(RateLimitOptions, Func<DateTimeOffset>=)
-    AcquireAsync(String, CancellationToken=) : Task<Boolean>
+    .ctor(LyntaiOptions options, Func<DateTimeOffset> clock = null)
+    .ctor(RateLimitOptions limits, Func<DateTimeOffset> clock = null)
+    AcquireAsync(String consumer, CancellationToken ct = default) : Task<Boolean>
 sealed class Lyntai.Llm.RefusalScreeningLlmClient
-    .ctor(ILlmClient, IEnumerable<IRefusalMatcher>=, ILogger<RefusalScreeningLlmClient>=)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    .ctor(ILlmClient inner, IEnumerable<IRefusalMatcher> matchers = null, ILogger<RefusalScreeningLlmClient> logger = null)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
 enum Lyntai.Llm.Routing.CooldownScope
     Provider : CooldownScope const
     ProviderAndModel : CooldownScope const
     value__ : Int32
 sealed class Lyntai.Llm.Routing.DeadHostTracker
-    .ctor(Int32=, Nullable<TimeSpan>=, Func<DateTimeOffset>=, ILogger<DeadHostTracker>=)
-    IsDead(String) : Boolean
-    MarkDead(String) : Void
-    RecordFailure(String) : Void
-    RecordSuccess(String) : Void
+    .ctor(Int32 threshold = 3, Nullable<TimeSpan> cooldown = null, Func<DateTimeOffset> clock = null, ILogger<DeadHostTracker> logger = null)
+    IsDead(String key) : Boolean
+    MarkDead(String key) : Void
+    RecordFailure(String key) : Void
+    RecordSuccess(String key) : Void
 enum Lyntai.Llm.Routing.FallbackAction
     Advance : FallbackAction const
     CooldownAndAdvance : FallbackAction const
@@ -1451,91 +1455,91 @@ enum Lyntai.Llm.Routing.FallbackAction
     Surface : FallbackAction const
     value__ : Int32
 interface Lyntai.Llm.Routing.ILlmRouterFactory
-    For(IReadOnlyList<ILlmProvider>) : ILlmRouter
-    For(IReadOnlyList<ProviderRegistration<ILlmProvider>>) : ILlmRouter
+    For(IReadOnlyList<ILlmProvider> providers) : ILlmRouter
+    For(IReadOnlyList<ProviderRegistration<ILlmProvider>> providers) : ILlmRouter
 interface Lyntai.Llm.Routing.IModelRoutingStore
-    GetModelOverrideAsync(String, CancellationToken=) : Task<String>
+    GetModelOverrideAsync(String consumer, CancellationToken ct = default) : Task<String>
 sealed class Lyntai.Llm.Routing.KeyValueModelRoutingStore
-    .ctor(IKeyValueStore=, ILogger<KeyValueModelRoutingStore>=, String=)
+    .ctor(IKeyValueStore kv = null, ILogger<KeyValueModelRoutingStore> logger = null, String keyPrefix = null)
     DefaultKeyPrefix : String const
-    GetModelOverrideAsync(String, CancellationToken=) : Task<String>
+    GetModelOverrideAsync(String consumer, CancellationToken ct = default) : Task<String>
     KeyPrefix : String
 sealed class Lyntai.Llm.Routing.LlmClient
-    .ctor(ILlmRouter, LyntaiOptions)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(LlmRequest) : Boolean
+    .ctor(ILlmRouter router, LyntaiOptions options)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(LlmRequest req) : Boolean
 sealed class Lyntai.Llm.Routing.LlmRouter
-    .ctor(IEnumerable<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILogger<LlmRouter>=, IModelRoutingStore=, Func<ILlmProvider,Nullable<ProviderKey>>=, IProviderAdmission=)
-    CompleteAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : Task<LlmReply>
-    StreamAsync(IReadOnlyList<LlmCandidate>, LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
-    SupportsToolCalls(IReadOnlyList<LlmCandidate>, LlmRequest) : Boolean
+    .ctor(IEnumerable<ILlmProvider> providers, DeadHostTracker deadHosts, LyntaiOptions options, ILogger<LlmRouter> logger = null, IModelRoutingStore modelRouting = null, Func<ILlmProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
+    CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
+    StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
 sealed class Lyntai.Llm.Routing.LlmRouterFactory
-    .ctor(IProviderPool<ILlmProvider>, DeadHostTracker, LyntaiOptions, ILoggerFactory=, IModelRoutingStore=, IProviderAdmission=)
-    For(IReadOnlyList<ILlmProvider>) : ILlmRouter
-    For(IReadOnlyList<ProviderRegistration<ILlmProvider>>) : ILlmRouter
+    .ctor(IProviderPool<ILlmProvider> pool, DeadHostTracker deadHosts, LyntaiOptions options, ILoggerFactory loggers = null, IModelRoutingStore modelRouting = null, IProviderAdmission admission = null)
+    For(IReadOnlyList<ILlmProvider> providers) : ILlmRouter
+    For(IReadOnlyList<ProviderRegistration<ILlmProvider>> providers) : ILlmRouter
 sealed class Lyntai.Llm.Routing.RoutingPolicy
     .ctor()
-    ActionFor(LlmVerdict) : FallbackAction
+    ActionFor(LlmVerdict verdict) : FallbackAction
     CooldownScope : CooldownScope
     ExemptSoleCandidate : Boolean
-    On(LlmVerdict, FallbackAction) : RoutingPolicy
-    RetriesFor(LlmVerdict) : Int32
-    Retry(LlmVerdict, Int32) : RoutingPolicy
+    On(LlmVerdict verdict, FallbackAction action) : RoutingPolicy
+    RetriesFor(LlmVerdict verdict) : Int32
+    Retry(LlmVerdict verdict, Int32 count) : RoutingPolicy
     RetryBackoff : TimeSpan
 static class Lyntai.Llm.Streaming.GuardedStream
-    static ReadAll(Func<ValueTask<TItem>>, Func<Exception,TTerminal>, CancellationToken, InactivityClock=) : IAsyncEnumerable<ValueTuple<TItem,TTerminal>>
+    static ReadAll<TItem,TTerminal>(Func<ValueTask<TItem>> readNext, Func<Exception,TTerminal> onFault, CancellationToken callerCt, InactivityClock clock = null) : IAsyncEnumerable<ValueTuple<TItem,TTerminal>>
 sealed class Lyntai.Llm.Streaming.InactivityClock
-    .ctor(CancellationTokenSource, TimeSpan)
+    .ctor(CancellationTokenSource cts, TimeSpan timeout)
     Arm() : Void
     Stop() : Void
 sealed class Lyntai.LyntaiBuilder
-    AddConversationEnricher() : LyntaiBuilder
-    AddConversationEnricher(Func<IServiceProvider,IConversationEnricher>) : LyntaiBuilder
-    AddCronSchedule(String, String, String, String, String, Int32=) : LyntaiBuilder
-    AddEmbeddings() : LyntaiBuilder
-    AddEmbeddings(Func<IServiceProvider,IEmbedder>) : LyntaiBuilder
-    AddEmbeddings(IEmbedder) : LyntaiBuilder
-    AddFrontDoorDecorator(Int32, Func<IServiceProvider,ILlmClient,ILlmClient>) : LyntaiBuilder
-    AddGuard() : LyntaiBuilder
-    AddGuard(Func<IServiceProvider,IGuard>) : LyntaiBuilder
-    AddJobAdmissionController() : LyntaiBuilder
-    AddJobAdmissionController(Func<IServiceProvider,IJobAdmissionController>) : LyntaiBuilder
-    AddJobHandler() : LyntaiBuilder
-    AddJobHandler(Func<IServiceProvider,IJobHandler>) : LyntaiBuilder
-    AddJobSchedule(JobSchedule) : LyntaiBuilder
-    AddJobSchedule(String, String, String, String, TimeSpan, Int32=) : LyntaiBuilder
+    AddConversationEnricher(Func<IServiceProvider,IConversationEnricher> factory) : LyntaiBuilder
+    AddConversationEnricher<T>() : LyntaiBuilder
+    AddCronSchedule(String name, String lane, String type, String payload, String cron, Int32 priority = 0) : LyntaiBuilder
+    AddEmbeddings(Func<IServiceProvider,IEmbedder> factory) : LyntaiBuilder
+    AddEmbeddings(IEmbedder embedder) : LyntaiBuilder
+    AddEmbeddings<TEmbedder>() : LyntaiBuilder
+    AddFrontDoorDecorator(Int32 order, Func<IServiceProvider,ILlmClient,ILlmClient> decorate) : LyntaiBuilder
+    AddGuard(Func<IServiceProvider,IGuard> factory) : LyntaiBuilder
+    AddGuard<T>() : LyntaiBuilder
+    AddJobAdmissionController(Func<IServiceProvider,IJobAdmissionController> factory) : LyntaiBuilder
+    AddJobAdmissionController<T>() : LyntaiBuilder
+    AddJobHandler(Func<IServiceProvider,IJobHandler> factory) : LyntaiBuilder
+    AddJobHandler<T>() : LyntaiBuilder
+    AddJobSchedule(JobSchedule schedule) : LyntaiBuilder
+    AddJobSchedule(String name, String lane, String type, String payload, TimeSpan every, Int32 priority = 0) : LyntaiBuilder
     AddLiveModelRouting() : LyntaiBuilder
-    AddMemoryPruneJob(String, Nullable<TimeSpan>=, String=, String=, String=, Int32=) : LyntaiBuilder
-    AddProvider() : LyntaiBuilder
-    AddProvider(Func<IServiceProvider,ILlmProvider>) : LyntaiBuilder
-    AddRateLimit(Action<RateLimitOptions>=) : LyntaiBuilder
-    AddRefusalMatcher() : LyntaiBuilder
-    AddRefusalMatcher(Func<IServiceProvider,IRefusalMatcher>) : LyntaiBuilder
-    AddRefusalMatcher(IRefusalMatcher) : LyntaiBuilder
-    AddResponseCache(Action<CacheOptions>=) : LyntaiBuilder
-    AddScorer() : LyntaiBuilder
-    AddScorer(Func<IServiceProvider,IScorer>) : LyntaiBuilder
+    AddMemoryPruneJob(String cron, Nullable<TimeSpan> olderThan = null, String taskKey = null, String lane = "default", String name = "lyntai-memory-prune", Int32 priority = 0) : LyntaiBuilder
+    AddProvider(Func<IServiceProvider,ILlmProvider> factory) : LyntaiBuilder
+    AddProvider<T>() : LyntaiBuilder
+    AddRateLimit(Action<RateLimitOptions> configure = null) : LyntaiBuilder
+    AddRefusalMatcher(Func<IServiceProvider,IRefusalMatcher> factory) : LyntaiBuilder
+    AddRefusalMatcher(IRefusalMatcher matcher) : LyntaiBuilder
+    AddRefusalMatcher<T>() : LyntaiBuilder
+    AddResponseCache(Action<CacheOptions> configure = null) : LyntaiBuilder
+    AddScorer(Func<IServiceProvider,IScorer> factory) : LyntaiBuilder
+    AddScorer<T>() : LyntaiBuilder
     AddSemanticMemory() : LyntaiBuilder
-    AddSemanticMemory() : LyntaiBuilder
-    AddSemanticMemory(Func<IServiceProvider,IEmbedder>) : LyntaiBuilder
-    AddSemanticMemory(IEmbedder) : LyntaiBuilder
-    AddTool() : LyntaiBuilder
-    AddTool(Func<IServiceProvider,ITool>) : LyntaiBuilder
-    AddUsageBudget(Action<BudgetOptions>=) : LyntaiBuilder
+    AddSemanticMemory(Func<IServiceProvider,IEmbedder> factory) : LyntaiBuilder
+    AddSemanticMemory(IEmbedder embedder) : LyntaiBuilder
+    AddSemanticMemory<TEmbedder>() : LyntaiBuilder
+    AddTool(Func<IServiceProvider,ITool> factory) : LyntaiBuilder
+    AddTool<T>() : LyntaiBuilder
+    AddUsageBudget(Action<BudgetOptions> configure = null) : LyntaiBuilder
     BudgetDecoratorOrder : Int32 const
     CacheDecoratorOrder : Int32 const
-    Configure(Action<LyntaiOptions>) : LyntaiBuilder
-    ConfigureMemory(Action<MemoryRetentionPolicy>) : LyntaiBuilder
-    ConfigureRouting(Action<RoutingPolicy>) : LyntaiBuilder
+    Configure(Action<LyntaiOptions> configure) : LyntaiBuilder
+    ConfigureMemory(Action<MemoryRetentionPolicy> configure) : LyntaiBuilder
+    ConfigureRouting(Action<RoutingPolicy> configure) : LyntaiBuilder
     Options : LyntaiOptions
     RateLimitDecoratorOrder : Int32 const
     Services : IServiceCollection
-    UseDefaultCandidates(LlmCandidate[]) : LyntaiBuilder
-    UseDefaultCandidates(String[]) : LyntaiBuilder
+    UseDefaultCandidates(LlmCandidate[] candidates) : LyntaiBuilder
+    UseDefaultCandidates(String[] providerIds) : LyntaiBuilder
 sealed class Lyntai.LyntaiOptions
     .ctor()
-    ApplyEnvOverrides(Func<String,String>=, IEnumerable<KeyValuePair<String,String>>=) : Void
+    ApplyEnvOverrides(Func<String,String> getEnv = null, IEnumerable<KeyValuePair<String,String>> allEnv = null) : Void
     Budget : BudgetOptions
     Cache : CacheOptions
     DeadHostCooldown : TimeSpan
@@ -1551,62 +1555,62 @@ sealed class Lyntai.LyntaiOptions
     PromptKeyPrefix : String
     ProviderTimeout : TimeSpan
     RateLimit : RateLimitOptions
-    ResolveModel(String, String) : String
-    ResolveModel(String, String, String) : String
-    ResolveTimeout(LlmRequest) : TimeSpan
-    ResolveTimeout(Nullable<Int32>) : TimeSpan
+    ResolveModel(String consumer, String requestModel) : String
+    ResolveModel(String consumer, String requestModel, String liveOverride) : String
+    ResolveTimeout(LlmRequest req) : TimeSpan
+    ResolveTimeout(Nullable<Int32> seconds) : TimeSpan
     Routing : RoutingPolicy
     TimeoutByConsumer : Dictionary<String,TimeSpan>
     ToolLoopMaxIterations : Int32
 interface Lyntai.Memory.ISemanticMemory
-    ForgetAsync(String, String, CancellationToken=) : Task
-    RecallAsync(String, String, String, Int32=, Double=, CancellationToken=) : Task<IReadOnlyList<SemanticHit>>
-    RememberAsync(String, String, String, CancellationToken=) : Task
+    ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
+    RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
+    RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task
 interface Lyntai.Memory.IVectorStore
-    DeleteAsync(String, String, CancellationToken=) : Task
-    RemoveCollectionAsync(String, CancellationToken=) : Task
-    SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
-    UpsertAsync(String, String, Single[], String, CancellationToken=) : Task
+    DeleteAsync(String collection, String id, CancellationToken ct = default) : Task
+    RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
+    SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
+    UpsertAsync(String collection, String id, Single[] vector, String payload, CancellationToken ct = default) : Task
 sealed class Lyntai.Memory.InMemoryVectorStore
     .ctor()
-    DeleteAsync(String, String, CancellationToken=) : Task
-    RemoveCollectionAsync(String, CancellationToken=) : Task
-    SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
-    UpsertAsync(String, String, Single[], String, CancellationToken=) : Task
+    DeleteAsync(String collection, String id, CancellationToken ct = default) : Task
+    RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
+    SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
+    UpsertAsync(String collection, String id, Single[] vector, String payload, CancellationToken ct = default) : Task
 sealed class Lyntai.Memory.SemanticHit
-    .ctor(String, Double)
+    .ctor(String Content, Double Score)
     Content : String
-    Deconstruct(String&, Double&) : Void
-    Equals(Object) : Boolean
-    Equals(SemanticHit) : Boolean
+    Deconstruct(String& Content, Double& Score) : Void
+    Equals(Object obj) : Boolean
+    Equals(SemanticHit other) : Boolean
     GetHashCode() : Int32
     Score : Double
     ToString() : String
 sealed class Lyntai.Memory.SemanticMemory
-    .ctor(IEmbedder, IVectorStore, ILogger<SemanticMemory>=)
-    ForgetAsync(String, String, CancellationToken=) : Task
-    RecallAsync(String, String, String, Int32=, Double=, CancellationToken=) : Task<IReadOnlyList<SemanticHit>>
-    RememberAsync(String, String, String, CancellationToken=) : Task
+    .ctor(IEmbedder embedder, IVectorStore vectors, ILogger<SemanticMemory> logger = null)
+    ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
+    RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
+    RememberAsync(String taskKey, String scope, String content, CancellationToken ct = default) : Task
 sealed class Lyntai.Memory.VectorMatch
-    .ctor(String, String, Double)
-    Deconstruct(String&, String&, Double&) : Void
-    Equals(Object) : Boolean
-    Equals(VectorMatch) : Boolean
+    .ctor(String Id, String Payload, Double Score)
+    Deconstruct(String& Id, String& Payload, Double& Score) : Void
+    Equals(Object obj) : Boolean
+    Equals(VectorMatch other) : Boolean
     GetHashCode() : Int32
     Id : String
     Payload : String
     Score : Double
     ToString() : String
 static class Lyntai.Memory.VectorMath
-    static Cosine(Single[], Single[]) : Double
+    static Cosine(Single[] a, Single[] b) : Double
 interface Lyntai.Processes.IProcessRunner
-    RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
-    StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>
+    RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
+    StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
 sealed class Lyntai.Processes.ProcessResult
-    .ctor(Int32, String, String, ProcessTimeoutKind=)
-    Deconstruct(Int32&, String&, String&, ProcessTimeoutKind&) : Void
-    Equals(Object) : Boolean
-    Equals(ProcessResult) : Boolean
+    .ctor(Int32 ExitCode, String StdOut, String StdErr, ProcessTimeoutKind TimeoutKind = ProcessTimeoutKind.None)
+    Deconstruct(Int32& ExitCode, String& StdOut, String& StdErr, ProcessTimeoutKind& TimeoutKind) : Void
+    Equals(Object obj) : Boolean
+    Equals(ProcessResult other) : Boolean
     ExitCode : Int32
     GetHashCode() : Int32
     StdErr : String
@@ -1616,35 +1620,35 @@ sealed class Lyntai.Processes.ProcessResult
     TimeoutKind : ProcessTimeoutKind
     ToString() : String
 sealed class Lyntai.Processes.ProcessRunException
-    .ctor(String, Int32, String)
+    .ctor(String command, Int32 exitCode, String stdErrTail)
     ExitCode : Int32
     StdErrTail : String
 sealed class Lyntai.Processes.ProcessRunner
     .ctor()
-    RunAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<ProcessResult>
-    StreamLinesAsync(String, IReadOnlyList<String>, String=, Nullable<TimeSpan>=, Nullable<TimeSpan>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : IAsyncEnumerable<String>
-    static CommandExists(String) : Boolean
-    static ResolveCommandPath(String) : String
+    RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
+    StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>
+    static CommandExists(String command) : Boolean
+    static ResolveCommandPath(String command) : String
 sealed class Lyntai.Processes.ProcessTimeoutException
-    .ctor(String, TimeSpan)
+    .ctor(String command, TimeSpan timeout)
 enum Lyntai.Processes.ProcessTimeoutKind
     Inactivity : ProcessTimeoutKind const
     MaxDuration : ProcessTimeoutKind const
     None : ProcessTimeoutKind const
     value__ : Int32
 interface Lyntai.Prompts.IPromptRegistry
-    RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
-    ValidateOverride(String, String) : IReadOnlyList<String>
+    RenderAsync(String name, String defaultTemplate, IReadOnlyDictionary<String,String> vars = null, CancellationToken ct = default) : Task<String>
+    ValidateOverride(String defaultTemplate, String candidate) : IReadOnlyList<String>
 sealed class Lyntai.Prompts.PromptRegistry
-    .ctor(IKeyValueStore=, IPromptVersionStore=, ILogger<PromptRegistry>=, String=)
+    .ctor(IKeyValueStore kv = null, IPromptVersionStore versions = null, ILogger<PromptRegistry> logger = null, String keyPrefix = null)
     DefaultKeyPrefix : String const
     KeyPrefix : String
-    RenderAsync(String, String, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<String>
-    ValidateOverride(String, String) : IReadOnlyList<String>
+    RenderAsync(String name, String defaultTemplate, IReadOnlyDictionary<String,String> vars = null, CancellationToken ct = default) : Task<String>
+    ValidateOverride(String defaultTemplate, String candidate) : IReadOnlyList<String>
 static class Lyntai.ProviderPoolBuilderExtensions
-    static ConfigureProviderAdmission(LyntaiBuilder, Action<ProviderAdmissionOptions>) : LyntaiBuilder
-    static UseProviderPool(LyntaiBuilder, ProviderPoolOptions=) : LyntaiBuilder
-    static UseTransientProviders(LyntaiBuilder) : LyntaiBuilder
+    static ConfigureProviderAdmission(LyntaiBuilder builder, Action<ProviderAdmissionOptions> configure) : LyntaiBuilder
+    static UseProviderPool(LyntaiBuilder builder, ProviderPoolOptions options = null) : LyntaiBuilder
+    static UseTransientProviders(LyntaiBuilder builder) : LyntaiBuilder
 sealed class Lyntai.RateLimitOptions
     .ctor()
     Burst : Int32
@@ -1652,54 +1656,54 @@ sealed class Lyntai.RateLimitOptions
     PerConsumer : Dictionary<String,ConsumerRate>
     PermitsPerSecond : Double
 static class Lyntai.SecretVaultBuilderExtensions
-    static AddEnvelopeSecretVault(LyntaiBuilder, ISecretProtector, ISecretAccessPolicy=) : LyntaiBuilder
-    static AddPlaintextSecretVault(LyntaiBuilder, ISecretAccessPolicy=) : LyntaiBuilder
-    static AddSecretVault(LyntaiBuilder, Byte[], ISecretAccessPolicy=) : LyntaiBuilder
+    static AddEnvelopeSecretVault(LyntaiBuilder builder, ISecretProtector machineProtector, ISecretAccessPolicy accessPolicy = null) : LyntaiBuilder
+    static AddPlaintextSecretVault(LyntaiBuilder builder, ISecretAccessPolicy accessPolicy = null) : LyntaiBuilder
+    static AddSecretVault(LyntaiBuilder builder, Byte[] encryptionKey, ISecretAccessPolicy accessPolicy = null) : LyntaiBuilder
 sealed class Lyntai.Secrets.AesGcmSecretProtector
-    .ctor(Byte[])
-    Protect(String) : String
-    Unprotect(String) : String
+    .ctor(Byte[] key)
+    Protect(String plaintext) : String
+    Unprotect(String ciphertext) : String
 sealed class Lyntai.Secrets.EnvelopeSecretVault
-    .ctor(IKeyValueStore, ISecretProtector, ISecretAccessPolicy=)
-    DeleteAsync(String, CancellationToken=) : Task
-    GenerateMasterKeyAsync(CancellationToken=) : Task<String>
-    GetAsync(String, String=, CancellationToken=) : Task<String>
-    InitializeAsync(CancellationToken=) : Task
-    ListNamesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
-    RecoverAsync(String, CancellationToken=) : Task
-    SetAsync(String, String, CancellationToken=) : Task
+    .ctor(IKeyValueStore kv, ISecretProtector machineProtector, ISecretAccessPolicy policy = null)
+    DeleteAsync(String name, CancellationToken ct = default) : Task
+    GenerateMasterKeyAsync(CancellationToken ct = default) : Task<String>
+    GetAsync(String name, String accessor = null, CancellationToken ct = default) : Task<String>
+    InitializeAsync(CancellationToken ct = default) : Task
+    ListNamesAsync(CancellationToken ct = default) : Task<IReadOnlyList<String>>
+    RecoverAsync(String recoveryKey, CancellationToken ct = default) : Task
+    SetAsync(String name, String value, CancellationToken ct = default) : Task
 interface Lyntai.Secrets.ISecretAccessPolicy
-    CanReadAsync(String, String, CancellationToken=) : Task<Boolean>
+    CanReadAsync(String name, String accessor, CancellationToken ct = default) : Task<Boolean>
 interface Lyntai.Secrets.ISecretProtector
-    Protect(String) : String
-    Unprotect(String) : String
+    Protect(String plaintext) : String
+    Unprotect(String ciphertext) : String
 interface Lyntai.Secrets.ISecretVault
-    DeleteAsync(String, CancellationToken=) : Task
-    GetAsync(String, String=, CancellationToken=) : Task<String>
-    ListNamesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
-    SetAsync(String, String, CancellationToken=) : Task
+    DeleteAsync(String name, CancellationToken ct = default) : Task
+    GetAsync(String name, String accessor = null, CancellationToken ct = default) : Task<String>
+    ListNamesAsync(CancellationToken ct = default) : Task<IReadOnlyList<String>>
+    SetAsync(String name, String value, CancellationToken ct = default) : Task
 sealed class Lyntai.Secrets.InMemorySecretVault
-    .ctor(ISecretProtector=, ISecretAccessPolicy=)
-    DeleteAsync(String, CancellationToken=) : Task
-    GetAsync(String, String=, CancellationToken=) : Task<String>
-    ListNamesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
-    SetAsync(String, String, CancellationToken=) : Task
+    .ctor(ISecretProtector protector = null, ISecretAccessPolicy policy = null)
+    DeleteAsync(String name, CancellationToken ct = default) : Task
+    GetAsync(String name, String accessor = null, CancellationToken ct = default) : Task<String>
+    ListNamesAsync(CancellationToken ct = default) : Task<IReadOnlyList<String>>
+    SetAsync(String name, String value, CancellationToken ct = default) : Task
 sealed class Lyntai.Secrets.KeyValueSecretVault
-    .ctor(IKeyValueStore, ISecretProtector, ISecretAccessPolicy=)
-    DeleteAsync(String, CancellationToken=) : Task
-    GetAsync(String, String=, CancellationToken=) : Task<String>
-    ListNamesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
-    SetAsync(String, String, CancellationToken=) : Task
+    .ctor(IKeyValueStore kv, ISecretProtector protector, ISecretAccessPolicy policy = null)
+    DeleteAsync(String name, CancellationToken ct = default) : Task
+    GetAsync(String name, String accessor = null, CancellationToken ct = default) : Task<String>
+    ListNamesAsync(CancellationToken ct = default) : Task<IReadOnlyList<String>>
+    SetAsync(String name, String value, CancellationToken ct = default) : Task
 sealed class Lyntai.Secrets.NullSecretProtector
     .ctor()
-    Protect(String) : String
-    Unprotect(String) : String
+    Protect(String plaintext) : String
+    Unprotect(String ciphertext) : String
 sealed class Lyntai.Secrets.SecretKeyEnvelope
     .ctor()
     CurrentVersion : Int32 const
     DefaultRecoveryIterations : Int32 const
-    Equals(Object) : Boolean
-    Equals(SecretKeyEnvelope) : Boolean
+    Equals(Object obj) : Boolean
+    Equals(SecretKeyEnvelope other) : Boolean
     GetHashCode() : Int32
     MachineFingerprint : String required
     MachineWrappedDek : String required
@@ -1708,24 +1712,24 @@ sealed class Lyntai.Secrets.SecretKeyEnvelope
     RecoveryIterations : Int32 required
     RecoverySalt : String required
     RecoveryWrappedDek : String required
-    RewrapForMachine(Byte[], ISecretProtector) : SecretKeyEnvelope
+    RewrapForMachine(Byte[] dek, ISecretProtector machineProtector) : SecretKeyEnvelope
     ToJson() : String
     ToString() : String
-    UnwrapWithMachine(ISecretProtector) : Byte[]
-    UnwrapWithRecoveryKey(String) : Byte[]
+    UnwrapWithMachine(ISecretProtector machineProtector) : Byte[]
+    UnwrapWithRecoveryKey(String recoveryKey) : Byte[]
     Version : Int32
     static ComputeMachineFingerprint() : String
-    static Create(ISecretProtector, Int32=) : ValueTuple<SecretKeyEnvelope,Byte[],String>
-    static FromJson(String) : SecretKeyEnvelope
+    static Create(ISecretProtector machineProtector, Int32 recoveryIterations = 210000) : ValueTuple<SecretKeyEnvelope,Byte[],String>
+    static FromJson(String json) : SecretKeyEnvelope
 sealed class Lyntai.Secrets.SecretRecoveryRequiredException
-    .ctor(String, Exception=)
+    .ctor(String message, Exception inner = null)
 sealed class Lyntai.Storage.ChatMessage
-    .ctor(String, String, Int64, String, String, String, DateTimeOffset)
+    .ctor(String Id, String ThreadId, Int64 Seq, String Kind, String Payload, String Metadata, DateTimeOffset CreatedAt)
     Content : String
     CreatedAt : DateTimeOffset
-    Deconstruct(String&, String&, Int64&, String&, String&, String&, DateTimeOffset&) : Void
-    Equals(ChatMessage) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& Id, String& ThreadId, Int64& Seq, String& Kind, String& Payload, String& Metadata, DateTimeOffset& CreatedAt) : Void
+    Equals(ChatMessage other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : String
     Kind : String
@@ -1736,24 +1740,24 @@ sealed class Lyntai.Storage.ChatMessage
     ThreadId : String
     ToString() : String
 sealed class Lyntai.Storage.ChatThread
-    .ctor(String, String, DateTimeOffset, String=)
+    .ctor(String Id, String Title, DateTimeOffset CreatedAt, String Metadata = null)
     CreatedAt : DateTimeOffset
-    Deconstruct(String&, String&, DateTimeOffset&, String&) : Void
-    Equals(ChatThread) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(String& Id, String& Title, DateTimeOffset& CreatedAt, String& Metadata) : Void
+    Equals(ChatThread other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : String
     Metadata : String
     Title : String
     ToString() : String
 sealed class Lyntai.Storage.CuratedMemory
-    .ctor(Int64, String, String, Boolean, DateTimeOffset, DateTimeOffset, String=, String=, IReadOnlyDictionary<String,String>=)
+    .ctor(Int64 Id, String Kind, String Content, Boolean Enabled, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, String TaskKey = null, String Scope = null, IReadOnlyDictionary<String,String> Metadata = null)
     Content : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Int64&, String&, String&, Boolean&, DateTimeOffset&, DateTimeOffset&, String&, String&, IReadOnlyDictionary`2&) : Void
+    Deconstruct(Int64& Id, String& Kind, String& Content, Boolean& Enabled, DateTimeOffset& CreatedAt, DateTimeOffset& UpdatedAt, String& TaskKey, String& Scope, IReadOnlyDictionary`2& Metadata) : Void
     Enabled : Boolean
-    Equals(CuratedMemory) : Boolean
-    Equals(Object) : Boolean
+    Equals(CuratedMemory other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : Int64
     Kind : String
@@ -1763,89 +1767,89 @@ sealed class Lyntai.Storage.CuratedMemory
     ToString() : String
     UpdatedAt : DateTimeOffset
 static class Lyntai.Storage.CuratedMemoryExtensions
-    static MetadataValue(CuratedMemory, String) : String
+    static MetadataValue(CuratedMemory entry, String key) : String
 static class Lyntai.Storage.CuratedMetadataJson
-    static Deserialize(String) : IReadOnlyDictionary<String,String>
-    static Serialize(IReadOnlyDictionary<String,String>) : String
+    static Deserialize(String json) : IReadOnlyDictionary<String,String>
+    static Serialize(IReadOnlyDictionary<String,String> metadata) : String
 sealed class Lyntai.Storage.EnrichingConversationStore
-    .ctor(IConversationStore, IEnumerable<IConversationEnricher>)
-    AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
-    CountThreadsAsync(CancellationToken=) : Task<Int32>
-    CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
-    DeleteThreadAsync(String, CancellationToken=) : Task
-    GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
-    GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
-    ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
-    ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
-    SetThreadMetadataAsync(String, String, CancellationToken=) : Task
+    .ctor(IConversationStore inner, IEnumerable<IConversationEnricher> enrichers)
+    AppendMessageAsync(String threadId, String kind, String payload, String metadata = null, CancellationToken ct = default) : Task<ChatMessage>
+    CountThreadsAsync(CancellationToken ct = default) : Task<Int32>
+    CreateThreadAsync(String id, String title = null, String metadata = null, CancellationToken ct = default) : Task<ChatThread>
+    DeleteThreadAsync(String id, CancellationToken ct = default) : Task
+    GetMessagesAsync(String threadId, CancellationToken ct = default) : Task<IReadOnlyList<ChatMessage>>
+    GetThreadAsync(String id, CancellationToken ct = default) : Task<ChatThread>
+    ListThreadsAsync(Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsPageAsync(Int32 limit, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    SetThreadMetadataAsync(String id, String metadata, CancellationToken ct = default) : Task
 static class Lyntai.Storage.FtsQuery
-    static Build(String) : String
+    static Build(String raw) : String
 interface Lyntai.Storage.IConversationEnricher
-    OnMessageAppendedAsync(ChatMessage, CancellationToken=) : Task
-    OnThreadCreatedAsync(ChatThread, CancellationToken=) : Task
+    OnMessageAppendedAsync(ChatMessage message, CancellationToken ct = default) : Task
+    OnThreadCreatedAsync(ChatThread thread, CancellationToken ct = default) : Task
 interface Lyntai.Storage.IConversationStore
-    AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
-    CountThreadsAsync(CancellationToken=) : Task<Int32>
-    CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
-    DeleteThreadAsync(String, CancellationToken=) : Task
-    GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
-    GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
-    ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
-    ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
-    SetThreadMetadataAsync(String, String, CancellationToken=) : Task
+    AppendMessageAsync(String threadId, String kind, String payload, String metadata = null, CancellationToken ct = default) : Task<ChatMessage>
+    CountThreadsAsync(CancellationToken ct = default) : Task<Int32>
+    CreateThreadAsync(String id, String title = null, String metadata = null, CancellationToken ct = default) : Task<ChatThread>
+    DeleteThreadAsync(String id, CancellationToken ct = default) : Task
+    GetMessagesAsync(String threadId, CancellationToken ct = default) : Task<IReadOnlyList<ChatMessage>>
+    GetThreadAsync(String id, CancellationToken ct = default) : Task<ChatThread>
+    ListThreadsAsync(Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsPageAsync(Int32 limit, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    SetThreadMetadataAsync(String id, String metadata, CancellationToken ct = default) : Task
 interface Lyntai.Storage.ICuratedMemoryStore
-    AddAsync(String, String, Boolean=, String=, String=, Boolean=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<Int64>
-    ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
-    ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
-    SearchAsync(String, String=, String=, String=, Boolean=, Nullable<Int32>=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<Boolean>
+    AddAsync(String kind, String content, Boolean enabled = true, String taskKey = null, String scope = null, Boolean dedup = false, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<Int64>
+    ForCompositionAsync(String taskKey, IEnumerable<String> scopes, Boolean enabledOnly = true, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
+    GetAsync(Int64 id, CancellationToken ct = default) : Task<CuratedMemory>
+    ListAsync(String kind = null, Boolean enabledOnly = false, String taskKey = null, String scope = null, Nullable<Int32> limit = null, IReadOnlyDictionary<String,String> metadataMatch = null, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
+    RemoveAsync(Int64 id, CancellationToken ct = default) : Task<Boolean>
+    SearchAsync(String query, String kind = null, String taskKey = null, String scope = null, Boolean enabledOnly = false, Nullable<Int32> limit = null, IReadOnlyDictionary<String,String> metadataMatch = null, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
+    UpdateAsync(Int64 id, String content = null, Nullable<Boolean> enabled = null, String kind = null, String taskKey = null, String scope = null, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<Boolean>
 interface Lyntai.Storage.IDbConnectionFactory
     Open() : DbConnection
-    OpenAsync(CancellationToken=) : Task<DbConnection>
+    OpenAsync(CancellationToken ct = default) : Task<DbConnection>
 interface Lyntai.Storage.IJobStore
-    ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
-    CancelAsync(Guid, CancellationToken=) : Task<Boolean>
-    CancelRunningAsync(Guid, String, CancellationToken=) : Task<Boolean>
-    ClaimNextAsync(String, String, TimeSpan, CancellationToken=) : Task<JobRecord>
-    CompleteAsync(Guid, String, CancellationToken=) : Task<Boolean>
-    CountRunningAsync(String, CancellationToken=) : Task<Int32>
-    DeadLetterAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
-    EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
-    FailAsync(Guid, String, String, Nullable<DateTimeOffset>=, CancellationToken=) : Task<Boolean>
-    GetAsync(Guid, CancellationToken=) : Task<JobRecord>
-    ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
-    PauseAsync(Guid, CancellationToken=) : Task<Boolean>
-    ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
-    ReportProgressAsync(Guid, String, Int32, Int32, String, CancellationToken=) : Task<Boolean>
-    ReportStepAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
-    RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
-    ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
-    SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
+    ActiveLanesAsync(CancellationToken ct = default) : Task<IReadOnlyList<String>>
+    CancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    CancelRunningAsync(Guid id, String workerId, CancellationToken ct = default) : Task<Boolean>
+    ClaimNextAsync(String lane, String workerId, TimeSpan lease, CancellationToken ct = default) : Task<JobRecord>
+    CompleteAsync(Guid id, String workerId, CancellationToken ct = default) : Task<Boolean>
+    CountRunningAsync(String lane, CancellationToken ct = default) : Task<Int32>
+    DeadLetterAsync(Guid id, String workerId, String error, CancellationToken ct = default) : Task<Boolean>
+    EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
+    FailAsync(Guid id, String workerId, String error, Nullable<DateTimeOffset> retryAt = null, CancellationToken ct = default) : Task<Boolean>
+    GetAsync(Guid id, CancellationToken ct = default) : Task<JobRecord>
+    ListAsync(Nullable<JobStatus> status = null, String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
+    PauseAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ReportProgressAsync(Guid id, String workerId, Int32 done, Int32 total, String stage, CancellationToken ct = default) : Task<Boolean>
+    ReportStepAsync(Guid id, String workerId, String message, CancellationToken ct = default) : Task<Boolean>
+    RequestCancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ResumeAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    SaveCheckpointAsync(Guid id, String workerId, String checkpoint, CancellationToken ct = default) : Task<Boolean>
 interface Lyntai.Storage.IKeyValueStore
-    DeleteAsync(String, CancellationToken=) : Task
-    GetAsync(String, CancellationToken=) : Task<String>
-    ListKeysAsync(String=, CancellationToken=) : Task<IReadOnlyList<String>>
-    SetAsync(String, String, CancellationToken=) : Task
+    DeleteAsync(String key, CancellationToken ct = default) : Task
+    GetAsync(String key, CancellationToken ct = default) : Task<String>
+    ListKeysAsync(String prefix = null, CancellationToken ct = default) : Task<IReadOnlyList<String>>
+    SetAsync(String key, String value, CancellationToken ct = default) : Task
 interface Lyntai.Storage.IMemoryStore
-    ForgetAsync(String, String=, CancellationToken=) : Task
-    PruneAsync(String=, Nullable<TimeSpan>=, CancellationToken=) : Task<Int32>
-    RecallAsync(String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<MemoryEntry>>
-    RememberAsync(String, String, String, Nullable<TimeSpan>=, CancellationToken=) : Task
+    ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
+    PruneAsync(String taskKey = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
+    RecallAsync(String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<IReadOnlyList<MemoryEntry>>
+    RememberAsync(String taskKey, String scope, String content, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
 interface Lyntai.Storage.IPromptVersionStore
-    GetActiveAsync(String, CancellationToken=) : Task<PromptVersion>
-    HistoryAsync(String, CancellationToken=) : Task<IReadOnlyList<PromptVersion>>
-    RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
-    SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
+    GetActiveAsync(String name, CancellationToken ct = default) : Task<PromptVersion>
+    HistoryAsync(String name, CancellationToken ct = default) : Task<IReadOnlyList<PromptVersion>>
+    RollbackAsync(String name, Int32 version, CancellationToken ct = default) : Task<PromptVersion>
+    SaveAsync(String name, String template, String author = null, CancellationToken ct = default) : Task<PromptVersion>
 interface Lyntai.Storage.IScoreStore
-    AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
-    ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
-    GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
-    SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
+    AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
+    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportRow>>
+    GetAsync(String sessionId, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
+    SaveAsync(String sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default) : Task
 interface Lyntai.Storage.ITraceStore
-    GetAsync(String, CancellationToken=) : Task<RunTrace>
-    SaveAsync(RunTrace, CancellationToken=) : Task
+    GetAsync(String sessionId, CancellationToken ct = default) : Task<RunTrace>
+    SaveAsync(RunTrace trace, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.JobRow
     .ctor()
     Attempts : Int64
@@ -1892,35 +1896,35 @@ static class Lyntai.Storage.JobStoreSql
     SetStepLog : String const
     SetSucceeded : String const
 sealed class Lyntai.Storage.LazyMigratingConnectionFactory
-    .ctor(IDbConnectionFactory, Action)
+    .ctor(IDbConnectionFactory inner, Action migrateOnce)
     Open() : DbConnection
-    OpenAsync(CancellationToken=) : Task<DbConnection>
+    OpenAsync(CancellationToken ct = default) : Task<DbConnection>
 static class Lyntai.Storage.LikePattern
-    static Contains(String) : String
-    static Escape(String) : String
-    static StartsWith(String) : String
+    static Contains(String term) : String
+    static Escape(String term) : String
+    static StartsWith(String prefix) : String
 sealed class Lyntai.Storage.MemoryEntry
-    .ctor(Int64, String, String, String, DateTimeOffset)
+    .ctor(Int64 Id, String TaskKey, String Scope, String Content, DateTimeOffset CreatedAt)
     Content : String
     CreatedAt : DateTimeOffset
-    Deconstruct(Int64&, String&, String&, String&, DateTimeOffset&) : Void
-    Equals(MemoryEntry) : Boolean
-    Equals(Object) : Boolean
+    Deconstruct(Int64& Id, String& TaskKey, String& Scope, String& Content, DateTimeOffset& CreatedAt) : Void
+    Equals(MemoryEntry other) : Boolean
+    Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Id : Int64
     Scope : String
     TaskKey : String
     ToString() : String
 static class Lyntai.Storage.MemoryEviction
-    static ApplyAsync(MemoryRetentionPolicy, DateTimeOffset, Func<CancellationToken,Task<IReadOnlyList<Row>>>, Func<IReadOnlyList<Int64>,CancellationToken,Task>, CancellationToken=) : Task
-    static CapEvictSql(MemoryEvictionMode) : String
-    static Survivors(MemoryRetentionPolicy, IEnumerable<Row>, DateTimeOffset) : HashSet<Int64>
+    static ApplyAsync(MemoryRetentionPolicy policy, DateTimeOffset now, Func<CancellationToken,Task<IReadOnlyList<Row>>> fetchScoped, Func<IReadOnlyList<Int64>,CancellationToken,Task> deleteByIds, CancellationToken ct = default) : Task
+    static CapEvictSql(MemoryEvictionMode mode) : String
+    static Survivors(MemoryRetentionPolicy policy, IEnumerable<Row> rows, DateTimeOffset now) : HashSet<Int64>
 struct Lyntai.Storage.MemoryEviction+Row
-    .ctor(Int64, DateTimeOffset, DateTimeOffset, Nullable<DateTimeOffset>, Int32)
+    .ctor(Int64 Id, DateTimeOffset CreatedAt, DateTimeOffset LastAccessedAt, Nullable<DateTimeOffset> ExpiresAt, Int32 Length)
     CreatedAt : DateTimeOffset
-    Deconstruct(Int64&, DateTimeOffset&, DateTimeOffset&, Nullable`1&, Int32&) : Void
-    Equals(Object) : Boolean
-    Equals(Row) : Boolean
+    Deconstruct(Int64& Id, DateTimeOffset& CreatedAt, DateTimeOffset& LastAccessedAt, Nullable`1& ExpiresAt, Int32& Length) : Void
+    Equals(Object obj) : Boolean
+    Equals(Row other) : Boolean
     ExpiresAt : Nullable<DateTimeOffset>
     GetHashCode() : Int32
     Id : Int64
@@ -1939,19 +1943,19 @@ sealed class Lyntai.Storage.MemoryRetentionPolicy
     MaxCharsPerScope : Nullable<Int32>
     MaxEntriesPerScope : Nullable<Int32>
     TracksAccess : Boolean
-    static Composite(Int32, TimeSpan, MemoryEvictionMode=) : MemoryRetentionPolicy
-    static CountCap(Int32, MemoryEvictionMode=) : MemoryRetentionPolicy
+    static Composite(Int32 maxEntries, TimeSpan ttl, MemoryEvictionMode mode = MemoryEvictionMode.Fifo) : MemoryRetentionPolicy
+    static CountCap(Int32 max, MemoryEvictionMode mode = MemoryEvictionMode.Fifo) : MemoryRetentionPolicy
     static Default : MemoryRetentionPolicy
     static Manual : MemoryRetentionPolicy
-    static SizeBudget(Int32, MemoryEvictionMode=) : MemoryRetentionPolicy
-    static TimeToLive(TimeSpan, Nullable<Int32>=) : MemoryRetentionPolicy
+    static SizeBudget(Int32 maxChars, MemoryEvictionMode mode = MemoryEvictionMode.Fifo) : MemoryRetentionPolicy
+    static TimeToLive(TimeSpan ttl, Nullable<Int32> maxEntries = null) : MemoryRetentionPolicy
 sealed class Lyntai.Storage.PromptVersion
-    .ctor(String, Int32, String, String, DateTimeOffset, Boolean)
+    .ctor(String Name, Int32 Version, String Template, String Author, DateTimeOffset CreatedAt, Boolean IsActive)
     Author : String
     CreatedAt : DateTimeOffset
-    Deconstruct(String&, Int32&, String&, String&, DateTimeOffset&, Boolean&) : Void
-    Equals(Object) : Boolean
-    Equals(PromptVersion) : Boolean
+    Deconstruct(String& Name, Int32& Version, String& Template, String& Author, DateTimeOffset& CreatedAt, Boolean& IsActive) : Void
+    Equals(Object obj) : Boolean
+    Equals(PromptVersion other) : Boolean
     GetHashCode() : Int32
     IsActive : Boolean
     Name : String
@@ -1978,15 +1982,15 @@ enum Lyntai.Storage.StorageFeature
     value__ : Int32
 static class Lyntai.Storage.StorageFeatures
     AllTag : String const
-    static TagPasses(StorageFeature) : IEnumerable<String[]>
-    static TagsFor(StorageFeature) : String[]
+    static TagPasses(StorageFeature features) : IEnumerable<String[]>
+    static TagsFor(StorageFeature features) : String[]
 static class Lyntai.Text.JsonArgs
-    static Parse(String) : IDictionary<String,Object>
-    static Serialize(IEnumerable<KeyValuePair<String,Object>>) : String
-    static ToNode(Object) : JsonNode
+    static Parse(String argumentsJson) : IDictionary<String,Object>
+    static Serialize(IEnumerable<KeyValuePair<String,Object>> args) : String
+    static ToNode(Object value) : JsonNode
 static class Lyntai.Text.JsonExtract
-    static ExtractObject(String) : String
-    static IsValid(String) : Boolean
-    static TryParseObject(String, JsonDocument&) : Boolean
+    static ExtractObject(String text) : String
+    static IsValid(String text) : Boolean
+    static TryParseObject(String text, JsonDocument& doc) : Boolean
 static class Microsoft.Extensions.DependencyInjection.LyntaiServiceCollectionExtensions
-    static AddLyntai(IServiceCollection, Action<LyntaiBuilder>) : IServiceCollection
+    static AddLyntai(IServiceCollection services, Action<LyntaiBuilder> configure) : IServiceCollection

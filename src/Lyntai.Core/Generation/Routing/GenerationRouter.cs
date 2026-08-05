@@ -25,6 +25,17 @@ namespace Lyntai.Generation.Routing;
 ///   backend's error explains the run better than the last one's.</item>
 /// </list>
 ///
+/// <para><b>Reporting keeps TWO slots, and a blameless one never outranks a real failure.</b> The first
+/// substantive failure is what the caller is told; the first BLAMELESS result that actually explained itself
+/// is remembered apart and reported only when nothing substantive failed at all. Without the first half,
+/// <c>[downHost → Failed, neverConfigured → NotConfigured]</c> would send a caller off to set up a key while
+/// the backend they HAD configured is the one that is down (<c>docs/DECISIONS.md</c> D38). Without the second,
+/// a run in which every candidate said "your prompt is too long for me" was answered with a synthetic "every
+/// capable backend reported it is not configured" — neither true nor actionable, and what forced
+/// <c>ContextWindowExceeded</c> to translate to a BLAMING verdict to stay reportable at all
+/// (<c>TASKS.md</c> Part 40). <c>LlmRouter.CompleteAsync</c> holds the same two slots — one answer per
+/// situation across both domains, so change one and check the other.</para>
+///
 /// <para><b>Submission has one rule of its own:</b> a failed submission marked
 /// <see cref="GenerationOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that never
 /// answered may already hold a billable render and the next candidate would buy the same generation
@@ -38,7 +49,8 @@ namespace Lyntai.Generation.Routing;
 /// what the text says: the Inconclusive case above is decided BEFORE the verdict is, and a submission the
 /// router does not accept reports an EMPTY <see cref="GenerationSubmission.ProviderId"/> — which
 /// <see cref="IGenerationRouter"/> defines as "no candidate accepted" — with the first rejection's backend and
-/// reason folded into the detail instead.</para>
+/// reason folded into the detail instead. Which rejection that is follows the two-slot rule above: the first
+/// SUBSTANTIVE one, or a blameless one that still gave a reason when there was no substantive one.</para>
 ///
 /// <para><b>The candidate list is deduped on the RESOLVED (backend, model) pair</b> before anything is
 /// attempted, so a repeated spec is one candidate — and, the sharper half, two entries naming one backend no
@@ -89,7 +101,8 @@ public sealed class GenerationRouter(
         IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default)
     {
         var capable = Capable(candidates, request, GenerationDelivery.Inline);
-        GenerationResult? firstFailure = null;
+        GenerationResult? firstFailure = null;     // the first SUBSTANTIVE failure — what the caller is told
+        GenerationResult? firstBlameless = null;   // …kept apart, so it answers only when nothing really failed
         var tried = 0;
         var benched = 0;
 
@@ -110,6 +123,12 @@ public sealed class GenerationRouter(
             // configured Refused -> Advance) still reports it when nothing else succeeds
             if (result.Verdict is not (GenerationVerdict.NotConfigured or GenerationVerdict.Unsupported))
                 firstFailure ??= result;
+            // …and a blameless backend that EXPLAINED itself goes in the other slot. It can never mask a real
+            // failure (the return below settles that), but "your prompt is too long for me" beats a synthetic
+            // "nothing is configured" when it is the only thing that happened. A blameless result with an
+            // EMPTY detail is skipped deliberately: the synthetic sentence says strictly more than it does.
+            else if (!string.IsNullOrWhiteSpace(result.Detail))
+                firstBlameless ??= result;
 
             switch (_policy.ActionFor(result.Verdict))
             {
@@ -133,7 +152,11 @@ public sealed class GenerationRouter(
                     : $"no capable media backend for kind '{request.Kind}' via {GenerationDelivery.Inline} " +
                       $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]");
 
-        return firstFailure ?? GenerationResult.Failure(GenerationVerdict.NotConfigured,
+        // a real failure outranks a blameless reason; with no real failure the blameless backend's own words
+        // are the honest answer (a host turns "not configured" into a setup prompt, and "too long" into a
+        // shorter prompt), and only a run in which nothing said anything at all falls through to the
+        // synthetic reply. Same three-slot rule as LlmRouter.CompleteAsync's last ?? lastBlameless ?? …
+        return firstFailure ?? firstBlameless ?? GenerationResult.Failure(GenerationVerdict.NotConfigured,
             "every capable backend reported it is not configured");
     }
 
@@ -148,6 +171,13 @@ public sealed class GenerationRouter(
         // that explained why is the only thing in this run a caller can act on, and the synthesized message
         // below is otherwise a list of ids that says nothing about what went wrong
         (string ProviderId, string? Detail)? firstFailure = null;
+
+        // …and the first BLAMELESS rejection that still gave a reason, in the second slot GenerateAsync keeps
+        // for the same purpose: reported ONLY when no substantive rejection happened, so "nothing is set up"
+        // never masks "the one you configured refused the job". Without it, every reason a blameless verdict
+        // carries — a queue saying the prompt is too long, one saying which key it wants — is dropped and the
+        // job handler fails the job with a bare list of candidate ids.
+        (string ProviderId, string? Detail)? firstBlameless = null;
 
         foreach (var (provider, resolved) in capable)
         {
@@ -188,10 +218,13 @@ public sealed class GenerationRouter(
                 // an unclassifiable rejection still lands on Failed, which is what it did before.
                 var verdict = GenerationVerdictClassifier.FromErrorText(operation.Detail);
 
-                // blameless verdicts are not reasons — remembered apart, exactly as GenerateAsync does, so
-                // "nothing is set up" never masks "the one you configured refused the job"
+                // blameless verdicts do not outrank reasons — remembered apart, exactly as GenerateAsync does,
+                // so "nothing is set up" never masks "the one you configured refused the job", while a
+                // blameless rejection that explained itself is still better than a list of ids
                 if (verdict is not (GenerationVerdict.NotConfigured or GenerationVerdict.Unsupported))
                     firstFailure ??= (provider.Id, operation.Detail);
+                else if (!string.IsNullOrWhiteSpace(operation.Detail))
+                    firstBlameless ??= (provider.Id, operation.Detail);
 
                 switch (_policy.ActionFor(verdict))
                 {
@@ -217,13 +250,18 @@ public sealed class GenerationRouter(
             Detail: (benched > 0
                 ? $"every capable media backend for a '{request.Kind}' job is on dead-host cooldown"
                 : $"no capable media backend accepted a '{request.Kind}' job among " +
-                  $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]") + Because(firstFailure)));
+                  $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]") +
+                Because(firstFailure ?? firstBlameless)));
     }
 
-    /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message.
-    /// Without it the only thing that survives a failed submission is a list of candidate ids — and that is
-    /// what <c>GenerationRenderJobHandler</c> fails the job with and what <c>GenerationSubmitTool</c> hands a
-    /// model, neither of which can act on "these three didn't work".
+    /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message
+    /// — the first SUBSTANTIVE rejection where there was one, otherwise the first blameless rejection that
+    /// still gave a reason. Without it the only thing that survives a failed submission is a list of candidate
+    /// ids — and that is what <c>GenerationRenderJobHandler</c> fails the job with and what
+    /// <c>GenerationSubmitTool</c> hands a model, neither of which can act on "these three didn't work".
+    /// <para>The reasonless branch below is therefore reached only by a SUBSTANTIVE rejection that said
+    /// nothing: a blameless one with an empty detail is never remembered at all, because naming a backend
+    /// that was merely skipped blamelessly would read as an accusation.</para>
     /// <para><see cref="GenerationSubmission.ProviderId"/> stays EMPTY regardless: <see cref="IGenerationRouter"/>
     /// documents empty as "no candidate accepted", and both callers branch on it. The id belongs in the
     /// sentence, not in that field.</para></summary>

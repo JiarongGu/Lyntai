@@ -64,6 +64,7 @@ and **`D24`** (its silent-behaviour bullet amended by `D44`).
 | [D42](#d42-the-agent-session-shape-is-not-claude-only-but-the-codex-half-is-half-measured-ship-the-honest-subset-mark-the-inference-refuse-the-unmeasurable-2026-08-05) | 2026-08-05 | the agent-session shape is NOT claude-only, but the codex half is half-measured: ship the honest… |
 | [D43](#d43-a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-and-the-growth-gate-is-a-test-because-the-compiler-cannot-be-one-2026-08-05) | 2026-08-05 | a translation between two verdict taxonomies gets one arm per member, and the growth gate is a TE… |
 | [D44](#d44-d24s-third-bullet-is-amended-while-every-consumer-is-first-party-a-disclosed-behaviour-change-may-ship-in-a-minor-too-2026-08-05) | 2026-08-05 | D24's third bullet is amended: while every consumer is first-party, a DISCLOSED behaviour change… |
+| [D45](#d45-the-three-calls-that-closed-the-220-backlog-report-the-blameless-reason-refuse-an-identity-collision-and-a-verdict-carrying-exception-in-core-2026-08-05) | 2026-08-05 | the three calls that closed the 2.2.0 backlog: report-the-blameless-reason, refuse-an-identity-co… |
 
 <!-- index:end -->
 
@@ -529,6 +530,57 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D45 — the three calls that closed the 2.2.0 backlog: report-the-blameless-reason, refuse-an-identity-collision, and a verdict-carrying exception in Core (2026-08-05)
+Three items sat open for months not because they were hard but because each needed a DECISION, and the
+backlog entries deliberately refused to guess. D44 removed the version obstacle; these are the answers, with
+the rejected alternative in each case, so none of them is re-litigated.
+
+**1. A media verdict can be blameless AND reportable — by giving the ROUTER a second reporting slot, not by
+giving the POLICY a new tier** (`TASKS.md` Part 40). `GenerationRouter` excluded blameless verdicts from
+`firstFailure` so that a blameless verdict could never mask a real failure (D38) — correct, and the reason
+`ContextWindowExceeded` had to stay `Failed`: as `Unsupported` it would advance *silently*, and a run where
+every candidate hit the same limit would report "no capable backend" instead of "your prompt is too long".
+
+- **Rejected: a "reportable-but-blameless" tier in `GenerationRoutingPolicy`.** It adds a third concept to a
+  table whose whole value is that it is small, and every future verdict then has to be classified against it.
+- **Taken: `firstFailure ?? firstBlameless ?? <synthetic>`.** The router remembers the first blameless result
+  that carried a detail, and answers with it *only* when nothing substantive failed. D38's rule is untouched
+  — a real failure still always wins. This is strictly smaller, and it also closes a reporting hole that
+  already existed for any run in which every candidate returned `Unsupported`.
+- **Order was load-bearing and is recorded because it is easy to get backwards:** the router slot had to land
+  BEFORE `GenerationVerdictClassifier` began mapping `ContextWindowExceeded` to `Unsupported`. Doing the
+  mapping first just trades a benched-backend cost for a lost-reason cost, which is what Part 40 warned about.
+
+**2. An identity-mutating curated-memory update REFUSES; it does not merge, and it does not proceed**
+(`TASKS.md` Part 25). `(kind, content, taskKey, scope)` is the dedup identity of `AddAsync(dedup: true)`, so
+an update that moves one of those fields into a slot another entry already holds mints exactly the duplicate
+that contract promises not to create.
+
+- **Rejected: merge.** It silently destroys one of the two entries' data — the worst outcome, because it is
+  invisible.
+- **Rejected: proceed and let the duplicate exist.** That is today's behaviour for `kind` (which was already
+  updatable), and it makes `AddAsync(dedup: true)` start returning the *other* row's id forever after.
+- **Taken: refuse.** Nothing is written and `false` is returned. `false` already meant "no row updated"
+  (unknown id); it now also means "refused", and `GetAsync(id)` distinguishes them. Like `AddAsync`'s dedup
+  this is a pre-write check rather than a unique index — **documented BEST-EFFORT under concurrent writers**,
+  and a unique index would be wrong because `dedup: false` legitimately inserts duplicates.
+- All four identity fields were closed together rather than widening the existing `kind` hole by two.
+
+**3. The verdict-carrying exception lives in `Lyntai.Core`, not in the adapter that needed it**
+(`TASKS.md` Part 25 — `AsChatClient` erased the verdict, so a host could not tell "never set up" from a real
+failure without string-parsing a message).
+
+- **Rejected: `Lyntai.Providers.ExtensionsAi`.** It serves only that bridge there, and the first other seam
+  that has to throw rather than return a reply would mint a second, near-identical type — the exact shape
+  `library-api-design.md` says makes a library unmaintainable.
+- **Taken: `Lyntai.Llm.LlmVerdictException`, beside `LlmVerdict` itself.** The taxonomy is Core's, so the
+  exception that carries one is Core's; it is the counterpart of `LlmReply.Verdict` for any seam that must
+  throw. It **derives from `InvalidOperationException`**, so every existing `catch` keeps working, and the
+  **message text is preserved verbatim** — which matters because parsing `.Message` was until now the only
+  way to recover the verdict, and is therefore the likeliest thing anyone has written.
+- **One residual break is unavoidable and is disclosed rather than discovered:** an exact-type check
+  (`ex.GetType() == typeof(InvalidOperationException)`) no longer matches.
+
 ## D44 — D24's third bullet is amended: while every consumer is first-party, a DISCLOSED behaviour change may ship in a MINOR too (2026-08-05)
 D24 deferred SemVer strictness while every Lyntai consumer is one of the owner's own applications, but its
 third bullet excluded — unconditionally — "silent behaviour changes … anything a consumer can't detect at
@@ -721,6 +773,16 @@ CLI: `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a PROMPT, so
 a turn answering the thread id. Silently ignoring it is worse in the other direction — a multi-turn chat would
 start a FRESH session and lose its history with no signal at all. Refusing is the only option that neither
 lies nor costs money. Same reasoning as `TryBuildLoginArgs` refusing an account-kind codex does not have.
+
+> **SUPERSEDED 2026-08-05 — resume is now MEASURED and implemented.** `codex exec resume --help` on the real
+> installed 0.146.0 was probed turn-free (a `--help` flag costs nothing, which is exactly the escape this
+> paragraph said it was waiting for) and reports
+> `codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]`, where `[PROMPT]` reads stdin when it is `-`, plus a
+> `--last`. So the argv is `exec resume <SESSION_ID> … -`. `CodexAgentSession` now honours `ResumeToken`
+> instead of refusing it. **The reasoning above is not obsolete and is why this was safe** — the refusal was
+> the correct behaviour for as long as the shape was unmeasured, and it was replaced by a measurement rather
+> than by a guess. Worth keeping alongside it: that probe printed correct help and exited **255**, so a
+> non-zero exit from a `--help` probe does not mean the subcommand is absent.
 `DisallowedTools` is logged as unhonoured (codex's gate is the sandbox, not a deny list) and `SystemPrompt`
 travels as a leading block of the prompt (codex `exec` has no measured flag for one).
 

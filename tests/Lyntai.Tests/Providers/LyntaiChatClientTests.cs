@@ -45,7 +45,10 @@ public class LyntaiChatClientTests
         var (chat, provider) = Build();
         provider.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "all candidates down"));
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        // ThrowsAny, not Throws: what flies is the DERIVED LlmVerdictException and xUnit's Throws<T> is an
+        // EXACT type match. A consumer's `catch (InvalidOperationException)` still catches it — that is the
+        // compatibility this test now pins, and the exact-type check is the one thing that no longer matches.
+        var ex = await Assert.ThrowsAnyAsync<InvalidOperationException>(() =>
             chat.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]));
 
         Assert.Contains("all candidates down", ex.Message);
@@ -87,10 +90,48 @@ public class LyntaiChatClientTests
         var (chat, provider) = Build();
         provider.StreamScript = _ => [LlmChunk.Error(LlmVerdict.Timeout, "too slow")];
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        // ThrowsAny for the same reason as the non-streaming twin: the derived type flies, the catch clause
+        // a consumer already wrote still catches it.
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(async () =>
         {
             await foreach (var _ in chat.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "hi")])) { }
         });
+    }
+
+    [Fact] // Part 25 — the bridge must not ERASE the verdict: an IChatClient response has nowhere to carry
+           // one, so before LlmVerdictException a host could only recover it by parsing the message text
+    public async Task Non_ok_verdict_reaches_the_caller_as_a_verdict_carrying_exception()
+    {
+        var (chat, provider) = Build();
+        // NotConfigured is the case that motivated this: "never set up" is not a fault, and a host is meant
+        // to answer it with a setup prompt rather than an error report (LlmVerdict.NotConfigured, D38).
+        provider.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "no api key"));
+
+        var ex = await Assert.ThrowsAsync<LlmVerdictException>(() =>
+            chat.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]));
+
+        Assert.Equal(LlmVerdict.NotConfigured, ex.Verdict);
+        Assert.Equal("no api key", ex.Detail);
+        // The acceptance criterion: the message is BYTE-IDENTICAL to what the bridge threw before, because
+        // parsing it was the only way to recover the verdict — so it is the likeliest thing anyone wrote.
+        Assert.Equal("lyntai: NotConfigured — no api key", ex.Message);
+        Assert.IsAssignableFrom<InvalidOperationException>(ex); // every existing catch keeps working
+    }
+
+    [Fact] // Part 25 — the STREAMING throw site carries the verdict too; the two must never diverge
+    public async Task Streaming_error_chunk_carries_the_verdict_on_the_exception()
+    {
+        var (chat, provider) = Build();
+        provider.StreamScript = _ => [LlmChunk.Error(LlmVerdict.Timeout, "too slow")];
+
+        var ex = await Assert.ThrowsAsync<LlmVerdictException>(async () =>
+        {
+            await foreach (var _ in chat.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "hi")])) { }
+        });
+
+        Assert.Equal(LlmVerdict.Timeout, ex.Verdict);
+        Assert.Equal("too slow", ex.Detail);
+        Assert.Equal("lyntai: Timeout — too slow", ex.Message);
     }
 
     [Fact] // R21b — MapRequest reaches parity with the forward bridge: tools, json-schema, images, tool turns

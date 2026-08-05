@@ -381,23 +381,82 @@ public class CodexAgentSessionTests
         Assert.Single(events.OfType<TextDelta>());
     }
 
-    // ── the honest refusals ──────────────────────────────────────────────────
+    // ── resume, and the one refusal it leaves ────────────────────────────────
 
-    [Fact]
-    public async Task A_resume_token_is_refused_without_spawning()
+    [Fact] // MEASURED: `codex exec resume --help` on codex-cli 0.146.0 (2026-08-05)
+    public async Task A_resume_token_continues_the_named_thread_instead_of_starting_a_fresh_one()
     {
-        // codex's resume shape is UNMEASURED here, and `codex [OPTIONS] [PROMPT]` reads an unrecognized
-        // subcommand as a PROMPT — a guessed `exec resume <id>` would silently spend a turn answering the
-        // thread id. Ignoring the token instead would silently start a FRESH session and lose the history.
+        // `Usage: codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]` — `resume` is a SUBCOMMAND of `exec`, the
+        // session id is the FIRST positional and the `-` stdin marker is the SECOND. That ORDER is what the
+        // measurement bought: an id that landed in the prompt slot would be answered as a question, which on
+        // this CLI costs a turn instead of an error. Options precede both positionals, as they do on the
+        // measured fresh invocation and in the CLI's own usage line.
         var runner = new FakeProcessRunner(MeasuredSuccess);
 
-        var events = await Session(runner).StreamAsync(Ask() with { ResumeToken = "thread-123" }).ToListAsync();
+        await Session(runner)
+            .StreamAsync(Ask("carry on") with { ResumeToken = "019fc935-704c-75b2-a660-a85c89a67514" })
+            .ToListAsync();
+
+        Assert.Equal([
+            "exec", "resume", "--json", "--skip-git-repo-check", "--color", "never", "--sandbox", "read-only",
+            "019fc935-704c-75b2-a660-a85c89a67514", "-",
+        ], runner.LastArgs);
+        Assert.Equal("carry on", runner.LastStdin);   // the prompt still travels on stdin, never argv
+    }
+
+    [Fact] // the resume path is a THIRD chance to lose the flag whose absence only breaks shipped apps
+    public async Task A_resumed_turn_carries_exactly_the_same_flags_as_a_fresh_one()
+    {
+        var fresh = new FakeProcessRunner(MeasuredSuccess);
+        var resumed = new FakeProcessRunner(MeasuredSuccess);
+        var ask = Ask() with { ToolPolicy = AgentToolPolicy.Write, Model = "gpt-5-codex" };
+
+        await Session(fresh).StreamAsync(ask).ToListAsync();
+        await Session(resumed).StreamAsync(ask with { ResumeToken = "t-9" }).ToListAsync();
+
+        // Both argvs come from CodexExecArgs, so the resumed one IS the fresh one plus two tokens: the
+        // subcommand after `exec`, and the [SESSION_ID] positional before [PROMPT]. Sandbox, model and
+        // --skip-git-repo-check therefore cannot be present on one path and missing from the other.
+        var expected = fresh.LastArgs!.ToList();
+        expected.Insert(1, "resume");
+        expected.Insert(expected.Count - 1, "t-9");
+        Assert.Equal(expected, resumed.LastArgs!.ToList());
+        Assert.Contains("--skip-git-repo-check", resumed.LastArgs!);
+    }
+
+    [Fact] // resume changes the argv and nothing else: the JSONL half is untouched
+    public async Task A_resumed_turn_reports_the_session_id_codex_announced_not_the_token_it_was_given()
+    {
+        var events = await Session(new FakeProcessRunner(MeasuredSuccess))
+            .StreamAsync(Ask() with { ResumeToken = "an-older-thread" }).ToListAsync();
+
+        var ended = events.OfType<SessionEnded>().Single();
+        Assert.Equal(LlmVerdict.Ok, ended.Verdict);
+        Assert.Equal("ok", ended.FinalText);
+        // the id is read from codex's own thread.started; echoing the requested token back would report a
+        // REQUEST as an observation (and codex may fork a resumed thread onto a new id).
+        Assert.Equal("019fc935-704c-75b2-a660-a85c89a67514", ended.SessionId);
+    }
+
+    [Theory]
+    [InlineData("--last")]   // codex's OWN resume flag — forwarded, it silently resumes the WRONG thread
+    [InlineData("-i")]       // an option that takes a value would swallow the next argument
+    [InlineData("   ")]      // blank: neither a session id nor an honest "start fresh"
+    public async Task A_resume_token_the_cli_would_read_as_an_option_is_refused_without_spawning(string token)
+    {
+        // The token is free-form and opaque to Lyntai, and ArgumentList stops SHELL injection, not codex's own
+        // parser reading a data slot as an option. Refusing costs nothing; forwarding resumes someone else's
+        // thread and looks like it worked.
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        var events = await Session(runner).StreamAsync(Ask() with { ResumeToken = token }).ToListAsync();
 
         var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
         Assert.True(ended.IsError);
         Assert.Equal(LlmVerdict.Unsupported, ended.Verdict);
-        Assert.Contains("resume", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
-        Assert.Empty(runner.Calls);   // never spawned
+        Assert.Equal("resume-token-invalid", ended.Subtype);   // the TOKEN is bad, not the capability
+        Assert.Contains("session id", ended.Diagnostic, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(runner.Calls);   // never spawned: no turn is billed to find out
     }
 
     [Fact]

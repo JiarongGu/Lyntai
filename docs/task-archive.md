@@ -2838,6 +2838,62 @@ consumer who adapted to the Ollama attachment drop now really sends images.
 
 ---
 
+## Parts 40, 42, 25 and CLI13 — the rest of the 2.2.0 sweep (closed 2026-08-05)
+
+_Closed in one pass after Part 43, on the principle that a release should carry no known issue that is
+solvable without an external dependency. Each of these had been open for a while, and **none was open because
+it was hard** — three needed a DECISION the backlog deliberately refused to guess (recorded as
+`docs/DECISIONS.md` **D45**), one was filed under a premise that D24 had already invalidated, and one was
+waiting on a measurement that turned out to be free._
+
+- [x] **Part 40 — a media verdict that is both BLAMELESS and REPORTABLE.** `GenerationRouter` now keeps a
+  second reporting slot: `firstFailure ?? firstBlameless ?? <synthetic>`. D38's rule is untouched — a real
+  failure still always wins — but when nothing substantive failed, the caller gets the backend's own words
+  instead of a synthetic "every capable backend reported it is not configured". **Then** (order was
+  load-bearing, and Part 40 said so) `GenerationVerdictClassifier` began mapping `ContextWindowExceeded` to
+  `Unsupported`, so repeated oversized prompts stop benching a healthy backend. Doing the mapping first would
+  merely have traded a benched-backend cost for a lost-reason cost.
+  _A second-order catch worth recording: the classifier change would have silently DELETED the
+  "— 'x' said: …" clause from failed submissions, because those rejections became blameless. `SubmitAsync`'s
+  reporting was mirrored in the same pass so the fix did not introduce the regression it was fixing._
+- [x] **Part 42 — the API-surface gate's blind spots.** The renderer now emits a method's **type parameters**,
+  its **parameter names**, and each optional parameter's **actual default value**. Before, a generic overload
+  and its non-generic sibling produced the identical baseline line — the baseline literally contained that
+  line twice — so **deleting either was invisible to the gate**, which is the single thing the gate exists to
+  prevent. A parameter rename (a source break for named-argument callers, which the README teaches) and a
+  flipped default were invisible too. All eleven baselines were regenerated.
+  _Verified as a no-op rather than trusted: a member-set audit across all eleven baselines showed nine
+  **identical**, `Lyntai.Core` gaining only `LlmVerdictException`, and `Lyntai.Providers.Default` showing only
+  the deliberate `ContextSize` → `OllamaContextSize` rename. A formatting change that silently dropped a
+  member would have been the worst possible outcome here, so it was checked directly._
+- [x] **Part 25 — curated-memory `taskKey`/`scope` can now move in place**, with the identity question
+  settled: an update that would collide with another entry's `(kind, content, taskKey, scope)` **refuses**
+  (D45(2)). All four identity fields closed together, including the `kind` hole that already existed. No
+  schema change, no migration — existing columns only.
+- [x] **Part 25 — `OpenAiCompatibleOptions.ContextSize` → `OllamaContextSize`.** Filed as
+  "major-bump-or-never"; that premise was simply wrong — D24 has always allowed a documented compile-time
+  break in a minor, and a rename is the friendliest kind (every caller gets a compile error naming the fix).
+  Verified first that the option really is Ollama-native-only before renaming.
+- [x] **Part 25 — `AsChatClient` no longer erases the verdict.** New `Lyntai.Llm.LlmVerdictException` in
+  **Core** (D45(3)), deriving from `InvalidOperationException` so every existing `catch` keeps working, with
+  the message text preserved verbatim because parsing `.Message` was until now the only way to recover the
+  verdict.
+- [x] **CLI13 — codex resume.** `CodexAgentSession` honours `ResumeToken` instead of refusing it. **The
+  measurement was free all along:** `codex exec resume --help` on the real installed 0.146.0 is a `--help`
+  flag, so it costs no turn — the very escape the refusal was waiting for. It reports
+  `codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]` with `-` reading stdin. `docs/DECISIONS.md` D42's
+  refusal paragraph is marked superseded rather than deleted, because the reasoning is why replacing it with a
+  *measurement* rather than a *guess* was the right sequence.
+  _Also measured, and recorded because it is the repo's own trap: that probe printed correct help and exited
+  **255**. A non-zero exit from a `--help` probe does not mean the subcommand is absent._
+
+**Outcome (2026-08-05):** all seven closed, none skipped, each with a failing test first. Tests
+1657 → 1697; `verify` green. Two compile-time breaks (`ICuratedMemoryStore.UpdateAsync`, the `ContextSize`
+rename) and one additive type, all disclosed in `CHANGELOG.md`. **What is left in `TASKS.md` is now exactly
+the set that needs a key, a vendor, a second backend, or a paid turn** — not effort.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

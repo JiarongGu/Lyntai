@@ -6,6 +6,14 @@ namespace Lyntai.Generation.Routing;
 public interface IGenerationRouter
 {
     /// <summary>Generate inline through the first capable candidate, advancing on a fallible verdict.</summary>
+    /// <remarks>When no candidate succeeds, the reported result is the first SUBSTANTIVE failure — a blameless
+    /// verdict (<see cref="GenerationVerdict.NotConfigured"/>, <see cref="GenerationVerdict.Unsupported"/>)
+    /// never masks a real one, or a caller would be sent off to set up a key while the backend they HAD
+    /// configured is the one that is down. Failing that, it is the first blameless result that gave a REASON:
+    /// "this backend cannot take an input image" and "your prompt is too long for me" are answers a caller can
+    /// act on, and they used to be replaced by a synthetic "every capable backend reported it is not
+    /// configured" that was not even accurate. Only a run in which nothing said anything reports that
+    /// sentence.</remarks>
     Task<GenerationResult> GenerateAsync(
         IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
 
@@ -22,8 +30,9 @@ public interface IGenerationRouter
     /// against the backend, because trying the next candidate could buy the same render twice — that is
     /// decided BEFORE the verdict is. And when no candidate accepted the job, the returned
     /// <see cref="GenerationSubmission.ProviderId"/> is EMPTY; the first rejecting backend and its reason are
-    /// folded into the operation's detail instead, so the id field keeps meaning exactly one
-    /// thing.</para></remarks>
+    /// folded into the operation's detail instead, so the id field keeps meaning exactly one thing — the first
+    /// SUBSTANTIVE rejection where there was one, otherwise a blameless rejection that still explained itself,
+    /// on the same rule <see cref="GenerateAsync"/> follows.</para></remarks>
     Task<GenerationSubmission> SubmitAsync(
         IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
 }

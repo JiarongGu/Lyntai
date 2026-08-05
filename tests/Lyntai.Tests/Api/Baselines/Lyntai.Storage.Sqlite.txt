@@ -1,15 +1,15 @@
 static class Lyntai.SqliteStorageBuilderExtensions
-    static UseSqliteResponseCache(LyntaiBuilder) : LyntaiBuilder
-    static UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory) : LyntaiBuilder
-    static UseSqliteStorage(LyntaiBuilder, IDbConnectionFactory, StorageFeature) : LyntaiBuilder
-    static UseSqliteStorage(LyntaiBuilder, String, SchemaMigration=) : LyntaiBuilder
-    static UseSqliteStorage(LyntaiBuilder, String, StorageFeature, SchemaMigration=) : LyntaiBuilder
-    static UseSqliteUsageTracking(LyntaiBuilder) : LyntaiBuilder
-    static UseSqliteVectorStore(LyntaiBuilder) : LyntaiBuilder
+    static UseSqliteResponseCache(LyntaiBuilder builder) : LyntaiBuilder
+    static UseSqliteStorage(LyntaiBuilder builder, IDbConnectionFactory factory) : LyntaiBuilder
+    static UseSqliteStorage(LyntaiBuilder builder, IDbConnectionFactory factory, StorageFeature features) : LyntaiBuilder
+    static UseSqliteStorage(LyntaiBuilder builder, String dbPath, SchemaMigration migration = SchemaMigration.OnStartup) : LyntaiBuilder
+    static UseSqliteStorage(LyntaiBuilder builder, String dbPath, StorageFeature features, SchemaMigration migration = SchemaMigration.OnStartup) : LyntaiBuilder
+    static UseSqliteUsageTracking(LyntaiBuilder builder) : LyntaiBuilder
+    static UseSqliteVectorStore(LyntaiBuilder builder) : LyntaiBuilder
 sealed class Lyntai.Storage.Sqlite.MigratingConnectionFactory
-    .ctor(String, StorageFeature=)
+    .ctor(String dbPath, StorageFeature features = StorageFeature.All)
     Open() : DbConnection
-    OpenAsync(CancellationToken=) : Task<DbConnection>
+    OpenAsync(CancellationToken ct = default) : Task<DbConnection>
 sealed class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
     .ctor()
     AppliedOnColumnName : String
@@ -21,96 +21,96 @@ sealed class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
     TableName : String
     UniqueIndexName : String
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
-    static MigrateUp(String) : Void
-    static MigrateUp(String, StorageFeature) : Void
-    static MigrateUpAsync(String, CancellationToken=) : Task
-    static MigrateUpAsync(String, StorageFeature, CancellationToken=) : Task
+    static MigrateUp(String dbPath) : Void
+    static MigrateUp(String dbPath, StorageFeature features) : Void
+    static MigrateUpAsync(String dbPath, CancellationToken ct = default) : Task
+    static MigrateUpAsync(String dbPath, StorageFeature features, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteConnectionFactory
-    .ctor(String)
+    .ctor(String dbPath)
     DbPath : String
     Open() : DbConnection
-    OpenAsync(CancellationToken=) : Task<DbConnection>
+    OpenAsync(CancellationToken ct = default) : Task<DbConnection>
 sealed class Lyntai.Storage.Sqlite.SqliteConversationStore
-    .ctor(IDbConnectionFactory)
-    AppendMessageAsync(String, String, String, String=, CancellationToken=) : Task<ChatMessage>
-    CountThreadsAsync(CancellationToken=) : Task<Int32>
-    CreateThreadAsync(String, String=, String=, CancellationToken=) : Task<ChatThread>
-    DeleteThreadAsync(String, CancellationToken=) : Task
-    GetMessagesAsync(String, CancellationToken=) : Task<IReadOnlyList<ChatMessage>>
-    GetThreadAsync(String, CancellationToken=) : Task<ChatThread>
-    ListThreadsAsync(Int32=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
-    ListThreadsPageAsync(Int32, ChatThread=, CancellationToken=) : Task<IReadOnlyList<ChatThread>>
-    SetThreadMetadataAsync(String, String, CancellationToken=) : Task
+    .ctor(IDbConnectionFactory factory)
+    AppendMessageAsync(String threadId, String kind, String payload, String metadata = null, CancellationToken ct = default) : Task<ChatMessage>
+    CountThreadsAsync(CancellationToken ct = default) : Task<Int32>
+    CreateThreadAsync(String id, String title = null, String metadata = null, CancellationToken ct = default) : Task<ChatThread>
+    DeleteThreadAsync(String id, CancellationToken ct = default) : Task
+    GetMessagesAsync(String threadId, CancellationToken ct = default) : Task<IReadOnlyList<ChatMessage>>
+    GetThreadAsync(String id, CancellationToken ct = default) : Task<ChatThread>
+    ListThreadsAsync(Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    ListThreadsPageAsync(Int32 limit, ChatThread after = null, CancellationToken ct = default) : Task<IReadOnlyList<ChatThread>>
+    SetThreadMetadataAsync(String id, String metadata, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteCuratedMemoryStore
-    .ctor(IDbConnectionFactory, ILogger<SqliteCuratedMemoryStore>=, Func<DateTimeOffset>=)
-    AddAsync(String, String, Boolean=, String=, String=, Boolean=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<Int64>
-    ForCompositionAsync(String, IEnumerable<String>, Boolean=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    GetAsync(Int64, CancellationToken=) : Task<CuratedMemory>
-    ListAsync(String=, Boolean=, String=, String=, Nullable<Int32>=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    RemoveAsync(Int64, CancellationToken=) : Task<Boolean>
-    SearchAsync(String, String=, String=, String=, Boolean=, Nullable<Int32>=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<IReadOnlyList<CuratedMemory>>
-    UpdateAsync(Int64, String=, Nullable<Boolean>=, String=, IReadOnlyDictionary<String,String>=, CancellationToken=) : Task<Boolean>
+    .ctor(IDbConnectionFactory factory, ILogger<SqliteCuratedMemoryStore> logger = null, Func<DateTimeOffset> clock = null)
+    AddAsync(String kind, String content, Boolean enabled = true, String taskKey = null, String scope = null, Boolean dedup = false, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<Int64>
+    ForCompositionAsync(String taskKey, IEnumerable<String> scopes, Boolean enabledOnly = true, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
+    GetAsync(Int64 id, CancellationToken ct = default) : Task<CuratedMemory>
+    ListAsync(String kind = null, Boolean enabledOnly = false, String taskKey = null, String scope = null, Nullable<Int32> limit = null, IReadOnlyDictionary<String,String> metadataMatch = null, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
+    RemoveAsync(Int64 id, CancellationToken ct = default) : Task<Boolean>
+    SearchAsync(String query, String kind = null, String taskKey = null, String scope = null, Boolean enabledOnly = false, Nullable<Int32> limit = null, IReadOnlyDictionary<String,String> metadataMatch = null, CancellationToken ct = default) : Task<IReadOnlyList<CuratedMemory>>
+    UpdateAsync(Int64 id, String content = null, Nullable<Boolean> enabled = null, String kind = null, String taskKey = null, String scope = null, IReadOnlyDictionary<String,String> metadata = null, CancellationToken ct = default) : Task<Boolean>
 sealed class Lyntai.Storage.Sqlite.SqliteJobStore
-    .ctor(IDbConnectionFactory, Func<DateTimeOffset>=, Int32=)
-    ActiveLanesAsync(CancellationToken=) : Task<IReadOnlyList<String>>
-    CancelAsync(Guid, CancellationToken=) : Task<Boolean>
-    CancelRunningAsync(Guid, String, CancellationToken=) : Task<Boolean>
-    ClaimNextAsync(String, String, TimeSpan, CancellationToken=) : Task<JobRecord>
-    CompleteAsync(Guid, String, CancellationToken=) : Task<Boolean>
-    CountRunningAsync(String, CancellationToken=) : Task<Int32>
-    DeadLetterAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
-    EnqueueAsync(JobSpec, CancellationToken=) : Task<Guid>
-    FailAsync(Guid, String, String, Nullable<DateTimeOffset>=, CancellationToken=) : Task<Boolean>
-    GetAsync(Guid, CancellationToken=) : Task<JobRecord>
-    ListAsync(Nullable<JobStatus>=, String=, Int32=, CancellationToken=) : Task<IReadOnlyList<JobRecord>>
-    PauseAsync(Guid, CancellationToken=) : Task<Boolean>
-    ReplayAsync(Guid, CancellationToken=) : Task<Boolean>
-    ReportProgressAsync(Guid, String, Int32, Int32, String, CancellationToken=) : Task<Boolean>
-    ReportStepAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
-    RequestCancelAsync(Guid, CancellationToken=) : Task<Boolean>
-    ResumeAsync(Guid, CancellationToken=) : Task<Boolean>
-    SaveCheckpointAsync(Guid, String, String, CancellationToken=) : Task<Boolean>
+    .ctor(IDbConnectionFactory factory, Func<DateTimeOffset> clock = null, Int32 stepLogCap = 200)
+    ActiveLanesAsync(CancellationToken ct = default) : Task<IReadOnlyList<String>>
+    CancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    CancelRunningAsync(Guid id, String workerId, CancellationToken ct = default) : Task<Boolean>
+    ClaimNextAsync(String lane, String workerId, TimeSpan lease, CancellationToken ct = default) : Task<JobRecord>
+    CompleteAsync(Guid id, String workerId, CancellationToken ct = default) : Task<Boolean>
+    CountRunningAsync(String lane, CancellationToken ct = default) : Task<Int32>
+    DeadLetterAsync(Guid id, String workerId, String error, CancellationToken ct = default) : Task<Boolean>
+    EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
+    FailAsync(Guid id, String workerId, String error, Nullable<DateTimeOffset> retryAt = null, CancellationToken ct = default) : Task<Boolean>
+    GetAsync(Guid id, CancellationToken ct = default) : Task<JobRecord>
+    ListAsync(Nullable<JobStatus> status = null, String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
+    PauseAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ReportProgressAsync(Guid id, String workerId, Int32 done, Int32 total, String stage, CancellationToken ct = default) : Task<Boolean>
+    ReportStepAsync(Guid id, String workerId, String message, CancellationToken ct = default) : Task<Boolean>
+    RequestCancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    ResumeAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    SaveCheckpointAsync(Guid id, String workerId, String checkpoint, CancellationToken ct = default) : Task<Boolean>
 sealed class Lyntai.Storage.Sqlite.SqliteKeyValueStore
-    .ctor(IDbConnectionFactory)
-    DeleteAsync(String, CancellationToken=) : Task
-    GetAsync(String, CancellationToken=) : Task<String>
-    ListKeysAsync(String=, CancellationToken=) : Task<IReadOnlyList<String>>
-    SetAsync(String, String, CancellationToken=) : Task
+    .ctor(IDbConnectionFactory factory)
+    DeleteAsync(String key, CancellationToken ct = default) : Task
+    GetAsync(String key, CancellationToken ct = default) : Task<String>
+    ListKeysAsync(String prefix = null, CancellationToken ct = default) : Task<IReadOnlyList<String>>
+    SetAsync(String key, String value, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteMemoryStore
-    .ctor(IDbConnectionFactory, LyntaiOptions, ILogger<SqliteMemoryStore>=, Func<DateTimeOffset>=)
-    ForgetAsync(String, String=, CancellationToken=) : Task
-    PruneAsync(String=, Nullable<TimeSpan>=, CancellationToken=) : Task<Int32>
-    RecallAsync(String, String=, String=, Nullable<Int32>=, CancellationToken=) : Task<IReadOnlyList<MemoryEntry>>
-    RememberAsync(String, String, String, Nullable<TimeSpan>=, CancellationToken=) : Task
+    .ctor(IDbConnectionFactory factory, LyntaiOptions options, ILogger<SqliteMemoryStore> logger = null, Func<DateTimeOffset> clock = null)
+    ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
+    PruneAsync(String taskKey = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
+    RecallAsync(String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<IReadOnlyList<MemoryEntry>>
+    RememberAsync(String taskKey, String scope, String content, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqlitePromptVersionStore
-    .ctor(IDbConnectionFactory)
-    GetActiveAsync(String, CancellationToken=) : Task<PromptVersion>
-    HistoryAsync(String, CancellationToken=) : Task<IReadOnlyList<PromptVersion>>
-    RollbackAsync(String, Int32, CancellationToken=) : Task<PromptVersion>
-    SaveAsync(String, String, String=, CancellationToken=) : Task<PromptVersion>
+    .ctor(IDbConnectionFactory factory)
+    GetActiveAsync(String name, CancellationToken ct = default) : Task<PromptVersion>
+    HistoryAsync(String name, CancellationToken ct = default) : Task<IReadOnlyList<PromptVersion>>
+    RollbackAsync(String name, Int32 version, CancellationToken ct = default) : Task<PromptVersion>
+    SaveAsync(String name, String template, String author = null, CancellationToken ct = default) : Task<PromptVersion>
 sealed class Lyntai.Storage.Sqlite.SqliteResponseCache
-    .ctor(IDbConnectionFactory, LyntaiOptions, Func<DateTimeOffset>=)
-    GetAsync(String, CancellationToken=) : Task<LlmReply>
-    RemoveAsync(String, CancellationToken=) : Task
-    SetAsync(String, LlmReply, Nullable<TimeSpan>=, CancellationToken=) : Task
+    .ctor(IDbConnectionFactory factory, LyntaiOptions options, Func<DateTimeOffset> clock = null)
+    GetAsync(String key, CancellationToken ct = default) : Task<LlmReply>
+    RemoveAsync(String key, CancellationToken ct = default) : Task
+    SetAsync(String key, LlmReply reply, Nullable<TimeSpan> ttl = null, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteScoreStore
-    .ctor(IDbConnectionFactory)
-    AggregateAsync(CancellationToken=) : Task<IReadOnlyList<ScorerAggregate>>
-    ExportAsync(CancellationToken=) : Task<IReadOnlyList<ScoreExportRow>>
-    GetAsync(String, CancellationToken=) : Task<IReadOnlyList<ScoredResult>>
-    SaveAsync(String, IReadOnlyList<ScoredResult>, CancellationToken=) : Task
+    .ctor(IDbConnectionFactory factory)
+    AggregateAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScorerAggregate>>
+    ExportAsync(CancellationToken ct = default) : Task<IReadOnlyList<ScoreExportRow>>
+    GetAsync(String sessionId, CancellationToken ct = default) : Task<IReadOnlyList<ScoredResult>>
+    SaveAsync(String sessionId, IReadOnlyList<ScoredResult> results, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteTraceStore
-    .ctor(IDbConnectionFactory)
-    GetAsync(String, CancellationToken=) : Task<RunTrace>
-    SaveAsync(RunTrace, CancellationToken=) : Task
+    .ctor(IDbConnectionFactory factory)
+    GetAsync(String sessionId, CancellationToken ct = default) : Task<RunTrace>
+    SaveAsync(RunTrace trace, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteUsageTracker
-    .ctor(IDbConnectionFactory)
-    RecordAsync(String, LlmUsage, CancellationToken=) : ValueTask
-    ResetAsync(String=, CancellationToken=) : ValueTask
-    TotalAsync(String=, CancellationToken=) : ValueTask<UsageTotals>
+    .ctor(IDbConnectionFactory factory)
+    RecordAsync(String consumer, LlmUsage usage, CancellationToken ct = default) : ValueTask
+    ResetAsync(String consumer = null, CancellationToken ct = default) : ValueTask
+    TotalAsync(String consumer = null, CancellationToken ct = default) : ValueTask<UsageTotals>
 sealed class Lyntai.Storage.Sqlite.SqliteVectorStore
-    .ctor(IDbConnectionFactory)
-    DeleteAsync(String, String, CancellationToken=) : Task
-    RemoveCollectionAsync(String, CancellationToken=) : Task
-    SearchAsync(String, Single[], Int32, CancellationToken=) : Task<IReadOnlyList<VectorMatch>>
-    UpsertAsync(String, String, Single[], String, CancellationToken=) : Task
+    .ctor(IDbConnectionFactory factory)
+    DeleteAsync(String collection, String id, CancellationToken ct = default) : Task
+    RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
+    SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
+    UpsertAsync(String collection, String id, Single[] vector, String payload, CancellationToken ct = default) : Task

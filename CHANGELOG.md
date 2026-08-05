@@ -309,6 +309,23 @@ behaviour fixes are called out here as well as there._
   render is still going), while a 4xx or an unconfigured base URL stays `Failed`, so a poll no longer abandons
   a live render — nor polls a dead id forever.
 
+### Breaking — two documented compile-time breaks (2026-08-05)
+
+Both ship in a minor under `docs/DECISIONS.md` **D24**, which allows a documented, compile-time-**detectable**
+break while every consumer is first-party. Neither can bind silently: each is a compile error that names the
+fix.
+
+- **`OpenAiCompatibleOptions.ContextSize` → `OllamaContextSize`.** The option only ever affected the
+  Ollama-native payload (`options.num_ctx` on `/api/chat`) and was silently ignored by every other flavour —
+  including Ollama's *own* OpenAI-compatible `/v1` surface — so the generic name invited exactly the
+  configuration that does nothing. The type (`int?`) and behaviour are unchanged; only the name says which
+  backend it is for. Verified against the code before renaming.
+- **`ICuratedMemoryStore.UpdateAsync` takes `taskKey` and `scope`**, inserted before `metadata` so the
+  identity fields read in the same order as `AddAsync`. Named-argument callers are unaffected; a positional
+  call that reached `metadata` or `ct` must move to named arguments — always a compile error, never a silent
+  re-bind, since the types are not interconvertible. **Every BYO `ICuratedMemoryStore` implementation must add
+  the two parameters.**
+
 ### Changed — behaviour fixes that a consumer cannot detect at compile time (2026-08-05)
 
 **Read this section before upgrading.** Everything here changes what the library *does*, with no compile-time
@@ -391,7 +408,47 @@ this section is. (Storage and migration breaks remain major-bump material, uncon
   caller relying on a non-positive size to *fail* a render now gets a 512x512 image. A usable hint still
   reaches the WebUI unclamped.
 
+### Changed — the rest of the backlog sweep (2026-08-05)
+
+Same D44 disclosure rule: each names what a caller observes.
+
+- **A media run where nothing substantive failed now reports what the backends actually said.** Before, if
+  every candidate returned a blameless verdict, `GenerationRouter.GenerateAsync` returned a synthetic
+  `NotConfigured` / "every capable backend reported it is not configured" — inaccurate for a run in which
+  every candidate actually said `Unsupported`, and it discarded the backends' own words. Now the first
+  blameless result carrying a reason is returned verbatim, with its own verdict. **A real failure still always
+  wins** — that guard is untouched. Affects anyone switching on the router's verdict or displaying its detail,
+  notably the generation agent tools and the durable-render job's failure message.
+- **`ContextWindowExceeded` from a media backend no longer benches it.** It now translates to
+  `GenerationVerdict.Unsupported` (Advance) rather than `Failed` (PenalizeAndAdvance), so a few oversized
+  prompts in a row stop counting toward the dead-host threshold and stop routing unrelated later requests
+  away from a perfectly healthy backend. Nothing is lost from the report: "your prompt is too long" is still
+  the run's stated reason, now carried by the blameless slot above. **These two are one change in two halves**
+  — the mapping is only safe because the reporting slot landed first.
+- **A curated-memory update that would collide is refused.** Re-categorising an entry onto a
+  `(kind, content, taskKey, scope)` another entry already holds used to succeed and silently mint the
+  duplicate that `AddAsync(dedup: true)` promises cannot exist — after which dedup kept returning the *other*
+  row's id. It now returns `false` and writes nothing. `false` already meant "no row updated"; it now also
+  means "refused", and `GetAsync(id)` distinguishes them. Best-effort under concurrent writers, like
+  `AddAsync`'s own dedup check.
+- **`AsChatClient()` throws `LlmVerdictException`** (below) instead of a bare `InvalidOperationException`. It
+  **derives from** `InvalidOperationException` and the message text is byte-identical, so `catch` clauses and
+  message parsing both keep working. **One residual break, disclosed rather than discovered:** an exact-type
+  check (`ex.GetType() == typeof(InvalidOperationException)`) no longer matches.
+- **`CodexAgentSession` honours `ResumeToken`.** It previously refused with a single
+  `SessionEnded(Unsupported)` and no spawn, because guessing codex's resume shape would have been read as a
+  prompt and billed a turn. The shape is now measured against the real CLI
+  (`codex exec resume <SESSION_ID> … -`), so a multi-turn agent conversation survives on both CLI backends.
+
 ### Added — small surface, from the same pass (2026-08-05)
+
+- **`Lyntai.Llm.LlmVerdictException`** — carries the `LlmVerdict` on the seams that must throw rather than
+  return an `LlmReply`. It lives in Core beside the taxonomy it carries, not in the bridge that first needed
+  it, so the next seam that has to throw does not mint a second near-identical type. `LlmVerdict.NotConfigured`
+  exists so a host can offer *setup* instead of reporting an error; through the `Microsoft.Extensions.AI`
+  bridge that was previously recoverable only by string-parsing an exception message.
+
+
 
 - **`ChatResult.Usage`** — `ChatOrchestrator` was discarding `ToolLoopResult.Usage` because the result type had
   nowhere to put it, so a two-gate chat could not be metered.

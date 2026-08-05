@@ -1,5 +1,5 @@
 static class Lyntai.LocalBuilderExtensions
-    static AddLocalProvider(LyntaiBuilder, String, Action<LocalModelOptions>=, String=) : LyntaiBuilder
+    static AddLocalProvider(LyntaiBuilder builder, String modelPath, Action<LocalModelOptions> configure = null, String id = "local") : LyntaiBuilder
 sealed class Lyntai.Providers.Local.LocalModelOptions
     .ctor()
     ContextSize : Nullable<Int32>
@@ -9,9 +9,9 @@ sealed class Lyntai.Providers.Local.LocalModelOptions
     StopSequences : IReadOnlyList<String>
     Temperature : Single
 sealed class Lyntai.Providers.Local.LocalProvider
-    .ctor(String, LocalModelOptions, LyntaiOptions, ILogger<LocalProvider>=)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    .ctor(String id, LocalModelOptions options, LyntaiOptions lyntai, ILogger<LocalProvider> logger = null)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Dispose() : Void
     Id : String
     IsAvailable : Boolean
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>

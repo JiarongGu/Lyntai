@@ -37,7 +37,13 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
         }
     }
 
+    // taskKey/scope can't use the plain ?? of the other fields: null is a LEGAL stored value there, so null
+    // keeps meaning "leave unchanged" and the empty string is the clear-to-null sentinel (interface doc).
+    private static string? Rescope(string? argument, string? current)
+        => argument is null ? current : argument.Length == 0 ? null : argument;
+
     public Task<bool> UpdateAsync(long id, string? content = null, bool? enabled = null, string? kind = null,
+        string? taskKey = null, string? scope = null,
         IReadOnlyDictionary<string, string>? metadata = null, CancellationToken ct = default)
     {
         var now = _clock();
@@ -46,11 +52,29 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
             var i = _entries.FindIndex(e => e.Id == id);
             if (i < 0) return Task.FromResult(false);
             var e = _entries[i];
+
+            // resolve the RESULTING dedup identity first — the collision check and the write must agree on it
+            var newKind = kind ?? e.Kind;                  // null = unchanged; re-categorises in place
+            var newContent = content ?? e.Content;         // null = unchanged (COALESCE)
+            var newTask = Rescope(taskKey, e.TaskKey);
+            var newScope = Rescope(scope, e.Scope);
+
+            // an identity-mutating update must not land on an identity ANOTHER entry already holds — that is
+            // precisely the duplicate AddAsync(dedup: true) promises not to create. Refuse, writing nothing.
+            // Only when the identity actually MOVES, so an enabled/metadata-only edit never refuses and the
+            // duplicates dedup:false legitimately allows stay editable (ordinal ==, like the dedup identity).
+            if ((newKind != e.Kind || newContent != e.Content || newTask != e.TaskKey || newScope != e.Scope)
+                && _entries.Any(o => o.Id != id && o.Kind == newKind && o.Content == newContent
+                                     && o.TaskKey == newTask && o.Scope == newScope))
+                return Task.FromResult(false);
+
             _entries[i] = e with
             {
-                Content = content ?? e.Content,        // null = unchanged (COALESCE)
+                Content = newContent,
                 Enabled = enabled ?? e.Enabled,
-                Kind = kind ?? e.Kind,                  // null = unchanged; re-categorises in place
+                Kind = newKind,
+                TaskKey = newTask,
+                Scope = newScope,
                 Metadata = metadata is null ? e.Metadata : Copy(metadata), // null = unchanged; non-null REPLACES
                 UpdatedAt = now,
             };

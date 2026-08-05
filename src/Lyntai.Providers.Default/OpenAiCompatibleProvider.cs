@@ -217,7 +217,7 @@ public sealed class OpenAiCompatibleProvider(
         // the logger travels into the Ollama payload so an attachment /api/chat cannot carry is reported
         // rather than dropped in silence (its images array is inline base64 only — no remote URL form)
         var payload = _flavor == OpenAiFlavor.Ollama
-            ? OllamaPayload.Build(req, model, stream, config.ContextSize, _logger)
+            ? OllamaPayload.Build(req, model, stream, config.OllamaContextSize, _logger)
             : OpenAiPayload.Build(req, model, stream);
 
         var request = new HttpRequestMessage(HttpMethod.Post, Endpoint())

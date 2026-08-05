@@ -1,12 +1,12 @@
 static class Lyntai.ExtensionsAiBuilderExtensions
-    static AddExtensionsAiProvider(LyntaiBuilder, String, Func<IServiceProvider,IChatClient>) : LyntaiBuilder
-    static AddExtensionsAiProvider(LyntaiBuilder, String, IChatClient) : LyntaiBuilder
+    static AddExtensionsAiProvider(LyntaiBuilder builder, String id, Func<IServiceProvider,IChatClient> clientFactory) : LyntaiBuilder
+    static AddExtensionsAiProvider(LyntaiBuilder builder, String id, IChatClient client) : LyntaiBuilder
 sealed class Lyntai.Providers.ExtensionsAi.ExtensionsAiProvider
-    .ctor(String, IChatClient, LyntaiOptions, ILogger<ExtensionsAiProvider>=)
-    CompleteAsync(LlmRequest, CancellationToken=) : Task<LlmReply>
+    .ctor(String id, IChatClient client, LyntaiOptions options, ILogger<ExtensionsAiProvider> logger = null)
+    CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Id : String
     IsAvailable : Boolean
-    StreamAsync(LlmRequest, CancellationToken=) : IAsyncEnumerable<LlmChunk>
+    StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
     SupportsToolCalls : Boolean
 static class Lyntai.Providers.ExtensionsAi.LyntaiChatClientExtensions
-    static AsChatClient(ILlmClient) : IChatClient
+    static AsChatClient(ILlmClient client) : IChatClient
