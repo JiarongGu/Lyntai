@@ -1,3 +1,9 @@
+---
+name: storage
+applies_when: writing SQL, adding or changing a migration, or adding/extending a Lyntai storage backend
+enforces: alias every SELECT and CAST affinity-typed columns; open connections only through the factory; three FTS trigram triggers plus a backfill; both migration tags; never dedup the Sqlite/Postgres pair — the contract facts are the dedup mechanism
+---
+
 # Storage internals
 
 The load-bearing rules for `Lyntai.Storage.Sqlite` (and any future backend). Each is a place where the
@@ -21,8 +27,10 @@ durations) are fine uncast. `ScoreStoreTests.Doubles_round_trip_exactly_the_affi
 **Bool from INTEGER + a positional record:** Dapper will NOT bind a SQLite `INTEGER` (0/1) column to a
 `bool` parameter of a **positional record constructor** — it fails with "no matching constructor". Bind
 into a settable-property **row type** (Dapper converts INTEGER→bool for a property setter) and project to
-the record — see `SqliteCuratedMemoryStore.Row` / `SqliteJobStore.Row`. (Postgres native `BOOLEAN` binds
-straight to a record ctor, so its stores skip the row type.) Name it `Row` / `<Thing>Row` — **never
+the record — see `SqliteCuratedMemoryStore.Row`, or the shared `Lyntai.Storage.JobRow` that both
+relational job stores read through. (The Postgres stores use row types too, even though native `BOOLEAN`
+would bind: a property-mapped row sidesteps Dapper's record-ctor **exact-type** matching regardless of the
+boolean question — the comment at `PostgresScoreStore.GetAsync` says so.) Name it `Row` / `<Thing>Row` — **never
 `*Dto`**, per the naming rule in `.claude/rules/repo-mechanics.md` §Naming.
 
 ## Per-connection pragmas
@@ -45,7 +53,7 @@ kept in sync by triggers, and this is where bugs hide:
   (`INSERT INTO x_fts(x_fts, rowid, col) VALUES('delete', old.id, old.content)`) before re-inserting the
   new row — miss it and the index silently corrupts (stale rows match forever).
 - **Backfill in the same migration** so existing rows are indexed.
-- Copy `M202607170003_Memory.cs` verbatim; adjust columns only.
+- Copy `M202607280003_Memory.cs` verbatim; adjust columns only.
 
 Query building: `FtsQuery.Build` drops `<3`-char tokens (trigram's minimum), double-quotes the rest
 (neutralizing FTS operators — this is also the injection guard), OR-joins them, and returns `null` when
@@ -55,11 +63,12 @@ with `bm25()`. `match` is only ever sourced from `FtsQuery.Build`, never raw use
 **Cross-backend recall DIVERGENCE (documented on `IMemoryStore.RecallAsync`, not a bug):** the three
 backends use three different index engines, so multi-word recall + ranking differ *by design*. SQLite:
 ANY token (the OR-join above) via the trigram index, ranked by **bm25 relevance**. Postgres (pg_trgm) +
-InMemory: the query as a **contiguous substring**, ranked by **recency**. Consistent guarantee: an entry
-whose content contains a ≥3-char query token as a substring is recalled on every backend. A multi-word
-query whose words appear *separately* can hit on SQLite but miss on Postgres/InMemory. Don't "fix" one
-backend to match another without deciding the semantic — reimplementing bm25 in-app to converge ranking
-is out of scope; single salient query terms are portable.
+InMemory: the query as a **contiguous substring**, ranked by **recency**. Consistent guarantee, and it is a
+**single-token** one: an entry whose content contains a ≥3-char SINGLE-token query as a substring is
+recalled on every backend. A MULTI-token query is per-token on SQLite (any one token matches) and
+contiguous-substring on Postgres/InMemory — so `foo bar` recalls `xxfooxx` on SQLite and nothing on the
+other two. Don't "fix" one backend to match another without deciding the semantic — reimplementing bm25
+in-app to converge ranking is out of scope; single salient query terms are portable.
 
 ## Don't "dedup" the Sqlite/Postgres stores — the parallelism is intentional
 
@@ -96,11 +105,23 @@ dependencies" is a stated selling point), so shared SQL there can never be more 
 
 ## Migrations
 
+The canonical statement of the traps behind this section is `.claude/knowledge/sql-storage.md` — never reuse a
+number, declare constraints inline, backfill in the same migration, trigram FTS with insert/delete/update
+triggers, explicit per-connection pragmas. This section is the Lyntai BINDING of those rules (the `lyntai_`
+prefix, the `StorageFeature` tags, the Sqlite/Postgres parallelism); read both.
+
 FluentMigrator, numbered `YYYYMMDDNNNN`, **never reused** (an unapplied duplicate number is silently
 skipped). Use `dev.mjs new-migration` to get a unique monotonic number. Composite PKs and FKs go
 **inline at `Create.Table`** (SQLite has no `ALTER ADD CONSTRAINT`). Raw SQL (`Execute.Sql`) is fine for
 the things FluentMigrator's fluent API can't express (FTS virtual tables, triggers, `ON DELETE CASCADE`).
 The runner is idempotent.
+
+**Every migration carries `[Tags(nameof(StorageFeature.<Feature>), StorageFeatures.AllTag)]` — both tags,
+always.** The feature tag is what a SUBSET pass requests; `AllTag` is what the default `StorageFeature.All`
+pass requests (one pass, and it works only because every migration carries it). The trap is that an
+UNTAGGED migration is run by FluentMigrator under *every* feature set, so a domain the app disabled would
+still land its table and nothing would report it — which is why the scaffold's tag placeholder deliberately
+doesn't compile.
 
 **`MigrateUpAsync` cannot be more than it is.** FluentMigrator's runner is synchronous and takes no
 `CancellationToken`, so the awaitable twins run the migration **inline on the calling thread** — never

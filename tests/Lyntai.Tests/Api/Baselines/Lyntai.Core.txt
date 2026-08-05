@@ -59,6 +59,7 @@ sealed class Lyntai.Agents.ChatResult
     Ok : Boolean
     ToString() : String
     ToolSteps : IReadOnlyList<ToolStep>
+    Usage : LlmUsage
     Verdict : LlmVerdict
 sealed class Lyntai.Agents.ChatTurn
     .ctor()
@@ -434,6 +435,7 @@ sealed class Lyntai.Cortex.Scorers.RelevancyScorer
     Name : String
 sealed class Lyntai.Cortex.Scorers.StructureScorer
     .ctor()
+    FormatKey : String const
     Group : String
     Id : String
     IsLlm : Boolean
@@ -959,6 +961,7 @@ sealed class Lyntai.Jobs.JobSpec
     .ctor(String, String, String, Nullable<Int32>=, Nullable<DateTimeOffset>=, Int32=, String=)
     AvailableAt : Nullable<DateTimeOffset>
     Deconstruct(String&, String&, String&, Nullable`1&, Nullable`1&, Int32&, String&) : Void
+    DefaultMaxAttempts : Int32 const
     Equals(JobSpec) : Boolean
     Equals(Object) : Boolean
     GetHashCode() : Int32

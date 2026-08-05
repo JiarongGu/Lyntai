@@ -1,5 +1,6 @@
 using Lyntai;
 using Lyntai.Llm;
+using Lyntai.Llm.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
@@ -97,7 +98,7 @@ public class ClaudeCliProviderTests
     [Fact]
     public void Command_tokenizer_handles_quoted_paths()
     {
-        var tokens = ClaudeCommand.Tokenize("node \"C:\\some dir\\stub.mjs\" --flag");
+        var tokens = CliCommand.Tokenize("node \"C:\\some dir\\stub.mjs\" --flag");
 
         Assert.Equal(["node", @"C:\some dir\stub.mjs", "--flag"], tokens);
     }

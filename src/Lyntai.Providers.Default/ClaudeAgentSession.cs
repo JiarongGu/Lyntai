@@ -65,21 +65,15 @@ public sealed class ClaudeAgentSession : IAgentSession
         var e = lines.GetAsyncEnumerator(ct);
         await using (e.ConfigureAwait(false))
         {
-            // the guarded loop lives once in Core. No clock here — the inactivity window is the RUNNER's
-            // (its timeout arrives as ProcessTimeoutException), so ANY OperationCanceledException is
-            // cancellation and PROPAGATES: onFault returns null for it. The fault terminal captures
-            // lastSessionId at FAULT time (the closure reads the loop-mutated local).
+            // the guarded loop lives once in Core; the fault→terminal translation lives once in this package
+            // (CliAgentTerminal.FromFault), so the codex session answers the same exceptions the same way.
+            // No clock here — the inactivity window is the RUNNER's (its timeout arrives as
+            // ProcessTimeoutException), so ANY OperationCanceledException is cancellation and PROPAGATES:
+            // FromFault returns null for it. The fault terminal captures lastSessionId at FAULT time (the
+            // closure reads the loop-mutated local).
             var guarded = GuardedStream.ReadAll<string, SessionEnded>(
                 async () => await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null,
-                ex => ex switch
-                {
-                    OperationCanceledException => null,
-                    ProcessTimeoutException => new SessionEnded(LlmVerdict.Timeout, true, "timeout", lastSessionId, null, ex.Message),
-                    ProcessRunException pre => new SessionEnded(
-                        LlmVerdictClassifier.FromErrorText(pre.StdErrTail), true, null,
-                        lastSessionId, null, $"exit {pre.ExitCode}: {pre.StdErrTail}"),
-                    _ => new SessionEnded(LlmVerdict.Failed, true, null, lastSessionId, null, $"spawn failed: {ex.Message}"),
-                },
+                ex => CliAgentTerminal.FromFault(ex, lastSessionId),
                 ct);
             await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
             {
@@ -94,6 +88,12 @@ public sealed class ClaudeAgentSession : IAgentSession
                     if (evt is SessionStarted ss) lastSessionId = ss.SessionId;
                     else if (evt is SessionEnded se)
                     {
+                        // SessionEnded is THE single terminal: the first one wins, and anything the CLI
+                        // prints after it can add events but never a second ending. Same rule
+                        // CodexAgentSession enforces — without it a transcript carrying two `result` lines
+                        // ends the session twice, and RunAsync's fold (last-one-wins) reports the SECOND
+                        // verdict, so a stray trailing line could turn a finished Ok turn into a failure.
+                        if (sawTerminal) continue;
                         sawTerminal = true;
                         lastSessionId = se.SessionId ?? lastSessionId;
                     }

@@ -70,7 +70,9 @@ public sealed class GenerationRenderJobHandler(
 
     private async Task<JobOutcome> SubmitAsync(JobContext ctx, GenerationRenderJob job, CancellationToken ct)
     {
-        var candidates = job.Candidates.Select(ParseCandidate).ToList();
+        // "provider" or "provider:model" — the same spec shape the DI builder accepts, so a payload can be
+        // written by hand or copied from configuration
+        var candidates = job.Candidates.Select(GenerationCandidateSpec.Parse).ToList();
         var submission = await router.SubmitAsync(candidates, job.Request, ct).ConfigureAwait(false);
 
         if (submission.Operation.Status == GenerationOperationStatus.Failed)
@@ -151,16 +153,6 @@ public sealed class GenerationRenderJobHandler(
     private IGenerationJobProvider? Backend(string providerId) => providers
         .FirstOrDefault(p => string.Equals(p.Id, providerId, StringComparison.OrdinalIgnoreCase))
         as IGenerationJobProvider;
-
-    /// <summary><c>"provider"</c> or <c>"provider:model"</c> — the same spec shape the DI builder accepts, so a
-    /// payload can be written by hand or copied from configuration.</summary>
-    private static GenerationCandidate ParseCandidate(string spec)
-    {
-        var at = spec.IndexOf(':');
-        return at < 0
-            ? new GenerationCandidate(spec.Trim())
-            : new GenerationCandidate(spec[..at].Trim(), spec[(at + 1)..].Trim());
-    }
 
     /// <summary>What the job remembers between polls: WHICH backend holds the render, and its operation id.
     /// Both, because an operation id is meaningless without its issuer.</summary>

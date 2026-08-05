@@ -9,14 +9,14 @@ namespace Lyntai.Providers.ClaudeCli;
 /// can't drift from every other CLI provider's.</summary>
 internal static class ClaudeCommand
 {
-    /// <summary>The env seams consulted, in order, when no explicit command is given.</summary>
-    private static readonly string[] EnvironmentVariables = ["LYNTAI_PROVIDER_CMD", "CLAUDE_CMD"];
+    /// <summary>The dialect is the SINGLE declaration of this CLI's default command and env seams — reading
+    /// them from it (rather than re-listing them here) is what keeps the session and the provider spawning the
+    /// same binary. A second copy would drift silently: every test and the e2e stub drive
+    /// <c>LYNTAI_PROVIDER_CMD</c>, the one entry both lists share.</summary>
+    private static readonly ClaudeCliDialect Dialect = new();
 
     /// <summary>Resolve <paramref name="command"/> (or the env seams, or a plain <c>claude</c>) into the
     /// executable + any prefix args (e.g. the stub script passed to <c>node</c>).</summary>
     public static (string Exe, IReadOnlyList<string> PrefixArgs) Resolve(string? command) =>
-        CliCommand.Resolve(command, "claude", EnvironmentVariables);
-
-    /// <summary>Split a command line into tokens, honoring double-quoted spans (paths with spaces).</summary>
-    public static List<string> Tokenize(string commandLine) => CliCommand.Tokenize(commandLine);
+        CliCommand.Resolve(command, Dialect.DefaultCommand, Dialect.CommandEnvironmentVariables);
 }

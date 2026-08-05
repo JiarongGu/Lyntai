@@ -16,6 +16,7 @@ public sealed class RateLimitedLlmClient(
     ILlmClient inner, IRateLimiter limiter, ILogger<RateLimitedLlmClient>? logger = null) : DelegatingLlmClient(inner)
 {
     private readonly ILogger _logger = logger ?? NullLogger<RateLimitedLlmClient>.Instance;
+    private const string Reason = "client-side rate limit exceeded";
 
     public override async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
@@ -29,7 +30,10 @@ public sealed class RateLimitedLlmClient(
     {
         if (!await limiter.AcquireAsync(req.Consumer, ct).ConfigureAwait(false))
         {
-            yield return LlmChunk.Error(LlmVerdict.RateLimited, "client-side rate limit exceeded");
+            // Build the refusal through the same helper the buffered door uses: a hand-rolled chunk here
+            // would neither log nor count, so lyntai.ratelimit.refusals would miss a streamed workload.
+            var refusal = Throttled(req.Consumer);
+            yield return LlmChunk.Error(refusal.Verdict, refusal.Detail!);
             yield break;
         }
         await foreach (var chunk in Inner.StreamAsync(req, ct).ConfigureAwait(false))
@@ -38,8 +42,8 @@ public sealed class RateLimitedLlmClient(
 
     private LlmReply Throttled(string consumer)
     {
-        _logger.LogInformation("client-side rate limit exceeded for consumer {Consumer}", consumer);
+        _logger.LogInformation("{Reason} for consumer {Consumer}", Reason, consumer);
         LyntaiDiagnostics.RecordRateLimitRefusal(consumer);
-        return new LlmReply("", LlmVerdict.RateLimited, Detail: "client-side rate limit exceeded");
+        return new LlmReply("", LlmVerdict.RateLimited, Detail: Reason);
     }
 }

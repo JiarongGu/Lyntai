@@ -21,17 +21,15 @@ internal static class StreamJsonFields
         double? cost = root.TryGetProperty("total_cost_usd", out var c) && c.ValueKind == JsonValueKind.Number
             ? c.GetDouble()
             : null;
+        // the number read is WireJson.Long (package-wide): tolerant of a count that is not an integral long,
+        // because this reader's contract is "never throws" and GetInt64 does
         return new WireUsage(
-            GetLong(u, "input_tokens"),
-            GetLong(u, "output_tokens"),
-            GetLong(u, "cache_read_input_tokens"),
-            GetLong(u, "cache_creation_input_tokens"),
+            WireJson.Long(u, "input_tokens"),
+            WireJson.Long(u, "output_tokens"),
+            WireJson.Long(u, "cache_read_input_tokens"),
+            WireJson.Long(u, "cache_creation_input_tokens"),
             cost);
     }
-
-    /// <summary>A numeric property as a long, or 0 when absent/non-numeric.</summary>
-    public static long GetLong(JsonElement obj, string name) =>
-        obj.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.Number ? el.GetInt64() : 0;
 
     /// <summary>Concatenate the text of every <c>{"type":"text","text":…}</c> block in a content array
     /// (Anthropic message content is an array of typed blocks). Empty for a non-array / no text blocks.</summary>

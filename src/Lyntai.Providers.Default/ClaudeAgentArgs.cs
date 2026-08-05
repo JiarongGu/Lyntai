@@ -17,13 +17,9 @@ internal static class ClaudeAgentArgs
     /// send it over stdin via <see cref="Lyntai.Processes.IProcessRunner.StreamLinesAsync"/>.</summary>
     public static IReadOnlyList<string> Build(AgentSessionOptions options)
     {
-        var args = new List<string>
-        {
-            "-p",
-            "--output-format", "stream-json",
-            "--verbose",
-            "--include-partial-messages",
-        };
+        // the print-mode prefix is declared once, on ClaudeArgs — this path only adds the partial-message
+        // events the agent reader needs on top of it
+        var args = new List<string>(ClaudeArgs.PrintMode) { "--include-partial-messages" };
 
         // Build de-duplicated disallowed list: always-denied + caller-provided + (if ReadOnly) write tools
         var disallowed = new List<string>();

@@ -6,11 +6,13 @@ namespace Lyntai.Agents;
 /// call tools) → <b>output gate</b> (guards) → remember the exchange. The two gates are the guard rail
 /// applied before and after the model; everything else is fail-open. Inject this for a batteries-included
 /// chat entry point, or keep composing the primitives yourself.
-/// <para>NOTE: the gates are the ENTRY and FINAL-ANSWER of the turn. When tools run, the tool loop's
-/// intermediate model turns (and the tool observations fed back into them) are NOT individually gated —
-/// so a tool that returns untrusted content can influence the model mid-loop. If you need every model
-/// turn gated, register your <see cref="Lyntai.Llm.ILlmClient"/> as a <c>GuardedLlmClient</c> (the loop then gates
-/// each turn); don't ALSO rely on these gates for that content, to avoid double-gating.</para>
+/// <para>NOTE: the gates are the ENTRY and FINAL-ANSWER of the turn. Tool content has its OWN gates inside
+/// the loop: every tool call's arguments are inspected before it runs
+/// (<see cref="Lyntai.Guards.IGuardRail.InspectToolCallAsync"/>) and every observation before it is fed back
+/// (<see cref="Lyntai.Guards.IGuardRail.InspectToolResultAsync"/>). What is NOT individually gated is the
+/// loop's intermediate MODEL turns — the assistant messages between tool round-trips. If you need every
+/// model turn gated, register your <see cref="Lyntai.Llm.ILlmClient"/> as a <c>GuardedLlmClient</c> (the loop
+/// then gates each turn); don't ALSO rely on these gates for that content, to avoid double-gating.</para>
 /// </summary>
 public interface IChatOrchestrator
 {

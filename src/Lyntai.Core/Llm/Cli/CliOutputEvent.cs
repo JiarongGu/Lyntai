@@ -36,7 +36,10 @@ public sealed record CliOutputEvent(CliOutputEventKind Kind, string Text = "", L
     /// <summary>A line the provider should skip.</summary>
     public static readonly CliOutputEvent Ignored = new(CliOutputEventKind.Ignored);
 
-    /// <summary>A piece of the answer.</summary>
+    /// <summary>A piece of the answer. Report a line that carried no content as <see cref="Ignored"/> rather
+    /// than as empty content — that is what it is. An empty one is not a defect either way: the engine's
+    /// "did anything arrive?" test is the router's commit gate, <c>Kind == Content &amp;&amp; Text.Length &gt; 0</c>,
+    /// so empty text is neither delivered nor allowed to commit a stream and disable fallback.</summary>
     public static CliOutputEvent Content(string text) => new(CliOutputEventKind.Content, text);
 
     /// <summary>The terminal line carrying the final text (+ usage, where reported).</summary>

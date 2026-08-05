@@ -1,6 +1,5 @@
 using FluentMigrator.Runner;
 using FluentMigrator.Runner.Initialization;
-using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Lyntai.Storage.Postgres.Migrations;
@@ -15,8 +14,9 @@ public static class MigrationRunnerService
     /// (<c>[Tags(nameof(StorageFeature.X))]</c>). FluentMigrator runs a migration only when the runner's
     /// requested tags are ALL present on it, so a SUBSET is applied one feature (tag) per pass — the version
     /// table dedups across passes. <see cref="StorageFeature.All"/> takes the fast path: one pass requesting
-    /// only <see cref="StorageFeatures.AllTag"/>, which every migration carries. A disabled feature's
-    /// migration is never applied, so its table never lands.</summary>
+    /// only <see cref="StorageFeatures.AllTag"/>, which every migration carries — a migration that omits that
+    /// tag never runs on the default path. A disabled feature's migration is never applied, so its table never
+    /// lands.</summary>
     public static void MigrateUp(string connectionString, StorageFeature features)
     {
         // the All-vs-subset tag dispatch lives in Core (StorageFeatures.TagPasses) so both backend
@@ -72,7 +72,7 @@ public static class MigrationRunnerService
         }
     }
 
-    private static void RunPass(string connectionString, string[]? tags)
+    private static void RunPass(string connectionString, string[] tags)
     {
         var services = new ServiceCollection()
             .AddFluentMigratorCore()
@@ -80,8 +80,8 @@ public static class MigrationRunnerService
                 .AddPostgres()
                 .WithGlobalConnectionString(connectionString)
                 .ScanIn(typeof(MigrationRunnerService).Assembly).For.All()); // migrations + the lyntai_ version table
-        if (tags is not null)
-            services.Configure<RunnerOptions>(opt => opt.Tags = tags);
+        // every pass is tag-filtered: TagPasses always yields a non-empty tag set (AllTag, or one feature tag)
+        services.Configure<RunnerOptions>(opt => opt.Tags = tags);
 
         using var provider = services.BuildServiceProvider(validateScopes: false);
         using var scope = provider.CreateScope();

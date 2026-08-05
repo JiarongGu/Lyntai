@@ -49,11 +49,17 @@ Tests/e2e green: 1567 tests, e2e 3/3.
 **The records, and what each is for:**
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
   note the dated §6 amendments; §6 is now the default `RoutingPolicy`). Read it first.
-- `docs/ROADMAP.md` — the forward sequence (v0.4+ and standing maintenance policies).
+- `docs/ROADMAP.md` — what is shipped per version, then `## Planned`: the next sequence (generation, to
+  close the experimental carve-out) and the standing maintenance policies.
 - `CHANGELOG.md` — per-release detail; breaking changes called out.
 - `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
 - `TASKS.md` — the **active** backlog (open tasks only); `docs/task-archive.md` — the completed-task
   history (the frozen implementation plan + closed backlogs). See the `task-lifecycle.md` rule.
+- `docs/FIXES.md` — the fix log: per-incident symptom, root cause, fix and verification (the `fix-log`
+  skill's target; created with the first entry — see `repo-mechanics.md` §Fix log).
+- `docs/<date>-*.md` and `docs/superpowers/{specs,plans}/` — point-in-time designs and plans, not
+  maintained state: check the status banner (or the date against `CHANGELOG.md`) before treating one as
+  executable.
 
 **The `Lyntai.Generation` PACKAGE is EXPERIMENTAL as of 2.0.1** — exempt from the SemVer promise until
 GEN-VERIFY closes (unmeasured backends + an unimplemented stream seam), so it may be reshaped in a minor. Say
@@ -100,8 +106,9 @@ owned outside the deployment; `DECISIONS.md` D37) /
   guard scripts, version-authorship policy, the dev loop and test conventions, scratch paths — live in
   the local, never-synced `repo-mechanics.md`. See `.claude/rules/RULES_INDEX.md` (generated).
 - **`.claude/knowledge/`** (on-demand deep dives — read the one you're touching):
-  `extending-lyntai.md` (the four extension points), `llm-and-router.md` (verdict taxonomy, fallback §6
-  amended, streaming-commit + inactivity-clock invariants, CLI hygiene), `storage.md` (Dapper/CAST/FTS5
+  `extending-lyntai.md` (the five extension points — provider, storage backend, scorer, CLI tool-hosting
+  dialect, migration), `llm-and-router.md` (verdict taxonomy, fallback §6 amended, streaming-commit +
+  inactivity-clock invariants, CLI hygiene), `storage.md` (Dapper/CAST/FTS5
   trigram triggers/pragmas/`lyntai_` prefix), **`pitfalls.md` (traps that pass the build/tests while
   being wrong — read before extending)**, `generic-library.md` (turning a consumer ask into app-agnostic
   surface) — plus the canonical `library-api-design.md` (generalize the ask, never ship its shape),
@@ -114,13 +121,14 @@ owned outside the deployment; `DECISIONS.md` D37) /
 - **Backlog vs archive:** `TASKS.md` holds only OPEN tasks; completed work is moved to
   `docs/task-archive.md` (see `task-lifecycle.md`), and `CHANGELOG.md` is the release-facing log.
 - Working files (probes, scratch) go under `devtools/_*` (gitignored), never OS temp.
-- **This machine's console is GBK** — write files with the Write/Edit tools or `-Encoding utf8`, never
-  `echo`/`Set-Content` UTF-8 through the console (it lossily mangles CJK/em-dashes). See `pitfalls.md`.
+- **This machine's console is GBK** — write files with the Write/Edit tools (in a script,
+  `fs.writeFileSync` or `-Encoding utf8`, which adds a BOM on PowerShell 5); never `echo`/`Set-Content`
+  UTF-8 through the console (it lossily mangles CJK/em-dashes). See `pitfalls.md` / `windows-machine.md`.
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate: build → test → e2e → leak scan. Run before
-  claiming a change is complete.
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, seven checks stopping at the first failure:
+  build → warnings → packages → bundle → test → e2e → leak scan. Run before claiming a change is complete.
 - `node devtools/dev.mjs build` — build the solution.
 - `node devtools/dev.mjs check-packages` — **fail if a package is missing from any registry it needs** (part of
   `verify`): `packableProjects`, the solution, `ApiSurfaceTests` (list + anchor map), the test project's
@@ -151,5 +159,10 @@ owned outside the deployment; `DECISIONS.md` D37) /
   the bundle restore. Minutes, so deliberately NOT in `verify`; run before a release or after touching packaging.
 - `node devtools/dev.mjs check-sensitive [--tree]` — leak scan.
 - `node devtools/dev.mjs doctor [--fix]` — README `## Status` version ↔ `VersionPrefix`, and `VersionPrefix`
-  ↔ the newest `v*` tag (**never hand-edit the version** — see `task-lifecycle.md` / `DECISIONS.md` D25).
+  ↔ the newest `v*` tag (**never hand-edit the version** — see `repo-mechanics.md` §Never hand-edit the
+  version / `DECISIONS.md` D25).
 - `node devtools/dev.mjs check-version` — the pre-commit version-authorship guard, run by hand.
+- `node devtools/dev.mjs decisions-index [--check]` — regenerate the index table at the top of
+  `docs/DECISIONS.md` from its own headings. **Run it after adding a `D<n>` entry** (`--check` reports
+  staleness without writing). Deliberately NOT in `verify`: a stale index costs a reader one `Ctrl-F`, and
+  `verify` stays the build/test gate rather than growing a documentation check.

@@ -33,7 +33,10 @@ public interface ICliProviderDialect
     /// <summary>Whether this CLI accepts request-level tool DECLARATIONS
     /// (<see cref="LlmRequest.Tools"/>). False for CLIs that expose tools their own way (e.g. over MCP via
     /// an <see cref="Agents.ICliToolProvisioner"/>) — the engine then warns rather than dropping them
-    /// silently.</summary>
+    /// silently. That warning is ALL this flag drives: a dialect returning true must have its composing
+    /// <see cref="ILlmProvider"/> declare <c>SupportsToolCalls =&gt; true</c> itself (per <c>DECISIONS.md</c>
+    /// D27 the provider is the capability declarer), or <see cref="ILlmRouter.SupportsToolCalls"/> answers
+    /// false and the tool loop silently takes its prompt-based fallback.</summary>
     bool SupportsToolCalls { get; }
 
     /// <summary>How this CLI wants the prompt: stdin (the safe default) or a trailing argument.</summary>
@@ -56,7 +59,12 @@ public interface ICliProviderDialect
     string BuildPrompt(LlmRequest request);
 
     /// <summary>Decode ONE line of the CLI's output. Must be tolerant: an unknown or malformed line is
-    /// <see cref="CliOutputEvent.Ignored"/>, never a throw — a stream carries plenty that isn't the answer.</summary>
+    /// <see cref="CliOutputEvent.Ignored"/>, never a throw — a stream carries plenty that isn't the answer.
+    /// The line arrives WITHOUT its terminator on both the buffered and the streamed path (no trailing
+    /// <c>\n</c>, and no <c>\r</c> from a CRLF-emitting child), so an exact match is safe. A
+    /// <see cref="CliOutputEventKind.Content"/> event MUST carry non-empty text — a line that turned out to
+    /// hold none is <see cref="CliOutputEvent.Ignored"/>, because the engine's "did anything arrive?" test
+    /// counts Content events rather than their length.</summary>
     CliOutputEvent ParseLine(string line);
 
     /// <summary>Read the backend's version banner (and a model id, only if the line explicitly labels one —

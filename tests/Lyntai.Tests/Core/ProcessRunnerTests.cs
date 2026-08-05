@@ -287,7 +287,7 @@ public class ProcessRunnerTests
             """;
         var lines = new List<string>();
         var sw = Stopwatch.StartNew();
-        await Assert.ThrowsAsync<ProcessTimeoutException>(async () =>
+        var timeout = await Assert.ThrowsAsync<ProcessTimeoutException>(async () =>
         {
             await foreach (var line in _runner.StreamLinesAsync("node", ["-e", script],
                 inactivityTimeout: TimeSpan.FromSeconds(30), maxDuration: TimeSpan.FromSeconds(2)))
@@ -299,6 +299,9 @@ public class ProcessRunnerTests
 
         Assert.NotEmpty(lines); // the healthy output before the cap was still yielded
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5), $"took {sw.Elapsed} — the max cap didn't fire early");
+        // and the message names the window that ACTUALLY fired: the 2s ceiling, not the 30s inactivity
+        // clock that never tripped — a message naming the wrong clock sends the reader to the wrong knob
+        Assert.Contains("00:00:02", timeout.Message);
     }
 
     [Fact]

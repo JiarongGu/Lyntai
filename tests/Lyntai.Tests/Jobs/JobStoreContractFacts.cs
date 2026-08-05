@@ -26,7 +26,8 @@ public abstract class JobStoreContractFacts
     [Fact] public Task Checkpoint_renews_lease() => Run(JobStoreContract.Checkpoint_round_trips_and_renews_the_lease);
     [Fact] public Task Stale_reclaim() => Run(JobStoreContract.Stale_lease_is_reclaimed_with_the_checkpoint);
     [Fact] public Task Fenced_by_worker() => Run(JobStoreContract.Writes_are_fenced_by_worker_id);
-    [Fact] public Task Cancel_pending_only() => Run(JobStoreContract.Cancel_only_affects_pending);
+    [Fact] public Task Cancel_pending_not_running() => Run(JobStoreContract.Cancel_takes_a_pending_job_but_not_a_running_one);
+    [Fact] public Task Enqueue_default_max_attempts() => Run(JobStoreContract.Enqueue_without_max_attempts_uses_the_shared_default);
     [Fact] public Task Active_lanes_and_count() => Run(JobStoreContract.Active_lanes_and_running_count);
     [Fact] public Task Priority_first() => Run(JobStoreContract.Higher_priority_is_claimed_first);
     [Fact] public Task Dead_letter() => Run(JobStoreContract.Dead_letter_is_terminal_inspectable_and_fenced);
@@ -35,6 +36,7 @@ public abstract class JobStoreContractFacts
     [Fact] public Task Tiebreak_by_id() => Run(JobStoreContract.Same_tick_same_priority_claims_in_id_order);
     [Fact] public Task Pause_resume() => Run(JobStoreContract.Pause_holds_a_pending_job_out_of_claims_then_resume_restores_it);
     [Fact] public Task Pause_pending_only() => Run(JobStoreContract.Pause_only_affects_a_pending_job);
+    [Fact] public Task Cancel_reaches_paused() => Run(JobStoreContract.Cancel_reaches_a_paused_job_without_resuming_it);
     [Fact] public Task Progress_and_steps() => Run(JobStoreContract.Progress_and_steps_are_readable_while_running_and_fenced);
     [Fact] public Task Concurrent_steps() => Run(JobStoreContract.Concurrent_step_reports_all_land);
     [Fact] public Task Partition_serial_fifo() => Run((s, c) => JobStoreContract.Same_partition_serializes_and_is_fifo(s, c));

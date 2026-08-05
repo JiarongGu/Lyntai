@@ -25,7 +25,12 @@ Part 33 (**all** now needing a real service, a vendor pick or a design call — 
 blameless-vs-reportable router call in Part 40 (opened while closing Part 38 — a design call), the codex
 surface still to MEASURE in **Part 41** (opened while closing CLI11 — also not codeable from here), the
 API-surface gate's generic-overload blind spot in Part 42, the post-1.0 additive backlog in Part 25, and one
-conditional item:_
+conditional item.
+
+**Part 43 opened and closed on 2026-08-05** — the pre-2.2.0 whole-library review's behaviour cluster. It was
+filed as deferred-to-a-major, then landed the same day once `docs/DECISIONS.md` **D44** amended D24's third
+bullet; see `docs/task-archive.md` Part 43 for the seventeen items and why the deferral was wrong. What is
+open is below:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
@@ -99,9 +104,10 @@ _Opened while closing Part 38 (`docs/DECISIONS.md` **D43**). Part 38 fixed the `
 half it could not fix, because the obstacle is the ROUTER's reporting rule, not the translation table._
 
 - [ ] **`GenerationRouter` forces a choice between "does not blame the backend" and "explains the run", and
-  one media verdict needs both.** `src/Lyntai.Core/Generation/Routing/GenerationRouter.cs:92` excludes
-  `NotConfigured`/`Unsupported` from `firstFailure`, and `:117` falls back to `NotConfigured` when nothing
-  substantive was recorded. That rule is right — a blameless verdict must not mask a real failure (D38) — but
+  one media verdict needs both.** In `src/Lyntai.Core/Generation/Routing/GenerationRouter.cs`, the
+  `firstFailure` guard excludes `NotConfigured`/`Unsupported` (`:105`), and the return falls back to
+  `NotConfigured` when nothing substantive was recorded (`:130`) — follow the NAMES, these line numbers have
+  already rotted once. That rule is right — a blameless verdict must not mask a real failure (D38) — but
   it makes the two properties mutually exclusive, and `LlmVerdict.ContextWindowExceeded` needs both.
 
   **What a consumer observes today.** An image backend that answers "prompt is too long" (the shared corpus
@@ -201,7 +207,8 @@ _Found while reviewing the provider-pool baselines (2026-08-05). Pre-existing, n
   `tests/Lyntai.Tests/Api/Baselines/Lyntai.Core.txt:1516-1517`.
 
   **What a consumer would observe.** `LyntaiBuilder` declares both `AddSemanticMemory()` and
-  `AddSemanticMemory<TEmbedder>()` (`src/Lyntai.Core/DependencyInjection/LyntaiBuilder.cs:379,397`). The
+  `AddSemanticMemory<TEmbedder>()` (`src/Lyntai.Core/DependencyInjection/LyntaiBuilder.cs`, the
+  `AddSemanticMemory` overload set — `:409` and `:427` as of 2026-08-05; follow the NAME, these move). The
   baseline generator prints a method's parameters but not its type parameters, so BOTH render as the
   identical line `AddSemanticMemory() : LyntaiBuilder` — the baseline literally contains that line twice.
   Two identical lines carry no information about which is which, so **deleting either overload leaves a
@@ -210,7 +217,7 @@ _Found while reviewing the provider-pool baselines (2026-08-05). Pre-existing, n
   exactly what this gate exists to stop, and for this shape it does not.
 
   The same blind spot is present but currently invisible for `AddEmbeddings<TEmbedder>()`
-  (`LyntaiBuilder.cs:352`), which renders as `AddEmbeddings()` — there is no parameterless non-generic
+  (`LyntaiBuilder.cs:382`), which renders as `AddEmbeddings()` — there is no parameterless non-generic
   sibling today, so it produces no duplicate line and no visible symptom. Adding one would silently create
   the same hole. It applies to every generic member on the surface, not only these two: arity and constraints
   are both invisible to the gate.
@@ -300,3 +307,20 @@ that was never additive or never small._
   message.
 - **When a task completes, archive it** (`.claude/rules/task-lifecycle.md`): move its entry (with the
   completion date + a one-line **Outcome**) into `docs/task-archive.md`, and delete it from here.
+
+## Quests from other repositories
+
+_Posted by other repositories in this family, which do not edit this one. Take one with
+`daoris quest take <id>`, finish it with `done`, or turn it down with `decline` — declining is a
+real answer, and the reason is what the asker can actually act on._
+
+- [ ] **Review the canon adoption sitting uncommitted in this tree** `#7a82cc`
+  Uncommitted changes are in this working tree that Daoris made directly. That was a mistake on Daoris's part — under the rule it now carries (repository-owns-its-work), it should have posted this as a quest and let you make the change. Filing it now so the decision is yours.
+
+  What is there: daoris.json source corrected from the OWNER placeholder to github:JiarongGu/Daoris#v0.0.1, and the pin moved off canon 0.1.0 which no longer exists after the version reframe. 17 files synced, bringing in the skills-workflow rule, model-decoupling knowledge and five skills that had never reached here. dev-conventions.md retired after checking every section survived elsewhere — the two things that did not (the dev loop with its e2e discovery convention, and the zero-Dto invariant) moved into local repo-mechanics.md. Budget tightened 40000 to 36000.
+
+  Result: always-loaded core 40,517 -> 33,596 bytes, daoris check clean, 1563 tests green.
+
+  git checkout -- . discards all of it, and that is a perfectly good answer.
+
+  _Quest from `Daoris` · filed 2026-08-05 · **open**._

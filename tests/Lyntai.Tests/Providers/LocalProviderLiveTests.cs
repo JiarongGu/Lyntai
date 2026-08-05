@@ -7,15 +7,17 @@ namespace Lyntai.Tests.Providers;
 /// OPT-IN live integration against a real local GGUF model via LLamaSharp — proves end-to-end
 /// in-process inference, not just wiring. Runs only when <c>LYNTAI_LIVE_LLAMA</c> is set AND
 /// <c>LYNTAI_LLAMA_MODEL</c> points at an existing .gguf file (and the test host has an
-/// <c>LLamaSharp.Backend.*</c> available); otherwise it returns early (a no-op pass) so the default
-/// run stays fast, deterministic, and native-dependency-free. xUnit v2 has no dynamic
-/// <c>Assert.Skip</c>, hence the early-return.
+/// <c>LLamaSharp.Backend.*</c> available); otherwise it reports as SKIPPED
+/// (<c>Xunit.SkippableFact</c>) so the default run stays fast, deterministic and
+/// native-dependency-free while still saying honestly that it did not run.
 ///
 /// Enable:  set LYNTAI_LIVE_LLAMA=1  and  LYNTAI_LLAMA_MODEL=&lt;path-to&gt;.gguf
 /// (with an LLamaSharp.Backend.* referenced by / visible to the test host).
 /// </summary>
 public class LocalProviderLiveTests
 {
+    private const string Reason = "LYNTAI_LIVE_LLAMA not set, or LYNTAI_LLAMA_MODEL does not point at a .gguf file";
+
     private static string? ModelPath => Environment.GetEnvironmentVariable("LYNTAI_LLAMA_MODEL");
 
     private static bool Live =>
@@ -33,10 +35,10 @@ public class LocalProviderLiveTests
         Temperature = 0,
     };
 
-    [Fact]
+    [SkippableFact]
     public async Task Completion_against_a_real_local_model_returns_ok_with_text()
     {
-        if (!Live) return;
+        Skip.IfNot(Live, Reason);
 
         using var provider = Provider();
         var reply = await provider.CompleteAsync(Ask("Reply with exactly one word: pong"));
@@ -45,10 +47,10 @@ public class LocalProviderLiveTests
         Assert.NotEqual("", reply.Text);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Streaming_against_a_real_local_model_yields_content_then_final()
     {
-        if (!Live) return;
+        Skip.IfNot(Live, Reason);
 
         using var provider = Provider();
         var chunks = new List<LlmChunk>();

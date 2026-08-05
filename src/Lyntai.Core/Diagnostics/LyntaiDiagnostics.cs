@@ -313,7 +313,11 @@ public static class LyntaiDiagnostics
             if (operationId is { Length: > 0 }) activity.SetTag("lyntai.generation.operation_id", operationId);
             activity.SetTag("lyntai.generation.status", status.ToString());
             if (inconclusive) activity.SetTag("lyntai.generation.inconclusive", true);
-            if (errorType is not null) activity.SetStatus(ActivityStatusCode.Error);
+            if (errorType is not null)
+            {
+                activity.SetTag("error.type", errorType);
+                activity.SetStatus(ActivityStatusCode.Error);
+            }
         }
 
         if (GenerationDuration.Enabled)

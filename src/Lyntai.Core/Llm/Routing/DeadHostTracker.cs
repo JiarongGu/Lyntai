@@ -4,10 +4,16 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Llm.Routing;
 
 /// <summary>
-/// Dead-host cooldown (odysseus semantics, instead of exponential backoff): after
+/// Dead-host cooldown (a FIXED cooldown after N consecutive failures, not exponential backoff): after
 /// <see cref="_threshold"/> consecutive failures a key (provider/host) is dead for
 /// <see cref="_cooldown"/>; any success resets. One log line per state change.
 /// The clock is injected so tests are deterministic — no DateTime.Now in logic.
+/// <para>State is allocated ONLY by <see cref="RecordFailure"/>/<see cref="MarkDead"/> — a key that only
+/// ever succeeds never gets an entry, and <see cref="RecordSuccess"/> drops the one it had. What is retained
+/// for the process lifetime is a key that failed and never recovered: considered and accepted, because an
+/// entry is two fields and pruning on a clock would need the background timer this type deliberately does
+/// without. Worth knowing because the key space is unbounded once cooldown keys on a CONFIGURATION
+/// (<c>ProviderKey</c> changes with every credential rotation) rather than on a provider id.</para>
 /// </summary>
 public sealed class DeadHostTracker(
     int threshold = 3,
@@ -81,8 +87,10 @@ public sealed class DeadHostTracker(
         {
             if (!_states.TryGetValue(key, out var s)) return;
             var wasDead = s.DeadUntil is not null;
-            s.ConsecutiveFailures = 0;
-            s.DeadUntil = null;
+            // remove rather than zero: a missing entry and a zeroed one are read identically everywhere
+            // (IsDead calls both alive; RecordFailure/MarkDead build a fresh State), so dropping it keeps a
+            // long-lived process from retaining one entry per configuration that ever recovered.
+            _states.Remove(key);
             if (wasDead) _logger.LogInformation("{Key} recovered; dead-host state cleared", key);
         }
     }

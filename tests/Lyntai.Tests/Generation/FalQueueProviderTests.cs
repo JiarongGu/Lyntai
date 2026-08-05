@@ -167,6 +167,40 @@ public class FalQueueProviderTests
     }
 
     [Fact]
+    public async Task A_bytes_only_input_is_refused_rather_than_dropped_and_billed()
+    {
+        // the expensive shape: fal reads input media from a URL, so dropping a bytes-only input submitted —
+        // and billed — a text-to-video render against a caller who asked for image→video, and the result
+        // came back plausible. Refusing before the POST is the only honest answer.
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(Ask() with
+        {
+            Inputs = [GenerationInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")],
+        });
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Contains("URL", operation.Detail);
+        Assert.Empty(http.Requests);          // nothing was submitted, so nothing was billed
+    }
+
+    [Fact]
+    public async Task An_input_carrying_a_uri_still_submits()
+    {
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.OK, """{"request_id":"req-123","status":"IN_QUEUE"}""");
+
+        var operation = await provider.SubmitAsync(Ask() with
+        {
+            Inputs = [GenerationInput.FirstFrame(new Uri("https://cdn.invalid/first.png"), "image/png")],
+        });
+
+        Assert.Equal(GenerationOperationStatus.Queued, operation.Status);
+        Assert.Contains("\"image_url\"", http.Requests[0].Body);  // the first-frame field, not input_image_url
+        Assert.Contains("cdn.invalid/first.png", http.Requests[0].Body);
+    }
+
+    [Fact]
     public async Task Inline_generation_is_declined_because_the_queue_is_asynchronous()
     {
         var (provider, _) = Provider();

@@ -13,8 +13,8 @@ namespace Lyntai.Agents;
 /// the host.</para>
 ///
 /// <para>Lives in Core so a provider package can ship its own dialect WITHOUT taking a dependency on the
-/// MCP host (which pulls in ASP.NET Core/Kestrel) — that separation is the point of the
-/// <see cref="ICliToolProvisioner"/> seam.</para>
+/// MCP host (a loopback <c>HttpListener</c> server that pulls in <c>ModelContextProtocol.Core</c>) — that
+/// separation is the point of the <see cref="ICliToolProvisioner"/> seam.</para>
 /// </summary>
 public interface IMcpCliDialect
 {

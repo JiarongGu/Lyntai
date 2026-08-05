@@ -20,8 +20,9 @@ Twelve packages, one public front door, and a public API frozen under SemVer 2.0
 
 What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / MEAI-bridged
 backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling.
-**Generation** *(experimental)* — one capability-aware seam for image/video/audio/3d with three delivery modes
-(inline, submit→poll→fetch, streaming), durable renders over `Lyntai.Jobs`, and five backends.
+**Generation** *(the backend package is experimental; the contracts in Core are not)* — one capability-aware
+seam for image/video/audio/3d with three delivery modes (inline, submit→poll→fetch, streaming), durable
+renders over `Lyntai.Jobs`, and five backends.
 **Storage** — SQLite / Postgres / InMemory, mixable per domain, with FTS5-trigram recall and feature toggles.
 **Agents** — a tool loop, two-gate chat orchestration, guards, and both halves of MCP. **Ops** — prompt
 registry, scoring/eval, run traces, task-scoped + semantic + curated memory, durable jobs with priorities /
@@ -34,23 +35,32 @@ package boundaries, a starting bundle, and four build gates that keep the packag
 **2.1.0** generation ergonomics — named input factories, an `Add*` per media backend, and BYO-`HttpClient`
 ownership brought in line with the LLM side.
 `CHANGELOG.md` has the per-release detail; `docs/DECISIONS.md` has the reasoning behind the load-bearing calls.
+**This file documents the working tree, not only the newest package**: anything that has not shipped yet is
+listed under `## Unreleased` in `CHANGELOG.md`, so check there before assuming a member below is in the
+version you installed.
 
 > **Versioning.** From **1.0**, Lyntai follows **SemVer 2.0**: no breaking public-API change without a major
 > bump (the `ApiSurfaceTests` baseline gates it).
 >
-> **One carve-out, stated plainly: `Lyntai.Generation.*` is EXPERIMENTAL as of 2.0.1** and is exempt from that
-> promise until its backends have been verified against real services (`TASKS.md` GEN-VERIFY). It is a complete,
-> tested platform — but two of its backends were written from vendor documentation with no key to call, a third's
-> argv is ported rather than measured, and `IGenerationStreamProvider` has no implementation at all yet. Shapes
+> **One carve-out, stated plainly: the `Lyntai.Generation` PACKAGE (the media backends) is EXPERIMENTAL as of
+> 2.0.1** and is exempt from that promise until its backends have been verified against real services
+> (`TASKS.md` GEN-VERIFY). It is a complete, tested platform — but two of its backends were written from vendor
+> documentation with no key to call, a third's argv is ported rather than measured, and
+> `IGenerationStreamProvider` has no implementation at all yet. Shapes
 > that meet reality tend to change. Freezing that under SemVer would mean either a major bump for a fix we
-> already expect, or leaving a known-wrong shape in place — so it is marked instead of pretended. Everything
+> already expect, or leaving a known-wrong shape in place — so it is marked instead of pretended.
+> **The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation *contracts* in that
+> namespace (`GenerationResult`, the routing policy, `GenerationVerdictClassifier`, …) ship inside the mandatory
+> `Lyntai.Core` and carry the FULL promise — which is why `docs/DECISIONS.md` D43 treated a verdict-translation
+> fix in one of them as major-bump material rather than claiming the exemption. Everything
 > else (LLM routing, storage, cortex, jobs, guards, secrets, memory, tools) carries the full promise. **Upgrading 0.31 → 1.0:** the 0.x migrations were collapsed
 > into per-domain 1.0 baselines — the net schema is identical but the migration ledger is renumbered, so
 > **drop your `lyntai_*` tables (including `lyntai_version_info`) or delete the dev database before the first
 > 1.0 run**; Lyntai recreates them. One-time; the ledger is append-only thereafter.
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
-- `docs/ROADMAP.md` — what's shipped, what's next, and the remaining path to 1.0.
+- `docs/ROADMAP.md` — what's shipped, what's next (generation verification and the open design calls), and
+  the standing maintenance policies.
 - `docs/AOT.md` — per-package trimming/Native-AOT status.
 - `CHANGELOG.md` — per-release detail, breaking changes called out.
 
@@ -74,9 +84,9 @@ ownership brought in line with the LLM side.
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
 dependency does this isolate?" with something concrete. Backends that need nothing extra share
 `Providers.Default`; anything dragging a native runtime (LLamaSharp, native SQLite), a platform-specific API
-(Windows DPAPI) or a heavy framework (ASP.NET Core, via MCP hosting) stays its own package — and `Lyntai.Core`
-carries the smallest footprint of all, because it is the one package you cannot opt out of
-(`docs/DECISIONS.md` D31).
+(Windows DPAPI) or a protocol stack of its own (`ModelContextProtocol.Core`, via either MCP package) stays
+its own package — and `Lyntai.Core` carries the smallest footprint of all, because it is the one package you
+cannot opt out of (`docs/DECISIONS.md` D31).
 
 What goes **in the bundle** is a separate, budgeted decision (D32): a package joins only if it adds no
 third-party dependency beyond the `Microsoft.Extensions.*` band, or if it is near-universal and the cost is
@@ -125,7 +135,7 @@ services.AddLyntai(cfg =>
     cfg.AddClaudeCliProvider();                          // spawns the authenticated `claude` CLI, no API key
     cfg.AddOpenAiCompatibleProvider("ollama", o => o.BaseUrl = "http://localhost:11434");
     cfg.AddExtensionsAiProvider("openai", myChatClient); // bridge any Microsoft.Extensions.AI IChatClient
-    cfg.UseSqliteStorage("app.db");                      // all five storage domains, migrated on startup
+    cfg.UseSqliteStorage("app.db");                      // all storage domains, migrated on startup
     cfg.AddScorer<OutcomeScorer>();                      // eval dimensions are DI registrations
     cfg.AddScorer<RelevancyScorer>();                    // (this one is an LLM judge through the router)
     cfg.UseDefaultCandidates("claude-cli", "ollama");       // router fallback order
@@ -206,6 +216,12 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   drops a `{placeholder}` present in the default is rejected (falls back to the default, with a warning).
 - **Memory recall is bounded and fail-open:** FTS5 trigram match (works for CJK substrings), LIKE
   fallback, capped per (task, scope) — and it never throws into your prompt path.
+- **Memory retention is bounded out of the box:** the default `MemoryRetentionPolicy` keeps a **500-entry
+  per-scope FIFO cap**, so the store does not grow without limit unless you ask it to. Change it with
+  `ConfigureMemory(p => …)` — count cap, default TTL, per-scope character budget, FIFO or LRU eviction — or
+  the `LYNTAI_MEMORY_*` env family; `MemoryRetentionPolicy.Manual` hands size back to your app. On-write
+  eviction never revisits a cold `(task, scope)`, so `AddMemoryPruneJob(cron, …)` is the scheduled form —
+  a recurring durable job that reaps expired and aged-out entries (your app owns the pump).
 - **Curated memory catalog** (`ICuratedMemoryStore`) sits beside the recall log for hand-managed context:
   entries grouped by `Kind`, each individually enable/disable-able and editable (`UpdateAsync`, incl.
   re-categorising `kind` in place), with an arbitrary app-owned `string→string` `Metadata` map (title,
@@ -219,6 +235,7 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   (`providerId[:model],…`), `LYNTAI_MODEL_<CONSUMER>` (+ `LYNTAI_DEFAULT_MODEL` alias),
   `LYNTAI_RETRY_FAILED`/`_TIMEOUT`/`_BACKOFF_SECONDS`, `LYNTAI_COOLDOWN_SCOPE`,
   `LYNTAI_TOOL_LOOP_MAX_ITERATIONS`, `LYNTAI_CACHE_TTL_SECONDS`/`_MAX_ENTRIES`,
+  `LYNTAI_MEMORY_MAX_ENTRIES`/`_EVICTION` (`Fifo`|`Lru`)/`_TTL_SECONDS`/`_MAX_CHARS`,
   `LYNTAI_BUDGET_MAX_COST_USD`/`_MAX_TOKENS`, `LYNTAI_RATELIMIT_PERMITS_PER_SECOND`/`_BURST`/`_MAX_WAIT_SECONDS`,
   the durable-jobs family `LYNTAI_JOBS_LEASE_SECONDS`/`_POLL_SECONDS`/`_MAX_ATTEMPTS`/`_BACKOFF_SECONDS`/`_DEFAULT_CONCURRENCY`/`_MAX_STEP_LOG`,
   and `LYNTAI_PROVIDER_CMD` (point the CLI provider at a stub — how the tests/e2e spend zero tokens).
@@ -259,7 +276,8 @@ JSON schema) — `Consumer` is excluded, so two consumers issuing the same reque
 `Ok`, non-streaming completions are cached; **streaming**, requests carrying **native tools** (the tool
 loop is stateful), and **non-Ok** replies never are. The in-memory cache is the default; call `UseSqliteResponseCache()` (or `UsePostgresResponseCache()`) to
 persist it so it survives restarts, or register your own `IResponseCache` before `AddResponseCache` to back
-it with Redis or another shared store.
+it with Redis or another shared store. (Persisting it needs `StorageFeature.Governance` — see the
+governance-persistence note at the end of **Rate limiting**.)
 
 ### Semantic memory
 
@@ -320,8 +338,9 @@ services.AddLyntai(cfg => cfg
         b.PerConsumer["scoring"] = new(MaxCostUsd: 2.00);  // a tighter cap for one consumer
     }));
 
-// query or reset spend at runtime
-var spent = sp.GetRequiredService<IUsageTracker>().Total().CostUsd;
+// query or reset spend at runtime (async by contract — a persistent tracker must not block the front door)
+var spent = (await sp.GetRequiredService<IUsageTracker>().TotalAsync()).CostUsd;
+await sp.GetRequiredService<IUsageTracker>().ResetAsync();
 ```
 
 Over a cap, a completion returns `Verdict == Refused` (a stream yields one Error chunk) and no provider is
@@ -329,7 +348,8 @@ called. The ceiling is **soft**: the call that crosses a cap still runs (its cos
 returns), the next is refused. Compose with the cache and a **cached hit is free** — it never counts toward
 the budget (the cache is the outermost decorator). Call `UseSqliteUsageTracking()` (or
 `UsePostgresUsageTracking()`) to persist spend across restarts, or register your own `IUsageTracker` for
-shared accounting.
+shared accounting. (Persisting it needs `StorageFeature.Governance` — see the governance-persistence note at
+the end of **Rate limiting**.)
 
 ### Rate limiting
 
@@ -352,6 +372,25 @@ spend, throughput) and compose on one chain — **cache outermost, rate-limit in
 spends nothing: no budget accounting and no rate-limit permit. Register your own `IRateLimiter` for a
 limiter shared across processes.
 
+**A layer of your own goes on the same chain:** `AddFrontDoorDecorator(order, (sp, inner) => …)` folds PII
+redaction, request logging or a bespoke cache in beside the built-ins — higher `order` = further out, with
+the built-ins at 5 (rate limit) / 10 (budget) / 20 (cache), so 15 sits between budget and cache and 25
+outside the cache. It is what to reach for *instead of* pre-registering an `ILlmClient`, which discards every
+front-door decorator with no error at all. One trap: taking a built-in's order silently disables one of the
+two — first writer wins per slot — and the loser's options are still applied and its `IResponseCache` /
+`IUsageTracker` / `IRateLimiter` still registered, so the wiring reads as complete while that governance
+layer is simply not in the chain.
+
+**Persisting a governance store needs `StorageFeature.Governance`.** The default `StorageFeature.All`
+already includes it, so this only concerns a deployment that migrates a subset. The three governance-backed
+tables — `lyntai_response_cache`, `lyntai_usage` and `lyntai_vector` — all ship in that one migration, so
+`UseSqliteResponseCache()`, `UseSqliteUsageTracking()` and `UseSqliteVectorStore()` (plus the Postgres cache
+and usage-tracking twins) reject a Governance-less subset at `AddLyntai`, naming the missing feature, rather
+than registering a store over a table that was never created and failing at the first cached call, metered
+call or recall. Two carve-outs: the check applies only where **Lyntai** migrates (under `SchemaMigration.None`
+or a BYO `IDbConnectionFactory` the schema is yours to own), and `UsePostgresVectorStore()` is exempt because
+it creates its own `vector` extension and table on first use.
+
 ### Observability
 
 Lyntai emits OpenTelemetry GenAI-convention telemetry from the router — the same schema
@@ -362,10 +401,12 @@ in one backend. Nothing is emitted unless you subscribe:
 tracerProviderBuilder.AddSource(LyntaiDiagnostics.ActivitySourceName);        // "Lyntai.Llm" spans
 meterProviderBuilder.AddMeter(LyntaiDiagnostics.MeterName);                   // duration, token usage,
                                                                               // time_to_first_chunk
-// the agentic subsystems (tool loop, durable jobs, guards) emit on a second source/meter:
+
+// image/video/audio/3d renders emit on a second source/meter:
 tracerProviderBuilder.AddSource(LyntaiDiagnostics.GenerationActivitySourceName);  // "Lyntai.Generation" spans
 meterProviderBuilder.AddMeter(LyntaiDiagnostics.GenerationMeterName);         // render duration + reported cost
 
+// the agentic subsystems (tool loop, durable jobs, guards) emit on a third source/meter:
 tracerProviderBuilder.AddSource(LyntaiDiagnostics.AgentActivitySourceName);   // "Lyntai.Agents" spans
 meterProviderBuilder.AddMeter(LyntaiDiagnostics.AgentMeterName);              // tool/job/guard metrics
 ```
@@ -585,24 +626,32 @@ services.AddLyntai(cfg => cfg
 
 Each backend has an `Add*` of its own — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
 `AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider` — and each takes an **options object**
-rather than a configure callback, because these options are records with `required` members: passing the
-instance is what keeps `required BaseUrl` compiler-enforced. `AddGenerationProvider(sp => …)` remains the BYO
+rather than a configure callback, because three of them are records with `required` members
+(`OpenAiImageOptions`, `Automatic1111Options`, `ComfyUiOptions`): passing the instance is what keeps
+`required BaseUrl` compiler-enforced. The other two take the same shape so every backend registers the same
+way — `FalQueueOptions` is a record whose `BaseUrl` is defaulted rather than required, and
+`LocalDiffusionOptions` is a plain class of settable properties (it has no `BaseUrl` at all — it drives a
+binary, by `BinaryPath` and `ModelPath`). `AddGenerationProvider(sp => …)` remains the BYO
 seam for a backend of your own.
 
-BYO `HttpClient` is optional on every one of them, and Lyntai **never disposes a client you supply** — it is
-yours, and it may be carrying a Polly pipeline or an auth handler. Omit it and Lyntai registers a named client
-with an *infinite* `HttpClient` timeout, so the per-call deadline owns cancellation rather than the 100-second
-default aborting a healthy render. To decorate Lyntai's own client instead of replacing it, reach it by name:
+BYO `HttpClient` is optional on every one of the four HTTP backends — `AddLocalDiffusionProvider` takes a BYO
+`IProcessRunner` instead, because it spawns a binary and never makes a request — and Lyntai **never disposes a
+client you supply**: it is yours, and it may be carrying a Polly pipeline or an auth handler. Omit it and
+Lyntai registers a named client with an *infinite* `HttpClient` timeout, so the per-call deadline owns
+cancellation rather than the 100-second default aborting a healthy render. To decorate Lyntai's own client
+instead of replacing it, reach it by name:
 
 ```csharp
 services.AddHttpClient(GenerationProviderBuilderExtensions.HttpClientName("fal"))
         .AddHttpMessageHandler<MyLoggingHandler>();
 ```
 
-**That deadline is per backend, and infinite there does not mean unbounded.** Every options record carries a
-`Timeout` — 10 minutes for the inline render backends (`OpenAiImageOptions`, `Automatic1111Options`), 2 minutes
+**That deadline is per backend, and infinite there does not mean unbounded.** Every options object carries a
+`Timeout` — 10 minutes for the hosted inline render backends (`OpenAiImageOptions`, `Automatic1111Options`), 2 minutes
 for the queue ones (`ComfyUiOptions`, `FalQueueOptions`, whose calls are submit/status/fetch round-trips rather
-than renders) — and a request's own `TimeoutSeconds` overrides it where a request exists. A fired deadline is a
+than renders), and 15 minutes for `LocalDiffusionOptions`, paired there with a 2-minute `InactivityTimeout`:
+a CPU render is legitimately slow but never *silent*, so silence rather than elapsed time is what marks it
+wedged — and a request's own `TimeoutSeconds` overrides it where a request exists. A fired deadline is a
 `GenerationVerdict.Timeout` **result**, not a throw; your own `CancellationToken` keeps its own meaning and
 still surfaces as cancellation. Set `Timeout = System.Threading.Timeout.InfiniteTimeSpan` to drop the backend's
 own deadline — a request that names its own `TimeoutSeconds` still gets one, since the more specific
@@ -684,8 +733,8 @@ failure rather than inventing an artifact.
 | Backend | Delivery | Notes |
 |---|---|---|
 | `OpenAiImageProvider` | Inline | `/images/generations`, or `/images/edits` when the request carries an input image. A `url` response comes back as a URI artifact — never downloaded for you |
-| `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`. Not running reports **NotConfigured** (skipped, not blamed), and its probe checks a checkpoint is *loaded* — "up" isn't "usable" |
-| `ComfyUiProvider` | **Job** | *Documented, not measured.* Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs |
+| `Automatic1111Provider` | Inline | A locally-run SD WebUI: `txt2img` / `img2img`. Not running reports **NotConfigured** (skipped, not blamed), and its probe checks a checkpoint is *loaded* — "up" isn't "usable". The WebUI's currently-loaded checkpoint decides the model: `GenerationRequest.Model`, including a candidate's `a1111:sd_xl_base` pin, is **not** sent |
+| `ComfyUiProvider` | **Job** | *Documented, not measured.* Local and workflow-driven: you supply the graph in `Options["workflow"]` (+ optional `Options["prompt-path"]` to place the prompt), and outputs come back as view URIs. A transport failure while polling reports **Running, not Failed** — an unanswered status call says nothing about a run still going — while a 4xx or an unconfigured base URL stays terminal, so a bad id never polls forever |
 | `LocalDiffusionProvider` | Inline | A local `sd-cli` / stable-diffusion.cpp subprocess through `IProcessRunner` — no key, no network, no content policy in the path. Argv and the multiple-of-64 size clamp are ported from a working implementation rather than measured here |
 | `FalQueueProvider` | **Job** | *Documented, not measured.* One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
 
@@ -840,9 +889,9 @@ services.AddLyntai(b => b
 
 The host is provider-neutral: **which** CLI connects and **how** it's told to is the `IMcpCliDialect` —
 flag names plus config-file shapes, and nothing else. `ClaudeCliMcpDialect` ships with the claude provider
-package (it costs that package no extra dependencies; the Kestrel host stays here, so apps using the plain
-CLI provider stay ASP.NET-free and AOT-compatible). Supporting a different CLI is one small class, no new
-package and no change to the host:
+package (it costs that package no extra dependencies; the host — and the `ModelContextProtocol.Core`
+reference it needs — stays here, so apps using the plain CLI provider carry neither). Supporting a different
+CLI is one small class, no new package and no change to the host:
 
 ```csharp
 public sealed class MyCliMcpDialect : IMcpCliDialect
@@ -861,7 +910,7 @@ services.AddLyntai(b => b.AddMcpToolHost(new MyCliMcpDialect()));
 ```
 
 The provisioner is registered keyed on `ProviderId`, so several CLI providers can host tools side by side
-with different dialects. (This runs an ephemeral Kestrel listener on loopback only during each CLI call —
+with different dialects. (This runs an ephemeral `HttpListener` on loopback only during each CLI call —
 a deliberate, scoped exception to Lyntai's otherwise host-free design, isolated in this opt-in package.)
 
 ### CLI-agent session vs `IToolLoop` (`IAgentSession`)
@@ -1019,7 +1068,12 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
   `AddDpapiSecretVault()` (`Lyntai.Secrets.Dpapi`) binds it with DPAPI. Call `GenerateMasterKeyAsync()`
   once (record the recovery key), `RecoverAsync(key)` on migration.
 - **Vision** — `LlmMessage.UserWithImage(text, bytes, "image/png")` (or `UserWithImageUrl`); the
-  OpenAI-compatible and MEAI-bridged providers send it as image content.
+  OpenAI-compatible and MEAI-bridged providers send it as image content, and the **Ollama-native** flavour
+  (`AddOllamaProvider`, or any base URL detected as Ollama) sends it as `/api/chat`'s own `images` array.
+  Pair it with a vision model (`llava` and friends). **One shape does not travel on the Ollama-native path:**
+  an attachment carrying only a remote URL, because `/api/chat` has no URL form and Lyntai will not fetch
+  the bytes for you — it is logged as undeliverable rather than dropped silently. Send bytes, or use
+  Ollama's `/v1` surface through `AddOpenAiCompatibleProvider`, which takes a URL.
 
 ## Dev loop
 

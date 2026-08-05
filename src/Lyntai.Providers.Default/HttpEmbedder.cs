@@ -14,10 +14,12 @@ namespace Lyntai.Providers.OpenAiCompatible;
 /// <c>{model, input[]}</c> — batched — and extracts vectors tolerantly from either the OpenAI/LM-Studio
 /// <c>data[].embedding</c> shape or Ollama's <c>embeddings[[…]]</c> shape. Endpoint + flavor come from the
 /// same <see cref="ProviderDetect"/> the chat provider uses (Ollama → native <c>/api/embed</c>; a bare
-/// Azure resource → <c>/openai/v1/embeddings</c>; everything else → <c>/v1/embeddings</c>). The per-call
-/// deadline is <see cref="LyntaiOptions.ProviderTimeout"/>. Failures THROW (an embedding call has no
-/// verdict/fallback) — <see cref="Lyntai.Memory.ISemanticMemory.RecallAsync"/> is fail-open and swallows them,
-/// while <c>RememberAsync</c> surfaces them by design. Because there is no verdict, a 401 with no key supplied
+/// Azure resource → <c>/openai/v1/embeddings</c>; everything else → <c>/v1/embeddings</c>).
+/// <see cref="LyntaiOptions.ProviderTimeout"/> is the deadline for one HTTP REQUEST, so a call that
+/// <see cref="OpenAiCompatibleEmbedderOptions.BatchSize"/> splits is bounded by batches × that value rather
+/// than by it once. Failures THROW (an embedding call has no verdict/fallback) —
+/// <see cref="Lyntai.Memory.ISemanticMemory.RecallAsync"/> is fail-open and swallows them, while
+/// <c>RememberAsync</c> surfaces them by design. Because there is no verdict, a 401 with no key supplied
 /// says so in the message instead: see <see cref="NotConfiguredHint"/>.
 /// </summary>
 public sealed class HttpEmbedder(
@@ -41,8 +43,8 @@ public sealed class HttpEmbedder(
     /// caller decides whether to swallow it (recall is fail-open) or surface it (remember is not).</summary>
     /// <returns>One <c>float[]</c> per input text, in input order.</returns>
     /// <exception cref="HttpRequestException">The endpoint returned a non-2xx status.</exception>
-    /// <exception cref="TimeoutException">No response within <see cref="LyntaiOptions.ProviderTimeout"/>
-    /// (the per-call deadline; distinct from caller cancellation).</exception>
+    /// <exception cref="TimeoutException">No response within <see cref="LyntaiOptions.ProviderTimeout"/> —
+    /// the deadline for one HTTP request, armed afresh per batch; distinct from caller cancellation.</exception>
     /// <exception cref="InvalidOperationException">The response was malformed / carried no vectors, or the
     /// vector count did not match the batch size.</exception>
     /// <exception cref="OperationCanceledException">The caller's <paramref name="ct"/> was cancelled.</exception>
@@ -77,9 +79,9 @@ public sealed class HttpEmbedder(
             using var response = await http.SendAsync(BuildRequest(batch), timeoutCts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                var errorBody = await SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                var errorBody = await OpenAiHttp.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
                 throw new HttpRequestException(
-                    $"{id}: embeddings HTTP {(int)response.StatusCode}{NotConfiguredHint(response.StatusCode)} {Head(errorBody)}");
+                    $"{id}: embeddings HTTP {(int)response.StatusCode}{NotConfiguredHint(response.StatusCode)} {OpenAiHttp.Head(errorBody)}");
             }
             body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
         }
@@ -116,14 +118,14 @@ public sealed class HttpEmbedder(
 
     /// <summary>The embeddings endpoint — Ollama's native batched <c>/api/embed</c> (parallel to the chat
     /// provider's <c>/api/chat</c>), otherwise the OpenAI-compatible <c>embeddings</c> route.</summary>
-    internal Uri Endpoint() =>
+    private Uri Endpoint() =>
         OpenAiEndpoint.Build(config.BaseUrl, _flavor, ollamaNativePath: "/api/embed", openAiRoute: "embeddings");
 
     /// <summary>Tolerant extraction covering the two response shapes: OpenAI/LM-Studio
     /// <c>data[].embedding</c> (ordered by the authoritative <c>index</c>) and Ollama <c>embeddings[[…]]</c>
     /// (input order). Also accepts Ollama's legacy single <c>embedding[]</c> shape. Returns null on a
     /// malformed body or a shape carrying no vectors.</summary>
-    internal static IReadOnlyList<float[]>? TryExtractVectors(string body)
+    private static IReadOnlyList<float[]>? TryExtractVectors(string body)
     {
         try
         {
@@ -192,16 +194,4 @@ public sealed class HttpEmbedder(
         && string.IsNullOrWhiteSpace(config.ApiKey)
             ? " (not configured: no ApiKey)"
             : "";
-
-    private static async Task<string> SafeRead(HttpResponseMessage response, CancellationToken ct)
-    {
-        try { return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
-        catch { return ""; }
-    }
-
-    private static string Head(string text, int max = 300)
-    {
-        var trimmed = text.Trim();
-        return trimmed.Length <= max ? trimmed : trimmed[..max];
-    }
 }

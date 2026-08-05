@@ -8,9 +8,9 @@ namespace Lyntai.Tests.Providers;
 /// <summary>
 /// OPT-IN live integration against a real local Ollama — proves the OpenAI-compatible provider
 /// (Ollama flavor) works end-to-end against a real endpoint, not just a stubbed HttpMessageHandler.
-/// Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise it returns
-/// early (a no-op pass), so the default test run stays fast, deterministic, and dependency-free
-/// (CI never runs the live path). xUnit v2 has no dynamic <c>Assert.Skip</c>, hence the early-return.
+/// Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise it reports as
+/// SKIPPED (<c>Xunit.SkippableFact</c>), so the default test run stays fast, deterministic, and
+/// dependency-free (CI never runs the live path) while still saying honestly that it did not run.
 ///
 /// Enable:  set LYNTAI_LIVE_OLLAMA=1   (optionally LYNTAI_OLLAMA_MODEL, default llama3.2:3b)
 /// </summary>
@@ -18,6 +18,7 @@ public class OllamaLiveTests
 {
     private const string DefaultModel = "llama3.2:3b";
     private const string DefaultEmbedModel = "nomic-embed-text";
+    private const string Reason = "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable";
     private static string BaseUrl => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
     private static string Model => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_MODEL") ?? DefaultModel;
     private static string EmbedModel => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? DefaultEmbedModel;
@@ -28,8 +29,8 @@ public class OllamaLiveTests
             () => new HttpClient(),
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
 
-    /// <summary>True only when the live path is opted in AND the endpoint answers; otherwise the
-    /// caller returns early (the test is a no-op pass).</summary>
+    /// <summary>True only when the live path is opted in AND the endpoint answers; otherwise the caller
+    /// skips.</summary>
     private static async Task<bool> LiveAsync()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LYNTAI_LIVE_OLLAMA"))) return false;
@@ -52,10 +53,10 @@ public class OllamaLiveTests
         Temperature = 0,
     };
 
-    [Fact]
+    [SkippableFact]
     public async Task Completion_against_real_ollama_returns_ok_with_text_and_usage()
     {
-        if (!await LiveAsync()) return;
+        Skip.IfNot(await LiveAsync(), Reason);
 
         var reply = await Provider().CompleteAsync(Ask("Reply with exactly one word: pong"));
 
@@ -66,10 +67,10 @@ public class OllamaLiveTests
         Assert.True(reply.Usage.OutputTokens > 0, "expected an eval token count from Ollama");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Streaming_against_real_ollama_yields_content_then_final()
     {
-        if (!await LiveAsync()) return;
+        Skip.IfNot(await LiveAsync(), Reason);
 
         var content = new System.Text.StringBuilder();
         LlmChunk? last = null;
@@ -84,10 +85,10 @@ public class OllamaLiveTests
         Assert.Equal(LlmChunkKind.Final, last!.Kind); // clean termination, not an error
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Embeddings_against_real_ollama_return_batched_vectors_of_one_dimension()
     {
-        if (!await LiveAsync()) return; // requires the embed model pulled: `ollama pull nomic-embed-text`
+        Skip.IfNot(await LiveAsync(), Reason); // also requires `ollama pull nomic-embed-text`
 
         var embedder = new HttpEmbedder("ollama",
             new OpenAiCompatibleEmbedderOptions { BaseUrl = BaseUrl, Model = EmbedModel },
@@ -102,10 +103,10 @@ public class OllamaLiveTests
         Assert.Contains(vectors[0], f => f != 0f);                  // a real model, not an all-zero stub
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Router_treats_real_ollama_like_any_provider()
     {
-        if (!await LiveAsync()) return;
+        Skip.IfNot(await LiveAsync(), Reason);
 
         // the whole point of the abstraction: a real HTTP provider behind the router/front door
         var services = new ServiceCollection();

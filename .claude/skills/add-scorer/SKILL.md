@@ -2,6 +2,7 @@
 name: add-scorer
 description: Use when adding an evaluation scorer to Lyntai's cortex layer (a new IScorer — deterministic or an LLM judge via LlmScorerBase — for the scoring/eval loop).
 ---
+<!-- local: never synced; not a daoris artifact -->
 
 # Add a scorer to Lyntai
 

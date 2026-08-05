@@ -129,7 +129,10 @@ public static class JobStoreContract
         Assert.Equal(JobStatus.Running, (await store.GetAsync(id))!.Status); // untouched
     }
 
-    public static async Task Cancel_only_affects_pending(IJobStore store, MutableClock clock)
+    // CancelAsync takes a job that has NOT STARTED (Pending here, Paused in
+    // Cancel_reaches_a_paused_job_without_resuming_it) and never a Running one — a running job is cancelled
+    // cooperatively through RequestCancelAsync, which is the other half of IJobQueue.CancelAsync.
+    public static async Task Cancel_takes_a_pending_job_but_not_a_running_one(IJobStore store, MutableClock clock)
     {
         var pending = await store.EnqueueAsync(Spec());
         Assert.True(await store.CancelAsync(pending));
@@ -138,6 +141,18 @@ public static class JobStoreContract
         var running = await store.EnqueueAsync(Spec());
         await store.ClaimNextAsync("default", "w1", Lease);
         Assert.False(await store.CancelAsync(running)); // can't cancel a running job
+    }
+
+    // A spec that names no attempt budget gets the ONE shared default (JobSpec.DefaultMaxAttempts) — the
+    // number used to be a bare `3` hand-copied into each store's enqueue, so a change to one drifted from
+    // the other two silently. Pinned here so every backend answers with the same budget.
+    public static async Task Enqueue_without_max_attempts_uses_the_shared_default(IJobStore store, MutableClock clock)
+    {
+        var id = await store.EnqueueAsync(Spec()); // JobSpec.MaxAttempts is null — the store fills it in
+        Assert.Equal(JobSpec.DefaultMaxAttempts, (await store.GetAsync(id))!.MaxAttempts);
+
+        var pinned = await store.EnqueueAsync(Spec() with { MaxAttempts = 7 }); // an explicit budget still wins
+        Assert.Equal(7, (await store.GetAsync(pinned))!.MaxAttempts);
     }
 
     public static async Task Active_lanes_and_running_count(IJobStore store, MutableClock clock)
@@ -267,6 +282,27 @@ public static class JobStoreContract
         await store.ClaimNextAsync("default", "w1", Lease);
         Assert.False(await store.PauseAsync(running)); // can't pause a Running job (use cancel/admission control)
         Assert.Equal(JobStatus.Running, (await store.GetAsync(running))!.Status);
+    }
+
+    // A Paused job is Pending to nobody and Running to nobody, so BOTH halves of the queue's cancel
+    // (CancelAsync || RequestCancelAsync) used to miss it and an operator had to ResumeAsync first — which
+    // puts the job back in the CLAIMABLE set, so a polling runner could take it in the gap. The pending half
+    // now reaches Paused too (the shared JobStoreSql.CancelPending matches `status IN ('Pending','Paused')`);
+    // the RUNNING half deliberately stays narrow, because cancelling a running job is a cooperative request
+    // to a worker and a held job has no worker to ask.
+    public static async Task Cancel_reaches_a_paused_job_without_resuming_it(IJobStore store, MutableClock clock)
+    {
+        var id = await store.EnqueueAsync(Spec());
+        Assert.True(await store.PauseAsync(id));
+
+        Assert.False(await store.RequestCancelAsync(id));  // not Running → the running half still misses it
+        Assert.True(await store.CancelAsync(id));          // Paused → cancelled outright, no resume needed
+        Assert.Equal(JobStatus.Cancelled, (await store.GetAsync(id))!.Status);
+
+        // terminal, exactly like a cancelled Pending job: never claimable, not resumable, not cancelled twice
+        Assert.Null(await store.ClaimNextAsync("default", "w1", Lease));
+        Assert.False(await store.ResumeAsync(id));
+        Assert.False(await store.CancelAsync(id));
     }
 
     public static async Task Request_cancel_flags_a_running_job_then_cancel_running_finalizes(IJobStore store, MutableClock clock)

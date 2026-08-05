@@ -59,12 +59,18 @@ public interface IJobStore
     /// job no worker holds). Returns whether a matching job was requeued.</summary>
     Task<bool> ReplayAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Cancel a still-Pending job (no effect on a Running one). Returns whether it was cancelled.</summary>
+    /// <summary>Cancel a job that has NOT STARTED — <see cref="JobStatus.Pending"/> or
+    /// <see cref="JobStatus.Paused"/> (a held job cancels directly; no need to <see cref="ResumeAsync"/> it
+    /// first). No effect on a Running one — ask for that with <see cref="RequestCancelAsync"/>. Returns
+    /// whether it was cancelled.</summary>
     Task<bool> CancelAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Administratively hold a Pending job: Pending → <see cref="JobStatus.Paused"/>, so it's not
     /// claimed until resumed. No effect on a non-Pending job. Returns whether it was paused. (To hold a whole
-    /// lane transiently without persisting a state change, use <see cref="Lyntai.Jobs.IJobAdmissionController"/>.)</summary>
+    /// lane transiently without persisting a state change, use <see cref="Lyntai.Jobs.IJobAdmissionController"/>.)
+    /// <para>A held job is still cancellable: <see cref="CancelAsync"/> matches Pending AND Paused, so it goes
+    /// straight to <see cref="JobStatus.Cancelled"/>. <see cref="RequestCancelAsync"/> still answers false for
+    /// it — that flag is a message to the worker holding the claim, and a held job has none.</para></summary>
     Task<bool> PauseAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Release a held job: <see cref="JobStatus.Paused"/> → Pending, claimable again. No effect on
@@ -74,7 +80,8 @@ public interface IJobStore
     /// <summary>Request cancellation of a RUNNING job — sets its <c>cancel_requested</c> flag. The worker
     /// running it observes the flag (its handler's <c>CancellationToken</c> is cancelled) and, honoring it,
     /// stops; the job then becomes Cancelled. No effect on a non-Running job (use <see cref="CancelAsync"/>
-    /// for a Pending one). Returns whether the flag was set.</summary>
+    /// for one that hasn't started, Pending or <see cref="JobStatus.Paused"/>). Returns whether the flag was
+    /// set.</summary>
     Task<bool> RequestCancelAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Mark a Running job Cancelled — used by the runner once it has stopped the handler in

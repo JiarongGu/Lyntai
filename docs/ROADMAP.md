@@ -3,8 +3,16 @@
 > The design contract is `2026-07-17-lyntai-design.md`; §9 lists what was deliberately deferred.
 > This file sequences how the deferred and newly-identified work lands. Dates are intentions,
 > not promises. **From 1.0 the public API is frozen under SemVer 2.0** — no break without a major bump,
-> gated by `ApiSurfaceTests` — with one carve-out: `Lyntai.Generation.*` ships EXPERIMENTAL until
-> GEN-VERIFY closes. Released detail lives in `CHANGELOG.md`; the reasoning in `DECISIONS.md`.
+> gated by `ApiSurfaceTests` — **amended by D24 while every consumer is first-party**: a *documented* break
+> may ship in a MINOR, but the `ApiSurfaceTests` gate is unchanged and strict D22 resumes the moment a third
+> party depends on Lyntai. See `CHANGELOG.md` and `DECISIONS.md` **D22**/**D24**. One carve-out: the
+> **`Lyntai.Generation` PACKAGE** (the media backends) ships EXPERIMENTAL until GEN-VERIFY closes — two
+> backends were written from vendor docs with no key to call, and nothing implements the stream seam. **The
+> carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation CONTRACTS live in that
+> namespace inside `Lyntai.Core`, which is mandatory for every consumer and carries the FULL promise — D43
+> applied the full promise to one deliberately rather than claiming the exemption. One known hole in the
+> gate: it renders a generic method without its type parameters, so some overloads are indistinguishable to
+> it (`TASKS.md` Part 42). Released detail lives in `CHANGELOG.md`; the reasoning in `DECISIONS.md`.
 
 ## Shipped
 
@@ -240,7 +248,7 @@ IoC seams so the consuming app owns resource lifecycle, Lyntai just provides the
   regressions round 1 introduced. Carries small pre-1.0 BREAKS (`ChatResult.BlockReason`→`Detail`,
   `IRateLimiter` cancellation semantics, tracker totals now case-insensitive) — minor-bump release.
 - The pass's **deferred findings went to the backlog** (`TASKS.md`): P5 streaming-loop extraction,
-  remaining Row-DTO/dedup items, PG coverage holes, contract-class mechanism, de-flaking (async
+  remaining row-type/dedup items, PG coverage holes, contract-class mechanism, de-flaking (async
   `IUsageTracker` and the Azure preset closed in the 1.0-prep batch). Rejected findings are recorded
   in `docs/DECISIONS.md` D18.
 
@@ -271,7 +279,9 @@ pre-freeze review + the migration baseline squash landed for 1.0.0. The technica
 **The adoption gate is met** — three sibling apps run on 0.31.1, and a pre-freeze adversarial API +
 read-only consumer-usage review (`docs/DECISIONS.md` D21) settled the surface (surface-shrink, a few
 breaking-if-late interface additions). **1.0.0 is cut (2026-07-28):** the public API is now frozen under
-SemVer 2.0 — `ApiSurfaceTests` gates a major bump (D22) — the 0.x SQLite/Postgres migration ledgers are
+SemVer 2.0 — `ApiSurfaceTests` gates a major bump (D22) *(amended 2026-07-29 by **D24**: while every consumer
+is first-party a DOCUMENTED break may ship in a minor; the `ApiSurfaceTests` gate is unchanged, and strict D22
+resumes when a third party depends on Lyntai)* — the 0.x SQLite/Postgres migration ledgers are
 squashed into 9 per-domain baselines each with the net schema unchanged (D12 one-time exception), and the
 release itself is the manual tag + `release.yml` (D20). The `TASKS.md` backlog is now post-1.0 additive work.
 
@@ -310,6 +320,25 @@ consumer app; run by hand before this release it found two defects nothing else 
 **Why 2.0.1 and not 2.0.0:** 2.0.0 is permanently taken on nuget.org (published, then unlisted, on 10 of the
 ids), and `--skip-duplicate` would have silently published nothing for those. See D29.
 
+### v2.1.0 — the generation backends become registerable in one line (2026-08-04)
+2.0.1 shipped the platform with every backend hand-constructed around its own `Func<HttpClient>`; this closes
+that, and two traps found while closing it. Five per-backend shims — `AddOpenAiImageProvider`,
+`AddAutomatic1111Provider`, `AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider` — are the media
+counterpart of `AddOpenAiProvider()`/`AddOllamaProvider()`, and close what was item 4 under `## Planned` below.
+BYO stays optional on all of them; omit it and Lyntai registers a named client with an **infinite**
+`HttpClient` timeout so the per-call deadline owns cancellation (a render routinely outlives the 100-second
+default).
+- **Named `GenerationInput` factories** (`Init`/`FirstFrame`/`Reference`/`Voice`/`From`), because the
+  positional constructor is a **silent-misbinding** trap: three of its four slots are strings and `Role` is
+  last, so an img2img request compiles, binds the role string into the media type, and degrades to
+  text-to-image with the source image simply ignored and no error anywhere (**D35**).
+- **A BYO `HttpClient` is no longer disposed by Lyntai** — the backends' `using var http = httpFactory()` made
+  the natural `_ => _myClient` lambda work for the first render and throw `ObjectDisposedException` on the
+  second. BYO now means on this side what it means on the LLM side: the host owns the lifetime (**D36**).
+- `Lyntai.Generation` now depends on managed `Microsoft.Extensions.Http` for the shims' named clients. The
+  package is **not** in the `Lyntai` bundle, so the one-line install's dependency closure is unchanged
+  (**D32** — membership is a budget, not a preference).
+
 ## Planned
 
 ### The platform kit (design §9) — SHIPPED (v0.8–v0.15, deferrals closed through v0.27)
@@ -339,6 +368,14 @@ In priority order, each needing its own measurement:
 _Generation wiring helpers (`AddOpenAiImageProvider()` and friends) were item 4 here and **shipped in 2.1.0**
 — see `docs/task-archive.md` Part 36 and `DECISIONS.md` D35/D36. Every remaining item above needs a real
 service or a vendor key, which is why none of them is codeable from the repository alone._
+
+One more item of the same kind — a real run, not a design call — sits outside generation:
+- **CLI backends: measure the codex agent-session surface** (`TASKS.md` Part 41, CLI12/CLI13). The capture
+  behind `CodexAgentSession` ran a turn with no tools in it, so the tool-step half of the mapping is INFERRED
+  and the reader routes unrecognised item names to the tool arm by elimination — a wrong name is therefore a
+  *fabricated* `ToolCall` carrying the model's own reasoning as its arguments, not a missing event
+  (`DECISIONS.md` **D42**). No payload is invented or dropped, and the measured half (session id / terminal /
+  usage) is unaffected; the KIND of event is what a real run has to confirm.
 
 ### Also open, and each a DESIGN call rather than a measurement
 These came out of closing other work and are in `TASKS.md` with their reasoning. They need a decision, not a

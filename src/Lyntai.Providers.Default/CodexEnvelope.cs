@@ -90,10 +90,10 @@ internal static class CodexEnvelope
             return null;
 
         return new Usage(
-            Long(usage, "input_tokens"),
-            Long(usage, "output_tokens"),
-            Long(usage, "cached_input_tokens"),
-            Long(usage, "cache_write_input_tokens"));
+            WireJson.Long(usage, "input_tokens"),
+            WireJson.Long(usage, "output_tokens"),
+            WireJson.Long(usage, "cached_input_tokens"),
+            WireJson.Long(usage, "cache_write_input_tokens"));
     }
 
     /// <summary><c>turn.failed</c> nests its reason under <c>error.message</c>; fall back to a top-level
@@ -109,9 +109,4 @@ internal static class CodexEnvelope
             return flat;
         return "codex reported the turn failed";
     }
-
-    private static long Long(JsonElement parent, string name) =>
-        parent.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.Number && el.TryGetInt64(out var value)
-            ? value
-            : 0;
 }

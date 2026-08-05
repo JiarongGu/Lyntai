@@ -57,7 +57,7 @@ public class ClaudeCliProbeTests
         Assert.Equal("node", runner.LastCommand);
         Assert.Equal(["stub.mjs", "--version"], runner.LastArgs);
         Assert.Null(runner.LastStdin);
-        Assert.Equal(ClaudeCliProvider.NeutralWorkingDirectory, runner.LastWorkingDirectory);
+        Assert.Equal(CliProviderEngine.NeutralWorkingDirectory, runner.LastWorkingDirectory);
     }
 
     [Fact]

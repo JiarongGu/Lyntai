@@ -150,6 +150,19 @@ public class BoundedProviderPoolTests
         Assert.Equal(200, pool.Statistics.Live);
     }
 
+    // 0 reads like "hold nothing" and means the OPPOSITE: it is the same "no count bound" as null (so is any
+    // negative), the convention ProviderAdmissionOptions.Default already documents. Pinned so the reading is
+    // a decision rather than a fall-through nobody noticed.
+    [Fact]
+    public void A_zero_entry_cap_is_no_count_bound_not_an_empty_pool()
+    {
+        var pool = Pool(maxEntries: 0);
+        for (var i = 0; i < 10; i++)
+            pool.GetOrAdd(Key($"k{i}"), () => new FakeGenerationProvider());
+
+        Assert.Equal(10, pool.Statistics.Live);
+    }
+
     // Two requests for a newly-configured tenant arriving together must not each get their own instance,
     // each accumulating half the history.
     [Fact]

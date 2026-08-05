@@ -14,7 +14,11 @@ namespace Lyntai.Lifecycle;
 public interface IProviderAdmission
 {
     /// <summary>Wait for a permit for this configuration, then return the handle that releases it.</summary>
-    /// <param name="key">The configuration being called.</param>
+    /// <param name="key">The configuration being called. It must come from
+    /// <see cref="ProviderKeyBuilder.Build"/>, which rejects a blank slot: a <c>default(ProviderKey)</c> —
+    /// reachable from a BYO <see cref="IProviderPool{TProvider}"/> or a hand-written <c>configuration</c>
+    /// delegate that hands back a key on a miss — carries a null slot, and <see cref="ProviderAdmission"/>
+    /// throws <see cref="ArgumentNullException"/> on it rather than quietly admitting the call.</param>
     /// <param name="ct">Cancels the wait. An implementation that abandons a wait must release whatever
     /// bookkeeping the wait itself took, or a caller that never arrived pins the resource forever.</param>
     /// <returns>The release handle. <b>Never null</b> — an unlimited configuration returns a no-op handle

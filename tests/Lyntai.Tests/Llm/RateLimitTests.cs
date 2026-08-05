@@ -1,4 +1,6 @@
+using System.Diagnostics.Metrics;
 using Lyntai;
+using Lyntai.Diagnostics;
 using Lyntai.Llm;
 using Lyntai.Llm.Caching;
 using Lyntai.Llm.RateLimiting;
@@ -178,6 +180,39 @@ public class RateLimitTests
         Assert.Equal(LlmVerdict.RateLimited, only.Verdict);
     }
 
+    // The COUNT is why both doors build their refusal through the same helper: a hand-rolled chunk on the
+    // streaming side neither logged nor counted, so a streamed-only workload being throttled reported zero
+    // on lyntai.ratelimit.refusals — the metric ROADMAP and CHANGELOG both point hosts at.
+    [Fact]
+    public async Task A_streamed_refusal_is_counted_like_a_buffered_one()
+    {
+        var consumer = $"stream-refusal-{Guid.NewGuid():N}";   // the meter is process-wide: filter to this test
+        var refusals = 0L;
+        using var meterListener = new MeterListener();
+        meterListener.InstrumentPublished = (instrument, l) =>
+        {
+            if (instrument.Meter.Name == LyntaiDiagnostics.AgentMeterName &&
+                instrument.Name == "lyntai.ratelimit.refusals")
+                l.EnableMeasurementEvents(instrument);
+        };
+        meterListener.SetMeasurementEventCallback<long>((_, value, tags, _) =>
+        {
+            foreach (var tag in tags)
+                if (tag.Key == "lyntai.consumer" && Equals(tag.Value, consumer))
+                    Interlocked.Add(ref refusals, value);
+        });
+        meterListener.Start();
+
+        var limiter = Limiter(o => { o.PermitsPerSecond = 1; o.Burst = 1; o.MaxWait = TimeSpan.Zero; });
+        var client = new RateLimitedLlmClient(new FakeLlmClient(), limiter);
+        var request = new LlmRequest { Messages = [LlmMessage.User("a")], Consumer = consumer };
+
+        await client.CompleteAsync(request);                        // spends the one permit — not a refusal
+        await foreach (var _ in client.StreamAsync(request)) { }     // refused at the gate
+
+        Assert.Equal(1L, Interlocked.Read(ref refusals));
+    }
+
     [Fact]
     public async Task SupportsToolCalls_delegates_to_the_inner_client()
     {
@@ -243,6 +278,11 @@ public class RateLimitTests
         Assert.False(Limiter(_ => { }).HasEffectiveLimit);                              // defaults: 0 global, no per-consumer
         Assert.True(Limiter(o => o.PermitsPerSecond = 5).HasEffectiveLimit);            // global rate
         Assert.True(Limiter(o => o.PerConsumer["c"] = new ConsumerRate(1)).HasEffectiveLimit); // per-consumer rate only
+
+        // a ZERO per-consumer rate is not a passthrough — the bucket hands out the burst and then refuses
+        // forever, which is the configured intent — so the startup warning must not tell that consumer their
+        // limiter "will not throttle" while it is hard-blocking them
+        Assert.True(Limiter(o => o.PerConsumer["c"] = new ConsumerRate(0, Burst: 5)).HasEffectiveLimit);
     }
 
     [Fact]

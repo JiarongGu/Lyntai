@@ -3,7 +3,13 @@ namespace Lyntai.Storage;
 /// <summary>Decorates an <see cref="IConversationStore"/> so registered <see cref="IConversationEnricher"/>s
 /// are invoked after each write — the "add your additional info" seam that composes over ANY backend store
 /// (SQLite / Postgres / InMemory / a BYO impl) without replacing it. Auto-wired by <c>AddLyntai</c> only when
-/// at least one enricher is registered (otherwise the plain backend store resolves unwrapped).</summary>
+/// at least one enricher is registered (otherwise the plain backend store resolves unwrapped).
+///
+/// <para><b>Disposal is not forwarded.</b> This wrapper implements the store interface and nothing else, and
+/// wrapping replaces the container's <see cref="IConversationStore"/> registration — so a BYO inner store
+/// that implements <see cref="IDisposable"/>/<see cref="IAsyncDisposable"/> is no longer disposed by the
+/// container once an enricher is registered. Own that store's lifetime yourself. None of the three shipped
+/// stores is disposable, so this only bites a BYO one.</para></summary>
 public sealed class EnrichingConversationStore(IConversationStore inner, IEnumerable<IConversationEnricher> enrichers)
     : IConversationStore
 {

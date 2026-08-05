@@ -123,8 +123,9 @@ public static class GenerationBuilderExtensions
             sp.GetRequiredService<IGenerationRouterFactory>().For([.. sp.GetServices<IGenerationProvider>()]));
     }
 
-    /// <summary>Tune per-verdict fallback for generation routing. The defaults reproduce the LLM router's
-    /// §6 semantics; the override that matters in practice is
+    /// <summary>Tune per-verdict fallback for generation routing. The defaults follow the SHAPE of the LLM
+    /// router's §6 semantics and deliberately differ on <c>Unsupported</c> (which advances here rather than
+    /// surfacing — see <see cref="GenerationRoutingPolicy"/>); the override that matters in practice is
     /// <c>p.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance)</c>, for a host that deliberately
     /// pairs a hosted backend (which refuses some content) with a locally-run one (which doesn't) — that is
     /// the host's policy call, not the library's.</summary>
@@ -142,16 +143,8 @@ public static class GenerationBuilderExtensions
     {
         var options = GenerationOptionsFor(builder);
         options.DefaultCandidates.Clear();
-        options.DefaultCandidates.AddRange(candidates.Select(Parse));
+        options.DefaultCandidates.AddRange(candidates.Select(GenerationCandidateSpec.Parse));
         return builder;
-
-        static GenerationCandidate Parse(string spec)
-        {
-            var at = spec.IndexOf(':');
-            return at < 0
-                ? new GenerationCandidate(spec.Trim())
-                : new GenerationCandidate(spec[..at].Trim(), spec[(at + 1)..].Trim());
-        }
     }
 
     /// <summary>Expose the generation domain to AGENTS as <see cref="Lyntai.Agents.ITool"/>s: <c>generate_backends</c>
@@ -201,9 +194,6 @@ public static class GenerationBuilderExtensions
     private static GenerationRoutingPolicy RoutingPolicyFor(LyntaiBuilder builder) =>
         InstanceFor(builder, () => new GenerationRoutingPolicy());
 
-    /// <summary>Get-or-register a singleton INSTANCE for this builder. Registering the instance (not a
-    /// factory) is what lets configure-time mutation be visible to the resolved service — the same
-    /// immediate-mutation model the builder's own <c>Options</c> uses.</summary>
     /// <summary>Marker: spend governance is configured. INTERNAL — it is wiring state, not a knob, and the
     /// public surface should not grow a type whose only job is to exist.</summary>
     internal sealed class GenerationBudgetGovernance;
@@ -215,6 +205,8 @@ public static class GenerationBuilderExtensions
         public IRateLimiter Limiter { get; } = limiter;
     }
 
+    /// <summary>Get-or-register a singleton INSTANCE for this builder — an instance rather than a factory, for
+    /// the reason <see cref="GenerationOptionsFor(LyntaiBuilder)"/> gives.</summary>
     private static T InstanceFor<T>(LyntaiBuilder builder, Func<T> create) where T : class
     {
         foreach (var descriptor in builder.Services)

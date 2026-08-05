@@ -162,9 +162,9 @@ internal sealed class StreamJsonAgentReader
         if (msg.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
         {
             yield return new UsageLive(
-                StreamJsonFields.GetLong(usage, "input_tokens"),
-                StreamJsonFields.GetLong(usage, "output_tokens"),
-                StreamJsonFields.GetLong(usage, "cache_read_input_tokens"));
+                WireJson.Long(usage, "input_tokens"),
+                WireJson.Long(usage, "output_tokens"),
+                WireJson.Long(usage, "cache_read_input_tokens"));
         }
     }
 

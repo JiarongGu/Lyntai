@@ -1,6 +1,12 @@
 # Curated memory: an opaque-JSON `Metadata` field + a relational index, folding `Title`/`Source` in
 
-> Design spec (2026-07-27). Status: **approved — implementing**. Replaces the per-field accretion on
+> Design spec (2026-07-27). Status: **SHIPPED 2026-07-27** (`CHANGELOG.md` 0.31.0, `docs/task-archive.md`
+> Part 22). Kept as the record of WHY curated metadata is an opaque JSON column plus a relational index
+> table rather than `jsonb` — that reasoning still governs the shape. **Not executable:** the
+> `M202607270003_CuratedMetadata` migration below was collapsed into the per-domain baselines by the 1.0
+> squash (`docs/ROADMAP.md` v1.0.0, `docs/DECISIONS.md` D12's one-time pre-1.0 exception), so neither it
+> nor the `202607270001`/`202607270002` numbers it discusses exist in the tree; the live schema is
+> `M202607280009_CuratedMemory`. Replaces the per-field accretion on
 > `ICuratedMemoryStore` (task/scope/title/kind added one at a time) with one general JSON metadata field,
 > stored as an opaque JSON string in every backend and made queryable by a plain relational index table (no
 > `jsonb`, no DB-side JSON functions). The contract lives in `docs/2026-07-17-lyntai-design.md`; this is the

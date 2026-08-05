@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace Lyntai.Lifecycle;
 
 /// <summary>The in-process <see cref="IProviderAdmission"/>: how many calls may be in flight against one
@@ -40,7 +42,12 @@ public sealed class ProviderAdmission(ProviderAdmissionOptions? options = null) 
 
     /// <inheritdoc/>
     /// <remarks>When the slot's limit is 0 — or any negative value, which reads the same way: nothing to
-    /// enforce — this completes synchronously and returns the shared no-op handle.</remarks>
+    /// enforce — this completes synchronously and returns the shared no-op handle.
+    /// <para>The key must come from <see cref="ProviderKeyBuilder.Build"/>. A <c>default(ProviderKey)</c> has
+    /// a null <see cref="ProviderKey.Slot"/> and throws <see cref="ArgumentNullException"/> from the limit
+    /// lookup — deliberately, since a key that never named a backend cannot be bounded by one. Lyntai's own
+    /// factories cannot produce it (they bind the configuration delegate to a pool lookup that returns null on
+    /// a miss); a BYO pool or a hand-written delegate can.</para></remarks>
     public ValueTask<IDisposable> EnterAsync(ProviderKey key, CancellationToken ct = default)
     {
         var limit = LimitFor(key.Slot);
@@ -167,7 +174,12 @@ public sealed class ProviderAdmissionOptions
     public int Default { get; set; }
 
     /// <summary>Per-slot limits — the one that matters in practice is a locally-run engine, where several
-    /// simultaneous renders contend for one CPU or GPU.</summary>
+    /// simultaneous renders contend for one CPU or GPU.
+    ///
+    /// <para>Backed by a concurrent dictionary, because <see cref="ProviderAdmission"/> looks a slot up
+    /// lock-free on every call: without it, changing an entry while calls are in flight — which the type
+    /// summary above describes as taking effect on the next idle call — is a torn read of a plain dictionary
+    /// rather than a new limit.</para></summary>
     public IDictionary<string, int> BySlot { get; } =
-        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 }

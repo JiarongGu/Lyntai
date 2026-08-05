@@ -24,10 +24,6 @@ public sealed class ClaudeCliProvider : ILlmProvider, IProviderInstallation, IPr
     /// <c>UseDefaultCandidates</c>, to route to the claude CLI. Also the value of <see cref="Id"/>.</summary>
     public const string ProviderId = "claude-cli";
 
-    /// <summary>Design §6 CLI hygiene: spawn from a NEUTRAL cwd, never the host app's inherited working
-    /// directory (whose CLAUDE.md / hooks / memory the CLI would otherwise load into every library call).</summary>
-    internal static string NeutralWorkingDirectory => CliProviderEngine.NeutralWorkingDirectory;
-
     private readonly CliProviderEngine _engine;
 
     /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn.</param>

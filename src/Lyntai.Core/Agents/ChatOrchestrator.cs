@@ -33,6 +33,8 @@ public sealed class ChatOrchestrator(
         var pre = await guards.InspectRequestAsync(
             new LlmRequest { Messages = messages, Consumer = turn.Consumer }, ct).ConfigureAwait(false);
         if (pre.Result == GuardOutcome.Kind.Block)
+            // no Usage on either gate-1 exit, deliberately: the turn never reached a provider, and an
+            // all-zero figure would read as "the model answered for free" (see ChatResult.Usage).
             return new ChatResult("", LlmVerdict.Refused, Blocked: true, pre.Reason, []);
         // what we persist to memory: the REDACTED text when the gate rewrote it (never re-store the raw
         // input a redaction guard just removed — that would re-inject the secret on the next recall)
@@ -57,28 +59,32 @@ public sealed class ChatOrchestrator(
                 req = req with { Messages = [.. messages[..^1], LlmMessage.User(preComposed.Replacement!)] };
         }
 
-        // run: the tool loop (model can call tools) or a plain completion
+        // run: the tool loop (model can call tools) or a plain completion. `usage` is carried out of BOTH
+        // arms and onto every remaining exit: the tokens were spent whatever the turn then does with them,
+        // and the loop already summed its own — dropping it made a chat consumer wrap ILlmClient in a
+        // front-door decorator to recompute a figure the loop had handed us.
         string answer;
         LlmVerdict verdict;
         string? detail;
         IReadOnlyList<ToolStep> steps;
+        LlmUsage? usage;
         if (turn.UseTools && tools.Tools.Count > 0)
         {
             var result = await toolLoop.RunAsync(req, ct: ct).ConfigureAwait(false);
-            (answer, verdict, detail, steps) = (result.Answer, result.Verdict, result.Detail, result.Steps);
+            (answer, verdict, detail, steps, usage) = (result.Answer, result.Verdict, result.Detail, result.Steps, result.Usage);
         }
         else
         {
             var reply = await llm.CompleteAsync(req, ct).ConfigureAwait(false);
-            (answer, verdict, detail, steps) = (reply.Text, reply.Verdict, reply.Detail, []);
+            (answer, verdict, detail, steps, usage) = (reply.Text, reply.Verdict, reply.Detail, [], reply.Usage);
         }
         if (verdict != LlmVerdict.Ok)
-            return new ChatResult("", verdict, Blocked: false, detail, steps);
+            return new ChatResult("", verdict, Blocked: false, detail, steps) { Usage = usage };
 
         // GATE 2 — output
         var post = await guards.InspectResponseAsync(new LlmReply(answer, LlmVerdict.Ok), ct).ConfigureAwait(false);
         if (post.Result == GuardOutcome.Kind.Block)
-            return new ChatResult("", LlmVerdict.Refused, Blocked: true, post.Reason, steps);
+            return new ChatResult("", LlmVerdict.Refused, Blocked: true, post.Reason, steps) { Usage = usage };
         if (post.Result == GuardOutcome.Kind.Replace)
             answer = post.Replacement!;
 
@@ -99,6 +105,6 @@ public sealed class ChatOrchestrator(
             }
         }
 
-        return new ChatResult(answer, LlmVerdict.Ok, Blocked: false, null, steps);
+        return new ChatResult(answer, LlmVerdict.Ok, Blocked: false, null, steps) { Usage = usage };
     }
 }

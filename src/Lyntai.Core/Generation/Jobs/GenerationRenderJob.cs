@@ -71,7 +71,7 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Gener
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return null;
-            if (Str(root, "kind") is not { } kind) return null;
+            if (GenerationJson.Str(root, "kind") is not { } kind) return null;
 
             var candidates = new List<string>();
             if (root.TryGetProperty("candidates", out var candidateArray) &&
@@ -91,19 +91,20 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Gener
                 foreach (var input in inputArray.EnumerateArray())
                 {
                     if (input.ValueKind != JsonValueKind.Object) continue;
-                    if (Str(input, "mediaType") is not { } mediaType) continue;
+                    if (GenerationJson.Str(input, "mediaType") is not { } mediaType) continue;
                     byte[]? data = null;
-                    if (Str(input, "data") is { } base64)
+                    if (GenerationJson.Str(input, "data") is { } base64)
                         try { data = Convert.FromBase64String(base64); } catch (FormatException) { }
-                    inputs.Add(new GenerationInput(mediaType, data, Str(input, "uri"), Str(input, "role")));
+                    inputs.Add(new GenerationInput(mediaType, data,
+                        GenerationJson.Str(input, "uri"), GenerationJson.Str(input, "role")));
                 }
 
             return new GenerationRenderJob(candidates, new GenerationRequest
             {
                 Kind = kind,
-                Consumer = Str(root, "consumer") ?? "default",
-                Prompt = Str(root, "prompt"),
-                Model = Str(root, "model"),
+                Consumer = GenerationJson.Str(root, "consumer") ?? "default",
+                Prompt = GenerationJson.Str(root, "prompt"),
+                Model = GenerationJson.Str(root, "model"),
                 Options = options,
                 Inputs = inputs,
                 TimeoutSeconds = root.TryGetProperty("timeoutSeconds", out var t) &&
@@ -115,10 +116,4 @@ public sealed record GenerationRenderJob(IReadOnlyList<string> Candidates, Gener
             return null;
         }
     }
-
-    private static string? Str(JsonElement element, string name) =>
-        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String &&
-        value.GetString() is { Length: > 0 } text
-            ? text
-            : null;
 }

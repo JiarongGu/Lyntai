@@ -12,6 +12,18 @@ public interface IGenerationRouter
     /// <summary>Submit an asynchronous generation through the first capable job-capable candidate. The
     /// returned operation is paired with the provider id that owns it, because an operation id only means
     /// something to the backend that issued it.</summary>
+    /// <remarks>The per-verdict fallback policy governs this path too, at one remove: a submission comes back
+    /// carrying a status, not a verdict, so a rejected one is classified from the backend's own
+    /// <see cref="GenerationOperation.Detail"/> and then answered by the same table — a rate limit benches the
+    /// backend, an unconfigured one is advanced past blamelessly, and a rejection nothing recognises still
+    /// counts toward the dead-host threshold.
+    /// <para>Two rules hold whatever the text says. A submission the backend never answered
+    /// (<see cref="GenerationOperation.Inconclusive"/>) surfaces rather than advancing, and is not held
+    /// against the backend, because trying the next candidate could buy the same render twice — that is
+    /// decided BEFORE the verdict is. And when no candidate accepted the job, the returned
+    /// <see cref="GenerationSubmission.ProviderId"/> is EMPTY; the first rejecting backend and its reason are
+    /// folded into the operation's detail instead, so the id field keeps meaning exactly one
+    /// thing.</para></remarks>
     Task<GenerationSubmission> SubmitAsync(
         IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
 }

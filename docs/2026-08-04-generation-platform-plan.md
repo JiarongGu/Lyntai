@@ -1,9 +1,34 @@
-# Media Generation Platform — Implementation Plan (Plan 1 of 6: the platform core)
+# Media Generation Platform — Implementation Plan (Plan 1 of 7: the platform core)
+
+> **Status 2026-08-05 — part shipped history, part still live. Read this before executing anything below.**
+>
+> **SHIPPED:** Plan 1 (this document's own tasks) through Plan 5, plus Plan 6's tool/MCP-bridge half, all
+> landed in **2.0.1** on 2026-08-04 — archived as `docs/task-archive.md` Parts 32–33, reasoning in
+> `docs/DECISIONS.md` D30/D31.
+>
+> **NOT EXECUTABLE AS WRITTEN:** everything from here down to `## Subsequent plans` is the record of *how*
+> the core was built, not a set of steps to run. Its unticked boxes are history, and its assembly layout is
+> superseded twice over: the 2.0.1 restructure moved the generation **contracts** into
+> `src/Lyntai.Core/Generation/` (D31) — so the "File structure" table's `src/Lyntai.Generation/` package is
+> not where those files live — and D34 then re-split the **backends** into the `Lyntai.Generation` package
+> under `Lyntai.Generation.Providers`. That split is package-and-reason-scoped: it is the BACKENDS package
+> that ships EXPERIMENTAL, while the contracts in the `Lyntai.Generation` namespace sit inside the mandatory
+> `Lyntai.Core` and carry the FULL SemVer promise (see `CLAUDE.md`, and `DECISIONS.md` D43, which applied it).
+>
+> **STILL LIVE:** Plan 6's streaming-TTS half and Plan 7 (pipelines) under `## Subsequent plans`, and the
+> `## Decisions (2026-08-04)` section including its `### Still open` items. The live backlog for them is
+> `TASKS.md` Part 33 (GEN-VERIFY, GEN6, GEN7) and `docs/ROADMAP.md` § Next; per-release detail is
+> `CHANGELOG.md`. Where this document and `TASKS.md` disagree about what is open, `TASKS.md` wins.
+>
+> Its rule references are the ones that existed when it was written — `dev-conventions.md` has since been
+> retired into `.claude/rules/dotnet-package-layout.md` and `.claude/rules/repo-mechanics.md`, so any
+> remaining `dev-conventions.md` citation in the body below (the sample XML doc in Task 7) resolves there.
 
 > **For agentic workers:** this plan is executed task-by-task, TDD, with a commit per task. Steps use
 > checkbox (`- [ ]`) syntax for tracking. `superpowers:executing-plans` (inline) or
 > `superpowers:subagent-driven-development` (fresh subagent per task) both apply; either way the repo's own
-> rules bind — `.claude/rules/dev-conventions.md`, `task-lifecycle.md`, `no-tmp-for-repo-files.md`.
+> rules bind — `.claude/rules/dotnet-package-layout.md`, `.claude/rules/repo-mechanics.md`,
+> `task-lifecycle.md`, `no-tmp-for-repo-files.md`.
 
 **Goal:** a generalized **media generation PLATFORM** in Lyntai — one provider seam spanning image, video,
 audio (and whatever medium is next), with capability-aware routing, the three delivery modes real backends
@@ -1815,9 +1840,11 @@ per-call cost must land in `GenerationUsage.CostUsd`, since aggregator pricing i
 cooldown for media candidates, and OTel spans/metrics on the media source — reusing the existing decorator
 patterns rather than a second implementation.
 
-**Plan 6 — the tool/MCP bridge and audio.** `AddMediaTools()` exposing generate/submit/status/probe as
-`ITool`s (so both the in-process loop and a CLI agent over the MCP host can drive media), plus a streaming TTS
-backend to exercise `IGenerationStreamProvider` end to end.
+**Plan 6 — the tool/MCP bridge and audio.** The bridge half SHIPPED 2026-08-04 as `AddGenerationTools()` —
+five `ITool`s in Core (`generate_backends`/`generate`/`generate_submit`/`generate_status`/`generate_fetch`),
+so both the in-process loop and a CLI agent over the MCP host can drive media (`docs/task-archive.md`
+Part 33). What remains is the streaming TTS backend to exercise `IGenerationStreamProvider` end to end —
+still the one contract in the platform no real backend has exercised.
 
 **Plan 7 — pipelines (3d → image → video).** A `GenerationPipeline` that runs ordered stages, feeding each stage's
 artifacts into the next via `ToInput(role)`, with per-stage candidates so every stage routes independently, and
@@ -1865,7 +1892,7 @@ only the latter chains into today's video backends.
 4. **Does `Lyntai.Generation` want its own storage domain later** (an artifact/generation ledger, so a render is
    auditable and re-fetchable)? Out of scope here per MED1, but it is the obvious next platform concern after
    Plan 4 — and a prerequisite for pipelines worth resuming.
-4. **Is MED1's `IVideoProvider` satisfied by this generalization?** This plan deliberately does NOT create a
+5. **Is MED1's `IVideoProvider` satisfied by this generalization?** This plan deliberately does NOT create a
    separate video interface: video is `Kind = "video"` plus the `IGenerationJobProvider` delivery mode, because the
    thing that makes video different is *how it is delivered*, not *that it is video* — and a per-medium
    interface would need a third for audio and a fourth for 3D. The app's existing HTML→MP4 renderer still fits:

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using Lyntai.Agents;
@@ -20,15 +21,6 @@ namespace Lyntai.Generation.Tools;
 /// adding one is a registration, never an edit to a switch.</remarks>
 internal static class GenerationToolJson
 {
-    /// <summary>Read a string argument, or null. Hand-walked: Core stays reflection-free for trim/AOT.</summary>
-    public static string? Str(JsonElement root, string name) =>
-        root.ValueKind == JsonValueKind.Object &&
-        root.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String &&
-        value.GetString() is { Length: > 0 } text
-            ? text
-            : null;
-
     /// <summary>Parse a tool's arguments object; an empty/invalid payload yields an empty object rather than
     /// throwing, so a model that sends nothing gets a validation message instead of a stack trace.</summary>
     public static JsonDocument Parse(string? argumentsJson)
@@ -103,15 +95,15 @@ internal static class GenerationToolJson
                     options[property.Name] = property.Value.ToString();
 
         var inputs = new List<GenerationInput>();
-        if (Str(root, "imageUrl") is { } imageUrl)
+        if (GenerationJson.Str(root, "imageUrl") is { } imageUrl)
             inputs.Add(new GenerationInput("image/*", Uri: imageUrl, Role: GenerationInputRoles.Init));
 
         return new GenerationRequest
         {
-            Kind = Str(root, "kind") ?? GenerationKinds.Image,
+            Kind = GenerationJson.Str(root, "kind") ?? GenerationKinds.Image,
             Consumer = consumer,
-            Prompt = Str(root, "prompt"),
-            Model = Str(root, "model"),
+            Prompt = GenerationJson.Str(root, "prompt"),
+            Model = GenerationJson.Str(root, "model"),
             Options = options,
             Inputs = inputs,
         };
@@ -123,13 +115,52 @@ internal static class GenerationToolJson
         IReadOnlyList<string> named, IReadOnlyList<GenerationCandidate> defaults)
     {
         if (named.Count == 0) return defaults;
-        return [.. named.Select(spec =>
+        return [.. named.Select(GenerationCandidateSpec.Parse)];
+    }
+
+    /// <summary>The arguments the two operation-handle tools take — the backend id and operation id
+    /// <c>generate_submit</c> returned. ONE literal for both: a model that saw the same pair described two ways
+    /// would have reason to think they were different pairs.</summary>
+    public const string OperationSchema = """
+        {"type":"object","properties":{
+          "backend":{"type":"string","description":"The backend id generate_submit returned."},
+          "operationId":{"type":"string","description":"The operation id generate_submit returned."}},
+         "required":["backend","operationId"]}
+        """;
+
+    /// <summary>Read that pair and resolve the backend holding the operation. False = <paramref name="error"/>
+    /// carries the observation to return, so <c>generate_status</c> and <c>generate_fetch</c> answer a missing
+    /// argument or an unknown backend in exactly the same words.</summary>
+    public static bool TryReadOperation(
+        JsonDocument args,
+        IEnumerable<IGenerationProvider> providers,
+        [NotNullWhen(true)] out IGenerationJobProvider? backend,
+        out string backendId,
+        out string operationId,
+        [NotNullWhen(false)] out string? error)
+    {
+        backend = null;
+        backendId = "";
+        operationId = "";
+        error = null;
+
+        if (GenerationJson.Str(args.RootElement, "backend") is not { } id ||
+            GenerationJson.Str(args.RootElement, "operationId") is not { } operation)
         {
-            var at = spec.IndexOf(':');
-            return at < 0
-                ? new GenerationCandidate(spec.Trim())
-                : new GenerationCandidate(spec[..at].Trim(), spec[(at + 1)..].Trim());
-        })];
+            error = Error("both 'backend' and 'operationId' are required");
+            return false;
+        }
+
+        if (GenerationToolRegistry.JobBackend(providers, id) is not { } resolved)
+        {
+            error = Error($"'{id}' is not a registered asynchronous backend");
+            return false;
+        }
+
+        backend = resolved;
+        backendId = id;
+        operationId = operation;
+        return true;
     }
 }
 
@@ -345,23 +376,15 @@ public sealed class GenerationStatusTool(IEnumerable<IGenerationProvider> provid
         "when the backend reports it. When it says succeeded, call generate_fetch.";
 
     /// <inheritdoc/>
-    public string? ParametersJsonSchema => """
-        {"type":"object","properties":{
-          "backend":{"type":"string","description":"The backend id generate_submit returned."},
-          "operationId":{"type":"string","description":"The operation id generate_submit returned."}},
-         "required":["backend","operationId"]}
-        """;
+    public string? ParametersJsonSchema => GenerationToolJson.OperationSchema;
 
     /// <inheritdoc/>
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         using var args = GenerationToolJson.Parse(argumentsJson);
-        if (GenerationToolJson.Str(args.RootElement, "backend") is not { } backendId ||
-            GenerationToolJson.Str(args.RootElement, "operationId") is not { } operationId)
-            return GenerationToolJson.Error("both 'backend' and 'operationId' are required");
-
-        if (GenerationToolRegistry.JobBackend(providers, backendId) is not { } backend)
-            return GenerationToolJson.Error($"'{backendId}' is not a registered asynchronous backend");
+        if (!GenerationToolJson.TryReadOperation(
+                args, providers, out var backend, out _, out var operationId, out var error))
+            return error;
 
         var operation = await backend.PollAsync(operationId, ct).ConfigureAwait(false);
         return GenerationToolJson.Write(writer =>
@@ -390,23 +413,15 @@ public sealed class GenerationFetchTool(
         "Bytes go to the host application, not into this observation.";
 
     /// <inheritdoc/>
-    public string? ParametersJsonSchema => """
-        {"type":"object","properties":{
-          "backend":{"type":"string","description":"The backend id generate_submit returned."},
-          "operationId":{"type":"string","description":"The operation id generate_submit returned."}},
-         "required":["backend","operationId"]}
-        """;
+    public string? ParametersJsonSchema => GenerationToolJson.OperationSchema;
 
     /// <inheritdoc/>
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         using var args = GenerationToolJson.Parse(argumentsJson);
-        if (GenerationToolJson.Str(args.RootElement, "backend") is not { } backendId ||
-            GenerationToolJson.Str(args.RootElement, "operationId") is not { } operationId)
-            return GenerationToolJson.Error("both 'backend' and 'operationId' are required");
-
-        if (GenerationToolRegistry.JobBackend(providers, backendId) is not { } backend)
-            return GenerationToolJson.Error($"'{backendId}' is not a registered asynchronous backend");
+        if (!GenerationToolJson.TryReadOperation(
+                args, providers, out var backend, out var backendId, out var operationId, out var error))
+            return error;
 
         var result = await backend.FetchAsync(operationId, ct).ConfigureAwait(false);
         if (!result.IsOk) return GenerationToolJson.Error($"{result.Verdict}: {result.Detail}");

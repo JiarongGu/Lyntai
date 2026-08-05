@@ -43,7 +43,12 @@ public sealed class RoutingPolicy
     public TimeSpan RetryBackoff { get; set; } = TimeSpan.Zero;
 
     /// <summary>The action for a verdict; unmapped verdicts fall back to
-    /// <see cref="FallbackAction.PenalizeAndAdvance"/> (treat the unknown as a transient fault).</summary>
+    /// <see cref="FallbackAction.PenalizeAndAdvance"/> (treat the unknown as a transient fault).
+    /// <para>That fallback DIFFERS from <c>GenerationRoutingPolicy.ActionFor</c>, which advances without
+    /// blame instead — so every new <see cref="LlmVerdict"/> MUST be given an explicit entry in the table
+    /// above, or it silently counts toward the dead-host threshold.
+    /// <see cref="LlmVerdict.NotConfigured"/> is the precedent: it is mapped explicitly for exactly that
+    /// reason.</para></summary>
     public FallbackAction ActionFor(LlmVerdict verdict) =>
         _actions.TryGetValue(verdict, out var a) ? a : FallbackAction.PenalizeAndAdvance;
 

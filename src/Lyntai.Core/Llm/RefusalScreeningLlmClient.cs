@@ -9,7 +9,7 @@ namespace Lyntai.Llm;
 /// <see cref="LlmVerdict.Refused"/> — via two layers: the request's optional
 /// <see cref="LlmRequest.RefusalPattern"/> regex, then every registered <see cref="IRefusalMatcher"/> (the
 /// typed seam an app registers with <c>AddRefusalMatcher</c>). These are the caller-supplied refusal checks
-/// (e.g. Sonora's per-language "I can't help" phrasing) layered on the central patterns. It sits OUTERMOST
+/// (e.g. an app's own per-language "I can't help" phrasing) layered on the central patterns. It sits OUTERMOST
 /// (above the response cache), so even a cached hit is re-screened. A malformed pattern or a matcher that
 /// throws is logged and ignored (fail-open — the reply passes through unchanged). Streaming is passed
 /// through unscreened (the reply text isn't assembled here, and streaming never falls back after the first

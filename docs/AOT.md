@@ -42,8 +42,10 @@ you actually AOT-publish an app that uses `Lyntai.Storage.Sqlite`.
 
 ## Consuming Lyntai from an AOT / trimmed app
 
-- Using only the AOT-compatible packages (Core + `Lyntai.Providers.Default` + `Lyntai.Storage.InMemory`)
-  publishes clean under `PublishAot=true` / `PublishTrimmed=true`.
+- Using only the packages **the table above marks `✅ compatible`** publishes clean under `PublishAot=true` /
+  `PublishTrimmed=true`. Read the table, not a second list here: `check-packages` fails if a package has no row
+  in it, so the table cannot silently omit one — a hand-kept enumeration in this sentence can, and did (it
+  named three of the six).
 - **What trimming actually buys, measured** on a console app that references the `Lyntai` bundle but calls only
   `AddLyntai` + `ILlmClient`:
 

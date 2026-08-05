@@ -13,7 +13,11 @@ public enum OpenAiFlavor
 
     /// <summary>Ollama's native surface — the <c>/api/chat</c> + <c>/api/embed</c> endpoints and its
     /// <c>options.num_ctx</c> wire option (distinct from Ollama's separate OpenAI-COMPATIBLE <c>/v1</c>
-    /// surface, which is plain <see cref="OpenAi"/>).</summary>
+    /// surface, which is plain <see cref="OpenAi"/>). Attachments travel as Ollama's own <c>images</c> array
+    /// (base64, user turns only), where the OpenAI-shaped payload emits one <c>image_url</c> part instead.
+    /// The one thing this schema cannot express is a <see cref="Lyntai.Llm.LlmAttachment"/> carrying only a
+    /// remote <c>Uri</c> — <c>/api/chat</c> has no URL form and Lyntai will not fetch the bytes on your
+    /// behalf, so such an attachment is REPORTED through the logger rather than sent.</summary>
     Ollama,
 
     /// <summary>OpenRouter. Currently behaves IDENTICALLY to <see cref="OpenAi"/> (no code path branches on

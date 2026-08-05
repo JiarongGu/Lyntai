@@ -17,6 +17,8 @@ public class RouterCooldownKeyTests
 {
     private static GenerationRequest Request() => new() { Kind = GenerationKinds.Image, Prompt = "a cat" };
 
+    private static GenerationRequest VideoRequest() => new() { Kind = GenerationKinds.Video, Prompt = "a cat" };
+
     private static List<GenerationCandidate> Candidates(params string[] ids) =>
         [.. ids.Select(id => new GenerationCandidate(id))];
 
@@ -147,6 +149,57 @@ public class RouterCooldownKeyTests
             () => router.GenerateAsync(Candidates("a1111"), Request()));
 
         Assert.Equal(0, admission.GateCount);
+    }
+
+    // SUBMISSION takes a permit too, and its `using` has to cover the loop's CONTINUE as well as its
+    // returns: a submission the queue rejects falls through to the next candidate, so a release written on
+    // the return path alone would pin the gate one rejected submit at a time.
+    [Fact]
+    public async Task A_failed_submission_releases_its_permit()
+    {
+        var options = new ProviderAdmissionOptions();
+        options.BySlot["fake-video"] = 1;
+        var admission = new ProviderAdmission(options);
+        var key = ProviderKey.For("fake-video").With("v", "a").Build();
+
+        var backend = new FakeGenerationJobProvider { SubmitStatus = GenerationOperationStatus.Failed };
+        var router = new GenerationRouter([backend], null, new DeadHostTracker(), _ => key, admission);
+
+        var submission = await router.SubmitAsync(Candidates("fake-video"), VideoRequest()).WaitAsync(GateWait);
+
+        Assert.Equal("", submission.ProviderId);          // nobody took the job
+        Assert.Equal(0, admission.GateCount);
+        // and the gate still admits, which a leaked permit on a limit of 1 would prevent
+        var next = admission.EnterAsync(key, CancellationToken.None);
+        Assert.True(next.IsCompleted);
+        (await next).Dispose();
+    }
+
+    // The INCONCLUSIVE submission is the other exit from that `using`: it returns from the MIDDLE of the
+    // attempt rather than falling through, which is precisely where a hand-rolled release goes missing.
+    [Fact]
+    public async Task An_inconclusive_submission_releases_its_permit()
+    {
+        var options = new ProviderAdmissionOptions();
+        options.BySlot["fake-video"] = 1;
+        var admission = new ProviderAdmission(options);
+        var key = ProviderKey.For("fake-video").With("v", "a").Build();
+
+        var backend = new FakeGenerationJobProvider
+        {
+            SubmitStatus = GenerationOperationStatus.Failed,
+            SubmitInconclusive = true,
+        };
+        var router = new GenerationRouter([backend], null, new DeadHostTracker(), _ => key, admission);
+
+        var submission = await router.SubmitAsync(Candidates("fake-video"), VideoRequest()).WaitAsync(GateWait);
+
+        Assert.Equal("fake-video", submission.ProviderId);  // surfaced with its owner, not shopped onward
+        Assert.True(submission.Operation.Inconclusive);
+        Assert.Equal(0, admission.GateCount);
+        var next = admission.EnterAsync(key, CancellationToken.None);
+        Assert.True(next.IsCompleted);
+        (await next).Dispose();
     }
 
     [Fact]

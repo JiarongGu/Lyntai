@@ -63,6 +63,13 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
 
     public int SubmitCalls => _submits;
 
+    /// <summary>What a submission reports — Queued by default, so a job test reaches polling in one hop.</summary>
+    public GenerationOperationStatus SubmitStatus { get; set; } = GenerationOperationStatus.Queued;
+
+    /// <summary>Whether a Failed submission is INCONCLUSIVE — the backend never answered, which the router
+    /// surfaces instead of advancing (see <see cref="GenerationOperation.Inconclusive"/>).</summary>
+    public bool SubmitInconclusive { get; set; }
+
     /// <summary>What the next poll reports — Succeeded by default, so a job test reaches delivery in one hop.</summary>
     public GenerationOperationStatus PollStatus { get; set; } = GenerationOperationStatus.Succeeded;
 
@@ -77,7 +84,7 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
         Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "this backend generates via submit/poll"));
 
     public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(new GenerationOperation($"op-{++_submits}", GenerationOperationStatus.Queued));
+        Task.FromResult(new GenerationOperation($"op-{++_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
 
     public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
         Task.FromResult(new GenerationOperation(operationId, PollStatus,

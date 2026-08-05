@@ -17,10 +17,15 @@ namespace Lyntai.Llm.Cli;
 /// <item>spawn hygiene: no shell, <c>ArgumentList</c> only, a neutral working directory, prompt over stdin
 ///   (or a trailing argument) — Windows launcher-shim handling included, via
 ///   <see cref="ProcessRunner"/>,</item>
-/// <item>timeouts as an INACTIVITY clock with an absolute backstop, never one wall clock over a whole call,</item>
+/// <item>timeouts as an INACTIVITY clock, never one wall clock over a whole call — plus an absolute
+///   <see cref="LyntaiOptions.MaxProviderTimeout"/> backstop on BOTH completion paths, so a child that
+///   never stalls and never finishes is bounded either way (a long-running AGENT turn is a different seam:
+///   it drives <see cref="IProcessRunner"/> directly and deliberately has no ceiling),</item>
 /// <item>verdict classification through <see cref="LlmVerdictClassifier"/> — no per-provider heuristics,</item>
 /// <item>empty output is a <see cref="LlmVerdict.Failed"/>, never an empty Ok, so the router can fall over,</item>
-/// <item>streaming order: content chunks, then exactly one terminal <c>Final</c> or <c>Error</c>,</item>
+/// <item>streaming order: content chunks, then exactly one terminal <c>Final</c> or <c>Error</c> — where
+///   "content" is the router's gate, <c>Kind == Content &amp;&amp; Text.Length &gt; 0</c>, so an EMPTY event
+///   neither reaches the caller nor commits the stream,</item>
 /// <item>self-maintenance as probe → run → re-probe, so "did anything change?" is a version comparison
 ///   rather than a parse of the backend's prose,</item>
 /// <item>fail-safe on every maintenance path (a value, never a throw) except caller cancellation.</item>
@@ -127,9 +132,12 @@ public sealed class CliProviderEngine(
         LlmUsage? usage = null;
         string? failure = null;
         var sawResult = false;
-        foreach (var line in result.StdOut.Split('\n'))
+        foreach (var raw in result.StdOut.Split('\n'))
         {
-            var evt = dialect.ParseLine(line);
+            // strip the terminator so a dialect sees the SAME line both paths hand it — the streamed path's
+            // ReadLineAsync already drops it, so a CRLF-emitting child would otherwise leave a trailing '\r'
+            // here and only here (an exact-match ParseLine would then work streamed and fail buffered)
+            var evt = dialect.ParseLine(raw.TrimEnd('\r'));
             if (evt.Kind == CliOutputEventKind.Content) contentText += evt.Text;
             if (evt.Kind == CliOutputEventKind.Failure) failure = evt.Text;
             if (evt.Kind == CliOutputEventKind.Result)
@@ -159,6 +167,9 @@ public sealed class CliProviderEngine(
 
     /// <summary>Stream one completion. Content chunks arrive as the CLI prints them, followed by exactly one
     /// terminal chunk (<c>Final</c> when anything was delivered, otherwise <c>Error</c>).</summary>
+    /// <remarks>Bounded by the same two clocks as <see cref="CompleteAsync"/> — the resolved timeout as an
+    /// inactivity window, <see cref="LyntaiOptions.MaxProviderTimeout"/> as the absolute backstop — plus
+    /// caller cancellation, which also kills the process tree when the enumerator is abandoned.</remarks>
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         WarnIfRequestToolsIgnored(req);
@@ -172,7 +183,20 @@ public sealed class CliProviderEngine(
         string resultText = "";
         LlmUsage? usage = null;
 
-        var lines = runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: options.ResolveTimeout(req),
+        // Two clocks, the same pair the buffered path uses. `timeout` is the INACTIVITY window, so a
+        // slow-but-alive turn (a long tool loop, a big prompt) re-arms it and finishes; `maxDuration` is the
+        // absolute backstop, because inactivity ALONE cannot see the other failure — a CHATTY child that
+        // never stalls and never finishes re-arms the window on every line and would stream forever. The
+        // backstop is MaxProviderTimeout, but never below the inactivity window (a consumer budget above the
+        // ceiling raises it, not the reverse). Caller cancellation still wins, and abandoning the enumerator
+        // still kills the process tree.
+        //
+        // This is a COMPLETION's ceiling, and it belongs only here: the long-running agent turns
+        // (ClaudeAgentSession / CodexAgentSession) drive IProcessRunner directly rather than this engine,
+        // and must keep NO wall clock — an hour-long healthy session is exactly what one would kill.
+        var timeout = options.ResolveTimeout(req);
+        var maxDuration = options.MaxProviderTimeout < timeout ? timeout : options.MaxProviderTimeout;
+        var lines = runner.StreamLinesAsync(exe, argv, stdin: stdin, inactivityTimeout: timeout, maxDuration: maxDuration,
             workingDirectory: NeutralWorkingDirectory, environment: environment, ct: ct);
         var enumerator = lines.GetAsyncEnumerator(ct);
         await using (enumerator.ConfigureAwait(false))
@@ -200,7 +224,16 @@ public sealed class CliProviderEngine(
                 }
 
                 var evt = dialect.ParseLine(line!);
-                if (evt.Kind == CliOutputEventKind.Content)
+                // The commit gate is the ROUTER's, to the letter: Kind == Content AND Text.Length > 0. An
+                // EMPTY content event is not delivered content, so it falls through as if the dialect had
+                // reported Ignored — which is what a line carrying no content is supposed to be. Counting it
+                // did three wrong things at once: it disabled fallback for a zero-content FIRST chunk (the
+                // one case the router's gate exists for), it ended a no-output stream as `Final` — a fully
+                // successful empty answer — and it suppressed the result-only delivery below, dropping the
+                // answer of a stream whose text arrived on the terminal result line. A dialect is asked to
+                // report an empty line as Ignored, but a dialect is third-party code, so the engine holds
+                // whether it does or not.
+                if (evt.Kind == CliOutputEventKind.Content && evt.Text.Length > 0)
                 {
                     sawContent = true;
                     yield return LlmChunk.Content(evt.Text);

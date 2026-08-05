@@ -9,7 +9,13 @@ namespace Lyntai.Lifecycle;
 ///
 /// <para>Build one with <see cref="For"/>. The fingerprint is a digest of every named contribution, so two
 /// logically identical configurations compare equal while a change anywhere — including a rotated
-/// credential — produces a different key.</para></summary>
+/// credential — produces a different key.</para>
+///
+/// <para><b><see cref="Slot"/> participates in equality ORDINALLY</b> — unlike every slot COMPARISON in this
+/// namespace, which is <see cref="StringComparer.OrdinalIgnoreCase"/>. So <c>"openai"</c> and <c>"OpenAI"</c>
+/// are two keys: two pool entries, two admission gates, two cooldowns for one backend. Within a single
+/// <c>For(...)</c> call the guard already rejects that pair; across separate calls it is on the caller to
+/// spell each backend one way.</para></summary>
 /// <param name="Slot">The candidate id this configuration is for, carried verbatim so a pool can retire
 /// every configuration of one backend.</param>
 /// <param name="Fingerprint">A digest of the named contributions. Opaque; compare, never parse.</param>
@@ -22,7 +28,13 @@ public readonly record struct ProviderKey(string Slot, string Fingerprint)
 
     /// <summary>A short, log-safe rendering. Contains no secret material. Never throws — including for a
     /// <c>default</c> instance (reachable, for example, from a <c>TryGetKey</c>-style out parameter on a
-    /// miss), which renders with an <c>(unset)</c> fingerprint instead of faulting.</summary>
+    /// miss), which renders with an <c>(unset)</c> fingerprint instead of faulting.
+    ///
+    /// <para><b>Also load-bearing, so it is not free to change for presentation.</b> Both routers key a
+    /// pooled provider's dead-host cooldown on exactly this string — <c>LlmRouter</c> on it as-is,
+    /// <c>GenerationRouter</c> on it behind a <c>generation::</c> prefix — including the 12-character
+    /// fingerprint prefix. Re-formatting it to read better in a log re-keys every bench in flight, silently
+    /// clearing the cooldowns the tracker is holding.</para></summary>
     public override string ToString() =>
         string.IsNullOrEmpty(Fingerprint)
             ? $"{Slot}#(unset)"

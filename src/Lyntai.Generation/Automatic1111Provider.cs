@@ -48,6 +48,14 @@ public sealed record Automatic1111Options
 /// No API key and no content policy sit in this path: the server is the host's own. That makes it the
 /// candidate a host puts AFTER a hosted backend when it wants a refusal to be picked up locally
 /// (<see cref="Routing.GenerationRoutingPolicy"/>).
+///
+/// <b>The loaded checkpoint decides the model, not the request.</b> The payload carries prompt, size, steps and
+/// CFG only, so <see cref="GenerationRequest.Model"/> is NOT honoured — including a candidate's
+/// <c>"a1111:some-checkpoint"</c> pin, which the router applies to the request and this backend then ignores.
+/// The render uses whatever checkpoint the WebUI currently holds (<see cref="ProbeAsync"/> reports which), and a
+/// host that needs a specific one switches it in the WebUI. Each local backend has its own answer to "what
+/// decides the model?": ComfyUI's is the workflow, the local engine's is its model path, and this one's is the
+/// server's own state.
 /// </summary>
 /// <remarks>Wire shapes ported from a sibling app's production implementation. A server that simply isn't
 /// running reports <see cref="GenerationVerdict.NotConfigured"/> rather than a failure — on a fresh machine
@@ -86,8 +94,8 @@ public sealed class Automatic1111Provider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var response = await http.GetAsync($"{Root}/sdapi/v1/sd-models", ct).ConfigureAwait(false);
@@ -147,8 +155,8 @@ public sealed class Automatic1111Provider(
         var payload = payloadBody.ToJsonString();
         var endpoint = source is null ? "txt2img" : "img2img";
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -190,14 +198,18 @@ public sealed class Automatic1111Provider(
 
     private string Root => options.BaseUrl.TrimEnd('/');
 
-    /// <summary><c>"768x512"</c> → (768, 512); anything unparseable falls back to the configured default
-    /// rather than failing the call — a bad size hint is not worth losing a generation over.</summary>
+    /// <summary><c>"768x512"</c> → (768, 512); anything unparseable — or numeric but non-positive, such as
+    /// <c>"0x0"</c> — falls back to the configured default rather than failing the call, because a bad size hint
+    /// is not worth losing a generation over.</summary>
     private (int Width, int Height) Size(GenerationRequest request)
     {
         if (request.Option("size") is { Length: > 0 } size)
         {
             var parts = size.Split('x', 'X');
-            if (parts.Length == 2 && int.TryParse(parts[0], out var w) && int.TryParse(parts[1], out var h))
+            // w/h must be POSITIVE, not merely numeric: "0x0" parses, and forwarding it hands the WebUI a
+            // render it can only reject — the same guard LocalDiffusionProvider.ClampSize makes
+            if (parts.Length == 2 && int.TryParse(parts[0], out var w) && int.TryParse(parts[1], out var h) &&
+                w > 0 && h > 0)
                 return (w, h);
         }
         return (options.DefaultWidth, options.DefaultHeight);

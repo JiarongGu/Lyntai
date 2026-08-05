@@ -59,7 +59,17 @@ public static class OpenAiCompatibleBuilderExtensions
             o.DefaultModel = defaultModel;
         }, httpClient);
 
-    /// <summary>A local (or remote) Ollama endpoint. Default base "http://localhost:11434", id "ollama".</summary>
+    /// <summary>A local (or remote) Ollama endpoint, pinned to Ollama's NATIVE surface
+    /// (<see cref="OpenAiFlavor.Ollama"/>). Default base "http://localhost:11434", id "ollama".
+    /// <para><paramref name="baseUrl"/> must be the server ROOT (e.g. <c>http://localhost:11434</c>), never
+    /// its <c>/v1</c> OpenAI-compatible surface: the pin is applied over whatever URL you pass, so a
+    /// <c>/v1</c> base composes to <c>…/v1/api/chat</c> and 404s on the first call. Send a <c>/v1</c> base
+    /// through <see cref="AddOpenAiCompatibleProvider"/> instead, whose detection resolves it correctly.</para>
+    /// <para>Attachments are carried: an <see cref="Lyntai.Llm.LlmAttachment"/> with <c>Data</c> travels in
+    /// Ollama's own <c>images</c> array on a user turn (pair it with a vision model — <c>llava</c> and
+    /// friends). An attachment carrying only a remote <c>Uri</c> is the one shape this endpoint cannot take,
+    /// since <c>/api/chat</c> has no URL form; it is logged as undeliverable rather than dropped in
+    /// silence.</para></summary>
     public static LyntaiBuilder AddOllamaProvider(this LyntaiBuilder builder, string? baseUrl = null,
         string? defaultModel = null, string id = "ollama", Func<IServiceProvider, HttpClient>? httpClient = null) =>
         builder.AddOpenAiCompatibleProvider(id, o =>

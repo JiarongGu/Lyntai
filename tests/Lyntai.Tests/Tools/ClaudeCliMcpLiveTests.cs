@@ -10,7 +10,8 @@ namespace Lyntai.Tests.Tools;
 /// OPT-IN end-to-end proof with the REAL <c>claude</c> binary: registers a tool whose answer the model
 /// can't know, hosts it (AddMcpToolHost + the claude dialect), and asserts the CLI actually called it and surfaced the
 /// value. Runs only when <c>LYNTAI_LIVE_CLI_TOOLS</c> is set AND an authenticated <c>claude</c> is on
-/// PATH; otherwise a no-op pass (it consumes real tokens, so it's never in the default suite).
+/// PATH; otherwise it reports as SKIPPED (<c>Xunit.SkippableFact</c>) — it consumes real tokens, so it is
+/// never in the default suite.
 ///
 /// Enable:  set LYNTAI_LIVE_CLI_TOOLS=1   (authenticated `claude` CLI required)
 /// </summary>
@@ -18,10 +19,10 @@ public class ClaudeCliMcpLiveTests
 {
     private static bool Live => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LYNTAI_LIVE_CLI_TOOLS"));
 
-    [Fact]
+    [SkippableFact]
     public async Task Real_claude_cli_calls_a_hosted_tool_and_surfaces_its_result()
     {
-        if (!Live) return;
+        Skip.IfNot(Live, "LYNTAI_LIVE_CLI_TOOLS not set");
 
         var called = 0;
         var services = new ServiceCollection();

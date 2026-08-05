@@ -199,7 +199,10 @@ public class RouterFactoryTests
         Assert.Equal(0, second.GenerateCalls);
     }
 
-    // The same guard on the LLM side: LlmRouter._byId is built with map.TryAdd, so first wins there too.
+    // The same guard on the LLM side, and here it is STRICTER than the router it feeds rather than an echo
+    // of it: LlmRouter._byId is an ORDINAL dictionary, so "openai" and "OpenAI" would both be stored and both
+    // be reachable — no first-wins collapse to lean on. The factory rejects the pair up front because the
+    // router downstream would not notice it.
     [Fact]
     public void The_llm_factory_rejects_two_registrations_sharing_a_slot()
     {

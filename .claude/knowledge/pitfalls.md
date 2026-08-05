@@ -1,3 +1,9 @@
+---
+name: pitfalls
+applies_when: before extending or refactoring any area of Lyntai — tooling, LLM/router, provider lifetime, storage, DI, or tests
+enforces: don't reintroduce the measured traps — each one passed the build (and usually the tests) while being wrong
+---
+
 # Pitfalls — don't reintroduce these
 
 Concrete traps, most surfaced by a real bug or an independent audit. Each passed the build (and usually
@@ -28,6 +34,15 @@ the tests) while being wrong. Skim before touching the relevant area.
   `ProcessRunner.RunAsync` must use a per-chunk inactivity clock (re-armed on each read); the buffered path
   adds an absolute `maxDuration` backstop and reports `ProcessResult.TimeoutKind`. (Streaming shipped the
   bug in two providers; the buffered path shipped it too — both fixed.)
+- **A non-positive resolved budget means the OPPOSITE thing in the two domains — don't "unify" the idiom
+  casually.** The LLM sites arm the clock unconditionally (`OpenAiCompatibleProvider.CompleteAsync`,
+  `HttpEmbedder.EmbedBatchAsync`, `ExtensionsAiProvider` all `CancelAfter(timeout)`), and app-configured
+  values are trusted rather than clamped (`LyntaiOptions.ResolveTimeout`), so a `TimeoutByConsumer` entry of
+  `TimeSpan.Zero` **cancels the call instantly**. `GenerationDeadline.GuardAsync` reads the same value as
+  **no deadline at all** — the documented escape hatch for a host that owns its own clocks. Both are
+  deliberate; flipping either is a behaviour change no consumer can detect at compile time (major-bump
+  material, `docs/DECISIONS.md` D24), and a shared helper that keeps both behaviours behind a flag has
+  consolidated nothing but the line count.
 - **Committing a stream on an empty content chunk** — disables fallback for a zero-content first chunk.
   Gate the commit on `Text.Length > 0`.
 - **Hand-rolled verdict heuristics** in a provider — they drift. Always route through
@@ -49,7 +64,7 @@ the tests) while being wrong. Skim before touching the relevant area.
   billing a turn to answer the sentence "auth status". Same reasoning as above, one step further out.
 - **Trusting the exit code over the machine-readable answer.** A signed-out `auth status` may report its
   state AND exit non-zero — that's an ANSWER, not a broken backend. Parse first, then fall back to the exit
-  code (`ClaudeCliProvider.StatusAsync`). And parse the WHOLE body: the `Tail()` helper keeps the LAST 500
+  code (`CliProviderEngine.StatusAsync`). And parse the WHOLE body: the `Tail()` helper keeps the LAST 500
   chars, which would decapitate a JSON document.
 - **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in
   `CliProviderEngine` (Core, `Lyntai.Llm.Cli`); a new CLI is an `ICliProviderDialect`, never a fresh
@@ -155,9 +170,13 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   (`ProviderAdmission`) is the only shape that survives both strategies.
 - **A key derived from the options object is right for some backends and silently wrong for others.** Four of
   the five generation options types are records with `init` members and compare structurally; but
-  `LocalDiffusionOptions` is a plain class and compares by **reference**, and `ComfyUiOptions.Kinds` is an
-  `IReadOnlyList<string>` that record equality also compares by reference. So automatic derivation reuses
-  correctly for three backends and rebuilds-or-reuses arbitrarily for two. Name every contribution
+  `LocalDiffusionOptions` is a plain class and compares by **reference**, and `ComfyUiOptions.Kinds` /
+  `FalQueueOptions.Kinds` are `IReadOnlyList<string>` members that record equality also compares by reference
+  (both defaults are collection expressions evaluated per instance, so even two default-constructed options
+  compare unequal). So automatic derivation reuses correctly for **two** backends and rebuilds-or-reuses
+  arbitrarily for **three**. (The measured basis, so the next audit can re-check the tally without re-deriving
+  it: `Automatic1111Options` and `OpenAiImageOptions` are the two with no collection member at all — only
+  `string`/`int`/`double`/`TimeSpan`.) Name every contribution
   (`ProviderKey.For(id).With("baseUrl", …).WithSecret("apiKey", …)`) so a forgotten member is visible in
   review — and include values the backend resolves at **runtime** (a downloaded engine's binary/model paths
   appear when the download completes; the saved configuration has not changed, yet a pooled instance holding
@@ -199,12 +218,14 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   cost attribute were both documented but silently dropped, and no test caught it. When you add a
   documented knob, add the test that exercises the documented path.
 - **A `TryAddSingleton` reached during `configure(builder)` BEATS `AddLyntai`'s own options-built
-  registration.** `AddLyntai` invokes `configure(builder)` (`ServiceCollectionExtensions.cs:39`, in
-  `AddLyntai`) well before it calls `RegisterLlmFrontDoor` (`:60`, in `AddLyntai`), and that method
-  (`:98`, `RegisterLlmFrontDoor`'s signature) is where the `DeadHostTracker` built from `LyntaiOptions` is
-  registered (`:101`, in `RegisterLlmFrontDoor`). **Names first, lines second** — these numbers rot, and this very
-  entry was made stale by a change inside the branch that added it; follow the method names if a line
-  disagrees. So a `TryAddSingleton<DeadHostTracker>()` added inside a `Use*`/`Add*` extension reaches the
+  registration.** All of this is in `src/Lyntai.Core/DependencyInjection/ServiceCollectionExtensions.cs`:
+  `AddLyntai` invokes `configure(builder)` well before it calls `RegisterLlmFrontDoor`, and that method is
+  where the `DeadHostTracker` built from `LyntaiOptions` is registered. **Names first, lines second** — these
+  numbers rot, and this very entry was made stale by a change inside the branch that added it; follow the
+  method names if a line disagrees. **It has now rotted TWICE** (a 2026-08-05 audit found all four numbers
+  pointing at a blank line, a doc comment and unrelated calls), so the numbers are gone: cite `AddLyntai`,
+  `RegisterLlmFrontDoor` and `RegisterProviderLifetime` by name, which is the only form that cannot rot a
+  third time. So a `TryAddSingleton<DeadHostTracker>()` added inside a `Use*`/`Add*` extension reaches the
   collection FIRST, and `TryAdd` keeps the first — silently swapping the configured `DeadHostThreshold`,
   `DeadHostCooldown` and logger for the parameterless defaults, **for both domains**. Nothing in 1427 tests
   noticed; it was found by mutation (adding the line failed exactly one new guard test and nothing else) and
@@ -226,9 +247,13 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 - **This repo has TWO independent ways for a targeted test run to verify nothing.** (1) `dotnet test
   --filter` **reports success when it matches zero tests** — a filter naming `LlmRouterTests`, a class that
   does not exist (the real ones are `LlmRouterCompleteTests` / `LlmRouterStreamTests`), passed vacuously and
-  looked like a clean regression run. (2) `node devtools/dev.mjs test -- --filter "X"` **does not forward the
-  filter at all** — it runs the whole suite, which is slow but honest, and is easy to mistake for the
-  filtered run you asked for. **Always read the matched/total count**, and prefer a broad filter over an
+  looked like a clean regression run. (2) Through the wrapper it depends on `--`, which is not obvious.
+  `node devtools/dev.mjs test --filter X` forwards straight into `dotnet test` (`devtools/dev.mjs` spreads
+  `...args` into the argv, and always has) and inherits trap (1) whole — a name matching nothing passes
+  vacuously, exit 0. `node devtools/dev.mjs test -- --filter X` runs the **WHOLE suite** instead: VSTest reads
+  post-`--` tokens as RunSettings arguments and the filter is dropped (measured 2026-08-05: 1573 passed /
+  1582 total). Slow but honest — and easy to mistake for the filtered run you asked for, in the other
+  direction from (1). **Always read the matched/total count**, and prefer a broad filter over an
   exact class name (`~Router|~Routing|~DeadHost`) so a renamed class degrades to running too much rather than
   to running nothing.
 - **A test that HANGS on the failure it detects is worse than no test.** A permit-leak test that blocks a

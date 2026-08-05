@@ -26,7 +26,10 @@ public sealed class JobOptions
     /// no work (a productive pass immediately runs the next).</summary>
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(2);
 
-    public int DefaultMaxAttempts { get; set; } = 3;
+    /// <summary>Attempt budget <see cref="IJobQueue"/> stamps onto a <see cref="JobSpec"/> that names none.
+    /// Seeded from <see cref="JobSpec.DefaultMaxAttempts"/> — the same constant every store falls back to for
+    /// a spec that reached it without passing through the queue, so the two can't disagree by default.</summary>
+    public int DefaultMaxAttempts { get; set; } = JobSpec.DefaultMaxAttempts;
 
     /// <summary>Retry delay used when a handler returns <c>Retry()</c> with no explicit delay, or throws.</summary>
     public TimeSpan RetryBackoff { get; set; } = TimeSpan.FromSeconds(10);

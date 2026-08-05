@@ -24,11 +24,14 @@ public enum GenerationFallbackAction
 
 /// <summary>Per-verdict fallback behaviour for <see cref="GenerationRouter"/> — a POLICY, not a law.
 ///
-/// The defaults reproduce the LLM router's (design §6) so one mental model covers both domains: a
-/// <see cref="GenerationVerdict.Refused"/> SURFACES (a content refusal is the backend's judgement, and quietly
-/// re-submitting the same prompt to another vendor is not a library's decision to make), a rate limit or a
-/// rejected key BENCHES the backend, a transient fault counts toward the threshold, and a capability gap
-/// advances without blame.
+/// The defaults follow the SHAPE of the LLM router's (design §6), so one mental model carries across most of
+/// both domains: a <see cref="GenerationVerdict.Refused"/> SURFACES (a content refusal is the backend's
+/// judgement, and quietly re-submitting the same prompt to another vendor is not a library's decision to make),
+/// a rate limit or a rejected key BENCHES the backend, a transient fault counts toward the threshold, and a
+/// backend that was never set up advances without blame. The deliberate divergence is
+/// <see cref="GenerationVerdict.Unsupported"/>: a capability gap ADVANCES here, where the LLM policy surfaces
+/// it. <see cref="GenerationVerdictClassifier"/> carries the reason — chat candidates share a capability gap,
+/// media backends differ widely in what they accept.
 ///
 /// It is configurable because that Refused default is wrong for at least one real setup: a host that
 /// deliberately lists a hosted backend AND a locally-run one, where the hosted one refuses content the local

@@ -59,7 +59,7 @@ public sealed class OpenAiCompatibleProvider(
                 {
                     if (!response.IsSuccessStatusCode)
                     {
-                        var errorBody = await SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                        var errorBody = await OpenAiHttp.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
                         return MapHttpFailure(response.StatusCode, errorBody);
                     }
                     body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
@@ -120,7 +120,7 @@ public sealed class OpenAiCompatibleProvider(
                 HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                var errorBody = await SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
+                var errorBody = await OpenAiHttp.SafeRead(response, timeoutCts.Token).ConfigureAwait(false);
                 var mapped = MapHttpFailure(response.StatusCode, errorBody);
                 startupError = LlmChunk.Error(mapped.Verdict, mapped.Detail);
             }
@@ -214,8 +214,10 @@ public sealed class OpenAiCompatibleProvider(
 
     private HttpRequestMessage BuildRequest(LlmRequest req, string model, bool stream)
     {
+        // the logger travels into the Ollama payload so an attachment /api/chat cannot carry is reported
+        // rather than dropped in silence (its images array is inline base64 only — no remote URL form)
         var payload = _flavor == OpenAiFlavor.Ollama
-            ? OllamaPayload.Build(req, model, stream, config.ContextSize)
+            ? OllamaPayload.Build(req, model, stream, config.ContextSize, _logger)
             : OpenAiPayload.Build(req, model, stream);
 
         var request = new HttpRequestMessage(HttpMethod.Post, Endpoint())
@@ -228,7 +230,7 @@ public sealed class OpenAiCompatibleProvider(
 
     /// <summary>The chat endpoint — Ollama's native <c>/api/chat</c>, otherwise the OpenAI-compatible
     /// <c>chat/completions</c> route.</summary>
-    internal Uri Endpoint() =>
+    private Uri Endpoint() =>
         OpenAiEndpoint.Build(config.BaseUrl, _flavor, ollamaNativePath: "/api/chat", openAiRoute: "chat/completions");
 
     /// <summary>Whether this provider has anything to authenticate WITH — what separates "not set up yet"
@@ -237,7 +239,7 @@ public sealed class OpenAiCompatibleProvider(
 
     private LlmReply MapHttpFailure(HttpStatusCode status, string body)
     {
-        var detail = $"{id}: HTTP {(int)status} {Head(body)}";
+        var detail = $"{id}: HTTP {(int)status} {OpenAiHttp.Head(body)}";
         // typed status wins; body text goes through the ONE shared classifier (never local heuristics).
         // hasCredentials separates "never set up" (NotConfigured — skipped blamelessly) from "your key was
         // rejected" (AuthFailed — benched for the cooldown window). A local OpenAI-compatible server needs no
@@ -249,7 +251,7 @@ public sealed class OpenAiCompatibleProvider(
     /// OpenAI <c>choices[0].message.content</c> and Ollama <c>message.content</c>. Also surfaces native
     /// <c>tool_calls</c> when present (id/function.name/function.arguments — arguments as a string on
     /// OpenAI, an object on Ollama, both normalized to a JSON string).</summary>
-    internal static bool TryExtract(string body, out string text, out LlmUsage? usage, out string? finishReason,
+    private static bool TryExtract(string body, out string text, out LlmUsage? usage, out string? finishReason,
         out IReadOnlyList<LlmToolCall>? toolCalls)
     {
         text = "";
@@ -330,17 +332,20 @@ public sealed class OpenAiCompatibleProvider(
 
     private static LlmUsage? ExtractUsage(JsonElement root)
     {
+        // WireJson.Long (package-wide) rather than a local read: a token count that is not an integral long
+        // (a fractional count from a proxy, an exponent form) must not throw out of an otherwise good reply —
+        // nothing here catches a FormatException, so it escaped CompleteAsync and the stream enumerator alike
         if (root.TryGetProperty("usage", out var u) && u.ValueKind == JsonValueKind.Object)
-            return new LlmUsage(GetLong(u, "prompt_tokens"), GetLong(u, "completion_tokens"));
+            return new LlmUsage(WireJson.Long(u, "prompt_tokens"), WireJson.Long(u, "completion_tokens"));
         if (root.TryGetProperty("prompt_eval_count", out _) || root.TryGetProperty("eval_count", out _))
-            return new LlmUsage(GetLong(root, "prompt_eval_count"), GetLong(root, "eval_count"));
+            return new LlmUsage(WireJson.Long(root, "prompt_eval_count"), WireJson.Long(root, "eval_count"));
         return null;
     }
 
     /// <summary>One streaming line → (delta text, usage if present, is-final, finish reason). The
     /// finish reason travels out so the stream can classify a content_filter as Refused — a string
     /// finish_reason is a stream terminator, never automatically a benign one.</summary>
-    internal static (string? Text, LlmUsage? Usage, bool IsFinal, string? FinishReason) ParseStreamLine(string payload)
+    private static (string? Text, LlmUsage? Usage, bool IsFinal, string? FinishReason) ParseStreamLine(string payload)
     {
         try
         {
@@ -384,22 +389,5 @@ public sealed class OpenAiCompatibleProvider(
         {
             return (null, null, false, null); // malformed stream line — skip it
         }
-    }
-
-    private static async Task<string> SafeRead(HttpResponseMessage response, CancellationToken ct)
-    {
-        try { return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
-        catch { return ""; }
-    }
-
-    private static long GetLong(JsonElement obj, string name) =>
-        obj.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.Number ? el.GetInt64() : 0;
-
-    // Head, not Tail: an HTTP error body leads with the useful part (ClaudeCli's Tail keeps the END of stderr
-    // — same job, opposite slice; the names now say which).
-    private static string Head(string text, int max = 300)
-    {
-        var trimmed = text.Trim();
-        return trimmed.Length <= max ? trimmed : trimmed[..max];
     }
 }

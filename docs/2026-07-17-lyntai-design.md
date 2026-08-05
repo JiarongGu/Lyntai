@@ -79,6 +79,26 @@ Lyntai/
 ```
 
 `Lyntai.Providers.Local` (LLamaSharp, in-process) is a **later** package, not first-cut.
+*(2026-07 note: shipped in v0.8.0. It earns its own package by the rule below — LLamaSharp drags a native
+runtime, which is exactly the footprint a consumer might refuse.)*
+
+> **Amendment (2026-08-05): the tree above is the v0.1 cut; `src/` now holds TWELVE packable projects.**
+> The RULE it illustrates is unchanged and still verified — every adapter references `Lyntai.Core` only, never
+> another adapter — but two of the names are gone. `Lyntai.Providers.ClaudeCli` and
+> `Lyntai.Providers.OpenAiCompatible` merged into **`Lyntai.Providers.Default`** at 2.0.1, because a boundary
+> has to answer *which dependency does this isolate?* and those two isolated nothing: process spawn plus
+> `HttpClient`, both dependency-free, and the CLIs share one `CliProviderEngine` (`docs/DECISIONS.md` **D31**;
+> a new CLI backend is an `ICliProviderDialect` in that package, D27/D28). Today: `Lyntai.Core`,
+> `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`,
+> `Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres`, `Lyntai.Storage.InMemory`, `Lyntai.Secrets.Dpapi`,
+> `Lyntai.Tools.Mcp`, `Lyntai.Tools.Mcp.Hosting`, `Lyntai.Generation`, and the `Lyntai` starting bundle
+> (`src/Lyntai.Bundle/`, which ships no assembly).
+> `Lyntai.Generation` — the media BACKENDS — is the one boundary NOT drawn for dependency isolation: it is
+> split from `Providers.Default` for release CADENCE, because it ships EXPERIMENTAL while its host is frozen
+> (**D34**). Its contracts stay in `Lyntai.Core` under the `Lyntai.Generation` namespace and carry the full
+> promise; see §5.6. Bundle membership is a DEPENDENCY BUDGET, not a preference (**D32**), and many small
+> packages is the intended shape, paid for in tooling rather than in merging (**D33** —
+> `node devtools/dev.mjs check-packages` gates the nine registries a package must enter).
 
 ### Dependency graph
 ```
@@ -87,6 +107,10 @@ Lyntai.Core
 Storage.Sqlite  Providers.ClaudeCli  Providers.OpenAiCompatible  Providers.ExtensionsAi
 ```
 No adapter references another adapter. Consumers compose via DI.
+*(2026-08-05: same shape, today's names — each of the TEN adapter packages listed in the amendment above
+project-references `Lyntai.Core` and nothing else, `Lyntai.Generation` included. The `Lyntai` bundle is the
+only project that references several, which is what makes its membership a budget. Verified against the
+`src/*/*.csproj` files.)*
 
 ## 4. Fork decisions (locked)
 
@@ -132,6 +156,10 @@ public interface ILlmRouter {
 }
 public sealed record LlmCandidate(string ProviderId, string? Model = null);
 ```
+*(2026-08-05: `LlmVerdict` now has **nine** members — the five above plus `ContextWindowExceeded`,
+`AuthFailed`, `Unsupported` and `NotConfigured`. **`src/Lyntai.Core/Llm/LlmVerdict.cs` is the canonical
+statement**; §9's 2026-07-26 amendment lists the additions and §6 gives each one's routing action. The block
+above is the v0.1 seed, kept for its semantic commentary per the reading note at the top of this doc.)*
 
 ### 5.2 Prompt registry
 ```csharp
@@ -195,6 +223,44 @@ select which storage domains to wire: a disabled feature registers no store AND 
 selective migration; default `All`). Lyntai still OWNS the tables it creates — this just avoids unused
 `lyntai_*` tables for domains the app doesn't use.
 
+### 5.6 Generation — a second domain in `Lyntai.Core` (added 2026-08-04, not in the v0.1 design)
+
+*Added here because this document is read first and otherwise never introduces the largest post-1.0 domain —
+it only forward-references it in §6. This is the routing entry, not a restatement: the reasoning is
+`docs/DECISIONS.md` **D30** (generation is a platform in its own domain, coupled to the LLM side only through
+tools), **D38** (a verdict for "never set up", in both domains) and **D43** (the translation between the two
+verdict taxonomies). The plan of record is `docs/2026-08-04-generation-platform-plan.md`.*
+
+```csharp
+public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
+    new string Id { get; }                            // "openai-images" | "a1111" | "local-diffusion" | …
+    GenerationCapabilities Capabilities { get; }      // read by the router BEFORE spending anything
+    Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default);   // no-cost; never generates
+    Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default);
+}
+```
+
+- **One capability-aware seam for image/video/audio/3d, with THREE delivery modes**, because real backends
+  genuinely differ: inline (`IGenerationProvider`), async job (`IGenerationJobProvider` — submit → poll →
+  fetch, universal for video), and streaming (`IGenerationStreamProvider`, TTS). A backend that cannot do
+  something simply does not implement that interface and callers pattern-match over the registered
+  collection — the same optional-capability shape Core already uses for `IProviderAuth` /
+  `IProviderVersionInstaller`, rather than one fat interface whose methods throw.
+- **`ProbeAsync` never generates.** The generate-and-discard check it replaces bills a real generation to
+  answer a setup question. A backend that genuinely cannot be checked without generating reports
+  `Available: false` with the reason.
+- **A submit whose deadline expires is `GenerationOperation.Inconclusive`, and is never re-submitted** — the
+  work may have been accepted, so a retry double-bills the host (`Inconclusive` is in `CHANGELOG.md`'s
+  `## Unreleased` at the time of writing). The operation id is checkpointed BEFORE the first poll, so a crash
+  resumes the render already running instead of paying for a second one.
+- **The CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation` + `.Routing`/`.Jobs`/`.Tools`) and
+  carry the FULL SemVer promise. Only the BACKENDS **package** — `Lyntai.Generation`, namespaces
+  `Lyntai.Generation.Providers` — is EXPERIMENTAL, and only until GEN-VERIFY closes. **The carve-out is the
+  package, not the namespace** (§3 amendment, D34; D43 applied the full promise to a `Lyntai.Core` generation
+  type deliberately rather than claiming the exemption).
+- **The coupling to the LLM side is five `ITool`s** (`AddGenerationTools()`), and that is the *entire* coupling
+  (D30) — the tool loop and an MCP-hosted CLI agent both drive media through the same five.
+
 ## 6. Data flow & error handling (the parts that matter)
 
 **Fallback router** (odysseus semantics). *As of v0.3 all of this is the **default** `RoutingPolicy`
@@ -224,9 +290,36 @@ count, a cooldown-key scope, and a sole-candidate exemption — overridable via 
 prompts carry newlines + metacharacters), prompt over **stdin**, **BOM-less UTF-8** both directions,
 resolved-path cache (`where.exe`/`which`, prefer `.cmd`/`.exe`), `Kill(entireProcessTree:true)` on
 cancel, per-call timeout. Cheap utility calls run from a **neutral cwd** (no project config loaded).
+*(2026-08-04: these live once in `CliProviderEngine` (`Lyntai.Llm.Cli`); a new CLI backend is an
+`ICliProviderDialect`, never a second copy — D27/D28.)*
 
 **Structured output:** schema-constrained call, tolerant JSON extraction from prose/code-fences, one
 retry on parse failure, else `Failed` verdict.
+
+> **Amendment (2026-08-04, verdict-translation half 2026-08-05): the generation router (§5.6) has its own
+> policy, and it is deliberately NOT identical to the rules above.** `GenerationRoutingPolicy` maps the media
+> verdicts onto the same four
+> actions — `Refused` → **Surface**; `NotConfigured` and `Unsupported` → **Advance** (no blame);
+> `RateLimited` and `AuthFailed` → **CooldownAndAdvance**; `Timeout` and `Failed` →
+> **PenalizeAndAdvance**. Two divergences, both deliberate and both easy to "fix" back into a bug:
+> - **`Unsupported` ADVANCES here and SURFACES on the LLM side.** A second chat candidate shares the same
+>   capability gap, so surfacing is the useful answer; media backends differ widely in what they accept, so
+>   advancing is. `GenerationVerdictClassifier` carries the reason.
+> - **An UNMAPPED verdict advances here and is PENALIZED there** (`GenerationRoutingPolicy.ActionFor` returns
+>   `Advance`; `RoutingPolicy.ActionFor` returns `PenalizeAndAdvance`). A verdict a policy has never heard of
+>   should not silently end a run another candidate could serve — but on the LLM side an unclassified fault is
+>   more likely to be a real one. The divergence is flagged in the source and, until now, nowhere else.
+>
+> **A verdict that crosses the boundary keeps its MEANING and changes its ACTION** (**D43**).
+> `GenerationVerdictClassifier.Translate` therefore gets one arm per `LlmVerdict` member and no catch-all: a
+> discard over a taxonomy expected to GROW converts every future addition into a silent misclassification, and
+> that is exactly how `Unsupported` shipped a release reported as `Failed` — benching healthy backends on
+> capability gaps. The growth gate is a TEST, not the compiler (C# has no exhaustive switch over an enum, and
+> CS8509 is only a warning). `ContextWindowExceeded` is the one member with no media counterpart and collapses
+> to `Failed` **deliberately — a TRADE, not a free choice**: `GenerationRouter` never reports a blameless
+> verdict over a real failure, so as `Unsupported` it would advance silently and the caller would be told "no
+> capable backend" instead of the one actionable answer. That router rule is the open call — `TASKS.md`
+> **Part 40** — and the arm must not be revisited on its own before it lands.
 
 ## 7. Storage conventions (from the family)
 
@@ -242,6 +335,11 @@ retry on parse failure, else `Failed` verdict.
 - BOM-less UTF-8 sources + `<CodePage>65001</CodePage>` so csc on a CJK-locale machine doesn't mojibake
   string literals.
 
+*(2026-08-05: re-checked clause by clause and still current. The maintained deep dives cite this section
+rather than competing with it — `.claude/knowledge/storage.md` is this repo's binding (the `lyntai_` prefix,
+the SQLite/Postgres parallels of the same number, `StorageFeature` tags) and canonical
+`.claude/knowledge/sql-storage.md` states the traps themselves.)*
+
 ## 8. Testing
 
 - **xUnit.** Unit tests: router/fallback/verdict/dedup/cooldown logic, prompt render + placeholder
@@ -252,6 +350,10 @@ retry on parse failure, else `Failed` verdict.
 - **`Lyntai.Playground`** console app = live smoke over the full stack (real provider optional, opt-in).
 - **devtools e2e harness** boots the Playground (or a tiny sample host) against an isolated fixture
   with `LYNTAI_PROVIDER_CMD` = the stub, asserts end-to-end.
+
+*(2026-08-05: re-checked and still current. The live mechanics — the `^p\d+\.mjs$` e2e suite-discovery
+filter, the leading underscore that keeps `_e2e-common.mjs` from being discovered as a suite, and the stub
+path — are `.claude/rules/repo-mechanics.md` §Dev loop.)*
 
 ## 9. Explicitly out of scope (deferred to a later "platform kit" cut)
 
@@ -271,7 +373,8 @@ these later without breaking changes.
 > host-free; the one scoped exception is the ephemeral, opt-in localhost MCP listener the
 > `Lyntai.Tools.Mcp.Hosting` add-on runs during a CLI call).
 
-> **Amendment (2026-07-26): reconciled against v0.30.0.** The header's "pre-implementation" status is
+> **Amendment (2026-07-26): reconciled against v0.30.0** *(and extended in place since — the newest clauses
+> in this block are dated 2026-08-05; counts stated inside it are as-of their own date)*. The header's "pre-implementation" status is
 > historical; shape is snapshot-tested (D11) and this doc governs semantics. Since the 2026-07-18
 > amendment, v0.16–v0.30 added — each per D14's "framework in Lyntai, domain in the app", detail in
 > `CHANGELOG.md`/`ROADMAP.md`, rationale in `docs/DECISIONS.md` D6–D18:
@@ -297,7 +400,8 @@ these later without breaking changes.
 > `AuthFailed`/`Unsupported`/`NotConfigured`; `LlmRequest` +`TimeoutSeconds`/`RefusalPattern`; `LlmReply` +`ToolCalls`;
 > `LlmMessage` tool turns + `Attachments`; `IPromptRegistry.ValidateOverride`; `IScoringService`
 > read/aggregate/export members; new storage domains `IJobStore`/`IPromptVersionStore`/`ICuratedMemoryStore`;
-> three storage backends, 11 packages (adapter→Core-only rule unchanged and verified).
+> three storage backends, 11 packages **as of v0.30** (adapter→Core-only rule unchanged and verified; twelve
+> today — see the §3 amendment).
 > **§6 semantic additions:** AuthFailed = cool + advance; ContextWindowExceeded = advance, no penalty;
 > Unsupported = surface (D4); NotConfigured = advance, no penalty (2026-08-05 — a backend that was never set
 > up is skipped blamelessly, matching the generation router; the same rule in both domains) · streaming

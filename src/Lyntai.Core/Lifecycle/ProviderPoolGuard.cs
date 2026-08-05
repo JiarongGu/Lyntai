@@ -27,7 +27,12 @@ internal static class ProviderPoolGuard
     /// the later key in the pool's lookup table, quietly attributing the earlier configuration's cooldown to
     /// the wrong one.</para>
     ///
-    /// <para>Compared case-insensitively, because that is how ids are matched everywhere else.</para></summary>
+    /// <para>Compared case-insensitively, matching how the generation router and the rest of this subsystem
+    /// resolve an id, and the stricter of the two schemes in the tree — it rejects a pair that an ordinal
+    /// comparison would wave through. It is NOT how the LLM router resolves a candidate: <c>LlmRouter</c>
+    /// keys its provider table ordinally, so a candidate id must be cased exactly as the provider reports its
+    /// <see cref="IProviderIdentity.Id"/> — which <see cref="EnsureIdMatchesSlot"/> deliberately allows to
+    /// differ in case from the slot it was registered under.</para></summary>
     internal static void EnsureDistinctSlots<TProvider>(
         IReadOnlyList<ProviderRegistration<TProvider>> registrations, string paramName)
         where TProvider : class, IProviderIdentity

@@ -1,5 +1,20 @@
 # 2.0.1 Restructure — Implementation Plan
 
+> **Superseded 2026-08-05 — this plan SHIPPED as 2.0.1 on 2026-08-04**, including Task 5's release
+> (archived as `docs/task-archive.md` Part 32, reasoning in `docs/DECISIONS.md` D31). It is kept as the
+> record of what was planned and why; **the unticked boxes below are history, not open work — do not
+> execute them**, and in particular do not re-run Task 5: 2.0.1 is published, the line has since moved to
+> 2.1.0, and a future major is 3.0.0 (2.0.0 stays permanently burned, D29).
+> **Two things in the body are already superseded.** D34 re-split the generation backends back OUT of
+> `Lyntai.Providers.Default` into the `Lyntai.Generation` package (namespaces `Lyntai.Generation.Providers`)
+> on the same day, for release cadence rather than dependency footprint — so Task 2 and the `Providers.Default`
+> description at Step 2 no longer describe the tree. And the graph is no longer "10 packages + 1 metapackage":
+> the current one is the README package table plus `packableProjects` in `devtools/project.config.mjs`, which
+> are the maintained statements and are gated by `check-packages`.
+> Its rule references are the ones that existed when it was written — `dev-conventions.md` has since been
+> retired into `.claude/rules/dotnet-package-layout.md` and `.claude/rules/repo-mechanics.md`, so the
+> citations at Task 4 (its **Files** list and Step 4) resolve there.
+
 **Goal:** make the package graph obey ONE rule everywhere (D31: split by dependency footprint), then release
 it as **2.0.1** — the next major, skipping 2.0.0 because that number is permanently taken (D29).
 

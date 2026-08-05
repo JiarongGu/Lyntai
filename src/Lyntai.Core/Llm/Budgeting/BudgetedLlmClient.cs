@@ -50,13 +50,19 @@ public sealed class BudgetedLlmClient(
     }
 
     /// <summary>The refusal reason when a cap that applies to <paramref name="consumer"/> has been reached
-    /// — the global caps (vs the global total) or the consumer's own caps (vs its total) — else null.</summary>
+    /// — the global caps (vs the global total) or the consumer's own caps (vs its total) — else null.
+    /// <para>A total is read only when a cap needs it: "record spend, cap nothing" and per-consumer-only
+    /// setups make no global query, which for a persisted tracker is a whole-table SUM per call.</para></summary>
     private async ValueTask<string?> OverBudgetAsync(string consumer, CancellationToken ct)
     {
         var budget = options.Budget;
-        var global = await tracker.TotalAsync(ct: ct).ConfigureAwait(false);
-        if (budget.MaxCostUsd is { } gc && global.CostUsd >= gc) return Refuse("global cost budget", gc);
-        if (budget.MaxTokens is { } gt && global.TotalTokens >= gt) return Refuse("global token budget", gt);
+
+        if (budget.MaxCostUsd is not null || budget.MaxTokens is not null)
+        {
+            var global = await tracker.TotalAsync(ct: ct).ConfigureAwait(false);
+            if (budget.MaxCostUsd is { } gc && global.CostUsd >= gc) return Refuse("global cost budget", gc);
+            if (budget.MaxTokens is { } gt && global.TotalTokens >= gt) return Refuse("global token budget", gt);
+        }
 
         if (budget.PerConsumer.TryGetValue(consumer, out var cb))
         {

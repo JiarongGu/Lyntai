@@ -1,3 +1,9 @@
+---
+name: TEMPLATE
+applies_when: writing a new rule or knowledge document — this file is the template, not a rule to follow
+enforces: default to the knowledge tier; name the file for what is enforced; give it frontmatter and regenerate the index
+---
+
 # {Rule Title — imperative, what is enforced (not the incident that caused it)}
 
 **One-sentence summary of what is enforced.**
@@ -23,6 +29,9 @@ and the edge cases where it does NOT apply.
 1. **Default to `.claude/knowledge/{kebab-name}.md`** (on-demand deep dive — the usual home). Only put it in
    `.claude/rules/` (always-loaded core) if it's a genuinely universal-workflow rule needed on nearly every
    task — the core stays tiny.
-2. Copy this template, replace the content.
-3. **Add one row to `RULES_INDEX.md`** — otherwise the rule is invisible to the discovery workflow.
+2. Copy this template, replace the content — including the `name`/`applies_when`/`enforces` frontmatter
+   above, which is what the discovery workflow matches on. Without it the file renders as `⚠ needs
+   frontmatter` in the index and no skill can route to it.
+3. **Regenerate `RULES_INDEX.md`** (daoris) — never hand-edit it; it is generated, and a hand-added row
+   is replaced at the next sync, taking the routing with it.
 4. Name it for *what is enforced*, kebab-case (e.g. `no-global-memory.md`, not `fix-2026-07-bug.md`).

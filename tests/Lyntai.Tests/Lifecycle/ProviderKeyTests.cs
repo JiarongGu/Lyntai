@@ -73,6 +73,18 @@ public class ProviderKeyTests
                         ProviderKey.For("comfyui").With("baseUrl", "http://localhost:7860").Build());
     }
 
+    // The one place Lyntai.Lifecycle compares a slot ORDINALLY: the pool guard, RetireSlot and admission all
+    // match case-insensitively, but ProviderKey is a record struct, so its generated equality uses the
+    // default (ordinal) string comparer on Slot. One backend spelled two ways across separate For(...) calls
+    // is therefore two keys — two pool entries and two admission gates. Pinned because relaxing it later is a
+    // silent change: keys that are unequal today would start comparing equal with no compile-time signal.
+    [Fact]
+    public void A_case_differing_slot_is_a_different_key()
+    {
+        Assert.NotEqual(ProviderKey.For("OpenAI").With("baseUrl", "http://localhost:7860").Build(),
+                        ProviderKey.For("openai").With("baseUrl", "http://localhost:7860").Build());
+    }
+
     [Fact]
     public void Order_of_contributions_is_significant_and_stable()
     {

@@ -127,6 +127,46 @@ public class ComfyUiProviderTests
     }
 
     [Fact]
+    public async Task A_transport_failure_while_polling_keeps_the_run_alive_rather_than_abandoning_it()
+    {
+        // the server not answering says nothing about the render. Failed here reaches the job handler as
+        // JobOutcome.Fail with no retry, so a restarted ComfyUI would abandon a run that is still going —
+        // the same rule fal's poll already follows.
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.InternalServerError, "{\"error\":\"upstream hiccup\"}");
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+        Assert.Contains("hiccup", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_4xx_while_polling_is_terminal_so_a_wrong_id_or_path_cannot_poll_forever()
+    {
+        // the other half of the rule: a 404 means THIS id (or the guessed HistoryPath) will never resolve,
+        // and reporting Running would leave the job polling a render nobody holds
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.NotFound, "{\"error\":\"unknown prompt id\"}");
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+    }
+
+    [Fact]
+    public async Task Polling_an_unconfigured_backend_is_terminal_rather_than_perpetually_running()
+    {
+        var (provider, http) = Provider(new ComfyUiOptions { BaseUrl = "" });   // never configured
+
+        var operation = await provider.PollAsync("abc-123");
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Contains("BaseUrl", operation.Detail);
+        Assert.Empty(http.Requests);
+    }
+
+    [Fact]
     public async Task Polling_a_finished_run_reports_succeeded()
     {
         var (provider, http) = Provider();

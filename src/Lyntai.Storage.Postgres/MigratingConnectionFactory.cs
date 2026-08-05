@@ -1,5 +1,4 @@
 using System.Data.Common;
-using Lyntai.Storage;
 using Lyntai.Storage.Postgres.Migrations;
 
 namespace Lyntai.Storage.Postgres;

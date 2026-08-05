@@ -11,8 +11,11 @@ namespace Lyntai.Llm.Routing;
 /// Behavior is driven by <see cref="RoutingPolicy"/> (<see cref="LyntaiOptions.Routing"/>): the
 /// defaults reproduce §6 exactly, so an untouched policy behaves as documented.</summary>
 /// <param name="providers">The registered backends. First registration wins on a duplicate id.</param>
-/// <param name="deadHosts">Cooldown bookkeeping — the same tracker the generation router uses, with keys
-/// prefixed per domain so a chat outage never benches a media backend sharing its id.</param>
+/// <param name="deadHosts">Cooldown bookkeeping — the same tracker the generation router uses. A chat key is
+/// the BARE provider/configuration identity (plus <c>::model</c> under
+/// <see cref="CooldownScope.ProviderAndModel"/>); generation prefixes its own keys <c>generation::</c>. One
+/// unprefixed namespace and one prefixed one cannot collide, so a chat outage never benches a media backend
+/// sharing its id — and a host pre-benching a chat backend by hand must use the bare identity.</param>
 /// <param name="options">Platform options; <see cref="LyntaiOptions.Routing"/> supplies the fallback policy,
 /// retry budgets and cooldown granularity.</param>
 /// <param name="logger">Null = no logging.</param>
@@ -58,9 +61,16 @@ public sealed class LlmRouter(
 
     // provider lookup by id, built once — O(1) per candidate/retry instead of a linear scan. First
     // registration wins on a duplicate id (preserving the prior FirstOrDefault semantics).
+    //
+    // Keyed CASE-INSENSITIVELY, like every other id lookup in the tree (GenerationRouter, ProviderPoolGuard,
+    // IToolRegistry, IJobHandlerRegistry, BoundedProviderPool). An ordinal table made a pool slot cased
+    // differently from the provider's own Id — which ProviderPoolGuard deliberately ACCEPTS — reachable by
+    // the guard, poolable, and then never selected here: the backend was simply never tried, with no error
+    // and one debug line. Case-folding also merges two registrations whose ids differ only in case, which is
+    // the same "first registration wins" rule one step earlier: the second was unreachable either way.
     private readonly Lazy<IReadOnlyDictionary<string, ILlmProvider>> _byId = new(() =>
     {
-        var map = new Dictionary<string, ILlmProvider>();
+        var map = new Dictionary<string, ILlmProvider>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in providers) map.TryAdd(p.Id, p);
         return map;
     });

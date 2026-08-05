@@ -90,8 +90,8 @@ public sealed class OpenAiImageProvider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, $"{Root}/models");
@@ -137,8 +137,8 @@ public sealed class OpenAiImageProvider(
                 "this endpoint edits BYTES; supply GenerationInput.Data (a URI-only input would mean the " +
                 "platform downloading it for you, and guessing at auth for that host)");
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var message = edit is null ? Generation(request) : Edit(request, edit);

@@ -1,3 +1,9 @@
+---
+name: llm-and-router
+applies_when: touching the router, a provider, the front door, streaming, dead-host cooldown, admission, or the CLI process runner
+enforces: classify through the one LlmVerdictClassifier; a blameless verdict never masks a real failure; no fallback after the first content token; timeouts are inactivity clocks, never wall-clock; the CLI rules live once in CliProviderEngine
+---
+
 # LLM & router internals
 
 The load-bearing correctness rules for `Lyntai.Core/Llm/**`. These are invariants — tests pass while
@@ -17,18 +23,60 @@ host).
 | `Failed`, `Timeout` | availability problem — record a failure, **advance** to the next candidate |
 | `RateLimited`, `AuthFailed` | terminal for THIS host, transient for the fleet — **cool the host immediately (`MarkDead`) and advance** (a different candidate has a different quota/key) |
 | `ContextWindowExceeded` | request too big for THIS model, not a host fault — advance with **no** dead-host penalty |
+| `NotConfigured` | never set up — not a fault and not a rejected credential, so advance **without blame** (mapped explicitly, because the unmapped fallback would penalize it) |
 | `Refused` | content policy follows the prompt, not the host — **surface as-is, never fall back** |
+| `Unsupported` | a capability/transport gap — **surfaces like `Refused`** (no fallback, no cooldown; another candidate has the same limitation, so advancing just churns), but stays a DISTINCT verdict so telemetry/scorers don't conflate a capability gap with a policy refusal |
+
+`NotConfigured` and `Unsupported` are also the two **blameless** verdicts (`LlmRouter.IsBlameless`) — they are
+not faults, so they are remembered apart from real failures when the router decides what to REPORT. The table
+above is per-verdict ACTION; the reporting half is under Fallback below, and a reader who stops at the table
+sees only one of the pair (`Unsupported` reaches the blameless slot only where a host has overridden its
+default `Surface` action, since Surface returns first).
 
 The §6 amendment: `RateLimited` used to circuit-break the whole request; it now cools-and-advances.
-`AuthFailed`/`ContextWindowExceeded` are the finer taxonomy added in v0.2.0. If you touch this table,
-update the `ILlmRouter` XML doc too — it's the contract a consumer reads.
+`AuthFailed`/`ContextWindowExceeded` are the finer taxonomy added in v0.2.0. If you touch this table, update
+every downstream copy of the taxonomy — there are four: `LlmVerdict.cs` (the CANONICAL statement, and the
+IntelliSense a consumer reads), `ILlmRouter.cs`'s XML doc (the contract a consumer reads), `README.md` §The
+semantics you're getting (the consumer-facing statement), and design §5.1 (the frozen v0.1 record, which takes
+a dated amendment rather than a rewrite).
+
+**A consumer can teach the classifier its own error phrasing** — `LlmVerdictClassifier.AddErrorTextMatcher(text
+=> verdict?)` registers a process-wide matcher consulted BEFORE the built-in (English) patterns, first non-null
+wins, and returns an `IDisposable` so a test can scope its registration (an app registers once at startup and
+never disposes). It teaches BOTH domains at once, since `GenerationVerdictClassifier` delegates its corpus
+here. **A matcher MUST NOT throw.** Classification runs inside the router's own `catch`, so a throw propagates
+out of `ILlmClient.CompleteAsync`/`StreamAsync` and aborts the whole routing attempt — the remaining candidates
+included. That deliberately differs from `IRefusalMatcher` (below), whose seam logs a throwing matcher and
+fails open: the classifier is static and has no logger, so swallowing there would hide the bug rather than
+report it.
 
 ## Fallback (`LlmRouter.CompleteAsync`)
 
 Dedup candidates by `(providerId, model)` (first wins — a mis-ordered list that re-prepends the primary
 won't retry it), then try in order, skipping providers that are unregistered / `!IsAvailable` / in
-dead-host cooldown. Log every attempt with provider + verdict + detail. Return the last reply if all
-candidates are exhausted; a `Failed` "no live candidate" reply if none were even eligible.
+dead-host cooldown. Log every attempt with provider + verdict + detail. A candidate may be RETRIED before the
+router advances (`RoutingPolicy.Retry`), and the retries are part of ONE attempt at that candidate: exactly one
+failure is recorded when they are exhausted, never one per retry — recording per retry would cross the
+dead-host threshold inside a single call. When all candidates are exhausted the router returns the last
+SUBSTANTIVE failure; a `Failed` "no live candidate" reply if none were even eligible.
+
+**"The last reply" is not the rule — a blameless verdict is kept apart from a real failure.** `CompleteAsync`
+holds two slots, `last` (the last substantive failure — what the caller is told) and `lastBlameless`, and
+returns `last ?? lastBlameless ?? synthetic`. `LlmRouter.IsBlameless` is `NotConfigured or Unsupported`.
+Without the split, `[downHost → Failed, neverConfigured → NotConfigured]` would tell the caller "not
+configured" and send them off to set up a key, while the backend they HAD configured is the one that is down.
+`StreamAsync` mirrors it exactly (`lastError ?? lastBlameless ?? synthetic`, on pre-content errors only).
+
+Three properties of that split are load-bearing:
+
+- **It is keyed on the VERDICT, not on `FallbackAction.Advance`.** Keying on the action would also swallow
+  `ContextWindowExceeded`, and "your prompt is too big" is a real, actionable answer that must still surface.
+- **Only ELIGIBILITY is decided there.** Which substantive failure wins is untouched and the two domains
+  differ on purpose: this router keeps the LAST (`last = reply` each time), `GenerationRouter` keeps the FIRST
+  (`firstFailure ??= result`) — the first backend's error explains a media run better than the last one's.
+- **`GenerationRouter` applies the same two verdicts** (`GenerationVerdict.NotConfigured or Unsupported`
+  excluded from `firstFailure`, falling through to a `NotConfigured` "every capable backend reported it is not
+  configured"). One answer per situation across both domains is the point; change one and check the other.
 
 ## Routing recipes
 
@@ -47,6 +95,12 @@ candidates are exhausted; a `Failed` "no live candidate" reply if none were even
   surfaced as `Refused` (no fallback). Applied by `RefusalScreeningLlmClient` — the always-on OUTERMOST
   front-door layer (above the response cache), so a cached hit is re-screened too. Completion-path only
   (streaming isn't screened); a malformed pattern is logged and ignored (fail-open).
+  **`IRefusalMatcher` is the structured alternative** (not a preferred one — the code ranks neither):
+  `builder.AddRefusalMatcher<T>()` / `(instance)` / `(factory)` registers a typed check into a DI collection,
+  and it can key off the REQUEST (consumer, model, language) as well as the text, encoding logic one regex
+  can't. Order inside the same decorator: the request's regex first, then every registered matcher; any that
+  returns true surfaces the reply as `Refused`. Same two fences as the regex — completion-path only, and
+  fail-open (a throwing matcher is logged and the reply passes through unchanged).
 
 ## Streaming (`LlmRouter.StreamAsync`) — two invariants
 
@@ -140,8 +194,11 @@ reads stdout in chunks and re-arms `timeout` on each (stdin written concurrently
 so a slow-but-alive turn finishes while a child gone SILENT for the window is killed — matching
 `StreamLinesAsync`. The buffered path also takes an absolute `maxDuration` backstop (a child that never
 stalls but never finishes) and reports `ProcessResult.TimeoutKind` = `Inactivity` vs `MaxDuration` so the
-two are distinguishable; `ClaudeCliProvider` passes the resolved timeout as the window and
-`MaxProviderTimeout` as the backstop. Do NOT reintroduce a single wall-clock `CancelAfter` over the whole
+two are distinguishable; `CliProviderEngine.CompleteAsync` passes the resolved timeout as the inactivity
+window and `MaxProviderTimeout` as the backstop — never below the window, so a consumer budget above the
+ceiling raises it rather than the reverse — for EVERY dialect, claude and codex alike (the per-CLI providers
+are forwarding members; the clocks are the engine's, D27). Do NOT reintroduce a single wall-clock
+`CancelAfter` over the whole
 buffered call — it kills healthy slow turns (the streaming-timeout trap, same failure mode). Tests stub the
 CLI via `LYNTAI_PROVIDER_CMD`.
 

@@ -7,6 +7,16 @@
 > **Status: IMPLEMENTED (G1a–G3).** Shipped as designed; the one as-built deviation is the adapter
 > parser — a new stateful `StreamJsonAgentReader` rather than an edit to the static `StreamJsonParser`
 > (keeps the untouched provider text path isolated). Build clean · 725 tests · e2e 3/3 · leak scan clean.
+>
+> **Amendment (2026-08-05): adapter #2 landed, and it answers two of this document's open questions.**
+> `CodexAgentSession` (`src/Lyntai.Providers.Default/`, registered by `AddCodexCliAgentSession()`) shipped
+> as the second `IAgentSession` — see `docs/DECISIONS.md` D42 and `docs/task-archive.md` Part 39. So §10's
+> "no second adapter is built now" is history, not current state, and §6 is no longer only a paper
+> stress-test: it held against real code — `AgentStreamEvent` needed **no new case and lost none**, which
+> is what D42 records as the evidence the event model is not claude-only by design.
+> §11 decision 1's **revisit trigger fired and answered NO**: `CodexAgentOptions` declares exactly one
+> property, `SandboxMode` — no `WorkingDirectory`, no `SettingsPath` — so the pair did not recur and no
+> `CliAgentSessionOptions` mid-layer is warranted. The §10/§11 prose below is left as decided at the time.
 
 ## 1. Context — the gap, and why it is a new primitive
 

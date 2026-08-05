@@ -25,13 +25,22 @@ public static class LyntaiServiceCollectionExtensions
         // idempotency guard: a second AddLyntai would register a second LyntaiOptions (shadowing the
         // first on resolution) while the providers/scorers from both calls pile into the DI collections,
         // configured against the now-orphaned first options. Compose everything in one configure callback.
+        // What is OBSERVED is only "a LyntaiOptions descriptor exists", and LyntaiOptions is a normal DI
+        // citizen the adapters resolve — so a host that registered one by hand lands here too, and the
+        // message names that cause rather than asserting a second call that never happened.
         if (services.Any(d => d.ServiceType == typeof(LyntaiOptions)))
             throw new InvalidOperationException(
-                "AddLyntai has already been called on this IServiceCollection. Call it once and compose all providers, storage, and scorers in the single configure callback.");
+                "A LyntaiOptions is already registered on this IServiceCollection. Either AddLyntai has already been " +
+                "called — call it once and compose all providers, storage, and scorers in the single configure " +
+                "callback — or a LyntaiOptions was registered by hand, which AddLyntai's own registration would " +
+                "shadow; configure it inside the callback with builder.Configure(...) instead.");
 
         // a consumer-supplied ILlmClient registered BEFORE AddLyntai would make the base TryAddSingleton
         // below no-op — silently dropping any front-door decorators (cache/budget/rate-limit). Catch that
-        // contradiction rather than let governance vanish without a trace.
+        // contradiction rather than let governance vanish without a trace. Captured HERE, before the
+        // callback runs, so it observes pre-AddLyntai registrations ONLY: a client registered on
+        // builder.Services inside the callback, or on the collection after AddLyntai returns, discards the
+        // same decorators and no predicate placed in this method could see it.
         var hadPreexistingClient = services.Any(d => d.ServiceType == typeof(ILlmClient));
 
         var options = new LyntaiOptions();
@@ -42,8 +51,11 @@ public static class LyntaiServiceCollectionExtensions
         if (hadPreexistingClient && builder.FrontDoorDecorators.Count > 0)
             throw new InvalidOperationException(
                 "A front-door decorator (AddResponseCache / AddUsageBudget / AddRateLimit) was configured, but an " +
-                "ILlmClient is already registered — the decorators would be silently ignored. Either don't pre-register " +
-                "ILlmClient, or use the BYO seams (IResponseCache / IUsageTracker / IRateLimiter) instead.");
+                "ILlmClient was registered BEFORE AddLyntai — the decorators would be silently ignored. Either don't " +
+                "pre-register ILlmClient, or use the BYO seams (IResponseCache / IUsageTracker / IRateLimiter) instead. " +
+                "This check sees pre-AddLyntai registrations only: registering ILlmClient on builder.Services inside " +
+                "the configure callback, or on the collection after AddLyntai returns, drops every front-door " +
+                "decorator with no error at all — layer your own with AddFrontDoorDecorator instead.");
 
         // AddSemanticMemory states an intent the wiring below can only honor when an embedder exists —
         // otherwise ISemanticMemory is never registered and every recall path skips it in silence. The
@@ -58,9 +70,10 @@ public static class LyntaiServiceCollectionExtensions
         // so with a pre-registered ILlmClient every AddRefusalMatcher registration would silently do nothing
         if (hadPreexistingClient && services.Any(d => d.ServiceType == typeof(IRefusalMatcher)))
             throw new InvalidOperationException(
-                "An IRefusalMatcher was registered (AddRefusalMatcher), but an ILlmClient is already registered — " +
-                "refusal screening wraps Lyntai's own front door and would be silently ignored. Either don't " +
-                "pre-register ILlmClient, or screen replies in your own client.");
+                "An IRefusalMatcher was registered (AddRefusalMatcher), but an ILlmClient was registered BEFORE " +
+                "AddLyntai — refusal screening wraps Lyntai's own front door and would be silently ignored. Either " +
+                "don't pre-register ILlmClient, or screen replies in your own client. As above, only pre-AddLyntai " +
+                "registrations are visible here.");
 
         // Compose per feature area — each block is self-contained and order-independent across areas (they
         // register distinct service types; the front-door decorators fold at resolution, not registration).

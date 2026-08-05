@@ -8,7 +8,7 @@
 
     Packages stay SEPARATE when they drag something a consumer may not want: Lyntai.Providers.Local
     (LLamaSharp + a native backend), Lyntai.Providers.ExtensionsAi (Microsoft.Extensions.AI),
-    Lyntai.Storage.Sqlite (a native SQLite binary), Lyntai.Tools.Mcp.Hosting (ASP.NET Core),
+    Lyntai.Storage.Sqlite (a native SQLite binary), Lyntai.Tools.Mcp.Hosting (ModelContextProtocol.Core),
     Lyntai.Secrets.Dpapi (Windows-only). See docs/DECISIONS.md D31.
 
     NAMESPACES ARE UNCHANGED (Lyntai.Providers.ClaudeCli / .CodexCli / .OpenAiCompatible) — merging the

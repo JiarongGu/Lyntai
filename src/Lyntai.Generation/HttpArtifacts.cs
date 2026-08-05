@@ -3,9 +3,9 @@ using Lyntai.Text;
 
 namespace Lyntai.Generation.Providers;
 
-/// <summary>Shared reading of what an HTTP generation backend sends back. Lives once because all three
-/// backends in this package face the same two questions — "did it fail, and what does that mean?" and "where
-/// are the bytes?" — and only the JSON path differs.</summary>
+/// <summary>Shared reading of what an HTTP generation backend sends back. Lives once because the HTTP backends
+/// in this package face the same two questions — "did it fail, and what does that mean?" and "where are the
+/// bytes?" — and only the JSON path differs. (The local engine is the one backend that is not HTTP.)</summary>
 internal static class HttpArtifacts
 {
     /// <summary>Base64 that may arrive as a bare payload or as a <c>data:image/png;base64,…</c> URL. Both
@@ -86,16 +86,22 @@ internal static class HttpArtifacts
         return message.Length <= max ? message : message[..max];
     }
 
-    private static IReadOnlyDictionary<string, string>? RevisedPrompt(JsonElement item) =>
-        Str(item, "revised_prompt") is { } revised
-            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["revised_prompt"] = revised }
-            : null;
-
-    private static string? Str(JsonElement element, string name) =>
+    /// <summary>A non-empty string property of a JSON object, or null. Shared with the queue backends, which
+    /// read their own envelopes the same way — the object-kind guard is the part a copied reader loses, and
+    /// <c>JsonElement.TryGetProperty</c> throws rather than answering false when the element is not an
+    /// object.</summary>
+    /// <param name="element">The element to read from; anything but an object answers null.</param>
+    /// <param name="name">The property name.</param>
+    public static string? Str(JsonElement element, string name) =>
         element.ValueKind == JsonValueKind.Object &&
         element.TryGetProperty(name, out var value) &&
         value.ValueKind == JsonValueKind.String &&
         value.GetString() is { Length: > 0 } text
             ? text
+            : null;
+
+    private static IReadOnlyDictionary<string, string>? RevisedPrompt(JsonElement item) =>
+        Str(item, "revised_prompt") is { } revised
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["revised_prompt"] = revised }
             : null;
 }

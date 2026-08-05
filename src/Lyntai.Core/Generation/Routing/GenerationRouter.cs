@@ -8,8 +8,11 @@ namespace Lyntai.Generation.Routing;
 /// <summary>The default <see cref="IGenerationRouter"/>: capability pre-filter, then verdict-driven fallback
 /// with dead-host cooldown, plus a span and metrics per attempt.
 ///
-/// Fallback semantics come from <see cref="GenerationRoutingPolicy"/>, whose defaults mirror the LLM
-/// router's (design §6) so one mental model covers both:
+/// Fallback semantics come from <see cref="GenerationRoutingPolicy"/>, whose defaults follow the SHAPE of the
+/// LLM router's (design §6) — a content refusal surfaces, a rate limit or a rejected key benches, a fault
+/// penalizes — and deliberately differ on <see cref="GenerationVerdict.Unsupported"/>, which advances here and
+/// surfaces there (<see cref="GenerationVerdictClassifier"/> states why: chat candidates share a capability
+/// gap, media backends do not):
 /// <list type="bullet">
 /// <item><see cref="GenerationVerdict.Refused"/> SURFACES — a content refusal is not a transport fault, and
 ///   quietly re-submitting a refused prompt to another vendor is not a library's decision. A host that
@@ -25,14 +28,30 @@ namespace Lyntai.Generation.Routing;
 /// <para><b>Submission has one rule of its own:</b> a failed submission marked
 /// <see cref="GenerationOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that never
 /// answered may already hold a billable render and the next candidate would buy the same generation
-/// twice.</para></summary>
+/// twice.</para>
+///
+/// <para><b>The policy governs submission too, at one remove.</b> A submission comes back carrying a
+/// <see cref="GenerationOperationStatus"/>, not a verdict, so a rejected one is classified from the backend's
+/// own <see cref="GenerationOperation.Detail"/> through <see cref="GenerationVerdictClassifier"/> and then
+/// answered by the same table — a rate limit benches, an unconfigured backend advances blamelessly, an
+/// unclassifiable rejection counts toward the threshold as it always did. Two things stay true regardless of
+/// what the text says: the Inconclusive case above is decided BEFORE the verdict is, and a submission the
+/// router does not accept reports an EMPTY <see cref="GenerationSubmission.ProviderId"/> — which
+/// <see cref="IGenerationRouter"/> defines as "no candidate accepted" — with the first rejection's backend and
+/// reason folded into the detail instead.</para>
+///
+/// <para><b>The candidate list is deduped on the RESOLVED (backend, model) pair</b> before anything is
+/// attempted, so a repeated spec is one candidate — and, the sharper half, two entries naming one backend no
+/// longer inflate the count <see cref="GenerationRoutingPolicy.ExemptSoleCandidate"/> reads.</para></summary>
 /// <param name="providers">The registered backends.</param>
 /// <param name="policy">Per-verdict fallback behaviour; null = the defaults above.</param>
 /// <param name="deadHosts">Cooldown bookkeeping — the SAME <see cref="DeadHostTracker"/> the LLM router uses,
 /// deliberately: "this host keeps failing, stop asking" is transport bookkeeping keyed by a string, not an LLM
-/// concept, and a second copy would be a second set of bugs (and a second threshold to configure). Keys are
-/// prefixed per domain so a chat outage never benches a generation backend that happens to share its id.
-/// Null disables cooldown entirely (a hand-built router in a test).</param>
+/// concept, and a second copy would be a second set of bugs (and a second threshold to configure). A media key
+/// is prefixed <c>generation::</c> while a chat key is the BARE provider/configuration identity (plus
+/// <c>::model</c> under <see cref="CooldownScope.ProviderAndModel"/>) — one prefixed namespace and one
+/// unprefixed one cannot collide, so a chat outage never benches a generation backend that happens to share its
+/// id. Null disables cooldown entirely (a hand-built router in a test).</param>
 /// <param name="configuration">Which CONFIGURATION a provider is running under, used to key dead-host
 /// cooldown and admission. Null (or a null return) = key cooldown on
 /// <see cref="Lyntai.Lifecycle.IProviderIdentity.Id"/> and apply no admission, which is the historical
@@ -125,6 +144,11 @@ public sealed class GenerationRouter(
         var capable = Capable(candidates, request, GenerationDelivery.Job);
         var benched = 0;
 
+        // the FIRST substantive rejection, kept the way GenerateAsync keeps its firstFailure: the backend
+        // that explained why is the only thing in this run a caller can act on, and the synthesized message
+        // below is otherwise a list of ids that says nothing about what went wrong
+        (string ProviderId, string? Detail)? firstFailure = null;
+
         foreach (var (provider, resolved) in capable)
         {
             if (provider is not IGenerationJobProvider job) continue;   // capability says Job; the type must agree
@@ -155,17 +179,64 @@ public sealed class GenerationRouter(
                 // and benching a working backend on a slow network helps nobody.
                 if (operation.Inconclusive) return new GenerationSubmission(provider.Id, operation);
 
-                // a queue that won't take the job is exactly the dead-host case the LLM side benches for: the
-                // next submission a second later has no reason to fare better
-                deadHosts?.RecordFailure(CooldownKey(provider));
+                // A rejected submission gets a VERDICT, because "advance and always take a dead-host strike"
+                // is wrong for the same reason it is wrong inline: an unconfigured queue backend
+                // (FalQueueProvider answers "not configured: …" before it opens a socket) would be penalised
+                // on every attempt for a fact known before the call — precisely the harm NotConfigured was
+                // introduced to prevent (docs/DECISIONS.md D38). An operation carries a STATUS, not a verdict,
+                // so the verdict comes from classifying the backend's own words through the shared corpus;
+                // an unclassifiable rejection still lands on Failed, which is what it did before.
+                var verdict = GenerationVerdictClassifier.FromErrorText(operation.Detail);
+
+                // blameless verdicts are not reasons — remembered apart, exactly as GenerateAsync does, so
+                // "nothing is set up" never masks "the one you configured refused the job"
+                if (verdict is not (GenerationVerdict.NotConfigured or GenerationVerdict.Unsupported))
+                    firstFailure ??= (provider.Id, operation.Detail);
+
+                switch (_policy.ActionFor(verdict))
+                {
+                    case GenerationFallbackAction.Surface:
+                        // a content refusal is the backend judging the PROMPT, and re-submitting it to the
+                        // next vendor is not a library's decision — the same rule the inline path follows,
+                        // and overridable the same way (On(Refused, Advance)). ProviderId stays empty: it
+                        // means "no candidate accepted", and a refusal is a refusal, not an acceptance.
+                        return new GenerationSubmission("", operation);
+                    case GenerationFallbackAction.CooldownAndAdvance:
+                        deadHosts?.MarkDead(CooldownKey(provider));
+                        break;
+                    case GenerationFallbackAction.PenalizeAndAdvance:
+                        // a queue that won't take the job is exactly the dead-host case the LLM side benches
+                        // for: the next submission a second later has no reason to fare better
+                        deadHosts?.RecordFailure(CooldownKey(provider));
+                        break;
+                }
             }
         }
 
         return new GenerationSubmission("", new GenerationOperation("", GenerationOperationStatus.Failed,
-            Detail: benched > 0
+            Detail: (benched > 0
                 ? $"every capable media backend for a '{request.Kind}' job is on dead-host cooldown"
                 : $"no capable media backend accepted a '{request.Kind}' job among " +
-                  $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]"));
+                  $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]") + Because(firstFailure)));
+    }
+
+    /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message.
+    /// Without it the only thing that survives a failed submission is a list of candidate ids — and that is
+    /// what <c>GenerationRenderJobHandler</c> fails the job with and what <c>GenerationSubmitTool</c> hands a
+    /// model, neither of which can act on "these three didn't work".
+    /// <para><see cref="GenerationSubmission.ProviderId"/> stays EMPTY regardless: <see cref="IGenerationRouter"/>
+    /// documents empty as "no candidate accepted", and both callers branch on it. The id belongs in the
+    /// sentence, not in that field.</para></summary>
+    private static string Because((string ProviderId, string? Detail)? failure)
+    {
+        // nothing was even attempted (every entry was incapable, not job-capable, or benched)
+        if (!failure.HasValue) return "";
+
+        var (providerId, detail) = failure.Value;
+        // a rejection with no reason still names WHO, which is more than the id list says
+        return string.IsNullOrWhiteSpace(detail)
+            ? $" — '{providerId}' rejected it without giving a reason"
+            : $" — '{providerId}' said: {detail}";
     }
 
     /// <summary>One backend attempt, wrapped in a span + duration/cost metrics. Per ATTEMPT, not per request:
@@ -214,23 +285,41 @@ public sealed class GenerationRouter(
     private string CooldownKey(IGenerationProvider provider) =>
         $"generation::{_configuration(provider)?.ToString() ?? provider.Id}";
 
-    /// <summary>Candidates that exist, are registered, and DECLARE they can serve this request/delivery —
-    /// with the candidate's model applied to the request when it pins one. Materialized because the
-    /// sole-candidate cooldown exemption needs to know how many there are before trying the first.</summary>
+    /// <summary>Candidates that exist, are registered, are DISTINCT, and DECLARE they can serve this
+    /// request/delivery — with the candidate's model applied to the request when it pins one. Materialized
+    /// because the sole-candidate cooldown exemption needs to know how many there are before trying the
+    /// first.
+    ///
+    /// <para><b>Dedup happens on the RESOLVED pair, and it happens HERE.</b> Resolved, because that is the
+    /// pair that decides what is actually called: <c>"fal"</c> and <c>"FAL"</c> select one provider (ids match
+    /// case-insensitively), and a candidate pinning the model the request already names resolves to the same
+    /// call as one that pins nothing. Here, because <see cref="GenerationRoutingPolicy.ExemptSoleCandidate"/>
+    /// reads the COUNT of this list — so two entries naming one backend would both re-attempt a backend that
+    /// just failed AND make the sole capable backend look like two, silently withdrawing the exemption. A
+    /// dedup applied after the count is taken fixes neither.</para>
+    ///
+    /// <para>The dedup itself is the LLM router's (<see cref="CandidateDedup"/>) — first wins, order preserved
+    /// — rather than a second copy of it here.</para></summary>
     private List<(IGenerationProvider Provider, GenerationRequest Request)> Capable(
         IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, GenerationDelivery delivery)
     {
-        var capable = new List<(IGenerationProvider, GenerationRequest)>();
+        var resolved = new List<(IGenerationProvider Provider, GenerationRequest Request)>();
         foreach (var candidate in candidates)
         {
             var provider = _providers.FirstOrDefault(p =>
                 string.Equals(p.Id, candidate.ProviderId, StringComparison.OrdinalIgnoreCase));
             if (provider is null) continue;   // an unknown id is a config typo, not a crash
 
-            var resolved = candidate.Model is { Length: > 0 } model ? request with { Model = model } : request;
-            if (!provider.Capabilities.Supports(resolved, delivery)) continue;
+            resolved.Add((provider,
+                candidate.Model is { Length: > 0 } model ? request with { Model = model } : request));
+        }
 
-            capable.Add((provider, resolved));
+        // capability LAST: a duplicate is dropped before it is asked, and the surviving count is the number
+        // of distinct backends this request could actually reach
+        var capable = new List<(IGenerationProvider, GenerationRequest)>();
+        foreach (var entry in CandidateDedup.Dedup(resolved, e => (e.Provider.Id, e.Request.Model)))
+        {
+            if (entry.Provider.Capabilities.Supports(entry.Request, delivery)) capable.Add(entry);
         }
         return capable;
     }

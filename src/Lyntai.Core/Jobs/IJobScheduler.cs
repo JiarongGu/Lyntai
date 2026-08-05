@@ -46,6 +46,7 @@ public sealed class JobScheduler(
     // the benign duplicate-work a concurrent one allows).
     private readonly ConcurrentDictionary<string, DateTimeOffset> _memory = new(StringComparer.Ordinal); // no-KV fallback
     private readonly ConcurrentDictionary<string, CronExpression?> _cron = new(StringComparer.Ordinal);  // parsed cron cache
+    private readonly ConcurrentDictionary<string, byte> _warned = new(StringComparer.Ordinal);           // already-reported bad schedules
     private readonly IReadOnlyList<JobSchedule> _schedules = [.. schedules];
     private readonly ILogger _logger = logger ?? NullLogger<JobScheduler>.Instance;
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
@@ -102,15 +103,22 @@ public sealed class JobScheduler(
         if (s.Cron is not null)
         {
             if (Cron(s) is not null) return true;
-            _logger.LogWarning("scheduler: skipping '{Name}' — invalid cron '{Cron}'", s.Name, s.Cron);
+            if (FirstSight(s.Name))
+                _logger.LogWarning("scheduler: skipping '{Name}' — invalid cron '{Cron}'", s.Name, s.Cron);
             return false;
         }
         if (s.Interval is { } iv && iv > TimeSpan.Zero) return true;
-        _logger.LogWarning("scheduler: skipping '{Name}' — needs a positive Interval or a Cron", s.Name);
+        if (FirstSight(s.Name))
+            _logger.LogWarning("scheduler: skipping '{Name}' — needs a positive Interval or a Cron", s.Name);
         return false;
     }
 
-    // parse + cache the cron (null = no cron or a parse failure); cached so a bad cron doesn't re-throw/warn each tick
+    // A malformed schedule stays malformed, so its warning is logged ONCE per schedule name: the pump ticks
+    // every Jobs.PollInterval (2s by default), which would otherwise repeat the same line ~30x a minute forever.
+    private bool FirstSight(string name) => _warned.TryAdd(name, 0);
+
+    // parse + cache the cron (null = no cron or a parse failure); the cache suppresses the re-PARSE (and its
+    // throw) each tick — suppressing the repeated WARNING is _warned's job, in IsValid
     private CronExpression? Cron(JobSchedule s)
     {
         if (s.Cron is null) return null;

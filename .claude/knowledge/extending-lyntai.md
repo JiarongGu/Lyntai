@@ -1,6 +1,12 @@
+---
+name: extending-lyntai
+applies_when: adding an LLM provider, a storage backend, a scorer, a CLI tool-hosting dialect, a generation backend, or a migration
+enforces: an interface in Lyntai.Core + an implementation in an adapter (never adapter→adapter) + one LyntaiBuilder extension; a new package only when the dependency footprint earns one, scaffolded by new-package
+---
+
 # Extending Lyntai
 
-On-demand detail for the five extension points. Read the one you're touching. The always-on rules are
+On-demand detail for the six extension points. Read the one you're touching. The always-on rules are
 in `.claude/rules/` — `dotnet-package-layout.md` for the boundaries, `repo-mechanics.md` for this repo's
 bindings; the correctness invariants are in `llm-and-router.md` and `storage.md`; the traps are in
 `pitfalls.md`.
@@ -48,8 +54,9 @@ Then a ~40-line provider that composes engine + dialect and declares which optio
 backend *actually* has (`IProviderInstallation` / `IProviderUpdater` / `IProviderVersionInstaller` /
 `IProviderAuth`) — copy `ClaudeCliProvider`, which is nothing but forwarding members. The engine owns:
 command resolution, neutral cwd, prompt delivery (stdin or trailing argument — set `PromptDelivery`),
-inactivity clocks + backstop, `LlmVerdictClassifier`, empty→`Failed`, streaming order, and probe → run →
-re-probe maintenance.
+the inactivity clock (plus an absolute backstop on the BUFFERED path only — a streamed turn is bounded by
+provider inactivity and the caller's token, nothing else), `LlmVerdictClassifier`, empty→`Failed`,
+streaming order, and probe → run → re-probe maintenance.
 
 Rules specific to this path:
 - **Never name a maintenance command you haven't verified against the real binary** (`--help` it). The base
@@ -63,11 +70,26 @@ Rules specific to this path:
   a warning item — must stay `Ignored`, or healthy calls fail on retries they recovered from.
 - **Check what your CLI assumes about its working directory.** The engine spawns from a neutral temp dir; codex
   needs `--skip-git-repo-check` because of it.
+- **`SupportsToolCalls` on the dialect drives ONLY the engine's ignored-tools warning.** If your dialect
+  returns `true`, the composing `ILlmProvider` must declare `public bool SupportsToolCalls => true;` itself —
+  the provider is the capability declarer (D27), and the engine does not forward the dialect's answer.
+  Otherwise `LlmRouter.SupportsToolCalls` reports false and `ToolLoop` silently takes the prompt-based
+  fallback on a backend that can do native tool calls.
 - **Portable installs are free if you don't fight them** — the host passes `command` (+ `environment`) to your
   builder extension (D28); pass both straight through to the engine and don't read env vars yourself.
 
-**B. Native `ILlmProvider`** for anything else (like `OpenAiCompatibleProvider`). New package
-`src/Lyntai.Providers.<Name>/`, ref Core only. Implement:
+**B. Native `ILlmProvider`** for anything else (like `OpenAiCompatibleProvider`). **Where it lives is a
+FOOTPRINT test, not one-package-per-backend** (`docs/DECISIONS.md` D31): a dialect or native provider that
+needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is a class in
+`src/Lyntai.Providers.Default/`, where `ClaudeCliDialect`, `CodexCliDialect`, `ClaudeCliProvider`,
+`CodexCliProvider` and `OpenAiCompatibleProvider` already live; namespaces stay `Lyntai.Providers.<Name>`
+inside the one assembly (D31), so nothing an author writes changes. It earns its own
+`src/Lyntai.Providers.<Name>/` package (ref Core only, never adapter→adapter) only when it drags a native
+runtime, a platform-specific API, or a dependency a consumer might refuse — `Lyntai.Providers.Local` is the
+worked example. When it does earn one, scaffold it with `node devtools/dev.mjs new-package <Lyntai.X>`: a
+package must enter NINE registries, `check-packages` gates them, and the misses are silent (no
+`ApiSurfaceTests` entry means no API gate at all). Never register them by hand — and remember a published
+package id can never be freed (D29), so a needless one is permanent. Implement:
 
 ```csharp
 public sealed class MyProvider(string id, /* options, factory */, LyntaiOptions options) : ILlmProvider
@@ -84,6 +106,18 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   three copies were consolidated into one for exactly this reason). Map transport → verdict:
   429→`RateLimited`, 401/403→`AuthFailed`, content-filter→`Refused`, too-big→`ContextWindowExceeded`,
   deadline→`Timeout`, else→`Failed`.
+  **An HTTP backend classifies through the THREE-argument overload**,
+  `LlmVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` (see
+  `OpenAiCompatibleProvider`, which passes `HasCredentials`). A 401/403 answered to a call that carried NO
+  credentials is `NotConfigured`, not `AuthFailed` — and the difference is not cosmetic, because routing acts
+  on it: `AuthFailed` BENCHES the provider for the cooldown window, so a backend the consumer merely listed
+  without configuring would be penalised on every first attempt for a fact the platform knew before calling,
+  while `NotConfigured` skips it blamelessly and lets a host offer setup (`docs/DECISIONS.md` D38). The rule is
+  **not** "a key is required": an OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama)
+  legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key AND the server
+  demanded one" does. A CLI/session-authenticated dialect has no `hasCredentials` fact at all and correctly
+  stays on the two-argument overload. The generation domain states the same rule over its own vocabulary
+  (`GenerationVerdictClassifier.FromHttpFailure`); change one and check the other.
 - **Empty/no output is `Failed`, not `Ok`** — both in `CompleteAsync` and as a terminal `Error` chunk in
   `StreamAsync` (a zero-content stream must let the router fall over, not report a clean empty answer).
 - **Streaming timeout is an INACTIVITY clock**, never a single `CancelAfter` over the whole stream:
@@ -110,16 +144,88 @@ Tests: drive it against a stub, never a live endpoint — an HTTP provider gets 
 
 ---
 
+## Add a generation backend
+
+The media seam (image / video / audio / 3d) behind one capability-aware contract. Same shape as everything
+else: **the CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation`, `.Routing`, `.Jobs`, `.Tools`),
+the BACKENDS live in the `Lyntai.Generation` package under `Lyntai.Generation.Providers`, and each ships a
+one-line `builder.Add<Name>Provider(...)` shim over `AddGenerationProvider(sp => …)`.
+
+**Read the SemVer scope before you rely on the carve-out.** `Lyntai.Generation` is EXPERIMENTAL as a
+**PACKAGE** — the backends — because they were written from vendor docs with no key to call and because
+`IGenerationStreamProvider` has no implementer. The `Lyntai.Generation` **NAMESPACE** is a different thing:
+`GenerationResult`, `GenerationVerdictClassifier`, the routing policy and the rest of the contracts ship
+inside mandatory `Lyntai.Core` and carry the **FULL** SemVer promise. Read CLAUDE.md's reason clause before
+claiming the exemption; when in doubt apply the full promise — `docs/DECISIONS.md` D43 did exactly that for a
+verdict-translation fix and treated it as major-bump material.
+
+What a backend implements:
+- **`IGenerationProvider`** — `Id`, `Capabilities` (read by the router BEFORE spending anything),
+  `ProbeAsync` and inline `GenerateAsync`. Both must **FAIL SAFE**: a value with a verdict, never a throw
+  (cancellation propagates). `ProbeAsync` must **never generate** to answer a setup question — the
+  generate-and-discard pattern it replaces bills a render to find out whether a key works.
+- **Optional capability interfaces, only if the backend really has them:** `IGenerationJobProvider`
+  (submit → poll → fetch, for queued/long renders) and `IGenerationStreamProvider`. They are ADDITIONAL
+  interfaces the router type-tests, not flags — which is exactly why nothing may wrap a provider in a
+  decorator that implements only the base seam (see `pitfalls.md`).
+- **Classify through `GenerationVerdictClassifier.FromHttpFailure(status, body, hasCredentials)`** — the same
+  two-term promotion as the LLM side: a 401/403 to a call that carried no credentials is `NotConfigured`, not
+  `AuthFailed`, because `AuthFailed` benches the backend for the cooldown window. The classifier DELEGATES its
+  pattern corpus to `LlmVerdictClassifier` and translates; never carry a second copy of "what does a 429 look
+  like".
+- **A submit whose outcome is UNKNOWN is `GenerationOperation.Inconclusive`, and is never re-submitted.** A
+  backend that ANSWERS "no" can be retried elsewhere for free; a backend that never answered may already hold
+  a billable render, and handing the same request to the next candidate buys the same generation twice. The
+  router surfaces such a submission instead of advancing, and does not count it toward the dead-host
+  threshold — no answer is no evidence of ill health either.
+- **MEASURE the wire format before shipping it.** Two backends here are documented-not-measured and carry an
+  explicit caveat until someone runs them for real (`TASKS.md` Part 33, GEN-VERIFY). Do not add a third: a
+  mapping derived from vendor docs is a guess wearing a type, and the build stays green either way.
+
+Before writing code, read the four generation traps already recorded in `pitfalls.md` — `TimeSpan.Zero` means
+"no deadline" here and "cancel instantly" on the LLM side; a cooldown keyed on the provider id benches other
+tenants; decorating a provider erases `IGenerationJobProvider` so every video render silently stops routing
+while every image render keeps working; and `GenerationRouter`'s `Surface` arm returns one frame shallower
+than the admission permit it depends on.
+
+---
+
 ## Add a storage backend
 
-New package `src/Lyntai.Storage.<Backend>/`, ref Core only. Implement the domain interfaces the consumer
-needs (`IKeyValueStore`, `IConversationStore`, `IMemoryStore`, `IScoreStore`, `ITraceStore`) — they're
-independent, you don't have to do all five. Provide `builder.Use<Backend>Storage(...)` that registers an
-`IDbConnectionFactory` (or the backend's equivalent) + the stores + runs migrations.
+A storage driver genuinely does earn its own package (it drags a database driver a consumer might refuse), so:
+new package `src/Lyntai.Storage.<Backend>/`, ref Core only — scaffolded with `node devtools/dev.mjs
+new-package Lyntai.Storage.<Backend>`, which registers it in all NINE registries `check-packages` gates.
+Never hand-roll the csproj; the misses are silent.
+
+Implement the domain interfaces the consumer needs — they're independent, you don't have to do all of them,
+and there are **twelve**, not five: the eight in `src/Lyntai.Core/Storage/` (`IKeyValueStore`,
+`IConversationStore`, `IMemoryStore`, `IScoreStore`, `ITraceStore`, `IPromptVersionStore`, `IJobStore`,
+`ICuratedMemoryStore`) plus `IVectorStore` (`Memory/`), `IResponseCache` (`Llm/Caching/`), `IUsageTracker`
+(`Llm/Budgeting/`) and `IModelRoutingStore` (`Llm/Routing/`). Mirror `src/Lyntai.Storage.Postgres/`, the
+reference backend, which implements eleven of the twelve (all but `IModelRoutingStore`). Provide
+`builder.Use<Backend>Storage(...)` that registers an `IDbConnectionFactory` (or the backend's equivalent) +
+the stores + runs migrations.
+
+Two seams the list alone doesn't reveal:
+- **`IJobStore` goes through `Core/Storage/JobStoreSql.cs`** — the job state machine (transition statements,
+  the `claimed_by` write fence, the claim-candidate predicate) plus the `JobRow` mapping are SHARED on
+  purpose, because drift there is a correctness bug; only the locking frame is per-dialect (`storage.md`
+  §Don't "dedup" the Sqlite/Postgres stores).
+- **A Governance-backed `Use*` helper needs its own startup guard.** `lyntai_vector`, the response cache and
+  the usage ledger all ship under `StorageFeature.Governance`, so those helpers must reject a Governance-less
+  subset at wiring time rather than at first use. The existing `RequireGovernance` is private to each backend,
+  so a new package writes its own equivalent (`storage.md` §Migrations, which also carries the
+  schema-ownership carve-out).
+
+Each domain you DO implement owes a `<Domain>StoreContract` fact class alongside the existing ones
+(`tests/Lyntai.Tests/Storage/`, and `tests/Lyntai.Tests/Jobs/` for `JobStoreContract`) — the contract facts
+run every domain against every backend and are what keeps them from drifting (`storage.md` §Don't "dedup").
+That is the gate a new backend passes.
 
 Read `storage.md` before writing SQL — the FTS trigram triggers, the `CAST(x AS REAL)` affinity trap,
 per-connection `foreign_keys`, and the `lyntai_` prefix are all load-bearing and easy to get subtly
-wrong. Mirror `Lyntai.Storage.Sqlite`.
+wrong; the canonical statement of those traps is `.claude/knowledge/sql-storage.md`. Mirror
+`Lyntai.Storage.Sqlite`.
 
 The domain interfaces are shaped so a future **composite store** (route each domain to a different
 backend, mastra-style) can be layered on without breaking consumers — don't add cross-domain coupling.
@@ -175,8 +281,12 @@ Load-bearing details:
   yourself leaks a credential into temp.
 - **`IMcpCliDialect` lives in Core, deliberately** — so a *provider* package can ship its dialect without
   referencing the hosting package. **Never make a provider package reference `Lyntai.Tools.Mcp.Hosting`**:
-  that drags `Microsoft.AspNetCore.App` into every app using the plain provider, which is the exact thing
-  the `ICliToolProvisioner` seam exists to prevent (`docs/DECISIONS.md` D23).
+  it drags the MCP SDK (`ModelContextProtocol.Core`) into every app using the plain provider, and the
+  hosting package opts out of AOT for its dynamic-JSON tool marshaling — so the provider would lose
+  `IsAotCompatible` too. That is the exact thing the `ICliToolProvisioner` seam exists to prevent
+  (`docs/DECISIONS.md` D23). _The original cost was heavier — a framework reference on
+  `Microsoft.AspNetCore.App` — until 2.0.1 moved the host onto `System.Net.HttpListener` (D31). The
+  dependency shrank; the rule did not change._
 - **Derive names from `ctx.Endpoint.ServerName`**, never hard-code `"lyntai"` — it's configurable via
   `McpToolHostOptions`, and CLIs that build permission patterns from it (`mcp__<server>__*`) break if the
   two disagree.
@@ -196,10 +306,13 @@ argv + file contents (`ClaudeCliMcpDialectTests`). The host itself is covered ge
 `node devtools/dev.mjs new-migration <name>` scaffolds `src/Lyntai.Storage.Sqlite/Migrations/M<num>_<Name>.cs`
 with a **guaranteed-unique, monotonic** `YYYYMMDDNNNN` number (reusing a number is silently skipped —
 never hand-pick one). Then fill `Up()`:
+- Tag it `[Tags(nameof(StorageFeature.<Feature>), StorageFeatures.AllTag)]` — the scaffold's placeholder
+  doesn't compile until you do. Both tags are load-bearing, and an UNTAGGED migration runs under every
+  feature set (so a disabled domain still lands its table).
 - Prefix every object `lyntai_`. snake_case columns. Composite PK + FK **inline at `Create.Table`**
   (SQLite can't `ALTER ADD CONSTRAINT`).
 - Searchable text → FTS5 **trigram** external-content mirror + AFTER INSERT/DELETE/UPDATE triggers
   (emit the `'delete'` command row on delete **and** update) + an in-migration backfill. Copy
-  `M202607170003_Memory` exactly; the delete/update trigger is the #1 botched thing here (`storage.md`).
+  `M202607280003_Memory` exactly; the delete/update trigger is the #1 botched thing here (`storage.md`).
 - The runner applies migrations under WAL + `busy_timeout` (set in `MigrationRunnerService`); it's
   idempotent, so re-running on an up-to-date db is a no-op.

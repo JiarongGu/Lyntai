@@ -251,6 +251,64 @@ public class ProviderPoolWiringTests
         (await second).Dispose();
     }
 
+    /// <summary>Blocks inside GenerateAsync until released, and signals the moment TWO calls are inside at
+    /// once — the observation an admission limit of one would make impossible.</summary>
+    private sealed class GatedGenerationProvider : IGenerationProvider
+    {
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _concurrent;
+
+        public string Id { get; init; } = "a1111";
+        public TaskCompletionSource BothInside { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public GenerationCapabilities Capabilities { get; } = new()
+        {
+            Kinds = [GenerationKinds.Image],
+            Deliveries = [GenerationDelivery.Inline],
+        };
+
+        public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+            Task.FromResult(new GenerationProbeResult(true, "ready"));
+
+        public async Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
+        {
+            if (Interlocked.Increment(ref _concurrent) == 2) BothInside.TrySetResult();
+            await _gate.Task.ConfigureAwait(false);
+            Interlocked.Decrement(ref _concurrent);
+            return GenerationResult.Success([new GenerationArtifact("image/png", Data: [0x89])]);
+        }
+
+        public void Release() => _gate.TrySetResult();
+    }
+
+    // Admission binds to the router factories' POOLED overloads only; the CONTAINER-composed IGenerationRouter
+    // is built through the INSTANCE overload and is handed no admission at all, so a configured limit does not
+    // bound it. Four doc sites say so and nothing asserted it — pinned here so the single-deployment case is a
+    // decision on record rather than an assumption, and so a change that starts gating the container path
+    // arrives as a red test instead of a host whose concurrency silently halved.
+    [Fact]
+    public async Task The_container_composed_router_is_not_bounded_by_configured_admission()
+    {
+        var backend = new GatedGenerationProvider { Id = "a1111" };
+        using var sp = Provider(b => b
+            .ConfigureProviderAdmission(o => o.BySlot["a1111"] = 1)
+            .AddGenerationProvider(_ => backend));
+        var router = sp.GetRequiredService<IGenerationRouter>();
+        var request = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" };
+
+        var first = router.GenerateAsync([new GenerationCandidate("a1111")], request);
+        var second = router.GenerateAsync([new GenerationCandidate("a1111")], request);
+
+        // bounded deliberately: were the container path gated, the second call would never reach the backend
+        // and an unbounded await here would hang the whole run rather than failing it (see GateWait)
+        await backend.BothInside.Task.WaitAsync(GateWait);
+        Assert.Equal(0, sp.GetRequiredService<ProviderAdmission>().GateCount);   // no gate was ever taken
+
+        backend.Release();
+        Assert.True((await first.WaitAsync(GateWait)).IsOk);
+        Assert.True((await second.WaitAsync(GateWait)).IsOk);
+    }
+
     // ── the IProviderAdmission SEAM ───────────────────────────────────────────────────────────────────
     // IProviderAdmission was extracted as an interface for exactly one reason: a host running several
     // processes, containers or replicas coordinates admission over whatever it already shares, and registers

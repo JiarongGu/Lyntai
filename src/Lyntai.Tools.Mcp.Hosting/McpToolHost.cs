@@ -106,9 +106,13 @@ internal sealed class McpToolHost : IAsyncDisposable
         }
         catch
         {
-            // never leak a started listener / half-built server
-            server?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            transport?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // never leak a started listener / half-built server. Cleanup is best-effort and each step is
+            // guarded: a fault here (including a second dispose of what the "stopped immediately" path above
+            // already disposed) must not replace the exception that brought us here.
+            if (server is not null)
+                try { await server.DisposeAsync().ConfigureAwait(false); } catch { /* best-effort */ }
+            if (transport is not null)
+                try { await transport.DisposeAsync().ConfigureAwait(false); } catch { /* best-effort */ }
             if (listener.IsListening) listener.Stop();
             listener.Close();
             throw;

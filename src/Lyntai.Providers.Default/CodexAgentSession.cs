@@ -108,21 +108,14 @@ public sealed class CodexAgentSession : IAgentSession
         var e = lines.GetAsyncEnumerator(ct);
         await using (e.ConfigureAwait(false))
         {
-            // the guarded loop lives once in Core. No clock here — the inactivity window is the RUNNER's
-            // (its timeout arrives as ProcessTimeoutException), so ANY OperationCanceledException is
-            // cancellation and PROPAGATES: onFault returns null for it. The fault terminal reads the
-            // reader's thread id at FAULT time.
+            // the guarded loop lives once in Core; the fault→terminal translation lives once in this package
+            // (CliAgentTerminal.FromFault), so the claude session answers the same exceptions the same way.
+            // No clock here — the inactivity window is the RUNNER's (its timeout arrives as
+            // ProcessTimeoutException), so ANY OperationCanceledException is cancellation and PROPAGATES:
+            // FromFault returns null for it. The fault terminal reads the reader's thread id at FAULT time.
             var guarded = GuardedStream.ReadAll<string, SessionEnded>(
                 async () => await e.MoveNextAsync().ConfigureAwait(false) ? e.Current : null,
-                ex => ex switch
-                {
-                    OperationCanceledException => null,
-                    ProcessTimeoutException => new SessionEnded(LlmVerdict.Timeout, true, "timeout", reader.ThreadId, null, ex.Message),
-                    ProcessRunException pre => new SessionEnded(
-                        LlmVerdictClassifier.FromErrorText(pre.StdErrTail), true, null,
-                        reader.ThreadId, null, $"exit {pre.ExitCode}: {pre.StdErrTail}"),
-                    _ => new SessionEnded(LlmVerdict.Failed, true, null, reader.ThreadId, null, $"spawn failed: {ex.Message}"),
-                },
+                ex => CliAgentTerminal.FromFault(ex, reader.ThreadId),
                 ct);
             await foreach (var (line, terminal) in guarded.ConfigureAwait(false))
             {

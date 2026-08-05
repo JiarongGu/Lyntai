@@ -14,6 +14,9 @@ namespace Lyntai.Llm;
 /// advance with no penalty and no cooldown.</item>
 /// <item><see cref="Refused"/> — content policy follows the prompt, not the host: surface, never
 /// fall back.</item>
+/// <item><see cref="Unsupported"/> — a capability/transport gap: surfaces like <see cref="Refused"/>
+/// (no fallback, no cooldown) since another candidate has the same limitation, but stays a distinct
+/// verdict so telemetry/scorers don't conflate it with a policy refusal.</item>
 /// </list>
 /// </summary>
 public enum LlmVerdict

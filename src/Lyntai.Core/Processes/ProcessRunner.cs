@@ -182,9 +182,12 @@ public sealed class ProcessRunner : IProcessRunner
         // killing the tree unblocks a pending read/write with EOF/IOException — no cancellable read needed
         using var killOnCancel = timeoutCts.Token.Register(() => KillTree(process));
         // the absolute ceiling (RunAsync's backstop, mirrored): armed ONCE; firing feeds the same kill
-        // path as the inactivity clock, so a chatty child that never finishes is bounded too
+        // path as the inactivity clock, so a chatty child that never finishes is bounded too. It tags itself
+        // on the way through (RunAsync tags both clocks into stopReason; only this one is taggable here), so
+        // ProcessTimeoutException can name the window that actually fired instead of always naming inactivity.
         using var maxCts = new CancellationTokenSource();
-        using var maxReg = maxCts.Token.Register(() => timeoutCts.Cancel());
+        var hitMaxDuration = false;
+        using var maxReg = maxCts.Token.Register(() => { Volatile.Write(ref hitMaxDuration, true); timeoutCts.Cancel(); });
         if (maxDuration is not null) maxCts.CancelAfter(maxDuration.Value);
         var timedOut = false;
 
@@ -239,7 +242,11 @@ public sealed class ProcessRunner : IProcessRunner
             // it as one (unless the child actually finished cleanly first: the kill can race a clean exit)
             if (timeoutCts.IsCancellationRequested && process.ExitCode != 0) timedOut = true;
             if (timedOut)
-                throw new ProcessTimeoutException(command, inactivityTimeout ?? maxDuration ?? TimeSpan.Zero);
+            {
+                // report the window that fired — the ceiling when maxCts tagged the kill, else the inactivity one
+                var fired = Volatile.Read(ref hitMaxDuration) ? maxDuration : inactivityTimeout;
+                throw new ProcessTimeoutException(command, fired ?? maxDuration ?? TimeSpan.Zero);
+            }
             if (process.ExitCode != 0)
                 throw new ProcessRunException(command, process.ExitCode, Tail(stderr));
         }
@@ -295,8 +302,16 @@ public sealed class ProcessRunner : IProcessRunner
         {
             using var p = System.Diagnostics.Process.Start(psi);
             if (p is null) return null;
+            // stderr is redirected, so it must be DRAINED — an unread pipe that fills blocks the child, and the
+            // only bound here (WaitForExit) sits BEHIND the unbounded stdout read. (Not un-redirected: an
+            // inherited handle would print the locator's miss line into the consuming app's own console.)
+            var errTask = p.StandardError.ReadToEndAsync(CancellationToken.None);
             var output = p.StandardOutput.ReadToEnd();
-            if (!p.WaitForExit(5000)) { KillTree(p); return null; }
+            var exited = p.WaitForExit(5000);
+            if (!exited) KillTree(p);
+            // the tail is diagnostic only; the kill above breaks the pipe, so a fault says nothing worth surfacing
+            try { errTask.GetAwaiter().GetResult(); } catch { /* child gone / pipe broken */ }
+            if (!exited) return null;
             var hits = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (hits.Length == 0) return null;
             return hits.FirstOrDefault(h => h.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase))
@@ -455,6 +470,8 @@ public sealed class ProcessRunner : IProcessRunner
 
     private const int StdErrTailChars = 500;
 
+    // Its one caller (StreamLinesAsync) passes ReadTailAsync's output, already bounded to StdErrTailChars, so
+    // the slice branch never runs today — it stays for any future caller handing in an unbounded string.
     private static string Tail(string text, int max = StdErrTailChars) =>
         text.Length <= max ? text.Trim() : text[^max..].Trim();
 

@@ -37,6 +37,9 @@ public interface IConversationStore
 
     Task<ChatThread?> GetThreadAsync(string id, CancellationToken ct = default);
 
+    /// <summary>Threads newest first (created_at DESC, id DESC), at most <paramref name="limit"/> of them.
+    /// <para>The id tiebreak between two threads sharing a timestamp is byte-ordinal on SQLite/InMemory and
+    /// follows the database collation on Postgres, so their relative order may differ between backends.</para></summary>
     Task<IReadOnlyList<ChatThread>> ListThreadsAsync(int limit = 100, CancellationToken ct = default);
 
     /// <summary>Total number of threads in the store — for stats/backlog counts. The shipped SQLite/Postgres/
@@ -49,7 +52,10 @@ public interface IConversationStore
     /// <summary>One page of threads in the same newest-first order as <see cref="ListThreadsAsync"/>
     /// (created_at DESC, id DESC), starting strictly AFTER <paramref name="after"/> (keyset/cursor paging —
     /// pass the last thread of the previous page; null starts at the newest). Walks the whole store page by
-    /// page without loading it all at once. The (created_at, id) cursor is stable across same-timestamp ties.
+    /// page without loading it all at once. The (created_at, id) cursor is stable across same-timestamp ties:
+    /// the cursor comparison and the ordering share one collation on every backend, so a walk never skips or
+    /// repeats a thread — but that collation is byte-ordinal on SQLite/InMemory and the database's on
+    /// Postgres, so which of two same-timestamp threads comes first may differ between backends.
     /// The shipped backends do a server-side keyset. <b>WARNING for a BYO impl:</b> the DEFAULT here loads the
     /// WHOLE table (<c>ListThreadsAsync(int.MaxValue)</c>) then slices in memory — a naive fallback, NOT the
     /// cheap keyset it looks like. Override it for any store of non-trivial size.</summary>

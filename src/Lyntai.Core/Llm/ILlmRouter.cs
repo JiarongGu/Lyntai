@@ -3,8 +3,11 @@ namespace Lyntai.Llm;
 /// <summary>Routes a request across an ordered candidate list with fallback (design §6, amended
 /// 2026-07-17): dedup candidates, try in order; Failed/Timeout advances; RateLimited/AuthFailed cool
 /// the host and advance (a different candidate has a different quota/key); ContextWindowExceeded and
-/// NotConfigured advance with no host penalty; Refused surfaces with no fallback. Streaming never falls
-/// back after the first content token; dead hosts are skipped for a cooldown window.</summary>
+/// NotConfigured advance with no host penalty; Refused surfaces with no fallback, and so does
+/// Unsupported — a capability/transport gap, surfaced with no host penalty since another candidate has
+/// the same limitation, but kept a distinct verdict so telemetry doesn't read it as a policy refusal.
+/// Streaming never falls back after the first content token; dead hosts are skipped for a cooldown
+/// window.</summary>
 public interface ILlmRouter
 {
     Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default);

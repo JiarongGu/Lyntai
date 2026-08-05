@@ -16,6 +16,8 @@
 //                                          - check/stamp the CHANGELOG `## Unreleased` heading for a release
 //   node devtools/dev.mjs install-hooks    - git core.hooksPath -> devtools/hooks (pre-commit guard)
 //   node devtools/dev.mjs check-sensitive  - scan staged changes (--tree for all tracked files)
+//   node devtools/dev.mjs decisions-index  - regenerate the index table at the top of docs/DECISIONS.md
+//                                          - (--check to fail instead of writing)
 import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -285,6 +287,10 @@ switch (cmd) {
     run('node', [path.join(repo, 'devtools', 'scripts', 'check-sensitive.mjs'), ...args]);
     break;
 
+  case 'decisions-index':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'decisions-index.mjs'), ...args]);
+    break;
+
   case 'doctor': {
     // both checks always run (no short-circuit) so drift is reported in one pass. `--fix` syncs the README
     // headline; it deliberately does NOT "fix" the version — a hand-authored version is the problem, not
@@ -423,7 +429,8 @@ switch (cmd) {
   }
 
   case 'verify': {
-    // the single "am I done?" gate: build → test → e2e → leak scan, stopping at the first failure.
+    // the single "am I done?" gate — seven checks, stopping at the first failure:
+    // build → warnings → packages → bundle → test → e2e → leak scan. Keep this list and `steps` in step.
     const steps = [['build', []], ['check-warnings', []], ['check-packages', []], ['check-bundle', []],
       ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
     let failed = null;
@@ -463,8 +470,14 @@ switch (cmd) {
       '',
       'namespace Lyntai.Storage.Sqlite.Migrations;',
       '',
+      "// TODO: replace Feature below with THIS migration's StorageFeature (KeyValue, Conversation, Memory,",
+      '// Score, Trace, PromptVersion, Jobs, Governance, CuratedMemory) — the placeholder does not compile on',
+      '// purpose. Both tags are load-bearing: the feature tag is what a SUBSET pass requests, AllTag is what',
+      '// the default StorageFeature.All pass requests, and an UNTAGGED migration runs under EVERY feature',
+      '// set — so a domain the app disabled would still land its table.',
       '/// <summary>TODO: what this migration does.</summary>',
       `[Migration(${num})]`,
+      '[Tags(nameof(StorageFeature.Feature), StorageFeatures.AllTag)]',
       `public sealed class ${cls} : Migration`,
       '{',
       '    public override void Up()',
@@ -473,7 +486,7 @@ switch (cmd) {
       "        // Create.Table (SQLite can't ALTER ADD CONSTRAINT). Wrap 0..1/double columns in",
       '        // CAST(x AS REAL) when you SELECT them. Searchable text? add an FTS5 trigram',
       "        // external-content mirror + AFTER INSERT/DELETE/UPDATE triggers (emit 'delete' rows on",
-      '        // delete AND update) + an in-migration backfill — see M202607170003_Memory and',
+      '        // delete AND update) + an in-migration backfill — see M202607280003_Memory and',
       '        // .claude/knowledge/storage.md.',
       '    }',
       '',
@@ -485,12 +498,15 @@ switch (cmd) {
       '',
     ].join('\n'));
     console.log(`created ${path.relative(repo, file).replaceAll('\\', '/')} — number ${num} (unique, monotonic).`);
-    console.log('Next: define the table, then a store + its I*Store impl. See .claude/skills/add-migration.');
+    console.log("Next: name the [Tags] feature (the placeholder doesn't compile — an untagged migration would");
+    console.log('run under every feature set), define the table, then a store + its I*Store impl.');
+    console.log('See .claude/skills/add-migration.');
     break;
   }
 
   default:
     console.log('usage: node devtools/dev.mjs <build|check-warnings|check-bundle|check-packages|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
-      'new-migration|new-package|consumer-smoke|install-hooks|check-sensitive|check-version>');
+      'new-migration|new-package|consumer-smoke|install-hooks|check-sensitive|check-version|' +
+      'decisions-index>');
     process.exitCode = cmd ? 1 : 0;
 }

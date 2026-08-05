@@ -87,7 +87,9 @@ public readonly record struct ProviderPoolStatistics(int Live, long Created, lon
 /// null.</para></summary>
 public sealed class ProviderPoolOptions
 {
-    /// <summary>Live entries before the least-recently-used one is retired. Null = unbounded.</summary>
+    /// <summary>Live entries before the least-recently-used one is retired. Null — or 0, or any negative
+    /// value, which say the same thing — = no count bound; <see cref="IdleTimeout"/> still applies. (0 does
+    /// NOT mean "hold nothing".)</summary>
     public int? MaxEntries { get; set; } = 64;
 
     /// <summary>Retire an entry unused for this long, evaluated on access. Null = never on idle.

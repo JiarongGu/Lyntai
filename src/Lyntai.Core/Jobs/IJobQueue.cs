@@ -30,12 +30,16 @@ public interface IJobQueue
     /// <summary>Requeue a dead-lettered (or Failed) job for another run. Returns whether one was requeued.</summary>
     Task<bool> ReplayAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Cancel a job whether it's Pending (cancelled immediately) or Running (cancellation is
-    /// requested — the worker stops it cooperatively). Returns whether anything was cancelled/requested.</summary>
+    /// <summary>Cancel a job whether it hasn't started (Pending or <see cref="JobStatus.Paused"/> — cancelled
+    /// immediately) or is Running (cancellation is requested — the worker stops it cooperatively). Returns
+    /// whether anything was cancelled/requested.
+    /// <para>A held job needs no <see cref="ResumeAsync"/> first: the immediate half reaches
+    /// <see cref="JobStatus.Paused"/> too, so the job is never briefly claimable on its way to
+    /// <see cref="JobStatus.Cancelled"/>.</para></summary>
     Task<bool> CancelAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Administratively hold a Pending job (Pending → Paused) so it isn't claimed until resumed.
-    /// Returns whether it was paused.</summary>
+    /// Returns whether it was paused. A held job stays cancellable — see <see cref="CancelAsync"/>.</summary>
     Task<bool> PauseAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Release a held job (Paused → Pending). Returns whether it was resumed.</summary>
@@ -71,7 +75,7 @@ public sealed class JobQueue(IJobStore? store, LyntaiOptions options) : IJobQueu
     public Task<bool> ReplayAsync(Guid id, CancellationToken ct = default) => _store.ReplayAsync(id, ct);
 
     public async Task<bool> CancelAsync(Guid id, CancellationToken ct = default) =>
-        await _store.CancelAsync(id, ct).ConfigureAwait(false)          // Pending → Cancelled outright
+        await _store.CancelAsync(id, ct).ConfigureAwait(false)          // Pending/Paused → Cancelled outright
         || await _store.RequestCancelAsync(id, ct).ConfigureAwait(false); // else Running → request cancellation
 
     public Task<bool> PauseAsync(Guid id, CancellationToken ct = default) => _store.PauseAsync(id, ct);

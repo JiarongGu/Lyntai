@@ -10,7 +10,13 @@ namespace Lyntai.Cortex;
 /// an <see cref="ISemanticMemory"/> is wired (i.e. embeddings are registered) — meaning-based hits lead
 /// (they're query-relevant even without keyword overlap), then lexical <see cref="IMemoryStore"/> entries
 /// fill in, deduped. Never throws — an outage in either source yields whatever the other returned (or the
-/// base prompt).</summary>
+/// base prompt).
+/// <para>DEFAULTS, when the caller passes no <c>limit</c>: the semantic arm recalls 10 (this type's own
+/// constant), the lexical arm passes null through to the store, which resolves it from
+/// <c>LyntaiOptions.MemoryRecallLimit</c> (20) — the two arms are NOT symmetric unless the caller says
+/// otherwise. The appended section is separately capped at 4000 characters. Neither number is a
+/// <c>LyntaiOptions</c> knob: the DI registration is <c>TryAddSingleton</c>, so register your own composer
+/// before <c>AddLyntai</c> to change them.</para></summary>
 public sealed class MemoryPromptComposer(
     IMemoryStore? memory = null,
     ISemanticMemory? semantic = null,

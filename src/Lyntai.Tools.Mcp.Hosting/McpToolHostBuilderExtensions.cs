@@ -21,8 +21,9 @@ public static class McpToolHostBuilderExtensions
     /// <para>The provisioner is registered KEYED on <see cref="IMcpCliDialect.ProviderId"/>, so several CLI
     /// providers can host tools side by side with different dialects; the FIRST registration additionally
     /// becomes the unkeyed fallback for any provider that resolves without a key.</para>
-    /// <para>Note: this runs an ephemeral Kestrel listener on loopback during each CLI completion — a
-    /// deliberate, scoped exception to the library's otherwise host-free design.</para></summary>
+    /// <para>Note: this runs an ephemeral <c>HttpListener</c> (BCL — no ASP.NET Core, no framework
+    /// reference) on loopback during each CLI completion — a deliberate, scoped exception to the library's
+    /// otherwise host-free design.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="dialect">Supplies the CLI's flags and config-file shapes — e.g.
     /// <c>ClaudeCliMcpDialect</c> from <c>Lyntai.Providers.ClaudeCli</c>.</param>

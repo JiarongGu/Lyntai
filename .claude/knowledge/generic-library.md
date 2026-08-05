@@ -1,4 +1,13 @@
+---
+name: generic-library
+applies_when: a task arrives as "app X needs Y" — any consumer-requested feature, or any new public surface
+enforces: ship the general need, never the consumer's shape; neutral need in Core, provider-specifics in the adapter; additive and defaulted; vary via seams, never if(appName)
+---
+
 # Generic-library discipline — generalize the consumer request, never ship its shape
+
+The PRINCIPLE is canonical `.claude/knowledge/library-api-design.md`; this document is how it is satisfied
+here — the same rule with Lyntai's own types, red flags and worked consumer asks.
 
 **Lyntai is a reusable, publishable library. Every change must be an app-agnostic improvement behind the
 `ILlmClient` front door or a BYO seam — NEVER app-specific code, and never a consumer's domain concept
@@ -13,7 +22,8 @@ ship the consumer's shape (its tool names, its file-path argument, its domain vo
 posture) the library rots into a private fork with public packaging: the next adopter can't use the
 feature, the `ApiSurface` baseline accumulates app-specific noise, and Core stops being neutral. The whole
 value proposition — "a new project gets this without rebuilding it" — depends on refusing that. This is the
-standing rule stated in `CLAUDE.md` and `TASKS.md`; this doc is *how* to satisfy it.
+standing rule stated in `TASKS.md` ("**This is a generic library** — every task must be a reusable,
+app-agnostic improvement behind the `ILlmClient` front door / a BYO seam"); this doc is *how* to satisfy it.
 
 ## How to apply
 
@@ -69,9 +79,12 @@ When a task says "app X wants Y," run it through this before writing code:
 ## Related
 
 - `CLAUDE.md` / `TASKS.md` (the standing "this is a generic library" rule this doc expands).
+- `.claude/knowledge/library-api-design.md` — the canonical principle behind this document, and the one rule
+  with no local counterpart: **every public type earns its keep**.
 - `.claude/rules/dotnet-package-layout.md` — package layout (contract in Core, impl in an adapter, never
   adapter→adapter), variation points = DI collections; `.claude/rules/repo-mechanics.md` binds it to this
   repo's package names and entry points.
-- `.claude/knowledge/extending-lyntai.md` — the four extension seams a generalization usually rides on.
+- `.claude/knowledge/extending-lyntai.md` — the six extension seams a generalization usually rides on
+  (provider, generation backend, storage backend, scorer, CLI tool-hosting dialect, migration).
 - `docs/2026-07-17-lyntai-design.md` — the `ILlmClient` "behaves like one provider" front door.
 - `ApiSurfaceTests` — the baseline gate that surfaces an app-specific leak in review.

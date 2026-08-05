@@ -125,6 +125,7 @@ public class McpToolHostTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => provisioner.ProvisionAsync());
 
         // a half-provisioned session must not leak the temp file it already wrote
+        Assert.Single(dialect.WrittenPaths);   // guard: an empty list would make the Assert.All below vacuous
         Assert.All(dialect.WrittenPaths, p => Assert.False(File.Exists(p)));
     }
 

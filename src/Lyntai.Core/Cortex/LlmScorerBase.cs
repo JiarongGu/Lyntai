@@ -31,6 +31,18 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
     /// omitted, never recorded). Default: always applies.</summary>
     protected virtual bool Applies(ScoreContext ctx) => true;
 
+    /// <summary>Routes <see cref="IScorer.Applies"/> to the protected override above.
+    /// <para>Why it exists: a PROTECTED member cannot implicitly implement an interface member, so without
+    /// this line every judge answered <c>((IScorer)judge).Applies(ctx)</c> with <see cref="IScorer"/>'s
+    /// default implementation — always true — and a subclass's gate was consulted only inside
+    /// <see cref="ScoreAsync"/>. No judge ever spent a token it shouldn't have (<see cref="ScoreAsync"/>
+    /// re-checks), but a caller running its own scorer loop got the wrong answer, and a predicate that THREW
+    /// was swallowed fail-open by <see cref="ScoringService"/>'s per-scorer catch instead of surfacing.</para>
+    /// <para>Why EXPLICIT: keeping the <c>Applies</c> above protected is the point — promoting it to public
+    /// would break every existing <c>protected override</c> — and an explicit implementation is private, so
+    /// the forwarder adds nothing to the public API surface.</para></summary>
+    bool IScorer.Applies(ScoreContext ctx) => Applies(ctx);
+
     /// <summary>Build the judge prompt for a context. The base wraps it with the verdict-format
     /// instruction; implementations only describe what to judge.</summary>
     protected abstract string BuildJudgePrompt(ScoreContext ctx);

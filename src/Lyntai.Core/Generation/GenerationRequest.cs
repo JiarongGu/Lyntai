@@ -28,7 +28,12 @@ public sealed record GenerationRequest
     public IReadOnlyDictionary<string, string> Options { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Per-request budget override in seconds; null = the platform default.</summary>
+    /// <summary>Per-request budget in seconds, applied by the SELECTED BACKEND where it supports one: the HTTP
+    /// backends resolve it against their own configured <c>Timeout</c> option (a positive value here wins; a
+    /// non-positive one is not a budget and is ignored), while a backend that owns its own clocks may ignore it
+    /// entirely — the local engine does today. Unlike <c>LlmRequest.TimeoutSeconds</c> there is no
+    /// platform-level default and no ceiling for generation: nothing clamps this to
+    /// <c>LyntaiOptions.MaxProviderTimeout</c>, which governs the LLM domain only.</summary>
     public int? TimeoutSeconds { get; init; }
 
     /// <summary>Who this render is for — the tag spend caps and rate limits are keyed by, exactly as on the

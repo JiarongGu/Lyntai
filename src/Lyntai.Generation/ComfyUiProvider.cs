@@ -121,8 +121,8 @@ public sealed class ComfyUiProvider(
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var response = await http.GetAsync(Url(options.SystemStatsPath), ct).ConfigureAwait(false);
@@ -181,8 +181,8 @@ public sealed class ComfyUiProvider(
         // JsonObject over an anonymous type — keeps the package's trim/AOT claim honest
         var payload = new JsonObject { ["prompt"] = graph }.ToJsonString();
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -208,9 +208,11 @@ public sealed class ComfyUiProvider(
     }
 
     /// <summary>Reads the run's history entry. An EMPTY history means "not landed yet" — reporting that as a
-    /// failure would fail every run that simply hasn't finished. A history read that TIMES OUT is treated the
-    /// same way, and for the same reason: no answer is not a failed render, and reading it as terminal would
-    /// abandon a run that is merely still going.</summary>
+    /// failure would fail every run that simply hasn't finished. A history read that TIMES OUT, or that cannot
+    /// reach the server at all, is treated the same way, and for the same reason: no answer is not a failed
+    /// render, and reading it as terminal would abandon a run that is merely still going. A 4xx or an
+    /// unconfigured BaseUrl IS terminal — that id will never resolve, and polling it forever strands the
+    /// job.</summary>
     public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
         GenerationDeadline.GuardAsync(options.Timeout, ct,
             token => PollCoreAsync(operationId, token),
@@ -219,8 +221,10 @@ public sealed class ComfyUiProvider(
 
     private async Task<GenerationOperation> PollCoreAsync(string operationId, CancellationToken ct)
     {
-        var (body, failure) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
-        if (failure is not null) return new GenerationOperation(operationId, GenerationOperationStatus.Failed, Detail: failure);
+        var (body, failure, transport) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
+        if (failure is not null)
+            return new GenerationOperation(operationId,
+                transport ? GenerationOperationStatus.Running : GenerationOperationStatus.Failed, Detail: failure);
 
         return Entry(body!, operationId) is { } entry && Completed(entry)
             ? new GenerationOperation(operationId, GenerationOperationStatus.Succeeded, Progress: 1)
@@ -238,7 +242,9 @@ public sealed class ComfyUiProvider(
 
     private async Task<GenerationResult> FetchCoreAsync(string operationId, CancellationToken ct)
     {
-        var (body, failure) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
+        // a fetch is asked for a finished render's bytes, so an unanswered read is a failed fetch (the caller
+        // simply fetches again) rather than the "still going" the poll reports
+        var (body, failure, _) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
         if (failure is not null) return GenerationResult.Failure(GenerationVerdict.Failed, failure);
 
         if (Entry(body!, operationId) is not { } entry || !Completed(entry))
@@ -264,8 +270,8 @@ public sealed class ComfyUiProvider(
 
     private async Task<GenerationOperation> CancelCoreAsync(string operationId, CancellationToken ct)
     {
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var content = new StringContent("{}", Encoding.UTF8, "application/json");
@@ -290,28 +296,33 @@ public sealed class ComfyUiProvider(
     private GenerationOperation Failed(string detail) =>
         new("", GenerationOperationStatus.Failed, Detail: detail);
 
-    private async Task<(string? Body, string? Failure)> HistoryAsync(string operationId, CancellationToken ct)
+    /// <summary>Reads the history document. <c>Transport</c> distinguishes "the server did not answer" — an
+    /// unreachable host or a 5xx — from a failure that is about THIS operation: an unconfigured BaseUrl, or a
+    /// 4xx saying the id (or the guessed <see cref="ComfyUiOptions.HistoryPath"/>) is wrong. Only the poll cares,
+    /// and it is the difference between waiting and giving up.</summary>
+    private async Task<(string? Body, string? Failure, bool Transport)> HistoryAsync(
+        string operationId, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(options.BaseUrl)) return (null, "no BaseUrl configured");
+        if (string.IsNullOrWhiteSpace(options.BaseUrl)) return (null, "no BaseUrl configured", false);
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var response = await http.GetAsync($"{Url(options.HistoryPath)}/{operationId}", ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode
-                ? (body, null)
-                : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+                ? (body, null, false)
+                : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}", (int)response.StatusCode >= 500);
         }
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex)
         {
-            return (null, $"ComfyUI at {Root} is not reachable: {ex.Message}");
+            return (null, $"ComfyUI at {Root} is not reachable: {ex.Message}", true);
         }
         catch (Exception ex)
         {
-            return (null, ex.Message);
+            return (null, ex.Message, false);
         }
     }
 
@@ -382,10 +393,10 @@ public sealed class ComfyUiProvider(
                 foreach (var file in collection.Value.EnumerateArray())
                 {
                     if (file.ValueKind != JsonValueKind.Object) continue;
-                    if (Str(file, "filename") is not { } filename) continue;
+                    if (HttpArtifacts.Str(file, "filename") is not { } filename) continue;
 
-                    var subfolder = Str(file, "subfolder") ?? "";
-                    var type = Str(file, "type") ?? "output";
+                    var subfolder = HttpArtifacts.Str(file, "subfolder") ?? "";
+                    var type = HttpArtifacts.Str(file, "type") ?? "output";
                     var uri = $"{Url(options.ViewPath)}?filename={Uri.EscapeDataString(filename)}" +
                         $"&subfolder={Uri.EscapeDataString(subfolder)}&type={Uri.EscapeDataString(type)}";
                     artifacts.Add(new GenerationArtifact(MediaTypeOf(filename), Uri: uri,
@@ -421,7 +432,7 @@ public sealed class ComfyUiProvider(
         try
         {
             using var doc = JsonDocument.Parse(body);
-            return Str(doc.RootElement, name);
+            return HttpArtifacts.Str(doc.RootElement, name);
         }
         catch (JsonException)
         {
@@ -436,7 +447,7 @@ public sealed class ComfyUiProvider(
             using var doc = JsonDocument.Parse(body);
             if (doc.RootElement.ValueKind == JsonValueKind.Object &&
                 doc.RootElement.TryGetProperty("system", out var system))
-                return Str(system, "comfyui_version");
+                return HttpArtifacts.Str(system, "comfyui_version");
             return null;
         }
         catch (JsonException)
@@ -444,12 +455,4 @@ public sealed class ComfyUiProvider(
             return null;
         }
     }
-
-    private static string? Str(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String &&
-        value.GetString() is { Length: > 0 } text
-            ? text
-            : null;
 }

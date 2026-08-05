@@ -83,8 +83,9 @@ public interface ICuratedMemoryStore
     /// use three index engines): SQLite matches ANY ≥3-char query token via the FTS5-trigram index ranked by
     /// bm25 relevance (falling back to LIKE-substring when no token is indexable); Postgres (pg_trgm-accelerated
     /// ILIKE) and InMemory match the query as one contiguous substring, ranked by recency. The portable
-    /// guarantee: an entry whose content contains a ≥3-char query token as an (ASCII-case-insensitive)
-    /// substring is found on every backend. Fail-open like recall: storage faults degrade to an empty result,
+    /// guarantee is therefore SINGLE-token: an entry whose content contains a ≥3-char single-token query as an
+    /// (ASCII-case-insensitive) substring is found on every backend, while a multi-token query is per-token on
+    /// SQLite and contiguous-substring elsewhere. Fail-open like recall: storage faults degrade to an empty result,
     /// never a throw (only cancellation propagates).</para></summary>
     Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null, string? taskKey = null,
         string? scope = null, bool enabledOnly = false, int? limit = null,

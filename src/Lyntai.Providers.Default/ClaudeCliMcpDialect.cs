@@ -10,8 +10,10 @@ namespace Lyntai.Providers.ClaudeCli;
 ///
 /// <para>It ships in the provider package (not the host package) because it is knowledge about
 /// <c>claude</c>, and it costs this package NO new dependencies — it is JSON + strings over Core types.
-/// The Kestrel host that consumes it lives in <c>Lyntai.Tools.Mcp.Hosting</c>, which is what keeps ASP.NET
-/// Core off the dependency graph of apps that use the plain CLI provider.</para>
+/// The host that consumes it lives in <c>Lyntai.Tools.Mcp.Hosting</c> and runs on
+/// <c>System.Net.HttpListener</c> (BCL, no ASP.NET Core); keeping the dialect out of it is what keeps that
+/// package's <c>ModelContextProtocol.Core</c> dependency off the graph of apps that use the plain CLI
+/// provider.</para>
 ///
 /// <para>Wire it with <c>AddMcpToolHost(new ClaudeCliMcpDialect())</c> from
 /// <c>Lyntai.Tools.Mcp.Hosting</c>, alongside <c>AddClaudeCliProvider()</c> and your tool

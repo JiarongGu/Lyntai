@@ -38,13 +38,14 @@ public sealed class TokenBucketRateLimiter : IRateLimiter
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 
-    /// <summary>Whether the current options resolve to any real throttle — a positive global rate, or at
-    /// least one positive per-consumer rate. False means every acquire clears immediately (a pure
-    /// passthrough); the <c>AddRateLimit</c> wiring warns in that case. Read live, so it honors
-    /// <c>LYNTAI_RATELIMIT_*</c> env overrides applied after construction (as does every acquire).</summary>
-    internal bool HasEffectiveLimit =>
-        _limits.PermitsPerSecond > 0 ||
-        _limits.PerConsumer.Values.Any(r => r.PermitsPerSecond > 0);
+    /// <summary>Whether the current options resolve to any real throttle — a positive global rate, or any
+    /// per-consumer entry at all. False means nothing is configured to throttle anything, so every acquire
+    /// clears immediately (a pure passthrough); the <c>AddRateLimit</c> wiring warns in that case. Note a
+    /// per-consumer entry with a ZERO rate is not a passthrough — its bucket hands out the burst and then
+    /// refuses forever, which is the configured intent — so it counts as an effective limit.
+    /// Read live, so it honors <c>LYNTAI_RATELIMIT_*</c> env overrides applied after construction (as does
+    /// every acquire).</summary>
+    internal bool HasEffectiveLimit => _limits.PermitsPerSecond > 0 || _limits.PerConsumer.Count > 0;
 
     public async Task<bool> AcquireAsync(string consumer, CancellationToken ct = default)
     {

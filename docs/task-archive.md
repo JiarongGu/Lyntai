@@ -6,11 +6,16 @@
 > fully done (committed + verified). `CHANGELOG.md` stays the release-facing log; this file is the
 > task-level record (why/how, per-task).
 >
-> **Everything below is COMPLETE (Parts 0–12 · every checkbox `[x]`).** Phases 0–7 built the library;
-> Parts 1–12 were review/adoption hardening + consumer-driven generic gaps. Most recent close (2026-07-22):
-> Part 11 (G1 write-tool path args · G2 `FinalText` fallback · G3 `IConversationStore` count + keyset
-> paging) and Part 12 (CM1 curated-memory `task`/`scope` + `ForCompositionAsync`, new migration
-> `202607220001`). Build clean · 866 tests · e2e 3/3 · leak scan clean.
+> **Everything in this file is COMPLETE, by definition** — an entry arrives here only after it is committed
+> and verified, so there is no open work below and no "current" state to summarize. Phases 0–7 built the
+> library; the numbered Parts that follow are review/adoption hardening, consumer-driven generic gaps, the
+> generation platform, the package restructure and the provider-lifetime seam.
+>
+> **This banner deliberately carries no counts.** It used to name a Part number and a test total, and both
+> rotted — it read "Parts 0–12 · 866 tests" while the archive had reached Part 39 and the suite 1573, which
+> is exactly the false "everything below is complete" summary the task-lifecycle rule warns about. For what
+> is current: open work is [`../TASKS.md`](../TASKS.md), releases are `../CHANGELOG.md`, and the test/gate
+> totals are whatever `node devtools/dev.mjs verify` prints today.
 >
 > _(Original header preserved below for the record.)_
 
@@ -39,7 +44,10 @@ references another. Verified by `tests/Lyntai.Tests` and the `samples/Lyntai.Pla
 **Tech stack:** net10.0 · C# 13 · Dapper · FluentMigrator · Microsoft.Data.Sqlite · FTS5 (trigram) ·
 Microsoft.Extensions.{DependencyInjection,Http,AI} · xUnit · Node-based devtools (`dev.mjs`).
 
-**Conventions (mirror the family — see `.claude/rules/dev-conventions.md`):** modules = interface in Core
+**Conventions (mirror the family — see `.claude/rules/dev-conventions.md`):** _[2026-08-05: that rule file
+was retired in the canonical-rule sync; its content now lives in `.claude/rules/dotnet-package-layout.md`
+(boundaries, naming, variation points) and `.claude/rules/repo-mechanics.md` (this repo's bindings). The
+original wording is kept below because an archive is a record.]_ modules = interface in Core
 + impl in adapter; async Dapper + `snake_case` columns + `CAST(x AS REAL)` for doubles; FluentMigrator
 numbered `YYYYMMDDNNNN` (never reuse); variation points are DI collections, never if/else; BOM-less UTF-8
 sources; TDD (failing test first); commit per task. **Never commit without the user's approval.**
@@ -2776,6 +2784,57 @@ did — not a rider on an unrelated one._
   `NotConfigured` / "every capable backend reported it is not configured". Unchanged by this fix and reachable
   today from any backend returning `Unsupported` directly; correcting it means changing the router's reporting
   rule — now filed as Part 40 together with the `ContextWindowExceeded` half, since it is the same rule.
+
+---
+
+## Part 43 — the deferred behaviour cluster from the pre-2.2.0 review (opened and closed 2026-08-05)
+
+_Opened by the whole-library review that preceded 2.2.0 and closed the same day, once **`docs/DECISIONS.md`
+D44** removed the only thing blocking it. (The review's working notes lived under the gitignored
+`devtools/_review/`, so they are not in a fresh clone by design — everything durable from that pass is here,
+in `CHANGELOG.md`, and in D44.)_
+
+**Why it existed at all, which is the part worth keeping.** The review produced these eleven fixes and every
+one was verified, small, and obviously right — and all of them were held back, because D24's third bullet made
+a behaviour change no consumer can detect at compile time major-bump material *unconditionally*. The backlog
+entry was written to hold them together for a future major.
+
+That turned out to be the wrong deferral, for a reason no single finding could show: **the bullet did not
+decide cases.** D38 and D43 are the same shape of change and read it oppositely, in the same release. And the
+cost was one-sided — the owner's own applications had not fully adopted the library, so there was not even a
+first-party deployment depending on the old behaviour. D44 amended the bullet (keeping storage/migration
+breaks major-bump material, unconditionally), and the cluster landed in one pass.
+
+- [x] **GEN-DEDUP** — `GenerationRouter` deduplicates candidates on the resolved (backend, effective model)
+  pair before the count `ExemptSoleCandidate` reads. Generalized `CandidateDedup` rather than copying it.
+- [x] **GEN-SUBMIT-VERDICT** — the submit path classifies the backend's rejection and consults the routing
+  policy, so a blameless rejection no longer takes a dead-host strike.
+- [x] **GEN-SUBMIT-DETAIL** — a failed submission carries the first backend's own reason.
+- [x] **ROUTER-ID-CASE** — `LlmRouter` matches candidate ids case-insensitively, like every other id lookup.
+- [x] **CLI-STREAM-CEILING** — the streamed CLI path gained the absolute backstop; deliberately NOT extended
+  to the agent sessions, whose long turns a wall clock would kill.
+- [x] **CLI-EMPTY-CONTENT** — an empty content event is no longer "delivered content"; the invariant moved
+  from the two shipped dialects into the engine.
+- [x] **OLLAMA-ATTACHMENTS** — images ride `/api/chat`'s `images` array; a URL-only attachment is reported.
+- [x] **OPENAI-LONG-FIELD** — a non-integral usage count reads as 0 instead of throwing mid-stream.
+- [x] **CLAUDE-TERMINAL** — first terminal wins, matching the codex twin.
+- [x] **SCORER-APPLIES** — `IScorer.Applies` reaches an LLM judge's own predicate.
+- [x] **VECTOR-TIEBREAK** — `InMemoryVectorStore` top-k is deterministic on tied scores.
+- [x] **JOB-PAUSED-CANCEL** — a paused job cancels in one call, across all three backends.
+- [x] **A1111-SIZE** — a non-positive size hint falls back to the configured default.
+- [x] Surface additions: `ChatResult.Usage`, `StructureScorer.FormatKey`, `JobSpec.DefaultMaxAttempts`,
+  `FalQueueOptions.CancelSegment`.
+
+**Outcome (2026-08-05):** all seventeen landed, none skipped, each with a failing test first. Tests
+1567 → 1657; `verify` and `consumer-smoke` green. The API baselines gained exactly four lines and lost none —
+checked, because a removal on a frozen surface is what that gate exists to catch. Every observable delta is
+disclosed in `CHANGELOG.md` under **Changed — behaviour fixes that a consumer cannot detect at compile time**,
+which is the whole price D44 charges for shipping them in a minor.
+
+**Two deltas can change working behaviour rather than only fix broken behaviour**, and are called out in the
+changelog for that reason: a media submission rejected on content policy now *surfaces* instead of being
+re-submitted to the next queue (restore with `policy.On(GenerationVerdict.Refused, …Advance)`), and a
+consumer who adapted to the Ollama attachment drop now really sends images.
 
 ---
 

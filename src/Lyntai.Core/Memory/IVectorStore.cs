@@ -14,7 +14,12 @@ public interface IVectorStore
     Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default);
 
     /// <summary>The <paramref name="k"/> nearest entries in <paramref name="collection"/> to
-    /// <paramref name="query"/> by cosine similarity, highest score first.</summary>
+    /// <paramref name="query"/> by cosine similarity, highest score first. Order among EQUAL scores is
+    /// UNSPECIFIED BY THIS CONTRACT — it may differ between backends, so a caller needing a top-k that is
+    /// stable ACROSS backends must break the tie itself. Per backend: <see cref="InMemoryVectorStore"/> does
+    /// break ties (by id, ordinal ascending) because it ranks out of a hash table whose enumeration order
+    /// varies between runs; the SQL-backed stores do not, so their ties fall back to the order the rows
+    /// arrive in.</summary>
     Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k, CancellationToken ct = default);
 
     /// <summary>Remove the single vector stored under <paramref name="id"/> in <paramref name="collection"/>.

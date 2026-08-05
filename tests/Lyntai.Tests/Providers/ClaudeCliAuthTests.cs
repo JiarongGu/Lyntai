@@ -1,5 +1,6 @@
 using Lyntai;
 using Lyntai.Llm;
+using Lyntai.Llm.Cli;
 using Lyntai.Processes;
 using Lyntai.Providers.ClaudeCli;
 using Lyntai.Tests.Fakes;
@@ -49,7 +50,7 @@ public class ClaudeCliAuthTests
         Assert.Equal("node", runner.LastCommand);
         Assert.Equal(["stub.mjs", "auth", "status", "--json"], runner.LastArgs);
         Assert.Null(runner.LastStdin);
-        Assert.Equal(ClaudeCliProvider.NeutralWorkingDirectory, runner.LastWorkingDirectory);
+        Assert.Equal(CliProviderEngine.NeutralWorkingDirectory, runner.LastWorkingDirectory);
     }
 
     [Fact]

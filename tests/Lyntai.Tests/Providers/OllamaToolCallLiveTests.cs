@@ -9,8 +9,8 @@ namespace Lyntai.Tests.Providers;
 /// OPT-IN end-to-end proof of NATIVE tool-calling against a real local Ollama: registers a real tool,
 /// runs the full <see cref="IToolLoop"/> through the OpenAI-compatible (Ollama) provider, and asserts
 /// the model actually called the tool and the loop returned a tool-informed answer — not just the stub.
-/// Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise a no-op pass
-/// (xUnit v2 has no dynamic <c>Assert.Skip</c>, hence the early return).
+/// Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise it reports as
+/// SKIPPED (<c>Xunit.SkippableFact</c>) rather than as a pass that observed nothing.
 ///
 /// Enable:  set LYNTAI_LIVE_OLLAMA=1  (optionally LYNTAI_OLLAMA_TOOL_MODEL, default "llama3.1" — pick a
 /// tool-capable model you have pulled; llama3.1 / qwen2.5 / llama3.2 support tools).
@@ -32,10 +32,10 @@ public class OllamaToolCallLiveTests
         catch { return false; }
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Model_calls_a_registered_tool_and_the_loop_returns_a_tool_informed_answer()
     {
-        if (!await LiveAsync()) return;
+        Skip.IfNot(await LiveAsync(), "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable");
 
         var addCalls = 0;
         var services = new ServiceCollection();

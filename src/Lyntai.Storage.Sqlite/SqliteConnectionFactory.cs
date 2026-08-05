@@ -30,6 +30,9 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
         _connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
     }
 
+    /// <summary>The database path this factory was constructed with — for diagnostics, backup, or locating
+    /// the file a BYO caller handed in. Connections are opened from the connection string built from it in
+    /// the constructor, not from this property.</summary>
     public string DbPath { get; }
 
     public DbConnection Open()

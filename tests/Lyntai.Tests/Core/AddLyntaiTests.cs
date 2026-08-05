@@ -80,6 +80,20 @@ public class AddLyntaiTests
         Assert.Contains("already been called", ex.Message);
     }
 
+    // The guard's predicate is "a LyntaiOptions descriptor exists", not "AddLyntai ran" — and LyntaiOptions
+    // has a public parameterless ctor and is a normal DI citizen, so a host CAN register one first. It still
+    // has to throw (AddLyntai registers its own with AddSingleton, which would shadow the host's instance
+    // and silently discard whatever it configured), which is why the case is pinned rather than assumed.
+    [Fact]
+    public void A_hand_registered_LyntaiOptions_trips_the_same_guard()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(new LyntaiOptions());
+
+        Assert.Throws<InvalidOperationException>(() =>
+            services.AddLyntai(b => b.AddProvider(_ => new FakeLlmProvider("a"))));
+    }
+
     [Fact]
     public void Scorers_register_as_a_di_collection()
     {

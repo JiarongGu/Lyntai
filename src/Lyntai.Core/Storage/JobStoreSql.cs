@@ -69,7 +69,14 @@ public static class JobStoreSql
     public const string Pause = "UPDATE lyntai_job SET status='Paused', updated_at=@now WHERE id=@id AND status='Pending'";
     public const string Resume = "UPDATE lyntai_job SET status='Pending', updated_at=@now WHERE id=@id AND status='Paused'";
     public const string RequestCancel = "UPDATE lyntai_job SET cancel_requested=@t, updated_at=@now WHERE id=@id AND status='Running'";
-    public const string CancelPending = "UPDATE lyntai_job SET status='Cancelled', updated_at=@now WHERE id=@id AND status='Pending'";
+
+    /// <summary>Cancel a job that has NOT STARTED — <see cref="Lyntai.Jobs.JobStatus.Pending"/> OR
+    /// <see cref="Lyntai.Jobs.JobStatus.Paused"/>. The name predates the Paused arm and is kept because it is
+    /// released surface; read it as "cancel the not-yet-running one". A held job belongs here rather than in
+    /// <see cref="RequestCancel"/> because <c>cancel_requested</c> is a message to the worker holding the
+    /// claim and a held job has none — so it is cancelled outright, never flagged and left held. Widening it
+    /// HERE (not in each backend) is what stops the two relational stores from drifting.</summary>
+    public const string CancelPending = "UPDATE lyntai_job SET status='Cancelled', updated_at=@now WHERE id=@id AND status IN ('Pending','Paused')";
 
     // ── reads ─────────────────────────────────────────────────────────────────────────────────────────
     public const string CountRunning = "SELECT COUNT(*) FROM lyntai_job WHERE lane=@lane AND status='Running'";

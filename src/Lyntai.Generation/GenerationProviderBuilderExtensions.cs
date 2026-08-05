@@ -12,9 +12,14 @@ namespace Lyntai;
 /// one call each.
 ///
 /// <para><b>Options are passed as an object, not an <c>Action&lt;T&gt;</c> configure callback</b> (the shape the
-/// LLM presets use). These options are records with <c>required</c>/<c>init</c> members, so there is nothing to
-/// mutate after construction — and passing the instance is what keeps <c>required BaseUrl</c>
-/// compiler-enforced rather than discovered at the first render.</para>
+/// LLM presets use). The HTTP backends' options are records with <c>init</c> members — three of them
+/// (<see cref="OpenAiImageOptions"/>, <see cref="Automatic1111Options"/>, <see cref="ComfyUiOptions"/>) with a
+/// <c>required BaseUrl</c>, and passing the instance is what keeps that compiler-enforced rather than discovered
+/// at the first render. <see cref="LocalDiffusionOptions"/> is the exception, and deliberately: it is a settable
+/// class because the engine's binary and model paths may only exist once the HOST has provisioned them, and an
+/// absent <see cref="LocalDiffusionOptions.BinaryPath"/> is the documented
+/// <see cref="GenerationVerdict.NotConfigured"/> state rather than a construction error. The registration
+/// captures that same instance, so a path set later is picked up on the next render.</para>
 ///
 /// <para><b>BYO HttpClient</b> stays optional on every method (design §7). Supply one to own its configuration
 /// and lifecycle — a Polly-resilient client, an auth handler, a proxy, service discovery, or a named

@@ -29,7 +29,7 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
         await conn.ExecuteAsync(new CommandDefinition(JobStoreSql.Insert, new
         {
             id = id.ToString(), lane = spec.Lane, type = spec.Type, payload = spec.Payload,
-            maxAttempts = spec.MaxAttempts ?? 3, availableAt = spec.AvailableAt ?? now, now, priority = spec.Priority,
+            maxAttempts = spec.MaxAttempts ?? JobSpec.DefaultMaxAttempts, availableAt = spec.AvailableAt ?? now, now, priority = spec.Priority,
             f = false, partitionKey = spec.PartitionKey,
         }, cancellationToken: ct)).ConfigureAwait(false);
         return id;

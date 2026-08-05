@@ -16,7 +16,7 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         var now = _clock();
         var id = Guid.NewGuid();
         var rec = new JobRecord(id, spec.Lane, spec.Type, spec.Payload, JobStatus.Pending, Checkpoint: null,
-            Attempts: 0, MaxAttempts: spec.MaxAttempts ?? 3, LastError: null,
+            Attempts: 0, MaxAttempts: spec.MaxAttempts ?? JobSpec.DefaultMaxAttempts, LastError: null,
             AvailableAt: spec.AvailableAt ?? now, ClaimedAt: null, ClaimedBy: null, CreatedAt: now, UpdatedAt: now,
             Priority: spec.Priority, PartitionKey: spec.PartitionKey);
         lock (_lock) _jobs[id] = rec;
@@ -140,7 +140,11 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         var now = _clock();
         lock (_lock)
         {
-            if (!_jobs.TryGetValue(id, out var j) || j.Status != JobStatus.Pending) return Task.FromResult(false);
+            // mirrors JobStoreSql.CancelPending's `status IN ('Pending','Paused')` — a job that has not
+            // started cancels outright whether or not an operator is holding it (resuming it first would put
+            // it back in the claimable set, where a polling runner could take it before the cancel landed)
+            if (!_jobs.TryGetValue(id, out var j) || j.Status is not (JobStatus.Pending or JobStatus.Paused))
+                return Task.FromResult(false);
             _jobs[id] = j with { Status = JobStatus.Cancelled, UpdatedAt = now };
             return Task.FromResult(true);
         }

@@ -6,9 +6,12 @@ using Lyntai.Text;
 namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="FalQueueProvider"/>.</summary>
-/// <remarks>Every URL segment is settable because this backend's surface is <b>documented, not measured</b> —
-/// see the remarks on <see cref="FalQueueProvider"/>. A host that finds a path has moved can retarget it here
-/// instead of waiting for a Lyntai release.</remarks>
+/// <remarks>The queue's path segments — <see cref="RequestsSegment"/>, <see cref="StatusSegment"/> and
+/// <see cref="CancelSegment"/> — are settable because this backend's surface is <b>documented, not measured</b>:
+/// see the remarks on <see cref="FalQueueProvider"/>. A host that finds one has moved can retarget it here
+/// instead of waiting for a Lyntai release. <b>Every</b> segment the provider builds a URL from is one of these;
+/// a hardcoded literal among them would be the one path a host could not repair without a Lyntai
+/// release.</remarks>
 public sealed record FalQueueOptions
 {
     /// <summary>The queue API root. Blank = not configured.</summary>
@@ -31,11 +34,16 @@ public sealed record FalQueueOptions
         [GenerationKinds.Video, GenerationKinds.Image, GenerationKinds.Audio];
 
     /// <summary>Path segment for a request's status, appended as
-    /// <c>{BaseUrl}/{model}/requests/{id}/{StatusSegment}</c>.</summary>
+    /// <c>{BaseUrl}/{model}/{RequestsSegment}/{id}/{StatusSegment}</c>.</summary>
     public string StatusSegment { get; init; } = "status";
 
     /// <summary>Path segment collection for requests: <c>{BaseUrl}/{model}/{RequestsSegment}/{id}</c>.</summary>
     public string RequestsSegment { get; init; } = "requests";
+
+    /// <summary>Path segment that abandons a request, appended as
+    /// <c>{BaseUrl}/{model}/{RequestsSegment}/{id}/{CancelSegment}</c> — the sibling of
+    /// <see cref="StatusSegment"/> on the same request path, and settable for the same reason.</summary>
+    public string CancelSegment { get; init; } = "cancel";
 
     /// <summary>Query parameter used to hand the backend a webhook URL the APP hosts. Lyntai never hosts one
     /// (D30) — supply the URL via <c>GenerationRequest.Options["webhook"]</c> and call
@@ -146,12 +154,19 @@ public sealed class FalQueueProvider(
         if (Model(request) is not { Length: > 0 } model)
             return Failed("no model: name one on the request, the candidate (\"fal:model-id\") or FalQueueOptions.Model");
 
+        // fal reads input media from a URL it can fetch, so a bytes-only input has nowhere to go. Refusing is
+        // the only honest answer: dropping it (which is what BuildInput used to do) submitted — and billed — a
+        // text-to-video render against a caller who asked for image→video, and the result looked plausible.
+        if (request.Inputs.Count > 0 && !request.Inputs.Any(i => i.Uri is { Length: > 0 }))
+            return Failed("fal takes input media as a URL; supply GenerationInput.Uri rather than Data — the " +
+                "platform will not upload your bytes on your behalf");
+
         var url = $"{Root}/{model.Trim('/')}";
         if (request.Option("webhook") is { Length: > 0 } webhook)
             url += $"?{options.WebhookQueryParameter}={Uri.EscapeDataString(webhook)}";
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, url)
@@ -252,12 +267,12 @@ public sealed class FalQueueProvider(
         if (requestId is null)
             return new GenerationOperation(operationId, GenerationOperationStatus.Failed, Detail: "malformed operation id");
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Put,
-                $"{Root}/{model}/{options.RequestsSegment}/{requestId}/cancel");
+                $"{Root}/{model}/{options.RequestsSegment}/{requestId}/{options.CancelSegment}");
             Authorize(message);
             using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode
@@ -306,8 +321,8 @@ public sealed class FalQueueProvider(
     {
         if (Unconfigured() is { } missing) return (null, missing);
 
-        var http = httpFactory();
-        using var owned = disposeHttpClient ? http : null;   // a BYO client is the host's to dispose, not ours
+        using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
+        var http = lease.Client;
         try
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, url);
@@ -336,10 +351,15 @@ public sealed class FalQueueProvider(
             writer.WriteStartObject();
             if (request.Prompt is { Length: > 0 } prompt) writer.WriteString("prompt", prompt);
 
-            // a first-frame / reference image travels as a URL when the caller has one; fal takes URLs, so
-            // inline bytes are refused rather than silently uploaded somewhere on the caller's behalf
+            // a first-frame / reference image travels as a URL, because fal takes URLs only. An input carrying
+            // nothing but bytes is refused in SubmitCoreAsync rather than skipped here — skipping it is what
+            // billed a text-to-video render against a caller who asked for image→video.
             if (request.Inputs.FirstOrDefault(i => i.Uri is { Length: > 0 }) is { } input)
-                writer.WriteString(input.Role == GenerationInputRoles.FirstFrame ? "image_url" : "input_image_url", input.Uri!);
+                writer.WriteString(
+                    string.Equals(input.Role, GenerationInputRoles.FirstFrame, StringComparison.OrdinalIgnoreCase)
+                        ? "image_url"
+                        : "input_image_url",
+                    input.Uri!);
 
             foreach (var (key, value) in request.Options)
             {
@@ -372,9 +392,9 @@ public sealed class FalQueueProvider(
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
-                if (Str(element, "url") is { } url)
+                if (HttpArtifacts.Str(element, "url") is { } url)
                 {
-                    var contentType = Str(element, "content_type") ?? MediaTypeOf(url);
+                    var contentType = HttpArtifacts.Str(element, "content_type") ?? MediaTypeOf(url);
                     artifacts.Add(new GenerationArtifact(contentType, Uri: url));
                     return;   // this object IS the artifact — don't also walk its siblings
                 }
@@ -430,12 +450,4 @@ public sealed class FalQueueProvider(
             };
         }
     }
-
-    private static string? Str(JsonElement element, string name) =>
-        element.ValueKind == JsonValueKind.Object &&
-        element.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.String &&
-        value.GetString() is { Length: > 0 } text
-            ? text
-            : null;
 }

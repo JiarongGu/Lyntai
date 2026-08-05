@@ -11,8 +11,10 @@ namespace Lyntai.Tests.Generation;
 /// that would be a second set of regexes to drift (the mistake <c>docs/DECISIONS.md</c> D27 exists to
 /// prevent). The classifier maps transport/text failures through Core's shared classifier and translates the
 /// answer.</summary>
-// serialized with every other class that registers one: LlmVerdictClassifier.AddErrorTextMatcher mutates a
-// PROCESS-WIDE list, so two of these running in parallel would see each other's matchers
+// serialized with every other class that REGISTERS one: LlmVerdictClassifier.AddErrorTextMatcher mutates a
+// PROCESS-WIDE list, so two registrants running in parallel would see each other's matchers. It does NOT
+// protect the rest of the suite — every other collection keeps running and every FromErrorText call in it
+// reads the same list — so a matcher registered here must answer for its OWN probe text and nothing else.
 [Collection("verdict-matchers")]
 public class GenerationVerdictClassifierTests
 {
@@ -157,6 +159,11 @@ public class GenerationVerdictClassifierTests
 
         Assert.Equal(Enum.GetValues<LlmVerdict>().OrderBy(v => v), expected.Keys.OrderBy(v => v));
 
+        // the registered list is process-wide and the rest of the suite is NOT serialized against it, so
+        // every matcher below answers for this probe text ALONE — a catch-all would hand its verdict to any
+        // concurrently-running test that happens to classify an error body
+        var probe = $"probe-{Guid.NewGuid():N}";
+
         foreach (var (llm, media) in expected)
         {
             // an ARM, not just a row: null here means the member fell through to the discard, which would
@@ -164,14 +171,14 @@ public class GenerationVerdictClassifierTests
             Assert.NotNull(GenerationVerdictClassifier.TryTranslate(llm));
 
             // and the whole way through the public path, since that is what a consumer actually calls
-            using var scope = LlmVerdictClassifier.AddErrorTextMatcher(_ => llm);
-            Assert.Equal(media, GenerationVerdictClassifier.FromErrorText("probe"));
+            using var scope = LlmVerdictClassifier.AddErrorTextMatcher(t => t == probe ? llm : null);
+            Assert.Equal(media, GenerationVerdictClassifier.FromErrorText(probe));
         }
 
         // a value no build knows has no arm — and the public path still answers it conservatively rather
         // than throwing, because a classifier that can throw is worse than one that guesses Failed
         Assert.Null(GenerationVerdictClassifier.TryTranslate((LlmVerdict)9999));
-        using var undefined = LlmVerdictClassifier.AddErrorTextMatcher(_ => (LlmVerdict)9999);
-        Assert.Equal(GenerationVerdict.Failed, GenerationVerdictClassifier.FromErrorText("probe"));
+        using var undefined = LlmVerdictClassifier.AddErrorTextMatcher(t => t == probe ? (LlmVerdict)9999 : null);
+        Assert.Equal(GenerationVerdict.Failed, GenerationVerdictClassifier.FromErrorText(probe));
     }
 }

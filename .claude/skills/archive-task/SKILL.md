@@ -2,6 +2,7 @@
 name: archive-task
 description: Use when a task in TASKS.md is complete (implemented, tested, committed, verified) and needs to be moved out of the active backlog. Moves the entry from TASKS.md into docs/task-archive.md per the task-lifecycle rule, so TASKS.md holds only open work.
 ---
+<!-- local: never synced; not a daoris artifact -->
 
 # Archive a completed task
 
@@ -21,10 +22,17 @@ verify` is green. (If it's not actually done, leave it `- [ ]` in `TASKS.md`.)
 2. **Cut from `TASKS.md`.** Remove the task's entry. If its whole `## Part N` group is now empty, remove the
    group heading too. Then fix the `## Active backlog` section — set it to `_None …_` if nothing is open,
    and make sure no stale banner claims "all done" over remaining open items (or vice-versa).
-3. **Paste into `docs/task-archive.md`.** Under the matching `## Part N — <theme>` heading (create it at the
-   end if the archive doesn't have that Part yet), append the ORIGINAL task text verbatim, then a line:
-   `✅ done <YYYY-MM-DD> — <Outcome>` where Outcome is one line: what shipped + where (files/API/migration).
-   Use the real date (today's date from the session context), not a relative one.
+3. **Paste into `docs/task-archive.md`.** Under the matching `## Part N — <theme>` heading, append the
+   ORIGINAL task text verbatim, then a line: `✅ done <YYYY-MM-DD> — <Outcome>` where Outcome is one line:
+   what shipped + where (files/API/migration). Use the real date (today's date from the session context),
+   not a relative one.
+   - **Part numbers are allocated across BOTH files.** An open `## Part N` in `TASKS.md` and an archived
+     `## Part N` must never be the same N, or every cross-reference to "Part N" is ambiguous. This
+     happened on 2026-08-05 and the open part was renumbered 39→41. Take the next free number across both
+     files. The ARCHIVE never renumbers — it is history, and history does not get renumbered.
+   - **Where a NEW Part goes:** after the last existing `## Part …` heading and **before** the closing
+     `## Notes for the implementer` section — Parts are appended in COMPLETION order, not numeric order,
+     so "at the end of the file" would land it after the closing notes.
 4. **Don't duplicate.** The user-facing summary belongs in `CHANGELOG.md` (release log); the archive is the
    per-task why/how. Don't restate release notes — link if useful.
 5. **Verify the docs still read straight.** Both files parse as Markdown; `TASKS.md` shows only open work;
