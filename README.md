@@ -864,7 +864,7 @@ a deliberate, scoped exception to Lyntai's otherwise host-free design, isolated 
 
 ### CLI-agent session vs `IToolLoop` (`IAgentSession`)
 
-When the external agent drives its OWN tool loop out-of-process (e.g. the `claude` CLI running
+When the external agent drives its OWN tool loop out-of-process (the `claude` or `codex` CLI running
 autonomously), `IAgentSession` is the right primitive — not `IToolLoop`. You observe a streamed
 transcript of what the agent did (`AgentStreamEvent`), gate it read-only (plan) vs write (execute) via
 `AgentToolPolicy`, and resume it across a human confirmation gate using the session's `ResumeToken`.
@@ -906,6 +906,39 @@ Console.WriteLine($"done: {result.Verdict} — {result.FinalText}");
 **`IToolLoop`** (the other shape) — Lyntai drives the ReAct loop in-process over registered `ITool`s.
 Choose `IToolLoop` when you supply the tools and want Lyntai to call them; choose `IAgentSession` when
 the external agent drives its own loop and you want to observe, gate, and resume it.
+
+#### The codex agent session — same shape, and what it honestly cannot do
+
+`AddCodexCliAgentSession()` registers a `CodexAgentSession` (`Lyntai.Providers.CodexCli`) behind the same
+`IAgentSession`, so an app can offer both CLI backends without hand-parsing `codex exec --json`. Both
+`Add*CliAgentSession` extensions also register **keyed by provider id**, so registering both resolves
+deterministically:
+
+```csharp
+services.AddLyntai(b => b.AddClaudeCliAgentSession().AddCodexCliAgentSession());
+
+var codex = sp.GetRequiredKeyedService<IAgentSession>("codex-cli");
+var claude = sp.GetRequiredKeyedService<IAgentSession>("claude-cli");
+```
+
+**Read this before adopting it** — the two halves of the codex mapping have different standing, and
+`docs/DECISIONS.md` **D40** has the full account:
+
+- **Measured** against codex-cli 0.146.0: session id, assistant text, final usage, and the terminal —
+  including the rule that only `turn.failed` fails a turn (a bare `error` line and an `error` item both
+  appear in runs that succeed).
+- **Inferred**: every **tool step**. The measured run used no tools. The mapping is therefore shape-driven —
+  a tool step arrives under codex's *own* item-type name with codex's *own* item object as
+  `ToolCall.ArgumentsJson` / `ToolResult.Content` (no normalised schema, and deliberately no `CodexToolCalls`
+  helper), so an unmeasured detail costs you fewer events rather than wrong ones.
+- **Not emitted**, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`,
+  and token-level deltas — a codex `TextDelta` is one whole assistant message, not a token.
+- **`ResumeToken` is refused** (a single `SessionEnded` with `LlmVerdict.Unsupported`, no spawn): codex's
+  resume shape is unmeasured, and `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a *prompt*,
+  so a guess would silently spend a turn. Start a fresh session and replay the history in the prompt.
+- **`DisallowedTools` is logged as unhonoured** — codex's tool gate is `--sandbox`, driven by `ToolPolicy`
+  (`ReadOnly` → `read-only`, `Write` → `workspace-write`) or set outright via `CodexAgentOptions.SandboxMode`.
+  **`SystemPrompt`** travels as a leading block of the prompt (codex `exec` has no flag for one).
 
 ### Durable jobs (`Lyntai.Jobs`)
 

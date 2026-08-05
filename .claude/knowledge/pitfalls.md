@@ -67,7 +67,20 @@ the tests) while being wrong. Skim before touching the relevant area.
 - **A neutral working directory can break a CLI that expects a repo.** The engine spawns from a temp dir on
   purpose (§6 hygiene). codex refuses to run outside a git repository, so its dialect MUST pass
   `--skip-git-repo-check` — every completion would fail on a perfectly good install otherwise. Check what
-  your CLI assumes about its cwd.
+  your CLI assumes about its cwd. **And the flag is needed on the AGENT path too, where the cwd is the
+  caller's project**: that reads as "obviously a repo" on a developer's machine and is very often not one in
+  a shipped bundle — a passing test that hides a shipped failure. Both codex paths build argv from
+  `CodexExecArgs` for exactly this reason; a second copy is a second chance to lose the flag.
+- **Adding a SECOND seam over the same CLI without sharing the wire knowledge.** `CodexAgentSession` reads
+  the same JSONL as `CodexCliProvider`, so the vocabulary and the non-terminal-`error` rule live once in
+  `CodexEnvelope`. Two readers of one wire format drift, and the drift is invisible until the halves disagree
+  about whether a turn failed.
+- **Mapping a wire format you have not measured, name by name.** The codex agent session's tool-step half is
+  INFERRED (the measured capture ran no tools). It is written **shape-driven**: any unknown item type becomes
+  a tool step under the BACKEND's own name carrying the BACKEND's own payload, nothing renamed or normalised,
+  so a wrong guess yields fewer events rather than wrong ones. Mark every inferred member as inferred in the
+  XML docs — and where a guess would COST something (codex reads an unrecognized subcommand as a prompt and
+  spends a turn), refuse instead of guessing, and refuse instead of silently ignoring.
 - **Trusting an explicit command without checking it exists.** For a PORTABLE install (an app's own bundled
   CLI copy) `IsAvailable` must verify presence — `ProcessRunner.CommandExists`, which also accepts an
   extensionless launcher with a spawnable sibling. Returning true for a path that isn't there turns a

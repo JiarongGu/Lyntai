@@ -2600,6 +2600,78 @@ pass because they were all small and all found by the same review. Shape decisio
 
 ---
 
+## Part 39 — `CodexAgentSession`: the agent-session shape is not claude-only (2026-08-05)
+
+_Closes CLI11, filed 2026-08-04 by a consuming app that wanted to delete its hand-rolled codex integration
+and could not. The reasoning — and specifically WHICH half was built and why the other is marked rather than
+faked or withheld — is `docs/DECISIONS.md` **D40**. The measurement that remains is filed as Part 39
+(CLI12/CLI13) in `TASKS.md`._
+
+- [x] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
+  consuming app that wanted to delete its hand-rolled codex integration and could not.
+
+  **The gap.** `Lyntai.Providers.CodexCli.CodexCliProvider` gives `CompleteAsync`/`StreamAsync(LlmRequest)`
+  plus the maintenance capabilities — everything a ROUTER needs. But a desktop chat UI needs the other shape:
+  the streamed **tool steps** an agent takes, which is what `AgentStreamEvent` carries and what
+  `ClaudeAgentSession.StreamAsync(AgentSessionOptions)` produces. `LlmChunk` is `{ Kind, Text, Usage,
+  Verdict, Detail }` — there is nowhere for "the agent called tool X with these arguments" to go.
+
+  So a consumer that shows tool activity can adopt the codex provider for probe/update/auth, but must keep
+  hand-parsing `codex exec --json` for the chat path — which is precisely the bespoke provider handling
+  Lyntai exists to remove, and which has already cost that app two real defects (a bare `error` line failing a
+  turn that SUCCEEDED, and a missing `--skip-git-repo-check` that works in a dev git repo and breaks in a
+  shipped bundle — both of which YOUR measured codex work got right and theirs did not).
+
+  **Why this looks cheap now and wasn't before:** 2.0.1 extracted `CliProviderEngine` + `ICliProviderDialect`
+  specifically so a second CLI could reuse the first's machinery, and `CodexCliDialect` already knows codex's
+  JSONL vocabulary (`item.started`/`item.completed`, `turn.failed`, the terminal-event rule). The agent
+  session is the same events mapped to `AgentStreamEvent` instead of `LlmChunk`.
+
+  **Done when:** a consumer can drive codex through the same `IAgentSession` shape as claude — streamed text,
+  tool steps and usage — and delete its own JSONL parsing. If the answer is "the agent-session shape stays
+  claude-only by design", that is a fine outcome too; say so in `docs/DECISIONS.md` and the consumer will stop
+  waiting and own its codex parsing deliberately rather than provisionally.
+
+**Closed 2026-08-05 — built, as the honest subset.** The answer was neither "they correspond" nor
+"claude-only by design": they correspond only PARTIALLY, and the split is measured-vs-unmeasured rather than
+conceptual. `AgentStreamEvent` needed no new case and lost none, so nothing about the shape is claude-specific
+— but the filing's premise that `CodexCliDialect` "already knows `item.started`/`item.completed`" was
+half-right. `CodexJsonlParser` handles only `item.completed`, and only two item types (`agent_message`,
+`error`); the measured capture ran a trivial `--oss` turn with **no tools**, so every tool-step shape — the
+whole reason the agent-session shape exists — was unmeasured.
+
+Shipped: `CodexAgentSession` + `CodexAgentOptions` + `AddCodexCliAgentSession()` in `Lyntai.Providers.Default`
+(the layout rule's answer — a codex agent session drags no dependency the codex provider does not already
+have, so it shares that package rather than earning one). Measured half → measured events (session id,
+assistant text, final usage incl. both cache fields, the classified terminal, the non-terminal-`error` rule).
+Inferred half → tool steps, mapped **shape-driven, not name-driven**: any unknown item type becomes a
+`ToolCall`/`ToolResult` under codex's OWN item-type name carrying codex's OWN item object, nothing renamed or
+normalised, and no `CodexToolCalls` helper (inventing one would mean guessing field names). Where
+`item.started` is absent the `ToolCall` is synthesised from the completion, correlated by item id and never
+duplicated — so the unmeasured detail costs fewer events, never wrong ones. Not emitted, because codex has no
+analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`, and token-level deltas. `ResumeToken` is
+REFUSED without spawning (`LlmVerdict.Unsupported`) rather than guessed or ignored; `DisallowedTools` is
+logged as unhonoured; `SystemPrompt` travels as a leading block of the prompt.
+
+**Both of the consumer's defects are now structurally shared rather than re-implemented**, which is the
+durable part: `CodexExecArgs` is the single source of the `exec` argv for BOTH codex paths (so
+`--skip-git-repo-check` cannot be present on one and missing from the other — and the agent path runs in the
+CALLER's directory, where "obviously a repo" is most tempting), and `CodexEnvelope` is the single source of
+the envelope vocabulary, the usage fields and the failure-message read (so the non-terminal-`error` rule
+cannot drift between the two readers). Both were **mutation-checked**: removing `--skip-git-repo-check` failed
+4 tests across both paths, treating a bare `error` line as terminal failed 2, and dropping the synthesised
+`ToolCall` failed 2. A terminal-dedup guard was added to the session while mutation-checking (the first
+`SessionEnded` wins; a later one can never add a second ending).
+
+Surface: additive only — `AddCodexCliAgentSession`, `CodexAgentSession`, `CodexAgentOptions`; baseline
+reviewed and updated. Both `Add*CliAgentSession` extensions now ALSO register keyed by provider id, so an app
+registering both no longer has the unkeyed resolve depend on registration order. Docs: `CHANGELOG.md`,
+`README.md` (a codex subsection stating plainly what it cannot do), `DECISIONS.md` **D40**, `pitfalls.md`
+(+3 entries: the agent path's cwd trap, two seams over one wire format, and how to map a format you have not
+measured). Tests: 38 new, all labelled MEASURED or INFERRED in the source.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

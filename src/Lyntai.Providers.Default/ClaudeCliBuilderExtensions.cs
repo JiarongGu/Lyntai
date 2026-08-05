@@ -44,22 +44,30 @@ public static class ClaudeCliBuilderExtensions
         sp.GetKeyedService<ICliToolProvisioner>(ClaudeCliProvider.ProviderId)
         ?? sp.GetService<ICliToolProvisioner>();
 
-    /// <summary>Register <see cref="ClaudeAgentSession"/> as the <see cref="IAgentSession"/> singleton.
+    /// <summary>Register <see cref="ClaudeAgentSession"/> as an <see cref="IAgentSession"/>.
     /// The spawned command honors <c>LYNTAI_PROVIDER_CMD</c> / <c>CLAUDE_CMD</c> env overrides so
     /// tests and e2e can point at a deterministic stub. The session uses the caller's
     /// <see cref="AgentSessionOptions.WorkingDirectory"/> (not the neutral temp dir used by the provider)
-    /// because the agent is expected to operate inside the caller's project.</summary>
+    /// because the agent is expected to operate inside the caller's project.
+    /// <para>Registered both unkeyed and KEYED by <c>"claude-cli"</c>, so an app that also registers
+    /// <c>AddCodexCliAgentSession</c> resolves the one it means
+    /// (<c>GetRequiredKeyedService&lt;IAgentSession&gt;("claude-cli")</c>) instead of whichever registration
+    /// happened to be last.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="command">A PORTABLE <c>claude</c> path, as with
     /// <see cref="AddClaudeCliProvider"/> — pass the same value to both so a host's bundled CLI is used for
     /// completions and agent sessions alike.</param>
     public static LyntaiBuilder AddClaudeCliAgentSession(this LyntaiBuilder builder, string? command = null)
     {
-        builder.Services.AddSingleton<IAgentSession>(sp => new ClaudeAgentSession(
-            sp.GetRequiredService<IProcessRunner>(),
-            sp.GetRequiredService<LyntaiOptions>(),
-            sp.GetService<ILogger<ClaudeAgentSession>>(),
-            command));
+        builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command));
+        builder.Services.AddKeyedSingleton<IAgentSession>(ClaudeCliProvider.ProviderId,
+            (sp, _) => CreateSession(sp, command));
         return builder;
     }
+
+    private static ClaudeAgentSession CreateSession(IServiceProvider sp, string? command) =>
+        new(sp.GetRequiredService<IProcessRunner>(),
+            sp.GetRequiredService<LyntaiOptions>(),
+            sp.GetService<ILogger<ClaudeAgentSession>>(),
+            command);
 }

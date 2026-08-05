@@ -20,7 +20,8 @@ restructure, the 2.0.1 release hardening, the generation-ergonomics follow-ups a
 has shipped and is archived — see `docs/task-archive.md` Parts 29–37 and `docs/DECISIONS.md` D25–D37. Part 34's
 verdict-parity finding closed 2026-08-05 (`LlmVerdict.NotConfigured`), emptying that part. What remains open is
 below: the generation follow-ups in Part 33 (**all** now needing a real service, a vendor pick or a design call — none is
-codeable from here), the verdict-translation gap in Part 38 (found while closing Part 34), the post-1.0
+codeable from here), the verdict-translation gap in Part 38 (found while closing Part 34), the codex surface
+still to MEASURE in Part 39 (opened while closing CLI11 — also not codeable from here), the post-1.0
 additive backlog in Part 25, and one conditional item:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
@@ -74,31 +75,6 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   the experimental marker needn't block anything._
 
-- [ ] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
-  consuming app that wanted to delete its hand-rolled codex integration and could not.
-
-  **The gap.** `Lyntai.Providers.CodexCli.CodexCliProvider` gives `CompleteAsync`/`StreamAsync(LlmRequest)`
-  plus the maintenance capabilities — everything a ROUTER needs. But a desktop chat UI needs the other shape:
-  the streamed **tool steps** an agent takes, which is what `AgentStreamEvent` carries and what
-  `ClaudeAgentSession.StreamAsync(AgentSessionOptions)` produces. `LlmChunk` is `{ Kind, Text, Usage,
-  Verdict, Detail }` — there is nowhere for "the agent called tool X with these arguments" to go.
-
-  So a consumer that shows tool activity can adopt the codex provider for probe/update/auth, but must keep
-  hand-parsing `codex exec --json` for the chat path — which is precisely the bespoke provider handling
-  Lyntai exists to remove, and which has already cost that app two real defects (a bare `error` line failing a
-  turn that SUCCEEDED, and a missing `--skip-git-repo-check` that works in a dev git repo and breaks in a
-  shipped bundle — both of which YOUR measured codex work got right and theirs did not).
-
-  **Why this looks cheap now and wasn't before:** 2.0.1 extracted `CliProviderEngine` + `ICliProviderDialect`
-  specifically so a second CLI could reuse the first's machinery, and `CodexCliDialect` already knows codex's
-  JSONL vocabulary (`item.started`/`item.completed`, `turn.failed`, the terminal-event rule). The agent
-  session is the same events mapped to `AgentStreamEvent` instead of `LlmChunk`.
-
-  **Done when:** a consumer can drive codex through the same `IAgentSession` shape as claude — streamed text,
-  tool steps and usage — and delete its own JSONL parsing. If the answer is "the agent-session shape stays
-  claude-only by design", that is a fine outcome too; say so in `docs/DECISIONS.md` and the consumer will stop
-  waiting and own its codex parsing deliberately rather than provisionally.
-
 - [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend to exercise `IGenerationStreamProvider` end to
   end — nothing implements that seam yet, so it is the one contract in the platform no real backend has
   exercised. **TTS before music** (owner). Needs a vendor pick and a MEASURED wire format (the GEN-VERIFY
@@ -132,6 +108,37 @@ did — not a rider on an unrelated one._
   gaps bench a healthy backend. Same shape as the Part 34 masking bug, one translation layer along. Fix is
   one arm, but it changes a released verdict mapping: needs its own commit, a `CHANGELOG.md` entry, and a
   test that a translated `Unsupported` is not penalised.
+
+---
+
+## Part 39 — CLI backends: the codex surface still to MEASURE (2026-08-05)
+
+_Opened while closing CLI11 (`CodexAgentSession`; see `docs/task-archive.md` Part 39 and
+`docs/DECISIONS.md` **D40**). CLI11 shipped the honest subset: the message/usage/terminal half of the codex
+mapping is measured, the tool-step half is inferred, and the inference is written shape-driven so a wrong
+guess costs fewer events rather than wrong ones. What is left is measurement, and measurement only — nothing
+here is codeable without a real codex run._
+
+- [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.**
+  `src/Lyntai.Providers.Default/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
+  2026-08-04) ran a trivial `--oss` turn with **no tools**, so four things are inferred and marked as such in
+  the XML docs: (1) that `item.started` is emitted at all — if it is not, a `ToolCall` is synthesised from the
+  completion, which is a degradation, not a break; (2) the `reasoning` item type and its `text` field, mapped
+  to `Thinking`; (3) the per-item failure signals (`status: "failed"`, non-zero `exit_code`); (4) whether
+  `item.updated` carries partial text a UI should show — it is deliberately IGNORED today, because an
+  unmeasured accumulation rule risks double-counting the answer.
+  **What to do when a real codex run with tools is available:** capture the JSONL, confirm each of the four,
+  flip the docs from INFERRED to MEASURED where they hold, and extend `devtools/scripts/codex-stub.mjs` with
+  the real shapes (its header forbids inventing them — that is why the inferred cases are covered only by
+  `FakeProcessRunner` fixtures today). A friendlier `ToolResult.Content` projection (the readable output
+  field instead of the raw item JSON) becomes possible at the same time, and is additive.
+- [ ] **CLI13 — measure codex's resume command, so the session can honour `ResumeToken`.**
+  `src/Lyntai.Providers.Default/CodexAgentSession.cs`. Today a non-null `ResumeToken` is REFUSED without
+  spawning (a single `SessionEnded` with `LlmVerdict.Unsupported`) — silently ignoring it would start a fresh
+  session and lose the conversation, and guessing is unusually expensive on this CLI because
+  `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a PROMPT and spends a turn answering the
+  thread id. **Needs `codex exec --help` on a real install** to confirm the resume shape (and where the `-`
+  stdin marker goes relative to it). Until then the refusal is the correct behaviour, not a placeholder.
 
 ---
 

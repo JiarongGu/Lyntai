@@ -530,6 +530,60 @@ execution. That constrains what the twin can truthfully offer, and the constrain
   killing the connection: a half-applied DDL pass with a committed version row is a corrupted schema, which is
   strictly worse than a migration that finished.
 
+## D40 — the agent-session shape is NOT claude-only, but the codex half is half-measured: ship the honest subset, mark the inference, refuse the unmeasurable (2026-08-05)
+`CodexAgentSession` closes CLI11 (a consuming desktop chat UI wanted to delete its hand-rolled
+`codex exec --json` parsing and could not, because the codex backend offered only the router shape). Recorded
+because the interesting part is not that it was built — it is *which half* was built, and why the other half
+is marked rather than either faked or withheld.
+
+**The finding: the shapes correspond only PARTIALLY, and the split is measured-vs-unmeasured, not
+conceptual.** `AgentStreamEvent` needed no new case and lost none, so this is not "claude-only by design":
+every event codex can produce fits, and everything codex emits that the union has no case for is legitimately
+droppable. But the two halves of the mapping have very different standing.
+
+- **MEASURED** (from the codex-cli 0.146.0 capture behind `CodexJsonlParser`): `thread.started` →
+  `SessionStarted`; `agent_message` → `TextDelta` + the final text; `turn.completed` → `UsageFinal` +
+  `SessionEnded(Ok)`; `turn.failed` → the classified error terminal; the non-terminal rule for a bare `error`
+  line and an `error` ITEM; the `exec` argv including `--skip-git-repo-check`; the `--sandbox` values.
+- **INFERRED** — every tool step, which is *the entire reason the agent-session shape exists*. The measured
+  run used **no tools**, so `item.started`, the tool item types and their fields have never been observed
+  here.
+- **Absent in codex, so simply not emitted**: `UsageLive` (no per-turn tick — the counts arrive once, at
+  `turn.completed`), `SessionEnded.Subtype`, `UsageFinal.Model` (the thread events carry no model id; echoing
+  back the REQUESTED model would report a request as an observation), and token-level text deltas — a
+  `TextDelta` here is one whole assistant message.
+- **Carried by codex with nowhere to go**: `reasoning_output_tokens`, dropped rather than folded into
+  `OutputTokens`, because whether `output_tokens` already includes it is unmeasured and adding it would
+  double-count if it does.
+
+**Why "documented-not-measured" is not the GEN-VERIFY violation it looks like.** That rule exists because a
+guessed surface *presents as knowledge*. The fix here is to make a wrong guess cost fewer events instead of
+wrong ones: the tool mapping is **shape-driven, not name-driven**. Any item whose type is not one of the
+three known message-ish types is surfaced as a tool step under **codex's own item-type name**, with
+**codex's own item object** as `ArgumentsJson`/`Content`. Nothing is renamed or normalised, so a codex
+release that adds or renames a tool item still flows through, and there is deliberately **no
+`CodexToolCalls`** helper — the claude twin parses argument names this repo has measured, and inventing the
+codex equivalent would be guessing field names. Where codex emits no `item.started`, the `ToolCall` is
+**synthesised from the completion** (correlated by item id, never twice), so the step stays visible whichever
+way the unmeasured detail falls.
+
+**Resume is REFUSED, not ignored and not guessed.** `AgentSessionOptions.ResumeToken` yields a single
+`SessionEnded(Unsupported)` **without spawning**. Guessing a resume subcommand is unusually expensive on this
+CLI: `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a PROMPT, so a wrong guess silently spends
+a turn answering the thread id. Silently ignoring it is worse in the other direction — a multi-turn chat would
+start a FRESH session and lose its history with no signal at all. Refusing is the only option that neither
+lies nor costs money. Same reasoning as `TryBuildLoginArgs` refusing an account-kind codex does not have.
+`DisallowedTools` is logged as unhonoured (codex's gate is the sandbox, not a deny list) and `SystemPrompt`
+travels as a leading block of the prompt (codex `exec` has no measured flag for one).
+
+**One structural fix came out of this and is the durable part**: both codex paths now build their argv from
+`CodexExecArgs`. `--skip-git-repo-check` is the flag the consuming app dropped — codex refuses to run outside
+a git repository, so omitting it WORKS on a developer's machine and breaks in a shipped bundle. A second copy
+of that argv is a second chance to lose it, and the agent session runs in the *caller's* directory, which is
+exactly where "it's a repo on my machine" is most tempting. `CodexEnvelope` does the same for the
+non-terminal-`error` rule. Both defects the consumer hit are now structurally shared rather than
+re-implemented, and both mutation-checked.
+
 ## D39 — the post-1.0 ergonomics batch: category predicates over per-member helpers, and two halves left open on purpose (2026-08-05)
 The additive tail of the D21 review (the items filed as Part 25) worked in one pass. Recorded because three
 of the five were decided on SHAPE rather than implemented as filed, and two of the filed items turned out to

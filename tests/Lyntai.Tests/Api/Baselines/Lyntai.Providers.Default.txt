@@ -2,6 +2,7 @@ static class Lyntai.ClaudeCliBuilderExtensions
     static AddClaudeCliAgentSession(LyntaiBuilder, String=) : LyntaiBuilder
     static AddClaudeCliProvider(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=) : LyntaiBuilder
 static class Lyntai.CodexCliBuilderExtensions
+    static AddCodexCliAgentSession(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=) : LyntaiBuilder
     static AddCodexCliProvider(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=, CodexCliDialect=) : LyntaiBuilder
 static class Lyntai.OpenAiCompatibleBuilderExtensions
     static AddAzureOpenAiProvider(LyntaiBuilder, String, String, String=, String=, Func<IServiceProvider,HttpClient>=) : LyntaiBuilder
@@ -58,6 +59,19 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeCliProvider
     UpdateAsync(CancellationToken=) : Task<ProviderUpdateResult>
 static class Lyntai.Providers.ClaudeCli.ClaudeToolCalls
     static FilePathOf(ToolCall) : String
+sealed class Lyntai.Providers.CodexCli.CodexAgentOptions
+    .ctor()
+    EqualityContract : Type
+    Equals(AgentSessionOptions) : Boolean
+    Equals(CodexAgentOptions) : Boolean
+    Equals(Object) : Boolean
+    GetHashCode() : Int32
+    PrintMembers(StringBuilder) : Boolean
+    SandboxMode : String
+    ToString() : String
+sealed class Lyntai.Providers.CodexCli.CodexAgentSession
+    .ctor(IProcessRunner, LyntaiOptions, ILogger<CodexAgentSession>=, String=, IReadOnlyDictionary<String,String>=)
+    StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Providers.CodexCli.CodexCliDialect
     .ctor()
     AuthStatusArgs : IReadOnlyList<String>

@@ -46,4 +46,39 @@ public static class CodexCliBuilderExtensions
     private static ICliToolProvisioner? ResolveProvisioner(IServiceProvider sp) =>
         sp.GetKeyedService<ICliToolProvisioner>(CodexCliProvider.ProviderId)
         ?? sp.GetService<ICliToolProvisioner>();
+
+    /// <summary>Register <see cref="CodexAgentSession"/> as an <see cref="IAgentSession"/> — the self-driving
+    /// (agentic) codex seam, which streams the agent's TOOL STEPS rather than collapsing a turn to text.
+    /// Registered both unkeyed and KEYED by <c>"codex-cli"</c>, so an app offering both CLI backends resolves
+    /// the one it means (<c>GetRequiredKeyedService&lt;IAgentSession&gt;("codex-cli")</c>) instead of whichever
+    /// registration happened to be last. The spawned command honors <c>LYNTAI_PROVIDER_CMD</c> /
+    /// <c>CODEX_CMD</c> so tests and e2e can point at a deterministic stub.</summary>
+    /// <remarks>Read <see cref="CodexAgentSession"/>'s remarks before adopting: codex's message/usage/terminal
+    /// events are measured, its tool-step events are inferred, and three neutral
+    /// <see cref="AgentSessionOptions"/> members (resume, disallowed tools, system prompt) are handled
+    /// explicitly because codex has no equivalent.</remarks>
+    /// <param name="builder">The Lyntai builder.</param>
+    /// <param name="command">A PORTABLE <c>codex</c> path, as with
+    /// <see cref="AddCodexCliProvider"/> — pass the same value to both so a host's bundled CLI is used for
+    /// completions and agent sessions alike.</param>
+    /// <param name="environment">Extra environment variables for the spawn; a portable install usually wants
+    /// its own <c>CODEX_HOME</c>.</param>
+    public static LyntaiBuilder AddCodexCliAgentSession(
+        this LyntaiBuilder builder,
+        string? command = null,
+        IReadOnlyDictionary<string, string>? environment = null)
+    {
+        builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
+        builder.Services.AddKeyedSingleton<IAgentSession>(CodexCliProvider.ProviderId,
+            (sp, _) => CreateSession(sp, command, environment));
+        return builder;
+    }
+
+    private static CodexAgentSession CreateSession(
+        IServiceProvider sp, string? command, IReadOnlyDictionary<string, string>? environment) =>
+        new(sp.GetRequiredService<IProcessRunner>(),
+            sp.GetRequiredService<LyntaiOptions>(),
+            sp.GetService<ILogger<CodexAgentSession>>(),
+            command,
+            environment);
 }

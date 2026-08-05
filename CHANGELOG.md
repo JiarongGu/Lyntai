@@ -13,6 +13,23 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 ## Unreleased
 
 ### Added
+- **`CodexAgentSession` — the agent-session shape is no longer claude-only.** `AddCodexCliAgentSession()`
+  registers an `IAgentSession` that drives `codex exec --json` and streams the agent's **tool steps**, so an
+  app that shows tool activity can offer both CLI backends through one shape instead of hand-parsing codex's
+  JSONL. Both `Add*CliAgentSession` extensions now also register **keyed** by provider id
+  (`GetRequiredKeyedService<IAgentSession>("codex-cli")` / `"claude-cli"`), so registering both no longer
+  makes the unkeyed resolve depend on registration order.
+  **Read the honesty note before adopting** (`docs/DECISIONS.md` **D40**): the message/usage/terminal half of
+  the mapping is MEASURED against codex-cli 0.146.0, the **tool-step half is INFERRED** — the measured run
+  used no tools. It is written shape-driven so a wrong guess costs fewer events rather than wrong ones: a tool
+  step carries codex's own item-type name and its raw item object, nothing renamed or normalised. Not
+  emitted, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`, and
+  token-level text deltas (a `TextDelta` is one whole assistant message). `ResumeToken` is **refused** with
+  `LlmVerdict.Unsupported` and no spawn rather than guessed — `codex [OPTIONS] [PROMPT]` reads an unrecognized
+  subcommand as a prompt, so a wrong guess would silently spend a turn; `DisallowedTools` is logged as
+  unhonoured (codex's gate is the sandbox); `SystemPrompt` travels as a leading block of the prompt.
+  Internally both codex paths now build argv from one source, so `--skip-git-repo-check` — the flag whose
+  absence works in a dev git repo and breaks in a shipped bundle — cannot go missing from one of them.
 - **Provider lifetime as a library seam (`Lyntai.Lifecycle`)** — for the app whose backend configuration is
   owned **outside** the deployment (an end user, or a store the process polls), where several configurations
   of one backend are live at once and any of them can change mid-render. `IProviderPool<TProvider>` takes a
