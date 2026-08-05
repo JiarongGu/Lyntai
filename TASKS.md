@@ -21,9 +21,10 @@ has shipped and is archived — see `docs/task-archive.md` Parts 29–38 and `do
 verdict-parity finding closed 2026-08-05 (`LlmVerdict.NotConfigured`), emptying that part, and the
 verdict-translation gap it left behind closed the same day as Part 38 (`docs/DECISIONS.md` D43), emptying that
 one too. What remains open is below: the generation follow-ups in Part 33 (**all** now needing a real service, a
-vendor pick or a design call — none is codeable from here), the codex surface still to MEASURE in Part 39
-(opened while closing CLI11 — also not codeable from here), the post-1.0 additive backlog in Part 25, and one
-conditional item:_
+vendor pick or a design call — none is codeable from here), the blameless-vs-reportable router call in Part 40
+(opened while closing Part 38 — a design call), the codex surface still to MEASURE in Part 39 (opened while
+closing CLI11 — also not codeable from here), the post-1.0 additive backlog in Part 25, and one conditional
+item:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
@@ -88,6 +89,39 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
 > `[x]` here.
+
+---
+
+## Part 40 — a media verdict that is both BLAMELESS and REPORTABLE (2026-08-05)
+
+_Opened while closing Part 38 (`docs/DECISIONS.md` **D43**). Part 38 fixed the `Unsupported` arm; this is the
+half it could not fix, because the obstacle is the ROUTER's reporting rule, not the translation table._
+
+- [ ] **`GenerationRouter` forces a choice between "does not blame the backend" and "explains the run", and
+  one media verdict needs both.** `src/Lyntai.Core/Generation/Routing/GenerationRouter.cs:92` excludes
+  `NotConfigured`/`Unsupported` from `firstFailure`, and `:117` falls back to `NotConfigured` when nothing
+  substantive was recorded. That rule is right — a blameless verdict must not mask a real failure (D38) — but
+  it makes the two properties mutually exclusive, and `LlmVerdict.ContextWindowExceeded` needs both.
+
+  **What a consumer observes today.** An image backend that answers "prompt is too long" (the shared corpus
+  matches it; backends do say it) is classified `GenerationVerdict.Failed`, which is
+  `PenalizeAndAdvance` — so a few oversized prompts in a row put a perfectly healthy backend on dead-host
+  cooldown, and unrelated later requests are then routed away from it or refused outright. That is the same
+  harm Part 38 fixed for capability gaps, one enum member along. Mapping it to `Unsupported` instead trades one
+  fault for another: the render would advance blamelessly, but when every candidate answers the same way the
+  caller is told "no capable media backend" / "every capable backend reported it is not configured" instead of
+  "your prompt is too long", losing the one thing they can act on. **The same reporting hole already exists for
+  a run in which every candidate returns `Unsupported`** — reachable today from any backend that returns it
+  directly, as the job backends' inline seam does.
+
+  **What to settle** (a design call, not a mechanical change — which is why Part 38 deliberately left it):
+  whether the router grows a *reportable-but-blameless* tier — remembered as the run's reason when there is no
+  substantive failure, while still taking `Advance` and never counting toward the dead-host threshold — or
+  whether the "no candidate could serve this" fallback learns to report what the candidates actually said
+  instead of a synthetic `NotConfigured`. Either answer then lets `GenerationVerdictClassifier` map
+  `ContextWindowExceeded` to it and lets the two domains agree again (the LLM side already maps it to
+  `Advance`, `src/Lyntai.Core/Llm/Routing/RoutingPolicy.cs:20`). Changing the mapping BEFORE the router rule
+  just swaps one cost for the other — don't.
 
 ---
 

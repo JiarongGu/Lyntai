@@ -140,11 +140,20 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   of `GenerationVerdict.Failed`, so routing advances without blame — and, consistently with every other
   blameless verdict, `GenerationRouter` no longer reports it as the run's failure reason when a real failure
   also occurred. A `switch` on `GenerationVerdict.Failed` that was catching these needs an `Unsupported` arm.
-  This is a `Lyntai.Core` type and carries the full SemVer promise, not the `Lyntai.Generation` experimental
-  carve-out; it is a behaviour fix, not an API change, and is called out here under D24's documented-change
-  discipline. `LlmVerdict.ContextWindowExceeded` still collapses to `Failed` — now deliberately and with its
-  reason written down. The catch-all that hid this is gone: every `LlmVerdict` member has its own arm, and a
-  test fails until a newly added one is given a translation. See `docs/DECISIONS.md` **D43**.
+  **Read this before choosing the version to release it in.** This is a `Lyntai.Core` type, so it carries the
+  full SemVer promise rather than the `Lyntai.Generation` experimental carve-out — and it is precisely the shape
+  `docs/DECISIONS.md` **D24** declines to license in a minor: *"Does NOT: silent behavior changes … or anything
+  a consumer can't detect at compile time. Those stay major-bump material regardless."* No API member changed,
+  so nothing here breaks a build; a consumer's `switch` on `GenerationVerdict.Failed` keeps compiling and simply
+  stops matching these results. **Treat it as major-bump material** — it is recorded under `## Unreleased`,
+  which fixes no version, so whoever cuts the release makes that call deliberately.
+  `LlmVerdict.ContextWindowExceeded` still collapses to `Failed`, now deliberately and with its reason written
+  down — **at a stated price**: `Failed` means `PenalizeAndAdvance`, so repeated oversized prompts can still
+  bench a healthy backend, and the LLM domain maps that verdict to `Advance`, so the two now disagree about it.
+  Keeping it reportable was judged worth that, because the alternative silently loses "your prompt is too long"
+  — the one message a caller can act on. The remedy needs a router change and is filed as `TASKS.md` Part 40.
+  The catch-all that hid all this is gone: every `LlmVerdict` member has its own arm, and a test fails until a
+  newly added one has both a translation and an arm. See `docs/DECISIONS.md` **D43**.
 - **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already
   resting on** (`TASKS.md` GEN11). 2.1.0's `Add*` shims register a client with `Timeout.InfiniteTimeSpan`
   because a render routinely outlives the 100-second default — but no deadline existed to take over:

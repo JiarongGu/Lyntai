@@ -2730,28 +2730,46 @@ did — not a rider on an unrelated one._
     values. **No other arm was mis-mapped** — the `NotConfigured` pairing checked specifically was already
     correct (it landed with D38).
   - **The compiler cannot be the growth gate for an enum switch.** C# treats any switch over an enum as
-    non-exhaustive (`(LlmVerdict)99` is legal), so removing the discard buys CS8509 — a build failure here via
-    `check-warnings` — rather than safety. The gate is a test,
-    `Every_llm_verdict_states_its_media_translation`, which demands a row naming a media verdict per member.
-    Third instance of the same mechanism (`Every_verdict_states_whether_it_is_transient`, D38's obligation on
-    the routing policy); use it for any taxonomy expected to grow.
+    non-exhaustive (`(LlmVerdict)99` is legal), so removing the discard buys CS8509 on the code as it stands —
+    and since `TreatWarningsAsErrors` is false, what fails is the `check-warnings` GATE, not the compiler.
+    The gate is a test, `Every_llm_verdict_states_its_media_translation`, which demands a row naming a media
+    verdict per member **and an arm**: `Translate` was split over an `internal TryTranslate` returning null for
+    an unhandled member, because the discard's own answer was `Failed` and a new member registered as `Failed`
+    would otherwise have passed on the discard alone. Mutation-checked — deleting the `ContextWindowExceeded`
+    arm changes no observable value and now fails the gate. Third instance of the same mechanism
+    (`Every_verdict_states_whether_it_is_transient`, D38's obligation on the routing policy).
   - **`ContextWindowExceeded` stays at `Failed` on purpose**, and the reason is now written down rather than
     assumed. `Unsupported` would describe and route it better, but `GenerationRouter` never reports a
-    blameless verdict over a real failure, so as `Unsupported` the one actionable answer in the set ("your
-    prompt is too long for this backend") would be swallowed when it was the only thing that went wrong. D38
-    resolved the analogous LLM-side question the same way. Revisit only alongside the router's reporting rule.
+    blameless verdict over a real failure (`:92`, `:117`), so as `Unsupported` the one actionable answer in the
+    set ("your prompt is too long for this backend") would be swallowed when it was the only thing that went
+    wrong. D38 resolved the analogous LLM-side question the same way. **The price is stated, not implied:**
+    `Failed` is `PenalizeAndAdvance`, so repeated oversized prompts can still bench a healthy backend — the
+    same harm this task fixed, one member along — and the LLM domain maps that verdict to `Advance`
+    (`RoutingPolicy.cs:20`), so the two domains now disagree about it. The remedy is a ROUTER change, filed as
+    Part 40; moving the arm on its own just swaps one cost for the other.
+  - **A shared meaning is not a shared action.** `LlmVerdict.Unsupported` routes to `Surface`,
+    `GenerationVerdict.Unsupported` to `Advance` — both deliberate, each right for its domain, but the
+    translation therefore changes fallback semantics silently. Now stated on the method and in D43.
 
   **Which promise binds, decided rather than assumed:** the type ships in `Lyntai.Core`, which carries the
-  FULL SemVer promise — the `Lyntai.Generation.*` experimental carve-out is package- and reason-scoped
+  FULL SemVer promise — the `Lyntai.Generation` experimental carve-out is package- and reason-scoped
   (unmeasured backends, the unimplemented stream seam) and does not cover it. The conservative reading was
-  applied instead of claiming the exemption. No public API member changed, so the `ApiSurfaceTests` baselines
-  are untouched; the observable behaviour change is announced in `CHANGELOG.md` under D24's discipline.
+  applied instead of claiming the exemption, and `CLAUDE.md`'s wording was tightened to say "package" so the
+  next reader does not have to re-derive it. No public API member changed, so the `ApiSurfaceTests` baselines
+  are untouched.
+
+  **Called out as MAJOR-BUMP MATERIAL rather than shipped quietly in a minor** (review finding). D24 relaxes
+  the version consequence for documented breaks, but its third bullet excludes exactly this shape — "silent
+  behavior changes … or anything a consumer can't detect at compile time" — and a consumer whose `switch`
+  catches `Failed` still compiles and simply stops matching. The fix is still right; the description is the
+  thing that had to be honest. The entry sits under `## Unreleased`, which fixes no number, and says plainly
+  that it is major-bump material so whoever cuts the release decides deliberately.
 
   **Known and accepted, recorded so it is not rediscovered:** blameless verdicts are excluded from
   `GenerationRouter`'s `firstFailure`, so a run where EVERY candidate reports `Unsupported` returns
   `NotConfigured` / "every capable backend reported it is not configured". Unchanged by this fix and reachable
   today from any backend returning `Unsupported` directly; correcting it means changing the router's reporting
-  rule, which is a different decision.
+  rule — now filed as Part 40 together with the `ContextWindowExceeded` half, since it is the same rule.
 
 ---
 

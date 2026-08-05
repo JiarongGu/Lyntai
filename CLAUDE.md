@@ -18,7 +18,8 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 ## Current state
 
 **Released: v2.0.1 (2026-08-04).** Twelve packages; public API frozen under SemVer 2.0 since 1.0 — with ONE
-carve-out, `Lyntai.Generation.*`, which ships EXPERIMENTAL until `TASKS.md` GEN-VERIFY closes.
+carve-out, the **`Lyntai.Generation` PACKAGE** (the backends), which ships EXPERIMENTAL until `TASKS.md`
+GEN-VERIFY closes.
 
 Everything through the roadmap's v0.3–v0.31 shipped (routing depth, LLM-ops, three storage backends, BYO
 resource seams, local GGUF, agentic tool-calling native + prompt, MCP both directions, durable jobs, the §9
@@ -43,9 +44,15 @@ Tests/e2e green: 1337 tests, e2e 3/3.
 - `TASKS.md` — the **active** backlog (open tasks only); `docs/task-archive.md` — the completed-task
   history (the frozen implementation plan + closed backlogs). See the `task-lifecycle.md` rule.
 
-**`Lyntai.Generation.*` is EXPERIMENTAL as of 2.0.1** — exempt from the SemVer promise until GEN-VERIFY closes
-(unmeasured backends + an unimplemented stream seam), so it may be reshaped in a minor. Say so in the docs
-before changing it; every other domain needs a major.
+**The `Lyntai.Generation` PACKAGE is EXPERIMENTAL as of 2.0.1** — exempt from the SemVer promise until
+GEN-VERIFY closes (unmeasured backends + an unimplemented stream seam), so it may be reshaped in a minor. Say
+so in the docs before changing it; every other domain needs a major.
+**The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE** — the generation CONTRACTS
+(`GenerationResult`, the routing policy, `GenerationVerdictClassifier`, …) live in that namespace *inside
+`Lyntai.Core`*, which is mandatory for every consumer and carries the FULL promise. Read the reason clause
+before claiming the exemption: it is about backends written from vendor docs with no key to call and a stream
+seam nothing implements — all of which are in the package. When in doubt, apply the full promise
+(`docs/DECISIONS.md` D43 did).
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Cli` (the shared spawned-CLI engine +
 per-CLI `ICliProviderDialect` — a new CLI backend is a dialect, never a new provider; see `DECISIONS.md`

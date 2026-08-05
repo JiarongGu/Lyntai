@@ -128,8 +128,14 @@ public class GenerationVerdictClassifierTests
     /// <summary>The translation table's growth gate, and the table itself. C# cannot make a switch over an
     /// enum exhaustive — <c>(LlmVerdict)99</c> is a legal value, so a discard arm is mandatory and would
     /// silently swallow a newly added member, which is exactly how <see cref="LlmVerdict.Unsupported"/> came
-    /// to be reported as <see cref="GenerationVerdict.Failed"/>. So the gate is this test: it demands the
-    /// DECISION, not merely a registration, because a row cannot be added without naming a media verdict.
+    /// to be reported as <see cref="GenerationVerdict.Failed"/>. So the gate is this test.
+    /// <para>It demands TWO things, because demanding only the first leaves a hole: a <b>row</b> here (which
+    /// cannot be written without naming a media verdict — that is the decision), and an <b>arm</b> in
+    /// <c>TryTranslate</c>. Without the second, a new member registered as <c>Failed</c> would pass on the
+    /// discard's answer alone and the "the discard holds nothing but undefined values" invariant would be
+    /// unguarded — the same silence this test exists to break. <c>TryTranslate</c> returns null for an
+    /// unhandled member precisely so the two are distinguishable; the public path cannot tell them apart,
+    /// which is why the gate reaches through <c>InternalsVisibleTo</c> for that half.</para>
     /// The same obligation <c>LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c>
     /// places on the call-site helpers and D38 places on the routing policy.</summary>
     [Fact]
@@ -153,9 +159,19 @@ public class GenerationVerdictClassifierTests
 
         foreach (var (llm, media) in expected)
         {
-            // the shared classifier's matcher seam is the only way in: Translate is private, and it should be
+            // an ARM, not just a row: null here means the member fell through to the discard, which would
+            // otherwise be indistinguishable from a deliberate mapping to Failed
+            Assert.NotNull(GenerationVerdictClassifier.TryTranslate(llm));
+
+            // and the whole way through the public path, since that is what a consumer actually calls
             using var scope = LlmVerdictClassifier.AddErrorTextMatcher(_ => llm);
             Assert.Equal(media, GenerationVerdictClassifier.FromErrorText("probe"));
         }
+
+        // a value no build knows has no arm — and the public path still answers it conservatively rather
+        // than throwing, because a classifier that can throw is worse than one that guesses Failed
+        Assert.Null(GenerationVerdictClassifier.TryTranslate((LlmVerdict)9999));
+        using var undefined = LlmVerdictClassifier.AddErrorTextMatcher(_ => (LlmVerdict)9999);
+        Assert.Equal(GenerationVerdict.Failed, GenerationVerdictClassifier.FromErrorText("probe"));
     }
 }

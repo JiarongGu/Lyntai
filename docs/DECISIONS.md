@@ -466,24 +466,63 @@ went unnoticed for a release. A catch-all over a taxonomy that is expected to GR
 addition into a silent misclassification.
 
 **The compiler cannot enforce exhaustiveness over an enum, so do not pretend it can.** C# treats any switch
-over an enum as non-exhaustive — `(LlmVerdict)99` is a legal value — so removing the discard buys CS8509
-(a build failure here via `check-warnings`) rather than safety, and re-adding it to fix that is back where we
-started. The gate is therefore a TEST, `Every_llm_verdict_states_its_media_translation`, which enumerates
-`Enum.GetValues<LlmVerdict>()` and demands a row naming a media verdict for each. It demands the DECISION,
-not a registration: a row cannot be added without writing an answer. That is the third instance of the same
-mechanism (`LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient`, D38's obligation on the
-routing policy) and should be the pattern for any future taxonomy that grows. The discard survives, minimally,
-for undefined numeric values only.
+over an enum as non-exhaustive — `(LlmVerdict)99` is a legal value — so removing the discard buys CS8509 *on
+the code as it stands*, not an error on the next added member; and CS8509 is a **warning**
+(`TreatWarningsAsErrors` is false here), so what actually fails is the `check-warnings` gate, not the
+compiler. Re-adding a discard to silence it is back where we started. The gate is therefore a TEST,
+`Every_llm_verdict_states_its_media_translation`, and it demands **two** things: a row naming a media verdict
+(the DECISION — a row cannot be written without answering the question) **and an arm**. The second half is
+not redundant: the discard's own answer used to be `Failed`, so a new member registered as `Failed` would
+have passed on the discard alone and the "the discard holds nothing but undefined values" invariant would
+have been unguarded — the same silence this whole entry is about. `Translate` is therefore split: an
+`internal TryTranslate` returning **null** for an unhandled member (visible to tests via `InternalsVisibleTo`,
+the `CandidateDedup` pattern) and a public path that still answers `Failed`, so behaviour is unchanged while
+a missing arm becomes detectable. Mutation-checked: deleting the `ContextWindowExceeded` arm — which changes
+no observable value at all — now fails the gate. Third instance of the same mechanism
+(`LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient`, D38's obligation on the routing
+policy); use it for any taxonomy expected to grow.
 
-**`ContextWindowExceeded` still collapses to `Failed`, and that is now a decision rather than an omission.**
-It is the one member with no media counterpart, and it is genuinely reachable in this domain — the shared
-corpus matches `prompt is too long`, which image backends do say. `Unsupported` would describe it better AND
-route it better (advance without penalty). It is kept at `Failed` anyway because `GenerationRouter`
-deliberately does not report a blameless verdict over a real failure: as `Unsupported` it would advance
-*silently*, and when it was the only thing that went wrong the caller would be told "no capable backend"
-instead of "your prompt is too long for this one" — losing the single actionable answer in the set. D38 already
-resolved the analogous question on the LLM side the same way, and for the same stated reason. Revisit only
-together with the router's reporting rule, never on its own.
+**A shared meaning is not a shared ACTION, and the translation changes the second one silently.**
+`LlmVerdict.Unsupported` maps to `FallbackAction.Surface` in `RoutingPolicy`; `GenerationVerdict.Unsupported`
+maps to `GenerationFallbackAction.Advance` in `GenerationRoutingPolicy`. Both are deliberate and each is
+right for its domain — a second chat candidate has the same capability limitation, whereas media backends
+differ widely in what they accept — but the consequence is that a verdict crossing this boundary keeps its
+meaning and *changes its fallback semantics*, with nothing at the call site saying so. Stated on the method
+so the next reader does not assume "the same verdict" implies "the same thing happens".
+
+**This is major-bump material under D24, and saying so is the point.** D24 relaxes the version-number
+consequence for *documented breaks*, but its third bullet excludes exactly this shape: "**Does NOT:** silent
+behavior changes … or anything a consumer can't detect at compile time. Those stay major-bump material
+regardless." That clause governs here and it is not evaded: a consumer whose `switch` catches
+`GenerationVerdict.Failed` still compiles and simply stops matching these results. The fix is still right —
+the old behaviour benched a healthy backend and nobody wanted it — but the honest description is "a silent
+behaviour change that D24 says is major-bump material", not "a documented change D24 permits in a minor". It
+sits under `## Unreleased`, which fixes no number, and it is flagged in `CHANGELOG.md` so that **whoever cuts
+the release makes the version call deliberately** rather than inheriting it from where the entry happened to
+land. Recording it now is a sentence; reconstructing it after a minor ships is not.
+
+**`ContextWindowExceeded` still collapses to `Failed`, and that is now a decision rather than an omission —
+but it is a TRADE, not a free choice.** It is the one member with no media counterpart, and it is genuinely
+reachable in this domain — the shared corpus matches `prompt is too long`, which image backends do say.
+`Unsupported` would describe it better AND route it better (advance without penalty). It is kept at `Failed`
+anyway because `GenerationRouter` deliberately does not report a blameless verdict over a real failure
+(`GenerationRouter.cs:92`, `:117`): as `Unsupported` it would advance *silently*, and when it was the only
+thing that went wrong the caller would be told "no capable backend" instead of "your prompt is too long for
+this one" — losing the single actionable answer in the set. D38 already resolved the analogous question on the
+LLM side the same way, and for the same stated reason.
+
+**What that costs, named rather than left implicit:** `Failed` carries `PenalizeAndAdvance`, so repeated
+oversized prompts count toward the dead-host threshold and can bench a perfectly healthy backend — *the exact
+harm this entry fixes for `Unsupported`, one enum member along*. And the LLM domain maps `ContextWindowExceeded`
+to `Advance` (`RoutingPolicy.cs:20`), so after this change the two domains genuinely disagree about it. Both
+were accepted because the alternative loses the message, and a lost message is the failure a human cannot work
+around; but neither is zero, and writing only the reportability half would have made the trade read as free.
+
+**The real remedy is a router change, not a mapping change**, which is why it is filed rather than folded in:
+what forces the choice is `GenerationRouter`'s rule that a blameless verdict is never reported, so "blameless"
+and "reportable" are mutually exclusive when the domain needs a verdict that is both. Filed as `TASKS.md`
+Part 40. Until it lands, do not revisit this arm on its own — moving it without the router rule just swaps
+one of these two costs for the other.
 
 **Known and accepted, not overlooked:** because blameless verdicts are excluded from `GenerationRouter`'s
 `firstFailure`, a run where EVERY candidate reports `Unsupported` returns
