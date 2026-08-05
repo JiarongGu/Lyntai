@@ -21,6 +21,11 @@ public record AgentSessionOptions
     public IReadOnlyList<string> DisallowedTools { get; init; } = [];
     /// <summary>Where a CLI-agent adapter runs the loop (its cwd). Adapters without a filesystem context ignore it.</summary>
     public string? WorkingDirectory { get; init; }
+    /// <summary>The host application's OWN MCP servers, so an embedded agent can reach the app's domain
+    /// through the app's tools. Each adapter renders these in its backend's vocabulary; see
+    /// <see cref="AgentMcpServer"/> for the two transports and for what this does NOT grant (tool
+    /// permission, which stays the caller's).</summary>
+    public IReadOnlyList<AgentMcpServer> McpServers { get; init; } = [];
 }
 
 /// <summary>The caller-facing outcome of a session (the fold of the event stream).</summary>

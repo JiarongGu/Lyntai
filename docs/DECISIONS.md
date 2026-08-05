@@ -66,6 +66,7 @@ and **`D24`** (its silent-behaviour bullet amended by `D44`).
 | [D44](#d44-d24s-third-bullet-is-amended-while-every-consumer-is-first-party-a-disclosed-behaviour-change-may-ship-in-a-minor-too-2026-08-05) | 2026-08-05 | D24's third bullet is amended: while every consumer is first-party, a DISCLOSED behaviour change… |
 | [D45](#d45-the-three-calls-that-closed-the-220-backlog-report-the-blameless-reason-refuse-an-identity-collision-and-a-verdict-carrying-exception-in-core-2026-08-05) | 2026-08-05 | the three calls that closed the 2.2.0 backlog: report-the-blameless-reason, refuse-an-identity-co… |
 | [D46](#d46-the-release-workflow-ships-what-is-pushed-so-unpushed-local-work-is-silently-excluded-2026-08-05) | 2026-08-05 | the release workflow ships what is PUSHED, so unpushed local work is silently excluded |
+| [D47](#d47-an-agent-sessions-mcp-servers-are-a-neutral-core-option-because-both-backends-already-have-the-capability-and-only-the-vocabulary-differs-2026-08-05) | 2026-08-05 | an agent session's MCP servers are a NEUTRAL Core option, because both backends already have the… |
 
 <!-- index:end -->
 
@@ -530,6 +531,71 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
+
+## D47 — an agent session's MCP servers are a NEUTRAL Core option, because both backends already have the capability and only the vocabulary differs (2026-08-05)
+`AgentSessionOptions` could not carry the host application's own MCP servers, so an `IAgentSession` could be
+pointed at app tools only through `ClaudeAgentOptions.McpConfigPath` — a claude-only escape hatch. Closes
+CLI14, filed by a consuming app that had adopted 2.3.0 and still could not delete its hand-rolled codex
+integration.
+
+**The gap was not cosmetic, and it was silent.** `CodexAgentSession`'s own docblock sells the abstraction as
+"a chat UI that shows tool activity can drive either backend through one `IAgentSession`" — but an agent
+embedded in an app is usually there to act on *that app's* domain, which it reaches through the app's MCP
+tools. Adopting the codex session as shipped would have spawned codex with **no MCP servers at all**: not a
+compile error, not a runtime error, just an agent that starts, answers, and cannot do the one thing it was
+embedded to do.
+
+**Why neutral rather than per-backend, which the task offered as an equally complete answer.** The test in
+`.claude/knowledge/generic-library.md` is "would a second provider have this exact flag?" — and here the
+answer is yes twice over: **both** shipped backends accept app-provided MCP servers natively, and both were
+MEASURED doing it before a line was written (below). What differs is spelling, and absorbing a difference of
+spelling is what an adapter is for. The per-backend answer (`CodexAgentOptions.ConfigOverrides`, a list of raw
+`-c` strings) would have been smaller and honest about being codex-shaped, but it leaves the two backends
+interchangeable only for an agent that needs no app tools — the case the abstraction is least often reached
+for — and it pushes codex's TOML quoting onto every caller.
+
+**`McpEndpoint` was not grown into this, deliberately.** It describes the loopback host *Lyntai* stands up for
+the app's in-process `ITool`s (`ICliToolProvisioner`, D23) and is HTTP-only. This describes a server the *app*
+already runs. Conflating them would have made one type mean two things and forced a stdio shape onto the
+provisioner's contract; a sibling type keeps both honest, and the two compose — an app can host its in-proc
+tools AND hand the session an external server it ships.
+
+**Everything backend-specific was MEASURED turn-free before it was written**, both CLIs being installed here:
+- `codex exec --help` documents `-c, --config <key=value>` (dotted path, value parsed as TOML). The keys were
+  then confirmed by driving `codex mcp list` / `codex mcp get` — which READ configuration and spend no turn —
+  with the overrides applied: `mcp_servers.<n>.command` / `.args` / `.env` for stdio, `.url` /
+  `.bearer_token_env_var` for HTTP.
+- `claude --help` documents `--mcp-config <configs...>` as "Load MCP servers from JSON files **or strings**
+  (space-separated)". That it takes a **list** is load-bearing: it is what lets a rendered document sit
+  *alongside* a caller's existing `McpConfigPath` instead of displacing it. The document shape was confirmed
+  by placing it as a project `.mcp.json` and reading back what `claude mcp list` had parsed.
+
+**Three consequences that were decided rather than fallen into:**
+
+- **A bearer token never reaches argv.** A command line is readable by any process that can list processes.
+  codex settles this for us — it accepts only `bearer_token_env_var`, the NAME of a variable — so the value
+  goes into the child's environment and only the name is an argument. claude has no such restriction, so the
+  document is written to an **owner-only temp file, deleted when the turn ends**, rather than passed through
+  the inline-string form the flag also accepts. Same reasoning as `McpCliContext.WriteTempFile`.
+- **An unusable entry REFUSES the turn** (a single `SessionEnded` with `Unsupported`, nothing spawned) rather
+  than being dropped — a name carrying a dot or a quote, a stdio server with no command, a duplicate name. A
+  dropped server reproduces exactly the silent capability loss this entry exists to remove, one layer down,
+  and the refusal costs nothing because it happens before any process starts. This is the same posture as
+  `CodexExecArgs.TryBuildResume` refusing a token the CLI would read as an option.
+- **Naming a server does not pre-approve its tools.** Reachable is not permitted: claude still needs
+  `AllowedTools` (or `SkipAllPermissions`), codex still gates on `--sandbox`. Auto-allow-listing an app's
+  servers would be a silent change of security posture bundled into a convenience feature, so it is the
+  caller's call and a test pins it.
+
+**The MCP overrides go THROUGH `CodexExecArgs`, not after it.** On this CLI an option that lands past the `-`
+stdin marker is read as PROMPT text, and a swallowed flag is a *spent turn* rather than an error — and the
+resume path must carry the identical overrides, or an agent has its tools on turn 1 and not on turn 2. That is
+the same reason `--skip-git-repo-check` lives there (D27's one-argv rule), applied to a second flag family.
+
+**Additive, so no break.** `McpServers` defaults to empty and every existing call site is unchanged;
+`ApiSurfaceTests` shows three additions and no removals. `ClaudeAgentArgs.Build` gained a temp-file-writer
+parameter — internal, so no consumer sees it, and it is what lets a test assert the document's contents
+without touching disk.
 
 ## D46 — the release workflow ships what is PUSHED, so unpushed local work is silently excluded (2026-08-05)
 **v2.2.0 was cut without the whole-library review that had been finished for it.** Three commits sat on the

@@ -75,6 +75,7 @@ When a task says "app X wants Y," run it through this before writing code:
 | App's "typing" UI needs live tool-loop progress | `IToolLoop.StreamAsync` yielding neutral `AgentStreamEvent`s | Core, mirrors `IAgentSession` |
 | App needed a full BYO runner for Windows `.cmd`/CJK | default `ProcessRunner` resolves shims + forces UTF-8 for everyone | Core |
 | Source-study tool re-`List`s to dedup a note | `dedup`/`scope` params, defaulted off | `ICuratedMemoryStore` (Core) |
+| Desktop app drives codex with three `-c mcp_servers.<its-name>.*` overrides per turn | neutral `McpServers` (stdio **or** http), rendered per dialect | `AgentSessionOptions` (Core) + both adapters |
 
 ## Related
 

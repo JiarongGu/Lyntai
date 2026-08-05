@@ -2899,6 +2899,134 @@ the set that needs a key, a vendor, a second backend, or a paid turn** — not e
 
 ---
 
+## Part 45 — a measured `turn.failed` shape, and the exit-code precedence it exposed (2026-08-05)
+
+_Filed as CLI15 under the open Part 41 and closed the same day. It takes its own Part number because Part 41
+stays OPEN (CLI12 is still unmeasurable from here), and an open Part and an archived Part must never share
+a number._
+
+- [x] **CLI15 — a measured `turn.failed` shape, filed as EVIDENCE for the failure half of the mapping.**
+  Filed by a consuming app on 2026-08-05 after its own hand-rolled codex reader crashed on it. No claim is
+  made about this repository's reader — the consumer treats this library as a black box and has not read it.
+  What is offered is the capture, because CLI12's premise is that the codex surface needs measuring and this
+  is a piece of it that a no-tools run does not reach.
+
+  **Measured** against the codex CLI on Windows, 2026-08-05, by driving `codex exec --json
+  --skip-git-repo-check` against an account whose login had expired (a 401 — cheap to reproduce, needs no
+  quota, and is a realistic owner state rather than a synthetic fault):
+
+  ```jsonc
+  {"type":"error","message":"Reconnecting... 2/5 (unexpected status 401 …)"}   // string
+  {"type":"turn.failed","error":{"message":"unexpected status 401 …"}}          // OBJECT, nested message
+  ```
+
+  Two things in that pair are worth having on the record:
+  1. **`turn.failed.error` is an OBJECT wrapping `message`, not a string** — the two error-ish events on one
+     stream do not share a shape. Reading it as a string throws `InvalidOperationException`, which is *not* a
+     `JsonException`, so a defensive `catch (JsonException)` around a per-line parse does not hold it. In the
+     consumer that turned a recoverable "your codex login expired" into a killed turn reported as "is the CLI
+     installed and on PATH?" — the wrong remedy for the actual problem.
+  2. **A `turn.failed` is followed by a non-zero exit**, so a reader that reports both the terminal event and
+     the exit/stderr emits the failure twice. The second one carried codex's ordinary stderr chatter
+     (`"Reading prompt from stdin..."`), which reads as a second, unrelated failure underneath the real one.
+
+  **Acceptance (two-sided, either is a complete answer):** the failure half of the mapping is confirmed
+  against these shapes and the stub grows the `turn.failed` object form — *or* a note recording that this
+  repository already handles both and the capture is only corroboration, which is equally useful to the
+  consumer since it is the version they will adopt when CLI14 lands.
+
+  _Quest from `Aurelia` · filed 2026-08-05 · **open**._
+
+✅ done 2026-08-05 — **Answered on the first arm, because the second turned out to be false.** Three of the
+four claims were already handled and are now pinned rather than assumed: `turn.failed.error` as an OBJECT is
+read by `CodexEnvelope.FailureMessage` (nested `error.message`, then a flat `message`, then a generic line);
+the bare `error` line stays non-terminal; and the double-report is prevented in `StreamAsync` (the in-band
+`Failure` ends the stream before the runner's non-zero-exit exception surfaces) and in both agent sessions
+(the `sawTerminal` guard). **The fourth found a real defect the consumer could not have seen from outside:**
+`CliProviderEngine.CompleteAsync` returned on a non-zero exit *before* parsing stdout, so this exact pair
+classified the stderr chatter — `Failed` / "exit 1: Reading prompt from stdin..." — and lost both the reason
+and the `AuthFailed` verdict that benches the host. The engine now parses first and lets the backend's own
+account win, with the exit code kept as context; a non-zero exit with no in-band failure is unchanged. Same
+ordering `StatusAsync` always had, which is why it is recorded in `.claude/knowledge/pitfalls.md` as a
+generalisation (two answer channels ⇒ decide precedence explicitly and pin it) rather than as one more CLI
+quirk. `docs/FIXES.md` opens with the incident; `codex-stub.mjs` grew the measured `AUTH_ERROR_EXIT` shape
+and stopped `process.exit()`-ing mid-write. Four tests (three red first), `verify` green.
+
+---
+
+## Part 44 — an agent session can only be given the app's own tools if the backend is claude (2026-08-05)
+
+_Filed by a consuming app after adopting 2.3.0 and finding it still cannot delete its hand-rolled codex
+provider. Everything else CLI11 promised landed and is better than the hand-rolled version — argv built once,
+resume measured, `--skip-git-repo-check` no longer possible to omit from one path. This is the single seam
+that remains._
+
+- [x] **CLI14 — an `IAgentSession` has no way to be pointed at the app's own MCP servers unless it is
+  `ClaudeAgentSession`.** `src/Lyntai.Core/Agents/AgentSessionOptions.cs`,
+  `src/Lyntai.Providers.Default/Codex*`.
+
+  **The need.** `CodexAgentSession`'s own docblock states the value of the abstraction: "a chat UI that shows
+  tool activity can drive either backend through one `IAgentSession`". But an agent embedded in an app is
+  usually there to act on *that app's* domain, and it reaches that domain through the app's own MCP tools.
+  Today the only way to point a session at an app-hosted MCP server is `ClaudeAgentOptions.McpConfigPath`.
+  `CodexAgentOptions` carries `SandboxMode` and nothing else. So the backends are interchangeable only for an
+  agent that needs no app tools — arguably the case the abstraction is least often reached for.
+
+  **Why this is general rather than one consumer's shape.** Both shipped backends already accept app-provided
+  MCP servers natively, and both were measured to do so: claude through a `--mcp-config` JSON file, codex
+  through repeatable `-c mcp_servers.<name>.command|args|env` overrides (the filing consumer drives codex that
+  way in production today). The *vocabulary* differs; the *need* is identical — which is the shape a dialect
+  layer normally absorbs, and `ICliProviderDialect`/`CodexCliDialect` already exist. The seam is there; the
+  agent-session path just does not reach it.
+
+  **A second gap in the same area, which is why reusing the existing type would not close this.**
+  `Lyntai.Agents.McpEndpoint` is `(Url, AuthToken, ServerName)` — **HTTP only**. It cannot express a **stdio**
+  server (command + args + env). Stdio is how an application ships its own tools as a child process without
+  opening a localhost port or having to authenticate one, and it is the shape MCP's own reference servers
+  ship in. That is also why the claude path here hand-writes its `--mcp-config` JSON instead of using a typed
+  surface: the typed surface cannot say `command`.
+
+  **Evidence.** The consumer's desktop app spawns its own MCP server as a stdio child (an exe plus
+  environment) and passes codex three `-c mcp_servers.aurelia.*` overrides per turn. Adopting
+  `CodexAgentSession` as shipped would spawn codex with **no MCP servers at all**, so the agent would lose
+  every tool it exists to use — a silent capability loss, not a compile error. The claude path is unaffected
+  only because it writes that JSON itself.
+
+  **Acceptance — either is a complete answer:**
+  - **Neutral.** `AgentSessionOptions` carries the app's MCP servers in a form that can express **stdio
+    (command/args/env)** as well as HTTP, and each CLI dialect renders it in its own vocabulary (claude: a
+    temp `--mcp-config` file; codex: repeated `-c`). Either `McpEndpoint` grows a stdio form or a sibling
+    type appears beside it.
+  - **Or per-backend, recorded.** A decision that agent-session MCP wiring stays backend-specific — in which
+    case `CodexAgentOptions` needs its own seam. Codex's native shape is a list of config overrides, so an
+    `IReadOnlyList<string> ConfigOverrides` rendered as repeated `-c` closes it, and is at least honest about
+    being codex-shaped.
+
+  **Why not route it through the ctor's `env` (the obvious workaround, which the consumer rejected).**
+  Pointing `CODEX_HOME` at a temp directory holding a generated `config.toml` would carry the MCP servers —
+  but that same directory holds codex's **auth**, so it would cost the owner their login. Under **D26** the
+  host keeps credentials and the library never touches them; a workaround that trades an app's tools for the
+  user's session is not one.
+
+✅ done 2026-08-05 — **The NEUTRAL arm, at the owner's direction**, and a sibling type rather than growing
+`McpEndpoint` (which describes the loopback host *Lyntai* stands up for in-proc `ITool`s and would then mean
+two things). New in Core: `AgentMcpServer` (stdio: command/args/env · http: url/token, with `Stdio`/`Http`
+factories), `McpTransport`, and `AgentSessionOptions.McpServers` — additive, three `ApiSurface` additions and
+no removals. `ClaudeAgentArgs` renders an owner-only `--mcp-config` document deleted when the turn ends and
+**kept alongside** a caller's own `McpConfigPath` (the flag takes a list); `CodexMcpConfig` renders repeated
+`-c mcp_servers.<n>.…` TOML overrides passed THROUGH `CodexExecArgs`, so a resumed turn carries them
+identically and none can land past the `-` where codex would read it as prompt text.
+**Every backend detail was measured turn-free before it was written** — `codex mcp list`/`get` with the
+overrides applied (both CLIs are installed here), and claude's document shape read back through
+`claude mcp list`. Three decisions recorded in `docs/DECISIONS.md` **D47**: a bearer token never reaches argv
+(codex takes only `bearer_token_env_var`, so the value goes to the child's environment); an unrenderable
+entry REFUSES the turn rather than being dropped, because a dropped server is the silent capability loss this
+whole item is about; and naming a server does not pre-approve its tools. 22 tests, mutation-checked; `verify`
+green. Also fixed a stale README bullet found next door — it still said codex `ResumeToken` was refused,
+which CLI13 changed.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

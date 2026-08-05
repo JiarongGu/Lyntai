@@ -18,22 +18,36 @@ internal static class CodexAgentArgs
     ///
     /// <para>The only refusal is a <see cref="AgentSessionOptions.ResumeToken"/> the CLI would read as an
     /// OPTION rather than as a session id; every other neutral option either maps or is reported as
-    /// unhonoured. Building the resume argv through <see cref="CodexExecArgs"/> is what keeps the resumed
-    /// invocation flag-for-flag identical to the fresh one.</para></summary>
+    /// unhonoured. <see cref="AgentSessionOptions.McpServers"/> is assumed already validated by the caller
+    /// (<see cref="AgentMcpServers.TryValidate"/>, which the session runs so a refusal carries its own
+    /// subtype). Building the resume argv through <see cref="CodexExecArgs"/> is what keeps the resumed
+    /// invocation flag-for-flag identical to the fresh one — the MCP overrides included, which is the whole
+    /// reason they are passed INTO it rather than appended after.</para></summary>
     /// <param name="options">The turn.</param>
     /// <param name="args">The argv, or empty when refused.</param>
+    /// <param name="environment">Environment variables the spawn must carry for the argv to mean what it
+    /// says — currently the bearer tokens of HTTP MCP servers, which codex reads only from a NAMED variable
+    /// (see <see cref="CodexMcpConfig"/>). Empty when there are none.</param>
     /// <param name="refusal">Why the turn cannot be spawned, or null when it can.</param>
-    public static bool TryBuild(AgentSessionOptions options, out IReadOnlyList<string> args, out string? refusal)
+    public static bool TryBuild(
+        AgentSessionOptions options,
+        out IReadOnlyList<string> args,
+        out IReadOnlyDictionary<string, string> environment,
+        out string? refusal)
     {
+        var mcpArgs = CodexMcpConfig.Build(options.McpServers, out var mcpEnvironment);
+        environment = mcpEnvironment;
+        args = [];
+
         if (options.ResumeToken is { Length: > 0 })
         {
             var built = CodexExecArgs.TryBuildResume(
-                SandboxFor(options), options.Model, options.ResumeToken, out var resumeArgs, out refusal);
+                SandboxFor(options), options.Model, options.ResumeToken, mcpArgs, out var resumeArgs, out refusal);
             args = resumeArgs;
             return built;
         }
 
-        args = CodexExecArgs.Build(SandboxFor(options), options.Model);
+        args = CodexExecArgs.Build(SandboxFor(options), options.Model, mcpArgs);
         refusal = null;
         return true;
     }

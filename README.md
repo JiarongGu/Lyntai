@@ -934,9 +934,45 @@ Two consumption doors: `StreamAsync` (live event-by-event, for progress UI or st
 `RunAsync(onEvent)` (fold to a result for callers that only need the outcome).
 
 The `IAgentSession` interface is neutral Core (`Lyntai.Agents`); all claude-specific flags
-(`--settings`, `--mcp-config`, `AllowedTools`) live in the `Lyntai.Providers.Default` package (namespace
+(`--settings`, `AllowedTools`) live in the `Lyntai.Providers.Default` package (namespace
 `Lyntai.Providers.ClaudeCli`)
 (`ClaudeAgentSession` / `ClaudeAgentOptions`, registered via `AddClaudeCliAgentSession()`).
+
+**Give the agent your app's own tools — on either backend** (`AgentSessionOptions.McpServers`). An agent
+embedded in an app is usually there to act on *that app's* domain, which it reaches through the app's MCP
+servers. This is neutral Core, so the same options object drives both CLIs; each adapter renders it in its
+own vocabulary (claude: an owner-only `--mcp-config` document, deleted when the turn ends; codex: repeated
+`-c mcp_servers.<name>.…` TOML overrides). Both shapes were measured against the real CLIs.
+
+```csharp
+var options = new AgentSessionOptions
+{
+    Prompt = "Rename the selected clip and re-export it.",
+    WorkingDirectory = cwd,
+    McpServers =
+    [
+        // the app's own tools, shipped as a child process — no port, nothing to authenticate
+        AgentMcpServer.Stdio("app-tools", appToolsExePath, ["--serve"],
+            new Dictionary<string, string> { ["APP_WORKSPACE"] = workspacePath }),
+        // …or something already running over HTTP
+        AgentMcpServer.Http("remote", "https://tools.example.com/mcp", authToken: token),
+    ],
+};
+```
+
+Three things worth knowing before you rely on it:
+- **Naming a server makes its tools reachable, not approved.** claude still needs
+  `ClaudeAgentOptions.AllowedTools` (or `SkipAllPermissions`) for a headless run; codex still gates on
+  `--sandbox`. Auto-approving your servers would be a silent change of security posture, so it stays yours.
+- **A server that cannot be rendered refuses the turn** — one `SessionEnded` with `LlmVerdict.Unsupported`
+  and no process spawned — rather than being dropped. A dropped server is an agent that runs and silently
+  cannot do its job. Names are letters/digits/`_`/`-` (they become configuration keys), stdio needs a
+  `Command`, HTTP needs an absolute `Url`, and duplicate names are rejected.
+- **An `AuthToken` never reaches the command line**, which is readable machine-wide: claude gets it in the
+  owner-only temp document, codex gets an environment variable it names (`bearer_token_env_var`, the only
+  shape that CLI accepts).
+- Your own `ClaudeAgentOptions.McpConfigPath` still works and is **kept alongside** the rendered one — the
+  flag takes a list, so nothing you already wired up is displaced.
 
 ```csharp
 services.AddLyntai(b => b
@@ -1003,9 +1039,12 @@ var claude = sp.GetRequiredKeyedService<IAgentSession>("claude-cli");
   as a successful step.
 - **Not emitted**, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`,
   and token-level deltas — a codex `TextDelta` is one whole assistant message, not a token.
-- **`ResumeToken` is refused** (a single `SessionEnded` with `LlmVerdict.Unsupported`, no spawn): codex's
-  resume shape is unmeasured, and `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a *prompt*,
-  so a guess would silently spend a turn. Start a fresh session and replay the history in the prompt.
+- **`ResumeToken` is honoured** (measured 2026-08-05 via `codex exec resume --help`, a flag and therefore
+  turn-free): the argv becomes `codex exec resume … <SESSION_ID> -`. The one shape still **refused** without
+  spawning is a token the CLI would read as an OPTION rather than an id — blank, or starting with `-` such as
+  codex's own `--last`, which would quietly resume the *wrong* thread. Note that whether codex re-announces
+  `thread.started` on a resumed turn is not measured, so a resumed `SessionEnded.SessionId` may be null where
+  a fresh one's is set; nothing is fabricated to cover that.
 - **`DisallowedTools` is logged as unhonoured** — codex's tool gate is `--sandbox`, driven by `ToolPolicy`
   (`ReadOnly` → `read-only`, `Write` → `workspace-write`) or set outright via `CodexAgentOptions.SandboxMode`.
   **`SystemPrompt`** travels as a leading block of the prompt (codex `exec` has no flag for one).

@@ -1,3 +1,18 @@
+sealed class Lyntai.Agents.AgentMcpServer
+    .ctor()
+    Arguments : IReadOnlyList<String>
+    AuthToken : String
+    Command : String
+    Environment : IReadOnlyDictionary<String,String>
+    Equals(AgentMcpServer other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Name : String required
+    ToString() : String
+    Transport : McpTransport
+    Url : String
+    static Http(String name, String url, String authToken = null) : AgentMcpServer
+    static Stdio(String name, String command, IEnumerable<String> arguments = null, IReadOnlyDictionary<String,String> environment = null) : AgentMcpServer
 static class Lyntai.Agents.AgentSessionExtensions
     static RunAsync(IAgentSession session, AgentSessionOptions options, Action<AgentStreamEvent> onEvent = null, CancellationToken ct = default) : Task<AgentSessionResult>
 class Lyntai.Agents.AgentSessionOptions
@@ -8,6 +23,7 @@ class Lyntai.Agents.AgentSessionOptions
     Equals(AgentSessionOptions other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
+    McpServers : IReadOnlyList<AgentMcpServer>
     Model : String
     PrintMembers(StringBuilder builder) : Boolean
     Prompt : String required
@@ -118,6 +134,10 @@ sealed class Lyntai.Agents.McpEndpoint
     ServerName : String
     ToString() : String
     Url : String
+enum Lyntai.Agents.McpTransport
+    Http : McpTransport const
+    Stdio : McpTransport const
+    value__ : Int32
 sealed class Lyntai.Agents.SessionEnded
     .ctor(LlmVerdict Verdict, Boolean IsError, String Subtype, String SessionId, String FinalText, String Diagnostic)
     Deconstruct(LlmVerdict& Verdict, Boolean& IsError, String& Subtype, String& SessionId, String& FinalText, String& Diagnostic) : Void

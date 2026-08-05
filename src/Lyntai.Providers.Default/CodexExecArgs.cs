@@ -28,7 +28,11 @@ internal static class CodexExecArgs
     /// <param name="sandboxMode">The <c>--sandbox</c> value (<see cref="ReadOnlySandbox"/>,
     /// <see cref="WorkspaceWriteSandbox"/>, or <c>danger-full-access</c>).</param>
     /// <param name="model">The model to request, or null/empty for the CLI's own default.</param>
-    public static List<string> Build(string sandboxMode, string? model) => BuildArgv(sandboxMode, model, null);
+    /// <param name="extraOptions">Further clap OPTIONS (currently the <c>-c</c> config overrides that carry
+    /// the host application's MCP servers). They are placed with the other options, before the positionals —
+    /// see <c>BuildArgv</c> for why that boundary is load-bearing.</param>
+    public static List<string> Build(string sandboxMode, string? model, IReadOnlyList<string>? extraOptions = null) =>
+        BuildArgv(sandboxMode, model, null, extraOptions);
 
     /// <summary>Build <c>codex exec resume … &lt;SESSION_ID&gt; -</c> — the same turn against an EXISTING
     /// thread — or REFUSE the token without building anything.
@@ -53,10 +57,12 @@ internal static class CodexExecArgs
     /// <param name="sandboxMode">As <see cref="Build"/>.</param>
     /// <param name="model">As <see cref="Build"/>.</param>
     /// <param name="resumeToken">The caller's opaque resume handle (a prior run's session id).</param>
+    /// <param name="extraOptions">As <see cref="Build"/>.</param>
     /// <param name="args">The argv, or empty when refused.</param>
     /// <param name="refusal">Why the token cannot be sent, or null when it can.</param>
     public static bool TryBuildResume(
-        string sandboxMode, string? model, string? resumeToken, out List<string> args, out string? refusal)
+        string sandboxMode, string? model, string? resumeToken, IReadOnlyList<string>? extraOptions,
+        out List<string> args, out string? refusal)
     {
         var sessionId = resumeToken?.Trim();
         if (sessionId is not { Length: > 0 } || sessionId[0] == '-')
@@ -69,14 +75,15 @@ internal static class CodexExecArgs
             return false;
         }
 
-        args = BuildArgv(sandboxMode, model, sessionId);
+        args = BuildArgv(sandboxMode, model, sessionId, extraOptions);
         refusal = null;
         return true;
     }
 
     /// <summary>The argv both paths share; <paramref name="sessionId"/> null = a fresh thread. Only
     /// <see cref="TryBuildResume"/> may supply an id, so an unusable one can never reach argv.</summary>
-    private static List<string> BuildArgv(string sandboxMode, string? model, string? sessionId)
+    private static List<string> BuildArgv(
+        string sandboxMode, string? model, string? sessionId, IReadOnlyList<string>? extraOptions)
     {
         // MEASURED: `resume` is a SUBCOMMAND of `exec`, so it goes immediately after it — nowhere else.
         List<string> args = sessionId is { Length: > 0 } ? ["exec", "resume"] : ["exec"];
@@ -96,6 +103,12 @@ internal static class CodexExecArgs
             args.Add("--model");
             args.Add(model);
         }
+
+        // Every remaining OPTION goes here, before the positionals below. That boundary is the whole reason
+        // this is a parameter rather than something a caller appends afterwards: an option landing after the
+        // `-` would be read as part of the [PROMPT] positional, and on this CLI a swallowed flag is a SPENT
+        // TURN rather than an error.
+        if (extraOptions is { Count: > 0 }) args.AddRange(extraOptions);
 
         // MEASURED: `codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]` — the id is the FIRST positional and
         // the `-` below is the SECOND, so the id belongs here: after every option, immediately before the

@@ -14,8 +14,16 @@ internal static class ClaudeAgentArgs
     private static readonly string[] ReadOnlyDenied = ["Edit", "Write", "NotebookEdit"];
 
     /// <summary>Build the argv list for a claude agent session. The prompt is NOT included here —
-    /// send it over stdin via <see cref="Lyntai.Processes.IProcessRunner.StreamLinesAsync"/>.</summary>
-    public static IReadOnlyList<string> Build(AgentSessionOptions options)
+    /// send it over stdin via <see cref="Lyntai.Processes.IProcessRunner.StreamLinesAsync"/>.
+    ///
+    /// <para><see cref="AgentSessionOptions.McpServers"/> is assumed already validated by the caller
+    /// (<see cref="AgentMcpServers.TryValidate"/>, which the session runs so a refusal carries its own
+    /// subtype) — this method renders, it does not judge.</para></summary>
+    /// <param name="options">The turn.</param>
+    /// <param name="writeTempFile">Given a short <c>kind</c> tag and the file's content, writes a config
+    /// file and returns its path. Supplied by the caller so the paths can be tracked and deleted when the
+    /// turn ends — and so a test can assert the file's contents without touching the disk.</param>
+    public static IReadOnlyList<string> Build(AgentSessionOptions options, Func<string, string, string> writeTempFile)
     {
         // the print-mode prefix is declared once, on ClaudeArgs — this path only adds the partial-message
         // events the agent reader needs on top of it
@@ -69,23 +77,36 @@ internal static class ClaudeAgentArgs
         }
 
         // Claude-specific options (only when given a ClaudeAgentOptions)
-        if (options is ClaudeAgentOptions c)
+        var claudeOptions = options as ClaudeAgentOptions;
+        if (claudeOptions is { } c)
         {
             if (!string.IsNullOrEmpty(c.SettingsPath))
             {
                 args.Add("--settings");
                 args.Add(c.SettingsPath);
             }
-            if (!string.IsNullOrEmpty(c.McpConfigPath))
-            {
-                args.Add("--mcp-config");
-                args.Add(c.McpConfigPath);
-            }
             if (!bypass && c.AllowedTools.Count > 0)
             {
                 args.Add("--allowedTools");
                 args.Add(string.Join(",", c.AllowedTools));
             }
+        }
+
+        // MEASURED (`claude --help`, 2026-08-05): `--mcp-config <configs...>` — "Load MCP servers from JSON
+        // files or strings (space-separated)". Because it takes a LIST, the neutral McpServers can be
+        // rendered ALONGSIDE a caller's own McpConfigPath rather than displacing it: one flag, the caller's
+        // document first. (If both declare a server under the same NAME, which one the CLI keeps is its
+        // business and is not measured here — give them distinct names.) The rendered document goes to a
+        // file rather than the inline-string form the flag also accepts, because a config can carry a bearer
+        // token or a secret env value and argv is readable machine-wide.
+        List<string> mcpConfigs = [];
+        if (claudeOptions?.McpConfigPath is { Length: > 0 } callerConfig) mcpConfigs.Add(callerConfig);
+        if (options.McpServers.Count > 0)
+            mcpConfigs.Add(writeTempFile("mcp", ClaudeMcpConfig.Json(options.McpServers)));
+        if (mcpConfigs.Count > 0)
+        {
+            args.Add("--mcp-config");
+            args.AddRange(mcpConfigs);
         }
 
         if (!string.IsNullOrEmpty(options.ResumeToken))

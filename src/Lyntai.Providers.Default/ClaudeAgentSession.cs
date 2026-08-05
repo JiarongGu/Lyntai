@@ -48,11 +48,51 @@ public sealed class ClaudeAgentSession : IAgentSession
         _environment = environment;
     }
 
+    /// <summary>Run one claude turn and stream what the agent does.</summary>
+    /// <param name="options">The turn. <see cref="AgentSessionOptions.McpServers"/> is rendered into a
+    /// <c>--mcp-config</c> document written to an owner-only temp file and DELETED when the turn ends —
+    /// alongside a <c>ClaudeAgentOptions.McpConfigPath</c> the caller supplied, never instead of it. An
+    /// entry that cannot be rendered REFUSES the turn (a single <see cref="SessionEnded"/> with
+    /// <see cref="LlmVerdict.Unsupported"/>) rather than being dropped, because an agent that silently lost
+    /// the tools it exists to use looks like a working agent.</param>
+    /// <param name="ct">Cancels the turn and kills the process tree.</param>
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
         AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
     {
+        // written before the spawn, deleted in the finally below — the file carries whatever secrets the
+        // caller's servers need (a bearer token, a stdio server's env), so it must not outlive the turn
+        var tempFiles = new List<string>();
+        string Write(string kind, string content)
+        {
+            var path = CliTempFile.Write(kind, content);
+            tempFiles.Add(path);
+            return path;
+        }
+
+        if (!AgentMcpServers.TryValidate(options.McpServers, out var refusal))
+        {
+            yield return new SessionEnded(LlmVerdict.Unsupported, true, "mcp-server-invalid", null, null, refusal);
+            yield break;
+        }
+
+        var agentArgs = ClaudeAgentArgs.Build(options, Write);
+        try
+        {
+            await foreach (var evt in RunAsync(options, agentArgs, ct).ConfigureAwait(false))
+                yield return evt;
+        }
+        finally
+        {
+            foreach (var path in tempFiles) CliTempFile.TryDelete(path);
+        }
+    }
+
+    private async IAsyncEnumerable<AgentStreamEvent> RunAsync(
+        AgentSessionOptions options, IReadOnlyList<string> agentArgs,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
         var (exe, prefixArgs) = ClaudeCommand.Resolve(_command);
-        var argv = prefixArgs.Concat(ClaudeAgentArgs.Build(options)).ToList();
+        var argv = prefixArgs.Concat(agentArgs).ToList();
 
         var timeout = _options.ResolveTimeout(options.TimeoutSeconds);
 

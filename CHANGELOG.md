@@ -10,6 +10,48 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+### Added
+
+- **An agent session can be given the host application's own MCP servers, on either CLI backend**
+  (`AgentSessionOptions.McpServers`, `AgentMcpServer`, `McpTransport` — all neutral `Lyntai.Core`). Until now
+  the only way to point an `IAgentSession` at app tools was `ClaudeAgentOptions.McpConfigPath`, so the two
+  backends were interchangeable only for an agent that needed no app tools — and adopting `CodexAgentSession`
+  meant spawning codex with **no MCP servers at all**, a silent capability loss rather than an error. The new
+  type expresses **stdio** (command/args/env — how an app ships its own tools as a child process) as well as
+  **HTTP**, and each adapter renders it in its own MEASURED vocabulary: claude an owner-only `--mcp-config`
+  document deleted when the turn ends, codex repeated `-c mcp_servers.<name>.…` TOML overrides. A caller's
+  existing `McpConfigPath` is kept **alongside** the rendered one (the flag takes a list), an `AuthToken`
+  never reaches argv, naming a server does **not** pre-approve its tools, and an entry that cannot be
+  rendered refuses the turn instead of being dropped. Additive — `McpServers` defaults to empty and no
+  existing behaviour changes. Closes CLI14, filed by a consuming app; reasoning in `docs/DECISIONS.md`
+  **D47**.
+
+### Fixed — documentation
+
+- **The README no longer says the codex agent session refuses `ResumeToken`.** It has been honoured since
+  CLI13 (measured 2026-08-05 via the turn-free `codex exec resume --help`); the bullet describing the old
+  refusal was left behind and now describes what actually happens, including the one token shape still
+  refused and the unmeasured `SessionId`-on-resume caveat.
+
+### Changed — behaviour
+
+- **A CLI backend's own account of a failed turn now wins over the process exit code.**
+  `CliProviderEngine.CompleteAsync` returned on a non-zero exit **before** parsing stdout, so a turn that
+  reported its failure in band *and* also exited non-zero was classified from whatever happened to be on
+  stderr. Measured on codex-cli 0.146.0 (2026-08-05, an account whose login had expired): the turn printed
+  `{"type":"turn.failed","error":{"message":"… 401 …"}}`, exited non-zero, and carried nothing but ordinary
+  startup chatter (`Reading prompt from stdin...`) on stderr — so the reply was `Failed` with the detail
+  `exit 1: Reading prompt from stdin...`, which is neither the reason nor the right remedy.
+  **Observable delta:** that call now reports the classified in-band verdict — here `AuthFailed`, which cools
+  the host for the cooldown window rather than merely advancing — and the backend's own message as the
+  detail, with the exit code kept as context (`exit 1: <message>`). A non-zero exit with **no** in-band
+  failure is unchanged, as are the streaming path and both agent sessions (each of which already preferred
+  the in-band terminal). This is the ordering `StatusAsync` has always used — parse the answer, then fall
+  back to the exit code — which the completion path never had. Filed as CLI15 by a consuming app that hit
+  the same shape in its own reader.
+
 ## 2.3.0 — 2026-08-05
 
 _Everything below was finished before 2.2.0 was cut but landed **after** it: the release workflow runs against

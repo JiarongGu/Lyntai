@@ -258,6 +258,14 @@ delimiter the scorer splits). Persist a preview run without writing rows via
 
 For a CLI provider whose model runs its OWN agent loop and can only reach custom tools over MCP (the
 `claude` CLI is the reference case). **No new package** — a class + `AddMcpToolHost(new MyDialect())`.
+
+**Two MCP paths exist and they are not alternatives — know which one you are extending.** THIS one hosts the
+app's **in-process `ITool`s** on a loopback server Lyntai stands up (`McpEndpoint`, HTTP-only, bearer token,
+torn down with the `CliToolSession`). The other, `AgentSessionOptions.McpServers` / `AgentMcpServer`, points a
+CLI at MCP servers the **app already runs or launches** — stdio as well as HTTP — and is rendered per backend
+by `ClaudeMcpConfig` / `CodexMcpConfig` rather than by an `IMcpCliDialect` (`docs/DECISIONS.md` **D47**). They
+compose: an app can do both in one turn. If you are adding a CLI, you may owe BOTH — a dialect here, and a
+rendering there.
 `Lyntai.Tools.Mcp.Hosting` already owns everything neutral: the ephemeral loopback MCP server, bearer
 token, temp-file writing, teardown, and the no-tools short-circuit. You supply only the flags and the
 config-file shape.

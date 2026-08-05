@@ -58,6 +58,15 @@ the tests) while being wrong. Skim before touching the relevant area.
   stays green while every call quietly costs tokens.
   Corollary: the CLI has no turn-free model readout — `ProviderProbeResult.Model` is null there by design,
   and the resolved model comes from `AgentStreamEvent.UsageFinal.Model` after a turn.
+- **…and the flip side, because "it costs a turn" was used to defer measurable work twice: a CLI's own
+  READ-ONLY subcommands are a free measuring instrument.** `--help` is the obvious one, but a CLI that
+  manages configuration usually has a command that PRINTS what it would use, and printing config spends no
+  tokens. Measured 2026-08-05 while closing CLI14: `codex mcp list -c 'mcp_servers.x.command="node"' …` and
+  `codex mcp get x …` echo back the server codex actually registered, which turned every `-c mcp_servers.*`
+  key from documented-not-measured into measured; the claude side was settled by dropping a candidate
+  document in as a project `.mcp.json` and reading back `claude mcp list`. **Before writing "unverified" into
+  an XML doc, look for the read-only subcommand** — CLI13 waited on "an unmeasured CLI" when
+  `codex exec resume --help` had been free all along.
 - **A subcommand you rely on may not exist on an OLDER install — pin a FLAG so it fails loudly.**
   `auth status --json` sends `--json` explicitly even though it is the CLI's default (measured on v2.1.220),
   precisely because a build predating `auth` rejects the unknown *flag* (exit non-zero, no turn) instead of
@@ -66,6 +75,14 @@ the tests) while being wrong. Skim before touching the relevant area.
   state AND exit non-zero — that's an ANSWER, not a broken backend. Parse first, then fall back to the exit
   code (`CliProviderEngine.StatusAsync`). And parse the WHOLE body: the `Tail()` helper keeps the LAST 500
   chars, which would decapitate a JSON document.
+  **The COMPLETION path had the same defect and shipped with it** (fixed 2026-08-05, `docs/FIXES.md`):
+  `CompleteAsync` returned on a non-zero exit *before* parsing stdout, so a turn that reported its failure in
+  band AND exited non-zero was classified from whatever was on stderr — measured as `Failed` /
+  "exit 1: Reading prompt from stdin..." for a 401 that should have been `AuthFailed` (which benches the
+  host; `Failed` merely advances). **The generalisation, since one seam having this fixed did not stop the
+  next one shipping it: whenever a backend can answer in TWO channels, decide the precedence explicitly and
+  pin it with a test.** The backend's own words outrank the exit code every time; the exit code is context
+  for the detail, not the reason.
 - **Re-implementing the CLI rules for a new CLI backend.** Everything above lives in
   `CliProviderEngine` (Core, `Lyntai.Llm.Cli`); a new CLI is an `ICliProviderDialect`, never a fresh
   `ILlmProvider` (`docs/DECISIONS.md` D27). The reason these traps were fixable at all is that there is now
@@ -74,7 +91,9 @@ the tests) while being wrong. Skim before touching the relevant area.
   codex-cli 0.146.0: a 401 turn prints `{"type":"turn.failed","error":{"message":"… 401 Unauthorized …"}}`
   and the process still exits cleanly. Map it to `CliOutputEvent.Failure` so the message is classified
   (`AuthFailed` cools the host; a bare `Failed` just advances). Ignoring it yields "no output produced" —
-  right verdict class, no reason, wrong routing.
+  right verdict class, no reason, wrong routing. **And it can do BOTH:** measured 2026-08-05, an expired
+  login prints `turn.failed` AND exits non-zero, so "in band" and "non-zero exit" are not two disjoint
+  cases to branch on — see the exit-code-precedence entry below.
 - **…and the mirror image: treating every error-ish line as terminal.** Also measured on codex: a bare
   `{"type":"error","message":"Reconnecting... 2/5"}` and an `item.completed` whose item type is `error`
   ("Model metadata not found") both appeared in a run that went on to **succeed**. Only the terminal event

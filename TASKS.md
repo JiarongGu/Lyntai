@@ -40,67 +40,15 @@ What remains, and what each waits on — **none is codeable from here**:
   tokens. It is the one remaining item that needs the owner's go-ahead rather than a probe.
 - The conditional JSON item below, which is correctly not done (no envelope-parsing bug has materialized)._
 
-_**Part 44 (CLI14) was filed by a consumer on 2026-08-05 and IS codeable from here** — it needs no key, no
-model download and no metered CLI run, so the "none is codeable" claim above now holds for everything except
-it._
+_**Two consumer items were filed on 2026-08-05 and BOTH closed the same day**, so the "none is codeable"
+claim above holds again for everything that remains: **Part 44 / CLI14** (an agent session could be given the
+app's own tools only on claude) → archive **Part 44**, `docs/DECISIONS.md` **D47**; and **Part 41 / CLI15** (a
+measured codex `turn.failed` capture, which also exposed a real exit-code-precedence defect in
+`CliProviderEngine.CompleteAsync`) → archive **Part 45**, `docs/FIXES.md`._
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
   materialize** (none have). Not a license to reintroduce reflection serialization.
-
-## Part 44 — an agent session can only be given the app's own tools if the backend is claude (2026-08-05)
-
-_Filed by a consuming app after adopting 2.3.0 and finding it still cannot delete its hand-rolled codex
-provider. Everything else CLI11 promised landed and is better than the hand-rolled version — argv built once,
-resume measured, `--skip-git-repo-check` no longer possible to omit from one path. This is the single seam
-that remains._
-
-- [ ] **CLI14 — an `IAgentSession` has no way to be pointed at the app's own MCP servers unless it is
-  `ClaudeAgentSession`.** `src/Lyntai.Core/Agents/AgentSessionOptions.cs`,
-  `src/Lyntai.Providers.Default/Codex*`.
-
-  **The need.** `CodexAgentSession`'s own docblock states the value of the abstraction: "a chat UI that shows
-  tool activity can drive either backend through one `IAgentSession`". But an agent embedded in an app is
-  usually there to act on *that app's* domain, and it reaches that domain through the app's own MCP tools.
-  Today the only way to point a session at an app-hosted MCP server is `ClaudeAgentOptions.McpConfigPath`.
-  `CodexAgentOptions` carries `SandboxMode` and nothing else. So the backends are interchangeable only for an
-  agent that needs no app tools — arguably the case the abstraction is least often reached for.
-
-  **Why this is general rather than one consumer's shape.** Both shipped backends already accept app-provided
-  MCP servers natively, and both were measured to do so: claude through a `--mcp-config` JSON file, codex
-  through repeatable `-c mcp_servers.<name>.command|args|env` overrides (the filing consumer drives codex that
-  way in production today). The *vocabulary* differs; the *need* is identical — which is the shape a dialect
-  layer normally absorbs, and `ICliProviderDialect`/`CodexCliDialect` already exist. The seam is there; the
-  agent-session path just does not reach it.
-
-  **A second gap in the same area, which is why reusing the existing type would not close this.**
-  `Lyntai.Agents.McpEndpoint` is `(Url, AuthToken, ServerName)` — **HTTP only**. It cannot express a **stdio**
-  server (command + args + env). Stdio is how an application ships its own tools as a child process without
-  opening a localhost port or having to authenticate one, and it is the shape MCP's own reference servers
-  ship in. That is also why the claude path here hand-writes its `--mcp-config` JSON instead of using a typed
-  surface: the typed surface cannot say `command`.
-
-  **Evidence.** The consumer's desktop app spawns its own MCP server as a stdio child (an exe plus
-  environment) and passes codex three `-c mcp_servers.aurelia.*` overrides per turn. Adopting
-  `CodexAgentSession` as shipped would spawn codex with **no MCP servers at all**, so the agent would lose
-  every tool it exists to use — a silent capability loss, not a compile error. The claude path is unaffected
-  only because it writes that JSON itself.
-
-  **Acceptance — either is a complete answer:**
-  - **Neutral.** `AgentSessionOptions` carries the app's MCP servers in a form that can express **stdio
-    (command/args/env)** as well as HTTP, and each CLI dialect renders it in its own vocabulary (claude: a
-    temp `--mcp-config` file; codex: repeated `-c`). Either `McpEndpoint` grows a stdio form or a sibling
-    type appears beside it.
-  - **Or per-backend, recorded.** A decision that agent-session MCP wiring stays backend-specific — in which
-    case `CodexAgentOptions` needs its own seam. Codex's native shape is a list of config overrides, so an
-    `IReadOnlyList<string> ConfigOverrides` rendered as repeated `-c` closes it, and is at least honest about
-    being codex-shaped.
-
-  **Why not route it through the ctor's `env` (the obvious workaround, which the consumer rejected).**
-  Pointing `CODEX_HOME` at a temp directory holding a generated `config.toml` would carry the MCP servers —
-  but that same directory holds codex's **auth**, so it would cost the owner their login. Under **D26** the
-  host keeps credentials and the library never touches them; a workaround that trades an app's tools for the
-  user's session is not one.
 
 ## Part 33 — generation platform: remaining backends + composition
 
@@ -213,6 +161,12 @@ measurement, and measurement only — nothing here is codeable without a real co
   inferred cases are covered only by `FakeProcessRunner` fixtures today). A friendlier `ToolResult.Content`
   projection (the readable output field instead of the raw item JSON) becomes possible at the same time, and
   is additive.
+
+_**CLI15** (a measured `turn.failed` shape, filed by `Aurelia` 2026-08-05) closed the same day — see
+`docs/task-archive.md` **Part 45**. Three of its four claims were already handled and are now pinned; the
+fourth found a real defect in `CliProviderEngine.CompleteAsync` (a non-zero exit masked the backend's own
+in-band failure), fixed and recorded in `docs/FIXES.md`._
+
 ---
 
 ## How to work a task (evergreen)
@@ -239,13 +193,4 @@ _Posted by other repositories in this family, which do not edit this one. Take o
 `daoris quest take <id>`, finish it with `done`, or turn it down with `decline` — declining is a
 real answer, and the reason is what the asker can actually act on._
 
-- [ ] **Review the canon adoption sitting uncommitted in this tree** `#7a82cc`
-  Uncommitted changes are in this working tree that Daoris made directly. That was a mistake on Daoris's part — under the rule it now carries (repository-owns-its-work), it should have posted this as a quest and let you make the change. Filing it now so the decision is yours.
-
-  What is there: daoris.json source corrected from the OWNER placeholder to github:JiarongGu/Daoris#v0.0.1, and the pin moved off canon 0.1.0 which no longer exists after the version reframe. 17 files synced, bringing in the skills-workflow rule, model-decoupling knowledge and five skills that had never reached here. dev-conventions.md retired after checking every section survived elsewhere — the two things that did not (the dev loop with its e2e discovery convention, and the zero-Dto invariant) moved into local repo-mechanics.md. Budget tightened 40000 to 36000.
-
-  Result: always-loaded core 40,517 -> 33,596 bytes, daoris check clean, 1563 tests green.
-
-  git checkout -- . discards all of it, and that is a perfectly good answer.
-
-  _Quest from `Daoris` · filed 2026-08-05 · **open**._
+_None open._

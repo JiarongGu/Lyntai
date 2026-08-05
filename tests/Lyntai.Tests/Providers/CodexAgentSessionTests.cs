@@ -472,6 +472,161 @@ public class CodexAgentSessionTests
         Assert.DoesNotContain("--disallowed-tools", runner.LastArgs!);   // codex has no such flag to invent
     }
 
+    // ── the host application's own MCP servers (CLI14) ───────────────────────
+
+    /// <summary>MEASURED turn-free against codex-cli 0.146.0 (2026-08-05): `codex exec --help` documents
+    /// `-c, --config &lt;key=value&gt;` with a dotted path and a TOML value, and driving `codex mcp list` /
+    /// `codex mcp get` — which READ configuration and spend no turn — with these exact overrides reported
+    /// back the registered server, its command, its args, its env and (for HTTP) its url and
+    /// bearer_token_env_var.</summary>
+    private static AgentMcpServer Stdio() => AgentMcpServer.Stdio(
+        "app-tools", @"C:\Program Files\app\mcp.exe", ["--serve"],
+        new Dictionary<string, string> { ["APP_WORKSPACE"] = "/w" });
+
+    [Fact]
+    public async Task App_mcp_servers_are_rendered_as_measured_config_overrides()
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(runner).StreamAsync(Ask() with { McpServers = [Stdio()] }).ToListAsync();
+
+        var argv = runner.LastArgs!;
+        // the VALUE is TOML, so backslashes are escaped: codex's documented fallback for a value that fails
+        // to parse as TOML is to use the raw string, which would change the path SILENTLY rather than fail
+        Assert.Contains(@"mcp_servers.app-tools.command=""C:\\Program Files\\app\\mcp.exe""", argv);
+        Assert.Contains(@"mcp_servers.app-tools.args=[""--serve""]", argv);
+        Assert.Contains(@"mcp_servers.app-tools.env={ ""APP_WORKSPACE"" = ""/w"" }", argv);
+        Assert.Equal(3, argv.Count(a => a == "-c"));
+    }
+
+    [Fact]
+    public async Task Every_config_override_is_an_OPTION_and_precedes_the_stdin_positional()
+    {
+        // on this CLI a flag that lands after the `-` is read as PROMPT text, and a swallowed flag is a
+        // SPENT TURN rather than an error — which is why the overrides are passed into CodexExecArgs
+        // rather than appended to the argv it returns
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(runner).StreamAsync(Ask() with { McpServers = [Stdio()] }).ToListAsync();
+
+        var argv = runner.LastArgs!.ToList();
+        var stdinMarker = argv.LastIndexOf("-");
+        Assert.Equal(argv.Count - 1, stdinMarker);
+        for (var i = 0; i < argv.Count; i++)
+        {
+            if (argv[i] == "-c") Assert.True(i < stdinMarker, $"the -c at {i} must precede the `-` at {stdinMarker}");
+        }
+    }
+
+    [Fact]
+    public async Task A_resumed_turn_carries_the_SAME_mcp_overrides_as_a_fresh_one()
+    {
+        // the reason the overrides go through CodexExecArgs: a second copy of the argv is a second chance to
+        // lose a flag, and an agent that has its tools on turn 1 and not on turn 2 is the worst version
+        var fresh = new FakeProcessRunner(MeasuredSuccess);
+        var resumed = new FakeProcessRunner(MeasuredSuccess);
+        var options = Ask() with { McpServers = [Stdio()] };
+
+        await Session(fresh).StreamAsync(options).ToListAsync();
+        await Session(resumed).StreamAsync(options with { ResumeToken = "019fc935-704c-75b2-a660-a85c89a67514" })
+            .ToListAsync();
+
+        var overridesOf = (IReadOnlyList<string> argv) => argv.Where(a => a.StartsWith("mcp_servers.", StringComparison.Ordinal));
+        Assert.Equal(overridesOf(fresh.LastArgs!), overridesOf(resumed.LastArgs!));
+    }
+
+    [Fact]
+    public async Task An_http_servers_bearer_token_travels_in_the_ENVIRONMENT_never_in_argv()
+    {
+        // MEASURED: codex accepts only `bearer_token_env_var` — the NAME of a variable — and never a literal
+        // token. That is the shape to want anyway: argv is readable by any process that can list processes.
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var server = AgentMcpServer.Http("remote", "https://tools.example.invalid/mcp", "s3cret-token");
+
+        await Session(runner).StreamAsync(Ask() with { McpServers = [server] }).ToListAsync();
+
+        Assert.Contains(@"mcp_servers.remote.url=""https://tools.example.invalid/mcp""", runner.LastArgs!);
+        Assert.Contains(@"mcp_servers.remote.bearer_token_env_var=""LYNTAI_MCP_BEARER_REMOTE""", runner.LastArgs!);
+        Assert.DoesNotContain(runner.LastArgs!, a => a.Contains("s3cret-token", StringComparison.Ordinal));
+        Assert.Equal("s3cret-token", runner.LastEnvironment?["LYNTAI_MCP_BEARER_REMOTE"]);
+    }
+
+    [Fact]
+    public async Task The_turns_bearer_variables_are_MERGED_with_the_installs_own_environment()
+    {
+        // a portable install passes its own CODEX_HOME at construction; adding a per-turn variable must not
+        // replace it, or the session would silently start reading the machine-wide install's credentials
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var session = new CodexAgentSession(runner, new LyntaiOptions(), command: "codex",
+            environment: new Dictionary<string, string> { ["CODEX_HOME"] = "portable/home" });
+
+        await session.StreamAsync(Ask() with
+        {
+            McpServers = [AgentMcpServer.Http("remote", "https://tools.example.invalid/mcp", "tok")],
+        }).ToListAsync();
+
+        Assert.Equal("portable/home", runner.LastEnvironment?["CODEX_HOME"]);
+        Assert.Equal("tok", runner.LastEnvironment?["LYNTAI_MCP_BEARER_REMOTE"]);
+    }
+
+    [Fact]
+    public async Task No_app_servers_means_no_overrides_and_no_environment_of_its_own()
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+
+        await Session(runner).StreamAsync(Ask()).ToListAsync();
+
+        Assert.DoesNotContain("-c", runner.LastArgs!);
+        Assert.Null(runner.LastEnvironment);   // the ctor's dictionary is passed through untouched (here, none)
+    }
+
+    [Theory]
+    [InlineData("has.dot")]        // a dot opens a nested TOML table — a DIFFERENT server than the one named
+    [InlineData("has space")]
+    [InlineData("has\"quote")]
+    [InlineData("")]
+    public async Task A_server_name_the_backend_would_misread_refuses_the_turn_without_spawning(string name)
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var server = AgentMcpServer.Stdio(name, "mcp.exe");
+
+        var events = await Session(runner).StreamAsync(Ask() with { McpServers = [server] }).ToListAsync();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal(LlmVerdict.Unsupported, ended.Verdict);
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task A_server_that_cannot_be_rendered_refuses_rather_than_running_without_its_tools()
+    {
+        // the failure this whole seam exists to prevent: an agent that starts, answers, and simply cannot do
+        // the thing it was embedded to do — with no error anywhere
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        var noCommand = new AgentMcpServer { Name = "app", Transport = McpTransport.Stdio };
+
+        var events = await Session(runner).StreamAsync(Ask() with { McpServers = [noCommand] }).ToListAsync();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.Contains("Command", ended.Diagnostic, StringComparison.Ordinal);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task Two_servers_under_one_name_refuse_rather_than_silently_collapsing()
+    {
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        AgentMcpServer[] servers = [AgentMcpServer.Stdio("app", "a.exe"), AgentMcpServer.Stdio("APP", "b.exe")];
+
+        var events = await Session(runner).StreamAsync(Ask() with { McpServers = servers }).ToListAsync();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.Empty(runner.Calls);
+    }
+
     // ── process faults (the shared guarded-stream contract) ──────────────────
 
     [Fact]

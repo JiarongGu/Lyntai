@@ -57,6 +57,10 @@ internal sealed class McpToolHostProvisioner(
         // a CLI config file typically carries the loopback bearer token — create OWNER-ONLY on Unix so
         // another local user can't read the token and drive the tool host during the CLI window (Windows
         // %TEMP% is already per-user ACL'd; UnixCreateMode throws there)
+        //
+        // TWIN: `CliTempFile.Write` in Lyntai.Providers.Default does the same for an agent session's
+        // --mcp-config document. It cannot be shared — a provider package must never reference this one
+        // (docs/DECISIONS.md D23) — so if the permission logic changes here, change it there too.
         var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
         if (!OperatingSystem.IsWindows())
             options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;

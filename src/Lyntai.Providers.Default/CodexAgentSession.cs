@@ -87,7 +87,13 @@ public sealed class CodexAgentSession : IAgentSession
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
         AgentSessionOptions options, [EnumeratorCancellation] CancellationToken ct = default)
     {
-        if (!CodexAgentArgs.TryBuild(options, out var agentArgs, out var refusal))
+        if (!AgentMcpServers.TryValidate(options.McpServers, out var mcpRefusal))
+        {
+            yield return new SessionEnded(LlmVerdict.Unsupported, true, "mcp-server-invalid", null, null, mcpRefusal);
+            yield break;
+        }
+
+        if (!CodexAgentArgs.TryBuild(options, out var agentArgs, out var mcpEnvironment, out var refusal))
         {
             yield return new SessionEnded(LlmVerdict.Unsupported, true, "resume-token-invalid", null, null, refusal);
             yield break;
@@ -110,7 +116,8 @@ public sealed class CodexAgentSession : IAgentSession
         var sawContent = false;
 
         var lines = _runner.StreamLinesAsync(exe, argv, stdin: CodexAgentArgs.BuildPrompt(options),
-            inactivityTimeout: timeout, workingDirectory: options.WorkingDirectory, environment: _environment, ct: ct);
+            inactivityTimeout: timeout, workingDirectory: options.WorkingDirectory,
+            environment: MergeEnvironment(_environment, mcpEnvironment), ct: ct);
         var e = lines.GetAsyncEnumerator(ct);
         await using (e.ConfigureAwait(false))
         {
@@ -165,5 +172,23 @@ public sealed class CodexAgentSession : IAgentSession
                 diagnostic, reader.ThreadId);
             yield return new SessionEnded(LlmVerdict.Failed, true, null, reader.ThreadId, null, diagnostic);
         }
+    }
+
+    /// <summary>The ctor's environment (a portable install's <c>CODEX_HOME</c>, say) plus anything this TURN
+    /// needs — currently the bearer tokens of HTTP MCP servers, which codex reads only from a variable it
+    /// names. The turn's own entries win on a collision, and the ctor's dictionary is returned untouched
+    /// when there is nothing to add.</summary>
+    private static IReadOnlyDictionary<string, string>? MergeEnvironment(
+        IReadOnlyDictionary<string, string>? standing, IReadOnlyDictionary<string, string> perTurn)
+    {
+        if (perTurn.Count == 0) return standing;
+
+        var merged = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (standing is not null)
+        {
+            foreach (var (key, value) in standing) merged[key] = value;
+        }
+        foreach (var (key, value) in perTurn) merged[key] = value;
+        return merged;
     }
 }

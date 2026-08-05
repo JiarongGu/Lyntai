@@ -24,11 +24,23 @@ public class ClaudeAgentSessionTests
 
     // ── ClaudeAgentArgs tests ─────────────────────────────────────────────────
 
+    /// <summary>Build the argv with a RECORDING temp-file writer, so a test can assert what would have been
+    /// written to the <c>--mcp-config</c> document without touching the disk — the same shape
+    /// <see cref="Tools.ClaudeCliMcpDialectTests"/> uses for the tool-host path. The returned path is
+    /// deterministic so argv assertions can name it.</summary>
+    private static IReadOnlyList<string> Args(
+        AgentSessionOptions options, List<(string Kind, string Content)>? written = null) =>
+        ClaudeAgentArgs.Build(options, (kind, content) =>
+        {
+            written?.Add((kind, content));
+            return $"<temp:{kind}>";
+        });
+
     [Fact]
     public void Build_always_includes_base_flags()
     {
         var opts = new AgentSessionOptions { Prompt = "hi" };
-        var argv = ClaudeAgentArgs.Build(opts);
+        var argv = Args(opts);
 
         Assert.Contains("-p", argv);
         Assert.Contains("--output-format", argv);
@@ -41,7 +53,7 @@ public class ClaudeAgentSessionTests
     public void Build_readonly_policy_includes_edit_write_notebookedit_in_disallowed()
     {
         var opts = new AgentSessionOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.ReadOnly };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var dtIdx = argv.IndexOf("--disallowed-tools");
         Assert.True(dtIdx >= 0, "--disallowed-tools flag expected");
@@ -56,7 +68,7 @@ public class ClaudeAgentSessionTests
     public void Build_write_policy_emits_acceptEdits_and_excludes_edit_write_from_disallowed()
     {
         var opts = new AgentSessionOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         Assert.Contains("--permission-mode", argv);
         var pmIdx = argv.IndexOf("--permission-mode");
@@ -76,7 +88,7 @@ public class ClaudeAgentSessionTests
     public void Build_always_denied_flow_tools_are_in_disallowed_for_write_policy()
     {
         var opts = new AgentSessionOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var dtIdx = argv.IndexOf("--disallowed-tools");
         Assert.True(dtIdx >= 0, "headless flow tools should always be disallowed");
@@ -88,7 +100,7 @@ public class ClaudeAgentSessionTests
     public void Build_system_prompt_emits_append_system_prompt()
     {
         var opts = new AgentSessionOptions { Prompt = "hi", SystemPrompt = "Be concise." };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var idx = argv.IndexOf("--append-system-prompt");
         Assert.True(idx >= 0);
@@ -99,7 +111,7 @@ public class ClaudeAgentSessionTests
     public void Build_resume_token_emits_resume_flag()
     {
         var opts = new AgentSessionOptions { Prompt = "hi", ResumeToken = "sess-xyz" };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var idx = argv.IndexOf("--resume");
         Assert.True(idx >= 0);
@@ -110,7 +122,7 @@ public class ClaudeAgentSessionTests
     public void Build_model_emits_model_flag()
     {
         var opts = new AgentSessionOptions { Prompt = "hi", Model = "claude-opus-4-5" };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var idx = argv.IndexOf("--model");
         Assert.True(idx >= 0);
@@ -121,7 +133,7 @@ public class ClaudeAgentSessionTests
     public void Build_settings_path_emits_settings_flag_for_claude_options()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", SettingsPath = "/path/to/settings.json" };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var idx = argv.IndexOf("--settings");
         Assert.True(idx >= 0);
@@ -132,7 +144,7 @@ public class ClaudeAgentSessionTests
     public void Build_mcp_config_emits_mcp_config_flag_for_claude_options()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", McpConfigPath = "/path/to/mcp.json" };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var idx = argv.IndexOf("--mcp-config");
         Assert.True(idx >= 0);
@@ -143,7 +155,7 @@ public class ClaudeAgentSessionTests
     public void Build_allowed_tools_emits_comma_joined_for_claude_options()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", AllowedTools = ["mcp__fs__read", "mcp__fs__write"] };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var idx = argv.IndexOf("--allowedTools");
         Assert.True(idx >= 0);
@@ -154,7 +166,7 @@ public class ClaudeAgentSessionTests
     public void Build_prompt_never_appears_in_argv()
     {
         var opts = new AgentSessionOptions { Prompt = "my secret prompt text" };
-        var argv = ClaudeAgentArgs.Build(opts);
+        var argv = Args(opts);
         Assert.DoesNotContain("my secret prompt text", argv);
     }
 
@@ -166,7 +178,7 @@ public class ClaudeAgentSessionTests
             Prompt = "hi",
             DisallowedTools = ["Bash", "Bash"] // duplicates should be removed
         };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var dtIdx = argv.IndexOf("--disallowed-tools");
         Assert.True(dtIdx >= 0);
@@ -177,13 +189,146 @@ public class ClaudeAgentSessionTests
         Assert.Equal(1, bashCount);
     }
 
+    // ── CLI14: the host application's own MCP servers ─────────────────────────
+
+    /// <summary>MEASURED turn-free against the installed claude CLI (2026-08-05): `claude --help` documents
+    /// `--mcp-config &lt;configs...&gt;` as "Load MCP servers from JSON files or strings (space-separated)",
+    /// and this document shape was confirmed by placing it as a project `.mcp.json` and reading back what
+    /// `claude mcp list` — which reads configuration and spends no turn — had parsed.</summary>
+    private static AgentMcpServer Stdio() => AgentMcpServer.Stdio(
+        "app-tools", @"C:\Program Files\app\mcp.exe", ["--serve"],
+        new Dictionary<string, string> { ["APP_WORKSPACE"] = "/w" });
+
+    [Fact]
+    public void App_mcp_servers_are_written_to_a_config_document_and_pointed_at()
+    {
+        List<(string Kind, string Content)> written = [];
+        var opts = new AgentSessionOptions { Prompt = "hi", McpServers = [Stdio()] };
+
+        var argv = Args(opts, written).ToList();
+
+        var idx = argv.IndexOf("--mcp-config");
+        Assert.True(idx >= 0, "--mcp-config expected");
+        Assert.Equal("<temp:mcp>", argv[idx + 1]);
+        var (kind, content) = Assert.Single(written);
+        Assert.Equal("mcp", kind);
+        Assert.Contains("\"mcpServers\"", content);
+        Assert.Contains("\"app-tools\"", content);
+        Assert.Contains("\"stdio\"", content);
+        Assert.Contains(@"C:\\Program Files\\app\\mcp.exe", content);   // JSON-escaped, not mangled
+        Assert.Contains("\"--serve\"", content);
+        Assert.Contains("\"APP_WORKSPACE\"", content);
+    }
+
+    [Fact]
+    public void An_http_server_carries_its_token_as_an_authorization_header_in_the_FILE_not_argv()
+    {
+        // argv is readable by any process that can list processes, which is why the document goes to an
+        // owner-only file rather than the inline-string form --mcp-config also accepts
+        List<(string Kind, string Content)> written = [];
+        var server = AgentMcpServer.Http("remote", "https://tools.example.invalid/mcp", "s3cret-token");
+        var opts = new AgentSessionOptions { Prompt = "hi", McpServers = [server] };
+
+        var argv = Args(opts, written).ToList();
+
+        Assert.DoesNotContain(argv, a => a.Contains("s3cret-token", StringComparison.Ordinal));
+        Assert.Contains("Bearer s3cret-token", written.Single().Content);
+        Assert.Contains("\"http\"", written.Single().Content);
+    }
+
+    [Fact]
+    public void A_callers_own_mcp_config_path_is_kept_ALONGSIDE_the_rendered_one()
+    {
+        // MEASURED: the flag takes a LIST ("space-separated"), which is what lets both coexist. Displacing
+        // the caller's config would silently remove servers they had already wired up.
+        var opts = new ClaudeAgentOptions
+        {
+            Prompt = "hi",
+            McpConfigPath = "/app/mine.json",
+            McpServers = [Stdio()],
+        };
+
+        var argv = Args(opts).ToList();
+
+        var idx = argv.IndexOf("--mcp-config");
+        Assert.Equal(1, argv.Count(a => a == "--mcp-config"));   // one flag, two values
+        Assert.Equal("/app/mine.json", argv[idx + 1]);           // the caller's, first
+        Assert.Equal("<temp:mcp>", argv[idx + 2]);
+    }
+
+    [Fact]
+    public void A_callers_mcp_config_path_alone_is_unchanged_by_this_feature()
+    {
+        List<(string Kind, string Content)> written = [];
+        var opts = new ClaudeAgentOptions { Prompt = "hi", McpConfigPath = "/app/mine.json" };
+
+        var argv = Args(opts, written).ToList();
+
+        var idx = argv.IndexOf("--mcp-config");
+        Assert.Equal("/app/mine.json", argv[idx + 1]);
+        Assert.Empty(written);   // nothing rendered, so nothing written and nothing to clean up
+    }
+
+    [Fact]
+    public void No_app_servers_means_no_flag_and_no_file()
+    {
+        List<(string Kind, string Content)> written = [];
+
+        var argv = Args(new AgentSessionOptions { Prompt = "hi" }, written).ToList();
+
+        Assert.DoesNotContain("--mcp-config", argv);
+        Assert.Empty(written);
+    }
+
+    [Fact]
+    public void Naming_a_server_does_not_pre_approve_its_tools()
+    {
+        // reachable is not permitted: auto-allow-listing an app's servers would be a silent change of
+        // security posture, so the caller keeps AllowedTools / SkipAllPermissions
+        var argv = Args(new AgentSessionOptions { Prompt = "hi", McpServers = [Stdio()] }).ToList();
+
+        Assert.DoesNotContain("--allowedTools", argv);
+        Assert.DoesNotContain("--dangerously-skip-permissions", argv);
+    }
+
+    [Fact]
+    public async Task An_unusable_server_refuses_the_turn_without_spawning()
+    {
+        var runner = new FakeProcessRunner(FullTranscript);
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
+        var opts = new AgentSessionOptions { Prompt = "hi", McpServers = [AgentMcpServer.Stdio("has.dot", "x.exe")] };
+
+        var events = await session.StreamAsync(opts).ToListAsync();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal(LlmVerdict.Unsupported, ended.Verdict);
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task The_rendered_config_file_is_DELETED_when_the_turn_ends()
+    {
+        // it carries whatever secrets the caller's servers need, so it must not outlive the turn — this is
+        // the real CliTempFile path (the session writes it), not the recording writer above
+        var runner = new FakeProcessRunner(FullTranscript);
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude");
+        var opts = new AgentSessionOptions { Prompt = "hi", McpServers = [Stdio()] };
+
+        await session.StreamAsync(opts).ToListAsync();
+
+        var idx = runner.LastArgs!.ToList().IndexOf("--mcp-config");
+        var path = runner.LastArgs![idx + 1];
+        Assert.False(File.Exists(path), $"the config file should have been deleted: {path}");
+    }
+
     // ── CLI1: headless skip-all-permissions ───────────────────────────────────
 
     [Fact]
     public void Build_skip_all_permissions_emits_dangerous_flag()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", SkipAllPermissions = true };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
         Assert.Contains("--dangerously-skip-permissions", argv);
     }
 
@@ -191,7 +336,7 @@ public class ClaudeAgentSessionTests
     public void Build_skip_all_permissions_suppresses_permission_mode_even_for_write_policy()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write, SkipAllPermissions = true };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         Assert.Contains("--dangerously-skip-permissions", argv);
         Assert.DoesNotContain("--permission-mode", argv); // the CLI rejects combining the two
@@ -206,7 +351,7 @@ public class ClaudeAgentSessionTests
             SkipAllPermissions = true,
             AllowedTools = ["mcp__fs__read", "mcp__fs__write"],
         };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         Assert.Contains("--dangerously-skip-permissions", argv);
         Assert.DoesNotContain("--allowedTools", argv); // conflicting with the bypass — suppressed
@@ -221,7 +366,7 @@ public class ClaudeAgentSessionTests
             SkipAllPermissions = true,
             DisallowedTools = ["Bash"],
         };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         var dtIdx = argv.IndexOf("--disallowed-tools");
         Assert.True(dtIdx >= 0, "the always-denied set + caller disallowed are honored even when bypassing");
@@ -236,7 +381,7 @@ public class ClaudeAgentSessionTests
         // the documented invariant: the ReadOnly denial is still honored under the bypass — skipping
         // permission PROMPTS must not re-enable the write tools the policy disallows
         var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.ReadOnly, SkipAllPermissions = true };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         Assert.Contains("--dangerously-skip-permissions", argv);
         Assert.DoesNotContain("--permission-mode", argv); // the CLI rejects combining the two
@@ -253,7 +398,7 @@ public class ClaudeAgentSessionTests
     public void Build_without_skip_all_permissions_does_not_emit_dangerous_flag()
     {
         var opts = new ClaudeAgentOptions { Prompt = "hi", ToolPolicy = AgentToolPolicy.Write };
-        var argv = ClaudeAgentArgs.Build(opts).ToList();
+        var argv = Args(opts).ToList();
 
         Assert.DoesNotContain("--dangerously-skip-permissions", argv);
         Assert.Contains("--permission-mode", argv); // the normal acceptEdits path is unaffected
