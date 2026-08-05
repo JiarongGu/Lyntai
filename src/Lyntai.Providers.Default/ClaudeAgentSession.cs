@@ -23,17 +23,29 @@ public sealed class ClaudeAgentSession : IAgentSession
     private readonly LyntaiOptions _options;
     private readonly ILogger _logger;
     private readonly string? _command;
+    private readonly IReadOnlyDictionary<string, string>? _environment;
 
+    /// <param name="runner">Spawns the CLI.</param>
+    /// <param name="options">Platform options; supplies the timeout resolution.</param>
+    /// <param name="logger">Null = no logging.</param>
+    /// <param name="command">A PORTABLE <c>claude</c> path; null = the env overrides, then PATH.</param>
+    /// <param name="environment">Extra environment variables for every spawn — the same seam
+    /// <see cref="ClaudeCliProvider"/> has, and for the same reason: a portable install usually wants its own
+    /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state. Without it a
+    /// host that passes one to the provider and the session alike (which both methods' docs instruct) had it
+    /// honoured for completions and silently dropped for agent turns.</param>
     public ClaudeAgentSession(
         IProcessRunner runner,
         LyntaiOptions options,
         ILogger<ClaudeAgentSession>? logger = null,
-        string? command = null)
+        string? command = null,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         _runner = runner;
         _options = options;
         _logger = logger ?? NullLogger<ClaudeAgentSession>.Instance;
         _command = command;
+        _environment = environment;
     }
 
     public async IAsyncEnumerable<AgentStreamEvent> StreamAsync(
@@ -49,7 +61,7 @@ public sealed class ClaudeAgentSession : IAgentSession
         string? lastSessionId = null;
 
         var lines = _runner.StreamLinesAsync(exe, argv, stdin: options.Prompt, inactivityTimeout: timeout,
-            workingDirectory: options.WorkingDirectory, ct: ct);
+            workingDirectory: options.WorkingDirectory, environment: _environment, ct: ct);
         var e = lines.GetAsyncEnumerator(ct);
         await using (e.ConfigureAwait(false))
         {

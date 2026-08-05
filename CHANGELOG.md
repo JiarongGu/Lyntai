@@ -212,6 +212,30 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   tables exist, and adding `StorageFeature.Governance` would create nothing — so those wirings are left
   alone. `UsePostgresVectorStore` is deliberately exempt too: `PostgresVectorStore` creates its own schema
   lazily, so it works with or without the Governance migration.
+  - **Two ordering consequences, now written down** — clarifications of what the guard already does, not
+    behaviour changes. (1) The check is evaluated **eagerly**, at each `Use*` call, against the last feature
+    selection registered *so far*, so `UseSqliteStorage(a, Memory)` → `UseSqliteVectorStore()` →
+    `UseSqliteStorage(b, All)` throws at the middle call even though the FINAL selection is valid — state
+    the feature set once, or widen it before the helper. (2) A **BYO-factory call made last stands the guard
+    down for the whole wiring**: `UseSqliteStorage(path, …, SchemaMigration.OnStartup)` followed by
+    `UseSqliteStorage(factory, …)` skips the check entirely, because the app supplied the factory last and
+    therefore owns the schema. Both follow one rule — the guard follows the selection, and the last selection
+    decides — but each is reachable by reordering two lines you thought were independent.
+- **`AddClaudeCliAgentSession` now takes `environment`, so a portable install's `CLAUDE_CONFIG_DIR` reaches
+  agent turns too.** `AddClaudeCliProvider`, `AddCodexCliProvider` and `AddCodexCliAgentSession` all already
+  had it; the Claude agent session was the only one of the four without, and its sibling's docs instruct a
+  host to "pass the same value to both". **What you observe:** a host that did exactly that had the variable
+  honoured for completions and **silently dropped** for agent turns — so the portable CLI read and mutated
+  the machine-wide install's state, which is the one thing a portable install exists to avoid. Added as a
+  trailing optional parameter on both `AddClaudeCliAgentSession` and the `ClaudeAgentSession` constructor:
+  source-compatible (existing calls compile and behave identically), but **not binary-compatible** for a
+  pre-compiled caller of the old signature, exactly as with the router constructor parameters below.
+- **`BoundedProviderPool`'s per-call idle sweep no longer allocates.** `ProviderPoolOptions.IdleTimeout` is
+  set by default, so the sweep ran inside the pool's lock on every `GetOrAdd` and materialised a list whether
+  or not anything was actually idle; it now scans over the dictionary's struct enumerator and allocates only
+  when there is something to evict. LRU overflow eviction likewise finds its victim by a linear minimum scan
+  rather than sorting every entry to take one of them. Behaviour — including which entry is evicted — is
+  identical.
 - **An unconfigured LLM backend is skipped, not benched — `LlmVerdict.NotConfigured`.** When an
   OpenAI-compatible endpoint answers 401/403 to a call that carried **no** credentials,
   `OpenAiCompatibleProvider` now reports the new `LlmVerdict.NotConfigured` instead of `AuthFailed`, and the

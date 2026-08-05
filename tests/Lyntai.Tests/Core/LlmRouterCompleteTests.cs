@@ -175,10 +175,17 @@ public class LlmRouterCompleteTests
     }
 
     [Fact]
-    public async Task The_last_real_failure_still_wins_when_an_unconfigured_candidate_came_first()
+    public async Task A_real_failure_is_reported_over_an_EARLIER_unconfigured_candidate()
     {
-        // ONLY eligibility changed. Which substantive failure wins — the LAST, unlike GenerationRouter's
-        // first — is released behaviour for every other verdict and stays exactly as it was.
+        // The order-mirror of the test above: a blameless verdict must not win by having been seen FIRST
+        // either. ONLY eligibility is at stake here — with a single real failure in the set, this test cannot
+        // and does not say which substantive failure wins when there are several.
+        //
+        // That invariant — the LAST substantive failure wins, unlike GenerationRouter's first — is held by
+        // `All_failed_returns_the_last_error` (above) and its streaming twin
+        // `LlmRouterStreamTests.All_candidates_fail_pre_content_yields_last_error`. Those two are the ONLY
+        // guard against a well-meant harmonisation of the two routers; they are not redundant with this one,
+        // and deleting either would let last-wins silently become first-wins with every test still green.
         var unset = new FakeLlmProvider("unset");
         unset.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "no api key"));
         var down = new FakeLlmProvider("down");

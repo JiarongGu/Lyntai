@@ -251,6 +251,91 @@ public class ProviderPoolWiringTests
         (await second).Dispose();
     }
 
+    // ── the IProviderAdmission SEAM ───────────────────────────────────────────────────────────────────
+    // IProviderAdmission was extracted as an interface for exactly one reason: a host running several
+    // processes, containers or replicas coordinates admission over whatever it already shares, and registers
+    // that instead. The three tests below are what make that reason true — a host registration that does not
+    // displace the shipped table, or a factory that quietly keeps consulting the in-process one, is a seam
+    // that looks wired and enforces nothing across the deployment it was built for.
+
+    /// <summary>A host-supplied admission table — the shape a distributed limiter takes from the library's
+    /// side. Records every configuration admitted, and counts the permits handed back, because a seam that
+    /// takes permits and never returns them is the failure that pins a resource forever.</summary>
+    private sealed class RecordingAdmission : IProviderAdmission
+    {
+        public List<ProviderKey> Entered { get; } = [];
+        public int Released;
+
+        public ValueTask<IDisposable> EnterAsync(ProviderKey key, CancellationToken ct = default)
+        {
+            Entered.Add(key);
+            return ValueTask.FromResult<IDisposable>(new Handle(this));
+        }
+
+        private sealed class Handle(RecordingAdmission owner) : IDisposable
+        {
+            public void Dispose() => Interlocked.Increment(ref owner.Released);
+        }
+    }
+
+    private static ServiceProvider ProviderWithHostAdmission(
+        IProviderAdmission admission, Action<LyntaiBuilder> configure)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(admission);   // BEFORE AddLyntai, which is where the TryAdd must stand down
+        services.AddLyntai(configure);
+        return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public void A_host_registered_admission_displaces_the_shipped_table()
+    {
+        var admission = new RecordingAdmission();
+        using var sp = ProviderWithHostAdmission(admission, _ => { });
+
+        Assert.Same(admission, sp.GetRequiredService<IProviderAdmission>());
+        // …while the concrete type stays registered either way: ConfigureProviderAdmission configures THAT
+        // one, and resolving it directly must keep working.
+        Assert.NotNull(sp.GetRequiredService<ProviderAdmission>());
+    }
+
+    // Resolving the host's instance is not enough — the factory has to hand it to the router it builds, and
+    // the router has to enter it on the CONFIGURATION rather than on the provider id.
+    [Fact]
+    public async Task The_llm_factory_routes_through_a_host_registered_admission()
+    {
+        var admission = new RecordingAdmission();
+        using var sp = ProviderWithHostAdmission(admission, _ => { });
+        var key = ProviderKey.For("openai").With("tenant", "a").Build();
+
+        var router = sp.GetRequiredService<ILlmRouterFactory>().For([
+            new ProviderRegistration<ILlmProvider>(key, () => new FakeLlmProvider("openai"))]);
+        var reply = await router.CompleteAsync([new LlmCandidate("openai")],
+            new LlmRequest { Messages = [LlmMessage.User("hi")] });
+
+        Assert.Equal(LlmVerdict.Ok, reply.Verdict);
+        Assert.Equal(key, Assert.Single(admission.Entered));
+        Assert.Equal(1, admission.Released);
+    }
+
+    [Fact]
+    public async Task The_generation_factory_routes_through_a_host_registered_admission()
+    {
+        var admission = new RecordingAdmission();
+        using var sp = ProviderWithHostAdmission(admission,
+            b => b.AddGenerationProvider(_ => new FakeGenerationProvider { Id = "unused" }));
+        var key = Key("a");
+
+        var router = sp.GetRequiredService<IGenerationRouterFactory>().For([
+            new ProviderRegistration<IGenerationProvider>(key, () => new FakeGenerationProvider { Id = "a1111" })]);
+        var result = await router.GenerateAsync([new GenerationCandidate("a1111")],
+            new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a cat" });
+
+        Assert.True(result.IsOk);
+        Assert.Equal(key, Assert.Single(admission.Entered));
+        Assert.Equal(1, admission.Released);
+    }
+
     // Both domains reach their factory through the container; leaving the chat one unregistered would make
     // half the feature unreachable.
     [Fact]

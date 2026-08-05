@@ -134,25 +134,60 @@ public sealed class BoundedProviderPool<TProvider>(
         entry.Ticket = ++_ticket;
     }
 
-    /// <summary>Retire entries unused past the timeout. Caller holds the lock.</summary>
+    /// <summary>Retire entries unused past the timeout. Caller holds the lock.
+    ///
+    /// <para>Scanned in two passes with an early return, rather than a LINQ chain, because this runs on EVERY
+    /// <see cref="GetOrAdd"/> whenever <see cref="ProviderPoolOptions.IdleTimeout"/> is set — and it is set by
+    /// default. A <c>foreach</c> over the dictionary uses its STRUCT enumerator and allocates nothing, so the
+    /// overwhelmingly common outcome ("nothing is idle") now costs one scan and no garbage; the materialised
+    /// list is paid for only when there is actually something to evict. The second pass exists because the
+    /// keys have to be collected before they are removed.</para></summary>
     private void EvictIdle()
     {
         if (_options.IdleTimeout is not { } timeout) return;
 
         var cutoff = _clock() - timeout;
-        var doomed = _entries.Where(e => e.Value.LastUsed <= cutoff).Select(e => e.Key).ToList();
+
+        var anyIdle = false;
+        foreach (var entry in _entries)
+        {
+            if (entry.Value.LastUsed > cutoff) continue;
+            anyIdle = true;
+            break;
+        }
+
+        if (!anyIdle) return;
+
+        var doomed = new List<ProviderKey>();
+        foreach (var entry in _entries)
+            if (entry.Value.LastUsed <= cutoff) doomed.Add(entry.Key);
+
         foreach (var key in doomed) _entries.Remove(key);
         _retired += doomed.Count;
     }
 
-    /// <summary>Retire least-recently-used entries down to the cap. Caller holds the lock.</summary>
+    /// <summary>Retire least-recently-used entries down to the cap. Caller holds the lock.
+    ///
+    /// <para>The victim is found by a linear scan for the lowest ticket rather than by sorting: an
+    /// <c>OrderBy(…).First()</c> is O(n log n) and materialises an array on every single eviction, where
+    /// finding a minimum is O(n) over the dictionary's struct enumerator and allocates nothing. Tickets are
+    /// unique (a monotonic counter), so both pick the same entry.</para></summary>
     private void EvictOverflow()
     {
         if (_options.MaxEntries is not { } max || max <= 0) return;
 
         while (_entries.Count > max)
         {
-            var oldest = _entries.OrderBy(e => e.Value.Ticket).First().Key;
+            // the loop condition guarantees at least one entry, so this always finds a victim
+            ProviderKey oldest = default;
+            var oldestTicket = long.MaxValue;
+            foreach (var entry in _entries)
+            {
+                if (entry.Value.Ticket >= oldestTicket) continue;
+                oldestTicket = entry.Value.Ticket;
+                oldest = entry.Key;
+            }
+
             _entries.Remove(oldest);
             _retired++;
         }

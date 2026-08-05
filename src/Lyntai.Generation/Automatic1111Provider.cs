@@ -155,6 +155,15 @@ public sealed class Automatic1111Provider(
             using var response = await http.PostAsync($"{Root}/sdapi/v1/{endpoint}", content, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
+            // The 2-argument form ON PURPOSE, unlike OpenAiImageProvider's `(status, body, HasCredentials)`.
+            // The 3-arg overload's job is to demote AuthFailed to NotConfigured when the call carried no
+            // credentials — and A1111 has NO credential concept at all here: Automatic1111Options has no key,
+            // token or user/password member, and this provider never sets an Authorization header, because the
+            // server is the host's own. So there is no `hasCredentials` fact to pass. Hardcoding `false` would
+            // not be a tidy-up, it would be a BEHAVIOUR change: a 401 from a reverse proxy in front of the
+            // WebUI would stop benching the backend and start telling the user to configure an API key that
+            // does not exist. AuthFailed is the honest answer — the host's proxy rejected us. "Not set up yet"
+            // already has its own two routes here: no BaseUrl, and the not-reachable arm below.
             if (!response.IsSuccessStatusCode)
                 return GenerationResult.Failure(
                     GenerationVerdictClassifier.FromHttpFailure(response.StatusCode, body),
