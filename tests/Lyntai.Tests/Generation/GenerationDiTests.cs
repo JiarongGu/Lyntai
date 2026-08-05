@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>Media backends are a DI COLLECTION, like providers and scorers — adding one is a registration,
-/// never an edit to a switch (<c>dev-conventions.md</c>). The router resolves the collection.</summary>
+/// never an edit to a switch (<c>dotnet-package-layout.md</c>). The router resolves the collection.</summary>
 public class GenerationDiTests
 {
     [Fact]
