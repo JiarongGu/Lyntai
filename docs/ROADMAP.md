@@ -335,8 +335,22 @@ In priority order, each needing its own measurement:
 3. **Pipelines** (3d → image → video) — ordered stages feeding `artifact.ToInput(role)` forward. Deferred until
    ≥2 real backends exist so the runner isn't designed on guesses; needs a 3D-backend survey first (mesh vs
    turntable stills — only the latter chains into today's video backends).
-4. **Generation wiring helpers** — `AddOpenAiImageProvider()` and friends, so a consumer stops hand-constructing
-   a backend and its `HttpClient` factory. The obvious first addition to the new package.
+
+_Generation wiring helpers (`AddOpenAiImageProvider()` and friends) were item 4 here and **shipped in 2.1.0**
+— see `docs/task-archive.md` Part 36 and `DECISIONS.md` D35/D36. Every remaining item above needs a real
+service or a vendor key, which is why none of them is codeable from the repository alone._
+
+### Also open, and each a DESIGN call rather than a measurement
+These came out of closing other work and are in `TASKS.md` with their reasoning. They need a decision, not a
+key:
+- **Blameless vs reportable** (Part 40) — `GenerationRouter` never reports a blameless verdict over a real
+  failure, so a verdict cannot currently be both. That forces `ContextWindowExceeded` to stay `Failed`, which
+  benches a healthy backend on repeated oversized prompts. The remedy is the router's `firstFailure` rule.
+- **Curated memory: can `taskKey`/`scope` move in place?** — breaking (new parameters on the released
+  `ICuratedMemoryStore.UpdateAsync`), and those fields *are* the dedup identity, so an in-place move can mint
+  the duplicate `dedup:true` promises against.
+- **`OpenAiCompatibleOptions.ContextSize`** — an Ollama-only option with a generic name; renaming is breaking,
+  so it is major-bump-or-never.
 
 ## Standing maintenance policies
 - **MEAI churn watch**: Microsoft.Extensions.AI ships roughly monthly with breaks in

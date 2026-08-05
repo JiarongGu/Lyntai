@@ -305,6 +305,16 @@ these later without breaking changes.
 > (D5) · front-door decorators fold deterministically, cache outermost (D14) · `RefusalPattern` screening
 > re-screens even cached hits · usage-tracker totals are async by contract and case-insensitive per
 > consumer identity (v0.30).
+> **Provider LIFETIME is a seam this design did not have** (2026-08-05, `Lyntai.Lifecycle`, D37). §4 assumed
+> configuration is owned by the DEPLOYMENT, so a provider could be registered once at `AddLyntai` time. Where
+> it is owned EXTERNALLY — an end user, or a store the process polls — several configurations of one backend
+> are live at once and the set changes while the process runs. `IProviderPool<TProvider>` owns those
+> instances (`Bounded` reuses, `Transient` never does; pooling is a registered strategy, not a behaviour),
+> `ProviderKey` identifies a configuration, and **dead-host cooldown and concurrency admission key on that
+> key rather than on the provider id** — otherwise one tenant's rate limit benches another's. Retiring an
+> entry never disposes it: without leases a pool cannot know when the last caller finished, and a render
+> outlives the configuration that started it. The routers take both as OPTIONAL parameters, so a
+> deployment-configured app is unaffected.
 > **§7:** pre-release migration changes fold into the owning unreleased migration; released migrations
 > are frozen (D12); selective migration is FluentMigrator-tag-driven per `StorageFeature` (D15).
 > **v0.30 pre-1.0 breaks:** `ChatResult.BlockReason`→`Detail`; `IRateLimiter` cancellation propagates;

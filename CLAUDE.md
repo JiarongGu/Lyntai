@@ -17,7 +17,7 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Released: v2.0.1 (2026-08-04).** Twelve packages; public API frozen under SemVer 2.0 since 1.0 — with ONE
+**Released: v2.1.0.** Twelve packages; public API frozen under SemVer 2.0 since 1.0 — with ONE
 carve-out, the **`Lyntai.Generation` PACKAGE** (the backends), which ships EXPERIMENTAL until `TASKS.md`
 GEN-VERIFY closes.
 
@@ -25,8 +25,17 @@ Everything through the roadmap's v0.3–v0.31 shipped (routing depth, LLM-ops, t
 resource seams, local GGUF, agentic tool-calling native + prompt, MCP both directions, durable jobs, the §9
 platform kit, OTel, governance decorators, semantic + curated memory, the agent-session primitive), then
 **1.0** froze the API, **1.1** generalized CLI tool-hosting, **1.2** added turn-free backend probe/auth +
-pinned self-install, and **2.0.1** landed the generation platform and the package graph it needed. Per-release
-detail is `CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D34).
+pinned self-install, **2.0.1** landed the generation platform and the package graph it needed, and **2.1.0**
+made the generation backends registerable in one line each. Per-release detail is `CHANGELOG.md`; the
+reasoning is `docs/DECISIONS.md` (D1–D43).
+
+**`## Unreleased` is substantial — read it before assuming a behaviour.** Since 2.1.0: the provider-lifetime
+seam (`Lyntai.Lifecycle` — a pool, a configuration key, admission; D37), a real per-call deadline for the
+HTTP generation backends plus `GenerationOperation.Inconclusive` so a timed-out submit is not re-submitted
+and double-billed, `LlmVerdict.NotConfigured` (D38), `AddSemanticMemory` (D41), honest `MigrateUpAsync`
+twins (D40), `CodexAgentSession` (D42), and a verdict-translation fix (D43). **One of those is disclosed as
+MAJOR-BUMP material under D24** — D43 changes a verdict a consumer cannot detect at compile time — so the
+version for that release is a deliberate call, not an inherited one.
 
 **The packaging rules are now gated, not remembered** — `verify` runs seven checks, four of them added at
 2.0.1: `check-warnings` (a warning in a published project fails the build, because an unfailed IL2026 is a
@@ -35,7 +44,9 @@ FALSE trim promise), `check-packages` (a package must be registered in all nine 
 grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: 1337 tests, e2e 3/3.
+Tests/e2e green: 1567 tests, e2e 3/3.
+
+**The records, and what each is for:**
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
   note the dated §6 amendments; §6 is now the default `RoutingPolicy`). Read it first.
 - `docs/ROADMAP.md` — the forward sequence (v0.4+ and standing maintenance policies).
