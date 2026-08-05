@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased
+## 2.3.0 — 2026-08-05
 
 _Everything below was finished before 2.2.0 was cut but landed **after** it: the release workflow runs against
 the pushed branch, and this work had not been pushed, so 2.2.0 shipped without any of it (see
