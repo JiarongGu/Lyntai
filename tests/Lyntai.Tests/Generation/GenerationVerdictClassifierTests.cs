@@ -8,6 +8,9 @@ namespace Lyntai.Tests.Generation;
 /// that would be a second set of regexes to drift (the mistake <c>docs/DECISIONS.md</c> D27 exists to
 /// prevent). The classifier maps transport/text failures through Core's shared classifier and translates the
 /// answer.</summary>
+// serialized with every other class that registers one: LlmVerdictClassifier.AddErrorTextMatcher mutates a
+// PROCESS-WIDE list, so two of these running in parallel would see each other's matchers
+[Collection("verdict-matchers")]
 public class GenerationVerdictClassifierTests
 {
     [Theory]

@@ -30,14 +30,22 @@ public class GenerationTimeoutTests
         }
     }
 
-    private static Func<HttpClient> Stalling() => () => new HttpClient(new StallingHandler());
+    /// <summary>A short BACKSTOP on the fixture client, so a regression in this area fails rather than
+    /// stalls. Left at <see cref="HttpClient"/>'s 100-second default, a test whose own clock stopped working
+    /// would still pass — a hundred times slower — and a suite that hangs teaches nothing. Every deadline
+    /// asserted below is well under this, so the backstop is never the clock that fires; when it is, the
+    /// <c>Detail</c> assertions name it (<c>GenerationDeadline</c> reports which clock won).</summary>
+    private static readonly TimeSpan Backstop = TimeSpan.FromSeconds(5);
+
+    private static Func<HttpClient> Stalling() => () => new HttpClient(new StallingHandler()) { Timeout = Backstop };
 
     private static GenerationRequest Ask(int? timeoutSeconds = null) =>
         new() { Kind = GenerationKinds.Image, Prompt = "a red square", TimeoutSeconds = timeoutSeconds };
 
     private static readonly TimeSpan Short = TimeSpan.FromMilliseconds(150);
 
-    // a budget no test can reach, so a test that ends did so for the reason it names
+    // a budget no test can reach, so a test that ends did so for the reason it names — and if one ever does
+    // reach it, Stalling()'s Backstop ends the call in seconds rather than letting the suite hang
     private static readonly TimeSpan Unreachable = TimeSpan.FromMinutes(30);
 
     // ---- there IS a bounded default (the bug: none at all) ----
@@ -95,6 +103,9 @@ public class GenerationTimeoutTests
         var result = await provider.GenerateAsync(Ask(timeoutSeconds: 1));
 
         Assert.Equal(GenerationVerdict.Timeout, result.Verdict);
+        // and say WHICH clock ended it: the request's 1s budget, not the fixture client's backstop. Without
+        // this the same assertion passes if request-budget precedence regresses — just five seconds later.
+        Assert.Contains("timed out after 00:00:01", result.Detail);
     }
 
     [Fact]
