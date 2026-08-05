@@ -129,6 +129,31 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `docs/DECISIONS.md` **D41**.
 
 ### Fixed
+- **A capability gap no longer benches a healthy media backend.** `GenerationVerdictClassifier` translated
+  `LlmVerdict.Unsupported` — "this backend cannot do THIS request" — into `GenerationVerdict.Failed`, even
+  though `GenerationVerdict.Unsupported` exists and means the same thing. Since `GenerationRoutingPolicy` maps
+  `Failed` to `PenalizeAndAdvance` and `Unsupported` to `Advance`, a capability gap counted toward the
+  dead-host threshold, and a few of them in a row put a perfectly healthy backend on cooldown. **Who is
+  affected:** anyone whose media backend reports a capability gap through the shared corpus — a
+  consumer-registered `LlmVerdictClassifier.AddErrorTextMatcher` returning `Unsupported`, or an exception that
+  classifies into it. **What you observe:** such a result now carries `GenerationVerdict.Unsupported` instead
+  of `GenerationVerdict.Failed`, so routing advances without blame — and, consistently with every other
+  blameless verdict, `GenerationRouter` no longer reports it as the run's failure reason when a real failure
+  also occurred. A `switch` on `GenerationVerdict.Failed` that was catching these needs an `Unsupported` arm.
+  **Read this before choosing the version to release it in.** This is a `Lyntai.Core` type, so it carries the
+  full SemVer promise rather than the `Lyntai.Generation` experimental carve-out — and it is precisely the shape
+  `docs/DECISIONS.md` **D24** declines to license in a minor: *"Does NOT: silent behavior changes … or anything
+  a consumer can't detect at compile time. Those stay major-bump material regardless."* No API member changed,
+  so nothing here breaks a build; a consumer's `switch` on `GenerationVerdict.Failed` keeps compiling and simply
+  stops matching these results. **Treat it as major-bump material** — it is recorded under `## Unreleased`,
+  which fixes no version, so whoever cuts the release makes that call deliberately.
+  `LlmVerdict.ContextWindowExceeded` still collapses to `Failed`, now deliberately and with its reason written
+  down — **at a stated price**: `Failed` means `PenalizeAndAdvance`, so repeated oversized prompts can still
+  bench a healthy backend, and the LLM domain maps that verdict to `Advance`, so the two now disagree about it.
+  Keeping it reportable was judged worth that, because the alternative silently loses "your prompt is too long"
+  — the one message a caller can act on. The remedy needs a router change and is filed as `TASKS.md` Part 40.
+  The catch-all that hid all this is gone: every `LlmVerdict` member has its own arm, and a test fails until a
+  newly added one has both a translation and an arm. See `docs/DECISIONS.md` **D43**.
 - **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already
   resting on** (`TASKS.md` GEN11). 2.1.0's `Add*` shims register a client with `Timeout.InfiniteTimeSpan`
   because a render routinely outlives the 100-second default — but no deadline existed to take over:
@@ -187,6 +212,30 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   tables exist, and adding `StorageFeature.Governance` would create nothing — so those wirings are left
   alone. `UsePostgresVectorStore` is deliberately exempt too: `PostgresVectorStore` creates its own schema
   lazily, so it works with or without the Governance migration.
+  - **Two ordering consequences, now written down** — clarifications of what the guard already does, not
+    behaviour changes. (1) The check is evaluated **eagerly**, at each `Use*` call, against the last feature
+    selection registered *so far*, so `UseSqliteStorage(a, Memory)` → `UseSqliteVectorStore()` →
+    `UseSqliteStorage(b, All)` throws at the middle call even though the FINAL selection is valid — state
+    the feature set once, or widen it before the helper. (2) A **BYO-factory call made last stands the guard
+    down for the whole wiring**: `UseSqliteStorage(path, …, SchemaMigration.OnStartup)` followed by
+    `UseSqliteStorage(factory, …)` skips the check entirely, because the app supplied the factory last and
+    therefore owns the schema. Both follow one rule — the guard follows the selection, and the last selection
+    decides — but each is reachable by reordering two lines you thought were independent.
+- **`AddClaudeCliAgentSession` now takes `environment`, so a portable install's `CLAUDE_CONFIG_DIR` reaches
+  agent turns too.** `AddClaudeCliProvider`, `AddCodexCliProvider` and `AddCodexCliAgentSession` all already
+  had it; the Claude agent session was the only one of the four without, and its sibling's docs instruct a
+  host to "pass the same value to both". **What you observe:** a host that did exactly that had the variable
+  honoured for completions and **silently dropped** for agent turns — so the portable CLI read and mutated
+  the machine-wide install's state, which is the one thing a portable install exists to avoid. Added as a
+  trailing optional parameter on both `AddClaudeCliAgentSession` and the `ClaudeAgentSession` constructor:
+  source-compatible (existing calls compile and behave identically), but **not binary-compatible** for a
+  pre-compiled caller of the old signature, exactly as with the router constructor parameters below.
+- **`BoundedProviderPool`'s per-call idle sweep no longer allocates.** `ProviderPoolOptions.IdleTimeout` is
+  set by default, so the sweep ran inside the pool's lock on every `GetOrAdd` and materialised a list whether
+  or not anything was actually idle; it now scans over the dictionary's struct enumerator and allocates only
+  when there is something to evict. LRU overflow eviction likewise finds its victim by a linear minimum scan
+  rather than sorting every entry to take one of them. Behaviour — including which entry is evicted — is
+  identical.
 - **An unconfigured LLM backend is skipped, not benched — `LlmVerdict.NotConfigured`.** When an
   OpenAI-compatible endpoint answers 401/403 to a call that carried **no** credentials,
   `OpenAiCompatibleProvider` now reports the new `LlmVerdict.NotConfigured` instead of `AuthFailed`, and the

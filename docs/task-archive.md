@@ -2612,8 +2612,9 @@ pass because they were all small and all found by the same review. Shape decisio
 
 _Closes CLI11, filed 2026-08-04 by a consuming app that wanted to delete its hand-rolled codex integration
 and could not. The reasoning — and specifically WHICH half was built and why the other is marked rather than
-faked or withheld — is `docs/DECISIONS.md` **D42**. The measurement that remains is filed as Part 39
-(CLI12/CLI13) in `TASKS.md`._
+faked or withheld — is `docs/DECISIONS.md` **D42**. The measurement that remains is filed as **Part 41**
+(CLI12/CLI13) in `TASKS.md` — renumbered from 39 on 2026-08-05, because THIS archive entry is Part 39 and the
+two collided._
 
 - [x] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
   consuming app that wanted to delete its hand-rolled codex integration and could not.
@@ -2656,7 +2657,12 @@ Inferred half → tool steps, mapped **shape-driven, not name-driven**: any unkn
 `ToolCall`/`ToolResult` under codex's OWN item-type name carrying codex's OWN item object, nothing renamed or
 normalised, and no `CodexToolCalls` helper (inventing one would mean guessing field names). Where
 `item.started` is absent the `ToolCall` is synthesised from the completion, correlated by item id and never
-duplicated — so the unmeasured detail costs fewer events, never wrong ones. Not emitted, because codex has no
+duplicated — so the unmeasured detail costs fewer events, never wrong ones.
+  **[Editorial pointer, added later — the claim in the previous sentence was RETRACTED the same day; see
+  "Review round 1" below. It holds for payload, not for the tool arm's item KIND, which is reached by
+  elimination and can fabricate a `ToolCall`. The original wording is kept as the record of what was
+  believed at the time; the scoped claim is the one that survived.]**
+  Not emitted, because codex has no
 analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`, and token-level deltas. `ResumeToken` is
 REFUSED without spawning (`LlmVerdict.Unsupported`) rather than guessed or ignored; `DisallowedTools` is
 logged as unhonoured; `SystemPrompt` travels as a leading block of the prompt.
@@ -2695,6 +2701,81 @@ in-band double-terminal dedup (`turn.completed` then `turn.failed`) gained the t
 mutation-checked (removing the guard fails it); and CLI13 gained a note that `IAgentSession` has no
 capability query, so the resume refusal is discoverable only at turn time — a Core change, left as an
 owner call.
+
+---
+
+## Part 38 — verdict-translation gaps found while closing Part 34 (2026-08-05)
+
+_Found while adding `LlmVerdict.NotConfigured` (`docs/DECISIONS.md` D38). Not fixed there: each changes
+RELEASED generation behaviour and deserves its own considered commit, exactly as the Part 34 verdict change
+did — not a rider on an unrelated one._
+
+- [x] **`GenerationVerdictClassifier.Translate` flattens `Unsupported` to `Failed`** —
+  `src/Lyntai.Core/Generation/GenerationVerdictClassifier.cs:71`. `LlmVerdict.Unsupported` falls through the
+  `_ =>` arm to `GenerationVerdict.Failed`, even though `GenerationVerdict.Unsupported` exists and means the
+  same thing ("this backend cannot do THIS request — a capability gap, not a fault"). The method's own doc
+  contradicted the code until 2026-08-05, naming `ContextWindowExceeded` as the only intended collapse; the
+  doc now records the gap instead of hiding it. **What a consumer observes:** a capability gap arriving
+  through the shared corpus — a consumer-registered `AddErrorTextMatcher` returning `Unsupported`, or an
+  exception classified into it — is reported as a generic `Failed`, so `GenerationRoutingPolicy` gives it
+  `PenalizeAndAdvance` (counts toward the dead-host threshold) instead of `Advance`, and repeated capability
+  gaps bench a healthy backend. Same shape as the Part 34 masking bug, one translation layer along. Fix is
+  one arm, but it changes a released verdict mapping: needs its own commit, a `CHANGELOG.md` entry, and a
+  test that a translated `Unsupported` is not penalised.
+
+  **Closed 2026-08-05. Outcome:** `LlmVerdict.Unsupported` now translates to `GenerationVerdict.Unsupported`,
+  so a translated capability gap takes `Advance` and no longer counts toward the dead-host threshold — pinned
+  by an end-to-end router test (a `DeadHostTracker(threshold: 1)` that would bench the backend after ONE
+  penalised failure still has it in rotation on the second run). Reasoning: `docs/DECISIONS.md` **D43**.
+
+  Three findings beyond the filed arm:
+
+  - **The catch-all was hiding three members, not one**, and nothing distinguished them: `Failed` (right
+    answer, wrong reason), `ContextWindowExceeded` (deliberate) and `Unsupported` (the defect). Every one of
+    the nine `LlmVerdict` members now has its own arm, so the discard holds nothing but undefined numeric
+    values. **No other arm was mis-mapped** — the `NotConfigured` pairing checked specifically was already
+    correct (it landed with D38).
+  - **The compiler cannot be the growth gate for an enum switch.** C# treats any switch over an enum as
+    non-exhaustive (`(LlmVerdict)99` is legal), so removing the discard buys CS8509 on the code as it stands —
+    and since `TreatWarningsAsErrors` is false, what fails is the `check-warnings` GATE, not the compiler.
+    The gate is a test, `Every_llm_verdict_states_its_media_translation`, which demands a row naming a media
+    verdict per member **and an arm**: `Translate` was split over an `internal TryTranslate` returning null for
+    an unhandled member, because the discard's own answer was `Failed` and a new member registered as `Failed`
+    would otherwise have passed on the discard alone. Mutation-checked — deleting the `ContextWindowExceeded`
+    arm changes no observable value and now fails the gate. Third instance of the same mechanism
+    (`Every_verdict_states_whether_it_is_transient`, D38's obligation on the routing policy).
+  - **`ContextWindowExceeded` stays at `Failed` on purpose**, and the reason is now written down rather than
+    assumed. `Unsupported` would describe and route it better, but `GenerationRouter` never reports a
+    blameless verdict over a real failure (`:92`, `:117`), so as `Unsupported` the one actionable answer in the
+    set ("your prompt is too long for this backend") would be swallowed when it was the only thing that went
+    wrong. D38 resolved the analogous LLM-side question the same way. **The price is stated, not implied:**
+    `Failed` is `PenalizeAndAdvance`, so repeated oversized prompts can still bench a healthy backend — the
+    same harm this task fixed, one member along — and the LLM domain maps that verdict to `Advance`
+    (`RoutingPolicy.cs:20`), so the two domains now disagree about it. The remedy is a ROUTER change, filed as
+    Part 40; moving the arm on its own just swaps one cost for the other.
+  - **A shared meaning is not a shared action.** `LlmVerdict.Unsupported` routes to `Surface`,
+    `GenerationVerdict.Unsupported` to `Advance` — both deliberate, each right for its domain, but the
+    translation therefore changes fallback semantics silently. Now stated on the method and in D43.
+
+  **Which promise binds, decided rather than assumed:** the type ships in `Lyntai.Core`, which carries the
+  FULL SemVer promise — the `Lyntai.Generation` experimental carve-out is package- and reason-scoped
+  (unmeasured backends, the unimplemented stream seam) and does not cover it. The conservative reading was
+  applied instead of claiming the exemption, and `CLAUDE.md`'s wording was tightened to say "package" so the
+  next reader does not have to re-derive it. No public API member changed, so the `ApiSurfaceTests` baselines
+  are untouched.
+
+  **Called out as MAJOR-BUMP MATERIAL rather than shipped quietly in a minor** (review finding). D24 relaxes
+  the version consequence for documented breaks, but its third bullet excludes exactly this shape — "silent
+  behavior changes … or anything a consumer can't detect at compile time" — and a consumer whose `switch`
+  catches `Failed` still compiles and simply stops matching. The fix is still right; the description is the
+  thing that had to be honest. The entry sits under `## Unreleased`, which fixes no number, and says plainly
+  that it is major-bump material so whoever cuts the release decides deliberately.
+
+  **Known and accepted, recorded so it is not rediscovered:** blameless verdicts are excluded from
+  `GenerationRouter`'s `firstFailure`, so a run where EVERY candidate reports `Unsupported` returns
+  `NotConfigured` / "every capable backend reported it is not configured". Unchanged by this fix and reachable
+  today from any backend returning `Unsupported` directly; correcting it means changing the router's reporting
+  rule — now filed as Part 40 together with the `ContextWindowExceeded` half, since it is the same rule.
 
 ---
 

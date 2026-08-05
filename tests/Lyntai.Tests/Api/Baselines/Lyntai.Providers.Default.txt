@@ -1,5 +1,5 @@
 static class Lyntai.ClaudeCliBuilderExtensions
-    static AddClaudeCliAgentSession(LyntaiBuilder, String=) : LyntaiBuilder
+    static AddClaudeCliAgentSession(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=) : LyntaiBuilder
     static AddClaudeCliProvider(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=) : LyntaiBuilder
 static class Lyntai.CodexCliBuilderExtensions
     static AddCodexCliAgentSession(LyntaiBuilder, String=, IReadOnlyDictionary<String,String>=) : LyntaiBuilder
@@ -25,7 +25,7 @@ sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentOptions
     SkipAllPermissions : Boolean
     ToString() : String
 sealed class Lyntai.Providers.ClaudeCli.ClaudeAgentSession
-    .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeAgentSession>=, String=)
+    .ctor(IProcessRunner, LyntaiOptions, ILogger<ClaudeAgentSession>=, String=, IReadOnlyDictionary<String,String>=)
     StreamAsync(AgentSessionOptions, CancellationToken=) : IAsyncEnumerable<AgentStreamEvent>
 sealed class Lyntai.Providers.ClaudeCli.ClaudeCliDialect
     .ctor()

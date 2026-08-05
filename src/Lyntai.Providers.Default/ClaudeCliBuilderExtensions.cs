@@ -57,17 +57,25 @@ public static class ClaudeCliBuilderExtensions
     /// <param name="command">A PORTABLE <c>claude</c> path, as with
     /// <see cref="AddClaudeCliProvider"/> — pass the same value to both so a host's bundled CLI is used for
     /// completions and agent sessions alike.</param>
-    public static LyntaiBuilder AddClaudeCliAgentSession(this LyntaiBuilder builder, string? command = null)
+    /// <param name="environment">Extra environment variables for every spawn — again, pass the SAME value
+    /// here as to <see cref="AddClaudeCliProvider"/>. A portable install usually wants its own
+    /// <c>CLAUDE_CONFIG_DIR</c> so it neither reads nor mutates the machine-wide install's state, and until
+    /// this parameter existed a host following that instruction had it honoured for completions and silently
+    /// dropped for agent turns.</param>
+    public static LyntaiBuilder AddClaudeCliAgentSession(this LyntaiBuilder builder, string? command = null,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
-        builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command));
+        builder.Services.AddSingleton<IAgentSession>(sp => CreateSession(sp, command, environment));
         builder.Services.AddKeyedSingleton<IAgentSession>(ClaudeCliProvider.ProviderId,
-            (sp, _) => CreateSession(sp, command));
+            (sp, _) => CreateSession(sp, command, environment));
         return builder;
     }
 
-    private static ClaudeAgentSession CreateSession(IServiceProvider sp, string? command) =>
+    private static ClaudeAgentSession CreateSession(IServiceProvider sp, string? command,
+        IReadOnlyDictionary<string, string>? environment) =>
         new(sp.GetRequiredService<IProcessRunner>(),
             sp.GetRequiredService<LyntaiOptions>(),
             sp.GetService<ILogger<ClaudeAgentSession>>(),
-            command);
+            command,
+            environment);
 }

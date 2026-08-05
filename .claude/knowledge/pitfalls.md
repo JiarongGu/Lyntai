@@ -126,6 +126,14 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   own `new string Id { get; }` next to `IProviderIdentity`; the declarations are the compatibility, and a
   test pins them. Implementors are unaffected either way — one implicit `public string Id` satisfies both
   slots — so an implementor-only compatibility check proves nothing about callers.
+  **The next two places this can happen, named so nobody has to rediscover them:** `IScorer`
+  (`src/Lyntai.Core/Cortex/IScorer.cs`) and `ICliProviderDialect`
+  (`src/Lyntai.Core/Llm/Cli/ICliProviderDialect.cs`) each declare their own `string Id { get; }` with exactly
+  the shape `IProviderIdentity` supplies, so both look like leftovers a tidy-up should hoist. Neither derives
+  from `IProviderIdentity` today, and neither should be *changed to derive from it by deleting its own
+  declaration* — that is the same `MissingMethodException` for every pre-compiled caller of `scorer.Id` or
+  `dialect.Id`. If either ever gains the base interface, it keeps its own `new string Id { get; }` too, and
+  gets a line in `ProviderIdentityTests` alongside the two provider seams.
 - **Disposing a replaced instance aborts in-flight work.** Retiring an entry looks like it should clean up
   after itself, and "clean up" reads as `Dispose`. It isn't: retirement removes the entry and drops the
   pool's reference, and the runtime reclaims the instance once the last caller finishes. **Without leases a

@@ -280,6 +280,24 @@ public class ClaudeAgentSessionTests
         Assert.False(ended.IsError);
     }
 
+    // The provider seam has carried `environment` since portable installs shipped, and both Add* methods'
+    // docs instruct a host to "pass the same value to both". The agent session took no such value at all, so
+    // a portable install's CLAUDE_CONFIG_DIR was honoured for completions and SILENTLY DROPPED for agent
+    // turns — the agent then reading and mutating the machine-wide install's state, which is the exact thing
+    // a portable install exists to avoid. Mirrors CodexAgentSessionTests.A_portable_installs_environment_-
+    // reaches_the_spawn.
+    [Fact]
+    public async Task A_portable_installs_environment_reaches_the_spawn()
+    {
+        var runner = new FakeProcessRunner(FullTranscript);
+        var session = new ClaudeAgentSession(runner, new LyntaiOptions(), command: "claude",
+            environment: new Dictionary<string, string> { ["CLAUDE_CONFIG_DIR"] = "portable/config" });
+
+        await session.StreamAsync(new AgentSessionOptions { Prompt = "hi" }).ToListAsync();
+
+        Assert.Equal("portable/config", runner.LastEnvironment?["CLAUDE_CONFIG_DIR"]);
+    }
+
     [Fact]
     public async Task StreamAsync_prompt_goes_over_stdin_not_argv()
     {
