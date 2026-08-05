@@ -6,7 +6,7 @@
     versions never drift from what the assemblies report. `dotnet pack -p:Version=X` overrides for a release.
   -->
   <PropertyGroup>
-    <VersionPrefix>2.1.0</VersionPrefix>
+    <VersionPrefix>2.2.0</VersionPrefix>
   </PropertyGroup>
 
   <!-- Shared build settings for the whole tree. -->
