@@ -18,19 +18,27 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 _**v2.1.0 is released (2026-08-04).** Everything up to and including the generation platform, the package
 restructure, the 2.0.1 release hardening, the generation-ergonomics follow-ups, the provider-lifetime seam and
 the codex agent session has shipped and is archived — see `docs/task-archive.md` Parts 29–39 and
-`docs/DECISIONS.md` D25–D43. Part 34's verdict-parity finding closed 2026-08-05 (`LlmVerdict.NotConfigured`),
-emptying that part, and the verdict-translation gap it left behind closed the same day as Part 38
-(`docs/DECISIONS.md` D43), emptying that one too. What remains open is below: the generation follow-ups in
-Part 33 (**all** now needing a real service, a vendor pick or a design call — none is codeable from here), the
-blameless-vs-reportable router call in Part 40 (opened while closing Part 38 — a design call), the codex
-surface still to MEASURE in **Part 41** (opened while closing CLI11 — also not codeable from here), the
-API-surface gate's generic-overload blind spot in Part 42, the post-1.0 additive backlog in Part 25, and one
-conditional item.
+`docs/DECISIONS.md` D25–D43.
 
-**Part 43 opened and closed on 2026-08-05** — the pre-2.2.0 whole-library review's behaviour cluster. It was
-filed as deferred-to-a-major, then landed the same day once `docs/DECISIONS.md` **D44** amended D24's third
-bullet; see `docs/task-archive.md` Part 43 for the seventeen items and why the deferral was wrong. What is
-open is below:_
+**The 2.2.0 pre-release sweep (2026-08-05) closed everything that was closeable**, so what is left below is
+**not deferred effort** — every remaining item is blocked on something this repository does not have:
+
+| Closed 2026-08-05 | Was blocked by | Now recorded in |
+|---|---|---|
+| **Part 43** — the behaviour cluster (17 items) | D24's third bullet | **D44** amended it; archive Part 43 |
+| **Part 42** — the API-surface gate's blind spots | "a large mechanical diff" | archive; all 11 baselines regenerated |
+| **Part 40** — a blameless AND reportable media verdict | a design call | **D45**(1) |
+| **Part 25** — curated-memory re-scope, `ContextSize`, `AsChatClient` | a break + a design call | **D24** + **D45**(2)(3) |
+| **CLI13** — codex resume | an unmeasured CLI | measured turn-free against the real 0.146.0; **D42** superseded |
+
+What remains, and what each waits on — **none is codeable from here**:
+- **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
+- **Part 33 / GEN6 (streaming TTS)** — a vendor pick and a key. Shipping it unmeasured is the exact mistake
+  GEN-VERIFY exists to correct.
+- **Part 33 / GEN7 (pipelines)** — deliberately deferred until ≥2 real backends exist, plus a 3D survey.
+- **Part 41 / CLI12** — codex's tool-step item names need a real turn **that runs tools**, which spends
+  tokens. It is the one remaining item that needs the owner's go-ahead rather than a probe.
+- The conditional JSON item below, which is correctly not done (no envelope-parsing bug has materialized)._
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
@@ -98,40 +106,6 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
 
 ---
 
-## Part 40 — a media verdict that is both BLAMELESS and REPORTABLE (2026-08-05)
-
-_Opened while closing Part 38 (`docs/DECISIONS.md` **D43**). Part 38 fixed the `Unsupported` arm; this is the
-half it could not fix, because the obstacle is the ROUTER's reporting rule, not the translation table._
-
-- [ ] **`GenerationRouter` forces a choice between "does not blame the backend" and "explains the run", and
-  one media verdict needs both.** In `src/Lyntai.Core/Generation/Routing/GenerationRouter.cs`, the
-  `firstFailure` guard excludes `NotConfigured`/`Unsupported` (`:105`), and the return falls back to
-  `NotConfigured` when nothing substantive was recorded (`:130`) — follow the NAMES, these line numbers have
-  already rotted once. That rule is right — a blameless verdict must not mask a real failure (D38) — but
-  it makes the two properties mutually exclusive, and `LlmVerdict.ContextWindowExceeded` needs both.
-
-  **What a consumer observes today.** An image backend that answers "prompt is too long" (the shared corpus
-  matches it; backends do say it) is classified `GenerationVerdict.Failed`, which is
-  `PenalizeAndAdvance` — so a few oversized prompts in a row put a perfectly healthy backend on dead-host
-  cooldown, and unrelated later requests are then routed away from it or refused outright. That is the same
-  harm Part 38 fixed for capability gaps, one enum member along. Mapping it to `Unsupported` instead trades one
-  fault for another: the render would advance blamelessly, but when every candidate answers the same way the
-  caller is told "no capable media backend" / "every capable backend reported it is not configured" instead of
-  "your prompt is too long", losing the one thing they can act on. **The same reporting hole already exists for
-  a run in which every candidate returns `Unsupported`** — reachable today from any backend that returns it
-  directly, as the job backends' inline seam does.
-
-  **What to settle** (a design call, not a mechanical change — which is why Part 38 deliberately left it):
-  whether the router grows a *reportable-but-blameless* tier — remembered as the run's reason when there is no
-  substantive failure, while still taking `Advance` and never counting toward the dead-host threshold — or
-  whether the "no candidate could serve this" fallback learns to report what the candidates actually said
-  instead of a synthetic `NotConfigured`. Either answer then lets `GenerationVerdictClassifier` map
-  `ContextWindowExceeded` to it and lets the two domains agree again (the LLM side already maps it to
-  `Advance`, `src/Lyntai.Core/Llm/Routing/RoutingPolicy.cs:20`). Changing the mapping BEFORE the router rule
-  just swaps one cost for the other — don't.
-
----
-
 ## Part 41 — CLI backends: the codex surface still to MEASURE (2026-08-05)
 
 _**Renumbered from Part 39 on 2026-08-05.** `docs/task-archive.md` **Part 39** is the CLI11 entry that OPENED
@@ -181,113 +155,6 @@ measurement, and measurement only — nothing here is codeable without a real co
   inferred cases are covered only by `FakeProcessRunner` fixtures today). A friendlier `ToolResult.Content`
   projection (the readable output field instead of the raw item JSON) becomes possible at the same time, and
   is additive.
-- [ ] **CLI13 — measure codex's resume command, so the session can honour `ResumeToken`.**
-  `src/Lyntai.Providers.Default/CodexAgentSession.cs`. Today a non-null `ResumeToken` is REFUSED without
-  spawning (a single `SessionEnded` with `LlmVerdict.Unsupported`) — silently ignoring it would start a fresh
-  session and lose the conversation, and guessing is unusually expensive on this CLI because
-  `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a PROMPT and spends a turn answering the
-  thread id. **Needs `codex exec --help` on a real install** to confirm the resume shape (and where the `-`
-  stdin marker goes relative to it). Until then the refusal is the correct behaviour, not a placeholder.
-
-  _Decide alongside it — deliberately NOT done in CLI11:_ `IAgentSession` has **no capability query**, so a
-  UI written polymorphically over it discovers the refusal only at turn time (a wasted round trip and an error
-  state a "Continue" button could have been disabled for). Adding one is a CORE change to a released
-  interface, which is why it was not slipped into a provider commit. If codex turns out to support resume,
-  the question evaporates; if it does not, the choice is between a capability query on `IAgentSession` and
-  leaving the turn-time refusal as the only signal — an owner call, not a mechanical one.
-
----
-
-## Part 42 — the API-surface gate cannot see a generic method's type parameters (2026-08-05)
-
-_Found while reviewing the provider-pool baselines (2026-08-05). Pre-existing, not introduced by that work._
-
-- [ ] **The `ApiSurfaceTests` baseline renders a generic method without its type parameters, so the gate
-  cannot tell some overloads apart — and would not catch one being deleted.**
-  `tests/Lyntai.Tests/Api/Baselines/Lyntai.Core.txt:1516-1517`.
-
-  **What a consumer would observe.** `LyntaiBuilder` declares both `AddSemanticMemory()` and
-  `AddSemanticMemory<TEmbedder>()` (`src/Lyntai.Core/DependencyInjection/LyntaiBuilder.cs`, the
-  `AddSemanticMemory` overload set — `:409` and `:427` as of 2026-08-05; follow the NAME, these move). The
-  baseline generator prints a method's parameters but not its type parameters, so BOTH render as the
-  identical line `AddSemanticMemory() : LyntaiBuilder` — the baseline literally contains that line twice.
-  Two identical lines carry no information about which is which, so **deleting either overload leaves a
-  baseline the gate still accepts**: one duplicate line goes away and the diff reads as an ordinary removal
-  of something the other line still covers. Removing a public overload from a SemVer-frozen surface is
-  exactly what this gate exists to stop, and for this shape it does not.
-
-  The same blind spot is present but currently invisible for `AddEmbeddings<TEmbedder>()`
-  (`LyntaiBuilder.cs:382`), which renders as `AddEmbeddings()` — there is no parameterless non-generic
-  sibling today, so it produces no duplicate line and no visible symptom. Adding one would silently create
-  the same hole. It applies to every generic member on the surface, not only these two: arity and constraints
-  are both invisible to the gate.
-
-  **What to settle.** Whether the generator should render type parameters (`AddSemanticMemory<TEmbedder>() :
-  LyntaiBuilder`), which fixes it properly but rewrites every baseline line for a generic member — a large,
-  purely mechanical diff across all twelve baselines that must be reviewed as a no-op, and which is why this
-  is filed rather than done as a minor cleanup. A narrower alternative is to fail the gate on duplicate lines
-  within a type, which detects the ambiguity without rewriting anything but does not distinguish the
-  overloads either.
-
----
-
-## Part 25 — post-1.0 additive backlog (1.0 API review)
-
-_Additive / non-breaking items surfaced by the 1.0 adversarial API review + consumer-usage review (the
-working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISIONS.md` D21). None block
-1.0 — each is safe to add in a post-1.0 minor._
-
-_The ergonomics batch (verdict helpers, the `AddMcpTools` overload, the agent-event contract, the
-curated-metadata accessor, the member/type docs) closed 2026-08-05 — see `docs/task-archive.md` Part 25 and
-`docs/DECISIONS.md` **D39**. The storage/wiring pair (async migration entry points, the semantic-memory
-wiring helper) closed 2026-08-05 too — `docs/DECISIONS.md` **D40**/**D41**. What is left below is the work
-that was never additive or never small._
-
-- [ ] **curated-memory: can `taskKey`/`scope` move in place?** — the half of the old "curated-memory
-  ergonomics" item that is NOT additive. The metadata accessor shipped 2026-08-05; re-scoping an entry still
-  means delete + re-add. Two reasons it was left rather than done (`docs/DECISIONS.md` D39):
-  - **It is a break, not an addition.** `kind` is already updatable (CMEM5); adding `taskKey`/`scope` means
-    new parameters on `ICuratedMemoryStore.UpdateAsync` — a signature change on a released interface that
-    every BYO implementation must follow. Out of scope for an additive batch; needs the D24 documented-break
-    route and its own commit.
-  - **It has an unanswered semantics question.** `(kind, content, taskKey, scope)` is the DEDUP IDENTITY of
-    `AddAsync(dedup: true)`, so moving one of those fields in place mutates identity and can silently produce
-    the duplicate the dedup contract promises not to. `kind` already has this hole. Settle all four together
-    — decide whether an identity-mutating update collides, refuses, or merges — rather than widening it by
-    two. Contract tests would then need a case per backend (`CuratedMemoryStoreContract`).
-- [ ] **`OpenAiCompatibleOptions.ContextSize` legibility** — Ollama-only option with a generic name; a
-  rename (e.g. `OllamaContextSize`) is BREAKING, so it's a major-bump-or-never item — accepted as-is for
-  1.0, revisit only if it causes real confusion.
-- [ ] **`AsChatClient` erases the verdict, so a host cannot tell "never set up" from a real failure.**
-  `src/Lyntai.Providers.ExtensionsAi/LyntaiChatClient.cs:32` (non-streaming) and `:52` (streaming).
-
-  **What a consumer observes.** Every non-`Ok` verdict except `Refused` becomes the same
-  `InvalidOperationException`, with the verdict only interpolated into the message
-  (`"lyntai: NotConfigured — no api key"`). `LlmVerdict.NotConfigured` exists precisely so "a host can offer
-  setup instead of reporting an error" (`src/Lyntai.Core/Llm/LlmVerdict.cs:44`), and a host consuming Lyntai
-  through `Microsoft.Extensions.AI` can act on that only by string-parsing a message. `NotConfigured` landed
-  2026-08-05 and the bridge was not revisited alongside it.
-
-  **Correcting the premise this was filed under:** it was deferred as "likely breaking". It is not. The
-  thrown type is `System.InvalidOperationException` and nothing in the repo carries an `LlmVerdict` on an
-  exception, so the fix is a NEW public exception type **deriving from `InvalidOperationException`** and
-  carrying `Verdict` — every existing `catch (InvalidOperationException)` keeps working unchanged, as do the
-  two tests at `tests/Lyntai.Tests/Providers/LyntaiChatClientTests.cs:48,90`. Purely additive: one type plus
-  its baseline lines. `LyntaiChatClient` itself is `internal`, so it does not appear in a baseline at all.
-
-  **Acceptance criterion, because "additive" is not the same as "nothing is observable":** the exception
-  **message text must be preserved verbatim**. Two residual breaks survive the derive-from-`InvalidOperation-
-  Exception` trick and neither is caught by a `catch` clause — a consumer parsing `.Message` (which is today
-  the ONLY way to recover the verdict, so it is the likeliest thing anyone has written), and a consumer doing
-  an exact-type check (`ex.GetType() == typeof(InvalidOperationException)`, or a `when` filter equivalent).
-  Keeping the message identical closes the first; the second is unavoidable and should be called out in
-  `CHANGELOG.md` when this lands rather than discovered.
-
-  **What is left to settle** (which is why this is filed rather than done): WHERE the type lives. In
-  `Lyntai.Providers.ExtensionsAi` it serves only that bridge; in `Lyntai.Core` it could also carry the verdict
-  for any other seam that has to throw rather than return a reply — a decision about the shape of the library,
-  not a mechanical change.
-
 ---
 
 ## How to work a task (evergreen)
