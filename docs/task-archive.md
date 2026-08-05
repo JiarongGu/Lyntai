@@ -2612,8 +2612,9 @@ pass because they were all small and all found by the same review. Shape decisio
 
 _Closes CLI11, filed 2026-08-04 by a consuming app that wanted to delete its hand-rolled codex integration
 and could not. The reasoning — and specifically WHICH half was built and why the other is marked rather than
-faked or withheld — is `docs/DECISIONS.md` **D42**. The measurement that remains is filed as Part 39
-(CLI12/CLI13) in `TASKS.md`._
+faked or withheld — is `docs/DECISIONS.md` **D42**. The measurement that remains is filed as **Part 41**
+(CLI12/CLI13) in `TASKS.md` — renumbered from 39 on 2026-08-05, because THIS archive entry is Part 39 and the
+two collided._
 
 - [x] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
   consuming app that wanted to delete its hand-rolled codex integration and could not.
@@ -2656,7 +2657,12 @@ Inferred half → tool steps, mapped **shape-driven, not name-driven**: any unkn
 `ToolCall`/`ToolResult` under codex's OWN item-type name carrying codex's OWN item object, nothing renamed or
 normalised, and no `CodexToolCalls` helper (inventing one would mean guessing field names). Where
 `item.started` is absent the `ToolCall` is synthesised from the completion, correlated by item id and never
-duplicated — so the unmeasured detail costs fewer events, never wrong ones. Not emitted, because codex has no
+duplicated — so the unmeasured detail costs fewer events, never wrong ones.
+  **[Editorial pointer, added later — the claim in the previous sentence was RETRACTED the same day; see
+  "Review round 1" below. It holds for payload, not for the tool arm's item KIND, which is reached by
+  elimination and can fabricate a `ToolCall`. The original wording is kept as the record of what was
+  believed at the time; the scoped claim is the one that survived.]**
+  Not emitted, because codex has no
 analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`, and token-level deltas. `ResumeToken` is
 REFUSED without spawning (`LlmVerdict.Unsupported`) rather than guessed or ignored; `DisallowedTools` is
 logged as unhonoured; `SystemPrompt` travels as a leading block of the prompt.
