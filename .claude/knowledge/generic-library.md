@@ -42,7 +42,7 @@ When a task says "app X wants Y," run it through this before writing code:
 5. **Vary via seams, never `if (appName)`.** The extension model is DI collections + BYO interfaces
    (`IProcessRunner`, `IEmbedder`, `IDbConnectionFactory`, `IToolLoop`). If a consumer needs different
    behavior, the answer is "register your own implementation," not a branch in Core. (See
-   `dev-conventions.md` "variation points = DI collections".)
+   `dotnet-package-layout.md` §Variation points — a pluggable set is a DI collection, never a conditional.)
 6. **Pin the generality with tests + baseline.** The contract test (e.g. `CuratedMemoryStoreContract`)
    runs across *all* backends so a new param behaves identically on InMemory/SQLite/Postgres. Update the
    `ApiSurface` baseline deliberately — it's the review gate that makes an app-specific leak visible.
@@ -69,8 +69,9 @@ When a task says "app X wants Y," run it through this before writing code:
 ## Related
 
 - `CLAUDE.md` / `TASKS.md` (the standing "this is a generic library" rule this doc expands).
-- `.claude/rules/dev-conventions.md` — package layout (interface in Core, impl in adapter, never
-  adapter→adapter), variation points = DI collections.
+- `.claude/rules/dotnet-package-layout.md` — package layout (contract in Core, impl in an adapter, never
+  adapter→adapter), variation points = DI collections; `.claude/rules/repo-mechanics.md` binds it to this
+  repo's package names and entry points.
 - `.claude/knowledge/extending-lyntai.md` — the four extension seams a generalization usually rides on.
 - `docs/2026-07-17-lyntai-design.md` — the `ILlmClient` "behaves like one provider" front door.
 - `ApiSurfaceTests` — the baseline gate that surfaces an app-specific leak in review.

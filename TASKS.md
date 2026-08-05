@@ -286,8 +286,10 @@ that was never additive or never small._
 ## How to work a task (evergreen)
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. Read
-  `.claude/rules/dev-conventions.md` (package layout, migrations, spawn hygiene) and the relevant
-  `.claude/knowledge/*` + `.claude/skills/*` before extending.
+  `.claude/rules/dotnet-package-layout.md` (package layout) + `.claude/rules/repo-mechanics.md` (this
+  repo's bindings — package names, naming invariant, dev loop, test conventions), then the relevant
+  `.claude/knowledge/*` (migrations → `storage.md` / `sql-storage.md`; spawn hygiene →
+  `llm-and-router.md`) + `.claude/skills/*` before extending.
 - **Commit per task.** **Never commit without the user's approval.** Describe changes structurally in the
   message (no dev-machine paths / private tokens — the pre-commit guard enforces this).
 - **This is a generic library** — every task must be a reusable, app-agnostic improvement behind the

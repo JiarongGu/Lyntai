@@ -23,7 +23,7 @@ durations) are fine uncast. `ScoreStoreTests.Doubles_round_trip_exactly_the_affi
 into a settable-property **row type** (Dapper converts INTEGER→bool for a property setter) and project to
 the record — see `SqliteCuratedMemoryStore.Row` / `SqliteJobStore.Row`. (Postgres native `BOOLEAN` binds
 straight to a record ctor, so its stores skip the row type.) Name it `Row` / `<Thing>Row` — **never
-`*Dto`**, per the naming rule in `dev-conventions.md`.
+`*Dto`**, per the naming rule in `.claude/rules/repo-mechanics.md` §Naming.
 
 ## Per-connection pragmas
 

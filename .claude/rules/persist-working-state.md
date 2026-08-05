@@ -1,9 +1,9 @@
-<!-- daoris: core/core/persist-working-state.md @ 0.1.0 — canonical; edit via `daoris upstream` -->
 ---
 name: persist-working-state
 applies_when: any multi-step task — at each decision, finding, or milestone
 enforces: checkpoint in-progress state to its durable home in the repository as you go, not at the end
 ---
+<!-- daoris: core/core/rules/persist-working-state.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # Persist working state as you go — context is not durable
 

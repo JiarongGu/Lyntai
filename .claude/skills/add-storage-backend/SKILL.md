@@ -21,7 +21,7 @@ Read `.claude/knowledge/extending-lyntai.md` (§Add a storage backend) and **all
 - [ ] Searchable text → FTS (SQLite: trigram external-content + AFTER INSERT/**DELETE**/**UPDATE**
       triggers emitting the `'delete'` row + in-migration backfill — copy `M202607170003_Memory`).
 - [ ] Materialization types (the settable-property Dapper landing type) are named `Row` / `<Thing>Row` —
-      **never `*Dto`** (`dev-conventions.md` §Naming).
+      **never `*Dto`** (`.claude/rules/repo-mechanics.md` §Naming).
 - [ ] Migrations numbered uniquely (`dev.mjs new-migration`); constraints inline at create.
 - [ ] Prefix every object `lyntai_` (Lyntai may share the consumer's database).
 - [ ] `Use<Backend>Storage(this LyntaiBuilder, …)` registers the factory + stores + runs migrations.

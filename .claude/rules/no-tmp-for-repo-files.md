@@ -1,9 +1,9 @@
-<!-- daoris: core/core/no-tmp-for-repo-files.md @ 0.1.0 — canonical; edit via `daoris upstream` -->
 ---
 name: no-tmp-for-repo-files
 applies_when: composing a repository file, or needing a scratch, probe, or dump file
 enforces: compose finals with the file-writing tools; scratch goes in a gitignored repo directory, never OS temp
 ---
+<!-- daoris: core/core/rules/no-tmp-for-repo-files.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # No OS temp for repository files — compose in place; keep scratch in the repository
 
