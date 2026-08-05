@@ -6,8 +6,12 @@
 > compatibility claim this document got wrong**, and is the one to read before touching either provider
 > interface.
 > **Task:** `TASKS.md` GEN12. **Domain:** Core (`Lyntai.Lifecycle`), consumed by both the LLM and
-> generation routing domains. **Compatibility:** additive only — no breaking change to the frozen 1.0
-> surface.
+> generation routing domains. **Compatibility:** additive **at the source level** — recompiling against this
+> release needs no change. It is **not** wholly binary-compatible: the optional constructor parameters added
+> to `LlmRouter` and `GenerationRouter` change those constructors' signatures, so an assembly compiled
+> against 1.0 that constructs either router **directly** must be recompiled. Routers obtained from DI or
+> from a router factory — which is every documented path — are unaffected. See §9 and the **Changed**
+> section of `CHANGELOG.md`.
 
 ## 1. The problem
 
