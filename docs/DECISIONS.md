@@ -65,6 +65,7 @@ and **`D24`** (its silent-behaviour bullet amended by `D44`).
 | [D43](#d43-a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-and-the-growth-gate-is-a-test-because-the-compiler-cannot-be-one-2026-08-05) | 2026-08-05 | a translation between two verdict taxonomies gets one arm per member, and the growth gate is a TE… |
 | [D44](#d44-d24s-third-bullet-is-amended-while-every-consumer-is-first-party-a-disclosed-behaviour-change-may-ship-in-a-minor-too-2026-08-05) | 2026-08-05 | D24's third bullet is amended: while every consumer is first-party, a DISCLOSED behaviour change… |
 | [D45](#d45-the-three-calls-that-closed-the-220-backlog-report-the-blameless-reason-refuse-an-identity-collision-and-a-verdict-carrying-exception-in-core-2026-08-05) | 2026-08-05 | the three calls that closed the 2.2.0 backlog: report-the-blameless-reason, refuse-an-identity-co… |
+| [D46](#d46-the-release-workflow-ships-what-is-pushed-so-unpushed-local-work-is-silently-excluded-2026-08-05) | 2026-08-05 | the release workflow ships what is PUSHED, so unpushed local work is silently excluded |
 
 <!-- index:end -->
 
@@ -529,6 +530,36 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
+
+## D46 — the release workflow ships what is PUSHED, so unpushed local work is silently excluded (2026-08-05)
+**v2.2.0 was cut without the whole-library review that had been finished for it.** Three commits sat on the
+local `master`, verified and green; `origin/master` was still at the pre-review commit; the release workflow
+ran against the pushed branch and produced a perfectly valid 2.2.0 containing none of it. Nothing failed and
+nothing warned — the release reported success, because it *did* succeed at releasing what it could see.
+
+**This is the D25/D29 family, and that is the point of writing it down.** All three are the same shape: *the
+pipeline reports success and the success does not mean what it looks like.* D25 — a hand-edited version makes
+the pipeline publish the version *after* the intended one. D29 — `--skip-duplicate` publishes nothing for a
+burned id and still exits green. D46 — the workflow releases the pushed tree, which is not necessarily the
+tree you just verified. Local `verify` and `consumer-smoke` being green say nothing about this, because both
+run against the WORKING TREE.
+
+**What it cost:** 2.2.0 is burned for that content — a published version number is never freed (D29) — so the
+work reships as the next minor. The changelog needed splitting, because the rebase folded seven sections into
+the `## 2.2.0` heading and would otherwise have promised a consumer an API (`OllamaContextSize`,
+`LlmVerdictException`) that the published 2.2.0 does not contain. **That is the expensive half**: a wrong
+version number is cosmetic, a changelog that documents unshipped API as shipped produces compile errors for
+whoever believes it.
+
+**How to apply it:**
+- **`git push` is part of "ready to release", not a follow-up to it.** Before triggering the workflow, confirm
+  `git status -sb` shows no `ahead` count. `ahead N` means the release will not contain N commits of work.
+- **After any release, verify the tag contains what you think it does** — `git log --oneline <tag> | head`, or
+  check that a member added in the release appears in `git show <tag>:<baseline file>`. Cheap, and the only
+  check that catches this.
+- **A rebase across a release commit needs the CHANGELOG resolved by hand.** The released section is frozen
+  history; anything still unreleased belongs under a fresh `## Unreleased` above it. Git will happily
+  concatenate them into the released heading, which is silently wrong in the dangerous direction.
 
 ## D45 — the three calls that closed the 2.2.0 backlog: report-the-blameless-reason, refuse-an-identity-collision, and a verdict-carrying exception in Core (2026-08-05)
 Three items sat open for months not because they were hard but because each needed a DECISION, and the

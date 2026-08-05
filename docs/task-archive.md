@@ -2826,7 +2826,12 @@ breaks major-bump material, unconditionally), and the cluster landed in one pass
   `FalQueueOptions.CancelSegment`.
 
 **Outcome (2026-08-05):** all seventeen landed, none skipped, each with a failing test first. Tests
-1567 → 1657; `verify` and `consumer-smoke` green. The API baselines gained exactly four lines and lost none —
+1567 → 1657; `verify` and `consumer-smoke` green.
+
+**Which release carries it: NOT 2.2.0.** The work was finished before 2.2.0 was cut but had not been pushed,
+and the release workflow runs against the pushed branch — so 2.2.0 shipped without it and it reships in the
+next minor. See `docs/DECISIONS.md` **D46**. The dates above are the dates the work was done and are left
+as-is. The API baselines gained exactly four lines and lost none —
 checked, because a removal on a frozen surface is what that gate exists to catch. Every observable delta is
 disclosed in `CHANGELOG.md` under **Changed — behaviour fixes that a consumer cannot detect at compile time**,
 which is the whole price D44 charges for shipping them in a minor.

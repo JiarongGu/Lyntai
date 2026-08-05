@@ -10,6 +10,238 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+_Everything below was finished before 2.2.0 was cut but landed **after** it: the release workflow runs against
+the pushed branch, and this work had not been pushed, so 2.2.0 shipped without any of it (see
+`docs/DECISIONS.md` **D46**). Nothing here is in the published 2.2.0 packages — it ships in the next release._
+
+### Fixed — the pre-release whole-library review (2026-08-05)
+
+_A review of all twelve packages and the test suite, verified adversarially. Everything in **this** section is
+detectable at compile time or observable only in a log or a metric; every change that a consumer cannot detect
+at compile time is in **Changed — behaviour fixes…** below, disclosed one by one as `docs/DECISIONS.md` D44
+requires. (They were split because the behaviour half was originally deferred to a major; D44 removed that
+constraint and both halves ship together.) The `Lyntai.Generation` package is EXPERIMENTAL and exempt, so its
+behaviour fixes are called out here as well as there._
+
+- **A throttled STREAMING call now reports itself.** `RateLimitedLlmClient.StreamAsync` hand-rolled its
+  refusal chunk and called neither the logger nor the counter, so a streaming-only workload being throttled
+  reported **zero** on `lyntai.ratelimit.refusals` — the metric the feature ships to be observed through. The
+  chunk the caller receives is unchanged; only the log line and the counter that were always meant to fire
+  now do.
+- **`AddRateLimit` no longer reports "no effective limit" at a consumer it is actively blocking.** A
+  per-consumer entry with a zero rate is a deliberate burst-then-block, but the startup predicate required a
+  *positive* rate, so a configuration consisting only of those logged "it will not throttle" while throttling.
+- **A budgeted call no longer reads the usage total when nothing caps it.** `BudgetedLlmClient` issued a
+  pre-call global read on **every** request even with no global cap configured — for the SQLite and Postgres
+  trackers, a whole-table `SUM` per request. Now read only when a cap needs it, matching the generation twin.
+  Refusal outcomes are identical in every configuration.
+- **Dead-host state is dropped on recovery** rather than zeroed, so a long-lived process no longer retains an
+  entry per configuration that ever recovered. Every reader already treated missing and zeroed identically.
+  This matters more since cooldown began keying on a `ProviderKey`, which changes with every credential
+  rotation.
+- **A CLI dialect now sees the same line on both paths.** The buffered path split on `\n` and handed dialects
+  a trailing `\r` from a CRLF-emitting child, while the streamed path stripped it. No shipped dialect was
+  affected (both tolerate it); a third-party dialect doing an exact match was broken on one path only.
+- **`Lyntai.Generation` (EXPERIMENTAL), two behaviour fixes.** `FalQueueProvider` **refuses** an input that
+  carries only bytes instead of dropping it — the drop submitted, and billed, a text-to-video render for a
+  caller who asked for image→video, and the result looked plausible. And `ComfyUiProvider` now distinguishes a
+  transport failure from a terminal one when polling: an unreachable server or a 5xx reports `Running` (the
+  render is still going), while a 4xx or an unconfigured base URL stays `Failed`, so a poll no longer abandons
+  a live render — nor polls a dead id forever.
+
+### Breaking — two documented compile-time breaks (2026-08-05)
+
+Both ship in a minor under `docs/DECISIONS.md` **D24**, which allows a documented, compile-time-**detectable**
+break while every consumer is first-party. Neither can bind silently: each is a compile error that names the
+fix.
+
+- **`OpenAiCompatibleOptions.ContextSize` → `OllamaContextSize`.** The option only ever affected the
+  Ollama-native payload (`options.num_ctx` on `/api/chat`) and was silently ignored by every other flavour —
+  including Ollama's *own* OpenAI-compatible `/v1` surface — so the generic name invited exactly the
+  configuration that does nothing. The type (`int?`) and behaviour are unchanged; only the name says which
+  backend it is for. Verified against the code before renaming.
+- **`ICuratedMemoryStore.UpdateAsync` takes `taskKey` and `scope`**, inserted before `metadata` so the
+  identity fields read in the same order as `AddAsync`. Named-argument callers are unaffected; a positional
+  call that reached `metadata` or `ct` must move to named arguments — always a compile error, never a silent
+  re-bind, since the types are not interconvertible. **Every BYO `ICuratedMemoryStore` implementation must add
+  the two parameters.**
+
+### Changed — behaviour fixes that a consumer cannot detect at compile time (2026-08-05)
+
+**Read this section before upgrading.** Everything here changes what the library *does*, with no compile-time
+signal. It ships in a minor under `docs/DECISIONS.md` **D44**, which amends D24's third bullet while every
+consumer is first-party — and D44's entire price is that each change names its observable delta, which is what
+this section is. (Storage and migration breaks remain major-bump material, unconditionally. None here.)
+
+- **A repeated generation candidate is attempted once, and no longer costs the sole-candidate exemption.**
+  Before, a list naming one backend twice called it twice per request *and* made `capable.Count == 2`, so
+  `ExemptSoleCandidate` did not fire: the only capable backend was benched after one rate limit, and the next
+  call returned a synthesized "every capable media backend is on dead-host cooldown" instead of the backend's
+  own actionable verdict. Now repeats collapse (first wins, order preserved). Deduping is on the *resolved*
+  (backend, effective model) pair, so `["fal", "FAL"]` is one candidate — but two different models at one
+  backend are still two candidates.
+- **A rejected media submission is now answered by the routing policy instead of always being penalized.**
+  Before, every rejected `SubmitAsync` advanced *and* took a dead-host strike regardless of why. Now the
+  backend's own rejection text is classified and the policy decides: a rate-limit/auth rejection benches
+  immediately rather than taking 1-of-N strikes; a blameless one (`NotConfigured`/`Unsupported`) advances with
+  **no** dead-host bookkeeping, so an unconfigured queue stays in rotation and a key set later is picked up;
+  an unclassifiable one behaves exactly as before. **The one delta that can stop a fallback you were getting:**
+  a rejection classifying as `Refused` (a content-policy body) now *surfaces* instead of being re-submitted to
+  the next queue — matching the inline path. Restore the old behaviour with
+  `policy.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance)`.
+- **A failed submission now names the backend's reason.** The message keeps its `no capable media backend
+  accepted a 'video' job among [...]` prefix (substring checks still hold) and gains
+  `— 'fal' said: <the backend's own words>`. `GenerationSubmission.ProviderId` is deliberately still empty on
+  every non-accepting path, because `IGenerationRouter` documents empty as "no candidate accepted".
+- **`LlmRouter` matches candidate ids case-insensitively**, like every other id lookup in the library. Before,
+  `new LlmCandidate("OpenAI")` against a provider reporting `openai` matched nothing and produced
+  `"no live candidate"` even as the only registered backend — reachable, because the pool guard deliberately
+  accepts a slot whose case differs from the instance's `Id`, so such a provider was built, pooled, and never
+  selected. Candidates differing only in id case now dedup to one. Affected: anyone relying on case to keep
+  two same-named providers apart.
+- **A streamed CLI completion is now bounded by an absolute clock, not only by child inactivity.** Before, a
+  child that kept printing but never terminated streamed forever, since every line re-armed the inactivity
+  window. Now `LyntaiOptions.MaxProviderTimeout` (default 30 min) is also a ceiling, raised to match a larger
+  app-configured `TimeoutByConsumer` budget rather than clamping it. On expiry the process tree is killed and
+  the stream ends in a terminal `Timeout` chunk naming the window that fired. **Not** applied to
+  `ClaudeAgentSession`/`CodexAgentSession` — those are long-running agent turns and a wall clock there would
+  kill healthy hour-long sessions.
+- **An empty content event from a CLI dialect is no longer "delivered content".** It is ignored rather than
+  yielded, so a stream with no other output now ends `Error(Failed, "no output produced")` and the router can
+  fall over — where before it ended `Final`, a fully successful *empty* answer, and a zero-content first chunk
+  committed the router's stream and disabled fallback for the whole turn. It also no longer suppresses the
+  answer reported on a terminal `result` line. Both shipped dialects already guarded, so `claude` and `codex`
+  users see no change; this moves the invariant into the engine so it no longer depends on third-party code.
+- **The Ollama-native flavour sends image attachments.** Before, `/api/chat` was posted with text only and the
+  attachment vanished — nothing on the wire, nothing logged — while the README promised images were sent. Now
+  inline bytes travel as Ollama's own `images` array on the user turn, and a URL-only attachment (which
+  `/api/chat` has no form for) is logged as undeliverable instead of vanishing. **Two directions of surprise:**
+  a consumer who adapted to the drop now really sends images, so a text-only model may answer worse or error;
+  and request bodies get larger.
+- **A usage token count that is not an integral number no longer throws.** A fractional or out-of-range count
+  from a gateway raised `FormatException` — escaping `CompleteAsync`, escaping a stream *mid-enumeration* after
+  content had reached the caller, and breaking the documented "never throws" contract of both claude readers.
+  It now reads as 0 and the call completes. A budget or telemetry line under-counts by that field instead:
+  deliberate, since a usage count is telemetry and losing one beats failing an answer already paid for.
+- **`ClaudeAgentSession` ends a turn once.** A transcript with two terminal `result` lines ended the session
+  twice, and `RunAsync`'s last-one-wins fold turned a completed `Ok` turn followed by a stray error into
+  `Failed` with empty text. The first terminal now wins, matching the codex twin.
+- **`IScorer.Applies` reaches an LLM judge's own predicate.** `((IScorer)judge).Applies(ctx)` returned true for
+  every `LlmScorerBase` subclass regardless of its override, because the default interface implementation
+  answered. It now returns the subclass's answer, and a *throwing* predicate propagates out of
+  `EvaluateAsync` instead of being logged and skipped fail-open. **Persisted scores and token spend are
+  unchanged** — `ScoreAsync` always re-checked the gate as its first line, so no judge ever spent a token it
+  shouldn't have.
+- **`InMemoryVectorStore` top-k is deterministic on tied scores.** Equal-scoring entries came back in
+  hash-bucket order, which .NET randomizes per process — so the same store and query returned a different
+  order run to run, and with more ties than `k` an arbitrary member was dropped. Ties now order by id.
+  Strictly-better scores never move; the SQL-backed vector stores are unchanged, so the cross-backend contract
+  remains "unspecified", now stated per backend.
+- **A paused job can be cancelled.** `CancelAsync` returned false for a `Paused` job and left it paused, so the
+  only route was resume-then-cancel — and a resumed job is Pending, i.e. claimable, so a runner polling that
+  lane between the two calls could claim it and the cancel degraded to a cooperative flag on a now-running job.
+  Paused → `Cancelled` now happens in one call on all three backends, never briefly claimable.
+  `RequestCancelAsync` is unchanged and still refuses a paused job.
+- **`Lyntai.Generation` (EXPERIMENTAL): a non-positive size hint falls back to the configured default.**
+  `"0x0"`, `"512x0"` and friends were forwarded verbatim to the Automatic1111 WebUI, which errored — while the
+  method's own documentation promised the fallback and the sibling local-engine parser already did it. A
+  caller relying on a non-positive size to *fail* a render now gets a 512x512 image. A usable hint still
+  reaches the WebUI unclamped.
+
+### Changed — the rest of the backlog sweep (2026-08-05)
+
+Same D44 disclosure rule: each names what a caller observes.
+
+- **A media run where nothing substantive failed now reports what the backends actually said.** Before, if
+  every candidate returned a blameless verdict, `GenerationRouter.GenerateAsync` returned a synthetic
+  `NotConfigured` / "every capable backend reported it is not configured" — inaccurate for a run in which
+  every candidate actually said `Unsupported`, and it discarded the backends' own words. Now the first
+  blameless result carrying a reason is returned verbatim, with its own verdict. **A real failure still always
+  wins** — that guard is untouched. Affects anyone switching on the router's verdict or displaying its detail,
+  notably the generation agent tools and the durable-render job's failure message.
+- **`ContextWindowExceeded` from a media backend no longer benches it.** It now translates to
+  `GenerationVerdict.Unsupported` (Advance) rather than `Failed` (PenalizeAndAdvance), so a few oversized
+  prompts in a row stop counting toward the dead-host threshold and stop routing unrelated later requests
+  away from a perfectly healthy backend. Nothing is lost from the report: "your prompt is too long" is still
+  the run's stated reason, now carried by the blameless slot above. **These two are one change in two halves**
+  — the mapping is only safe because the reporting slot landed first.
+- **A curated-memory update that would collide is refused.** Re-categorising an entry onto a
+  `(kind, content, taskKey, scope)` another entry already holds used to succeed and silently mint the
+  duplicate that `AddAsync(dedup: true)` promises cannot exist — after which dedup kept returning the *other*
+  row's id. It now returns `false` and writes nothing. `false` already meant "no row updated"; it now also
+  means "refused", and `GetAsync(id)` distinguishes them. Best-effort under concurrent writers, like
+  `AddAsync`'s own dedup check.
+- **`AsChatClient()` throws `LlmVerdictException`** (below) instead of a bare `InvalidOperationException`. It
+  **derives from** `InvalidOperationException` and the message text is byte-identical, so `catch` clauses and
+  message parsing both keep working. **One residual break, disclosed rather than discovered:** an exact-type
+  check (`ex.GetType() == typeof(InvalidOperationException)`) no longer matches.
+- **`CodexAgentSession` honours `ResumeToken`.** It previously refused with a single
+  `SessionEnded(Unsupported)` and no spawn, because guessing codex's resume shape would have been read as a
+  prompt and billed a turn. The shape is now measured against the real CLI
+  (`codex exec resume <SESSION_ID> … -`), so a multi-turn agent conversation survives on both CLI backends.
+
+### Added — small surface, from the same pass (2026-08-05)
+
+- **`Lyntai.Llm.LlmVerdictException`** — carries the `LlmVerdict` on the seams that must throw rather than
+  return an `LlmReply`. It lives in Core beside the taxonomy it carries, not in the bridge that first needed
+  it, so the next seam that has to throw does not mint a second near-identical type. `LlmVerdict.NotConfigured`
+  exists so a host can offer *setup* instead of reporting an error; through the `Microsoft.Extensions.AI`
+  bridge that was previously recoverable only by string-parsing an exception message.
+
+
+
+- **`ChatResult.Usage`** — `ChatOrchestrator` was discarding `ToolLoopResult.Usage` because the result type had
+  nowhere to put it, so a two-gate chat could not be metered.
+- **`StructureScorer.FormatKey`** — the `ScoreContext.Extra` key the scorer reads, published as a constant the
+  way `OutcomeScorer.ErrorKey` already was, so a caller stops hardcoding `"format"`. Same value; no behaviour
+  change.
+- **`JobSpec.DefaultMaxAttempts`** — the retry default was the literal `3` hand-copied into all three job
+  stores, free to drift.
+- **`FalQueueOptions.CancelSegment`** (EXPERIMENTAL package) — the one URL segment that was a hardcoded literal
+  while its siblings were settable. Default `"cancel"`, so every existing host calls the identical endpoint.
+  It matters because cancel is the call that stops a render already costing money, on a backend whose wire
+  format is documented-not-measured.
+
+### Documentation (2026-08-05)
+
+No API changed. These were all sentences a consumer or a maintainer would have acted on:
+
+- **The MCP tool host is documented as what it is.** Four shipped XML docs and several README passages still
+  said it runs on Kestrel/ASP.NET Core; it has run on `System.Net.HttpListener` since 2.0.1, and the README
+  contradicted itself within one page.
+- **Sibling application names are gone from the shipped XML docs** — `IPromptComposer` described "the Sonora
+  pattern", and two other types named siblings, all of which shipped in the NuGet `.xml` and appeared in
+  consumer IntelliSense. Each now states the pattern instead of naming a stranger's app.
+- **`LlmVerdict.Unsupported` appears in the taxonomy lists a consumer reads.** It surfaces with no fallback
+  and no host penalty, and was missing from `ILlmRouter`'s summary, `LlmVerdict`'s own list, and the internal
+  routing table that is meant to be kept in sync with them.
+- **The cross-backend memory-recall guarantee is stated correctly.** `IMemoryStore.RecallAsync` and
+  `ICuratedMemoryStore.SearchAsync` asserted a guarantee their own next sentence contradicted; it holds for a
+  **single-token** query, and a multi-token query is per-token on SQLite and contiguous-substring elsewhere.
+- **`IGenerationStreamProvider` says that nothing implements it.** The seam is designed, not exercised: no
+  backend implements it and no router path consumes it, so a backend advertising streaming delivery is
+  unreachable. Its chunk shape is modelled on the LLM contract rather than measured against a real TTS wire
+  format, and the first real backend may reshape it.
+- Also corrected: `Automatic1111Provider` renders with whatever checkpoint the WebUI has loaded and does not
+  honour a pinned model; the SQLite migration runner's description of its own tag dispatch; `GenerationRouter`
+  documenting that the per-verdict policy governs the inline path only; the streamed CLI path having no
+  absolute backstop; and a `Paused` job not being cancellable.
+
+### Tooling (2026-08-05)
+
+- **`new-migration` scaffolds the `[Tags(...)]` attribute** — with a placeholder that deliberately does not
+  compile until the feature is named. An **untagged** migration is run by FluentMigrator under *every* feature
+  set, so a domain the app disabled would still land its table and nothing would report it. A reflection test
+  now asserts every migration carries its feature tag plus `StorageFeatures.AllTag`.
+- **Nine live-integration tests stopped reporting PASS while asserting nothing** — their documented skip
+  mechanism was never wired, so they ran and passed with no endpoint. They now skip honestly. A `SmokeTests`
+  class whose entire body was `Assert.True(true)` under the name `SolutionBuilds` was removed; the build gate
+  proves that claim.
+- A process-wide catch-all error matcher registered by one test could answer for any concurrently running
+  test that classified an error — a rare cross-collection flake, now narrowed to a per-test sentinel.
+
 ## 2.2.0 — 2026-08-05
 
 ### Added
@@ -273,232 +505,6 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   compatible**: a pre-compiled consumer calling the old constructor gets `MissingMethodException` until it
   recompiles against this version. Nothing else changes for an app that configures its backends at startup;
   the routers `AddLyntai` builds still pass neither.
-
-### Fixed — the pre-release whole-library review (2026-08-05)
-
-_A review of all twelve packages and the test suite, verified adversarially. Everything in **this** section is
-detectable at compile time or observable only in a log or a metric; every change that a consumer cannot detect
-at compile time is in **Changed — behaviour fixes…** below, disclosed one by one as `docs/DECISIONS.md` D44
-requires. (They were split because the behaviour half was originally deferred to a major; D44 removed that
-constraint and both halves ship together.) The `Lyntai.Generation` package is EXPERIMENTAL and exempt, so its
-behaviour fixes are called out here as well as there._
-
-- **A throttled STREAMING call now reports itself.** `RateLimitedLlmClient.StreamAsync` hand-rolled its
-  refusal chunk and called neither the logger nor the counter, so a streaming-only workload being throttled
-  reported **zero** on `lyntai.ratelimit.refusals` — the metric the feature ships to be observed through. The
-  chunk the caller receives is unchanged; only the log line and the counter that were always meant to fire
-  now do.
-- **`AddRateLimit` no longer reports "no effective limit" at a consumer it is actively blocking.** A
-  per-consumer entry with a zero rate is a deliberate burst-then-block, but the startup predicate required a
-  *positive* rate, so a configuration consisting only of those logged "it will not throttle" while throttling.
-- **A budgeted call no longer reads the usage total when nothing caps it.** `BudgetedLlmClient` issued a
-  pre-call global read on **every** request even with no global cap configured — for the SQLite and Postgres
-  trackers, a whole-table `SUM` per request. Now read only when a cap needs it, matching the generation twin.
-  Refusal outcomes are identical in every configuration.
-- **Dead-host state is dropped on recovery** rather than zeroed, so a long-lived process no longer retains an
-  entry per configuration that ever recovered. Every reader already treated missing and zeroed identically.
-  This matters more since cooldown began keying on a `ProviderKey`, which changes with every credential
-  rotation.
-- **A CLI dialect now sees the same line on both paths.** The buffered path split on `\n` and handed dialects
-  a trailing `\r` from a CRLF-emitting child, while the streamed path stripped it. No shipped dialect was
-  affected (both tolerate it); a third-party dialect doing an exact match was broken on one path only.
-- **`Lyntai.Generation` (EXPERIMENTAL), two behaviour fixes.** `FalQueueProvider` **refuses** an input that
-  carries only bytes instead of dropping it — the drop submitted, and billed, a text-to-video render for a
-  caller who asked for image→video, and the result looked plausible. And `ComfyUiProvider` now distinguishes a
-  transport failure from a terminal one when polling: an unreachable server or a 5xx reports `Running` (the
-  render is still going), while a 4xx or an unconfigured base URL stays `Failed`, so a poll no longer abandons
-  a live render — nor polls a dead id forever.
-
-### Breaking — two documented compile-time breaks (2026-08-05)
-
-Both ship in a minor under `docs/DECISIONS.md` **D24**, which allows a documented, compile-time-**detectable**
-break while every consumer is first-party. Neither can bind silently: each is a compile error that names the
-fix.
-
-- **`OpenAiCompatibleOptions.ContextSize` → `OllamaContextSize`.** The option only ever affected the
-  Ollama-native payload (`options.num_ctx` on `/api/chat`) and was silently ignored by every other flavour —
-  including Ollama's *own* OpenAI-compatible `/v1` surface — so the generic name invited exactly the
-  configuration that does nothing. The type (`int?`) and behaviour are unchanged; only the name says which
-  backend it is for. Verified against the code before renaming.
-- **`ICuratedMemoryStore.UpdateAsync` takes `taskKey` and `scope`**, inserted before `metadata` so the
-  identity fields read in the same order as `AddAsync`. Named-argument callers are unaffected; a positional
-  call that reached `metadata` or `ct` must move to named arguments — always a compile error, never a silent
-  re-bind, since the types are not interconvertible. **Every BYO `ICuratedMemoryStore` implementation must add
-  the two parameters.**
-
-### Changed — behaviour fixes that a consumer cannot detect at compile time (2026-08-05)
-
-**Read this section before upgrading.** Everything here changes what the library *does*, with no compile-time
-signal. It ships in a minor under `docs/DECISIONS.md` **D44**, which amends D24's third bullet while every
-consumer is first-party — and D44's entire price is that each change names its observable delta, which is what
-this section is. (Storage and migration breaks remain major-bump material, unconditionally. None here.)
-
-- **A repeated generation candidate is attempted once, and no longer costs the sole-candidate exemption.**
-  Before, a list naming one backend twice called it twice per request *and* made `capable.Count == 2`, so
-  `ExemptSoleCandidate` did not fire: the only capable backend was benched after one rate limit, and the next
-  call returned a synthesized "every capable media backend is on dead-host cooldown" instead of the backend's
-  own actionable verdict. Now repeats collapse (first wins, order preserved). Deduping is on the *resolved*
-  (backend, effective model) pair, so `["fal", "FAL"]` is one candidate — but two different models at one
-  backend are still two candidates.
-- **A rejected media submission is now answered by the routing policy instead of always being penalized.**
-  Before, every rejected `SubmitAsync` advanced *and* took a dead-host strike regardless of why. Now the
-  backend's own rejection text is classified and the policy decides: a rate-limit/auth rejection benches
-  immediately rather than taking 1-of-N strikes; a blameless one (`NotConfigured`/`Unsupported`) advances with
-  **no** dead-host bookkeeping, so an unconfigured queue stays in rotation and a key set later is picked up;
-  an unclassifiable one behaves exactly as before. **The one delta that can stop a fallback you were getting:**
-  a rejection classifying as `Refused` (a content-policy body) now *surfaces* instead of being re-submitted to
-  the next queue — matching the inline path. Restore the old behaviour with
-  `policy.On(GenerationVerdict.Refused, GenerationFallbackAction.Advance)`.
-- **A failed submission now names the backend's reason.** The message keeps its `no capable media backend
-  accepted a 'video' job among [...]` prefix (substring checks still hold) and gains
-  `— 'fal' said: <the backend's own words>`. `GenerationSubmission.ProviderId` is deliberately still empty on
-  every non-accepting path, because `IGenerationRouter` documents empty as "no candidate accepted".
-- **`LlmRouter` matches candidate ids case-insensitively**, like every other id lookup in the library. Before,
-  `new LlmCandidate("OpenAI")` against a provider reporting `openai` matched nothing and produced
-  `"no live candidate"` even as the only registered backend — reachable, because the pool guard deliberately
-  accepts a slot whose case differs from the instance's `Id`, so such a provider was built, pooled, and never
-  selected. Candidates differing only in id case now dedup to one. Affected: anyone relying on case to keep
-  two same-named providers apart.
-- **A streamed CLI completion is now bounded by an absolute clock, not only by child inactivity.** Before, a
-  child that kept printing but never terminated streamed forever, since every line re-armed the inactivity
-  window. Now `LyntaiOptions.MaxProviderTimeout` (default 30 min) is also a ceiling, raised to match a larger
-  app-configured `TimeoutByConsumer` budget rather than clamping it. On expiry the process tree is killed and
-  the stream ends in a terminal `Timeout` chunk naming the window that fired. **Not** applied to
-  `ClaudeAgentSession`/`CodexAgentSession` — those are long-running agent turns and a wall clock there would
-  kill healthy hour-long sessions.
-- **An empty content event from a CLI dialect is no longer "delivered content".** It is ignored rather than
-  yielded, so a stream with no other output now ends `Error(Failed, "no output produced")` and the router can
-  fall over — where before it ended `Final`, a fully successful *empty* answer, and a zero-content first chunk
-  committed the router's stream and disabled fallback for the whole turn. It also no longer suppresses the
-  answer reported on a terminal `result` line. Both shipped dialects already guarded, so `claude` and `codex`
-  users see no change; this moves the invariant into the engine so it no longer depends on third-party code.
-- **The Ollama-native flavour sends image attachments.** Before, `/api/chat` was posted with text only and the
-  attachment vanished — nothing on the wire, nothing logged — while the README promised images were sent. Now
-  inline bytes travel as Ollama's own `images` array on the user turn, and a URL-only attachment (which
-  `/api/chat` has no form for) is logged as undeliverable instead of vanishing. **Two directions of surprise:**
-  a consumer who adapted to the drop now really sends images, so a text-only model may answer worse or error;
-  and request bodies get larger.
-- **A usage token count that is not an integral number no longer throws.** A fractional or out-of-range count
-  from a gateway raised `FormatException` — escaping `CompleteAsync`, escaping a stream *mid-enumeration* after
-  content had reached the caller, and breaking the documented "never throws" contract of both claude readers.
-  It now reads as 0 and the call completes. A budget or telemetry line under-counts by that field instead:
-  deliberate, since a usage count is telemetry and losing one beats failing an answer already paid for.
-- **`ClaudeAgentSession` ends a turn once.** A transcript with two terminal `result` lines ended the session
-  twice, and `RunAsync`'s last-one-wins fold turned a completed `Ok` turn followed by a stray error into
-  `Failed` with empty text. The first terminal now wins, matching the codex twin.
-- **`IScorer.Applies` reaches an LLM judge's own predicate.** `((IScorer)judge).Applies(ctx)` returned true for
-  every `LlmScorerBase` subclass regardless of its override, because the default interface implementation
-  answered. It now returns the subclass's answer, and a *throwing* predicate propagates out of
-  `EvaluateAsync` instead of being logged and skipped fail-open. **Persisted scores and token spend are
-  unchanged** — `ScoreAsync` always re-checked the gate as its first line, so no judge ever spent a token it
-  shouldn't have.
-- **`InMemoryVectorStore` top-k is deterministic on tied scores.** Equal-scoring entries came back in
-  hash-bucket order, which .NET randomizes per process — so the same store and query returned a different
-  order run to run, and with more ties than `k` an arbitrary member was dropped. Ties now order by id.
-  Strictly-better scores never move; the SQL-backed vector stores are unchanged, so the cross-backend contract
-  remains "unspecified", now stated per backend.
-- **A paused job can be cancelled.** `CancelAsync` returned false for a `Paused` job and left it paused, so the
-  only route was resume-then-cancel — and a resumed job is Pending, i.e. claimable, so a runner polling that
-  lane between the two calls could claim it and the cancel degraded to a cooperative flag on a now-running job.
-  Paused → `Cancelled` now happens in one call on all three backends, never briefly claimable.
-  `RequestCancelAsync` is unchanged and still refuses a paused job.
-- **`Lyntai.Generation` (EXPERIMENTAL): a non-positive size hint falls back to the configured default.**
-  `"0x0"`, `"512x0"` and friends were forwarded verbatim to the Automatic1111 WebUI, which errored — while the
-  method's own documentation promised the fallback and the sibling local-engine parser already did it. A
-  caller relying on a non-positive size to *fail* a render now gets a 512x512 image. A usable hint still
-  reaches the WebUI unclamped.
-
-### Changed — the rest of the backlog sweep (2026-08-05)
-
-Same D44 disclosure rule: each names what a caller observes.
-
-- **A media run where nothing substantive failed now reports what the backends actually said.** Before, if
-  every candidate returned a blameless verdict, `GenerationRouter.GenerateAsync` returned a synthetic
-  `NotConfigured` / "every capable backend reported it is not configured" — inaccurate for a run in which
-  every candidate actually said `Unsupported`, and it discarded the backends' own words. Now the first
-  blameless result carrying a reason is returned verbatim, with its own verdict. **A real failure still always
-  wins** — that guard is untouched. Affects anyone switching on the router's verdict or displaying its detail,
-  notably the generation agent tools and the durable-render job's failure message.
-- **`ContextWindowExceeded` from a media backend no longer benches it.** It now translates to
-  `GenerationVerdict.Unsupported` (Advance) rather than `Failed` (PenalizeAndAdvance), so a few oversized
-  prompts in a row stop counting toward the dead-host threshold and stop routing unrelated later requests
-  away from a perfectly healthy backend. Nothing is lost from the report: "your prompt is too long" is still
-  the run's stated reason, now carried by the blameless slot above. **These two are one change in two halves**
-  — the mapping is only safe because the reporting slot landed first.
-- **A curated-memory update that would collide is refused.** Re-categorising an entry onto a
-  `(kind, content, taskKey, scope)` another entry already holds used to succeed and silently mint the
-  duplicate that `AddAsync(dedup: true)` promises cannot exist — after which dedup kept returning the *other*
-  row's id. It now returns `false` and writes nothing. `false` already meant "no row updated"; it now also
-  means "refused", and `GetAsync(id)` distinguishes them. Best-effort under concurrent writers, like
-  `AddAsync`'s own dedup check.
-- **`AsChatClient()` throws `LlmVerdictException`** (below) instead of a bare `InvalidOperationException`. It
-  **derives from** `InvalidOperationException` and the message text is byte-identical, so `catch` clauses and
-  message parsing both keep working. **One residual break, disclosed rather than discovered:** an exact-type
-  check (`ex.GetType() == typeof(InvalidOperationException)`) no longer matches.
-- **`CodexAgentSession` honours `ResumeToken`.** It previously refused with a single
-  `SessionEnded(Unsupported)` and no spawn, because guessing codex's resume shape would have been read as a
-  prompt and billed a turn. The shape is now measured against the real CLI
-  (`codex exec resume <SESSION_ID> … -`), so a multi-turn agent conversation survives on both CLI backends.
-
-### Added — small surface, from the same pass (2026-08-05)
-
-- **`Lyntai.Llm.LlmVerdictException`** — carries the `LlmVerdict` on the seams that must throw rather than
-  return an `LlmReply`. It lives in Core beside the taxonomy it carries, not in the bridge that first needed
-  it, so the next seam that has to throw does not mint a second near-identical type. `LlmVerdict.NotConfigured`
-  exists so a host can offer *setup* instead of reporting an error; through the `Microsoft.Extensions.AI`
-  bridge that was previously recoverable only by string-parsing an exception message.
-
-
-
-- **`ChatResult.Usage`** — `ChatOrchestrator` was discarding `ToolLoopResult.Usage` because the result type had
-  nowhere to put it, so a two-gate chat could not be metered.
-- **`StructureScorer.FormatKey`** — the `ScoreContext.Extra` key the scorer reads, published as a constant the
-  way `OutcomeScorer.ErrorKey` already was, so a caller stops hardcoding `"format"`. Same value; no behaviour
-  change.
-- **`JobSpec.DefaultMaxAttempts`** — the retry default was the literal `3` hand-copied into all three job
-  stores, free to drift.
-- **`FalQueueOptions.CancelSegment`** (EXPERIMENTAL package) — the one URL segment that was a hardcoded literal
-  while its siblings were settable. Default `"cancel"`, so every existing host calls the identical endpoint.
-  It matters because cancel is the call that stops a render already costing money, on a backend whose wire
-  format is documented-not-measured.
-
-### Documentation (2026-08-05)
-
-No API changed. These were all sentences a consumer or a maintainer would have acted on:
-
-- **The MCP tool host is documented as what it is.** Four shipped XML docs and several README passages still
-  said it runs on Kestrel/ASP.NET Core; it has run on `System.Net.HttpListener` since 2.0.1, and the README
-  contradicted itself within one page.
-- **Sibling application names are gone from the shipped XML docs** — `IPromptComposer` described "the Sonora
-  pattern", and two other types named siblings, all of which shipped in the NuGet `.xml` and appeared in
-  consumer IntelliSense. Each now states the pattern instead of naming a stranger's app.
-- **`LlmVerdict.Unsupported` appears in the taxonomy lists a consumer reads.** It surfaces with no fallback
-  and no host penalty, and was missing from `ILlmRouter`'s summary, `LlmVerdict`'s own list, and the internal
-  routing table that is meant to be kept in sync with them.
-- **The cross-backend memory-recall guarantee is stated correctly.** `IMemoryStore.RecallAsync` and
-  `ICuratedMemoryStore.SearchAsync` asserted a guarantee their own next sentence contradicted; it holds for a
-  **single-token** query, and a multi-token query is per-token on SQLite and contiguous-substring elsewhere.
-- **`IGenerationStreamProvider` says that nothing implements it.** The seam is designed, not exercised: no
-  backend implements it and no router path consumes it, so a backend advertising streaming delivery is
-  unreachable. Its chunk shape is modelled on the LLM contract rather than measured against a real TTS wire
-  format, and the first real backend may reshape it.
-- Also corrected: `Automatic1111Provider` renders with whatever checkpoint the WebUI has loaded and does not
-  honour a pinned model; the SQLite migration runner's description of its own tag dispatch; `GenerationRouter`
-  documenting that the per-verdict policy governs the inline path only; the streamed CLI path having no
-  absolute backstop; and a `Paused` job not being cancellable.
-
-### Tooling (2026-08-05)
-
-- **`new-migration` scaffolds the `[Tags(...)]` attribute** — with a placeholder that deliberately does not
-  compile until the feature is named. An **untagged** migration is run by FluentMigrator under *every* feature
-  set, so a domain the app disabled would still land its table and nothing would report it. A reflection test
-  now asserts every migration carries its feature tag plus `StorageFeatures.AllTag`.
-- **Nine live-integration tests stopped reporting PASS while asserting nothing** — their documented skip
-  mechanism was never wired, so they ran and passed with no endpoint. They now skip honestly. A `SmokeTests`
-  class whose entire body was `Assert.True(true)` under the name `SolutionBuilds` was removed; the build gate
-  proves that claim.
-- A process-wide catch-all error matcher registered by one test could answer for any concurrently running
-  test that classified an error — a rare cross-collection flake, now narrowed to a per-test sentinel.
 
 ## 2.1.0 — 2026-08-04
 
