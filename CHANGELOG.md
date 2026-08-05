@@ -129,6 +129,22 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `docs/DECISIONS.md` **D41**.
 
 ### Fixed
+- **A capability gap no longer benches a healthy media backend.** `GenerationVerdictClassifier` translated
+  `LlmVerdict.Unsupported` — "this backend cannot do THIS request" — into `GenerationVerdict.Failed`, even
+  though `GenerationVerdict.Unsupported` exists and means the same thing. Since `GenerationRoutingPolicy` maps
+  `Failed` to `PenalizeAndAdvance` and `Unsupported` to `Advance`, a capability gap counted toward the
+  dead-host threshold, and a few of them in a row put a perfectly healthy backend on cooldown. **Who is
+  affected:** anyone whose media backend reports a capability gap through the shared corpus — a
+  consumer-registered `LlmVerdictClassifier.AddErrorTextMatcher` returning `Unsupported`, or an exception that
+  classifies into it. **What you observe:** such a result now carries `GenerationVerdict.Unsupported` instead
+  of `GenerationVerdict.Failed`, so routing advances without blame — and, consistently with every other
+  blameless verdict, `GenerationRouter` no longer reports it as the run's failure reason when a real failure
+  also occurred. A `switch` on `GenerationVerdict.Failed` that was catching these needs an `Unsupported` arm.
+  This is a `Lyntai.Core` type and carries the full SemVer promise, not the `Lyntai.Generation` experimental
+  carve-out; it is a behaviour fix, not an API change, and is called out here under D24's documented-change
+  discipline. `LlmVerdict.ContextWindowExceeded` still collapses to `Failed` — now deliberately and with its
+  reason written down. The catch-all that hid this is gone: every `LlmVerdict` member has its own arm, and a
+  test fails until a newly added one is given a translation. See `docs/DECISIONS.md` **D43**.
 - **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already
   resting on** (`TASKS.md` GEN11). 2.1.0's `Add*` shims register a client with `Timeout.InfiniteTimeSpan`
   because a render routinely outlives the 100-second default — but no deadline existed to take over:

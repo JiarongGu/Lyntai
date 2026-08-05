@@ -448,6 +448,56 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D43 — a translation between two verdict taxonomies gets one arm per member, and the growth gate is a TEST because the compiler cannot be one (2026-08-05)
+`GenerationVerdictClassifier.Translate` reported `LlmVerdict.Unsupported` as `GenerationVerdict.Failed`
+through a `_ =>` catch-all, although `GenerationVerdict.Unsupported` exists and means exactly the same thing.
+Closes Part 38, filed rather than fixed while D38 was landing because it changes released behaviour.
+
+**The defect is the same shape as D38's, one layer along.** A blameless verdict was reported as a fault, and
+routing acted on the wrong one: `GenerationRoutingPolicy` maps `Unsupported` to `Advance` and `Failed` to
+`PenalizeAndAdvance`, so every capability gap counted toward the dead-host threshold and a few in a row
+benched a healthy backend for the cooldown window. Reachable, not theoretical — a consumer-registered
+`AddErrorTextMatcher` can return `Unsupported`, and `FromException` can classify into it.
+
+**The catch-all is what hid it, so it now holds nothing.** Every one of the nine `LlmVerdict` members has its
+own arm. Three had been sharing the discard: `Failed` (right answer, wrong reason), `ContextWindowExceeded`
+(deliberate) and `Unsupported` (the bug) — and nothing distinguished them, which is precisely why the third
+went unnoticed for a release. A catch-all over a taxonomy that is expected to GROW converts every future
+addition into a silent misclassification.
+
+**The compiler cannot enforce exhaustiveness over an enum, so do not pretend it can.** C# treats any switch
+over an enum as non-exhaustive — `(LlmVerdict)99` is a legal value — so removing the discard buys CS8509
+(a build failure here via `check-warnings`) rather than safety, and re-adding it to fix that is back where we
+started. The gate is therefore a TEST, `Every_llm_verdict_states_its_media_translation`, which enumerates
+`Enum.GetValues<LlmVerdict>()` and demands a row naming a media verdict for each. It demands the DECISION,
+not a registration: a row cannot be added without writing an answer. That is the third instance of the same
+mechanism (`LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient`, D38's obligation on the
+routing policy) and should be the pattern for any future taxonomy that grows. The discard survives, minimally,
+for undefined numeric values only.
+
+**`ContextWindowExceeded` still collapses to `Failed`, and that is now a decision rather than an omission.**
+It is the one member with no media counterpart, and it is genuinely reachable in this domain — the shared
+corpus matches `prompt is too long`, which image backends do say. `Unsupported` would describe it better AND
+route it better (advance without penalty). It is kept at `Failed` anyway because `GenerationRouter`
+deliberately does not report a blameless verdict over a real failure: as `Unsupported` it would advance
+*silently*, and when it was the only thing that went wrong the caller would be told "no capable backend"
+instead of "your prompt is too long for this one" — losing the single actionable answer in the set. D38 already
+resolved the analogous question on the LLM side the same way, and for the same stated reason. Revisit only
+together with the router's reporting rule, never on its own.
+
+**Known and accepted, not overlooked:** because blameless verdicts are excluded from `GenerationRouter`'s
+`firstFailure`, a run where EVERY candidate reports `Unsupported` returns
+`NotConfigured` / "every capable backend reported it is not configured", which is not quite what happened.
+That path is unchanged by this fix — it is reachable today from any backend that returns `Unsupported`
+directly (the job backends' inline seam does) — and correcting it means changing the router's reporting rule,
+which is a different decision from this one.
+
+**Which promise binds.** The type lives in `Lyntai.Core`, which carries the full SemVer promise — the
+`Lyntai.Generation.*` experimental carve-out is written package-scoped and reason-scoped (unmeasured backends,
+the unimplemented stream seam) and does not cover it. The conservative reading was applied deliberately rather
+than claiming the exemption. No public API member changed, so the `ApiSurfaceTests` baselines are untouched;
+what changed is observable behaviour, announced in `CHANGELOG.md` under D24's documented-change discipline.
+
 ## D42 — the agent-session shape is NOT claude-only, but the codex half is half-measured: ship the honest subset, mark the inference, refuse the unmeasurable (2026-08-05)
 `CodexAgentSession` closes CLI11 (a consuming desktop chat UI wanted to delete its hand-rolled
 `codex exec --json` parsing and could not, because the codex backend offered only the router shape). Recorded

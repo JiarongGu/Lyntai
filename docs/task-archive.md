@@ -2698,6 +2698,63 @@ owner call.
 
 ---
 
+## Part 38 — verdict-translation gaps found while closing Part 34 (2026-08-05)
+
+_Found while adding `LlmVerdict.NotConfigured` (`docs/DECISIONS.md` D38). Not fixed there: each changes
+RELEASED generation behaviour and deserves its own considered commit, exactly as the Part 34 verdict change
+did — not a rider on an unrelated one._
+
+- [x] **`GenerationVerdictClassifier.Translate` flattens `Unsupported` to `Failed`** —
+  `src/Lyntai.Core/Generation/GenerationVerdictClassifier.cs:71`. `LlmVerdict.Unsupported` falls through the
+  `_ =>` arm to `GenerationVerdict.Failed`, even though `GenerationVerdict.Unsupported` exists and means the
+  same thing ("this backend cannot do THIS request — a capability gap, not a fault"). The method's own doc
+  contradicted the code until 2026-08-05, naming `ContextWindowExceeded` as the only intended collapse; the
+  doc now records the gap instead of hiding it. **What a consumer observes:** a capability gap arriving
+  through the shared corpus — a consumer-registered `AddErrorTextMatcher` returning `Unsupported`, or an
+  exception classified into it — is reported as a generic `Failed`, so `GenerationRoutingPolicy` gives it
+  `PenalizeAndAdvance` (counts toward the dead-host threshold) instead of `Advance`, and repeated capability
+  gaps bench a healthy backend. Same shape as the Part 34 masking bug, one translation layer along. Fix is
+  one arm, but it changes a released verdict mapping: needs its own commit, a `CHANGELOG.md` entry, and a
+  test that a translated `Unsupported` is not penalised.
+
+  **Closed 2026-08-05. Outcome:** `LlmVerdict.Unsupported` now translates to `GenerationVerdict.Unsupported`,
+  so a translated capability gap takes `Advance` and no longer counts toward the dead-host threshold — pinned
+  by an end-to-end router test (a `DeadHostTracker(threshold: 1)` that would bench the backend after ONE
+  penalised failure still has it in rotation on the second run). Reasoning: `docs/DECISIONS.md` **D43**.
+
+  Three findings beyond the filed arm:
+
+  - **The catch-all was hiding three members, not one**, and nothing distinguished them: `Failed` (right
+    answer, wrong reason), `ContextWindowExceeded` (deliberate) and `Unsupported` (the defect). Every one of
+    the nine `LlmVerdict` members now has its own arm, so the discard holds nothing but undefined numeric
+    values. **No other arm was mis-mapped** — the `NotConfigured` pairing checked specifically was already
+    correct (it landed with D38).
+  - **The compiler cannot be the growth gate for an enum switch.** C# treats any switch over an enum as
+    non-exhaustive (`(LlmVerdict)99` is legal), so removing the discard buys CS8509 — a build failure here via
+    `check-warnings` — rather than safety. The gate is a test,
+    `Every_llm_verdict_states_its_media_translation`, which demands a row naming a media verdict per member.
+    Third instance of the same mechanism (`Every_verdict_states_whether_it_is_transient`, D38's obligation on
+    the routing policy); use it for any taxonomy expected to grow.
+  - **`ContextWindowExceeded` stays at `Failed` on purpose**, and the reason is now written down rather than
+    assumed. `Unsupported` would describe and route it better, but `GenerationRouter` never reports a
+    blameless verdict over a real failure, so as `Unsupported` the one actionable answer in the set ("your
+    prompt is too long for this backend") would be swallowed when it was the only thing that went wrong. D38
+    resolved the analogous LLM-side question the same way. Revisit only alongside the router's reporting rule.
+
+  **Which promise binds, decided rather than assumed:** the type ships in `Lyntai.Core`, which carries the
+  FULL SemVer promise — the `Lyntai.Generation.*` experimental carve-out is package- and reason-scoped
+  (unmeasured backends, the unimplemented stream seam) and does not cover it. The conservative reading was
+  applied instead of claiming the exemption. No public API member changed, so the `ApiSurfaceTests` baselines
+  are untouched; the observable behaviour change is announced in `CHANGELOG.md` under D24's discipline.
+
+  **Known and accepted, recorded so it is not rediscovered:** blameless verdicts are excluded from
+  `GenerationRouter`'s `firstFailure`, so a run where EVERY candidate reports `Unsupported` returns
+  `NotConfigured` / "every capable backend reported it is not configured". Unchanged by this fix and reachable
+  today from any backend returning `Unsupported` directly; correcting it means changing the router's reporting
+  rule, which is a different decision.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

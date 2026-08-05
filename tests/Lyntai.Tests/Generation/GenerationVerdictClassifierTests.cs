@@ -1,6 +1,9 @@
 using System.Net;
 using Lyntai.Generation;
+using Lyntai.Generation.Routing;
 using Lyntai.Llm;
+using Lyntai.Llm.Routing;
+using Lyntai.Tests.Fakes;
 
 namespace Lyntai.Tests.Generation;
 
@@ -47,7 +50,10 @@ public class GenerationVerdictClassifierTests
     [Fact]
     public void A_context_window_verdict_has_no_media_meaning_and_becomes_Failed()
     {
-        // the LLM taxonomy has verdicts media cannot have; they must not leak through as a media verdict
+        // the ONE member with no media counterpart, and it collapses DELIBERATELY rather than by omission:
+        // Unsupported would describe it better and route better, but GenerationRouter does not report a
+        // blameless verdict over a real failure, so "your prompt is too long" — the one thing the caller can
+        // actually act on — would be swallowed when it is the only thing that went wrong. See DECISIONS D43.
         Assert.Equal(GenerationVerdict.Failed, GenerationVerdictClassifier.FromErrorText("maximum context length exceeded"));
     }
 
@@ -69,5 +75,87 @@ public class GenerationVerdictClassifierTests
     public void A_cancellation_style_exception_is_a_timeout()
     {
         Assert.Equal(GenerationVerdict.Timeout, GenerationVerdictClassifier.FromException(new OperationCanceledException()));
+    }
+
+    [Fact]
+    public void An_Unsupported_verdict_from_the_shared_corpus_stays_Unsupported()
+    {
+        // a capability gap is not a fault. Flattening it to Failed on the way across the boundary turns the
+        // policy's Advance into PenalizeAndAdvance, so repeated gaps bench a perfectly healthy backend.
+        using var _ = LlmVerdictClassifier.AddErrorTextMatcher(t =>
+            t.Contains("this model cannot take an image input", StringComparison.OrdinalIgnoreCase)
+                ? LlmVerdict.Unsupported
+                : null);
+
+        var verdict = GenerationVerdictClassifier.FromErrorText("this model cannot take an image input");
+
+        Assert.Equal(GenerationVerdict.Unsupported, verdict);
+        // the mapping only matters because of what routing does with it
+        Assert.Equal(GenerationFallbackAction.Advance, new GenerationRoutingPolicy().ActionFor(verdict));
+    }
+
+    /// <summary>The mapping's POINT, end to end: a translated capability gap must not count toward the
+    /// dead-host threshold. Asserted through the router rather than the policy table alone, because a
+    /// translation that did not change the routing outcome would not have been worth changing.</summary>
+    [Fact]
+    public async Task A_translated_capability_gap_does_not_bench_a_healthy_backend()
+    {
+        using var _ = LlmVerdictClassifier.AddErrorTextMatcher(t =>
+            t.Contains("cannot take an image input", StringComparison.OrdinalIgnoreCase)
+                ? LlmVerdict.Unsupported
+                : null);
+
+        // what the backend would report: its own error text, classified through the shared corpus
+        var translated = GenerationVerdictClassifier.FromErrorText("cannot take an image input");
+
+        // one penalised failure is enough to bench, so the second run is the whole assertion
+        var deadHosts = new DeadHostTracker(threshold: 1);
+        var gap = new FakeGenerationProvider { Id = "a" };
+        gap.Verdicts.Enqueue(translated);
+        var working = new FakeGenerationProvider { Id = "b" };
+        var router = new GenerationRouter([gap, working], deadHosts: deadHosts);
+        GenerationCandidate[] candidates = [new("a"), new("b")];
+        var request = new GenerationRequest { Kind = GenerationKinds.Image, Prompt = "a red square" };
+
+        var first = await router.GenerateAsync(candidates, request);
+        var second = await router.GenerateAsync(candidates, request);
+
+        Assert.True(first.IsOk);
+        Assert.True(second.IsOk);
+        Assert.Equal(2, gap.GenerateCalls);   // still in rotation: a capability gap is not evidence of ill health
+    }
+
+    /// <summary>The translation table's growth gate, and the table itself. C# cannot make a switch over an
+    /// enum exhaustive — <c>(LlmVerdict)99</c> is a legal value, so a discard arm is mandatory and would
+    /// silently swallow a newly added member, which is exactly how <see cref="LlmVerdict.Unsupported"/> came
+    /// to be reported as <see cref="GenerationVerdict.Failed"/>. So the gate is this test: it demands the
+    /// DECISION, not merely a registration, because a row cannot be added without naming a media verdict.
+    /// The same obligation <c>LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c>
+    /// places on the call-site helpers and D38 places on the routing policy.</summary>
+    [Fact]
+    public void Every_llm_verdict_states_its_media_translation()
+    {
+        var expected = new Dictionary<LlmVerdict, GenerationVerdict>
+        {
+            [LlmVerdict.Ok] = GenerationVerdict.Ok,
+            [LlmVerdict.RateLimited] = GenerationVerdict.RateLimited,
+            [LlmVerdict.AuthFailed] = GenerationVerdict.AuthFailed,
+            [LlmVerdict.Refused] = GenerationVerdict.Refused,
+            [LlmVerdict.Timeout] = GenerationVerdict.Timeout,
+            [LlmVerdict.NotConfigured] = GenerationVerdict.NotConfigured,  // blameless in both domains
+            [LlmVerdict.Unsupported] = GenerationVerdict.Unsupported,      // ditto — a capability gap
+            [LlmVerdict.Failed] = GenerationVerdict.Failed,
+            // the only member with no media counterpart; Failed keeps it REPORTABLE (DECISIONS D43)
+            [LlmVerdict.ContextWindowExceeded] = GenerationVerdict.Failed,
+        };
+
+        Assert.Equal(Enum.GetValues<LlmVerdict>().OrderBy(v => v), expected.Keys.OrderBy(v => v));
+
+        foreach (var (llm, media) in expected)
+        {
+            // the shared classifier's matcher seam is the only way in: Translate is private, and it should be
+            using var scope = LlmVerdictClassifier.AddErrorTextMatcher(_ => llm);
+            Assert.Equal(media, GenerationVerdictClassifier.FromErrorText("probe"));
+        }
     }
 }
