@@ -210,6 +210,43 @@ public class CliProviderEngineTests
     }
 
     [Fact]
+    public async Task A_reported_failure_wins_over_a_NONZERO_exit_and_its_stderr_chatter()
+    {
+        // The same trap StatusAsync already avoids ("parse first, then fall back to the exit code"), one seam
+        // along: reading the exit code FIRST classifies whatever happened to be on stderr and throws away the
+        // backend's own account of the failure. MEASURED on codex-cli 0.146.0 (2026-08-05, an expired login):
+        // the CLI printed {"type":"turn.failed","error":{"message":"… 401 …"}} AND exited non-zero, with
+        // ordinary startup chatter ("Reading prompt from stdin...") on stderr. Classifying the chatter yields
+        // a bare Failed — so the router advances instead of cooling the host, and the caller is told the CLI
+        // is broken when the real remedy is "log in again".
+        var runner = new FakeProcessRunner
+        {
+            RunResult = new ProcessResult(1, "fail:unexpected status 401 Unauthorized: missing bearer token",
+                "Reading prompt from stdin..."),
+        };
+
+        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+
+        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Contains("401 Unauthorized", reply.Detail);
+    }
+
+    [Fact]
+    public async Task A_nonzero_exit_with_NO_reported_failure_still_reports_the_exit_and_its_stderr()
+    {
+        // the other half of the same ordering: when the backend said nothing about why, the exit code and
+        // stderr are all there is, and they must still be reported (this is the path the codex measurement
+        // does NOT change)
+        var runner = new FakeProcessRunner { RunResult = new ProcessResult(9, "text:half an answer", "segfault") };
+
+        var reply = await Engine(runner, new FakeCliDialect()).CompleteAsync(Ask());
+
+        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Contains("exit 9", reply.Detail);
+        Assert.Contains("segfault", reply.Detail);
+    }
+
+    [Fact]
     public async Task A_stream_that_fails_after_content_ends_in_an_error_chunk()
     {
         var runner = new FakeProcessRunner(["text:partial answer", "fail:rate limit exceeded"]);

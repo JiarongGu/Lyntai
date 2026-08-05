@@ -183,6 +183,33 @@ public class CodexCliProviderTests
         Assert.Contains("401", reply.Detail);
     }
 
+    [Fact]
+    public async Task An_in_band_failure_is_classified_even_when_the_process_ALSO_exits_nonzero()
+    {
+        // MEASURED 2026-08-05 against an account whose login had EXPIRED (CLI15, filed by a consuming app):
+        // one turn prints BOTH error-ish events — which do not share a shape — and then exits non-zero with
+        // codex's ordinary startup chatter on stderr. The 401 lives only in the in-band message, so reading
+        // the exit code first reports a bare Failed whose detail is "Reading prompt from stdin...": the
+        // router advances instead of cooling the host, and the owner is sent to check their PATH rather
+        // than their login.
+        var runner = new FakeProcessRunner
+        {
+            RunResult = new ProcessResult(1,
+                """
+                {"type":"error","message":"Reconnecting... 2/5 (unexpected status 401 Unauthorized)"}
+                {"type":"turn.failed","error":{"message":"unexpected status 401 Unauthorized: expired login"}}
+                """,
+                "Reading prompt from stdin..."),
+        };
+
+        var reply = await Provider(runner).CompleteAsync(Ask());
+
+        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Contains("401 Unauthorized", reply.Detail);
+        // ONE failure, not two: the stderr chatter must not be reported underneath the real reason
+        Assert.DoesNotContain("Reading prompt from stdin", reply.Detail);
+    }
+
     // ── auth: prose, because this CLI has no machine-readable readout ─────────
 
     [Fact]
@@ -377,6 +404,17 @@ public class CodexCliProviderTests
         var reply = await StubProvider().CompleteAsync(Ask("AUTH_ERROR"));
 
         Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+    }
+
+    [Fact]
+    public async Task An_in_band_stub_failure_at_a_NONZERO_exit_is_classified_over_a_real_spawn()
+    {
+        // the same measured pair as the FakeProcessRunner test above, but through a real spawn — so the
+        // ordering is pinned against an actual exit code and an actual stderr, not a hand-built ProcessResult
+        var reply = await StubProvider().CompleteAsync(Ask("AUTH_ERROR_EXIT"));
+
+        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+        Assert.Contains("401", reply.Detail);
     }
 
     [Fact]

@@ -125,8 +125,6 @@ public sealed class CliProviderEngine(
                     : $"{dialect.Id} stalled — no output for {timeout}");
 
         var stderrTail = Tail(result.StdErr);
-        if (result.ExitCode != 0)
-            return new LlmReply("", LlmVerdictClassifier.FromErrorText(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
 
         string text = "", contentText = "";
         LlmUsage? usage = null;
@@ -153,8 +151,24 @@ public sealed class CliProviderEngine(
         // content: half an answer plus "the turn failed" is not an answer, and returning Ok would be the
         // empty-Ok mistake in a different costume (the router would never retry). The backend's wording is
         // classified so the verdict is actionable (401 → AuthFailed cools the host; 429 → RateLimited).
+        //
+        // It is authoritative over a NON-ZERO EXIT too, which is why this is read before the exit code below
+        // — the same "parse first, then fall back to the exit code" ordering StatusAsync already uses, and
+        // for the same reason. MEASURED on codex-cli 0.146.0 (2026-08-05, an expired login): a turn can
+        // print {"type":"turn.failed","error":{"message":"… 401 …"}} AND exit non-zero, with nothing but
+        // ordinary startup chatter ("Reading prompt from stdin...") on stderr. Classifying the chatter loses
+        // the only account of what went wrong AND downgrades AuthFailed to a bare Failed, so the router
+        // advances instead of cooling the host and the caller is told the CLI is broken when the remedy is
+        // to log in again. The exit code is kept in the detail — it is context, not the reason.
         if (failure is { Length: > 0 })
-            return new LlmReply("", LlmVerdictClassifier.FromErrorText(failure), Detail: failure);
+            return new LlmReply("", LlmVerdictClassifier.FromErrorText(failure),
+                Detail: result.ExitCode != 0 ? $"exit {result.ExitCode}: {failure}" : failure);
+
+        // No in-band account of the failure: the exit code and stderr are all there is. (A backend that
+        // exits non-zero after printing a complete answer is still a failed run — a truncated answer
+        // labelled complete is the outcome this prevents.)
+        if (result.ExitCode != 0)
+            return new LlmReply("", LlmVerdictClassifier.FromErrorText(stderrTail), Detail: $"exit {result.ExitCode}: {stderrTail}");
 
         if (text.Length == 0)
         {

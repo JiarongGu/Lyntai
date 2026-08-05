@@ -16,6 +16,8 @@
 // Prompt-marker behavior (the prompt arrives on stdin, as `codex exec … -` does):
 //   "FORCE_ERROR"    -> emit turn.failed (an in-band failure at exit 0 — the codex-shaped failure path)
 //   "AUTH_ERROR"     -> emit turn.failed with a 401 message (must classify as AuthFailed)
+//   "AUTH_ERROR_EXIT"-> the measured EXPIRED-LOGIN pair: a bare `error` line (string message) + turn.failed
+//                       (object message), stderr chatter, and a NON-ZERO exit
 //   "NOISY"          -> emit non-terminal noise (a bare `error` line + an `error` ITEM) and then succeed
 //   else             -> echo a deterministic agent_message + turn.completed with usage
 import process from 'node:process';
@@ -57,19 +59,28 @@ if (prompt.includes('NOISY')) {
 
 emit({ type: 'turn.started' });
 
-if (prompt.includes('AUTH_ERROR')) {
+// The exit code is SET, never `process.exit()`d: exiting while stdout writes are still queued would drop
+// the very lines a test is asserting on (stdout is a pipe here, so its writes are async).
+// AUTH_ERROR_EXIT is checked BEFORE AUTH_ERROR — the specific marker contains the general one.
+if (prompt.includes('AUTH_ERROR_EXIT')) {
+  // MEASURED 2026-08-05 against an account whose login had EXPIRED: one turn prints both error-ish events,
+  // which do NOT share a shape (`error` carries a string `message`, `turn.failed` an OBJECT nesting one),
+  // and then the process exits NON-ZERO with codex's ordinary startup chatter on stderr. The 401 appears
+  // only in the in-band message, so a reader that classifies the exit/stderr instead loses it.
+  emit({ type: 'error', message: 'Reconnecting... 2/5 (unexpected status 401 Unauthorized)' });
+  emit({ type: 'turn.failed', error: { message: 'unexpected status 401 Unauthorized: expired login' } });
+  process.stderr.write('Reading prompt from stdin...\n');
+  process.exitCode = 1;
+} else if (prompt.includes('AUTH_ERROR')) {
+  // measured on 0.146.0: an in-band failure at exit 0 — the other half of the pair above
   emit({ type: 'turn.failed', error: { message: 'unexpected status 401 Unauthorized: Missing bearer or basic authentication in header' } });
-  process.exit(0); // exit 0 with an in-band failure — the shape the real CLI produces
-}
-
-if (prompt.includes('FORCE_ERROR')) {
+} else if (prompt.includes('FORCE_ERROR')) {
   emit({ type: 'turn.failed', error: { message: 'stub turn failure' } });
-  process.exit(0);
+} else {
+  const lastLine = prompt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() ?? '';
+  emit({ type: 'item.completed', item: { id: 'item_1', type: 'agent_message', text: `codex stub reply: ${lastLine.slice(0, 200)}` } });
+  emit({
+    type: 'turn.completed',
+    usage: { input_tokens: 6489, cached_input_tokens: 12, cache_write_input_tokens: 0, output_tokens: 2, reasoning_output_tokens: 0 },
+  });
 }
-
-const lastLine = prompt.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() ?? '';
-emit({ type: 'item.completed', item: { id: 'item_1', type: 'agent_message', text: `codex stub reply: ${lastLine.slice(0, 200)}` } });
-emit({
-  type: 'turn.completed',
-  usage: { input_tokens: 6489, cached_input_tokens: 12, cache_write_input_tokens: 0, output_tokens: 2, reasoning_output_tokens: 0 },
-});
