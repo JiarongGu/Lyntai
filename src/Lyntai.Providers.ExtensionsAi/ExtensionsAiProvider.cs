@@ -18,6 +18,17 @@ namespace Lyntai.Providers.ExtensionsAi;
 /// <see cref="FunctionCallContent"/> surfaces on <see cref="LlmReply.ToolCalls"/>, and tool-result
 /// turns map back to <see cref="FunctionResultContent"/> — Lyntai's tool loop drives execution.
 /// </summary>
+/// <param name="id">The router-facing provider id this bridge answers to — the same string the app passes
+/// to <c>AddExtensionsAiProvider</c> and names in its candidate list ("openai", "ollama", …). It is a LABEL
+/// for one configured client, not a vendor name: two differently-configured clients from the same vendor are
+/// two providers with two ids.</param>
+/// <param name="client">The MEAI client to drive. BYO and app-owned — this bridge never creates or disposes
+/// it, so a client wrapped in MEAI's own middleware (caching, telemetry, function invocation) arrives with
+/// that middleware intact.</param>
+/// <param name="options">Timeout/model configuration; <c>ResolveTimeout</c> supplies the per-call deadline
+/// (an inactivity clock on the streaming path).</param>
+/// <param name="logger">Optional diagnostics. A faulted call is logged here and still returns a verdict —
+/// the provider seam never throws a transport fault at the router.</param>
 public sealed class ExtensionsAiProvider(
     string id,
     IChatClient client,
@@ -26,12 +37,19 @@ public sealed class ExtensionsAiProvider(
 {
     private readonly ILogger _logger = logger ?? NullLogger<ExtensionsAiProvider>.Instance;
 
+    /// <inheritdoc/>
     public string Id => id;
 
-    public bool IsAvailable => true; // the client exists; real availability shows up as verdicts
+    /// <summary>Always true: the client was supplied, so there is nothing cheap left to probe. Real
+    /// availability shows up as a verdict on the first call, which is what the router acts on.</summary>
+    public bool IsAvailable => true;
 
+    /// <summary>Always true: the MEAI contract carries tool declarations and tool calls on every client, so
+    /// the tool loop takes the NATIVE path here rather than the prompt protocol. A model that ignores the
+    /// declared tools simply answers in prose, which the loop treats as a final answer.</summary>
     public bool SupportsToolCalls => true;
 
+    /// <inheritdoc/>
     public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
     {
         var timeout = options.ResolveTimeout(req);
@@ -67,6 +85,7 @@ public sealed class ExtensionsAiProvider(
         }
     }
 
+    /// <inheritdoc/>
     public async IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, [EnumeratorCancellation] CancellationToken ct = default)
     {
         // the timeout is an INACTIVITY clock on the provider (re-armed before each MoveNextAsync,

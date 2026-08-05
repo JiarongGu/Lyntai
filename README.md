@@ -149,12 +149,18 @@ public sealed class MyFeature(
 
         var reply = await llm.CompleteAsync(
             new LlmRequest { Messages = [LlmMessage.User(prompt)], Consumer = "myfeature" }, ct);
-        return reply.Verdict == LlmVerdict.Ok ? reply.Text : throw new InvalidOperationException(reply.Detail);
+        return reply.Verdict.IsOk() ? reply.Text : throw new InvalidOperationException(reply.Detail);
     }
 }
 ```
 
 (`ILlmRouter` stays available for call sites that genuinely need their own candidate list.)
+
+`LlmVerdict` also carries two call-site predicates — `IsOk()` and `IsTransient()` ("may the same request
+succeed later?", true for `Failed`/`Timeout`/`RateLimited`). They are categories rather than one method per
+verdict, on purpose: the enum grows, and a single member is already best expressed as
+`verdict == LlmVerdict.RateLimited`. They hang off the enum, so they read the same off `LlmReply`,
+`LlmChunk`, `SessionEnded`, `AgentSessionResult` and `ToolLoopResult`.
 
 And if your app already speaks `Microsoft.Extensions.AI`, consume Lyntai **as** an `IChatClient` —
 routing, fallback, and the ops layer come along silently:
@@ -169,6 +175,13 @@ IChatClient chat = serviceProvider.GetRequiredService<ILlmClient>().AsChatClient
   `RateLimited` puts that host on immediate cooldown and advances to the next candidate (a 429 is
   terminal for the host's window, not for the fleet), `Refused` surfaces with no fallback (content
   policy follows the prompt, not the host).
+- **A backend you listed but never configured is skipped, not benched** — when a server answers 401/403 to a
+  call that carried no credentials, the verdict is `NotConfigured`, and the router advances with no cooldown
+  and no dead-host penalty (`AuthFailed` — a key that WAS supplied and got rejected — still cools the host).
+  It isn't "a key is required": a locally-run OpenAI-compatible server legitimately needs none, so only the
+  server actually demanding one makes a missing key a configuration gap. Same rule as the generation router.
+  A blameless verdict never *masks* a real one either — if one candidate is down and the next is merely
+  unconfigured, you're told about the outage, not sent to check a key.
 - **Streaming never falls back after the first token** — pre-content failures move to the next
   candidate, mid-stream errors pass through unchanged (your consumer never sees duplicated output).
 - **Per-request refusal check** — set `LlmRequest.RefusalPattern` (a regex) and an otherwise-`Ok` reply
@@ -262,8 +275,9 @@ services.AddLyntai(cfg => cfg
     {
         o.BaseUrl = "http://localhost:11434";   // e.g. local Ollama
         o.Model = "nomic-embed-text";
-    }));
-    // …or bring your own: .AddEmbeddings(myEmbedder)  // any IEmbedder — a hosted endpoint or local model
+    })
+    .AddSemanticMemory());                      // states the intent — see below
+    // …or bring your own in one call: .AddSemanticMemory(myEmbedder)  // any IEmbedder
 
 var memory = sp.GetRequiredService<ISemanticMemory>();
 await memory.RememberAsync(task: "support", scope: "faq", "You can cancel your subscription anytime.");
@@ -271,8 +285,18 @@ var hits = await memory.RecallAsync("support", "faq", query: "how do I stop payi
 // hits ranked by similarity, each with a Content + cosine Score
 ```
 
+`AddSemanticMemory()` is how you **say** you want semantic recall. Registering an embedder is what actually
+turns it on, so forgetting one used to be silent — no `ISemanticMemory` at all, and every recall path
+skipping it without complaint. Stating the intent turns that into a startup failure instead. Overloads take
+the embedder directly (`AddSemanticMemory(myEmbedder)`, a factory, or a type), and the no-argument form is
+for when the embedder arrives from elsewhere, as above.
+
 Vectors live in a swappable `IVectorStore` — the built-in `InMemoryVectorStore` (exact brute-force cosine)
-is the default; call `UseSqliteVectorStore()` to persist them in SQLite, or `UsePostgresVectorStore()` for
+is the default; call `UseSqliteVectorStore()` to persist them in SQLite (it needs
+`StorageFeature.Governance`, which carries the `lyntai_vector` table — a feature subset that omits it fails
+at `AddLyntai` with a message saying so, rather than at the first recall; that check applies only where
+Lyntai migrates, so `SchemaMigration.None` and a BYO `IDbConnectionFactory` are left to own their schema),
+or `UsePostgresVectorStore()` for
 **pgvector** (the cosine search runs in the database — SQL-side top-k, not brute-force in the app). Or
 register your own before `AddLyntai` for another vector DB — the recall code is unchanged. Scoped by (task,
 scope) like the lexical store; re-remembering identical content dedups.
@@ -383,6 +407,13 @@ services.AddLyntai(cfg =>
 // BYO process execution — control how the claude CLI is spawned (sandbox, custom shell, remote):
 services.AddSingleton<IProcessRunner>(new MySandboxedProcessRunner());
 ```
+
+Owning the schema means running Lyntai's migrations yourself, on your own terms —
+`MigrationRunnerService.MigrateUp(path[, features])`, or its awaitable twin `MigrateUpAsync(…, ct)` for an
+async startup path. Read the twin's documentation before relying on the token: FluentMigrator's runner is
+synchronous, so `MigrateUpAsync` runs **inline on the calling thread** (deliberately not a `Task.Run`) and
+the token is honoured only *before* any work and *between* feature passes — a pass in flight cannot be
+cancelled, and the default `StorageFeature.All` is a single pass.
 
 Anything you register wins over Lyntai's default (the defaults use `TryAdd`), and every storage domain
 is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement wholesale.
@@ -567,6 +598,21 @@ default aborting a healthy render. To decorate Lyntai's own client instead of re
 services.AddHttpClient(GenerationProviderBuilderExtensions.HttpClientName("fal"))
         .AddHttpMessageHandler<MyLoggingHandler>();
 ```
+
+**That deadline is per backend, and infinite there does not mean unbounded.** Every options record carries a
+`Timeout` — 10 minutes for the inline render backends (`OpenAiImageOptions`, `Automatic1111Options`), 2 minutes
+for the queue ones (`ComfyUiOptions`, `FalQueueOptions`, whose calls are submit/status/fetch round-trips rather
+than renders) — and a request's own `TimeoutSeconds` overrides it where a request exists. A fired deadline is a
+`GenerationVerdict.Timeout` **result**, not a throw; your own `CancellationToken` keeps its own meaning and
+still surfaces as cancellation. Set `Timeout = System.Threading.Timeout.InfiniteTimeSpan` to drop the backend's
+own deadline — a request that names its own `TimeoutSeconds` still gets one, since the more specific
+instruction wins either way.
+
+For a queue backend the deadline bounds one HTTP call, never the render — the render outlives every call, and
+bounding it is the durable job's retry budget to do. One consequence is worth knowing: a **submit** that gets no
+answer comes back `Failed` **and `Inconclusive`**, and the router then *surfaces* it rather than trying the next
+backend, because a queue that never answered may already hold a billable render and the next candidate would buy
+the same generation twice. It is not counted against the backend's cooldown either.
 
 Inputs — an init image, a first frame, a style reference, a voice sample — are built with the **named
 factories**, never the positional constructor:
@@ -820,7 +866,7 @@ a deliberate, scoped exception to Lyntai's otherwise host-free design, isolated 
 
 ### CLI-agent session vs `IToolLoop` (`IAgentSession`)
 
-When the external agent drives its OWN tool loop out-of-process (e.g. the `claude` CLI running
+When the external agent drives its OWN tool loop out-of-process (the `claude` or `codex` CLI running
 autonomously), `IAgentSession` is the right primitive — not `IToolLoop`. You observe a streamed
 transcript of what the agent did (`AgentStreamEvent`), gate it read-only (plan) vs write (execute) via
 `AgentToolPolicy`, and resume it across a human confirmation gate using the session's `ResumeToken`.
@@ -862,6 +908,47 @@ Console.WriteLine($"done: {result.Verdict} — {result.FinalText}");
 **`IToolLoop`** (the other shape) — Lyntai drives the ReAct loop in-process over registered `ITool`s.
 Choose `IToolLoop` when you supply the tools and want Lyntai to call them; choose `IAgentSession` when
 the external agent drives its own loop and you want to observe, gate, and resume it.
+
+#### The codex agent session — same shape, and what it honestly cannot do
+
+`AddCodexCliAgentSession()` registers a `CodexAgentSession` (`Lyntai.Providers.CodexCli`) behind the same
+`IAgentSession`, so an app can offer both CLI backends without hand-parsing `codex exec --json`. Both
+`Add*CliAgentSession` extensions also register **keyed by provider id**, so registering both resolves
+deterministically:
+
+```csharp
+services.AddLyntai(b => b.AddClaudeCliAgentSession().AddCodexCliAgentSession());
+
+var codex = sp.GetRequiredKeyedService<IAgentSession>("codex-cli");
+var claude = sp.GetRequiredKeyedService<IAgentSession>("claude-cli");
+```
+
+**Read this before adopting it** — the two halves of the codex mapping have different standing, and
+`docs/DECISIONS.md` **D42** has the full account:
+
+- **Measured** against codex-cli 0.146.0: session id, assistant text, final usage, and the terminal —
+  including the rule that only `turn.failed` fails a turn (a bare `error` line and an `error` item both
+  appear in runs that succeed).
+- **Inferred**: every **tool step**. The measured run used no tools. The mapping is therefore shape-driven —
+  a tool step arrives under codex's *own* item-type name with codex's *own* item object as
+  `ToolCall.ArgumentsJson` / `ToolResult.Content` (no normalised schema, and deliberately no `CodexToolCalls`
+  helper). **What that guarantees, precisely:** no payload is ever invented or dropped, and every uncertainty
+  stays inside the tool-step half — the session id, terminal and usage are measured and unaffected. **What it
+  does not guarantee is the KIND of event.** The tool arm is reached by *elimination* against three
+  recognised names (`agent_message`, `reasoning`, `error`), so an item that is not one of them and not a tool
+  — a renamed `reasoning`, a `todo_list`-style plan update — arrives as a fabricated `ToolCall`, which is not
+  what `ToolCall` means. Treat a tool step's **kind as provisional and its payload as reliable**, and switch
+  on `ToolCall.Name` rather than assuming every one is a tool. Likewise `ToolResult.IsError` is a *positive*
+  claim of success when no top-level `status`/`exit_code` says otherwise — a nested failure signal would read
+  as a successful step.
+- **Not emitted**, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`,
+  and token-level deltas — a codex `TextDelta` is one whole assistant message, not a token.
+- **`ResumeToken` is refused** (a single `SessionEnded` with `LlmVerdict.Unsupported`, no spawn): codex's
+  resume shape is unmeasured, and `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a *prompt*,
+  so a guess would silently spend a turn. Start a fresh session and replay the history in the prompt.
+- **`DisallowedTools` is logged as unhonoured** — codex's tool gate is `--sandbox`, driven by `ToolPolicy`
+  (`ReadOnly` → `read-only`, `Write` → `workspace-write`) or set outright via `CodexAgentOptions.SandboxMode`.
+  **`SystemPrompt`** travels as a leading block of the prompt (codex `exec` has no flag for one).
 
 ### Durable jobs (`Lyntai.Jobs`)
 

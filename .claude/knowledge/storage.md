@@ -102,6 +102,28 @@ skipped). Use `dev.mjs new-migration` to get a unique monotonic number. Composit
 the things FluentMigrator's fluent API can't express (FTS virtual tables, triggers, `ON DELETE CASCADE`).
 The runner is idempotent.
 
+**`MigrateUpAsync` cannot be more than it is.** FluentMigrator's runner is synchronous and takes no
+`CancellationToken`, so the awaitable twins run the migration **inline on the calling thread** — never
+`Task.Run`, which would burn a pool thread for the whole migration and *still* be uncancellable — and honour
+the token only *before* any work and *between* feature passes. `StorageFeature.All` is a single pass, so
+there it means "before starting" only. Say exactly that in any doc you write about it; see `DECISIONS.md`
+**D40**, and `AsyncMigrationTests` pins the no-offload property.
+
+**`lyntai_vector` ships under `StorageFeature.Governance`,** alongside the response cache and usage ledger —
+not under `Memory`, and there is no `Vector` feature. A subset omitting `Governance` would otherwise let
+`UseSqliteVectorStore()` register a store over a table that was never created, failing at the first recall
+rather than at startup, so **the three Governance-backed helpers now throw at wiring time**
+(`UseSqlite{ResponseCache,UsageTracking,VectorStore}` + the two Postgres equivalents). The check is
+order-independent — each side records a sentinel `ServiceDescriptor` and verifies whatever the other side
+already recorded — because a guard you can defeat by swapping two builder lines is not a guard. It is also
+scoped to **schema OWNERSHIP**: the selection carries a `LyntaiMigrates` flag and the check returns early
+under `SchemaMigration.None` or an app-supplied `IDbConnectionFactory`, because there Lyntai runs no
+migration, the feature set decides nothing, and "add `StorageFeature.Governance`" would create no table —
+the guard's whole premise is that Lyntai was going to create the table and the feature set stopped it. Add a
+fourth Governance-backed helper and it must call `RequireGovernance`. `UsePostgresVectorStore` is **exempt**:
+`PostgresVectorStore` creates its `vector` extension and table lazily, deliberately outside the migration, so
+pgvector is not forced on consumers who never use semantic memory.
+
 ## Conventions
 
 - **`lyntai_` prefix on every table/index/trigger/FTS object** — Lyntai may share a database with the

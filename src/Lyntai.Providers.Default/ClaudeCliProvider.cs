@@ -20,6 +20,8 @@ namespace Lyntai.Providers.ClaudeCli;
 public sealed class ClaudeCliProvider : ILlmProvider, IProviderInstallation, IProviderUpdater,
     IProviderVersionInstaller, IProviderAuth
 {
+    /// <summary>The router-facing id this provider answers to — name it in a candidate list, or in
+    /// <c>UseDefaultCandidates</c>, to route to the claude CLI. Also the value of <see cref="Id"/>.</summary>
     public const string ProviderId = "claude-cli";
 
     /// <summary>Design §6 CLI hygiene: spawn from a NEUTRAL cwd, never the host app's inherited working

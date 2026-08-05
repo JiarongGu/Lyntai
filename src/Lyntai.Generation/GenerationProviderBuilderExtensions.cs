@@ -22,7 +22,16 @@ namespace Lyntai;
 /// sp.GetRequiredService&lt;IHttpClientFactory&gt;().CreateClient("my")</c>). Lyntai then never disposes it. When
 /// omitted, Lyntai registers a named client with an INFINITE <see cref="HttpClient"/> timeout, because a render
 /// legitimately runs for minutes and the 100-second default would abort a healthy one as a transport
-/// failure.</para></summary>
+/// failure.</para>
+///
+/// <para><b>Infinite there does not mean unbounded.</b> Every backend enforces its own per-call deadline —
+/// each options record carries a <c>Timeout</c> (generous for the inline render backends, shorter for the
+/// queue ones), overridden per call by <see cref="Generation.GenerationRequest.TimeoutSeconds"/>. A fired
+/// deadline is a <see cref="GenerationVerdict.Timeout"/> result rather than a throw. That deadline is what
+/// makes the infinite client timeout safe: until it existed, these shims traded a 100-second cut-off for no
+/// cut-off at all, and a stalled backend hung a background render forever. A BYO client keeps its own
+/// <see cref="HttpClient.Timeout"/> as well — whichever fires first, the caller sees the same
+/// <see cref="GenerationVerdict.Timeout"/> verdict.</para></summary>
 public static class GenerationProviderBuilderExtensions
 {
     /// <summary>An OpenAI-compatible images endpoint — the cloud service, or any local server speaking the same
@@ -116,7 +125,9 @@ public static class GenerationProviderBuilderExtensions
         if (httpClient is not null)
             return sp => create(() => httpClient(sp), false);
 
-        // the per-call deadline owns timeouts, not HttpClient's default 100s — a render outlives it routinely
+        // The per-call deadline owns timeouts, not HttpClient's default 100s — a render outlives it routinely.
+        // That deadline is real (GenerationDeadline, per-backend Timeout + GenerationRequest.TimeoutSeconds);
+        // infinite here is only safe BECAUSE of it, so don't drop one without dropping the other.
         builder.Services.AddHttpClient(HttpClientName(id))
             .ConfigureHttpClient(c => c.Timeout = Timeout.InfiniteTimeSpan);
 

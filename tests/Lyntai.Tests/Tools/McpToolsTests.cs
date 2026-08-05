@@ -64,4 +64,21 @@ public class McpToolsTests
         Assert.Equal("done", result.Answer);
         Assert.Equal("shout", Assert.Single(result.Steps).Tool);
     }
+
+    [Fact]
+    public void AddMcpTools_takes_tools_inline_as_well_as_a_sequence()
+    {
+        var services = new ServiceCollection();
+        services.AddLyntai(b => b
+            .AddProvider(_ => new FakeLlmProvider("p"))
+            .AddMcpTools(
+                new McpTool("alpha", null, null, (args, _) => Task.FromResult(args)),
+                new McpTool("beta", null, null, (args, _) => Task.FromResult(args)))
+            .UseDefaultCandidates("p"));
+        using var sp = services.BuildServiceProvider();
+
+        var names = sp.GetRequiredService<IToolRegistry>().Tools.Select(t => t.Name).ToArray();
+        Assert.Contains("alpha", names);
+        Assert.Contains("beta", names);
+    }
 }

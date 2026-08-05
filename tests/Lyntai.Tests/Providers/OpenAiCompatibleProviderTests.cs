@@ -56,6 +56,45 @@ public class OpenAiCompatibleProviderTests
         Assert.Null(OpenAiPayload.Build(req, "m", stream: false)["stream_options"]);
     }
 
+    // A backend the consumer LISTED but never configured must be skipped blamelessly, not benched: AuthFailed
+    // cools the host for the cooldown window, so every first attempt paid a penalty for a fact the provider
+    // already knew. Not simply "require a key up front" — a locally-run OpenAI-compatible server (LM Studio,
+    // vLLM, Ollama) legitimately has none, so only the server DEMANDING one makes a missing key a config gap.
+    [Fact]
+    public async Task A_401_with_no_api_key_supplied_is_NotConfigured()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, """{"error":{"message":"missing api key"}}""");
+        var provider = Provider(handler, c => c.ApiKey = null);
+
+        var reply = await provider.CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.NotConfigured, reply.Verdict);
+    }
+
+    [Fact]
+    public async Task A_401_with_an_api_key_supplied_stays_AuthFailed()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, """{"error":{"message":"invalid api key"}}""");
+        var provider = Provider(handler, c => c.ApiKey = "wrong-key");
+
+        var reply = await provider.CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict); // the key IS the problem — bench it
+    }
+
+    [Fact] // the streaming path shares MapHttpFailure; assert it so a future split can't regress one half
+    public async Task A_streamed_401_with_no_api_key_supplied_is_also_NotConfigured()
+    {
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.Unauthorized, "unauthorized");
+        var provider = Provider(handler, c => c.ApiKey = null);
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in provider.StreamAsync(Req)) chunks.Add(c);
+
+        var error = chunks.Single(c => c.Kind == LlmChunkKind.Error);
+        Assert.Equal(LlmVerdict.NotConfigured, error.Verdict);
+    }
+
     private const string OkBody = """
         {"choices":[{"message":{"role":"assistant","content":"hello from http"},"finish_reason":"stop"}],
          "usage":{"prompt_tokens":10,"completion_tokens":4}}

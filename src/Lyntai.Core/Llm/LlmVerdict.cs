@@ -10,6 +10,8 @@ namespace Lyntai.Llm;
 /// advance.</item>
 /// <item><see cref="ContextWindowExceeded"/> — the request is too big for THIS model, not a host
 /// fault: advance with no dead-host penalty (a larger-context candidate is the correct remedy).</item>
+/// <item><see cref="NotConfigured"/> — the backend was never set up, which is not a fault either:
+/// advance with no penalty and no cooldown.</item>
 /// <item><see cref="Refused"/> — content policy follows the prompt, not the host: surface, never
 /// fall back.</item>
 /// </list>
@@ -36,4 +38,17 @@ public enum LlmVerdict
     /// candidate has the same limitation), but is a DISTINCT verdict so telemetry/scorers don't conflate a
     /// capability gap with a policy refusal.</summary>
     Unsupported,
+
+    /// <summary>The backend was never set up — no credentials to authenticate with, no endpoint to call
+    /// (added 2026-08-05; APPENDED so the existing members keep their numeric values). NOT a fault and NOT a
+    /// rejected credential: routing advances with no dead-host penalty and no cooldown, and a host can offer
+    /// setup instead of reporting an error. The distinction from <see cref="AuthFailed"/> is load-bearing —
+    /// a rejected key BENCHES the host for the cooldown window, so a backend a consumer merely LISTED without
+    /// configuring would otherwise be penalised on every first attempt for a fact known before the call.
+    /// <para>Mirrors <c>Lyntai.Generation.GenerationVerdict.NotConfigured</c>: the same situation gets the
+    /// same answer in both domains. See <see cref="LlmVerdictClassifier.FromHttpFailure(System.Net.HttpStatusCode, string, bool)"/>
+    /// for how a transport failure reaches it — deliberately NOT "no key means unconfigured", because an
+    /// OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama) legitimately needs none; only no key
+    /// AND a server that demanded one is a configuration gap.</para></summary>
+    NotConfigured,
 }

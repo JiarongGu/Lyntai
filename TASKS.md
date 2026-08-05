@@ -17,10 +17,12 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 _**v2.0.1 is released (2026-08-04).** Everything up to and including the generation platform, the package
 restructure, the 2.0.1 release hardening, the generation-ergonomics follow-ups and the provider-lifetime seam
-has shipped and is archived — see `docs/task-archive.md` Parts 29–37 and `docs/DECISIONS.md` D25–D37. What
-remains open is below: the generation follow-ups in Part 33 (**all** now needing a real service, a vendor pick or a design call — none is
-codeable from here), the remaining verdict-parity finding in Part 34, the post-1.0 additive backlog in Part 25,
-and one conditional item:_
+has shipped and is archived — see `docs/task-archive.md` Parts 29–37 and `docs/DECISIONS.md` D25–D37. Part 34's
+verdict-parity finding closed 2026-08-05 (`LlmVerdict.NotConfigured`), emptying that part. What remains open is
+below: the generation follow-ups in Part 33 (**all** now needing a real service, a vendor pick or a design call — none is
+codeable from here), the verdict-translation gap in Part 38 (found while closing Part 34), the codex surface
+still to MEASURE in Part 39 (opened while closing CLI11 — also not codeable from here), the post-1.0
+additive backlog in Part 25, and one conditional item:_
 
 - [ ] **JSON source-gen envelopes (optional; see `docs/DECISIONS.md` D17)** — typed
   `JsonSerializerContext` envelope types for the STABLE response envelopes only, **if envelope-parsing bugs ever
@@ -73,54 +75,6 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
   the experimental marker needn't block anything._
 
-- [ ] **GEN11 — the `Add*` shims' infinite HTTP timeout rests on a per-call deadline that does not exist.**
-  Found 2026-08-04 by the consuming app adopting 2.1.0, from reading the release note rather than from a hang.
-
-  `GenerationProviderBuilderExtensions` configures the named client with `Timeout.InfiniteTimeSpan`, and the
-  changelog gives the reason: *"the per-call deadline owns cancellation (a render routinely outlives the
-  100-second default)"*. The first half is right — 100s is genuinely too short for a render. But **there is no
-  per-call deadline for the HTTP generation backends.** `GenerationRequest.TimeoutSeconds` exists on the
-  contract and, as of 2.1.0, **no source file reads it** (grep of `src/` finds it only in XML docs and the
-  compiled DLL); only `LocalDiffusionProvider` — the subprocess one — has its own timeout.
-
-  So a consumer using `AddOpenAiImageProvider` / `AddAutomatic1111Provider` gets: infinite HttpClient timeout,
-  no request deadline, no options deadline. A backend that accepts the connection and then stalls hangs the
-  render until the caller's `ct` fires — and a UI that offers no cancel (a background job, a scheduled task)
-  waits forever. That is a worse failure than the 100s cut-off it replaced, because it is unbounded and silent.
-
-  **Suggested:** honour `GenerationRequest.TimeoutSeconds` in the HTTP backends (it already exists, so this is
-  wiring not API), and/or give the options a `Timeout` like `LocalDiffusionOptions` has, defaulted generously.
-  Then the shim's infinite client timeout becomes true rather than aspirational.
-
-  **What the consumer did meanwhile**, in case it is useful as a data point: it constructs its own client with
-  an explicit **180s** timeout — deliberately NOT infinite — because that restores the ceiling its pre-migration
-  code had and keeps a bounded failure. It will switch to the shims once a deadline exists.
-
-- [ ] **CLI11 — a `CodexAgentSession`, so the agent-session shape isn't claude-only.** Filed 2026-08-04 by a
-  consuming app that wanted to delete its hand-rolled codex integration and could not.
-
-  **The gap.** `Lyntai.Providers.CodexCli.CodexCliProvider` gives `CompleteAsync`/`StreamAsync(LlmRequest)`
-  plus the maintenance capabilities — everything a ROUTER needs. But a desktop chat UI needs the other shape:
-  the streamed **tool steps** an agent takes, which is what `AgentStreamEvent` carries and what
-  `ClaudeAgentSession.StreamAsync(AgentSessionOptions)` produces. `LlmChunk` is `{ Kind, Text, Usage,
-  Verdict, Detail }` — there is nowhere for "the agent called tool X with these arguments" to go.
-
-  So a consumer that shows tool activity can adopt the codex provider for probe/update/auth, but must keep
-  hand-parsing `codex exec --json` for the chat path — which is precisely the bespoke provider handling
-  Lyntai exists to remove, and which has already cost that app two real defects (a bare `error` line failing a
-  turn that SUCCEEDED, and a missing `--skip-git-repo-check` that works in a dev git repo and breaks in a
-  shipped bundle — both of which YOUR measured codex work got right and theirs did not).
-
-  **Why this looks cheap now and wasn't before:** 2.0.1 extracted `CliProviderEngine` + `ICliProviderDialect`
-  specifically so a second CLI could reuse the first's machinery, and `CodexCliDialect` already knows codex's
-  JSONL vocabulary (`item.started`/`item.completed`, `turn.failed`, the terminal-event rule). The agent
-  session is the same events mapped to `AgentStreamEvent` instead of `LlmChunk`.
-
-  **Done when:** a consumer can drive codex through the same `IAgentSession` shape as claude — streamed text,
-  tool steps and usage — and delete its own JSONL parsing. If the answer is "the agent-session shape stays
-  claude-only by design", that is a fine outcome too; say so in `docs/DECISIONS.md` and the consumer will stop
-  waiting and own its codex parsing deliberately rather than provisionally.
-
 - [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend to exercise `IGenerationStreamProvider` end to
   end — nothing implements that seam yet, so it is the one contract in the platform no real backend has
   exercised. **TTS before music** (owner). Needs a vendor pick and a MEASURED wire format (the GEN-VERIFY
@@ -136,43 +90,112 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
 
 ---
 
-## Part 34 — findings from the pre-2.0.1 consumer smoke (2026-08-04)
+## Part 38 — verdict-translation gaps found while closing Part 34 (2026-08-05)
 
-_Restoring the packed bundle into a fresh app and compiling against the 2.0.1 surface (rather than project
-references) proved the install story works, and exposed two asymmetries between the domains. Neither blocks the
-release; both are additive._
+_Found while adding `LlmVerdict.NotConfigured` (`docs/DECISIONS.md` D38). Not fixed there: each changes
+RELEASED generation behaviour and deserves its own considered commit, exactly as the Part 34 verdict change
+did — not a rider on an unrelated one._
 
-_The generation wiring helpers landed 2026-08-04 — see `docs/task-archive.md` Part 36 and `docs/DECISIONS.md`
-D35/D36. What remains is the verdict half:_
+- [ ] **`GenerationVerdictClassifier.Translate` flattens `Unsupported` to `Failed`** —
+  `src/Lyntai.Core/Generation/GenerationVerdictClassifier.cs:71`. `LlmVerdict.Unsupported` falls through the
+  `_ =>` arm to `GenerationVerdict.Failed`, even though `GenerationVerdict.Unsupported` exists and means the
+  same thing ("this backend cannot do THIS request — a capability gap, not a fault"). The method's own doc
+  contradicted the code until 2026-08-05, naming `ContextWindowExceeded` as the only intended collapse; the
+  doc now records the gap instead of hiding it. **What a consumer observes:** a capability gap arriving
+  through the shared corpus — a consumer-registered `AddErrorTextMatcher` returning `Unsupported`, or an
+  exception classified into it — is reported as a generic `Failed`, so `GenerationRoutingPolicy` gives it
+  `PenalizeAndAdvance` (counts toward the dead-host threshold) instead of `Advance`, and repeated capability
+  gaps bench a healthy backend. Same shape as the Part 34 masking bug, one translation layer along. Fix is
+  one arm, but it changes a released verdict mapping: needs its own commit, a `CHANGELOG.md` entry, and a
+  test that a translated `Unsupported` is not penalised.
 
-- [ ] **LLM-side parity for the no-credentials verdict** — `GenerationVerdictClassifier.FromHttpFailure(status,
-  body, hasCredentials)` now reports a 401 with NO key supplied as `NotConfigured` rather than `AuthFailed`, so
-  routing skips an unconfigured backend blamelessly instead of benching it. `OpenAiCompatibleProvider` /
-  `HttpEmbedder` have the same shape and still report `AuthFailed`. Deliberately NOT changed here: that is
-  released behaviour, and a verdict change belongs in its own considered commit, not a pre-release sweep.
+---
 
-## Part 25 — post-1.0 backlog (deferred at the 1.0 API-review triage, 2026-07-28)
+## Part 39 — CLI backends: the codex surface still to MEASURE (2026-08-05)
+
+_Opened while closing CLI11 (`CodexAgentSession`; see `docs/task-archive.md` Part 39 and
+`docs/DECISIONS.md` **D42**). CLI11 shipped the honest subset: the message/usage/terminal half of the codex
+mapping is measured, the tool-step half is inferred, and the inference is written shape-driven — which bounds
+what a wrong guess can cost to exactly two things: **no payload is invented or dropped**, and **every
+uncertainty stays inside the tool-step half**. It does NOT bound the KIND of event, so a tool step's kind is
+provisional and only its payload is reliable (the item below is the consequence). What is left is
+measurement, and measurement only — nothing here is codeable without a real codex run._
+
+- [ ] **CLI12 — measure codex's tool-step items and confirm (or correct) the inferred mapping.**
+  `src/Lyntai.Providers.Default/CodexAgentReader.cs`. The capture behind this backend (codex-cli 0.146.0,
+  2026-08-04) ran a trivial `--oss` turn with **no tools**, so the entire tool-step half is inferred and
+  marked as such in the XML docs.
+
+  **Why this is not merely cosmetic.** The reader recognises exactly three item names (`agent_message`,
+  `reasoning`, `error`) and routes everything else to the tool arm **by elimination**. So a wrong NAME is not
+  a missing event, it is a WRONG one: a renamed `reasoning` (codex's historical `agent_reasoning`) becomes a
+  fabricated `ToolCall` carrying the model's thought as its arguments, a `todo_list`-style plan update becomes
+  one too, and a rename of `agent_message` would cost the `TextDelta` AND `FinalText` AND emit the answer as a
+  tool step. Each contradicts `ToolCall`'s documented meaning ("the agent invoked a tool",
+  `src/Lyntai.Core/Agents/AgentStreamEvent.cs:18`). Payload is never invented or lost, and the measured
+  half (session id / terminal / usage) is unaffected — that is the whole of what the shape-driven mapping
+  buys.
+
+  **Confirm in this order — most costly wrong guess first:**
+  1. **`agent_message`** — a rename here is the worst case (loses the answer twice over *and* fabricates a
+     tool step). Measured today, so this is a regression check, not a discovery.
+  2. **`reasoning`** — INFERRED. Confirm the item-type name (vs `agent_reasoning`) and its text field.
+  3. **`todo_list`** (and any other non-tool, non-message item type the run emits) — each one currently
+     surfaces as a fabricated tool step. Decide per item: recognise and drop, or accept as a tool step.
+  4. **The per-item failure signal** — `IsFailedItem` reads only top-level `status`/`exit_code`, and returns
+     `false` as a POSITIVE claim of success, so a nested or differently-named signal makes a failed step look
+     successful to a failure-highlighting UI.
+  5. Then the cheaper two: whether `item.started` is emitted at all (if not, the synthesised `ToolCall` is a
+     degradation, not a break), and whether `item.updated` carries partial text worth showing — deliberately
+     IGNORED today, because an unmeasured accumulation rule risks double-counting the answer.
+
+  **Then:** flip the docs from INFERRED to MEASURED where they hold — including the scoped safety claim in
+  `CodexAgentReader`'s docblock, the README's codex bullet and `DECISIONS.md` D42 — and extend
+  `devtools/scripts/codex-stub.mjs` with the real shapes (its header forbids inventing them, which is why the
+  inferred cases are covered only by `FakeProcessRunner` fixtures today). A friendlier `ToolResult.Content`
+  projection (the readable output field instead of the raw item JSON) becomes possible at the same time, and
+  is additive.
+- [ ] **CLI13 — measure codex's resume command, so the session can honour `ResumeToken`.**
+  `src/Lyntai.Providers.Default/CodexAgentSession.cs`. Today a non-null `ResumeToken` is REFUSED without
+  spawning (a single `SessionEnded` with `LlmVerdict.Unsupported`) — silently ignoring it would start a fresh
+  session and lose the conversation, and guessing is unusually expensive on this CLI because
+  `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a PROMPT and spends a turn answering the
+  thread id. **Needs `codex exec --help` on a real install** to confirm the resume shape (and where the `-`
+  stdin marker goes relative to it). Until then the refusal is the correct behaviour, not a placeholder.
+
+  _Decide alongside it — deliberately NOT done in CLI11:_ `IAgentSession` has **no capability query**, so a
+  UI written polymorphically over it discovers the refusal only at turn time (a wasted round trip and an error
+  state a "Continue" button could have been disabled for). Adding one is a CORE change to a released
+  interface, which is why it was not slipped into a provider commit. If codex turns out to support resume,
+  the question evaporates; if it does not, the choice is between a capability query on `IAgentSession` and
+  leaving the turn-time refusal as the only signal — an owner call, not a mechanical one.
+
+---
+
+## Part 25 — post-1.0 additive backlog (1.0 API review)
 
 _Additive / non-breaking items surfaced by the 1.0 adversarial API review + consumer-usage review (the
 working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISIONS.md` D21). None block
 1.0 — each is safe to add in a post-1.0 minor._
 
-- [ ] **async migration entry points** — `MigrateUpAsync(…, CancellationToken)` twins alongside the sync
-  `MigrationRunnerService.MigrateUp` (SQLite + Postgres), for apps owning their schema under
-  `SchemaMigration.None`.
-- [ ] **semantic-memory wiring helper** — a DI seam / `Use*` helper so an app enabling semantic recall
-  doesn't hand-construct `SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` /
-  `HttpEmbedder` (a consumer does this today). Those concrete types STAY public for 1.0.
-- [ ] **`AddMcpTools` convenience overload** — `params ITool[]` and/or document the
-  `await McpToolset.FromClientAsync` → `AddMcpTools` two-step as the intended shape.
-- [ ] **verdict helpers** — `reply.IsOk()` / `reply.IsRateLimited()` extension(s) to cut the 3-branch
-  `LlmVerdict` pattern at call sites.
-- [ ] **curated-memory ergonomics** — a `Source`/metadata convenience accessor (apps unpack
-  `metadata["source"]` by hand after CMEM6); reconsider the delete+re-add for immutable `kind`/`task`/`scope`.
-- [ ] **agent-event contract** — `ClaudeToolCalls.FilePathOf` should also read `notebook_path`/`path`;
-  consider a discoverable event-shape contract instead of anonymous objects apps reflect over.
-- [ ] **member/type XML docs** — `ExtensionsAiProvider` public ctor, `LyntaiChatClientExtensions` type
-  summary, `ClaudeCliProvider` interface members, `AddMcpTools` intended-shape doc.
+_The ergonomics batch (verdict helpers, the `AddMcpTools` overload, the agent-event contract, the
+curated-metadata accessor, the member/type docs) closed 2026-08-05 — see `docs/task-archive.md` Part 25 and
+`docs/DECISIONS.md` **D39**. The storage/wiring pair (async migration entry points, the semantic-memory
+wiring helper) closed 2026-08-05 too — `docs/DECISIONS.md` **D40**/**D41**. What is left below is the work
+that was never additive or never small._
+
+- [ ] **curated-memory: can `taskKey`/`scope` move in place?** — the half of the old "curated-memory
+  ergonomics" item that is NOT additive. The metadata accessor shipped 2026-08-05; re-scoping an entry still
+  means delete + re-add. Two reasons it was left rather than done (`docs/DECISIONS.md` D39):
+  - **It is a break, not an addition.** `kind` is already updatable (CMEM5); adding `taskKey`/`scope` means
+    new parameters on `ICuratedMemoryStore.UpdateAsync` — a signature change on a released interface that
+    every BYO implementation must follow. Out of scope for an additive batch; needs the D24 documented-break
+    route and its own commit.
+  - **It has an unanswered semantics question.** `(kind, content, taskKey, scope)` is the DEDUP IDENTITY of
+    `AddAsync(dedup: true)`, so moving one of those fields in place mutates identity and can silently produce
+    the duplicate the dedup contract promises not to. `kind` already has this hole. Settle all four together
+    — decide whether an identity-mutating update collides, refuses, or merges — rather than widening it by
+    two. Contract tests would then need a case per backend (`CuratedMemoryStoreContract`).
 - [ ] **`OpenAiCompatibleOptions.ContextSize` legibility** — Ollama-only option with a generic name; a
   rename (e.g. `OllamaContextSize`) is BREAKING, so it's a major-bump-or-never item — accepted as-is for
   1.0, revisit only if it causes real confusion.

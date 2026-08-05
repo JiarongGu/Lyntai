@@ -30,7 +30,11 @@ namespace Lyntai.Providers.CodexCli;
 /// </list>
 ///
 /// Tolerant: unknown/malformed lines (including codex's non-JSON <c>ERROR codex_api::…</c> tracing) become
-/// <see cref="CliOutputEvent.Ignored"/>, never a throw.</summary>
+/// <see cref="CliOutputEvent.Ignored"/>, never a throw.
+///
+/// The envelope's vocabulary and field reads live in <see cref="CodexEnvelope"/>, shared with
+/// <see cref="CodexAgentReader"/> so the completion path and the agent-session path cannot drift apart about
+/// what a line means.</summary>
 internal static class CodexJsonlParser
 {
     public static CliOutputEvent Parse(string line)
@@ -40,15 +44,12 @@ internal static class CodexJsonlParser
         {
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object ||
-                !root.TryGetProperty("type", out var typeEl) || typeEl.ValueKind != JsonValueKind.String)
-                return CliOutputEvent.Ignored;
 
-            return typeEl.GetString() switch
+            return CodexEnvelope.Type(root) switch
             {
-                "item.completed" => ParseItem(root),
-                "turn.completed" => CliOutputEvent.Result("", ReadUsage(root)),
-                "turn.failed" => CliOutputEvent.Failure(FailureMessage(root)),
+                CodexEnvelope.ItemCompleted => ParseItem(root),
+                CodexEnvelope.TurnCompleted => CliOutputEvent.Result("", ReadUsage(root)),
+                CodexEnvelope.TurnFailed => CliOutputEvent.Failure(CodexEnvelope.FailureMessage(root)),
                 // "error" is a NOTICE, not a verdict: codex logs its reconnect attempts this way and then
                 // succeeds. Swallowing it here is deliberate — turn.failed is the authority.
                 _ => CliOutputEvent.Ignored,
@@ -61,49 +62,22 @@ internal static class CodexJsonlParser
     }
 
     /// <summary>An <c>item.completed</c> is the answer only when the item is an <c>agent_message</c>; every
-    /// other item type (an <c>error</c> warning, a command/tool item) is chatter to the provider seam.</summary>
+    /// other item type (an <c>error</c> warning, a command/tool item) is chatter to the provider seam. The
+    /// agent-session path keeps those items — see <see cref="CodexAgentReader"/>.</summary>
     private static CliOutputEvent ParseItem(JsonElement root)
     {
-        if (!root.TryGetProperty("item", out var item) || item.ValueKind != JsonValueKind.Object)
-            return CliOutputEvent.Ignored;
-        if (!item.TryGetProperty("type", out var kind) || kind.ValueKind != JsonValueKind.String ||
-            kind.GetString() != "agent_message")
+        if (CodexEnvelope.Item(root) is not { } item ||
+            CodexEnvelope.StringField(item, "type") != CodexEnvelope.AgentMessageItem)
             return CliOutputEvent.Ignored;
 
-        var text = item.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String
-            ? textEl.GetString() ?? ""
-            : "";
+        var text = CodexEnvelope.StringField(item, "text") ?? "";
         return text.Length == 0 ? CliOutputEvent.Ignored : CliOutputEvent.Content(text);
     }
 
     /// <summary><c>{"usage":{"input_tokens":…,"cached_input_tokens":…,"output_tokens":…}}</c>. Codex reports no
     /// cost, so <see cref="LlmUsage.CostUsd"/> stays null rather than being invented from a token price.</summary>
-    private static LlmUsage? ReadUsage(JsonElement root)
-    {
-        if (!root.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object) return null;
-        return new LlmUsage(
-            Int(usage, "input_tokens"),
-            Int(usage, "output_tokens"),
-            Int(usage, "cached_input_tokens"));
-    }
-
-    /// <summary><c>turn.failed</c> nests its reason under <c>error.message</c>; fall back to a top-level
-    /// <c>message</c>, then to a generic line, so a reshaped envelope still yields a non-empty reason (an empty
-    /// failure message would classify as an unhelpful bare failure).</summary>
-    private static string FailureMessage(JsonElement root)
-    {
-        if (root.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object &&
-            error.TryGetProperty("message", out var nested) && nested.ValueKind == JsonValueKind.String &&
-            nested.GetString() is { Length: > 0 } message)
-            return message;
-        if (root.TryGetProperty("message", out var flat) && flat.ValueKind == JsonValueKind.String &&
-            flat.GetString() is { Length: > 0 } flatMessage)
-            return flatMessage;
-        return "codex reported the turn failed";
-    }
-
-    private static int Int(JsonElement parent, string name) =>
-        parent.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var value)
-            ? value
-            : 0;
+    private static LlmUsage? ReadUsage(JsonElement root) =>
+        CodexEnvelope.ReadUsage(root) is { } usage
+            ? new LlmUsage(usage.Input, usage.Output, usage.CacheRead)
+            : null;
 }

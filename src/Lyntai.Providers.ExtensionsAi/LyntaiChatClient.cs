@@ -134,6 +134,10 @@ internal sealed class LyntaiChatClient(ILlmClient client) : IChatClient
         };
 }
 
+/// <summary>The entry point to the REVERSE bridge — Lyntai as a <see cref="IChatClient"/>, rather than an
+/// <see cref="IChatClient"/> as a Lyntai provider (<see cref="ExtensionsAiProvider"/> is that direction).
+/// Use it to adopt Lyntai underneath code that already speaks Microsoft.Extensions.AI: the MEAI surface is
+/// unchanged, and routing, fallback, dead-host cooldown and the ops layer come along underneath it.</summary>
 public static class LyntaiChatClientExtensions
 {
     /// <summary>Expose this Lyntai composition as a Microsoft.Extensions.AI <see cref="IChatClient"/>.</summary>

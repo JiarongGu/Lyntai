@@ -293,21 +293,33 @@ public static class LyntaiDiagnostics
     }
 
     /// <summary>Tag a submission's span with the operation id — the handle a durable render is resumed by,
-    /// and the only way to correlate a trace with the backend's own dashboard.</summary>
+    /// and the only way to correlate a trace with the backend's own dashboard.
+    ///
+    /// <para>An INCONCLUSIVE submission (<see cref="GenerationOperation.Inconclusive"/>: no answer arrived, so
+    /// the backend may already be running a billable render) is tagged <c>Inconclusive</c> rather than
+    /// <c>Failed</c>. They are the same status but not the same incident — the operator investigating a
+    /// possible double charge needs something to search on, and a rejection they can ignore must not sit in
+    /// the same bucket as a submission nobody knows the fate of.</para></summary>
     internal static void RecordSubmission(Activity? activity, string backend, string kind,
-        string operationId, GenerationOperationStatus status, double elapsedSeconds)
+        string operationId, GenerationOperationStatus status, double elapsedSeconds,
+        bool inconclusive = false)
     {
+        var errorType = status == GenerationOperationStatus.Failed
+            ? inconclusive ? "Inconclusive" : "Failed"
+            : null;
+
         if (activity is not null)
         {
             if (operationId is { Length: > 0 }) activity.SetTag("lyntai.generation.operation_id", operationId);
             activity.SetTag("lyntai.generation.status", status.ToString());
-            if (status == GenerationOperationStatus.Failed) activity.SetStatus(ActivityStatusCode.Error);
+            if (inconclusive) activity.SetTag("lyntai.generation.inconclusive", true);
+            if (errorType is not null) activity.SetStatus(ActivityStatusCode.Error);
         }
 
         if (GenerationDuration.Enabled)
         {
             var tags = GenerationTags(backend, kind);
-            if (status == GenerationOperationStatus.Failed) tags.Add("error.type", "Failed");
+            if (errorType is not null) tags.Add("error.type", errorType);
             GenerationDuration.Record(elapsedSeconds, tags);
         }
     }

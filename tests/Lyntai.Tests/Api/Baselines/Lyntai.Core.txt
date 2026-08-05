@@ -560,6 +560,7 @@ sealed class Lyntai.Generation.GenerationOperation
     Equals(Object) : Boolean
     GetHashCode() : Int32
     Id : String
+    Inconclusive : Boolean
     IsTerminal : Boolean
     Progress : Nullable<Double>
     Status : GenerationOperationStatus
@@ -1338,6 +1339,7 @@ enum Lyntai.Llm.LlmVerdict
     AuthFailed : LlmVerdict const
     ContextWindowExceeded : LlmVerdict const
     Failed : LlmVerdict const
+    NotConfigured : LlmVerdict const
     Ok : LlmVerdict const
     RateLimited : LlmVerdict const
     Refused : LlmVerdict const
@@ -1349,6 +1351,10 @@ static class Lyntai.Llm.LlmVerdictClassifier
     static FromErrorText(String, LlmVerdict=) : LlmVerdict
     static FromException(Exception) : LlmVerdict
     static FromHttpFailure(HttpStatusCode, String) : LlmVerdict
+    static FromHttpFailure(HttpStatusCode, String, Boolean) : LlmVerdict
+static class Lyntai.Llm.LlmVerdictExtensions
+    static IsOk(LlmVerdict) : Boolean
+    static IsTransient(LlmVerdict) : Boolean
 sealed class Lyntai.Llm.ProviderAuthResult
     .ctor(Boolean, ProviderAuthStatus=, String=)
     Deconstruct(Boolean&, ProviderAuthStatus&, String&) : Void
@@ -1507,6 +1513,10 @@ sealed class Lyntai.LyntaiBuilder
     AddResponseCache(Action<CacheOptions>=) : LyntaiBuilder
     AddScorer() : LyntaiBuilder
     AddScorer(Func<IServiceProvider,IScorer>) : LyntaiBuilder
+    AddSemanticMemory() : LyntaiBuilder
+    AddSemanticMemory() : LyntaiBuilder
+    AddSemanticMemory(Func<IServiceProvider,IEmbedder>) : LyntaiBuilder
+    AddSemanticMemory(IEmbedder) : LyntaiBuilder
     AddTool() : LyntaiBuilder
     AddTool(Func<IServiceProvider,ITool>) : LyntaiBuilder
     AddUsageBudget(Action<BudgetOptions>=) : LyntaiBuilder
@@ -1749,6 +1759,8 @@ sealed class Lyntai.Storage.CuratedMemory
     TaskKey : String
     ToString() : String
     UpdatedAt : DateTimeOffset
+static class Lyntai.Storage.CuratedMemoryExtensions
+    static MetadataValue(CuratedMemory, String) : String
 static class Lyntai.Storage.CuratedMetadataJson
     static Deserialize(String) : IReadOnlyDictionary<String,String>
     static Serialize(IReadOnlyDictionary<String,String>) : String

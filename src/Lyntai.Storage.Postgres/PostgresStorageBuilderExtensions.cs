@@ -42,7 +42,9 @@ public static class PostgresStorageBuilderExtensions
                 factory = new PostgresConnectionFactory(connectionString);
                 break;
         }
-        return builder.UsePostgresStorage(factory, features);
+        // SchemaMigration.None means the APP owns the schema, so no feature toggle decides what exists —
+        // see the Governance note below for why that has to travel with the selection.
+        return WireStores(builder, factory, features, lyntaiMigrates: migration != SchemaMigration.None);
     }
 
     /// <summary>Wire every storage domain to PostgreSQL using an APP-SUPPLIED
@@ -54,8 +56,17 @@ public static class PostgresStorageBuilderExtensions
 
     /// <summary>As <see cref="UsePostgresStorage(LyntaiBuilder, IDbConnectionFactory)"/>, but registers only
     /// the SELECTED features' stores (feature toggles over an app-supplied factory).</summary>
-    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, IDbConnectionFactory factory, StorageFeature features)
+    public static LyntaiBuilder UsePostgresStorage(this LyntaiBuilder builder, IDbConnectionFactory factory, StorageFeature features) =>
+        // an app-supplied factory means Lyntai runs no migrations, so the Governance check does not apply
+        WireStores(builder, factory, features, lyntaiMigrates: false);
+
+    private static LyntaiBuilder WireStores(LyntaiBuilder builder, IDbConnectionFactory factory,
+        StorageFeature features, bool lyntaiMigrates)
     {
+        var selection = new PostgresFeatureSelection(features, lyntaiMigrates);
+        // a Governance-backed helper called BEFORE this one is caught here (see RequireGovernance)
+        VerifyGovernanceBackedCalls(builder, selection);
+        builder.Services.AddSingleton(selection);
         builder.Services.AddSingleton(factory);
         // Register only the selected features. Domain stores use TryAdd so an app that registers its OWN
         // impl (a BYO backend) wins — before OR after UsePostgresStorage — matching Lyntai.Storage.Sqlite /
@@ -84,31 +95,96 @@ public static class PostgresStorageBuilderExtensions
     // order). Each needs the connection factory + schema from UsePostgresStorage, so call that first.
 
     /// <summary>Back the response cache (<c>AddResponseCache</c>) with PostgreSQL (survives restarts, shared
-    /// across processes). Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, SchemaMigration)"/>.</summary>
+    /// across processes). Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, SchemaMigration)"/>,
+    /// including <see cref="StorageFeature.Governance"/> whenever Lyntai is the one migrating (see the
+    /// Governance note below).</summary>
     public static LyntaiBuilder UsePostgresResponseCache(this LyntaiBuilder builder)
     {
+        RequireGovernance(builder, nameof(UsePostgresResponseCache));
         builder.Services.AddSingleton<Lyntai.Llm.Caching.IResponseCache>(sp => new PostgresResponseCache(
             sp.GetRequiredService<IDbConnectionFactory>(), sp.GetRequiredService<LyntaiOptions>()));
         return builder;
     }
 
     /// <summary>Back usage accounting (<c>AddUsageBudget</c>) with PostgreSQL (persistent, shared spend).
-    /// Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, SchemaMigration)"/>.</summary>
+    /// Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, SchemaMigration)"/>, including
+    /// <see cref="StorageFeature.Governance"/> whenever Lyntai is the one migrating (see the Governance
+    /// note below).</summary>
     public static LyntaiBuilder UsePostgresUsageTracking(this LyntaiBuilder builder)
     {
+        RequireGovernance(builder, nameof(UsePostgresUsageTracking));
         builder.Services.AddSingleton<Lyntai.Llm.Budgeting.IUsageTracker>(sp => new PostgresUsageTracker(
             sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
     }
 
-    /// <summary>Back semantic-memory vectors (<c>AddEmbeddings</c>) with pgvector — the similarity search
+    /// <summary>Back semantic-memory vectors (<c>AddSemanticMemory</c> / <c>AddEmbeddings</c>) with
+    /// pgvector — the similarity search
     /// runs in the database (cosine <c>&lt;=&gt;</c> + SQL top-k), not brute-force in the app. Creates its
     /// <c>vector</c> extension + table lazily on first use (so this is the only thing that needs pgvector).
-    /// Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory.</summary>
+    /// Requires <see cref="UsePostgresStorage(LyntaiBuilder, string, SchemaMigration)"/> for the factory.
+    /// <para>Deliberately NOT subject to the <see cref="StorageFeature.Governance"/> check its SQLite
+    /// counterpart enforces: this store creates its own schema on first use rather than relying on the
+    /// Governance migration, so a feature subset omitting Governance leaves it perfectly functional.</para></summary>
     public static LyntaiBuilder UsePostgresVectorStore(this LyntaiBuilder builder)
     {
         builder.Services.AddSingleton<Lyntai.Memory.IVectorStore>(sp => new PostgresVectorStore(
             sp.GetRequiredService<IDbConnectionFactory>()));
         return builder;
+    }
+
+    // --- the Governance prerequisite, enforced at WIRING time -----------------------------------------
+    // lyntai_response_cache and lyntai_usage ship in the ONE Governance migration, so a feature subset
+    // omitting StorageFeature.Governance leaves the two helpers above registering stores over tables that
+    // were never created — and the app finds out at the first cached or metered call, not at startup.
+    // UsePostgresStorage's stated contract is that a disabled domain is simply not resolvable and that
+    // unresolvability IS the startup signal; these are the only calls that could break it, so they enforce
+    // it instead of degrading quietly. (lyntai_vector is exempt — PostgresVectorStore creates its own.)
+    //
+    // Order-independent by construction: the check needs BOTH the feature selection and the helper call, and
+    // an app may write them either way round, so each side records a sentinel in the service collection and
+    // verifies whatever the other side already recorded. Nothing ever resolves these sentinels.
+    // KEPT PARALLEL to the SQLite twin on purpose (see .claude/knowledge/storage.md) — the two backends'
+    // builder extensions are deliberately not deduplicated.
+    //
+    // It applies ONLY where Lyntai owns the schema, which is why the selection carries LyntaiMigrates. Under
+    // SchemaMigration.None or an app-supplied IDbConnectionFactory, Lyntai runs no migrations at all: the
+    // feature set no longer decides which tables exist, the app's own DDL does. Firing there would reject a
+    // wiring that has always worked, and the remedy the message offers — add StorageFeature.Governance —
+    // would create no table anyway.
+
+    private sealed record PostgresFeatureSelection(StorageFeature Features, bool LyntaiMigrates);
+
+    private sealed record PostgresGovernanceBackedCall(string Method);
+
+    private static void RequireGovernance(LyntaiBuilder builder, string method)
+    {
+        builder.Services.AddSingleton(new PostgresGovernanceBackedCall(method));
+        if (Selection(builder) is { } selection) VerifyGovernance(selection, method);
+    }
+
+    private static void VerifyGovernanceBackedCalls(LyntaiBuilder builder, PostgresFeatureSelection selection)
+    {
+        foreach (var descriptor in builder.Services
+                     .Where(d => !d.IsKeyedService && d.ServiceType == typeof(PostgresGovernanceBackedCall))
+                     .ToList())
+            VerifyGovernance(selection, ((PostgresGovernanceBackedCall)descriptor.ImplementationInstance!).Method);
+    }
+
+    // the LAST selection wins, matching UsePostgresStorage's own last-registration-wins factory
+    private static PostgresFeatureSelection? Selection(LyntaiBuilder builder) =>
+        builder.Services.LastOrDefault(d => !d.IsKeyedService && d.ServiceType == typeof(PostgresFeatureSelection))
+            ?.ImplementationInstance as PostgresFeatureSelection;
+
+    private static void VerifyGovernance(PostgresFeatureSelection selection, string method)
+    {
+        if (!selection.LyntaiMigrates) return;   // the app owns the schema — no migration was going to run
+        if (selection.Features.HasFlag(StorageFeature.Governance)) return;
+        throw new InvalidOperationException(
+            $"{method} needs StorageFeature.Governance, but UsePostgresStorage was called with a feature set that " +
+            "omits it. Governance carries the response-cache and usage tables (lyntai_response_cache / " +
+            "lyntai_usage), so the store would be registered over a table that was never created and the failure " +
+            $"would surface at the first call instead of here. Add StorageFeature.Governance to the " +
+            $"UsePostgresStorage feature set, or drop the {method} call.");
     }
 }

@@ -18,6 +18,10 @@ public sealed class RoutingPolicy
         [LlmVerdict.RateLimited] = FallbackAction.CooldownAndAdvance,
         [LlmVerdict.AuthFailed] = FallbackAction.CooldownAndAdvance,
         [LlmVerdict.ContextWindowExceeded] = FallbackAction.Advance,
+        // "never set up" is not a fault and not a rejected credential — advance WITHOUT blame. Mapped
+        // explicitly because the ActionFor fallback is PenalizeAndAdvance: an unmapped NotConfigured would
+        // still count toward the dead-host threshold, which is the whole thing this verdict exists to avoid.
+        [LlmVerdict.NotConfigured] = FallbackAction.Advance,
         [LlmVerdict.Refused] = FallbackAction.Surface,
         // a capability/transport gap (not a host fault) surfaces like Refused — another candidate has the
         // same limitation, so advancing would just churn — but stays a distinct verdict for telemetry.

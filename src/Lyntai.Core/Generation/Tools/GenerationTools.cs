@@ -299,7 +299,28 @@ public sealed class GenerationSubmitTool(
             GenerationToolJson.Candidates(named, options.DefaultCandidates), request, ct).ConfigureAwait(false);
 
         if (submission.Operation.Status == GenerationOperationStatus.Failed)
-            return GenerationToolJson.Error(submission.Operation.Detail ?? "no backend accepted the request");
+            // An INCONCLUSIVE submission is the one failure a model must not react to in its usual way. Its
+            // default move after a tool error is to call the tool again — and here that re-submits work a
+            // backend may already be running and billing for, walking straight around the router's refusal to
+            // try a second candidate. So this observation INSTRUCTS rather than informs: it names the backend
+            // (the id the router deliberately kept), forbids the retry, and points at the tool that can settle
+            // the question instead. The machine-readable flag rides alongside so a host can branch on it
+            // without parsing prose.
+            return submission.Operation.Inconclusive
+                ? GenerationToolJson.Write(writer =>
+                {
+                    writer.WriteBoolean("ok", false);
+                    writer.WriteBoolean("inconclusive", true);
+                    writer.WriteString("backend", submission.ProviderId);
+                    writer.WriteString("error",
+                        $"The submission to '{submission.ProviderId}' got no answer, so that backend MAY " +
+                        $"ALREADY be running this generation and billing for it. {submission.Operation.Detail} " +
+                        "DO NOT retry this submission: calling generate_submit again for this request buys the " +
+                        "same generation twice. Tell the user it may be running at " +
+                        $"'{submission.ProviderId}' so they can check, and use generate_status instead if you " +
+                        "already hold an operationId for it.");
+                })
+                : GenerationToolJson.Error(submission.Operation.Detail ?? "no backend accepted the request");
 
         return GenerationToolJson.Write(writer =>
         {

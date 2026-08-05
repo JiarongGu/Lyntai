@@ -13,6 +13,27 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 ## Unreleased
 
 ### Added
+- **`CodexAgentSession` — the agent-session shape is no longer claude-only.** `AddCodexCliAgentSession()`
+  registers an `IAgentSession` that drives `codex exec --json` and streams the agent's **tool steps**, so an
+  app that shows tool activity can offer both CLI backends through one shape instead of hand-parsing codex's
+  JSONL. Both `Add*CliAgentSession` extensions now also register **keyed** by provider id
+  (`GetRequiredKeyedService<IAgentSession>("codex-cli")` / `"claude-cli"`), so registering both no longer
+  makes the unkeyed resolve depend on registration order.
+  **Read the honesty note before adopting** (`docs/DECISIONS.md` **D42**): the message/usage/terminal half of
+  the mapping is MEASURED against codex-cli 0.146.0, the **tool-step half is INFERRED** — the measured run
+  used no tools. It is written shape-driven, which bounds the cost of a wrong guess to two things: **no
+  payload is invented or dropped** (a tool step carries codex's own item-type name and its raw item object,
+  nothing renamed or normalised) and **every uncertainty stays in the tool-step half**. It does NOT guarantee
+  the right KIND of event — the tool arm is reached by elimination against three names, so a non-tool item we
+  don't recognise arrives as a fabricated `ToolCall`. Treat a tool step's **kind as provisional, its payload
+  as reliable**, and switch on `ToolCall.Name`. Not
+  emitted, because codex has no analogue: `UsageLive`, `SessionEnded.Subtype`, `UsageFinal.Model`, and
+  token-level text deltas (a `TextDelta` is one whole assistant message). `ResumeToken` is **refused** with
+  `LlmVerdict.Unsupported` and no spawn rather than guessed — `codex [OPTIONS] [PROMPT]` reads an unrecognized
+  subcommand as a prompt, so a wrong guess would silently spend a turn; `DisallowedTools` is logged as
+  unhonoured (codex's gate is the sandbox); `SystemPrompt` travels as a leading block of the prompt.
+  Internally both codex paths now build argv from one source, so `--skip-git-repo-check` — the flag whose
+  absence works in a dev git repo and breaks in a shipped bundle — cannot go missing from one of them.
 - **Provider lifetime as a library seam (`Lyntai.Lifecycle`)** — for the app whose backend configuration is
   owned **outside** the deployment (an end user, or a store the process polls), where several configurations
   of one backend are live at once and any of them can change mid-render. `IProviderPool<TProvider>` takes a
@@ -57,8 +78,147 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   resolution does not walk base interfaces. The only caveat is source-level and rare — a consumer that
   implemented `Id` *explicitly* (`string ILlmProvider.Id => …`) must now also implement
   `IProviderIdentity.Id`; implicit implementation is unaffected.
+- **Call-site verdict predicates — `verdict.IsOk()` and `verdict.IsTransient()`** (`LlmVerdictExtensions`).
+  They hang off `LlmVerdict` itself, not off `LlmReply`, so the five released types that carry a verdict
+  (`LlmReply`, `LlmChunk`, `SessionEnded`, `AgentSessionResult`, `ToolLoopResult`) share one definition.
+  Deliberately **categories, not one method per member**: the enum grows (`NotConfigured` was appended after
+  the 1.0 freeze), so an `IsRateLimited`/`IsRefused`/… set would make every future verdict a public-surface
+  addition and leave the newest one as the only member without a helper — while `verdict == LlmVerdict.RateLimited`
+  already expresses a single member perfectly. `IsTransient()` answers "may the SAME request succeed later?"
+  — true for `Failed`/`Timeout`/`RateLimited`, false for everything terminal as sent (and for an unknown
+  value, so an unrecognized verdict can never provoke a retry loop). **Known over-report, documented on the
+  method:** `Failed` is also the classifier's catch-all, so an unrecognized PERMANENT error (a 400 whose body
+  matches no pattern) reads transient. Kept deliberately — `RoutingPolicy.Retry` already re-sends to the same
+  candidate only for `Failed`/`Timeout`, and a call-site predicate contradicting the router's own retry rule
+  would be worse. Treat it as "worth one BOUNDED attempt", not as a licence to loop. See
+  `docs/DECISIONS.md` **D39**.
+- **`CuratedMemory.MetadataValue(key)`** — the null-safe read of the curated-memory metadata map, which is
+  `null` on every entry written without any, so `entry.Metadata!["source"]` both throws on a missing key and
+  NREs on the common case. Generic on purpose: CMEM6 retired the purpose-built `Source`/`Title` columns into
+  one arbitrary map so a new payload field needs no schema or API change, and a typed accessor per key would
+  re-privilege the same handful of names one layer up.
+- **`AddMcpTools(params ITool[])`** — an inline overload beside the existing sequence one, for a hand-picked
+  subset of a server's toolset or a BYO `ITool` alongside them. The sequence overload remains the one
+  `McpToolset.FromClientAsync`'s result flows into, and its documentation now states the two-step
+  connect-then-adapt shape as intentional: connecting an MCP client is async and its lifetime outlives
+  registration, so the app owns the client and hands Lyntai only the adapted tools.
+- **Member and type documentation** on surface the 1.0 review found bare: `ExtensionsAiProvider`'s
+  constructor parameters and its `IsAvailable`/`SupportsToolCalls` (why both are unconditionally true),
+  `LyntaiChatClientExtensions` (which direction of the MEAI bridge it is), `McpBuilderExtensions`, and
+  `ClaudeCliProvider.ProviderId`.
+- **`MigrationRunnerService.MigrateUpAsync(…, CancellationToken)`** on both storage backends — the awaitable
+  twin an app owning its schema (`SchemaMigration.None`) calls from an async startup path, instead of a
+  `GetAwaiter().GetResult()`. **Read what it promises before reaching for it**, because FluentMigrator's
+  runner is synchronous and takes no token: the migration runs **inline on the calling thread** (no
+  `Task.Run` — that would occupy a pool thread for the whole migration *and* still be uncancellable), and
+  the token is honoured at the only two points that exist — **before any work** (a cancelled token leaves
+  the SQLite file uncreated / never dials the Postgres connection string) and **between feature passes**.
+  Under the default `StorageFeature.All` there is exactly one pass, so there it means "before starting"
+  only. A pass in flight cannot be cancelled. See `docs/DECISIONS.md` **D40**.
+- **`b.AddSemanticMemory(…)`** — the wiring seam for semantic recall, so an app enabling it composes with
+  builder calls instead of hand-constructing a vector store, a connection factory and an embedder. Overloads
+  mirror `AddEmbeddings` (instance / factory / by type), plus a no-argument one for when the embedder arrives
+  from elsewhere (`AddOpenAiCompatibleEmbedder`, or a host registration made before `AddLyntai`). Its real
+  value is that it **states the intent**: semantic memory was previously enabled purely as a side effect of
+  an `IEmbedder` being registered, so forgetting one registered no `ISemanticMemory` at all and every recall
+  path skipped it in silence. `AddLyntai` now throws at composition instead. Everything stays substitutable —
+  the vector store and `ISemanticMemory` are still `TryAdd`-registered, so a host's own registration wins,
+  and the concrete stores stay public for the hand-wired path. Persist the vectors with the existing
+  `UseSqliteVectorStore()` / `UsePostgresVectorStore()`; `UseSqliteVectorStore`'s documentation now names the
+  non-obvious prerequisite that `lyntai_vector` ships under `StorageFeature.Governance`. See
+  `docs/DECISIONS.md` **D41**.
+
+### Fixed
+- **The HTTP generation backends now have the per-call deadline their infinite `HttpClient` timeout was already
+  resting on** (`TASKS.md` GEN11). 2.1.0's `Add*` shims register a client with `Timeout.InfiniteTimeSpan`
+  because a render routinely outlives the 100-second default — but no deadline existed to take over:
+  `GenerationRequest.TimeoutSeconds` was on the contract and **read by nothing**, so a backend that accepted the
+  connection and then stalled hung until the caller's token fired, and a background render with no cancel waited
+  forever. Unbounded and silent is worse than the cut-off it replaced. Each of `OpenAiImageOptions`,
+  `Automatic1111Options`, `ComfyUiOptions` and `FalQueueOptions` now carries a **`Timeout`** — 10 minutes for the
+  inline render backends, 2 minutes for the queue ones — overridden per call by `GenerationRequest.TimeoutSeconds`
+  where a request exists, and opted out of with `Timeout.InfiniteTimeSpan`. A fired deadline is a
+  **`GenerationVerdict.Timeout` result, not a throw** (these backends are contractually fail-safe), while the
+  caller's own cancellation still propagates as `OperationCanceledException` — the two are told apart by the
+  caller's token, the same discriminator `OpenAiCompatibleProvider` uses on the LLM side. A BYO client's own
+  `HttpClient.Timeout` now also surfaces as that verdict instead of escaping as `TaskCanceledException`.
+- **What a deadline means for the queue backends is now stated rather than assumed.** For `FalQueueProvider` and
+  `ComfyUiProvider` it bounds **one HTTP call** — submit, status, fetch, cancel — never the render, which
+  outlives every individual call and is polled across job re-dispatches and process restarts by
+  `GenerationRenderJobHandler`; bounding the whole operation is the job's retry budget to do, not the provider's.
+  Consequently a timed-out **status poll reports the operation as still `Running`**: no answer is not a failed
+  render, and reading it as terminal would abandon a submitted (and billed) generation. A timed-out **submit**
+  fails with a detail saying the request may still have been enqueued.
+- Probes (`OpenAiImageProvider`, `Automatic1111Provider`, `ComfyUiProvider`) are bounded by the same option — with
+  the shim's infinite client they could otherwise stall indefinitely against a host that accepts connections.
+- **A submission that gets no answer no longer causes a second, paid submission elsewhere.** `GenerationOperation`
+  gained an additive **`Inconclusive`** flag for the one case the `Failed` status cannot express: *the backend
+  never answered, so nobody knows whether it took the work*. `GenerationRouter.SubmitAsync` now **surfaces** such a
+  submission — carrying the provider id, so the caller learns who might hold it — instead of advancing to the next
+  candidate, which would buy the same render twice; and it does not count it against dead-host cooldown, because
+  no answer is no evidence of ill health. The status stays `Failed`, so every existing status check behaves
+  exactly as before. `GenerationRenderJobHandler` fails such a job with the backend **named** and says it is
+  deliberately not retried, since a duplicate submission is a duplicate charge. This is the same reasoning that
+  makes a timed-out poll report `Running`, applied to the call that commits the money.
+- **The agent tool no longer invites the retry the router just refused.** `generate_submit` reported a failure
+  with the operation detail alone, dropping the `ProviderId` — and a model's default reaction to a tool error is
+  to call the tool again, which re-submits work a backend may already be billing for. That path has no human in
+  it, so it is the one that mattered most. An inconclusive submission now returns an observation that *instructs*:
+  it names the backend, says plainly not to retry and why, points at `generate_status` as the alternative, and
+  carries an `inconclusive: true` flag so a host can branch without parsing prose.
+- Telemetry distinguishes the two: `RecordSubmission` tags an inconclusive submit `error.type = "Inconclusive"`
+  (plus `lyntai.generation.inconclusive` on the span) rather than lumping it in with `"Failed"`. Same status, but
+  not the same incident — an operator investigating a possible double charge needs something to search on.
 
 ### Changed
+- **A Governance-backed `Use*` helper now fails at WIRING time when `StorageFeature.Governance` is toggled
+  off**, instead of registering a store over a table that was never created. `lyntai_response_cache`,
+  `lyntai_usage` and `lyntai_vector` all ship in the one Governance migration, so
+  `UseSqliteResponseCache` / `UseSqliteUsageTracking` / `UseSqliteVectorStore` (and the two Postgres
+  equivalents) were the only calls that could break `Use*Storage`'s own stated rule — a disabled domain is
+  simply unresolvable, and that unresolvability *is* the startup signal. **What you observe:** if you call
+  `UseSqliteStorage(path, StorageFeature.Memory)` and then `UseSqliteVectorStore()`, you now get an
+  `InvalidOperationException` at `AddLyntai` naming the offending call and the feature to add, where you
+  previously got a container that built cleanly and threw "no such table: lyntai_vector" at the first
+  recall. The check is order-independent (either call may come first) and fires only on a configuration
+  that was already broken — the default `StorageFeature.All` includes Governance, so existing wiring is
+  untouched. It also applies **only where Lyntai owns the schema**: under `SchemaMigration.None` or an
+  app-supplied `IDbConnectionFactory` no migration was going to run, the feature set never decided which
+  tables exist, and adding `StorageFeature.Governance` would create nothing — so those wirings are left
+  alone. `UsePostgresVectorStore` is deliberately exempt too: `PostgresVectorStore` creates its own schema
+  lazily, so it works with or without the Governance migration.
+- **An unconfigured LLM backend is skipped, not benched — `LlmVerdict.NotConfigured`.** When an
+  OpenAI-compatible endpoint answers 401/403 to a call that carried **no** credentials,
+  `OpenAiCompatibleProvider` now reports the new `LlmVerdict.NotConfigured` instead of `AuthFailed`, and the
+  default `RoutingPolicy` maps it to `FallbackAction.Advance`. **What you observe:** a candidate you listed
+  but never configured is skipped with no cooldown and no dead-host penalty, where it previously benched that
+  provider for the whole cooldown window on every first attempt; when everything is unconfigured, the
+  surfaced verdict now says so, which a host can turn into a setup prompt. A key that WAS supplied and got
+  rejected still reports `AuthFailed` and still cools the host — the two cases were indistinguishable before.
+  It is deliberately not "a key is required": a locally-run OpenAI-compatible server (LM Studio, vLLM,
+  Ollama) legitimately needs none, so only the server *demanding* one makes a missing key a configuration
+  gap. This closes the asymmetry with the generation domain, which already drew the same distinction
+  (`GenerationVerdict.NotConfigured`, 2.0.1); both domains now answer the same situation the same way.
+  Also exposed as `LlmVerdictClassifier.FromHttpFailure(status, body, hasCredentials)` for a custom provider,
+  and `GenerationVerdictClassifier` no longer flattens a `NotConfigured` from the shared corpus to `Failed`.
+  - **If you switch on `LlmVerdict`:** the enum gained a member (appended last, so existing members keep
+    their numeric values — binary-compatible, and a compiled consumer keeps working). A **non-exhaustive
+    `switch` expression** over `LlmVerdict` will now raise **CS8509** in your build — a warning, not an
+    error. Code that treated the old `AuthFailed` as "check your API key" should handle `NotConfigured` as
+    "no API key is set" rather than falling into its default branch.
+  - **A blameless verdict no longer masks a real failure in the reported reply.** Introducing a verdict that
+    advances without blame exposed a second-order bug: `LlmRouter` remembered the last failure
+    unconditionally, so for candidates `[a host that is down → Failed, one you never configured →
+    NotConfigured]` you were told **"not configured"** and sent to set up a key while the backend you *had*
+    configured was the actual problem. `NotConfigured` and `Unsupported` are now remembered separately on
+    both the streaming and non-streaming paths and reported only when there was no real failure at all —
+    the guard `GenerationRouter` already had. **Unchanged:** which substantive failure wins (still the last
+    one attempted), and `ContextWindowExceeded` still surfaces normally — "your prompt is too big" is a real
+    answer. When every candidate is unconfigured you still get `NotConfigured`, not a generic error.
+  - **`HttpEmbedder` deliberately unchanged in behaviour:** an embedding call has no verdict and no
+    fallback — it throws — so there is nothing for it to route around. Its 401 message now says
+    `(not configured: no ApiKey)` when no key was supplied, so a host can tell setup from a rejected key.
+    Message only; the exception type is still `HttpRequestException`.
 - `LlmRouter` and `GenerationRouter` gained two **optional** trailing constructor parameters (`configuration`,
   `admission`). Source-compatible — existing constructions compile and behave identically — but **not binary
   compatible**: a pre-compiled consumer calling the old constructor gets `MissingMethodException` until it

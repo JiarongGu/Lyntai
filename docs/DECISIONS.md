@@ -448,6 +448,297 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
 
+## D42 — the agent-session shape is NOT claude-only, but the codex half is half-measured: ship the honest subset, mark the inference, refuse the unmeasurable (2026-08-05)
+`CodexAgentSession` closes CLI11 (a consuming desktop chat UI wanted to delete its hand-rolled
+`codex exec --json` parsing and could not, because the codex backend offered only the router shape). Recorded
+because the interesting part is not that it was built — it is *which half* was built, and why the other half
+is marked rather than either faked or withheld.
+
+**The finding: the shapes correspond only PARTIALLY, and the split is measured-vs-unmeasured, not
+conceptual.** `AgentStreamEvent` needed no new case and lost none, so this is not "claude-only by design":
+every event codex can produce fits, and everything codex emits that the union has no case for is legitimately
+droppable. But the two halves of the mapping have very different standing.
+
+- **MEASURED** (from the codex-cli 0.146.0 capture behind `CodexJsonlParser`): `thread.started` →
+  `SessionStarted`; `agent_message` → `TextDelta` + the final text; `turn.completed` → `UsageFinal` +
+  `SessionEnded(Ok)`; `turn.failed` → the classified error terminal; the non-terminal rule for a bare `error`
+  line and an `error` ITEM; the `exec` argv including `--skip-git-repo-check`; the `--sandbox` values.
+- **INFERRED** — every tool step, which is *the entire reason the agent-session shape exists*. The measured
+  run used **no tools**, so `item.started`, the tool item types and their fields have never been observed
+  here.
+- **Absent in codex, so simply not emitted**: `UsageLive` (no per-turn tick — the counts arrive once, at
+  `turn.completed`), `SessionEnded.Subtype`, `UsageFinal.Model` (the thread events carry no model id; echoing
+  back the REQUESTED model would report a request as an observation), and token-level text deltas — a
+  `TextDelta` here is one whole assistant message.
+- **Carried by codex with nowhere to go**: `reasoning_output_tokens`, dropped rather than folded into
+  `OutputTokens`, because whether `output_tokens` already includes it is unmeasured and adding it would
+  double-count if it does.
+
+**Why "documented-not-measured" is not the GEN-VERIFY violation it looks like.** That rule exists because a
+guessed surface *presents as knowledge*. The fix here is to BOUND what a wrong guess can cost: the tool
+mapping is **shape-driven, not name-driven**. Any item whose type is not one of the three recognised
+message-ish names is surfaced as a tool step under **codex's own item-type name**, with **codex's own item
+object** as `ArgumentsJson`/`Content`. Nothing is renamed or normalised, so a codex release that adds or
+renames a tool item still flows through, and there is deliberately **no `CodexToolCalls`** helper — the
+claude twin parses argument names this repo has measured, and inventing the codex equivalent would be
+guessing field names. Where codex emits no `item.started`, the `ToolCall` is **synthesised from the
+completion** (correlated by item id, never twice), so the step stays visible whichever way that detail falls.
+
+**And state the guarantee's LIMIT, because the first draft of this entry overclaimed it.** "A wrong guess
+costs fewer events, never wrong ones" is false, and its own inferred set falsifies it. What the mapping
+actually guarantees is two things: **no payload is invented or dropped**, and **every uncertainty is confined
+to the tool-step half** (session id, terminal and usage are measured and unaffected). It does *not* guarantee
+the right KIND of event, because the tool arm is reached by **elimination** against three names, one of which
+(`reasoning`) is itself a guess. So a renamed `reasoning` becomes a fabricated `ToolCall` carrying the model's
+thought as its arguments; a `todo_list`-style plan update becomes one too; a rename of `agent_message` would
+cost `TextDelta` *and* `FinalText` *and* emit the answer as a tool step. Each contradicts `ToolCall`'s own
+contract ("the agent invoked a tool"), so this is a semantics violation, not a taste one. Same shape on the
+failure side: `ToolResult.IsError: false` is a *positive claim of success*, not "unknown", so a nested or
+differently-named failure signal reads as a successful step — chosen over defaulting to `true`, which would
+mark every successful step of an unmeasured shape as failed. The honest instruction to a consumer is
+therefore **"a tool step's KIND is provisional, its PAYLOAD is reliable — switch on `ToolCall.Name`"**, and
+that is what the XML docs, the README and CLI12 now say. The general lesson: when marking a region INFERRED,
+state what the containment actually buys, because a safety claim that overreaches is itself a
+documented-not-measured surface.
+
+**Resume is REFUSED, not ignored and not guessed.** `AgentSessionOptions.ResumeToken` yields a single
+`SessionEnded(Unsupported)` **without spawning**. Guessing a resume subcommand is unusually expensive on this
+CLI: `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a PROMPT, so a wrong guess silently spends
+a turn answering the thread id. Silently ignoring it is worse in the other direction — a multi-turn chat would
+start a FRESH session and lose its history with no signal at all. Refusing is the only option that neither
+lies nor costs money. Same reasoning as `TryBuildLoginArgs` refusing an account-kind codex does not have.
+`DisallowedTools` is logged as unhonoured (codex's gate is the sandbox, not a deny list) and `SystemPrompt`
+travels as a leading block of the prompt (codex `exec` has no measured flag for one).
+
+**One structural fix came out of this and is the durable part**: both codex paths now build their argv from
+`CodexExecArgs`. `--skip-git-repo-check` is the flag the consuming app dropped — codex refuses to run outside
+a git repository, so omitting it WORKS on a developer's machine and breaks in a shipped bundle. A second copy
+of that argv is a second chance to lose it, and the agent session runs in the *caller's* directory, which is
+exactly where "it's a repo on my machine" is most tempting. `CodexEnvelope` does the same for the
+non-terminal-`error` rule. Both defects the consumer hit are now structurally shared rather than
+re-implemented, and both mutation-checked.
+
+**Known and deliberately not refactored:** what `CodexEnvelope` shares is the *vocabulary*, not the
+*decision*. The terminality rule is still enforced in two places — `CodexJsonlParser`'s `_ => Ignored` and
+`CodexAgentReader`'s switch-without-default each independently drop a bare `error`. Two call sites agreeing
+by construction is enough for two readers; it stops being enough at a third codex path, which is when the
+decision itself should move into `CodexEnvelope`. Recorded so that moment is recognised rather than
+rediscovered.
+
+## D41 — semantic memory gets a NAME so its absence is loud; the wiring stays three substitutable calls (2026-08-05)
+The Part 25 item asked for a `Use*` helper so an app enabling semantic recall stops hand-constructing
+`SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` / `HttpEmbedder`. Auditing
+the four showed each already had a builder call — `UseSqliteStorage` (which registers the curated store and,
+under `SchemaMigration.OnFirstUse`, the migrating factory), `UseSqliteVectorStore`, and
+`AddOpenAiCompatibleEmbedder`, the last two of which post-date the consumer code the review looked at. So the
+hand-construction was **stale**, not unavoidable, and a composite super-call would have been sugar over
+calls that already exist.
+
+**The real defect was that semantic memory had no NAME in the API.** Every other optional feature is a
+declared call — `AddResponseCache`, `AddUsageBudget`, `AddRateLimit`, `AddLiveModelRouting`. Semantic memory
+was enabled purely as a *side effect* of an `IEmbedder` happening to be in the collection, which makes the
+failure silent in the worst way: no embedder → `RegisterSemanticMemory` registers nothing → `IPromptComposer`
+and `ChatOrchestrator` resolve a null `ISemanticMemory` and skip semantic recall on **every turn**, with no
+exception, no log, and a container that builds fine. So `AddSemanticMemory(…)` was added, and its main job is
+to record intent: `AddLyntai` now throws when the intent is declared and no embedder reached the container,
+next to the existing pre-registered-`ILlmClient` contradiction guards.
+
+- **Overloads mirror `AddEmbeddings`** (instance / factory / by type) so the common path is one call, plus a
+  no-argument overload for "my embedder comes from `AddOpenAiCompatibleEmbedder` or from the host".
+- **It constructs no embedder.** An embedder is BYO by design and a defaulted `HttpEmbedder` would point at
+  nothing; the guard is the alternative to guessing.
+- **Nothing became mandatory.** The vector store and `ISemanticMemory` stay `TryAdd`-registered (a host's own
+  registration still wins), the concrete stores stay public, and `AddEmbeddings` alone still works exactly as
+  before — this is additive sugar, not a replacement.
+- **REJECTED: a `UseSqliteSemanticMemory()` composite** that would call `UseSqliteVectorStore()` plus the
+  intent. It is a one-line alias that earns no keep, and the same helper covering the embedder too would have
+  forced `Lyntai.Storage.Sqlite` → `Lyntai.Providers.Default`, i.e. adapter-to-adapter (`D31`/`D3`). The
+  storage half and the embedder half belong to different packages and must stay two calls.
+**AMENDED same day — the `Governance` trap is GUARDED, not merely documented.** The first cut documented it
+in three places: `lyntai_vector` ships under `StorageFeature.Governance` (with the response cache and usage
+ledger), so a subset omitting Governance registers `SqliteVectorStore` over a table that was never created
+and the app finds out at the first recall. Review pointed out that this is inconsistent by this very
+change's own standard — the same commit had just decided that silent degradation discovered late was worth a
+**throw** for semantic memory — and that `UseSqliteStorage`'s own documentation states the house rule the
+helper was breaking: *a disabled domain's store isn't resolvable, and that unresolvability is the startup
+signal that a disabled feature is being used*. Prose a misconfiguring host will never read is not a fix.
+So the rule is now enforced:
+
+- **All five Governance-backed helpers check, not just the one that was reported** — `UseSqlite`
+  `{ResponseCache,UsageTracking,VectorStore}` and `UsePostgres{ResponseCache,UsageTracking}`. Guarding only
+  the reported one would have reproduced the same inconsistency one level down; `lyntai_response_cache` and
+  `lyntai_usage` are in the identical migration.
+- **`UsePostgresVectorStore` is deliberately EXEMPT.** `PostgresVectorStore` creates its `vector` extension
+  and table lazily on first use, outside the migration, precisely so pgvector isn't forced on consumers who
+  never use semantic memory — so it works with or without Governance. Don't "fix" the asymmetry.
+- **The check is ORDER-INDEPENDENT.** It needs both the feature selection and the helper call, and an app may
+  write them either way round, so each side records a sentinel `ServiceDescriptor` (nothing ever resolves
+  them) and verifies whatever the other side already recorded. A guard defeated by swapping two builder lines
+  is not a guard; a test pins the reverse order.
+- **No public surface changed**, and the throw fires only on a configuration that was already broken —
+  `StorageFeature.All` includes Governance, so every existing wiring is untouched. The message names the
+  offending call and the feature to add, matching the `AddSemanticMemory` throw's shape so the two read as
+  one rule.
+- **AMENDED by the whole-branch review: the guard applies only where LYNTAI OWNS THE SCHEMA.** The first cut
+  checked the feature flags and nothing else, so it also fired under `SchemaMigration.None` and over an
+  app-supplied `IDbConnectionFactory` — the two documented paths on which Lyntai runs no migrations at all
+  (that overload's own doc says *"Lyntai runs no migrations here; own the schema"*). That is a regression on
+  a working configuration: an app that created `lyntai_vector` itself and passed a narrow feature set now
+  failed at startup, and the remedy the message offered was useless there, because adding
+  `StorageFeature.Governance` creates no table when nothing migrates. The premise — *Lyntai was going to
+  create this table and your feature set stopped it* — is simply false when Lyntai was never going to create
+  anything. So schema ownership now travels WITH the selection (`SqliteFeatureSelection` /
+  `PostgresFeatureSelection` carry a `LyntaiMigrates` flag recorded by the wiring call that knows the answer)
+  rather than being re-derived, and the verification returns early when it is false. Both directions are
+  pinned by tests, in both call orders — the skip has to be as order-independent as the throw.
+
+## D40 — an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else (2026-08-05)
+Part 25 asked for `MigrateUpAsync(…, CancellationToken)` twins beside the sync `MigrationRunnerService.MigrateUp`
+on both backends, for apps owning their schema under `SchemaMigration.None`. **FluentMigrator's runner is
+synchronous and its `MigrateUp()` takes no token** — there is no async entry point and nothing reaches the DDL
+execution. That constrains what the twin can truthfully offer, and the constraint is the decision:
+
+- **REJECTED: `Task.Run(() => MigrateUp(...))`.** It is worse than not shipping the method. It occupies a
+  thread-pool thread for the entire duration of a schema migration, it cannot cancel anything, and it makes a
+  caller who cancels believe the migration stopped. A decorative `async` is a lie with a signature.
+- **The migration runs INLINE on the calling thread.** SQLite's twin is `async` because its pragma seed is
+  real ADO.NET (mirroring `SqliteConnectionFactory.OpenAsync`); Postgres has no await point at all on this
+  path and returns an already-completed task, faults funnelled through `Task.FromException` /
+  `Task.FromCanceled` so a `Task`-returning method never throws synchronously. `AsyncMigrationTests` pins the
+  no-offload property so nobody "improves" it into a `Task.Run` later.
+- **The token is honoured at the only two points that exist:** before any work — a cancelled token leaves the
+  SQLite file uncreated and never dials the Postgres connection string — and between feature passes, each of
+  which is a separate runner invocation whose applied versions the version table has already committed. Under
+  the default `StorageFeature.All` there is exactly **one** pass, so there the token degenerates to "before
+  starting". Both XML docs say this in as many words, under explicit *what it can do* / *what it cannot do*
+  headings, because the whole hazard is a caller assuming more.
+- **What it is genuinely for:** composing in an async startup path (`IHostedService.StartAsync`) without
+  `GetAwaiter().GetResult()`, and refusing to start work a cancelled startup already abandoned. That is a
+  small, real benefit — and it is the entire benefit.
+- **Mid-pass cancellation stays impossible** until FluentMigrator itself offers a token. Do not simulate it by
+  killing the connection: a half-applied DDL pass with a committed version row is a corrupted schema, which is
+  strictly worse than a migration that finished.
+
+## D39 — the post-1.0 ergonomics batch: category predicates over per-member helpers, and two halves left open on purpose (2026-08-05)
+The additive tail of the D21 review (the items filed as Part 25) worked in one pass. Recorded because three
+of the five were decided on SHAPE rather than implemented as filed, and two of the filed items turned out to
+be already done — which is exactly the kind of thing that gets re-proposed.
+
+**Verdict helpers are CATEGORIES over the enum, not one method per member.** The item asked for
+`reply.IsOk()` / `reply.IsRateLimited()`. Shipped instead as `LlmVerdictExtensions.IsOk()` /
+`IsTransient()`, hanging off `LlmVerdict` rather than off `LlmReply`. Two reasons, both about growth:
+- **A helper per member does not scale on a frozen surface.** D38 has just shown the enum grows. Each new
+  member would owe a new public method, and until it got one the NEWEST verdict — the one nobody has code
+  for yet — would be the only member without a helper. A caller who wants exactly one member already has the
+  clearest possible expression of it (`verdict == LlmVerdict.RateLimited`); what that cannot express is a
+  CATEGORY spanning several members, which is the only thing a helper adds.
+- **Five released types carry a verdict** (`LlmReply`, `LlmChunk`, `SessionEnded`, `AgentSessionResult`,
+  `ToolLoopResult`). A property on `LlmReply` would be one of five copies, each owing an update on the next
+  verdict-carrying type. An extension on the enum is one definition for all of them. The asymmetry with
+  `GenerationResult.IsOk` (a property) is accepted: nothing else in the generation domain carries a verdict.
+
+`IsTransient()` is deliberately **not** derived from `RoutingPolicy`, which answers a different question:
+`RateLimited` and `AuthFailed` share `CooldownAndAdvance` there, while here one recovers on its own and the
+other never does. It is its own classification, guarded by a test that fails until a newly added verdict is
+given a `true`/`false` — the same obligation D38 places on the policy table, now covering a third thing.
+The gate asserts the CLASSIFICATION, not membership in a list: a list can be greened by appending a name,
+which prompts nobody to decide anything and lets a new verdict inherit `false` silently.
+
+**`Failed` counts as transient although it is also the classifier's CATCH-ALL — a known over-report, kept.**
+`LlmVerdictClassifier.FromErrorText` falls back to `Failed` for any text it does not recognize, so that
+bucket holds both real availability faults (reset connection, 502, 503 — the common case) and PERMANENT
+errors nothing matched: a 400/422 whose body fits no pattern reads transient, and retrying it can never
+succeed. Kept anyway, because the library already takes that position where it costs something —
+`RoutingPolicy.Retry` only ever re-sends to the same candidate for the `PenalizeAndAdvance` verdicts, which
+are exactly `Failed` and `Timeout`, and the README's own example is `r.Retry(LlmVerdict.Failed, 1)`. A
+call-site predicate that contradicted the router's own retry rule would be a worse defect than one that
+over-reports. The doc names the false positive, the contract is "worth ONE bounded attempt, never a loop",
+and a caller needing certainty reads the specific verdict. Pinned by
+`IsTransient_over_reports_on_the_classifiers_catch_all_and_that_is_deliberate`, so it stays a known cost.
+
+**The agent-event contract was already shipped; nothing was added.** The item asked to consider "a
+discoverable event-shape contract instead of anonymous objects apps reflect over". `AgentStreamEvent` is
+already that contract — a sealed abstract record with eight concrete cases, yielded by both
+`IAgentSession.StreamAsync` and `IToolLoop.StreamAsync`, switched on by type. Lyntai's public surface
+contains **zero** anonymous objects (the only `new { }` in the tree are Dapper parameter objects inside the
+storage adapters, which never leave the assembly). The reflection the review observed was consumer-side code
+over its OWN hand-parsed CLI JSON, and the remaining gap there is not a contract but a missing adapter —
+already filed as Part 33's CLI11 (`CodexAgentSession`). Adding a second event abstraction would have been
+surface with no consumer. `ClaudeToolCalls.FilePathOf` likewise already read `notebook_path`/`path`
+(pre-1.0, with six tests); the backlog entry was stale.
+
+**Curated-memory mutability stays open, because it is a BREAK and a semantics question.** `kind` is already
+updatable (CMEM5). Making `taskKey`/`scope` updatable means new parameters on
+`ICuratedMemoryStore.UpdateAsync` — a signature change on a released interface that every BYO implementation
+would have to follow, so it is not additive and is out of scope for an additive batch. It also has a real
+design question attached: `(kind, content, taskKey, scope)` is the DEDUP IDENTITY of `AddAsync(dedup: true)`,
+so an in-place move mutates identity and can silently collide with an existing row that the dedup contract
+promises is unique. `kind` already carries that hole. The fix should settle all four together with a
+decision, not widen the hole by two. Left open in `TASKS.md` with that reasoning.
+
+**The metadata accessor is generic on purpose.** The item said "a `Source`/metadata convenience accessor".
+Shipped as `MetadataValue(key)` and nothing else: CMEM6 retired the purpose-built `Source`/`Title` COLUMNS
+into one arbitrary map precisely so a new payload field needs no schema or API change, and a `Source()`
+accessor would re-privilege that name one layer up — re-opening the decision in a place the storage layer
+can no longer see. Conventional key names stay documentation, not API.
+
+## D38 — "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real failure (2026-08-05)
+`LlmVerdict.NotConfigured` — the first member added to that enum since the 1.0 freeze, and the first
+consumer-visible cost accepted on the frozen surface. Recorded here because the alternatives were real and
+someone will reach for them again.
+
+**The defect.** A 401/403 answered to a call that carried no credentials was classified `AuthFailed`, which
+maps to `CooldownAndAdvance` — so a backend a consumer merely *listed* without configuring was benched for
+the whole cooldown window, on every first attempt, for a fact known before the call. The generation domain
+had already drawn the distinction (`GenerationVerdict.NotConfigured`, 2.0.1). Two domains disagreeing about
+the same situation is the thing worth fixing; the benching is just how it showed up.
+
+**Why a new enum member and not an existing one.** There was no `NotConfigured`-equivalent, and no member was
+both semantically honest and routing-correct: `Unsupported` maps to `Surface`, which would STOP the run at
+the unconfigured candidate — strictly worse than benching it — and `ContextWindowExceeded` has the right
+action (`Advance`) but says something entirely different, which would corrupt telemetry and every consumer
+`switch`. A verdict that lies is worse than a verdict that is missing.
+
+**The accepted cost.** Adding an enum member is **binary-compatible** — it is APPENDED last, so no existing
+member's numeric value moves and a compiled consumer keeps working. The cost is source-level: a consumer's
+**non-exhaustive `switch` expression** over `LlmVerdict` now raises **CS8509**, a warning in their build.
+Accepted as the right price in an additive minor: the alternative was leaving the two domains permanently
+disagreeing, and this library's own generation domain already paid the same price. Called out in
+`CHANGELOG.md` so nobody is surprised.
+
+**The enum and the policy must move together.** `RoutingPolicy.ActionFor` falls back to
+`PenalizeAndAdvance` for an unmapped verdict. Adding the member *without* mapping it to
+`FallbackAction.Advance` would have left `NotConfigured` counting toward the dead-host threshold — a
+different wrong outcome, not a fix. A future verdict addition has the same obligation.
+
+**A blameless verdict must never MASK a real one.** Introducing a verdict that advances without blame
+created a second-order bug the routers had not needed to guard: `LlmRouter` remembered the *last* failure
+unconditionally, so `[downHost → Failed, neverConfigured → NotConfigured]` told the caller "not configured"
+and sent them to set up a key while the backend they HAD configured was down. Blameless verdicts
+(`NotConfigured`, `Unsupported`) are now remembered SEPARATELY on both the streaming and non-streaming paths
+and reported only when there was no real failure at all — matching the guard `GenerationRouter` already had.
+Two things deliberately unchanged: *which* substantive failure wins (this router keeps the LAST, generation
+the FIRST — released behaviour for every other verdict), and the eligibility test is keyed on the VERDICT
+rather than on `FallbackAction.Advance`, which would also swallow `ContextWindowExceeded` — "your prompt is
+too big" is a real, actionable answer.
+
+**The promotion rule is stated TWICE, deliberately, not shared.** D30 keeps the pattern *corpus* ("what does
+a 429 look like") single-sourced in `LlmVerdictClassifier`, and that is untouched. But
+`authFailure && !hasCredentials` is two terms, and a shared helper for it would be indirection without drift
+protection — what can actually drift is the *reasoning*, which a boolean helper does not hold. The domains
+also reach different populations: every LLM backend that authenticates by login SESSION rather than a
+supplied key (the CLI dialects, the primary seam here) classifies from error text and has no
+`hasCredentials` fact at all. Each site states the rule with its reasoning and cross-references the other.
+
+**Not "a key is required."** An OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama)
+legitimately needs none, so a missing key alone means nothing — only a missing key AND a server that
+*demanded* one is a configuration gap. A pre-flight "require a key" guard would break every local backend.
+
+**Embedders are out of scope, by shape.** `HttpEmbedder` reports no verdict — it THROWS, and there is no
+embedder router — so there is no "advance without blame" for it to reach. Giving embedders a verdict/fallback
+seam is a much larger design change than this warranted. Its 401 message now says `(not configured: no
+ApiKey)` so a host can still tell setup from a rejected key. Message only.
+
 ## D37 — provider LIFETIME is a registered strategy, and everything about it is keyed on the CONFIGURATION rather than the provider id (2026-08-05)
 Filed as GEN12, designed in `docs/superpowers/specs/2026-08-05-provider-pool-design.md`, shipped as
 `Lyntai.Lifecycle`. It applies **only** where backend configuration is owned OUTSIDE the deployment — by an

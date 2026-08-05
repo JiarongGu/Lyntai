@@ -91,6 +91,30 @@ public static partial class LlmVerdictClassifier
         _ => FromErrorText(body),
     };
 
+    /// <summary>Classify a failed HTTP response, distinguishing "no credentials were SUPPLIED" from "the
+    /// credentials were REJECTED". An auth failure with nothing to authenticate with is
+    /// <see cref="LlmVerdict.NotConfigured"/>, not <see cref="LlmVerdict.AuthFailed"/> — and the difference
+    /// is not cosmetic, because routing acts on it: NotConfigured skips the candidate blamelessly and lets a
+    /// host offer setup, whereas AuthFailed BENCHES the provider for the cooldown window. A backend a
+    /// consumer merely listed without configuring would otherwise be penalised on every first attempt.
+    /// <para>Why not simply require a key up front: an OpenAI-COMPATIBLE endpoint run locally (LM Studio,
+    /// vLLM, Ollama) legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key
+    /// AND the server demanded one" does.</para>
+    /// <para>The generation domain states the SAME rule over its own vocabulary
+    /// (<c>Lyntai.Generation.GenerationVerdictClassifier.FromHttpFailure</c>). The two are deliberately
+    /// stated separately rather than shared: the pattern CORPUS ("what does a 429 look like") is single-sourced
+    /// here, but this two-term promotion reaches different populations — every LLM backend that authenticates
+    /// by login SESSION rather than a supplied key (the CLI dialects) classifies from error text and has no
+    /// <paramref name="hasCredentials"/> fact at all. Change one and check the other.</para></summary>
+    /// <param name="status">The failed response's status.</param>
+    /// <param name="body">The response body, for text-based classification.</param>
+    /// <param name="hasCredentials">Whether this call actually carried credentials.</param>
+    public static LlmVerdict FromHttpFailure(HttpStatusCode status, string? body, bool hasCredentials)
+    {
+        var verdict = FromHttpFailure(status, body);
+        return verdict == LlmVerdict.AuthFailed && !hasCredentials ? LlmVerdict.NotConfigured : verdict;
+    }
+
     [GeneratedRegex(@"rate[\s_-]?limit|too\s+many\s+requests|quota\s+exceeded|resource[\s_-]?exhausted|(?:http|status(?:\s+code)?|error|code)\s*[:=]?\s*429\b", RegexOptions.IgnoreCase)]
     private static partial Regex RateLimitPattern();
 

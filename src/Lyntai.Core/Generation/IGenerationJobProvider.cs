@@ -68,4 +68,21 @@ public sealed record GenerationOperation(
     /// <summary>Whether this operation has stopped changing (succeeded, failed or cancelled).</summary>
     public bool IsTerminal => Status is GenerationOperationStatus.Succeeded or GenerationOperationStatus.Failed
         or GenerationOperationStatus.Cancelled;
+
+    /// <summary>Set on a <see cref="GenerationOperationStatus.Failed"/> submission whose outcome is
+    /// <b>not known</b> — no answer arrived, so the backend may or may not have accepted the work.
+    ///
+    /// <para>It exists because those two cases are worth different money. A backend that ANSWERS "no" can be
+    /// retried elsewhere for free; a backend that never answered may already have enqueued a billable render,
+    /// and submitting the same request to a second one buys the same generation twice. That is exactly what
+    /// <c>GenerationRenderJobHandler</c>'s checkpoint-first ordering exists to prevent, and it is the same
+    /// reasoning that makes a timed-out POLL report <see cref="GenerationOperationStatus.Running"/>: no answer
+    /// is not evidence of failure.</para>
+    ///
+    /// <para><b>What acts on it:</b> <c>GenerationRouter.SubmitAsync</c> surfaces such a submission instead of
+    /// advancing to the next candidate, and does not count it against the backend's dead-host cooldown — no
+    /// answer is no evidence of ill health either. The <see cref="Status"/> stays
+    /// <see cref="GenerationOperationStatus.Failed"/> on purpose, so every existing status check behaves
+    /// exactly as before; only code that opts into this flag changes.</para></summary>
+    public bool Inconclusive { get; init; }
 }

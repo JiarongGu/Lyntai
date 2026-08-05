@@ -28,6 +28,16 @@ public sealed record Automatic1111Options
 
     /// <summary>See <see cref="DefaultWidth"/>.</summary>
     public int DefaultHeight { get; init; } = 512;
+
+    /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because a render on
+    /// the host's own GPU legitimately runs for minutes (which is why <c>AddAutomatic1111Provider</c> gives its
+    /// client an infinite <see cref="HttpClient"/> timeout rather than the 100-second default), but bounded: a
+    /// WebUI wedged mid-render answers nothing at all, and without a deadline that hangs a background render
+    /// forever. A request's own <see cref="GenerationRequest.TimeoutSeconds"/> overrides it.
+    /// <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline — a request that carries its own
+    /// <see cref="GenerationRequest.TimeoutSeconds"/> still imposes one, since the more specific instruction
+    /// wins either way.</summary>
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(10);
 }
 
 /// <summary>
@@ -65,8 +75,13 @@ public sealed class Automatic1111Provider(
 
     /// <summary>Asks which checkpoints are loaded (<c>GET /sdapi/v1/sd-models</c>). Free, and a better answer
     /// than "the port is open": a WebUI with no checkpoint is up but cannot generate, so that reports
-    /// unavailable.</summary>
-    public async Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)
+    /// unavailable. Bounded by <see cref="Automatic1111Options.Timeout"/> — a WebUI that accepts the connection
+    /// while it loads a checkpoint can otherwise stall the probe indefinitely.</summary>
+    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct, ProbeCoreAsync,
+            reason => new GenerationProbeResult(false, $"probe {reason}"));
+
+    private async Task<GenerationProbeResult> ProbeCoreAsync(CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return new GenerationProbeResult(false, "not configured: no BaseUrl");
@@ -93,7 +108,17 @@ public sealed class Automatic1111Provider(
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
+    /// <remarks>Runs under a deadline: the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it
+    /// carries one, else <see cref="Automatic1111Options.Timeout"/>. A fired deadline is a
+    /// <see cref="GenerationVerdict.Timeout"/> result; <paramref name="ct"/> keeps its own meaning and still
+    /// propagates as cancellation.</remarks>
+    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(
+            GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
+            token => GenerateCoreAsync(request, token),
+            reason => GenerationResult.Failure(GenerationVerdict.Timeout, $"the render {reason}"));
+
+    private async Task<GenerationResult> GenerateCoreAsync(GenerationRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return GenerationResult.Failure(GenerationVerdict.NotConfigured, "no BaseUrl configured");

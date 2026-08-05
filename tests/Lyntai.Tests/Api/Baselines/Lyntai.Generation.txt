@@ -10,6 +10,7 @@ sealed class Lyntai.Generation.Providers.Automatic1111Options
     GetHashCode() : Int32
     Id : String
     Steps : Int32
+    Timeout : TimeSpan
     ToString() : String
 sealed class Lyntai.Generation.Providers.Automatic1111Provider
     .ctor(Automatic1111Options, Func<HttpClient>, Boolean=)
@@ -30,6 +31,7 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     PromptPathOption : String
     SubmitPath : String
     SystemStatsPath : String
+    Timeout : TimeSpan
     ToString() : String
     ViewPath : String
     WorkflowOption : String
@@ -55,6 +57,7 @@ sealed class Lyntai.Generation.Providers.FalQueueOptions
     Model : String
     RequestsSegment : String
     StatusSegment : String
+    Timeout : TimeSpan
     ToString() : String
     WebhookQueryParameter : String
 sealed class Lyntai.Generation.Providers.FalQueueProvider
@@ -94,6 +97,7 @@ sealed class Lyntai.Generation.Providers.OpenAiImageOptions
     GetHashCode() : Int32
     Id : String
     Model : String
+    Timeout : TimeSpan
     ToString() : String
 sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     .ctor(OpenAiImageOptions, Func<HttpClient>, Boolean=)

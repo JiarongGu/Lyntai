@@ -68,7 +68,8 @@ public sealed class LlmRouter(
     public async Task<LlmReply> CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default)
     {
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
-        LlmReply? last = null;
+        LlmReply? last = null;           // the last SUBSTANTIVE failure — what the caller is told
+        LlmReply? lastBlameless = null;  // …kept apart, so it can answer only when there was no real failure
 
         foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req, liveModel))
         {
@@ -91,7 +92,8 @@ public sealed class LlmRouter(
                 if (action == FallbackAction.Surface)
                     return reply; // content policy follows the prompt, not the host — surface as-is
 
-                last = reply;
+                // a blameless verdict must never MASK a real one — see IsBlameless
+                if (IsBlameless(reply.Verdict)) lastBlameless = reply; else last = reply;
                 if (action == FallbackAction.CooldownAndAdvance)
                 {
                     deadHosts.MarkDead(key); // §6 amended: terminal for this host, advance to the next
@@ -115,14 +117,34 @@ public sealed class LlmRouter(
             }
         }
 
-        return last ?? new LlmReply("", LlmVerdict.Failed, Detail: "no live candidate (all skipped: unknown, unavailable, or dead)");
+        // a real failure outranks a blameless one; with no real failure the blameless verdict is still the
+        // honest answer (a host turns "not configured" into a setup prompt), and only a candidate list that
+        // produced nothing at all falls through to the synthetic reply
+        return last ?? lastBlameless
+            ?? new LlmReply("", LlmVerdict.Failed, Detail: "no live candidate (all skipped: unknown, unavailable, or dead)");
     }
+
+    /// <summary>Verdicts that are not FAULTS — the candidate simply wasn't the one for this request, so it is
+    /// remembered apart from real failures and reported only when there was no real failure at all.
+    ///
+    /// Without this, <c>[downHost → Failed, neverConfigured → NotConfigured]</c> tells the caller "not
+    /// configured" and sends them to set up a key, while the backend they HAD configured is the one that is
+    /// down. Matches <c>GenerationRouter</c>'s guard exactly — the same two verdicts — which is the point:
+    /// one answer per situation across both domains.
+    ///
+    /// Deliberately keyed on the VERDICT, not on <see cref="FallbackAction.Advance"/>: that would also
+    /// swallow <see cref="LlmVerdict.ContextWindowExceeded"/>, and "your prompt is too big" is a real,
+    /// actionable answer that must still surface. Which substantive failure wins (this router keeps the LAST,
+    /// generation the FIRST) is untouched — only ELIGIBILITY is decided here.</summary>
+    private static bool IsBlameless(LlmVerdict verdict) =>
+        verdict is LlmVerdict.NotConfigured or LlmVerdict.Unsupported;
 
     public async IAsyncEnumerable<LlmChunk> StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var liveModel = await LiveModelAsync(req.Consumer, ct).ConfigureAwait(false);
-        LlmChunk? lastError = null;
+        LlmChunk? lastError = null;      // the last SUBSTANTIVE failure — what the caller is told
+        LlmChunk? lastBlameless = null;  // …kept apart, same rule as CompleteAsync (see IsBlameless)
 
         foreach (var (provider, effectiveModel, key) in LiveCandidates(candidates, req, liveModel))
         {
@@ -180,7 +202,7 @@ public sealed class LlmRouter(
 
                             if (chunk.Kind == LlmChunkKind.Error && !committed)
                             {
-                                lastError = chunk;
+                                if (IsBlameless(chunk.Verdict)) lastBlameless = chunk; else lastError = chunk;
                                 var action = Policy.ActionFor(chunk.Verdict);
                                 if (action == FallbackAction.Surface)
                                 {
@@ -257,7 +279,8 @@ public sealed class LlmRouter(
             }
         }
 
-        yield return lastError ?? LlmChunk.Error(LlmVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
+        yield return lastError ?? lastBlameless
+            ?? LlmChunk.Error(LlmVerdict.Failed, "no live candidate (all skipped: unknown, unavailable, or dead)");
     }
 
     /// <summary>Native tool support for a candidate list: the first live candidate (registered,

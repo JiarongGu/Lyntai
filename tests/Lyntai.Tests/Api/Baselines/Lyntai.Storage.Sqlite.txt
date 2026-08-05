@@ -23,6 +23,8 @@ sealed class Lyntai.Storage.Sqlite.Migrations.LyntaiVersionTable
 static class Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService
     static MigrateUp(String) : Void
     static MigrateUp(String, StorageFeature) : Void
+    static MigrateUpAsync(String, CancellationToken=) : Task
+    static MigrateUpAsync(String, StorageFeature, CancellationToken=) : Task
 sealed class Lyntai.Storage.Sqlite.SqliteConnectionFactory
     .ctor(String)
     DbPath : String

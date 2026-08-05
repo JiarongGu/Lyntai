@@ -140,6 +140,72 @@ public class LlmRouterCompleteTests
     }
 
     [Fact]
+    public async Task An_unconfigured_candidate_is_skipped_blamelessly()
+    {
+        // the asymmetry this closes: a consumer who LISTS a backend they have not configured had it benched
+        // on cooldown for a fact the router knew before calling. NotConfigured advances with no penalty and
+        // no cooldown — the same thing the generation router already does (GenerationRoutingPolicy).
+        var tracker = new DeadHostTracker(threshold: 1, TimeSpan.FromMinutes(5), () => DateTimeOffset.UtcNow);
+        var unset = new FakeLlmProvider("unset");
+        unset.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "no api key"));
+        var configured = new FakeLlmProvider("configured");
+        configured.Replies.Enqueue(new LlmReply("served", LlmVerdict.Ok));
+
+        var reply = await Router(tracker, unset, configured).CompleteAsync([new("unset"), new("configured")], Req);
+
+        Assert.Equal("served", reply.Text);
+        Assert.False(tracker.IsDead("unset")); // threshold is 1 — ANY recorded failure or cooldown benches it
+    }
+
+    [Fact]
+    public async Task A_real_failure_is_reported_over_a_later_unconfigured_candidate()
+    {
+        // the masking trap a blameless verdict introduces: told "not configured", a caller goes and sets up
+        // a key — while the backend they HAD configured is the one that is down. GenerationRouter already
+        // guards this ("aren't faults worth reporting over a real failure"); the LLM router must too.
+        var down = new FakeLlmProvider("down");
+        down.Replies.Enqueue(new LlmReply("", LlmVerdict.Failed, Detail: "connection refused"));
+        var unset = new FakeLlmProvider("unset");
+        unset.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "no api key"));
+
+        var reply = await Router(null, down, unset).CompleteAsync([new("down"), new("unset")], Req);
+
+        Assert.Equal(LlmVerdict.Failed, reply.Verdict);
+        Assert.Equal("connection refused", reply.Detail); // the real story, not the blameless one
+    }
+
+    [Fact]
+    public async Task The_last_real_failure_still_wins_when_an_unconfigured_candidate_came_first()
+    {
+        // ONLY eligibility changed. Which substantive failure wins — the LAST, unlike GenerationRouter's
+        // first — is released behaviour for every other verdict and stays exactly as it was.
+        var unset = new FakeLlmProvider("unset");
+        unset.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "no api key"));
+        var down = new FakeLlmProvider("down");
+        down.Replies.Enqueue(new LlmReply("", LlmVerdict.Timeout, Detail: "timed out"));
+
+        var reply = await Router(null, unset, down).CompleteAsync([new("unset"), new("down")], Req);
+
+        Assert.Equal(LlmVerdict.Timeout, reply.Verdict);
+    }
+
+    [Fact]
+    public async Task Every_candidate_unconfigured_still_reports_not_configured()
+    {
+        // …and with no real failure to report, the blameless verdict IS the honest answer — a host turns it
+        // into a setup prompt. Keeping it out of the reply entirely would be a regression, not a fix.
+        var a = new FakeLlmProvider("a");
+        a.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "a: no api key"));
+        var b = new FakeLlmProvider("b");
+        b.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "b: no api key"));
+
+        var reply = await Router(null, a, b).CompleteAsync([new("a"), new("b")], Req);
+
+        Assert.Equal(LlmVerdict.NotConfigured, reply.Verdict);
+        Assert.Equal("b: no api key", reply.Detail); // last attempt's story, as with every other verdict
+    }
+
+    [Fact]
     public async Task All_candidates_rate_limited_surfaces_the_rate_limit()
     {
         var p1 = new FakeLlmProvider("p1");

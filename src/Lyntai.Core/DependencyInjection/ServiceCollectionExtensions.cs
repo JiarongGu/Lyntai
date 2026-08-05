@@ -45,6 +45,15 @@ public static class LyntaiServiceCollectionExtensions
                 "ILlmClient is already registered — the decorators would be silently ignored. Either don't pre-register " +
                 "ILlmClient, or use the BYO seams (IResponseCache / IUsageTracker / IRateLimiter) instead.");
 
+        // AddSemanticMemory states an intent the wiring below can only honor when an embedder exists —
+        // otherwise ISemanticMemory is never registered and every recall path skips it in silence. The
+        // whole point of naming the feature is to turn that quiet degradation into a startup failure.
+        if (builder.SemanticMemoryRequested && !services.Any(d => d.ServiceType == typeof(Lyntai.Embeddings.IEmbedder)))
+            throw new InvalidOperationException(
+                "AddSemanticMemory was called, but no IEmbedder is registered — ISemanticMemory would never be wired " +
+                "and semantic recall would silently do nothing. Pass one (AddSemanticMemory(myEmbedder)), register one " +
+                "(AddEmbeddings / a provider package's AddOpenAiCompatibleEmbedder), or drop the AddSemanticMemory call.");
+
         // same contradiction for refusal screening: it wraps Lyntai's OWN client inside the factory below,
         // so with a pre-registered ILlmClient every AddRefusalMatcher registration would silently do nothing
         if (hadPreexistingClient && services.Any(d => d.ServiceType == typeof(IRefusalMatcher)))
@@ -179,10 +188,12 @@ public static class LyntaiServiceCollectionExtensions
         }, backend.Lifetime));
     }
 
-    /// <summary>Semantic memory — wired ONLY when an embedder is registered (AddEmbeddings). Composes the
-    /// app's IEmbedder with a vector store (in-memory default; register your own IVectorStore for pgvector/
-    /// etc.). Absent an embedder it isn't registered, so the composer/orchestrator resolve null and skip it —
-    /// no accidental throws on every turn.</summary>
+    /// <summary>Semantic memory — wired ONLY when an embedder is registered (AddEmbeddings /
+    /// AddSemanticMemory). Composes the app's IEmbedder with a vector store (in-memory default; register
+    /// your own IVectorStore for pgvector/etc.). Absent an embedder it isn't registered, so the
+    /// composer/orchestrator resolve null and skip it — no accidental throws on every turn. An app that
+    /// MEANT to have it says so with AddSemanticMemory, and the guard above turns the silent skip into a
+    /// composition-time throw.</summary>
     private static void RegisterSemanticMemory(IServiceCollection services)
     {
         if (!services.Any(d => d.ServiceType == typeof(Lyntai.Embeddings.IEmbedder))) return;

@@ -17,6 +17,9 @@ public class RoutingPolicyTests
         Assert.Equal(FallbackAction.Advance, p.ActionFor(LlmVerdict.ContextWindowExceeded));
         Assert.Equal(FallbackAction.Surface, p.ActionFor(LlmVerdict.Refused));
         Assert.Equal(FallbackAction.Surface, p.ActionFor(LlmVerdict.Unsupported)); // capability gap, distinct verdict
+        // "not set up yet" is not a fault — advance WITHOUT blame (no penalty, no cooldown), or a backend
+        // nobody configured gets benched on every first attempt
+        Assert.Equal(FallbackAction.Advance, p.ActionFor(LlmVerdict.NotConfigured));
 
         Assert.Equal(CooldownScope.Provider, p.CooldownScope);
         Assert.True(p.ExemptSoleCandidate);

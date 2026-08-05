@@ -41,6 +41,24 @@ public sealed record FalQueueOptions
     /// (D30) — supply the URL via <c>GenerationRequest.Options["webhook"]</c> and call
     /// <see cref="FalQueueProvider.FetchAsync"/> when it fires.</summary>
     public string WebhookQueryParameter { get; init; } = "fal_webhook";
+
+    /// <summary>Ceiling for ONE HTTP call to the queue — a submit, a status read, a result fetch, a cancel.
+    ///
+    /// <para><b>It does not bound the render.</b> The queue is asynchronous by design: a video render outlives
+    /// every individual call, and <c>GenerationRenderJobHandler</c> polls it across job re-dispatches and
+    /// process restarts — so poll and fetch arrive with no memory of when the submit happened and no request in
+    /// hand. A whole-operation deadline could only live where the operation does, in the job's own retry
+    /// budget. What this bounds is the thing that was genuinely unbounded: a queue that accepts a connection
+    /// and never answers, against a client the <c>Add*</c> shim gives an infinite
+    /// <see cref="HttpClient"/> timeout.</para>
+    ///
+    /// <para>Shorter than the inline backends' default because these are queue operations rather than renders.
+    /// On <see cref="FalQueueProvider.SubmitAsync"/> a request's
+    /// <see cref="GenerationRequest.TimeoutSeconds"/> still overrides it (the most specific thing that caller
+    /// can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a submit
+    /// whose request carries its own <see cref="GenerationRequest.TimeoutSeconds"/> still has
+    /// one.</para></summary>
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(2);
 }
 
 /// <summary>
@@ -108,7 +126,21 @@ public sealed class FalQueueProvider(
             "GenerationRenderJobHandler"));
 
     /// <inheritdoc/>
-    public async Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+    /// <remarks>Bounded by the request's <see cref="GenerationRequest.TimeoutSeconds"/> if it carries one, else
+    /// <see cref="FalQueueOptions.Timeout"/> — the ENQUEUEING call only, not the render it starts.</remarks>
+    public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(
+            GenerationDeadline.Resolve(request.TimeoutSeconds, options.Timeout), ct,
+            token => SubmitCoreAsync(request, token),
+            // A submit that timed out may still have been ACCEPTED — and a queued render is billable, so this
+            // must not read as "nothing happened". Inconclusive is what stops the router trying the NEXT
+            // backend and paying for the same generation twice.
+            reason => Failed($"the submit {reason}; the request may still have been enqueued") with
+            {
+                Inconclusive = true,
+            });
+
+    private async Task<GenerationOperation> SubmitCoreAsync(GenerationRequest request, CancellationToken ct)
     {
         if (Unconfigured() is { } missing) return Failed(missing);
         if (Model(request) is not { Length: > 0 } model)
@@ -145,7 +177,17 @@ public sealed class FalQueueProvider(
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default)
+    /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>. A status call that times out reports the
+    /// operation as still RUNNING — the same treatment a transport failure already gets here, and for the same
+    /// reason: no answer is not a failed render, and reading it as terminal would abandon a submitted (and
+    /// billed) generation that is merely still going.</remarks>
+    public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct,
+            token => PollCoreAsync(operationId, token),
+            reason => new GenerationOperation(operationId, GenerationOperationStatus.Running,
+                Detail: $"the status call {reason} — the render is still assumed to be running"));
+
+    private async Task<GenerationOperation> PollCoreAsync(string operationId, CancellationToken ct)
     {
         var (model, requestId) = Split(operationId);
         if (requestId is null)
@@ -171,7 +213,14 @@ public sealed class FalQueueProvider(
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default)
+    /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>; a fired deadline is a
+    /// <see cref="GenerationVerdict.Timeout"/> result, and the operation can simply be fetched again.</remarks>
+    public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct,
+            token => FetchCoreAsync(operationId, token),
+            reason => GenerationResult.Failure(GenerationVerdict.Timeout, $"the result fetch {reason}"));
+
+    private async Task<GenerationResult> FetchCoreAsync(string operationId, CancellationToken ct)
     {
         var (model, requestId) = Split(operationId);
         if (requestId is null)
@@ -189,7 +238,15 @@ public sealed class FalQueueProvider(
     }
 
     /// <inheritdoc/>
-    public async Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default)
+    /// <remarks>Bounded by <see cref="FalQueueOptions.Timeout"/>; a cancel that timed out may or may not have
+    /// landed, so the render is reported as still running rather than assumed stopped.</remarks>
+    public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
+        GenerationDeadline.GuardAsync(options.Timeout, ct,
+            token => CancelCoreAsync(operationId, token),
+            reason => new GenerationOperation(operationId, GenerationOperationStatus.Running,
+                Detail: $"the cancel {reason}"));
+
+    private async Task<GenerationOperation> CancelCoreAsync(string operationId, CancellationToken ct)
     {
         var (model, requestId) = Split(operationId);
         if (requestId is null)

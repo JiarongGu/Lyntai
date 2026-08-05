@@ -33,30 +33,13 @@ public sealed class CodexCliDialect : CliProviderDialectBase
     /// <summary>The sandbox policy for a completion. <c>read-only</c> by default: this seam is a TEXT
     /// completion, so the agent must not edit the caller's working tree to produce one. Raise it only if you
     /// deliberately want codex acting on disk (<c>workspace-write</c>, <c>danger-full-access</c>).</summary>
-    public string SandboxMode { get; init; } = "read-only";
+    public string SandboxMode { get; init; } = CodexExecArgs.ReadOnlySandbox;
 
-    /// <summary><c>codex exec --json ... -</c>: non-interactive, JSONL events on stdout, prompt from stdin.</summary>
-    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest request)
-    {
-        List<string> args =
-        [
-            "exec",
-            "--json",                      // measured: "Print events to stdout as JSONL"
-            "--skip-git-repo-check",       // the engine's cwd is a neutral temp dir, not a repo
-            "--color", "never",            // keep ANSI escapes out of anything we read
-            "--sandbox", SandboxMode,
-        ];
-        if (request.Model is { Length: > 0 } model)
-        {
-            args.Add("--model");
-            args.Add(model);
-        }
-        // measured: "If not provided as an argument (or if `-` is used), instructions are read from stdin".
-        // Explicit `-` rather than relying on the omitted-argument default — the same reasoning as passing
-        // claude's `--json` explicitly.
-        args.Add("-");
-        return args;
-    }
+    /// <summary><c>codex exec --json ... -</c>: non-interactive, JSONL events on stdout, prompt from stdin.
+    /// Built by <see cref="CodexExecArgs"/>, shared with <see cref="CodexAgentSession"/> so a flag (notably
+    /// <c>--skip-git-repo-check</c>) can never go missing from one of the two paths.</summary>
+    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest request) =>
+        CodexExecArgs.Build(SandboxMode, request.Model);
 
     /// <inheritdoc/>
     public override CliOutputEvent ParseLine(string line) => CodexJsonlParser.Parse(line);
