@@ -44,6 +44,23 @@ the mechanism.
 
 - The three records are `TASKS.md` (open backlog only), `docs/task-archive.md` (the per-task history),
   and `CHANGELOG.md` (the release-facing log). Use the `archive-task` skill for the mechanical move.
+
+### Documents have the same lifecycle as tasks (D52)
+
+A finished task moves out of the backlog; a finished **document** moves out of `docs/`. Tracked `docs/` is
+maintained state — the contract, `DECISIONS.md`, `CHANGELOG.md`, `ROADMAP.md`, `TASKS.md`, the task archive,
+`FIXES.md`, `AOT.md`, the design page — and every one of those is kept *current* rather than accumulated.
+
+- **Write a new spec or plan straight into the gitignored `local/superpowers/{specs,plans}/`.** The
+  brainstorming and writing-plans skills default to `docs/superpowers/`; redirect them. Only
+  `docs/superpowers/INDEX.md` is tracked.
+- **Archive when both are true:** nobody needs it to understand how the library works *today*, and nothing
+  open still executes from it. Shipping is not sufficient on its own — a part-live plan stays.
+- **Before archiving, fill the INDEX's "Conclusions live in" column.** If you cannot, the conclusion was
+  never written anywhere durable: put it in the contract / `DECISIONS.md` / `pitfalls.md` / the archive
+  first. Keeping the record tracked is not a substitute for recording its conclusion.
+- **Never archive maintained state**, and never let the ROADMAP grow a prose section per release — it is one
+  line per version, because `CHANGELOG.md` is already the detail.
 - Write changelog entries under `## Unreleased`. The release workflow stamps that heading with the
   version and date (`node devtools/dev.mjs changelog --fix`) — never hand-stamp it. A titled release is
   pre-titled as `## Unreleased — <title>`.

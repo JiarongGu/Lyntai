@@ -71,6 +71,7 @@ and **`D24`** (its silent-behaviour bullet amended by `D44`).
 | [D49](#d49-memory-decays-by-interference-not-by-elapsed-time-and-what-counts-as-interference-is-a-seam-2026-08-08) | 2026-08-08 | memory decays by INTERFERENCE, not by elapsed time, and what counts as interference is a seam |
 | [D50](#d50-a-decayed-memory-is-buried-not-cut-recall-ranks-against-a-relative-floor-and-only-an-explicit-prune-deletes-2026-08-08) | 2026-08-08 | a decayed memory is BURIED, not cut: recall ranks against a relative floor, and only an explicit… |
 | [D51](#d51-prose-gets-a-gate-too-because-retired-vocabulary-is-the-half-of-doc-drift-a-machine-can-catch-2026-08-08) | 2026-08-08 | prose gets a gate too, because retired vocabulary is the half of doc drift a machine can catch |
+| [D52](#d52-a-document-that-has-finished-its-purpose-is-archived-out-of-docs-so-the-tracked-set-stays-maintained-state-only-2026-08-08) | 2026-08-08 | a document that has finished its purpose is ARCHIVED out of `docs/`, so the tracked set stays mai… |
 
 <!-- index:end -->
 
@@ -535,6 +536,34 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
+
+## D52 — a document that has finished its purpose is ARCHIVED out of `docs/`, so the tracked set stays maintained state only (2026-08-08)
+`docs/` had grown to carry every design and plan the library had ever produced — and because nothing ever
+left, a reader could not tell which files described **how Lyntai works** from which described **what someone
+did on a Tuesday**. That distinction is the whole value of the directory. Twelve design records and ~9,800
+lines were finished work sitting next to the contract, and the ROADMAP additionally kept a prose section per
+release restating `CHANGELOG.md`.
+
+**The rule: tracked `docs/` holds maintained state; a record whose purpose is complete moves to the
+gitignored `local/superpowers/`, leaving a row in `docs/superpowers/INDEX.md`.** The test is not age and not
+whether the work shipped — it is **"would someone need this to understand how the library works *today*?"**
+plus **"does anything open still execute from it?"** Both must be no. `docs/2026-08-04-generation-platform-plan.md`
+stayed tracked on exactly that second clause: it is part shipped history and part live, with GEN-VERIFY/GEN6/GEN7
+still running off it.
+
+**Archiving is only safe because of the column that makes it safe.** `INDEX.md` carries **Conclusions live
+in** for every row, and a row that cannot fill it is the signal that the work was never recorded anywhere
+durable — at which point the fix is to write the conclusion into a maintained document (the contract,
+this file, `pitfalls.md`, the archive), not to keep the record tracked as a substitute. A design record is a
+working record of one version; **anything in it that must outlive that version belongs somewhere maintained**,
+where `check-docs` covers it anyway (D51's amendment).
+
+**What this deliberately costs:** a fresh clone does not carry the records, and they leave the doc gate.
+That is acceptable *because* of the paragraph above — and it is stated in `INDEX.md` rather than left for
+someone to discover. Nothing is destroyed: the files stay in git history and on disk. The maintained set is
+now small and fixed — the contract, `DECISIONS.md`, `CHANGELOG.md`, `ROADMAP.md`, `TASKS.md`, the task
+archive, `FIXES.md`, `AOT.md`, the design page — and every one of them is *current* by design, which is what
+makes "read the docs" a safe instruction to give the next session.
 
 ## D51 — prose gets a gate too, because retired vocabulary is the half of doc drift a machine can catch (2026-08-08)
 The code in this repository is gated from every side — `check-warnings`, the API-surface baselines, the storage

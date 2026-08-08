@@ -41,3 +41,14 @@ Write the spec and plan straight into `local/superpowers/{specs,plans}/` — the
 writing-plans skills default to `docs/superpowers/`, so redirect them. Add a row above when the work ships,
 and make sure the **Conclusions live in** column is true before you do: that column is the whole point of
 this file, and a row that cannot fill it is a sign the work has not actually been recorded anywhere durable.
+
+## Archiving one that is still in `docs/`
+
+A document leaves `docs/` when **both** are true — shipping alone is not enough:
+
+1. Nobody needs it to understand how the library works **today**, and
+2. nothing open still executes from it (a part-live plan stays; see the note above).
+
+Then: fill the **Conclusions live in** column *first*, move the file to `local/superpowers/`, repoint every
+inbound reference, and check nothing dangles. The reasoning is `docs/DECISIONS.md` **D52**; the operational
+rule is `.claude/rules/repo-mechanics.md` § Documents have the same lifecycle as tasks.
