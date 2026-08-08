@@ -10,6 +10,107 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+### Added
+
+- **Named memory engines** (`IMemoryEngine`, `IMemoryEngineFactory`, `AddMemory()` /
+  `AddMemoryEngine(name, …)` / `UseMemoryComposer(name)`) — several memory systems can now coexist in one
+  application and are resolved **by name**, the way `IHttpClientFactory` resolves clients. Until now every
+  memory surface was a single unnamed singleton, so an application wanting a *chat* memory and a *project*
+  memory had to wrap all of it itself — the same wrapper in every consumer, and none of them able to share
+  it. Registration is a DI collection keyed by `Name`, the same variation-point shape as `ILlmProvider`
+  keyed by `Id` and picked by `ILlmRouter`, so a fourth kind of memory is a class plus a registration.
+  Thin engines adapt the three existing stores (`IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore`),
+  and a **blend is itself an engine** (`CompositeMemoryEngine`), so naming, blending, remembering and
+  expanding stay one concept. Optional abilities are separate interfaces (`IExpandableMemory`,
+  `ILinkableMemory`, `IForgettableMemory`) an engine may also implement, and the composite forwards them by
+  routing on `MemoryRef.Engine` rather than guessing — the regression that once made every queue-backed
+  render unroutable in the generation router is pinned here by a test.
+- **Prompt composition now protects exact facts from being crowded out** (`MemoryComposition.ComposeAsync`,
+  `MemoryCompositionOptions`, `MemoryGrade`). Material carries a grade: **authoritative** content never
+  decays, is never truncated to a derived headline, is allocated from a **reserved** character budget
+  *before* any associative content is admitted, and renders in its own labelled section so the model is
+  told which material is exact rather than left to infer it. Today's flat 4000-character budget fills in
+  rank order, so a burst of loosely-relevant recall can push a hard constraint out of the prompt entirely
+  while the prompt still looks full. Authoritative material that genuinely cannot fit emits an explicit
+  `… N further authoritative facts omitted (budget)` line rather than disappearing, and an authoritative
+  write is **routed** to an engine that can hold it or throws — never silently downgraded.
+- **A one-line path that needs nothing implemented**: `AddMemory()` registers a working engine and backs
+  `ChatOrchestrator`'s `IPromptComposer` with it. The fluent builder exists for applications that want to
+  *differ*. A duplicate engine name or member label fails at **configure** time, and a member whose backing
+  store is absent fails at **startup** naming the store — rather than resolving to a permanently empty
+  memory section that reads exactly like "nothing matched".
+
+- **Graph memory: entries that decay, connect, and open as an index** (`GraphMemoryEngine`,
+  `IMemoryGraphStore`, `UseGraph()`). Recall returns **headlines** and withholds the full text until
+  expansion, so a session opens on a cheap index and pays for depth only along the direction it turns out
+  to need. Entries **decay** unless reused — retrievability is a read-time function of stored timestamps,
+  so there is no sweeper and no background job — and each successful recall lengthens an entry's half-life,
+  making repeated context durable while one-off noise fades below the floor. Decay only ever **ranks**;
+  deletion stays explicit via `PruneAsync`. Entries **connect** model-free: whatever is returned together
+  gets linked, the link strengthens on recurrence, and a later recall spreads through those links to reach
+  material the query never matched. This release ships the **InMemory** backend; SQLite and Postgres follow.
+- **The decay curve is a seam** (`IRetrievabilityPolicy`, `HalfLifeRetrievability`, `HalfLifeOptions`).
+  Exposing the constants alone would settle the values while freezing the formula, so an application can
+  tune the numbers *or* replace the model of forgetting, and neither choice forecloses the other. The
+  default is registered, so nothing has to be implemented. Storage never evaluates the curve — a policy
+  supplies a conservative `CandidateCutoff` and the store bounds its candidate set with plain division,
+  which keeps a custom curve possible and avoids depending on SQLite's optional `pow`.
+  `HalfLifeOptions.MaxStability` caps reinforcement: unbounded compounding turns a seven-day half-life into
+  sixty-four years in about twenty recalls, which would silently give a frequently-recalled *associative*
+  entry the durability of an authoritative one without any of its guarantees.
+- **Decay is measured in what has HAPPENED in a memory, not in elapsed time** (`IMemoryClock`,
+  `PerWriteClock`, `ContentSizeClock`, `ElapsedClock`, `BurstDampenedClock`). Each engine keeps a position
+  that advances when something is written to it; an entry's age is how far that position has moved since it
+  was last used. **A rarely-used memory therefore decays slowly and a busy one decays fast** — automatic,
+  and the reverse of what wall-clock time gives you. Reading never ages anything. What the position
+  *counts* is a seam with four shipped implementations, because "how much has happened" is genuinely
+  ambiguous — writes, volume, or real time — and a project memory can decay on the calendar while a chat
+  memory decays by volume in the same application.
+  **Bursts saturate**, which is a correctness matter rather than a refinement: advancing once per write is
+  linear, so a 500-item bulk ingest would age every pre-existing entry by 500 and erase everything known
+  before it. A damped burst advances by about `ln n`, and its own entries start with a proportionally
+  shorter half-life — so a long document neither wipes your memory nor is itself remembered in full.
+  Consequences: no date arithmetic appears in any query (removing the hazard where SQLite's `julianday`
+  returning NULL on an unparseable timestamp would silently exclude every row), and the decay constants no
+  longer carry `TimeSpan`, which asserted a dimension the application had not chosen.
+- **Connectedness feeds decay, and edges decay too.** A memory woven into a dense, repeatedly-reinforced
+  neighbourhood now resists forgetting, while an isolated one fades — connections make an entry more
+  *durable*, not merely more reachable. Symmetrically, edge weight decays with disuse
+  (`HalfLifeOptions.EdgeHalfLife`), so a link that stops recurring stops pulling its neighbour into recall
+  and stops propping it up; without that, every pair that had ever co-occurred would stay linked at a rising
+  weight until spreading reached everything from everything. Both are read-time, so there is still no
+  sweeper.
+- **Graph memory persists** — `IMemoryGraphStore` now has SQLite and Postgres backends alongside InMemory,
+  all held to one contract. SQLite indexes headline and content through an FTS5 **trigram** mirror (so CJK
+  substring recall works, which a word-boundary tokenizer would silently return nothing for); Postgres uses
+  a `pg_trgm` GIN index. Neither evaluates the decay curve: candidates are bounded by plain division
+  against the cutoff the policy supplies, which is what keeps a caller-supplied curve possible and avoids
+  depending on SQLite's optional `pow`.
+- **Graph memory is available to the model**, not just to the prompt composer —
+  `AddMemoryTools(engine, taskKey)` registers `{engine}_recall` and `{engine}_expand` as ordinary tools, so
+  they reach the tool loop and the MCP bridge alike. Recall returns headlines and a `ref`; expand takes
+  that ref and returns the full text plus what the item is linked to. Names are prefixed per engine rather
+  than one multiplexed tool taking an engine argument, because the multiplexed form lets a model consult
+  the *wrong* memory. `MemoryToolScope.Use(taskKey)` overrides the registered default for the current async
+  flow, which a chat application needs since its task is per-conversation.
+- **Similarity enrichment** — when an `IEmbedder` and an `IVectorStore` are registered, a new graph entry is
+  also linked to its nearest existing neighbours (`GraphMemoryOptions.SimilarityK`, `MinSimilarity`). Pure
+  enrichment on top of the model-free floor: without it the graph still forms from co-activation and
+  explicit links, and a failing embedder costs an entry some links, never the entry itself. Connectedness may only ever *raise* retrievability, and `MaxConnectionBoost` bounds how far —
+  which is load-bearing rather than cosmetic, since `CandidateCutoff` widens by exactly that factor and an
+  unbounded boost would leave well-connected entries outside any finite cutoff, silently losing the very
+  memories connectedness was meant to protect.
+  **Several constants are unmeasured and say so in their XML docs** — the MEM-TUNE task closes them, and
+  the three governing connectedness have to be measured *together*, since edge decay erodes the strength
+  that feeds the boost.
+
+Purely additive: `IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore` and `MemoryPromptComposer` are
+unchanged, and an application that never calls `AddMemory`/`AddMemoryEngine` observes no difference.
+No new package. Designs: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md` (MEM1) and
+`2026-08-08-graph-memory-engine-design.md` (MEM2a).
+
 ## 2.4.0 — 2026-08-05
 
 ### Added

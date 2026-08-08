@@ -3027,6 +3027,252 @@ which CLI13 changed.
 
 ---
 
+## Part 46 — MEM1: a named memory-engine seam (2026-08-08)
+
+_Design: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md`. Plan:
+`docs/superpowers/plans/2026-08-08-memory-engine-seam.md`. MEM2 (the graph engine) and MEM-TUNE remain
+OPEN in `TASKS.md`._
+
+- [x] **MEM1 — the memory engine seam (Spec A).** `IMemoryEngine` + `MemoryRef`/`MemoryWrite`/`MemoryQuery`/
+  `MemoryItem`/`MemoryRecall`, the optional capabilities (`IExpandableMemory`, `ILinkableMemory`,
+  `IForgettableMemory`), `IMemoryEngineFactory`, `CompositeMemoryEngine`, engines over the three existing
+  stores, the fluent builder and the zero-config `AddMemory()`.
+
+  **Outcome (2026-08-08):** shipped in six commits, 68 new tests, no new package, 24 new public types in
+  `Lyntai.Core` with **zero removals** from the API baseline. The two named guards both hold: the composite
+  forwards optional capabilities by routing on `MemoryRef.Engine` (pinned by an expand-through-a-composite
+  test, the analogue of the generation-router regression), and registration uses plain `AddSingleton` rather
+  than a `TryAdd` reached during `configure(builder)`. `verify` green.
+
+  _Four things the code disagreed with the design about, all corrected rather than worked around:_
+  1. **`MemoryRef.Id` cannot always come from the store.** `IMemoryStore` and `ISemanticMemory` both return
+     `Task` from `RememberAsync`; only `ICuratedMemoryStore.AddAsync` returns an id. Engines over id-less
+     stores key by a length-framed SHA-256 of `(taskKey, scope, content)` — which is how those stores define
+     identity anyway, and which makes the reference a write returns equal to the one recall reports.
+  2. **A one-member engine still needs the composite wrapper.** Returning the bare member named the engine
+     after the member (`chat/lexical`, not `chat`) and made it unreachable by its registered name.
+  3. **`UseCurated`'s label defaults to the catalog KIND**, not the literal `"curated"`. The design said
+     "label defaults to the source kind" and the first implementation read that as the source *type*, so the
+     design's own motivating example — `UseCurated("glossary")` beside `UseCurated("style")` — would have
+     collided and thrown.
+  4. **The plan's test filter was invalid.** A bare `--filter "~Name"` is not VSTest syntax; it needs
+     `FullyQualifiedName~Name`. It errored rather than passing vacuously, but see the `pitfalls.md` entry —
+     the vacuous-pass direction is the dangerous one.
+
+---
+
+## Part 47 — MEM2a: the graph memory engine on the InMemory backend (2026-08-08)
+
+_Design: `docs/superpowers/specs/2026-08-08-graph-memory-engine-design.md`. Plan:
+`docs/superpowers/plans/2026-08-08-graph-memory-engine.md`. **MEM2b** (SQLite + Postgres), **MEM2c** (agent
+tools, similarity enrichment) and **MEM-TUNE** remain OPEN in `TASKS.md`._
+
+- [x] **MEM2a — the decay policy, the graph store contract, the engine, and the InMemory backend.**
+
+  **Outcome (2026-08-08):** shipped in four commits, 39 new tests, no new package, 11 new public types
+  across `Lyntai.Core` and `Lyntai.Storage.InMemory` with **zero removals** from the API baselines.
+  `verify` green on all seven gates. The engine satisfies MEM1's shared engine contract alongside the three
+  store wrappers and the composite — 40 facts across 5 engines.
+
+  _Spec B was split into three plans rather than one, because it is three independently shippable pieces
+  and a single plan's first review gate would not have arrived until the end. Splitting also means the SQL
+  shape in MEM2b is settled by a working reference implementation instead of guessed alongside one._
+
+  _Three design corrections made before they could ship:_
+  1. **`UseGraph` takes options BY VALUE, not an `Action<GraphMemoryOptions>`.** The record is init-only, so
+     a configure callback cannot mutate it and would silently do nothing — the "documented option that
+     isn't wired" failure `pitfalls.md` records.
+  2. **Headline derivation does not split on sentences.** "The build gate is dev.mjs verify" cut at the
+     first period reads "The build gate is dev." — confidently wrong, and worse than no memory. It cuts on
+     a word boundary and marks the truncation; authoritative material never passes through derivation.
+  3. **`HalfLifeOptions.MaxStability` closes a defect, not a gap in the options.** Unbounded
+     `stability *= 1 + Reinforce` compounds, so ~20 recalls turn a 7-day half-life into 64 years and a hot
+     ASSOCIATIVE node silently acquires authoritative durability with none of its guarantees.
+
+  _**Amended the same day — connectedness feeds decay, and edges decay too.** The first cut had the graph
+  affecting only REACHABILITY: a node recalled once and connected to twenty things decayed exactly like one
+  connected to nothing, which is backwards from the whole reason edges exist. The mirror defect surfaced
+  at the same time — edges only ever GREW, so over a long run every pair that had co-occurred stayed
+  linked at a rising weight and spreading stopped discriminating. Fixing only the first half would have
+  been worse than neither: stale links would prop memories up forever. Both are now read-time, so there is
+  still no sweeper. Three things worth keeping:_
+  - _**`MaxConnectionBoost` exists for correctness, not tidiness.** A store filters candidates against the
+    STORED stability, so `CandidateCutoff` widens by exactly that factor. An unbounded boost has no valid
+    finite cutoff, and a well-connected node would be excluded while still perfectly retrievable — silently
+    losing exactly what connectedness was meant to protect._
+  - _**The effective-stability clamp is `max(stability, min(stability × boost, MaxStability))`.** A bare
+    `min` would SHORTEN the half-life of an entry whose stored stability already exceeds the ceiling,
+    lowering retrievability and breaking the superset guarantee. Caught by reasoning, then pinned by the
+    contract's strength sweep._
+  - _**`Strength` is a raw `SUM` decayed once by `MAX(strengthened_at)`** — an over-estimate, deliberately.
+    Decaying each edge inside the aggregate needs a per-edge exponent no backend does portably, and
+    over-estimating raises `r`, which is the only direction that keeps the cutoff conservative._
+
+  _One test had to be corrected rather than the code: a hub asserted to outlive an isolated node at 60 days
+  actually lands at r=0.049 against a 0.05 floor, because edge decay has eroded the boost by then. The
+  window connectedness buys is FINITE on purpose; the test now uses 45 days and says so._
+
+  _One thing left as-is and recorded rather than smoothed over: `GraphMemoryEngine.ForgetAsync` is a
+  concrete-type convenience, not an interface member — `IForgettableMemory` declares only `PruneAsync`, and
+  adding to an interface MEM1 already shipped is a break that needs its own decision. Promote it when a
+  caller actually needs it through the interface._
+
+---
+
+## Part 48 — MEM2b: graph memory on SQLite and Postgres (2026-08-08)
+
+_Plan: `docs/superpowers/plans/2026-08-08-graph-memory-sql-backends.md`. **MEM2c** and **MEM-TUNE** remain
+OPEN in `TASKS.md`._
+
+- [x] **MEM2b — `IMemoryGraphStore` for SQLite and Postgres**, both held to the `MemoryGraphStoreContract`
+  MEM2a wrote. Two migrations (one per backend, same number), two hand-written stores, no shared SQL.
+
+  **Outcome (2026-08-08):** `verify` green on all seven gates, plus `consumer-smoke` (12 packages restore,
+  compile and run for a fresh consumer). **Postgres was genuinely verified, not shipped unmeasured** — 91
+  tests against a live container, zero skipped.
+
+  _Three findings, each of which would have failed silently:_
+  1. **The grade encoding was inverted.** The SQL was written as `grade = 1` for authoritative, following
+     the spec's own schema comment. `MemoryGrade` is `Inherit=0, Associative=1, Authoritative=2`, so the
+     predicate meant the OPPOSITE: stale associative nodes bypassed the cutoff and exact facts were
+     excluded by it. Now bound as a parameter derived from the enum; the spec comment is corrected. The
+     InMemory backend never hit this because it holds the enum directly — the SQL backends are the first
+     place a numeric encoding exists.
+  2. **A gap in the contract itself:** nothing asserted a FRESH node SURVIVES a cutoff. Had `julianday`
+     failed to parse the stored timestamp it would return NULL, excluding every row — and every existing
+     cutoff fact would still have passed. `The_candidate_cutoff_keeps_fresh_associative_nodes` closes it,
+     on every backend. The `MAX`/`GREATEST` divide-by-zero guard exists for the same reason.
+  3. **`Relevance` is rank-derived on both SQL backends.** `bm25()` is unbounded and negative, so rather
+     than invent a normalization each store reports a monotone transform of its own ordering, which is all
+     the engine's rank multiplication needs and keeps the contractual 0..1.
+
+  _**Migration numbering changed to `yyyyMMddHHmm` (owner's call, same day).** The generator implemented the
+  documented `YYYYMMDDNNNN`, so this was a convention change, not a fix. Done immediately because it was
+  free: a number that has been applied is recorded in `lyntai_version_info`, so renumbering a SHIPPED
+  migration re-runs it against a database that already has its tables. `dev.mjs`, `storage.md`,
+  `extending-lyntai.md`, the `add-migration` skill and design §7 all updated; the nine baseline migrations
+  keep their original numbers, which sort below the new form._
+
+  _Seven guard tests had to move deliberately — migration counts, migration-id lists, and both golden
+  schema snapshots. All were pure additions; the goldens carry no removals._
+
+---
+
+## Part 49 — MEM2c: the agent-facing half of graph memory (2026-08-08)
+
+_**MEM-TUNE** remains OPEN in `TASKS.md` — it is the only piece of the memory work left._
+
+- [x] **MEM2c — per-engine agent tools, and similarity enrichment.**
+
+  **Outcome (2026-08-08):** `verify` green on all seven gates. 13 new tests. The tools are ordinary
+  `ITool`s, so they reach the tool loop and the MCP bridge with no extra wiring.
+
+  _Four things worth keeping:_
+  1. **`MemoryToolScope` exists because a singleton tool cannot bind a per-conversation task.**
+     Registration binds a default; `Use(taskKey)` overrides it for the current async flow, backed by
+     `AsyncLocal` so concurrent turns cannot read each other's scope. The alternative was "write your own
+     `ITool`", which is the responsibility-shifting this design has avoided throughout.
+  2. **`content` is always present in the tool's JSON, null when withheld.** Omitting the key would be
+     cheaper and silent; the explicit null is what tells the model there is more text to fetch, which is
+     the affordance that makes it call expand at all.
+  3. **`MemorySources.Similarity` reports CONFIGURATION, not contribution** — unlike every sibling flag,
+     and the enum now says so. Enrichment is a write-side tier: by the time a recall traverses them, its
+     edges are indistinguishable from co-activation's. What the flag still buys is the distinction the enum
+     exists for — "nothing similar was found" versus "similarity is not configured here".
+  4. **`MinSimilarity` has a floor for a reason.** Without one a new entry links to its `SimilarityK`
+     nearest neighbours however unrelated they are, which in a young graph means linking to nearly
+     everything. Pinned by a test that raises the floor and asserts an unrelated entry stays unlinked.
+
+  _Enrichment is best-effort by design (`model-decoupling`: a failure in the model half must not fail the
+  whole). A broken embedding endpoint costs an entry some links, never the entry — pinned by a throwing
+  embedder._
+
+  _**A process slip, recorded rather than hidden:** the tools were committed after their own tests and
+  `check-warnings` but BEFORE the API-surface gate, so that intermediate commit was not `verify`-green. It
+  was caught and fixed in the next commit — which also found that `MemoryTools` was rendering as a public
+  type with zero public members. Made internal (tests reach it via the existing `InternalsVisibleTo`),
+  which is exactly the "make it internal before the release, not after" rule in `library-api-design`._
+
+---
+
+## Part 50 — decay is measured in events, not wall-clock time (2026-08-08)
+
+_Owner-driven, mid-MEM2c: "since we are building the logic but not 100% same as human, the day might be
+wrong term". It was — and the objection went deeper than the unit. **MEM-TUNE remains OPEN** and is now
+the only memory work left._
+
+- [x] **Replace the wall-clock decay dimension with a logical position, and damp bursts.**
+
+  **Outcome (2026-08-08):** `verify` green on all seven gates; 199 memory tests; Postgres re-verified live
+  (91 tests, zero skipped). Refactor across the policy, the node records, the store contract and all three
+  backends.
+
+  **The defect.** The model was borrowed wholesale from human memory research, where decay is measured in
+  real time because that is what a person experiences between encounters. An agent does not work that way:
+  one eight-hour session with 500 writes decayed almost nothing, while two three-write sessions a month
+  apart decayed everything. The second experienced almost nothing and forgot everything. Backwards, and
+  exactly the burst-shaped usage this library targets.
+
+  **The model is interference** — a trace fades because newer material competes, not because seconds
+  elapsed. Each engine keeps a monotone position advanced by writes; age is a subtraction. **The property
+  this buys is the point:** a rarely-used memory decays slowly and a busy one decays fast, automatically,
+  and a quiet engine is not aged by a busy sibling because the position is per engine.
+
+  _Four things worth keeping:_
+  1. **What the position COUNTS is a seam, not a decision.** "How much has happened" is ambiguous —
+     writes, volume, real time — so `IMemoryClock` supplies it, with four shipped implementations. A
+     project engine can decay on the calendar while a chat engine decays by volume, in one application.
+  2. **`BurstDampenedClock` fixes a catastrophic-forgetting bug, not a rough edge.** Linear advance means a
+     500-item ingest ages every prior entry by 500 and erases everything known before it. Damped, a burst
+     advances by about `ln n` and is itself weakly encoded — which is why a person can read a book without
+     forgetting their own name and still not recall most of the book.
+  3. **All date arithmetic left the SQL.** `julianday` / `EXTRACT(EPOCH …)` are gone, taking with them the
+     hazard where an unparseable timestamp yields NULL and silently excludes every row. Timestamps remain
+     only for `PruneAsync(olderThan:)` and auditing — the one genuinely calendar concern.
+  4. **`TimeSpan` left the options.** It asserted wall-clock in the type signature, which is a dimension
+     the application had not chosen yet.
+
+  _Two test calibrations, and one property they exposed: **prune under-reaps by design.** It reaps by the
+  policy's candidate cutoff, which is a conservative superset widened by the connection-boost ceiling, so
+  an entry can be below the recall floor and still not be deleted. That is the right direction for a
+  destructive operation, and it is now stated in the test rather than left to be rediscovered._
+
+  _The migration was EDITED IN PLACE rather than superseded — it is unreleased and has never been applied
+  outside test databases, so there was nothing to preserve. Editing an applied migration would be the
+  opposite call entirely._
+
+---
+
+## Part 51 — MEM-TUNE: the decay constants, measured (2026-08-08)
+
+_Closes the memory sequence. `TASKS.md` Part 46 is now empty of memory work._
+
+- [x] **MEM-TUNE — measure the decay defaults, don't ship them as if tuned.** _(Original wording preserved
+  below; an archive is a record.)_ "Five constants are guesses … Close it with `MemoryDecaySimulation`: a
+  corpus with a KNOWN reuse/noise split, driven over simulated weeks against an injected clock, asserting
+  ≥90% of the reused set still above `MinRetrievability` at week 8, ≤10% of the noise, full rank
+  separation, and all of it still true at week 16 so the numbers aren't fitted to one point."
+
+  **Outcome (2026-08-08):** `MemoryDecaySimulationTests`, six facts, `verify` green on all seven gates.
+
+  _**The criteria had to change with the dimension.** "Week 8" was calendar language written before Part 50
+  replaced wall-clock decay with interference; the runs are now measured in rounds of writes. Two of the
+  assertions also became sharper in the rewrite:_
+  - _**Decay is measured over the FIRST HALF of the run only.** Material written moments ago should still
+    be recallable — it is recent, and asserting otherwise would have been asserting a bug. What must fade
+    is what was mentioned once, long ago._
+  - _**Burst survival gained a control.** A 500-item ingest must not erase prior memory, AND the same
+    ingest undamped must erase all of it. Without the control, a regression that silently disabled damping
+    would pass the first assertion until the corpus happened to grow._
+
+  _**What this closes, precisely** — and the XML docs now say exactly this rather than dropping the
+  caveat: it measures the DYNAMICS and runs in CI, which a production corpus cannot. It does NOT establish
+  that real usage has the reuse-to-noise ratio modelled. The constants move from "guess" to "measured
+  against a stated model" — a starting point, not a tuned value. Replacing the model with a real corpus is
+  a strict improvement, not a prerequisite. Same shape as GEN-VERIFY._
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

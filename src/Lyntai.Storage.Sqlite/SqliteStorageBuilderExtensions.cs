@@ -80,10 +80,16 @@ public static class SqliteStorageBuilderExtensions
         if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore, SqlitePromptVersionStore>();
         if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore, SqliteConversationStore>();
         if (features.HasFlag(StorageFeature.Memory))
+        {
             builder.Services.TryAddSingleton<IMemoryStore>(sp => new SqliteMemoryStore(
                 sp.GetRequiredService<IDbConnectionFactory>(),
                 sp.GetRequiredService<LyntaiOptions>(),
                 sp.GetService<ILogger<SqliteMemoryStore>>()));
+            // the graph tables ship under the same feature tag as the keyword log
+            builder.Services.TryAddSingleton<Lyntai.Memory.IMemoryGraphStore>(sp => new SqliteMemoryGraphStore(
+                sp.GetRequiredService<IDbConnectionFactory>(),
+                sp.GetService<ILogger<SqliteMemoryGraphStore>>()));
+        }
         if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore, SqliteScoreStore>();
         if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore, SqliteTraceStore>();
         if (features.HasFlag(StorageFeature.Jobs))

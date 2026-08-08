@@ -428,11 +428,22 @@ switch (cmd) {
     break;
   }
 
+  // The prose counterpart to check-warnings: fail when a doc uses vocabulary a decision retired.
+  //
+  // IN verify, unlike `decisions-index`, and the difference is the cost of being wrong. A stale index costs
+  // a reader one Ctrl-F. A stale SPEC costs the next session a wrong implementation — it is read as the
+  // contract, and on 2026-08-08 two specs silently stopped being true while every code gate stayed green.
+  // Registry: `retiredTerms` in project.config.mjs.
+  case 'check-docs': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-docs.mjs'), ...args]);
+    break;
+  }
+
   case 'verify': {
-    // the single "am I done?" gate — seven checks, stopping at the first failure:
-    // build → warnings → packages → bundle → test → e2e → leak scan. Keep this list and `steps` in step.
+    // the single "am I done?" gate — eight checks, stopping at the first failure:
+    // build → warnings → packages → bundle → docs → test → e2e → leak scan. Keep this list and `steps` in step.
     const steps = [['build', []], ['check-warnings', []], ['check-packages', []], ['check-bundle', []],
-      ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
+      ['check-docs', []], ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {
       console.log(`\n=== verify: ${step} ===`);
@@ -441,13 +452,16 @@ switch (cmd) {
     }
     if (failed) console.error(`\nverify: ✗ FAILED at ${failed}`);
     else console.log('\nverify: ✓ all gates green ' +
-      '(build · warnings · packages · bundle · test · e2e · check-sensitive)');
+      '(build · warnings · packages · bundle · docs · test · e2e · check-sensitive)');
     break;
   }
 
   case 'new-migration': {
-    // scaffold the next FluentMigrator migration with a guaranteed-unique, monotonic YYYYMMDDNNNN
+    // scaffold the next FluentMigrator migration with a guaranteed-unique, monotonic yyyyMMddHHmm
     // number (reusing a number is silently skipped — the classic footgun the audit flagged).
+    // The timestamp is self-describing, which a per-day NNNN sequence is not: two people adding a
+    // migration on the same day without coordinating collide only if they do it in the same MINUTE,
+    // and the collision is still resolved by the strictly-greater-than-max loop below.
     const raw = args[0];
     if (!raw || !/^[a-z][a-z0-9_-]*$/i.test(raw)) {
       console.error('usage: node devtools/dev.mjs new-migration <name>   (e.g. add-jobs-table)');
@@ -458,9 +472,13 @@ switch (cmd) {
     const nums = fs.readdirSync(dir).map((f) => (f.match(/^M(\d{12})_/) ?? [])[1]).filter(Boolean).map(Number);
     const max = nums.length ? Math.max(...nums) : 0;
     const d = new Date();
-    const today = Number(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`);
-    let num = today * 10000 + 1;
-    while (num <= max) num++; // strictly greater than every existing number — never reuse one
+    const pad = (v) => String(v).padStart(2, '0');
+    let num = Number(
+      `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}`);
+    // strictly greater than every existing number — never reuse one. Two migrations in the same minute
+    // push the second past a real clock value (…1360); uniqueness and ordering are what matter here, and
+    // both hold.
+    while (num <= max) num++;
     const pascal = raw.split(/[-_]/).filter(Boolean).map((s) => s[0].toUpperCase() + s.slice(1)).join('');
     const cls = `M${num}_${pascal}`;
     const file = path.join(dir, `${cls}.cs`);

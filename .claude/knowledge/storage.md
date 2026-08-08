@@ -110,8 +110,16 @@ number, declare constraints inline, backfill in the same migration, trigram FTS 
 triggers, explicit per-connection pragmas. This section is the Lyntai BINDING of those rules (the `lyntai_`
 prefix, the `StorageFeature` tags, the Sqlite/Postgres parallelism); read both.
 
-FluentMigrator, numbered `YYYYMMDDNNNN`, **never reused** (an unapplied duplicate number is silently
-skipped). Use `dev.mjs new-migration` to get a unique monotonic number. Composite PKs and FKs go
+FluentMigrator, numbered `yyyyMMddHHmm`, **never reused** (an unapplied duplicate number is silently
+skipped). Use `dev.mjs new-migration` to get a unique monotonic number.
+
+> **Convention changed 2026-08-08, from `YYYYMMDDNNNN` to `yyyyMMddHHmm`.** <!-- drift-ok --> The timestamp is
+> self-describing where a per-day `NNNN` sequence is not, and two people adding a migration on the same day
+> without coordinating now collide only within the same MINUTE — still resolved by the generator's
+> strictly-greater-than-max loop. Both forms are 12 digits, so they sort together and the nine baseline
+> migrations keep their original numbers. **Never renumber an applied migration**: the number is recorded
+> in `lyntai_version_info`, so changing it re-runs the migration against a database that already has its
+> tables. Renumbering is free only before a migration has shipped. Composite PKs and FKs go
 **inline at `Create.Table`** (SQLite has no `ALTER ADD CONSTRAINT`). Raw SQL (`Execute.Sql`) is fine for
 the things FluentMigrator's fluent API can't express (FTS virtual tables, triggers, `ON DELETE CASCADE`).
 The runner is idempotent.

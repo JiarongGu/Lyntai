@@ -127,8 +127,9 @@ owned outside the deployment; `DECISIONS.md` D37) /
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate, seven checks stopping at the first failure:
-  build → warnings → packages → bundle → test → e2e → leak scan. Run before claiming a change is complete.
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, eight checks stopping at the first failure:
+  build → warnings → packages → bundle → **docs** → test → e2e → leak scan. Run before claiming a change is
+  complete.
 - `node devtools/dev.mjs build` — build the solution.
 - `node devtools/dev.mjs check-packages` — **fail if a package is missing from any registry it needs** (part of
   `verify`): `packableProjects`, the solution, `ApiSurfaceTests` (list + anchor map), the test project's
@@ -143,6 +144,17 @@ owned outside the deployment; `DECISIONS.md` D37) /
   of `verify`). Not style policing: `IsAotCompatible=true` stamps `IsTrimmable` into the assembly, so an
   unfailed IL2026/IL3050 is a FALSE trim promise shipping to consumers (four did), and an unresolved doc cref
   ships inside the XML docs consumers read.
+- `node devtools/dev.mjs check-docs` — **fail if a doc uses vocabulary a decision retired** (part of
+  `verify`). The prose counterpart to `check-warnings`: the CODE is gated from every side while the DOCS are
+  gated from none, so a spec paragraph that quietly stops being true survives everything and the next
+  session reads it and implements the wrong thing — which happened twice on 2026-08-08, caught both times
+  only by a human reading it. The registry is `retiredTerms` in `devtools/project.config.mjs`: a term, what
+  to say instead, and why. **Add an entry whenever a decision renames or re-dimensions something.**
+  Historical records (`CHANGELOG.md`, `docs/task-archive.md`, `docs/superpowers/plans/`) are exempt because
+  they are accurate BY using the vocabulary of their day — **specs are not**, since a spec is read as the
+  contract. Put `drift-ok` on a line that deliberately names the retired thing.
+  Unlike `decisions-index` this IS in `verify`: a stale index costs a reader one `Ctrl-F`, a stale spec
+  costs an implementation.
 - `node devtools/dev.mjs test [args]` — run the xUnit tests.
 - `node devtools/dev.mjs e2e [pN|all] [--build] [--parallel]` — boot `Lyntai.Playground` against the
   deterministic provider-stub (`LYNTAI_PROVIDER_CMD`) over isolated `devtools/_e2e-*` data folders.

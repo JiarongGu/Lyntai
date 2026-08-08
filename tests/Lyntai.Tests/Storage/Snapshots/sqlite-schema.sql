@@ -13,8 +13,14 @@ CREATE INDEX ix_lyntai_job_claim ON lyntai_job(lane, status, priority DESC, avai
 -- index ix_lyntai_job_partition
 CREATE INDEX ix_lyntai_job_partition ON lyntai_job(lane, partition_key);
 
+-- index ix_lyntai_memory_edge_to
+CREATE INDEX ix_lyntai_memory_edge_to ON lyntai_memory_edge(to_id);
+
 -- index ix_lyntai_memory_expiry
 CREATE INDEX ix_lyntai_memory_expiry ON lyntai_memory_entry(task_key, scope, expires_at);
+
+-- index ix_lyntai_memory_node_scope
+CREATE INDEX ix_lyntai_memory_node_scope ON lyntai_memory_node(engine, task_key, scope);
 
 -- index ix_lyntai_message_thread_seq
 CREATE UNIQUE INDEX ix_lyntai_message_thread_seq ON lyntai_message(thread_id, seq);
@@ -33,6 +39,10 @@ CREATE INDEX ix_lyntai_trace_step_session ON lyntai_trace_step(session_id, seq);
 
 -- index ux_lyntai_memory_dedup
 CREATE UNIQUE INDEX ux_lyntai_memory_dedup ON lyntai_memory_entry(task_key, scope, content);
+
+-- index ux_lyntai_memory_node_dedup
+CREATE UNIQUE INDEX ux_lyntai_memory_node_dedup
+ON lyntai_memory_node(engine, task_key, scope, content_hash);
 
 -- index ux_lyntai_prompt_name_version
 CREATE UNIQUE INDEX ux_lyntai_prompt_name_version ON lyntai_prompt_version(name, version);
@@ -101,6 +111,16 @@ CREATE TABLE lyntai_job (
 -- table lyntai_kv
 CREATE TABLE "lyntai_kv" ("key" TEXT NOT NULL, "value" TEXT NOT NULL, "updated_at" TEXT NOT NULL, CONSTRAINT "PK_lyntai_kv" PRIMARY KEY ("key"));
 
+-- table lyntai_memory_edge
+CREATE TABLE lyntai_memory_edge (
+    from_id INTEGER NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
+    to_id INTEGER NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT '',
+    weight REAL NOT NULL,
+    strengthened_position REAL NOT NULL,
+    PRIMARY KEY (from_id, to_id, kind)
+);
+
 -- table lyntai_memory_entry
 CREATE TABLE lyntai_memory_entry (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +144,45 @@ CREATE TABLE 'lyntai_memory_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
 
 -- table lyntai_memory_fts_idx
 CREATE TABLE 'lyntai_memory_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID;
+
+-- table lyntai_memory_node
+CREATE TABLE lyntai_memory_node (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    engine TEXT NOT NULL,
+    task_key TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    headline TEXT NOT NULL,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    grade INTEGER NOT NULL,
+    metadata TEXT NULL,
+    created_at TEXT NOT NULL,
+    last_recalled_position REAL NOT NULL,
+    recall_count INTEGER NOT NULL DEFAULT 0,
+    stability REAL NOT NULL
+);
+
+-- table lyntai_memory_node_fts
+CREATE VIRTUAL TABLE lyntai_memory_node_fts USING fts5(
+    headline, content, content='lyntai_memory_node', content_rowid='id', tokenize='trigram');
+
+-- table lyntai_memory_node_fts_config
+CREATE TABLE 'lyntai_memory_node_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID;
+
+-- table lyntai_memory_node_fts_data
+CREATE TABLE 'lyntai_memory_node_fts_data'(id INTEGER PRIMARY KEY, block BLOB);
+
+-- table lyntai_memory_node_fts_docsize
+CREATE TABLE 'lyntai_memory_node_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
+
+-- table lyntai_memory_node_fts_idx
+CREATE TABLE 'lyntai_memory_node_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID;
+
+-- table lyntai_memory_position
+CREATE TABLE lyntai_memory_position (
+    engine TEXT PRIMARY KEY,
+    position REAL NOT NULL
+);
 
 -- table lyntai_message
 CREATE TABLE lyntai_message (
@@ -238,5 +297,25 @@ END;
 CREATE TRIGGER lyntai_memory_entry_au AFTER UPDATE OF content ON lyntai_memory_entry BEGIN
     INSERT INTO lyntai_memory_fts(lyntai_memory_fts, rowid, content) VALUES ('delete', old.id, old.content);
     INSERT INTO lyntai_memory_fts(rowid, content) VALUES (new.id, new.content);
+END;
+
+-- trigger lyntai_memory_node_ad
+CREATE TRIGGER lyntai_memory_node_ad AFTER DELETE ON lyntai_memory_node BEGIN
+    INSERT INTO lyntai_memory_node_fts(lyntai_memory_node_fts, rowid, headline, content)
+    VALUES ('delete', old.id, old.headline, old.content);
+END;
+
+-- trigger lyntai_memory_node_ai
+CREATE TRIGGER lyntai_memory_node_ai AFTER INSERT ON lyntai_memory_node BEGIN
+    INSERT INTO lyntai_memory_node_fts(rowid, headline, content)
+    VALUES (new.id, new.headline, new.content);
+END;
+
+-- trigger lyntai_memory_node_au
+CREATE TRIGGER lyntai_memory_node_au AFTER UPDATE OF headline, content ON lyntai_memory_node BEGIN
+    INSERT INTO lyntai_memory_node_fts(lyntai_memory_node_fts, rowid, headline, content)
+    VALUES ('delete', old.id, old.headline, old.content);
+    INSERT INTO lyntai_memory_node_fts(rowid, headline, content)
+    VALUES (new.id, new.headline, new.content);
 END;
 

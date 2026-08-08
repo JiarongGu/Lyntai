@@ -290,6 +290,134 @@ persist it so it survives restarts, or register your own `IResponseCache` before
 it with Redis or another shared store. (Persisting it needs `StorageFeature.Governance` — see the
 governance-persistence note at the end of **Rate limiting**.)
 
+### Named memory engines
+
+`IMemoryStore`, `ISemanticMemory` and `ICuratedMemoryStore` are each a single unnamed service, so an app
+wanting a *chat* memory **and** a *project* memory used to have to wrap all of it. A memory **engine** is a
+named memory system; several coexist and are resolved by name, the way `IHttpClientFactory` resolves
+clients.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("app.db")
+    .AddMemory());        // one working engine named "default", wired into ChatOrchestrator's prompt
+```
+
+That is the whole of the common case. For more than one, or for a blend, declare members:
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("app.db")
+    .AddMemoryEngine("chat",    e => e.UseLexical().UseSemantic().Budget(1500))
+    .AddMemoryEngine("project", e => e
+        .UseCurated("glossary").Reserve(1200)   // authoritative — exact, never decays
+        .UseLexical()                           // associative — recalled context
+        .Budget(3000))
+    .UseMemoryComposer("chat"));                // which engine backs the chat prompt
+
+var memory = sp.GetRequiredService<IMemoryEngineFactory>();
+await memory.Get("project").RememberAsync(new MemoryWrite("proj", "code", "prefers terse commits"));
+var recall = await memory.Get("project").RecallAsync(new MemoryQuery("proj", "code", "commits"));
+// recall.Ran says which tiers actually ran, so an empty tier differs from an absent one
+```
+
+A blend **is** an engine, so members are addressable too (`Get("project/glossary")`) and adding a fourth
+kind of memory is a class plus a registration rather than an edit to anything existing.
+
+**Grades are what keep it accurate.** Curated members are *authoritative*: their content never decays, is
+never shortened, holds a **reserved** slice of the character budget ahead of associative material, and
+renders in its own labelled section — so a burst of loosely-relevant recall cannot quietly push a hard
+constraint out of the prompt:
+
+```
+## Known facts (authoritative)
+- the build gate is `node devtools/dev.mjs verify`
+
+## Recalled context (associative — may be stale or partial)
+- user prefers terse commit messages
+```
+
+Authoritative material that genuinely will not fit says so (`… 2 further authoritative facts omitted
+(budget)`) rather than vanishing, and an authoritative write goes to an engine that can hold one or throws
+— it is never silently stored as associative. A duplicate engine name fails at configure time, and naming a
+member whose store is not registered fails at startup rather than composing an empty section forever.
+
+Nothing changes for an app that does not call `AddMemory`/`AddMemoryEngine`: the existing stores and
+composer behave exactly as before.
+
+### Graph memory — forgetting, relinking, and a cheap first load
+
+`UseGraph()` is a memory engine shaped more like recall than like a log. Entries **decay** unless they get
+used, **connect** to whatever was recalled beside them, and come back as one-line **headlines** that expand
+on demand — so a session opens on a small index instead of paying for the whole store on every turn.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseInMemoryStorage()
+    .AddMemoryEngine("project", e => e.UseGraph()));
+
+var memory = sp.GetRequiredService<IMemoryEngineFactory>().Get("project/graph");
+await memory.RememberAsync(new MemoryWrite("proj", "code",
+    "The build gate is node devtools/dev.mjs verify, which runs seven checks."));
+
+var recall = await memory.RecallAsync(new MemoryQuery("proj", "code", "gate"));
+// headlines only — Content is null until you ask for it
+foreach (var hit in recall.Items)
+    Console.WriteLine($"{hit.Headline}  →{hit.Degree}  r={hit.Retrievability:F2}");
+
+var detail = await ((IExpandableMemory)memory).ExpandAsync(recall.Items[0].Reference);
+// full content of that entry, plus its neighbours' headlines
+```
+
+**How forgetting works — and it is not the clock.** Decay is measured in *what has happened in that
+memory*, not in elapsed time. Each engine keeps a position that advances when something is written to it,
+and an entry's age is how far that position has moved since the entry was last used. So **a memory nobody
+touches keeps everything, while a busy one lets old material fall behind** — which is the behaviour you
+want and the one wall-clock time gets backwards. Reading never ages anything: recall reinforces what it
+returned, and every successful recall *lengthens* an entry's half-life, so material you keep coming back to
+becomes durable while one-off noise sinks below the floor. It is all computed at read time — no sweeper, no
+background job — and decay only ever **ranks**; nothing is deleted unless you call `PruneAsync`.
+
+What the position *counts* is yours to choose, because "how much has happened" is genuinely ambiguous:
+
+```csharp
+new PerWriteClock()        // by count — the default, wrapped in burst damping
+new ContentSizeClock()     // by volume: a long document crowds harder than a note
+new ElapsedClock()         // by real time, for a project memory that should fade on the calendar
+new BurstDampenedClock(inner)   // wraps any of them
+```
+
+**Damping is not optional garnish.** Undamped, ingesting a 500-item document advances the position by 500
+and erases everything you knew before it — reading a long document must not wipe your memory of the
+project. So a burst saturates: 200 rapid writes advance by about 6 rather than 200, and are themselves
+weakly encoded, which is why a person can read a book without forgetting their own name and still not
+recall most of the book.
+
+**How relinking works.** Entries returned together get linked, and the link strengthens each time it
+recurs. A later recall spreads through those links, so a query can reach relevant material it never
+literally matched. You can also assert edges yourself with `LinkAsync`.
+
+The curve is swappable. Tune the constants, or replace the model of forgetting entirely:
+
+```csharp
+.UseGraph(new GraphMemoryOptions
+{
+    Hops = 2,
+    MinRetrievability = 0.05,
+    Decay = new HalfLifeOptions { InitialStability = TimeSpan.FromDays(14), ReinforceFactor = 0.3 },
+})
+// …or register your own IRetrievabilityPolicy before AddLyntai
+```
+
+Several of those defaults are **not yet measured against real usage** and are marked as such in their XML
+docs. They are deliberately settable for that reason.
+
+Graph entries carry both grades, so one engine can hold exact facts alongside recalled ones — an
+authoritative entry never decays and is never shortened to a headline.
+
+Graph memory persists on **SQLite** and **Postgres** as well as in memory — `UseSqliteStorage()` /
+`UsePostgresStorage()` register it under the same `StorageFeature.Memory` flag as the keyword store.
+
 ### Semantic memory
 
 The lexical memory store (`IMemoryStore`) recalls by keyword (FTS-trigram). For meaning-based recall, bring
