@@ -67,6 +67,37 @@ public static class MemoryEngineRegistration
         return builder;
     }
 
+    /// <summary>Expose a named engine to the model as a pair of tools — <c>{prefix}_recall</c> returns
+    /// headlines, <c>{prefix}_expand</c> returns one item's full text and what it is linked to. Registered
+    /// as ordinary <see cref="Lyntai.Agents.ITool"/>s, so they reach the tool loop and the MCP bridge alike.
+    /// <para>Names are prefixed per engine rather than one multiplexed tool taking an engine argument:
+    /// fewer tools would read better, but it would let the model consult the WRONG memory, and a wrong
+    /// memory is worse than a missing one. The prefix defaults to the engine's name with anything a tool
+    /// name cannot carry replaced — a hierarchical member name like <c>project/graph</c> becomes
+    /// <c>project_graph</c>.</para>
+    /// <para><paramref name="taskKey"/> is the DEFAULT the tools read and write under; override it per turn
+    /// with <see cref="MemoryToolScope.Use"/>, which a chat application needs since its task is
+    /// per-conversation.</para></summary>
+    /// <param name="builder">The Lyntai builder.</param>
+    /// <param name="name">The engine to expose.</param>
+    /// <param name="taskKey">Default task key.</param>
+    /// <param name="scope">Default scope, or null for every scope of the task.</param>
+    /// <param name="prefix">Overrides the derived tool-name prefix.</param>
+    public static LyntaiBuilder AddMemoryTools(this LyntaiBuilder builder, string name, string taskKey,
+        string? scope = null, string? prefix = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskKey);
+
+        var resolved = prefix ?? MemoryTools.ToolPrefix(name);
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => MemoryTools.Recall(
+            sp.GetRequiredService<IMemoryEngineFactory>().Get(name), resolved, taskKey, scope));
+        builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => MemoryTools.Expand(
+            sp.GetRequiredService<IMemoryEngineFactory>().Get(name), resolved));
+        return builder;
+    }
+
     /// <summary>Back <see cref="IPromptComposer"/> — what <c>ChatOrchestrator</c> composes with — using the
     /// named engine.
     /// <para>Without this call the existing flat composer stays in place, so adding an engine never changes
