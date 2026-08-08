@@ -40,6 +40,91 @@ internal sealed class FakeMemoryStore : IMemoryStore
         CancellationToken ct = default) => Task.FromResult(0);
 }
 
+/// <summary>An engine that returns a fixed set of items, so composition and routing can be tested without
+/// any store at all.</summary>
+internal sealed class StaticEngine(
+    string name,
+    IReadOnlyList<MemoryItem> items,
+    MemorySources ran = MemorySources.Lexical,
+    MemoryGrades grades = MemoryGrades.Associative) : IMemoryEngine
+{
+    public string Name { get; } = name;
+
+    public MemoryGrades Supported => grades;
+
+    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        throw new NotSupportedException($"'{Name}' is a read-only test engine.");
+
+    public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(items.Count == 0 ? MemoryRecall.Empty : new MemoryRecall(items, ran));
+    }
+}
+
+/// <summary>An engine that throws from every path — for the fail-open assertions. A BYO engine that
+/// ignores the fail-open contract must not sink a caller's prompt.</summary>
+internal sealed class FaultingEngine(string name) : IMemoryEngine
+{
+    public string Name { get; } = name;
+
+    public MemoryGrades Supported => MemoryGrades.Associative;
+
+    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        throw new InvalidOperationException("boom");
+
+    public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default) =>
+        throw new InvalidOperationException("boom");
+}
+
+/// <summary>An engine that records what it was asked to store, and declares which grades it accepts.</summary>
+internal sealed class RecordingEngine(string name, MemoryGrades grades) : IMemoryEngine
+{
+    public List<MemoryWrite> Writes { get; } = [];
+
+    public string Name { get; } = name;
+
+    public MemoryGrades Supported => grades;
+
+    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
+    {
+        Writes.Add(write);
+        return Task.FromResult(new MemoryRef(Name, Writes.Count.ToString()));
+    }
+
+    public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(MemoryRecall.Empty);
+    }
+}
+
+/// <summary>An engine that implements the optional expansion capability — the one a composite must not
+/// hide behind itself.</summary>
+internal sealed class ExpandableEngine(string name) : IMemoryEngine, IExpandableMemory
+{
+    public string Name { get; } = name;
+
+    public MemoryGrades Supported => MemoryGrades.Associative | MemoryGrades.Authoritative;
+
+    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        Task.FromResult(new MemoryRef(Name, write.Content));
+
+    public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(MemoryRecall.Empty);
+    }
+
+    public Task<MemoryRecall> ExpandAsync(MemoryRef reference, int hops = 1, int? charBudget = null,
+        CancellationToken ct = default)
+    {
+        var expanded = new MemoryItem(reference, $"expanded {reference.Id}", $"expanded {reference.Id}",
+            MemoryGrade.Associative, 1, 1, 1);
+        return Task.FromResult(new MemoryRecall([expanded], MemorySources.Graph));
+    }
+}
+
 /// <summary>In-process <see cref="ISemanticMemory"/> whose "similarity" is substring containment, so a
 /// test needs no embedder and spends no tokens.</summary>
 internal sealed class FakeSemanticMemory : ISemanticMemory
