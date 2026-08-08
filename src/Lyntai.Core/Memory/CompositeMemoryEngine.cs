@@ -46,6 +46,11 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
     /// <inheritdoc />
     public string Name { get; }
 
+    /// <summary>The members, in render order. Exposed so <see cref="MemoryEngineFactory"/> can index them
+    /// alongside the blend — a member is individually addressable, and building it twice to achieve that
+    /// would mint a second instance over the same store.</summary>
+    public IReadOnlyList<IMemoryEngine> Members => _members;
+
     /// <inheritdoc />
     public MemoryGrades Supported => _members.Aggregate(MemoryGrades.None, (acc, m) => acc | m.Supported);
 

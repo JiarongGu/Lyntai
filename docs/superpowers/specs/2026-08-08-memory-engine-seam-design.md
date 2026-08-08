@@ -202,13 +202,15 @@ Members are themselves named engines, hierarchically:
 
 ```csharp
 .AddMemoryEngine("project", e => e
-    .UseCurated(kind: "glossary", label: "glossary")   // engine "project/glossary"
-    .UseCurated(kind: "style",    label: "style")      // engine "project/style"
-    .UseGraph(...))                                    // engine "project/graph"
+    .UseCurated("glossary")     // engine "project/glossary"
+    .UseCurated("style")        // engine "project/style"
+    .UseGraph(...))             // engine "project/graph"
 ```
 
-`label` defaults to the source kind. Two unlabelled members of the same kind collide, and that is a
-**startup** failure naming both, not a runtime surprise. Every member is individually addressable through
+`label` defaults to the source kind — for a curated member that is the *catalog kind*, not the literal
+string "curated", because drawing on two catalog sections is the ordinary case and a fixed default would
+make it collide. Two members that would still share a name collide, and that is a **configure-time**
+failure naming both, not a runtime surprise. Every member is individually addressable through
 the factory, so `Get("project")` gives the blend and `Get("project/glossary")` gives one member.
 
 **The composite's capability rule, which is the anti-repeat of the generation-router trap:** it always

@@ -2,7 +2,7 @@ namespace Lyntai.Memory;
 
 /// <summary>
 /// A named memory system: something that can be told a fact and asked for the relevant ones. Registered as
-/// a DI collection and keyed by <see cref="Name"/> through <c>IMemoryEngineFactory</c> — the same
+/// a DI collection and keyed by <see cref="Name"/> through <see cref="IMemoryEngineFactory"/> — the same
 /// variation-point shape as <see cref="Lyntai.Llm.ILlmProvider"/> keyed by <c>Id</c> and picked by
 /// <see cref="Lyntai.Llm.ILlmRouter"/>. Adding a kind of memory is a class plus a registration, never an
 /// edit to a conditional.
