@@ -67,6 +67,77 @@ fades. This is the whole of the forgetting mechanism; there is no sweeper and no
 today. Authoritative nodes hold retrievability 1.0 permanently and are therefore never eligible for a
 retrievability-based prune — which falls out of the formula and needs no special case in the query.
 
+### 3.-1 Amendment 2026-08-08 — decay is measured in EVENTS, not wall-clock time
+
+_Supersedes the "days" dimension used throughout §3 below; read this first._
+
+**The defect.** The model was borrowed wholesale from human memory research, where decay is measured in real
+time because that is what a person experiences between encounters. An agent does not work that way. Two
+engines with identical content:
+
+- one session, eight hours, 500 writes — wall clock says almost nothing decayed;
+- two sessions a month apart, three writes each — wall clock says everything decayed.
+
+The second experienced almost nothing and forgot everything; the first experienced a great deal and forgot
+nothing. That is backwards, and it is exactly the burst-shaped usage this library targets.
+
+**The model is interference, which is what the research actually says causes forgetting**: a trace fades
+because *newer material competes with it*, not because seconds elapsed. So the age is a difference on a
+monotone scalar the store keeps per engine:
+
+```
+age = current_position − node.last_recalled_position
+r   = 2 ^ ( −age / stability )              // stability is measured in the SAME units
+```
+
+**What that scalar COUNTS is a seam, not a decision.** "How much has happened" is genuinely ambiguous — it
+could be the number of things written, how much material was written, how much real time passed between
+messages, or a blend — and picking one would be exactly the kind of hard-coding this design has avoided
+elsewhere. So the increment is supplied:
+
+```csharp
+public interface IMemoryClock { double Advance(MemoryWrite write); }
+
+PerWriteClock     → 1                      // interference by count — the DEFAULT
+ContentSizeClock  → write.Content.Length   // bigger material crowds harder
+ElapsedClock      → days since last write  // calendar decay, for a project memory
+```
+
+Three shipped implementations, so nobody has to write one, and a project engine can decay by real time
+while a chat engine decays by volume **in the same application**. The stored form and every query are
+identical whichever is chosen; the dimension is decided once, in C#, at registration. That is also why the
+constants below carry no unit in their type — a `TimeSpan` would assert a dimension the application has not
+picked yet.
+
+**Only writes advance it.** Remembering something — new or refreshed — advances the position, because new
+material is what competes. Recall does not: it reinforces what it returned, so a long read-only session
+costs nothing and a read-only agent never forgets by reading.
+
+**The property this buys, which is the point of the whole change:** a rarely-used memory decays slowly and
+a heavily-used one decays fast, automatically. The position advances only when that memory is written to,
+so an engine nobody touches keeps everything while a busy one lets old material fall behind. Wall-clock
+gets this exactly backwards — it ages the quiet system at the same rate as the busy one. `ElapsedClock`
+deliberately gives the property up, because a *project* memory sometimes should fade on the calendar; that
+is the trade-off it exists to offer, per engine and opt-in.
+
+**The position is per engine.** A global one would let a busy engine age a quiet one's memories — the same
+failure one level up. Concurrent writers can collide on a value, which merely counts two writes as one
+advance — benign for a soft counter, and not worth a lock.
+
+**Three consequences, all simplifications:**
+
+- **`julianday` / `EXTRACT(EPOCH …)` disappear.** The candidate filter becomes integer subtraction over a
+  plain column. The `MAX(stability, ε)` divide-by-zero guard stays, but the far worse hazard it sat next
+  to — SQLite's `julianday` returning NULL on a timestamp format it cannot parse, silently excluding every
+  row — stops existing.
+- **`TimeSpan` leaves the options.** `InitialStability = TimeSpan.FromDays(7)` asserts "wall clock" in the
+  type signature; a count of events is a `double`, and the type stops claiming something untrue.
+- **No injected clock in the decay path.** Advancing the sequence is just writing, so tests need no fake
+  time at all.
+
+**Wall-clock timestamps stay on the table**, for the two things they are honestly for: `PruneAsync(olderThan:)`
+("reap anything created over 90 days ago" is a real calendar concern) and auditing. They no longer feed decay.
+
 ### 3.0 Amendment 2026-08-08 — connectedness feeds decay, and edges decay too
 
 _Added after MEM2a shipped, because the first cut had the graph affecting only REACHABILITY._

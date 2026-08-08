@@ -369,10 +369,29 @@ var detail = await ((IExpandableMemory)memory).ExpandAsync(recall.Items[0].Refer
 // full content of that entry, plus its neighbours' headlines
 ```
 
-**How forgetting works.** Each entry has a half-life. Retrievability is computed at read time from stored
-timestamps — no sweeper, no background job — and every successful recall *lengthens* that half-life, so
-material you keep coming back to becomes durable while one-off noise sinks below the floor and stops being
-recalled. Decay only ever **ranks**; nothing is deleted unless you call `PruneAsync`.
+**How forgetting works — and it is not the clock.** Decay is measured in *what has happened in that
+memory*, not in elapsed time. Each engine keeps a position that advances when something is written to it,
+and an entry's age is how far that position has moved since the entry was last used. So **a memory nobody
+touches keeps everything, while a busy one lets old material fall behind** — which is the behaviour you
+want and the one wall-clock time gets backwards. Reading never ages anything: recall reinforces what it
+returned, and every successful recall *lengthens* an entry's half-life, so material you keep coming back to
+becomes durable while one-off noise sinks below the floor. It is all computed at read time — no sweeper, no
+background job — and decay only ever **ranks**; nothing is deleted unless you call `PruneAsync`.
+
+What the position *counts* is yours to choose, because "how much has happened" is genuinely ambiguous:
+
+```csharp
+new PerWriteClock()        // by count — the default, wrapped in burst damping
+new ContentSizeClock()     // by volume: a long document crowds harder than a note
+new ElapsedClock()         // by real time, for a project memory that should fade on the calendar
+new BurstDampenedClock(inner)   // wraps any of them
+```
+
+**Damping is not optional garnish.** Undamped, ingesting a 500-item document advances the position by 500
+and erases everything you knew before it — reading a long document must not wipe your memory of the
+project. So a burst saturates: 200 rapid writes advance by about 6 rather than 200, and are themselves
+weakly encoded, which is why a person can read a book without forgetting their own name and still not
+recall most of the book.
 
 **How relinking works.** Entries returned together get linked, and the link strengthens each time it
 recurs. A later recall spreads through those links, so a query can reach relevant material it never

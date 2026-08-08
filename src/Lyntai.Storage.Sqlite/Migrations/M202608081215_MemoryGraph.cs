@@ -33,9 +33,19 @@ public sealed class M202608081215_MemoryGraph : Migration
                 grade INTEGER NOT NULL,
                 metadata TEXT NULL,
                 created_at TEXT NOT NULL,
-                last_recalled_at TEXT NOT NULL,
+                last_recalled_position REAL NOT NULL,
                 recall_count INTEGER NOT NULL DEFAULT 0,
                 stability REAL NOT NULL
+            )
+            """);
+        // The engine's monotone POSITION — how much has happened in this memory. An entry's age is a
+        // subtraction against it, never a duration; created_at above is kept only for prune-by-age and
+        // auditing. Held in its own table rather than derived from MAX(last_recalled_position) because a
+        // delete of the newest entry would otherwise rewind the position and make every age wrong.
+        Execute.Sql("""
+            CREATE TABLE lyntai_memory_position (
+                engine TEXT PRIMARY KEY,
+                position REAL NOT NULL
             )
             """);
         // dedup on a HASH, not the content text: a unique index over full content would be large, and
@@ -52,7 +62,7 @@ public sealed class M202608081215_MemoryGraph : Migration
                 to_id INTEGER NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
                 kind TEXT NOT NULL DEFAULT '',
                 weight REAL NOT NULL,
-                strengthened_at TEXT NOT NULL,
+                strengthened_position REAL NOT NULL,
                 PRIMARY KEY (from_id, to_id, kind)
             )
             """);
@@ -101,6 +111,7 @@ public sealed class M202608081215_MemoryGraph : Migration
         Execute.Sql("DROP TABLE IF EXISTS lyntai_memory_node_fts");
         Execute.Sql("DROP INDEX IF EXISTS ix_lyntai_memory_edge_to");
         Execute.Sql("DROP TABLE IF EXISTS lyntai_memory_edge");
+        Execute.Sql("DROP TABLE IF EXISTS lyntai_memory_position");
         Execute.Sql("DROP INDEX IF EXISTS ix_lyntai_memory_node_scope");
         Execute.Sql("DROP INDEX IF EXISTS ux_lyntai_memory_node_dedup");
         Execute.Sql("DROP TABLE IF EXISTS lyntai_memory_node");

@@ -3195,6 +3195,54 @@ _**MEM-TUNE** remains OPEN in `TASKS.md` — it is the only piece of the memory 
 
 ---
 
+## Part 50 — decay is measured in events, not wall-clock time (2026-08-08)
+
+_Owner-driven, mid-MEM2c: "since we are building the logic but not 100% same as human, the day might be
+wrong term". It was — and the objection went deeper than the unit. **MEM-TUNE remains OPEN** and is now
+the only memory work left._
+
+- [x] **Replace the wall-clock decay dimension with a logical position, and damp bursts.**
+
+  **Outcome (2026-08-08):** `verify` green on all seven gates; 199 memory tests; Postgres re-verified live
+  (91 tests, zero skipped). Refactor across the policy, the node records, the store contract and all three
+  backends.
+
+  **The defect.** The model was borrowed wholesale from human memory research, where decay is measured in
+  real time because that is what a person experiences between encounters. An agent does not work that way:
+  one eight-hour session with 500 writes decayed almost nothing, while two three-write sessions a month
+  apart decayed everything. The second experienced almost nothing and forgot everything. Backwards, and
+  exactly the burst-shaped usage this library targets.
+
+  **The model is interference** — a trace fades because newer material competes, not because seconds
+  elapsed. Each engine keeps a monotone position advanced by writes; age is a subtraction. **The property
+  this buys is the point:** a rarely-used memory decays slowly and a busy one decays fast, automatically,
+  and a quiet engine is not aged by a busy sibling because the position is per engine.
+
+  _Four things worth keeping:_
+  1. **What the position COUNTS is a seam, not a decision.** "How much has happened" is ambiguous —
+     writes, volume, real time — so `IMemoryClock` supplies it, with four shipped implementations. A
+     project engine can decay on the calendar while a chat engine decays by volume, in one application.
+  2. **`BurstDampenedClock` fixes a catastrophic-forgetting bug, not a rough edge.** Linear advance means a
+     500-item ingest ages every prior entry by 500 and erases everything known before it. Damped, a burst
+     advances by about `ln n` and is itself weakly encoded — which is why a person can read a book without
+     forgetting their own name and still not recall most of the book.
+  3. **All date arithmetic left the SQL.** `julianday` / `EXTRACT(EPOCH …)` are gone, taking with them the
+     hazard where an unparseable timestamp yields NULL and silently excludes every row. Timestamps remain
+     only for `PruneAsync(olderThan:)` and auditing — the one genuinely calendar concern.
+  4. **`TimeSpan` left the options.** It asserted wall-clock in the type signature, which is a dimension
+     the application had not chosen yet.
+
+  _Two test calibrations, and one property they exposed: **prune under-reaps by design.** It reaps by the
+  policy's candidate cutoff, which is a conservative superset widened by the connection-boost ceiling, so
+  an entry can be below the recall floor and still not be deleted. That is the right direction for a
+  destructive operation, and it is now stated in the test rather than left to be rediscovered._
+
+  _The migration was EDITED IN PLACE rather than superseded — it is unreleased and has never been applied
+  outside test databases, so there was nothing to preserve. Editing an applied migration would be the
+  opposite call entirely._
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

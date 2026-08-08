@@ -117,7 +117,7 @@ CREATE TABLE lyntai_memory_edge (
     to_id INTEGER NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
     kind TEXT NOT NULL DEFAULT '',
     weight REAL NOT NULL,
-    strengthened_at TEXT NOT NULL,
+    strengthened_position REAL NOT NULL,
     PRIMARY KEY (from_id, to_id, kind)
 );
 
@@ -157,7 +157,7 @@ CREATE TABLE lyntai_memory_node (
     grade INTEGER NOT NULL,
     metadata TEXT NULL,
     created_at TEXT NOT NULL,
-    last_recalled_at TEXT NOT NULL,
+    last_recalled_position REAL NOT NULL,
     recall_count INTEGER NOT NULL DEFAULT 0,
     stability REAL NOT NULL
 );
@@ -177,6 +177,12 @@ CREATE TABLE 'lyntai_memory_node_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
 
 -- table lyntai_memory_node_fts_idx
 CREATE TABLE 'lyntai_memory_node_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID;
+
+-- table lyntai_memory_position
+CREATE TABLE lyntai_memory_position (
+    engine TEXT PRIMARY KEY,
+    position REAL NOT NULL
+);
 
 -- table lyntai_message
 CREATE TABLE lyntai_message (

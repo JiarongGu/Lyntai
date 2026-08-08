@@ -11,12 +11,10 @@ namespace Lyntai.Tests.Memory;
 /// failure — costs connections, never the entry.</summary>
 public class GraphSimilarityTests
 {
-    private DateTimeOffset _now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-
-    private GraphMemoryEngine Engine(IEmbedder? embedder, IVectorStore? vectors,
+    private static GraphMemoryEngine Engine(IEmbedder? embedder, IVectorStore? vectors,
         GraphMemoryOptions? options = null) =>
-        new("project/graph", new InMemoryMemoryGraphStore(), options, clock: () => _now,
-            embedder: embedder, vectors: vectors);
+        new("project/graph", new InMemoryMemoryGraphStore(), options,
+            memoryClock: new PerWriteClock(), embedder: embedder, vectors: vectors);
 
     [Fact]
     public async Task A_new_entry_is_linked_to_a_similar_existing_one()

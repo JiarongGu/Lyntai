@@ -6,10 +6,18 @@ namespace Lyntai.Tests.Memory;
 
 public class GraphMemoryEngineTests
 {
-    private DateTimeOffset _now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    /// <summary>An undamped per-write clock, so these facts age deterministically by counting: every write
+    /// crowds by exactly one, and nothing depends on how fast the test happens to run.</summary>
+    private static GraphMemoryEngine Engine(GraphMemoryOptions? options = null) =>
+        new("project/graph", new InMemoryMemoryGraphStore(), options, memoryClock: new PerWriteClock());
 
-    private GraphMemoryEngine Engine(GraphMemoryOptions? options = null) =>
-        new("project/graph", new InMemoryMemoryGraphStore(), options, clock: () => _now);
+    /// <summary>Make everything already stored older by writing unrelated material — which is what ages a
+    /// memory now: newer material competing with it.</summary>
+    private static async Task Crowd(GraphMemoryEngine engine, int writes)
+    {
+        for (var i = 0; i < writes; i++)
+            await engine.RememberAsync(new MemoryWrite("t", "filler", $"unrelated filler number {i}"));
+    }
 
     [Fact]
     public async Task Recall_returns_headlines_and_withholds_content_until_expansion()
@@ -76,36 +84,67 @@ public class GraphMemoryEngineTests
         var engine = Engine();
         await engine.RememberAsync(new MemoryWrite("t", "s", "reinforced fact"));
 
-        var before = (await engine.RecallAsync(new MemoryQuery("t", "s", "reinforced"))).Items[0];
-        _now = _now.AddDays(14);
+        await engine.RecallAsync(new MemoryQuery("t", "s", "reinforced")); // reinforces, does not age
+        await Crowd(engine, 30);
         var after = (await engine.RecallAsync(new MemoryQuery("t", "s", "reinforced"))).Items[0];
 
-        // 14 days on the original 7-day half-life would be r=0.25; the first recall pushed it out
-        Assert.Equal(1.0, before.Retrievability, precision: 6);
-        Assert.True(after.Retrievability > 0.25,
+        // 30 events against the original 20-event half-life would be r≈0.35; the first recall pushed the
+        // half-life out to 30, so it stands higher than that
+        Assert.True(after.Retrievability > 0.4,
             $"reinforcement did not extend the half-life (r={after.Retrievability})");
     }
 
     [Fact]
-    public async Task A_stale_associative_memory_falls_below_the_floor()
+    public async Task Reading_does_not_age_anything()
+    {
+        // the property the interference clock exists for: a read-only agent never forgets by reading
+        var engine = Engine();
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a stable fact"));
+
+        for (var i = 0; i < 50; i++) await engine.RecallAsync(new MemoryQuery("t", "s", "stable"));
+
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "stable"));
+        Assert.Single(recall.Items);
+        Assert.Equal(1.0, recall.Items[0].Retrievability, precision: 6);
+    }
+
+    [Fact]
+    public async Task A_memory_nobody_writes_to_keeps_everything()
+    {
+        // a rarely-used engine must not decay like a busy one — the reason the position is per engine and
+        // advances only on writes
+        var quiet = Engine();
+        await quiet.RememberAsync(new MemoryWrite("t", "s", "an undisturbed fact"));
+
+        var busy = Engine();
+        await Crowd(busy, 500);
+
+        var recall = await quiet.RecallAsync(new MemoryQuery("t", "s", "undisturbed"));
+
+        Assert.Single(recall.Items);
+        Assert.Equal(1.0, recall.Items[0].Retrievability, precision: 6);
+    }
+
+    [Fact]
+    public async Task A_crowded_out_associative_memory_falls_below_the_floor()
     {
         var engine = Engine();
         await engine.RememberAsync(new MemoryWrite("t", "s", "one-off noise"));
 
-        _now = _now.AddDays(365);
+        await Crowd(engine, 200);
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "noise"));
 
         Assert.Empty(recall.Items);
     }
 
     [Fact]
-    public async Task A_stale_authoritative_memory_does_not()
+    public async Task A_crowded_out_authoritative_memory_does_not()
     {
         var engine = Engine();
         await engine.RememberAsync(new MemoryWrite("t", "s", "an exact fact",
             Grade: MemoryGrade.Authoritative));
 
-        _now = _now.AddDays(10_000);
+        await Crowd(engine, 5000);
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "exact"));
 
         Assert.Single(recall.Items);
@@ -166,22 +205,9 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
-    public async Task A_failing_touch_still_returns_the_hits()
-    {
-        // a read-only database must degrade to "no learning", never to "no memory"
-        var engine = new GraphMemoryEngine("project/graph", new TouchHostileGraphStore(), clock: () => _now);
-        await engine.RememberAsync(new MemoryWrite("t", "s", "still recalled"));
-
-        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "still"));
-
-        Assert.Single(recall.Items);
-    }
-
-    [Fact]
     public async Task A_connected_memory_outlives_an_isolated_one()
     {
-        // the point of feeding connectedness into decay: being embedded in the graph is itself a reason to
-        // survive, not merely a way to be reached
+        // being embedded in the graph is itself a reason to survive, not merely a way to be reached
         var engine = Engine();
         var hub = await engine.RememberAsync(new MemoryWrite("t", "s", "hub fact about widgets"));
         for (var i = 0; i < 8; i++)
@@ -191,10 +217,9 @@ public class GraphMemoryEngineTests
         }
         await engine.RememberAsync(new MemoryWrite("t", "s", "isolated fact about widgets"));
 
-        // 45 days: past the isolated node's 7-day half-life several times over, still inside the window
-        // the connection boost buys. That window is FINITE on purpose — by 60 days the edges have decayed
-        // enough that the hub goes too, which is the model working, not a gap in it.
-        _now = _now.AddDays(45);
+        // enough to push an unconnected 20-event memory past the floor, but not the hub, whose links
+        // stretch its half-life to about 44
+        await Crowd(engine, 120);
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "widgets"));
 
         Assert.Contains(recall.Items, i => i.Headline.Contains("hub fact", StringComparison.Ordinal));
@@ -202,28 +227,21 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
-    public async Task A_neighbourhood_that_went_quiet_stops_propping_a_memory_up()
+    public async Task A_failing_touch_still_returns_the_hits()
     {
-        var engine = Engine();
-        var hub = await engine.RememberAsync(new MemoryWrite("t", "s", "hub fact about widgets"));
-        for (var i = 0; i < 8; i++)
-        {
-            var spoke = await engine.RememberAsync(new MemoryWrite("t", "s", $"widget detail {i}"));
-            await engine.LinkAsync(hub, spoke, weight: 3, symmetric: true);
-        }
+        // a read-only database must degrade to "no learning", never to "no memory"
+        var engine = new GraphMemoryEngine("project/graph", new TouchHostileGraphStore(),
+            memoryClock: new PerWriteClock());
+        await engine.RememberAsync(new MemoryWrite("t", "s", "still recalled"));
 
-        // far enough out that the edges themselves have decayed away
-        _now = _now.AddDays(2000);
-        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "widgets"));
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "still"));
 
-        Assert.DoesNotContain(recall.Items, i => i.Headline.Contains("hub fact", StringComparison.Ordinal));
+        Assert.Single(recall.Items);
     }
 
     [Fact]
-    public void It_stores_both_grades()
-    {
+    public void It_stores_both_grades() =>
         Assert.Equal(MemoryGrades.Associative | MemoryGrades.Authoritative, Engine().Supported);
-    }
 
     [Fact]
     public async Task Pruning_reaps_only_the_forgotten()
@@ -232,7 +250,11 @@ public class GraphMemoryEngineTests
         await engine.RememberAsync(new MemoryWrite("t", "s", "faded"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "exact", Grade: MemoryGrade.Authoritative));
 
-        _now = _now.AddDays(365);
+        // Pruning reaps by the policy's CANDIDATE CUTOFF, which is a conservative SUPERSET — widened by the
+        // connection-boost ceiling. So prune UNDER-reaps rather than over-reaps: an entry can be below the
+        // recall floor and still not be deleted. That is the right direction for a destructive operation,
+        // and it is why this needs far more crowding than the recall floor does.
+        await Crowd(engine, 400);
         var removed = await engine.PruneAsync("t", "s", minRetrievability: 0.05);
 
         Assert.Equal(1, removed);

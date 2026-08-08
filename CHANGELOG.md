@@ -60,6 +60,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `HalfLifeOptions.MaxStability` caps reinforcement: unbounded compounding turns a seven-day half-life into
   sixty-four years in about twenty recalls, which would silently give a frequently-recalled *associative*
   entry the durability of an authoritative one without any of its guarantees.
+- **Decay is measured in what has HAPPENED in a memory, not in elapsed time** (`IMemoryClock`,
+  `PerWriteClock`, `ContentSizeClock`, `ElapsedClock`, `BurstDampenedClock`). Each engine keeps a position
+  that advances when something is written to it; an entry's age is how far that position has moved since it
+  was last used. **A rarely-used memory therefore decays slowly and a busy one decays fast** — automatic,
+  and the reverse of what wall-clock time gives you. Reading never ages anything. What the position
+  *counts* is a seam with four shipped implementations, because "how much has happened" is genuinely
+  ambiguous — writes, volume, or real time — and a project memory can decay on the calendar while a chat
+  memory decays by volume in the same application.
+  **Bursts saturate**, which is a correctness matter rather than a refinement: advancing once per write is
+  linear, so a 500-item bulk ingest would age every pre-existing entry by 500 and erase everything known
+  before it. A damped burst advances by about `ln n`, and its own entries start with a proportionally
+  shorter half-life — so a long document neither wipes your memory nor is itself remembered in full.
+  Consequences: no date arithmetic appears in any query (removing the hazard where SQLite's `julianday`
+  returning NULL on an unparseable timestamp would silently exclude every row), and the decay constants no
+  longer carry `TimeSpan`, which asserted a dimension the application had not chosen.
 - **Connectedness feeds decay, and edges decay too.** A memory woven into a dense, repeatedly-reinforced
   neighbourhood now resists forgetting, while an isolated one fades — connections make an entry more
   *durable*, not merely more reachable. Symmetrically, edge weight decays with disuse

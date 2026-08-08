@@ -29,9 +29,19 @@ public sealed class M202608081215_MemoryGraph : Migration
                 grade            INTEGER NOT NULL,
                 metadata         TEXT NULL,
                 created_at       TIMESTAMPTZ NOT NULL,
-                last_recalled_at TIMESTAMPTZ NOT NULL,
+                last_recalled_position DOUBLE PRECISION NOT NULL,
                 recall_count     INTEGER NOT NULL DEFAULT 0,
                 stability        DOUBLE PRECISION NOT NULL
+            )
+            """);
+        // The engine's monotone POSITION — how much has happened in this memory. An entry's age is a
+        // subtraction against it, never a duration; created_at above is kept only for prune-by-age and
+        // auditing. Its own table rather than MAX(last_recalled_position), which a delete of the newest
+        // entry would rewind.
+        Execute.Sql("""
+            CREATE TABLE lyntai_memory_position (
+                engine   TEXT PRIMARY KEY,
+                position DOUBLE PRECISION NOT NULL
             )
             """);
         Execute.Sql("""
@@ -49,7 +59,7 @@ public sealed class M202608081215_MemoryGraph : Migration
                 to_id           BIGINT NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
                 kind            TEXT NOT NULL DEFAULT '',
                 weight          DOUBLE PRECISION NOT NULL,
-                strengthened_at TIMESTAMPTZ NOT NULL,
+                strengthened_position DOUBLE PRECISION NOT NULL,
                 PRIMARY KEY (from_id, to_id, kind)
             )
             """);
@@ -60,5 +70,6 @@ public sealed class M202608081215_MemoryGraph : Migration
     {
         Execute.Sql("DROP TABLE IF EXISTS lyntai_memory_edge");
         Execute.Sql("DROP TABLE IF EXISTS lyntai_memory_node");
+        Execute.Sql("DROP TABLE IF EXISTS lyntai_memory_position");
     }
 }

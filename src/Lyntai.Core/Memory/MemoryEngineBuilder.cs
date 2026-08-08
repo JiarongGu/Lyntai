@@ -72,6 +72,9 @@ public sealed class MemoryEngineBuilder
         var resolved = options ?? new GraphMemoryOptions();
         _members.Add(new MemberSpec(label, (sp, full) => new GraphMemoryEngine(
             full, Required<IMemoryGraphStore>(sp), resolved, sp.GetService<IRetrievabilityPolicy>(),
+            // register an IMemoryClock to change what decay is measured IN; the engine's default is a
+            // burst-damped per-write clock
+            memoryClock: sp.GetService<IMemoryClock>(),
             logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
             // similarity enrichment turns itself on when both are present, and is simply absent otherwise
             embedder: sp.GetService<Lyntai.Embeddings.IEmbedder>(),
@@ -87,6 +90,7 @@ public sealed class MemoryEngineBuilder
         _members.Add(new MemberSpec("memory", (sp, full) =>
             sp.GetService<IMemoryGraphStore>() is { } graph
                 ? new GraphMemoryEngine(full, graph, policy: sp.GetService<IRetrievabilityPolicy>(),
+                    memoryClock: sp.GetService<IMemoryClock>(),
                     logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
                     embedder: sp.GetService<Lyntai.Embeddings.IEmbedder>(),
                     vectors: sp.GetService<IVectorStore>())

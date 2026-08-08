@@ -37,7 +37,7 @@ lyntai_kv|updated_at|timestamp with time zone|NO|
 lyntai_kv|value|text|NO|
 lyntai_memory_edge|from_id|bigint|NO|
 lyntai_memory_edge|kind|text|NO|''::text
-lyntai_memory_edge|strengthened_at|timestamp with time zone|NO|
+lyntai_memory_edge|strengthened_position|double precision|NO|
 lyntai_memory_edge|to_id|bigint|NO|
 lyntai_memory_edge|weight|double precision|NO|
 lyntai_memory_entry|content|text|NO|
@@ -54,12 +54,14 @@ lyntai_memory_node|engine|text|NO|
 lyntai_memory_node|grade|integer|NO|
 lyntai_memory_node|headline|text|NO|
 lyntai_memory_node|id|bigint|NO|nextval('lyntai_memory_node_id_seq'::regclass)
-lyntai_memory_node|last_recalled_at|timestamp with time zone|NO|
+lyntai_memory_node|last_recalled_position|double precision|NO|
 lyntai_memory_node|metadata|text|YES|
 lyntai_memory_node|recall_count|integer|NO|0
 lyntai_memory_node|scope|text|NO|
 lyntai_memory_node|stability|double precision|NO|
 lyntai_memory_node|task_key|text|NO|
+lyntai_memory_position|engine|text|NO|
+lyntai_memory_position|position|double precision|NO|
 lyntai_message|created_at|timestamp with time zone|NO|
 lyntai_message|id|text|NO|
 lyntai_message|kind|text|NO|
@@ -134,6 +136,7 @@ lyntai_memory_node|ix_lyntai_memory_node_scope|CREATE INDEX ix_lyntai_memory_nod
 lyntai_memory_node|ix_lyntai_memory_node_trgm|CREATE INDEX ix_lyntai_memory_node_trgm ON public.lyntai_memory_node USING gin (content gin_trgm_ops)
 lyntai_memory_node|lyntai_memory_node_pkey|CREATE UNIQUE INDEX lyntai_memory_node_pkey ON public.lyntai_memory_node USING btree (id)
 lyntai_memory_node|ux_lyntai_memory_node_dedup|CREATE UNIQUE INDEX ux_lyntai_memory_node_dedup ON public.lyntai_memory_node USING btree (engine, task_key, scope, content_hash)
+lyntai_memory_position|lyntai_memory_position_pkey|CREATE UNIQUE INDEX lyntai_memory_position_pkey ON public.lyntai_memory_position USING btree (engine)
 lyntai_message|ix_lyntai_message_thread_seq|CREATE UNIQUE INDEX ix_lyntai_message_thread_seq ON public.lyntai_message USING btree (thread_id, seq)
 lyntai_message|lyntai_message_pkey|CREATE UNIQUE INDEX lyntai_message_pkey ON public.lyntai_message USING btree (id)
 lyntai_prompt_version|ix_lyntai_prompt_active|CREATE INDEX ix_lyntai_prompt_active ON public.lyntai_prompt_version USING btree (name) WHERE is_active

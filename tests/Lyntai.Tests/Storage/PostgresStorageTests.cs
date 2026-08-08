@@ -42,10 +42,13 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Upsert_then_seed_by_single_token_substring(store, key + "a");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Upserting_identical_content_refreshes_rather_than_duplicating(store, key + "b");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Engines_are_isolated_from_one_another(store, key + "c");
+        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_busy_engine_does_not_age_a_quiet_ones_memories(store, key + "c2");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.The_candidate_cutoff_excludes_stale_associative_nodes(store, key + "d");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.The_candidate_cutoff_keeps_fresh_associative_nodes(store, key + "d2");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.The_candidate_cutoff_never_excludes_authoritative_nodes(store, key + "e");
+        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_bigger_write_crowds_harder(store, key + "e2");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Touch_records_reinforcement(store, key + "f");
+        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_touch_does_not_advance_the_position(store, key + "f2");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Linked_nodes_are_reachable_as_neighbours(store, key + "g");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Linking_the_same_pair_again_strengthens_it(store, key + "h");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Degree_counts_connections(store, key + "i");
@@ -53,12 +56,12 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Forget_clears_a_scope(store, key + "k");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Deleting_a_node_takes_its_edges_with_it(store, key + "l");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.Cancellation_propagates(store, key + "m");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.An_edge_records_when_it_was_last_strengthened(store, key + "n");
+        await Lyntai.Tests.Memory.MemoryGraphStoreContract.An_edge_ages_as_the_memory_moves_on(store, key + "n");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_node_reports_its_connection_strength_and_freshness(store, key + "o");
         await Lyntai.Tests.Memory.MemoryGraphStoreContract.An_unconnected_node_reports_no_strength(store, key + "p");
 
         // no silent skips: if a fact is added to the contract and not called here, this fails
-        var covered = 17;
+        var covered = 20;
         var declared = contract.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Length;
         Assert.Equal(declared, covered);
     }

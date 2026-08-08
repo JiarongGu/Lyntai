@@ -11,41 +11,43 @@ namespace Lyntai.Storage.Postgres;
 /// <summary>PostgreSQL <see cref="IMemoryGraphStore"/> over <c>lyntai_memory_node</c> +
 /// <c>lyntai_memory_edge</c>, with substring recall through the <c>pg_trgm</c> GIN index.
 /// <para>The parallel with <c>SqliteMemoryGraphStore</c> is deliberate and is NOT duplication waiting to be
-/// extracted: the two differ by dialect necessity — <c>EXTRACT(EPOCH …)</c> versus <c>julianday</c>,
-/// <c>GREATEST</c> versus <c>MAX</c>, an <c>ILIKE</c> over a GIN index versus an FTS5 virtual table and its
-/// three triggers. The shared store contract is what holds them to one behaviour.</para>
-/// <para><b>The decay curve is never evaluated here</b> — candidates are bounded by a plain
-/// <c>age_days / stability &lt;= @cut</c> comparison whose right-hand side comes from
-/// <see cref="IRetrievabilityPolicy.CandidateCutoff"/>. And <b><see cref="GraphNode.Relevance"/> is this
-/// backend's own rank position, normalized</b> to the contractual 0..1.</para>
-/// <para>Recall matches the query as a CONTIGUOUS substring and ranks by recency; SQLite matches any
-/// trigram token and ranks by bm25. That divergence is by design and is the same one
-/// <see cref="IMemoryStore.RecallAsync"/> already documents — the portable guarantee is
-/// single-token.</para></summary>
+/// extracted: the two differ by dialect necessity — <c>GREATEST</c> versus <c>MAX</c>, an <c>ILIKE</c> over
+/// a GIN index versus an FTS5 virtual table and its three triggers, and the table reference Postgres
+/// requires in <c>DO UPDATE SET</c>. The shared store contract is what holds them to one behaviour.</para>
+/// <para><b>Age is a subtraction, not a duration</b> — <c>lyntai_memory_position</c> holds a monotone
+/// position per engine — and <b>the decay curve is never evaluated here</b>. Recall matches the query as a
+/// CONTIGUOUS substring and ranks by recency; SQLite matches any trigram token and ranks by bm25. That
+/// divergence is by design and is the same one <see cref="IMemoryStore.RecallAsync"/> already documents —
+/// the portable guarantee is single-token.</para></summary>
 /// <param name="factory">Connection factory.</param>
 /// <param name="logger">Optional.</param>
+/// <param name="clock">Time source for the audit timestamps; null takes the system clock.</param>
 public sealed class PostgresMemoryGraphStore(
     IDbConnectionFactory factory,
-    ILogger<PostgresMemoryGraphStore>? logger = null) : IMemoryGraphStore
+    ILogger<PostgresMemoryGraphStore>? logger = null,
+    Func<DateTimeOffset>? clock = null) : IMemoryGraphStore
 {
     private readonly ILogger _logger = logger ?? NullLogger<PostgresMemoryGraphStore>.Instance;
+    private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
 
-    // Degree/Strength/StrengthAsOf are plain aggregates — the store applies no decay; the policy decays
-    // the aggregate. No CAST: DOUBLE PRECISION binds to double directly.
+    // Degree/Strength are plain aggregates and both ages are plain subtractions against @position — the
+    // store applies no decay; the policy does. No CAST: DOUBLE PRECISION binds to double directly.
     private const string NodeColumns = """
         n.id AS "Id", n.engine AS "Engine", n.task_key AS "TaskKey", n.scope AS "Scope",
         n.headline AS "Headline", n.content AS "Content", n.grade AS "Grade",
-        n.created_at AS "CreatedAt", n.last_recalled_at AS "LastRecalledAt", n.recall_count AS "RecallCount",
+        n.created_at AS "CreatedAt", n.recall_count AS "RecallCount",
         n.stability AS "Stability", n.metadata AS "Metadata",
+        (@position - n.last_recalled_position) AS "Age",
         (SELECT COUNT(*) FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS "Degree",
         (SELECT COALESCE(SUM(e.weight), 0) FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS "Strength",
-        (SELECT MAX(e.strengthened_at) FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS "StrengthAsOf"
+        (SELECT COALESCE(@position - MAX(e.strengthened_position), 0)
+         FROM lyntai_memory_edge e WHERE e.from_id = n.id) AS "StrengthAge"
         """;
 
-    // GREATEST guards a zero stability: dividing by zero would raise here rather than yielding NULL as it
-    // does on SQLite, but the guard is what keeps both backends agreeing instead of one erroring.
+    // GREATEST guards a zero stability: dividing by zero raises here rather than yielding NULL as it does
+    // on SQLite, but the guard is what keeps both backends agreeing instead of one erroring.
     private const string AgeOverStability =
-        "EXTRACT(EPOCH FROM (@now - n.last_recalled_at)) / 86400.0 / GREATEST(n.stability, 0.000001)";
+        "(@position - n.last_recalled_position) / GREATEST(n.stability, 0.000001)";
 
     private const string CutoffPredicate =
         "(n.grade = @authoritative OR @cut IS NULL OR " + AgeOverStability + " <= @cut)";
@@ -55,39 +57,51 @@ public sealed class PostgresMemoryGraphStore(
     private static readonly int Authoritative = (int)MemoryGrade.Authoritative;
 
     /// <inheritdoc />
-    public async Task<long> UpsertAsync(GraphNodeWrite write, DateTimeOffset now,
-        CancellationToken ct = default)
+    public async Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
         var hash = ContentHash(write.Content);
         var metadata = CuratedMetadataJson.Serialize(write.Metadata);
         using var conn = factory.Open();
+        using var tx = conn.BeginTransaction();
 
-        return await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
+        // advance the engine's position FIRST and atomically, so the new entry's own age is zero relative
+        // to the position it is stamped with
+        var position = await conn.ExecuteScalarAsync<double>(new CommandDefinition("""
+            INSERT INTO lyntai_memory_position (engine, position) VALUES (@engine, @advance)
+            ON CONFLICT (engine) DO UPDATE SET position = lyntai_memory_position.position + @advance
+            RETURNING position
+            """, new { engine = write.Engine, advance = Math.Max(0, write.Advance) },
+            transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+
+        var id = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
             INSERT INTO lyntai_memory_node
                 (engine, task_key, scope, headline, content, content_hash, grade, metadata,
-                 created_at, last_recalled_at, recall_count, stability)
+                 created_at, last_recalled_position, recall_count, stability)
             VALUES (@engine, @taskKey, @scope, @headline, @content, @hash, @grade, @metadata,
-                    @now, @now, 0, @stability)
+                    @now, @position, 0, @stability)
             ON CONFLICT (engine, task_key, scope, content_hash)
-                DO UPDATE SET last_recalled_at = @now, grade = @grade, headline = @headline
+                DO UPDATE SET last_recalled_position = @position, grade = @grade, headline = @headline
             RETURNING id
             """, new
         {
             engine = write.Engine, taskKey = write.TaskKey, scope = write.Scope,
             headline = write.Headline, content = write.Content, hash, grade = (int)write.Grade,
-            metadata, now, stability = write.InitialStability,
-        }, cancellationToken: ct)).ConfigureAwait(false);
+            metadata, now = _clock(), position, stability = write.InitialStability,
+        }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
+
+        tx.Commit();
+        return id;
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, double? maxAgeOverStability, int limit, DateTimeOffset now,
-        CancellationToken ct = default)
+        string? query, double? maxAgeOverStability, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var cut = maxAgeOverStability;
         using var conn = factory.Open();
+        var position = await PositionAsync(conn, engine, ct).ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(query))
         {
@@ -99,9 +113,9 @@ public sealed class PostgresMemoryGraphStore(
                   AND (@scope IS NULL OR n.scope = @scope)
                   AND (n.grade = @authoritative OR n.content ILIKE @pattern)
                   AND {CutoffPredicate}
-                ORDER BY n.last_recalled_at DESC, n.id DESC
+                ORDER BY n.last_recalled_position DESC, n.id DESC
                 LIMIT @limit
-                """, new { engine, taskKey, scope, pattern, cut, now, limit, authoritative = Authoritative },
+                """, new { engine, taskKey, scope, pattern, cut, position, limit, authoritative = Authoritative },
                 ct).ConfigureAwait(false);
         }
 
@@ -111,28 +125,29 @@ public sealed class PostgresMemoryGraphStore(
             WHERE n.engine = @engine AND n.task_key = @taskKey
               AND (@scope IS NULL OR n.scope = @scope)
               AND {CutoffPredicate}
-            ORDER BY n.last_recalled_at DESC, n.id DESC
+            ORDER BY n.last_recalled_position DESC, n.id DESC
             LIMIT @limit
-            """, new { engine, taskKey, scope, cut, now, limit, authoritative = Authoritative },
+            """, new { engine, taskKey, scope, cut, position, limit, authoritative = Authoritative },
             ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine,
-        IReadOnlyCollection<long> ids, int limit, DateTimeOffset now, CancellationToken ct = default)
+        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(ids);
         ct.ThrowIfCancellationRequested();
         if (ids.Count == 0) return [];
 
         using var conn = factory.Open();
+        var position = await PositionAsync(conn, engine, ct).ConfigureAwait(false);
         var idArray = ids.ToArray();
         // = ANY / <> ALL over a bound array rather than Dapper's IN expansion: Npgsql binds an array
         // natively, so the statement text stays constant and stays plan-cacheable
-        var rows = await conn.QueryAsync<NodeRow, double, DateTimeOffset, GraphNeighbour>(
+        var rows = await conn.QueryAsync<NodeRow, double, double, GraphNeighbour>(
             new CommandDefinition($"""
-                SELECT {NodeColumns}, x.w AS "EdgeWeight", x.at AS "EdgeStrengthenedAt"
-                FROM (SELECT e.to_id AS id, MAX(e.weight) AS w, MAX(e.strengthened_at) AS at
+                SELECT {NodeColumns}, x.w AS "EdgeWeight", (@position - x.at) AS "EdgeAge"
+                FROM (SELECT e.to_id AS id, MAX(e.weight) AS w, MAX(e.strengthened_position) AS at
                       FROM lyntai_memory_edge e
                       WHERE e.from_id = ANY(@idArray) AND e.to_id <> ALL(@idArray)
                       GROUP BY e.to_id) x
@@ -140,9 +155,9 @@ public sealed class PostgresMemoryGraphStore(
                 WHERE n.engine = @engine
                 ORDER BY x.w DESC, n.id DESC
                 LIMIT @limit
-                """, new { idArray, engine, limit }, cancellationToken: ct),
-            (row, weight, at) => new GraphNeighbour(ToNode(row), weight, at),
-            splitOn: "EdgeWeight,EdgeStrengthenedAt").ConfigureAwait(false);
+                """, new { idArray, engine, limit, position }, cancellationToken: ct),
+            (row, weight, age) => new GraphNeighbour(ToNode(row), weight, age),
+            splitOn: "EdgeWeight,EdgeAge").ConfigureAwait(false);
         return [.. rows];
     }
 
@@ -151,60 +166,68 @@ public sealed class PostgresMemoryGraphStore(
     {
         ct.ThrowIfCancellationRequested();
         using var conn = factory.Open();
+        var position = await PositionAsync(conn, engine, ct).ConfigureAwait(false);
         var hits = await QueryAsync(conn,
             $"SELECT {NodeColumns} FROM lyntai_memory_node n WHERE n.id = @id AND n.engine = @engine",
-            new { id, engine }, ct).ConfigureAwait(false);
+            new { id, engine, position }, ct).ConfigureAwait(false);
         return hits.Count == 0 ? null : hits[0];
     }
 
     /// <inheritdoc />
-    public async Task TouchAsync(IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default)
+    public async Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(touches);
         ct.ThrowIfCancellationRequested();
         if (touches.Count == 0) return;
 
         using var conn = factory.Open();
+        // a recall does NOT advance the position — it stamps wherever the engine already is
+        var position = await PositionAsync(conn, engine, ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             UPDATE lyntai_memory_node
-            SET last_recalled_at = @LastRecalledAt, stability = @Stability,
+            SET last_recalled_position = @position, stability = @Stability,
                 recall_count = lyntai_memory_node.recall_count + 1
-            WHERE id = @Id
-            """, touches, cancellationToken: ct)).ConfigureAwait(false);
+            WHERE id = @Id AND engine = @engine
+            """, touches.Select(t => new { t.Id, t.Stability, engine, position }),
+            cancellationToken: ct)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public async Task LinkAsync(long from, long to, string? kind, double weight, bool symmetric,
-        DateTimeOffset now, CancellationToken ct = default)
+    public async Task LinkAsync(string engine, long from, long to, string? kind, double weight,
+        bool symmetric, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         if (from == to) return; // a self-edge is never useful and would skew Degree
 
         using var conn = factory.Open();
-        await StrengthenAsync(conn, from, to, kind ?? "", weight, now, ct).ConfigureAwait(false);
-        if (symmetric) await StrengthenAsync(conn, to, from, kind ?? "", weight, now, ct).ConfigureAwait(false);
+        var position = await PositionAsync(conn, engine, ct).ConfigureAwait(false);
+        await StrengthenAsync(conn, from, to, kind ?? "", weight, position, ct).ConfigureAwait(false);
+        if (symmetric)
+            await StrengthenAsync(conn, to, from, kind ?? "", weight, position, ct).ConfigureAwait(false);
     }
 
     // Postgres requires the table reference in the DO UPDATE SET expression, where SQLite takes a bare
     // column — one of the dialect differences that make sharing this text impossible.
     private static Task StrengthenAsync(IDbConnection conn, long from, long to, string kind, double weight,
-        DateTimeOffset now, CancellationToken ct) =>
+        double position, CancellationToken ct) =>
         conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO lyntai_memory_edge (from_id, to_id, kind, weight, strengthened_at)
-            VALUES (@from, @to, @kind, @weight, @now)
+            INSERT INTO lyntai_memory_edge (from_id, to_id, kind, weight, strengthened_position)
+            VALUES (@from, @to, @kind, @weight, @position)
             ON CONFLICT (from_id, to_id, kind)
-                DO UPDATE SET weight = lyntai_memory_edge.weight + @weight, strengthened_at = @now
-            """, new { from, to, kind, weight, now }, cancellationToken: ct));
+                DO UPDATE SET weight = lyntai_memory_edge.weight + @weight,
+                              strengthened_position = @position
+            """, new { from, to, kind, weight, position }, cancellationToken: ct));
 
     /// <inheritdoc />
     public async Task<int> PruneAsync(string engine, string taskKey, string? scope,
-        double? maxAgeOverStability, TimeSpan? olderThan, DateTimeOffset now,
-        CancellationToken ct = default)
+        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var cut = maxAgeOverStability;
-        var createdBefore = olderThan is null ? (DateTimeOffset?)null : now - olderThan.Value;
+        var createdBefore = olderThan is null ? (DateTimeOffset?)null : _clock() - olderThan.Value;
         using var conn = factory.Open();
+        var position = await PositionAsync(conn, engine, ct).ConfigureAwait(false);
         return await conn.ExecuteAsync(new CommandDefinition($"""
             DELETE FROM lyntai_memory_node WHERE id IN (
                 SELECT n.id FROM lyntai_memory_node n
@@ -213,7 +236,7 @@ public sealed class PostgresMemoryGraphStore(
                   AND n.grade <> @authoritative
                   AND ( (@cut IS NOT NULL AND {AgeOverStability} > @cut)
                         OR (@createdBefore IS NOT NULL AND n.created_at < @createdBefore) ))
-            """, new { engine, taskKey, scope, cut, createdBefore, now, authoritative = Authoritative },
+            """, new { engine, taskKey, scope, cut, createdBefore, position, authoritative = Authoritative },
             cancellationToken: ct)).ConfigureAwait(false);
     }
 
@@ -229,6 +252,13 @@ public sealed class PostgresMemoryGraphStore(
             """, new { engine, taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
+    /// <summary>Where the engine's position currently stands. Zero for an engine nothing has been written
+    /// to — which is correct: nothing has happened in it, so nothing has aged.</summary>
+    private static async Task<double> PositionAsync(IDbConnection conn, string engine, CancellationToken ct) =>
+        await conn.ExecuteScalarAsync<double?>(new CommandDefinition(
+            "SELECT position FROM lyntai_memory_position WHERE engine = @engine",
+            new { engine }, cancellationToken: ct)).ConfigureAwait(false) ?? 0;
+
     private static async Task<IReadOnlyList<GraphNode>> QueryAsync(IDbConnection conn, string sql,
         object parameters, CancellationToken ct)
     {
@@ -242,15 +272,15 @@ public sealed class PostgresMemoryGraphStore(
 
     private static GraphNode ToNode(NodeRow row) => new(
         row.Id, row.Engine, row.TaskKey, row.Scope, row.Headline, row.Content, (MemoryGrade)row.Grade,
-        row.CreatedAt, row.LastRecalledAt, row.RecallCount, row.Stability, 1, row.Degree,
-        CuratedMetadataJson.Deserialize(row.Metadata), row.Strength, row.StrengthAsOf);
+        row.CreatedAt, row.RecallCount, row.Stability, row.Age, 1, row.Degree,
+        CuratedMetadataJson.Deserialize(row.Metadata), row.Strength, row.StrengthAge);
 
     private static string ContentHash(string content) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
 
     /// <summary>Materialization type — settable properties rather than a positional record, which
     /// sidesteps Dapper's record-constructor exact-type matching (the reason every Postgres store here uses
-    /// one, independent of the SQLite boolean question).</summary>
+    /// one).</summary>
     private sealed class NodeRow
     {
         public long Id { get; set; }
@@ -261,12 +291,12 @@ public sealed class PostgresMemoryGraphStore(
         public string Content { get; set; } = "";
         public int Grade { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset LastRecalledAt { get; set; }
         public int RecallCount { get; set; }
         public double Stability { get; set; }
+        public double Age { get; set; }
         public string? Metadata { get; set; }
         public int Degree { get; set; }
         public double Strength { get; set; }
-        public DateTimeOffset? StrengthAsOf { get; set; }
+        public double StrengthAge { get; set; }
     }
 }
