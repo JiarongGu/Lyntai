@@ -115,7 +115,7 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 Purely additive: `IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore` and `MemoryPromptComposer` are
 unchanged, and an application that never calls `AddMemory`/`AddMemoryEngine` observes no difference.
-No new package. Designs: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md` (MEM1) and
+No new package. Designs: `local/superpowers/specs/2026-08-08-memory-engine-seam-design.md` (MEM1) and
 `2026-08-08-graph-memory-engine-design.md` (MEM2a).
 
 ## 2.4.0 — 2026-08-05
@@ -1188,7 +1188,7 @@ a frozen column via SELECT aliases.
   `UpdateAsync` drop those params — both fold into `Metadata`. The migration backfills the existing
   `source`/`title` values into it before dropping the columns (data-preserving); a titled prompt lead is now
   rendered app-side from a `title` metadata key, and `SearchAsync` narrows to content-only. See
-  `docs/2026-07-27-curated-metadata-design.md`.
+  `local/superpowers/specs/2026-07-27-curated-metadata-design.md`.
 - **`ICuratedMemoryStore.UpdateAsync(..., kind:)`** (CMEM5): re-categorise a curated entry in place — an
   optional `kind` (COALESCE; null = leave unchanged) moves a note between kinds keeping its id and
   `created_at` instead of forcing a remove+re-add. All three backends.
@@ -1697,7 +1697,7 @@ adoption tail + patch re-releases; consolidated here).
   hooks, `--mcp-config`/`--allowedTools` for an app-hosted MCP server, read-only/write tool policy,
   `--resume`), `ClaudeAgentArgs`, `ClaudeToolCalls.FilePathOf`, and `AddClaudeCliAgentSession()`. Prompt
   over stdin only; diagnosable termination (a no-output run is never silent). Design:
-  `docs/2026-07-19-agent-session-design.md`.
+  `local/superpowers/specs/2026-07-19-agent-session-design.md`.
 - **`LyntaiOptions.ResolveTimeout(int?)`** — a per-call-seconds timeout overload (value clamped to
   `MaxProviderTimeout`, else the global `ProviderTimeout`), shared by the request path and the agent
   session.

@@ -491,7 +491,7 @@ the adopting app. Lyntai renders / stores / versions / scores; the app owns its 
 > parser is a new stateful `StreamJsonAgentReader`, not an edit to the static `StreamJsonParser`).
 > Build clean · 725 tests · e2e 3/3 · leak scan clean.
 >
-> **Design contract:** `docs/2026-07-19-agent-session-design.md` — the neutral surface, the OpenAI
+> **Design contract:** `local/superpowers/specs/2026-07-19-agent-session-design.md` — the neutral surface, the OpenAI
 > Responses API neutrality stress-test that shaped it, the `IAgentSession`-vs-`IToolLoop` boundary, and
 > the three resolved decisions.
 
@@ -1379,7 +1379,7 @@ unreleased CMEM3 `Title` and folded the released `Source` into the new field:
   made QUERYABLE by a plain relational `lyntai_curated_meta(memory_id, key, value)` index — chosen over
   Postgres `jsonb` so filtering is IDENTICAL across all backends (no JSON-function divergence). The
   purpose-built `Source` (released) and `Title` (unreleased CMEM3) columns are RETIRED into `Metadata`.
-  Breaking, inside the pre-1.0 D19 window; design in `docs/2026-07-27-curated-metadata-design.md`.
+  Breaking, inside the pre-1.0 D19 window; design in `local/superpowers/specs/2026-07-27-curated-metadata-design.md`.
   ✅ done 2026-07-27 — Outcome: `CuratedMemory` drops `Source`/`Title`, gains
   `IReadOnlyDictionary<string,string>? Metadata`; `AddAsync`/`UpdateAsync` drop the `source`/`title` params
   and gain `metadata` (Update REPLACES the whole map; null = unchanged, empty = clear); `ListAsync`/
@@ -1971,7 +1971,7 @@ was driven by the same work._
 
 - [x] **MED1 — a generation domain as a Lyntai platform** (filed as `IMediaProvider`/`IVideoProvider`; see the
   deviation below). Plans of record: `docs/2026-08-04-generation-platform-plan.md` (the platform, Plans 1–7)
-  and `docs/2026-08-04-restructure-2.0.1-plan.md` (the package graph).
+  and `local/superpowers/plans/2026-08-04-restructure-2.0.1-plan.md` (the package graph).
 
 ✅ done 2026-08-04 (Plans 1–2 + the restructure; Plans 3–7 remain open) — **Outcome:** research changed the
 contract before any code was written, and that is the part worth keeping. Measured across the August-2026

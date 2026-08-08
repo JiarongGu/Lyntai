@@ -17,7 +17,7 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Released: v2.4.0.** Twelve packages; public API frozen under SemVer 2.0 since 1.0 — with ONE
+**Released: v2.5.0.** Twelve packages; public API frozen under SemVer 2.0 since 1.0 — with ONE
 carve-out, the **`Lyntai.Generation` PACKAGE** (the backends), which ships EXPERIMENTAL until `TASKS.md`
 GEN-VERIFY closes.
 
@@ -29,17 +29,20 @@ pinned self-install, **2.0.1** landed the generation platform and the package gr
 made the generation backends registerable in one line each, **2.2.0** shipped the provider-lifetime seam
 (`Lyntai.Lifecycle`; D37) with `LlmVerdict.NotConfigured` (D38), `AddSemanticMemory` (D41), honest
 `MigrateUpAsync` twins (D40) and `CodexAgentSession` (D42), **2.3.0** carried the pre-release whole-library
-review that 2.2.0 shipped without (D44–D46), and **2.4.0** gave an agent session the host's own MCP servers
-on either CLI backend (D47). Per-release detail is `CHANGELOG.md`; the reasoning is `docs/DECISIONS.md`
-(D1–D51 — the memory subsystem is **D48–D51**).
+review that 2.2.0 shipped without (D44–D46), **2.4.0** gave an agent session the host's own MCP servers on
+either CLI backend (D47), and **2.5.0** shipped the **long-term memory subsystem**. Per-release detail is
+`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D51 — the memory subsystem is **D48–D51**).
 
-**`## Unreleased` is substantial — read it before assuming a behaviour.** Since 2.4.0 it holds ONE thing,
-the **long-term memory subsystem**: named memory engines resolved by name like `IHttpClientFactory`
-(`IMemoryEngine` / `IMemoryEngineFactory` / `AddMemoryEngine`; **D48**), a graph engine whose entries decay,
-connect and open as a cheap index (`UseGraph()`), decay measured in **interference rather than elapsed
-time** with the clock as a seam (**D49**), burial rather than deletion (**D50**), InMemory + SQLite +
-Postgres backends under one contract, and `AddMemoryTools` exposing recall/expand to the model. Purely
-additive — nothing an existing consumer calls changed — so the next release is a **minor**.
+**Long-term memory (2.5.0) is the newest subsystem** and the one a session is most likely to reason about
+wrongly, because it is not the three older memory surfaces: named engines resolved by name like
+`IHttpClientFactory` (`IMemoryEngine` / `IMemoryEngineFactory` / `AddMemoryEngine`; **D48**), a graph engine
+whose entries decay, connect and open as a cheap index (`UseGraph()`), decay measured in **interference
+rather than elapsed time** with the clock as a seam (**D49**), **burial rather than deletion** (**D50**),
+InMemory + SQLite + Postgres backends under one contract, and `AddMemoryTools` exposing recall/expand to the
+model. It was purely additive — `IMemoryStore`, `ISemanticMemory` and `ICuratedMemoryStore` are unchanged and
+co-exist with it. The contract is design §5.7.
+
+**`## Unreleased` is currently empty.** When it is not, read it before assuming a behaviour.
 
 **The packaging rules are now gated, not remembered** — `verify` runs eight checks, four of them added at
 2.0.1 and `check-docs` added with the memory work (a doc that uses vocabulary a decision retired fails the
@@ -49,7 +52,7 @@ FALSE trim promise), `check-packages` (a package must be registered in all nine 
 grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: 1567 tests, e2e 3/3.
+Tests/e2e green: 1905 tests, e2e 3/3.
 
 **The records, and what each is for:**
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
@@ -160,10 +163,11 @@ owned outside the deployment; `DECISIONS.md` D37) /
   session reads it and implements the wrong thing — which happened twice on 2026-08-08, caught both times
   only by a human reading it. The registry is `retiredTerms` in `devtools/project.config.mjs`: a term, what
   to say instead, and why. **Add an entry whenever a decision renames or re-dimensions something.**
-  Historical records (`CHANGELOG.md`, `docs/task-archive.md`, `docs/superpowers/plans/`) are exempt because
-  they are accurate BY using the vocabulary of their day — **specs are not**, since a spec is read as the
-  contract. Put `drift-ok` on a line that deliberately names the retired thing.
-  Unlike `decisions-index` this IS in `verify`: a stale index costs a reader one `Ctrl-F`, a stale spec
+  Historical records (`CHANGELOG.md`, `docs/task-archive.md`) are exempt because they are accurate BY using
+  the vocabulary of their day; the design records are untracked (`local/superpowers/`) and so are never
+  scanned. Everything the gate DOES see is maintained state that has to keep being true. Put `drift-ok` on a
+  line that deliberately names the retired thing.
+  Unlike `decisions-index` this IS in `verify`: a stale index costs a reader one `Ctrl-F`, a stale contract
   costs an implementation.
 - `node devtools/dev.mjs test [args]` — run the xUnit tests.
 - `node devtools/dev.mjs e2e [pN|all] [--build] [--parallel]` — boot `Lyntai.Playground` against the

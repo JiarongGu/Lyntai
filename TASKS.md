@@ -15,11 +15,11 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ## Active backlog
 
-_**v2.4.0 is released (2026-08-05).** Everything up to and including the generation platform, the package
+_**v2.5.0 is released (2026-08-08).** Everything up to and including the generation platform, the package
 restructure, the 2.0.1 release hardening, the generation-ergonomics follow-ups, the provider-lifetime seam,
-the codex agent session, the pre-release whole-library review and app-owned MCP servers has shipped and is
-archived — see `docs/task-archive.md` Parts 29–45 and `docs/DECISIONS.md` D25–D47. The **long-term memory
-subsystem** (archive Parts 46–52, `DECISIONS.md` D48–D51) is complete and sits under `## Unreleased`.
+the codex agent session, the pre-release whole-library review, app-owned MCP servers and the **long-term
+memory subsystem** has shipped and is archived — see `docs/task-archive.md` Parts 29–52 and
+`docs/DECISIONS.md` D25–D51. `CHANGELOG.md`'s `## Unreleased` is empty.
 
 **The 2.2.0 pre-release sweep (2026-08-05) closed everything that was closeable**, so what is left below is
 **not deferred effort** — every remaining item is blocked on something this repository does not have:
@@ -55,7 +55,7 @@ measured codex `turn.failed` capture, which also exposed a real exit-code-preced
 
 _Part 32 (MED1: the generation platform + the 2.0.1 package restructure) landed 2026-08-04 — see
 `docs/task-archive.md` Part 32, `docs/DECISIONS.md` D30/D31, and the plans of record
-`docs/2026-08-04-generation-platform-plan.md` + `docs/2026-08-04-restructure-2.0.1-plan.md`. What remains are
+`docs/2026-08-04-generation-platform-plan.md` + `local/superpowers/plans/2026-08-04-restructure-2.0.1-plan.md`. What remains are
 that plan's Plans 3–7, each a separate pass because each needs its own measurement._
 
 _GEN3 (local `sd-cli`), GEN4 (durable renders + the fal.ai queue backend), GEN6's tool/MCP bridge half and

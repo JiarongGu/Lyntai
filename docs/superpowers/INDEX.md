@@ -26,7 +26,14 @@ reusable trap in `.claude/knowledge/pitfalls.md`, and the per-task history in `d
 | 2026-08-08 | Graph memory engine (MEM2) | 2.5.0 | ✓ | ✓ | design §5.7 · D49–D50 · archive Parts 47–52 |
 | 2026-08-08 | Graph memory on SQLite + Postgres (MEM2b) | 2.5.0 | — | ✓ | `.claude/knowledge/storage.md` · archive Part 48 |
 | 2026-08-05 | Provider pool / lifetime seam | 2.2.0 | ✓ | ✓ | D37 · archive Part 37 |
+| 2026-08-04 | The 2.0.1 package restructure | 2.0.1 | — | ✓ | design §3 amendment · D31–D34 · archive Part 32 |
 | 2026-07-28 | 1.0 readiness | 1.0.0 | ✓ | ✓ | ROADMAP § v1.0.0 · D21 |
+| 2026-07-27 | Curated memory metadata catalog | 0.31.0 | ✓ | — | CHANGELOG 0.31.0 · archive |
+| 2026-07-19 | Agent-session surface | 0.28.5 | ✓ | — | D42 · archive · CHANGELOG 0.28.5 |
+
+**Still tracked, deliberately:** `docs/2026-08-04-generation-platform-plan.md` is *part* shipped history and
+*part* live — GEN-VERIFY, GEN6 and GEN7 in `TASKS.md` still execute from it. It moves here when its last open
+task closes. The contract itself, `docs/2026-07-17-lyntai-design.md`, is maintained state and never moves.
 
 ## Adding one
 

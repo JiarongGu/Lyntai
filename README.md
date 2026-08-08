@@ -36,12 +36,13 @@ package boundaries, a starting bundle, and four build gates that keep the packag
 ownership brought in line with the LLM side · **2.2.0** the provider-lifetime pool for keys owned outside the
 deployment, plus a second agent-session backend · **2.3.0** the pre-release whole-library review, with two
 documented compile-time breaks · **2.4.0** an agent session that can be given the host's own MCP servers on
-either CLI backend.
+either CLI backend · **2.5.0** long-term memory.
 
-**Unreleased — long-term memory.** Several memory systems coexist in one app and resolve by name the way
+**2.5.0 — long-term memory.** Several memory systems coexist in one app and resolve by name the way
 `IHttpClientFactory` resolves clients; entries decay, link to what they were recalled with, and open as a
 cheap index you pay to expand. Decay is measured in what has happened in a memory rather than in elapsed
-time, and a decayed entry is buried rather than deleted. See `## Unreleased` in `CHANGELOG.md`.
+time, and a decayed entry is buried rather than deleted. Purely additive — the three existing memory
+surfaces are unchanged, and an app that never calls `AddMemory`/`AddMemoryEngine` sees no difference.
 `CHANGELOG.md` has the per-release detail; `docs/DECISIONS.md` has the reasoning behind the load-bearing calls.
 **This file documents the working tree, not only the newest package**: anything that has not shipped yet is
 listed under `## Unreleased` in `CHANGELOG.md`, so check there before assuming a member below is in the
