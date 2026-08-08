@@ -2322,14 +2322,14 @@ never resolves, so a wrong dependency group in its nuspec would show up nowhere 
 ## Part 37 — provider lifetime: a pool keyed on the configuration, for externally-owned settings (2026-08-05)
 
 _Filed as GEN12 by a consuming app whose backend configuration is owned by its end users, reframed twice, and
-finally built against a written design (`docs/superpowers/specs/2026-08-05-provider-pool-design.md`, approved
+finally built against a written design (`local/superpowers/specs/2026-08-05-provider-pool-design.md`, approved
 2026-08-05) rather than against the task text — because the task text turned out to be wrong about the
 mechanism. Nine tasks, each committed separately; the reasoning is `docs/DECISIONS.md` **D37**._
 
 - [x] **GEN12 — own the provider POOL: keep one instance per configuration and deprecate it when the
   configuration changes.** Raised 2026-08-04, reframed twice; this is the version to build against.
 
-  _**Design of record: `docs/superpowers/specs/2026-08-05-provider-pool-design.md`** (approved 2026-08-05).
+  _**Design of record: `local/superpowers/specs/2026-08-05-provider-pool-design.md`** (approved 2026-08-05).
   It supersedes the surface sketched below in three ways worth knowing before reading further: the pool holds
   MANY live entries (several configurations of one backend run concurrently, from a source that keeps
   changing), pooling itself is a registered STRATEGY (`Bounded` / `Transient` / BYO) so a consumer wanting a
@@ -3029,8 +3029,8 @@ which CLI13 changed.
 
 ## Part 46 — MEM1: a named memory-engine seam (2026-08-08)
 
-_Design: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md`. Plan:
-`docs/superpowers/plans/2026-08-08-memory-engine-seam.md`. MEM2 (the graph engine) and MEM-TUNE remain
+_Design: `local/superpowers/specs/2026-08-08-memory-engine-seam-design.md`. Plan:
+`local/superpowers/plans/2026-08-08-memory-engine-seam.md`. MEM2 (the graph engine) and MEM-TUNE remain
 OPEN in `TASKS.md`._
 
 - [x] **MEM1 — the memory engine seam (Spec A).** `IMemoryEngine` + `MemoryRef`/`MemoryWrite`/`MemoryQuery`/
@@ -3063,8 +3063,8 @@ OPEN in `TASKS.md`._
 
 ## Part 47 — MEM2a: the graph memory engine on the InMemory backend (2026-08-08)
 
-_Design: `docs/superpowers/specs/2026-08-08-graph-memory-engine-design.md`. Plan:
-`docs/superpowers/plans/2026-08-08-graph-memory-engine.md`. **MEM2b** (SQLite + Postgres), **MEM2c** (agent
+_Design: `local/superpowers/specs/2026-08-08-graph-memory-engine-design.md`. Plan:
+`local/superpowers/plans/2026-08-08-graph-memory-engine.md`. **MEM2b** (SQLite + Postgres), **MEM2c** (agent
 tools, similarity enrichment) and **MEM-TUNE** remain OPEN in `TASKS.md`._
 
 - [x] **MEM2a — the decay policy, the graph store contract, the engine, and the InMemory backend.**
@@ -3121,7 +3121,7 @@ tools, similarity enrichment) and **MEM-TUNE** remain OPEN in `TASKS.md`._
 
 ## Part 48 — MEM2b: graph memory on SQLite and Postgres (2026-08-08)
 
-_Plan: `docs/superpowers/plans/2026-08-08-graph-memory-sql-backends.md`. **MEM2c** and **MEM-TUNE** remain
+_Plan: `local/superpowers/plans/2026-08-08-graph-memory-sql-backends.md`. **MEM2c** and **MEM-TUNE** remain
 OPEN in `TASKS.md`._
 
 - [x] **MEM2b — `IMemoryGraphStore` for SQLite and Postgres**, both held to the `MemoryGraphStoreContract`

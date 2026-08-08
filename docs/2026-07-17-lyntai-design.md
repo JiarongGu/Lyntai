@@ -265,7 +265,7 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
 *Added for the same reason as §5.6: this document is read first, and §5.4 otherwise leaves `IMemoryStore` — a
 bounded, task-scoped fact store — looking like the whole of memory. It is not; it is one of four surfaces, and
 the newest is a different kind of thing. This is the routing entry, not a restatement: the reasoning is
-`docs/DECISIONS.md` **D48**–**D51**, and the specs are `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md`
+`docs/DECISIONS.md` **D48**–**D51**, and the specs are `local/superpowers/specs/2026-08-08-memory-engine-seam-design.md`
 and `2026-08-08-graph-memory-engine-design.md`.*
 
 ```csharp

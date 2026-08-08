@@ -16,15 +16,15 @@ const config = (await import('../project.config.mjs')).default;
 /**
  * Files whose whole job is to be a record of their own day, so retired vocabulary is CORRECT in them.
  *
- * Plans are in here and SPECS are deliberately not. `CLAUDE.md` calls both "point-in-time designs and
- * plans, not maintained state" — but only one of them gets read as the contract. A plan describes what was
- * done on a day and is finished; a spec describes how the thing WORKS and is what the next session builds
- * against, so it has to keep being true.
+ * Specs and plans used to need entries here. They moved to the gitignored `local/superpowers/` (see
+ * `docs/superpowers/INDEX.md`), so they are untracked and never reach this scan at all — what remains is
+ * the maintained set, every document of which has to keep being true. The rule that replaced the gate for
+ * a design record is the stronger one: a conclusion that must outlive its version belongs in a maintained
+ * document, which this scan does cover.
  */
 const HISTORICAL = [
   /^CHANGELOG\.md$/,
   /^docs\/task-archive\.md$/,
-  /^docs\/superpowers\/plans\//,
 ];
 
 /** A file that declares itself superseded in its opening banner is a record too — same reasoning. */

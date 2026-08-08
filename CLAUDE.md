@@ -62,9 +62,14 @@ Tests/e2e green: 1567 tests, e2e 3/3.
   history (the frozen implementation plan + closed backlogs). See the `task-lifecycle.md` rule.
 - `docs/FIXES.md` — the fix log: per-incident symptom, root cause, fix and verification (the `fix-log`
   skill's target; created with the first entry — see `repo-mechanics.md` §Fix log).
-- `docs/<date>-*.md` and `docs/superpowers/{specs,plans}/` — point-in-time designs and plans, not
-  maintained state: check the status banner (or the date against `CHANGELOG.md`) before treating one as
-  executable.
+- `docs/<date>-*.md` — point-in-time designs, not maintained state: check the status banner (or the date
+  against `CHANGELOG.md`) before treating one as executable.
+- `docs/superpowers/INDEX.md` — the tracked LIST of per-version design records; the records themselves are
+  **untracked**, in `local/superpowers/{specs,plans}/`. They describe one version's work and stop being
+  true once it ships, so they are a working record, not a contract — **anything in one that must outlive
+  its version belongs in a maintained document** (the contract, `DECISIONS.md`, `pitfalls.md`, the
+  archive). Write new ones straight into `local/`; the brainstorming/writing-plans skills default to
+  `docs/superpowers/`, so redirect them.
 
 **The `Lyntai.Generation` PACKAGE is EXPERIMENTAL as of 2.0.1** — exempt from the SemVer promise until
 GEN-VERIFY closes (unmeasured backends + an unimplemented stream seam), so it may be reshaped in a minor. Say

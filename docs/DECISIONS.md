@@ -545,9 +545,14 @@ thing. That is not hypothetical: the decay dimension changed from elapsed days t
 
 **`check-docs` fails the build on vocabulary a decision retired** — a registry (`retiredTerms` in
 `devtools/project.config.mjs`) of term, what to say instead, and why. It is the eighth check in `verify`.
-Records of their own day are exempt because retired words are CORRECT in them: `CHANGELOG.md`, the task
-archive, and `docs/superpowers/plans/` — but **not** `specs/`, which the next session builds against and which
-therefore has to keep being true. A passage that deliberately names the retired thing marks itself `drift-ok`.
+Records of their own day are exempt because retired words are CORRECT in them: `CHANGELOG.md` and the task
+archive. A passage that deliberately names the retired thing marks itself `drift-ok`.
+
+**Amended the same day:** the specs and plans moved to the gitignored `local/superpowers/`
+(`docs/superpowers/INDEX.md` is the tracked list), so they are no longer scanned at all — the gate covers the
+maintained set only. That is the right set: a design record is explicitly a working record of one version,
+and the rule that replaces the gate for them is stronger than the gate was — **a conclusion that must outlive
+its version goes in a maintained document**, where `check-docs` covers it anyway.
 
 **Be honest about the limit, because it is where the real fix lives.** The gate catches retired WORDS; it
 cannot catch a wrong DESCRIPTION, and the published design page drifted three times in exactly that way
@@ -1205,7 +1210,7 @@ seam is a much larger design change than this warranted. Its 401 message now say
 ApiKey)` so a host can still tell setup from a rejected key. Message only.
 
 ## D37 — provider LIFETIME is a registered strategy, and everything about it is keyed on the CONFIGURATION rather than the provider id (2026-08-05)
-Filed as GEN12, designed in `docs/superpowers/specs/2026-08-05-provider-pool-design.md`, shipped as
+Filed as GEN12, designed in `local/superpowers/specs/2026-08-05-provider-pool-design.md`, shipped as
 `Lyntai.Lifecycle`. It applies **only** where backend configuration is owned OUTSIDE the deployment — by an
 end user, or by a store the process polls. Then three things follow that a deployment-configured app never
 meets: the settings change at any moment, the *choice of backend* is itself one of those settings, and

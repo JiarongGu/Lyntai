@@ -175,7 +175,7 @@ in-band failure), fixed and recorded in `docs/FIXES.md`._
 _Nothing open. The whole sequence — MEM1 (the named-engine seam), MEM2a/b/c (the graph engine, its
 three backends, and its agent-facing half) and MEM-TUNE (the measurement) — landed 2026-08-08 and is
 recorded in `docs/task-archive.md` **Parts 46–51**, with the design in
-`docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md` and
+`local/superpowers/specs/2026-08-08-memory-engine-seam-design.md` and
 `2026-08-08-graph-memory-engine-design.md`. Kept here only as a pointer; delete this heading once
 someone has read it._
 
