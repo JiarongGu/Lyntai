@@ -169,49 +169,14 @@ in-band failure), fixed and recorded in `docs/FIXES.md`._
 
 ---
 
-## Part 46 — memory: a named engine seam, then a graph engine that forgets (2026-08-08)
+## Part 46 — memory: named engines and a graph that forgets (2026-08-08) — COMPLETE
 
-_Design agreed 2026-08-08, nothing implemented. Two specs, written together so the seam is shaped by a real
-second implementation rather than only by wrappers over what exists:
-`docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md` (Spec A) and
-`docs/superpowers/specs/2026-08-08-graph-memory-engine-design.md` (Spec B). **A lands first** — building the
-graph engine without the seam means wiring it bespoke and reworking it afterwards. Both are additive: no
-released signature or semantic changes, so this is minor-bump work, not D24 material._
-
-_The motivating gap: all three existing memory systems (`IMemoryStore`, `ISemanticMemory`,
-`ICuratedMemoryStore`) are single unnamed singletons, so an application wanting a chat memory AND a project
-memory has to wrap all of it — the same wrapper in every consumer, none able to share it. And
-`MemoryPromptComposer` fills a flat character budget in rank order, so loosely-relevant recall can push a hard
-constraint out of the prompt with nothing reporting it._
-
-_**MEM1 landed 2026-08-08** — see `docs/task-archive.md` **Part 46**. The seam exists: `IMemoryEngine`,
-`IMemoryEngineFactory`, `CompositeMemoryEngine`, engines over the three existing stores, the grade split with
-its reserved budget, and `AddMemory()`. MEM2 builds on it._
-
-_**MEM2a landed 2026-08-08** — see `docs/task-archive.md` **Part 47**. The decay policy seam, the graph
-store contract, `GraphMemoryEngine` and the InMemory backend all ship, wired into the MEM1 seam as
-`UseGraph()`. What remains of MEM2 is the two SQL backends and the agent-facing half._
-
-_**MEM2b landed 2026-08-08** — see `docs/task-archive.md` **Part 48**. Graph memory persists on SQLite and
-Postgres, both held to the same contract as InMemory, both verified against real engines (Postgres via a
-live container — 91 tests, zero skipped)._
-
-_**MEM2c landed 2026-08-08** — see `docs/task-archive.md` **Part 49**. The per-engine tools and similarity
-enrichment both ship, so all of MEM2 is done except the measurement below._
-
-- [ ] **MEM-TUNE — measure the decay defaults, don't ship them as if tuned.** Five constants are guesses
-  (`HeadlineChars`, `ReinforceFactor`, initial `stability`, `MinRetrievability`, `MaxStability`,
-  `SimilarityK`) and are marked unmeasured in the XML docs. Close it with `MemoryDecaySimulation`: a corpus
-  with a KNOWN reuse/noise split, driven over simulated weeks against an injected clock, asserting ≥90% of the
-  reused set still above `MinRetrievability` at week 8, ≤10% of the noise, full rank separation, and all of it
-  still true at week 16 so the numbers aren't fitted to one point. The constants become whatever satisfies
-  those assertions and the test then guards them.
-
-  _**Be precise about what that closes.** A synthetic corpus measures the DYNAMICS and runs in CI, which a
-  production corpus cannot; it does NOT establish that real usage has the reuse-to-noise ratio it assumes. So
-  it moves the constants from "guess" to "measured against a stated model", and the XML docs must say that
-  rather than dropping the caveat. Replacing the model with a real corpus later is a strict improvement, not a
-  prerequisite — the same shape as GEN-VERIFY._
+_Nothing open. The whole sequence — MEM1 (the named-engine seam), MEM2a/b/c (the graph engine, its
+three backends, and its agent-facing half) and MEM-TUNE (the measurement) — landed 2026-08-08 and is
+recorded in `docs/task-archive.md` **Parts 46–51**, with the design in
+`docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md` and
+`2026-08-08-graph-memory-engine-design.md`. Kept here only as a pointer; delete this heading once
+someone has read it._
 
 ---
 

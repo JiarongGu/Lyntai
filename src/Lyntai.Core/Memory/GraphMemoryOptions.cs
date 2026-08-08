@@ -14,11 +14,13 @@ public sealed record GraphMemoryOptions
 
     /// <summary>Associative material below this retrievability is dropped — the point at which something
     /// counts as forgotten, and the same threshold <c>PruneAsync</c> reaps by. Authoritative material holds
-    /// 1.0 and is never affected. <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// 1.0 and is never affected. Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public double MinRetrievability { get; init; } = 0.05;
 
     /// <summary>Length cap for a DERIVED headline; an authored one is used as given, and authoritative
-    /// content is never shortened at all. <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// content is never shortened at all. Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public int HeadlineChars { get; init; } = 120;
 
     /// <summary>How many of the returned nodes get co-activation edges. A ten-item recall would otherwise
@@ -35,12 +37,14 @@ public sealed record GraphMemoryOptions
 
     /// <summary>How many near neighbours a new entry is linked to when similarity enrichment is wired (an
     /// <see cref="Lyntai.Embeddings.IEmbedder"/> and an <see cref="IVectorStore"/> are registered).
-    /// <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public int SimilarityK { get; init; } = 5;
 
     /// <summary>Cosine similarity below which enrichment does not link. Without a floor a new entry links
     /// to its <see cref="SimilarityK"/> nearest neighbours however unrelated they are, which in a small or
-    /// young graph means linking to nearly everything. <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// young graph means linking to nearly everything. Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public double MinSimilarity { get; init; } = 0.6;
 
     /// <summary>Constants of the default decay curve. Ignored when a custom

@@ -3243,6 +3243,36 @@ the only memory work left._
 
 ---
 
+## Part 51 — MEM-TUNE: the decay constants, measured (2026-08-08)
+
+_Closes the memory sequence. `TASKS.md` Part 46 is now empty of memory work._
+
+- [x] **MEM-TUNE — measure the decay defaults, don't ship them as if tuned.** _(Original wording preserved
+  below; an archive is a record.)_ "Five constants are guesses … Close it with `MemoryDecaySimulation`: a
+  corpus with a KNOWN reuse/noise split, driven over simulated weeks against an injected clock, asserting
+  ≥90% of the reused set still above `MinRetrievability` at week 8, ≤10% of the noise, full rank
+  separation, and all of it still true at week 16 so the numbers aren't fitted to one point."
+
+  **Outcome (2026-08-08):** `MemoryDecaySimulationTests`, six facts, `verify` green on all seven gates.
+
+  _**The criteria had to change with the dimension.** "Week 8" was calendar language written before Part 50
+  replaced wall-clock decay with interference; the runs are now measured in rounds of writes. Two of the
+  assertions also became sharper in the rewrite:_
+  - _**Decay is measured over the FIRST HALF of the run only.** Material written moments ago should still
+    be recallable — it is recent, and asserting otherwise would have been asserting a bug. What must fade
+    is what was mentioned once, long ago._
+  - _**Burst survival gained a control.** A 500-item ingest must not erase prior memory, AND the same
+    ingest undamped must erase all of it. Without the control, a regression that silently disabled damping
+    would pass the first assertion until the corpus happened to grow._
+
+  _**What this closes, precisely** — and the XML docs now say exactly this rather than dropping the
+  caveat: it measures the DYNAMICS and runs in CI, which a production corpus cannot. It does NOT establish
+  that real usage has the reuse-to-noise ratio modelled. The constants move from "guess" to "measured
+  against a stated model" — a starting point, not a tuned value. Replacing the model with a real corpus is
+  a strict improvement, not a prerequisite. Same shape as GEN-VERIFY._
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

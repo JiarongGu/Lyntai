@@ -71,7 +71,8 @@ public sealed record HalfLifeOptions
     public double InitialStability { get; init; } = 20;
 
     /// <summary>How much a successful recall multiplies the half-life by, as <c>1 + factor</c>.
-    /// <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public double ReinforceFactor { get; init; } = 0.5;
 
     /// <summary>The ceiling reinforcement cannot grow past.
@@ -80,12 +81,14 @@ public sealed record HalfLifeOptions
     /// frequently-recalled ASSOCIATIVE entry would become permanently retrievable while still labelled
     /// associative — silently acquiring the durability of authoritative material with none of its
     /// guarantees.</para>
-    /// <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public double MaxStability { get; init; } = 2000;
 
     /// <summary>How steeply connectedness lengthens a half-life, as
     /// <c>1 + factor · ln(1 + strength)</c>. The logarithm gives diminishing returns so a hub does not
-    /// dominate. Set to 0 to ignore connections entirely. <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// dominate. Set to 0 to ignore connections entirely. Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public double ConnectionBoost { get; init; } = 0.5;
 
     /// <summary>The largest multiple connectedness may apply to a half-life.
@@ -94,12 +97,14 @@ public sealed record HalfLifeOptions
     /// unbounded, no finite cutoff could cover it and a well-connected entry would be excluded while still
     /// perfectly retrievable — silently losing exactly the memories connectedness was meant to
     /// protect.</para>
-    /// <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public double MaxConnectionBoost { get; init; } = 4;
 
     /// <summary>Half-life of an edge's weight. Without it edges only ever grow: every pair that has ever
     /// co-occurred stays linked at a rising weight, the graph saturates, and spreading stops discriminating
-    /// because everything reaches everything. <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    /// because everything reaches everything. Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public double EdgeHalfLife { get; init; } = 100;
 }
 

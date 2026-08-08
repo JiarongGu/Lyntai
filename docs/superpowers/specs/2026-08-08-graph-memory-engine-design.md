@@ -460,7 +460,30 @@ already states.
 - Deterministic fake embedder; no test spends a token or hits a live endpoint. Every await that can block
   is bounded, so a regression arrives as an assertion, not as a hung `verify`.
 
-## 11. MEM-TUNE — the unmeasured surface
+## 11. MEM-TUNE — CLOSED 2026-08-08
+
+_The table below is kept as the record of what was open. The constants are now chosen against
+`MemoryDecaySimulationTests`, which drives a corpus with a known reuse/noise split through the whole model
+at once and asserts outcomes rather than values:_
+
+- _**Retention** — at least 90% of the reused set is still recallable at the end of the run._
+- _**Decay** — at most 10% of the one-off material written in the FIRST HALF of the run is. Measured over
+  the first half deliberately: material written moments ago should still be recallable, because it is
+  recent. What must fade is what was mentioned once, long ago._
+- _**Separation** — the weakest reused fact outranks the strongest surviving old one-off._
+- _**Stability of the answer** — all of it still holds when the run is driven twice as long, so the values
+  are not fitted to one point on the curve._
+- _**Burst survival** — a 500-item bulk ingest does not erase what the memory already held, with a control
+  asserting the same ingest UNDAMPED erases all of it, so a regression that silently disabled damping
+  cannot pass._
+
+_**What that closes, precisely.** It measures the DYNAMICS and runs in CI, which a production corpus
+cannot. It does NOT establish that real usage has the reuse-to-noise ratio modelled here. So the constants
+move from "guess" to "measured against a stated model", and the XML docs say exactly that — a starting
+point, not a tuned value. Replacing the model with a real corpus later is a strict improvement, not a
+prerequisite._
+
+### 11.1 The original table, as filed
 
 Four of the constants below are **guesses**. This repository has a standing norm about shipping unmeasured
 surfaces as though they were measured — it is why GEN-VERIFY exists — so they are declared here and must be
