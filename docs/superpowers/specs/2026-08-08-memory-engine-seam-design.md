@@ -67,6 +67,14 @@ public interface IMemoryEngine
 }
 ```
 
+**Where `Id` comes from, because not every store has one.** `IMemoryStore.RememberAsync` and
+`ISemanticMemory.RememberAsync` both return `Task` — no identifier — while `ICuratedMemoryStore.AddAsync`
+returns a row id. So an engine over a store with no id keys by the SHA-256 hex of the content, which is
+also precisely how those stores define identity (re-remembering identical content refreshes rather than
+duplicates), and the same value is produced on write and on recall. Nothing dereferences those ids: neither
+wrapper implements `IExpandableMemory` or `ILinkableMemory`. An engine with real row ids (curated, and the
+graph engine of Spec B) uses them.
+
 Supporting records:
 
 ```csharp
