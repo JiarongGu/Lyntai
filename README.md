@@ -290,6 +290,61 @@ persist it so it survives restarts, or register your own `IResponseCache` before
 it with Redis or another shared store. (Persisting it needs `StorageFeature.Governance` — see the
 governance-persistence note at the end of **Rate limiting**.)
 
+### Named memory engines
+
+`IMemoryStore`, `ISemanticMemory` and `ICuratedMemoryStore` are each a single unnamed service, so an app
+wanting a *chat* memory **and** a *project* memory used to have to wrap all of it. A memory **engine** is a
+named memory system; several coexist and are resolved by name, the way `IHttpClientFactory` resolves
+clients.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("app.db")
+    .AddMemory());        // one working engine named "default", wired into ChatOrchestrator's prompt
+```
+
+That is the whole of the common case. For more than one, or for a blend, declare members:
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("app.db")
+    .AddMemoryEngine("chat",    e => e.UseLexical().UseSemantic().Budget(1500))
+    .AddMemoryEngine("project", e => e
+        .UseCurated("glossary").Reserve(1200)   // authoritative — exact, never decays
+        .UseLexical()                           // associative — recalled context
+        .Budget(3000))
+    .UseMemoryComposer("chat"));                // which engine backs the chat prompt
+
+var memory = sp.GetRequiredService<IMemoryEngineFactory>();
+await memory.Get("project").RememberAsync(new MemoryWrite("proj", "code", "prefers terse commits"));
+var recall = await memory.Get("project").RecallAsync(new MemoryQuery("proj", "code", "commits"));
+// recall.Ran says which tiers actually ran, so an empty tier differs from an absent one
+```
+
+A blend **is** an engine, so members are addressable too (`Get("project/glossary")`) and adding a fourth
+kind of memory is a class plus a registration rather than an edit to anything existing.
+
+**Grades are what keep it accurate.** Curated members are *authoritative*: their content never decays, is
+never shortened, holds a **reserved** slice of the character budget ahead of associative material, and
+renders in its own labelled section — so a burst of loosely-relevant recall cannot quietly push a hard
+constraint out of the prompt:
+
+```
+## Known facts (authoritative)
+- the build gate is `node devtools/dev.mjs verify`
+
+## Recalled context (associative — may be stale or partial)
+- user prefers terse commit messages
+```
+
+Authoritative material that genuinely will not fit says so (`… 2 further authoritative facts omitted
+(budget)`) rather than vanishing, and an authoritative write goes to an engine that can hold one or throws
+— it is never silently stored as associative. A duplicate engine name fails at configure time, and naming a
+member whose store is not registered fails at startup rather than composing an empty section forever.
+
+Nothing changes for an app that does not call `AddMemory`/`AddMemoryEngine`: the existing stores and
+composer behave exactly as before.
+
 ### Semantic memory
 
 The lexical memory store (`IMemoryStore`) recalls by keyword (FTS-trigram). For meaning-based recall, bring

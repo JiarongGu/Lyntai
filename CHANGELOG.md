@@ -10,6 +10,42 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+### Added
+
+- **Named memory engines** (`IMemoryEngine`, `IMemoryEngineFactory`, `AddMemory()` /
+  `AddMemoryEngine(name, …)` / `UseMemoryComposer(name)`) — several memory systems can now coexist in one
+  application and are resolved **by name**, the way `IHttpClientFactory` resolves clients. Until now every
+  memory surface was a single unnamed singleton, so an application wanting a *chat* memory and a *project*
+  memory had to wrap all of it itself — the same wrapper in every consumer, and none of them able to share
+  it. Registration is a DI collection keyed by `Name`, the same variation-point shape as `ILlmProvider`
+  keyed by `Id` and picked by `ILlmRouter`, so a fourth kind of memory is a class plus a registration.
+  Thin engines adapt the three existing stores (`IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore`),
+  and a **blend is itself an engine** (`CompositeMemoryEngine`), so naming, blending, remembering and
+  expanding stay one concept. Optional abilities are separate interfaces (`IExpandableMemory`,
+  `ILinkableMemory`, `IForgettableMemory`) an engine may also implement, and the composite forwards them by
+  routing on `MemoryRef.Engine` rather than guessing — the regression that once made every queue-backed
+  render unroutable in the generation router is pinned here by a test.
+- **Prompt composition now protects exact facts from being crowded out** (`MemoryComposition.ComposeAsync`,
+  `MemoryCompositionOptions`, `MemoryGrade`). Material carries a grade: **authoritative** content never
+  decays, is never truncated to a derived headline, is allocated from a **reserved** character budget
+  *before* any associative content is admitted, and renders in its own labelled section so the model is
+  told which material is exact rather than left to infer it. Today's flat 4000-character budget fills in
+  rank order, so a burst of loosely-relevant recall can push a hard constraint out of the prompt entirely
+  while the prompt still looks full. Authoritative material that genuinely cannot fit emits an explicit
+  `… N further authoritative facts omitted (budget)` line rather than disappearing, and an authoritative
+  write is **routed** to an engine that can hold it or throws — never silently downgraded.
+- **A one-line path that needs nothing implemented**: `AddMemory()` registers a working engine and backs
+  `ChatOrchestrator`'s `IPromptComposer` with it. The fluent builder exists for applications that want to
+  *differ*. A duplicate engine name or member label fails at **configure** time, and a member whose backing
+  store is absent fails at **startup** naming the store — rather than resolving to a permanently empty
+  memory section that reads exactly like "nothing matched".
+
+Purely additive: `IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore` and `MemoryPromptComposer` are
+unchanged, and an application that never calls `AddMemory`/`AddMemoryEngine` observes no difference.
+No new package. Design: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md`; task MEM1.
+
 ## 2.4.0 — 2026-08-05
 
 ### Added

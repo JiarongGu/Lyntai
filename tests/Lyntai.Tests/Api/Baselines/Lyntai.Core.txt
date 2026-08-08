@@ -1582,6 +1582,52 @@ sealed class Lyntai.LyntaiOptions
     Routing : RoutingPolicy
     TimeoutByConsumer : Dictionary<String,TimeSpan>
     ToolLoopMaxIterations : Int32
+sealed class Lyntai.Memory.CompositeMemoryEngine
+    .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null)
+    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
+    LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
+    Members : IReadOnlyList<IMemoryEngine>
+    Name : String
+    RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    Supported : MemoryGrades
+sealed class Lyntai.Memory.EngineBackedPromptComposer
+    .ctor(IMemoryEngine engine, MemoryCompositionOptions options)
+    ComposeAsync(String basePrompt, String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<String>
+sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
+    .ctor(String name, ICuratedMemoryStore store, String kind = "memory", ILogger<CuratedMemoryEngine> logger = null)
+    Name : String
+    RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    Supported : MemoryGrades
+sealed class Lyntai.Memory.Engines.LexicalMemoryEngine
+    .ctor(String name, IMemoryStore store, ILogger<LexicalMemoryEngine> logger = null)
+    Name : String
+    RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    Supported : MemoryGrades
+sealed class Lyntai.Memory.Engines.SemanticMemoryEngine
+    .ctor(String name, ISemanticMemory semantic, Int32 defaultK = 10, ILogger<SemanticMemoryEngine> logger = null)
+    Name : String
+    RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    Supported : MemoryGrades
+interface Lyntai.Memory.IExpandableMemory
+    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
+interface Lyntai.Memory.IForgettableMemory
+    PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
+interface Lyntai.Memory.ILinkableMemory
+    LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
+interface Lyntai.Memory.IMemoryEngine
+    Name : String
+    RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    Supported : MemoryGrades
+interface Lyntai.Memory.IMemoryEngineFactory
+    Get() : IMemoryEngine
+    Get(String name) : IMemoryEngine
+    Names : IReadOnlyList<String>
+    TryGet(String name, IMemoryEngine& engine) : Boolean
 interface Lyntai.Memory.ISemanticMemory
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
@@ -1597,6 +1643,106 @@ sealed class Lyntai.Memory.InMemoryVectorStore
     RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
     SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
     UpsertAsync(String collection, String id, Single[] vector, String payload, CancellationToken ct = default) : Task
+static class Lyntai.Memory.MemoryComposition
+    static ComposeAsync(IMemoryEngine engine, String basePrompt, MemoryQuery query, MemoryCompositionOptions options = null, CancellationToken ct = default) : Task<String>
+sealed class Lyntai.Memory.MemoryCompositionOptions
+    .ctor()
+    AssociativeHeading : String
+    AuthoritativeHeading : String
+    AuthoritativeReserve : Int32
+    Budget : Int32
+    Equals(MemoryCompositionOptions other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ToString() : String
+sealed class Lyntai.Memory.MemoryEngineBuilder
+    Budget(Int32 characters) : MemoryEngineBuilder
+    Reserve(Int32 characters) : MemoryEngineBuilder
+    UseCurated(String kind = "memory", String label = null) : MemoryEngineBuilder
+    UseLexical(String label = "lexical") : MemoryEngineBuilder
+    UseSemantic(String label = "semantic") : MemoryEngineBuilder
+sealed class Lyntai.Memory.MemoryEngineFactory
+    .ctor(IEnumerable<IMemoryEngine> engines)
+    Get() : IMemoryEngine
+    Get(String name) : IMemoryEngine
+    Names : IReadOnlyList<String>
+    TryGet(String name, IMemoryEngine& engine) : Boolean
+enum Lyntai.Memory.MemoryGrade
+    Associative : MemoryGrade const
+    Authoritative : MemoryGrade const
+    Inherit : MemoryGrade const
+    value__ : Int32
+enum Lyntai.Memory.MemoryGrades
+    Associative : MemoryGrades const
+    Authoritative : MemoryGrades const
+    None : MemoryGrades const
+    value__ : Int32
+sealed class Lyntai.Memory.MemoryItem
+    .ctor(MemoryRef Reference, String Headline, String Content, MemoryGrade Grade, Double Relevance, Double Retrievability, Int32 Degree)
+    Content : String
+    Deconstruct(MemoryRef& Reference, String& Headline, String& Content, MemoryGrade& Grade, Double& Relevance, Double& Retrievability, Int32& Degree) : Void
+    Degree : Int32
+    Equals(MemoryItem other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Grade : MemoryGrade
+    Headline : String
+    Reference : MemoryRef
+    Relevance : Double
+    Retrievability : Double
+    ToString() : String
+sealed class Lyntai.Memory.MemoryQuery
+    .ctor(String TaskKey, String Scope = null, String Query = null, Nullable<Int32> Limit = null, Nullable<Int32> CharBudget = null)
+    CharBudget : Nullable<Int32>
+    Deconstruct(String& TaskKey, String& Scope, String& Query, Nullable`1& Limit, Nullable`1& CharBudget) : Void
+    Equals(MemoryQuery other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Limit : Nullable<Int32>
+    Query : String
+    Scope : String
+    TaskKey : String
+    ToString() : String
+sealed class Lyntai.Memory.MemoryRecall
+    .ctor(IReadOnlyList<MemoryItem> Items, MemorySources Ran)
+    Deconstruct(IReadOnlyList`1& Items, MemorySources& Ran) : Void
+    Equals(MemoryRecall other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Items : IReadOnlyList<MemoryItem>
+    Ran : MemorySources
+    ToString() : String
+    static Empty : MemoryRecall
+struct Lyntai.Memory.MemoryRef
+    .ctor(String Engine, String Id)
+    Deconstruct(String& Engine, String& Id) : Void
+    Engine : String
+    Equals(MemoryRef other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : String
+    ToString() : String
+enum Lyntai.Memory.MemorySources
+    Curated : MemorySources const
+    Graph : MemorySources const
+    Lexical : MemorySources const
+    None : MemorySources const
+    Semantic : MemorySources const
+    Similarity : MemorySources const
+    value__ : Int32
+sealed class Lyntai.Memory.MemoryWrite
+    .ctor(String TaskKey, String Scope, String Content, String Headline = null, MemoryGrade Grade = MemoryGrade.Inherit, IReadOnlyDictionary<String,String> Metadata = null)
+    Content : String
+    Deconstruct(String& TaskKey, String& Scope, String& Content, String& Headline, MemoryGrade& Grade, IReadOnlyDictionary`2& Metadata) : Void
+    Equals(MemoryWrite other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Grade : MemoryGrade
+    Headline : String
+    Metadata : IReadOnlyDictionary<String,String>
+    Scope : String
+    TaskKey : String
+    ToString() : String
 sealed class Lyntai.Memory.SemanticHit
     .ctor(String Content, Double Score)
     Content : String
@@ -1623,6 +1769,19 @@ sealed class Lyntai.Memory.VectorMatch
     ToString() : String
 static class Lyntai.Memory.VectorMath
     static Cosine(Single[] a, Single[] b) : Double
+sealed class Lyntai.MemoryEngineComposition
+    .ctor(String Name, MemoryCompositionOptions Options)
+    Deconstruct(String& Name, MemoryCompositionOptions& Options) : Void
+    Equals(MemoryEngineComposition other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Name : String
+    Options : MemoryCompositionOptions
+    ToString() : String
+static class Lyntai.MemoryEngineRegistration
+    static AddMemory(LyntaiBuilder builder, String name = "default") : LyntaiBuilder
+    static AddMemoryEngine(LyntaiBuilder builder, String name, Action<MemoryEngineBuilder> configure = null) : LyntaiBuilder
+    static UseMemoryComposer(LyntaiBuilder builder, String name) : LyntaiBuilder
 interface Lyntai.Processes.IProcessRunner
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>
     StreamLinesAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : IAsyncEnumerable<String>

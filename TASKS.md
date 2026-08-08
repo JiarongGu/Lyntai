@@ -184,19 +184,9 @@ memory has to wrap all of it — the same wrapper in every consumer, none able t
 `MemoryPromptComposer` fills a flat character budget in rank order, so loosely-relevant recall can push a hard
 constraint out of the prompt with nothing reporting it._
 
-- [ ] **MEM1 — the memory engine seam (Spec A).** `IMemoryEngine` + `MemoryRef`/`MemoryWrite`/`MemoryQuery`/
-  `MemoryItem`/`MemoryRecall`, the optional capabilities (`IExpandableMemory`, `ILinkableMemory`,
-  `IForgettableMemory`), `IMemoryEngineFactory` (named lookup, `IHttpClientFactory`-shaped but returning the
-  same singleton — hence `Get`, not `Create`), `CompositeMemoryEngine`, wrappers over the three existing
-  stores, the fluent builder and the zero-config `AddMemory()`. New surface in `Lyntai.Memory` inside
-  `Lyntai.Core`; **no new package**, so no registry dance — but the `ApiSurface` baseline moves and must be
-  regenerated deliberately.
-
-  **The two guards that matter, both from measured history:** the composite must forward optional
-  capabilities by routing on `MemoryRef.Engine` (decorating a generation provider erased them once, and every
-  video render stopped routing while every image render kept working — `.claude/knowledge/pitfalls.md`), and
-  `AddMemoryEngine` must not `TryAdd` anything `AddLyntai` registers later (the `DeadHostTracker` shadowing
-  bug that 1427 tests missed).
+_**MEM1 landed 2026-08-08** — see `docs/task-archive.md` **Part 46**. The seam exists: `IMemoryEngine`,
+`IMemoryEngineFactory`, `CompositeMemoryEngine`, engines over the three existing stores, the grade split with
+its reserved budget, and `AddMemory()`. MEM2 builds on it._
 
 - [ ] **MEM2 — the graph memory engine (Spec B).** `IMemoryGraphStore` in Core; implementations in the three
   EXISTING storage adapters (no new package). Two tables + one FluentMigrator migration

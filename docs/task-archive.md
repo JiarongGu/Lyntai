@@ -3027,6 +3027,40 @@ which CLI13 changed.
 
 ---
 
+## Part 46 — MEM1: a named memory-engine seam (2026-08-08)
+
+_Design: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md`. Plan:
+`docs/superpowers/plans/2026-08-08-memory-engine-seam.md`. MEM2 (the graph engine) and MEM-TUNE remain
+OPEN in `TASKS.md`._
+
+- [x] **MEM1 — the memory engine seam (Spec A).** `IMemoryEngine` + `MemoryRef`/`MemoryWrite`/`MemoryQuery`/
+  `MemoryItem`/`MemoryRecall`, the optional capabilities (`IExpandableMemory`, `ILinkableMemory`,
+  `IForgettableMemory`), `IMemoryEngineFactory`, `CompositeMemoryEngine`, engines over the three existing
+  stores, the fluent builder and the zero-config `AddMemory()`.
+
+  **Outcome (2026-08-08):** shipped in six commits, 68 new tests, no new package, 24 new public types in
+  `Lyntai.Core` with **zero removals** from the API baseline. The two named guards both hold: the composite
+  forwards optional capabilities by routing on `MemoryRef.Engine` (pinned by an expand-through-a-composite
+  test, the analogue of the generation-router regression), and registration uses plain `AddSingleton` rather
+  than a `TryAdd` reached during `configure(builder)`. `verify` green.
+
+  _Four things the code disagreed with the design about, all corrected rather than worked around:_
+  1. **`MemoryRef.Id` cannot always come from the store.** `IMemoryStore` and `ISemanticMemory` both return
+     `Task` from `RememberAsync`; only `ICuratedMemoryStore.AddAsync` returns an id. Engines over id-less
+     stores key by a length-framed SHA-256 of `(taskKey, scope, content)` — which is how those stores define
+     identity anyway, and which makes the reference a write returns equal to the one recall reports.
+  2. **A one-member engine still needs the composite wrapper.** Returning the bare member named the engine
+     after the member (`chat/lexical`, not `chat`) and made it unreachable by its registered name.
+  3. **`UseCurated`'s label defaults to the catalog KIND**, not the literal `"curated"`. The design said
+     "label defaults to the source kind" and the first implementation read that as the source *type*, so the
+     design's own motivating example — `UseCurated("glossary")` beside `UseCurated("style")` — would have
+     collided and thrown.
+  4. **The plan's test filter was invalid.** A bare `--filter "~Name"` is not VSTest syntax; it needs
+     `FullyQualifiedName~Name`. It errored rather than passing vacuously, but see the `pitfalls.md` entry —
+     the vacuous-pass direction is the dangerous one.
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance
