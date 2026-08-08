@@ -67,7 +67,19 @@ sweeper and no background job.
 
 A recall does **not** advance the position — only writes do — so reading never ages anything.
 
-**Decay never deletes.** It only ranks. Deletion stays explicit and opt-in through
+**Decay BURIES; it does not cut** _(amended 2026-08-08 — the first cut said this and did not quite mean
+it)_. An entry is hidden because something **outranks** it, never because its own retrievability crossed a
+line: recall ranks everything and drops only what falls more than `RelativeFloor` below the strongest hit.
+So a faint memory alone in a quiet engine is still the best thing there and surfaces; the same memory under
+fifty fresher ones does not. It stays traceable either way — ask for it specifically, or reach it through a
+neighbour, and it is there.
+
+_The original design applied an absolute floor, which made a faded entry vanish from recall and from
+spreading even when nothing competed with it. Storage was intact, so "decay never deletes" was true of the
+rows and false of the experience — a cliff wearing the word gradient. Seeding therefore carries no faintness
+bound at all now; the only bound is the candidate count._
+
+**Deletion stays explicit and opt-in** through
 `IForgettableMemory.PruneAsync(minRetrievability:)`, exactly as `IMemoryStore.PruneAsync` is explicit
 today. Authoritative nodes hold retrievability 1.0 permanently and are therefore never eligible for a
 retrievability-based prune — which falls out of the formula and needs no special case in the query.
@@ -262,11 +274,12 @@ It is also unnecessary — and once the curve became a seam (§3.1), it became *
 expression can encode a policy the application supplies. The database therefore never evaluates the
 curve at all. It **bounds a candidate set**; the policy ranks it.
 
-- **The candidate filter** is `(@position - last_recalled_position) / stability <= @cut`, where `@cut` is
-  `policy.CandidateCutoff(minRetrievability)` — `-log2(minR) × MaxConnectionBoost` for the default curve
-  (§3.0), computed in application code and passed as a parameter. The contract is that the bound is a
-  **conservative superset**: it may admit entries the policy will later reject, and must never exclude one
-  the policy would have kept.
+- **Seeding applies no faintness filter at all.** A decayed entry is a candidate like any other, because
+  hiding it is the engine's job and it hides by rank — see §3's amendment. The comparison
+  `(@position - last_recalled_position) / stability <= @cut`, with `@cut` from
+  `policy.CandidateCutoff(minRetrievability)`, survives in **`PruneAsync` only**, where removing a memory
+  is the explicit intent. Its contract there is still a **conservative superset**, so pruning under-reaps
+  rather than over-reaps — the safe direction for a destructive operation.
 - **Ordering** inside the candidate set is by `last_recalled_position` descending — most recently used
   first — which is a correct pre-sort for any curve decreasing in age. It exists to make the candidate cap
   meaningful, not to be the final order.

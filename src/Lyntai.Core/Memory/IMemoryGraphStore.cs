@@ -85,10 +85,14 @@ public interface IMemoryGraphStore
     Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default);
 
     /// <summary>The candidate set for a recall: nodes in (<paramref name="engine"/>,
-    /// <paramref name="taskKey"/>, <paramref name="scope"/>) matching <paramref name="query"/>, bounded by
-    /// <paramref name="maxAgeOverStability"/> and capped at <paramref name="limit"/>.
+    /// <paramref name="taskKey"/>, <paramref name="scope"/>) matching <paramref name="query"/>, most
+    /// recently used first, capped at <paramref name="limit"/>.
+    /// <para><b>Faintness never excludes a candidate.</b> A decayed entry is returned like any other and is
+    /// hidden — if at all — by being OUTRANKED in the engine, which is the whole model: decay buries, it
+    /// does not cut. The only bound here is the count, so a faint memory alone in a quiet engine still
+    /// comes back. Deleting is <see cref="PruneAsync"/>'s job and is always explicit.</para>
     /// <para>A null or whitespace <paramref name="query"/> takes the most recent. AUTHORITATIVE nodes are
-    /// admitted unconditionally — neither the query nor the cutoff excludes them.</para>
+    /// admitted unconditionally — the query does not exclude them.</para>
     /// <para>Portable guarantee, the same one <see cref="Lyntai.Storage.IMemoryStore.RecallAsync"/> states:
     /// a node whose content contains a single ≥3-character query token as a substring is found on every
     /// backend. Multi-token matching and same-match ordering diverge by design.</para></summary>
@@ -96,11 +100,10 @@ public interface IMemoryGraphStore
     /// <param name="taskKey">Consumer/purpose scope.</param>
     /// <param name="scope">Variant scope, or null for every scope of the task.</param>
     /// <param name="query">Relevance query, or null for the most recent.</param>
-    /// <param name="maxAgeOverStability">The conservative cutoff, or null for no bound.</param>
     /// <param name="limit">Maximum candidates.</param>
     /// <param name="ct">Cancellation.</param>
     Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope, string? query,
-        double? maxAgeOverStability, int limit, CancellationToken ct = default);
+        int limit, CancellationToken ct = default);
 
     /// <summary>Nodes connected to any of <paramref name="ids"/>, excluding the <paramref name="ids"/>
     /// themselves, ordered by RAW edge weight.

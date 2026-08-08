@@ -375,8 +375,14 @@ and an entry's age is how far that position has moved since the entry was last u
 touches keeps everything, while a busy one lets old material fall behind** — which is the behaviour you
 want and the one wall-clock time gets backwards. Reading never ages anything: recall reinforces what it
 returned, and every successful recall *lengthens* an entry's half-life, so material you keep coming back to
-becomes durable while one-off noise sinks below the floor. It is all computed at read time — no sweeper, no
-background job — and decay only ever **ranks**; nothing is deleted unless you call `PruneAsync`.
+becomes durable while one-off noise falls behind. It is all computed at read time — no sweeper, no
+background job.
+
+**Decay buries; it does not cut.** An entry is hidden because something *outranks* it, never because it
+crossed a threshold — so a faint memory alone in a quiet engine is still the best thing there and comes
+back, while the same memory under fifty fresher ones does not. Either way it stays traceable: ask for it
+specifically, or reach it through a neighbour, and it is there, with its `Retrievability` telling you how
+faint it has become. Nothing is deleted unless you call `PruneAsync`.
 
 What the position *counts* is yours to choose, because "how much has happened" is genuinely ambiguous:
 

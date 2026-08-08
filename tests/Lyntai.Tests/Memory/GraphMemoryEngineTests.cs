@@ -126,15 +126,46 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
-    public async Task A_crowded_out_associative_memory_falls_below_the_floor()
+    public async Task A_faint_memory_alone_still_surfaces()
     {
+        // BURIED, NOT CUT: nothing outranks it, so it is still the best thing there. It comes back faint —
+        // the caller can see how faint from Retrievability — but it comes back.
         var engine = Engine();
         await engine.RememberAsync(new MemoryWrite("t", "s", "one-off noise"));
 
         await Crowd(engine, 200);
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "noise"));
 
-        Assert.Empty(recall.Items);
+        Assert.Single(recall.Items);
+        Assert.True(recall.Items[0].Retrievability < 0.01, "it should be faint, just not gone");
+    }
+
+    [Fact]
+    public async Task A_faint_memory_is_buried_once_something_stronger_exists()
+    {
+        var engine = Engine();
+        await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"));
+        await Crowd(engine, 200);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a fresh note about widgets"));
+
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "widgets"));
+
+        Assert.Contains(recall.Items, i => i.Headline.Contains("fresh", StringComparison.Ordinal));
+        Assert.DoesNotContain(recall.Items, i => i.Headline.Contains("old note", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_buried_memory_is_still_reachable_by_reference()
+    {
+        // the difference between buried and cut: it is out of the way, not destroyed
+        var engine = Engine();
+        var buried = await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"));
+        await Crowd(engine, 200);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a fresh note about widgets"));
+
+        var expanded = await engine.ExpandAsync(buried);
+
+        Assert.Contains("an old note about widgets", expanded.Items[0].Content!, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -205,9 +236,10 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
-    public async Task A_connected_memory_outlives_an_isolated_one()
+    public async Task A_connected_memory_outranks_an_isolated_one()
     {
-        // being embedded in the graph is itself a reason to survive, not merely a way to be reached
+        // being embedded in the graph is itself a reason to stay retrievable, not merely a way to be
+        // reached — and it shows up as RANK, since neither is cut
         var engine = Engine();
         var hub = await engine.RememberAsync(new MemoryWrite("t", "s", "hub fact about widgets"));
         for (var i = 0; i < 8; i++)
@@ -217,13 +249,16 @@ public class GraphMemoryEngineTests
         }
         await engine.RememberAsync(new MemoryWrite("t", "s", "isolated fact about widgets"));
 
-        // enough to push an unconnected 20-event memory past the floor, but not the hub, whose links
-        // stretch its half-life to about 44
         await Crowd(engine, 120);
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "widgets"));
 
-        Assert.Contains(recall.Items, i => i.Headline.Contains("hub fact", StringComparison.Ordinal));
-        Assert.DoesNotContain(recall.Items, i => i.Headline.Contains("isolated", StringComparison.Ordinal));
+        var connected = recall.Items.Single(i => i.Headline.Contains("hub fact", StringComparison.Ordinal));
+        var alone = recall.Items.Single(i => i.Headline.Contains("isolated", StringComparison.Ordinal));
+
+        // both are still there — connectedness stretches the hub's half-life, it does not save it from
+        // deletion, because nothing here deletes
+        Assert.True(connected.Retrievability > alone.Retrievability * 3,
+            $"connectedness barely mattered: {connected.Retrievability:F4} vs {alone.Retrievability:F4}");
     }
 
     [Fact]

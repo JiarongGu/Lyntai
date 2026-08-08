@@ -12,9 +12,24 @@ public sealed record GraphMemoryOptions
     /// Halving keeps hop-2 material below hop-1. Reasoned, not measured.</summary>
     public double HopAttenuation { get; init; } = 0.5;
 
-    /// <summary>Associative material below this retrievability is dropped — the point at which something
-    /// counts as forgotten, and the same threshold <c>PruneAsync</c> reaps by. Authoritative material holds
-    /// 1.0 and is never affected. Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// <summary>How far below the STRONGEST hit an entry may fall before it is buried. An entry is hidden
+    /// because something outranks it, never because it crossed a line on its own.
+    /// <para>That distinction is the model: <b>decay buries, it does not cut</b>. A faint memory alone in a
+    /// quiet engine is still the best thing there and surfaces; the same memory under fifty fresher ones
+    /// does not. Recall stays traceable — ask for it specifically, or reach it through a neighbour, and it
+    /// is there.</para>
+    /// <para>It is a backstop against padding, not the main hider — the item limit does most of the work.
+    /// The default drops only what is ~50× weaker than the best hit.</para>
+    /// Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
+    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
+    public double RelativeFloor { get; init; } = 0.02;
+
+    /// <summary>The retrievability below which <c>PruneAsync</c> may REAP an entry — "forgotten enough to
+    /// delete".
+    /// <para>Recall does not use it. Deleting is the only thing in this model that removes a memory, and it
+    /// is always explicit; being faint hides an entry behind stronger ones (<see cref="RelativeFloor"/>)
+    /// and never removes it.</para>
+    /// Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
     /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
     public double MinRetrievability { get; init; } = 0.05;
 

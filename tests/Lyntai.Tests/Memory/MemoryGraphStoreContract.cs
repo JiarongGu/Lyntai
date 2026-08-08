@@ -34,7 +34,7 @@ public static class MemoryGraphStoreContract
         await store.UpsertAsync(Write("e", key, "the deploy pipeline requires manual approval"));
         await store.UpsertAsync(Write("e", key, "rollbacks must page the on-call"));
 
-        var hits = await store.SeedAsync("e", key, "s", "pipeline", null, 10);
+        var hits = await store.SeedAsync("e", key, "s", "pipeline", 10);
 
         Assert.Single(hits);
         Assert.Contains("manual approval", hits[0].Content, StringComparison.Ordinal);
@@ -47,7 +47,7 @@ public static class MemoryGraphStoreContract
         var second = await store.UpsertAsync(Write("e", key, "one fact"));
 
         Assert.Equal(first, second);
-        Assert.Single(await store.SeedAsync("e", key, "s", null, null, 10));
+        Assert.Single(await store.SeedAsync("e", key, "s", null, 10));
     }
 
     public static async Task Engines_are_isolated_from_one_another(IMemoryGraphStore store, string key)
@@ -55,7 +55,7 @@ public static class MemoryGraphStoreContract
         await store.UpsertAsync(Write("engine-a", key, "belongs to a"));
         await store.UpsertAsync(Write("engine-b", key, "belongs to b"));
 
-        var hits = await store.SeedAsync("engine-a", key, "s", null, null, 10);
+        var hits = await store.SeedAsync("engine-a", key, "s", null, 10);
 
         Assert.Single(hits);
         Assert.Equal("belongs to a", hits[0].Content);
@@ -69,58 +69,42 @@ public static class MemoryGraphStoreContract
         await store.UpsertAsync(Write("quiet", key, "a fact nobody disturbs"));
         await Crowd(store, "busy", key, 200);
 
-        var hits = await store.SeedAsync("quiet", key, "s", null, 4.32, 10);
+        var hits = await store.SeedAsync("quiet", key, "s", null, 10);
 
         Assert.Single(hits);
         Assert.Equal(0, hits[0].Age);
     }
 
-    public static async Task The_candidate_cutoff_excludes_stale_associative_nodes(
-        IMemoryGraphStore store, string key)
+    /// <summary>THE fact that pins the model: <b>decay buries, it does not cut.</b> A heavily crowded entry
+    /// still comes back from a seed — being faint is not grounds for a store to withhold it. Hiding is the
+    /// engine's job and it hides by RANK, so a faint memory alone in a quiet engine still surfaces and one
+    /// under fresher material does not.
+    /// <para>Also catches the silent failure the old faintness bound could hide: if a backend's age
+    /// arithmetic yielded NULL, a predicate over it would have excluded every row while every other fact
+    /// still passed.</para></summary>
+    public static async Task Seeding_never_excludes_a_faint_entry(IMemoryGraphStore store, string key)
     {
-        await store.UpsertAsync(Write("e", key, "stale associative note"));
-        // 40 further writes against a stability of 7 is ~5.7 half-lives; a cutoff of 4.32 excludes it
-        await Crowd(store, "e", key, 40);
-
-        var hits = await store.SeedAsync("e", key, "s", null, 4.32, 10);
-
-        Assert.Empty(hits);
-    }
-
-    /// <summary>The other half of the cutoff, and the one that catches a SILENT failure: if a backend's age
-    /// arithmetic yields NULL the predicate excludes every row, and every other cutoff fact still passes
-    /// for the wrong reason.</summary>
-    public static async Task The_candidate_cutoff_keeps_fresh_associative_nodes(
-        IMemoryGraphStore store, string key)
-    {
-        await store.UpsertAsync(Write("e", key, "a fresh associative note"));
-        await Crowd(store, "e", key, 1);
-
-        var hits = await store.SeedAsync("e", key, "s", null, 4.32, 10);
-
-        Assert.Single(hits);
-    }
-
-    public static async Task The_candidate_cutoff_never_excludes_authoritative_nodes(
-        IMemoryGraphStore store, string key)
-    {
+        await store.UpsertAsync(Write("e", key, "a note nobody has used in a long time"));
         await store.UpsertAsync(Write("e", key, "an exact fact", MemoryGrade.Authoritative));
         await Crowd(store, "e", key, 5000);
 
-        var hits = await store.SeedAsync("e", key, "s", null, 4.32, 10);
+        var hits = await store.SeedAsync("e", key, "s", null, 10);
 
-        Assert.Single(hits);
+        Assert.Contains(hits, h => h.Content.Contains("long time", StringComparison.Ordinal));
+        Assert.Contains(hits, h => h.Content.Contains("exact fact", StringComparison.Ordinal));
+        // and it reports HOW faint, so the engine can rank it — the store judges nothing
+        Assert.True(hits.First(h => h.Content.Contains("long time", StringComparison.Ordinal)).Age > 4000);
     }
 
-    public static async Task A_bigger_write_crowds_harder(IMemoryGraphStore store, string key)
+    public static async Task A_bigger_write_ages_more(IMemoryGraphStore store, string key)
     {
         await store.UpsertAsync(Write("e", key, "the entry being crowded"));
         // one write, but the clock said it was worth 40 — the ContentSizeClock shape
         await store.UpsertAsync(Write("e", key, "one very large document", advance: 40));
 
-        var hits = await store.SeedAsync("e", key, "s", "crowded", 4.32, 10);
+        var hits = await store.SeedAsync("e", key, "s", "crowded", 10);
 
-        Assert.Empty(hits);
+        Assert.Equal(40, hits.Single().Age, precision: 6);
     }
 
     public static async Task Touch_records_reinforcement(IMemoryGraphStore store, string key)
@@ -238,7 +222,7 @@ public static class MemoryGraphStoreContract
         var removed = await store.PruneAsync("e", key, "s", 4.32, null);
 
         Assert.Equal(1, removed); // the authoritative one is never eligible
-        Assert.Single(await store.SeedAsync("e", key, "s", null, null, 10));
+        Assert.Single(await store.SeedAsync("e", key, "s", null, 10));
     }
 
     public static async Task Forget_clears_a_scope(IMemoryGraphStore store, string key)
@@ -247,7 +231,7 @@ public static class MemoryGraphStoreContract
 
         await store.ForgetAsync("e", key, "s");
 
-        Assert.Empty(await store.SeedAsync("e", key, "s", null, null, 10));
+        Assert.Empty(await store.SeedAsync("e", key, "s", null, 10));
     }
 
     public static async Task Deleting_a_node_takes_its_edges_with_it(IMemoryGraphStore store, string key)
@@ -259,7 +243,7 @@ public static class MemoryGraphStoreContract
         await store.ForgetAsync("e", key, "s");
         await store.UpsertAsync(Write("e", key, "alpha")); // same content, new row
 
-        var reborn = await store.SeedAsync("e", key, "s", "alpha", null, 10);
+        var reborn = await store.SeedAsync("e", key, "s", "alpha", 10);
         Assert.Single(reborn);
         Assert.Equal(0, reborn[0].Degree); // no dangling edge survived
     }
@@ -270,6 +254,6 @@ public static class MemoryGraphStoreContract
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            store.SeedAsync("e", key, "s", null, null, 10, cts.Token));
+            store.SeedAsync("e", key, "s", null, 10, cts.Token));
     }
 }

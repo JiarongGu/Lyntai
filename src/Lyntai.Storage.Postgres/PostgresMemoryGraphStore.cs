@@ -96,10 +96,9 @@ public sealed class PostgresMemoryGraphStore(
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, double? maxAgeOverStability, int limit, CancellationToken ct = default)
+        string? query, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var cut = maxAgeOverStability;
         using var conn = factory.Open();
         var position = await PositionAsync(conn, engine, ct).ConfigureAwait(false);
 
@@ -112,10 +111,9 @@ public sealed class PostgresMemoryGraphStore(
                 WHERE n.engine = @engine AND n.task_key = @taskKey
                   AND (@scope IS NULL OR n.scope = @scope)
                   AND (n.grade = @authoritative OR n.content ILIKE @pattern)
-                  AND {CutoffPredicate}
                 ORDER BY n.last_recalled_position DESC, n.id DESC
                 LIMIT @limit
-                """, new { engine, taskKey, scope, pattern, cut, position, limit, authoritative = Authoritative },
+                """, new { engine, taskKey, scope, pattern, position, limit, authoritative = Authoritative },
                 ct).ConfigureAwait(false);
         }
 
@@ -124,10 +122,9 @@ public sealed class PostgresMemoryGraphStore(
             FROM lyntai_memory_node n
             WHERE n.engine = @engine AND n.task_key = @taskKey
               AND (@scope IS NULL OR n.scope = @scope)
-              AND {CutoffPredicate}
             ORDER BY n.last_recalled_position DESC, n.id DESC
             LIMIT @limit
-            """, new { engine, taskKey, scope, cut, position, limit, authoritative = Authoritative },
+            """, new { engine, taskKey, scope, position, limit, authoritative = Authoritative },
             ct).ConfigureAwait(false);
     }
 

@@ -135,8 +135,8 @@ internal sealed class TouchHostileGraphStore : IMemoryGraphStore
         _inner.UpsertAsync(write, ct);
 
     public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, double? maxAgeOverStability, int limit, CancellationToken ct = default) =>
-        _inner.SeedAsync(engine, taskKey, scope, query, maxAgeOverStability, limit, ct);
+        string? query, int limit, CancellationToken ct = default) =>
+        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
 
     public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
         int limit, CancellationToken ct = default) =>

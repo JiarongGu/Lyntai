@@ -58,8 +58,8 @@ public sealed class SqliteMemoryGraphStore(
     private const string AgeOverStability =
         "(@position - n.last_recalled_position) / MAX(CAST(n.stability AS REAL), 0.000001)";
 
-    private const string CutoffPredicate =
-        "(n.grade = @authoritative OR @cut IS NULL OR " + AgeOverStability + " <= @cut)";
+    // Seeding applies NO faintness bound — decay buries by rank in the engine, never by excluding a row
+    // here. This predicate is PruneAsync's alone, where removing a memory is the explicit intent.
 
     // Bound as a PARAMETER rather than written as a literal: MemoryGrade is Inherit=0, Associative=1,
     // Authoritative=2, so a hand-written "grade = 1" silently means the OPPOSITE of what it reads like.
@@ -108,10 +108,9 @@ public sealed class SqliteMemoryGraphStore(
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, double? maxAgeOverStability, int limit, CancellationToken ct = default)
+        string? query, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var cut = maxAgeOverStability;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var position = await PositionAsync(conn, engine, ct).ConfigureAwait(false);
 
@@ -126,10 +125,9 @@ public sealed class SqliteMemoryGraphStore(
                     WHERE f.lyntai_memory_node_fts MATCH @match
                       AND n.engine = @engine AND n.task_key = @taskKey
                       AND (@scope IS NULL OR n.scope = @scope)
-                      AND {CutoffPredicate}
                     ORDER BY bm25(f.lyntai_memory_node_fts), n.id DESC
                     LIMIT @limit
-                    """, new { match, engine, taskKey, scope, cut, position, limit, authoritative = Authoritative },
+                    """, new { match, engine, taskKey, scope, position, limit, authoritative = Authoritative },
                     ct).ConfigureAwait(false);
                 if (hits.Count > 0) return hits;
                 // no trigram hit → fall through to LIKE (covers punctuation-heavy and short queries)
@@ -150,10 +148,9 @@ public sealed class SqliteMemoryGraphStore(
                 WHERE n.engine = @engine AND n.task_key = @taskKey
                   AND (@scope IS NULL OR n.scope = @scope)
                   AND (n.grade = @authoritative OR n.content LIKE @pattern ESCAPE '\')
-                  AND {CutoffPredicate}
                 ORDER BY n.last_recalled_position DESC, n.id DESC
                 LIMIT @limit
-                """, new { engine, taskKey, scope, pattern, cut, position, limit, authoritative = Authoritative },
+                """, new { engine, taskKey, scope, pattern, position, limit, authoritative = Authoritative },
                 ct).ConfigureAwait(false);
         }
 
@@ -162,10 +159,9 @@ public sealed class SqliteMemoryGraphStore(
             FROM lyntai_memory_node n
             WHERE n.engine = @engine AND n.task_key = @taskKey
               AND (@scope IS NULL OR n.scope = @scope)
-              AND {CutoffPredicate}
             ORDER BY n.last_recalled_position DESC, n.id DESC
             LIMIT @limit
-            """, new { engine, taskKey, scope, cut, position, limit, authoritative = Authoritative },
+            """, new { engine, taskKey, scope, position, limit, authoritative = Authoritative },
             ct).ConfigureAwait(false);
     }
 

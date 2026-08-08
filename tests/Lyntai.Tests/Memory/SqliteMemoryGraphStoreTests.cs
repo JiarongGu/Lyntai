@@ -19,10 +19,8 @@ public class SqliteMemoryGraphStoreTests : IDisposable
     [Fact] public Task Dedup() => MemoryGraphStoreContract.Upserting_identical_content_refreshes_rather_than_duplicating(New(), "k2");
     [Fact] public Task Engine_isolation() => MemoryGraphStoreContract.Engines_are_isolated_from_one_another(New(), "k3");
     [Fact] public Task Quiet_engine() => MemoryGraphStoreContract.A_busy_engine_does_not_age_a_quiet_ones_memories(New(), "k4");
-    [Fact] public Task Cutoff_excludes() => MemoryGraphStoreContract.The_candidate_cutoff_excludes_stale_associative_nodes(New(), "k5");
-    [Fact] public Task Cutoff_keeps_fresh() => MemoryGraphStoreContract.The_candidate_cutoff_keeps_fresh_associative_nodes(New(), "k6");
-    [Fact] public Task Cutoff_spares_exact() => MemoryGraphStoreContract.The_candidate_cutoff_never_excludes_authoritative_nodes(New(), "k7");
-    [Fact] public Task Bigger_crowds_harder() => MemoryGraphStoreContract.A_bigger_write_crowds_harder(New(), "k8");
+    [Fact] public Task Never_excludes_faint() => MemoryGraphStoreContract.Seeding_never_excludes_a_faint_entry(New(), "k7");
+    [Fact] public Task Bigger_ages_more() => MemoryGraphStoreContract.A_bigger_write_ages_more(New(), "k8");
     [Fact] public Task Touch() => MemoryGraphStoreContract.Touch_records_reinforcement(New(), "k9");
     [Fact] public Task Touch_does_not_age() => MemoryGraphStoreContract.A_touch_does_not_advance_the_position(New(), "k10");
     [Fact] public Task Neighbours() => MemoryGraphStoreContract.Linked_nodes_are_reachable_as_neighbours(New(), "k11");
@@ -46,7 +44,7 @@ public class SqliteMemoryGraphStoreTests : IDisposable
         await store.UpsertAsync(Write("灵台平台负责智能代理的记忆存储"));
         await store.UpsertAsync(Write("另一条无关的记录"));
 
-        var hits = await store.SeedAsync("e", "cjk", "s", "智能代理", null, 10);
+        var hits = await store.SeedAsync("e", "cjk", "s", "智能代理", 10);
 
         Assert.Single(hits);
 
@@ -66,6 +64,6 @@ public class SqliteMemoryGraphStoreTests : IDisposable
 
         await store.ForgetAsync("e", "sync", "s");
 
-        Assert.Empty(await store.SeedAsync("e", "sync", "s", "distinctive", null, 10));
+        Assert.Empty(await store.SeedAsync("e", "sync", "s", "distinctive", 10));
     }
 }

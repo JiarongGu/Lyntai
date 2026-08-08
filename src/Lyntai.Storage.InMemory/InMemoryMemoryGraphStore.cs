@@ -71,7 +71,7 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
 
     /// <inheritdoc />
     public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
-        string? query, double? maxAgeOverStability, int limit, CancellationToken ct = default)
+        string? query, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         lock (_lock)
@@ -80,11 +80,9 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
             var hits = _nodes.Values
                 .Where(n => n.Engine == engine && n.TaskKey == taskKey)
                 .Where(n => scope is null || n.Scope == scope)
-                // authoritative material is admitted unconditionally — neither the query nor the decay
-                // cutoff may exclude an exact fact
+                // authoritative material is admitted unconditionally — the query may not exclude an exact
+                // fact. FAINTNESS excludes nothing at all: decay buries by rank in the engine, never here.
                 .Where(n => n.Grade == MemoryGrade.Authoritative || Matches(n, query))
-                .Where(n => n.Grade == MemoryGrade.Authoritative
-                            || WithinCutoff(n, position, maxAgeOverStability))
                 .OrderByDescending(n => n.LastRecalledPosition)
                 .ThenByDescending(n => n.Id) // unique tiebreaker: ties must not wobble
                 .Take(limit)
@@ -96,13 +94,6 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
         static bool Matches(Row node, string? query) =>
             string.IsNullOrWhiteSpace(query) ||
             node.Content.Contains(query, StringComparison.OrdinalIgnoreCase);
-
-        static bool WithinCutoff(Row node, double position, double? cutoff)
-        {
-            if (cutoff is not double c || double.IsPositiveInfinity(c)) return true;
-            var stability = node.Stability > 0 ? node.Stability : 0.000001;
-            return (position - node.LastRecalledPosition) / stability <= c;
-        }
     }
 
     /// <inheritdoc />

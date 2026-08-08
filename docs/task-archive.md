@@ -3273,6 +3273,48 @@ _Closes the memory sequence. `TASKS.md` Part 46 is now empty of memory work._
 
 ---
 
+## Part 52 — decay buries a memory, it does not cut it (2026-08-08)
+
+_Owner-driven, after the merge: "we don't really cut a memory, we decay it so it can be traced back, just
+buried under other links of nodes."_
+
+- [x] **Replace the absolute recall floor with a relative one.**
+
+  **Outcome (2026-08-08):** `verify` green on all eight gates; 204 memory tests; Postgres re-verified live
+  (91 tests, zero skipped).
+
+  **The gap.** The docs said "decay only ranks, it never deletes" — true of storage, false of experience.
+  Recall applied an ABSOLUTE floor, so an entry below `MinRetrievability` vanished from recall *and* from
+  spreading, and the store's candidate query excluded it before ranking could even see it. It survived only
+  via `ExpandAsync` with a reference you already held, which is not "traceable" in any useful sense. A test
+  asserted the behaviour outright: `Assert.Empty(recall.Items)`. A cliff wearing the word gradient.
+
+  **The model now.** An entry is hidden because something OUTRANKS it: recall ranks everything and drops
+  only what falls more than `RelativeFloor` (default 0.02, so ~50× weaker than the best hit) below the
+  strongest. A faint memory alone in a quiet engine is still the best thing there and surfaces; under fifty
+  fresher ones it does not. `MinRetrievability` now governs `PruneAsync` alone — deleting is the only thing
+  that removes a memory, and it is always explicit.
+
+  _**Seeding lost the ability to exclude for faintness entirely**, rather than keeping the parameter and
+  passing null. That capability existing is what let the mistake happen; the only bound left is the
+  candidate count._
+
+  _**Four tests had encoded the old semantics and had to be reformulated, not patched** — which is the
+  clearest evidence the change was real:_
+  - _`..._falls_below_the_floor` → a faint memory ALONE still surfaces, plus a sibling proving it is buried
+    once something stronger exists, plus one proving it is still reachable by reference._
+  - _`A_connected_memory_outlives_an_isolated_one` → `..._outranks_...`. Connectedness determines RANK, not
+    existence, now that nothing is cut._
+  - _The simulation's "old noise is gone" measured a TARGETED recall, which under burial always returns the
+    entry. It now measures absence from a BROAD recall the entry has to compete in — which is the only
+    place burial is observable — with a companion asserting the buried item is still there when asked for
+    directly._
+  - _Burst survival stopped measuring presence and started measuring RETRIEVABILITY: 500 fresher
+    paragraphs legitimately outrank everything in a top-30, and that is not forgetting. Damped, prior
+    material holds r > 0.25; undamped, r < 0.001. The control still proves the damping does the work._
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

@@ -75,6 +75,12 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   Consequences: no date arithmetic appears in any query (removing the hazard where SQLite's `julianday`
   returning NULL on an unparseable timestamp would silently exclude every row), and the decay constants no
   longer carry `TimeSpan`, which asserted a dimension the application had not chosen.
+- **Decay buries an entry rather than cutting it** (`GraphMemoryOptions.RelativeFloor`). Recall ranks
+  everything and hides only what falls far below the *strongest* hit, so a faint memory alone in a quiet
+  engine still surfaces while the same memory under fresher material does not — and either way it stays
+  reachable by reference or through a neighbour, reporting how faint it has become. Seeding applies no
+  faintness bound at all; `MinRetrievability` now governs `PruneAsync` alone, where removing a memory is
+  the explicit intent.
 - **Connectedness feeds decay, and edges decay too.** A memory woven into a dense, repeatedly-reinforced
   neighbourhood now resists forgetting, while an isolated one fades — connections make an entry more
   *durable*, not merely more reachable. Symmetrically, edge weight decays with disuse

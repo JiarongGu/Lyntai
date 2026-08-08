@@ -12,14 +12,17 @@ namespace Lyntai.Tests.Memory;
 /// connection boost, reinforcement fights the interference the same writes cause, and burst damping changes
 /// what a write costs. Measuring them one at a time would measure the wrong thing, so this drives a corpus
 /// with a KNOWN split through the whole model at once and asserts outcomes rather than values.</para>
+/// <para><b>Nothing here asserts that a memory is GONE</b>, because nothing in this model removes one.
+/// Decay buries: a faint entry is hidden by being outranked, and a targeted query for it still returns it.
+/// So "forgotten" is measured as <i>absent from a broad recall it has to compete in</i>, or as a collapsed
+/// retrievability — never as a missing row.</para>
 /// <para><b>What this proves, stated plainly:</b> it measures the DYNAMICS — that reuse outruns
 /// interference by the intended margin — and it runs in CI, which a production corpus cannot. It does NOT
 /// establish that real usage has the reuse-to-noise ratio modelled here. So the constants are "measured
-/// against a stated model", not "measured", and the XML docs say exactly that. Replacing the model with a
-/// real corpus later is a strict improvement, not a prerequisite.</para>
-/// <para>Deliberately uses an undamped <see cref="PerWriteClock"/>: the simulation writes as fast as the
-/// test runs, so burst damping would make every round one enormous burst and measure the damping instead
-/// of the decay. Damping has its own tests, and its own scenario at the bottom of this file.</para>
+/// against a stated model", not "measured", and the XML docs say exactly that.</para>
+/// <para>Deliberately uses an undamped <see cref="PerWriteClock"/> for the interference runs: the
+/// simulation writes as fast as the test executes, so burst damping would make every round one enormous
+/// burst and measure the damping instead of the decay. Damping has its own scenario at the bottom.</para>
 /// </summary>
 public class MemoryDecaySimulationTests
 {
@@ -30,11 +33,14 @@ public class MemoryDecaySimulationTests
     private static GraphMemoryEngine Engine(GraphMemoryOptions? options = null) =>
         new("sim", new InMemoryMemoryGraphStore(), options, memoryClock: new PerWriteClock());
 
-    private static string Durable(int i) => $"durable{i} is a fact worth keeping about the system";
-    private static string Noise(int round, int i) => $"noise{round}x{i} was mentioned once and never again";
+    // every entry carries "item" so a BROAD recall makes them compete — which is where burial shows up
+    private static string Durable(int i) => $"item durable{i} is a fact worth keeping about the system";
+    private static string Noise(int round, int i) => $"item noise{round}x{i} was mentioned once, never again";
+    private static string Document(int i) =>
+        $"item paragraph {i.ToString(CultureInfo.InvariantCulture)} of a long ingested file";
 
     /// <summary>Write the durable set, then alternate: a round of one-off noise, then a pass that uses each
-    /// durable fact (which reinforces it). Returns the engine.</summary>
+    /// durable fact (which reinforces it).</summary>
     private static async Task<GraphMemoryEngine> RunAsync(GraphMemoryOptions? options = null)
     {
         var engine = Engine(options);
@@ -54,40 +60,51 @@ public class MemoryDecaySimulationTests
         return engine;
     }
 
-    private static async Task<bool> RecallableAsync(GraphMemoryEngine engine, string token) =>
-        (await engine.RecallAsync(new MemoryQuery("t", "s", token))).Items.Count > 0;
+    /// <summary>What everything has to compete in. Burial is relative, so it is only observable here.</summary>
+    private static Task<MemoryRecall> BroadRecallAsync(GraphMemoryEngine engine, int limit = 30) =>
+        engine.RecallAsync(new MemoryQuery("t", "s", "item", Limit: limit));
 
     [Fact]
-    public async Task Reused_material_survives()
+    public async Task Reused_material_holds_its_place_in_a_crowded_recall()
     {
         var engine = await RunAsync();
 
-        var kept = 0;
-        for (var i = 0; i < DurableFacts; i++)
-            if (await RecallableAsync(engine, $"durable{i}")) kept++;
+        var recall = await BroadRecallAsync(engine);
+        var kept = Enumerable.Range(0, DurableFacts)
+            .Count(i => recall.Items.Any(x => x.Headline.Contains($"durable{i}", StringComparison.Ordinal)));
 
         Assert.True(kept >= DurableFacts * 0.9,
-            $"only {kept}/{DurableFacts} reused facts survived — reinforcement is not outrunning interference");
+            $"only {kept}/{DurableFacts} reused facts made a crowded recall — reinforcement is not "
+            + "outrunning interference");
     }
 
     [Fact]
-    public async Task One_off_material_from_early_in_the_run_is_gone()
+    public async Task One_off_material_from_early_in_the_run_is_buried()
     {
-        // deliberately measured over the FIRST HALF only: noise written moments ago SHOULD still be
-        // recallable — it is recent. What must fade is what was mentioned once, long ago.
+        // measured over the FIRST HALF only: material written moments ago SHOULD still surface — it is
+        // recent. What must fall behind is what was mentioned once, long ago.
         var engine = await RunAsync();
 
-        var surviving = 0;
-        var total = 0;
+        var recall = await BroadRecallAsync(engine);
+        var surfacing = 0;
         for (var round = 0; round < Rounds / 2; round++)
             for (var i = 0; i < NoisePerRound; i++)
-            {
-                total++;
-                if (await RecallableAsync(engine, $"noise{round}x{i}")) surviving++;
-            }
+                if (recall.Items.Any(x => x.Headline.Contains($"noise{round}x{i}", StringComparison.Ordinal)))
+                    surfacing++;
 
-        Assert.True(surviving <= total * 0.1,
-            $"{surviving}/{total} one-off items from the first half of the run are still recallable");
+        Assert.Equal(0, surfacing);
+    }
+
+    [Fact]
+    public async Task What_is_buried_is_still_there_when_asked_for_directly()
+    {
+        // the whole distinction: buried, not cut. It lost the competition; it was not deleted.
+        var engine = await RunAsync();
+
+        var targeted = await engine.RecallAsync(new MemoryQuery("t", "s", "noise0x0"));
+
+        Assert.Single(targeted.Items);
+        Assert.True(targeted.Items[0].Retrievability < 0.05, "and it comes back faint, which is the point");
     }
 
     [Fact]
@@ -98,12 +115,12 @@ public class MemoryDecaySimulationTests
         var durable = await engine.RecallAsync(new MemoryQuery("t", "s", "durable", Limit: 50));
         var worstDurable = durable.Items.Min(i => i.Retrievability);
 
-        var noise = await engine.RecallAsync(new MemoryQuery("t", "s", "noise0x", Limit: 50));
-        var bestOldNoise = noise.Items.Count == 0 ? 0 : noise.Items.Max(i => i.Retrievability);
+        var oldNoise = await engine.RecallAsync(new MemoryQuery("t", "s", "noise0x", Limit: 50));
+        var bestOldNoise = oldNoise.Items.Count == 0 ? 0 : oldNoise.Items.Max(i => i.Retrievability);
 
         Assert.True(worstDurable > bestOldNoise,
-            $"the weakest reused fact ({worstDurable:F3}) does not beat the strongest old one-off " +
-            $"({bestOldNoise:F3})");
+            $"the weakest reused fact ({worstDurable:F4}) does not beat the strongest old one-off "
+            + $"({bestOldNoise:F4})");
     }
 
     [Fact]
@@ -119,57 +136,54 @@ public class MemoryDecaySimulationTests
                 await engine.RecallAsync(new MemoryQuery("t", "s", $"durable{i}"));
         }
 
-        var kept = 0;
-        for (var i = 0; i < DurableFacts; i++)
-            if (await RecallableAsync(engine, $"durable{i}")) kept++;
+        var recall = await BroadRecallAsync(engine);
+        var kept = Enumerable.Range(0, DurableFacts)
+            .Count(i => recall.Items.Any(x => x.Headline.Contains($"durable{i}", StringComparison.Ordinal)));
 
-        Assert.True(kept >= DurableFacts * 0.9,
-            $"only {kept}/{DurableFacts} reused facts survived the longer run");
+        Assert.True(kept >= DurableFacts * 0.9, $"only {kept}/{DurableFacts} survived the longer run");
     }
 
-    /// <summary>The scenario burst damping exists for, end to end: bulk-ingesting a large document must not
-    /// erase what the memory already held.
-    /// <para>This one uses the DEFAULT clock — damped — because that is the thing under test. Undamped, 500
-    /// writes advance the position by 500 and every prior entry falls far past the floor.</para></summary>
+    /// <summary>The scenario burst damping exists for: bulk-ingesting a large document must not wash out
+    /// what the memory already held.
+    /// <para>Measured as RETRIEVABILITY, not presence — 500 fresher paragraphs legitimately outrank
+    /// everything in a top-30, and that is not forgetting. What damping protects is how retrievable the
+    /// prior material remains, which the control below shows collapsing without it.</para></summary>
     [Fact]
-    public async Task A_bulk_ingest_does_not_erase_what_was_already_known()
+    public async Task A_bulk_ingest_does_not_wash_out_what_was_already_known()
     {
-        var engine = new GraphMemoryEngine("sim", new InMemoryMemoryGraphStore());
+        var engine = new GraphMemoryEngine("sim", new InMemoryMemoryGraphStore()); // the DAMPED default
         for (var i = 0; i < DurableFacts; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", Durable(i)));
 
-        // a 500-page document arriving at once
         for (var i = 0; i < 500; i++)
-            await engine.RememberAsync(new MemoryWrite("t", "s",
-                $"document paragraph {i.ToString(CultureInfo.InvariantCulture)} of a long ingested file"));
+            await engine.RememberAsync(new MemoryWrite("t", "s", Document(i)));
 
-        var kept = 0;
         for (var i = 0; i < DurableFacts; i++)
-            if (await RecallableAsync(engine, $"durable{i}")) kept++;
-
-        Assert.True(kept >= DurableFacts * 0.9,
-            $"a bulk ingest erased the prior memory — only {kept}/{DurableFacts} survived");
+        {
+            var hit = (await engine.RecallAsync(new MemoryQuery("t", "s", $"durable{i}"))).Items.Single();
+            Assert.True(hit.Retrievability > 0.25,
+                $"durable{i} was washed out by the ingest (r={hit.Retrievability:F4})");
+        }
     }
 
-    /// <summary>...and the same ingest, undamped, to show the damping is doing the work rather than the
-    /// numbers happening to be forgiving. A regression that silently disabled damping would otherwise pass
+    /// <summary>...and the same ingest undamped, so the damping is shown to be doing the work rather than
+    /// the numbers happening to be forgiving. A regression that silently disabled it would otherwise pass
     /// the test above only until the corpus grew.</summary>
     [Fact]
-    public async Task The_same_ingest_undamped_would_erase_it
-        ()
+    public async Task The_same_ingest_undamped_washes_it_out()
     {
         var engine = Engine(); // PerWriteClock, no damping
         for (var i = 0; i < DurableFacts; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", Durable(i)));
 
         for (var i = 0; i < 500; i++)
-            await engine.RememberAsync(new MemoryWrite("t", "s",
-                $"document paragraph {i.ToString(CultureInfo.InvariantCulture)} of a long ingested file"));
+            await engine.RememberAsync(new MemoryWrite("t", "s", Document(i)));
 
-        var kept = 0;
         for (var i = 0; i < DurableFacts; i++)
-            if (await RecallableAsync(engine, $"durable{i}")) kept++;
-
-        Assert.Equal(0, kept);
+        {
+            var hit = (await engine.RecallAsync(new MemoryQuery("t", "s", $"durable{i}"))).Items.Single();
+            Assert.True(hit.Retrievability < 0.001,
+                $"durable{i} should have been washed out undamped (r={hit.Retrievability:F6})");
+        }
     }
 }

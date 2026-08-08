@@ -140,17 +140,27 @@ public sealed class GraphMemoryEngine(
             return MemoryRecall.Empty;
         }
 
-        var scored = found
+        var ranked = found
             .Select(f =>
             {
                 var retrievability = Retrievability(f.Node);
                 return (f.Node, Retrievability: retrievability,
                     Rank: f.Node.Relevance * retrievability * Math.Pow(_options.HopAttenuation, f.Hop));
             })
-            .Where(x => x.Node.Grade == MemoryGrade.Authoritative
-                        || x.Retrievability >= _options.MinRetrievability)
             .OrderByDescending(x => x.Rank)
             .ThenByDescending(x => x.Node.Id) // unique tiebreaker: ties must not wobble
+            .ToList();
+
+        if (ranked.Count == 0) return MemoryRecall.Empty;
+
+        // BURIED, NOT CUT. An entry is hidden because something OUTRANKS it, never because its own
+        // retrievability crossed a line — so a faint memory alone in a quiet engine is still the best thing
+        // there and surfaces, while the same memory under fifty fresher ones does not. Nothing here removes
+        // anything: ask for it specifically, or reach it through a neighbour, and it is still there.
+        var best = ranked[0].Rank;
+        var floor = best * Math.Max(0, _options.RelativeFloor);
+        var scored = ranked
+            .Where(x => x.Node.Grade == MemoryGrade.Authoritative || x.Rank >= floor)
             .Take(limit)
             .ToList();
 
@@ -251,11 +261,12 @@ public sealed class GraphMemoryEngine(
     private async Task<List<(GraphNode Node, int Hop)>> GatherAsync(MemoryQuery query, int limit,
         CancellationToken ct)
     {
-        var cutoff = _policy.CandidateCutoff(_options.MinRetrievability);
+        // no faintness bound: the store returns candidates most-recently-used first and the count is the
+        // only limit, so nothing is excluded for having decayed — burial happens by rank, above
         var candidates = limit * Math.Max(1, _options.CandidateMultiplier);
 
-        var seeds = await store.SeedAsync(Name, query.TaskKey, query.Scope, query.Query,
-            double.IsPositiveInfinity(cutoff) ? null : cutoff, candidates, ct).ConfigureAwait(false);
+        var seeds = await store.SeedAsync(Name, query.TaskKey, query.Scope, query.Query, candidates, ct)
+            .ConfigureAwait(false);
 
         var found = new List<(GraphNode Node, int Hop)>(seeds.Select(n => (n, 0)));
         var seen = seeds.Select(n => n.Id).ToHashSet();
