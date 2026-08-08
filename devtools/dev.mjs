@@ -428,11 +428,22 @@ switch (cmd) {
     break;
   }
 
+  // The prose counterpart to check-warnings: fail when a doc uses vocabulary a decision retired.
+  //
+  // IN verify, unlike `decisions-index`, and the difference is the cost of being wrong. A stale index costs
+  // a reader one Ctrl-F. A stale SPEC costs the next session a wrong implementation — it is read as the
+  // contract, and on 2026-08-08 two specs silently stopped being true while every code gate stayed green.
+  // Registry: `retiredTerms` in project.config.mjs.
+  case 'check-docs': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-docs.mjs'), ...args]);
+    break;
+  }
+
   case 'verify': {
-    // the single "am I done?" gate — seven checks, stopping at the first failure:
-    // build → warnings → packages → bundle → test → e2e → leak scan. Keep this list and `steps` in step.
+    // the single "am I done?" gate — eight checks, stopping at the first failure:
+    // build → warnings → packages → bundle → docs → test → e2e → leak scan. Keep this list and `steps` in step.
     const steps = [['build', []], ['check-warnings', []], ['check-packages', []], ['check-bundle', []],
-      ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
+      ['check-docs', []], ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {
       console.log(`\n=== verify: ${step} ===`);
@@ -441,7 +452,7 @@ switch (cmd) {
     }
     if (failed) console.error(`\nverify: ✗ FAILED at ${failed}`);
     else console.log('\nverify: ✓ all gates green ' +
-      '(build · warnings · packages · bundle · test · e2e · check-sensitive)');
+      '(build · warnings · packages · bundle · docs · test · e2e · check-sensitive)');
     break;
   }
 

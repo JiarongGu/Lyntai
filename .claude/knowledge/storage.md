@@ -113,7 +113,7 @@ prefix, the `StorageFeature` tags, the Sqlite/Postgres parallelism); read both.
 FluentMigrator, numbered `yyyyMMddHHmm`, **never reused** (an unapplied duplicate number is silently
 skipped). Use `dev.mjs new-migration` to get a unique monotonic number.
 
-> **Convention changed 2026-08-08, from `YYYYMMDDNNNN` to `yyyyMMddHHmm`.** The timestamp is
+> **Convention changed 2026-08-08, from `YYYYMMDDNNNN` to `yyyyMMddHHmm`.** <!-- drift-ok --> The timestamp is
 > self-describing where a per-day `NNNN` sequence is not, and two people adding a migration on the same day
 > without coordinating now collide only within the same MINUTE — still resolved by the generator's
 > strictly-greater-than-max loop. Both forms are 12 digits, so they sort together and the nine baseline

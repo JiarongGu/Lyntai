@@ -68,4 +68,54 @@ export default {
       'ModelContextProtocol.Core',
     ],
   },
+
+  /**
+   * RETIRED VOCABULARY — words a deliberate decision replaced, which must not reappear in the docs.
+   *
+   * The problem this closes: the CODE is gated from every side (check-warnings, the API-surface baselines,
+   * the storage contracts) while the PROSE is gated from none. A spec paragraph that quietly stops being
+   * true survives every check, and the next session reads it and implements the wrong thing. That happened
+   * twice on 2026-08-08 and both times a human reading it was the only thing that caught it.
+   *
+   * Each entry is a term a decision retired, what to say instead, and why — so the failure message teaches
+   * rather than merely refusing. Add one whenever a decision renames or re-dimensions something.
+   *
+   * Scope: `docs/`, `.claude/` and README. NOT `src/` (XML docs sit beside the code they describe and the
+   * compiler already gates their crefs), NOT `CHANGELOG.md` or `docs/task-archive.md` (historical records —
+   * accurate BECAUSE they use the vocabulary of their day), and not any file that declares itself
+   * superseded in its status banner.
+   *
+   * Escape hatch: put `drift-ok` on the line. That is the honest annotation for a passage that deliberately
+   * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
+   */
+  retiredTerms: [
+    {
+      term: 'age_days',
+      use: '`age` — a subtraction on the engine\'s position',
+      why: 'decay is measured in what has HAPPENED in a memory, not in elapsed time (spec §3.-1)',
+    },
+    {
+      term: 'last_recalled_at',
+      use: '`last_recalled_position`',
+      why: 'the node records where the engine\'s position stood, not a timestamp (spec §3.-1)',
+    },
+    {
+      term: 'strengthened_at',
+      use: '`strengthened_position`',
+      why: 'an edge ages by what has happened since, not by the clock (spec §3.-1)',
+    },
+    {
+      term: 'YYYYMMDDNNNN',
+      use: '`yyyyMMddHHmm`',
+      why: 'migration numbering changed 2026-08-08 — the timestamp is self-describing (storage.md)',
+    },
+    {
+      // Identifier-SHAPED only (`CustomerDto`), not the bare word: the rules tier has to quote what it
+      // bans, and a pattern that cannot tell a leak from a prohibition just teaches people to add escapes.
+      term: '\\w+Dto\\b',
+      use: '`*Row` for a materialization type, `*Request`/`*Reply`, `*Result`, `*Entry`',
+      why: 'a name says what a thing IS, never which layer it crossed; the tree holds zero Dto identifiers '
+        + 'and prose seeds the name back in on the next change (repo-mechanics.md §Naming)',
+    },
+  ],
 };
