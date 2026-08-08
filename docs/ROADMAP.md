@@ -339,6 +339,53 @@ default).
   package is **not** in the `Lyntai` bundle, so the one-line install's dependency closure is unchanged
   (**D32** — membership is a budget, not a preference).
 
+### v2.2.0 — the provider-lifetime seam and a second agent-session backend (2026-08-05)
+For an application whose backend configuration is owned outside the deployment — a user pasting their own key
+— `Lyntai.Lifecycle` adds a provider **pool** keyed by `ProviderKey`, with admission and a configuration key
+(**D37**). Alongside it: a real per-call deadline for the HTTP generation backends plus
+`GenerationOperation.Inconclusive`, so a submit that times out is not re-submitted and double-billed;
+`LlmVerdict.NotConfigured` to separate "no key" from "the key was rejected" (**D38**); `AddSemanticMemory`
+(**D41**); honest `MigrateUpAsync` twins (**D40**); and `CodexAgentSession`, which makes the agent-session
+shape no longer claude-only — with the measured/inferred split disclosed rather than smoothed over (**D42**).
+
+### v2.3.0 — the pre-release whole-library review (2026-08-05)
+**Shipped separately only because 2.2.0 was cut from the pushed branch while this work sat unpushed** — the
+release workflow publishes what is pushed, so 2.2.0 went out without any of it (**D46**, and the reason
+`git push` is now treated as part of "ready to release" rather than a follow-up). The sweep closed the whole
+closeable backlog: the 17-item behaviour cluster (**D44** amended D24 to let it ship), the API-surface gate's
+blind spots with all eleven baselines regenerated, a blameless-and-reportable media verdict, and the curated
+memory / `ContextSize` / `AsChatClient` re-scope (**D45**). Two **documented compile-time breaks** shipped in
+the minor under D24 — `OpenAiCompatibleOptions.ContextSize` → `OllamaContextSize` (the generic name invited a
+setting that did nothing on every non-Ollama flavour), and `ICuratedMemoryStore.UpdateAsync` gaining
+`taskKey`/`scope`. Neither can bind silently; each is a compile error that names its fix.
+
+### v2.4.0 — app-owned MCP servers on any agent session (2026-08-05)
+`AgentSessionOptions.McpServers` lets an `IAgentSession` be pointed at the host application's own tools on
+**either** CLI backend, as a neutral Core option rendered per adapter in each one's measured vocabulary
+(**D47**). Before it, the only route was a claude-only `McpConfigPath`, so adopting `CodexAgentSession` meant
+spawning with no MCP servers at all — a silent capability loss rather than an error. Also: a CLI backend's own
+in-band account of a failed turn now outranks the process exit code, so an expired login reports `AuthFailed`
+and cools the host instead of `Failed` with startup chatter as the detail.
+
+### Unreleased — long-term memory that forgets, connects, and opens as an index
+The first subsystem modelled on how recall actually behaves rather than on how a database does. Reasoning is
+`DECISIONS.md` **D48–D51**; it is purely additive, so it lands in a minor.
+- **Named engines** (`IMemoryEngine`, `IMemoryEngineFactory`, `AddMemoryEngine`) — several memory systems
+  coexist in one application and resolve **by name**, the way `IHttpClientFactory` resolves clients, and a
+  blend is itself an engine so nothing branches on how many you hold (**D48**).
+- **Grades**, because a machine memory has to beat a human one on exact facts: authoritative material gets a
+  reserved budget and its own labelled section, and is never crowded out by associative recall.
+- **Decay measured in interference, not elapsed time** (**D49**) — a rarely-used engine does not forget, what
+  counts as interference is a seam with four shipped clocks, and bursts saturate so a bulk ingest cannot erase
+  everything before it.
+- **Burial, not deletion** (**D50**) — recall ranks against a relative floor and deletion stays explicit in
+  `PruneAsync`, so a faint memory is outranked rather than lost and still returns via a reference or a
+  neighbour.
+- **Persistence and reach** — InMemory, SQLite (FTS5 trigram, so CJK substring recall works) and Postgres
+  (`pg_trgm` GIN) under one contract, plus `AddMemoryTools` exposing recall/expand to the model itself.
+- **A doc gate to match the code gates** (**D51**) — `check-docs` fails the build on vocabulary a decision
+  retired, and the published design page is now tracked so drift shows up in review.
+
 ## Planned
 
 ### The platform kit (design §9) — SHIPPED (v0.8–v0.15, deferrals closed through v0.27)

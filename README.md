@@ -25,15 +25,23 @@ seam for image/video/audio/3d with three delivery modes (inline, submit→poll�
 renders over `Lyntai.Jobs`, and five backends.
 **Storage** — SQLite / Postgres / InMemory, mixable per domain, with FTS5-trigram recall and feature toggles.
 **Agents** — a tool loop, two-gate chat orchestration, guards, and both halves of MCP. **Ops** — prompt
-registry, scoring/eval, run traces, task-scoped + semantic + curated memory, durable jobs with priorities /
-DLQ / cron / cancellation, a secret vault, OTel across all three domains, and front-door governance (cache,
-budget, rate limit).
+registry, scoring/eval, run traces, task-scoped + semantic + curated memory, **named memory engines** over a
+decaying, self-linking graph memory, durable jobs with priorities / DLQ / cron / cancellation, a secret
+vault, OTel across all three domains, and front-door governance (cache, budget, rate limit).
 
 Since 1.0 froze the API (2026-07-28): **1.1** generic CLI tool-hosting · **1.2** turn-free backend probe,
 auth and pinned self-install · **2.0.1** the generation platform plus a coherent package graph — one rule for
 package boundaries, a starting bundle, and four build gates that keep the packaging claims honest ·
 **2.1.0** generation ergonomics — named input factories, an `Add*` per media backend, and BYO-`HttpClient`
-ownership brought in line with the LLM side.
+ownership brought in line with the LLM side · **2.2.0** the provider-lifetime pool for keys owned outside the
+deployment, plus a second agent-session backend · **2.3.0** the pre-release whole-library review, with two
+documented compile-time breaks · **2.4.0** an agent session that can be given the host's own MCP servers on
+either CLI backend.
+
+**Unreleased — long-term memory.** Several memory systems coexist in one app and resolve by name the way
+`IHttpClientFactory` resolves clients; entries decay, link to what they were recalled with, and open as a
+cheap index you pay to expand. Decay is measured in what has happened in a memory rather than in elapsed
+time, and a decayed entry is buried rather than deleted. See `## Unreleased` in `CHANGELOG.md`.
 `CHANGELOG.md` has the per-release detail; `docs/DECISIONS.md` has the reasoning behind the load-bearing calls.
 **This file documents the working tree, not only the newest package**: anything that has not shipped yet is
 listed under `## Unreleased` in `CHANGELOG.md`, so check there before assuming a member below is in the

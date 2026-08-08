@@ -45,20 +45,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 - **Graph memory: entries that decay, connect, and open as an index** (`GraphMemoryEngine`,
   `IMemoryGraphStore`, `UseGraph()`). Recall returns **headlines** and withholds the full text until
   expansion, so a session opens on a cheap index and pays for depth only along the direction it turns out
-  to need. Entries **decay** unless reused — retrievability is a read-time function of stored timestamps,
-  so there is no sweeper and no background job — and each successful recall lengthens an entry's half-life,
-  making repeated context durable while one-off noise fades below the floor. Decay only ever **ranks**;
+  to need. Entries **decay** unless reused — retrievability is computed at read time from stored
+  counters, so there is no sweeper and no background job — and each successful recall lengthens an entry's half-life,
+  making repeated context durable while one-off noise sinks beneath fresher material. Decay only ever
+  **ranks**;
   deletion stays explicit via `PruneAsync`. Entries **connect** model-free: whatever is returned together
   gets linked, the link strengthens on recurrence, and a later recall spreads through those links to reach
-  material the query never matched. This release ships the **InMemory** backend; SQLite and Postgres follow.
+  material the query never matched.
 - **The decay curve is a seam** (`IRetrievabilityPolicy`, `HalfLifeRetrievability`, `HalfLifeOptions`).
   Exposing the constants alone would settle the values while freezing the formula, so an application can
   tune the numbers *or* replace the model of forgetting, and neither choice forecloses the other. The
   default is registered, so nothing has to be implemented. Storage never evaluates the curve — a policy
   supplies a conservative `CandidateCutoff` and the store bounds its candidate set with plain division,
   which keeps a custom curve possible and avoids depending on SQLite's optional `pow`.
-  `HalfLifeOptions.MaxStability` caps reinforcement: unbounded compounding turns a seven-day half-life into
-  sixty-four years in about twenty recalls, which would silently give a frequently-recalled *associative*
+  `HalfLifeOptions.MaxStability` caps reinforcement: unbounded compounding multiplies a half-life by more
+  than three thousand in about twenty recalls, which would silently give a frequently-recalled *associative*
   entry the durability of an authoritative one without any of its guarantees.
 - **Decay is measured in what has HAPPENED in a memory, not in elapsed time** (`IMemoryClock`,
   `PerWriteClock`, `ContentSizeClock`, `ElapsedClock`, `BurstDampenedClock`). Each engine keeps a position

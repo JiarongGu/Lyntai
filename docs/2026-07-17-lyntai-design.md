@@ -250,8 +250,7 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
   answer a setup question. A backend that genuinely cannot be checked without generating reports
   `Available: false` with the reason.
 - **A submit whose deadline expires is `GenerationOperation.Inconclusive`, and is never re-submitted** — the
-  work may have been accepted, so a retry double-bills the host (`Inconclusive` is in `CHANGELOG.md`'s
-  `## Unreleased` at the time of writing). The operation id is checkpointed BEFORE the first poll, so a crash
+  work may have been accepted, so a retry double-bills the host (`Inconclusive` shipped in 2.2.0). The operation id is checkpointed BEFORE the first poll, so a crash
   resumes the render already running instead of paying for a second one.
 - **The CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation` + `.Routing`/`.Jobs`/`.Tools`) and
   carry the FULL SemVer promise. Only the BACKENDS **package** — `Lyntai.Generation`, namespaces
@@ -260,6 +259,52 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
   type deliberately rather than claiming the exemption).
 - **The coupling to the LLM side is five `ITool`s** (`AddGenerationTools()`), and that is the *entire* coupling
   (D30) — the tool loop and an MCP-hosted CLI agent both drive media through the same five.
+
+### 5.7 Long-term memory — named engines over a decaying graph (added 2026-08-08, not in the v0.1 design)
+
+*Added for the same reason as §5.6: this document is read first, and §5.4 otherwise leaves `IMemoryStore` — a
+bounded, task-scoped fact store — looking like the whole of memory. It is not; it is one of four surfaces, and
+the newest is a different kind of thing. This is the routing entry, not a restatement: the reasoning is
+`docs/DECISIONS.md` **D48**–**D51**, and the specs are `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md`
+and `2026-08-08-graph-memory-engine-design.md`.*
+
+```csharp
+public interface IMemoryEngine {
+    string Name { get; }                              // "chat" | "project" | "chat/lexical" | …
+    MemoryGrades Supported { get; }                   // which grades this engine can actually hold
+    Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default);
+    Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default);
+}
+```
+
+- **A DI collection keyed by `Name`, resolved through `IMemoryEngineFactory.Get(name)`** — the same
+  variation-point shape as `ILlmProvider` keyed by `Id`, and the same shape a consumer already knows from
+  `IHttpClientFactory` (`Get`, not `Create`: engines are singletons). One application runs several engines at
+  once for different purposes, which is the requirement that rules out a single unnamed singleton (**D48**).
+- **A blend IS an engine.** `CompositeMemoryEngine` implements the same interface as its members, so nothing
+  branches on whether a caller holds one engine or five. Optional abilities are separate interfaces —
+  `IExpandableMemory`, `ILinkableMemory`, `IForgettableMemory` — routed by `MemoryRef.Engine`, never guessed
+  by type-testing (the same optional-capability shape as §5.6, and the regression it prevents is pinned by a
+  test).
+- **Grades are what let this beat a human memory rather than imitate one.** `MemoryGrade.Authoritative`
+  material is allocated from a reserved character budget *before* any associative content is admitted, is
+  never truncated to a headline, and renders in its own labelled section. Associative recall must never crowd
+  out a fact the application stated as true.
+- **Decay is measured in interference, not elapsed time** (**D49**). An entry's age is how far its engine's
+  monotone position has moved since the entry was last used — a subtraction, not a duration — so a
+  rarely-used engine does not forget merely because time passed. What advances the position is an
+  `IMemoryClock` seam with four shipped implementations, because "how much has happened" is genuinely
+  ambiguous (writes, volume, or real time). Bursts saturate: advancing linearly would let one bulk ingest age
+  every prior entry past its stability and erase the engine's history.
+- **Decay buries; it does not cut** (**D50**). Recall ranks against a *relative* floor, so a faint memory is
+  outranked by stronger hits rather than removed, and still returns via a direct reference or a neighbour's
+  link. The absolute `MinRetrievability` governs `PruneAsync` alone, where deletion is the explicit intent.
+  Seeding applies no faintness bound at all.
+- **No decision is pushed to the consumer.** Every seam ships a registered default and every constant is
+  overridable, so `AddMemory()` works with nothing implemented; `IMemoryGraphStore` has InMemory, SQLite
+  (FTS5 trigram — a word-boundary tokenizer silently returns nothing for CJK substrings) and Postgres
+  (`pg_trgm` GIN) backends held to one contract. No storage backend evaluates the decay curve: the policy
+  supplies a conservative `CandidateCutoff` and the store bounds candidates with plain division.
 
 ## 6. Data flow & error handling (the parts that matter)
 
