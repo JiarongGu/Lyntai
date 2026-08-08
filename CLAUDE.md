@@ -27,7 +27,7 @@ platform kit, OTel, governance decorators, semantic + curated memory, the agent-
 **1.0** froze the API, **1.1** generalized CLI tool-hosting, **1.2** added turn-free backend probe/auth +
 pinned self-install, **2.0.1** landed the generation platform and the package graph it needed, and **2.1.0**
 made the generation backends registerable in one line each. Per-release detail is `CHANGELOG.md`; the
-reasoning is `docs/DECISIONS.md` (D1–D43).
+reasoning is `docs/DECISIONS.md` (D1–D51 — the memory subsystem is **D48–D51**).
 
 **`## Unreleased` is substantial — read it before assuming a behaviour.** Since 2.1.0: the provider-lifetime
 seam (`Lyntai.Lifecycle` — a pool, a configuration key, admission; D37), a real per-call deadline for the

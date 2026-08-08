@@ -67,6 +67,10 @@ and **`D24`** (its silent-behaviour bullet amended by `D44`).
 | [D45](#d45-the-three-calls-that-closed-the-220-backlog-report-the-blameless-reason-refuse-an-identity-collision-and-a-verdict-carrying-exception-in-core-2026-08-05) | 2026-08-05 | the three calls that closed the 2.2.0 backlog: report-the-blameless-reason, refuse-an-identity-co… |
 | [D46](#d46-the-release-workflow-ships-what-is-pushed-so-unpushed-local-work-is-silently-excluded-2026-08-05) | 2026-08-05 | the release workflow ships what is PUSHED, so unpushed local work is silently excluded |
 | [D47](#d47-an-agent-sessions-mcp-servers-are-a-neutral-core-option-because-both-backends-already-have-the-capability-and-only-the-vocabulary-differs-2026-08-05) | 2026-08-05 | an agent session's MCP servers are a NEUTRAL Core option, because both backends already have the… |
+| [D48](#d48-long-term-memory-is-a-named-engine-collection-beside-the-existing-three-not-a-replacement-for-them-2026-08-08) | 2026-08-08 | long-term memory is a NAMED-ENGINE COLLECTION beside the existing three, not a replacement for them |
+| [D49](#d49-memory-decays-by-interference-not-by-elapsed-time-and-what-counts-as-interference-is-a-seam-2026-08-08) | 2026-08-08 | memory decays by INTERFERENCE, not by elapsed time, and what counts as interference is a seam |
+| [D50](#d50-a-decayed-memory-is-buried-not-cut-recall-ranks-against-a-relative-floor-and-only-an-explicit-prune-deletes-2026-08-08) | 2026-08-08 | a decayed memory is BURIED, not cut: recall ranks against a relative floor, and only an explicit… |
+| [D51](#d51-prose-gets-a-gate-too-because-retired-vocabulary-is-the-half-of-doc-drift-a-machine-can-catch-2026-08-08) | 2026-08-08 | prose gets a gate too, because retired vocabulary is the half of doc drift a machine can catch |
 
 <!-- index:end -->
 
@@ -531,6 +535,88 @@ A host may ship, unpack or side-load its own copy of a CLI rather than depend on
 
 **Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
 the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
+
+## D51 — prose gets a gate too, because retired vocabulary is the half of doc drift a machine can catch (2026-08-08)
+The code in this repository is gated from every side — `check-warnings`, the API-surface baselines, the storage
+contract tests, `check-packages` — and the prose was gated from none. A paragraph that quietly stops being true
+therefore survives every check in `verify`, and the next session reads it as the contract and builds the wrong
+thing. That is not hypothetical: the decay dimension changed from elapsed days to interference (D49) and
+`age_days / stability <= @cut` <!-- drift-ok --> sat in the spec afterwards, correct-looking and wrong.
+
+**`check-docs` fails the build on vocabulary a decision retired** — a registry (`retiredTerms` in
+`devtools/project.config.mjs`) of term, what to say instead, and why. It is the eighth check in `verify`.
+Records of their own day are exempt because retired words are CORRECT in them: `CHANGELOG.md`, the task
+archive, and `docs/superpowers/plans/` — but **not** `specs/`, which the next session builds against and which
+therefore has to keep being true. A passage that deliberately names the retired thing marks itself `drift-ok`.
+
+**Be honest about the limit, because it is where the real fix lives.** The gate catches retired WORDS; it
+cannot catch a wrong DESCRIPTION, and the published design page drifted three times in exactly that way
+(stale constants, a claim that nothing was implemented, a code block conflating two different queries). The
+gate caught none of them. What did was **tracking `docs/memory-design.html` in git** — an untracked page never
+appears in a diff, so it is never reviewed, and every session assumes someone else updated it. A record that
+is not in version control is not a record.
+
+## D50 — a decayed memory is BURIED, not cut: recall ranks against a relative floor, and only an explicit prune deletes (2026-08-08)
+"Forgetting" was initially implemented as an absolute cutoff — below a retrievability threshold, a memory was
+gone. That is not what forgetting is, and it is not what an application wants. A human does not lose a faint
+memory; it is outranked by stronger ones until something points at it directly, and then it comes back.
+
+**Recall uses a RELATIVE floor** (`RelativeFloor`, a fraction of the top-ranked result), so a faint node is
+crowded out by better matches for *this* query and still surfaces for a query that points at it, or through an
+edge from a neighbour that just got reinforced. **The absolute `MinRetrievability` governs pruning only** — an
+explicit, destructive operation the application calls on purpose. And **`MemoryGrade.Authoritative` bypasses
+the floor entirely**, which is the whole reason grades exist (D48): an exact fact must not be crowded out by
+associative recall.
+
+**Seeding must not filter by faintness.** An early draft used the prune predicate (`WHERE age / stability <=
+@cut`) as the seed's own filter, which would have made "decayed" mean "unreachable" — the exact behaviour this
+decision rejects. Seeding orders by `last_recalled_position DESC` and takes a candidate multiple; the ranking
+stage, not the query, decides what is buried.
+
+## D49 — memory decays by INTERFERENCE, not by elapsed time, and what counts as interference is a seam (2026-08-08)
+The first cut measured age in days (`age_days / stability`). <!-- drift-ok --> The dimension was wrong. A memory engine that is
+used twice a year should not have forgotten everything between uses — nothing happened to crowd those memories
+out. What displaces a memory is other memories, not the calendar.
+
+**Age is a monotone per-engine position subtraction** — `@position - n.last_recalled_position`, an integer
+difference, not a duration. A quiet engine's positions do not advance, so it does not decay. This is also why
+the SQL is portable: plain arithmetic on a `long`, with no `julianday` / `now()` divergence between SQLite and
+Postgres, and no NULL-producing date function silently excluding every row.
+
+**What advances the position is deliberately not settled in the library**, because "relative to what" is a real
+question with more than one right answer — number of writes, content size, or genuine elapsed time all describe
+some application. So `IMemoryClock` is a seam with four registered defaults (`PerWriteClock`,
+`ContentSizeClock`, `ElapsedClock`, `BurstDampenedClock`) rather than a hardcoded choice, and per D48 the
+consumer who wants none of that decision gets a working default.
+
+**`BurstDampenedClock` is the default because a linear advance forgets catastrophically.** Ingesting 500 items
+in one window advanced the position past every prior memory's stability at once — a single bulk import erased
+the engine's history. Dampening a burst window sub-linearly (`Position / n`, `Encoding / √n`) makes a flood of
+material weigh more than one item and far less than five hundred, which is the behaviour being modelled.
+
+## D48 — long-term memory is a NAMED-ENGINE COLLECTION beside the existing three, not a replacement for them (2026-08-08)
+Lyntai already had three memory surfaces (`IMemoryStore`, `ICuratedMemoryStore`, `ISemanticMemory`). The graph
+memory could have replaced them or been bolted onto one; it does neither. `IMemoryEngine` is a **DI collection
+keyed by `Name`**, resolved through `IMemoryEngineFactory.Get(name)` — the same shape as `ILlmProvider` keyed by
+`Id`, and the same shape a consumer already knows from `IHttpClientFactory` (`Get`, not `Create`, because
+engines are singletons). One application runs several engines at once for different purposes, which is the
+requirement that killed every single-instance design.
+
+**A blend IS an engine.** `CompositeMemoryEngine` implements the same interface as its members, so a consumer
+never branches on whether they hold one engine or five, and optional capabilities (`IExpandableMemory`,
+`ILinkableMemory`, `IForgettableMemory`) are routed by `MemoryRef.Engine` rather than guessed by type-testing.
+A one-member composite is still wrapped, because returning the bare member named the engine `chat/lexical`
+instead of `chat`.
+
+**Grades are what make this beat a human memory rather than imitate one.** `MemoryGrade.Authoritative` material
+gets a reserved character budget and bypasses the recall floor (D50); associative material competes for what is
+left. Exact facts staying exact is the requirement — associative relinking is the feature, but it must never
+crowd out something the application stated as true.
+
+**No decision is pushed to the consumer.** Every seam ships a registered default and every constant is
+overridable, so `AddMemoryEngine("chat", …)` works with no tuning and a consumer who *does* want to tune decay
+supplies `HalfLifeOptions` instead of implementing `IRetrievabilityPolicy`. A library that answers "that's your
+choice" for each of these has shipped a design document, not a capability.
 
 ## D47 — an agent session's MCP servers are a NEUTRAL Core option, because both backends already have the capability and only the vocabulary differs (2026-08-05)
 `AgentSessionOptions` could not carry the host application's own MCP servers, so an `IAgentSession` could be
