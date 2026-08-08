@@ -282,7 +282,7 @@ lyntai_memory_node                       lyntai_memory_edge
   headline         TEXT                    updated_at
   content          TEXT                    PRIMARY KEY (from_id, to_id, kind)
   content_hash     TEXT   -- dedup
-  grade            INTEGER -- 0 assoc / 1 auth
+  grade            INTEGER -- MemoryGrade: 1 = associative, 2 = authoritative
   metadata_json    TEXT NULL
   created_at
   last_recalled_at

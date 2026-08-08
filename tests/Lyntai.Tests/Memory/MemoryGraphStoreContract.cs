@@ -60,6 +60,20 @@ public static class MemoryGraphStoreContract
         Assert.Empty(hits);
     }
 
+    /// <summary>The other half of the cutoff, and the one that catches a SILENT failure: if a backend's age
+    /// arithmetic yields NULL — SQLite's <c>julianday</c> returns NULL on a timestamp format it cannot
+    /// parse — the predicate excludes every row, and every other cutoff fact still passes for the wrong
+    /// reason.</summary>
+    public static async Task The_candidate_cutoff_keeps_fresh_associative_nodes(
+        IMemoryGraphStore store, string key)
+    {
+        await store.UpsertAsync(Write("e", key, "a fresh associative note"), T0);
+
+        var hits = await store.SeedAsync("e", key, "s", null, 4.32, 10, T0.AddDays(1));
+
+        Assert.Single(hits);
+    }
+
     public static async Task The_candidate_cutoff_never_excludes_authoritative_nodes(
         IMemoryGraphStore store, string key)
     {
