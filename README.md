@@ -345,6 +345,57 @@ member whose store is not registered fails at startup rather than composing an e
 Nothing changes for an app that does not call `AddMemory`/`AddMemoryEngine`: the existing stores and
 composer behave exactly as before.
 
+### Graph memory — forgetting, relinking, and a cheap first load
+
+`UseGraph()` is a memory engine shaped more like recall than like a log. Entries **decay** unless they get
+used, **connect** to whatever was recalled beside them, and come back as one-line **headlines** that expand
+on demand — so a session opens on a small index instead of paying for the whole store on every turn.
+
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseInMemoryStorage()
+    .AddMemoryEngine("project", e => e.UseGraph()));
+
+var memory = sp.GetRequiredService<IMemoryEngineFactory>().Get("project/graph");
+await memory.RememberAsync(new MemoryWrite("proj", "code",
+    "The build gate is node devtools/dev.mjs verify, which runs seven checks."));
+
+var recall = await memory.RecallAsync(new MemoryQuery("proj", "code", "gate"));
+// headlines only — Content is null until you ask for it
+foreach (var hit in recall.Items)
+    Console.WriteLine($"{hit.Headline}  →{hit.Degree}  r={hit.Retrievability:F2}");
+
+var detail = await ((IExpandableMemory)memory).ExpandAsync(recall.Items[0].Reference);
+// full content of that entry, plus its neighbours' headlines
+```
+
+**How forgetting works.** Each entry has a half-life. Retrievability is computed at read time from stored
+timestamps — no sweeper, no background job — and every successful recall *lengthens* that half-life, so
+material you keep coming back to becomes durable while one-off noise sinks below the floor and stops being
+recalled. Decay only ever **ranks**; nothing is deleted unless you call `PruneAsync`.
+
+**How relinking works.** Entries returned together get linked, and the link strengthens each time it
+recurs. A later recall spreads through those links, so a query can reach relevant material it never
+literally matched. You can also assert edges yourself with `LinkAsync`.
+
+The curve is swappable. Tune the constants, or replace the model of forgetting entirely:
+
+```csharp
+.UseGraph(new GraphMemoryOptions
+{
+    Hops = 2,
+    MinRetrievability = 0.05,
+    Decay = new HalfLifeOptions { InitialStability = TimeSpan.FromDays(14), ReinforceFactor = 0.3 },
+})
+// …or register your own IRetrievabilityPolicy before AddLyntai
+```
+
+Several of those defaults are **not yet measured against real usage** and are marked as such in their XML
+docs. They are deliberately settable for that reason.
+
+Graph entries carry both grades, so one engine can hold exact facts alongside recalled ones — an
+authoritative entry never decays and is never shortened to a headline.
+
 ### Semantic memory
 
 The lexical memory store (`IMemoryStore`) recalls by keyword (FTS-trigram). For meaning-based recall, bring

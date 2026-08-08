@@ -59,6 +59,37 @@ public sealed class MemoryEngineBuilder
         return this;
     }
 
+    /// <summary>Draw on the decaying, linked graph store — the engine that forgets what goes unused,
+    /// connects what is recalled together, and returns headlines that expand on demand. Holds BOTH grades,
+    /// so it can carry exact facts alongside recalled ones.
+    /// <para>The options are taken BY VALUE rather than through a configure callback:
+    /// <see cref="GraphMemoryOptions"/> is an init-only record, so a callback could not mutate it and would
+    /// silently do nothing. Write <c>UseGraph(new GraphMemoryOptions { Hops = 3 })</c>.</para></summary>
+    /// <param name="options">Retrieval knobs and decay constants; null takes the defaults.</param>
+    /// <param name="label">Distinguishes several members of the same kind.</param>
+    public MemoryEngineBuilder UseGraph(GraphMemoryOptions? options = null, string label = "graph")
+    {
+        var resolved = options ?? new GraphMemoryOptions();
+        _members.Add(new MemberSpec(label, (sp, full) => new GraphMemoryEngine(
+            full, Required<IMemoryGraphStore>(sp), resolved, sp.GetService<IRetrievabilityPolicy>(),
+            logger: sp.GetService<ILogger<GraphMemoryEngine>>())));
+        return this;
+    }
+
+    /// <summary>The zero-configuration member: the graph engine when an <see cref="IMemoryGraphStore"/>
+    /// reached the container, the keyword store otherwise. Resolved when the container is BUILT, not when
+    /// this is called, because a storage backend may be registered afterwards.</summary>
+    internal MemoryEngineBuilder UseBestAvailable()
+    {
+        _members.Add(new MemberSpec("memory", (sp, full) =>
+            sp.GetService<IMemoryGraphStore>() is { } graph
+                ? new GraphMemoryEngine(full, graph, policy: sp.GetService<IRetrievabilityPolicy>(),
+                    logger: sp.GetService<ILogger<GraphMemoryEngine>>())
+                : new LexicalMemoryEngine(full, Required<IMemoryStore>(sp),
+                    sp.GetService<ILogger<LexicalMemoryEngine>>())));
+        return this;
+    }
+
     /// <summary>Total characters this engine's composed sections may use.</summary>
     /// <param name="characters">The budget.</param>
     public MemoryEngineBuilder Budget(int characters)

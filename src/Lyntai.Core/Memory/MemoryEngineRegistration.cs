@@ -11,11 +11,17 @@ public static class MemoryEngineRegistration
     /// <summary>Register one working engine with no further configuration, and back
     /// <see cref="IPromptComposer"/> with it.
     /// <para>The one-line path, and deliberately so: a seam is an escape hatch, never the answer to "how
-    /// does this work". Nothing has to be implemented to get working memory.</para></summary>
+    /// does this work". Nothing has to be implemented to get working memory.</para>
+    /// <para>Uses the decaying graph engine when an <see cref="IMemoryGraphStore"/> reached the container
+    /// and the keyword store otherwise — decided when the container is BUILT, not here, because a storage
+    /// backend may be registered after this call.</para></summary>
     /// <param name="builder">The Lyntai builder.</param>
     /// <param name="name">The engine's name.</param>
-    public static LyntaiBuilder AddMemory(this LyntaiBuilder builder, string name = "default") =>
-        builder.AddMemoryEngine(name, e => e.UseLexical()).UseMemoryComposer(name);
+    public static LyntaiBuilder AddMemory(this LyntaiBuilder builder, string name = "default")
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.AddMemoryEngine(name, e => e.UseBestAvailable()).UseMemoryComposer(name);
+    }
 
     /// <summary>Register a named engine composed of the members <paramref name="configure"/> declares. An
     /// empty callback yields a lexical engine, so the name alone is enough to get something that

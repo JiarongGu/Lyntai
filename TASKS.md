@@ -188,18 +188,33 @@ _**MEM1 landed 2026-08-08** — see `docs/task-archive.md` **Part 46**. The seam
 `IMemoryEngineFactory`, `CompositeMemoryEngine`, engines over the three existing stores, the grade split with
 its reserved budget, and `AddMemory()`. MEM2 builds on it._
 
-- [ ] **MEM2 — the graph memory engine (Spec B).** `IMemoryGraphStore` in Core; implementations in the three
-  EXISTING storage adapters (no new package). Two tables + one FluentMigrator migration
-  (`dev.mjs new-migration`, **both** tags), trigram FTS over headline+content with all three triggers and a
-  same-migration backfill, `CAST(x AS REAL)` on `stability`/`weight`, settable-property row types. Then the
-  composer, the per-engine agent tools, and similarity edges as opt-in enrichment.
+_**MEM2a landed 2026-08-08** — see `docs/task-archive.md` **Part 47**. The decay policy seam, the graph
+store contract, `GraphMemoryEngine` and the InMemory backend all ship, wired into the MEM1 seam as
+`UseGraph()`. What remains of MEM2 is the two SQL backends and the agent-facing half._
 
-  **Two defects designed out before they could ship, worth keeping across a re-read:** (1) the database never
-  evaluates the decay curve — `POWER(2, …)` needs `SQLITE_ENABLE_MATH_FUNCTIONS`, and a pluggable curve
-  cannot be an SQL expression anyway, so SQL bounds a candidate set via
-  `IRetrievabilityPolicy.CandidateCutoff` (a CONSERVATIVE superset) and the policy ranks in app code;
-  (2) `stability *= 1 + Reinforce` is unbounded, and ~20 recalls turn a 7-day half-life into 64 years — a hot
-  ASSOCIATIVE node silently acquiring authoritative durability without its guarantees. `MaxStability` caps it.
+- [ ] **MEM2b — the SQL backends.** `IMemoryGraphStore` for SQLite and Postgres, held to the existing
+  `MemoryGraphStoreContract` (which MEM2a wrote and runs against InMemory — adding a backend is a new test
+  class deriving the same facts, nothing more).
+
+  **SQLite:** two tables + one FluentMigrator migration (`node devtools/dev.mjs new-migration` for a unique
+  number — a reused one is silently skipped), tagged `[Tags(nameof(StorageFeature.Memory),
+  StorageFeatures.AllTag)]` — **both** tags, always. Composite PK and both FKs declared INLINE at
+  `Create.Table` (SQLite has no `ALTER ADD CONSTRAINT`). External-content FTS5 **trigram** over
+  headline+content with all **three** triggers, the `'delete'` command row on update *and* delete, and a
+  same-migration backfill — copy `M202607280003_Memory.cs`. `CAST(col AS REAL)` on `stability` and
+  `weight`; settable-property `MemoryNodeRow`/`MemoryEdgeRow`, never a positional record and never `*Dto`.
+
+  **Do not share SQL between the two backends** (`storage.md`): the contract facts are the deduplication
+  mechanism, and an extraction needing `bool isSqlite` is the signal to stop.
+
+  **The candidate query never evaluates the decay curve** — it filters `age_days / stability <= @cut` where
+  `@cut` comes from `IRetrievabilityPolicy.CandidateCutoff`, because SQLite has `pow` only when built with
+  `SQLITE_ENABLE_MATH_FUNCTIONS` and no fixed SQL could encode an app-supplied policy anyway.
+
+- [ ] **MEM2c — the agent-facing half.** Per-engine tools (`{engine}_recall` / `{engine}_expand`, prefixed so
+  the model cannot consult the wrong memory) across the tool loop and the MCP bridge, plus similarity edges
+  as opt-in enrichment when an `IEmbedder` and `IVectorStore` are registered — reported through
+  `MemorySources.Similarity`, which is deliberately distinct from `Semantic`.
 
 - [ ] **MEM-TUNE — measure the decay defaults, don't ship them as if tuned.** Five constants are guesses
   (`HeadlineChars`, `ReinforceFactor`, initial `stability`, `MinRetrievability`, `MaxStability`,

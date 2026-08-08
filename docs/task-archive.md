@@ -3061,6 +3061,41 @@ OPEN in `TASKS.md`._
 
 ---
 
+## Part 47 — MEM2a: the graph memory engine on the InMemory backend (2026-08-08)
+
+_Design: `docs/superpowers/specs/2026-08-08-graph-memory-engine-design.md`. Plan:
+`docs/superpowers/plans/2026-08-08-graph-memory-engine.md`. **MEM2b** (SQLite + Postgres), **MEM2c** (agent
+tools, similarity enrichment) and **MEM-TUNE** remain OPEN in `TASKS.md`._
+
+- [x] **MEM2a — the decay policy, the graph store contract, the engine, and the InMemory backend.**
+
+  **Outcome (2026-08-08):** shipped in four commits, 39 new tests, no new package, 11 new public types
+  across `Lyntai.Core` and `Lyntai.Storage.InMemory` with **zero removals** from the API baselines.
+  `verify` green on all seven gates. The engine satisfies MEM1's shared engine contract alongside the three
+  store wrappers and the composite — 40 facts across 5 engines.
+
+  _Spec B was split into three plans rather than one, because it is three independently shippable pieces
+  and a single plan's first review gate would not have arrived until the end. Splitting also means the SQL
+  shape in MEM2b is settled by a working reference implementation instead of guessed alongside one._
+
+  _Three design corrections made before they could ship:_
+  1. **`UseGraph` takes options BY VALUE, not an `Action<GraphMemoryOptions>`.** The record is init-only, so
+     a configure callback cannot mutate it and would silently do nothing — the "documented option that
+     isn't wired" failure `pitfalls.md` records.
+  2. **Headline derivation does not split on sentences.** "The build gate is dev.mjs verify" cut at the
+     first period reads "The build gate is dev." — confidently wrong, and worse than no memory. It cuts on
+     a word boundary and marks the truncation; authoritative material never passes through derivation.
+  3. **`HalfLifeOptions.MaxStability` closes a defect, not a gap in the options.** Unbounded
+     `stability *= 1 + Reinforce` compounds, so ~20 recalls turn a 7-day half-life into 64 years and a hot
+     ASSOCIATIVE node silently acquires authoritative durability with none of its guarantees.
+
+  _One thing left as-is and recorded rather than smoothed over: `GraphMemoryEngine.ForgetAsync` is a
+  concrete-type convenience, not an interface member — `IForgettableMemory` declares only `PruneAsync`, and
+  adding to an interface MEM1 already shipped is a break that needs its own decision. Promote it when a
+  caller actually needs it through the interface._
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

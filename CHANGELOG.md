@@ -42,9 +42,30 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   store is absent fails at **startup** naming the store — rather than resolving to a permanently empty
   memory section that reads exactly like "nothing matched".
 
+- **Graph memory: entries that decay, connect, and open as an index** (`GraphMemoryEngine`,
+  `IMemoryGraphStore`, `UseGraph()`). Recall returns **headlines** and withholds the full text until
+  expansion, so a session opens on a cheap index and pays for depth only along the direction it turns out
+  to need. Entries **decay** unless reused — retrievability is a read-time function of stored timestamps,
+  so there is no sweeper and no background job — and each successful recall lengthens an entry's half-life,
+  making repeated context durable while one-off noise fades below the floor. Decay only ever **ranks**;
+  deletion stays explicit via `PruneAsync`. Entries **connect** model-free: whatever is returned together
+  gets linked, the link strengthens on recurrence, and a later recall spreads through those links to reach
+  material the query never matched. This release ships the **InMemory** backend; SQLite and Postgres follow.
+- **The decay curve is a seam** (`IRetrievabilityPolicy`, `HalfLifeRetrievability`, `HalfLifeOptions`).
+  Exposing the constants alone would settle the values while freezing the formula, so an application can
+  tune the numbers *or* replace the model of forgetting, and neither choice forecloses the other. The
+  default is registered, so nothing has to be implemented. Storage never evaluates the curve — a policy
+  supplies a conservative `CandidateCutoff` and the store bounds its candidate set with plain division,
+  which keeps a custom curve possible and avoids depending on SQLite's optional `pow`.
+  `HalfLifeOptions.MaxStability` caps reinforcement: unbounded compounding turns a seven-day half-life into
+  sixty-four years in about twenty recalls, which would silently give a frequently-recalled *associative*
+  entry the durability of an authoritative one without any of its guarantees.
+  **Several constants are unmeasured and say so in their XML docs** — the MEM-TUNE task closes them.
+
 Purely additive: `IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore` and `MemoryPromptComposer` are
 unchanged, and an application that never calls `AddMemory`/`AddMemoryEngine` observes no difference.
-No new package. Design: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md`; task MEM1.
+No new package. Designs: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md` (MEM1) and
+`2026-08-08-graph-memory-engine-design.md` (MEM2a).
 
 ## 2.4.0 — 2026-08-05
 

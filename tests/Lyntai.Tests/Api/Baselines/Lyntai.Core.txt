@@ -1600,6 +1600,16 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
+sealed class Lyntai.Memory.Engines.GraphMemoryEngine
+    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IRetrievabilityPolicy policy = null, Func<DateTimeOffset> clock = null, ILogger<GraphMemoryEngine> logger = null)
+    ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
+    ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
+    LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
+    Name : String
+    PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
+    RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
+    RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
+    Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.LexicalMemoryEngine
     .ctor(String name, IMemoryStore store, ILogger<LexicalMemoryEngine> logger = null)
     Name : String
@@ -1612,6 +1622,82 @@ sealed class Lyntai.Memory.Engines.SemanticMemoryEngine
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
+sealed class Lyntai.Memory.GraphMemoryOptions
+    .ctor()
+    CandidateMultiplier : Int32
+    CoActivationCap : Int32
+    Decay : HalfLifeOptions
+    DefaultLimit : Int32
+    Equals(GraphMemoryOptions other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    HeadlineChars : Int32
+    HopAttenuation : Double
+    Hops : Int32
+    MinRetrievability : Double
+    ToString() : String
+sealed class Lyntai.Memory.GraphNode
+    .ctor(Int64 Id, String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, DateTimeOffset CreatedAt, DateTimeOffset LastRecalledAt, Int32 RecallCount, Double Stability, Double Relevance, Int32 Degree, IReadOnlyDictionary<String,String> Metadata)
+    Content : String
+    CreatedAt : DateTimeOffset
+    DecayState : MemoryDecayState
+    Deconstruct(Int64& Id, String& Engine, String& TaskKey, String& Scope, String& Headline, String& Content, MemoryGrade& Grade, DateTimeOffset& CreatedAt, DateTimeOffset& LastRecalledAt, Int32& RecallCount, Double& Stability, Double& Relevance, Int32& Degree, IReadOnlyDictionary`2& Metadata) : Void
+    Degree : Int32
+    Engine : String
+    Equals(GraphNode other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Grade : MemoryGrade
+    Headline : String
+    Id : Int64
+    LastRecalledAt : DateTimeOffset
+    Metadata : IReadOnlyDictionary<String,String>
+    RecallCount : Int32
+    Relevance : Double
+    Scope : String
+    Stability : Double
+    TaskKey : String
+    ToString() : String
+sealed class Lyntai.Memory.GraphNodeWrite
+    .ctor(String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, Double InitialStability, IReadOnlyDictionary<String,String> Metadata)
+    Content : String
+    Deconstruct(String& Engine, String& TaskKey, String& Scope, String& Headline, String& Content, MemoryGrade& Grade, Double& InitialStability, IReadOnlyDictionary`2& Metadata) : Void
+    Engine : String
+    Equals(GraphNodeWrite other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Grade : MemoryGrade
+    Headline : String
+    InitialStability : Double
+    Metadata : IReadOnlyDictionary<String,String>
+    Scope : String
+    TaskKey : String
+    ToString() : String
+struct Lyntai.Memory.GraphTouch
+    .ctor(Int64 Id, DateTimeOffset LastRecalledAt, Double Stability)
+    Deconstruct(Int64& Id, DateTimeOffset& LastRecalledAt, Double& Stability) : Void
+    Equals(GraphTouch other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Id : Int64
+    LastRecalledAt : DateTimeOffset
+    Stability : Double
+    ToString() : String
+sealed class Lyntai.Memory.HalfLifeOptions
+    .ctor()
+    Equals(HalfLifeOptions other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    InitialStability : TimeSpan
+    MaxStability : TimeSpan
+    ReinforceFactor : Double
+    ToString() : String
+sealed class Lyntai.Memory.HalfLifeRetrievability
+    .ctor(HalfLifeOptions options = null)
+    CandidateCutoff(Double minRetrievability) : Double
+    InitialStability : Double
+    Reinforce(MemoryDecayState& state, DateTimeOffset now) : Double
+    Retrievability(MemoryDecayState& state, DateTimeOffset now) : Double
 interface Lyntai.Memory.IExpandableMemory
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
 interface Lyntai.Memory.IForgettableMemory
@@ -1628,6 +1714,20 @@ interface Lyntai.Memory.IMemoryEngineFactory
     Get(String name) : IMemoryEngine
     Names : IReadOnlyList<String>
     TryGet(String name, IMemoryEngine& engine) : Boolean
+interface Lyntai.Memory.IMemoryGraphStore
+    ForgetAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task
+    GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>
+    LinkAsync(Int64 from, Int64 to, String kind, Double weight, Boolean symmetric, DateTimeOffset now, CancellationToken ct = default) : Task
+    NeighboursAsync(String engine, IReadOnlyCollection<Int64> ids, Int32 limit, DateTimeOffset now, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
+    PruneAsync(String engine, String taskKey, String scope, Nullable<Double> maxAgeOverStability, Nullable<TimeSpan> olderThan, DateTimeOffset now, CancellationToken ct = default) : Task<Int32>
+    SeedAsync(String engine, String taskKey, String scope, String query, Nullable<Double> maxAgeOverStability, Int32 limit, DateTimeOffset now, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
+    TouchAsync(IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) : Task
+    UpsertAsync(GraphNodeWrite write, DateTimeOffset now, CancellationToken ct = default) : Task<Int64>
+interface Lyntai.Memory.IRetrievabilityPolicy
+    CandidateCutoff(Double minRetrievability) : Double
+    InitialStability : Double
+    Reinforce(MemoryDecayState& state, DateTimeOffset now) : Double
+    Retrievability(MemoryDecayState& state, DateTimeOffset now) : Double
 interface Lyntai.Memory.ISemanticMemory
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
@@ -1655,10 +1755,22 @@ sealed class Lyntai.Memory.MemoryCompositionOptions
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     ToString() : String
+struct Lyntai.Memory.MemoryDecayState
+    .ctor(DateTimeOffset CreatedAt, DateTimeOffset LastRecalledAt, Int32 RecallCount, Double Stability)
+    CreatedAt : DateTimeOffset
+    Deconstruct(DateTimeOffset& CreatedAt, DateTimeOffset& LastRecalledAt, Int32& RecallCount, Double& Stability) : Void
+    Equals(MemoryDecayState other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    LastRecalledAt : DateTimeOffset
+    RecallCount : Int32
+    Stability : Double
+    ToString() : String
 sealed class Lyntai.Memory.MemoryEngineBuilder
     Budget(Int32 characters) : MemoryEngineBuilder
     Reserve(Int32 characters) : MemoryEngineBuilder
     UseCurated(String kind = "memory", String label = null) : MemoryEngineBuilder
+    UseGraph(GraphMemoryOptions options = null, String label = "graph") : MemoryEngineBuilder
     UseLexical(String label = "lexical") : MemoryEngineBuilder
     UseSemantic(String label = "semantic") : MemoryEngineBuilder
 sealed class Lyntai.Memory.MemoryEngineFactory
