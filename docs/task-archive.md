@@ -3119,6 +3119,45 @@ tools, similarity enrichment) and **MEM-TUNE** remain OPEN in `TASKS.md`._
 
 ---
 
+## Part 48 — MEM2b: graph memory on SQLite and Postgres (2026-08-08)
+
+_Plan: `docs/superpowers/plans/2026-08-08-graph-memory-sql-backends.md`. **MEM2c** and **MEM-TUNE** remain
+OPEN in `TASKS.md`._
+
+- [x] **MEM2b — `IMemoryGraphStore` for SQLite and Postgres**, both held to the `MemoryGraphStoreContract`
+  MEM2a wrote. Two migrations (one per backend, same number), two hand-written stores, no shared SQL.
+
+  **Outcome (2026-08-08):** `verify` green on all seven gates, plus `consumer-smoke` (12 packages restore,
+  compile and run for a fresh consumer). **Postgres was genuinely verified, not shipped unmeasured** — 91
+  tests against a live container, zero skipped.
+
+  _Three findings, each of which would have failed silently:_
+  1. **The grade encoding was inverted.** The SQL was written as `grade = 1` for authoritative, following
+     the spec's own schema comment. `MemoryGrade` is `Inherit=0, Associative=1, Authoritative=2`, so the
+     predicate meant the OPPOSITE: stale associative nodes bypassed the cutoff and exact facts were
+     excluded by it. Now bound as a parameter derived from the enum; the spec comment is corrected. The
+     InMemory backend never hit this because it holds the enum directly — the SQL backends are the first
+     place a numeric encoding exists.
+  2. **A gap in the contract itself:** nothing asserted a FRESH node SURVIVES a cutoff. Had `julianday`
+     failed to parse the stored timestamp it would return NULL, excluding every row — and every existing
+     cutoff fact would still have passed. `The_candidate_cutoff_keeps_fresh_associative_nodes` closes it,
+     on every backend. The `MAX`/`GREATEST` divide-by-zero guard exists for the same reason.
+  3. **`Relevance` is rank-derived on both SQL backends.** `bm25()` is unbounded and negative, so rather
+     than invent a normalization each store reports a monotone transform of its own ordering, which is all
+     the engine's rank multiplication needs and keeps the contractual 0..1.
+
+  _**Migration numbering changed to `yyyyMMddHHmm` (owner's call, same day).** The generator implemented the
+  documented `YYYYMMDDNNNN`, so this was a convention change, not a fix. Done immediately because it was
+  free: a number that has been applied is recorded in `lyntai_version_info`, so renumbering a SHIPPED
+  migration re-runs it against a database that already has its tables. `dev.mjs`, `storage.md`,
+  `extending-lyntai.md`, the `add-migration` skill and design §7 all updated; the nine baseline migrations
+  keep their original numbers, which sort below the new form._
+
+  _Seven guard tests had to move deliberately — migration counts, migration-id lists, and both golden
+  schema snapshots. All were pure additions; the goldens carry no removals._
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

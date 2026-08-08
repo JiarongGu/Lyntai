@@ -446,8 +446,11 @@ switch (cmd) {
   }
 
   case 'new-migration': {
-    // scaffold the next FluentMigrator migration with a guaranteed-unique, monotonic YYYYMMDDNNNN
+    // scaffold the next FluentMigrator migration with a guaranteed-unique, monotonic yyyyMMddHHmm
     // number (reusing a number is silently skipped — the classic footgun the audit flagged).
+    // The timestamp is self-describing, which a per-day NNNN sequence is not: two people adding a
+    // migration on the same day without coordinating collide only if they do it in the same MINUTE,
+    // and the collision is still resolved by the strictly-greater-than-max loop below.
     const raw = args[0];
     if (!raw || !/^[a-z][a-z0-9_-]*$/i.test(raw)) {
       console.error('usage: node devtools/dev.mjs new-migration <name>   (e.g. add-jobs-table)');
@@ -458,9 +461,13 @@ switch (cmd) {
     const nums = fs.readdirSync(dir).map((f) => (f.match(/^M(\d{12})_/) ?? [])[1]).filter(Boolean).map(Number);
     const max = nums.length ? Math.max(...nums) : 0;
     const d = new Date();
-    const today = Number(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`);
-    let num = today * 10000 + 1;
-    while (num <= max) num++; // strictly greater than every existing number — never reuse one
+    const pad = (v) => String(v).padStart(2, '0');
+    let num = Number(
+      `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}`);
+    // strictly greater than every existing number — never reuse one. Two migrations in the same minute
+    // push the second past a real clock value (…1360); uniqueness and ordering are what matter here, and
+    // both hold.
+    while (num <= max) num++;
     const pascal = raw.split(/[-_]/).filter(Boolean).map((s) => s[0].toUpperCase() + s.slice(1)).join('');
     const cls = `M${num}_${pascal}`;
     const file = path.join(dir, `${cls}.cs`);

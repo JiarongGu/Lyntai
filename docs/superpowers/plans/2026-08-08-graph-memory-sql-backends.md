@@ -26,7 +26,7 @@ a skipped Postgres suite must be reported as skipped, never as a pass.
   own schema, and `Every_object_carries_the_lyntai_prefix` fails otherwise.
 - **Both migration tags, always:** `[Tags(nameof(StorageFeature.Memory), StorageFeatures.AllTag)]`. An
   untagged migration runs under *every* feature set and lands a table for a domain the app disabled.
-- **Never reuse a migration number.** `202608080001` is already scaffolded and unique; the Postgres leg
+- **Never reuse a migration number.** `202608081215` is already scaffolded and unique; the Postgres leg
   carries the SAME number as its SQLite twin, matching every existing pair.
 - **`CAST(x AS REAL)` on every float read.** SQLite stores `1.0` as INTEGER and `0.5` as REAL in the same
   column; Dapper will hand a `double` property a boxed `long`.
@@ -48,7 +48,7 @@ lyntai_memory_node                         lyntai_memory_edge
   headline         TEXT                      weight   REAL
   content          TEXT                      strengthened_at
   content_hash     TEXT   -- dedup           PRIMARY KEY (from_id, to_id, kind)
-  grade            INTEGER -- 0 assoc/1 auth
+  grade            INTEGER -- MemoryGrade: 1 = associative, 2 = authoritative
   metadata         TEXT NULL
   created_at, last_recalled_at
   recall_count     INTEGER
@@ -92,7 +92,7 @@ inside the contract. Document it on both stores. InMemory reports 1 for every ro
 ### Task 1: SQLite — migration and store
 
 **Files:**
-- Modify: `src/Lyntai.Storage.Sqlite/Migrations/M202608080001_MemoryGraph.cs` (scaffolded; the placeholder
+- Modify: `src/Lyntai.Storage.Sqlite/Migrations/M202608081215_MemoryGraph.cs` (scaffolded; the placeholder
   tag deliberately does not compile)
 - Create: `src/Lyntai.Storage.Sqlite/SqliteMemoryGraphStore.cs`
 - Modify: `src/Lyntai.Storage.Sqlite/SqliteStorageBuilderExtensions.cs`
@@ -183,9 +183,9 @@ Replace the scaffold's body. Copy the trigger shape from `M202607280003_Memory.c
 indexed columns — the `'delete'` command row must supply both.
 
 ```csharp
-[Migration(202608080001)]
+[Migration(202608081215)]
 [Tags(nameof(StorageFeature.Memory), StorageFeatures.AllTag)]
-public sealed class M202608080001_MemoryGraph : Migration
+public sealed class M202608081215_MemoryGraph : Migration
 {
     public override void Up()
     {
@@ -401,7 +401,7 @@ git commit -m "feat(storage): persist graph memory on SQLite"
 ### Task 2: Postgres
 
 **Files:**
-- Create: `src/Lyntai.Storage.Postgres/Migrations/M202608080001_MemoryGraph.cs`
+- Create: `src/Lyntai.Storage.Postgres/Migrations/M202608081215_MemoryGraph.cs`
 - Create: `src/Lyntai.Storage.Postgres/PostgresMemoryGraphStore.cs`
 - Modify: `src/Lyntai.Storage.Postgres/`'s storage builder extensions
 - Test: add graph facts to `tests/Lyntai.Tests/Storage/PostgresStorageTests.cs`
@@ -456,9 +456,9 @@ Same number as its SQLite twin, matching every existing pair. Postgres needs no 
 GIN index on the column, and `ILIKE` uses it.
 
 ```csharp
-[Migration(202608080001)]
+[Migration(202608081215)]
 [Tags(nameof(StorageFeature.Memory), StorageFeatures.AllTag)]
-public sealed class M202608080001_MemoryGraph : Migration
+public sealed class M202608081215_MemoryGraph : Migration
 {
     public override void Up()
     {

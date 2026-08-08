@@ -66,7 +66,13 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   (`HalfLifeOptions.EdgeHalfLife`), so a link that stops recurring stops pulling its neighbour into recall
   and stops propping it up; without that, every pair that had ever co-occurred would stay linked at a rising
   weight until spreading reached everything from everything. Both are read-time, so there is still no
-  sweeper. Connectedness may only ever *raise* retrievability, and `MaxConnectionBoost` bounds how far —
+  sweeper.
+- **Graph memory persists** — `IMemoryGraphStore` now has SQLite and Postgres backends alongside InMemory,
+  all held to one contract. SQLite indexes headline and content through an FTS5 **trigram** mirror (so CJK
+  substring recall works, which a word-boundary tokenizer would silently return nothing for); Postgres uses
+  a `pg_trgm` GIN index. Neither evaluates the decay curve: candidates are bounded by plain division
+  against the cutoff the policy supplies, which is what keeps a caller-supplied curve possible and avoids
+  depending on SQLite's optional `pow`. Connectedness may only ever *raise* retrievability, and `MaxConnectionBoost` bounds how far —
   which is load-bearing rather than cosmetic, since `CandidateCutoff` widens by exactly that factor and an
   unbounded boost would leave well-connected entries outside any finite cutoff, silently losing the very
   memories connectedness was meant to protect.

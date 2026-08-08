@@ -312,8 +312,9 @@ argv + file contents (`ClaudeCliMcpDialectTests`). The host itself is covered ge
 ## Add a migration
 
 `node devtools/dev.mjs new-migration <name>` scaffolds `src/Lyntai.Storage.Sqlite/Migrations/M<num>_<Name>.cs`
-with a **guaranteed-unique, monotonic** `YYYYMMDDNNNN` number (reusing a number is silently skipped —
-never hand-pick one). Then fill `Up()`:
+with a **guaranteed-unique, monotonic** `yyyyMMddHHmm` number (reusing a number is silently skipped —
+never hand-pick one, and never renumber one that has shipped: the number is recorded in
+`lyntai_version_info`, so changing it re-runs the migration against a database that already has its tables). Then fill `Up()`:
 - Tag it `[Tags(nameof(StorageFeature.<Feature>), StorageFeatures.AllTag)]` — the scaffold's placeholder
   doesn't compile until you do. Both tags are load-bearing, and an UNTAGGED migration runs under every
   feature set (so a disabled domain still lands its table).

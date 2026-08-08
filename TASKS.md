@@ -192,24 +192,9 @@ _**MEM2a landed 2026-08-08** — see `docs/task-archive.md` **Part 47**. The dec
 store contract, `GraphMemoryEngine` and the InMemory backend all ship, wired into the MEM1 seam as
 `UseGraph()`. What remains of MEM2 is the two SQL backends and the agent-facing half._
 
-- [ ] **MEM2b — the SQL backends.** `IMemoryGraphStore` for SQLite and Postgres, held to the existing
-  `MemoryGraphStoreContract` (which MEM2a wrote and runs against InMemory — adding a backend is a new test
-  class deriving the same facts, nothing more).
-
-  **SQLite:** two tables + one FluentMigrator migration (`node devtools/dev.mjs new-migration` for a unique
-  number — a reused one is silently skipped), tagged `[Tags(nameof(StorageFeature.Memory),
-  StorageFeatures.AllTag)]` — **both** tags, always. Composite PK and both FKs declared INLINE at
-  `Create.Table` (SQLite has no `ALTER ADD CONSTRAINT`). External-content FTS5 **trigram** over
-  headline+content with all **three** triggers, the `'delete'` command row on update *and* delete, and a
-  same-migration backfill — copy `M202607280003_Memory.cs`. `CAST(col AS REAL)` on `stability` and
-  `weight`; settable-property `MemoryNodeRow`/`MemoryEdgeRow`, never a positional record and never `*Dto`.
-
-  **Do not share SQL between the two backends** (`storage.md`): the contract facts are the deduplication
-  mechanism, and an extraction needing `bool isSqlite` is the signal to stop.
-
-  **The candidate query never evaluates the decay curve** — it filters `age_days / stability <= @cut` where
-  `@cut` comes from `IRetrievabilityPolicy.CandidateCutoff`, because SQLite has `pow` only when built with
-  `SQLITE_ENABLE_MATH_FUNCTIONS` and no fixed SQL could encode an app-supplied policy anyway.
+_**MEM2b landed 2026-08-08** — see `docs/task-archive.md` **Part 48**. Graph memory persists on SQLite and
+Postgres, both held to the same contract as InMemory, both verified against real engines (Postgres via a
+live container — 91 tests, zero skipped)._
 
 - [ ] **MEM2c — the agent-facing half.** Per-engine tools (`{engine}_recall` / `{engine}_expand`, prefixed so
   the model cannot consult the wrong memory) across the tool loop and the MCP bridge, plus similarity edges

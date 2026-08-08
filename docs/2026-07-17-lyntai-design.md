@@ -327,8 +327,10 @@ retry on parse failure, else `Failed` verdict.
   SQLite integer-affinity trap: wrap 0..1 / double columns in `CAST(x AS REAL)` in SELECTs.
 - **`IDbConnectionFactory`** opens pooled connections with `PRAGMA journal_mode=WAL; busy_timeout;
   foreign_keys=ON`.
-- **FluentMigrator**, numbered `YYYYMMDDNNNN`, never reuse a number. Composite PKs inline at
-  CreateTable (SQLite has no ALTER ADD CONSTRAINT).
+- **FluentMigrator**, numbered `yyyyMMddHHmm` (**amended 2026-08-08** — was `YYYYMMDDNNNN`; the nine
+  baseline migrations keep their original numbers, which sort below the new form), never reuse a number
+  and never renumber one that has shipped. Composite PKs inline at CreateTable (SQLite has no ALTER ADD
+  CONSTRAINT).
 - **FTS5 `trigram`** external-content virtual tables kept in sync by AFTER INSERT/DELETE/UPDATE
   triggers, backfilled in the same migration; build the MATCH string via a shared `FtsQuery` helper
   (drop `<3`-char tokens, quote the rest), fall back to LIKE, rank with `bm25()`.

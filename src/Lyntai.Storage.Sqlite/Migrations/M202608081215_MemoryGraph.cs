@@ -10,10 +10,14 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// SQLite has no <c>ALTER ADD CONSTRAINT</c>, and the <c>ON DELETE CASCADE</c> is what stops a deleted node
 /// leaving edges that would resurrect it on the next traversal. That cascade only fires because every
 /// connection comes from <see cref="SqliteConnectionFactory"/>, which applies <c>foreign_keys=ON</c>
-/// per connection.</para></summary>
-[Migration(202608080001)]
+/// per connection.</para>
+/// <para>First migration numbered <c>yyyyMMddHHmm</c>; the nine baseline migrations keep their historical
+/// <c>YYYYMMDDNNNN</c> numbers, which sort below this one and are never renumbered — a number that has been
+/// applied is recorded in <c>lyntai_version_info</c>, so changing it would re-run the migration against a
+/// database that already has its tables.</para></summary>
+[Migration(202608081215)]
 [Tags(nameof(StorageFeature.Memory), StorageFeatures.AllTag)]
-public sealed class M202608080001_MemoryGraph : Migration
+public sealed class M202608081215_MemoryGraph : Migration
 {
     public override void Up()
     {

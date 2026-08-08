@@ -14,7 +14,7 @@ runs.
 
 ## Steps
 1. Scaffold: `node devtools/dev.mjs new-migration <name>` → creates
-   `src/Lyntai.Storage.Sqlite/Migrations/M<num>_<Name>.cs` with a unique, monotonic `YYYYMMDDNNNN`
+   `src/Lyntai.Storage.Sqlite/Migrations/M<num>_<Name>.cs` with a unique, monotonic `yyyyMMddHHmm`
    number, the `[Migration(<num>)]` class, and a `[Tags(...)]` placeholder that deliberately does not
    compile until you name the feature (step 2).
 2. Fill the tag and `Up()`:

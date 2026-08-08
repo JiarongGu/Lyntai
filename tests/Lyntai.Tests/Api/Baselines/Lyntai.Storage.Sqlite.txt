@@ -76,6 +76,16 @@ sealed class Lyntai.Storage.Sqlite.SqliteKeyValueStore
     GetAsync(String key, CancellationToken ct = default) : Task<String>
     ListKeysAsync(String prefix = null, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     SetAsync(String key, String value, CancellationToken ct = default) : Task
+sealed class Lyntai.Storage.Sqlite.SqliteMemoryGraphStore
+    .ctor(IDbConnectionFactory factory, ILogger<SqliteMemoryGraphStore> logger = null)
+    ForgetAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task
+    GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>
+    LinkAsync(Int64 from, Int64 to, String kind, Double weight, Boolean symmetric, DateTimeOffset now, CancellationToken ct = default) : Task
+    NeighboursAsync(String engine, IReadOnlyCollection<Int64> ids, Int32 limit, DateTimeOffset now, CancellationToken ct = default) : Task<IReadOnlyList<GraphNeighbour>>
+    PruneAsync(String engine, String taskKey, String scope, Nullable<Double> maxAgeOverStability, Nullable<TimeSpan> olderThan, DateTimeOffset now, CancellationToken ct = default) : Task<Int32>
+    SeedAsync(String engine, String taskKey, String scope, String query, Nullable<Double> maxAgeOverStability, Int32 limit, DateTimeOffset now, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
+    TouchAsync(IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) : Task
+    UpsertAsync(GraphNodeWrite write, DateTimeOffset now, CancellationToken ct = default) : Task<Int64>
 sealed class Lyntai.Storage.Sqlite.SqliteMemoryStore
     .ctor(IDbConnectionFactory factory, LyntaiOptions options, ILogger<SqliteMemoryStore> logger = null, Func<DateTimeOffset> clock = null)
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task

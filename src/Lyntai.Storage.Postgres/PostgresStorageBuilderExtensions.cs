@@ -75,10 +75,16 @@ public static class PostgresStorageBuilderExtensions
         if (features.HasFlag(StorageFeature.PromptVersion)) builder.Services.TryAddSingleton<IPromptVersionStore, PostgresPromptVersionStore>();
         if (features.HasFlag(StorageFeature.Conversation)) builder.Services.TryAddSingleton<IConversationStore, PostgresConversationStore>();
         if (features.HasFlag(StorageFeature.Memory))
+        {
             builder.Services.TryAddSingleton<IMemoryStore>(sp => new PostgresMemoryStore(
                 sp.GetRequiredService<IDbConnectionFactory>(),
                 sp.GetRequiredService<LyntaiOptions>(),
                 sp.GetService<ILogger<PostgresMemoryStore>>()));
+            // the graph tables ship under the same feature tag as the keyword log
+            builder.Services.TryAddSingleton<Lyntai.Memory.IMemoryGraphStore>(sp => new PostgresMemoryGraphStore(
+                sp.GetRequiredService<IDbConnectionFactory>(),
+                sp.GetService<ILogger<PostgresMemoryGraphStore>>()));
+        }
         if (features.HasFlag(StorageFeature.Score)) builder.Services.TryAddSingleton<IScoreStore, PostgresScoreStore>();
         if (features.HasFlag(StorageFeature.Trace)) builder.Services.TryAddSingleton<ITraceStore, PostgresTraceStore>();
         if (features.HasFlag(StorageFeature.Jobs))

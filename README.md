@@ -396,6 +396,9 @@ docs. They are deliberately settable for that reason.
 Graph entries carry both grades, so one engine can hold exact facts alongside recalled ones — an
 authoritative entry never decays and is never shortened to a headline.
 
+Graph memory persists on **SQLite** and **Postgres** as well as in memory — `UseSqliteStorage()` /
+`UsePostgresStorage()` register it under the same `StorageFeature.Memory` flag as the keyword store.
+
 ### Semantic memory
 
 The lexical memory store (`IMemoryStore`) recalls by keyword (FTS-trigram). For meaning-based recall, bring
