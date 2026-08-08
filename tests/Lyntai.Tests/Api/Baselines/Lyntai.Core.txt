@@ -1636,12 +1636,22 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     Hops : Int32
     MinRetrievability : Double
     ToString() : String
+sealed class Lyntai.Memory.GraphNeighbour
+    .ctor(GraphNode Node, Double EdgeWeight, DateTimeOffset EdgeStrengthenedAt)
+    Deconstruct(GraphNode& Node, Double& EdgeWeight, DateTimeOffset& EdgeStrengthenedAt) : Void
+    EdgeStrengthenedAt : DateTimeOffset
+    EdgeWeight : Double
+    Equals(GraphNeighbour other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Node : GraphNode
+    ToString() : String
 sealed class Lyntai.Memory.GraphNode
-    .ctor(Int64 Id, String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, DateTimeOffset CreatedAt, DateTimeOffset LastRecalledAt, Int32 RecallCount, Double Stability, Double Relevance, Int32 Degree, IReadOnlyDictionary<String,String> Metadata)
+    .ctor(Int64 Id, String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, DateTimeOffset CreatedAt, DateTimeOffset LastRecalledAt, Int32 RecallCount, Double Stability, Double Relevance, Int32 Degree, IReadOnlyDictionary<String,String> Metadata, Double Strength = 0, Nullable<DateTimeOffset> StrengthAsOf = null)
     Content : String
     CreatedAt : DateTimeOffset
     DecayState : MemoryDecayState
-    Deconstruct(Int64& Id, String& Engine, String& TaskKey, String& Scope, String& Headline, String& Content, MemoryGrade& Grade, DateTimeOffset& CreatedAt, DateTimeOffset& LastRecalledAt, Int32& RecallCount, Double& Stability, Double& Relevance, Int32& Degree, IReadOnlyDictionary`2& Metadata) : Void
+    Deconstruct(Int64& Id, String& Engine, String& TaskKey, String& Scope, String& Headline, String& Content, MemoryGrade& Grade, DateTimeOffset& CreatedAt, DateTimeOffset& LastRecalledAt, Int32& RecallCount, Double& Stability, Double& Relevance, Int32& Degree, IReadOnlyDictionary`2& Metadata, Double& Strength, Nullable`1& StrengthAsOf) : Void
     Degree : Int32
     Engine : String
     Equals(GraphNode other) : Boolean
@@ -1656,6 +1666,8 @@ sealed class Lyntai.Memory.GraphNode
     Relevance : Double
     Scope : String
     Stability : Double
+    Strength : Double
+    StrengthAsOf : Nullable<DateTimeOffset>
     TaskKey : String
     ToString() : String
 sealed class Lyntai.Memory.GraphNodeWrite
@@ -1685,10 +1697,13 @@ struct Lyntai.Memory.GraphTouch
     ToString() : String
 sealed class Lyntai.Memory.HalfLifeOptions
     .ctor()
+    ConnectionBoost : Double
+    EdgeHalfLife : TimeSpan
     Equals(HalfLifeOptions other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     InitialStability : TimeSpan
+    MaxConnectionBoost : Double
     MaxStability : TimeSpan
     ReinforceFactor : Double
     ToString() : String
@@ -1718,7 +1733,7 @@ interface Lyntai.Memory.IMemoryGraphStore
     ForgetAsync(String engine, String taskKey, String scope, CancellationToken ct = default) : Task
     GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>
     LinkAsync(Int64 from, Int64 to, String kind, Double weight, Boolean symmetric, DateTimeOffset now, CancellationToken ct = default) : Task
-    NeighboursAsync(String engine, IReadOnlyCollection<Int64> ids, Int32 limit, DateTimeOffset now, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
+    NeighboursAsync(String engine, IReadOnlyCollection<Int64> ids, Int32 limit, DateTimeOffset now, CancellationToken ct = default) : Task<IReadOnlyList<GraphNeighbour>>
     PruneAsync(String engine, String taskKey, String scope, Nullable<Double> maxAgeOverStability, Nullable<TimeSpan> olderThan, DateTimeOffset now, CancellationToken ct = default) : Task<Int32>
     SeedAsync(String engine, String taskKey, String scope, String query, Nullable<Double> maxAgeOverStability, Int32 limit, DateTimeOffset now, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
     TouchAsync(IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) : Task
@@ -1756,15 +1771,17 @@ sealed class Lyntai.Memory.MemoryCompositionOptions
     GetHashCode() : Int32
     ToString() : String
 struct Lyntai.Memory.MemoryDecayState
-    .ctor(DateTimeOffset CreatedAt, DateTimeOffset LastRecalledAt, Int32 RecallCount, Double Stability)
+    .ctor(DateTimeOffset CreatedAt, DateTimeOffset LastRecalledAt, Int32 RecallCount, Double Stability, Double Strength = 0, Nullable<DateTimeOffset> StrengthAsOf = null)
     CreatedAt : DateTimeOffset
-    Deconstruct(DateTimeOffset& CreatedAt, DateTimeOffset& LastRecalledAt, Int32& RecallCount, Double& Stability) : Void
+    Deconstruct(DateTimeOffset& CreatedAt, DateTimeOffset& LastRecalledAt, Int32& RecallCount, Double& Stability, Double& Strength, Nullable`1& StrengthAsOf) : Void
     Equals(MemoryDecayState other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     LastRecalledAt : DateTimeOffset
     RecallCount : Int32
     Stability : Double
+    Strength : Double
+    StrengthAsOf : Nullable<DateTimeOffset>
     ToString() : String
 sealed class Lyntai.Memory.MemoryEngineBuilder
     Budget(Int32 characters) : MemoryEngineBuilder

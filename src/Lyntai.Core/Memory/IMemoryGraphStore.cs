@@ -16,14 +16,28 @@ namespace Lyntai.Memory;
 /// rather than relevance reports 1.</param>
 /// <param name="Degree">How many edges it has.</param>
 /// <param name="Metadata">App-owned extra data, or null.</param>
+/// <param name="Strength">The summed RAW weight of its edges — how embedded in the graph it is. A store
+/// computes this as a plain <c>SUM</c>, never applying the decay curve.</param>
+/// <param name="StrengthAsOf">When any of those edges was last strengthened — a plain <c>MAX</c> — so the
+/// policy can decay <paramref name="Strength"/> as one aggregate.</param>
 public sealed record GraphNode(
     long Id, string Engine, string TaskKey, string Scope, string Headline, string Content,
     MemoryGrade Grade, DateTimeOffset CreatedAt, DateTimeOffset LastRecalledAt, int RecallCount,
-    double Stability, double Relevance, int Degree, IReadOnlyDictionary<string, string>? Metadata)
+    double Stability, double Relevance, int Degree, IReadOnlyDictionary<string, string>? Metadata,
+    double Strength = 0, DateTimeOffset? StrengthAsOf = null)
 {
     /// <summary>This node's decay bookkeeping, for an <see cref="IRetrievabilityPolicy"/>.</summary>
-    public MemoryDecayState DecayState => new(CreatedAt, LastRecalledAt, RecallCount, Stability);
+    public MemoryDecayState DecayState =>
+        new(CreatedAt, LastRecalledAt, RecallCount, Stability, Strength, StrengthAsOf);
 }
+
+/// <summary>A node reached by traversal, with the edge that reached it — so the ENGINE can rank by
+/// effective (decayed) edge weight while the store orders by the raw value. The store never applies the
+/// curve; the same division of labour as node ranking.</summary>
+/// <param name="Node">The neighbour.</param>
+/// <param name="EdgeWeight">The connecting edge's raw weight.</param>
+/// <param name="EdgeStrengthenedAt">When that edge was last strengthened.</param>
+public sealed record GraphNeighbour(GraphNode Node, double EdgeWeight, DateTimeOffset EdgeStrengthenedAt);
 
 /// <summary>A node to store. Identity is (<paramref name="Engine"/>, <paramref name="TaskKey"/>,
 /// <paramref name="Scope"/>, <paramref name="Content"/>) — storing identical content refreshes rather than
@@ -83,15 +97,17 @@ public interface IMemoryGraphStore
     Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope, string? query,
         double? maxAgeOverStability, int limit, DateTimeOffset now, CancellationToken ct = default);
 
-    /// <summary>Nodes connected to any of <paramref name="ids"/>, strongest edge first, excluding the
-    /// <paramref name="ids"/> themselves.</summary>
+    /// <summary>Nodes connected to any of <paramref name="ids"/>, excluding the <paramref name="ids"/>
+    /// themselves, ordered by RAW edge weight.
+    /// <para>That ordering is a cheap pre-sort, not the final one: the engine re-ranks by decayed edge
+    /// weight, so a heavy but stale link falls below a lighter fresh one. Over-fetch accordingly.</para></summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="ids">The frontier to walk out from.</param>
     /// <param name="limit">Maximum neighbours.</param>
     /// <param name="now">The current time.</param>
     /// <param name="ct">Cancellation.</param>
-    Task<IReadOnlyList<GraphNode>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids, int limit,
-        DateTimeOffset now, CancellationToken ct = default);
+    Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
+        int limit, DateTimeOffset now, CancellationToken ct = default);
 
     /// <summary>One node by id, or null when there is none under that engine.</summary>
     /// <param name="engine">The owning engine's name.</param>
@@ -105,8 +121,11 @@ public interface IMemoryGraphStore
     /// <param name="ct">Cancellation.</param>
     Task TouchAsync(IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default);
 
-    /// <summary>Connect two nodes, strengthening the edge when it already exists. Directed unless
-    /// <paramref name="symmetric"/>.</summary>
+    /// <summary>Connect two nodes, strengthening the edge when it already exists and recording
+    /// <paramref name="now"/> as its last strengthening. Directed unless <paramref name="symmetric"/>.
+    /// <para>The stored weight only ever grows; decay is applied at READ time by whoever owns the curve, so
+    /// the store holds no curve constant. That is what keeps a link which stopped recurring from propping a
+    /// memory up forever: its effective weight falls to nothing however large the raw value.</para></summary>
     /// <param name="from">Source node id.</param>
     /// <param name="to">Target node id.</param>
     /// <param name="kind">Optional relation name; null is an untyped association.</param>

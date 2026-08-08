@@ -178,6 +178,48 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
+    public async Task A_connected_memory_outlives_an_isolated_one()
+    {
+        // the point of feeding connectedness into decay: being embedded in the graph is itself a reason to
+        // survive, not merely a way to be reached
+        var engine = Engine();
+        var hub = await engine.RememberAsync(new MemoryWrite("t", "s", "hub fact about widgets"));
+        for (var i = 0; i < 8; i++)
+        {
+            var spoke = await engine.RememberAsync(new MemoryWrite("t", "s", $"widget detail {i}"));
+            await engine.LinkAsync(hub, spoke, weight: 3, symmetric: true);
+        }
+        await engine.RememberAsync(new MemoryWrite("t", "s", "isolated fact about widgets"));
+
+        // 45 days: past the isolated node's 7-day half-life several times over, still inside the window
+        // the connection boost buys. That window is FINITE on purpose — by 60 days the edges have decayed
+        // enough that the hub goes too, which is the model working, not a gap in it.
+        _now = _now.AddDays(45);
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "widgets"));
+
+        Assert.Contains(recall.Items, i => i.Headline.Contains("hub fact", StringComparison.Ordinal));
+        Assert.DoesNotContain(recall.Items, i => i.Headline.Contains("isolated", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_neighbourhood_that_went_quiet_stops_propping_a_memory_up()
+    {
+        var engine = Engine();
+        var hub = await engine.RememberAsync(new MemoryWrite("t", "s", "hub fact about widgets"));
+        for (var i = 0; i < 8; i++)
+        {
+            var spoke = await engine.RememberAsync(new MemoryWrite("t", "s", $"widget detail {i}"));
+            await engine.LinkAsync(hub, spoke, weight: 3, symmetric: true);
+        }
+
+        // far enough out that the edges themselves have decayed away
+        _now = _now.AddDays(2000);
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "widgets"));
+
+        Assert.DoesNotContain(recall.Items, i => i.Headline.Contains("hub fact", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void It_stores_both_grades()
     {
         Assert.Equal(MemoryGrades.Associative | MemoryGrades.Authoritative, Engine().Supported);

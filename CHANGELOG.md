@@ -60,7 +60,19 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `HalfLifeOptions.MaxStability` caps reinforcement: unbounded compounding turns a seven-day half-life into
   sixty-four years in about twenty recalls, which would silently give a frequently-recalled *associative*
   entry the durability of an authoritative one without any of its guarantees.
-  **Several constants are unmeasured and say so in their XML docs** — the MEM-TUNE task closes them.
+- **Connectedness feeds decay, and edges decay too.** A memory woven into a dense, repeatedly-reinforced
+  neighbourhood now resists forgetting, while an isolated one fades — connections make an entry more
+  *durable*, not merely more reachable. Symmetrically, edge weight decays with disuse
+  (`HalfLifeOptions.EdgeHalfLife`), so a link that stops recurring stops pulling its neighbour into recall
+  and stops propping it up; without that, every pair that had ever co-occurred would stay linked at a rising
+  weight until spreading reached everything from everything. Both are read-time, so there is still no
+  sweeper. Connectedness may only ever *raise* retrievability, and `MaxConnectionBoost` bounds how far —
+  which is load-bearing rather than cosmetic, since `CandidateCutoff` widens by exactly that factor and an
+  unbounded boost would leave well-connected entries outside any finite cutoff, silently losing the very
+  memories connectedness was meant to protect.
+  **Several constants are unmeasured and say so in their XML docs** — the MEM-TUNE task closes them, and
+  the three governing connectedness have to be measured *together*, since edge decay erodes the strength
+  that feeds the boost.
 
 Purely additive: `IMemoryStore`, `ISemanticMemory`, `ICuratedMemoryStore` and `MemoryPromptComposer` are
 unchanged, and an application that never calls `AddMemory`/`AddMemoryEngine` observes no difference.

@@ -139,7 +139,7 @@ internal sealed class TouchHostileGraphStore : IMemoryGraphStore
         CancellationToken ct = default) =>
         _inner.SeedAsync(engine, taskKey, scope, query, maxAgeOverStability, limit, now, ct);
 
-    public Task<IReadOnlyList<GraphNode>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
         int limit, DateTimeOffset now, CancellationToken ct = default) =>
         _inner.NeighboursAsync(engine, ids, limit, now, ct);
 

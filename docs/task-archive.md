@@ -3089,6 +3089,29 @@ tools, similarity enrichment) and **MEM-TUNE** remain OPEN in `TASKS.md`._
      `stability *= 1 + Reinforce` compounds, so ~20 recalls turn a 7-day half-life into 64 years and a hot
      ASSOCIATIVE node silently acquires authoritative durability with none of its guarantees.
 
+  _**Amended the same day — connectedness feeds decay, and edges decay too.** The first cut had the graph
+  affecting only REACHABILITY: a node recalled once and connected to twenty things decayed exactly like one
+  connected to nothing, which is backwards from the whole reason edges exist. The mirror defect surfaced
+  at the same time — edges only ever GREW, so over a long run every pair that had co-occurred stayed
+  linked at a rising weight and spreading stopped discriminating. Fixing only the first half would have
+  been worse than neither: stale links would prop memories up forever. Both are now read-time, so there is
+  still no sweeper. Three things worth keeping:_
+  - _**`MaxConnectionBoost` exists for correctness, not tidiness.** A store filters candidates against the
+    STORED stability, so `CandidateCutoff` widens by exactly that factor. An unbounded boost has no valid
+    finite cutoff, and a well-connected node would be excluded while still perfectly retrievable — silently
+    losing exactly what connectedness was meant to protect._
+  - _**The effective-stability clamp is `max(stability, min(stability × boost, MaxStability))`.** A bare
+    `min` would SHORTEN the half-life of an entry whose stored stability already exceeds the ceiling,
+    lowering retrievability and breaking the superset guarantee. Caught by reasoning, then pinned by the
+    contract's strength sweep._
+  - _**`Strength` is a raw `SUM` decayed once by `MAX(strengthened_at)`** — an over-estimate, deliberately.
+    Decaying each edge inside the aggregate needs a per-edge exponent no backend does portably, and
+    over-estimating raises `r`, which is the only direction that keeps the cutoff conservative._
+
+  _One test had to be corrected rather than the code: a hub asserted to outlive an isolated node at 60 days
+  actually lands at r=0.049 against a 0.05 floor, because edge decay has eroded the boost by then. The
+  window connectedness buys is FINITE on purpose; the test now uses 45 days and says so._
+
   _One thing left as-is and recorded rather than smoothed over: `GraphMemoryEngine.ForgetAsync` is a
   concrete-type convenience, not an interface member — `IForgettableMemory` declares only `PruneAsync`, and
   adding to an interface MEM1 already shipped is a break that needs its own decision. Promote it when a

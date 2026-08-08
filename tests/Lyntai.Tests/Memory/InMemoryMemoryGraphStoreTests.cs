@@ -22,4 +22,7 @@ public class InMemoryMemoryGraphStoreTests
     [Fact] public Task Forget() => MemoryGraphStoreContract.Forget_clears_a_scope(New(), "k11");
     [Fact] public Task Cascade() => MemoryGraphStoreContract.Deleting_a_node_takes_its_edges_with_it(New(), "k12");
     [Fact] public Task Cancellation() => MemoryGraphStoreContract.Cancellation_propagates(New(), "k13");
+    [Fact] public Task Edge_freshness() => MemoryGraphStoreContract.An_edge_records_when_it_was_last_strengthened(New(), "k14");
+    [Fact] public Task Strength() => MemoryGraphStoreContract.A_node_reports_its_connection_strength_and_freshness(New(), "k15");
+    [Fact] public Task No_strength() => MemoryGraphStoreContract.An_unconnected_node_reports_no_strength(New(), "k16");
 }

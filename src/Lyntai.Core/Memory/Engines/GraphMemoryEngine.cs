@@ -138,10 +138,14 @@ public sealed class GraphMemoryEngine(
             // the expanded node carries its FULL content whatever its grade — that is what expansion IS
             new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node, now), node.Degree),
         };
-        items.AddRange(neighbours.Select(n => new MemoryItem(
-            new MemoryRef(Name, n.Id.ToString(CultureInfo.InvariantCulture)),
-            n.Headline, n.Grade == MemoryGrade.Authoritative ? n.Content : null,
-            n.Grade, n.Relevance, Retrievability(n, now), n.Degree)));
+        items.AddRange(neighbours
+            .OrderByDescending(n => EffectiveEdgeWeight(n, now))
+            .ThenByDescending(n => n.Node.Id)
+            .Select(n => n.Node)
+            .Select(n => new MemoryItem(
+                new MemoryRef(Name, n.Id.ToString(CultureInfo.InvariantCulture)),
+                n.Headline, n.Grade == MemoryGrade.Authoritative ? n.Content : null,
+                n.Grade, n.Relevance, Retrievability(n, now), n.Degree)));
 
         return new MemoryRecall(items, MemorySources.Graph);
     }
@@ -178,6 +182,18 @@ public sealed class GraphMemoryEngine(
     private double Retrievability(GraphNode node, DateTimeOffset now) =>
         node.Grade == MemoryGrade.Authoritative ? 1 : _policy.Retrievability(node.DecayState, now);
 
+    /// <summary>An edge's weight after decay. The store orders by the RAW value as a cheap pre-sort and the
+    /// curve is applied here, so a heavy but stale link falls below a lighter fresh one — which is what
+    /// stops a graph that only ever gained edges from saturating until everything reaches everything.</summary>
+    private double EffectiveEdgeWeight(GraphNeighbour neighbour, DateTimeOffset now)
+    {
+        var halfLife = _options.Decay.EdgeHalfLife.TotalDays;
+        var ageDays = (now - neighbour.EdgeStrengthenedAt).TotalDays;
+        return ageDays <= 0 || halfLife <= 0
+            ? neighbour.EdgeWeight
+            : neighbour.EdgeWeight * Math.Pow(2, -ageDays / halfLife);
+    }
+
     private async Task<List<(GraphNode Node, int Hop)>> GatherAsync(MemoryQuery query, int limit,
         DateTimeOffset now, CancellationToken ct)
     {
@@ -198,7 +214,12 @@ public sealed class GraphMemoryEngine(
                 .NeighboursAsync(Name, frontier, candidates, now, ct).ConfigureAwait(false);
 
             frontier = [];
-            foreach (var neighbour in neighbours)
+            // re-rank by DECAYED edge weight: the store's raw-weight ordering is a pre-sort, and a link
+            // that stopped recurring must stop pulling its neighbour into recall
+            foreach (var neighbour in neighbours
+                         .OrderByDescending(n => EffectiveEdgeWeight(n, now))
+                         .ThenByDescending(n => n.Node.Id)
+                         .Select(n => n.Node))
                 if (seen.Add(neighbour.Id))
                 {
                     found.Add((neighbour, hop));

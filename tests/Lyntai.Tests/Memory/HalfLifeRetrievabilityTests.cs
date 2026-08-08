@@ -58,15 +58,74 @@ public class HalfLifeRetrievabilityTests
     }
 
     [Fact]
-    public void The_cutoff_is_the_exact_inverse_of_the_curve()
+    public void The_cutoff_is_the_exact_inverse_of_the_curve_when_nothing_boosts_it()
     {
         // r = 2^(-age/stability) = minR  <=>  age/stability = -log2(minR)
-        Assert.Equal(Math.Log2(1 / 0.05), new HalfLifeRetrievability().CandidateCutoff(0.05), precision: 9);
+        var policy = new HalfLifeRetrievability(new HalfLifeOptions { MaxConnectionBoost = 1 });
+
+        Assert.Equal(Math.Log2(1 / 0.05), policy.CandidateCutoff(0.05), precision: 9);
     }
 
     [Fact]
     public void A_zero_or_negative_minimum_means_no_bound()
     {
         Assert.True(double.IsPositiveInfinity(new HalfLifeRetrievability().CandidateCutoff(0)));
+    }
+
+    [Fact]
+    public void Connectedness() => RetrievabilityPolicyContract.Connectedness_never_lowers_retrievability(Default());
+
+    [Fact]
+    public void A_well_connected_memory_outlives_an_isolated_one()
+    {
+        var policy = new HalfLifeRetrievability();
+        var isolated = new MemoryDecayState(T0, T0, 0, 7);
+        var connected = isolated with { Strength = 20, StrengthAsOf = T0 };
+
+        var at30 = T0.AddDays(30);
+
+        Assert.True(policy.Retrievability(connected, at30) > policy.Retrievability(isolated, at30) * 2,
+            "connectedness barely mattered");
+    }
+
+    [Fact]
+    public void Links_that_stop_recurring_stop_propping_a_memory_up()
+    {
+        // the whole point of edge decay: a neighbourhood that went quiet must not keep a memory alive
+        var policy = new HalfLifeRetrievability(new HalfLifeOptions
+        {
+            EdgeHalfLife = TimeSpan.FromDays(30),
+        });
+        var node = new MemoryDecayState(T0, T0, 0, 7, Strength: 50, StrengthAsOf: T0);
+
+        var fresh = policy.Retrievability(node, T0.AddDays(30));
+        var stale = policy.Retrievability(node with { StrengthAsOf = T0.AddDays(-3650) }, T0.AddDays(30));
+
+        Assert.True(stale < fresh, "a decade-stale neighbourhood still boosted the memory");
+    }
+
+    [Fact]
+    public void The_boost_is_bounded_so_a_hub_does_not_become_immortal()
+    {
+        var policy = new HalfLifeRetrievability(new HalfLifeOptions
+        {
+            InitialStability = TimeSpan.FromDays(7),
+            MaxConnectionBoost = 4,
+            MaxStability = TimeSpan.FromDays(365),
+        });
+        var hub = new MemoryDecayState(T0, T0, 0, 7, Strength: 1_000_000, StrengthAsOf: T0);
+
+        // 7 days x MaxBoost 4 = 28-day effective half-life, so ~28 days must land near 0.5, not near 1
+        Assert.InRange(policy.Retrievability(hub, T0.AddDays(28)), 0.4, 0.6);
+    }
+
+    [Fact]
+    public void The_cutoff_widens_by_exactly_the_boost_ceiling()
+    {
+        // the store filters on STORED stability, so the cutoff must cover the largest boost possible or a
+        // well-connected node gets excluded while still being perfectly retrievable
+        var policy = new HalfLifeRetrievability(new HalfLifeOptions { MaxConnectionBoost = 4 });
+
+        Assert.Equal(Math.Log2(1 / 0.05) * 4, policy.CandidateCutoff(0.05), precision: 9);
     }
 }

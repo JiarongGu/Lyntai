@@ -93,7 +93,47 @@ public static class MemoryGraphStoreContract
         var neighbours = await store.NeighboursAsync("e", [a], 10, T0);
 
         Assert.Single(neighbours);
-        Assert.Equal(b, neighbours[0].Id);
+        Assert.Equal(b, neighbours[0].Node.Id);
+    }
+
+    public static async Task An_edge_records_when_it_was_last_strengthened(
+        IMemoryGraphStore store, string key)
+    {
+        var a = await store.UpsertAsync(Write("e", key, "alpha"), T0);
+        var b = await store.UpsertAsync(Write("e", key, "beta"), T0);
+        await store.LinkAsync(a, b, null, 1, symmetric: false, T0);
+        await store.LinkAsync(a, b, null, 1, symmetric: false, T0.AddDays(10));
+
+        var neighbours = await store.NeighboursAsync("e", [a], 10, T0.AddDays(10));
+
+        Assert.Equal(T0.AddDays(10), neighbours[0].EdgeStrengthenedAt);
+        Assert.Equal(2, neighbours[0].EdgeWeight, precision: 6);
+    }
+
+    public static async Task A_node_reports_its_connection_strength_and_freshness(
+        IMemoryGraphStore store, string key)
+    {
+        var hub = await store.UpsertAsync(Write("e", key, "hub"), T0);
+        var one = await store.UpsertAsync(Write("e", key, "one"), T0);
+        var two = await store.UpsertAsync(Write("e", key, "two"), T0);
+        await store.LinkAsync(hub, one, null, 3, symmetric: false, T0);
+        await store.LinkAsync(hub, two, null, 2, symmetric: false, T0.AddDays(5));
+
+        var node = await store.GetAsync("e", hub);
+
+        // raw sum and the MOST RECENT strengthening — the store applies no curve
+        Assert.Equal(5, node!.Strength, precision: 6);
+        Assert.Equal(T0.AddDays(5), node.StrengthAsOf);
+    }
+
+    public static async Task An_unconnected_node_reports_no_strength(IMemoryGraphStore store, string key)
+    {
+        var id = await store.UpsertAsync(Write("e", key, "alone"), T0);
+
+        var node = await store.GetAsync("e", id);
+
+        Assert.Equal(0, node!.Strength);
+        Assert.Null(node.StrengthAsOf);
     }
 
     public static async Task Linking_the_same_pair_again_strengthens_it(IMemoryGraphStore store, string key)

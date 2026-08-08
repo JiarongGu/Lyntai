@@ -11,8 +11,12 @@ public sealed class InMemoryMemoryGraphStore : IMemoryGraphStore
 {
     private readonly Lock _lock = new();
     private readonly Dictionary<long, GraphNode> _nodes = [];
-    private readonly Dictionary<(long From, long To, string Kind), double> _edges = [];
+    private readonly Dictionary<(long From, long To, string Kind), Edge> _edges = [];
     private long _next = 1;
+
+    /// <summary>A stored edge. The weight only ever grows; decay is applied at read time by whoever owns
+    /// the curve, so this store holds no curve constant.</summary>
+    private readonly record struct Edge(double Weight, DateTimeOffset StrengthenedAt);
 
     /// <inheritdoc />
     public Task<long> UpsertAsync(GraphNodeWrite write, DateTimeOffset now, CancellationToken ct = default)
@@ -56,7 +60,7 @@ public sealed class InMemoryMemoryGraphStore : IMemoryGraphStore
                 .OrderByDescending(n => n.LastRecalledAt)
                 .ThenByDescending(n => n.Id) // unique tiebreaker: ties must not wobble
                 .Take(limit)
-                .Select(WithDegree)
+                .Select(WithGraphState)
                 .ToList();
             return Task.FromResult<IReadOnlyList<GraphNode>>(hits);
         }
@@ -74,7 +78,7 @@ public sealed class InMemoryMemoryGraphStore : IMemoryGraphStore
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<GraphNode>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
         int limit, DateTimeOffset now, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(ids);
@@ -85,14 +89,18 @@ public sealed class InMemoryMemoryGraphStore : IMemoryGraphStore
             var hits = _edges
                 .Where(e => frontier.Contains(e.Key.From) && !frontier.Contains(e.Key.To))
                 .GroupBy(e => e.Key.To)
-                .Select(g => (Id: g.Key, Weight: g.Max(e => e.Value)))
+                // the strongest edge reaching this neighbour, and when it was last strengthened; raw
+                // weight only — the engine applies the decay curve and re-ranks
+                .Select(g => (Id: g.Key,
+                    Weight: g.Max(e => e.Value.Weight),
+                    At: g.Max(e => e.Value.StrengthenedAt)))
                 .OrderByDescending(x => x.Weight)
                 .ThenByDescending(x => x.Id) // unique tiebreaker
                 .Where(x => _nodes.TryGetValue(x.Id, out var n) && n.Engine == engine)
                 .Take(limit)
-                .Select(x => WithDegree(_nodes[x.Id]))
+                .Select(x => new GraphNeighbour(WithGraphState(_nodes[x.Id]), x.Weight, x.At))
                 .ToList();
-            return Task.FromResult<IReadOnlyList<GraphNode>>(hits);
+            return Task.FromResult<IReadOnlyList<GraphNeighbour>>(hits);
         }
     }
 
@@ -102,7 +110,7 @@ public sealed class InMemoryMemoryGraphStore : IMemoryGraphStore
         ct.ThrowIfCancellationRequested();
         lock (_lock)
             return Task.FromResult(
-                _nodes.TryGetValue(id, out var node) && node.Engine == engine ? WithDegree(node) : null);
+                _nodes.TryGetValue(id, out var node) && node.Engine == engine ? WithGraphState(node) : null);
     }
 
     /// <inheritdoc />
@@ -138,7 +146,8 @@ public sealed class InMemoryMemoryGraphStore : IMemoryGraphStore
         void Strengthen(long a, long b)
         {
             var key = (a, b, kind ?? "");
-            _edges[key] = _edges.TryGetValue(key, out var existing) ? existing + weight : weight;
+            var existing = _edges.TryGetValue(key, out var edge) ? edge.Weight : 0;
+            _edges[key] = new Edge(existing + weight, now);
         }
     }
 
@@ -192,6 +201,17 @@ public sealed class InMemoryMemoryGraphStore : IMemoryGraphStore
             _edges.Remove(key);
     }
 
-    private GraphNode WithDegree(GraphNode node) =>
-        node with { Degree = _edges.Keys.Count(k => k.From == node.Id) };
+    /// <summary>Fill in the graph-derived fields: how many edges the node has, their summed RAW weight, and
+    /// when any of them was last strengthened. All three are plain aggregates — the decay curve is applied
+    /// by the engine, never here.</summary>
+    private GraphNode WithGraphState(GraphNode node)
+    {
+        var edges = _edges.Where(e => e.Key.From == node.Id).Select(e => e.Value).ToList();
+        return node with
+        {
+            Degree = edges.Count,
+            Strength = edges.Sum(e => e.Weight),
+            StrengthAsOf = edges.Count == 0 ? null : edges.Max(e => e.StrengthenedAt),
+        };
+    }
 }

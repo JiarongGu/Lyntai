@@ -67,6 +67,53 @@ fades. This is the whole of the forgetting mechanism; there is no sweeper and no
 today. Authoritative nodes hold retrievability 1.0 permanently and are therefore never eligible for a
 retrievability-based prune — which falls out of the formula and needs no special case in the query.
 
+### 3.0 Amendment 2026-08-08 — connectedness feeds decay, and edges decay too
+
+_Added after MEM2a shipped, because the first cut had the graph affecting only REACHABILITY._
+
+**The defect.** `r = 2^(-age/stability)` with stability growing only from direct recall means a node
+recalled once and connected to twenty things decays exactly like a node recalled once and connected to
+nothing. That is backwards from both the brain analogy and the reason edges exist: an isolated fact should
+fade, a fact woven into a network should persist.
+
+**The mirror defect, found at the same time.** Edges only ever grew — `LinkAsync` did
+`weight = existing + weight` and nothing weakened one. Over a long run every pair that ever co-occurred
+stays linked at a monotonically increasing weight, the graph saturates, and spreading stops discriminating
+because everything reaches everything. Fixing only the first half would have made it worse: stale links
+would prop memories up forever.
+
+**The model.** Connectedness raises *stability*, never `r` directly, and edge weight decays on the same
+read-time principle as nodes:
+
+```
+effective_edge_weight = weight × 2 ^ ( -edge_age / EdgeHalfLife )
+strength              = Σ effective_edge_weight over a node's edges
+effective_stability   = min( stability × min(1 + Boost·ln(1+strength), MaxBoost), MaxStability )
+r                     = 2 ^ ( -age / effective_stability )
+```
+
+`ln(1+strength)` gives diminishing returns so a hub does not dominate. **`MaxStability` still applies to the
+EFFECTIVE value** — otherwise connectedness reintroduces the permanence defect that ceiling was added to
+close, one layer up, and a well-connected associative node becomes immortal while still labelled
+associative. Same trap, new place.
+
+**`MaxBoost` is not decoration — without it the `CandidateCutoff` contract breaks.** The store filters on
+*stored* stability. If effective stability could exceed stored without bound, a well-connected node could
+fall outside `age/stored <= cut` while its true retrievability was still above the floor, and the store
+would exclude a node the policy would have kept — exactly the silent loss §3.2's superset property exists
+to prevent. Bounding the boost makes the correction exact:
+
+```
+CandidateCutoff(minR) = -log2(minR) × MaxBoost
+```
+
+**One documented approximation, in the safe direction.** Decaying every edge individually at read time
+would need a per-edge `pow` inside the aggregate, which no backend can do portably (§3.2). So a store
+reports `Strength` as the sum of RAW edge weights plus `StrengthAsOf` = the most recent strengthening, and
+the policy decays that aggregate once. This treats a neighbourhood as being as fresh as its freshest link,
+so it **over**-estimates durability. That is deliberate: over-estimating raises `r`, and only raising `r`
+keeps the cutoff a conservative superset. Under-estimating would lose memories.
+
 ### 3.1 The curve is a seam, and its constants are an options record
 
 Exposing `Reinforce` and `InitialStability` as loose doubles would settle the *numbers* while freezing the
@@ -358,7 +405,15 @@ marked as unmeasured in the XML documentation until something measures them.
 | initial `stability = 7 days` | **guess** — sets how fast one-off noise fades |
 | `MinRetrievability = 0.05` | **guess** — the point at which something counts as forgotten |
 | `MaxStability = 365 days` | **guess** — the ceiling that stops "durable" becoming "permanent" (§3.1) |
+| `ConnectionBoost = 0.5` | **guess** — how much being well-connected extends a half-life (§3.0) |
+| `MaxConnectionBoost = 4` | **guess** — but its EXISTENCE is load-bearing, not just its value: `CandidateCutoff` widens by exactly this, so an unbounded boost has no valid cutoff (§3.0) |
+| `EdgeHalfLife = 30 days` | **guess** — how fast a link that stops recurring stops mattering (§3.0) |
 | `SimilarityK = 5` | **guess** |
+
+_The three added by §3.0 interact, which MEM-TUNE must measure together rather than one at a time: edge
+decay erodes the very strength that feeds the connection boost, so the window in which connectedness
+rescues a memory is finite and its width is set by all three at once. A test written during MEM2a found
+that empirically — a well-connected node survived at 45 days and was gone by 60._
 
 **The task is a test, not a judgement call.** `MemoryDecaySimulation` builds a synthetic corpus with a
 *known* split — a reused set touched on a schedule, and one-off noise written once — drives it through
