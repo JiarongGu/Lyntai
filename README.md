@@ -15,7 +15,7 @@ mastra's **composable domain storage**, and odysseus's **streaming-aware fallbac
 <!-- version-indicator: the **vX.Y.Z below is AUTO-SYNCED from src/Directory.Build.props <VersionPrefix> by
      `node devtools/dev.mjs pack` / `doctor --fix` (the release pipeline bumps the version, pack updates this
      headline). Don't hand-edit the version here to release — bump VersionPrefix; the header follows. -->
-**v2.4.0 — a hardened, batteries-included cortex substrate, now with a media generation platform.**
+**v2.5.0 — a hardened, batteries-included cortex substrate, now with a media generation platform.**
 Twelve packages, one public front door, and a public API frozen under SemVer 2.0 since 1.0.
 
 What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / MEAI-bridged
