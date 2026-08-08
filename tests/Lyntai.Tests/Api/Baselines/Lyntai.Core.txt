@@ -1601,7 +1601,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
-    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IRetrievabilityPolicy policy = null, Func<DateTimeOffset> clock = null, ILogger<GraphMemoryEngine> logger = null)
+    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IRetrievabilityPolicy policy = null, Func<DateTimeOffset> clock = null, ILogger<GraphMemoryEngine> logger = null, IEmbedder embedder = null, IVectorStore vectors = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -1635,6 +1635,8 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     HopAttenuation : Double
     Hops : Int32
     MinRetrievability : Double
+    MinSimilarity : Double
+    SimilarityK : Int32
     ToString() : String
 sealed class Lyntai.Memory.GraphNeighbour
     .ctor(GraphNode Node, Double EdgeWeight, DateTimeOffset EdgeStrengthenedAt)
@@ -1859,6 +1861,8 @@ enum Lyntai.Memory.MemorySources
     Semantic : MemorySources const
     Similarity : MemorySources const
     value__ : Int32
+static class Lyntai.Memory.MemoryToolScope
+    static Use(String taskKey, String scope = null) : IDisposable
 sealed class Lyntai.Memory.MemoryWrite
     .ctor(String TaskKey, String Scope, String Content, String Headline = null, MemoryGrade Grade = MemoryGrade.Inherit, IReadOnlyDictionary<String,String> Metadata = null)
     Content : String
@@ -1910,6 +1914,7 @@ sealed class Lyntai.MemoryEngineComposition
 static class Lyntai.MemoryEngineRegistration
     static AddMemory(LyntaiBuilder builder, String name = "default") : LyntaiBuilder
     static AddMemoryEngine(LyntaiBuilder builder, String name, Action<MemoryEngineBuilder> configure = null) : LyntaiBuilder
+    static AddMemoryTools(LyntaiBuilder builder, String name, String taskKey, String scope = null, String prefix = null) : LyntaiBuilder
     static UseMemoryComposer(LyntaiBuilder builder, String name) : LyntaiBuilder
 interface Lyntai.Processes.IProcessRunner
     RunAsync(String command, IReadOnlyList<String> args, String stdin = null, Nullable<TimeSpan> inactivityTimeout = null, Nullable<TimeSpan> maxDuration = null, String workingDirectory = null, IReadOnlyDictionary<String,String> environment = null, CancellationToken ct = default) : Task<ProcessResult>

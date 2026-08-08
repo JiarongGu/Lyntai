@@ -72,7 +72,10 @@ public sealed class MemoryEngineBuilder
         var resolved = options ?? new GraphMemoryOptions();
         _members.Add(new MemberSpec(label, (sp, full) => new GraphMemoryEngine(
             full, Required<IMemoryGraphStore>(sp), resolved, sp.GetService<IRetrievabilityPolicy>(),
-            logger: sp.GetService<ILogger<GraphMemoryEngine>>())));
+            logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
+            // similarity enrichment turns itself on when both are present, and is simply absent otherwise
+            embedder: sp.GetService<Lyntai.Embeddings.IEmbedder>(),
+            vectors: sp.GetService<IVectorStore>())));
         return this;
     }
 
@@ -84,7 +87,9 @@ public sealed class MemoryEngineBuilder
         _members.Add(new MemberSpec("memory", (sp, full) =>
             sp.GetService<IMemoryGraphStore>() is { } graph
                 ? new GraphMemoryEngine(full, graph, policy: sp.GetService<IRetrievabilityPolicy>(),
-                    logger: sp.GetService<ILogger<GraphMemoryEngine>>())
+                    logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
+                    embedder: sp.GetService<Lyntai.Embeddings.IEmbedder>(),
+                    vectors: sp.GetService<IVectorStore>())
                 : new LexicalMemoryEngine(full, Required<IMemoryStore>(sp),
                     sp.GetService<ILogger<LexicalMemoryEngine>>())));
         return this;

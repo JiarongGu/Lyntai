@@ -196,10 +196,8 @@ _**MEM2b landed 2026-08-08** — see `docs/task-archive.md` **Part 48**. Graph m
 Postgres, both held to the same contract as InMemory, both verified against real engines (Postgres via a
 live container — 91 tests, zero skipped)._
 
-- [ ] **MEM2c — the agent-facing half.** Per-engine tools (`{engine}_recall` / `{engine}_expand`, prefixed so
-  the model cannot consult the wrong memory) across the tool loop and the MCP bridge, plus similarity edges
-  as opt-in enrichment when an `IEmbedder` and `IVectorStore` are registered — reported through
-  `MemorySources.Similarity`, which is deliberately distinct from `Semantic`.
+_**MEM2c landed 2026-08-08** — see `docs/task-archive.md` **Part 49**. The per-engine tools and similarity
+enrichment both ship, so all of MEM2 is done except the measurement below._
 
 - [ ] **MEM-TUNE — measure the decay defaults, don't ship them as if tuned.** Five constants are guesses
   (`HeadlineChars`, `ReinforceFactor`, initial `stability`, `MinRetrievability`, `MaxStability`,

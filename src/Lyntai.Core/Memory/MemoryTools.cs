@@ -10,8 +10,11 @@ namespace Lyntai.Memory;
 /// <para>Tool names are prefixed per engine (<c>project_recall</c>, <c>project_expand</c>) rather than a
 /// single multiplexed tool taking an engine argument. Fewer tools would read better, but it would let the
 /// model consult the WRONG memory — the same accuracy failure the authoritative/associative split exists to
-/// prevent — and a wrong memory is worse than a missing one.</para></summary>
-public static class MemoryTools
+/// prevent — and a wrong memory is worse than a missing one.</para>
+/// <para>INTERNAL: consumers reach these through <c>AddMemoryTools</c> and never construct one, so this
+/// type is an implementation detail rather than surface. It is exposed to the tests via
+/// <c>InternalsVisibleTo</c>.</para></summary>
+internal static class MemoryTools
 {
     /// <summary>Separates the engine from the id in a reference the model echoes back. Engine names are
     /// caller-chosen and may contain <c>/</c>; ids are numeric or hex, so parsing on the LAST occurrence is

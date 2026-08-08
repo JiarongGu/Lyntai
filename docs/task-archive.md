@@ -3158,6 +3158,43 @@ OPEN in `TASKS.md`._
 
 ---
 
+## Part 49 — MEM2c: the agent-facing half of graph memory (2026-08-08)
+
+_**MEM-TUNE** remains OPEN in `TASKS.md` — it is the only piece of the memory work left._
+
+- [x] **MEM2c — per-engine agent tools, and similarity enrichment.**
+
+  **Outcome (2026-08-08):** `verify` green on all seven gates. 13 new tests. The tools are ordinary
+  `ITool`s, so they reach the tool loop and the MCP bridge with no extra wiring.
+
+  _Four things worth keeping:_
+  1. **`MemoryToolScope` exists because a singleton tool cannot bind a per-conversation task.**
+     Registration binds a default; `Use(taskKey)` overrides it for the current async flow, backed by
+     `AsyncLocal` so concurrent turns cannot read each other's scope. The alternative was "write your own
+     `ITool`", which is the responsibility-shifting this design has avoided throughout.
+  2. **`content` is always present in the tool's JSON, null when withheld.** Omitting the key would be
+     cheaper and silent; the explicit null is what tells the model there is more text to fetch, which is
+     the affordance that makes it call expand at all.
+  3. **`MemorySources.Similarity` reports CONFIGURATION, not contribution** — unlike every sibling flag,
+     and the enum now says so. Enrichment is a write-side tier: by the time a recall traverses them, its
+     edges are indistinguishable from co-activation's. What the flag still buys is the distinction the enum
+     exists for — "nothing similar was found" versus "similarity is not configured here".
+  4. **`MinSimilarity` has a floor for a reason.** Without one a new entry links to its `SimilarityK`
+     nearest neighbours however unrelated they are, which in a young graph means linking to nearly
+     everything. Pinned by a test that raises the floor and asserts an unrelated entry stays unlinked.
+
+  _Enrichment is best-effort by design (`model-decoupling`: a failure in the model half must not fail the
+  whole). A broken embedding endpoint costs an entry some links, never the entry — pinned by a throwing
+  embedder._
+
+  _**A process slip, recorded rather than hidden:** the tools were committed after their own tests and
+  `check-warnings` but BEFORE the API-surface gate, so that intermediate commit was not `verify`-green. It
+  was caught and fixed in the next commit — which also found that `MemoryTools` was rendering as a public
+  type with zero public members. Made internal (tests reach it via the existing `InternalsVisibleTo`),
+  which is exactly the "make it internal before the release, not after" rule in `library-api-design`._
+
+---
+
 ## Notes for the implementer
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. The acceptance

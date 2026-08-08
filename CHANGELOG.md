@@ -72,7 +72,18 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   substring recall works, which a word-boundary tokenizer would silently return nothing for); Postgres uses
   a `pg_trgm` GIN index. Neither evaluates the decay curve: candidates are bounded by plain division
   against the cutoff the policy supplies, which is what keeps a caller-supplied curve possible and avoids
-  depending on SQLite's optional `pow`. Connectedness may only ever *raise* retrievability, and `MaxConnectionBoost` bounds how far —
+  depending on SQLite's optional `pow`.
+- **Graph memory is available to the model**, not just to the prompt composer —
+  `AddMemoryTools(engine, taskKey)` registers `{engine}_recall` and `{engine}_expand` as ordinary tools, so
+  they reach the tool loop and the MCP bridge alike. Recall returns headlines and a `ref`; expand takes
+  that ref and returns the full text plus what the item is linked to. Names are prefixed per engine rather
+  than one multiplexed tool taking an engine argument, because the multiplexed form lets a model consult
+  the *wrong* memory. `MemoryToolScope.Use(taskKey)` overrides the registered default for the current async
+  flow, which a chat application needs since its task is per-conversation.
+- **Similarity enrichment** — when an `IEmbedder` and an `IVectorStore` are registered, a new graph entry is
+  also linked to its nearest existing neighbours (`GraphMemoryOptions.SimilarityK`, `MinSimilarity`). Pure
+  enrichment on top of the model-free floor: without it the graph still forms from co-activation and
+  explicit links, and a failing embedder costs an entry some links, never the entry itself. Connectedness may only ever *raise* retrievability, and `MaxConnectionBoost` bounds how far —
   which is load-bearing rather than cosmetic, since `CandidateCutoff` widens by exactly that factor and an
   unbounded boost would leave well-connected entries outside any finite cutoff, silently losing the very
   memories connectedness was meant to protect.

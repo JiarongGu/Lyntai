@@ -86,9 +86,15 @@ public enum MemorySources
     /// <summary>A graph member produced hits.</summary>
     Graph = 8,
 
-    /// <summary>Similarity-derived edge enrichment ran — deliberately distinct from
-    /// <see cref="Semantic"/>, which means a semantic-memory MEMBER produced hits. Both need an embedder
-    /// and they fail independently, so one flag could not report both honestly.</summary>
+    /// <summary>Similarity-derived edge enrichment is WIRED for this engine.
+    /// <para>Deliberately distinct from <see cref="Semantic"/>, which means a semantic-memory MEMBER
+    /// produced hits: both need an embedder and they fail independently, so one flag could not report both
+    /// honestly.</para>
+    /// <para><b>This flag reports CONFIGURATION, not contribution</b> — unlike its siblings, and said
+    /// plainly because the difference matters. Enrichment is a WRITE-side tier: it creates edges, which by
+    /// the time a recall traverses them are indistinguishable from the ones co-activation wrote. What its
+    /// presence buys is the distinction the whole enum exists for — a caller seeing no linked material can
+    /// tell "nothing similar was ever found" from "similarity is not configured here".</para></summary>
     Similarity = 16,
 }
 

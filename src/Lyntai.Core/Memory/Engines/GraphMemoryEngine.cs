@@ -1,4 +1,5 @@
 using System.Globalization;
+using Lyntai.Embeddings;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -19,15 +20,22 @@ namespace Lyntai.Memory.Engines;
 /// <see cref="GraphMemoryOptions.Decay"/>.</param>
 /// <param name="clock">Injected time — a decay model tested against the wall clock cannot be tested.</param>
 /// <param name="logger">Optional; reinforcement and recall failures are logged rather than thrown.</param>
+/// <param name="embedder">Optional. With an <paramref name="vectors"/> store, enables similarity
+/// enrichment — a new entry is linked to its nearest existing neighbours. Pure enrichment on top of the
+/// model-free floor: without it the graph still forms from co-activation and explicit links.</param>
+/// <param name="vectors">Optional; see <paramref name="embedder"/>.</param>
 public sealed class GraphMemoryEngine(
     string name,
     IMemoryGraphStore store,
     GraphMemoryOptions? options = null,
     IRetrievabilityPolicy? policy = null,
     Func<DateTimeOffset>? clock = null,
-    ILogger<GraphMemoryEngine>? logger = null)
+    ILogger<GraphMemoryEngine>? logger = null,
+    Lyntai.Embeddings.IEmbedder? embedder = null,
+    IVectorStore? vectors = null)
     : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory
 {
+    private bool Enriches => embedder is not null && vectors is not null;
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IRetrievabilityPolicy _policy =
         policy ?? new HalfLifeRetrievability((options ?? new GraphMemoryOptions()).Decay);
@@ -58,7 +66,47 @@ public sealed class GraphMemoryEngine(
                 _policy.InitialStability, write.Metadata),
             _clock(), ct).ConfigureAwait(false);
 
+        await EnrichAsync(id, write, ct).ConfigureAwait(false);
         return new MemoryRef(Name, id.ToString(CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>Link a newly stored entry to its nearest existing neighbours, when an embedder and a vector
+    /// store are wired.
+    /// <para>BEST-EFFORT, deliberately: enrichment sits on top of a model-free floor, so a failing embedder
+    /// must not fail the write. The entry is already stored by the time this runs — it simply has fewer
+    /// connections than it might have had. Making the whole remember depend on an embedding endpoint would
+    /// turn an optional improvement into a liability.</para></summary>
+    private async Task EnrichAsync(long id, MemoryWrite write, CancellationToken ct)
+    {
+        if (!Enriches || _options.SimilarityK <= 0) return;
+
+        var collection = $"{Name}|{write.TaskKey}|{write.Scope}";
+        try
+        {
+            var vector = await embedder!.EmbedAsync(write.Content, ct).ConfigureAwait(false);
+            // +1 because a re-remembered entry is already in the collection and would occupy a slot
+            var near = await vectors!
+                .SearchAsync(collection, vector, _options.SimilarityK + 1, ct).ConfigureAwait(false);
+
+            foreach (var match in near)
+            {
+                if (match.Score < _options.MinSimilarity) continue;
+                if (!long.TryParse(match.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var other)
+                    || other == id) continue;
+                await store.LinkAsync(id, other, "similar", 1, symmetric: true, _clock(), ct)
+                    .ConfigureAwait(false);
+            }
+
+            await vectors
+                .UpsertAsync(collection, id.ToString(CultureInfo.InvariantCulture), vector, write.Content, ct)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "similarity enrichment failed for {Engine}; the entry is stored with fewer links", Name);
+        }
     }
 
     /// <inheritdoc />
@@ -111,7 +159,7 @@ public sealed class GraphMemoryEngine(
                 x.Node.Grade, x.Node.Relevance, x.Retrievability, x.Node.Degree))
             .ToList();
 
-        return new MemoryRecall(items, MemorySources.Graph);
+        return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
     }
 
     /// <inheritdoc />
@@ -147,7 +195,7 @@ public sealed class GraphMemoryEngine(
                 n.Headline, n.Grade == MemoryGrade.Authoritative ? n.Content : null,
                 n.Grade, n.Relevance, Retrievability(n, now), n.Degree)));
 
-        return new MemoryRecall(items, MemorySources.Graph);
+        return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
     }
 
     /// <inheritdoc />

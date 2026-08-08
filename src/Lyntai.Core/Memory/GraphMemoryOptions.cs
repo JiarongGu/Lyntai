@@ -33,6 +33,16 @@ public sealed record GraphMemoryOptions
     /// <summary>Items returned when the query names no limit.</summary>
     public int DefaultLimit { get; init; } = 10;
 
+    /// <summary>How many near neighbours a new entry is linked to when similarity enrichment is wired (an
+    /// <see cref="Lyntai.Embeddings.IEmbedder"/> and an <see cref="IVectorStore"/> are registered).
+    /// <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    public int SimilarityK { get; init; } = 5;
+
+    /// <summary>Cosine similarity below which enrichment does not link. Without a floor a new entry links
+    /// to its <see cref="SimilarityK"/> nearest neighbours however unrelated they are, which in a small or
+    /// young graph means linking to nearly everything. <b>Unmeasured</b> — see the MEM-TUNE task.</summary>
+    public double MinSimilarity { get; init; } = 0.6;
+
     /// <summary>Constants of the default decay curve. Ignored when a custom
     /// <see cref="IRetrievabilityPolicy"/> is supplied.</summary>
     public HalfLifeOptions Decay { get; init; } = new();
