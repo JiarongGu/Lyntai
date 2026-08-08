@@ -125,6 +125,43 @@ internal sealed class ExpandableEngine(string name) : IMemoryEngine, IExpandable
     }
 }
 
+/// <summary>A graph store that refuses to LEARN but still remembers — for the read-only-database case,
+/// where recall must degrade to "no learning" rather than to "no memory".</summary>
+internal sealed class TouchHostileGraphStore : IMemoryGraphStore
+{
+    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
+
+    public Task<long> UpsertAsync(GraphNodeWrite write, DateTimeOffset now, CancellationToken ct = default) =>
+        _inner.UpsertAsync(write, now, ct);
+
+    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+        string? query, double? maxAgeOverStability, int limit, DateTimeOffset now,
+        CancellationToken ct = default) =>
+        _inner.SeedAsync(engine, taskKey, scope, query, maxAgeOverStability, limit, now, ct);
+
+    public Task<IReadOnlyList<GraphNode>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
+        int limit, DateTimeOffset now, CancellationToken ct = default) =>
+        _inner.NeighboursAsync(engine, ids, limit, now, ct);
+
+    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
+        _inner.GetAsync(engine, id, ct);
+
+    public Task TouchAsync(IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) =>
+        throw new InvalidOperationException("attempt to write to a read-only database");
+
+    public Task LinkAsync(long from, long to, string? kind, double weight, bool symmetric,
+        DateTimeOffset now, CancellationToken ct = default) =>
+        throw new InvalidOperationException("attempt to write to a read-only database");
+
+    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
+        double? maxAgeOverStability, TimeSpan? olderThan, DateTimeOffset now,
+        CancellationToken ct = default) =>
+        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, now, ct);
+
+    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
+        _inner.ForgetAsync(engine, taskKey, scope, ct);
+}
+
 /// <summary>In-process <see cref="ISemanticMemory"/> whose "similarity" is substring containment, so a
 /// test needs no embedder and spends no tokens.</summary>
 internal sealed class FakeSemanticMemory : ISemanticMemory
