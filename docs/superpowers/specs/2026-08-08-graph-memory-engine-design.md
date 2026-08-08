@@ -50,17 +50,22 @@ the composer is the one that works with every provider, including those with no 
 
 ## 3. Retrievability — how forgetting works
 
-Stored per node: `created_at`, `last_recalled_at`, `recall_count`, `stability`.
+Stored per node: `created_at`, `last_recalled_position`, `recall_count`, `stability`; and per engine, the
+monotone `position` itself (§3.-1).
 
 ```
-r = 2 ^ ( -age_since_recall / stability )        1.0 when fresh -> 0 when stale
+age  = position - last_recalled_position          how much has happened since it was used
+r    = 2 ^ ( -age / stability )                   1.0 when fresh -> 0 when stale
 rank = relevance * r * 0.5^hop_distance
 ```
 
 On a **successful recall** — meaning the node was actually returned, not merely traversed — one batched
-statement bumps `last_recalled_at` to now, increments `recall_count`, and multiplies `stability` by
-`(1 + Reinforce)`. The half-life grows with use, so repeated context becomes durable and one-off noise
-fades. This is the whole of the forgetting mechanism; there is no sweeper and no background job.
+statement stamps `last_recalled_position` with wherever the engine currently stands, increments
+`recall_count`, and multiplies `stability` by `(1 + Reinforce)`. The half-life grows with use, so repeated
+context becomes durable and one-off noise fades. This is the whole of the forgetting mechanism; there is no
+sweeper and no background job.
+
+A recall does **not** advance the position — only writes do — so reading never ages anything.
 
 **Decay never deletes.** It only ranks. Deletion stays explicit and opt-in through
 `IForgettableMemory.PruneAsync(minRetrievability:)`, exactly as `IMemoryStore.PruneAsync` is explicit
@@ -192,51 +197,62 @@ Exposing `Reinforce` and `InitialStability` as loose doubles would settle the *n
 curve is a seam with a registered default, and the default's constants are an options record:
 
 ```csharp
+/// A policy never sees a clock: age is a dimensionless quantity §3.-1's IMemoryClock defines, and
+/// stability is in the same units.
 public readonly record struct MemoryDecayState(
-    DateTimeOffset CreatedAt, DateTimeOffset LastRecalledAt, int RecallCount, double Stability);
+    double Age, int RecallCount, double Stability, double Strength = 0, double StrengthAge = 0);
 
 /// <summary>The model of forgetting. Swappable; the default is registered for you, so nothing has to be
 /// implemented to use graph memory.</summary>
 public interface IRetrievabilityPolicy
 {
-    /// <summary>Retrievability in [0,1] for a node's state at <paramref name="now"/>.</summary>
-    double Retrievability(in MemoryDecayState state, DateTimeOffset now);
+    /// <summary>Retrievability in [0,1]. Must be 1 at zero age and never increase with age.</summary>
+    double Retrievability(in MemoryDecayState state);
 
-    /// <summary>The node's new stability after a successful recall.</summary>
-    double Reinforce(in MemoryDecayState state, DateTimeOffset now);
+    /// <summary>The entry's new stability after a successful recall.</summary>
+    double Reinforce(in MemoryDecayState state);
 
-    /// <summary>Stability for a brand-new node, in days.</summary>
+    /// <summary>Stability for a brand-new entry, in the engine's units.</summary>
     double InitialStability { get; }
 
-    /// <summary>A CONSERVATIVE bound on <c>age_days / stability</c> for a given minimum retrievability:
-    /// no node whose true retrievability is >= <paramref name="minRetrievability"/> may exceed it. The
+    /// <summary>A CONSERVATIVE bound on <c>age / stability</c> for a given minimum retrievability: no
+    /// entry whose true retrievability is >= <paramref name="minRetrievability"/> may exceed it. The
     /// store uses it to bound the candidate set in SQL WITHOUT encoding the curve (§3.2). A policy that
     /// cannot bound its curve returns <see cref="double.PositiveInfinity"/> — correct, at the cost of an
     /// in-scope scan.</summary>
     double CandidateCutoff(double minRetrievability);
 }
 
+/// None of these carries a unit in its TYPE, deliberately: a TimeSpan would assert wall-clock, which is
+/// one of several things an engine's IMemoryClock might be counting.
 public sealed record HalfLifeOptions
 {
-    public TimeSpan InitialStability { get; init; } = TimeSpan.FromDays(7);
-    public double   ReinforceFactor  { get; init; } = 0.5;
-    public TimeSpan MaxStability     { get; init; } = TimeSpan.FromDays(365);
+    public double InitialStability   { get; init; } = 20;
+    public double ReinforceFactor    { get; init; } = 0.5;
+    public double MaxStability       { get; init; } = 2000;
+    public double ConnectionBoost    { get; init; } = 0.5;   // §3.0
+    public double MaxConnectionBoost { get; init; } = 4;     // §3.0
+    public double EdgeHalfLife       { get; init; } = 100;   // §3.0
 }
 ```
 
 `HalfLifeRetrievability` is the default implementation and is registered automatically. An application
-tunes the numbers with `UseGraph(g => g.Decay = new HalfLifeOptions { ReinforceFactor = 0.3 })`, or
-replaces the curve entirely by registering its own `IRetrievabilityPolicy`.
+tunes the numbers with `UseGraph(new GraphMemoryOptions { Decay = new HalfLifeOptions { … } })` — **by
+value, not through a configure callback**, because the record is init-only and a callback could not mutate
+it — or replaces the curve entirely by registering its own `IRetrievabilityPolicy`.
 
 **`MaxStability` is not a rounding-out knob — it closes a real defect.** Unbounded
-`stability *= 1 + Reinforce` compounds: at the default factor, roughly twenty recalls turn a seven-day
-half-life into sixty-four years. A frequently-recalled associative node would therefore become
+`stability *= 1 + Reinforce` compounds: at the default factor, roughly twenty recalls turn a twenty-event
+half-life into a hundred-thousand-event one. A frequently-recalled associative entry would therefore become
 *permanently* retrievable while still being labelled associative — silently acquiring the durability of
 authoritative material without any of its guarantees, which is exactly the grade confusion §4 of Spec A
-exists to prevent. The cap bounds the ceiling at a year by default, so "very durable" never becomes
-"never forgotten".
+exists to prevent.
 
 ### 3.2 The `pow` trap, and why the SQL has no exponent in it
+
+_Since §3.-1, age is also not a duration — no date arithmetic appears in any query either, which removed a
+second hazard: `julianday` returning NULL on a timestamp format it could not parse would have silently
+excluded every row._
 
 The obvious implementation ranks with `POWER(2, -age/stability)` in SQL. SQLite only has `pow` when built
 with `SQLITE_ENABLE_MATH_FUNCTIONS`, so that is a bet on the shipped native bundle — the kind of
@@ -246,14 +262,14 @@ It is also unnecessary — and once the curve became a seam (§3.1), it became *
 expression can encode a policy the application supplies. The database therefore never evaluates the
 curve at all. It **bounds a candidate set**; the policy ranks it.
 
-- **The candidate filter** is `age_days / stability <= @cut`, where `@cut` is
-  `policy.CandidateCutoff(minRetrievability)` — `-log2(minR)` for the default half-life curve, computed
-  in application code and passed as a parameter. The contract is that the bound is a **conservative
-  superset**: it may admit nodes the policy will later reject, and must never exclude one the policy
-  would have kept.
-- **Ordering** inside the candidate set is `age_days / stability` ascending, which is a correct
-  pre-sort for any curve decreasing in that ratio. It exists to make the candidate cap meaningful, not
-  to be the final order.
+- **The candidate filter** is `(@position - last_recalled_position) / stability <= @cut`, where `@cut` is
+  `policy.CandidateCutoff(minRetrievability)` — `-log2(minR) × MaxConnectionBoost` for the default curve
+  (§3.0), computed in application code and passed as a parameter. The contract is that the bound is a
+  **conservative superset**: it may admit entries the policy will later reject, and must never exclude one
+  the policy would have kept.
+- **Ordering** inside the candidate set is by `last_recalled_position` descending — most recently used
+  first — which is a correct pre-sort for any curve decreasing in age. It exists to make the candidate cap
+  meaningful, not to be the final order.
 - **Exact retrievability and final ranking** are computed in application code by the policy, over a
   candidate set capped at a bounded multiple of the requested limit.
 
@@ -350,16 +366,20 @@ lyntai_memory_node                       lyntai_memory_edge
   engine           TEXT                    to_id     FK -> node ON DELETE CASCADE
   task_key         TEXT                    kind      TEXT   -- '' = untyped
   scope            TEXT                    weight    REAL
-  headline         TEXT                    updated_at
+  headline         TEXT                    strengthened_position
   content          TEXT                    PRIMARY KEY (from_id, to_id, kind)
   content_hash     TEXT   -- dedup
   grade            INTEGER -- MemoryGrade: 1 = associative, 2 = authoritative
   metadata_json    TEXT NULL
-  created_at
-  last_recalled_at
+  created_at              -- wall clock, for PruneAsync(olderThan:) and auditing ONLY
+  last_recalled_position
   recall_count     INTEGER
-  stability        REAL   -- half-life in days
+  stability        REAL   -- half-life, in the engine's own units (§3.-1)
   UNIQUE (engine, task_key, scope, content_hash)
+
+lyntai_memory_position
+  engine   TEXT PK        -- the monotone position, advanced by each write. Its own table rather than
+  position REAL           -- MAX(last_recalled_position), which a delete of the newest entry would rewind.
 ```
 
 The composite primary key and both foreign keys are declared **inline at `Create.Table`** — SQLite has no

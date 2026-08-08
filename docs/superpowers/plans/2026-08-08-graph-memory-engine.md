@@ -1,5 +1,11 @@
 # Graph memory engine, part A (MEM2a) — Implementation Plan
 
+> **Status: EXECUTED 2026-08-08, and its code samples are SUPERSEDED.** Outcome in
+> `docs/task-archive.md` **Part 47**. Everything here measures decay in wall-clock DAYS — `DateTimeOffset`
+> parameters, `TimeSpan` constants, `age_days / stability`. **Part 50 replaced that dimension entirely**
+> with a logical position advanced by writes (spec §3.-1), so the snippets below will not compile against
+> the shipped code and must not be copied. Kept as the record of what was planned.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for
 > tracking.

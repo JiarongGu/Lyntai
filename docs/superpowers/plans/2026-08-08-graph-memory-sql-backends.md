@@ -1,5 +1,11 @@
 # Graph memory, part B (MEM2b) — SQL backends Implementation Plan
 
+> **Status: EXECUTED 2026-08-08, and its SQL is SUPERSEDED.** Outcome and the three findings in
+> `docs/task-archive.md` **Part 48**. The date arithmetic shown here (`julianday`,
+> `EXTRACT(EPOCH …)`) was removed by **Part 50**, which made age a subtraction on a logical position; the
+> schema also gained `lyntai_memory_position`. Kept as the record of what was planned — read the shipped
+> migrations for the current schema.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
 

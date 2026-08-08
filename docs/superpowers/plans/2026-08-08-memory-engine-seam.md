@@ -1,5 +1,9 @@
 # Memory engine seam (MEM1) — Implementation Plan
 
+> **Status: EXECUTED 2026-08-08.** Outcome and the four places the code disagreed with it are recorded in
+> `docs/task-archive.md` **Part 46**. A point-in-time record, not maintained state — read the shipped code
+> and `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md` for what is true now.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for
 > tracking.
