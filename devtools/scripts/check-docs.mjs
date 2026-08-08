@@ -44,7 +44,8 @@ function checkDocs(repo, config, log = console.log) {
   const tracked = execFileSync('git', ['ls-files'], { cwd: repo, encoding: 'utf8' })
     .split('\n')
     .map((f) => f.trim())
-    .filter((f) => f.endsWith('.md'))
+    // .html too: the published design record is a tracked page, and an untracked one drifted three times
+    .filter((f) => f.endsWith('.md') || f.endsWith('.html'))
     .filter(IN_SCOPE)
     .filter((f) => !HISTORICAL.some((re) => re.test(f)));
 
