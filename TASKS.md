@@ -169,6 +169,64 @@ in-band failure), fixed and recorded in `docs/FIXES.md`._
 
 ---
 
+## Part 46 — memory: a named engine seam, then a graph engine that forgets (2026-08-08)
+
+_Design agreed 2026-08-08, nothing implemented. Two specs, written together so the seam is shaped by a real
+second implementation rather than only by wrappers over what exists:
+`docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md` (Spec A) and
+`docs/superpowers/specs/2026-08-08-graph-memory-engine-design.md` (Spec B). **A lands first** — building the
+graph engine without the seam means wiring it bespoke and reworking it afterwards. Both are additive: no
+released signature or semantic changes, so this is minor-bump work, not D24 material._
+
+_The motivating gap: all three existing memory systems (`IMemoryStore`, `ISemanticMemory`,
+`ICuratedMemoryStore`) are single unnamed singletons, so an application wanting a chat memory AND a project
+memory has to wrap all of it — the same wrapper in every consumer, none able to share it. And
+`MemoryPromptComposer` fills a flat character budget in rank order, so loosely-relevant recall can push a hard
+constraint out of the prompt with nothing reporting it._
+
+- [ ] **MEM1 — the memory engine seam (Spec A).** `IMemoryEngine` + `MemoryRef`/`MemoryWrite`/`MemoryQuery`/
+  `MemoryItem`/`MemoryRecall`, the optional capabilities (`IExpandableMemory`, `ILinkableMemory`,
+  `IForgettableMemory`), `IMemoryEngineFactory` (named lookup, `IHttpClientFactory`-shaped but returning the
+  same singleton — hence `Get`, not `Create`), `CompositeMemoryEngine`, wrappers over the three existing
+  stores, the fluent builder and the zero-config `AddMemory()`. New surface in `Lyntai.Memory` inside
+  `Lyntai.Core`; **no new package**, so no registry dance — but the `ApiSurface` baseline moves and must be
+  regenerated deliberately.
+
+  **The two guards that matter, both from measured history:** the composite must forward optional
+  capabilities by routing on `MemoryRef.Engine` (decorating a generation provider erased them once, and every
+  video render stopped routing while every image render kept working — `.claude/knowledge/pitfalls.md`), and
+  `AddMemoryEngine` must not `TryAdd` anything `AddLyntai` registers later (the `DeadHostTracker` shadowing
+  bug that 1427 tests missed).
+
+- [ ] **MEM2 — the graph memory engine (Spec B).** `IMemoryGraphStore` in Core; implementations in the three
+  EXISTING storage adapters (no new package). Two tables + one FluentMigrator migration
+  (`dev.mjs new-migration`, **both** tags), trigram FTS over headline+content with all three triggers and a
+  same-migration backfill, `CAST(x AS REAL)` on `stability`/`weight`, settable-property row types. Then the
+  composer, the per-engine agent tools, and similarity edges as opt-in enrichment.
+
+  **Two defects designed out before they could ship, worth keeping across a re-read:** (1) the database never
+  evaluates the decay curve — `POWER(2, …)` needs `SQLITE_ENABLE_MATH_FUNCTIONS`, and a pluggable curve
+  cannot be an SQL expression anyway, so SQL bounds a candidate set via
+  `IRetrievabilityPolicy.CandidateCutoff` (a CONSERVATIVE superset) and the policy ranks in app code;
+  (2) `stability *= 1 + Reinforce` is unbounded, and ~20 recalls turn a 7-day half-life into 64 years — a hot
+  ASSOCIATIVE node silently acquiring authoritative durability without its guarantees. `MaxStability` caps it.
+
+- [ ] **MEM-TUNE — measure the decay defaults, don't ship them as if tuned.** Five constants are guesses
+  (`HeadlineChars`, `ReinforceFactor`, initial `stability`, `MinRetrievability`, `MaxStability`,
+  `SimilarityK`) and are marked unmeasured in the XML docs. Close it with `MemoryDecaySimulation`: a corpus
+  with a KNOWN reuse/noise split, driven over simulated weeks against an injected clock, asserting ≥90% of the
+  reused set still above `MinRetrievability` at week 8, ≤10% of the noise, full rank separation, and all of it
+  still true at week 16 so the numbers aren't fitted to one point. The constants become whatever satisfies
+  those assertions and the test then guards them.
+
+  _**Be precise about what that closes.** A synthetic corpus measures the DYNAMICS and runs in CI, which a
+  production corpus cannot; it does NOT establish that real usage has the reuse-to-noise ratio it assumes. So
+  it moves the constants from "guess" to "measured against a stated model", and the XML docs must say that
+  rather than dropping the caveat. Replacing the model with a real corpus later is a strict improvement, not a
+  prerequisite — the same shape as GEN-VERIFY._
+
+---
+
 ## How to work a task (evergreen)
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. Read
