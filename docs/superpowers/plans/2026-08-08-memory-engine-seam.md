@@ -33,7 +33,7 @@ MEM1. Spec B (MEM2, the graph engine) builds on this and is a separate plan.
   (`.claude/rules/repo-mechanics.md` §Naming). Use `*Options` / `*Request` / `*Result` / `*Entry` / `*Row`.
 - **Write files with the Write/Edit tools.** This machine's console is GBK; echoing UTF-8 through it
   corrupts non-ASCII irreversibly.
-- **Running tests:** `node devtools/dev.mjs test --filter "~Memory"`. Two traps, both measured: a filter
+- **Running tests:** `node devtools/dev.mjs test --filter "FullyQualifiedName~Memory"`. Two traps, both measured: a filter
   matching zero tests **passes vacuously**, and `dev.mjs test -- --filter X` (with the `--`) silently runs
   the whole suite instead. **Always read the matched/total count.**
 - **Commit per task. Never commit without the user's approval** (`CLAUDE.md`). Each task's final step
@@ -208,7 +208,7 @@ public class LexicalMemoryEngineTests
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `node devtools/dev.mjs test --filter "~LexicalMemoryEngine"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~LexicalMemoryEngine"`
 Expected: **compile failure** — `IMemoryEngine`, `MemoryWrite`, `MemoryQuery`, `MemorySources`,
 `MemoryGrades`, `LexicalMemoryEngine` do not exist. A compile failure is the correct "red" here; do not
 proceed until you have seen it.
@@ -507,7 +507,7 @@ public sealed class LexicalMemoryEngine(
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `node devtools/dev.mjs test --filter "~LexicalMemoryEngine"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~LexicalMemoryEngine"`
 Expected: PASS, 5 matched. **Read the matched count** — a filter matching zero passes vacuously.
 
 - [ ] **Step 6: Build clean**
@@ -667,7 +667,7 @@ and `FakeCuratedStore` beside it with the same in-list substring behaviour.
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `node devtools/dev.mjs test --filter "~EngineContract"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~EngineContract"`
 Expected: compile failure — `SemanticMemoryEngine` and `CuratedMemoryEngine` do not exist.
 
 - [ ] **Step 3: Write the semantic engine**
@@ -818,7 +818,7 @@ public sealed class CuratedMemoryEngine(
 
 - [ ] **Step 5: Run to verify they pass**
 
-Run: `node devtools/dev.mjs test --filter "~EngineContract"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~EngineContract"`
 Expected: PASS, 24 matched (3 engines × 8 facts). Read the count.
 
 - [ ] **Step 6: Prepare the commit (ask first)**
@@ -944,7 +944,7 @@ honour it, exactly as `MemoryPromptComposer` already defends against).
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `node devtools/dev.mjs test --filter "~MemoryComposition"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~MemoryComposition"`
 Expected: compile failure — `ComposeAsync` and `MemoryCompositionOptions` do not exist.
 
 - [ ] **Step 3: Write the composition**
@@ -1040,7 +1040,7 @@ it, and for the authoritative pass every skipped item has to be counted so the o
 
 - [ ] **Step 4: Run to verify they pass**
 
-Run: `node devtools/dev.mjs test --filter "~MemoryComposition"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~MemoryComposition"`
 Expected: PASS, 6 matched.
 
 - [ ] **Step 5: Prepare the commit (ask first)**
@@ -1205,7 +1205,7 @@ Add `RecordingEngine` (records writes, no capabilities) and `ExpandableEngine` (
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `node devtools/dev.mjs test --filter "~CompositeMemoryEngine"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~CompositeMemoryEngine"`
 Expected: compile failure — `CompositeMemoryEngine` does not exist.
 
 - [ ] **Step 3: Write the composite**
@@ -1345,7 +1345,7 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
 
 - [ ] **Step 4: Run to verify they pass**
 
-Run: `node devtools/dev.mjs test --filter "~CompositeMemoryEngine"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~CompositeMemoryEngine"`
 Expected: PASS, 10 matched.
 
 - [ ] **Step 5: Run the engine contract against the composite too**
@@ -1365,7 +1365,7 @@ public class CompositeEngineContractTests
 }
 ```
 
-Run: `node devtools/dev.mjs test --filter "~EngineContract"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~EngineContract"`
 Expected: PASS, 32 matched (4 engines × 8).
 
 - [ ] **Step 6: Prepare the commit (ask first)**
@@ -1512,7 +1512,7 @@ public class MemoryEngineRegistrationTests
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `node devtools/dev.mjs test --filter "~MemoryEngineRegistration"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~MemoryEngineRegistration"`
 Expected: compile failure — `IMemoryEngineFactory`, `AddMemory`, `AddMemoryEngine`, `UseMemoryComposer`,
 `MemoryEngineBuilder` do not exist.
 
@@ -1805,7 +1805,7 @@ in `UseMemoryComposer` is deliberately **not** `TryAdd`: `RegisterCortex` alread
 
 - [ ] **Step 6: Run to verify they pass**
 
-Run: `node devtools/dev.mjs test --filter "~MemoryEngineRegistration"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~MemoryEngineRegistration"`
 Expected: PASS, 9 matched.
 
 - [ ] **Step 7: Prepare the commit (ask first)**
@@ -1828,7 +1828,7 @@ git commit -m "feat(memory): resolve named engines through a factory, with a one
 
 - [ ] **Step 1: Regenerate the API surface baseline**
 
-Run: `node devtools/dev.mjs test --filter "~ApiSurface"`
+Run: `node devtools/dev.mjs test --filter "FullyQualifiedName~ApiSurface"`
 Expected: **FAIL** on `Lyntai.Core` — the surface grew. Then copy the emitted `.actual` file over the
 baseline:
 
