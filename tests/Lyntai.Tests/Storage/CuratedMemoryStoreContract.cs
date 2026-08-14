@@ -386,6 +386,44 @@ public static class CuratedMemoryStoreContract
         Assert.Empty(await store.SearchAsync("zzz-not-there", taskKey: task));
     }
 
+    /// <summary><b>A multi-word query matches an entry carrying ANY of its terms, on every backend.</b>
+    /// <para>The fact above deliberately sticks to single tokens because that WAS the portable guarantee —
+    /// only SQLite's FTS path split a query, and Postgres and InMemory matched the whole thing as one
+    /// contiguous substring. As of 3.0 every backend uses the same split
+    /// (<see cref="Lyntai.Storage.SearchTerms"/>, <c>docs/DECISIONS.md</c> D55), so multi-word matching is
+    /// portable and belongs in the contract rather than in a per-backend test.</para>
+    /// <para>Both halves matter: the query must find an entry sharing ONE term, and must still miss an entry
+    /// sharing none — a split that matched everything would satisfy the first alone.</para></summary>
+    public static async Task Search_matches_any_term_of_a_multi_word_query(
+        ICuratedMemoryStore store, string task = "search-multi")
+    {
+        var shared = await store.AddAsync("glossary", "rotate the encryption schedule quarterly", taskKey: task);
+        await store.AddAsync("glossary", "an unrelated note about parsing", taskKey: task);
+
+        // no entry contains this phrase; one shares exactly one term with it
+        var hits = (await store.SearchAsync("encryption cadence", taskKey: task)).Select(e => e.Id).ToList();
+        Assert.Equal([shared], hits);
+
+        // …and a query sharing no term still finds nothing
+        Assert.Empty(await store.SearchAsync("zzz nothing", taskKey: task));
+    }
+
+    /// <summary><b>The same guarantee in a script that writes no spaces.</b> Whitespace splitting returns a
+    /// Chinese sentence as ONE token, so before 3.0 a CJK query here could only be an exact-substring match
+    /// while the equivalent English query got OR-over-words — the language decided the semantics.
+    /// <see cref="Lyntai.Storage.SearchTerms"/> expands a spaceless run into character trigrams, the unit
+    /// both relational backends already index.</summary>
+    public static async Task Search_matches_a_chinese_query_without_spaces(
+        ICuratedMemoryStore store, string task = "search-zh")
+    {
+        var spouse = await store.AddAsync("glossary", "用户的配偶是爱丽丝", taskKey: task);
+        await store.AddAsync("glossary", "回滚必须通知值班人员", taskKey: task);
+
+        // neither string contains the other; they overlap only on the name
+        var hits = (await store.SearchAsync("爱丽丝是谁", taskKey: task)).Select(e => e.Id).ToList();
+        Assert.Equal([spouse], hits);
+    }
+
     /// <summary>CMEM4 — the CJK-substring recall the per-backend index machinery exists for: a ≥3-char
     /// token contained as a substring hits on every backend, and a 2-char CJK token still hits via each
     /// backend's substring fallback (a trigram index can't serve it; LIKE/ILIKE/Contains can).</summary>

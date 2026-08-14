@@ -158,6 +158,49 @@ public static class LyntaiServiceCollectionExtensions
             return new RefusalScreeningLlmClient(client, sp.GetServices<IRefusalMatcher>(),
                 sp.GetService<ILogger<RefusalScreeningLlmClient>>());
         });
+
+        // Named clients (AddLlmClient) — the chat counterpart of the memory engine registry. Each is the
+        // SAME composition as the default client over a narrower provider set: base client, the same
+        // front-door decorators in the same order, the same outermost refusal screening. Sharing the fold
+        // rather than re-deriving it is what keeps a name from silently meaning "fewer rules"; see
+        // ILlmClientFactory on why a name selects backends and never permissions.
+        services.TryAddSingleton<ILlmClientFactory>(sp =>
+        {
+            var named = builder.NamedLlmClients.ToDictionary(
+                entry => entry.Key,
+                entry => Compose(sp, ProvidersFor(sp, entry.Key, entry.Value)),
+                StringComparer.Ordinal);
+            return new LlmClientFactory(named, sp.GetRequiredService<ILlmClient>());
+        });
+
+        ILlmClient Compose(IServiceProvider sp, IReadOnlyList<ILlmProvider> providers)
+        {
+            ILlmClient client = new LlmClient(
+                sp.GetRequiredService<ILlmRouterFactory>().For(providers), options);
+            foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
+                client = decorate(sp, client);
+            return new RefusalScreeningLlmClient(client, sp.GetServices<IRefusalMatcher>(),
+                sp.GetService<ILogger<RefusalScreeningLlmClient>>());
+        }
+
+        // An id naming no registered provider THROWS rather than narrowing to whatever does exist: a
+        // subsystem pointed at a backend this host never registered must fail loudly, because degrading to
+        // the app's default is the outcome naming a client exists to prevent.
+        static IReadOnlyList<ILlmProvider> ProvidersFor(
+            IServiceProvider sp, string clientName, IReadOnlyList<string> ids)
+        {
+            var all = sp.GetServices<ILlmProvider>().ToList();
+            if (ids.Count == 0) return all;
+
+            var byId = all.ToDictionary(p => p.Id, StringComparer.OrdinalIgnoreCase);
+            var missing = ids.Where(id => !byId.ContainsKey(id)).ToList();
+            if (missing.Count > 0)
+                throw new InvalidOperationException(
+                    $"LLM client '{clientName}' names backend(s) {string.Join(", ", missing)}, which are not " +
+                    $"registered. Registered: {(all.Count == 0 ? "(none)" : string.Join(", ", all.Select(p => p.Id)))}.");
+
+            return [.. ids.Select(id => byId[id])];
+        }
     }
 
     /// <summary>The LLM-ops cortex: prompt registry, scoring, tracing, prompt composition, and the pairwise

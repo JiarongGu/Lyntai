@@ -8,7 +8,15 @@
 node devtools/scripts/check-sensitive.mjs || exit 1
 
 # 2. Version-authorship guard (see .claude/rules/repo-mechanics.md § Never hand-edit the version, and
-#    docs/DECISIONS.md D25) — blocks a
+#    docs/DECISIONS.md D19) — blocks a
 #    hand-edit of <VersionPrefix> or of the CHANGELOG's `## Unreleased` heading: the release pipeline bumps
 #    FROM whatever VersionPrefix says, so a manual bump silently skips a version. Escape: LYNTAI_RELEASE=1.
 node devtools/scripts/check-version-bump.mjs || exit 1
+
+# 3. Encoding guard (see .claude/rules/windows-machine.md § Text and encoding) — blocks a commit carrying
+#    MOJIBAKE: UTF-8 that was decoded as another codepage and written back. It belongs here rather than only
+#    in `verify` for the same reason the sensitive scan does: once committed the damage is in the history,
+#    and unlike a failing test it breaks nothing — the file stays valid UTF-8, compiles and ships. The rule
+#    against round-tripping a file through PowerShell 5 predates this hook and was still broken three times
+#    in one session, which is what turned it from a rule into a gate.
+node devtools/scripts/check-encoding.mjs || exit 1

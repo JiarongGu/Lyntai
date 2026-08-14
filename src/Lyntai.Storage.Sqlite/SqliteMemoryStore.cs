@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Storage.Sqlite;
 
 /// <summary>Task-scoped memory over lyntai_memory_entry + the trigram FTS index. Size is bounded by the
-/// configurable <see cref="MemoryRetentionPolicy"/> (count cap + FIFO/LRU eviction, default TTL, size
+/// configurable <see cref="MemoryEvictionPolicy"/> (count cap + FIFO/LRU eviction, default TTL, size
 /// budget) via the shared <see cref="MemoryEviction"/> helper; recall is fail-open (degrades FTS → LIKE →
 /// recent, returns empty on any storage fault rather than throwing).</summary>
 public sealed class SqliteMemoryStore(
@@ -26,7 +26,7 @@ public sealed class SqliteMemoryStore(
     public async Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default)
     {
         var now = _clock();
-        var policy = options.MemoryRetention;
+        var policy = options.MemoryEviction;
         var expiresAt = (ttl ?? policy.DefaultTtl) is { } eff ? now + eff : (DateTimeOffset?)null; // per-call ttl wins over the policy default
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
@@ -49,7 +49,7 @@ public sealed class SqliteMemoryStore(
                     "DELETE FROM lyntai_memory_entry WHERE id IN @ids", new { ids }, cancellationToken: c)),
                 ct).ConfigureAwait(false);
         else if (policy.MaxEntriesPerScope is int cap and > 0)
-            await CapEvictAsync(conn, taskKey, scope, cap, policy.Eviction, now, ct).ConfigureAwait(false);
+            await CapEvictAsync(conn, taskKey, scope, cap, policy.Mode, now, ct).ConfigureAwait(false);
     }
 
     // Count-cap eviction as ONE atomic statement (race-free, no scope fetch) — the statement itself is
@@ -89,7 +89,7 @@ public sealed class SqliteMemoryStore(
         var now = _clock(); // expired entries (@now past expires_at) are never returned
         // LRU refreshes last-access only on a QUERIED recall (a targeted lookup = "use"); a bare list-all
         // is enumeration, not use, so it must not bump every returned entry.
-        var touch = options.MemoryRetention.TracksAccess && !string.IsNullOrWhiteSpace(query);
+        var touch = options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
@@ -118,15 +118,19 @@ public sealed class SqliteMemoryStore(
 
             if (!string.IsNullOrWhiteSpace(query))
             {
-                var pattern = LikePattern.Contains(query);
+                // Term-wise, via the same split the FTS path above uses: the fallback degrades the RANKING
+                // (a term count instead of bm25), never which entries are found.
+                var kw = SearchTerms.LikeClause(query, "m.content");
+                var p = new DynamicParameters(new { taskKey, scope, take, now });
+                foreach (var (name, value) in kw.Parameters) p.Add(name, value);
                 var likeHits = (await conn.QueryAsync<MemoryEntry>(new CommandDefinition($"""
                     SELECT {SelectColumns}
                     FROM lyntai_memory_entry m
                     WHERE m.task_key = @taskKey AND (@scope IS NULL OR m.scope = @scope)
                       AND (m.expires_at IS NULL OR m.expires_at > @now)
-                      AND m.content LIKE @pattern ESCAPE '\'
-                    ORDER BY m.created_at DESC, m.id DESC LIMIT @take
-                    """, new { taskKey, scope, pattern, take, now }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
+                      AND {kw.Predicate}
+                    ORDER BY {kw.MatchCount} DESC, m.created_at DESC, m.id DESC LIMIT @take
+                    """, p, cancellationToken: ct)).ConfigureAwait(false)).AsList();
                 return await TouchAsync(conn, likeHits, touch, now, ct).ConfigureAwait(false);
             }
 

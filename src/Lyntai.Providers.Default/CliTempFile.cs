@@ -6,7 +6,7 @@ namespace Lyntai.Providers;
 /// <c>McpToolHostProvisioner.WriteTemp</c> in <c>Lyntai.Tools.Mcp.Hosting</c> does the same thing for the
 /// in-process tool host. It cannot be shared: a provider package must never reference the hosting package
 /// (that is what keeps <c>ModelContextProtocol.Core</c> off the graph of apps using the plain provider —
-/// <c>docs/DECISIONS.md</c> D23), and the two have different lifetimes (the host's file lives as long as a
+/// <c>docs/DECISIONS.md</c> D17), and the two have different lifetimes (the host's file lives as long as a
 /// <c>CliToolSession</c>; this one lives for one turn). If you change the permission logic here, change it
 /// there — the reason for the mode is identical and a divergence would be a silent leak.</para></summary>
 internal static class CliTempFile

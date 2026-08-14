@@ -21,7 +21,7 @@ namespace Lyntai.Tests.Providers;
 /// tool-step mapping is deliberately written so that an inferred detail being wrong costs exactly two things
 /// and no more — no payload is invented or dropped, and the uncertainty stays inside the tool-step half. It
 /// does NOT guarantee the right KIND of event (the tool arm is reached by elimination), so a tool step's kind
-/// is provisional and only its payload is reliable — see <c>docs/DECISIONS.md</c> D42.</para>
+/// is provisional and only its payload is reliable — see <c>docs/DECISIONS.md</c> D35.</para>
 ///
 /// Driven through <see cref="FakeProcessRunner"/> and the codex-shaped stub — never a real binary.
 /// </summary>

@@ -1,0 +1,81 @@
+namespace Lyntai.Tests.Memory.Corpus;
+
+/// <summary>
+/// The measuring instrument that turns a live recall into two numbers a policy sweep can compare across
+/// runs: how much of what mattered got left out (<see cref="MissRate"/>), and how much of the page the
+/// caller actually asked for was spent on things that did not matter (<see cref="PollutionRate"/>). Both
+/// are fractions of a FIXED reference rather than of whatever <c>recalled</c> happened to contain, so a
+/// number from one corpus shape means the same thing as the same number from a different one — the whole
+/// point of a sweep table that compares columns.
+/// <para><b>Miss rate</b> — the fraction of the declared-relevant set absent from the recalled ids.
+/// Forgetting too aggressive, or a candidate's rank weight too low to surface it at all.</para>
+/// <para><b>Pollution rate</b> — the fraction of the <c>limit</c>-sized window occupied by ids outside the
+/// relevant set. Rank weight too high, or too indiscriminate.</para>
+/// <para><b>The four awkward cases — decided and documented here, because the choice shifts every arm's
+/// number in the sweep this instrument feeds (Task 3), not just the one test case that exercises it:</b>
+/// </para>
+/// <list type="bullet">
+/// <item><b>The relevant set is larger than <c>limit</c>.</b> Miss rate cannot reach 0 no matter how good
+/// the policy is — the page physically cannot hold every relevant entry. The best case (every recalled
+/// slot filled with a relevant entry) still floors at <c>(|relevant| - limit) / |relevant|</c>. A reader of
+/// the sweep table must read a near-floor miss rate in a large-<c>CandidateCount</c> arm as "as good as
+/// this corpus shape allows," not as a failing policy — the corpus property set the floor, not the arm.
+/// </item>
+/// <item><b>The relevant set is smaller than <c>limit</c>.</b> A real recall engine ranks-and-cuts at
+/// <c>limit</c>: whenever the store holds at least <c>limit</c> candidates (the normal case in this
+/// harness's sweep), the returned page fills to <c>limit</c> regardless of how few of those candidates are
+/// actually relevant. The slots beyond <c>|relevant|</c> are then unavoidably non-relevant, and this
+/// instrument counts every one of them as pollution — deliberately: they ARE ids outside the relevant set
+/// occupying a returned slot, exactly what pollution rate is defined to measure. The consequence a reader
+/// must know: a pollution rate near the floor <c>(limit - |relevant|) / limit</c> for a query with a small
+/// relevant set (critical-rare's two-query ground truth against a wide <c>limit</c>, for instance) reflects
+/// the corpus shape, not the policy — the mirror image of the miss-rate floor above.</item>
+/// <item><b>Empty recall.</b> Nothing came back. Every relevant id is missed (<c>MissRate = 1</c> whenever
+/// <c>relevant</c> is non-empty) and nothing occupies any slot, so nothing can be pollution
+/// (<c>PollutionRate = 0</c>) — no division by zero, because pollution's denominator is <c>limit</c>, never
+/// the (possibly empty) recalled count.</item>
+/// <item><b>Empty relevant set.</b> Nothing was ever declared relevant to this query — the corpus's
+/// hot-ephemeral class reaches this legitimately once a round's window has closed. There is nothing to
+/// miss, so <c>MissRate = 0</c> by convention rather than an undefined <c>0/0</c>. Every recalled id is
+/// then, by definition, outside the (empty) relevant set — pollution is simply "anything returned at all"
+/// — so <c>PollutionRate</c> is NOT suppressed to 0 the way <c>MissRate</c> is; the two conventions are
+/// asymmetric on purpose.</item>
+/// </list>
+/// </summary>
+/// <param name="MissRate">Fraction of <c>relevant</c> absent from <c>recalled</c>, in [0, 1]. 0 when
+/// <c>relevant</c> is empty (nothing to miss).</param>
+/// <param name="PollutionRate">Fraction of the <c>limit</c>-sized window occupied by ids outside
+/// <c>relevant</c>, in [0, 1]. 0 when <c>limit</c> is non-positive (no window to occupy).</param>
+public readonly record struct RecallQuality(double MissRate, double PollutionRate)
+{
+    /// <summary>
+    /// Measures one recall against its ground truth as of one point in a <see cref="MemoryCorpus"/>
+    /// timeline. <paramref name="limit"/> MUST be the query's own requested count (the resolved
+    /// <c>MemoryQuery.Limit</c>) — never a fixed constant. Hardcoding it would silently decouple the
+    /// pollution rate from the very <c>CandidateCount</c> axis a sweep varies: the number would stop
+    /// meaning "fraction of the window the caller actually asked for" and start meaning "fraction of some
+    /// other window nobody requested."
+    /// </summary>
+    /// <param name="recalled">The ids actually returned. Order does not affect either metric — both are
+    /// set-membership counts, not rank-position scores.</param>
+    /// <param name="relevant">The ids declared relevant to this query AS OF THIS STEP in the corpus
+    /// timeline (<see cref="CorpusQuery.RelevantIds"/>) — never a globally relevant set; the same id can be
+    /// relevant at one step and not at a later one.</param>
+    /// <param name="limit">The query's own requested count — the window pollution is measured against.
+    /// </param>
+    public static RecallQuality Measure(IReadOnlyList<string> recalled, IReadOnlyList<string> relevant, int limit)
+    {
+        var relevantSet = new HashSet<string>(relevant, StringComparer.Ordinal);
+        var recalledSet = new HashSet<string>(recalled, StringComparer.Ordinal);
+
+        var missRate = relevantSet.Count == 0
+            ? 0.0
+            : relevantSet.Count(id => !recalledSet.Contains(id)) / (double)relevantSet.Count;
+
+        var pollutionRate = limit <= 0
+            ? 0.0
+            : recalled.Count(id => !relevantSet.Contains(id)) / (double)limit;
+
+        return new RecallQuality(missRate, pollutionRate);
+    }
+}

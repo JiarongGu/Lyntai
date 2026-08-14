@@ -1,7 +1,7 @@
 namespace Lyntai.Storage;
 
 /// <summary>Pure, backend-agnostic computation of which memory entries SURVIVE a
-/// <see cref="MemoryRetentionPolicy"/> on write — shared by every <see cref="IMemoryStore"/> backend so
+/// <see cref="MemoryEvictionPolicy"/> on write — shared by every <see cref="IMemoryStore"/> backend so
 /// eviction is identical across InMemory / SQLite / Postgres (each fetches the scoped group's lightweight
 /// metadata, calls this, and deletes the non-survivors). Keeping the logic in ONE tested place is why the
 /// three backends can't diverge.</summary>
@@ -15,13 +15,13 @@ public static class MemoryEviction
     /// <paramref name="now"/>. Order of preference: LIVE entries before expired (so a cap evicts dead facts
     /// first); then newest-recency first (created-at for FIFO, last-access for LRU); then the count cap;
     /// then the size (character) budget — at least one entry is always kept. When the policy has no size
-    /// bound (<see cref="MemoryRetentionPolicy.HasSizeBound"/> false), every id survives.</summary>
-    public static HashSet<long> Survivors(MemoryRetentionPolicy policy, IEnumerable<Row> rows, DateTimeOffset now)
+    /// bound (<see cref="MemoryEvictionPolicy.HasSizeBound"/> false), every id survives.</summary>
+    public static HashSet<long> Survivors(MemoryEvictionPolicy policy, IEnumerable<Row> rows, DateTimeOffset now)
     {
         var all = rows as IReadOnlyCollection<Row> ?? [.. rows];
         if (!policy.HasSizeBound) return [.. all.Select(r => r.Id)]; // nothing bounds size → keep all
 
-        var lru = policy.Eviction == MemoryEvictionMode.Lru;
+        var lru = policy.Mode == MemoryEvictionMode.Lru;
         IEnumerable<Row> kept = all
             .OrderBy(r => IsLive(r, now) ? 0 : 1)                        // live first (expired evicted first)
             .ThenByDescending(r => lru ? r.LastAccessedAt : r.CreatedAt) // newest-recency first
@@ -74,7 +74,7 @@ public static class MemoryEviction
     /// only its storage-specific <paramref name="fetchScoped"/> + <paramref name="deleteByIds"/> — so this
     /// "compute survivors → delete non-survivors" flow lives in ONE place and the SQLite/Postgres backends
     /// can't drift on it (they differ only in the fetch/delete SQL dialect).</summary>
-    public static async Task ApplyAsync(MemoryRetentionPolicy policy, DateTimeOffset now,
+    public static async Task ApplyAsync(MemoryEvictionPolicy policy, DateTimeOffset now,
         Func<CancellationToken, Task<IReadOnlyList<Row>>> fetchScoped,
         Func<IReadOnlyList<long>, CancellationToken, Task> deleteByIds,
         CancellationToken ct = default)

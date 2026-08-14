@@ -16,7 +16,7 @@ namespace Lyntai.Providers.ClaudeCli;
 internal static class ClaudeAuthStatusJson
 {
     /// <summary>Parse the CLI's auth document, or null when it can't be read as one. Hand-walked
-    /// (<c>docs/DECISIONS.md</c> D17) — no reflection serialization.</summary>
+    /// (<c>docs/DECISIONS.md</c> D14) — no reflection serialization.</summary>
     public static ProviderAuthStatus? Parse(string output)
     {
         // TryParseObject also tolerates a banner/notice line printed ahead of the JSON object

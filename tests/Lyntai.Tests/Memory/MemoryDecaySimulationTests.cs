@@ -1,6 +1,7 @@
 using System.Globalization;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Interference;
 using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Memory;
@@ -20,7 +21,7 @@ namespace Lyntai.Tests.Memory;
 /// interference by the intended margin — and it runs in CI, which a production corpus cannot. It does NOT
 /// establish that real usage has the reuse-to-noise ratio modelled here. So the constants are "measured
 /// against a stated model", not "measured", and the XML docs say exactly that.</para>
-/// <para>Deliberately uses an undamped <see cref="PerWriteClock"/> for the interference runs: the
+/// <para>Deliberately uses an undamped <see cref="PerWriteAgePolicy"/> for the interference runs: the
 /// simulation writes as fast as the test executes, so burst damping would make every round one enormous
 /// burst and measure the damping instead of the decay. Damping has its own scenario at the bottom.</para>
 /// </summary>
@@ -31,7 +32,7 @@ public class MemoryDecaySimulationTests
     private const int DurableFacts = 10;
 
     private static GraphMemoryEngine Engine(GraphMemoryOptions? options = null) =>
-        new("sim", new InMemoryMemoryGraphStore(), options, memoryClock: new PerWriteClock());
+        new("sim", new InMemoryMemoryGraphStore(), options, agePolicies: [new PerWriteAgePolicy()]);
 
     // every entry carries "item" so a BROAD recall makes them compete — which is where burial shows up
     private static string Durable(int i) => $"item durable{i} is a fact worth keeping about the system";
@@ -104,7 +105,13 @@ public class MemoryDecaySimulationTests
         var targeted = await engine.RecallAsync(new MemoryQuery("t", "s", "noise0x0"));
 
         Assert.Single(targeted.Items);
-        Assert.True(targeted.Items[0].Retrievability < 0.05, "and it comes back faint, which is the point");
+        // Threshold loosened for DsrRetrievability (2026-08-10, fsrs-properly plan Task 1): this corpus's own
+        // 210-write run only ages noise0x0 to age/InitialStability ~10, where DSR's heavier tail (the reason
+        // it was adopted) sits at r≈0.18 (MEASURED, fix round 1: 0.180041) — the deleted exponential curve
+        // fell under 0.05 at the same age. 0.3 still pins "faint" (well under a fresh recall's r=1, and with
+        // real headroom over the measured 0.18) without asking this corpus's own constants, shared with
+        // several other facts in this file, to change.
+        Assert.True(targeted.Items[0].Retrievability < 0.3, "and it comes back faint, which is the point");
     }
 
     [Fact]
@@ -161,6 +168,10 @@ public class MemoryDecaySimulationTests
         for (var i = 0; i < DurableFacts; i++)
         {
             var hit = (await engine.RecallAsync(new MemoryQuery("t", "s", $"durable{i}"))).Items.Single();
+            // MEASURED (fix round 1, confirming this threshold is still correct for DsrRetrievability):
+            // durable0 reads 0.730903 here — comfortably above 0.25, and the pair below (the undamped
+            // control) reads 0.113702 at the identical scenario, so the two thresholds still BRACKET rather
+            // than having drifted together in the same direction.
             Assert.True(hit.Retrievability > 0.25,
                 $"durable{i} was washed out by the ingest (r={hit.Retrievability:F4})");
         }
@@ -172,7 +183,7 @@ public class MemoryDecaySimulationTests
     [Fact]
     public async Task The_same_ingest_undamped_washes_it_out()
     {
-        var engine = Engine(); // PerWriteClock, no damping
+        var engine = Engine(); // PerWriteAgePolicy, no damping
         for (var i = 0; i < DurableFacts; i++)
             await engine.RememberAsync(new MemoryWrite("t", "s", Durable(i)));
 
@@ -182,7 +193,15 @@ public class MemoryDecaySimulationTests
         for (var i = 0; i < DurableFacts; i++)
         {
             var hit = (await engine.RecallAsync(new MemoryQuery("t", "s", $"durable{i}"))).Items.Single();
-            Assert.True(hit.Retrievability < 0.001,
+            // Threshold loosened for DsrRetrievability (2026-08-10, fsrs-properly plan Task 1): the deleted
+            // exponential curve's 2^(-age/S) fell under 0.001 at this scenario's age/S≈25; DSR's heavier tail
+            // — the reason it was adopted — sits at r≈0.11 there instead (MEASURED, fix round 1: durable0
+            // reads 0.113702), so "washed out" can no longer mean "near zero." The fair, still-discriminating
+            // bar is the SAME 0.25 the damped control above clears comfortably (MEASURED: 0.730903 there):
+            // this asserts the undamped case falls BELOW that bar, which is exactly the contrast this pair
+            // of facts exists to show, from the other direction — the two thresholds bracket
+            // (0.1137 < 0.25 < 0.7309), not two numbers that drifted together.
+            Assert.True(hit.Retrievability < 0.25,
                 $"durable{i} should have been washed out undamped (r={hit.Retrievability:F6})");
         }
     }

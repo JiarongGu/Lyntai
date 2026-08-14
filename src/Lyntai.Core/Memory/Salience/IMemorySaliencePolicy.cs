@@ -1,0 +1,140 @@
+using Lyntai.Memory.Modulation;
+
+namespace Lyntai.Memory.Salience;
+
+/// <summary>What a salience policy may judge against. Carries no store and no clock, so a policy is pure and
+/// testable with a literal.</summary>
+/// <param name="Engine">The engine being written to, for a policy that varies by purpose.</param>
+/// <param name="Novelty">How unlike anything already stored this write is: 1 when nothing resembles it,
+/// 0 when it is an exact re-remember. Supplied by the engine, which is what lets the default policy use
+/// prediction error without issuing a query of its own.</param>
+/// <param name="ComparableCount">How many stored entries this write could actually be compared against —
+/// the neighbours the engine's similarity probe found. <b>Not a count of the whole scope</b>, which no
+/// engine can supply without a second query. With too few comparables, novelty carries no information and
+/// a policy should decline to judge.</param>
+public readonly record struct SalienceContext(string Engine, double Novelty, int ComparableCount);
+
+/// <summary>
+/// Which salience policies PRODUCED this entry's stored signals — read through
+/// <see cref="Lyntai.Memory.MemoryProvenance"/>, never compared or combined directly (design doc §5.7).
+/// Salience needs provenance for the same reason retrievability does: it WRITES persisted state (the
+/// signals bag) a later policy might need and not find.
+/// <para>Salience is PLURAL — several policies may coexist — so a write's provenance is the OR of every
+/// policy that actually returned a non-empty result, not of every policy that merely ran: one that
+/// declined to judge (too few comparables, a caught failure) contributed nothing to the composed bag and
+/// must not be credited with computing it.</para>
+/// <para><b>Bits 0-31 are reserved for this library; never allocate above bit 31 here.</b> Bits 32-62 are a
+/// consumer's own range — <see cref="IMemorySaliencePolicy"/> is public and a third-party implementation
+/// must be able to carry provenance too, so this enum stays open to an unnamed member: cast any single bit
+/// in 32-62 to this type, exactly as the named library member below is. Bit 63 is NEVER set — see
+/// <see cref="Lyntai.Memory.MemoryProvenance"/> for why.</para></summary>
+[Flags]
+public enum MemorySalienceProvenance : long
+{
+    /// <summary>No salience policy produced a signal for this entry — every row from before this domain
+    /// existed, and any write every registered policy declined to judge.</summary>
+    None = 0x0000_0000,
+
+    /// <summary><see cref="StructuralSaliencePolicy"/>.</summary>
+    Structural = 0x0000_0001,
+}
+
+/// <summary>
+/// Decides how strongly a write is encoded. <b>Salience means "this memory does not fade away" — decay
+/// resistance AND store admission priority — NOT "first priority"</b> (2026-08-09 —
+/// <c>docs/DECISIONS.md</c> D45, corrected same day by D45): it lengthens a half-life, and orders admission
+/// in the store when a candidate set overflows its budget, so a salient memory is always found even when it
+/// matches a query poorly — both on by default. It can ALSO lift rank in
+/// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> by a bounded logarithm
+/// (<see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight"/>), letting a salient
+/// memory jump the queue ahead of a
+/// better textual match — but that is a stronger, separate claim admission does not already make, and it
+/// defaults OFF; a consumer opts in explicitly. This interface itself only reports a signal — it decides
+/// none of that; see <see cref="SalienceRetentionPolicy"/> for the decay half and
+/// <c>GraphMemoryEngine.RecallAsync</c> for the (opt-in) ranking half.
+/// <para>A registered default ships (<see cref="StructuralSaliencePolicy"/>), so nothing has to be
+/// implemented to get the model. An application wanting real judgement — affect, self-relevance — registers
+/// its own, which is where a model belongs; the memory path itself stays model-free.</para>
+/// <para><b>To turn salience OFF, register <see cref="NeutralSaliencePolicy"/> — registering NOTHING does
+/// not do it.</b> An empty collection means "take the shipped default", the same convention the age seam
+/// uses, so the intuitive way to disable this is the one way that silently does not
+/// (<c>TASKS.md</c> Part 69).</para>
+/// </summary>
+public interface IMemorySaliencePolicy
+{
+    /// <summary>Signals for this write. Must be bounded: whatever it writes for
+    /// <see cref="MemorySignals.WellKnown.Salience"/> is consumed by a retention policy whose declared maximum
+    /// widens <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.CandidateCutoff"/>.</summary>
+    /// <param name="write">The material being remembered.</param>
+    /// <param name="context">What it can be judged against.</param>
+    MemorySignals Signals(MemoryWrite write, in SalienceContext context);
+
+    /// <summary>This policy's own bit in <see cref="MemorySalienceProvenance"/> — what a write OR's into
+    /// <c>GraphNode.ProvenanceSalience</c> whenever <see cref="Signals"/> returns a non-empty result.
+    /// Exactly one bit; never <see cref="MemorySalienceProvenance.None"/> and never more than one bit, or a
+    /// fitness check reading it would report this policy as having contributed when it never ran (or never
+    /// distinguish it from a different one).</summary>
+    MemorySalienceProvenance Provenance { get; }
+}
+
+/// <summary>Constants of the default salience policy and <see cref="SalienceRetentionPolicy"/>. Both read
+/// the same options, so the ceiling salience reports and the bound retention declares cannot drift apart.
+/// <para><b>DI registration is the configuration path.</b> Unlike <see cref="GraphMemoryOptions"/>, which is
+/// passed by value through <c>UseGraph(...)</c>, this record has no builder surface — the same shape
+/// <see cref="Lyntai.Memory.Forgetting.DsrOptions"/> takes: <c>services.AddSingleton(new SalienceOptions { … })</c>
+/// before <c>AddLyntai</c> is what reaches both types, because <c>AddMemoryEngine</c> resolves each out of the
+/// container with its own <c>sp.GetService&lt;…&gt;()</c>. A
+/// hand-built <see cref="StructuralSaliencePolicy"/> or <see cref="SalienceRetentionPolicy"/> takes it as a
+/// constructor argument instead — but then it is the caller's job to pass the SAME instance to both.</para></summary>
+public sealed record SalienceOptions
+{
+    private readonly double _maxSalience = 4;
+    private readonly int _minimumComparables = 3;
+
+    /// <summary>The largest salience a policy may report, and therefore the most a half-life may be
+    /// lengthened by this dimension. <b>Load-bearing</b>: <c>ModulatedRetrievability</c> widens
+    /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.CandidateCutoff"/> by exactly this, so a salience policy reporting
+    /// more than the retention policy declares would make the cutoff too narrow — and that cutoff's only consumer is
+    /// <see cref="IMemoryGraphStore.PruneAsync"/>, which DELETES, so the entries it fails to cover are
+    /// permanently destroyed while the modulated curve still rated them retrievable. <b>Unmeasured</b> — a
+    /// starting point.
+    /// <para>Must be at least 1: a bound below the neutral value is not a smaller ceiling, it is a
+    /// contradiction, and it would otherwise surface as an <c>ArgumentException</c> from a clamp deep in the
+    /// recall path rather than at the line that configured it.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below 1.</exception>
+    public double MaxSalience
+    {
+        get => _maxSalience;
+        init
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            _maxSalience = value;
+        }
+    }
+
+    /// <summary>How steeply novelty raises salience, as <c>1 + factor × novelty</c>. <b>Unmeasured</b>.</summary>
+    public double NoveltyWeight { get; init; } = 1.5;
+
+    /// <summary>How many comparable entries must exist before novelty means anything. Below this the
+    /// default policy reports nothing, because in a nearly-empty engine everything looks novel and scoring it
+    /// would mark a whole first session as maximally important. <b>Unmeasured</b>.
+    /// <para><b>Know the achievable ceiling before raising this.</b>
+    /// <see cref="SalienceContext.ComparableCount"/> is what the engine's similarity probe found, which is
+    /// bounded by <see cref="GraphMemoryOptions.SimilarityK"/> + 1 (6 at the defaults) — <b>not</b> by how
+    /// much the engine holds. A value above that bound therefore means the policy NEVER judges anything,
+    /// ever, with no error and no log: the feature is simply off. Raise
+    /// <see cref="GraphMemoryOptions.SimilarityK"/> alongside it, or leave this at its default.</para>
+    /// <para>Must be at least 1: zero or negative cannot express "wait for comparables", since
+    /// <see cref="SalienceContext.ComparableCount"/> is never below 0 — it reads as a disabled guard while
+    /// silently admitting the empty-engine case the guard exists to prevent.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set below 1.</exception>
+    public int MinimumComparables
+    {
+        get => _minimumComparables;
+        init
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            _minimumComparables = value;
+        }
+    }
+}

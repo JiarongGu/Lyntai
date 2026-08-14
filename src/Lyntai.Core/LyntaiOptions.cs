@@ -68,18 +68,18 @@ public sealed class LyntaiOptions
     public string ModelKeyPrefix { get; set; } = KeyValueModelRoutingStore.DefaultKeyPrefix;
 
     /// <summary>How <see cref="Lyntai.Storage.IMemoryStore"/> bounds its size — the app's control over
-    /// retention: a per-scope count cap + <see cref="MemoryEvictionMode"/> (FIFO / LRU), a default TTL, and a
-    /// per-scope size (character) budget. See <see cref="MemoryRetentionPolicy"/> presets. Defaults reproduce
+    /// eviction: a per-scope count cap + <see cref="MemoryEvictionMode"/> (FIFO / LRU), a default TTL, and a
+    /// per-scope size (character) budget. See <see cref="MemoryEvictionPolicy"/> presets. Defaults reproduce
     /// the historical 500-entry FIFO cap; tune via <c>ConfigureMemory(...)</c> or <c>LYNTAI_MEMORY_*</c>.</summary>
-    public MemoryRetentionPolicy MemoryRetention { get; set; } = MemoryRetentionPolicy.Default;
+    public MemoryEvictionPolicy MemoryEviction { get; set; } = MemoryEvictionPolicy.Default;
 
     /// <summary>[Shortcut] Max entries kept per (task, scope) — proxies
-    /// <see cref="MemoryRetentionPolicy.MaxEntriesPerScope"/> on <see cref="MemoryRetention"/> (0 = uncapped).
-    /// Prefer configuring <see cref="MemoryRetention"/> directly.</summary>
+    /// <see cref="MemoryEvictionPolicy.MaxEntriesPerScope"/> on <see cref="MemoryEviction"/> (0 = uncapped).
+    /// Prefer configuring <see cref="MemoryEviction"/> directly.</summary>
     public int MemoryCapPerScope
     {
-        get => MemoryRetention.MaxEntriesPerScope ?? 0;
-        set => MemoryRetention.MaxEntriesPerScope = value > 0 ? value : null;
+        get => MemoryEviction.MaxEntriesPerScope ?? 0;
+        set => MemoryEviction.MaxEntriesPerScope = value > 0 ? value : null;
     }
 
     /// <summary>Default max entries returned by a memory recall.</summary>
@@ -186,16 +186,16 @@ public sealed class LyntaiOptions
         if (TryEnvInt(getEnv, "LYNTAI_CACHE_MAX_ENTRIES", out var cm) && cm > 0)
             Cache.MaxEntries = cm;
 
-        // memory retention knobs (count cap, eviction mode, default TTL, size budget)
+        // memory eviction knobs (count cap, eviction mode, default TTL, size budget)
         if (TryEnvInt(getEnv, "LYNTAI_MEMORY_MAX_ENTRIES", out var mme))
-            MemoryRetention.MaxEntriesPerScope = mme > 0 ? mme : null;
+            MemoryEviction.MaxEntriesPerScope = mme > 0 ? mme : null;
         var evict = getEnv("LYNTAI_MEMORY_EVICTION");
         if (!string.IsNullOrWhiteSpace(evict) && Enum.TryParse<MemoryEvictionMode>(evict, ignoreCase: true, out var em))
-            MemoryRetention.Eviction = em;
+            MemoryEviction.Mode = em;
         if (TryEnvDouble(getEnv, "LYNTAI_MEMORY_TTL_SECONDS", out var mttl) && mttl > 0)
-            MemoryRetention.DefaultTtl = TimeSpan.FromSeconds(mttl);
+            MemoryEviction.DefaultTtl = TimeSpan.FromSeconds(mttl);
         if (TryEnvInt(getEnv, "LYNTAI_MEMORY_MAX_CHARS", out var mmc))
-            MemoryRetention.MaxCharsPerScope = mmc > 0 ? mmc : null;
+            MemoryEviction.MaxCharsPerScope = mmc > 0 ? mmc : null;
 
         // usage-budget knobs (global caps; per-consumer caps are code-only)
         if (TryEnvDouble(getEnv, "LYNTAI_BUDGET_MAX_COST_USD", out var bc) && bc >= 0)

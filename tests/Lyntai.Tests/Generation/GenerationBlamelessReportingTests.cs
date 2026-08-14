@@ -7,11 +7,11 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>A media verdict has to be able to be BLAMELESS and REPORTABLE at once, and until 2026-08-05 the
-/// router forced a choice between them (<c>TASKS.md</c> Part 40, opened by <c>docs/DECISIONS.md</c> D43).
+/// router forced a choice between them (<c>TASKS.md</c> Part 40, opened by <c>docs/DECISIONS.md</c> D36).
 ///
 /// <para>The rule that forced it is right and stays: a blameless verdict must never MASK a real failure, or
 /// <c>[downHost → Failed, neverConfigured → NotConfigured]</c> sends the caller off to set up a key while the
-/// backend they HAD configured is the one that is down (D38). What was missing is the OTHER half — when
+/// backend they HAD configured is the one that is down (D31). What was missing is the OTHER half — when
 /// nothing substantive failed at all, the blameless backend's own words are the honest answer, and the
 /// synthetic "every capable backend reported it is not configured" was not even accurate for a run in which
 /// every candidate said <see cref="GenerationVerdict.Unsupported"/>.</para>
@@ -55,7 +55,7 @@ public class GenerationBlamelessReportingTests
     [Fact]
     public async Task A_real_failure_still_outranks_a_blameless_reason_even_when_it_comes_LATER()
     {
-        // D38's rule, and it is not up for renegotiation: the blameless slot answers only when the
+        // D31's rule, and it is not up for renegotiation: the blameless slot answers only when the
         // substantive one is empty. Ordered blameless-first precisely because that is the case a
         // "remember whatever spoke first" implementation would get wrong.
         var gap = new SayingProvider

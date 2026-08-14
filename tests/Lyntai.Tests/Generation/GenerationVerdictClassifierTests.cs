@@ -8,7 +8,7 @@ using Lyntai.Tests.Fakes;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>Media keeps its OWN verdict vocabulary, but NOT its own corpus of "what does this failure mean" —
-/// that would be a second set of regexes to drift (the mistake <c>docs/DECISIONS.md</c> D27 exists to
+/// that would be a second set of regexes to drift (the mistake <c>docs/DECISIONS.md</c> D21 exists to
 /// prevent). The classifier maps transport/text failures through Core's shared classifier and translates the
 /// answer.</summary>
 // serialized with every other class that REGISTERS one: LlmVerdictClassifier.AddErrorTextMatcher mutates a
@@ -56,7 +56,7 @@ public class GenerationVerdictClassifierTests
         // report a blameless reason when nothing substantive failed (TASKS Part 40): "too long for THIS
         // backend" is a capability gap, and as Failed it took PenalizeAndAdvance, so repeated oversized
         // prompts benched a perfectly healthy backend. Reportability is what kept it there, and the router
-        // now supplies it — which is why the order of those two changes was load-bearing (DECISIONS D43).
+        // now supplies it — which is why the order of those two changes was load-bearing (DECISIONS D36).
         var verdict = GenerationVerdictClassifier.FromErrorText("maximum context length exceeded");
 
         Assert.Equal(GenerationVerdict.Unsupported, verdict);
@@ -143,7 +143,7 @@ public class GenerationVerdictClassifierTests
     /// unhandled member precisely so the two are distinguishable; the public path cannot tell them apart,
     /// which is why the gate reaches through <c>InternalsVisibleTo</c> for that half.</para>
     /// The same obligation <c>LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c>
-    /// places on the call-site helpers and D38 places on the routing policy.</summary>
+    /// places on the call-site helpers and D31 places on the routing policy.</summary>
     [Fact]
     public void Every_llm_verdict_states_its_media_translation()
     {
@@ -158,7 +158,7 @@ public class GenerationVerdictClassifierTests
             [LlmVerdict.Unsupported] = GenerationVerdict.Unsupported,      // ditto — a capability gap
             [LlmVerdict.Failed] = GenerationVerdict.Failed,
             // the only member with no media counterpart; the nearest MEANING is a capability gap, which the
-            // router can now report as well as advance past blamelessly (DECISIONS D43 → TASKS Part 40)
+            // router can now report as well as advance past blamelessly (DECISIONS D36 → TASKS Part 40)
             [LlmVerdict.ContextWindowExceeded] = GenerationVerdict.Unsupported,
         };
 

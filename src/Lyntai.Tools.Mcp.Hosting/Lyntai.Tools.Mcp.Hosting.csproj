@@ -16,7 +16,7 @@
     ever supplied Kestrel routing glue. The per-call host runs on System.Net.HttpListener from the BCL, which
     fits a loopback-only ephemeral endpoint exactly and needs no URL ACL or elevation for 127.0.0.1 — so a
     console or desktop consumer no longer acquires the ASP.NET shared framework just to let a CLI call its
-    tools. See docs/DECISIONS.md D31.
+    tools. See docs/DECISIONS.md D25.
   -->
   <ItemGroup>
     <ProjectReference Include="..\Lyntai.Core\Lyntai.Core.csproj" />

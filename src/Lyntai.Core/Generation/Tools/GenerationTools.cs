@@ -12,7 +12,7 @@ namespace Lyntai.Generation.Tools;
 /// referencing the other's concrete types. This is the whole coupling story: the LLM side already knows
 /// <see cref="ITool"/>, so these work in the in-process tool loop AND — via
 /// <c>Lyntai.Tools.Mcp.Hosting</c> — for a CLI agent that runs its own loop over MCP
-/// (<c>docs/DECISIONS.md</c> D30).
+/// (<c>docs/DECISIONS.md</c> D24).
 /// </summary>
 /// <remarks>Five tools rather than one do-everything call, because an agent needs to DISCOVER what is possible
 /// before choosing: what backends exist and what they serve (<c>generate_backends</c>), the inline path

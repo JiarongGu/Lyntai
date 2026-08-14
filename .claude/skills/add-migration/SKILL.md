@@ -33,7 +33,7 @@ runs.
    `UseSqliteStorage`, the **Postgres impl plus a Postgres migration carrying the SAME number**
    (`src/Lyntai.Storage.Postgres/Migrations/` mirrors SQLite file-for-file; `new-migration` scaffolds only
    the SQLite half, so the twin is hand-written and NOTHING fails if you forget it — `docs/DECISIONS.md`
-   D12: "keep the SQLite + Postgres parallels of the same number in sync"), and an InMemory impl where the
+   D9: "keep the SQLite + Postgres parallels of the same number in sync"), and an InMemory impl where the
    domain has one (8 of 12 do; the Governance-backed stores deliberately do not). Then a
    `<Domain>StoreContract` fact class in `tests/Lyntai.Tests/Storage/`: the contract facts, not a shared
    base class, are what keep the backends from drifting (`.claude/knowledge/storage.md` §Don't "dedup" the

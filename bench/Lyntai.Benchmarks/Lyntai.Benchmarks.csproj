@@ -22,4 +22,26 @@
     <PackageReference Include="BenchmarkDotNet" />
   </ItemGroup>
 
+  <!-- MemoryPolicySweep.cs reuses these two files VERBATIM (compile-time link, not a second copy) rather
+       than re-deriving the mutation-tested corpus generator and recall-quality metric — a sweep over a
+       drifted copy would measure something else entirely. Linked as FILES rather than a ProjectReference to
+       Lyntai.Tests.csproj deliberately: that project also drags in Postgres/Testcontainers/MCP/ExtensionsAi/
+       Generation + xunit, and doing so once measurably blew the check-warnings gate's full-solution
+       `-v normal` build log past Node's spawnSync 1 MiB buffer (1,049,602 bytes captured, ENOBUFS) — `verify`
+       reported "build FAILED" for a build that had in fact succeeded. Neither file needs anything beyond
+       Lyntai.Core (already referenced above) and the BCL. -->
+  <ItemGroup>
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\MemoryCorpus.cs" Link="Corpus\MemoryCorpus.cs" />
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\RecallQuality.cs" Link="Corpus\RecallQuality.cs" />
+    <!-- Every template the corpus emits, plus the readers that parse it back. MemoryCorpus does not compile
+         without it: the language axis routes every piece of text through this class. -->
+    <Compile Include="..\..\tests\Lyntai.Tests\Memory\Corpus\CorpusLexicon.cs" Link="Corpus\CorpusLexicon.cs" />
+    <!-- MemorySalienceSweep needs a deterministic IEmbedder: salience scores NOVELTY, which the engine only
+         computes when an embedder AND a vector store are both supplied, and no harness ever supplied either
+         (which is half of why salience had never been measured). Linked for the same reason as the two
+         above — and it is the right file rather than a bench-local copy precisely because a second embedder
+         would make "novel" mean something different here than it does in the tests. -->
+    <Compile Include="..\..\tests\Lyntai.Tests\Fakes\FakeEmbedder.cs" Link="Fakes\FakeEmbedder.cs" />
+  </ItemGroup>
+
 </Project>

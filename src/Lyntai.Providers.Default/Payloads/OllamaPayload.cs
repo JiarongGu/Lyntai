@@ -29,6 +29,13 @@ internal static class OllamaPayload
             ["messages"] = new JsonArray([.. req.Messages.Select(m => ToMessage(m, logger))]),
             ["stream"] = stream,
         };
+
+        // Ollama's own vocabulary for "do not emit intermediate reasoning" is a TOP-LEVEL `think`, not a
+        // sampling option — and it is sent only when the caller actually asked, so a model that has no
+        // thinking mode is never handed a field it does not understand. Advisory by contract
+        // (see LlmReasoning): a model that reasons anyway is not a defect here.
+        if (req.Reasoning == LlmReasoning.Suppress) payload["think"] = false;
+
         if (options.Count > 0) payload["options"] = options;
 
         if (req.Tools is { Count: > 0 })

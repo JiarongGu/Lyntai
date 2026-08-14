@@ -16,18 +16,18 @@ Read `.claude/knowledge/extending-lyntai.md` (§Add an LLM provider) and `.claud
    `CliProviderEngine`, and a second copy of them is how they drifted before.
 3. Otherwise write a native `ILlmProvider`. WHERE it lives is the footprint test below, never a default.
 
-## Where the code lives — the footprint test (`docs/DECISIONS.md` D31)
+## Where the code lives — the footprint test (`docs/DECISIONS.md` D25)
 
 **A package boundary must answer "which dependency does this isolate?"** A dialect or a native provider
 that needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is **a class in
 `src/Lyntai.Providers.Default/`**, next to `ClaudeCliDialect`, `CodexCliDialect` and
 `OpenAiCompatibleProvider`, which is where 2.0.1 merged them. Namespaces stay `Lyntai.Providers.<Name>`
-inside that one assembly (D31: consolidating packages must not force a consumer to edit a `using`).
+inside that one assembly (D25: consolidating packages must not force a consumer to edit a `using`).
 
 It earns its own `src/Lyntai.Providers.<Name>/` package (project-ref `Lyntai.Core` only, never
 adapter→adapter) **the moment it drags a native runtime, a platform-specific API, or a dependency a
 consumer might refuse** — `Lyntai.Providers.Local` (LLamaSharp + a native backend) is the worked example.
-Do not create one for tidiness: a published package id can never be freed or reused (D29), so a needless
+Do not create one for tidiness: a published package id can never be freed or reused (D23), so a needless
 id is permanent. If it does earn a package, scaffold it — see the Baselines bullet below; never hand-roll
 the csproj.
 
@@ -70,7 +70,7 @@ the csproj.
       hasCredentials)` — copy `OpenAiCompatibleProvider`. A 401/403 answered to a call that carried NO
       credentials is `NotConfigured`, not `AuthFailed`: AuthFailed BENCHES the provider for the cooldown
       window, so a backend the consumer merely listed without configuring is penalised on every first
-      attempt (`docs/DECISIONS.md` D38). Not "a key is required" — a local OpenAI-compatible endpoint (LM
+      attempt (`docs/DECISIONS.md` D31). Not "a key is required" — a local OpenAI-compatible endpoint (LM
       Studio, vLLM, Ollama) legitimately needs none, so only "no key AND the server demanded one" counts.
       A CLI/session-authenticated dialect has no `hasCredentials` fact and correctly stays on the
       two-argument overload.

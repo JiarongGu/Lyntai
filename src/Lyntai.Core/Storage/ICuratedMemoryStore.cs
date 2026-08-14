@@ -101,14 +101,13 @@ public interface ICuratedMemoryStore
     /// <paramref name="kind"/>/<paramref name="taskKey"/>/<paramref name="scope"/>, <paramref name="enabledOnly"/>
     /// default false (admin/catalog view — pass true for the recall path), the AND-of-pairs
     /// <paramref name="metadataMatch"/>; null <paramref name="limit"/> = no cap.
-    /// <para>Backend DIVERGENCE (by design, same as <see cref="IMemoryStore.RecallAsync"/> — the three backends
-    /// use three index engines): SQLite matches ANY ≥3-char query token via the FTS5-trigram index ranked by
-    /// bm25 relevance (falling back to LIKE-substring when no token is indexable); Postgres (pg_trgm-accelerated
-    /// ILIKE) and InMemory match the query as one contiguous substring, ranked by recency. The portable
-    /// guarantee is therefore SINGLE-token: an entry whose content contains a ≥3-char single-token query as an
-    /// (ASCII-case-insensitive) substring is found on every backend, while a multi-token query is per-token on
-    /// SQLite and contiguous-substring elsewhere. Fail-open like recall: storage faults degrade to an empty result,
-    /// never a throw (only cancellation propagates).</para></summary>
+    /// <para>Matching is the same as <see cref="IMemoryStore.RecallAsync"/>: an entry whose content contains
+    /// ANY ≥3-char term of the query (<see cref="SearchTerms"/> — words for a space-separated script,
+    /// character trigrams for one written without spaces) as an ASCII-case-insensitive substring is found on
+    /// every backend. Backend DIVERGENCE is RANKING only — SQLite ranks by bm25 through its FTS5-trigram
+    /// index, Postgres (pg_trgm-accelerated ILIKE) and InMemory by matched-term count then recency. Fail-open
+    /// like recall: storage faults degrade to an empty result, never a throw (only cancellation
+    /// propagates).</para></summary>
     Task<IReadOnlyList<CuratedMemory>> SearchAsync(string query, string? kind = null, string? taskKey = null,
         string? scope = null, bool enabledOnly = false, int? limit = null,
         IReadOnlyDictionary<string, string>? metadataMatch = null, CancellationToken ct = default);

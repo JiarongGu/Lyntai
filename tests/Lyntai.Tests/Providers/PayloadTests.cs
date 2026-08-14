@@ -64,6 +64,25 @@ public class PayloadTests
         Assert.Equal("boolean", (string)p["format"]!["properties"]!["ok"]!["type"]!);
     }
 
+    /// <summary><b><see cref="LlmReasoning.Suppress"/> becomes Ollama's TOP-LEVEL <c>think: false</c>, and
+    /// the default sends nothing at all.</b>
+    /// <para>Both halves matter. Sending <c>think</c> unconditionally would hand the field to every model
+    /// including ones with no thinking mode; omitting it when asked would silently leave a reasoning model
+    /// costing ~25 s per call, which is the 15× latency penalty this option exists to remove
+    /// (<c>docs/DECISIONS.md</c> <b>D59</b>). It is a top-level field rather than a sampling option —
+    /// putting it under <c>options</c> would be silently ignored by the server.</para></summary>
+    [Fact]
+    public void Ollama_maps_suppressed_reasoning_to_a_top_level_think_false()
+    {
+        var suppressed = OllamaPayload.Build(
+            Req with { Reasoning = LlmReasoning.Suppress }, "m", stream: false);
+        var byDefault = OllamaPayload.Build(Req, "m", stream: false);
+
+        Assert.False((bool)suppressed["think"]!);
+        Assert.Null(suppressed["options"]?["think"]);   // top-level, not a sampling knob
+        Assert.Null(byDefault["think"]);                // absent unless asked
+    }
+
     [Fact]
     public void Ollama_tools_normalize_the_same_function_envelope()
     {

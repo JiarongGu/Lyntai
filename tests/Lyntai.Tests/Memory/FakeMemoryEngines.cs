@@ -157,8 +157,86 @@ internal sealed class TouchHostileGraphStore : IMemoryGraphStore
         double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
         _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
 
+    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
+        _inner.DeleteAsync(engine, ids, ct);
+
     public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
         _inner.ForgetAsync(engine, taskKey, scope, ct);
+
+    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+        CancellationToken ct = default) =>
+        throw new InvalidOperationException("attempt to write to a read-only database");
+
+    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
+        _inner.ReviewsAsync(engine, ct);
+
+    // a write, so it fails like every other write on this store — which is the point of the double
+    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+        CancellationToken ct = default) =>
+        throw new InvalidOperationException("attempt to write to a read-only database");
+
+    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+        string subject, int limit, CancellationToken ct = default) =>
+        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+}
+
+/// <summary>A graph store that fails ONLY when logging a review — the Task 3 best-effort proof at a
+/// STRICTER grain than <see cref="TouchHostileGraphStore"/>: touching, linking, and everything else delegate
+/// to a real in-process store, so a test using this can assert that reinforcement (stability/difficulty)
+/// still lands and recall still returns its hits even though the log write specifically fails every
+/// time.</summary>
+internal sealed class ReviewLogHostileGraphStore : IMemoryGraphStore
+{
+    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
+
+    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
+        _inner.UpsertAsync(write, ct);
+
+    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+        string? query, int limit, CancellationToken ct = default) =>
+        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
+
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
+        int limit, CancellationToken ct = default) =>
+        _inner.NeighboursAsync(engine, ids, limit, ct);
+
+    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
+        _inner.GetAsync(engine, id, ct);
+
+    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+        CancellationToken ct = default) =>
+        _inner.TouchAsync(engine, touches, ct);
+
+    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
+        CancellationToken ct = default) =>
+        _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
+
+    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
+        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
+        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
+
+    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
+        _inner.DeleteAsync(engine, ids, ct);
+
+    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
+        _inner.ForgetAsync(engine, taskKey, scope, ct);
+
+    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+        CancellationToken ct = default) =>
+        throw new InvalidOperationException("the review log is unavailable");
+
+    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
+        _inner.ReviewsAsync(engine, ct);
+
+    // only the REVIEW LOG is hostile on this double — subjects pass through, so a test using it still
+    // exercises subject linking rather than silently losing it
+    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+        CancellationToken ct = default) =>
+        _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
+
+    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+        string subject, int limit, CancellationToken ct = default) =>
+        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
 }
 
 /// <summary>In-process <see cref="ISemanticMemory"/> whose "similarity" is substring containment, so a

@@ -1,4 +1,9 @@
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Forgetting;
+using Lyntai.Memory.Interference;
+using Lyntai.Memory.Modulation;
+using Lyntai.Memory.Ranking;
+using Lyntai.Memory.Salience;
 using Lyntai.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -67,33 +72,147 @@ public sealed class MemoryEngineBuilder
     /// silently do nothing. Write <c>UseGraph(new GraphMemoryOptions { Hops = 3 })</c>.</para></summary>
     /// <param name="options">Retrieval knobs and decay constants; null takes the defaults.</param>
     /// <param name="label">Distinguishes several members of the same kind.</param>
-    public MemoryEngineBuilder UseGraph(GraphMemoryOptions? options = null, string label = "graph")
+    /// <param name="ranking">THIS engine's own ranking policy, overriding the container's registered
+    /// <see cref="IMemoryRankingPolicy"/> for this named engine alone; null keeps the container registration
+    /// as the default, so an engine that names nothing here behaves exactly as before this parameter existed.
+    /// Every other named engine, and the container registration itself, is unaffected.</param>
+    /// <param name="namedRankingPolicies">Alternates this engine exposes for a per-call
+    /// <see cref="MemoryQuery.RankingPolicyName"/> override; null or empty exposes none. Scoped to THIS
+    /// engine alone — a name meaningful on one named engine is simply unknown on another, and each engine's
+    /// query throws on a name it does not itself recognize rather than consulting any other engine's
+    /// catalog.</param>
+    /// <param name="policy">THIS engine's own forgetting curve, overriding the container's registered
+    /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy"/> for this named engine alone; null
+    /// keeps the container registration as the default (or <see cref="DsrRetrievability"/> when nothing is
+    /// registered — <c>AddMemoryEngine</c>'s own <c>TryAdd</c>), so an engine that names nothing here behaves
+    /// exactly as before this parameter existed. Retention modulation applies either way: whatever curve is
+    /// resolved is wrapped in <see cref="ModulatedRetrievability"/> over the registered
+    /// <see cref="IMemoryRetentionPolicy"/> collection, so naming a curve here selects the CURVE and changes
+    /// nothing else about the engine.
+    /// <para>Appended LAST on purpose (<c>docs/DECISIONS.md</c> D50): inserting it beside the other policy
+    /// parameters would silently re-bind every positional caller. Ranking was already per-engine and the
+    /// curve was not, for no recorded reason — these are the subsystem's only two SINGULAR seams (D48), so
+    /// they now have the same selection story.</para></param>
+    /// <param name="annotation">THIS engine's own <see cref="Lyntai.Memory.Annotation.IMemoryAnnotationPolicy"/>
+    /// — what each written fact is ABOUT, so entries concerning the same entity become connected. Null falls
+    /// back to the container registration, and nothing registered means no annotation at all: the model-free
+    /// floor every engine has until someone opts in.
+    /// <para>Appended LAST for the same reason <c>policy</c> was: inserting it beside the other parameters
+    /// would silently re-bind every positional caller.</para></param>
+    /// <param name="verification">THIS engine's own
+    /// <see cref="Lyntai.Memory.Verification.IMemoryVerificationPolicy"/> — which of a recall's candidates
+    /// actually ANSWERED the query, so a buried answer can be promoted past the limit and reinforcement
+    /// follows evidence rather than the ranker's own prior. Null falls back to the container registration,
+    /// and nothing registered means the ranking policy's order stands unreviewed: the model-free floor.
+    /// <para>Appended LAST for the same reason the two parameters above it were.</para></param>
+    public MemoryEngineBuilder UseGraph(GraphMemoryOptions? options = null, string label = "graph",
+        IMemoryRankingPolicy? ranking = null,
+        IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
+        IMemoryRetrievabilityPolicy? policy = null,
+        Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
+        Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null)
     {
         var resolved = options ?? new GraphMemoryOptions();
-        _members.Add(new MemberSpec(label, (sp, full) => new GraphMemoryEngine(
-            full, Required<IMemoryGraphStore>(sp), resolved, sp.GetService<IRetrievabilityPolicy>(),
-            // register an IMemoryClock to change what decay is measured IN; the engine's default is a
-            // burst-damped per-write clock
-            memoryClock: sp.GetService<IMemoryClock>(),
-            logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
-            // similarity enrichment turns itself on when both are present, and is simply absent otherwise
-            embedder: sp.GetService<Lyntai.Embeddings.IEmbedder>(),
-            vectors: sp.GetService<IVectorStore>())));
+        _members.Add(new MemberSpec(label, (sp, full) => BuildGraph(
+            sp, full, Required<IMemoryGraphStore>(sp), resolved,
+            ranking, namedRankingPolicies, policy, annotation, verification)));
         return this;
     }
 
+    /// <summary>
+    /// The ONE place a <see cref="GraphMemoryEngine"/> is constructed from a container.
+    ///
+    /// <para><b>Why it exists — a shipped defect, not tidiness.</b> <see cref="UseGraph"/> and
+    /// <see cref="UseBestAvailable"/> each had their own copy of this argument list, and the copies had
+    /// drifted: the one-line path (<c>AddMemory()</c>, which this library documents as "the one-line path,
+    /// and deliberately so") passed neither <c>annotation:</c> nor <c>verification:</c>, so both fell to the
+    /// engine's model-free floor. A consumer calling <c>AddMemory().AddMemoryVerification()</c> got a
+    /// registered policy that never ran — silently, with no throw and no missing result, only worse recall —
+    /// while the identical registration behind <c>AddMemoryEngine(…, e =&gt; e.UseGraph())</c> worked. That
+    /// mattered most for the seam whose own registration doc calls it <b>the single largest recall-quality
+    /// lever the subsystem has</b>.</para>
+    ///
+    /// <para>Two construction sites for one engine is the defect's actual shape, so the fix is one site
+    /// rather than a second copy kept in step by memory: a parameter added to the engine now reaches BOTH
+    /// paths by construction. Pinned by
+    /// <c>GraphMemoryWiringTests.The_one_line_AddMemory_path_honours_a_registered_annotation_and_verification_policy</c>.</para>
+    ///
+    /// <para>Every argument that is a DI collection is read here unconditionally — registering a retention,
+    /// age or salience dimension is a registration, never an edit to this method. The five OVERRIDE
+    /// parameters are the per-engine selections <see cref="UseGraph"/> exposes and
+    /// <see cref="UseBestAvailable"/>, having no configuration surface of its own, leaves null: null means
+    /// "take the container registration", which is exactly the fallback each one documents.</para>
+    /// </summary>
+    private static GraphMemoryEngine BuildGraph(IServiceProvider sp, string full, IMemoryGraphStore store,
+        GraphMemoryOptions? options = null,
+        IMemoryRankingPolicy? ranking = null,
+        IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
+        IMemoryRetrievabilityPolicy? policy = null,
+        Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
+        Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null) =>
+        new(
+            full, store,
+            options,
+            // the retention collection is a DI collection: adding a retention dimension is a registration,
+            // never an edit here
+            //
+            // No `?? new …()` fallback here (2026-08-10, fsrs-properly plan Task 1, deleting
+            // HalfLifeRetrievability): AddMemoryEngine's own TryAddSingleton<IMemoryRetrievabilityPolicy>
+            // always runs before configure(engineBuilder) ever reaches this lambda, so GetRequiredService
+            // cannot actually throw here — it documents that guarantee instead of restating a second,
+            // now-pointless default that named a curve which no longer exists.
+            //
+            // PER-ENGINE selection (docs/DECISIONS.md D50), substituted at the INNER resolution exactly the
+            // way `ranking` below substitutes at its own: an explicit `policy` argument is THIS engine's own
+            // curve and wins outright, and `?? `'s short-circuit means GetRequiredService is not even
+            // consulted then. Passing it here rather than as the engine's `policy:` keeps the modulation
+            // wrapper on BOTH paths — a consumer selecting a curve is choosing a curve, not opting out of
+            // the retention policies every other graph engine gets. `policy: null` therefore resolves
+            // exactly as it did before this parameter existed.
+            policy: new ModulatedRetrievability(
+                policy ?? sp.GetRequiredService<IMemoryRetrievabilityPolicy>(),
+                sp.GetServices<IMemoryRetentionPolicy>(),
+                sp.GetService<IMemoryRetentionCompositionPolicy>()),
+            // age is a DI collection too (2026-08-10 memory-policy-seams plan, Task 3): registering an
+            // IMemoryAgePolicy adds a coexisting age dimension, never replaces the engine's own default
+            // (a burst-damped per-write age policy) — GetServices returns empty when nothing is registered, and
+            // the engine's own normalization falls back to that default exactly as GetService's null used to
+            agePolicies: sp.GetServices<IMemoryAgePolicy>(),
+            ageComposition: sp.GetService<IMemoryAgeCompositionPolicy>(),
+            logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
+            // similarity enrichment turns itself on when both are present, and is simply absent otherwise
+            embedder: sp.GetService<Lyntai.Embeddings.IEmbedder>(),
+            vectors: sp.GetService<IVectorStore>(),
+            // salience is a DI collection too, same reasoning as agePolicies above
+            saliencePolicies: sp.GetServices<IMemorySaliencePolicy>(),
+            salienceComposition: sp.GetService<IMemorySalienceCompositionPolicy>(),
+            // PER-ENGINE selection (2026-08-10 memory-policy-seams plan, Task 6): an explicit `ranking`
+            // argument here is THIS engine's own choice and wins outright; null falls back to the container
+            // registration exactly as before this parameter existed — "container registration stays the
+            // default for engines that name nothing".
+            ranking: ranking ?? sp.GetService<IMemoryRankingPolicy>(),
+            namedRankingPolicies: namedRankingPolicies,
+            // PER-ENGINE selection, the same shape as `ranking` and `policy` above. Absent from the
+            // container AND unnamed here means no annotation and no subject links — the model-free floor,
+            // which is what every engine gets until someone opts in.
+            annotation: annotation ?? sp.GetService<Lyntai.Memory.Annotation.IMemoryAnnotationPolicy>(),
+            // Same per-engine selection story. Absent from the container AND unnamed here means the ranking
+            // policy's order stands unreviewed — the model-free floor.
+            verification: verification
+                ?? sp.GetService<Lyntai.Memory.Verification.IMemoryVerificationPolicy>());
+
     /// <summary>The zero-configuration member: the graph engine when an <see cref="IMemoryGraphStore"/>
     /// reached the container, the keyword store otherwise. Resolved when the container is BUILT, not when
-    /// this is called, because a storage backend may be registered afterwards.</summary>
+    /// this is called, because a storage backend may be registered afterwards.
+    /// <para>Names no override at all — it has no configuration surface to name one with — so every seam
+    /// resolves from the container, which is what <see cref="BuildGraph"/>'s null arguments mean. Before
+    /// that method existed this carried its own copy of the argument list and had silently fallen two
+    /// parameters behind; see its remarks.</para></summary>
     internal MemoryEngineBuilder UseBestAvailable()
     {
         _members.Add(new MemberSpec("memory", (sp, full) =>
             sp.GetService<IMemoryGraphStore>() is { } graph
-                ? new GraphMemoryEngine(full, graph, policy: sp.GetService<IRetrievabilityPolicy>(),
-                    memoryClock: sp.GetService<IMemoryClock>(),
-                    logger: sp.GetService<ILogger<GraphMemoryEngine>>(),
-                    embedder: sp.GetService<Lyntai.Embeddings.IEmbedder>(),
-                    vectors: sp.GetService<IVectorStore>())
+                ? BuildGraph(sp, full, graph)
                 : new LexicalMemoryEngine(full, Required<IMemoryStore>(sp),
                     sp.GetService<ILogger<LexicalMemoryEngine>>())));
         return this;

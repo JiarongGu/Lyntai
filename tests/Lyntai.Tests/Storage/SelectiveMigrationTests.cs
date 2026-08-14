@@ -5,7 +5,7 @@ using Lyntai.Storage.Sqlite.Migrations;
 
 namespace Lyntai.Tests.Storage;
 
-/// <summary>D15 (selective migration): migrating a fresh db with a SINGLE StorageFeature lands ONLY that
+/// <summary>D12 (selective migration): migrating a fresh db with a SINGLE StorageFeature lands ONLY that
 /// domain's tables — the per-domain 1.0 baselines each carry <c>[Tags(nameof(StorageFeature.X),
 /// StorageFeatures.AllTag)]</c> and the runner applies a migration only when its requested tag set is a
 /// subset of the migration's tags, so a disabled domain's table never lands. Guards that the squash into

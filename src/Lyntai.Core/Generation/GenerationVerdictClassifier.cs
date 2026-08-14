@@ -9,7 +9,7 @@ namespace Lyntai.Generation;
 /// into media's vocabulary. That is the deliberate middle path between the two bad options: media does not
 /// adopt LLM-named types (it is a separate domain), and it does not carry a second copy of the "what does a
 /// 429 / a content-policy refusal look like" corpus, which would drift out of sync
-/// (<c>docs/DECISIONS.md</c> D27). Consumer-registered matchers on the shared classifier therefore teach BOTH
+/// (<c>docs/DECISIONS.md</c> D21). Consumer-registered matchers on the shared classifier therefore teach BOTH
 /// domains at once.</summary>
 public static class GenerationVerdictClassifier
 {
@@ -76,7 +76,7 @@ public static class GenerationVerdictClassifier
     /// domains now answer it the same way (<see cref="Llm.Routing.FallbackAction.Advance"/> there,
     /// <see cref="Routing.GenerationFallbackAction.Advance"/> here).</para>
     /// <para><b>It collapsed to <see cref="GenerationVerdict.Failed"/> until 2026-08-05, and only a ROUTER
-    /// change made this arm safe — so do not undo half of it</b> (<c>docs/DECISIONS.md</c> D43 filed the
+    /// change made this arm safe — so do not undo half of it</b> (<c>docs/DECISIONS.md</c> D36 filed the
     /// trade; <c>TASKS.md</c> Part 40 closed it). <see cref="Routing.GenerationRouter"/> still never reports a
     /// blameless verdict OVER a real failure, but it used to not report one at ALL — so a blameless mapping
     /// swallowed "your prompt is too long", the one thing the caller can act on, exactly when it was the only
@@ -94,7 +94,7 @@ public static class GenerationVerdictClassifier
     /// until a newly added member is given BOTH a row in its table and an arm here. Returning null rather than
     /// <see cref="GenerationVerdict.Failed"/> from the discard is what lets it tell those apart. Same
     /// obligation <c>LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c> places on the
-    /// call-site helpers and D38 places on the routing policy.</para></summary>
+    /// call-site helpers and D31 places on the routing policy.</para></summary>
     private static GenerationVerdict Translate(LlmVerdict verdict) =>
         // an undefined numeric value is still classified conservatively; only the GATE sees the difference
         TryTranslate(verdict) ?? GenerationVerdict.Failed;

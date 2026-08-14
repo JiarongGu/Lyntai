@@ -37,6 +37,9 @@ lyntai_kv|updated_at|timestamp with time zone|NO|
 lyntai_kv|value|text|NO|
 lyntai_memory_edge|from_id|bigint|NO|
 lyntai_memory_edge|kind|text|NO|''::text
+lyntai_memory_edge|strengthened_at|timestamp with time zone|NO|'1970-01-01 00:00:00+00'::timestamp with time zone
+lyntai_memory_edge|strengthened_chars|bigint|NO|0
+lyntai_memory_edge|strengthened_ordinal|bigint|NO|0
 lyntai_memory_edge|strengthened_position|double precision|NO|
 lyntai_memory_edge|to_id|bigint|NO|
 lyntai_memory_edge|weight|double precision|NO|
@@ -50,18 +53,49 @@ lyntai_memory_entry|task_key|text|NO|
 lyntai_memory_node|content|text|NO|
 lyntai_memory_node|content_hash|text|NO|
 lyntai_memory_node|created_at|timestamp with time zone|NO|
+lyntai_memory_node|difficulty|double precision|NO|5
+lyntai_memory_node|encoding_at|timestamp with time zone|NO|'1970-01-01 00:00:00+00'::timestamp with time zone
+lyntai_memory_node|encoding_chars|bigint|NO|0
+lyntai_memory_node|encoding_ordinal|bigint|NO|0
 lyntai_memory_node|engine|text|NO|
 lyntai_memory_node|grade|integer|NO|
 lyntai_memory_node|headline|text|NO|
 lyntai_memory_node|id|bigint|NO|nextval('lyntai_memory_node_id_seq'::regclass)
 lyntai_memory_node|last_recalled_position|double precision|NO|
 lyntai_memory_node|metadata|text|YES|
+lyntai_memory_node|provenance_retrievability|bigint|NO|0
+lyntai_memory_node|provenance_salience|bigint|NO|0
 lyntai_memory_node|recall_count|integer|NO|0
+lyntai_memory_node|salience|double precision|NO|1
 lyntai_memory_node|scope|text|NO|
+lyntai_memory_node|signals|jsonb|YES|
 lyntai_memory_node|stability|double precision|NO|
 lyntai_memory_node|task_key|text|NO|
+lyntai_memory_position|chars|bigint|NO|0
+lyntai_memory_position|encoded_at|timestamp with time zone|NO|'1970-01-01 00:00:00+00'::timestamp with time zone
 lyntai_memory_position|engine|text|NO|
+lyntai_memory_position|ordinal|bigint|NO|0
 lyntai_memory_position|position|double precision|NO|
+lyntai_memory_review|batch_id|text|NO|
+lyntai_memory_review|created_at|timestamp with time zone|NO|
+lyntai_memory_review|engine|text|NO|
+lyntai_memory_review|grade|double precision|YES|
+lyntai_memory_review|id|bigint|NO|nextval('lyntai_memory_review_id_seq'::regclass)
+lyntai_memory_review|node_id|bigint|NO|
+lyntai_memory_review|post_difficulty|double precision|NO|
+lyntai_memory_review|post_stability|double precision|NO|
+lyntai_memory_review|pre_age|double precision|NO|
+lyntai_memory_review|pre_difficulty|double precision|NO|
+lyntai_memory_review|pre_stability|double precision|NO|
+lyntai_memory_review|pre_strength|double precision|NO|
+lyntai_memory_review|pre_strength_age|double precision|NO|
+lyntai_memory_review|provenance_retrievability|bigint|NO|0
+lyntai_memory_review|verified|boolean|YES|
+lyntai_memory_subject|engine|text|NO|
+lyntai_memory_subject|node_id|bigint|NO|
+lyntai_memory_subject|scope|text|NO|
+lyntai_memory_subject|subject|text|NO|
+lyntai_memory_subject|task_key|text|NO|
 lyntai_message|created_at|timestamp with time zone|NO|
 lyntai_message|id|text|NO|
 lyntai_message|kind|text|NO|
@@ -137,6 +171,10 @@ lyntai_memory_node|ix_lyntai_memory_node_trgm|CREATE INDEX ix_lyntai_memory_node
 lyntai_memory_node|lyntai_memory_node_pkey|CREATE UNIQUE INDEX lyntai_memory_node_pkey ON public.lyntai_memory_node USING btree (id)
 lyntai_memory_node|ux_lyntai_memory_node_dedup|CREATE UNIQUE INDEX ux_lyntai_memory_node_dedup ON public.lyntai_memory_node USING btree (engine, task_key, scope, content_hash)
 lyntai_memory_position|lyntai_memory_position_pkey|CREATE UNIQUE INDEX lyntai_memory_position_pkey ON public.lyntai_memory_position USING btree (engine)
+lyntai_memory_review|ix_lyntai_memory_review_engine_id|CREATE INDEX ix_lyntai_memory_review_engine_id ON public.lyntai_memory_review USING btree (engine, id)
+lyntai_memory_review|lyntai_memory_review_pkey|CREATE UNIQUE INDEX lyntai_memory_review_pkey ON public.lyntai_memory_review USING btree (id)
+lyntai_memory_subject|ix_lyntai_memory_subject_lookup|CREATE INDEX ix_lyntai_memory_subject_lookup ON public.lyntai_memory_subject USING btree (engine, subject, task_key, scope, node_id DESC)
+lyntai_memory_subject|lyntai_memory_subject_pkey|CREATE UNIQUE INDEX lyntai_memory_subject_pkey ON public.lyntai_memory_subject USING btree (engine, node_id, subject)
 lyntai_message|ix_lyntai_message_thread_seq|CREATE UNIQUE INDEX ix_lyntai_message_thread_seq ON public.lyntai_message USING btree (thread_id, seq)
 lyntai_message|lyntai_message_pkey|CREATE UNIQUE INDEX lyntai_message_pkey ON public.lyntai_message USING btree (id)
 lyntai_prompt_version|ix_lyntai_prompt_active|CREATE INDEX ix_lyntai_prompt_active ON public.lyntai_prompt_version USING btree (name) WHERE is_active

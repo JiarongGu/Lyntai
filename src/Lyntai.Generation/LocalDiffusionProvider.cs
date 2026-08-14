@@ -4,7 +4,7 @@ namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="LocalDiffusionProvider"/>. The engine and its weights are the HOST's
 /// to provide — Lyntai drives what is already on disk and never downloads either (<c>docs/DECISIONS.md</c>
-/// D26).</summary>
+/// D20).</summary>
 public sealed class LocalDiffusionOptions
 {
     /// <summary>Path to the <c>sd-cli</c> executable. Absent → the backend reports
@@ -92,7 +92,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     {
         if (options.BinaryPath is not { Length: > 0 } binary || !File.Exists(binary))
             return Task.FromResult(new GenerationProbeResult(false,
-                $"not configured: no sd-cli binary at '{options.BinaryPath}' (the host provisions it — D26)"));
+                $"not configured: no sd-cli binary at '{options.BinaryPath}' (the host provisions it — D20)"));
 
         if (options.ModelPath is not { Length: > 0 } model || !File.Exists(model))
             return Task.FromResult(new GenerationProbeResult(false,

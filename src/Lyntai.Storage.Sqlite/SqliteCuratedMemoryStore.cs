@@ -186,14 +186,18 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
                 }
             }
 
-            var pl = new DynamicParameters(new { pattern = LikePattern.Contains(query), kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
+            // Term-wise, via the same split the FTS path above uses: the fallback degrades the RANKING
+            // (a term count instead of bm25), never which entries are found.
+            var kw = SearchTerms.LikeClause(query, "content");
+            var pl = new DynamicParameters(new { kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
+            foreach (var (name, value) in kw.Parameters) pl.Add(name, value);
             var ml = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", pl);
             var likeHits = await conn.QueryAsync<Row>(new CommandDefinition($"""
                 SELECT {Cols} FROM lyntai_curated_memory
-                WHERE content LIKE @pattern ESCAPE '\'
+                WHERE {kw.Predicate}
                   AND (@kind IS NULL OR kind = @kind) AND (@task IS NULL OR task = @task)
                   AND (@scope IS NULL OR scope = @scope) AND (@enabledOnly = 0 OR enabled = 1){ml}
-                ORDER BY created_at DESC, id DESC LIMIT @limit
+                ORDER BY {kw.MatchCount} DESC, created_at DESC, id DESC LIMIT @limit
                 """, pl, cancellationToken: ct)).ConfigureAwait(false);
             return [.. likeHits.Select(r => r.ToRecord())];
         }

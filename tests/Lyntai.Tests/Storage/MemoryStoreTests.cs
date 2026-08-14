@@ -10,9 +10,10 @@ namespace Lyntai.Tests.Storage;
 /// <summary>SQLite-SPECIFIC memory-store concerns. The cross-backend semantics (single-token substring
 /// recall, CJK substring, scope/task filtering, dedup, TTL, cap COUNT/membership, forget, fail-open) are
 /// pinned by <see cref="MemoryStoreContract"/> (<see cref="SqliteMemoryStoreContractTests"/>). What stays
-/// here is what is DELIBERATELY divergent on SQLite: FTS any-token matching vs the InMemory/Postgres
-/// contiguous-substring rule, the FTS→LIKE short-query fallback, and the recency SEQUENCE of no-query
-/// recall (bm25 relevance vs recency is exactly why order is kept out of the shared contract).</summary>
+/// here is what is DELIBERATELY divergent on SQLite: the FTS→LIKE short-query fallback, and the recency
+/// SEQUENCE of no-query recall (bm25 relevance vs recency is exactly why order is kept out of the shared
+/// contract). Any-token MATCHING is no longer on that list — as of 3.0 every backend splits a query the
+/// same way (<see cref="SearchTerms"/>) and only the ranking among matches differs.</summary>
 public class MemoryStoreTests : IDisposable
 {
     private readonly TempDb _db = new();
@@ -23,8 +24,17 @@ public class MemoryStoreTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    [Fact] // T5: lock the documented cross-backend recall guarantee + divergence
-    public async Task Recall_matching_is_consistent_for_single_tokens_and_divergent_for_separated_words()
+    /// <summary>T5: lock the cross-backend recall guarantee — WHICH entries a query finds, which as of 3.0
+    /// is the same everywhere.
+    /// <para><b>This test asserted the opposite until 3.0</b>, and its old name said so:
+    /// <c>…_and_divergent_for_separated_words</c>. Separated words hit on SQLite (any-token FTS) and missed
+    /// on InMemory and Postgres (contiguous substring), and the advice attached to it was "prefer single
+    /// salient terms for portable recall" — which is not advice a library should need to give. A shared
+    /// tokenization (<see cref="SearchTerms"/>) removed the divergence rather than documenting it.</para>
+    /// <para>What is still deliberately NOT asserted is same-match ORDERING: SQLite ranks by bm25, the
+    /// others by matched-term count then recency.</para></summary>
+    [Fact]
+    public async Task Recall_matching_is_consistent_for_single_tokens_and_for_separated_words()
     {
         var opts = new LyntaiOptions();
         var sqlite = new SqliteMemoryStore(_db.Factory, opts);
@@ -32,14 +42,17 @@ public class MemoryStoreTests : IDisposable
         foreach (var s in new IMemoryStore[] { sqlite, inmem })
             await s.RememberAsync("t", "s", "You can cancel your subscription anytime.");
 
-        // CONSISTENT guarantee: a single ≥3-char token substring recalls on every backend
+        // a single ≥3-char token substring recalls on every backend
         Assert.Single(await sqlite.RecallAsync("t", "s", "subscription"));
         Assert.Single(await inmem.RecallAsync("t", "s", "subscription"));
 
-        // DOCUMENTED divergence: words appearing SEPARATELY hit on SQLite (any-token FTS), miss on InMemory
-        // (contiguous substring). Prefer single salient terms for portable recall.
-        Assert.Single(await sqlite.RecallAsync("t", "s", "cancel plan"));  // the "cancel" token matches
-        Assert.Empty(await inmem.RecallAsync("t", "s", "cancel plan"));    // "cancel plan" isn't contiguous
+        // and so do words appearing SEPARATELY — "cancel plan" is nowhere contiguous in the content
+        Assert.Single(await sqlite.RecallAsync("t", "s", "cancel plan"));
+        Assert.Single(await inmem.RecallAsync("t", "s", "cancel plan"));
+
+        // a query sharing no term still misses on both — the convergence is not "match everything"
+        Assert.Empty(await sqlite.RecallAsync("t", "s", "refund shipping"));
+        Assert.Empty(await inmem.RecallAsync("t", "s", "refund shipping"));
     }
 
     [Fact]

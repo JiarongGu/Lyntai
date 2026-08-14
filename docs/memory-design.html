@@ -628,14 +628,14 @@ two sessions a month apart, 3 each <span class="c">-- wall clock: everything dec
         material, how much real time — so it is supplied rather than assumed, exactly as the curve is:
       </p>
       <div class="scroll">
-<pre><code><span class="k">public interface</span> IMemoryClock { MemoryTick Advance(MemoryWrite write); }
+<pre><code><span class="k">public interface</span> IMemoryAgePolicy { MemoryTick Advance(MemoryWrite write); }
 
-PerWriteClock       → by count               <span class="c">// the default</span>
-ContentSizeClock    → by volume              <span class="c">// a document crowds harder than a note</span>
-BurstDampenedClock  → wraps any of them      <span class="c">// see below</span>
-ElapsedClock        → by real time           <span class="c">// calendar decay, opt-in per engine</span>
+PerWriteAgePolicy       → by count               <span class="c">// the default</span>
+ContentSizeAgePolicy    → by volume              <span class="c">// a document crowds harder than a note</span>
+BurstDampenedAgePolicy  → wraps any of them      <span class="c">// see below</span>
+ElapsedAgePolicy        → by real time           <span class="c">// calendar decay, opt-in per engine</span>
 
-<span class="k">public interface</span> IRetrievabilityPolicy
+<span class="k">public interface</span> IMemoryRetrievabilityPolicy
 {
     <span class="k">double</span> Retrievability(<span class="k">in</span> MemoryDecayState state);   <span class="c">// no clock: age is dimensionless</span>
     <span class="k">double</span> Reinforce(<span class="k">in</span> MemoryDecayState state);
@@ -681,13 +681,14 @@ ElapsedClock        → by real time           <span class="c">// calendar decay
         top five returned nodes — a <em>k</em>=10 recall would otherwise write 45 edges every turn.
       </p>
 
-      <h3>Recall, in five steps</h3>
+      <h3>Recall, in six steps</h3>
       <div class="seq">
-        <div class="seq-item"><div class="seq-tag">1</div><div><h3>Seed</h3><p>FTS match on the query, plus semantic seeds when an embedder exists. Authoritative in-scope nodes are admitted unconditionally, query or no query.</p></div></div>
+        <div class="seq-item"><div class="seq-tag">1</div><div><h3>Seed</h3><p><strong>Lexical only</strong> — an FTS or trigram match on the query. Authoritative in-scope nodes are admitted unconditionally, query or no query. An embedder changes nothing here: the vector store is consulted at <em>write</em> time, for novelty and for similarity linking, and never at query time.</p></div></div>
         <div class="seq-item"><div class="seq-tag">2</div><div><h3>Spread</h3><p>For each hop, pull the frontier's neighbours ordered by <code>weight × r</code>, capped per hop.</p></div></div>
-        <div class="seq-item"><div class="seq-tag">3</div><div><h3>Score</h3><p><code>relevance × r × 0.5^hop</code>. An entry is hidden only if it falls far below the <em>strongest</em> hit — buried by something else, never cut for its own faintness.</p></div></div>
-        <div class="seq-item"><div class="seq-tag">4</div><div><h3>Budget</h3><p>Authoritative reserve first, then associative by rank until the character budget is spent.</p></div></div>
-        <div class="seq-item"><div class="seq-tag">5</div><div><h3>Touch</h3><p>One batched update reinforcing the nodes actually returned, plus the capped co-activation edges.</p></div></div>
+        <div class="seq-item"><div class="seq-tag">3</div><div><h3>Score</h3><p>Whichever <code>IMemoryRankingPolicy</code> is registered — reciprocal rank fusion by default since 3.0, with the older multiplicative <code>relevance × r × 0.5^hop</code> still shipped. An entry is hidden only if it falls far below the <em>strongest</em> hit — buried by something else, never cut for its own faintness.</p></div></div>
+        <div class="seq-item"><div class="seq-tag">4</div><div><h3>Verify</h3><p>Optional, and the largest recall-quality lever there is. A model reads the query and the candidate headlines <em>before</em> the limit applies, so an answer the ranking buried gets promoted — because every miss measured on this corpus was a reachable candidate that something outranked, not a candidate that was never found.</p></div></div>
+        <div class="seq-item"><div class="seq-tag">5</div><div><h3>Budget</h3><p>Authoritative facts take reserved slots <em>within</em> the limit, then associative by rank until the character budget is spent.</p></div></div>
+        <div class="seq-item"><div class="seq-tag">6</div><div><h3>Touch</h3><p>One batched update reinforcing what survived — the age reset and the stability growth are separable, and each act can be gated on its own. Every returned entry is logged with the verdict, including ones the judge rejected and therefore never touched.</p></div></div>
       </div>
       <div class="note">
         <strong>Recall now writes.</strong> That is a real change in character, so it is designed rather
@@ -814,7 +815,7 @@ WHERE    age / stability &gt; @cut AND grade &lt;&gt; @authoritative
 
   <footer>
     Built and merged 2026-08-08. Specs:
-    <code>docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md</code> and
+    <code>local/superpowers/specs/2026-08-08-memory-engine-seam-design.md</code> and
     <code>2026-08-08-graph-memory-engine-design.md</code>; per-task record in
     <code>docs/task-archive.md</code> Parts 46–51. Additive throughout, so minor-bump work.
     <br><br>

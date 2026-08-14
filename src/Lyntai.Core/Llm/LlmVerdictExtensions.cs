@@ -7,7 +7,7 @@ namespace Lyntai.Llm;
 /// <see cref="Agents.SessionEnded"/>, <see cref="Agents.AgentSessionResult"/>,
 /// <see cref="Agents.ToolLoopResult"/>) and one definition should serve all of them.
 /// <para><b>Why categories and not one method per verdict.</b> <see cref="LlmVerdict"/> grows —
-/// <see cref="LlmVerdict.NotConfigured"/> was appended after the 1.0 freeze (<c>docs/DECISIONS.md</c> D38)
+/// <see cref="LlmVerdict.NotConfigured"/> was appended after the 1.0 freeze (<c>docs/DECISIONS.md</c> D31)
 /// — so an <c>IsRateLimited</c>/<c>IsRefused</c>/… set would make every future member a public-surface
 /// addition, and would leave the newest verdict as the only one without a helper. A caller who wants ONE
 /// specific verdict already has the clearest possible expression of it: <c>verdict == LlmVerdict.RateLimited</c>.
@@ -46,7 +46,7 @@ public static class LlmVerdictExtensions
     /// and <see cref="LlmVerdict.AuthFailed"/> share <see cref="Routing.FallbackAction.CooldownAndAdvance"/>
     /// there while differing here). <c>LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c>
     /// fails until a newly added member is given a classification — not merely listed — the same obligation
-    /// D38 places on the policy table.</para></summary>
+    /// D31 places on the policy table.</para></summary>
     public static bool IsTransient(this LlmVerdict verdict) =>
         verdict is LlmVerdict.Failed or LlmVerdict.Timeout or LlmVerdict.RateLimited;
 }

@@ -4,7 +4,7 @@ namespace Lyntai.Generation;
 /// <see cref="GenerationRequest.Kind"/> is an open string so a backend offering a medium nobody has modelled yet
 /// (3D meshes already ship on real aggregators; speech-to-speech, motion, whatever follows) fits without a
 /// breaking contract change. Same reasoning as the free-form <c>Method</c>/<c>Version</c> values in
-/// <c>docs/DECISIONS.md</c> D26.</summary>
+/// <c>docs/DECISIONS.md</c> D20.</summary>
 public static class GenerationKinds
 {
     /// <summary>A still image.</summary>

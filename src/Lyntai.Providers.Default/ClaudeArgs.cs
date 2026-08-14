@@ -13,7 +13,7 @@ internal static class ClaudeArgs
     /// mode, prompt from stdin) plus the stream-json output format both readers parse. Shared with
     /// <see cref="ClaudeAgentArgs"/> so the two claude paths can't drift on it. The DENY lists deliberately
     /// stay per-path — the agent run denies the flow tools that would hang it, which a completion has no
-    /// reason to name (<c>docs/2026-07-19-agent-session-design.md</c>).</summary>
+    /// reason to name (<c>local/superpowers/specs/2026-07-19-agent-session-design.md</c>).</summary>
     internal static readonly string[] PrintMode = ["-p", "--output-format", "stream-json", "--verbose"];
 
     public static IReadOnlyList<string> Build(string? model)

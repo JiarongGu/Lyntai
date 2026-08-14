@@ -25,6 +25,8 @@ public abstract class CuratedMemoryStoreContractFacts
     [Fact] public Task Metadata_filter() => CuratedMemoryStoreContract.Metadata_filter_matches_all_pairs(NewStore());
     [Fact] public Task Search() => CuratedMemoryStoreContract.Search_matches_content_with_filters(NewStore());
     [Fact] public Task Search_cjk() => CuratedMemoryStoreContract.Search_recalls_cjk_substrings(NewStore());
+    [Fact] public Task Search_multi_word() => CuratedMemoryStoreContract.Search_matches_any_term_of_a_multi_word_query(NewStore());
+    [Fact] public Task Search_chinese() => CuratedMemoryStoreContract.Search_matches_a_chinese_query_without_spaces(NewStore());
 }
 
 /// <summary>The <see cref="CuratedMemoryStoreContract"/> against the InMemory backend.</summary>

@@ -15,6 +15,12 @@ public sealed record LlmRequest
     /// <summary>Structured output: a JSON schema the reply must conform to (optional).</summary>
     public string? JsonSchema { get; init; }
 
+    /// <summary>Whether this call wants the model's intermediate reasoning. <b>Advisory</b> — a provider
+    /// that cannot express it ignores it, and a model that reasons anyway is not a defect. See
+    /// <see cref="LlmReasoning"/> for why the option is neutral rather than a per-family prompt token, and
+    /// for the 15× latency measurement that motivated it.</summary>
+    public LlmReasoning Reasoning { get; init; } = LlmReasoning.Default;
+
     public IReadOnlyList<LlmTool>? Tools { get; init; }
 
     /// <summary>Per-feature routing/telemetry tag (e.g. "scoring", "chat").</summary>

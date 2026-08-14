@@ -149,7 +149,7 @@ public class LocalDiffusionProviderTests
     [Fact]
     public async Task An_unprovisioned_engine_is_NOT_CONFIGURED_and_never_spawns()
     {
-        // the binary and weights are the HOST's to download (D26) — absent is a normal state to report, not a
+        // the binary and weights are the HOST's to download (D20) — absent is a normal state to report, not a
         // failure to blame the backend for
         var (provider, runner, _) = Provider(createFiles: false);
 

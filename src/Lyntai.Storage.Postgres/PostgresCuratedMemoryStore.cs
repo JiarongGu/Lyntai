@@ -163,20 +163,35 @@ public sealed class PostgresCuratedMemoryStore(IDbConnectionFactory factory,
         if (string.IsNullOrWhiteSpace(query)) return [];
         try
         {
-            var p = new DynamicParameters(new { pattern = LikePattern.Contains(query), enabledOnly, kind, task = taskKey, scope, limit });
-            var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-            // contiguous-substring ILIKE over CONTENT (trigram-accelerated by the gin index), recency-ranked —
-            // same semantics as PostgresMemoryStore.RecallAsync (see the divergence note on ICuratedMemoryStore.SearchAsync).
-            var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
-                SELECT {Cols} FROM lyntai_curated_memory
-                WHERE content ILIKE @pattern ESCAPE '\'
-                  AND (@kind::text IS NULL OR kind = @kind) AND (@task::text IS NULL OR task = @task)
-                  AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled){meta}
-                ORDER BY created_at DESC, id DESC
-                LIMIT @limit
-                """, p, cancellationToken: ct)).ConfigureAwait(false);
-            return [.. rows.Select(r => r.ToRecord())];
+
+            // Term-wise ILIKE over CONTENT, ranked by how many terms matched and then by recency — same
+            // semantics as PostgresMemoryStore.RecallAsync, including its TWO-PASS shape and for the same
+            // measured reason: pass 1 stays index-friendly (every pattern >= 3 chars, so the pg_trgm GIN
+            // index serves it) and only a MISS widens to the two-character terms of a spaceless script,
+            // which the index cannot serve (300k rows: 96.6 ms scan vs 0.90 ms indexed).
+            async Task<List<CuratedMemory>> MatchAsync(bool includeShortTerms)
+            {
+                var kw = SearchTerms.LikeClause(query, "content", "ILIKE",
+                    includeShortTerms: includeShortTerms);
+                var p = new DynamicParameters(new { enabledOnly, kind, task = taskKey, scope, limit });
+                foreach (var (name, value) in kw.Parameters) p.Add(name, value);
+                var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
+                var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
+                    SELECT {Cols} FROM lyntai_curated_memory
+                    WHERE {kw.Predicate}
+                      AND (@kind::text IS NULL OR kind = @kind) AND (@task::text IS NULL OR task = @task)
+                      AND (@scope::text IS NULL OR scope = @scope) AND (NOT @enabledOnly OR enabled){meta}
+                    ORDER BY {kw.MatchCount} DESC, created_at DESC, id DESC
+                    LIMIT @limit
+                    """, p, cancellationToken: ct)).ConfigureAwait(false);
+                return [.. rows.Select(r => r.ToRecord())];
+            }
+
+            var hits = await MatchAsync(includeShortTerms: false).ConfigureAwait(false);
+            if (hits.Count == 0 && SearchTerms.HasShortSpacelessTerms(query))
+                hits = await MatchAsync(includeShortTerms: true).ConfigureAwait(false);
+            return hits;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)

@@ -16,6 +16,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// The two pure steps INSIDE this process that fail silently when wrong live in `consumer-smoke-lib.mjs`
+// and are unit-tested there. This file stays a linear script: the thing worth testing here IS the
+// pack/restore/build/run, and a seam that stubbed the pack would test the bookkeeping and none of the risk.
+import { listingHasPdb, packageIdsFrom } from './consumer-smoke-lib.mjs';
+
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const work = path.join(repo, 'devtools', '_consumer-smoke');   // git-ignored scratch, per the repo convention
 const version = '9.9.9-smoke';
@@ -57,7 +62,7 @@ if (!globalPackages || !fs.existsSync(globalPackages))
   bail('could not locate the NuGet global-packages folder', locals.stdout);
 
 let evicted = 0;
-for (const id of nupkgs.map((f) => f.slice(0, f.length - `.${version}.nupkg`.length).toLowerCase())) {
+for (const id of packageIdsFrom(feed, version)) {
   const cached = path.join(globalPackages, id, version);
   if (!fs.existsSync(cached)) continue;
   fs.rmSync(cached, { recursive: true, force: true });
@@ -69,7 +74,7 @@ step(`evicted ${evicted} stale ${version} package(s) from the global cache ✓`)
 // An empty .snupkg is pushed automatically alongside its .nupkg and offered to symbol validation for nothing.
 for (const s of snupkgs) {
   const listing = sh('tar', ['-tf', path.join(work, 'feed', s)], repo);   // bsdtar reads zips on win/git-bash
-  if (listing.status === 0 && !/\.pdb/.test(listing.stdout))
+  if (listing.status === 0 && !listingHasPdb(listing.stdout))
     bail(`${s} contains no PDB — set <IncludeSymbols>false</IncludeSymbols> on a package that ships no assembly`);
 }
 step('every symbol package carries a PDB ✓');
@@ -104,7 +109,7 @@ fs.writeFileSync(path.join(app, 'app.csproj'), `<Project Sdk="Microsoft.NET.Sdk"
 // an unconfigured backend must report a verdict a host can act on, never throw and never invent a result.
 //
 // Lyntai.Generation is here because it is the package a consumer is MOST likely to meet on its own: it is not in
-// the bundle (D32/D34), and it is the only one carrying a dependency of its own that the bundle never resolves —
+// the bundle (D26/D25), and it is the only one carrying a dependency of its own that the bundle never resolves —
 // so a wrong dependency group in its nuspec would show up nowhere else.
 fs.writeFileSync(path.join(app, 'Program.cs'), `using Lyntai;
 using Lyntai.Agents;
@@ -143,7 +148,7 @@ var render = await sp.GetRequiredService<IGenerationRouter>().GenerateAsync(
 if (render.Verdict != GenerationVerdict.NotConfigured)
     throw new Exception($"unconfigured image backend reported {render.Verdict}, expected NotConfigured");
 
-// the named factories are reachable from the package and bake the role in (D35)
+// the named factories are reachable from the package and bake the role in (D28)
 if (GenerationInput.Init(new byte[] { 1 }, "image/png").Role != GenerationInputRoles.Init)
     throw new Exception("GenerationInput.Init did not carry its role");
 

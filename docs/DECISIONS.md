@@ -1,1646 +1,1072 @@
 # Decisions
 
-The load-bearing choices and *why*, so a future session doesn't relitigate them or accidentally revert
-an intentional one. The full contract is `2026-07-17-lyntai-design.md`; this is the rationale log.
-Newest amendments noted inline.
+**What is true now, and why.** One entry per decision that still governs the library, written in the
+present tense: read an entry and you know what holds today without reconstructing it from an argument that
+happened on a particular afternoon.
 
-**How this file is ordered, because it is not one direction throughout:** `D1`–`D28` run **oldest-first**
-(they were written that way), and everything after runs **newest-first**, so the most recent decision is at
-the top of that block rather than the bottom of the file. That was drift, not design — but it is now the
-useful order for the half that keeps growing, so it is stated rather than "fixed" by renumbering 44 entries
-and breaking every inbound `D<n>` reference in the repository. **Use the index; don't scan.**
+**The full contract is `2026-07-17-lyntai-design.md`; this is the rationale log.**
 
-**An entry is a DATED record and is never rewritten** — later thinking arrives as a new entry plus an
-inline amendment note on the old one. So a decision's *title* can read as stale while the entry is perfectly
-correct as history: `D29` says "the next major release is 2.0.1" because that is what was decided on
-2026-08-04, and 2.0.1 duly shipped. Two entries currently carry amendments: **`D9`** (superseded by `D14`)
-and **`D24`** (its silent-behaviour bullet amended by `D44`).
+## How to read it
+
+- **Ordered by number, ascending, and contiguous.** Every `D<n>` is a live decision; there are no stubs,
+  no gaps and no "newest first" half. If a number is missing, the file is wrong.
+- **The index below is GENERATED** (`node devtools/dev.mjs decisions-index`). Run it after adding an entry.
+- **The earliest entries carry no date** because they predate the dating convention; they are the pre-1.0
+  foundations. Everything from `D14` on is dated.
+
+## A note on numbering, because it changed once
+
+**Numbers were reassigned on 2026-08-14 and are not stable across that date.** Before then this file was a
+dated log that never rewrote an entry: later thinking arrived as inline amendments, which is honest history
+and made the *current* answer progressively harder to find — 3,587 lines, an index listing titles that the
+entries beneath them later refuted, and one subsystem's answer spread across 22 numbers. It was rebuilt as
+a current-state record, nine entries that were never decisions were removed, and the remainder renumbered
+contiguously.
+
+Every reference in the repository was rewritten with it. **What could not be rewritten is git history** —
+a commit message from before that date naming `D57` means the *old* `D57`. Recover it with
+`git show f8c9870:docs/DECISIONS.md`, which is the last revision under the original numbering, or
+`git log -- docs/DECISIONS.md` for the whole trail. Nothing was lost; it simply is not a tracked file any
+more, because a record nobody reads is a cost without a reader.
+
+> **Both commands need the `backup/pre-squash-2026-08-14` ref as of that date (D61).** Everything after
+> `v2.5.0` was squashed into one commit, so `f8c9870` is no longer reachable from `master` and
+> `git log -- docs/DECISIONS.md` shows one entry there. The hash is still valid — `git fetch origin
+> backup/pre-squash-2026-08-14` first, and both commands work exactly as written. **That branch is
+> load-bearing, not housekeeping: deleting it makes the pre-3.0 numbering unrecoverable.**
+
+## Adding one — the bar is HIGH, and it is the thing that keeps this file useful
+
+**Was there a CHOICE between real alternatives, and does it constrain future work?** Both halves, or it
+does not belong here. Work you did is not a decision however much reasoning it took, and a fact you
+discovered is not a decision because nobody chose it.
+
+Everything else has a better home, and using it is not a demotion: what a pass DID → `task-archive.md`; a
+trap nobody chose → `.claude/knowledge/pitfalls.md`; a number you measured → a record under
+`local/superpowers/records/`; a convention every task follows → the rules or knowledge tier. The full
+routing table is `.claude/rules/persist-working-state.md`.
+
+**Why the bar exists, measured 2026-08-14.** This file is the default destination in most people's heads —
+three rules point *into* it and none said what to keep out. It reached 72 entries with **23 created on two
+consecutive days**, which is a session-note rate rather than a decision rate; six announced in their own
+titles that they were a work session, and one was a trap. The cost was never size. It was that a reader
+looking for *what governs this code* had to sift a work log, and one subsystem's answer sat across 22
+numbers.
+
+**The test when it feels borderline: write the RULE and see if it survives its own title.** "We decided to
+ship X" is a work log. "X, because the alternative Y costs Z" is a decision. If you cannot name the
+alternative, there probably was not one.
+
+Then take the next free number, say what is true and why in a few sentences, and run `decisions-index`. If a
+new decision overturns an old one, rewrite the old entry as a stub pointing here.
 
 <!-- index:start — generated by `node devtools/dev.mjs decisions-index`; do not hand-edit -->
 
 | # | Date | Decision |
 |---|---|---|
-| [D1](#d1-llm-seam-is-our-own-illmprovider-with-a-microsoftextensionsai-bridge) | — | LLM seam is our own `ILlmProvider`, with a `Microsoft.Extensions.AI` bridge |
-| [D2](#d2-storage-is-per-domain-interfaces-one-sqlite-package-composite-ready) | — | Storage is per-domain interfaces + one SQLite package (composite-ready) |
-| [D3](#d3-adapters-depend-only-on-core-consumers-compose-via-di) | — | Adapters depend only on Core; consumers compose via DI |
-| [D4](#d4-verdict-driven-fallback-design-6-amended-2026-07-17) | — | Verdict-driven fallback (design §6), amended 2026-07-17 |
-| [D5](#d5-streaming-no-fallback-after-the-first-token-timeout-is-an-inactivity-clock) | — | Streaming: no fallback after the first token; timeout is an inactivity clock |
-| [D6](#d6-illmclient-front-door) | — | `ILlmClient` front door |
-| [D7](#d7-lyntai-prefixed-sqlite-objects) | — | `lyntai_`-prefixed SQLite objects |
-| [D8](#d8-trimaot-posture) | — | Trim/AOT posture |
-| [D9](#d9-scope-brain-persistence-core-only-superseded-by-d14) | — | Scope: "brain + persistence core" only (SUPERSEDED by D14) |
-| [D10](#d10-design-6-fallback-is-the-default-routingpolicy-not-a-hard-coded-switch) | — | Design §6 fallback is the DEFAULT `RoutingPolicy`, not a hard-coded switch |
-| [D11](#d11-public-api-is-snapshot-tested-update-the-baseline-deliberately) | — | Public-API is snapshot-tested; update the baseline deliberately |
-| [D12](#d12-pre-release-migration-policy-fold-into-the-owning-migration-a-released-table-needs-a-new-one) | — | Pre-release migration policy: fold into the owning migration; a RELEASED table needs a new one |
-| [D13](#d13-lyntai-owns-its-storage-schema-apps-extend-never-fork-configurable-table-names-rejected) | — | Lyntai OWNS its storage schema; apps EXTEND, never fork ("configurable table names" rejected) |
-| [D14](#d14-direction-a-langchain-like-platform-kit-framework-in-lyntai-domain-in-the-app) | — | Direction: a LangChain-like platform kit — framework in Lyntai, domain in the app |
-| [D15](#d15-storagefeature-toggles-which-domains-register-migrate-tag-driven-selective-migration) | — | `StorageFeature` toggles which domains register + migrate (tag-driven selective migration) |
-| [D16](#d16-memory-retention-is-an-app-configurable-multi-strategy-policy) | — | Memory retention is an app-configurable, multi-strategy policy |
-| [D17](#d17-wire-json-is-hand-walked-jsonnodejsondocument-not-reflection-jsonserializer-2026-07-26) | 2026-07-26 | Wire JSON is hand-walked `JsonNode`/`JsonDocument`, not reflection `JsonSerializer` |
-| [D18](#d18-findings-deliberately-rejected-in-the-2026-07-26-hardening-pass-dont-re-open-without-new-evidence) | — | Findings deliberately REJECTED in the 2026-07-26 hardening pass (don't re-open without new evidence) |
-| [D19](#d19-10-api-sign-off-decisions-2026-07-27-pre-10-breaks-batched-unreleased) | — | 1.0 API sign-off decisions (2026-07-27; pre-1.0 breaks batched, unreleased) |
-| [D20](#d20-no-pushpr-ci-verification-and-releases-are-manual-2026-07-27) | 2026-07-27 | No push/PR CI: verification and releases are MANUAL |
-| [D21](#d21-10-pre-freeze-api-review-applied-rejected-and-two-d19-reversals-2026-07-28) | 2026-07-28 | 1.0 pre-freeze API review: applied, rejected, and two D19 reversals |
-| [D22](#d22-10-api-freeze-the-surface-is-now-frozen-under-semver-20-2026-07-28) | 2026-07-28 | 1.0 API freeze: the surface is now frozen under SemVer 2.0 |
-| [D23](#d23-mcp-tool-hosting-is-generic-the-cli-dialect-lives-in-the-provider-package-2026-07-29) | 2026-07-29 | MCP tool hosting is generic; the CLI dialect lives in the provider package |
-| [D24](#d24-semver-strictness-is-deferred-while-every-consumer-is-first-party-2026-07-29) | 2026-07-29 | SemVer strictness is deferred while every consumer is first-party |
-| [D25](#d25-the-version-and-the-changelog-heading-are-authored-by-the-release-pipeline-only-2026-08-04) | 2026-08-04 | the version and the CHANGELOG heading are authored by the RELEASE PIPELINE only |
-| [D26](#d26-lyntai-drives-a-backends-own-self-maintenance-probe-update-pinned-install-auth-it-never-owns-credentials-or-binaries-2026-08-04) | 2026-08-04 | Lyntai DRIVES a backend's own self-maintenance (probe · update · pinned install · auth); it never… |
-| [D27](#d27-a-cli-backed-provider-is-cliproviderengine-a-dialect-never-a-second-copy-of-the-rules-2026-08-04) | 2026-08-04 | a CLI-backed provider is `CliProviderEngine` + a DIALECT, never a second copy of the rules |
-| [D28](#d28-a-cli-backend-may-be-portable-app-bundled-not-just-a-global-install-2026-08-04) | 2026-08-04 | a CLI backend may be PORTABLE (app-bundled), not just a global install |
-| [D29](#d29-the-next-major-release-is-201-200-is-burned-on-nugetorg-2026-08-04) | 2026-08-04 | the next major release is 2.0.1; 2.0.0 is BURNED on nuget.org |
-| [D30](#d30-generation-is-a-platform-in-its-own-domain-coupled-to-the-llm-side-only-through-tools-2026-08-04) | 2026-08-04 | generation is a PLATFORM in its own domain, coupled to the LLM side only through tools |
-| [D31](#d31-packages-are-split-by-dependency-footprint-not-by-vendor-or-by-size-2026-08-04) | 2026-08-04 | packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size |
-| [D32](#d32-what-goes-in-the-lyntai-bundle-is-a-dependency-budget-enforced-by-a-gate-2026-08-04) | 2026-08-04 | what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate |
-| [D33](#d33-many-small-packages-is-the-intended-shape-the-cost-is-paid-in-tooling-not-in-merging-2026-08-04) | 2026-08-04 | MANY small packages is the intended shape; the cost is paid in tooling, not in merging |
-| [D34](#d34-a-package-may-also-be-split-for-release-cadence-not-only-for-dependency-isolation-2026-08-04) | 2026-08-04 | a package may also be split for RELEASE CADENCE, not only for dependency isolation |
-| [D35](#d35-a-constructor-whose-slots-can-be-silently-transposed-gets-named-factories-2026-08-04) | 2026-08-04 | a constructor whose slots can be silently transposed gets NAMED FACTORIES |
-| [D36](#d36-byo-means-the-host-owns-the-clients-lifetime-lyntai-disposes-only-what-lyntai-created-2026-08-04) | 2026-08-04 | BYO means the HOST owns the client's lifetime; Lyntai disposes only what Lyntai created |
-| [D37](#d37-provider-lifetime-is-a-registered-strategy-and-everything-about-it-is-keyed-on-the-configuration-rather-than-the-provider-id-2026-08-05) | 2026-08-05 | provider LIFETIME is a registered strategy, and everything about it is keyed on the CONFIGURATION… |
-| [D38](#d38-never-set-up-is-its-own-verdict-in-both-domains-and-a-blameless-verdict-never-masks-a-real-failure-2026-08-05) | 2026-08-05 | "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real fai… |
-| [D39](#d39-the-post-10-ergonomics-batch-category-predicates-over-per-member-helpers-and-two-halves-left-open-on-purpose-2026-08-05) | 2026-08-05 | the post-1.0 ergonomics batch: category predicates over per-member helpers, and two halves left o… |
-| [D40](#d40-an-honest-migrateupasync-the-token-means-before-and-between-passes-and-nothing-else-2026-08-05) | 2026-08-05 | an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else |
-| [D41](#d41-semantic-memory-gets-a-name-so-its-absence-is-loud-the-wiring-stays-three-substitutable-calls-2026-08-05) | 2026-08-05 | semantic memory gets a NAME so its absence is loud; the wiring stays three substitutable calls |
-| [D42](#d42-the-agent-session-shape-is-not-claude-only-but-the-codex-half-is-half-measured-ship-the-honest-subset-mark-the-inference-refuse-the-unmeasurable-2026-08-05) | 2026-08-05 | the agent-session shape is NOT claude-only, but the codex half is half-measured: ship the honest… |
-| [D43](#d43-a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-and-the-growth-gate-is-a-test-because-the-compiler-cannot-be-one-2026-08-05) | 2026-08-05 | a translation between two verdict taxonomies gets one arm per member, and the growth gate is a TE… |
-| [D44](#d44-d24s-third-bullet-is-amended-while-every-consumer-is-first-party-a-disclosed-behaviour-change-may-ship-in-a-minor-too-2026-08-05) | 2026-08-05 | D24's third bullet is amended: while every consumer is first-party, a DISCLOSED behaviour change… |
-| [D45](#d45-the-three-calls-that-closed-the-220-backlog-report-the-blameless-reason-refuse-an-identity-collision-and-a-verdict-carrying-exception-in-core-2026-08-05) | 2026-08-05 | the three calls that closed the 2.2.0 backlog: report-the-blameless-reason, refuse-an-identity-co… |
-| [D46](#d46-the-release-workflow-ships-what-is-pushed-so-unpushed-local-work-is-silently-excluded-2026-08-05) | 2026-08-05 | the release workflow ships what is PUSHED, so unpushed local work is silently excluded |
-| [D47](#d47-an-agent-sessions-mcp-servers-are-a-neutral-core-option-because-both-backends-already-have-the-capability-and-only-the-vocabulary-differs-2026-08-05) | 2026-08-05 | an agent session's MCP servers are a NEUTRAL Core option, because both backends already have the… |
-| [D48](#d48-long-term-memory-is-a-named-engine-collection-beside-the-existing-three-not-a-replacement-for-them-2026-08-08) | 2026-08-08 | long-term memory is a NAMED-ENGINE COLLECTION beside the existing three, not a replacement for them |
-| [D49](#d49-memory-decays-by-interference-not-by-elapsed-time-and-what-counts-as-interference-is-a-seam-2026-08-08) | 2026-08-08 | memory decays by INTERFERENCE, not by elapsed time, and what counts as interference is a seam |
-| [D50](#d50-a-decayed-memory-is-buried-not-cut-recall-ranks-against-a-relative-floor-and-only-an-explicit-prune-deletes-2026-08-08) | 2026-08-08 | a decayed memory is BURIED, not cut: recall ranks against a relative floor, and only an explicit… |
-| [D51](#d51-prose-gets-a-gate-too-because-retired-vocabulary-is-the-half-of-doc-drift-a-machine-can-catch-2026-08-08) | 2026-08-08 | prose gets a gate too, because retired vocabulary is the half of doc drift a machine can catch |
+| [D1](#d1--the-llm-seam-is-lyntais-own-illmprovider-with-a-microsoftextensionsai-bridge) | — | the LLM seam is Lyntai's own `ILlmProvider`, with a `Microsoft.Extensions.AI` bridge |
+| [D2](#d2--storage-is-per-domain-interfaces-and-a-backend-implements-as-many-as-it-wants) | — | storage is per-domain interfaces, and a backend implements as many as it wants |
+| [D3](#d3--fallback-is-verdict-driven-through-one-shared-classifier-and-the-policy-is-replaceable) | — | fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE |
+| [D4](#d4--streaming-no-fallback-after-the-first-token-and-the-timeout-is-an-inactivity-clock) | — | streaming: no fallback after the first token, and the timeout is an inactivity clock |
+| [D5](#d5--illmclient-is-the-front-door) | — | `ILlmClient` is the front door |
+| [D6](#d6--every-sqlite-object-is-lyntai-prefixed) | — | every SQLite object is `lyntai_`-prefixed |
+| [D7](#d7--trimaot-posture-annotate-honestly-and-never-make-a-false-promise) | — | trim/AOT posture: annotate honestly, and never make a false promise |
+| [D8](#d8--the-public-api-is-snapshot-tested-update-the-baseline-deliberately) | — | the public API is snapshot-tested; update the baseline deliberately |
+| [D9](#d9--pre-release-fold-a-migration-into-the-one-that-owns-the-table-a-released-table-needs-a-new-one) | — | pre-release, fold a migration into the one that owns the table; a RELEASED table needs a new one |
+| [D10](#d10--lyntai-owns-its-storage-schema-applications-extend-never-fork) | — | Lyntai OWNS its storage schema; applications EXTEND, never fork |
+| [D11](#d11--direction-a-platform-kit--framework-in-lyntai-domain-in-the-application) | — | direction: a platform kit — framework in Lyntai, domain in the application |
+| [D12](#d12--storagefeature-toggles-which-domains-register-and-migrate) | — | `StorageFeature` toggles which domains register AND migrate |
+| [D13](#d13--imemorystore-size-management-is-an-app-configurable-multi-strategy-policy) | — | `IMemoryStore` size management is an app-configurable, multi-strategy policy |
+| [D14](#d14--wire-json-is-hand-walked-jsonnodejsondocument-not-reflection-jsonserializer-2026-07-26) | 2026-07-26 | wire JSON is hand-walked `JsonNode`/`JsonDocument`, not reflection `JsonSerializer` |
+| [D15](#d15--no-pushpr-ci-verification-and-releases-are-manual-2026-07-27) | 2026-07-27 | no push/PR CI: verification and releases are MANUAL |
+| [D16](#d16--the-public-surface-is-frozen-under-semver-20-as-of-10-2026-07-28) | 2026-07-28 | the public surface is FROZEN under SemVer 2.0 as of 1.0 |
+| [D17](#d17--mcp-tool-hosting-is-generic-the-cli-dialect-lives-in-the-provider-package-2026-07-29) | 2026-07-29 | MCP tool hosting is generic; the CLI dialect lives in the provider package |
+| [D18](#d18--semver-strictness-is-deferred-while-every-consumer-is-first-party-2026-07-29) | 2026-07-29 | SemVer strictness is DEFERRED while every consumer is first-party |
+| [D19](#d19--the-version-and-the-changelog-heading-are-authored-by-the-release-pipeline-only-2026-08-04) | 2026-08-04 | the version and the CHANGELOG heading are authored by the RELEASE PIPELINE only |
+| [D20](#d20--lyntai-drives-a-backends-self-maintenance-it-never-owns-credentials-or-binaries-2026-08-04) | 2026-08-04 | Lyntai DRIVES a backend's self-maintenance; it never OWNS credentials or binaries |
+| [D21](#d21--a-cli-backed-provider-is-cliproviderengine--a-dialect-never-a-second-copy-of-the-rules-2026-08-04) | 2026-08-04 | a CLI-backed provider is `CliProviderEngine` + a DIALECT, never a second copy of the rules |
+| [D22](#d22--a-cli-backend-may-be-portable-application-bundled-not-just-a-global-install-2026-08-04) | 2026-08-04 | a CLI backend may be PORTABLE (application-bundled), not just a global install |
+| [D23](#d23--200-is-burned-on-nugetorg-the-2x-line-resumed-at-201-2026-08-04) | 2026-08-04 | 2.0.0 is BURNED on nuget.org; the 2.x line resumed at 2.0.1 |
+| [D24](#d24--generation-is-a-platform-in-its-own-domain-coupled-to-the-llm-side-only-through-tools-2026-08-04) | 2026-08-04 | generation is a PLATFORM in its own domain, coupled to the LLM side only through tools |
+| [D25](#d25--packages-are-split-by-dependency-footprint-not-by-vendor-or-by-size-2026-08-04) | 2026-08-04 | packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size |
+| [D26](#d26--what-goes-in-the-lyntai-bundle-is-a-dependency-budget-enforced-by-a-gate-2026-08-04) | 2026-08-04 | what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate |
+| [D27](#d27--many-small-packages-is-the-intended-shape-the-cost-is-paid-in-tooling-2026-08-04) | 2026-08-04 | MANY small packages is the intended shape; the cost is paid in tooling |
+| [D28](#d28--a-constructor-whose-slots-can-be-silently-transposed-gets-named-factories-2026-08-04) | 2026-08-04 | a constructor whose slots can be silently transposed gets NAMED FACTORIES |
+| [D29](#d29--byo-means-the-host-owns-the-clients-lifetime-lyntai-disposes-only-what-lyntai-created-2026-08-04) | 2026-08-04 | BYO means the HOST owns the client's lifetime; Lyntai disposes only what Lyntai created |
+| [D30](#d30--provider-lifetime-is-a-registered-strategy-keyed-on-the-configuration-2026-08-05) | 2026-08-05 | provider LIFETIME is a registered strategy, keyed on the CONFIGURATION |
+| [D31](#d31--never-set-up-is-its-own-verdict-in-both-domains-and-a-blameless-verdict-never-masks-a-real-one-2026-08-05) | 2026-08-05 | "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real one |
+| [D32](#d32--a-category-predicate-beats-one-helper-per-enum-member-2026-08-05) | 2026-08-05 | a CATEGORY PREDICATE beats one helper per enum member |
+| [D33](#d33--an-honest-migrateupasync-the-token-means-before-and-between-passes-and-nothing-else-2026-08-05) | 2026-08-05 | an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else |
+| [D34](#d34--semantic-memory-gets-a-name-so-its-absence-is-loud-2026-08-05) | 2026-08-05 | semantic memory gets a NAME so its absence is loud |
+| [D35](#d35--the-agent-session-shape-is-not-cli-specific-ship-the-honest-subset-and-mark-the-inference-2026-08-05) | 2026-08-05 | the agent-session shape is NOT CLI-specific; ship the honest subset and mark the inference |
+| [D36](#d36--a-translation-between-two-verdict-taxonomies-gets-one-arm-per-member-gated-by-a-test-2026-08-05) | 2026-08-05 | a translation between two verdict taxonomies gets one arm per member, gated by a TEST |
+| [D37](#d37--refuse-an-identity-collision-and-a-core-exception-may-carry-a-verdict-2026-08-05) | 2026-08-05 | refuse an identity collision; and a Core exception may carry a verdict |
+| [D38](#d38--an-agent-sessions-mcp-servers-are-a-neutral-core-option-2026-08-05) | 2026-08-05 | an agent session's MCP servers are a NEUTRAL Core option |
+| [D39](#d39--long-term-memory-is-a-named-engine-collection-beside-the-existing-three-2026-08-08) | 2026-08-08 | long-term memory is a NAMED-ENGINE COLLECTION beside the existing three |
+| [D40](#d40--memory-decays-by-interference-not-by-elapsed-time-and-interference-is-a-seam-2026-08-08) | 2026-08-08 | memory decays by INTERFERENCE, not by elapsed time, and interference is a seam |
+| [D41](#d41--a-decayed-memory-is-buried-not-cut-2026-08-08) | 2026-08-08 | a decayed memory is BURIED, not cut |
+| [D42](#d42--prose-gets-a-gate-too-because-retired-vocabulary-is-the-half-of-doc-drift-a-machine-can-catch-2026-08-08) | 2026-08-08 | prose gets a gate too, because retired vocabulary is the half of doc drift a machine can catch |
+| [D43](#d43--a-document-that-has-finished-its-purpose-is-archived-out-of-docs-2026-08-08) | 2026-08-08 | a document that has finished its purpose is ARCHIVED out of `docs/` |
+| [D44](#d44--the-feed-presents-201-only-2026-08-08) | 2026-08-08 | the feed presents 2.0.1+ only |
+| [D45](#d45--salience-is-decay-resistance-and-store-admission-priority-rank-priority-defaults-off-2026-08-09) | 2026-08-09 | salience is decay resistance AND store ADMISSION priority; RANK priority defaults OFF |
+| [D46](#d46--memory-retention-is-four-domains-with-one-policy-seam-each-placed-by-ownership-2026-08-09) | 2026-08-09 | memory retention is four DOMAINS with one policy seam each, placed by OWNERSHIP |
+| [D47](#d47--every-memory-policy-seam-takes-one-naming-shape-imemorydomainpolicy-2026-08-10) | 2026-08-10 | every memory policy seam takes ONE naming shape, `IMemory<Domain>Policy` |
+| [D48](#d48--a-seam-is-singular-or-plural-depending-on-whether-its-implementations-read-the-same-aspect-2026-08-10) | 2026-08-10 | a seam is SINGULAR or PLURAL depending on whether its implementations read the same aspect |
+| [D49](#d49--dsrretrievability-is-the-default-forgetting-curve-and-it-is-the-only-one-2026-08-10) | 2026-08-10 | `DsrRetrievability` is the default forgetting curve, and it is the ONLY one |
+| [D50](#d50--the-forgetting-curve-is-selectable-per-engine-2026-08-11) | 2026-08-11 | the forgetting curve is selectable PER ENGINE |
+| [D51](#d51--what-30-ships-without-and-why-each-is-a-decision-rather-than-a-gap-2026-08-11) | 2026-08-11 | what 3.0 ships WITHOUT, and why each is a decision rather than a gap |
+| [D52](#d52--inside-a-major-window-it-would-break-is-not-a-reason-to-defer-2026-08-12) | 2026-08-12 | inside a major window, "it would break" is not a reason to defer |
+| [D53](#d53--spacingweight-stays-at-its-published-value-the-suspected-mechanism-was-refuted-2026-08-12) | 2026-08-12 | `SpacingWeight` stays at its published value; the suspected mechanism was REFUTED |
+| [D54](#d54--retrieval-driven-stability-growth-is-off-by-default-reinforcegain--0-2026-08-12) | 2026-08-12 | retrieval-driven stability growth is OFF by default: `ReinforceGain = 0` |
+| [D55](#d55--one-tokenization-for-every-backend-handling-spaceless-scripts-by-default-2026-08-12) | 2026-08-12 | one tokenization for every backend, handling spaceless scripts by default |
+| [D56](#d56--objective-1-does-not-trade-an-authoritative-fact-takes-a-slot-within-the-limit-2026-08-13) | 2026-08-13 | objective (1) does not trade: an authoritative fact takes a slot WITHIN the limit |
+| [D57](#d57--the-reinforcement-seam-is-cut-at-the-two-effects-not-the-two-acts-2026-08-13) | 2026-08-13 | the reinforcement seam is cut at the two EFFECTS, not the two ACTS |
+| [D58](#d58--reinforcement-is-not-harmful-reinforcement-on-an-unverified-signal-is-2026-08-13) | 2026-08-13 | reinforcement is not harmful; reinforcement on an UNVERIFIED signal is |
+| [D59](#d59--the-memory-subsystems-defect-is-ranking-and-the-fix-is-a-judge-that-can-rescue-2026-08-13) | 2026-08-13 | the memory subsystem's defect is RANKING, and the fix is a judge that can RESCUE |
+| [D60](#d60--a-cross-backend-rule-is-a-function-not-a-sentence-and-the-archiving-step-became-a-gate-2026-08-14) | 2026-08-14 | a cross-backend rule is a FUNCTION, not a sentence; and the archiving step became a gate |
+| [D61](#d61--30s-development-history-is-squashed-and-the-backup-ref-is-part-of-the-repository-2026-08-14) | 2026-08-14 | 3.0's development history is squashed, and the backup ref is part of the repository |
+
+_All 61 entries are live decisions._
 
 <!-- index:end -->
 
-## D1 — LLM seam is our own `ILlmProvider`, with a `Microsoft.Extensions.AI` bridge
-The family is split (Gatherlight/Sonora spawn the `claude` CLI; Vidora/odysseus use API/local). A generic
-library must unify all of them *and* own the fallback/verdict/streaming semantics. So the primary seam is
-Lyntai's `ILlmProvider` (CLI-first, `LlmVerdict` classification, streaming-aware fallback are
-first-class), and `Lyntai.Providers.ExtensionsAi` bridges any MEAI `IChatClient` in — giving the whole
-MEAI ecosystem for free without shaping the public API around MEAI's types. **Prefer the bridge; only
-write a native provider when MEAI can't reach the backend.**
-
-## D2 — Storage is per-domain interfaces + one SQLite package (composite-ready)
-Domain interfaces (`IKeyValueStore`/`IConversationStore`/`IMemoryStore`/`IScoreStore`/`ITraceStore`) live
-in Core; `Lyntai.Storage.Sqlite` implements them. They're independent and free of cross-domain coupling
-**on purpose** — so a future mastra-style composite store (route each domain to a different backend) can
-be added without breaking consumers. Don't couple domains.
-
-## D3 — Adapters depend only on Core; consumers compose via DI
-Every provider/storage adapter is its own NuGet-packable package that references `Lyntai.Core` and
-**never another adapter**. This is what lets a new backend/provider be a package, not a fork. The public
-entry is one `AddLyntai(cfg => …)` call; adapter packages extend `LyntaiBuilder`.
-
-## D4 — Verdict-driven fallback (design §6), amended 2026-07-17
-One `LlmVerdict` enum drives router behavior via one shared `LlmVerdictClassifier` (no per-adapter
-heuristics). **Amendment:** `RateLimited` was a hard circuit-break; it now cools the host immediately and
-advances (a 429 is terminal for that host's window, transient for the fleet). `AuthFailed` and
-`ContextWindowExceeded` were added as a finer taxonomy (auth cools+advances; too-big advances with no
-host penalty). See `.claude/knowledge/llm-and-router.md` for the full table.
-
-## D5 — Streaming: no fallback after the first token; timeout is an inactivity clock
-Once a real content chunk streams, no fallback (duplicating tokens is worse than surfacing the error).
-And a stream's timeout measures provider *inactivity*, not wall-clock — a single `CancelAfter` over the
-whole enumeration kills healthy streams under a slow consumer. Both are easy to regress; both are
-covered in `pitfalls.md`.
-
-## D6 — `ILlmClient` front door
-To a consuming app, Lyntai should look like *one* provider — candidates/fallback/cooldowns are internal.
-New consumer-facing surface (structured output, etc.) hangs off `ILlmClient`, not the raw `ILlmRouter`.
-`AsChatClient()` is the reverse bridge (Lyntai consumed *as* an MEAI `IChatClient`).
-
-## D7 — `lyntai_`-prefixed SQLite objects
-`UseSqliteStorage` may target a database the consumer's own app also uses. Every table/index/trigger/FTS
-object (and the FluentMigrator version table) is prefixed `lyntai_` to avoid collisions. Note also that
-`MatchNamesWithUnderscores` is a process-global Dapper switch — documented for consumers.
-
-## D8 — Trim/AOT posture
-Packable libraries set `IsAotCompatible=true` and carry the trim/AOT analyzers — **except**
-`Lyntai.Storage.Sqlite`, which opts out honestly (Dapper/FluentMigrator materialize via reflection; an
-AOT-compat claim there would be false).
-
-> **AMENDED 2026-08-05 — the PRINCIPLE stands, the LIST above is history.** The rule ("opt out honestly
-> rather than ship a false claim") is exactly right and is why `check-warnings` now fails a build on an
-> unfailed IL2026/IL3050: `IsAotCompatible=true` stamps `IsTrimmable` into the assembly, so an unfailed
-> trim warning is a false promise shipped to a consumer's trimmer. What changed is the count — the library
-> grew from 1 package to 12, and **seven** of them now set `IsAotCompatible=false`:
-> `Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres`, `Lyntai.Tools.Mcp`, `Lyntai.Tools.Mcp.Hosting`,
-> `Lyntai.Providers.Local`, `Lyntai.Generation` and the references-only `Lyntai.Bundle`.
-> **Do not maintain that list here.** `docs/AOT.md` carries the per-package table, it is the one
-> `check-packages` gates, and a second copy is a second thing to rot — which is precisely what this entry
-> did between 0.5 and 2.1.
-
-## D9 — Scope: "brain + persistence core" only (SUPERSEDED by D14)
-Deliberately **out of scope** this cut (deferred to a future platform-kit): two-gate chat orchestration,
-scope-guard/jail hooks, tool/MCP registry, durable jobs, security/access-gate, server/host/launcher,
-vision, and the LLamaSharp `Local` provider. The interfaces are shaped to admit them later without
-breaking changes — don't add them speculatively. **Amendment:** the platform kit was subsequently built
-out (v0.9–v0.15) and Lyntai is now in capability-expansion — see **D14**. Only the server/host/launcher
-stays out of scope (it's a library, not an app).
-
-## D10 — Design §6 fallback is the DEFAULT `RoutingPolicy`, not a hard-coded switch
-As of v0.3, the §6 verdict-fallback semantics (D4) are the **default** `RoutingPolicy` (`LyntaiOptions
-.Routing`), not a fixed branch. The policy captures per-verdict `FallbackAction`
-(Advance / PenalizeAndAdvance / CooldownAndAdvance / Surface), same-candidate retry counts, `CooldownScope`
-(Provider vs ProviderAndModel), and `ExemptSoleCandidate`. When changing routing behavior, change the
-DEFAULT in `RoutingPolicy` (keep `RoutingPolicyTests.Defaults_reproduce_design_6_exactly` + the §6 doc in
-sync) **or add a knob — never re-hard-code a branch in `LlmRouter`.** Consumers tune via
-`ConfigureRouting(...)` / `LYNTAI_RETRY_* / LYNTAI_COOLDOWN_SCOPE`. This is the routing-layer expression of
-D6 (keep new surface behind the facade/policy, not at call sites).
-
-## D11 — Public-API is snapshot-tested; update the baseline deliberately
-`tests/Lyntai.Tests/Api/ApiSurfaceTests.cs` snapshots every packable assembly's public/protected surface
-against `tests/Lyntai.Tests/Api/Baselines/<Assembly>.txt`. Any add/remove/rename **fails the test** until
-the baseline is updated — so API changes are deliberate (pre-1.0 breaks show in review; post-1.0 they gate
-a major bump). After an INTENTIONAL change the test writes `<Assembly>.txt.actual` (gitignored); review the
-diff, copy it over the baseline, and note the break in `CHANGELOG.md`. Don't blindly overwrite.
-
-## D12 — Pre-release migration policy: fold into the owning migration; a RELEASED table needs a new one
-Pre-release there are no deployed databases, so prefer a **clean consolidated schema** over an accreting
-ALTER history: when a change modifies a table an existing (still-unreleased) migration created, fold it INTO
-that migration's `CREATE TABLE`/index and delete the redundant ALTER — this RELAXES the standing
-"never reuse a number" rule (`.claude/knowledge/sql-storage.md`, bound in `storage.md` §Migrations) for
-the pre-release window only. **But once a migration has
-shipped in a RELEASED version, it's frozen** — a schema change to a released table is a NEW numbered
-migration (`ALTER TABLE …`), never a fold (adopters already applied the released one). Applied both ways:
-`M…0003_JobPriority` folded into `M…0001_Jobs` (unreleased); CM1's `task`/`scope` shipped as a new
-`202607220001` migration (the table shipped in 0.28). Editing a migration changes the fresh-db schema —
-update the count/version-list guards (`MigrationRunnerTests`, `DeferredMigrationTests`) and keep the
-SQLite + Postgres parallels of the same number in sync.
-**One-time pre-1.0 exception (2026-07-28):** for the 1.0 cut the entire accreted 0.x ledger was collapsed
-into **9 per-`StorageFeature` baselines** per backend (SQLite 16→9 byte-identical DDL; Postgres 14→9 via a
-normalized-catalog equivalence gate), renumbered `202607280001..0009`. Adopters reset their `lyntai_*`
-tables (disposable pre-1.0 data — the user's call). This is THE exception; **post-1.0 the append-only rule
-is absolute** (no more squashes — a released baseline is frozen forever). See D22.
-
-## D13 — Lyntai OWNS its storage schema; apps EXTEND, never fork ("configurable table names" rejected)
-Lyntai's `lyntai_*` tables + migrations are Lyntai's, and Lyntai evolves the schema. An adopting app does
-**not** point Lyntai's SQL at its own tables (that pushes schema-version management onto the app —
-explicitly rejected). It adds its info, in order of preference: (1) the record `metadata` JSON fields
-(`ChatThread.Metadata`, `ChatMessage.Metadata`, per-event `Metadata`); (2) the `IConversationEnricher`
-DI-collection seam (`AddConversationEnricher<T>`) — a hook invoked after each write to persist into the
-app's OWN store; (3) a full **BYO-impl** (register its own `IConversationStore`/… — wins via `TryAdd`) or
-`migrate:false` to own the schema entirely. When a task says "let the app use its own table / configurable
-table names," push back: extend via metadata/enricher/BYO, never a store fork. The conversation model is a
-deliberate superset (GUID `Id`, per-thread `Seq`, `Kind`, JSON `Payload`, per-event `Metadata`) so an
-existing event table already conforms.
-
-## D14 — Direction: a LangChain-like platform kit — framework in Lyntai, domain in the app
-Lyntai deliberately grows into "more like LangChain, with a lot of pre-defined tuning": **Lyntai owns the
-tuned machinery** (routing/fallback, storage, LLM-ops, agentic loop/registry/orchestration, durable jobs,
-guards, secrets, semantic memory, governance) and the **consuming app provides its domain tools/logic** via
-DI-collection seams (`ITool`+`AddTool`, `IJobHandler`, BYO `IEmbedder`/`IVectorStore`, …). Two reuse shapes
-for new features: **(1)** cross-cutting call-path concerns (cache/budget/rate-limit) are **front-door
-decorators** (`LyntaiBuilder.FrontDoorDecorators`, ordered fold, cache outermost) so they compose; **(2)**
-new capabilities follow "framework in Lyntai, app brings the model/backend via a seam" — interface-in-Core,
-impl-via-DI, never a hard-coded branch, all behind the D6 front door. Don't ship opinionated domain tools
-inside the library. (Supersedes D9's "out of scope" — the kit is built; only the server/host/launcher stays
-out.)
-
-## D15 — `StorageFeature` toggles which domains register + migrate (tag-driven selective migration)
-`StorageFeature` (`[Flags]`, default `All`) lets an app enable only the storage domains it uses:
-`UseSqliteStorage(path, StorageFeature.Score | …)` registers only those domains' stores AND migrates only
-their tables — a disabled feature lands NO `lyntai_*` table and no store. Selective migration is
-**FluentMigrator-tag driven**, and the semantics are non-obvious (cost real iterations to find): a
-migration runs only when the runner's requested tags are ALL present on it (requested ⊆ migration.tags,
-NOT any-match). So `All` = one pass requesting just `[StorageFeatures.AllTag]` (every migration carries
-it); a subset = one pass PER selected feature (the version table dedups). Each migration is tagged
-`[Tags(nameof(StorageFeature.X), StorageFeatures.AllTag)]`. Full detail in `.claude/knowledge/storage.md`.
-Consistent with D13 (Lyntai still owns the tables it creates — this just skips unused domains).
-
-## D16 — Memory retention is an app-configurable, multi-strategy policy
-`IMemoryStore` size management is a `MemoryRetentionPolicy` (`LyntaiOptions.MemoryRetention`,
-`ConfigureMemory(...)`, `LYNTAI_MEMORY_*`) — mirroring how **D10** makes routing configurable — not a fixed
-cap. Composable knobs: a per-scope count cap + `MemoryEvictionMode` (**FIFO** sliding window vs **LRU**
-working set), a default TTL, and a per-scope size (character) budget; presets name the shapes
-(`CountCap`/`TimeToLive`/`SizeBudget`/`Composite`/`Manual`). The default reproduces the historical 500-entry
-FIFO cap (`MemoryCapPerScope` now proxies `MaxEntriesPerScope`). `MemoryEviction.Survivors` is the single
-PURE reference for *what* survives; *how* it's applied splits by path (both provably match `Survivors` — the
-cross-backend contract tests pin the parity). Inspired by LangChain's buffer-window / token-buffer / summary
-memories and MemGPT-style eviction. Add a new bound as a knob on the policy + a case in `Survivors` — never a
-per-backend branch.
-**Two eviction paths:**
-- **Count cap (the common case) → ONE ATOMIC statement** per SQL backend: `DELETE … WHERE id NOT IN (SELECT
-  … ORDER BY <live-first>, <recency> DESC, id DESC LIMIT @cap)` (`recency` = `created_at` for FIFO,
-  `COALESCE(last_accessed_at, created_at)` for LRU). Race-free and without reading the scope; it reproduces
-  `Survivors`' count-cap branch exactly. (SQLite/Postgres each hold a byte-identical copy — SQL stays in the
-  adapters per the layering rule; the contract tests guard against drift.)
-- **Size budget → the compute path** (`MemoryEviction.ApplyAsync`: fetch scoped metadata → `Survivors` →
-  delete the rest), because a cumulative-length budget can't be one portable statement. Non-atomic and
-  O(scope)-per-write, acceptable because scopes are cap-bounded and single-writer-per-scope is the norm.
-  InMemory does the `Survivors` compute under its lock for every bounded policy.
-
-LRU adds a `last_accessed_at` column (migration `202607220002`), refreshed best-effort ONLY on a **queried**
-recall (a targeted lookup = "use"; a bare list-all / compose-all is enumeration, not use — so an app that
-always composes ALL facts into the prompt should prefer FIFO). The `MemoryCapPerScope` shortcut treats
-**0 as uncapped** (proxies `MaxEntriesPerScope`, ≤0 = no count cap) — a change from the pre-policy
-"cap 0 = store nothing".
-On-write eviction only bounds scopes you keep writing to; a COLD `(taskKey, scope)` accumulates expired
-rows. So GC of cold/expired entries is an **opt-in cron job** — `AddMemoryPruneJob(cron, olderThan?)`
-registers an `IJobHandler` over `PruneAsync` on the existing durable-jobs + cron machinery. Lyntai owns the
-prune work; the **app owns the pump** (no self-run timer — Lyntai is a library, D9/D14).
-
-## D17 — Wire JSON is hand-walked `JsonNode`/`JsonDocument`, not reflection `JsonSerializer` (2026-07-26)
-Asked directly ("why can't we use a proper JSON converter?"): reflection-based `System.Text.Json`
-serialization is **excluded by the trim/AOT posture (D8)** — the analyzers flag it, and consumers that
-Native-AOT/trim their apps would break on runtime property discovery. Beyond that, most of Lyntai's JSON
-has **no static type to converge on** (tool-call arguments and parameter schemas are defined by the app's
-tools and the model — `JsonNode` IS the right representation there, via the shared `Lyntai.Text.JsonArgs`),
-and the wire formats (claude stream-json, OpenAI-compatible dialects) are vendor-drifting, where per-field
-`TryGetProperty` reads degrade gracefully instead of failing a whole deserialize on one unexpected field.
-**Open option, not taken:** System.Text.Json **source generators** (`JsonSerializerContext`) are AOT-safe
-and could type the STABLE response envelopes (OpenAI `choices/message/usage`, SSE delta shell) for
-compile-checked field names, at the cost of an envelope-type set per dialect with `JsonElement` interiors anyway. Do
-that only if envelope-parsing bugs actually materialize; don't re-litigate the reflection route.
-
-## D18 — Findings deliberately REJECTED in the 2026-07-26 hardening pass (don't re-open without new evidence)
-The whole-library review pass triaged ~80 findings into fixed / deferred (the `TASKS.md` backlog) /
-**rejected**. The rejected ones, with why — so a future review pass doesn't re-litigate them:
-- **Shared clock-default helper** (`clock ?? (() => DateTimeOffset.UtcNow)` in ~15 classes): one line per
-  class; a shared helper is either public-surface bloat or unusable from adapters (internal). Revisit only
-  as part of a real `TimeProvider` migration at a major bump.
-- **AdmitAll admission "duplicate default"** (DI registration + ctor fallback): NOT redundant — the DI
-  registration serves container resolution, the ctor fallback serves direct construction (tests/BYO).
-- **Builder `Collect` helpers** for the ~18 two-line `Add*` methods: the per-seam XML docs are the value;
-  collapsing the bodies saves nothing readers need.
-- **Cache-TTL dual default** (decorator passes `options.Cache.Ttl`; `InMemoryResponseCache` re-falls-back
-  to the same): harmless, env-governed redundancy; removing either side changes BYO-cache behavior.
-- **ClaudeCli `id` ctor parameter**: two same-process `claude` registrations with different commands is
-  exotic; additive if a consumer ever asks.
-- **S8 — moving the 4 remaining Row-DTO pairs (trace/score/prompt-version/usage) to Core like `JobRow`**
-  (rejected 2026-07-27, after deferral): Core internals aren't visible to the adapter packages, so the
-  move means 7–8 new PUBLIC materialization types — surface bloat on the API the 1.0 sign-off just
-  deliberately shrank (wire-format types went internal), for duplication the review itself rated inert
-  (settable-property DTOs with zero dialect content; `JobRow` earned its move because the job stores
-  share a whole SQL state machine where drift is dangerous). A mapping drift here fails the
-  cross-backend contract tests immediately. Revisit only if a third relational backend materializes.
-
-## D20 — No push/PR CI: verification and releases are MANUAL (2026-07-27)
-A push/PR CI workflow (`ci.yml` running `verify` on every push) was added in the 1.0-prep batch and
-**removed the same day at the owner's direction** — the project's process is fully manual:
-- **Verification is manual**: `node devtools/dev.mjs verify` (build → test → e2e → leak scan) is the
-  gate run BEFORE any commit is claimed complete — the standing dev-loop rule, not a server-side check.
-- **Releases are manual**: the `release.yml` workflow exists but is only ever triggered by hand
-  (Actions → run workflow); it is the ONLY GitHub Actions automation, and the SourceLink/
-  `ContinuousIntegrationBuild` props key off it.
-- Don't re-add push/PR CI as a "1.0 gap" — it was implemented, considered, and declined. Revisit only
-  if the owner asks (e.g. once external contributors send PRs that need a server-side gate).
-
-## D19 — 1.0 API sign-off decisions (2026-07-27; pre-1.0 breaks batched, unreleased)
-The final public-surface sign-off pass (18 findings) closed with these calls — recorded so the surface
-stays settled and the breaks don't get re-litigated at 1.0:
-- **`DefaultCandidates` → `UseDefaultCandidates` is a HARD rename, no obsolete shim.** The method SETS
-  (replaces) the fallback chain — "Use" is the builder family for set-semantics (`UseSqliteStorage`,
-  `UseInMemoryStorage`), "Add" is for append-semantics collections. Pre-1.0 with zero external adopters,
-  a shim would only preserve the misleading name.
-- **`AddOpenRouterProvider` + the `OpenRouter` flavor const STAY** even though the flavor currently
-  behaves identically to `OpenAi`. The preset is real consumer convenience (endpoint + key wiring); the
-  pinned flavor is the seam where OpenRouter-specific behavior (ranking headers) lands later without
-  re-detection. Documented as reserved, not dead.
-- **Accepted as-is (cosmetic, not worth a break):** `AddMemoryPruneJob`'s argument order differs from
-  sibling `AddCronSchedule` (name-first vs cron-first) — both are keyword-argument call sites in
-  practice; and `IVectorStore` has no single-vector removal (upsert by id, remove by whole collection) —
-  sufficient for `SemanticMemory`'s collection-per-scope model, additive post-1.0 if a BYO consumer asks.
-- **Everything else from the scan shipped in the sign-off batch** (see the Unreleased CHANGELOG section):
-  wire-format types internal, `TaskKey`/`ContextSize`/`*Tokens` renames, `SchemaMigration` enum replacing
-  bool pairs, required `AddSecretVault` key + `AddPlaintextSecretVault`, inactivity-timeout renames +
-  `maxDuration`, `ProcessResult.TimeoutKind`, `IKeyValueStore.ListKeysAsync`, `IResponseCache`
-  `GetAsync`/`RemoveAsync`, `IJobQueue` read side, fully-async `IUsageTracker`.
-- **These breaks are deliberately UNRELEASED.** 1.0 is adoption-gated (the user's call: more applications
-  must adopt Lyntai first); this batch rides in whatever release precedes it, versioned then.
-
-## D21 — 1.0 pre-freeze API review: applied, rejected, and two D19 reversals (2026-07-28)
-A fresh adversarial public-API review across all packable assemblies (33 findings, 22 survived adversarial
-verify) plus a read-only usage review of the three real consumer apps, run before the permanent 1.0 surface
-freeze — the adoption gate having been met (three consumers on 0.31.1). Working record was `devtools/_review/*`.
-- **Applied (fix-now)** — surface-shrink that can't be undone post-1.0, plus breaking-if-late interface
-  fixes: migration classes dropped from the frozen surface (see next bullet); `McpTool` /
-  `ProviderDetect.Detect(string)` / `LyntaiChatClient` → `internal`; `LocalModelOptions.AntiPrompts` →
-  `StopSequences`; non-obvious-semantics XML docs; `IScoringService` honors `IScorer.Applies()`;
-  `IConversationStore.AppendMessageAsync` returns the assigned per-thread `Seq`; `IVectorStore.DeleteAsync`;
-  `OpenAiCompatibleOptions.Flavor` string → `OpenAiFlavor` enum. Full applied list in the 1.0 CHANGELOG.
-- **Migration types off the frozen surface via SURFACE EXCLUSION, not `internal`.** The ~30 dated
-  `*.Migrations.*` classes are impl detail that leaked into the API baseline. A verifier empirically proved
-  that making `[Migration]` classes `internal` **breaks FluentMigrator 8.0.1 discovery** (its assembly scan
-  finds exported types only) — so they STAY public and are instead excluded from `ApiSurfaceTests`
-  (`ApiSurface.Render` filters the `*.Migrations` namespace). Don't re-propose the `internal` route.
-- **Rejected (don't re-litigate without new evidence, cf. D18):**
-  - `IScoringService.EvaluateAsync(bool persist)` → options-object reshape — the flag is a niche dry-run
-    escape hatch, always called `persist:`-named and documented in XML; reshaping for one flag is over-eng.
-  - Narrowing `SqliteMemoryStore` / `SqliteResponseCache` ctors off `LyntaiOptions` — the concrete SQLite
-    stores stay PUBLIC (a consumer news them up for semantic-memory wiring), so their ctors stay too.
-  - `ClaudeCliProvider.ProviderId` dual const/`Id`, and `McpToolset` → `McpTools` rename — cosmetic; frozen.
-- **Two D19 calls reversed by real consumer contact** (D19 had accepted both as-is, "additive post-1.0 if a
-  BYO consumer asks" — one did): `IVectorStore` single-item removal is now added (`DeleteAsync`), and
-  `Flavor` becomes a typed enum (the old string consts become enum members; the reserved `OpenRouter` /
-  `AzureOpenAi` values are preserved). These supersede the corresponding D19 "accepted as-is" notes.
-
-## D22 — 1.0 API freeze: the surface is now frozen under SemVer 2.0 (2026-07-28)
-The adoption gate stated in the ROADMAP ("1.0 tags only after applications adopt Lyntai in anger and the
-surface survives that contact") is **met**: three sibling apps run on 0.31.1, and a pre-freeze adversarial
-API review + read-only consumer-usage review (D21) confirmed/settled the surface. So 1.0 is cut:
-- **The public API is frozen.** `ApiSurfaceTests` (D11) now gates a MAJOR bump — post-1.0, any add/remove/
-  rename of public/protected surface requires a major version. Pre-1.0's "minor may break" (stated in
-  `CHANGELOG.md`) ends here; **SemVer 2.0 is in force**.
-- **What shipped in the freeze batch** (see the 1.0.0 CHANGELOG): the D21 surface-shrink + interface
-  additions, and the D12 one-time baseline squash. The migration reset is the only consumer-visible break.
-- **Verification + releases stay MANUAL** (D20) — the 1.0 tag + `release.yml` are triggered by hand.
-- This is a policy line, not a code change: the value of 1.0 is the *commitment*. Don't reopen a settled
-  surface item without a major-bump rationale.
-- **AMENDED 2026-07-29 by D24** — while every consumer is one of the owner's own apps, a documented break
-  may ship in a MINOR. The `ApiSurfaceTests` gate and the documentation duty are unchanged; only the
-  version-number consequence is relaxed, and it expires the moment a third party depends on Lyntai.
-
-## D23 — MCP tool hosting is generic; the CLI dialect lives in the provider package (2026-07-29)
-`Lyntai.Providers.ClaudeCli.Mcp` was named for one consumer but was ~85% provider-neutral machinery — its
-csproj referenced only `Lyntai.Core`, so there was never any code coupling to the claude adapter at all.
-It is now split along the seam that actually exists:
-- **`Lyntai.Tools.Mcp.Hosting`** (new package) owns everything neutral: the ephemeral loopback Kestrel MCP
-  server, the `ITool` → `AIFunction` bridge, bearer-token minting, owner-only temp-file writing, teardown
-  ordering, and the no-tools-registered short-circuit. It is the OUTBOUND twin of `Lyntai.Tools.Mcp`
-  (inbound: an MCP server's tools → `ITool`), and it is named for the concept, not a consumer.
-- **`IMcpCliDialect` + `McpEndpoint` + `McpCliContext` live in CORE**, not in the host package. That
-  placement is load-bearing: it lets a provider package ship its own dialect **without** referencing the
-  host. An `IMcpCliDialect` is an INTERFACE, not a format string, because the variation across CLIs is
-  structural — flag names differ and the config file is JSON for some CLIs, TOML for others.
-- **`ClaudeCliMcpDialect` lives in `Lyntai.Providers.ClaudeCli`** — knowledge about `claude` belongs with
-  the claude provider, and it costs that package **no new dependencies** (JSON + strings over Core types).
-- **What must NOT happen: `Lyntai.Providers.ClaudeCli` must never reference the hosting package.** Doing so
-  would drag `Microsoft.AspNetCore.App` + `ModelContextProtocol.AspNetCore` into every app that uses the
-  plain CLI provider. Keeping host/transport dependencies out of the base provider is the entire reason
-  `ICliToolProvisioner` exists as a seam — so only the *dialect* moved into the provider package, never the
-  host. This is why the split isn't simply "fold the add-on into the provider".
-- **`Lyntai.Providers.ClaudeCli.Mcp` is DELETED, not kept as a shim.** It briefly survived as a
-  composition package (`AddClaudeCliMcpTools()` → `AddMcpToolHost(new ClaudeCliMcpDialect())`) and was
-  removed the same day: a whole NuGet package whose only value was saving the caller `new
-  ClaudeCliMcpDialect()` is not worth its own id, versioning surface and doc footprint. Apps compose the
-  two halves themselves, which is the normal DI story. **Consequence worth keeping:** D3's "never
-  adapter→adapter" now has ZERO exceptions in the tree again — don't reintroduce a glue package.
-- **The provisioner is resolved KEYED by `IMcpCliDialect.ProviderId`**, with the first registration also
-  taking the unkeyed slot as a fallback. The old unkeyed-only `TryAddSingleton` meant two CLI providers
-  that each run their own agent loop would collide — first registration won and the wrong dialect was
-  injected into both. That was a real defect, not a naming issue.
-- **Cost: a MINOR bump, by the D24 amendment.** The relocation itself was additive (all the moved
-  machinery was `internal`), but deleting the shim removes `AddClaudeCliMcpTools` and a published package
-  id — a break under a strict reading of D22. See **D24** for why that is allowed right now.
-
-## D24 — SemVer strictness is deferred while every consumer is first-party (2026-07-29)
-D22 froze the public surface under SemVer 2.0 at 1.0. **Amendment, at the owner's direction:** while
-**every** Lyntai consumer is one of the owner's own applications, a breaking surface change may ship in a
-MINOR release, provided it is documented. The commitment D22 encodes is to *external* adopters, and there
-are none yet; paying a major bump to protect callers you control yourself buys nothing and inflates the
-version number past any useful meaning.
-
-What this does and does not license:
-- **Does:** removing/renaming public surface in a minor, when the change is a genuine simplification and
-  the CHANGELOG entry says plainly what broke and what replaces it. The first application of this is the
-  D23 shim deletion.
-- **Does NOT:** skipping the documentation. The `ApiSurfaceTests` baselines still gate every surface
-  change, breaks are still called out under a **Breaking** heading in `CHANGELOG.md`, and the rationale
-  still lands in this file. The gate is unchanged; only the *version-number consequence* is relaxed.
-- **Does NOT:** silent behavior changes, storage/migration breaks, or anything a consumer can't detect at
-  compile time. Those stay major-bump material regardless — a compile error is recoverable, a corrupted
-  database is not.
-  > **AMENDED 2026-08-05 by D44 — read it before applying this bullet.** The *silent behaviour change* half
-  > is lifted while every consumer is first-party: such a change may ship in a MINOR provided the CHANGELOG
-  > names the observable delta. It was amended because this bullet demonstrably did not decide cases (D38
-  > and D43 read it oppositely, in the same release) and because it was blocking eleven verified fixes to
-  > protect an audience that does not exist yet. **The storage/migration half of this bullet is UNCHANGED
-  > and still unconditional.** Both revert together when a third party adopts Lyntai.
-
-**Reinstate strict D22 SemVer the moment a third party depends on Lyntai** — a public NuGet consumer
-outside the owner's apps, or any external contributor. At that point this amendment expires and the next
-breaking change takes a major bump. Anyone reading D22 and finding a 1.x release with a `Breaking`
-section should land here, not assume the policy was violated.
-
-## D25 — the version and the CHANGELOG heading are authored by the RELEASE PIPELINE only (2026-08-04)
-`<VersionPrefix>` in `src/Directory.Build.props` is the single version source, and `release.yml` bumps it
-**from its current value** when no explicit version input is given. That makes the file's current value a
-*baseline*, not a note — so a session that bumps it by hand ("ready for the next release", which looks
-helpful) silently moves the baseline and the next release publishes the version AFTER the intended one.
-
-**This is measured, not theoretical:** in a sibling repo a hand-edited `0.1.2 → 0.2.0` published `0.3.0`,
-and `0.2.0` went from unreleased to *skipped* without anyone deciding to skip it. The same slip on a
-post-1.0 repo lands on a MAJOR. The second half of the same failure: the workflow **stamps** the
-CHANGELOG's `## Unreleased` heading with the version + date, so a commit that stamps or deletes that
-heading by hand leaves nothing to stamp and the release ships with the wrong section title.
-
-**Why nothing caught it:** `doctor` verified the version was *consistent* across props/README — and a
-hand-bump keeps them consistent. Consistency was never the property at risk; **authorship** was.
-
-Two layers guard it, both sabotage-verified here:
-- **State** — `node devtools/dev.mjs doctor` compares `VersionPrefix` to the newest `v*` tag. Between
-  releases they are equal by construction, so any difference means a hand-edit — and being state-based it
-  also catches a bad merge/rebase. Silent when there are no tags (a shallow CI checkout or fresh clone).
-  Deliberately NOT in `verify`/`pack`: during a real release the version is *supposed* to be ahead of the
-  newest tag.
-- **Act** — `devtools/scripts/check-version-bump.mjs` (pre-commit) blocks a staged change to
-  `<VersionPrefix>` or a removal of the `## Unreleased` heading. A newly ADDED props file has no removal
-  line, so seeding a repo is never blocked.
-
-`LYNTAI_RELEASE=1` is the escape hatch for both — set by the workflow's commit step, and by a human
-deliberately repairing a botched release (where the version being written is a considered choice).
-**Write release notes under `## Unreleased` and leave the heading alone; cut releases from the Actions tab.**
-
-## D26 — Lyntai DRIVES a backend's own self-maintenance (probe · update · pinned install · auth); it never OWNS credentials or binaries (2026-08-04)
-The line for "what a provider capability may do to its own backend" kept getting drawn ad hoc, so here it
-is once. Lyntai may **drive tooling the backend already ships**, without spending a turn:
-`IProviderInstallation` (what is it), `IProviderUpdater` (update itself), `IProviderVersionInstaller`
-(install a NAMED version of itself), `IProviderAuth` (is it signed in, and drive sign-in/out). Each is an
-OPTIONAL interface discovered by pattern-matching, never a member on `ILlmProvider` — a backend that can't
-answer simply doesn't implement it.
-
-**The pinning question, settled** (it read as a contradiction of "Lyntai never provisions or pins a
-binary"): that rule is about **fetching a binary from nowhere**, where a host owns its own download,
-storage and trust policy. Driving an already-present backend's own installer is the *update path with an
-argument* — `claude install 2.1.220` is the same class of act as `claude update` — and pinning a known-good
-version is exactly what a host needs that `update` cannot express. So it is IN, reporting the same
-`ProviderUpdateResult` (where `Updated` also covers a deliberate downgrade).
-
-Still OUT, and not by accident:
-- **Credential storage.** The backend owns its credentials; `IProviderAuth` asks and drives, never stores.
-- **Binary provisioning.** Downloading/placing a backend that isn't there stays the host's concern.
-- **Guessing.** A capability reports what the backend SAID (`Detail` verbatim) or nothing. Unreadable
-  output is "unknown", never an invented signed-in state or version.
-- **Forwarding a free-form value as a flag.** `Mode`/`Version` are free-form so other backends fit the
-  contract; an adapter that doesn't recognize one must REFUSE rather than synthesize `--<whatever>`, and a
-  flag-shaped `Email`/`Version` is refused without spawning.
-
-**Corollary for the CLI:** every maintenance question must be **flag-shaped or a documented subcommand** —
-the claude CLI treats an unrecognized token as a PROMPT and spends a turn answering it. `auth status` is
-sent with an explicit `--json` (its default) precisely so an older build rejects an unknown *flag* instead
-of billing a turn for the sentence "auth status".
-
-## D27 — a CLI-backed provider is `CliProviderEngine` + a DIALECT, never a second copy of the rules (2026-08-04)
-Driving a command-line agent involves a dozen invariants that have nothing to do with *which* CLI it is: no
-shell, `ArgumentList` only, a neutral working directory, prompt over stdin (or as a trailing argument),
-timeouts as a per-chunk **inactivity** clock with an absolute backstop, verdicts through
-`LlmVerdictClassifier`, empty output as `Failed`, exactly one terminal stream chunk, and probe → run →
-re-probe for self-maintenance. Every one of those has been gotten wrong at least once in this repo's
-history (`pitfalls.md` is largely a list of them), and the reason a fix didn't stick was that the logic
-existed per provider.
-
-**So: those invariants live once, in `CliProviderEngine` (Core, `Lyntai.Llm.Cli`), and a CLI backend
-contributes only its VOCABULARY** through an `ICliProviderDialect` — command name + env vars, completion
-argv, prompt delivery, line parsing, and the maintenance commands it has. A provider package is then a
-dialect plus a forwarding `ILlmProvider` that declares which optional capability interfaces the backend
-supports. This is the same split D23 chose for MCP tool-hosting (generic host in Core, per-CLI flags in an
-`IMcpCliDialect`), applied to the provider itself.
-
-Two properties of the split are deliberate, not incidental:
-- **`CliProviderDialectBase` claims NOTHING optional by default** — no updater, no pinned install, no auth,
-  and its only default maintenance command is the flag `--version`. A capability appears only when a dialect
-  names the command for it, so a backend is never credited with something nobody measured. (For a CLI that
-  answers unrecognized tokens as prompts, a guessed subcommand costs tokens on every call while the build
-  stays green — D26's corollary.)
-- **The engine is composed, not inherited.** `ClaudeCliProvider` keeps its name, its public surface and its
-  ~90 tests unchanged, and holds an engine; it does not derive from a base provider. A second CLI package
-  therefore adds nothing to Core and breaks nothing existing.
-
-Consequence for anyone adding a backend: **if it is a spawned CLI, write a dialect** (`.claude/skills/
-add-provider` → the CLI checklist). Reaching for a fresh `ILlmProvider` for a CLI is the thing this
-decision exists to prevent.
-
-**Validated by a second implementer, immediately.** `Lyntai.Providers.CodexCli` was built on the seam the
-same day, and the differences it surfaced are why one implementer is never enough: codex takes its prompt on
-stdin but needs `--skip-git-repo-check` (it refuses to run outside a git repo, and the engine's cwd is a
-neutral temp dir); its auth readout is **prose**, with no `--json` at all; its logout is a TOP-LEVEL command
-(`codex logout`, not `auth logout`); it cannot pin a version, so it doesn't implement
-`IProviderVersionInstaller`; and — the one that changed the interface — it reports a failed turn **in band and
-exits 0**, which the dialect vocabulary had no way to express. That became
-`CliOutputEventKind.Failure`, whose message is classified (a 401 → `AuthFailed` cools the host) instead of
-being flattened into "no output produced". A seam validated by one CLI is that CLI's shape wearing a generic
-name.
-
-## D28 — a CLI backend may be PORTABLE (app-bundled), not just a global install (2026-08-04)
-A host may ship, unpack or side-load its own copy of a CLI rather than depend on a machine-wide install
-(offline/air-gapped deployment, a pinned known-good build, a desktop app that shouldn't require the user to
-`npm i -g` anything). Lyntai supports that as a first-class wiring, not a workaround:
-
-- **The path is a parameter, not an environment variable.** `AddClaudeCliProvider(command, environment)` /
-  `AddClaudeCliAgentSession(command)` / `AddCodexCliProvider(command, environment, dialect)` take it, so a host
-  reads it from its own configuration. The env seams (`LYNTAI_PROVIDER_CMD`, `CLAUDE_CMD`, `CODEX_CMD`) remain
-  for tests/e2e and ad-hoc overrides — they were never a good place for an app's own deployment layout.
-- **Per-spawn environment comes with it.** A bundled CLI usually needs its own home/config dir (`CODEX_HOME`,
-  `CLAUDE_CONFIG_DIR`) so it neither reads nor mutates the machine-wide install's credentials and settings. The
-  engine applies it to the MAINTENANCE spawns too — otherwise a probe or auth check would report the global
-  install's state while completions used the portable one, which is worse than not supporting portability.
-- **Presence is verified, not assumed.** `IsAvailable` checks that an explicitly-supplied command actually
-  exists (`ProcessRunner.CommandExists`, which also accepts an extensionless launcher with a spawnable
-  sibling — the CLI2 shim shape). Previously any explicit command was trusted; for a portable install that
-  turns "this candidate isn't deployed" into a failed turn instead of a skipped candidate. A BYO
-  `IProcessRunner` is still trusted optimistically, because it resolves commands in its own environment.
-
-**Still NOT in scope:** downloading, unpacking or updating a portable copy. That is provisioning, and it stays
-the host's concern (D26) — Lyntai points at what the host deployed and reports honestly whether it's there.
-
-## D51 — prose gets a gate too, because retired vocabulary is the half of doc drift a machine can catch (2026-08-08)
-The code in this repository is gated from every side — `check-warnings`, the API-surface baselines, the storage
-contract tests, `check-packages` — and the prose was gated from none. A paragraph that quietly stops being true
-therefore survives every check in `verify`, and the next session reads it as the contract and builds the wrong
-thing. That is not hypothetical: the decay dimension changed from elapsed days to interference (D49) and
-`age_days / stability <= @cut` <!-- drift-ok --> sat in the spec afterwards, correct-looking and wrong.
-
-**`check-docs` fails the build on vocabulary a decision retired** — a registry (`retiredTerms` in
-`devtools/project.config.mjs`) of term, what to say instead, and why. It is the eighth check in `verify`.
-Records of their own day are exempt because retired words are CORRECT in them: `CHANGELOG.md`, the task
-archive, and `docs/superpowers/plans/` — but **not** `specs/`, which the next session builds against and which
-therefore has to keep being true. A passage that deliberately names the retired thing marks itself `drift-ok`.
-
-**Be honest about the limit, because it is where the real fix lives.** The gate catches retired WORDS; it
-cannot catch a wrong DESCRIPTION, and the published design page drifted three times in exactly that way
-(stale constants, a claim that nothing was implemented, a code block conflating two different queries). The
-gate caught none of them. What did was **tracking `docs/memory-design.html` in git** — an untracked page never
-appears in a diff, so it is never reviewed, and every session assumes someone else updated it. A record that
-is not in version control is not a record.
-
-## D50 — a decayed memory is BURIED, not cut: recall ranks against a relative floor, and only an explicit prune deletes (2026-08-08)
-"Forgetting" was initially implemented as an absolute cutoff — below a retrievability threshold, a memory was
-gone. That is not what forgetting is, and it is not what an application wants. A human does not lose a faint
-memory; it is outranked by stronger ones until something points at it directly, and then it comes back.
-
-**Recall uses a RELATIVE floor** (`RelativeFloor`, a fraction of the top-ranked result), so a faint node is
-crowded out by better matches for *this* query and still surfaces for a query that points at it, or through an
-edge from a neighbour that just got reinforced. **The absolute `MinRetrievability` governs pruning only** — an
-explicit, destructive operation the application calls on purpose. And **`MemoryGrade.Authoritative` bypasses
-the floor entirely**, which is the whole reason grades exist (D48): an exact fact must not be crowded out by
-associative recall.
-
-**Seeding must not filter by faintness.** An early draft used the prune predicate (`WHERE age / stability <=
-@cut`) as the seed's own filter, which would have made "decayed" mean "unreachable" — the exact behaviour this
-decision rejects. Seeding orders by `last_recalled_position DESC` and takes a candidate multiple; the ranking
-stage, not the query, decides what is buried.
-
-## D49 — memory decays by INTERFERENCE, not by elapsed time, and what counts as interference is a seam (2026-08-08)
-The first cut measured age in days (`age_days / stability`). <!-- drift-ok --> The dimension was wrong. A memory engine that is
-used twice a year should not have forgotten everything between uses — nothing happened to crowd those memories
-out. What displaces a memory is other memories, not the calendar.
-
-**Age is a monotone per-engine position subtraction** — `@position - n.last_recalled_position`, an integer
-difference, not a duration. A quiet engine's positions do not advance, so it does not decay. This is also why
-the SQL is portable: plain arithmetic on a `long`, with no `julianday` / `now()` divergence between SQLite and
-Postgres, and no NULL-producing date function silently excluding every row.
-
-**What advances the position is deliberately not settled in the library**, because "relative to what" is a real
-question with more than one right answer — number of writes, content size, or genuine elapsed time all describe
-some application. So `IMemoryClock` is a seam with four registered defaults (`PerWriteClock`,
-`ContentSizeClock`, `ElapsedClock`, `BurstDampenedClock`) rather than a hardcoded choice, and per D48 the
-consumer who wants none of that decision gets a working default.
-
-**`BurstDampenedClock` is the default because a linear advance forgets catastrophically.** Ingesting 500 items
-in one window advanced the position past every prior memory's stability at once — a single bulk import erased
-the engine's history. Dampening a burst window sub-linearly (`Position / n`, `Encoding / √n`) makes a flood of
-material weigh more than one item and far less than five hundred, which is the behaviour being modelled.
-
-## D48 — long-term memory is a NAMED-ENGINE COLLECTION beside the existing three, not a replacement for them (2026-08-08)
-Lyntai already had three memory surfaces (`IMemoryStore`, `ICuratedMemoryStore`, `ISemanticMemory`). The graph
-memory could have replaced them or been bolted onto one; it does neither. `IMemoryEngine` is a **DI collection
-keyed by `Name`**, resolved through `IMemoryEngineFactory.Get(name)` — the same shape as `ILlmProvider` keyed by
-`Id`, and the same shape a consumer already knows from `IHttpClientFactory` (`Get`, not `Create`, because
-engines are singletons). One application runs several engines at once for different purposes, which is the
-requirement that killed every single-instance design.
-
-**A blend IS an engine.** `CompositeMemoryEngine` implements the same interface as its members, so a consumer
-never branches on whether they hold one engine or five, and optional capabilities (`IExpandableMemory`,
-`ILinkableMemory`, `IForgettableMemory`) are routed by `MemoryRef.Engine` rather than guessed by type-testing.
-A one-member composite is still wrapped, because returning the bare member named the engine `chat/lexical`
-instead of `chat`.
-
-**Grades are what make this beat a human memory rather than imitate one.** `MemoryGrade.Authoritative` material
-gets a reserved character budget and bypasses the recall floor (D50); associative material competes for what is
-left. Exact facts staying exact is the requirement — associative relinking is the feature, but it must never
-crowd out something the application stated as true.
-
-**No decision is pushed to the consumer.** Every seam ships a registered default and every constant is
-overridable, so `AddMemoryEngine("chat", …)` works with no tuning and a consumer who *does* want to tune decay
-supplies `HalfLifeOptions` instead of implementing `IRetrievabilityPolicy`. A library that answers "that's your
-choice" for each of these has shipped a design document, not a capability.
-
-## D47 — an agent session's MCP servers are a NEUTRAL Core option, because both backends already have the capability and only the vocabulary differs (2026-08-05)
-`AgentSessionOptions` could not carry the host application's own MCP servers, so an `IAgentSession` could be
-pointed at app tools only through `ClaudeAgentOptions.McpConfigPath` — a claude-only escape hatch. Closes
-CLI14, filed by a consuming app that had adopted 2.3.0 and still could not delete its hand-rolled codex
-integration.
-
-**The gap was not cosmetic, and it was silent.** `CodexAgentSession`'s own docblock sells the abstraction as
-"a chat UI that shows tool activity can drive either backend through one `IAgentSession`" — but an agent
-embedded in an app is usually there to act on *that app's* domain, which it reaches through the app's MCP
-tools. Adopting the codex session as shipped would have spawned codex with **no MCP servers at all**: not a
-compile error, not a runtime error, just an agent that starts, answers, and cannot do the one thing it was
-embedded to do.
-
-**Why neutral rather than per-backend, which the task offered as an equally complete answer.** The test in
-`.claude/knowledge/generic-library.md` is "would a second provider have this exact flag?" — and here the
-answer is yes twice over: **both** shipped backends accept app-provided MCP servers natively, and both were
-MEASURED doing it before a line was written (below). What differs is spelling, and absorbing a difference of
-spelling is what an adapter is for. The per-backend answer (`CodexAgentOptions.ConfigOverrides`, a list of raw
-`-c` strings) would have been smaller and honest about being codex-shaped, but it leaves the two backends
-interchangeable only for an agent that needs no app tools — the case the abstraction is least often reached
-for — and it pushes codex's TOML quoting onto every caller.
-
-**`McpEndpoint` was not grown into this, deliberately.** It describes the loopback host *Lyntai* stands up for
-the app's in-process `ITool`s (`ICliToolProvisioner`, D23) and is HTTP-only. This describes a server the *app*
-already runs. Conflating them would have made one type mean two things and forced a stdio shape onto the
-provisioner's contract; a sibling type keeps both honest, and the two compose — an app can host its in-proc
-tools AND hand the session an external server it ships.
-
-**Everything backend-specific was MEASURED turn-free before it was written**, both CLIs being installed here:
-- `codex exec --help` documents `-c, --config <key=value>` (dotted path, value parsed as TOML). The keys were
-  then confirmed by driving `codex mcp list` / `codex mcp get` — which READ configuration and spend no turn —
-  with the overrides applied: `mcp_servers.<n>.command` / `.args` / `.env` for stdio, `.url` /
-  `.bearer_token_env_var` for HTTP.
-- `claude --help` documents `--mcp-config <configs...>` as "Load MCP servers from JSON files **or strings**
-  (space-separated)". That it takes a **list** is load-bearing: it is what lets a rendered document sit
-  *alongside* a caller's existing `McpConfigPath` instead of displacing it. The document shape was confirmed
-  by placing it as a project `.mcp.json` and reading back what `claude mcp list` had parsed.
-
-**Three consequences that were decided rather than fallen into:**
-
-- **A bearer token never reaches argv.** A command line is readable by any process that can list processes.
-  codex settles this for us — it accepts only `bearer_token_env_var`, the NAME of a variable — so the value
-  goes into the child's environment and only the name is an argument. claude has no such restriction, so the
-  document is written to an **owner-only temp file, deleted when the turn ends**, rather than passed through
-  the inline-string form the flag also accepts. Same reasoning as `McpCliContext.WriteTempFile`.
-- **An unusable entry REFUSES the turn** (a single `SessionEnded` with `Unsupported`, nothing spawned) rather
-  than being dropped — a name carrying a dot or a quote, a stdio server with no command, a duplicate name. A
-  dropped server reproduces exactly the silent capability loss this entry exists to remove, one layer down,
-  and the refusal costs nothing because it happens before any process starts. This is the same posture as
-  `CodexExecArgs.TryBuildResume` refusing a token the CLI would read as an option.
-- **Naming a server does not pre-approve its tools.** Reachable is not permitted: claude still needs
-  `AllowedTools` (or `SkipAllPermissions`), codex still gates on `--sandbox`. Auto-allow-listing an app's
-  servers would be a silent change of security posture bundled into a convenience feature, so it is the
-  caller's call and a test pins it.
-
-**The MCP overrides go THROUGH `CodexExecArgs`, not after it.** On this CLI an option that lands past the `-`
-stdin marker is read as PROMPT text, and a swallowed flag is a *spent turn* rather than an error — and the
-resume path must carry the identical overrides, or an agent has its tools on turn 1 and not on turn 2. That is
-the same reason `--skip-git-repo-check` lives there (D27's one-argv rule), applied to a second flag family.
-
-**Additive, so no break.** `McpServers` defaults to empty and every existing call site is unchanged;
-`ApiSurfaceTests` shows three additions and no removals. `ClaudeAgentArgs.Build` gained a temp-file-writer
-parameter — internal, so no consumer sees it, and it is what lets a test assert the document's contents
-without touching disk.
-
-## D46 — the release workflow ships what is PUSHED, so unpushed local work is silently excluded (2026-08-05)
-**v2.2.0 was cut without the whole-library review that had been finished for it.** Three commits sat on the
-local `master`, verified and green; `origin/master` was still at the pre-review commit; the release workflow
-ran against the pushed branch and produced a perfectly valid 2.2.0 containing none of it. Nothing failed and
-nothing warned — the release reported success, because it *did* succeed at releasing what it could see.
-
-**This is the D25/D29 family, and that is the point of writing it down.** All three are the same shape: *the
-pipeline reports success and the success does not mean what it looks like.* D25 — a hand-edited version makes
-the pipeline publish the version *after* the intended one. D29 — `--skip-duplicate` publishes nothing for a
-burned id and still exits green. D46 — the workflow releases the pushed tree, which is not necessarily the
-tree you just verified. Local `verify` and `consumer-smoke` being green say nothing about this, because both
-run against the WORKING TREE.
-
-**What it cost:** 2.2.0 is burned for that content — a published version number is never freed (D29) — so the
-work reships as the next minor. The changelog needed splitting, because the rebase folded seven sections into
-the `## 2.2.0` heading and would otherwise have promised a consumer an API (`OllamaContextSize`,
-`LlmVerdictException`) that the published 2.2.0 does not contain. **That is the expensive half**: a wrong
-version number is cosmetic, a changelog that documents unshipped API as shipped produces compile errors for
-whoever believes it.
-
-**How to apply it:**
-- **`git push` is part of "ready to release", not a follow-up to it.** Before triggering the workflow, confirm
-  `git status -sb` shows no `ahead` count. `ahead N` means the release will not contain N commits of work.
-- **After any release, verify the tag contains what you think it does** — `git log --oneline <tag> | head`, or
-  check that a member added in the release appears in `git show <tag>:<baseline file>`. Cheap, and the only
-  check that catches this.
-- **A rebase across a release commit needs the CHANGELOG resolved by hand.** The released section is frozen
-  history; anything still unreleased belongs under a fresh `## Unreleased` above it. Git will happily
-  concatenate them into the released heading, which is silently wrong in the dangerous direction.
-
-## D45 — the three calls that closed the 2.2.0 backlog: report-the-blameless-reason, refuse-an-identity-collision, and a verdict-carrying exception in Core (2026-08-05)
-Three items sat open for months not because they were hard but because each needed a DECISION, and the
-backlog entries deliberately refused to guess. D44 removed the version obstacle; these are the answers, with
-the rejected alternative in each case, so none of them is re-litigated.
-
-**1. A media verdict can be blameless AND reportable — by giving the ROUTER a second reporting slot, not by
-giving the POLICY a new tier** (`TASKS.md` Part 40). `GenerationRouter` excluded blameless verdicts from
-`firstFailure` so that a blameless verdict could never mask a real failure (D38) — correct, and the reason
-`ContextWindowExceeded` had to stay `Failed`: as `Unsupported` it would advance *silently*, and a run where
-every candidate hit the same limit would report "no capable backend" instead of "your prompt is too long".
-
-- **Rejected: a "reportable-but-blameless" tier in `GenerationRoutingPolicy`.** It adds a third concept to a
-  table whose whole value is that it is small, and every future verdict then has to be classified against it.
-- **Taken: `firstFailure ?? firstBlameless ?? <synthetic>`.** The router remembers the first blameless result
-  that carried a detail, and answers with it *only* when nothing substantive failed. D38's rule is untouched
-  — a real failure still always wins. This is strictly smaller, and it also closes a reporting hole that
-  already existed for any run in which every candidate returned `Unsupported`.
-- **Order was load-bearing and is recorded because it is easy to get backwards:** the router slot had to land
-  BEFORE `GenerationVerdictClassifier` began mapping `ContextWindowExceeded` to `Unsupported`. Doing the
-  mapping first just trades a benched-backend cost for a lost-reason cost, which is what Part 40 warned about.
-
-**2. An identity-mutating curated-memory update REFUSES; it does not merge, and it does not proceed**
-(`TASKS.md` Part 25). `(kind, content, taskKey, scope)` is the dedup identity of `AddAsync(dedup: true)`, so
-an update that moves one of those fields into a slot another entry already holds mints exactly the duplicate
-that contract promises not to create.
-
-- **Rejected: merge.** It silently destroys one of the two entries' data — the worst outcome, because it is
-  invisible.
-- **Rejected: proceed and let the duplicate exist.** That is today's behaviour for `kind` (which was already
-  updatable), and it makes `AddAsync(dedup: true)` start returning the *other* row's id forever after.
-- **Taken: refuse.** Nothing is written and `false` is returned. `false` already meant "no row updated"
-  (unknown id); it now also means "refused", and `GetAsync(id)` distinguishes them. Like `AddAsync`'s dedup
-  this is a pre-write check rather than a unique index — **documented BEST-EFFORT under concurrent writers**,
-  and a unique index would be wrong because `dedup: false` legitimately inserts duplicates.
-- All four identity fields were closed together rather than widening the existing `kind` hole by two.
-
-**3. The verdict-carrying exception lives in `Lyntai.Core`, not in the adapter that needed it**
-(`TASKS.md` Part 25 — `AsChatClient` erased the verdict, so a host could not tell "never set up" from a real
-failure without string-parsing a message).
-
-- **Rejected: `Lyntai.Providers.ExtensionsAi`.** It serves only that bridge there, and the first other seam
-  that has to throw rather than return a reply would mint a second, near-identical type — the exact shape
-  `library-api-design.md` says makes a library unmaintainable.
-- **Taken: `Lyntai.Llm.LlmVerdictException`, beside `LlmVerdict` itself.** The taxonomy is Core's, so the
-  exception that carries one is Core's; it is the counterpart of `LlmReply.Verdict` for any seam that must
-  throw. It **derives from `InvalidOperationException`**, so every existing `catch` keeps working, and the
-  **message text is preserved verbatim** — which matters because parsing `.Message` was until now the only
-  way to recover the verdict, and is therefore the likeliest thing anyone has written.
-- **One residual break is unavoidable and is disclosed rather than discovered:** an exact-type check
-  (`ex.GetType() == typeof(InvalidOperationException)`) no longer matches.
-
-## D44 — D24's third bullet is amended: while every consumer is first-party, a DISCLOSED behaviour change may ship in a MINOR too (2026-08-05)
-D24 deferred SemVer strictness while every Lyntai consumer is one of the owner's own applications, but its
-third bullet excluded — unconditionally — "silent behaviour changes … anything a consumer can't detect at
-compile time". **That exclusion is now amended.** It is the one clause of D24 that did not follow its own
-reasoning: everything else in D24 is scoped to "there are no external adopters yet", while the third bullet
-protects an audience that does not exist, at the cost of the audience that does.
-
-**Two things forced this, and neither is a preference.**
-
-- **The bullet does not decide cases.** `D38` and `D43` are the same shape of change — a verdict that was
-  wrong becoming right, observable only at runtime — and they read the third bullet **oppositely**: D38
-  shipped as ordinary minor material, D43 was disclosed as major-bump material. Both are in the same
-  `## Unreleased`. A rule that yields both answers for one shape is not a rule, and the contradiction was
-  found by review rather than by anyone applying it.
-- **The deferral had a cost and no benefit.** The 2026-08-05 whole-library review produced **eleven**
-  verified behaviour fixes (filed as `TASKS.md` Part 43, landed the same day — `docs/task-archive.md`
-  **Part 43**), every one of them
-  blocked solely by this bullet: a router that re-attempts a known-bad backend and loses its sole-candidate
-  exemption; an unconfigured queue backend taking a dead-host penalty on every attempt; a scorer gate that
-  never fires through its interface; image attachments silently dropped; a paused job that cannot be
-  cancelled. Holding those back protects nobody — **the owner's own applications have not fully adopted the
-  library yet**, so there is not even a first-party deployment depending on the old behaviour. It is 2.1.0
-  by number and early-stage in maturity, and the number was never meant to claim otherwise.
-
-**The amended rule.** While every consumer is first-party:
-
-- A behaviour change a consumer cannot detect at compile time **MAY** ship in a MINOR, provided
-  `CHANGELOG.md` names **the observable delta** — what a caller saw before, what they see now, and who is
-  affected. The disclosure is the entire price, and it is not optional: an undisclosed behaviour change is a
-  defect under this decision, not a judgement call.
-- **Unchanged and still unconditional: storage and migration breaks stay MAJOR-bump material.** A compile
-  error is recoverable and a surprising verdict is recoverable; a corrupted database is not. This is the
-  clause D24 got right and it is untouched.
-- The version number therefore tracks the **public surface**, not behaviour churn — which is what
-  `ApiSurfaceTests` actually gates, and the honest description of what a Lyntai version has meant since 1.0.
-
-**Reinstatement is the same trigger D24 already names** — the moment a third party depends on Lyntai, D22's
-strictness returns *and this amendment lapses with it*, third bullet included. Whoever reinstates D24 must
-reinstate this too; that is why it is written as an amendment rather than a replacement.
-
-**Consequence for the record:** D38 and D43 are now consistent — both are correct as shipped, in a minor,
-because both are disclosed. Neither entry needed changing; the rule above them did.
-
-## D43 — a translation between two verdict taxonomies gets one arm per member, and the growth gate is a TEST because the compiler cannot be one (2026-08-05)
-`GenerationVerdictClassifier.Translate` reported `LlmVerdict.Unsupported` as `GenerationVerdict.Failed`
-through a `_ =>` catch-all, although `GenerationVerdict.Unsupported` exists and means exactly the same thing.
-Closes Part 38, filed rather than fixed while D38 was landing because it changes released behaviour.
-
-**The defect is the same shape as D38's, one layer along.** A blameless verdict was reported as a fault, and
-routing acted on the wrong one: `GenerationRoutingPolicy` maps `Unsupported` to `Advance` and `Failed` to
-`PenalizeAndAdvance`, so every capability gap counted toward the dead-host threshold and a few in a row
-benched a healthy backend for the cooldown window. Reachable, not theoretical — a consumer-registered
-`AddErrorTextMatcher` can return `Unsupported`, and `FromException` can classify into it.
-
-**The catch-all is what hid it, so it now holds nothing.** Every one of the nine `LlmVerdict` members has its
-own arm. Three had been sharing the discard: `Failed` (right answer, wrong reason), `ContextWindowExceeded`
-(deliberate) and `Unsupported` (the bug) — and nothing distinguished them, which is precisely why the third
-went unnoticed for a release. A catch-all over a taxonomy that is expected to GROW converts every future
-addition into a silent misclassification.
-
-**The compiler cannot enforce exhaustiveness over an enum, so do not pretend it can.** C# treats any switch
-over an enum as non-exhaustive — `(LlmVerdict)99` is a legal value — so removing the discard buys CS8509 *on
-the code as it stands*, not an error on the next added member; and CS8509 is a **warning**
-(`TreatWarningsAsErrors` is false here), so what actually fails is the `check-warnings` gate, not the
-compiler. Re-adding a discard to silence it is back where we started. The gate is therefore a TEST,
-`Every_llm_verdict_states_its_media_translation`, and it demands **two** things: a row naming a media verdict
-(the DECISION — a row cannot be written without answering the question) **and an arm**. The second half is
-not redundant: the discard's own answer used to be `Failed`, so a new member registered as `Failed` would
-have passed on the discard alone and the "the discard holds nothing but undefined values" invariant would
-have been unguarded — the same silence this whole entry is about. `Translate` is therefore split: an
-`internal TryTranslate` returning **null** for an unhandled member (visible to tests via `InternalsVisibleTo`,
-the `CandidateDedup` pattern) and a public path that still answers `Failed`, so behaviour is unchanged while
-a missing arm becomes detectable. Mutation-checked: deleting the `ContextWindowExceeded` arm — which changes
-no observable value at all — now fails the gate. Third instance of the same mechanism
-(`LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient`, D38's obligation on the routing
-policy); use it for any taxonomy expected to grow.
-
-**A shared meaning is not a shared ACTION, and the translation changes the second one silently.**
-`LlmVerdict.Unsupported` maps to `FallbackAction.Surface` in `RoutingPolicy`; `GenerationVerdict.Unsupported`
-maps to `GenerationFallbackAction.Advance` in `GenerationRoutingPolicy`. Both are deliberate and each is
-right for its domain — a second chat candidate has the same capability limitation, whereas media backends
-differ widely in what they accept — but the consequence is that a verdict crossing this boundary keeps its
-meaning and *changes its fallback semantics*, with nothing at the call site saying so. Stated on the method
-so the next reader does not assume "the same verdict" implies "the same thing happens".
-
-**This is major-bump material under D24, and saying so is the point.** D24 relaxes the version-number
-consequence for *documented breaks*, but its third bullet excludes exactly this shape: "**Does NOT:** silent
-behavior changes … or anything a consumer can't detect at compile time. Those stay major-bump material
-regardless." That clause governs here and it is not evaded: a consumer whose `switch` catches
-`GenerationVerdict.Failed` still compiles and simply stops matching these results. The fix is still right —
-the old behaviour benched a healthy backend and nobody wanted it — but the honest description is "a silent
-behaviour change that D24 says is major-bump material", not "a documented change D24 permits in a minor". It
-sits under `## Unreleased`, which fixes no number, and it is flagged in `CHANGELOG.md` so that **whoever cuts
-the release makes the version call deliberately** rather than inheriting it from where the entry happened to
-land. Recording it now is a sentence; reconstructing it after a minor ships is not.
-
-**`ContextWindowExceeded` still collapses to `Failed`, and that is now a decision rather than an omission —
-but it is a TRADE, not a free choice.** It is the one member with no media counterpart, and it is genuinely
-reachable in this domain — the shared corpus matches `prompt is too long`, which image backends do say.
-`Unsupported` would describe it better AND route it better (advance without penalty). It is kept at `Failed`
-anyway because `GenerationRouter` deliberately does not report a blameless verdict over a real failure
-(the `firstFailure` guard and the `NotConfigured` fallback return — `GenerationRouter.cs:105`, `:130`; follow
-the NAMES, these numbers rotted once already): as `Unsupported` it would advance *silently*, and when it was
-the only thing that went wrong the caller would be told "no capable backend" instead of "your prompt is too
-long for this one" — losing the single actionable answer in the set. D38 already resolved the analogous question on the
-LLM side the same way, and for the same stated reason.
-
-**What that costs, named rather than left implicit:** `Failed` carries `PenalizeAndAdvance`, so repeated
-oversized prompts count toward the dead-host threshold and can bench a perfectly healthy backend — *the exact
-harm this entry fixes for `Unsupported`, one enum member along*. And the LLM domain maps `ContextWindowExceeded`
-to `Advance` (`RoutingPolicy.cs:20`), so after this change the two domains genuinely disagree about it. Both
-were accepted because the alternative loses the message, and a lost message is the failure a human cannot work
-around; but neither is zero, and writing only the reportability half would have made the trade read as free.
-
-**The real remedy is a router change, not a mapping change**, which is why it is filed rather than folded in:
-what forces the choice is `GenerationRouter`'s rule that a blameless verdict is never reported, so "blameless"
-and "reportable" are mutually exclusive when the domain needs a verdict that is both. Filed as `TASKS.md`
-Part 40. Until it lands, do not revisit this arm on its own — moving it without the router rule just swaps
-one of these two costs for the other.
-
-**Known and accepted, not overlooked:** because blameless verdicts are excluded from `GenerationRouter`'s
-`firstFailure`, a run where EVERY candidate reports `Unsupported` returns
-`NotConfigured` / "every capable backend reported it is not configured", which is not quite what happened.
-That path is unchanged by this fix — it is reachable today from any backend that returns `Unsupported`
-directly (the job backends' inline seam does) — and correcting it means changing the router's reporting rule,
-which is a different decision from this one.
-
-**Which promise binds.** The type lives in `Lyntai.Core`, which carries the full SemVer promise — the
-`Lyntai.Generation.*` experimental carve-out is written package-scoped and reason-scoped (unmeasured backends,
-the unimplemented stream seam) and does not cover it. The conservative reading was applied deliberately rather
-than claiming the exemption. No public API member changed, so the `ApiSurfaceTests` baselines are untouched;
-what changed is observable behaviour, announced in `CHANGELOG.md` under D24's documented-change discipline.
-
-## D42 — the agent-session shape is NOT claude-only, but the codex half is half-measured: ship the honest subset, mark the inference, refuse the unmeasurable (2026-08-05)
-`CodexAgentSession` closes CLI11 (a consuming desktop chat UI wanted to delete its hand-rolled
-`codex exec --json` parsing and could not, because the codex backend offered only the router shape). Recorded
-because the interesting part is not that it was built — it is *which half* was built, and why the other half
-is marked rather than either faked or withheld.
-
-**The finding: the shapes correspond only PARTIALLY, and the split is measured-vs-unmeasured, not
-conceptual.** `AgentStreamEvent` needed no new case and lost none, so this is not "claude-only by design":
-every event codex can produce fits, and everything codex emits that the union has no case for is legitimately
-droppable. But the two halves of the mapping have very different standing.
-
-- **MEASURED** (from the codex-cli 0.146.0 capture behind `CodexJsonlParser`): `thread.started` →
-  `SessionStarted`; `agent_message` → `TextDelta` + the final text; `turn.completed` → `UsageFinal` +
-  `SessionEnded(Ok)`; `turn.failed` → the classified error terminal; the non-terminal rule for a bare `error`
-  line and an `error` ITEM; the `exec` argv including `--skip-git-repo-check`; the `--sandbox` values.
-- **INFERRED** — every tool step, which is *the entire reason the agent-session shape exists*. The measured
-  run used **no tools**, so `item.started`, the tool item types and their fields have never been observed
-  here.
-- **Absent in codex, so simply not emitted**: `UsageLive` (no per-turn tick — the counts arrive once, at
-  `turn.completed`), `SessionEnded.Subtype`, `UsageFinal.Model` (the thread events carry no model id; echoing
-  back the REQUESTED model would report a request as an observation), and token-level text deltas — a
-  `TextDelta` here is one whole assistant message.
-- **Carried by codex with nowhere to go**: `reasoning_output_tokens`, dropped rather than folded into
-  `OutputTokens`, because whether `output_tokens` already includes it is unmeasured and adding it would
-  double-count if it does.
-
-**Why "documented-not-measured" is not the GEN-VERIFY violation it looks like.** That rule exists because a
-guessed surface *presents as knowledge*. The fix here is to BOUND what a wrong guess can cost: the tool
-mapping is **shape-driven, not name-driven**. Any item whose type is not one of the three recognised
-message-ish names is surfaced as a tool step under **codex's own item-type name**, with **codex's own item
-object** as `ArgumentsJson`/`Content`. Nothing is renamed or normalised, so a codex release that adds or
-renames a tool item still flows through, and there is deliberately **no `CodexToolCalls`** helper — the
-claude twin parses argument names this repo has measured, and inventing the codex equivalent would be
-guessing field names. Where codex emits no `item.started`, the `ToolCall` is **synthesised from the
-completion** (correlated by item id, never twice), so the step stays visible whichever way that detail falls.
-
-**And state the guarantee's LIMIT, because the first draft of this entry overclaimed it.** "A wrong guess
-costs fewer events, never wrong ones" is false, and its own inferred set falsifies it. What the mapping
-actually guarantees is two things: **no payload is invented or dropped**, and **every uncertainty is confined
-to the tool-step half** (session id, terminal and usage are measured and unaffected). It does *not* guarantee
-the right KIND of event, because the tool arm is reached by **elimination** against three names, one of which
-(`reasoning`) is itself a guess. So a renamed `reasoning` becomes a fabricated `ToolCall` carrying the model's
-thought as its arguments; a `todo_list`-style plan update becomes one too; a rename of `agent_message` would
-cost `TextDelta` *and* `FinalText` *and* emit the answer as a tool step. Each contradicts `ToolCall`'s own
-contract ("the agent invoked a tool"), so this is a semantics violation, not a taste one. Same shape on the
-failure side: `ToolResult.IsError: false` is a *positive claim of success*, not "unknown", so a nested or
-differently-named failure signal reads as a successful step — chosen over defaulting to `true`, which would
-mark every successful step of an unmeasured shape as failed. The honest instruction to a consumer is
-therefore **"a tool step's KIND is provisional, its PAYLOAD is reliable — switch on `ToolCall.Name`"**, and
-that is what the XML docs, the README and CLI12 now say. The general lesson: when marking a region INFERRED,
-state what the containment actually buys, because a safety claim that overreaches is itself a
-documented-not-measured surface.
-
-**Resume is REFUSED, not ignored and not guessed.** `AgentSessionOptions.ResumeToken` yields a single
-`SessionEnded(Unsupported)` **without spawning**. Guessing a resume subcommand is unusually expensive on this
-CLI: `codex [OPTIONS] [PROMPT]` reads an unrecognized subcommand as a PROMPT, so a wrong guess silently spends
-a turn answering the thread id. Silently ignoring it is worse in the other direction — a multi-turn chat would
-start a FRESH session and lose its history with no signal at all. Refusing is the only option that neither
-lies nor costs money. Same reasoning as `TryBuildLoginArgs` refusing an account-kind codex does not have.
-
-> **SUPERSEDED 2026-08-05 — resume is now MEASURED and implemented.** `codex exec resume --help` on the real
-> installed 0.146.0 was probed turn-free (a `--help` flag costs nothing, which is exactly the escape this
-> paragraph said it was waiting for) and reports
-> `codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]`, where `[PROMPT]` reads stdin when it is `-`, plus a
-> `--last`. So the argv is `exec resume <SESSION_ID> … -`. `CodexAgentSession` now honours `ResumeToken`
-> instead of refusing it. **The reasoning above is not obsolete and is why this was safe** — the refusal was
-> the correct behaviour for as long as the shape was unmeasured, and it was replaced by a measurement rather
-> than by a guess. Worth keeping alongside it: that probe printed correct help and exited **255**, so a
-> non-zero exit from a `--help` probe does not mean the subcommand is absent.
-`DisallowedTools` is logged as unhonoured (codex's gate is the sandbox, not a deny list) and `SystemPrompt`
-travels as a leading block of the prompt (codex `exec` has no measured flag for one).
-
-**One structural fix came out of this and is the durable part**: both codex paths now build their argv from
-`CodexExecArgs`. `--skip-git-repo-check` is the flag the consuming app dropped — codex refuses to run outside
-a git repository, so omitting it WORKS on a developer's machine and breaks in a shipped bundle. A second copy
-of that argv is a second chance to lose it, and the agent session runs in the *caller's* directory, which is
-exactly where "it's a repo on my machine" is most tempting. `CodexEnvelope` does the same for the
-non-terminal-`error` rule. Both defects the consumer hit are now structurally shared rather than
-re-implemented, and both mutation-checked.
-
-**Known and deliberately not refactored:** what `CodexEnvelope` shares is the *vocabulary*, not the
-*decision*. The terminality rule is still enforced in two places — `CodexJsonlParser`'s `_ => Ignored` and
-`CodexAgentReader`'s switch-without-default each independently drop a bare `error`. Two call sites agreeing
-by construction is enough for two readers; it stops being enough at a third codex path, which is when the
-decision itself should move into `CodexEnvelope`. Recorded so that moment is recognised rather than
-rediscovered.
-
-## D41 — semantic memory gets a NAME so its absence is loud; the wiring stays three substitutable calls (2026-08-05)
-The Part 25 item asked for a `Use*` helper so an app enabling semantic recall stops hand-constructing
-`SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` / `HttpEmbedder`. Auditing
-the four showed each already had a builder call — `UseSqliteStorage` (which registers the curated store and,
-under `SchemaMigration.OnFirstUse`, the migrating factory), `UseSqliteVectorStore`, and
-`AddOpenAiCompatibleEmbedder`, the last two of which post-date the consumer code the review looked at. So the
-hand-construction was **stale**, not unavoidable, and a composite super-call would have been sugar over
-calls that already exist.
-
-**The real defect was that semantic memory had no NAME in the API.** Every other optional feature is a
-declared call — `AddResponseCache`, `AddUsageBudget`, `AddRateLimit`, `AddLiveModelRouting`. Semantic memory
-was enabled purely as a *side effect* of an `IEmbedder` happening to be in the collection, which makes the
-failure silent in the worst way: no embedder → `RegisterSemanticMemory` registers nothing → `IPromptComposer`
-and `ChatOrchestrator` resolve a null `ISemanticMemory` and skip semantic recall on **every turn**, with no
-exception, no log, and a container that builds fine. So `AddSemanticMemory(…)` was added, and its main job is
-to record intent: `AddLyntai` now throws when the intent is declared and no embedder reached the container,
-next to the existing pre-registered-`ILlmClient` contradiction guards.
-
-- **Overloads mirror `AddEmbeddings`** (instance / factory / by type) so the common path is one call, plus a
-  no-argument overload for "my embedder comes from `AddOpenAiCompatibleEmbedder` or from the host".
-- **It constructs no embedder.** An embedder is BYO by design and a defaulted `HttpEmbedder` would point at
-  nothing; the guard is the alternative to guessing.
-- **Nothing became mandatory.** The vector store and `ISemanticMemory` stay `TryAdd`-registered (a host's own
-  registration still wins), the concrete stores stay public, and `AddEmbeddings` alone still works exactly as
-  before — this is additive sugar, not a replacement.
-- **REJECTED: a `UseSqliteSemanticMemory()` composite** that would call `UseSqliteVectorStore()` plus the
-  intent. It is a one-line alias that earns no keep, and the same helper covering the embedder too would have
-  forced `Lyntai.Storage.Sqlite` → `Lyntai.Providers.Default`, i.e. adapter-to-adapter (`D31`/`D3`). The
-  storage half and the embedder half belong to different packages and must stay two calls.
-**AMENDED same day — the `Governance` trap is GUARDED, not merely documented.** The first cut documented it
-in three places: `lyntai_vector` ships under `StorageFeature.Governance` (with the response cache and usage
-ledger), so a subset omitting Governance registers `SqliteVectorStore` over a table that was never created
-and the app finds out at the first recall. Review pointed out that this is inconsistent by this very
-change's own standard — the same commit had just decided that silent degradation discovered late was worth a
-**throw** for semantic memory — and that `UseSqliteStorage`'s own documentation states the house rule the
-helper was breaking: *a disabled domain's store isn't resolvable, and that unresolvability is the startup
-signal that a disabled feature is being used*. Prose a misconfiguring host will never read is not a fix.
-So the rule is now enforced:
-
-- **All five Governance-backed helpers check, not just the one that was reported** — `UseSqlite`
-  `{ResponseCache,UsageTracking,VectorStore}` and `UsePostgres{ResponseCache,UsageTracking}`. Guarding only
-  the reported one would have reproduced the same inconsistency one level down; `lyntai_response_cache` and
-  `lyntai_usage` are in the identical migration.
-- **`UsePostgresVectorStore` is deliberately EXEMPT.** `PostgresVectorStore` creates its `vector` extension
-  and table lazily on first use, outside the migration, precisely so pgvector isn't forced on consumers who
-  never use semantic memory — so it works with or without Governance. Don't "fix" the asymmetry.
-- **The check is ORDER-INDEPENDENT ACROSS THE STORAGE/HELPER PAIR.** It needs both the feature selection and
-  the helper call, and an app may write those two either way round, so each side records a sentinel
-  `ServiceDescriptor` (nothing ever resolves them) and verifies whatever the other side already recorded. A
-  guard defeated by swapping *those two* builder lines is not a guard; a test pins the reverse order.
-  **Scoped to the pair on purpose, because it does not generalise:** two `Use*Storage` calls are not a pair to
-  be commuted, they are competing SELECTIONS and the LAST one wins, so order is load-bearing there by design —
-  in both directions. The two consequences (a narrow selection rejecting a helper the final selection would
-  have allowed; a BYO factory supplied last standing the guard down) are recorded on the builder extensions
-  themselves and in `CHANGELOG.md`; don't restate them here, but don't state the headline without this clause
-  either.
-- **No public surface changed**, and the throw fires only on a configuration that was already broken —
-  `StorageFeature.All` includes Governance, so every existing wiring is untouched. The message names the
-  offending call and the feature to add, matching the `AddSemanticMemory` throw's shape so the two read as
-  one rule.
-- **AMENDED by the whole-branch review: the guard applies only where LYNTAI OWNS THE SCHEMA.** The first cut
-  checked the feature flags and nothing else, so it also fired under `SchemaMigration.None` and over an
-  app-supplied `IDbConnectionFactory` — the two documented paths on which Lyntai runs no migrations at all
-  (that overload's own doc says *"Lyntai runs no migrations here; own the schema"*). That is a regression on
-  a working configuration: an app that created `lyntai_vector` itself and passed a narrow feature set now
-  failed at startup, and the remedy the message offered was useless there, because adding
-  `StorageFeature.Governance` creates no table when nothing migrates. The premise — *Lyntai was going to
-  create this table and your feature set stopped it* — is simply false when Lyntai was never going to create
-  anything. So schema ownership now travels WITH the selection (`SqliteFeatureSelection` /
-  `PostgresFeatureSelection` carry a `LyntaiMigrates` flag recorded by the wiring call that knows the answer)
-  rather than being re-derived, and the verification returns early when it is false. Both directions are
-  pinned by tests, in both call orders — the skip has to be as order-independent as the throw.
-
-## D40 — an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else (2026-08-05)
-Part 25 asked for `MigrateUpAsync(…, CancellationToken)` twins beside the sync `MigrationRunnerService.MigrateUp`
-on both backends, for apps owning their schema under `SchemaMigration.None`. **FluentMigrator's runner is
-synchronous and its `MigrateUp()` takes no token** — there is no async entry point and nothing reaches the DDL
-execution. That constrains what the twin can truthfully offer, and the constraint is the decision:
-
-- **REJECTED: `Task.Run(() => MigrateUp(...))`.** It is worse than not shipping the method. It occupies a
-  thread-pool thread for the entire duration of a schema migration, it cannot cancel anything, and it makes a
-  caller who cancels believe the migration stopped. A decorative `async` is a lie with a signature.
-- **The migration runs INLINE on the calling thread.** SQLite's twin is `async` because its pragma seed is
-  real ADO.NET (mirroring `SqliteConnectionFactory.OpenAsync`); Postgres has no await point at all on this
-  path and returns an already-completed task, faults funnelled through `Task.FromException` /
-  `Task.FromCanceled` so a `Task`-returning method never throws synchronously. `AsyncMigrationTests` pins the
-  no-offload property so nobody "improves" it into a `Task.Run` later.
-- **The token is honoured at the only two points that exist:** before any work — a cancelled token leaves the
-  SQLite file uncreated and never dials the Postgres connection string — and between feature passes, each of
-  which is a separate runner invocation whose applied versions the version table has already committed. Under
-  the default `StorageFeature.All` there is exactly **one** pass, so there the token degenerates to "before
-  starting". Both XML docs say this in as many words, under explicit *what it can do* / *what it cannot do*
-  headings, because the whole hazard is a caller assuming more.
-- **What it is genuinely for:** composing in an async startup path (`IHostedService.StartAsync`) without
-  `GetAwaiter().GetResult()`, and refusing to start work a cancelled startup already abandoned. That is a
-  small, real benefit — and it is the entire benefit.
-- **Mid-pass cancellation stays impossible** until FluentMigrator itself offers a token. Do not simulate it by
-  killing the connection: a half-applied DDL pass with a committed version row is a corrupted schema, which is
-  strictly worse than a migration that finished.
-
-## D39 — the post-1.0 ergonomics batch: category predicates over per-member helpers, and two halves left open on purpose (2026-08-05)
-The additive tail of the D21 review (the items filed as Part 25) worked in one pass. Recorded because three
-of the five were decided on SHAPE rather than implemented as filed, and two of the filed items turned out to
-be already done — which is exactly the kind of thing that gets re-proposed.
-
-**Verdict helpers are CATEGORIES over the enum, not one method per member.** The item asked for
-`reply.IsOk()` / `reply.IsRateLimited()`. Shipped instead as `LlmVerdictExtensions.IsOk()` /
-`IsTransient()`, hanging off `LlmVerdict` rather than off `LlmReply`. Two reasons, both about growth:
-- **A helper per member does not scale on a frozen surface.** D38 has just shown the enum grows. Each new
-  member would owe a new public method, and until it got one the NEWEST verdict — the one nobody has code
-  for yet — would be the only member without a helper. A caller who wants exactly one member already has the
-  clearest possible expression of it (`verdict == LlmVerdict.RateLimited`); what that cannot express is a
-  CATEGORY spanning several members, which is the only thing a helper adds.
-- **Five released types carry a verdict** (`LlmReply`, `LlmChunk`, `SessionEnded`, `AgentSessionResult`,
-  `ToolLoopResult`). A property on `LlmReply` would be one of five copies, each owing an update on the next
-  verdict-carrying type. An extension on the enum is one definition for all of them. The asymmetry with
-  `GenerationResult.IsOk` (a property) is accepted: nothing else in the generation domain carries a verdict.
-
-`IsTransient()` is deliberately **not** derived from `RoutingPolicy`, which answers a different question:
-`RateLimited` and `AuthFailed` share `CooldownAndAdvance` there, while here one recovers on its own and the
-other never does. It is its own classification, guarded by a test that fails until a newly added verdict is
-given a `true`/`false` — the same obligation D38 places on the policy table, now covering a third thing.
-The gate asserts the CLASSIFICATION, not membership in a list: a list can be greened by appending a name,
-which prompts nobody to decide anything and lets a new verdict inherit `false` silently.
-
-**`Failed` counts as transient although it is also the classifier's CATCH-ALL — a known over-report, kept.**
-`LlmVerdictClassifier.FromErrorText` falls back to `Failed` for any text it does not recognize, so that
-bucket holds both real availability faults (reset connection, 502, 503 — the common case) and PERMANENT
-errors nothing matched: a 400/422 whose body fits no pattern reads transient, and retrying it can never
-succeed. Kept anyway, because the library already takes that position where it costs something —
-`RoutingPolicy.Retry` only ever re-sends to the same candidate for the `PenalizeAndAdvance` verdicts, which
-are exactly `Failed` and `Timeout`, and the README's own example is `r.Retry(LlmVerdict.Failed, 1)`. A
-call-site predicate that contradicted the router's own retry rule would be a worse defect than one that
-over-reports. The doc names the false positive, the contract is "worth ONE bounded attempt, never a loop",
-and a caller needing certainty reads the specific verdict. Pinned by
-`IsTransient_over_reports_on_the_classifiers_catch_all_and_that_is_deliberate`, so it stays a known cost.
-
-**The agent-event contract was already shipped; nothing was added.** The item asked to consider "a
-discoverable event-shape contract instead of anonymous objects apps reflect over". `AgentStreamEvent` is
-already that contract — a sealed abstract record with eight concrete cases, yielded by both
-`IAgentSession.StreamAsync` and `IToolLoop.StreamAsync`, switched on by type. Lyntai's public surface
-contains **zero** anonymous objects (the only `new { }` in the tree are Dapper parameter objects inside the
-storage adapters, which never leave the assembly). The reflection the review observed was consumer-side code
-over its OWN hand-parsed CLI JSON, and the remaining gap there is not a contract but a missing adapter —
-already filed as Part 33's CLI11 (`CodexAgentSession`). Adding a second event abstraction would have been
-surface with no consumer. `ClaudeToolCalls.FilePathOf` likewise already read `notebook_path`/`path`
-(pre-1.0, with six tests); the backlog entry was stale.
-
-**Curated-memory mutability stays open, because it is a BREAK and a semantics question.** `kind` is already
-updatable (CMEM5). Making `taskKey`/`scope` updatable means new parameters on
-`ICuratedMemoryStore.UpdateAsync` — a signature change on a released interface that every BYO implementation
-would have to follow, so it is not additive and is out of scope for an additive batch. It also has a real
-design question attached: `(kind, content, taskKey, scope)` is the DEDUP IDENTITY of `AddAsync(dedup: true)`,
-so an in-place move mutates identity and can silently collide with an existing row that the dedup contract
-promises is unique. `kind` already carries that hole. The fix should settle all four together with a
-decision, not widen the hole by two. Left open in `TASKS.md` with that reasoning.
-
-**The metadata accessor is generic on purpose.** The item said "a `Source`/metadata convenience accessor".
-Shipped as `MetadataValue(key)` and nothing else: CMEM6 retired the purpose-built `Source`/`Title` COLUMNS
-into one arbitrary map precisely so a new payload field needs no schema or API change, and a `Source()`
-accessor would re-privilege that name one layer up — re-opening the decision in a place the storage layer
-can no longer see. Conventional key names stay documentation, not API.
-
-## D38 — "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real failure (2026-08-05)
-`LlmVerdict.NotConfigured` — the first member added to that enum since the 1.0 freeze, and the first
-consumer-visible cost accepted on the frozen surface. Recorded here because the alternatives were real and
-someone will reach for them again.
-
-**The defect.** A 401/403 answered to a call that carried no credentials was classified `AuthFailed`, which
-maps to `CooldownAndAdvance` — so a backend a consumer merely *listed* without configuring was benched for
-the whole cooldown window, on every first attempt, for a fact known before the call. The generation domain
-had already drawn the distinction (`GenerationVerdict.NotConfigured`, 2.0.1). Two domains disagreeing about
-the same situation is the thing worth fixing; the benching is just how it showed up.
-
-**Why a new enum member and not an existing one.** There was no `NotConfigured`-equivalent, and no member was
-both semantically honest and routing-correct: `Unsupported` maps to `Surface`, which would STOP the run at
-the unconfigured candidate — strictly worse than benching it — and `ContextWindowExceeded` has the right
-action (`Advance`) but says something entirely different, which would corrupt telemetry and every consumer
-`switch`. A verdict that lies is worse than a verdict that is missing.
-
-**The accepted cost.** Adding an enum member is **binary-compatible** — it is APPENDED last, so no existing
-member's numeric value moves and a compiled consumer keeps working. The cost is source-level: a consumer's
-**non-exhaustive `switch` expression** over `LlmVerdict` now raises **CS8509**, a warning in their build.
-Accepted as the right price in an additive minor: the alternative was leaving the two domains permanently
-disagreeing, and this library's own generation domain already paid the same price. Called out in
-`CHANGELOG.md` so nobody is surprised.
-
-**The enum and the policy must move together.** `RoutingPolicy.ActionFor` falls back to
-`PenalizeAndAdvance` for an unmapped verdict. Adding the member *without* mapping it to
-`FallbackAction.Advance` would have left `NotConfigured` counting toward the dead-host threshold — a
-different wrong outcome, not a fix. A future verdict addition has the same obligation.
-
-**A blameless verdict must never MASK a real one.** Introducing a verdict that advances without blame
-created a second-order bug the routers had not needed to guard: `LlmRouter` remembered the *last* failure
-unconditionally, so `[downHost → Failed, neverConfigured → NotConfigured]` told the caller "not configured"
-and sent them to set up a key while the backend they HAD configured was down. Blameless verdicts
-(`NotConfigured`, `Unsupported`) are now remembered SEPARATELY on both the streaming and non-streaming paths
-and reported only when there was no real failure at all — matching the guard `GenerationRouter` already had.
-Two things deliberately unchanged: *which* substantive failure wins (this router keeps the LAST, generation
-the FIRST — released behaviour for every other verdict), and the eligibility test is keyed on the VERDICT
-rather than on `FallbackAction.Advance`, which would also swallow `ContextWindowExceeded` — "your prompt is
-too big" is a real, actionable answer.
-
-**The promotion rule is stated TWICE, deliberately, not shared.** D30 keeps the pattern *corpus* ("what does
-a 429 look like") single-sourced in `LlmVerdictClassifier`, and that is untouched. But
-`authFailure && !hasCredentials` is two terms, and a shared helper for it would be indirection without drift
-protection — what can actually drift is the *reasoning*, which a boolean helper does not hold. The domains
-also reach different populations: every LLM backend that authenticates by login SESSION rather than a
-supplied key (the CLI dialects, the primary seam here) classifies from error text and has no
-`hasCredentials` fact at all. Each site states the rule with its reasoning and cross-references the other.
-
-**Not "a key is required."** An OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama)
-legitimately needs none, so a missing key alone means nothing — only a missing key AND a server that
-*demanded* one is a configuration gap. A pre-flight "require a key" guard would break every local backend.
-
-**Embedders are out of scope, by shape.** `HttpEmbedder` reports no verdict — it THROWS, and there is no
-embedder router — so there is no "advance without blame" for it to reach. Giving embedders a verdict/fallback
-seam is a much larger design change than this warranted. Its 401 message now says `(not configured: no
-ApiKey)` so a host can still tell setup from a rejected key. Message only.
-
-## D37 — provider LIFETIME is a registered strategy, and everything about it is keyed on the CONFIGURATION rather than the provider id (2026-08-05)
-Filed as GEN12, designed in `docs/superpowers/specs/2026-08-05-provider-pool-design.md`, shipped as
-`Lyntai.Lifecycle`. It applies **only** where backend configuration is owned OUTSIDE the deployment — by an
-end user, or by a store the process polls. Then three things follow that a deployment-configured app never
-meets: the settings change at any moment, the *choice of backend* is itself one of those settings, and
-several configurations of one backend id are live **at the same time** (different tenants, different
-credentials, different endpoints). An app that registers its backends with `Add*` and never touches any of
-this is unaffected — the defaults are already registered for it and behave exactly as they did.
-
-**The filed premise was wrong, and correcting it relocated the fix.** GEN12 said a provider instance
-"accumulates" cooldown and dead-host knowledge that per-call construction discards. **Providers hold no such
-state**: every backend is a constructor and immutable fields. The state lives in `DeadHostTracker`, owned by
-the **router** — and both routers snapshot their provider set at construction (`GenerationRouter`
-materializes `[.. providers]`; `LlmRouter` memoizes a `Lazy<>` lookup, so even a live `IEnumerable` would be
-frozen after the first call). So a consumer wanting a different backend per call cannot keep one router; it
-rebuilds the router, which rebuilds the tracker, and *that* is what destroys the cooldown. Pooling instances
-alone would never have been visible to a long-lived router. The unit that has to be long-lived and correctly
-keyed is not the provider — it is the **bookkeeping keyed to a configuration**.
-
-**1. Pooling is a registered STRATEGY, not a library behaviour.** `BoundedProviderPool` reuses while the key
-is unchanged (LRU + idle bounds); `TransientProviderPool` never reuses; `IProviderPool<TProvider>` is the BYO
-seam for anything else (cross-process, host telemetry, a different eviction policy). The call site is
-**identical** under either — `UseProviderPool()` / `UseTransientProviders()` at startup is the only
-difference — and that is what makes the choice reversible. A host that discovers its backend is not safe to
-share changes one line, not every call. Reuse-vs-never-reuse is a semantic difference, so it is a type rather
-than a flag; "unbounded" is not a third type, it is `Bounded` with both limits unset.
-
-**2. A pool selects what was CHOSEN; a router selects what is HEALTHY.** They must not be conflated even
-though both take a set of backends. Routing *falls back*; a pool must **fail**. "The user chose this
-configuration" that quietly succeeds against a different one has billed the wrong credential and produced an
-artifact the user did not ask for — a failure no error surfaces. So the pool never substitutes, and
-`instance.Id != key.Slot` throws at registration rather than becoming a candidate the router silently cannot
-find. The two compose (the router factories resolve a caller's registrations through the pool, then govern
-them) precisely because each keeps its own job.
-
-**3. Retirement never disposes, and that is an ENTAILMENT rather than a preference.** Retiring drops the
-pool's reference and removes the entry; in-flight callers hold their own reference and finish normally; the
-runtime reclaims the instance when the last of them is done. **You cannot both refuse to break in-flight work
-and dispose deterministically, without leases.** `IHttpClientFactory` appears to manage both only because the
-object callers hold (`HttpClient`) is not the object it disposes (the handler). Here the caller holds the
-provider itself, so while it is alive the pool cannot know whether anyone is still using it, and once it is
-collectable the pool no longer has it to dispose. Any scheme that disposes on retirement is therefore
-disposing while callers may still be running — and with renders that legitimately take minutes and a
-configuration poll that can fire at any moment, that means a routine poll killing a healthy render. Leases
-are the documented escape hatch, not an omission: a host whose provider owns something needing prompt release
-implements a lease-based `IProviderPool` of its own. Nothing Lyntai ships is `IDisposable`, so this costs
-nothing today; what it buys is a contract that never has to lie. Pinned by a test whose disposable fake stays
-undisposed through `Retire`, `RetireSlot`, LRU eviction and idle eviction.
-
-**4. Dead-host cooldown and concurrency admission are keyed on the CONFIGURATION, not the provider id.** The
-cooldown key was `generation::{providerId}`. Once two configurations of `openai-images` are live under
-different credentials, one exhausting its quota benches the other, whose key was fine — and conversely two
-consumers pointing at the same self-hosted host *should* share a bench when that host is down. Keying on
-`ProviderKey` gets both right; keying on the id gets one wrong, and only in production. Both routers
-therefore take an optional `Func<TProvider, ProviderKey?> configuration` delegate, bound by the factories to
-`pool.TryGetKey`; passing nothing keeps `p => p.Id` exactly as before. The delegate must return a **stable**
-key per instance — one attempt invokes it for the bench check, for admission and for the record that follows,
-so a delegate that recomputes from live state can record a bench under a key nobody checks.
-
-**Admission is applied BY THE ROUTER, never by wrapping a provider** — twice-decided, because the obvious
-implementation is a concurrency-limiting decorator. A `SemaphoreSlim` on a per-instance decorator bounds
-nothing once instances are per-call (under `Transient` every call builds its own limiter, so the local engine
-the limit protects thrashes as if unlimited), and decorating a provider **erases its optional capability
-interfaces**: a wrapper implementing only `IGenerationProvider` is not an `IGenerationJobProvider`, so
-`GenerationRouter.SubmitAsync`'s type test skips it and every queued video render stops routing while image
-renders and every inline-only test stay green. Limits are declared per **slot** (capacity is a property of
-the backend kind) and enforced per **key** (the contended resource belongs to a configuration). Admission is
-an **interface** (`IProviderAdmission`) for the same reason the pool is: the shipped table bounds one
-*process*, and "two consumers pointing at the same self-hosted engine share its capacity" — the behaviour it
-exists for — is exactly what stops being true once those consumers are two replicas. A host in that position
-implements the seam over whatever it already coordinates with; the routers and both factories take the
-interface, so nothing above changes.
-
-**The frozen surface, and the one thing that nearly broke it.** `IProviderIdentity` is a base interface
-*added to* `ILlmProvider` and `IGenerationProvider`, which is binary-safe — but the first implementation also
-*deleted* each interface's own `string Id { get; }` on the reasoning that the base now supplies it, and that
-is not. A consumer compiled against 1.0 emits `callvirt ILlmProvider::get_Id`; member resolution does not
-walk base interfaces, so every pre-compiled caller of `provider.Id` would throw `MissingMethodException`
-until recompiled — and `consumer-smoke` cannot see it, because it rebuilds the consumer from source, which is
-the one step upgrading a package reference does not do. Both interfaces therefore keep their own declaration
-(`new`), pinned by `ProviderIdentityTests.Both_seams_still_declare_Id_themselves` so the next cleanup that
-finds them redundant fails a test instead of shipping. Reproduced and closed with an old-lib → probe →
-new-lib run; the spec's §4.1 carries the amendment.
-
-**One shipped improvement over the spec, recorded because the spec now says so too:** `ProviderAdmission`'s
-gate table is bounded by **calls in flight**, not by keys ever seen. Each gate counts callers holding or
-waiting on it, incremented before the wait so a merely-queued caller keeps it alive, decremented on dispose
-*or* on a cancelled wait, and the entry is removed the instant the count reaches zero. So there is no cap and
-no timeout to tune, an idle process holds no gates, and a store rotating many tenants' credentials cannot
-accumulate one permanent semaphore per configuration ever presented.
-
-**Deliberately not done:** leases (above), a max instance lifetime (`IHttpClientFactory`'s handler rotation
-exists for DNS staleness the provider does not have), multiple instances per configuration (the backends are
-stateless — parallelism is gated by admission, not by instance count), automatic key derivation from an
-options object (right for the record-shaped options, silently wrong for a class compared by reference — and
-deriving it by reflection would break the trim promise `check-warnings` gates, which D17 already rejected),
-and any abstraction over the configuration SOURCE (reading the store, noticing a change and deciding when to
-re-resolve stays with the consumer; absorbing it would make this a framework rather than a seam).
-
-## D36 — BYO means the HOST owns the client's lifetime; Lyntai disposes only what Lyntai created (2026-08-04)
-Every HTTP generation backend took a `Func<HttpClient>` and did `using var http = httpFactory()` — it disposed
-whatever the factory returned. That is right for a factory that MAKES a client per call (which is what the
-backends' own tests pass), and wrong for the natural BYO lambda `_ => _myClient`: the first render succeeds and
-the **second throws `ObjectDisposedException`**. Found while adding the per-backend `Add*` shims (Part 34), whose
-whole point is to hand a consumer that BYO seam.
-
-The LLM side has always had this right — `OpenAiCompatibleProvider(..., disposeHttpClient: !byo)` — so this is
-stated as one rule for both domains rather than a patch to one:
-
-- **A host-supplied client is never disposed by Lyntai.** It outlives the call, it may carry a Polly pipeline, an
-  auth handler or service discovery, and its lifetime is the host's business. A consumer who news one up per call
-  in their own lambda leaks — that is their lambda, and the alternative (us disposing theirs) is strictly worse.
-- **A client Lyntai created is disposed by Lyntai.** The non-BYO path registers a named `IHttpClientFactory`
-  client; `CreateClient` returns a fresh wrapper over a POOLED handler, so disposing it is both correct and cheap.
-- The four generation backends therefore take `bool disposeHttpClient = true` — defaulted to today's behaviour so
-  every existing hand-construction is unchanged, and set to `false` by the `Add*` shims on the BYO path only.
-
-**Why this is worth a decision and not just a fix:** the failing call is the SECOND one. A hand-verified
-integration passes, a smoke test passes, and it breaks on the user's second render. The one-line
-`using var owned = disposeHttpClient ? http : null;` at each call site looks like noise and will read as
-deletable to someone tidying up — it is not.
-
-## D35 — a constructor whose slots can be silently transposed gets NAMED FACTORIES (2026-08-04)
-`GenerationInput(string MediaType, byte[]? Data, string? Uri, string? Role)` has three string slots with `Role`
-LAST, so the plausible positional call `new GenerationInput(GenerationInputRoles.Init, bytes, "image/png")`
-compiles clean, binds `"init"` to the media type, and leaves `Role` **null**. Reported by a consuming app writing
-an img2img adapter (TASKS.md GEN10).
-
-**What makes it worse than an ordinary argument mistake: nothing fails.** The backend receives a well-formed
-roleless input, so an img2img request silently degrades to text-to-image — the caller's source image is ignored,
-a plausible image comes back, and there is no error anywhere. The consumer caught it only because a test asserted
-on `input.Role`; a hand-verified integration would have shipped it.
-
-The fix is **static factories, one per `GenerationInputRoles` constant** (`Init`/`FirstFrame`/`Reference`/`Voice`)
-plus a `From(role, …)` escape hatch for a role a backend documents itself — the roles are open strings (D30), so
-the escape hatch has to be as safe as the named four, which is why `role` comes FIRST there. Purely additive; the
-constructor stays (records need it, and `ToInput` uses it).
-
-Two things settled alongside it:
-
-- **The URI overloads take `System.Uri`, not `string`.** Two adjacent strings would reintroduce exactly the
+## D1 — the LLM seam is Lyntai's own `ILlmProvider`, with a `Microsoft.Extensions.AI` bridge
+Consuming applications are split between spawning a vendor CLI and calling an HTTP or local API, so the
+seam has to span both. `ILlmProvider` is Lyntai's own contract; `Lyntai.Providers.ExtensionsAi` bridges any
+`Microsoft.Extensions.AI` `IChatClient` into it, in both directions. Adopting MEAI *as* the seam was
+rejected: it cannot express a spawned CLI's process lifetime, and the verdict taxonomy the router needs
+(D3) has no equivalent there.
+
+The bridge is not a fallback path, it is the **preferred** one: it brings the whole MEAI ecosystem in
+without shaping the public API around MEAI's types. Write a native provider only where MEAI cannot reach
+the backend at all.
+
+## D2 — storage is per-domain interfaces, and a backend implements as many as it wants
+Each storage domain has its own interface in Core, free of cross-domain coupling **on purpose**, so a
+composite deployment can route each domain to a different backend without breaking consumers. There are
+twelve such interfaces today and three shipped backends (SQLite, Postgres, InMemory) — the "one SQLite
+package" this entry originally described was the starting point, not the constraint. Don't couple domains.
+
+## D3 — fallback is verdict-driven, through one shared classifier, and the policy is REPLACEABLE
+One `LlmVerdict` enum drives router behaviour, and every provider routes through the shared
+`LlmVerdictClassifier` rather than hand-rolling its own heuristics. Per-adapter classification drifts, and
+the drift is invisible until a healthy host gets benched by a stray "429" in a stack frame. The semantics
+are design §6, amended 2026-07-17.
+
+**Those semantics are the DEFAULT value of `LyntaiOptions.Routing`, not a branch in the router.** An
+application retunes which verdict advances, penalises or surfaces without forking anything, and an
+untouched policy behaves exactly as design §6 documents — the taxonomy is fixed, the reaction to it is
+configuration.
+
+## D4 — streaming: no fallback after the first token, and the timeout is an inactivity clock
+Once a real content chunk has streamed, there is no fallback — duplicating tokens is worse than surfacing
+the error. "Real" means `Text.Length > 0`: committing on an empty chunk disables fallback for a
+zero-content first chunk. The timeout is a per-chunk **inactivity** window, re-armed on each read, so a
+slow-but-alive child is not killed like a dead one.
+
+## D5 — `ILlmClient` is the front door
+To a consuming application Lyntai looks like *one* provider; candidates, fallback and cooldowns are
+internal. Governance (response cache, usage budget, rate limiting, refusal screening) composes as
+decorators over this front door, which is why pre-registering your own `ILlmClient` silently discards them
+— `AddLyntai` now throws rather than letting that happen quietly.
+
+## D6 — every SQLite object is `lyntai_`-prefixed
+`UseSqliteStorage` may target a database the consuming application also uses. Every table, index, trigger
+and FTS object Lyntai creates carries the prefix — the FluentMigrator version table included — so the two
+can share a file without collision.
+
+One thing a consumer must be told rather than left to discover: `MatchNamesWithUnderscores` is a
+**process-global** Dapper switch, so a library that sets it changes how the application's own queries map.
+It is documented for that reason.
+
+## D7 — trim/AOT posture: annotate honestly, and never make a false promise
+Packable libraries set `IsAotCompatible=true` and carry the trim/AOT analyzers, and anything that cannot
+honour that opts out **honestly** rather than staying silent. `IsAotCompatible=true` stamps `IsTrimmable`
+into the assembly, so an unfailed IL2026/IL3050 is a false trim promise shipped to a consumer's trimmer;
+`check-warnings` is the gate that makes it unshippable.
+
+**The per-package list does not live here, deliberately, and neither does a count of it.** `docs/AOT.md`
+carries the table and `check-packages` gates every package's presence in it. A second copy is a second thing
+to rot, which is exactly what this entry did between 0.5 and 2.1: it named a single opt-out long after the
+tree had several. Restating that as a NUMBER on 2026-08-14 reproduced the same defect within one day — the
+figure was copied from a 2026-08-05 amendment and was already wrong, because it counted a package whose
+opt-out exists only as a commented example in its `.csproj`. Point at the gated table; do not summarize it.
+
+## D8 — the public API is snapshot-tested; update the baseline deliberately
+`ApiSurfaceTests` snapshots every packable assembly's public surface against a checked-in baseline. A diff
+is not a failure to be silenced — it is the gate asking whether the change was intended. Regenerate the
+baseline as a deliberate act, and note the break in `CHANGELOG.md`. A package missing from the baseline
+list has **no API gate at all**, which is why `check-packages` verifies membership.
+
+The mechanics keep "deliberate" from being a wish: on a diff the test writes `<Assembly>.txt.actual`
+(gitignored) beside the baseline, so accepting a change means reading that diff and copying it over —
+never overwriting blind.
+
+## D9 — pre-release, fold a migration into the one that owns the table; a RELEASED table needs a new one
+Before a schema ships there are no deployed databases, so a clean consolidated migration beats an accreting
+chain of patches. Once a version has shipped, a database may already record that migration **by number** —
+and editing a recorded migration is silently skipped, so the change must be a new one. 3.0 ships one folded
+memory migration for exactly this reason (D52), while `M202608081215_MemoryGraph` stays untouched because
+2.5.0 released it.
+
+Folding is a deliberate, bounded RELAXATION of the standing "never reuse a migration number" rule
+(`.claude/knowledge/sql-storage.md`), valid only inside the pre-release window. Two obligations come with
+it: a fold changes the fresh-database schema, so the count and version-list guards move with it, and the
+SQLite and Postgres migrations sharing that number stay in lockstep.
+
+**The 1.0 squash was a ONE-TIME exception and stays one.** For the 1.0 cut the whole accreted 0.x ledger was
+collapsed into nine per-`StorageFeature` baselines per backend — SQLite 16→9 with byte-identical DDL,
+Postgres 14→9 through a normalized-catalog equivalence gate — and adopters reset their `lyntai_*` tables,
+which was defensible only because pre-1.0 data was disposable and the owner said so. **Post-1.0 the
+append-only rule is absolute: a released baseline is frozen forever, and there are no more squashes.**
+
+## D10 — Lyntai OWNS its storage schema; applications EXTEND, never fork
+Lyntai's `lyntai_*` tables and migrations are Lyntai's, and Lyntai evolves them. An adopting application
+adds its own tables alongside. **"Configurable table names" was considered and rejected**: it would make
+every migration, index and FTS trigger parameterised on a name Lyntai does not control, for a collision the
+`lyntai_` prefix (D6) already prevents.
+
+## D11 — direction: a platform kit — framework in Lyntai, domain in the application
+Lyntai grows into a LangChain-shaped kit with opinionated defaults: Lyntai owns the framework (routing,
+storage, prompts, scoring, traces, memory, jobs, guards, agents), the application owns its domain. This
+reversed the library's original scope — "brain + persistence core only" — which is now history.
+
+**Opinionated DEFAULTS, never opinionated DOMAIN.** The kit ships tuned machinery; it does not ship
+somebody's business tools. A new capability takes one of two shapes, and neither is a hard-coded branch:
+
+- **A cross-cutting call-path concern** (cache, budget, rate limit) is a **front-door decorator** —
+  `LyntaiBuilder.FrontDoorDecorators`, an ordered fold with the cache outermost — so several compose instead
+  of fighting over the same call site.
+- **A new capability** is interface-in-Core, implementation-via-DI, behind the same front door: the
+  application brings the model or backend through a seam (`ITool` + `AddTool`, `IJobHandler`, BYO
+  `IEmbedder` / `IVectorStore`), and adding one is a registration rather than an edit.
+
+What stays out is the deployment shell — the server, the host, the launcher.
+
+## D12 — `StorageFeature` toggles which domains register AND migrate
+`StorageFeature` (`[Flags]`, default `All`) lets an application enable only the domains it uses; a disabled
+feature lands no table and no store. Selective migration is FluentMigrator **tag-driven**, and the
+semantics are non-obvious enough to be worth stating: a migration runs when the runner's requested tags are
+**all** present on it (requested ⊆ migration tags, not any-match) — which inverts the obvious reading, and
+cost real iterations to find. The consequence is the shape of the run: `All` is ONE pass requesting only the
+all-tag that every migration carries, while a subset is one pass PER selected feature, deduplicated by the
+version table. Detail in `.claude/knowledge/storage.md`.
+
+## D13 — `IMemoryStore` size management is an app-configurable, multi-strategy policy
+`MemoryEvictionPolicy` (`LyntaiOptions.MemoryEviction`, `ConfigureMemory(...)`) bounds the keyword store
+rather than a fixed cap — a per-scope count cap, an eviction order, a default TTL and a per-scope character
+budget, with presets naming the common shapes. The default reproduces the historical 500-entry FIFO cap.
+
+**`MemoryEviction.Survivors` is the single PURE reference for *what* survives.** *How* it is applied splits
+by path, and both provably match it — the cross-backend contract tests pin the parity. A count cap becomes
+ONE atomic `DELETE … WHERE id NOT IN (SELECT … LIMIT @cap)` per SQL backend, race-free and without reading
+the scope; a character budget cannot be one portable statement, so it takes the compute path (fetch scoped
+metadata → `Survivors` → delete the rest), non-atomic and O(scope)-per-write, acceptable because scopes are
+cap-bounded and one writer per scope is the norm. **A new bound is a knob on the policy plus a case in
+`Survivors` — never a per-backend branch.**
+
+Two behaviours that look like bugs and are not:
+
+- **LRU counts a QUERIED recall as a use, not a bare list-all.** A targeted lookup refreshes
+  `last_accessed_at`; enumerating a scope does not. So an application that composes *every* fact into each
+  prompt should choose FIFO — under LRU its reads would touch everything and rank nothing.
+- **`MemoryCapPerScope = 0` means UNCAPPED**, a deliberate change from the pre-policy meaning ("cap 0 =
+  store nothing"). It proxies `MaxEntriesPerScope`, where ≤ 0 is no count cap.
+
+**On-write eviction only bounds a scope you keep writing to.** A cold `(taskKey, scope)` accumulates expired
+rows forever, so collecting them is an opt-in `AddMemoryPruneJob(cron, olderThan?)` over the durable-jobs
+machinery: Lyntai owns the prune work, the application owns the pump. A library does not start its own
+timer (D11).
+
+**The type was called `MemoryRetentionPolicy` until 3.0**, <!-- drift-ok: naming the retired type IS the paragraph --> one `I` away from the graph
+engine's unrelated `IMemoryRetentionPolicy` (D47) — and in .NET `IFoo` reads as the interface of `Foo`.
+The two are opposites: this one *removes* entries from the store, that one *lengthens* a graph entry's
+half-life. **The storage side moved** because it was already the side with the other vocabulary —
+`MemoryEvictionMode`, `MemoryEviction.Survivors`, `LYNTAI_MEMORY_EVICTION` all predate the rename, so
+"eviction" was the name this type should have carried from the start, and renaming the seam instead would
+have broken D47's `IMemory<Domain>Policy` shape to fix a collision it did not cause.
+
+Evidence that the collision was already costing something rather than merely looking untidy: `docs/memory.md`
+listed `MemoryRetentionPolicy` as the *default implementation* of the retention seam. <!-- drift-ok: as above -->
+It is neither the seam nor an implementation of it — it is the storage type, in another namespace, doing
+another job.
+The gate that now fences the name is what surfaced that line.
+
+## D14 — wire JSON is hand-walked `JsonNode`/`JsonDocument`, not reflection `JsonSerializer` (2026-07-26)
+Asked directly ("why can't we use a proper JSON converter?"). Reflection-based `System.Text.Json` is the
+single largest trim/AOT hazard a library can carry, and vendor wire formats drift field by field — a
+hand-walked reader degrades on an unknown field instead of throwing.
+
+**Source-generated envelopes (`JsonSerializerContext`) remain a legitimate option, deliberately not taken.**
+They are AOT-safe, so the trim argument does not rule them out — what rules them out for now is that there
+is no failing envelope to shape them against. **A real failing envelope is a better starting point than a
+guess**: built speculatively the types would be modelled on vendor formats documented as drifting; built
+against an actual break they are shaped by the field that actually moved. Waiting is not merely cheap here,
+it produces a better design — which is also why this is recorded here rather than sitting in the backlog as
+a task nobody can start.
+
+## D15 — no push/PR CI: verification and releases are MANUAL (2026-07-27)
+A `ci.yml` running `verify` on every push was added and **removed the same day at the owner's direction**.
+Verification is `node devtools/dev.mjs verify`, run before a commit is claimed complete. `release.yml`
+exists but is triggered only by hand, and is the **only** GitHub Actions automation — the SourceLink and
+`ContinuousIntegrationBuild` properties key off it. Don't re-add push/PR CI as a "gap"; it was implemented,
+considered and declined. Revisit only if external contributors start sending PRs that need a server-side
+gate.
+
+## D16 — the public surface is FROZEN under SemVer 2.0 as of 1.0 (2026-07-28)
+The adoption gate stated in the ROADMAP was met and the surface froze. Post-1.0, any add, remove or change
+to public surface is a MAJOR bump, and `ApiSurfaceTests` (D8) is what makes shipping one by accident
+impossible. Verification and releases stay manual (D15) — the tag and the release workflow are triggered by
+hand.
+
+**D18 relaxes how strictly this is ENFORCED while every consumer is first-party.** The freeze itself is
+unchanged by that: the baselines still gate every surface change, and the relaxation is about which version
+number a disclosed break may ship under, never about letting one through unnoticed.
+
+## D17 — MCP tool hosting is generic; the CLI dialect lives in the provider package (2026-07-29)
+The hosting machinery was named for one consumer while being almost entirely provider-neutral. It split:
+the neutral loopback host into `Lyntai.Tools.Mcp.Hosting`, the per-CLI vocabulary into a dialect in the
+provider package, and the dialect SEAM itself into Core. Adding a CLI that can host tools is a dialect,
+never a second copy of the hosting machinery.
+
+**The seam lives in Core, not in the hosting package** — that is what lets a provider package implement a
+dialect without taking a dependency on the host.
+
+**What must NOT happen: a provider package must never reference the hosting package.** That would make
+every consumer of a CLI backend carry a Kestrel loopback server they may never start, which is the exact
+dependency-footprint failure D25 exists to prevent. The seam-in-Core placement is what makes the
+prohibition keepable rather than merely stated.
+
+The old consumer-named package was **deleted, not kept as a shim** — a shim would have preserved the
+mis-naming as a permanent public id.
+
+## D18 — SemVer strictness is DEFERRED while every consumer is first-party (2026-07-29)
+D16 froze the surface; this relaxes how strictly the freeze is *enforced* while every consumer is one of
+the owner's own applications. A break may ship in a minor when the alternative is carrying a known-wrong
+shape to the next major, and a **behaviour** change may too — **provided it is disclosed** in the changelog
+and the migration notes. The undisclosed behaviour change stays forbidden, and that distinction is the
+whole of the relaxation: a consumer who can read what changed can act on it, one who cannot is simply
+broken quietly.
+
+**One half is NOT relaxed and never was: storage and migration breaks stay major-bump material,
+unconditionally.** A compile error is recoverable — the consumer sees it, reads the changelog and edits a
+call site. A database migrated into a shape the code no longer expects is not, and no amount of disclosure
+makes it so.
+
+The behaviour clause was added later than the surface clause, and why is worth keeping: the original
+prohibition demonstrably did not decide cases — two entries in the same release read it oppositely — and it
+was holding back verified fixes to protect an audience that does not exist yet. A rule that competent
+readers apply in opposite directions is not strict, it is undefined.
+
+**This expires the moment there is an external consumer**, and it expires whole — the disclosure clause
+goes with it.
+
+## D19 — the version and the CHANGELOG heading are authored by the RELEASE PIPELINE only (2026-08-04)
+`<VersionPrefix>` in `src/Directory.Build.props` is the single version source and `release.yml` bumps it.
+A hand-edit silently moves the baseline, so the next release publishes the version *after* the intended one
+and the skipped number is simply gone — this happened in a sibling repository. `## Unreleased` is stamped
+by the workflow, never by hand. Both are blocked by the `check-version-bump` pre-commit guard, and `doctor`
+fails when `VersionPrefix` no longer matches the newest tag.
+
+**Why nothing caught it the first time, which is the transferable part.** The existing checks verified the
+version was CONSISTENT — the props file, the README and the tag all agreeing — and a hand-edit keeps them
+perfectly consistent. Consistency was never the property at risk; **authorship** was. A guard has to check
+the property that can actually fail, and "everything agrees" is the easiest one to confuse for it. Hence
+two distinct checks: `doctor` reads STATE, the pre-commit guard blocks the ACT.
+
+## D20 — Lyntai DRIVES a backend's self-maintenance; it never OWNS credentials or binaries (2026-08-04)
+A provider capability may probe a backend, update it, install a pinned version and drive its auth flow. It
+never stores a credential, never downloads or unpacks a runtime of its own accord, and never decides where
+a binary lives. Provisioning stays the host's concern; Lyntai points at what the host deployed and reports
+honestly whether it is there.
+
+**"Installs a pinned version" reads as a contradiction of that and is not.** Lyntai drives the backend's own
+installer at a version the HOST names — it never chooses the version, fetches the artifact, or picks the
+location. Driving someone else's provisioning is not provisioning.
+
+**Two refusals that keep the boundary honest:**
+- **No guessing.** A capability reports what the backend SAID — its own text, verbatim — or reports
+  nothing. An unreadable answer is never smoothed into a plausible one.
+- **No forwarding a free-form value as a flag.** `Mode` and `Version` are free-form so other backends fit
+  the contract, which means an adapter must REFUSE a value it does not recognise rather than synthesising
+  an argument from it. Passing arguments as a list prevents shell injection, not the backend's own parser
+  reading your value as an option.
+
+## D21 — a CLI-backed provider is `CliProviderEngine` + a DIALECT, never a second copy of the rules (2026-08-04)
+Driving a command-line agent involves a dozen invariants that have nothing to do with *which* CLI it is:
+spawn hygiene, the inactivity clock, exit-code-versus-in-band precedence, verdict classification, argument
+refusal. Those live once in `CliProviderEngine`; a new CLI is an `ICliProviderDialect`. The traps in
+`.claude/knowledge/pitfalls.md` were fixable at all only because there is one copy.
+
+**The engine is COMPOSED, not inherited.** A provider keeps its own name, its own public surface and its own
+registration; it holds an engine rather than deriving from one, so the shared rules cannot leak into a
+backend's identity or force a base class onto its API.
+
+**`CliProviderDialectBase` claims NOTHING optional by default** — no updater, no pinned install, no auth. A
+dialect opts into each capability explicitly, so a backend that cannot do something reports that honestly
+instead of inheriting a claim it will fail at runtime.
+
+**Validated by a second implementer immediately**: the codex backend was built on the seam the claude one
+produced, which is the only real evidence that a seam generalises rather than describing its first case.
+
+## D22 — a CLI backend may be PORTABLE (application-bundled), not just a global install (2026-08-04)
+A host may ship or side-load its own copy of a CLI rather than depend on a machine-wide install. For a
+portable path `IsAvailable` must verify presence rather than trust the configuration, or a skippable
+candidate becomes a failed turn. A BYO `IProcessRunner` is still trusted optimistically, because it
+resolves commands in its own environment.
+
+**The path is a PARAMETER, not an environment variable** — a host that ships two copies, or picks one at
+runtime, cannot express that through process-wide state. **Per-spawn environment comes with it**, because a
+bundled CLI almost always needs its own home or config directory rather than the machine's.
+
+## D23 — 2.0.0 is BURNED on nuget.org; the 2.x line resumed at 2.0.1 (2026-08-04)
+2.0.0 was published and then unlisted on ten of the twelve package ids, and an unlisted version's number is
+never freed. Cutting 2.0.0 again would report success while `--skip-duplicate` published nothing for those
+ten — and the other **two**, which never had a 2.0.0, *would* publish. That is the failure worth naming: not
+a no-op, but a **partial release that reports green**, leaving most of the feed a whole major behind. A
+future major is 3.0.0.
+
+Skipping a number is not a SemVer violation — SemVer requires versions to ORDER correctly, not to be
+contiguous — and because every package versions in lockstep from `VersionPrefix`, the skip applies uniformly
+with no per-package divergence.
+
+**The generalization, which outlives this incident:** before publishing any version you have reason to think
+was used before — a botched release, an unlisted push, a renamed package — query the feed *including
+unlisted*, at `https://api.nuget.org/v3-flatcontainer/<id-lowercase>/index.json`, which lists every version
+that exists whether listed or not. `--skip-duplicate` is the right default for a re-runnable pipeline, and
+precisely because of that it can never tell you a publish was skipped.
+
+## D24 — generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
+Image, video, audio and 3D generation live behind one seam with their own contracts and their own
+`GenerationVerdict` — not as an extension of the chat provider. The two domains meet only where a model can
+*call* generation as a tool. The contracts sit in `Lyntai.Core`; the backends are the separate
+`Lyntai.Generation` package (D25). **Named `Generation`, not `Media`** — an owner's call taken while the
+core was still uncommitted to consumers.
+
+**Four structural facts that make this a different domain rather than a bigger provider:**
+
+- **Capability declaration is load-bearing here, unlike LLM routing.** Every chat model takes text, so a
+  router can try any of them; media backends do not, so a backend must DECLARE what it can produce and the
+  router selects on that before it selects on health.
+- **Three delivery modes, not one.** Image is inline (request → bytes); video is **universally** an async
+  job; streaming is its own seam. A single synchronous shape could not carry the domain.
+- **A backend is not a model.** Aggregators serve a thousand-plus models across every kind behind one
+  endpoint, so the unit of registration cannot be "a model".
+- **Media CHAINS.** `3d → image → video` is a first-class use case, which is why an artifact can become the
+  next stage's input rather than only a result.
+
+**Fallback is a POLICY, not a law** — `GenerationRoutingPolicy` makes the per-verdict action configurable,
+the same shape the LLM side uses (D3).
+
+## D25 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
+Lyntai had one package per backend, which read as "a package per vendor". The test is instead: *which
+dependency does this isolate?* Backends needing nothing extra share `Lyntai.Providers.Default`; one earns
+its own package the moment it drags a native runtime, a platform-specific API, or a dependency a consumer
+might refuse.
+
+**RELEASE CADENCE is the second legitimate reason to draw a boundary.** The generation backends answer the
+dependency question weakly and a different one strongly: they need to ship EXPERIMENTAL and be reshaped in
+a minor while the rest of the library holds a frozen surface. **That carve-out is the `Lyntai.Generation`
+PACKAGE, never the namespace** — the generation *contracts* live in `Lyntai.Core` and carry the full SemVer
+promise.
+
+**Whatever the reason for the boundary, an adapter references `Lyntai.Core` — or one domain package such as
+`Lyntai.Generation` — and NEVER another adapter.** That is what lets a new backend be a new package rather
+than a fork. The general form of the rule, and its enforcement here, are
+`.claude/rules/dotnet-package-layout.md` and `repo-mechanics.md` §Package layout.
+
+**Core's own footprint.** `Lyntai.Core` is mandatory, so it carries the smallest footprint of all and takes
+no third-party dependency outside the `Microsoft.Extensions.*` band — that band ships on the runtime's own
+version line and any DI application already has it, so it is effectively free. Core's own dependencies are
+the DI and Logging abstractions, and a DI-first entry point cannot exist without the former. "Most
+consumers want X" makes something a bundle member (D26), never a Core dependency.
+
+**Measured, not asserted — the rule resolved two live questions in OPPOSITE directions.**
+`Lyntai.Providers.Default` exists because ClaudeCli, CodexCli and OpenAiCompatible isolated nothing: the two
+CLIs are dependency-free and share `CliProviderEngine`, and the HTTP one adds only managed
+`Microsoft.Extensions.Http`. `Lyntai.Tools.Mcp` was proposed FOR Core on "most consumers use it" and was
+rejected on measurement — `ModelContextProtocol.Core` drags a *different* pinned version of the
+`Microsoft.Extensions.AI` abstractions than our own bridge, so Core would have acquired a version-conflict
+surface, and specifically around the abstraction D1 deliberately treats as secondary to our own seam. The
+part that matters was already in Core anyway (`ITool`, `IToolLoop`, `IToolRegistry`, `AddTool`); only the
+wire adapter sits outside, and it is a bundle member, so a typical consumer still gets it on the first
+install.
+
+**Namespaces did not change when packages merged, and that is the rule, not a courtesy.** Consolidating
+packages must cost a consumer one `PackageReference` edit, never a sweep of `using` directives.
+
+**The cost, stated plainly rather than buried:** three published ids were abandoned at 1.2.2, one of them
+with twenty published versions. That was permitted in a minor only because every consumer was first-party
+(D18), and an abandoned id must never be resurrected for a different purpose (D23).
+
+## D26 — what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate (2026-08-04)
+The bundle forces every dependency it carries onto every one-line-install consumer, because an untrimmed
+publish copies the whole graph. Membership is therefore a budget, not a convenience: something joins when
+it adds no new third-party dependency outside the `Microsoft.Extensions.*` band, or when the closure
+genuinely does not grow. `check-bundle` fails when the closure drifts, and the approved list is
+`bundle.allowedThirdParty` in `devtools/project.config.mjs`.
+
+**ONE bundle, not a family.** No `Lyntai.All` / `Lyntai.Server` / `Lyntai.Agents` variants: bundle sets
+multiply combinatorially, every one is a permanent public id, and each new variant re-opens the same
+membership argument for a different audience. A consumer who wants a different set composes it from the
+individual packages, which is what D25's split makes possible.
+
+## D27 — MANY small packages is the intended shape; the cost is paid in tooling (2026-08-04)
+A package as small as `Lyntai.Secrets.Dpapi` is correct when it isolates a platform-specific dependency.
+**The alternative to a tiny package is a bigger one that forces that dependency on everyone who wanted the
+rest of it** — so merging to reduce bookkeeping trades a consumer-visible cost for a maintainer-visible one,
+which is the wrong direction for a library.
+
+The cost is registry bookkeeping — shipping a package means registering it in NINE places — and it is paid
+by automation rather than diligence: `new-package` scaffolds all nine and `check-packages` fails when one is
+missed.
+
+**A gate has to be TESTED against a broken tree, or it certifies nothing.** The first version of
+`check-packages` passed against a tree that was already missing entries — it was asserting its own
+assumptions rather than the registries. That is the generalisable half of this decision, and it is why the
+guard scripts have their own tests.
+
+## D28 — a constructor whose slots can be silently transposed gets NAMED FACTORIES (2026-08-04)
+A positional record with several same-typed slots accepts a transposition that compiles, passes review and
+is wrong at runtime. Where that is possible the type gets named factory methods that make each slot's
+meaning explicit at the call site, and the raw constructor stops being the obvious path.
+
+**The test is not "same-typed slots" — it is "misbinds into something that still WORKS".**
+`GenerationInput(MediaType, Data, Uri, Role)` is the case: with `Role` last, the plausible positional call
+binds a role string to the media type and leaves `Role` null, so an img2img request degrades silently to
+text-to-image — the caller's source image is ignored, a plausible image comes back, and nothing errors
+anywhere. Reported by a consuming app, caught only because a test asserted on `Role`.
+
+Two things go with it:
+
+- **URI overloads take `System.Uri`, not `string`** — two adjacent strings would reintroduce the very
   transposition being fixed. A wrong type is a compile error; a wrong string is a silent one.
-- **`GenerationArtifact` was checked and does NOT need the same treatment** — the task asked, so here is the
-  answer rather than a second round of guessing. Its layout is `(MediaType, Data, Uri, Metadata)`, and the only
-  same-typed pair is `MediaType`/`Uri`: transposing them requires explicitly passing `null` for the `byte[]` slot
-  in between, at which point the caller is demonstrably counting slots. There is also no role-shaped silent
-  degradation — a wrong media type surfaces immediately, and nothing branches on it. Adding factories there would
-  be surface that doesn't earn its keep.
+- **`GenerationArtifact` was checked and does NOT get factories**, and the reason is the rule working rather
+  than an exception to it. Its only same-typed pair is `MediaType`/`Uri`, transposing them requires
+  explicitly passing `null` for the `byte[]` slot in between (at which point the caller is demonstrably
+  counting slots), and there is no silent degradation — a wrong media type surfaces immediately and nothing
+  branches on it. Factories there would be surface that does not earn its keep.
 
-**The general rule:** when a positional constructor can be misbound into something that still WORKS, the fix is a
-named factory, not a doc comment. Reordering to put the significant parameter first would also fix it and is
-breaking; factories give the same safety additively.
+Reordering to put the significant parameter first would fix it too, and is breaking; factories give the same
+safety additively.
 
-## D34 — a package may also be split for RELEASE CADENCE, not only for dependency isolation (2026-08-04)
-D31's test is "which dependency does this isolate?" `Lyntai.Generation` — the media backend set — answers that
-question with **nothing**: it is `HttpClient` plus one subprocess, zero third-party dependencies. By D31's letter
-it belonged in `Lyntai.Providers.Default` forever, which is where it started. It is now its own package anyway,
-so the rule needs the second axis stated rather than quietly bent.
+## D29 — BYO means the HOST owns the client's lifetime; Lyntai disposes only what Lyntai created (2026-08-04)
+An adapter handed a factory used to dispose what the factory returned, which destroys a pooled or
+host-owned client. The rule is symmetric and absolute, in both directions: **a host-supplied client is
+never disposed by Lyntai** — it outlives the call and may carry a retry pipeline or a shared handler — and
+**a client Lyntai created IS disposed by Lyntai**, via the named factory the non-BYO path registers.
 
-_**Amended 2.1.0 (2026-08-04):** the package now carries one dependency — `Microsoft.Extensions.Http`, for the
-per-backend `Add*` shims' named clients. That does **not** retro-justify the split under D31: it is the same
-dependency `Providers.Default` already had, so isolating it buys a consumer nothing. The reasoning below stands
-unchanged; only the "zero dependencies" premise has moved, and it was never what carried the argument._
+**Why it is a decision and not just a fix: the failing call is the SECOND one.** The first request succeeds
+and disposes the host's client on its way out, so a hand-verified integration passes and the defect surfaces
+later, in someone else's code, as an intermittent "cannot access a disposed object". A rule that only holds
+in one direction reproduces exactly that.
 
-**A package boundary is also justified when a domain's CHURN or MATURITY differs from its host's.** Concretely,
-what forced it here:
+## D30 — provider LIFETIME is a registered strategy, keyed on the CONFIGURATION (2026-08-05)
+`Lyntai.Lifecycle` adds a provider pool with a `ProviderKey`, for an application whose backend
+configuration is owned outside the deployment. Everything — cooldown, admission, reuse — is keyed on the
+**configuration**, not the provider id: with two configurations of one backend live under different
+credentials, keying on the id lets one tenant's rate limit bench the other.
 
-- **Blast radius.** Media is where the roadmap's growth is (video, TTS, music, 3D). Every new backend is public
-  API, so under the old layout each one churned the baseline of the package that every CHAT consumer installs —
-  and a media reshape after GEN-VERIFY would force a major bump on them for a domain they never call.
-- **Maturity mismatch.** `Lyntai.Generation.*` ships EXPERIMENTAL (two backends written from vendor docs with no
-  key to call, one ported argv, an unimplemented stream seam). Battle-tested CLI/chat code and unverified vendor
-  backends cannot share one package id and one SemVer promise; the carve-out is only credible if the unverified
-  part is separable.
-- **The names were already lying**, which is the symptom that made it obvious: `Lyntai.Generation.Http` contained
-  `LocalDiffusionProvider`, a SUBPROCESS backend, and its actual namespace `Lyntai.Generation.Local` read as the
-  package `Lyntai.Providers.Local` — an unrelated thing (in-process GGUF inference). Both are now
-  `Lyntai.Generation.Providers`.
-- **It cost 40% of a package's surface.** `Providers.Default` was 10 of 26 public types media.
+**Pooling is a registered STRATEGY, not a library behaviour.** `UseProviderPool()` or
+`UseTransientProviders()` at startup is the only difference; everything a caller observes is identical
+either way, so a deployment that wants no reuse is not running a degraded path.
 
-**Why this was safe to do at 2.0.1 and not later.** Generation has never appeared in a release, so the namespace
-change had ZERO consumers to protect — D31's "merging must not change namespaces" exists to spare consumers a
-`using` churn, and there were none. After 2.0.1 the same fix costs a major bump. A naming error is cheapest to
-correct in the window before anyone can depend on it.
+**A pool selects what was CHOSEN; a router selects what is HEALTHY.** Conflating them is the tempting
+mistake — both look like "pick a provider" — and it produces a pool that silently skips a configuration the
+application asked for, or a router that keeps returning a benched one.
 
-**The limit, so this does not become an excuse.** Cadence is a real axis but a weaker one than dependency
-isolation, and it is only available when the split ALSO leaves both sides coherent — a domain with its own
-contracts, its own verdict vocabulary and its own routing (D30). It is not a licence to split by taste, by file
-count, or by "this feels separate". A package still has to answer *some* question with something concrete: D31's
-dependency, or this one's cadence/maturity. `Lyntai.Generation` is NOT in the bundle for the same reason it was
-split — an unverified domain most consumers do not use should not arrive with a one-line install (D32).
+**Expiry is not disposal, and that is an ENTAILMENT rather than a preference.** Retiring an entry drops the
+pool's reference so new callers get the fresh instance; it cannot dispose, because without leases a pool
+has no way to know when existing callers are finished. Disposing on retirement would abort in-flight work
+whenever configuration changed.
 
-## D33 — MANY small packages is the intended shape; the cost is paid in tooling, not in merging (2026-08-04)
-At the owner's call, after reviewing the full inventory: a package as small as `Lyntai.Secrets.Dpapi` (8 KB of
-code) is FINE, so keep splitting by D31's dependency test and never merge packages just to reduce the count.
-The stated condition was the real decision — *"if we can have a good way to manage all those, this is not a big
-issue"* — so the granularity is paid for with tooling.
+## D31 — "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real one (2026-08-05)
+`LlmVerdict.NotConfigured` and its generation twin distinguish "this backend was never configured" from
+"this backend failed". A router keeps the two apart: a real failure outranks a blameless one, so
+`[downHost → Failed, neverConfigured → NotConfigured]` reports the outage rather than sending the caller to
+set up a key. `NotConfigured` and `Unsupported` are the blameless pair in both domains.
 
-**Why granularity wins here.** The alternative to a tiny package is a bigger one that forces its dependency on
-someone who didn't want it. `Secrets.Dpapi` is the clearest case: 8 KB of code behind a Windows-only API, so it
-can never be in Core and never in the bundle — merging it anywhere makes that package unusable off Windows. The
-size of a package is not the cost; its DEPENDENCY is. Small adapters in front of heavy or platform-bound
-dependencies are the point of the layout, not an accident of it (`Tools.Mcp` is 15 KB in front of a 1.19 MB SDK;
-`Providers.Local` is 20 KB in front of LLamaSharp plus a hardware backend).
+**The defect it fixed**: a 401/403 answered to a call that carried no credentials was classified
+`AuthFailed`, which *cools the host* — so a backend nobody had configured benched itself and took a healthy
+candidate's turn with it. No existing member described "never set up", which is why this is a new one rather
+than a reuse.
 
-**What the growth actually costs, and what pays it.** Shipping a package means registering it in NINE places,
-and the failure modes are silent: miss the `ApiSurfaceTests` entry and the package ships with NO public-API gate —
-the very thing that makes the SemVer promise real — with nothing to tell you. Miss a docs row and the published
-docs describe a package set that does not exist; that already happened (the docs sent consumers to
-`Lyntai.Generation.Http` for two releases after it was folded away, an install line that cannot restore).
+**The accepted cost, which is consumer-visible.** Adding an enum member is binary-compatible — it is
+appended last, so no existing value shifts — but a consumer's non-exhaustive `switch` *expression* over
+`LlmVerdict` now raises **CS8509** in their build. That is a warning in someone else's code, accepted
+because the alternative is a verdict that lies.
 
-So `node devtools/dev.mjs check-packages` (in `verify`) treats the FILESYSTEM as the source of truth — every
-`src/*` project with `IsPackable=true` is a package — and fails unless each one is in `packableProjects`, the
-solution, `ApiSurfaceTests.Assemblies()`, the `Loaded` anchor map, the test project's references, a baseline
-file, the `docs/AOT.md` table and the README table; plus the reverse, so a deleted package cannot leave an
-orphan baseline or a stale registry entry behind. A package that ships no assembly (the bundle) is exempt from
-the assembly-shaped checks.
+**The enum and the policy move together.** `RoutingPolicy.ActionFor` decides what each verdict does, so a
+member added without its policy arm falls to the default action — which is how a blameless verdict would
+silently start penalising a host.
 
-**The chore is also removed, not just checked:** `node devtools/dev.mjs new-package <Lyntai.X>` scaffolds the
-csproj plus the conventional `Add*` entry point (which doubles as the API-gate anchor type) and writes all seven
-mechanical registry entries; the baseline seeds on the next test run, and bundle membership stays a human call
-under D32. Verified end to end on a throwaway package: scaffold → clean build → seeded baseline → all gates
-green, then a deliberate half-removal to confirm the reverse checks fire.
+## D32 — a CATEGORY PREDICATE beats one helper per enum member (2026-08-05)
+Where a caller asks "is this verdict retryable / terminal", the answer is one predicate over a category,
+not `IsRateLimited()` + `IsTimeout()` + … . A per-member helper set grows every time the enum does, and each
+addition is a new permanent public promise on a frozen surface — so the ergonomic shape and the SemVer-cheap
+shape are the same one. It applies wherever a verdict travels, which is five released types, and to any
+enum this library exposes rather than verdicts alone.
 
-**A gate has to be TESTED against a broken tree, or it certifies nothing.** The first version of this one passed
-while two registries were deliberately broken: searching the whole test file for the assembly name found it in
-the *other* registry, and searching the README for the package name found it in prose. Both are now scoped —
-`Assemblies()` and `Loaded` are extracted and checked separately, and a docs mention must be a table ROW. That
-mistake is worth recording because it is the general failure mode of consistency gates: a presence check against
-a big file almost always passes. The scaffolder had the mirror-image bug on ITS first run — an idempotency guard
-that tested the anchor line instead of the inserted line, so it reported "already present" for five registries it
-had never written. Both were found the same way: run the thing against a tree you broke on purpose, and read the
-output instead of trusting the exit code.
+**`Failed` counts as transient even though it is also the classifier's CATCH-ALL — a known over-report,
+kept deliberately.** Anything unrecognised lands there, so "transient" occasionally says yes to something
+permanent. The alternative is under-reporting a genuinely retryable failure, which costs a caller a real
+result; this direction costs one wasted retry.
 
-## D32 — what goes IN the `Lyntai` bundle is a DEPENDENCY BUDGET, enforced by a gate (2026-08-04)
-D31 decides when something becomes its own package. This decides the complementary question, asked at the
-owner's prompting because the package count only grows: **when a new package ships, does it join the one-line
-install?** Settling it once beats arguing it per package, and a rule nobody can check is a rule that drifts.
+## D33 — an honest `MigrateUpAsync`: the token means "before" and "between passes", and NOTHING else (2026-08-05)
+The async migration entry points exist, and their cancellation token is honoured exactly where it can be:
+before any work starts, and between selective-migration passes. FluentMigrator's own execution is
+synchronous and is **not** wrapped in `Task.Run` to fake asynchrony — a token that appears to cancel a
+running migration would be a lie about a destructive operation, and occupying a thread-pool thread to tell
+it is worse than not shipping the method.
 
-**The measurement that decides it.** A framework-dependent `dotnet publish` copies the WHOLE dependency graph
-and analyses nothing — so every package in the bundle lands in every bundle consumer's output folder whether
-they call it or not. Measured on a console app referencing `Lyntai` but calling only `AddLyntai` + `ILlmClient`:
-3.2 MB of assemblies, 21 DLLs, including the 1188 KB MCP SDK and the 656 KB MEAI abstractions it never touches.
-Under `PublishTrimmed=true` all of it disappears (and the used assemblies shrink 93%) — but trimming needs a
-self-contained publish, which is the APP's decision, not ours. So the cost is real for the common case and a
-library cannot wish it away.
+**What it is genuinely for**: composing into an async startup path (`IHostedService.StartAsync`) without
+blocking the caller. That is a real need and it is met honestly; what is not met is mid-pass cancellation,
+which stays impossible until FluentMigrator itself offers a token. Do not simulate it.
 
-**The rule.** A package joins the bundle only if:
-1. it adds **no new third-party dependency** outside the `Microsoft.Extensions.*` band — that band ships on the
-   runtime's own version line and any DI app already has it, so it is effectively free; or
-2. it is **near-universal for this library's consumers**, and the cost is accepted EXPLICITLY and recorded here.
+## D34 — semantic memory gets a NAME so its absence is loud (2026-08-05)
+`AddSemanticMemory` states an intent the wiring can only honour when an embedder exists. Without one,
+`ISemanticMemory` would never register and recall would silently skip it — so the call **throws at startup**
+instead. Naming the feature is what turns a quiet degradation into a loud failure; the wiring underneath
+stays three substitutable calls.
 
-And never, regardless of either: a package carrying a **native payload or a platform-specific API**. Forcing a
-native SQLite binary, LLamaSharp, or a Windows-only DPAPI call on a one-line install would make the bundle
-unusable for someone who wanted none of it — those stay opt-in permanently.
+**It constructs no embedder, deliberately.** An embedder is BYO, and a defaulted one would point at a
+service the application never chose. **Nothing became mandatory either** — the vector store and
+`ISemanticMemory` stay `TryAdd`-registered, so a host's own registration still wins.
 
-**Current membership, each against the rule:**
+**REJECTED: a `UseSqliteSemanticMemory()` composite** that would wire the vector store and the feature in
+one call. It reads well and hides which of the two is missing when recall goes quiet — the precise failure
+this entry exists to make loud.
 
-| In the bundle | Why it qualifies |
+## D35 — the agent-session shape is NOT CLI-specific; ship the honest subset and mark the inference (2026-08-05)
+`IAgentSession` spans both CLI backends. The codex message/usage/terminal half is measured; the tool-step
+half was inferred from a capture that ran no tools, and is written **shape-driven** so no payload is
+invented or dropped and every uncertainty stays inside the tool-step half. **A tool step's KIND is
+provisional; its PAYLOAD is reliable** — switch on `ToolCall.Name`. The resume half was measured and
+implemented on 2026-08-05, and is no longer inferred. What is still unmeasured is `TASKS.md` CLI12.
+
+**The shapes correspond only PARTIALLY, and the split is measured-vs-unmeasured rather than
+capable-vs-incapable** — which is why the honest subset ships instead of a smaller common denominator.
+Four cases, kept distinct: measured and mapped; **inferred** (every tool step — the entire reason the shape
+exists); **absent in one backend so simply not emitted** (there is no per-turn usage tick where the counts
+arrive once at the end); and **carried by a backend with nowhere to go**, which is dropped rather than
+folded into a neighbouring field where it would read as something it is not.
+
+## D36 — a translation between two verdict taxonomies gets one arm per member, gated by a TEST (2026-08-05)
+Translating between `LlmVerdict` and `GenerationVerdict` by falling back to a default silently mapped a
+meaningful verdict onto `Failed`. Every member gets an explicit arm, and because the compiler cannot force
+exhaustiveness over an enum, a **test** enumerates both and fails when either grows. The gate is the test,
+not the switch — the catch-all is what hid the defect, so it now holds nothing.
+
+**A shared meaning is not a shared ACTION, and a translation changes the second one silently.** Two members
+can describe the same situation and still carry different fallback behaviour, so mapping by name alone
+changes what the router DOES while looking like a rename.
+
+**`ContextWindowExceeded` collapses to `Failed`, and that is a TRADE rather than an omission.** It is the
+one member with no media counterpart, and it is genuinely reachable — the shared corpus matches "prompt is
+too long", which image backends do say. `Unsupported` would describe it better *and* route it better
+(advance without penalty), but a blameless verdict must never outrank a real failure in the generation
+router, so it stays at `Failed` — and `Failed` carries `PenalizeAndAdvance`, so a backend that keeps
+refusing an oversized prompt is penalised for it. **The real remedy is a router change, not a mapping
+change**, which is why it is filed rather than patched here.
+
+## D37 — refuse an identity collision; and a Core exception may carry a verdict (2026-08-05)
+**Two rules, from items that stayed open until each got a decision.** An identity collision — two
+registrations claiming the same slot — is REFUSED at composition rather than resolved by a silent
+last-wins or first-wins, because either resolution makes one registration unreachable with nothing
+reporting it. And an exception raised inside Core may carry an `LlmVerdict`, so a throw and a returned
+reply classify the same way and the router applies one fallback policy to both.
+
+**On the blameless-reason half** (stated in D31): the router gained a SECOND reporting slot rather than a
+third verdict tier. **Rejected: a "reportable-but-blameless" tier in the routing policy** — it adds a
+concept to an enum every consumer switches on, to solve a reporting problem that belongs to the router.
+The slot ORDER is load-bearing and easy to get backwards: a real failure is remembered first and answers
+first; the blameless reason answers only when nothing real failed.
+
+## D38 — an agent session's MCP servers are a NEUTRAL Core option (2026-08-05)
+Both CLI backends can host the application's own MCP servers and differ only in vocabulary, so the option
+belongs in Core as a neutral shape with each dialect translating it — not as a per-backend feature.
+Everything backend-specific was MEASURED turn-free first, using each CLI's own read-only subcommands, which
+cost no tokens.
+
+**A bearer token never reaches argv.** A command line is readable by any process that can list processes,
+so a credential travels by file or environment and never as an argument — that is a property of the option
+shape, not an implementation detail a backend may trade away.
+
+**`McpEndpoint` was deliberately not grown into this.** It describes the loopback host *Lyntai* stands up
+for its own tools; an application's own servers are a different thing pointing the other way, and merging
+them would have made one type mean both.
+
+## D39 — long-term memory is a NAMED-ENGINE COLLECTION beside the existing three (2026-08-08)
+`IMemoryEngine` / `IMemoryEngineFactory` / `AddMemoryEngine` resolve engines by name, the way
+`IHttpClientFactory` resolves clients. This is **purely additive**: `IMemoryStore`, `ICuratedMemoryStore`
+and `ISemanticMemory` are unchanged and co-exist with it. The contract is design §5.7.
+
+**A blend IS an engine.** `CompositeMemoryEngine` implements the same interface as its members, so a
+consumer cannot tell whether a name resolves to one engine or several — which is what makes composition an
+implementation detail rather than a second API.
+
+**Grades are what make this beat a human memory rather than imitate one.** `MemoryGrade.Authoritative`
+material does not decay, so the model that forgets is applied only where forgetting is the point.
+
+**No decision is pushed to the consumer.** Every seam ships a registered default and every constant has a
+documented value; the seams exist so a deployment CAN override, never so it must.
+
+## D40 — memory decays by INTERFERENCE, not by elapsed time, and interference is a seam (2026-08-08)
+The first cut measured age in days. <!-- drift-ok --> The dimension was wrong: a memory engine that forgets
+on a wall clock forgets everything in a system nobody used for a month, and forgets nothing in one that
+ingested a million entries in an hour. Age is what has HAPPENED in that memory.
+
+**Mechanically it is a monotone per-engine POSITION SUBTRACTION** — how far the engine's counter has moved
+since this entry was last used — so no query does date arithmetic and no row can be excluded by an
+unparseable timestamp.
+
+**What ADVANCES that position is deliberately not settled in the library**, because "relative to what"
+is a real question with different right answers per deployment; that is why `IMemoryAgePolicy` is a seam
+rather than a constant. **The shipped default is burst-DAMPED, and the damping is not garnish**: under a
+linear advance a single bulk ingest of a few hundred entries moves the position far enough to forget
+everything stored before it.
+
+## D41 — a decayed memory is BURIED, not cut (2026-08-08)
+Forgetting was first an absolute cutoff, which deletes on a threshold nobody chose. Instead recall ranks
+against a **relative** floor — a fraction of the top-ranked result, so an entry is hidden because something
+outranks it, never because its own score crossed a line — and only an explicit `PruneAsync` deletes.
+Authoritative material is exempt from burial whatever policy is installed (D56).
+
+**Seeding must not filter by faintness, and that is a separate rule from the floor.** An early draft reused
+the PRUNE predicate to select candidates, which quietly made a faint entry unreachable rather than
+low-ranked — burial by another name. The store selects candidates; only the ranker may bury, and only the
+prune may delete.
+
+## D42 — prose gets a gate too, because retired vocabulary is the half of doc drift a machine can catch (2026-08-08)
+The code is gated from every side and the docs were gated from none, so a paragraph that quietly stopped
+being true survived everything and the next reader implemented the wrong thing — twice in one day.
+`check-docs` fails the build when a maintained document uses vocabulary a decision retired; the registry is
+`retiredTerms`. Historical records are exempt because they are accurate BY using the vocabulary of their
+day. `check-links` (D60) is its counterpart for references.
+
+**Its limit, stated because that is where the real fix lives.** The gate catches retired WORDS. It cannot
+catch a claim that is simply wrong while using none of them — a paragraph asserting the opposite of what
+the code does, in perfectly current vocabulary, passes. So the registry is a floor on doc quality, not a
+guarantee of it, and an entry only appears there once a decision has deliberately retired something.
+
+## D43 — a document that has finished its purpose is ARCHIVED out of `docs/` (2026-08-08)
+`docs/` had grown to hold every design and plan the library ever produced, and a reader could not tell
+which files described the library and which described a finished day. Tracked `docs/` is **maintained
+state**; a spec or plan is written straight into the gitignored `local/superpowers/`, and a finished
+document moves out once nobody needs it to understand the library today and nothing open still executes
+from it.
+
+**Archiving is only safe because of the column that makes it safe.** `docs/superpowers/INDEX.md` carries a
+**"Conclusions live in"** column, and it must be filled BEFORE a document leaves — if it cannot be, the
+conclusion was never recorded anywhere durable and archiving would lose it. Keeping the record tracked is
+not a substitute for recording what it concluded.
+
+**What this deliberately costs:** a fresh clone does not carry the archived records, and they leave the doc
+gate's scope. Both are accepted — they are a working record, not a contract, and anything that must outlive
+its version was supposed to be in a maintained document already.
+
+## D44 — the feed presents 2.0.1+ only (2026-08-08)
+Every published version below 2.0.1 is unlisted, so three retired provider ids have no listed version at
+all. Unlisting hides a version from search and from range resolution, never breaks a pinned consumer, and
+never frees the number. The tool is `devtools/nuget-unlist.mjs`, whose roster is **derived** from the
+project files — a hand-maintained roster went stale once and would have skipped a live package while
+reporting a clean run.
+
+## D45 — salience is decay resistance AND store ADMISSION priority; RANK priority defaults OFF (2026-08-09)
+Salience means "this does not fade away" — **not** "this comes first". There are three layers it could act
+on, and they do not ship alike:
+
+| Layer | Ships |
 |---|---|
-| `Lyntai.Core` | mandatory; its own deps are DI + Logging abstractions only |
-| `Lyntai.Providers.Default` | the bundle is pointless without a backend; adds only `Microsoft.Extensions.Http` (band) |
-| `Lyntai.Storage.InMemory` | zero dependencies — an app runs with no storage setup at all |
-| `Lyntai.Tools.Mcp` + `.Hosting` | **rule 2, the one explicit exception.** Brings `ModelContextProtocol.Core` (1.19 MB) + the MEAI abstractions it pins (656 KB) — by far the bundle's largest cost. Accepted because MCP is near-universal for agentic consumers, and because the tool CONTRACT is already in Core so only the wire adapter is outside (D31) |
-| `Lyntai.Providers.ExtensionsAi` | **rule 1, free.** MCP already drags `Microsoft.Extensions.AI.Abstractions`, so adding the bridge changes the closure by ZERO packages (verified: 15 before, 15 after — only a version unification 10.5.2 → 10.8.0). 38 KB of managed code, 0 after trimming, and it completes the MEAI bridge in both directions |
-| *excluded* | `Storage.Sqlite` (native binary), `Providers.Local` (LLamaSharp + a hardware backend), `Storage.Postgres` (Npgsql), `Secrets.Dpapi` (Windows-only) |
+| **Decay resistance** — the entry fades slower | on, always |
+| **Store admission** — it survives a candidate set overflowing its budget | on |
+| **Rank boost** — it outranks a better textual match | **OFF**, opt-in |
 
-**Enforced, not just written down:** `node devtools/dev.mjs check-bundle` (in `verify`) reads the bundle's
-resolved `project.assets.json`, strips the auto-allowed `Microsoft.Extensions.*` band, and FAILS when anything
-else appears that is not in `bundle.allowedThirdParty` (devtools/project.config.mjs) — or when an allowlisted id
-has left the closure, so the budget can't rot into a list of things that used to matter. The failure message
-states the choice: keep the package out, or accept the cost for every consumer and record it here. That list is
-meant to stay nearly empty; today it has exactly one entry.
+The first two are what "does not fade away" means. The third is a stronger and separate claim, and store
+admission — which is unconditional — already delivers what salience promises without it. The rank mechanism
+itself is unchanged and one option away; only the default moved.
 
-**ONE bundle, not a family.** No `Lyntai.All` / `Lyntai.Server` / `Lyntai.Agents` variants. Bundle sets multiply
-combinatorially, every one is a published id that can never be unpublished (D29 — 2.0.0 is burned on 10 ids for
-exactly that reason), and the answer to "I want a different subset" is already good: reference the packages you
-want. One convenient default plus honest granularity scales; a family of curated subsets does not.
+## D46 — memory retention is four DOMAINS with one policy seam each, placed by OWNERSHIP (2026-08-09)
+`Lyntai.Memory` had become a flat namespace carrying unrelated varying rules. Each becomes its own
+sub-namespace holding one seam, its implementations **and its options**. Placement is by ownership, not by
+consumption: a type a sibling domain merely depends on stays with its owner, and `MemoryDecayState` — the
+one type no domain owns, being the state they all read — is the only thing that belongs at the root.
 
-## D31 — packages are split by DEPENDENCY FOOTPRINT, not by vendor or by size (2026-08-04)
-Lyntai had one package per backend, which read as "a package per vendor". The owner's observation — *if we're
-not shipping a large amount of binary, they can share a bundle* — is right, and the corrected axis is
-**dependency footprint**: bundle backends that need the same things and ship no native payload; keep a package
-separate when it drags something a consumer would otherwise not take.
+**It is a pure rename and nothing else.** No method body, constant, signature or documentation word changed
+meaning; the whole change is where the types live. That is what made it safe to take in one pass, and it is
+worth stating because a namespace move that also adjusts behaviour is unreviewable.
 
-Measured 2026-08-04 (external `PackageReference`s per project):
+## D47 — every memory policy seam takes ONE naming shape, `IMemory<Domain>Policy` (2026-08-10)
+The seams had been coined under three different suffixes for the same kind of thing. All four rename to the
+`IMemory<Domain>Policy` shape. **Age is interference, not time**, so the clock-shaped name went with it —
+and that name is why this could not wait for the next domain to expose the inconsistency on its own, since
+it was actively describing the wrong model. Retired names are fenced by `retiredTerms` and
+`retiredApiNames` so nothing reintroduces them; implementations whose own names embedded a retired word
+renamed with it.
 
-| Bundle-safe — Core/BCL only | Drags a dependency |
-|---|---|
-| ClaudeCli, CodexCli, Generation, Generation.Http, Storage.InMemory | Local → **LLamaSharp** + a native backend (hundreds of MB); Storage.Sqlite → **SQLitePCLRaw native binary** + Dapper + FluentMigrator; Storage.Postgres → Npgsql; Tools.Mcp(.Hosting) → MCP SDK / **ASP.NET Core**; Secrets.Dpapi → **Windows-only** ProtectedData; ExtensionsAi → MEAI; OpenAiCompatible → Microsoft.Extensions.Http (managed only) |
+**What is deliberately NOT renamed, because the retired word was never in these names:**
+`ModulatedRetrievability` (the word is `Modulation`, the surviving namespace and domain concept — the class
+says what it DOES, "retrievability that has been modulated", and stays accurate under the new interface
+name) and `DsrRetrievability` (its suffix is `Retrievability`, which the rename KEEPS — only the leading
+`I` form changed). Renaming either "for consistency" would be undoing this decision, not applying it.
 
-**So `Lyntai.Providers.Default` merges ClaudeCli + CodexCli + OpenAiCompatible** — the CLIs are dependency-free
-and share `CliProviderEngine`, and the HTTP one adds only managed `Microsoft.Extensions.Http`, so bundling
-costs a consumer nothing and removes two package ids plus their release ceremony. Everything in the right-hand
-column stays separate: a console app that wants the `claude` CLI must not acquire a native SQLite binary,
-llama.cpp, ASP.NET Core or Windows-only code to get it. Size was never the reason to split — *transitive
-cost* is.
+**This rename created one collision, and D13's type is the side that moved.** `IMemoryRetentionPolicy` landed
+one `I` away from a long-shipped storage type doing the opposite job. That was resolved in 3.0 by renaming
+the *storage* type, not this seam: the seam's name is the whole point of D47's one shape, while the storage
+type already lived among `MemoryEvictionMode` and `MemoryEviction.Survivors` and was the one using the wrong
+word. See D13.
 
-**Namespaces did NOT change** (`Lyntai.Providers.ClaudeCli`, `.CodexCli`, `.OpenAiCompatible` all still exist
-inside the one assembly). That is deliberate: consolidating packages must not force consumers to edit `using`
-directives — only the `PackageReference` changes, which is a one-line edit rather than a sweep.
+## D48 — a seam is SINGULAR or PLURAL depending on whether its implementations read the same aspect (2026-08-10)
+D46 said implementations "accumulate rather than replace", which is right for some seams and wrong for
+others.
 
-**Cost, stated plainly:** three published ids (`Lyntai.Providers.ClaudeCli` with 20 published versions,
-`.CodexCli`, `.OpenAiCompatible`) are abandoned at 1.2.2. Permitted in a minor by D24 while every consumer is
-first-party, and per D29 an abandoned id must not be resurrected for a different purpose.
+**The test: implementations COEXIST when they read different ASPECTS; they are ALTERNATIVES when they offer
+competing answers to the SAME question.** Age, salience and retention are plural — two age policies measure
+different things and both are true at once, so each plural domain owns a **composition policy** and the
+engine composes nothing itself. Retrievability and ranking are singular: two curves are two answers to one
+question, and running both means believing neither.
 
-**Applying it later:** a new backend joins `Providers.Default` if it needs nothing new; it gets its own package
-the moment it needs a native runtime, a platform-specific API, or a dependency a consumer might refuse. The
-same rule governs the future split of a native-runtime generation backend (D30).
+**A plural seam needs no default and no swap story; a singular seam needs both.** That is the practical
+consequence, and it is why the two kinds cannot share a registration shape.
 
-### Amendment (2026-08-04): Core is MANDATORY, so it carries the smallest footprint of any package
+`CompositeRankingPolicy` is **not** a counterexample — ranking stays singular, and the composite is ONE
+policy built from two, not two running side by side.
 
-Applying the rule consistently resolved two questions in OPPOSITE directions, and the reason is worth keeping:
+## D49 — `DsrRetrievability` is the default forgetting curve, and it is the ONLY one (2026-08-10)
+FSRS's power law replaces the exponential curve as the registered default, on **FSRS's own external
+validation — not this library's corpus.** The exponential curve was **deleted with no restore path**: its
+central reinforcement multiplier was admittedly unmeasured and measured compounding to 2.1× over a
+four-touch batch. `ReciprocalRankFusionPolicy` is the registered ranking default, having beaten the
+multiplicative policy on the corpus's `topical` class in all six shapes; the multiplicative policy stays
+shipped and is one line to restore. **No data migration either way** — `Stability`'s unit contract is what
+made deleting a curve free.
 
-- **Folded IN, because they isolated nothing.** `Lyntai.Generation` and `Lyntai.Generation.Http` had zero
-  external dependencies, so their package boundaries bought no isolation — they existed only because they were
-  created before this rule was written. Generation's contracts moved into `Lyntai.Core`
-  (`src/Lyntai.Core/Generation/`) and its HTTP backends into `Lyntai.Providers.Default`.
-- **Kept OUT of Core, on measurement, despite being near-universal.** `Lyntai.Tools.Mcp` was proposed for Core
-  on the grounds that most consumers use it. Rejected: `ModelContextProtocol.Core` drags
-  `Microsoft.Extensions.AI.Abstractions` **10.5.2** — a *different* version than our own MEAI bridge pins,
-  i.e. a version-conflict surface. Core must not pin someone else's abstraction, least of all the one D1
-  deliberately treats as secondary to our own seam. Note also that the part that matters most is *already* in
-  Core: `ITool`, `IToolLoop`, `IToolRegistry` and `AddTool` are Core types — only the MCP **wire adapter** sits
-  outside. **It IS in the `Lyntai` bundle**, so a typical consumer gets MCP on the first install anyway.
-- **ASP.NET Core was removed from MCP hosting rather than tolerated** (2026-08-04). The framework reference on
-  `Microsoft.AspNetCore.App` turned out to be avoidable: the MCP protocol lives in `ModelContextProtocol.Core`
-  (`StreamableHttpServerTransport` works on plain `Stream`s) and the ASP.NET package supplied only Kestrel
-  routing glue. `McpToolHost` now runs on `System.Net.HttpListener` (BCL) — the right fit for a loopback-only
-  ephemeral endpoint, needing no URL ACL or elevation for `127.0.0.1`. A console or desktop app no longer
-  acquires the ASP.NET shared framework to let a CLI call its tools. Two findings from doing it, both worth
-  keeping: the Streamable HTTP client requires the **`Mcp-Session-Id`** response header to get past
-  `initialize`, and requests **must be handled concurrently** — the client holds a long-lived GET SSE stream
-  open while POSTing, so a sequential accept loop deadlocks (it presented as "Initialization timed out" while a
-  single raw POST answered correctly).
+**The curve and the ranking default are NOT independent decisions.** The `topical` regression this ships
+knowingly is a property of the PAIRING, not of the curve alone — the rank policy decides how much a
+stability difference is allowed to move an entry's position. Changing one without re-measuring the other is
+how a fix becomes a regression.
 
-**So: "most consumers want X" is an argument for a METAPACKAGE, never for a dependency in the mandatory
-package.** Hence `Lyntai` (`src/Lyntai.Bundle`, ships no assembly) — one install for the dependency-free set,
-with everything costly left an explicit opt-in.
+**Read the per-class table, never the pooled number.** The effect is not one-sided and the aggregate hides
+both directions at once; the pooled figure is specifically the one NOT to act on for this decision.
 
-**Amended by D34 (2026-08-04):** dependency isolation is no longer the ONLY justification for a boundary — a
-split for release cadence/maturity is also allowed, and `Lyntai.Generation` was created under it. The graph as
-released at 2.0.1 is **twelve packages**: ten libraries, the `Lyntai` starting bundle, and `Lyntai.Generation`.
-Every boundary still answers a question with something concrete — D31's dependency, or D34's cadence.
+## D50 — the forgetting curve is selectable PER ENGINE (2026-08-11)
+`UseGraph` takes an optional policy so one named engine can run a different curve without changing the
+container registration. **The default is untouched**: `policy: null` resolves exactly as it did before, and
+the selected curve is still wrapped in retention modulation — naming a curve selects the CURVE and changes
+nothing else about the engine.
 
-The graph immediately after this restructure was 10 packages + the bundle, and every boundary answered "which
-dependency does this isolate?" with something concrete. `Lyntai.Storage.InMemory` is the one dependency-free package that stays
-separate, for a different and equally explicit reason: it is an *implementation*, and Core holds contracts.
+**It is a BINARY break on a frozen API, and that is why it was taken inside the 3.0 window.** An appended
+optional parameter is *source*-compatible — existing code compiles untouched — but not binary-compatible,
+because the method signature changes and a pre-compiled caller does not re-bind. After the freeze the same
+change costs a whole major version, so the window is the only cheap moment.
 
-## D30 — generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
-`Lyntai.Generation` is a separate domain package with its own contracts and its own `GenerationVerdict`, not an extension
-of the LLM stack. At the owner's direction: **"our goal is not to make a generation engine, it is to make a
-media generation platform"** — so the value is contracts, capability-aware routing, delivery-mode handling and
-lifecycle, with every pixel and sample produced by a backend the host chooses.
+**Symmetry is the argument**: `ranking` was already per-engine and the curve was not, yet under D48 the two
+are the SAME class of seam — singular, one installed at a time. Leaving one selectable and the other not
+was an accident of when each was written.
 
-**Named `Generation`, not `Media`** (owner's call, decided while the core was still uncommitted-to-consumers):
-the workflow is "generate an artifact of kind X", and `Kind` is an open string — so a kind that isn't media
-(a document, a dataset, something bespoke) fits the same submit/poll/stream, capability and routing machinery
-without the package name lying about it. No `Custom` constant is needed or wanted: an open string already
-accepts any value, and a well-known `"custom"` would mean nothing to a backend that matches on the kinds it
-serves.
+## D51 — what 3.0 ships WITHOUT, and why each is a decision rather than a gap (2026-08-11)
+Written on the owner's instruction that anything not done should carry a proper reason.
 
-Three researched findings forced the shape, and a future session must not "simplify" them away:
+**Three different things get called "deferred", and they are not equivalent — read the KIND first.**
 
-- **Three delivery modes, not one.** Image is inline (request → bytes); video is **universally** an async job
-  (submit → poll/webhook → fetch — WAN documents 1–5 minute renders as create-task-then-poll; Kling is
-  `POST /v1/videos/generations` then `GET /v1/tasks/{id}`); audio splits (TTS streams, playback starting before
-  generation ends; music/dubbing are batch jobs). One `GenerateAsync` can only express image — so
-  `IGenerationJobProvider` and `IGenerationStreamProvider` are separate optional capabilities, and the **operation id is
-  exposed** so a render survives a process restart, composes with `Lyntai.Jobs`, and works with a
-  webhook-delivering backend.
-- **A backend is not a model.** Aggregators serve 1,000+ models across image/video/audio/**3D** behind one
-  queue endpoint, and the same model (WAN) is reachable through several backends. Routing selects
-  backend **+** model (`GenerationCandidate`), or every aggregator becomes N fake providers.
-- **Capability declaration is load-bearing**, unlike LLM routing. Chat models all take text; media backends
-  differ by medium, delivery, input role (text→video vs first-frame→video vs reference→video), duration
-  ceiling and model catalogue. The router **pre-filters** on `GenerationCapabilities.Supports` before spending
-  anything, and "nothing here can do that" is `Unsupported` — a configuration answer, not a runtime fault.
+| Deferred | Blocked on | Kind |
+|---|---|---|
+| **GEN-VERIFY** | a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render | waiting on the ENVIRONMENT |
+| **GEN6** (streaming TTS) | a vendor pick and a MEASURED wire format | waiting on a CHOICE plus a key |
+| **FSRS-B** (parameter fitting) | an observable the model does not produce | a REFUSAL |
 
-**Media CHAINS.** `3d → image → video` is a first-class use case, so `GenerationArtifact.ToInput(role)` carries
-bytes-or-URI into the next stage and `Kind` is an open string (3D already ships on real aggregators). The
-pipeline RUNNER is deferred until ≥2 real backends exist, but nothing in the core may make it impossible.
+**FSRS-B carries the strongest reason and it is a refusal, not a wait.** Fitting `DsrOptions` against this
+library's own review log is **circular**: the observed grade is a function of the very constants a fit would
+estimate, and the log could only ever contain successes. The distinction matters because "needs real review
+logs" invites a future session to go and collect more data — which cannot help. A judge that can return a
+negative (D59) is what finally supplies an external observable, so what remains is data only a deployment
+can produce.
 
-**Fallback is a POLICY, not a law.** `GenerationRoutingPolicy` makes the per-verdict action configurable
-(defaults reproduce §6: `Refused` surfaces, everything else advances) because one real setup breaks the
-default: a host that deliberately lists a **hosted** backend and a **locally-run** one, where the hosted one
-refuses content the local one has no policy against. `On(Refused, Advance)` is then correct, and it is the
-HOST's decision — same reasoning and shape as D10 on the LLM side. The three backend shapes this implies
-(local / spawned-CLI / remote) need no contract support: they are implementation shapes the seam already
-spans, and locality preference is expressed through candidate ORDER, exactly as it is for LLM providers.
+**Nothing is queued behind it.** An item waiting on an unreachable one is a permanent backlog resident, so
+the dependent work was unblocked rather than left to sit.
 
-**Coupling, at the owner's direction:** the LLM stack gains **ZERO** dependency on media. The bridge is
-`ITool` (and therefore MCP, via `Lyntai.Tools.Mcp.Hosting`), so an agent can generate media without either
-domain referencing the other's concrete types. Where media wants an LLM (prompt rewriting), it takes
-`ILlmClient` — handed in, never owned. Failure PATTERNS are still shared: `GenerationVerdictClassifier` delegates to
-`LlmVerdictClassifier` so there is one corpus of "what does a 429 mean", per D27's rule against a second copy
-of the rules.
+## D52 — inside a major window, "it would break" is not a reason to defer (2026-08-12)
+The owner's rule, and it inverts the usual instinct: a change that is *only* blocked by being breaking must
+be taken while a major is open, because after the freeze the same change costs a whole version. Deferring it
+is the expensive option, not the safe one — so the question at a freeze is "what breaks that we should
+take", not "what can we avoid breaking".
 
-**Not a generation engine (extends D26):** no inference, no ffmpeg pipeline authoring, no engine/weights
-provisioning, **no webhook hosting** (Lyntai is a library — the app owns its endpoint and calls `FetchAsync`),
-no artifact storage, no credential storage. A backend that cannot be checked without generating reports
-"unavailable" rather than billing a probe — replacing the generate-and-discard test that pattern otherwise
-requires.
+Applied to 3.0: an edge gained the same three age primitives a node has, so every age axis speaks one unit
+and `PruneAsync` became exact rather than refusing to delete any connected entry. Its sibling deferrals
+(D50's per-engine curve, D47's renames) were taken on the same reasoning.
 
-**Packaging:** stays in the SHARED release pipeline while it is cheap — measured at 48 KB / 9 s, the same
-class as `Lyntai.Providers.ClaudeCli` (50 KB), and every planned backend is thin (HTTP clients, a subprocess
-shell-out). The split trigger is a **dependency**, not the domain: the first backend that needs a native
-runtime (ONNX/TensorRT/CUDA) or ships model files gets its own release action, so its build time and failure
-surface never bleed into an LLM release.
+**Re-reading the deferral note is what found it, and the note understated the problem.** It read as a
+conservative bound; the guard it described actually left a genuinely unretrievable connected entry
+**unreapable forever**, which is a defect rather than a safe margin. A deferral's own summary is written by
+someone who decided not to look further.
 
-Plan of record: `docs/2026-08-04-generation-platform-plan.md` (Plan 1 = this core; Plans 2–7 = HTTP backends, local
-subprocess, async video + Jobs, governance parity, tool bridge + audio, pipelines). Backend order set by the
-owner: **TTS before music** for audio; video backend choice (WAN direct vs. an aggregator) still open.
+**Rejected: keep the guard and declare the strength axis accumulator-unit BY CONTRACT.** That closes the
+inconsistency on paper while leaving the unreapable entry in place — a definition change rather than a fix.
 
-## D29 — the next major release is 2.0.1; 2.0.0 is BURNED on nuget.org (2026-08-04)
-**2.0.0 was published and then unlisted** for 10 of the 12 package ids (all except
-`Lyntai.Providers.CodexCli` and `Lyntai.Tools.Mcp.Hosting`, which have no 2.x at all). Unlisting hides a
-version from search and resolution but **never frees its number** — nuget.org will not accept that
-id+version again, ever.
+**The backfill is the part that cannot be exact, and its direction is the decision.** An existing edge's
+true primitives are unknowable, so they are seeded such that an old edge reads as *recently* strengthened
+rather than ancient: the failure mode is retaining something a moment longer, never deleting something that
+should have survived.
 
-**Why this matters more than a cosmetic gap:** the release workflow pushes with
-`dotnet nuget push --skip-duplicate`, so cutting a 2.0.0 would **succeed loudly and publish nothing** for
-those 10 packages, while the 2 without a 2.0.0 *would* publish — a partial release that reports green and
-leaves the feed at 1.2.x for most of the library. That is the same silent-skip family as D25: the pipeline's
-"success" doesn't mean what it looks like.
+## D53 — `SpacingWeight` stays at its published value; the suspected mechanism was REFUTED (2026-08-12)
+A sensitivity sweep found `topical` improving monotonically as `SpacingWeight` fell, with the optimum at the
+boundary — the signature of a term not earning its place. **The follow-up isolation experiment refuted the
+mechanism this entry originally proposed**: the gradient was tracking reinforcement MAGNITUDE, not a
+premise mismatch, and the throttle is accidentally protective. `SpacingWeight` stays at `1.5`; the real
+finding moved to D54.
 
-**The decision (owner's, 2026-08-04):** when the next breaking/major batch lands, go straight to **2.0.1**.
-Verified the same day: 2.0.1 is free on **all 12** ids. Skipping 2.0.0 is not a SemVer violation — SemVer
-requires that versions ORDER correctly, not that they be contiguous — and because all packages version in
-lockstep from `VersionPrefix`, the skip applies uniformly with no per-package divergence.
+**Lowering it would still have improved the metric — and that is exactly why it was not lowered.** The
+change would have shipped with a documented reason that is false, hiding the real defect behind an apparent
+fix. Preventing that outcome is what the isolation experiment existed for.
 
-**How to apply it:** run the release workflow with an explicit `version: 2.0.1` and `bump: none`. Do NOT
-reach 2.0.1 by hand-editing `<VersionPrefix>` (D25 — the pipeline authors the version), and do not rely on a
-bump input, which would produce 1.2.x or 2.0.0 depending on the baseline.
+**The transferable lesson: a correct prediction from a wrong model is the most expensive kind, because it
+earns confidence it has not paid for.** The direction was predicted in advance and held, which is what made
+it evidence rather than curve-shopping — and it held for a reason that had nothing to do with the stated
+mechanism. Predicting the direction is not evidence for the explanation; only an experiment that separates
+the candidates is.
 
-**Generalization worth remembering:** before publishing any version you have reason to think was used before
-(a botched release, an unlisted push, a renamed package), check the feed *including unlisted* —
-`https://api.nuget.org/v3-flatcontainer/<id-lowercase>/index.json` lists every version that exists, listed or
-not. `--skip-duplicate` is the right default for re-runnability, and precisely because of that it cannot tell
-you that a publish was skipped.
+## D54 — retrieval-driven stability growth is OFF by default: `ReinforceGain = 0` (2026-08-12)
+Five studies agree, and every alternative to changing the default was tested first. A recall still resets an
+entry's age; it no longer lengthens its half-life.
+
+**It wins on every corpus shape and on BOTH metrics** — the fixed-corpus pin moves miss `0.234 → 0.103`,
+roughly a 56% relative improvement, without paying for it in pollution. **Every alternative lost**: not
+only the shipped compounding rule, but a CAPPED variant and one computed from the entry's recall COUNT so
+it could not compound by construction. Not growing at all beat all three, which is what rules out
+"compounding is the problem" as the explanation.
+
+The mechanism that fits: the age reset **expires** (the entry decays again at the same rate) while growth
+**persists** and is conditioned on the system's own ranking output — so growth banks the ranker's error
+instead of letting it wash out. The arithmetic stays shipped and is live for anyone who raises the gain.
+
+## D55 — one tokenization for every backend, handling spaceless scripts by default (2026-08-12)
+`SearchTerms` owns the one query split and every backend uses it; `FtsQuery` keeps only FTS5 syntax. Before
+this, only SQLite's FTS path split a query into words — every other path matched the whole query as one
+substring, so a realistic cue found a fact on one backend and nothing on another. A difference in ORDERING
+between backends is a divergence; a different answer to *is the fact found* is a defect. A spaceless run is
+expanded into character n-grams, which is the unit both indexes already use; ASCII words are deliberately
+not expanded. No configuration — that is the decision, not an implementation detail.
+
+**The two term sets are ASYMMETRIC, and the asymmetry is the design.** `SubstringTerms` carries the
+two-character terms a spaceless script needs; `Extract` does not, because a trigram INDEX cannot match
+them. Most Chinese content words are exactly two characters, so a substring backend must carry what the
+index cannot.
+
+**The cost of that was measured before adoption: ~108×.** On Postgres at 300k rows a two-character `ILIKE`
+cannot use the `pg_trgm` GIN index and degrades to a parallel sequential scan — 96.6 ms against 0.90 ms for
+a three-character pattern on identical, equally selective data. That number is why the widened clause runs
+only after the index-friendly pass returns nothing, and why removing that staging would be a silent
+performance regression rather than a simplification.
+
+**Scope, stated because the aggregate hides it:** this makes keyword recall work in Chinese. It does not
+make the graph's spreading activation work there — that is a separate mechanism with its own measurement.
+
+## D56 — objective (1) does not trade: an authoritative fact takes a slot WITHIN the limit (2026-08-13)
+Design §5.7.0 makes "never lose an authoritative fact" the only objective with no acceptable failure rate,
+and it had never been measured — the corpus held no graded material. The first measurement lost all three
+facts in all five languages. Exact facts now take reserved slots inside the limit and may displace ordinary
+hits, because that is what marking a fact authoritative MEANS. `AuthoritativeReserve` bounds how many, so
+the trade is bounded rather than unbounded. **A small-limit recall returning fewer ordinary hits is the
+promise working, not a bug.**
+
+**What this corrected.** The promise had been scoped to the *query filter* rather than the *budget*: an
+authoritative fact was exempt from being filtered out, but not from being cut by `Take(limit)` — a bound
+that was documented rather than closed. It was documented in the belief that letting one exact fact evict
+every ordinary hit was the worse trade. Bounding the reserve is what makes both answers available, which is
+why the earlier scoping is now only history.
+
+**The durable lesson is about the CORPUS, not the engine.** A measurement harness that cannot express a
+promise reports "nothing moved" — which reads exactly like "no regression" — for as long as nobody notices
+it is blind. This promise went unmeasured for the whole life of the feature because the corpus contained no
+graded material at all, and documenting that blind spot was mistaken for handling it. Teaching the
+instrument to express the promise took an afternoon and immediately found the highest-priority guarantee
+broken in every language.
+
+## D57 — the reinforcement seam is cut at the two EFFECTS, not the two ACTS (2026-08-13)
+A recall's age reset and its stability growth are separable, and they are what a consumer actually wants to
+control; the acts that trigger them are a different axis (D58). A configuration the store cannot honour
+**throws at construction** rather than silently doing something adjacent.
+
+**Why it throws instead of being implemented**: honouring the missing arm would mean a sixth required
+member on `IMemoryGraphStore`, which every BYO store would have to write for a combination almost nobody
+asks for. A loud refusal at startup costs one configuration its option; a new required member costs every
+implementor.
+
+## D58 — reinforcement is not harmful; reinforcement on an UNVERIFIED signal is (2026-08-13)
+`ReinforceOn` selects which calls reinforce. The default does **not** move: what the ranker returned is the
+ranker's own opinion, so reinforcing it compounds that opinion rather than the entry's usefulness. The fix
+is not to weaken the loop but to condition it on an act carrying evidence — a caller paying to expand, or a
+judge's verdict (D59). When you import "use strengthens X" from another domain, check whether that domain's
+"use" was VERIFIED.
+
+**Measured: expansion-only wins on both metrics, in both growth configurations.** That two-way result is
+what makes this a finding rather than a preference — it holds whether or not stability growth is switched
+on, so it is not an artefact of the default D54 chose. Recall and expansion had been treated as the same
+kind of evidence for the subsystem's whole life; they are not, and only one of them is a caller telling you
+the entry was worth paying for.
+
+## D59 — the memory subsystem's defect is RANKING, and the fix is a judge that can RESCUE (2026-08-13)
+**Every miss is a ranking failure; none is a retrieval or tokenization failure.** Established by
+DECOMPOSING the misses rather than counting them — replaying each query at the shipped limit and again wide
+open, so an entry that came back only when the limit lifted is provably reachable-but-outranked. **100%**
+fell in that class and 0% were unreachable, which rules out the tokenizer and the seed query as suspects
+and rules out a better formula as the fix: every constant this subsystem tuned moved recall by hundredths.
+
+`IMemoryVerificationPolicy` has a model judge which candidates actually answered, applied **before** the cut
+so a buried answer is promoted rather than merely observed. Advisory by contract, and `VerificationDepth`
+bounds what a judgement costs.
+
+**A hosted judge cut the miss rate by 65% relative** (`0.5357 → 0.1857`), past the ground-truth reference.
+**But ranking judges on miss alone is wrong** — the second metric is pollution, and on it a small local
+model (`gemma3:4b`) beat the ground-truth judge reproducibly on BOTH, at a third the pollution. Which model
+to run is a deployment choice, and the measurement says a small one can be the right one rather than a
+compromise.
+
+## D60 — a cross-backend rule is a FUNCTION, not a sentence; and the archiving step became a gate (2026-08-14)
+Four rules every `IMemoryGraphStore` must agree on had been reimplemented per backend — subject
+normalization, the relevance gradient, the content dedup key, and the ranking contract's three obligations.
+Each is now one definition. **The public/internal line is drawn by who must obey the rule**: the first three
+bind a BYO extension point, so they are public; the fourth is one way of meeting a contract, so publishing
+it would freeze that shape into the SemVer surface.
+
+**Each was load-bearing, not cosmetic.** The relevance gradient's `matched: false` clause is the fact all
+three backends used to disagree about — and SQLite disagreed with itself. The content key is the DEDUP key,
+so two backends hashing differently do not merely store differently, they answer "is this the same memory?"
+differently. **`MemorySubject` and `MemoryContentKey` deliberately make OPPOSITE choices**, which is why
+they are separate types: a subject is a handle MEANT to collide, so it folds case and padding; content is
+the fact itself, hashed byte-for-byte.
+
+`check-links` became the thirteenth `verify` gate after archiving a record left eight dead references in
+maintained state while every gate stayed green. **An existence check over identifiers in prose was built,
+measured at zero real defects, and REFUSED** — naming something that does not exist is frequently correct
+here, and a gate whose false positives are legitimate authorial choices can only be given an exclusion
+list. That is why `check-docs` is a curated registry rather than a corpus scan.
+
+## D61 — 3.0's development history is squashed, and the backup ref is part of the repository (2026-08-14)
+
+**Everything after `v2.5.0` — 79 commits — is one commit on `master`.** The owner's call, taken after the
+cost below was measured rather than in ignorance of it.
+
+**What the squash costs, stated because a decision record that only lists benefits is an advertisement.**
+Eight commit-hash citations in tracked documents pointed into that range: `docs/DECISIONS.md`'s own recovery
+instruction for the pre-renumbering `D<n>` scheme, `CLAUDE.md`'s `dev.mjs`-derived-usage citation, and six in
+`TASKS.md` Part 73, whose entire evidence is that six separate commits made the same counting mistake.
+**No gate can see a broken hash** — `check-links` checks paths and Part numbers, and a hash is neither.
+
+**`backup/pre-squash-2026-08-14` is therefore load-bearing state, not housekeeping.** It is a branch on
+`origin` and a local tag, both at the pre-squash `92558e3`, and every one of those eight hashes stays
+reachable through it. Each citation now names the branch, so a reader who cannot `git show` a hash is told
+where to fetch it instead of concluding the record is wrong. **Deleting that branch makes the pre-3.0
+decision numbering unrecoverable and turns eight citations into dead ends** — that is the whole reason this
+entry exists, since nothing else in the repository would say so.
+
+**Why the alternative was preferred and overruled, recorded so it is not re-litigated as if it were new.**
+The reviewing pass argued against: 51 of the commits were already public, the release workflow builds from
+the remote (`pitfalls.md`), and the sequence that looks noisiest — fifteen `docs(decisions)` repair commits —
+is the honest record of one bulk rewrite that hollowed out entries and needed nine passes to find them all,
+which is the evidence behind Part 73. The counter-argument is that `CHANGELOG.md` already carries the
+release narrative a reader actually needs, and per-commit archaeology of an unreleased development window is
+not what this repository's history is for. Both are true; the second is the one the owner weighed heavier.
+
+**The rule that falls out for next time:** a squash across published history needs a pushed backup ref and a
+citation sweep BEFORE the rewrite, not after — the sweep is only possible while the hashes still resolve.

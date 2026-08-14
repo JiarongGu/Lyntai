@@ -51,7 +51,15 @@ public class ResponseCacheTests
     [Fact]
     public void Every_LlmRequest_field_is_classified_for_the_cache_key()
     {
-        var hashed = new HashSet<string> { "Messages", "Model", "MaxTokens", "Temperature", "JsonSchema" };
+        var hashed = new HashSet<string>
+        {
+            "Messages", "Model", "MaxTokens", "Temperature", "JsonSchema",
+            // Reasoning is output-determining: the same prompt asked with and without intermediate
+            // reasoning can return different text, and on a thinking model that difference is the whole
+            // reply. Serving a suppressed-reasoning caller a cached reasoning-laden hit is precisely the
+            // silent collision this guard exists to catch — and it did catch it.
+            "Reasoning",
+        };
         var excluded = new HashSet<string>
         {
             "Consumer",       // captured via the effective model; two consumers → same model share a hit

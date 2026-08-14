@@ -5,11 +5,13 @@ namespace Lyntai.Tests.Storage;
 /// <summary>Backend-agnostic <see cref="IMemoryStore"/> contract — run by the InMemory, SQLite, and
 /// Postgres test classes so remember/recall/dedup/TTL/cap/prune/forget semantics are pinned identically.
 /// <para>DELIBERATELY OMITTED (backend-divergent by design — see <see cref="IMemoryStore"/> docs, kept as
-/// backend-SPECIFIC tests instead): (1) same-match ORDERING — SQLite ranks by bm25 relevance while
-/// Postgres/InMemory rank by recency; (2) MULTI-WORD/any-token matching — SQLite's FTS matches any token,
-/// Postgres/InMemory match a contiguous substring. This contract asserts only backend-agnostic facts: a
-/// single ≥3-char token substring recalls; scope/task filtering; dedup; TTL expiry; cap COUNT + set
-/// membership (NOT the sequence); prune; forget.</para>
+/// backend-SPECIFIC tests instead): same-match ORDERING — SQLite ranks by bm25 relevance while
+/// Postgres/InMemory rank by matched-term count then recency. <b>MULTI-WORD matching used to be on this
+/// list and is not any more</b> (3.0, <c>docs/DECISIONS.md</c> D55): every backend splits a query the same
+/// way, so which entries are found is portable and only the ranking among them is not. The cross-backend
+/// assertion lives in <c>MemoryStoreTests.Recall_matching_is_consistent_for_single_tokens_and_for_separated_words</c>.
+/// This contract asserts backend-agnostic facts: a ≥3-char term substring recalls; scope/task filtering;
+/// dedup; TTL expiry; cap COUNT + set membership (NOT the sequence); prune; forget.</para>
 /// Every method is namespaced by a caller-supplied <paramref name="key"/> (the task key) so it is safe on
 /// the shared Postgres container.</summary>
 public static class MemoryStoreContract

@@ -29,11 +29,12 @@ streaming, usage, and verdict-from-exception. **Only write a native provider if 
 **A2. A SPAWNED CLI → write a DIALECT, not a provider.** If the backend is a command-line agent
 (`claude`, `codex`, or a sibling), do NOT re-implement the spawn/verdict/streaming rules — they are already in
 `CliProviderEngine` (Core, `Lyntai.Llm.Cli`), and re-deriving them is exactly how they drifted apart before
-(D27). Read `ClaudeCliDialect` and `CodexCliDialect` side by side first: they are the two worked examples, and
+(D21). Read `ClaudeCliDialect` and `CodexCliDialect` side by side first: they are the two worked examples, and
 their differences (stdin vs. required repo-check flag, JSON vs. prose auth, `auth logout` vs. top-level
 `logout`, pinning vs. no pinning) show what a dialect is for. Derive from `CliProviderDialectBase` and supply
 only what is specific to that CLI:
 
+<!-- compile-skip: a dialect sketch: its member bodies are elided for illustration -->
 ```csharp
 public sealed class MyCliDialect : CliProviderDialectBase
 {
@@ -72,25 +73,26 @@ Rules specific to this path:
   needs `--skip-git-repo-check` because of it.
 - **`SupportsToolCalls` on the dialect drives ONLY the engine's ignored-tools warning.** If your dialect
   returns `true`, the composing `ILlmProvider` must declare `public bool SupportsToolCalls => true;` itself —
-  the provider is the capability declarer (D27), and the engine does not forward the dialect's answer.
+  the provider is the capability declarer (D21), and the engine does not forward the dialect's answer.
   Otherwise `LlmRouter.SupportsToolCalls` reports false and `ToolLoop` silently takes the prompt-based
   fallback on a backend that can do native tool calls.
 - **Portable installs are free if you don't fight them** — the host passes `command` (+ `environment`) to your
-  builder extension (D28); pass both straight through to the engine and don't read env vars yourself.
+  builder extension (D22); pass both straight through to the engine and don't read env vars yourself.
 
 **B. Native `ILlmProvider`** for anything else (like `OpenAiCompatibleProvider`). **Where it lives is a
-FOOTPRINT test, not one-package-per-backend** (`docs/DECISIONS.md` D31): a dialect or native provider that
+FOOTPRINT test, not one-package-per-backend** (`docs/DECISIONS.md` D25): a dialect or native provider that
 needs nothing beyond Core/BCL — or only managed `Microsoft.Extensions.Http` — is a class in
 `src/Lyntai.Providers.Default/`, where `ClaudeCliDialect`, `CodexCliDialect`, `ClaudeCliProvider`,
 `CodexCliProvider` and `OpenAiCompatibleProvider` already live; namespaces stay `Lyntai.Providers.<Name>`
-inside the one assembly (D31), so nothing an author writes changes. It earns its own
+inside the one assembly (D25), so nothing an author writes changes. It earns its own
 `src/Lyntai.Providers.<Name>/` package (ref Core only, never adapter→adapter) only when it drags a native
 runtime, a platform-specific API, or a dependency a consumer might refuse — `Lyntai.Providers.Local` is the
 worked example. When it does earn one, scaffold it with `node devtools/dev.mjs new-package <Lyntai.X>`: a
 package must enter NINE registries, `check-packages` gates them, and the misses are silent (no
 `ApiSurfaceTests` entry means no API gate at all). Never register them by hand — and remember a published
-package id can never be freed (D29), so a needless one is permanent. Implement:
+package id can never be freed (D23), so a needless one is permanent. Implement:
 
+<!-- compile-skip: a provider signature with its constructor parameters elided (`/* options, factory */`) -->
 ```csharp
 public sealed class MyProvider(string id, /* options, factory */, LyntaiOptions options) : ILlmProvider
 {
@@ -112,7 +114,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   credentials is `NotConfigured`, not `AuthFailed` — and the difference is not cosmetic, because routing acts
   on it: `AuthFailed` BENCHES the provider for the cooldown window, so a backend the consumer merely listed
   without configuring would be penalised on every first attempt for a fact the platform knew before calling,
-  while `NotConfigured` skips it blamelessly and lets a host offer setup (`docs/DECISIONS.md` D38). The rule is
+  while `NotConfigured` skips it blamelessly and lets a host offer setup (`docs/DECISIONS.md` D31). The rule is
   **not** "a key is required": an OpenAI-compatible endpoint run locally (LM Studio, vLLM, Ollama)
   legitimately needs none, so "no key" cannot mean unconfigured on its own — only "no key AND the server
   demanded one" does. A CLI/session-authenticated dialect has no `hasCredentials` fact at all and correctly
@@ -130,6 +132,7 @@ Non-negotiables (see `llm-and-router.md` for why — the router trusts every pro
   kill-tree). Never build a provider that shells out directly.
 
 Builder extension (in the adapter package, extending Core's `LyntaiBuilder`):
+<!-- compile-skip: an extension-method sketch with its registration arguments elided -->
 ```csharp
 public static LyntaiBuilder AddMyProvider(this LyntaiBuilder b, string id, Action<MyOptions> cfg)
 {
@@ -156,7 +159,7 @@ one-line `builder.Add<Name>Provider(...)` shim over `AddGenerationProvider(sp =>
 `IGenerationStreamProvider` has no implementer. The `Lyntai.Generation` **NAMESPACE** is a different thing:
 `GenerationResult`, `GenerationVerdictClassifier`, the routing policy and the rest of the contracts ship
 inside mandatory `Lyntai.Core` and carry the **FULL** SemVer promise. Read CLAUDE.md's reason clause before
-claiming the exemption; when in doubt apply the full promise — `docs/DECISIONS.md` D43 did exactly that for a
+claiming the exemption; when in doubt apply the full promise — `docs/DECISIONS.md` D36 did exactly that for a
 verdict-translation fix and treated it as major-bump material.
 
 What a backend implements:
@@ -263,13 +266,14 @@ For a CLI provider whose model runs its OWN agent loop and can only reach custom
 app's **in-process `ITool`s** on a loopback server Lyntai stands up (`McpEndpoint`, HTTP-only, bearer token,
 torn down with the `CliToolSession`). The other, `AgentSessionOptions.McpServers` / `AgentMcpServer`, points a
 CLI at MCP servers the **app already runs or launches** — stdio as well as HTTP — and is rendered per backend
-by `ClaudeMcpConfig` / `CodexMcpConfig` rather than by an `IMcpCliDialect` (`docs/DECISIONS.md` **D47**). They
+by `ClaudeMcpConfig` / `CodexMcpConfig` rather than by an `IMcpCliDialect` (`docs/DECISIONS.md` **D38**). They
 compose: an app can do both in one turn. If you are adding a CLI, you may owe BOTH — a dialect here, and a
 rendering there.
 `Lyntai.Tools.Mcp.Hosting` already owns everything neutral: the ephemeral loopback MCP server, bearer
 token, temp-file writing, teardown, and the no-tools short-circuit. You supply only the flags and the
 config-file shape.
 
+<!-- compile-skip: the config-file payload is elided (`/* JSON or TOML, from ctx.Endpoint */`) -->
 ```csharp
 public sealed class MyCliMcpDialect : IMcpCliDialect
 {
@@ -292,8 +296,8 @@ Load-bearing details:
   it drags the MCP SDK (`ModelContextProtocol.Core`) into every app using the plain provider, and the
   hosting package opts out of AOT for its dynamic-JSON tool marshaling — so the provider would lose
   `IsAotCompatible` too. That is the exact thing the `ICliToolProvisioner` seam exists to prevent
-  (`docs/DECISIONS.md` D23). _The original cost was heavier — a framework reference on
-  `Microsoft.AspNetCore.App` — until 2.0.1 moved the host onto `System.Net.HttpListener` (D31). The
+  (`docs/DECISIONS.md` D17). _The original cost was heavier — a framework reference on
+  `Microsoft.AspNetCore.App` — until 2.0.1 moved the host onto `System.Net.HttpListener` (D25). The
   dependency shrank; the rule did not change._
 - **Derive names from `ctx.Endpoint.ServerName`**, never hard-code `"lyntai"` — it's configurable via
   `McpToolHostOptions`, and CLIs that build permission patterns from it (`mcp__<server>__*`) break if the

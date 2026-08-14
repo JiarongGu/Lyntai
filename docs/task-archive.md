@@ -491,7 +491,7 @@ the adopting app. Lyntai renders / stores / versions / scores; the app owns its 
 > parser is a new stateful `StreamJsonAgentReader`, not an edit to the static `StreamJsonParser`).
 > Build clean · 725 tests · e2e 3/3 · leak scan clean.
 >
-> **Design contract:** `docs/2026-07-19-agent-session-design.md` — the neutral surface, the OpenAI
+> **Design contract:** `local/superpowers/specs/2026-07-19-agent-session-design.md` — the neutral surface, the OpenAI
 > Responses API neutrality stress-test that shaped it, the `IAgentSession`-vs-`IToolLoop` boundary, and
 > the three resolved decisions.
 
@@ -1034,7 +1034,7 @@ is and wires only Lyntai's LEARNED memory (the auto-improvement layer) alongside
 facts live in the repo, not in Claude Code's global auto-memory. Added `.claude/rules/no-global-memory.md`
 (+ `minimise-bash-prompts.md`, `no-tmp-for-repo-files.md`, `TEMPLATE.md`) and the `RULES_INDEX.md` loading
 model / evolve-the-system / invariants; migrated the 9 `lyntai-*` global memories into `docs/DECISIONS.md`
-(D6/D7 already covered two, D10–D15 added the rest).
+(the `ILlmClient` front door/the `lyntai_` prefix rule already covered two, D3–the `StorageFeature` selective-migration design added the rest).
 
 - **M1 · Clear global auto-memory of project facts** — ✅ done 2026-07-22. Deleted the 9 migrated
   `lyntai-*` files from this project's global auto-memory dir and reset its `MEMORY.md` to a redirect note
@@ -1046,7 +1046,7 @@ model / evolve-the-system / invariants; migrated the 9 `lyntai-*` global memorie
 ## Part 14 — App-configurable memory retention policy (multi-strategy) (2026-07-22)
 
 ✅ done 2026-07-22 — `IMemoryStore` size management is now an app-configurable `MemoryRetentionPolicy`
-(DECISIONS D16), mirroring the configurable `RoutingPolicy`. Requirement (user): "multi-way / configurable
+(DECISIONS — the configurable memory-retention policy), mirroring the configurable `RoutingPolicy`. Requirement (user): "multi-way / configurable
 so the app has control", production-grade, drawing on existing agent-memory systems (LangChain
 buffer-window/token-buffer, MemGPT eviction).
 
@@ -1064,12 +1064,12 @@ buffer-window/token-buffer, MemGPT eviction).
 
 ## Part 15 — Opt-in memory-prune cron job (2026-07-22)
 
-✅ done 2026-07-22 — Follow-on to Part 14 (DECISIONS D16). On-write eviction only bounds scopes you keep
+✅ done 2026-07-22 — Follow-on to Part 14 (DECISIONS — the configurable memory-retention policy). On-write eviction only bounds scopes you keep
 writing to; a cold `(taskKey, scope)` accumulates expired rows. `builder.AddMemoryPruneJob(cron,
 olderThan?, taskKey?)` registers an internal `MemoryPruneJobHandler` (`IJobHandler` over
 `IMemoryStore.PruneAsync`, idempotent) + a cron `JobSchedule` on the EXISTING durable-jobs + cron
 machinery — Lyntai owns the prune work, the app owns the pump (no self-run timer; consistent with the "no
-host" boundary D9/D14). Handler + payload record are internal (only `AddMemoryPruneJob` is public surface).
+host" boundary the platform-kit direction/the platform-kit direction). Handler + payload record are internal (only `AddMemoryPruneJob` is public surface).
 TDD'd (handler parses payload / reaps; registration wires one handler + N schedules; bad cron throws).
 Decided WITH the user: needed because this is a generic library used across many apps (unbounded cold-scope
 growth is the real case).
@@ -1091,7 +1091,7 @@ dedup landed in `f6fc301`. Per the user's "complete them all", the deferred/refu
 - **R3 · BYO paging caveat** — ✅ done. The `CountThreadsAsync`/`ListThreadsPageAsync` XML docs now WARN that
   the default materializes the whole table (a naive fallback) and a BYO store must override for cheapness.
 - **R4 · `MemoryCapPerScope = 0`** — ✅ resolved-as-documented. 0 = uncapped (≤0 = no cap is the policy's
-  stated semantics); a fringe change from the old "cap 0 = store nothing", noted in DECISIONS D16.
+  stated semantics); a fringe change from the old "cap 0 = store nothing", noted in DECISIONS — the configurable memory-retention policy.
 - **R5 · Refuted findings** — ✅ recorded, no change. StreamJsonAgentReader text-buffering (needed for the
   empty-terminal fallback) and MemoryPruneRequest-vs-JsonArgs (JsonArgs is shaped for tool args) were refuted
   by the review's own verifier.
@@ -1264,8 +1264,8 @@ Then a **round-2 adversarial review of the pass's own diff** (48-agent workflow)
 round 1 introduced — composed-prompt gating, placeholder key-grammar narrowing, stdin drain-liveness,
 thrown-Refused terminality, inert streamed-usage fix — all fixed with regression tests, plus
 case-insensitive consumer identity end-to-end and the shared claim predicate. Deferred findings → the
-`TASKS.md` backlog (with reasons); rejected findings → `docs/DECISIONS.md` D18; the JSON-approach
-rationale → D17. Nine commits, `verify` green throughout (954 tests · e2e 3/3 · leak scan).
+`TASKS.md` backlog (with reasons); rejected findings → the hardening pass's own triage (git history); the JSON-approach
+rationale → the hand-walked-JSON rule. Nine commits, `verify` green throughout (954 tests · e2e 3/3 · leak scan).
 **Shipped in 0.30.0.**
 
 ---
@@ -1290,7 +1290,7 @@ part of it:
   `lower()`). Commit `ac519fa`.
 
 ✅ done 2026-07-27 — Also in the part (not `TASKS.md` items): push/PR CI running the full `verify` gate
-[later removed the same day at the owner's direction — process is fully manual, see `DECISIONS.md` D20];
+[later removed the same day at the owner's direction — process is fully manual, see `DECISIONS.md` the manual-verification call];
 SourceLink/deterministic CI builds; the design-contract reconciliation amendment; and the **final API
 sign-off pass** — an 18-finding audit of the whole public surface, closed by a batch of pre-1.0 breaking
 renames/reshapes (`UseDefaultCandidates`, `SchemaMigration` enum, required `AddSecretVault` key +
@@ -1300,7 +1300,7 @@ additive read paths (`IKeyValueStore.ListKeysAsync`, `IJobQueue.GetAsync`/`ListA
 `AddScorer(factory)`/`AddEmbeddings<T>`), an ApiSurface renderer upgrade
 (sealed/abstract/static/required) with all 11 baselines regenerated deliberately, and a real
 cross-backend fix caught by the new contract tests (SQLite `ListKeysAsync` used case-insensitive `LIKE`).
-Decisions → `docs/DECISIONS.md` D19; user-visible detail → CHANGELOG Unreleased.
+Decisions → the 1.0 API sign-off pass (git history); user-visible detail → CHANGELOG Unreleased.
 
 ---
 
@@ -1379,7 +1379,7 @@ unreleased CMEM3 `Title` and folded the released `Source` into the new field:
   made QUERYABLE by a plain relational `lyntai_curated_meta(memory_id, key, value)` index — chosen over
   Postgres `jsonb` so filtering is IDENTICAL across all backends (no JSON-function divergence). The
   purpose-built `Source` (released) and `Title` (unreleased CMEM3) columns are RETIRED into `Metadata`.
-  Breaking, inside the pre-1.0 D19 window; design in `docs/2026-07-27-curated-metadata-design.md`.
+  Breaking, inside the pre-1.0 window; design in `local/superpowers/specs/2026-07-27-curated-metadata-design.md`.
   ✅ done 2026-07-27 — Outcome: `CuratedMemory` drops `Source`/`Title`, gains
   `IReadOnlyDictionary<string,string>? Metadata`; `AddAsync`/`UpdateAsync` drop the `source`/`title` params
   and gain `metadata` (Update REPLACES the whole map; null = unchanged, empty = clear); `ListAsync`/
@@ -1482,7 +1482,7 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   ✅ closed 2026-07-27 — **REJECTED after weighing** (the weighing was the open question): the move
   requires making 7–8 materialization DTOs PUBLIC (adapters can't see Core internals) — surface bloat
   against the direction of the 1.0 sign-off — for duplication rated inert; drift fails the cross-backend
-  contract tests immediately. Rationale recorded in `docs/DECISIONS.md` D18; revisit only if a third
+  contract tests immediately. Rationale recorded in the hardening pass's own triage (git history); revisit only if a third
   relational backend materializes.
 
 - [x] **T11 — convert the storage contract classes to abstract-class-with-[Fact]s** so a backend can't
@@ -1567,7 +1567,7 @@ adapter at all. The genuinely vendor-specific slice was ~35 lines of strings (th
 `--mcp-config`/`--settings`/`--allowedTools` flags, the `mcpServers` and `permissions.allow` JSON shapes,
 the `mcp__<server>__*` pattern). It also read as an asymmetry: `Lyntai.Tools.Mcp` is the INBOUND direction
 and is named for the concept; this was the OUTBOUND direction and was named for a consumer. Rationale +
-the constraints that shaped the split are `docs/DECISIONS.md` D23._
+the constraints that shaped the split are the 1.0 API sign-off pass (git history)._
 
 - [x] **MCPH1 — extract `Lyntai.Tools.Mcp.Hosting`** — a new Core-only package carrying the Kestrel +
   `ModelContextProtocol.AspNetCore` weight, owning the neutral lifecycle (bearer token, host start/stop,
@@ -1593,9 +1593,9 @@ the constraints that shaped the split are `docs/DECISIONS.md` D23._
   what the `ICliToolProvisioner` seam exists to prevent, so only the dialect moved, never the host.
   `Lyntai.Providers.ClaudeCli.Mcp` first shrank to a one-line composition shim, then was **deleted
   outright in a follow-up** — a package id worth only `new ClaudeCliMcpDialect()` of typing doesn't earn
-  its versioning + doc footprint, and removing it restores D3's never-adapter→adapter to zero exceptions.
+  its versioning + doc footprint, and removing it restores the adapters-depend-only-on-Core rule's never-adapter→adapter to zero exceptions.
   Callers use `AddMcpToolHost(new ClaudeCliMcpDialect())`. Breaking, shipped as a MINOR under the new
-  **D24** amendment (all consumers are first-party today; strict SemVer resumes on the first third-party
+  the deferred-SemVer-strictness rule amendment (all consumers are first-party today; strict SemVer resumes on the first third-party
   dependant).
 - [x] **MCPH4 — keyed `ICliToolProvisioner` resolution** — the real defect behind the naming issue.
   ✅ done 2026-07-29 — **Outcome:** `AddMcpToolHost` registers keyed on `IMcpCliDialect.ProviderId`, with
@@ -1609,9 +1609,9 @@ the constraints that shaped the split are `docs/DECISIONS.md` D23._
 `IMcpCliDialect`/`McpEndpoint`/`McpCliContext`, and `Lyntai.Providers.ClaudeCli.Mcp` gone — 11 packable
 projects, down one from 1.0. The relocation itself touched no public surface (every moved type was
 `internal`); the only break is the removed package + `AddClaudeCliMcpTools`, migrated by
-`AddMcpToolHost(new ClaudeCliMcpDialect())`. Version consequence settled by **D24** (documented breaks
+`AddMcpToolHost(new ClaudeCliMcpDialect())`. Version consequence settled by the deferred-SemVer-strictness rule (documented breaks
 may ship in a minor while all consumers are first-party); the bump itself is the release pipeline's job.
-Docs: DECISIONS D23 + D24 (+ a forward pointer on D22), CHANGELOG header amendment and an Unreleased
+Docs: the 1.0 sign-off decisions (git history), CHANGELOG header amendment and an Unreleased
 **Breaking** entry with a migration diff, README (generic host + worked custom-dialect example), AOT.md,
 ROADMAP, CLAUDE.md, both design docs, and `.claude/knowledge/extending-lyntai.md` gained a fifth
 extension point. `verify` green on both commits.
@@ -1808,7 +1808,7 @@ a probe uses would kill a live flow), and `ct` abandons the wait. **Measured the
 (`claude auth --help`, `auth status --help`, `auth login --help`, and a shape-only dump of the real
 `auth status --json`): the document is `{loggedIn, authMethod, apiProvider, email, orgId, orgName,
 subscriptionType}`, so `Method`←`authMethod`/`apiProvider` and `Account`←`email`/`orgName`. Parsing is
-`ClaudeAuthStatusJson` (internal, hand-walked over the shared `JsonExtract.TryParseObject` primitive per D17,
+`ClaudeAuthStatusJson` (internal, hand-walked over the shared `JsonExtract.TryParseObject` primitive per the hand-walked-JSON rule,
 tolerant of a few key spellings) — split from the spawn exactly as the task asked, so every shape is
 unit-tested without a process. Three semantics worth keeping: the parsed state **wins over the exit code** (a
 signed-out CLI may report state and exit non-zero — an answer, not a broken backend); the whole body is
@@ -1826,7 +1826,7 @@ new tests (`ClaudeCliAuthTests` + a CLI4 section in `ClaudeCliProbeTests`), incl
 npm-shim coverage; the provider stub answers `install` / `auth *` before reading stdin
 (`LYNTAI_STUB_AUTH=out` for a signed-out state). Both API baselines updated (purely additive: Core +2
 interfaces +4 records, ClaudeCli +4 methods). Docs: CHANGELOG Unreleased, README (section renamed "Backend
-self-maintenance: version · upgrade · pinned install · auth"), **`docs/DECISIONS.md` D26** — which settles
+self-maintenance: version · upgrade · pinned install · auth"), **`docs/DECISIONS.md` — the backend self-maintenance boundary** — which settles
 CLI4's open question in one place: driving an already-present backend's own installer is IN (it is the update
 path with an argument), while credential storage, binary provisioning and guessing stay OUT. `pitfalls.md`
 gained four entries (pin a flag so an old CLI fails loudly; exit code vs. machine-readable answer; `Tail()`
@@ -1889,7 +1889,7 @@ never released. A third check blocks INTRODUCING a `## X.Y.Z` heading (ignoring 
 removal, so a whole-file rewrap is fine). A newly ADDED props file has no removal line, so seeding a repo is
 never blocked. `release.yml`'s commit step now sets `LYNTAI_RELEASE: '1'` (belt-and-braces — `core.hooksPath`
 is local config, so hooks aren't installed on a fresh runner). Docs: CHANGELOG Unreleased,
-**`docs/DECISIONS.md` D25**, `.claude/rules/task-lifecycle.md` (never hand-edit either), `CLAUDE.md` dev-loop
+**`docs/DECISIONS.md` — the release-pipeline version-authorship rule**, `.claude/rules/task-lifecycle.md` (never hand-edit either), `CLAUDE.md` dev-loop
 list.
 
 ---
@@ -1918,7 +1918,7 @@ members byte-identical (the only ClaudeCli addition was the new public dialect).
 removed: the version-line parser, prompt flattening and command tokenizer are now single copies in Core, and
 the claude forwarders for the first two were DELETED (their tests retargeted to the Core primitives with
 byte-identical assertions) rather than left as aliases. 21 engine tests drive the generic contract through a
-`FakeCliDialect`, so they can't pass by accident via claude's behaviour. Recorded as `docs/DECISIONS.md` **D27**.
+`FakeCliDialect`, so they can't pass by accident via claude's behaviour. Recorded as `docs/DECISIONS.md` — the `CliProviderEngine`-plus-dialect rule.
 
 **The second implementer immediately earned its keep — `Lyntai.Providers.CodexCli`** (new package, id
 `codex-cli`), written against codex-cli 0.146.0 **measured** with `--help` plus one real successful turn (via
@@ -1939,12 +1939,12 @@ measured-and-honoured: `logout` is top-level here, not `auth logout`; completion
 `--sandbox read-only` (a text completion must not edit the caller's disk), raisable via
 `CodexCliDialect.SandboxMode`; and codex's credential-reading login modes (`--with-api-key`,
 `--with-access-token`, which read a SECRET from stdin) are refused by design — Lyntai never carries a
-credential (D26). A separate `devtools/scripts/codex-stub.mjs` speaks codex's JSONL (a stub faking both CLIs
+credential (the backend self-maintenance boundary). A separate `devtools/scripts/codex-stub.mjs` speaks codex's JSONL (a stub faking both CLIs
 would stop being a faithful model of either), and the 37 codex tests were **mutation-checked**: sabotaging
 `turn.failed` → Ignored and dropping `--skip-git-repo-check` failed exactly the 5 tests that should fail
 (they were written after the implementation, so passing on the first run proved little on its own).
 
-**Portable installs (D28):** `command` + `environment` are now parameters on `AddClaudeCliProvider` /
+**Portable installs (the portable-CLI-backend allowance):** `command` + `environment` are now parameters on `AddClaudeCliProvider` /
 `AddClaudeCliAgentSession` / `AddCodexCliProvider` (previously the ONLY way to point at a non-PATH binary was a
 process-wide env var — a real gap for an app shipping its own copy), the environment reaches MAINTENANCE spawns
 too (else a probe/auth check reports the global install's state while completions use the portable one), and
@@ -1953,10 +1953,10 @@ extensionless launcher with a spawnable sibling — the CLI2 shim shape) instead
 undeployed portable copy makes the router skip the candidate rather than surface as a failed turn.
 
 Surface: Core + ClaudeCli baselines updated (additions plus optional-parameter extensions — source-compatible,
-NOT binary-compatible, flagged in the CHANGELOG under D24), CodexCli baseline seeded; package registered in
+NOT binary-compatible, flagged in the CHANGELOG under the deferred-SemVer-strictness rule), CodexCli baseline seeded; package registered in
 `Lyntai.slnx`, `project.config.mjs`, `ApiSurfaceTests` and the test project. Docs: CHANGELOG, README (packages
 table + a rewritten "CLI backends: claude, codex, or your own" section incl. the portable wiring),
-`DECISIONS.md` D27/D28, `extending-lyntai.md` (path A2 = write a dialect), the `add-provider` skill (a
+`DECISIONS.md` the `CliProviderEngine`-plus-dialect rule/the portable-CLI-backend allowance, `extending-lyntai.md` (path A2 = write a dialect), the `add-provider` skill (a
 CLI-backend checklist that starts with "measure the CLI first"), `pitfalls.md` (+5 entries), `dev-conventions.md`,
 `CLAUDE.md`. `verify` green (build · 1163 tests · e2e 3/3 · leak scan).
 
@@ -1971,7 +1971,7 @@ was driven by the same work._
 
 - [x] **MED1 — a generation domain as a Lyntai platform** (filed as `IMediaProvider`/`IVideoProvider`; see the
   deviation below). Plans of record: `docs/2026-08-04-generation-platform-plan.md` (the platform, Plans 1–7)
-  and `docs/2026-08-04-restructure-2.0.1-plan.md` (the package graph).
+  and `local/superpowers/plans/2026-08-04-restructure-2.0.1-plan.md` (the package graph).
 
 ✅ done 2026-08-04 (Plans 1–2 + the restructure; Plans 3–7 remain open) — **Outcome:** research changed the
 contract before any code was written, and that is the part worth keeping. Measured across the August-2026
@@ -1995,7 +1995,7 @@ change, and no `Custom` constant was added because an open string already accept
 first-class** — `artifact.ToInput(role)` carries bytes-or-URI into the next stage (3d → image → video), tested
 rather than assumed, though the pipeline RUNNER is deferred to Plan 7 until ≥2 real backends exist. (4) Media
 keeps its own `GenerationVerdict` but **shares the failure corpus** (`GenerationVerdictClassifier` delegates to
-`LlmVerdictClassifier`), so there is one definition of what a 429 means (D27's rule against a second copy).
+`LlmVerdictClassifier`), so there is one definition of what a 429 means (the `CliProviderEngine`-plus-dialect rule's rule against a second copy).
 (5) Fallback is a **policy**, not a law — `GenerationRoutingPolicy` defaults to §6 semantics but a host pairing
 a hosted backend with a permissive local one can set `On(Refused, Advance)`; that was the owner's R18
 requirement, and it is the host's call, not the library's.
@@ -2015,7 +2015,7 @@ ComfyUI, because every hosted model enforces its provider's policy and a host ca
 (`local/r18-backend-notes.md`, gitignored, holds those specifics — R18 support is a requirement of the
 platform, not a goal of it).
 
-**The 2.0.1 restructure** (`docs/DECISIONS.md` D31 + amendment): packages are split by **dependency
+**The 2.0.1 restructure** (`docs/DECISIONS.md` — the dependency-footprint package split + amendment): packages are split by **dependency
 footprint**, never by vendor or size. `Lyntai.Providers.ClaudeCli`/`.CodexCli`/`.OpenAiCompatible` merged into
 `Lyntai.Providers.Default`; `Lyntai.Generation` + `.Http` folded into Core and `Providers.Default` (both had
 zero dependencies, so their boundaries isolated nothing); a `Lyntai` metapackage added for one-line installs;
@@ -2024,7 +2024,7 @@ zero dependencies, so their boundaries isolated nothing); a `Lyntai` metapackage
 join the metapackage while Core stays free of the MCP SDK's pinned MEAI abstraction. 14 ids → 10 packages + a
 metapackage. **No namespace, type or API changed** — every consumer edit is one `PackageReference` line — and
 each fold was verified as an exact baseline UNION (byte-identical added lines, zero removals) with **0 test
-files edited** across 1252 tests, which is what proves nothing moved. Two MCP findings recorded in D31 because
+files edited** across 1252 tests, which is what proves nothing moved. Two MCP findings recorded in the dependency-footprint package split because
 they are easy to re-break: the Streamable HTTP client needs the `Mcp-Session-Id` response header to pass
 `initialize`, and requests must be handled CONCURRENTLY (the client holds a long-lived GET SSE stream open while
 POSTing, so a sequential accept loop deadlocks — it presented as a 60s "Initialization timed out" while a raw
@@ -2084,7 +2084,7 @@ runs for real — at the owner's direction ("okay to not test fully today; we ar
 `ITool`s, and that registration is the ENTIRE coupling between the generation and LLM domains: neither
 references the other's concrete types, and because the LLM side already knows `ITool`, they work in the
 in-process tool loop *and* — with `AddMcpToolHost(...)` — for a CLI agent running its own loop over MCP (the
-owner's loose-coupling requirement, D30). Five tools rather than one because a model must DISCOVER before it can
+owner's loose-coupling requirement, the generation-as-its-own-platform decision). Five tools rather than one because a model must DISCOVER before it can
 choose: `generate_backends` reports what exists and what each backend supports, `generate` is inline, and
 `generate_submit` → `generate_status` → `generate_fetch` is the asynchronous path a video render actually needs
 (submitting to an inline-only backend returns one clear sentence, not a crash). **Bytes never enter an
@@ -2092,7 +2092,7 @@ observation** — a base64 image would blow the context window for nothing: arti
 `IGenerationArtifactSink` when one is registered, otherwise the observation reports type/size/URI. Bad arguments
 come back readable so a model can correct itself, and unknown arguments pass through as backend options so a
 model can use a backend's own knobs without Lyntai enumerating them. Lives in Core (needs only the `ITool`
-contract already there, D31). One trap recorded: inside `namespace Lyntai`, a relative `Tools.X` binds to
+contract already there, the dependency-footprint package split). One trap recorded: inside `namespace Lyntai`, a relative `Tools.X` binds to
 `Lyntai.Tools` (the MCP package), so the registrations are fully qualified. 12 tests; `verify` green
 (1308 tests).
 
@@ -2214,12 +2214,12 @@ removed or re-signed. 16 tests in `tests/Lyntai.Tests/Generation/GenerationTimeo
 
 _Not a planned backlog item: this came out of the owner asking, before cutting 2.0.1, whether the library was
 "good enough for a production grade library" — and then, as the package count grew, how bundling should be
-decided at all. Recorded here because the answers became load-bearing rules (D32–D34) and four build gates._
+decided at all. Recorded here because the answers became load-bearing rules (the bundle dependency budget–the release-cadence package split) and four build gates._
 
 - [x] **A pre-release audit of the shipped artifact, not the repo.**
-- [x] **A bundle membership policy (D32) + a dependency-budget gate.**
-- [x] **Granularity settled (D33) + an inventory gate + a package scaffolder.**
-- [x] **The media backends split out (D34) and generation marked EXPERIMENTAL.**
+- [x] **A bundle membership policy (the bundle dependency budget) + a dependency-budget gate.**
+- [x] **Granularity settled (the many-small-packages shape) + an inventory gate + a package scaffolder.**
+- [x] **The media backends split out (the release-cadence package split) and generation marked EXPERIMENTAL.**
 
 ✅ done 2026-08-04 — **Outcome:** the audit found six real defects, and the most serious was self-inflicted:
 `Lyntai.Providers.Default` stamped `IsTrimmable` into its assembly — a promise to a consumer's trimmer — while
@@ -2232,15 +2232,15 @@ pins left by the ASP.NET removal.
 
 The systemic half mattered more than any single fix. **`check-warnings`**: a warning in a published project now
 fails `verify`, because an unfailed IL2026 is a false trim claim shipping to consumers. **`check-bundle`**: the
-bundle's third-party closure cannot grow without a recorded decision (D32 — membership is a budget, since an
+bundle's third-party closure cannot grow without a recorded decision (the bundle dependency budget — membership is a budget, since an
 untrimmed publish copies the whole graph and analyses nothing; measured at 3.2 MB for an app that calls only
 `AddLyntai`). **`check-packages`**: a package must appear in all nine registries, because the dangerous misses
-are silent — no `ApiSurfaceTests` entry means no API gate at all (D33). **`consumer-smoke`**: packs every
+are silent — no `ApiSurfaceTests` entry means no API gate at all (the many-small-packages shape). **`consumer-smoke`**: packs every
 package and then restores, builds and runs a fresh app against them, the only check that exercises what ships;
-run by hand it found two of the six defects. Plus **`new-package`**, so the granularity D33 settles on is paid
+run by hand it found two of the six defects. Plus **`new-package`**, so the granularity the many-small-packages shape settles on is paid
 for in tooling rather than in merging.
 
-Then the media backends left `Lyntai.Providers.Default` for their own `Lyntai.Generation` package (D34), a split
+Then the media backends left `Lyntai.Providers.Default` for their own `Lyntai.Generation` package (the release-cadence package split), a split
 justified by release CADENCE rather than dependency isolation — media is where the growth is, and every new
 backend would otherwise churn the package every chat consumer installs. Their namespaces were corrected in the
 same move (`Lyntai.Generation.Http` had contained a *subprocess* backend), which was only free because
@@ -2279,7 +2279,7 @@ itself), and five `Add*` shims covering every backend the package ships — the 
 takes `IProcessRunner` from DI rather than an `HttpClient`, since it spawns rather than calls. The URI overloads
 take `System.Uri` rather than `string` on purpose: two adjacent strings would reintroduce the exact
 transposition being fixed, and a wrong type is a compile error where a wrong string is a silent one. Reasoning
-in `docs/DECISIONS.md` **D35**.
+in `docs/DECISIONS.md` — the named-factories rule.
 
 **`GenerationArtifact` was checked and deliberately left alone** — the task asked, so the answer is recorded
 rather than left to a second round of guessing. Its `(MediaType, Data, Uri, Metadata)` layout has only one
@@ -2287,7 +2287,7 @@ same-typed pair, and transposing it requires explicitly passing `null` for the `
 is also no role-shaped silent degradation, since a wrong media type surfaces immediately and nothing branches on
 it. Factories there would be surface that doesn't earn its keep.
 
-**Writing the shims surfaced a real defect the task hadn't asked about** (`docs/DECISIONS.md` **D36**): every
+**Writing the shims surfaced a real defect the task hadn't asked about** (`docs/DECISIONS.md` — the BYO-lifetime rule): every
 HTTP generation backend did `using var http = httpFactory()` — it **disposed the client it was handed**. Correct
 for a factory that MAKES a client per call, which is what the backends' own tests pass, and wrong for the natural
 BYO lambda `_ => _myClient`: the first render succeeds and the **second** throws `ObjectDisposedException`. The
@@ -2322,14 +2322,14 @@ never resolves, so a wrong dependency group in its nuspec would show up nowhere 
 ## Part 37 — provider lifetime: a pool keyed on the configuration, for externally-owned settings (2026-08-05)
 
 _Filed as GEN12 by a consuming app whose backend configuration is owned by its end users, reframed twice, and
-finally built against a written design (`docs/superpowers/specs/2026-08-05-provider-pool-design.md`, approved
+finally built against a written design (`local/superpowers/specs/2026-08-05-provider-pool-design.md`, approved
 2026-08-05) rather than against the task text — because the task text turned out to be wrong about the
-mechanism. Nine tasks, each committed separately; the reasoning is `docs/DECISIONS.md` **D37**._
+mechanism. Nine tasks, each committed separately; the reasoning is `docs/DECISIONS.md` — the configuration-keyed provider lifetime._
 
 - [x] **GEN12 — own the provider POOL: keep one instance per configuration and deprecate it when the
   configuration changes.** Raised 2026-08-04, reframed twice; this is the version to build against.
 
-  _**Design of record: `docs/superpowers/specs/2026-08-05-provider-pool-design.md`** (approved 2026-08-05).
+  _**Design of record: `local/superpowers/specs/2026-08-05-provider-pool-design.md`** (approved 2026-08-05).
   It supersedes the surface sketched below in three ways worth knowing before reading further: the pool holds
   MANY live entries (several configurations of one backend run concurrently, from a source that keeps
   changing), pooling itself is a registered STRATEGY (`Bounded` / `Transient` / BYO) so a consumer wanting a
@@ -2433,7 +2433,7 @@ _Restoring the packed bundle into a fresh app and compiling against the 2.0.1 su
 references) proved the install story works, and exposed two asymmetries between the domains. Neither blocks the
 release; both are additive._
 
-_The generation wiring helpers landed 2026-08-04 — see Part 36 above and `docs/DECISIONS.md` D35/D36. The
+_The generation wiring helpers landed 2026-08-04 — see Part 36 above and `docs/DECISIONS.md` — the named-factories rule/the BYO-lifetime rule. The
 verdict half closed 2026-08-05, emptying the part._
 
 - [x] **LLM-side parity for the no-credentials verdict** — `GenerationVerdictClassifier.FromHttpFailure(status,
@@ -2459,7 +2459,7 @@ verdict half closed 2026-08-05, emptying the part._
   - **`RoutingPolicy.ActionFor` falls back to `PenalizeAndAdvance`**, so adding the member WITHOUT the policy
     entry would have produced a different wrong outcome (still counting toward the dead-host threshold) rather
     than a fix. The two must always move together — noted in the policy source.
-  - **The rule is stated twice, deliberately, not shared.** `docs/DECISIONS.md` D30 keeps the pattern CORPUS
+  - **The rule is stated twice, deliberately, not shared.** `docs/DECISIONS.md` — the generation-as-its-own-platform decision keeps the pattern CORPUS
     single-sourced in `LlmVerdictClassifier` (there is one answer to "what does a 429 look like"), but this
     two-term promotion reaches different populations: every LLM backend that authenticates by login SESSION
     rather than a supplied key — the CLI dialects, the primary seam — classifies from error text and has no
@@ -2484,7 +2484,7 @@ verdict half closed 2026-08-05, emptying the part._
   so its 401 now says `(not configured: no ApiKey)` when no key was supplied. Message only.
 
   `verify` green at 7 gates, 1486 tests, e2e 3/3, 0 warnings. Public surface: additive only. Reasoning
-  recorded as `docs/DECISIONS.md` **D38**; the `Unsupported` translation gap found alongside is filed as
+  recorded as `docs/DECISIONS.md` — the blameless-verdict rule; the `Unsupported` translation gap found alongside is filed as
   Part 38 in `TASKS.md`, deliberately not fixed here.
 
 ---
@@ -2492,14 +2492,14 @@ verdict half closed 2026-08-05, emptying the part._
 ## Part 25 — post-1.0 additive ergonomics from the 1.0 API review (2026-08-05)
 
 _Additive / non-breaking items surfaced by the 1.0 adversarial API review + consumer-usage review (the
-working record was `devtools/_review/*`; rejects + rationale are in `docs/DECISIONS.md` D21). Worked as one
+working record was `devtools/_review/*`; rejects + rationale are in the 1.0 pre-freeze API review (git history)). Worked as one
 pass because they were all small and all found by the same review. Shape decisions →
-`docs/DECISIONS.md` **D39**. The non-additive remainder of the curated-memory item stays OPEN in `TASKS.md`._
+`docs/DECISIONS.md` — the category-predicate rule. The non-additive remainder of the curated-memory item stays OPEN in `TASKS.md`._
 
 - [x] **verdict helpers** — `reply.IsOk()` / `reply.IsRateLimited()` extension(s) to cut the 3-branch
   `LlmVerdict` pattern at call sites.
   ✅ done 2026-08-05 — Outcome: shipped as `LlmVerdictExtensions.IsOk()` / `IsTransient()` on the ENUM rather
-  than as per-verdict methods on `LlmReply`. Two reasons, both about growth (D39): the enum grows —
+  than as per-verdict methods on `LlmReply`. Two reasons, both about growth (the category-predicate rule): the enum grows —
   `NotConfigured` was appended after the freeze — so a helper per member would owe a public addition every
   time while leaving the newest verdict the only one without one, and five released types carry a verdict, so
   an extension on the enum is one definition instead of five. `IsTransient()` answers "may the SAME request
@@ -2508,7 +2508,7 @@ pass because they were all small and all found by the same review. Shape decisio
   `RoutingPolicy` — that table answers what the ROUTER does and gives `RateLimited`/`AuthFailed` the same
   action, which is the one distinction that matters here. Pinned by
   `LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient`, which asserts the CLASSIFICATION
-  rather than membership in a list, so a new verdict cannot be greened by appending a name — the D38 "the
+  rather than membership in a list, so a new verdict cannot be greened by appending a name — the the blameless-verdict rule "the
   enum and the policy move together" obligation, now covering a third thing.
   **Review follow-up (same day):** `Failed` is also `FromErrorText`'s catch-all, so an unrecognized PERMANENT
   error reads transient. Reviewed and KEPT — `RoutingPolicy.Retry` already re-sends only for
@@ -2534,7 +2534,7 @@ pass because they were all small and all found by the same review. Shape decisio
   public surface contains zero anonymous objects (the only `new { }` in the tree are Dapper parameter objects
   inside the storage adapters, which never leave the assembly). The reflection the review saw was
   consumer-side code over its OWN hand-parsed CLI JSON; the gap there is a missing ADAPTER, not a missing
-  contract, and is already filed as Part 33's CLI11 (`CodexAgentSession`). Recorded in D39 so it is not
+  contract, and is already filed as Part 33's CLI11 (`CodexAgentSession`). Recorded in the category-predicate rule so it is not
   re-proposed as new surface.
 
 - [x] **curated-memory ergonomics** — a `Source`/metadata convenience accessor (apps unpack
@@ -2548,7 +2548,7 @@ pass because they were all small and all found by the same review. Shape decisio
   `kind` is already updatable (CMEM5), and making `taskKey`/`scope` updatable is a signature change on a
   released interface (not additive) with an unanswered semantics question attached — those fields are the
   DEDUP IDENTITY, so an in-place move can silently produce the duplicate `AddAsync(dedup: true)` promises not
-  to. See D39.
+  to. See the category-predicate rule.
 
 - [x] **member/type XML docs** — `ExtensionsAiProvider` public ctor, `LyntaiChatClientExtensions` type
   summary, `ClaudeCliProvider` interface members, `AddMcpTools` intended-shape doc.
@@ -2565,7 +2565,7 @@ pass because they were all small and all found by the same review. Shape decisio
   `MigrationRunnerService.MigrateUp` (SQLite + Postgres), for apps owning their schema under
   `SchemaMigration.None`.
   ✅ done 2026-08-05 — Outcome: shipped on both backends, deliberately **narrow and documented as such**
-  (`docs/DECISIONS.md` **D40**). FluentMigrator's runner is synchronous and takes no token, so the honest
+  (`docs/DECISIONS.md` — the honest `MigrateUpAsync` scope). FluentMigrator's runner is synchronous and takes no token, so the honest
   promise is exactly two things: the migration runs INLINE on the calling thread (never `Task.Run` — that
   would occupy a pool thread for the whole migration *and* still be uncancellable, i.e. worse than the sync
   call), and the token is honoured before any work (a cancelled token leaves the SQLite file uncreated /
@@ -2582,7 +2582,7 @@ pass because they were all small and all found by the same review. Shape decisio
   doesn't hand-construct `SqliteCuratedMemoryStore` / `SqliteVectorStore` / `MigratingConnectionFactory` /
   `HttpEmbedder` (a consumer does this today). Those concrete types STAY public for 1.0.
   ✅ done 2026-08-05 — Outcome: shipped as `b.AddSemanticMemory(…)` in **Core**, not as a storage-package
-  composite (`docs/DECISIONS.md` **D41**). Auditing the four named types showed each already had a builder
+  composite (`docs/DECISIONS.md` — the named semantic-memory registration). Auditing the four named types showed each already had a builder
   call — `UseSqliteStorage` (curated store; migrating factory via `SchemaMigration.OnFirstUse`),
   `UseSqliteVectorStore`, and `AddOpenAiCompatibleEmbedder`, the last two post-dating the consumer code the
   review looked at — so the hand-construction was stale rather than unavoidable. The real defect was that
@@ -2604,7 +2604,7 @@ pass because they were all small and all found by the same review. Shape decisio
   signal). All five Governance-backed helpers now fail at wiring time naming the call and the feature
   (`UsePostgresVectorStore` exempt — it creates its own schema lazily), order-independently via sentinel
   descriptors, with five tests in `FeatureToggleTests` including the reverse call order and a narrow-but-valid
-  subset that still works. See the D41 amendment.
+  subset that still works. See the the named semantic-memory registration amendment.
   **Whole-branch review (2026-08-05) — the guard was too broad and is now scoped to schema OWNERSHIP.** It
   checked the feature flags only, so it also fired under `SchemaMigration.None` and over an app-supplied
   `IDbConnectionFactory`, where Lyntai runs no migrations and the feature set therefore decides nothing —
@@ -2620,7 +2620,7 @@ pass because they were all small and all found by the same review. Shape decisio
 
 _Closes CLI11, filed 2026-08-04 by a consuming app that wanted to delete its hand-rolled codex integration
 and could not. The reasoning — and specifically WHICH half was built and why the other is marked rather than
-faked or withheld — is `docs/DECISIONS.md` **D42**. The measurement that remains is filed as **Part 41**
+faked or withheld — is `docs/DECISIONS.md` — the honest-subset agent-session call. The measurement that remains is filed as **Part 41**
 (CLI12/CLI13) in `TASKS.md` — renumbered from 39 on 2026-08-05, because THIS archive entry is Part 39 and the
 two collided._
 
@@ -2688,7 +2688,7 @@ cannot drift between the two readers). Both were **mutation-checked**: removing 
 Surface: additive only — `AddCodexCliAgentSession`, `CodexAgentSession`, `CodexAgentOptions`; baseline
 reviewed and updated. Both `Add*CliAgentSession` extensions now ALSO register keyed by provider id, so an app
 registering both no longer has the unkeyed resolve depend on registration order. Docs: `CHANGELOG.md`,
-`README.md` (a codex subsection stating plainly what it cannot do), `DECISIONS.md` **D42**, `pitfalls.md`
+`README.md` (a codex subsection stating plainly what it cannot do), `DECISIONS.md` the honest-subset agent-session call, `pitfalls.md`
 (+3 entries: the agent path's cwd trap, two seams over one wire format, and how to map a format you have not
 measured). Tests: 40, all labelled MEASURED or INFERRED in the source.
 
@@ -2700,7 +2700,7 @@ plan update, or a renamed `agent_message` each produce a *fabricated* `ToolCall`
 documented meaning rather than merely missing an event; and `IsFailedItem` returning `false` is a positive
 claim of success, not "unknown". Nothing loses payload and all of it sits inside the region already marked
 INFERRED, but the docs are what a consumer reads. The claim is now scoped everywhere it appeared
-(`CodexAgentReader`, `CodexAgentSession`, README, `CHANGELOG.md`, D42) to what the code actually guarantees —
+(`CodexAgentReader`, `CodexAgentSession`, README, `CHANGELOG.md`, the honest-subset agent-session call) to what the code actually guarantees —
 no payload invented or dropped, uncertainty confined to the tool-step half, **kind provisional / payload
 reliable** — and CLI12 now names the four items to confirm first, worst-case first. Also from that round:
 the public remarks no longer `<see cref>` an internal type; the no-terminal fallback distinguishes "printed
@@ -2714,7 +2714,7 @@ owner call.
 
 ## Part 38 — verdict-translation gaps found while closing Part 34 (2026-08-05)
 
-_Found while adding `LlmVerdict.NotConfigured` (`docs/DECISIONS.md` D38). Not fixed there: each changes
+_Found while adding `LlmVerdict.NotConfigured` (`docs/DECISIONS.md` — the blameless-verdict rule). Not fixed there: each changes
 RELEASED generation behaviour and deserves its own considered commit, exactly as the Part 34 verdict change
 did — not a rider on an unrelated one._
 
@@ -2734,7 +2734,7 @@ did — not a rider on an unrelated one._
   **Closed 2026-08-05. Outcome:** `LlmVerdict.Unsupported` now translates to `GenerationVerdict.Unsupported`,
   so a translated capability gap takes `Advance` and no longer counts toward the dead-host threshold — pinned
   by an end-to-end router test (a `DeadHostTracker(threshold: 1)` that would bench the backend after ONE
-  penalised failure still has it in rotation on the second run). Reasoning: `docs/DECISIONS.md` **D43**.
+  penalised failure still has it in rotation on the second run). Reasoning: `docs/DECISIONS.md` — the one-arm-per-verdict translation rule.
 
   Three findings beyond the filed arm:
 
@@ -2742,7 +2742,7 @@ did — not a rider on an unrelated one._
     answer, wrong reason), `ContextWindowExceeded` (deliberate) and `Unsupported` (the defect). Every one of
     the nine `LlmVerdict` members now has its own arm, so the discard holds nothing but undefined numeric
     values. **No other arm was mis-mapped** — the `NotConfigured` pairing checked specifically was already
-    correct (it landed with D38).
+    correct (it landed with the blameless-verdict rule).
   - **The compiler cannot be the growth gate for an enum switch.** C# treats any switch over an enum as
     non-exhaustive (`(LlmVerdict)99` is legal), so removing the discard buys CS8509 on the code as it stands —
     and since `TreatWarningsAsErrors` is false, what fails is the `check-warnings` GATE, not the compiler.
@@ -2751,19 +2751,19 @@ did — not a rider on an unrelated one._
     an unhandled member, because the discard's own answer was `Failed` and a new member registered as `Failed`
     would otherwise have passed on the discard alone. Mutation-checked — deleting the `ContextWindowExceeded`
     arm changes no observable value and now fails the gate. Third instance of the same mechanism
-    (`Every_verdict_states_whether_it_is_transient`, D38's obligation on the routing policy).
+    (`Every_verdict_states_whether_it_is_transient`, the blameless-verdict rule's obligation on the routing policy).
   - **`ContextWindowExceeded` stays at `Failed` on purpose**, and the reason is now written down rather than
     assumed. `Unsupported` would describe and route it better, but `GenerationRouter` never reports a
     blameless verdict over a real failure (`:92`, `:117`), so as `Unsupported` the one actionable answer in the
     set ("your prompt is too long for this backend") would be swallowed when it was the only thing that went
-    wrong. D38 resolved the analogous LLM-side question the same way. **The price is stated, not implied:**
+    wrong. the blameless-verdict rule resolved the analogous LLM-side question the same way. **The price is stated, not implied:**
     `Failed` is `PenalizeAndAdvance`, so repeated oversized prompts can still bench a healthy backend — the
     same harm this task fixed, one member along — and the LLM domain maps that verdict to `Advance`
     (`RoutingPolicy.cs:20`), so the two domains now disagree about it. The remedy is a ROUTER change, filed as
     Part 40; moving the arm on its own just swaps one cost for the other.
   - **A shared meaning is not a shared action.** `LlmVerdict.Unsupported` routes to `Surface`,
     `GenerationVerdict.Unsupported` to `Advance` — both deliberate, each right for its domain, but the
-    translation therefore changes fallback semantics silently. Now stated on the method and in D43.
+    translation therefore changes fallback semantics silently. Now stated on the method and in the one-arm-per-verdict translation rule.
 
   **Which promise binds, decided rather than assumed:** the type ships in `Lyntai.Core`, which carries the
   FULL SemVer promise — the `Lyntai.Generation` experimental carve-out is package- and reason-scoped
@@ -2772,7 +2772,7 @@ did — not a rider on an unrelated one._
   next reader does not have to re-derive it. No public API member changed, so the `ApiSurfaceTests` baselines
   are untouched.
 
-  **Called out as MAJOR-BUMP MATERIAL rather than shipped quietly in a minor** (review finding). D24 relaxes
+  **Called out as MAJOR-BUMP MATERIAL rather than shipped quietly in a minor** (review finding). the deferred-SemVer-strictness rule relaxes
   the version consequence for documented breaks, but its third bullet excludes exactly this shape — "silent
   behavior changes … or anything a consumer can't detect at compile time" — and a consumer whose `switch`
   catches `Failed` still compiles and simply stops matching. The fix is still right; the description is the
@@ -2789,20 +2789,19 @@ did — not a rider on an unrelated one._
 
 ## Part 43 — the deferred behaviour cluster from the pre-2.2.0 review (opened and closed 2026-08-05)
 
-_Opened by the whole-library review that preceded 2.2.0 and closed the same day, once **`docs/DECISIONS.md`
-D44** removed the only thing blocking it. (The review's working notes lived under the gitignored
+_Opened by the whole-library review that preceded 2.2.0 and closed the same day, once **`docs/DECISIONS.md` — the deferred-SemVer-strictness rule** removed the only thing blocking it. (The review's working notes lived under the gitignored
 `devtools/_review/`, so they are not in a fresh clone by design — everything durable from that pass is here,
-in `CHANGELOG.md`, and in D44.)_
+in `CHANGELOG.md`, and in the deferred-SemVer-strictness rule.)_
 
 **Why it existed at all, which is the part worth keeping.** The review produced these eleven fixes and every
-one was verified, small, and obviously right — and all of them were held back, because D24's third bullet made
+one was verified, small, and obviously right — and all of them were held back, because the deferred-SemVer-strictness rule's third bullet made
 a behaviour change no consumer can detect at compile time major-bump material *unconditionally*. The backlog
 entry was written to hold them together for a future major.
 
 That turned out to be the wrong deferral, for a reason no single finding could show: **the bullet did not
-decide cases.** D38 and D43 are the same shape of change and read it oppositely, in the same release. And the
+decide cases.** the blameless-verdict rule and the one-arm-per-verdict translation rule are the same shape of change and read it oppositely, in the same release. And the
 cost was one-sided — the owner's own applications had not fully adopted the library, so there was not even a
-first-party deployment depending on the old behaviour. D44 amended the bullet (keeping storage/migration
+first-party deployment depending on the old behaviour. the deferred-SemVer-strictness rule amended the bullet (keeping storage/migration
 breaks major-bump material, unconditionally), and the cluster landed in one pass.
 
 - [x] **GEN-DEDUP** — `GenerationRouter` deduplicates candidates on the resolved (backend, effective model)
@@ -2830,11 +2829,11 @@ breaks major-bump material, unconditionally), and the cluster landed in one pass
 
 **Which release carries it: NOT 2.2.0.** The work was finished before 2.2.0 was cut but had not been pushed,
 and the release workflow runs against the pushed branch — so 2.2.0 shipped without it and it reships in the
-next minor. See `docs/DECISIONS.md` **D46**. The dates above are the dates the work was done and are left
+next minor. See `.claude/knowledge/pitfalls.md` §Environment/tooling. The dates above are the dates the work was done and are left
 as-is. The API baselines gained exactly four lines and lost none —
 checked, because a removal on a frozen surface is what that gate exists to catch. Every observable delta is
 disclosed in `CHANGELOG.md` under **Changed — behaviour fixes that a consumer cannot detect at compile time**,
-which is the whole price D44 charges for shipping them in a minor.
+which is the whole price the deferred-SemVer-strictness rule charges for shipping them in a minor.
 
 **Two deltas can change working behaviour rather than only fix broken behaviour**, and are called out in the
 changelog for that reason: a media submission rejected on content policy now *surfaces* instead of being
@@ -2848,11 +2847,11 @@ consumer who adapted to the Ollama attachment drop now really sends images.
 _Closed in one pass after Part 43, on the principle that a release should carry no known issue that is
 solvable without an external dependency. Each of these had been open for a while, and **none was open because
 it was hard** — three needed a DECISION the backlog deliberately refused to guess (recorded as
-`docs/DECISIONS.md` **D45**), one was filed under a premise that D24 had already invalidated, and one was
+`docs/DECISIONS.md` — the identity-collision refusal), one was filed under a premise that the deferred-SemVer-strictness rule had already invalidated, and one was
 waiting on a measurement that turned out to be free._
 
 - [x] **Part 40 — a media verdict that is both BLAMELESS and REPORTABLE.** `GenerationRouter` now keeps a
-  second reporting slot: `firstFailure ?? firstBlameless ?? <synthetic>`. D38's rule is untouched — a real
+  second reporting slot: `firstFailure ?? firstBlameless ?? <synthetic>`. the blameless-verdict rule's rule is untouched — a real
   failure still always wins — but when nothing substantive failed, the caller gets the backend's own words
   instead of a synthetic "every capable backend reported it is not configured". **Then** (order was
   load-bearing, and Part 40 said so) `GenerationVerdictClassifier` began mapping `ContextWindowExceeded` to
@@ -2873,20 +2872,20 @@ waiting on a measurement that turned out to be free._
   member would have been the worst possible outcome here, so it was checked directly._
 - [x] **Part 25 — curated-memory `taskKey`/`scope` can now move in place**, with the identity question
   settled: an update that would collide with another entry's `(kind, content, taskKey, scope)` **refuses**
-  (D45(2)). All four identity fields closed together, including the `kind` hole that already existed. No
+  (D40(2)). All four identity fields closed together, including the `kind` hole that already existed. No
   schema change, no migration — existing columns only.
 - [x] **Part 25 — `OpenAiCompatibleOptions.ContextSize` → `OllamaContextSize`.** Filed as
-  "major-bump-or-never"; that premise was simply wrong — D24 has always allowed a documented compile-time
+  "major-bump-or-never"; that premise was simply wrong — the deferred-SemVer-strictness rule has always allowed a documented compile-time
   break in a minor, and a rename is the friendliest kind (every caller gets a compile error naming the fix).
   Verified first that the option really is Ollama-native-only before renaming.
 - [x] **Part 25 — `AsChatClient` no longer erases the verdict.** New `Lyntai.Llm.LlmVerdictException` in
-  **Core** (D45(3)), deriving from `InvalidOperationException` so every existing `catch` keeps working, with
+  **Core** (D40(3)), deriving from `InvalidOperationException` so every existing `catch` keeps working, with
   the message text preserved verbatim because parsing `.Message` was until now the only way to recover the
   verdict.
 - [x] **CLI13 — codex resume.** `CodexAgentSession` honours `ResumeToken` instead of refusing it. **The
   measurement was free all along:** `codex exec resume --help` on the real installed 0.146.0 is a `--help`
   flag, so it costs no turn — the very escape the refusal was waiting for. It reports
-  `codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]` with `-` reading stdin. `docs/DECISIONS.md` D42's
+  `codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]` with `-` reading stdin. `docs/DECISIONS.md` — the honest-subset agent-session call's
   refusal paragraph is marked superseded rather than deleted, because the reasoning is why replacing it with a
   *measurement* rather than a *guess* was the right sequence.
   _Also measured, and recorded because it is the repo's own trap: that probe printed correct help and exited
@@ -3004,7 +3003,7 @@ that remains._
 
   **Why not route it through the ctor's `env` (the obvious workaround, which the consumer rejected).**
   Pointing `CODEX_HOME` at a temp directory holding a generated `config.toml` would carry the MCP servers —
-  but that same directory holds codex's **auth**, so it would cost the owner their login. Under **D26** the
+  but that same directory holds codex's **auth**, so it would cost the owner their login. Under the backend self-maintenance boundary the
   host keeps credentials and the library never touches them; a workaround that trades an app's tools for the
   user's session is not one.
 
@@ -3018,7 +3017,7 @@ no removals. `ClaudeAgentArgs` renders an owner-only `--mcp-config` document del
 identically and none can land past the `-` where codex would read it as prompt text.
 **Every backend detail was measured turn-free before it was written** — `codex mcp list`/`get` with the
 overrides applied (both CLIs are installed here), and claude's document shape read back through
-`claude mcp list`. Three decisions recorded in `docs/DECISIONS.md` **D47**: a bearer token never reaches argv
+`claude mcp list`. Three decisions recorded in `docs/DECISIONS.md` — the neutral MCP-servers option: a bearer token never reaches argv
 (codex takes only `bearer_token_env_var`, so the value goes to the child's environment); an unrenderable
 entry REFUSES the turn rather than being dropped, because a dropped server is the silent capability loss this
 whole item is about; and naming a server does not pre-approve its tools. 22 tests, mutation-checked; `verify`
@@ -3029,8 +3028,8 @@ which CLI13 changed.
 
 ## Part 46 — MEM1: a named memory-engine seam (2026-08-08)
 
-_Design: `docs/superpowers/specs/2026-08-08-memory-engine-seam-design.md`. Plan:
-`docs/superpowers/plans/2026-08-08-memory-engine-seam.md`. MEM2 (the graph engine) and MEM-TUNE remain
+_Design: `local/superpowers/specs/2026-08-08-memory-engine-seam-design.md`. Plan:
+`local/superpowers/plans/2026-08-08-memory-engine-seam.md`. MEM2 (the graph engine) and MEM-TUNE remain
 OPEN in `TASKS.md`._
 
 - [x] **MEM1 — the memory engine seam (Spec A).** `IMemoryEngine` + `MemoryRef`/`MemoryWrite`/`MemoryQuery`/
@@ -3063,8 +3062,8 @@ OPEN in `TASKS.md`._
 
 ## Part 47 — MEM2a: the graph memory engine on the InMemory backend (2026-08-08)
 
-_Design: `docs/superpowers/specs/2026-08-08-graph-memory-engine-design.md`. Plan:
-`docs/superpowers/plans/2026-08-08-graph-memory-engine.md`. **MEM2b** (SQLite + Postgres), **MEM2c** (agent
+_Design: `local/superpowers/specs/2026-08-08-graph-memory-engine-design.md`. Plan:
+`local/superpowers/plans/2026-08-08-graph-memory-engine.md`. **MEM2b** (SQLite + Postgres), **MEM2c** (agent
 tools, similarity enrichment) and **MEM-TUNE** remain OPEN in `TASKS.md`._
 
 - [x] **MEM2a — the decay policy, the graph store contract, the engine, and the InMemory backend.**
@@ -3121,7 +3120,7 @@ tools, similarity enrichment) and **MEM-TUNE** remain OPEN in `TASKS.md`._
 
 ## Part 48 — MEM2b: graph memory on SQLite and Postgres (2026-08-08)
 
-_Plan: `docs/superpowers/plans/2026-08-08-graph-memory-sql-backends.md`. **MEM2c** and **MEM-TUNE** remain
+_Plan: `local/superpowers/plans/2026-08-08-graph-memory-sql-backends.md`. **MEM2c** and **MEM-TUNE** remain
 OPEN in `TASKS.md`._
 
 - [x] **MEM2b — `IMemoryGraphStore` for SQLite and Postgres**, both held to the `MemoryGraphStoreContract`
@@ -3312,6 +3311,1658 @@ buried under other links of nodes."_
   - _Burst survival stopped measuring presence and started measuring RETRIEVABILITY: 500 fresher
     paragraphs legitimately outrank everything in a top-30, and that is not forgetting. Damped, prior
     material holds r > 0.25; undamped, r < 0.001. The control still proves the damping does the work._
+
+---
+
+## Part 53 (item 1 of 3) — a ranking POLICY seam for salience (2026-08-09)
+
+_Only the first of Part 53's three items shipped; items 2 (measure salience's effect) and 3 (the tunables'
+cross-record coupling) **remain open** under the same `## Part 53` heading in `TASKS.md` — this entry is not
+a full close. Original context: opened while closing Plan 2's Task 6, reframed the same day once the owner
+ruled `GraphMemoryOptions.SalienceRankWeight` defaults to 0 (`docs/DECISIONS.md` — the salience admission-priority correction, correcting the salience admission-priority correction)._
+
+- [x] **A ranking POLICY seam, not a single hardcoded formula constant.** Today the boost formula itself is
+  fixed inline in `GraphMemoryEngine.RecallAsync` — `SalienceRankWeight` only scales one term of one
+  hardcoded expression, so a consuming app that wants a different SHAPE of boost (not just a different
+  weight) cannot get one without forking the engine. Compare `IRetrievabilityPolicy`, which is already a real
+  seam for the decay curve; ranking has no equivalent. Needs design: what varies (the boost function itself?
+  per-signal weights if a second rank-affecting dimension ever ships?) versus what stays fixed (bounded,
+  logarithmic — `docs/DECISIONS.md` — the salience admission-priority correction's own reasoning against a raw multiplier still applies to whatever
+  ships).
+
+✅ done 2026-08-09 (memory-ranking-seam plan, Tasks 1–4 — Task 4, reciprocal rank fusion, this domain's
+second implementation, shipped the same day as `ReciprocalRankFusionPolicy`/`ReciprocalRankFusionOptions`,
+available but not the default) — **Outcome (Tasks 1–3):** `IMemoryRankingPolicy` (`Lyntai.Memory.Ranking`) —
+`Rank(candidates, context)`, set-based rather than per-candidate — plus `MultiplicativeRankingPolicy`, today's
+formula ported verbatim (`Relevance × Retrievability × boost × HopAttenuation^hop`, then a relative floor) so
+nothing about what a candidate scores changed, only where the computation lives and whether it is
+swappable. `GraphMemoryEngine.RecallAsync` now resolves the policy from the container (`TryAddSingleton`,
+so a consumer's own registration always wins) instead of hardcoding the formula; the three tunables —
+`HopAttenuation`, `RelativeFloor`, `SalienceRankWeight` — moved off `GraphMemoryOptions` onto the policy's own
+`MultiplicativeRankingOptions`, each now construction-guarded (previously silently accepted any value).
+**The engine, not the policy, owns the grade exemption:** an `Authoritative` candidate a policy drops (below
+its own floor, or a hostile policy that drops everything) is re-admitted afterward, appended after the
+policy's own order — buried, so it surfaces last, and still subject to the caller's `Limit`, so a re-admitted
+entry CAN be cut by a small one; that guarantee must hold whatever policy is installed, including a
+third-party one that has never heard of grades, which a golden fact proves against a policy that returns
+nothing at all. Task 1's five characterization facts pinning today's exact recall order
+(`GraphMemoryRankingGoldenTests`) pass THROUGHOUT — the whole point of doing this as a seam-then-wire
+sequence rather than one change — but "unmodified" overstates it: three (the hop-attenuation, relevance ×
+retrievability, and retrievability-alone facts) needed no change at all, while the other two (the salience
+and relative-floor facts) had their SETUP CODE rewritten in this commit, because the properties they
+configured via `GraphMemoryOptions` were deleted — each now passes an explicit `MultiplicativeRankingPolicy`
+to the engine's own `ranking` parameter instead. Every fact's ASSERTIONS and expected orders are unchanged;
+only where two of the five configure the knob moved.
+
+---
+
+## Part 54 (item 1 of 5) — measure the two forgetting curves against a real corpus (2026-08-09)
+
+_Only DSR1 of Part 54's five items closes here; DSR2–DSR5 (unrelated defects — `Reinforce` shortening a
+memory above `MaxStability`, a `NaN`/non-positive `MaxStability` producing a permanently poisoned stability,
+`Reinforce`'s connection axis being untested, and per-engine forgetting-policy selection being impossible)
+**remain open** under the same `## Part 54` heading in `TASKS.md`._
+
+- [x] **DSR1 — measure the two curves against a real corpus**, the way `MEM-TUNE` measured the decay
+  constants, rather than reasoning from synthetic states, controlling for (a) `SalienceModulator` inflating
+  DSR's reinforcement gain but not the exponential curve's, and (b) `GraphMemoryOptions.Decay` being honoured
+  for the exponential control arm and silently ignored for DSR.
+
+✅ done 2026-08-09 (`feat/memory-corpus-harness`, Tasks 1–4 — the corpus-harness plan) — **Outcome:** a
+deterministic corpus (`tests/Lyntai.Tests/Memory/Corpus/MemoryCorpus.cs`), two metrics
+(`RecallQuality.MissRate`/`.PollutionRate`), and a four-arm `{MultiplicativeRankingPolicy,
+ReciprocalRankFusionPolicy} × {HalfLifeRetrievability, DsrRetrievability}` sweep
+(`bench/Lyntai.Benchmarks/MemoryPolicySweep.cs`, `node devtools/dev.mjs memory-sweep`) across a six-shape
+grid, replayed against a live SQLite-backed `GraphMemoryEngine`, controlling for both confounds DSR1 named
+plus a third found during implementation (the engine's default `BurstDampenedClock` keys off wall-clock time
+and would have flattened the whole interference axis for a fast in-process replay — fixed with an undamped
+`PerWriteClock`, the same substitution `MemoryDecaySimulationTests` uses for the same reason). **The
+measurement is real and controlled, but the RESULT on the curve question is an honest null, not a
+resolution**: `HalfLifeRetrievability` and `DsrRetrievability` differ in only one of six shapes
+(`many-candidates`), and which curve wins there flips depending on which ranking policy it is paired with —
+so "which forgetting curve is better" cannot be answered independently of "which ranking policy is default."
+The one solid result is on the OTHER domain: `MultiplicativeRankingPolicy`'s own `critical-rare` MissRate is
+`≤` `ReciprocalRankFusionPolicy`'s on every shape in the final table, zero exceptions (a tie on the weakest
+shape counts) — held identically in the final two of the three corpus versions built during this plan, not
+all three (the first is invalidated by an unrelated corpus bug and excluded, not counted as agreeing
+evidence), from one seed run three times rather than three independent samples. Full
+results, the honesty clause, and what the table does and does not license:
+`docs/2026-08-09-memory-policy-measurement.md`. The regression guard pinning today's shipped defaults
+(`MultiplicativeRankingPolicy` + `HalfLifeRetrievability`) against one fixed corpus point:
+`tests/Lyntai.Tests/Memory/MemoryDefaultRecallQualityTests.cs`. **No default changed** — `TASKS.md` Part 55
+carries the owner's still-open decision and the cheapest next step for the curve question (a targeted
+`CandidateCount` sweep, a second seed, an intermediate shape, and raising `hot-ephemeral`'s reuse delay
+further).
+
+---
+
+## Part 55 — memory ranking × forgetting policy measurement: findings recorded, no default changed (2026-08-09)
+
+_Closed 2026-08-10, the same day it was opened conceptually a plan ago — the follow-on plan
+(`feat/dsr-default`) resolved the owner's decision and substantially addressed the other two items. Original
+context: the corpus-harness plan (`feat/memory-corpus-harness`) built a deterministic corpus, two metrics, and
+a four-arm `{Multiplicative, RRF} × {HalfLife, Dsr}` sweep, then measured it — closing DSR1 above (Part 54).
+It did **not** close anything under Part 53: that part's own salience-measurement item is a different
+question, and remains open there, never duplicated here._
+
+- [x] **Owner's decision: does either default change?** The measurement's own verdict, for the owner to
+  rule on: **ranking** — keep `MultiplicativeRankingPolicy`; its own `critical-rare` MissRate is `≤`
+  `ReciprocalRankFusionPolicy`'s on every shape in the FINAL table, with zero exceptions (a tie on the
+  weakest shape, `many-candidates`, still counts) — held identically in the final two of the three corpus
+  versions this plan built, not all three (the first is invalidated by an unrelated corpus bug and excluded,
+  not weighed as agreeing evidence — see the doc), and "corpus regenerations" is not "independent samples":
+  all three share one seed. A defensible default *proposal* (not itself a change). **Forgetting curve** —
+  UNRESOLVED; `HalfLifeRetrievability` and `DsrRetrievability` differ in only one of six shapes
+  (`many-candidates`), and which curve wins THERE flips depending on which ranking policy is paired with it
+  — a real null result, not evidence for either curve. **The two choices are therefore not independent**:
+  a forgetting-curve decision has to state which ranking policy it was measured under. Not codeable from
+  here — this needs the owner's `docs/DECISIONS.md` entry, pointing at the evidence above.
+- [ ] **The cheapest next step for the curve question, if it is worth resolving further**: a targeted
+  `CandidateCount` sweep (denser values between 10 and 40, at least one repeated seed) — the only shape-level
+  variable this measurement found that actually gates the HalfLife/Dsr difference (confirmed, not assumed:
+  `high-noise` has a HIGHER interference range than `many-candidates` and shows ZERO curve difference, so
+  `age/S` is not the driver). Three cheaper, complementary probes the same report names: **a second seed**
+  (everything above is one seed, `12345`); **a shape between `baseline` (`age/S`≈1.2, where the curves tie by
+  construction) and `high-noise`** (`age/S`≈2.8, where both arms saturate) that lands in neither regime; and
+  **raising `hot-ephemeral`'s in-window reuse delay further** — that class's `MissRate` sits at or near 0 for
+  every Multiplicative-paired arm across the whole grid, meaning it stays inside the "unmissable"
+  retrievability band under today's default policy and cannot discriminate anything there. Not codeable from
+  here — each is a harness/corpus change a future measurement plan owns.
+- [ ] **The spec's open question — does SQLite's FTS seed branch need a real salience term?** — is **NOT
+  informed by this sweep**, and that is worth saying plainly rather than leaving the question looking
+  answered. Confound control 1 held every retention modulator off throughout (no `SalienceRetentionPolicy`
+  registered), which is exactly the FTS branch's own `ORDER BY bm25(…), salience DESC, id DESC` tiebreak —
+  the sweep never exercised that ordering with a non-neutral salience value. Closing this needs its own
+  measurement with salience varied deliberately; it is not a byproduct of this one. (Part 53's own salience
+  item above is the same open question from a different angle — this is not a new duplicate, it is
+  confirmation that neither this plan nor that one has answered it yet.)
+
+✅ done 2026-08-10 (`feat/dsr-default`, Tasks 1–4 — the DSR-default falsification plan) — **Outcome:** the
+owner's decision is `docs/DECISIONS.md` — the `DsrRetrievability` default curve — `DsrRetrievability` ships as the registered 3.0 default
+forgetting curve (FSRS's own external validation is the primary evidence, never this corpus); ranking stays
+`MultiplicativeRankingPolicy`, unchanged, still on this library's own weak evidence. The curve question got
+there by first RETARGETING the corpus into the band the two curves actually diverge in (Task 1 — fixed
+delay constants replacing the old shape-scaled formula, a force-drain bug fix, `CriticalBudget` raised
+12→240), which is what made a real measurement possible at all: the second-seed, intermediate-shape and
+`hot-ephemeral`-delay probes this item asked for were effectively subsumed by that retarget plus Task 2's
+30-seed paired sweep (seeds `12345`–`12374`, pilot SD 0.2092, implying N=35 for 80% power at a 0.10
+`MissRate` difference — 30 was run, the shortfall disclosed rather than rounded away). **The targeted
+`CandidateCount`-density probe was NOT run** — it folds into `TASKS.md` Part 56's parameter-fitting work,
+which needs its own corpus measurement regardless. **The measurement found a real, adverse, and disclosed
+effect**: under the pairing that ships (`Multiplicative+Dsr`), DSR misses more than HalfLife on the `topical`
+class in every shape (clearing ±0.10 in five of six), offset by the opposite pattern on
+`hot-ephemeral (in-window)` — the two cancel in the whole-corpus aggregate, which is why the pooled number
+never flags it and must not be read alone. `critical-rare`, the class the ORIGINAL plan nominated as
+deciding, measured zero curve effect at N=30. Task 3's six-item falsification battery (enumerated before it
+ran) found no disqualifying pathology on either curve and confirmed the `topical` mechanism directly: DSR's
+own contract holds throughout the exact pattern that produces the loss, so it is a ranking-competition
+artifact of `MultiplicativeRankingPolicy` rewarding `HalfLifeRetrievability`'s unmeasured flat reinforcement,
+not a violation of anything DSR promises — full mechanism and numbers in
+`docs/2026-08-09-memory-policy-measurement.md` and `docs/DECISIONS.md` — the `DsrRetrievability` default curve. **The FTS-salience question
+remains open, exactly where it already was** — `TASKS.md` Part 53's own item, never a new item here.
+`TASKS.md` Part 56 opened the follow-on this decision requires: completing FSRS (per-review difficulty
+updates, parameter fitting rather than published defaults, and the specific `SpacingWeight` tuning this
+measurement's own mechanism points at) is now prioritized work, not deferred effort — plus one new shared,
+curve-symmetric defect Task 3 found along the way (early corpus entries outranked by filler padding, 9/55
+Dsr vs 10/55 HalfLife).
+
+---
+
+## Part 57 — FSRS-A: per-review difficulty updates (2026-08-10)
+
+_Split out of `TASKS.md` Part 56 on closure — that Part stays open for FSRS-B (parameter fitting) and FSRS-C
+(the `SpacingWeight` tuning), which this task did not touch, so this gets its own Part number rather than
+colliding with the still-open one (`.claude/skills/archive-task`'s own rule: an open Part N and an archived
+Part N are never the same N)._
+
+- [x] **FSRS-A — per-review DIFFICULTY updates.** Real FSRS updates a `Difficulty` state on every review;
+  `DsrRetrievability.Reinforce` only READS `MemorySignals.WellKnown.Difficulty` from the signals bag and
+  never writes it back, so difficulty here is permanently whatever a salience appraiser set at write time (or
+  absent). `IMemoryRetrievabilityPolicy.Reinforce` already returns the FULL `MemoryDecayState` rather than a
+  bare stability scalar (2026-08-10 memory-policy-seams plan, Task 4/5) specifically so a richer model has
+  somewhere to put what it owns — the seam this needs already exists; the model behind it does not yet use
+  it. `MemoryDecayState` itself would need a `Difficulty` field to persist the updated value, which is an
+  additive-but-binary-breaking change on the same pattern the age/salience primitives used.
+
+✅ done 2026-08-10 (`feat/fsrs-properly`, Task 2, fix round 1) — **Outcome:** `MemoryDecayState`/`GraphNode`/
+`GraphTouch` gain a `Difficulty` member (additive-source/binary-breaking); `DsrRetrievability.Reinforce` now
+maintains it every review, deriving FSRS's rating from retrievability at recall — restricted to FSRS's
+success sub-range, `grade = 2 + 2·r ∈ [2, 4]`, never the lapse rating; computed from the state BEFORE this
+reinforcement (pinned and mutation-checked); bypassed on a same-day/zero-elapsed recall so a session burst
+cannot pump it (also pinned and mutation-checked) — and adapts FSRS-5's `next_difficulty` law with FSRS-6's
+own recalibrated constants, INCLUDING mean reversion (dropping it, as a first draft did, makes
+`Difficulty = 10` absorbing; restored and mutation-checked). The three graph stores promote the signal into a
+`difficulty` column with its OWN precedence, not salience's: an explicit write-time signal NAMING difficulty
+wins (not merely a non-empty bag, which a fix-round review caught resetting a tracked value via an unrelated
+signal); between writes only `Reinforce` moves it. Migration `M202608102246_MemoryDifficulty` (SQLite +
+Postgres), `NOT NULL DEFAULT 1`, no new provenance column (`provenance_retrievability` already covers it).
+Full detail in `CHANGELOG.md`'s `## Unreleased` → `### Breaking`.
+
+---
+
+## Part 58 — RELEASE GATE: the memory subsystem's Postgres leg was unexercised for two sessions (2026-08-11) — CLOSED
+
+**Closed 2026-08-11, and it caught a real defect on its first run** — which is the whole argument for having
+filed it as a gate rather than a note.
+
+Docker was started and `node devtools/dev.mjs test` run in full. Result: **2392 passed, 1 FAILED**, 9 skipped
+(the usual live-backend baseline, down from 99).
+
+**The failure was `PgMigrationSchemaSnapshotTests.Fresh_migrated_schema_matches_golden`: `pg-schema.txt` was
+missing the ENTIRE `lyntai_memory_review` table** — 14 columns and 2 indexes. The review-log migration
+(`M202608110447_MemoryReviewLog`) had landed while Docker was down, so its Postgres golden was never
+regenerated and nothing could tell anyone.
+
+**What this confirms, precisely:** the task's own stated risk was *"a hand-edited Postgres-only fixture is
+the same risk in fixture form — plausible by analogy, unverified by execution."* Both halves proved out. The
+`difficulty` row a prior session hand-added by analogy turned out to be **correct** (it does not appear in
+the regenerated diff at all), while the table nobody thought to hand-add was **entirely absent**. Analogy
+got right the thing it was applied to and could say nothing about the thing it was not.
+
+Fix: regenerated via `LYNTAI_UPDATE_SCHEMA_SNAPSHOT=1`, then **read the diff rather than accepting it** — it
+is purely additive, the review table and its two indexes, nothing else moved. Cross-checked that both
+backends agree on that table: 14 columns each, zero divergence either way.
+
+`verify` then green on all eleven gates with Postgres live: **2393 passed / 0 failed / 9 skipped**, e2e 3/3.
+
+**The general lesson, for the next environmental gap:** a backend that cannot run is not "probably fine" —
+it is unmeasured, and the cost of assuming otherwise is exactly one silent stale fixture per migration. The
+suite already fails a silently-skipped backend *when Docker is present*; the gap was never the assertion, it
+was the daemon.
+
+---
+
+## Part 60 — the guard scripts that gate this repository have no tests of their own (2026-08-11)
+
+- [x] **Nothing tests `devtools/scripts/`.** Eight gates run out of that directory and not one of them has a
+  test. The measured cost, found in a single sitting on 2026-08-11 while fixing `check-docs`:
+  1. It matched **line by line**, so every rule in `retiredTerms` was blind to any claim spanning a line
+     wrap. These documents wrap at ~110 columns and the claims worth fencing are shorter than a line, so
+     **the sentence the gate most needs to catch is the one most likely to straddle a break.** A stale claim
+     sat in `CLAUDE.md` — the file auto-loaded into every session — for the entire window in which it was
+     false, and the gate reported that file clean the whole time.
+  2. Its scope was three `startsWith` calls, which silently omitted `CLAUDE.md` and `TASKS.md`. Both are
+     maintained state by the same definition as `docs/`.
+  3. Its superseded-banner escape exempted a **whole file** on the strength of the word `SUPERSEDED`
+     appearing anywhere in the first 21 lines, including in ordinary prose. A maintained document whose
+     intro says "section X below is superseded" stopped being checked entirely, with no output saying so.
+  **All three failed in the permissive direction and all three passed every gate for their whole lifetime**,
+  which is the argument: a guard whose own failure mode is a false PASS cannot be validated by running it.
+  The fixes were mutation-checked by hand at a throwaway `node -e` prompt — that check should have been a
+  file. `check-sensitive` deserves this most of all (a false pass there is a committed leak), then
+  `check-docs`, `check-packages` and `check-version-bump`.
+  No JS test harness exists in `devtools/` yet, so this task includes choosing one — `node --test` is in the
+  runtime already and needs no dependency, which suits a repo whose bundle budget is a standing policy.
+
+✅ done 2026-08-11 (`feat/close-gate-gaps`) — **Outcome:** `node --test` (no dependency, nothing added to any
+`package.json`), 62 tests in `devtools/scripts/__tests__/`, wired as `node devtools/dev.mjs test-devtools` and
+as the **first** step of `verify` — before the guards it covers, because everything after it is enforced BY
+those scripts. Coverage in the priority order this item set: **check-sensitive** (19 — each built-in fires,
+both Windows shapes, negative controls, the `local/sensitive-patterns.txt` mechanism incl. a bad regex not
+disarming the rest, UTF-16 LE/BE/no-BOM decoding, binary skip, the ENOENT-vs-unreadable split, and end-to-end
+over fixture repositories in both tree and staged mode — every value synthesized, never a real credential);
+**check-docs** (13 — the three defects above are the first three tests, each **mutation-checked**: revert that
+one fix and that one test goes red, confirmed for all three); **check-version-bump** (13 — every rule over
+exact diff text plus a real staged fixture, and the `LYNTAI_RELEASE=1` hatch); **check-packages** (17 — one
+registration removed at a time from a complete fixture repository, both directions).
+
+Each guard was made callable without spawning a process by extracting the pure function and leaving the CLI
+as a thin `process.argv[1]`-guarded wrapper; no guard's matching logic was changed to make it testable.
+**Two real defects fell out of the writing, both recorded in `docs/FIXES.md`:** `git ls-files` C-quotes a
+non-ASCII path, so `check-sensitive --tree` silently skipped any CJK-named file *and classified it as a
+pending deletion* — a false PASS in the highest-stakes guard, with `check-docs` carrying the identical bug
+(fixed with `-z`); and `check-packages` crashed with a raw ENOENT instead of reporting when the last API
+baseline is deleted. The remainder — the four devtools surfaces still untested, and `check-version-bump`'s
+fail-open on a git error — stayed open as **Part 62**.
+
+---
+
+## Part 61 — no gate can see a stale PARAMETER NAME, and parameter names are frozen public API (2026-08-11)
+
+_Sibling of Part 60 (closed 2026-08-11): that one was about guards with no tests, this one is about a gap
+**between** two guards that each work correctly._
+
+- [x] **Nothing checks whether a public parameter name still matches the vocabulary its own decision
+  settled.** Measured cost: `docs/DECISIONS.md` — the `IMemory<Domain>Policy` naming shape renamed four memory seams away from "clock",
+  "appraiser" and "modulator", and three constructor parameters kept the retired words —
+  `GraphMemoryEngine(ageClocks:)`, `GraphMemoryEngine(appraisers:)`,
+  `ModulatedRetrievability(modulators:)` — all the way to the eve of the 3.0 freeze. `ageClocks` sat three
+  lines from a genuine `Func<DateTimeOffset> clock`, so the parameter named "clocks" was the one that is not
+  a clock. **A human review caught all three; no gate did**, and the reason is structural rather than an
+  oversight in either guard:
+  - `check-docs` **deliberately excludes `src/`** (XML docs sit beside the code and the compiler gates their
+    crefs) — so it never reads a parameter name.
+  - The **API-surface baseline RECORDS parameter names without judging them**, so a stale name round-trips
+    cleanly through the one gate whose entire job is noticing API changes. It reports *that* a name changed,
+    never *that a name should have*.
+  **Named arguments are source-compatible public surface**, so after a freeze each of these costs a major
+  version. That is what makes the gap expensive rather than untidy.
+  The obvious shape is a `retiredTerms`-style scan of the API baseline itself — it is one flat text file
+  already regenerated by `verify`, and the vocabulary registry already exists. Note the known complication
+  recorded at `devtools/project.config.mjs:159-164`: a bare-name pattern needs a `drift-ok` sweep of
+  `docs/DECISIONS.md`'s historical mentions first, which is why no `retiredTerms` entry was added for
+  `ageClocks`/`appraisers:`/`modulators:` when they were renamed. **That is a knowing gap, recorded here so
+  it stops being an invisible one.**
+
+✅ done 2026-08-11 (`feat/close-gate-gaps`) — **Outcome:** `devtools/scripts/check-api-vocabulary.mjs`, a new
+gate scanning the committed API baselines (`tests/Lyntai.Tests/Api/Baselines/*.txt`) against its **own**
+registry, `retiredApiNames` in `devtools/project.config.mjs`. Wired as `node devtools/dev.mjs
+check-api-vocabulary` and into `verify` directly after `check-docs` — the two vocabulary gates now sit
+together, one asking whether the PROSE still says what a decision settled and one asking it of the frozen
+public SURFACE.
+
+A separate registry rather than a `retiredTerms` extension, because the two want opposite matching:
+`retiredTerms` is written for prose (claim shapes like `available,? (?:but )?not (?:the )?default`, qualified
+namespace paths) which are meaningless against a baseline, and a baseline needs the strictest possible
+whole-identifier equality. **Matching is token-level, never substring** — each line is tokenized into C#
+identifiers, `names` is set membership and `pattern` is a regex anchored to the WHOLE token — which is what
+lets `modulators`/`IRetentionModulator` be retired while the live `Lyntai.Memory.Modulation` and
+`ModulatedRetrievability` pass, `IMemoryClock` be retired while `InactivityClock` and every genuine
+`Func<DateTimeOffset> clock` passes, and `IMemoryRetentionPolicy` be distinguished from `Lyntai.Storage`'s
+unrelated `MemoryRetentionPolicy`. A gate that cries wolf on a deliberate decision gets an exclusion added and
+then rots, which is the failure mode `retiredTerms`'s own comments warn about for bare-name patterns.
+
+The escape hatch could not be `drift-ok`: a baseline is GENERATED, so the next regeneration would erase the
+annotation. It lives in the registry instead, as an `allow: [{ signature, why }]` on the rule it silences —
+keyed on the EXACT baseline line, so it expires by itself when that signature changes; scoped to one rule, so
+it cannot silence a future one; requiring a reason, so it is never a silent exclusion; and an allowance that
+matches nothing is a **failure**, because a rotting exclusion only hides the next occurrence of the same
+mistake.
+
+Seeded with the three renamed parameter names plus `memoryClock` (the 2.5 name the first of them replaced —
+the one name in that group a real consumer can still be holding), the ten the `IMemory<Domain>Policy` naming shape type renames, the two deleted
+`HalfLife*` types, and an identifier-shaped `Dto` rule fencing the surface that `repo-mechanics.md` §Naming
+already fences in prose. **All 15 names and the pattern produce zero hits against the current baselines**,
+which is what proves they do not false-positive. 21 tests in
+`devtools/scripts/__tests__/check-api-vocabulary.test.mjs` (+1 in `cli-entry.test.mjs`), seven behaviours
+mutation-checked: substring matching, pattern anchoring, the allow-list, the stale-allowance failure,
+fail-closed on an empty baseline directory, malformed-registry reporting, and a wrong baseline path.
+
+**Stated rather than oversold, because it bounds what the gate is worth:** this catches the reintroduction of
+an *exact* retired identifier, not every descendant of a retired word. A method named for the verb form of a
+retired type (`Appraise`, from `ISalienceAppraiser`) is not that type's name, and no rule here would have
+flagged it — that kind of drift still needs a reader.
+
+---
+
+## Part 59 — no gate compiles the code samples in our own documentation (2026-08-11)
+
+_Raised three times across three plans and never homed until now, which is itself the point: a gap recorded
+only in a working record gets re-discovered rather than fixed._
+
+- [x] **Nothing verifies that a documented code sample compiles.** `check-warnings` gates the code,
+  `check-docs` gates the prose's *vocabulary*, and `consumer-smoke` gates the *packages* — but a fenced C#
+  block in `README.md` or `docs/` is never compiled by anything. **Measured cost so far:** a README sample
+  assigning `TimeSpan.FromDays(14)` to a `double`-typed property shipped and survived all eight gates
+  (2026-08-09); the 3.0 migration guide's samples are correct only because its author built a throwaway
+  probe project and a `v2.5.0` git worktree by hand to compile both halves (2026-08-11).
+  **This matters most exactly where it is missing**: a migration guide's samples ARE its deliverable, and a
+  consumer who cannot compile the fix is worse off than one given no fix. The repo's own position is that an
+  unfailed warning is a false promise shipped to consumers — a sample that cannot compile is the same
+  promise, in the document they copy from.
+  Extraction-and-compile of fenced `csharp` blocks is the obvious shape; the migration guide's probe is a
+  working prototype of it.
+
+✅ done 2026-08-11 (`feat/close-gate-gaps`) — **Outcome:** `devtools/scripts/check-samples.mjs`, wired as
+`node devtools/dev.mjs check-samples [--list]` and into `verify` directly after `check-api-vocabulary`. The
+three documentation gates now sit together: `check-docs` on the prose, `check-api-vocabulary` on the frozen
+surface, `check-samples` on the code a consumer copies. **Default-ON** — a block is compiled unless it
+opts out; an opt-IN marker would make coverage whatever someone remembered to tag, which is the "checklist
+in someone's head" failure `dotnet-package-layout.md` already names.
+
+**Two annotations, and they are not interchangeable.** `<!-- compile-given: <declarations> -->` supplies the
+reader-side context a fragment assumes (`string apiKey;`, `sealed class MyLoggingHandler : DelegatingHandler
+{ }`) and the block **stays compiled**; `<!-- compile-skip: <reason> -->` takes it out entirely. The property
+that makes the first strictly stronger is that **the declarations are compiled too** — verified directly:
+replacing a working `compile-given: string key;` with `MyMadeUpType key;` fails with
+`CS0246: The type or namespace name 'MyMadeUpType' could not be found`, reported against the annotation's own
+line and marked `← in its compile-given`. So it cannot wave a sample through; it can only supply a context
+that genuinely type-checks. Carrying both on one block is an **error**, not a precedence question: they state
+opposite intents and whichever lost would sit unread — and the one that would rot is the `compile-given`,
+whose whole value is that it stays compiled. `<!-- compile-skip-file: … -->` opts a whole document out.
+
+**The rejected third option, recorded because it is the tempting one:** growing the shared stub preamble to
+absorb these names. A preamble that silently declares arbitrary reader-side identifiers starts accepting
+samples that reference things this library never provides — the same class of false-pass as the two gate
+bugs below. The preamble admits a name only when its type is a service *this library* provides and the prose
+says to inject it.
+
+Each block is wrapped by SHAPE (declaration at namespace scope / member in a class / statements in a method
+over a typed stub preamble / a bare expression as `_ = ( … );`), guessed from its first meaningful line and
+retried in the other shapes for whatever still fails, then compiled against the real **projects** (packages
+are `consumer-smoke`'s job). A failure reports the fence at `file:line` AND the doc line of the offending
+sample line.
+
+**IN `verify`, decided by measurement rather than by analogy.** The first draft argued it belonged beside
+`consumer-smoke`/`memory-sweep` because "it is a COMPILE, not a scan"; timed immediately after `build` it is
+**6.0s green**, adds no package reference (only ProjectReferences, so nothing extra to restore), and is the
+only gate whose subject can be broken by editing a `.md` file alone — which is what a session does right
+before it runs `verify`. Out of `verify` it would go unrun, exactly as `memory-sweep`'s reflection trip-wire
+does. `--list` prints the inventory in 375ms without compiling, which is what `cli-entry.test.mjs` drives.
+
+**Two ways this gate could have LIED, both measured on its own first runs and both now regression-tested:**
+(1) **Roslyn binds nothing in a compilation carrying a syntax error** — the first batch reported 132 errors,
+every one syntactic and zero `CS0246`, certifying eleven samples that named types this library does not
+have. The loop now iterates to a fixed point and accepts a block only from a compilation in which *nothing*
+errored. (2) **A type declared in source outranks the same type from a referenced assembly compilation-wide**
+(`CS0436` is a warning), so one sample opening `namespace Lyntai.Generation;` would silently redefine
+`GenerationRequest` for every other sample in the batch; such blocks are compiled isolated. Both are now in
+`.claude/knowledge/pitfalls.md` because neither is specific to this gate.
+
+**Yield — four real defects in shipped documentation**, all survivors of every other gate:
+`README.md`'s semantic-memory sample called `RememberAsync(task:)` when the parameter is `taskKey`
+(`CS1739` — a stale named argument, which is source-breaking surface); four `AddOpenAiProvider(/* … */)`
+elisions omitted a *required* argument (`CS7036`); the MCP-dialect sample's `$$"""…"""` raw string closed
+with three consecutive braces, which `$$` cannot carry (`CS9007`); and the `IChatClient` bridge sample passed
+`ct` **positionally** into `GetResponseAsync`, where argument 2 is `ChatOptions?` (`CS1503` — now
+`cancellationToken: ct`). All four are what a consumer meets on paste. The fourth is the one that argues for
+`compile-given` on its own: it was invisible while that block was skipped, and surfaced the moment a context
+let the block compile at all.
+
+**Final ratio over the 94 fenced `csharp` blocks in maintained prose: 56 compile (43 outright + 13 over a
+`compile-given`) / 38 skipped / 4 fixed.** 23 of those skips are one historical plan taken out wholesale by a
+single `compile-skip-file`, so across the four live documents it is **56 compiled / 15 skipped — a 21% skip
+rate**, down from 39% before `compile-given` existed.
+
+**The 15 that stay skipped, and why none of them is a `compile-given` in disguise** — four elided argument
+lists in `extending-lyntai.md` (`/* options, factory */` is not an expression); four in the migration guide
+(two before/after pairs of the *same* member signature, a deliberately partial store stub, and the 2.5
+"before" half, which failing to compile against 3.0 is the entire point of); the design doc's v0.1 seed
+snippet, kept for its semantic commentary against a superseding baseline; a menu of four alternatives one per
+line; two blocks mixing a type declaration with its registration statements (a *wrapper* limitation — a block
+is wrapped at one scope — not a missing context, so no given helps); the OpenTelemetry wiring, where no given
+is possible because this library takes no OpenTelemetry dependency and `TracerProviderBuilder` is therefore
+not in the compilation at all; and the BYO-seams tour, **where `compile-given` was attempted and measured
+before being rejected**: `IProcessRunner` alone is two eight-parameter methods, and with `MyCustomProvider`
+(four `ILlmProvider` members) and a connection factory the context runs to ~26 lines for a 16-line sample —
+a whole program, not a few declarations. Each skip reason now names its own cause in the document.
+
+39 tests in `devtools/scripts/__tests__/check-samples.test.mjs` (+1 in `cli-entry.test.mjs`), **nineteen
+behaviours mutation-checked against a verified-green baseline** (the harness refuses to run against a red
+one, after `verify` caught an off-by-one in a new test that had quietly contaminated a first mutation round).
+Pass 1: CommonMark fence length (opener and closer), the wrapping file-level marker, `using`-directive
+hoisting with a trailing comment, hoisting by blanking rather than removing, the `bodyOffset` line map,
+isolation of namespace-declaring blocks, the fixed-point loop, the preamble as shadowable members, and
+default-ON itself. Pass 2: a wrapped `compile-given` being dropped, the declarations not being injected,
+being injected but stripped from the compilation, an error in them attributed to the sample instead of the
+annotation, placement at method scope (where a reader-side *type* cannot be declared), the conflict check
+suppressed, the conflict reported but compiled anyway, the given count going unreported, and the annotation
+walk reaching back past prose into an earlier fence's marker.
+
+---
+
+## Part 63 — `tests/` still speaks the vocabulary the `IMemory<Domain>Policy` naming shape retired, and one rename made it self-contradictory (2026-08-11)
+
+_Filed by the 2026-08-11 audit of the `IMemory<Domain>Policy` naming shape's "what did NOT move" list, run on the owner's instruction that **there
+is no "deliberately kept"** — every survivor must carry a checkable reason or be swept. `src/`, the public
+surface and the maintained docs all passed (five stragglers were found and fixed on the spot). This is the
+one pocket that did not, and it is recorded as **scope with a cost**, never as a principle._
+
+- [x] **Sweep `tests/` for the retired salience/retention vocabulary.** Measured, not estimated: **38 test
+  method names, 100 comment lines, and 7 helper types** — `FixedAppraiser`, `EmptyAppraiser`,
+  `ThrowingAppraiser`, `FixedProvenanceAppraiser`, `AnotherFixedProvenanceAppraiser`, `EngineWithAppraiser`,
+  `FixedModulator`.
+  **What makes this more than tidiness:** renaming `IMemorySaliencePolicy.Appraise` → `Signals` left
+  `FixedAppraiser` implementing a method called `Signals`, so the helper's NAME now contradicts its own
+  contract. The rename did not leave this pocket neutral; it made it worse.
+  **The cost that keeps it out of that change:** several of those method names are QUOTED in `src/` XML
+  comments and in `docs/migration-2.5-to-3.0.md`, so renaming a test means moving its quotes in the same
+  commit or leaving a dangling pointer — a review already caught one pointer/target mismatch of exactly this
+  shape. Do both halves or neither.
+  **Deliberately NOT swept, and a sweep must not "fix" these:** `Modulation`, `ModulatedRetrievability`,
+  `Modulated` and `unmodulated` are a LIVE concept — the `IMemory<Domain>Policy` naming shape retired those words as names for the POLICY SEAM,
+  never as the phenomenon. `Func<DateTimeOffset> clock` is a genuine wall clock. See `docs/DECISIONS.md` — the `IMemory<Domain>Policy` naming shape's audit table for the check behind each.
+  No gate covers this (`check-docs` excludes `tests/`, `check-api-vocabulary` reads only the public
+  surface), which is exactly why it needs a task rather than a note.
+
+✅ done 2026-08-11 (`feat/close-gate-gaps`) — **Outcome:** swept across 16 files. **33 test method names**
+(the filed estimate of 38 counted the three shared `MemoryGraphStoreContract` facts once per backend caller;
+they are three declarations with nine call sites), **all 7 helper types**, and **~100 comment / XML-doc
+lines**. `212 insertions, 212 deletions` — exactly balanced, which is the arithmetic signature of a pure
+rename: no line was added or removed, only rewritten.
+
+**The naming was derived from the code, not spliced.** `appraiser` → salience policy, `modulator` → retention
+policy, and where a name read awkwardly under mechanical substitution it was rebuilt from the vocabulary the
+tree already used: `unappraised` → `unjudged` (`MemorySignalsTests.Difficulty_of_an_unjudged_bag_is_the_neutral_value`
+was already spelled that way), and the three contract facts became
+`Re_remembering_with_fresh_signals_replaces_*` — which is what their own `[Fact]` wrappers had called them all
+along (`Re_remember_with_fresh_signals_replaces`) and which finally pairs them with their
+`Re_remembering_with_no_signals_keeps_*` twins.
+
+**Both halves of every quote moved in this same change**, verified by grepping each old identifier across the
+whole tree afterwards: two in `docs/migration-2.5-to-3.0.md` (the salience before/after-`AddLyntai` pair), and
+five inside `tests/` itself — `ModulatedRetrievabilityTests`' own reference to
+`With_no_modulators_it_is_the_inner_policy_exactly`, `RetrievabilityPolicyContract`'s to
+`ModulatedRetrievabilityTests.NeutralDefault`, two `<see cref>`s in `MemoryGraphStoreContract`, and the
+Sqlite/Postgres `A_non_finite_*` cross-references. Zero dangling pointers remain.
+
+**Judged LIVE and left alone**, which a careless `modulat`/`clock` replace would have destroyed: the
+`ModulatedRetrievability` type and every `Modulated`/`unmodulated`/`modulation` in prose (the phenomenon, not
+the seam), `CandidateCutoff_is_never_narrower_than_the_modulated_curve_requires`,
+`DerivedGrade_forwards_to_the_inner_policy_on_the_unmodulated_state`, the `Lyntai.Memory.Modulation`
+namespace, `MultiplicativeRetentionComposition`/`MaxRetentionComposition`, and every
+`Func<DateTimeOffset> clock` — including `GraphMemoryEngineTests`'
+`PruneAsync_olderThan_reads_the_engines_own_injected_clock_on_the_derivable_path`, which is about a genuine
+wall clock and sits in the same file as three renamed salience helpers.
+
+**No behaviour changed.** Every touched `Assert` line is a local-variable rename (`modulator` →
+`retentionPolicy`); every number, comparison, precision argument and control-flow statement is byte-identical.
+The one non-comment string touched is a stub's own exception message (`"appraiser is broken"` → `"the salience
+policy is broken"`), which nothing asserts on. Verified green: `verify` all eleven gates, 2303 passed /
+0 failed, e2e 3/3 — 99 skipped rather than the usual 9 because Docker was down, the standing Part 58 gap.
+
+---
+
+## Part 54 (items DSR3 and DSR5 of 5) — the unguarded half of `DsrOptions`, and a per-engine forgetting curve (2026-08-11)
+
+_Two of the four defects Part 54 opened. **DSR2 and DSR4 remain open** under the same `## Part 54` heading in
+`TASKS.md` — both are defects in the curve's own arithmetic (`Reinforce` shortening a memory stored above a
+legitimately-configured ceiling; the connection/`Strength` axis being untested), not in its configuration
+surface, so neither was closed by this pair._
+
+- [x] **DSR3 — `MaxStability` is the one option path to a permanently PERSISTED poisoned stability.**
+  `NaN` propagates through `Math.Min` (IEEE 754) and 0/negative clamp every reinforcement down to the
+  ceiling, and `GraphMemoryEngine` feeds `Reinforce`'s return straight into `TouchAsync` — so the bad value
+  is written back and a `NaN` stability then compares false against every threshold, meaning the entry
+  neither ranks, prunes, nor reports as broken. `DsrOptions.ReinforceGain`, `ConnectionBoost`,
+  `MaxConnectionBoost` and `EdgeHalfLife` are unguarded for the same reason and belong in the same sweep.
+- [x] **DSR5 — per-engine forgetting-policy selection is impossible.** `IMemoryRetrievabilityPolicy` is
+  resolved from the global container in `MemoryEngineBuilder.UseGraph`, so every graph engine in a process
+  shares one curve. Closing it needs a `UseGraph` signature change — a **binary break on a frozen package**,
+  so it needs a versioned decision before any code.
+
+✅ done 2026-08-11 (`feat/dsr-guards-and-per-engine-curve`) — **Outcome:** both closed; 38 new test cases,
+`verify` green on all eleven gates (2431 passed / 0 failed / 9 skipped, e2e 3/3 — 9 skips, so the Postgres
+leg ran for real).
+
+**DSR3 — the five guards, with the domain each property's own doc justifies.** `MaxStability > 0`,
+`ConnectionBoost >= 0`, `MaxConnectionBoost >= 1`, `EdgeHalfLife > 0`, `ReinforceGain >= 0`, every one of them
+additionally rejecting `NaN` and both infinities, all in the record's existing `ArgumentOutOfRangeException`
+idiom rather than a second one. **The reasoning had to be corrected against the code before it was written
+down, and the correction is the durable part:** the brief's premise was that a negative `ConnectionBoost` or a
+sub-1 `MaxConnectionBoost` would make connectedness *shorten* a half-life, and that a negative `ReinforceGain`
+would shrink stability. None of the three is reachable — `EffectiveStability`'s outer `Math.Max(stability, …)`
+floors the boosted value at the stored one, both readers already take `Math.Max(1, MaxConnectionBoost)`, and
+`Reinforce`'s own finiteness floor zeroes a negative increase. So `Connectedness_never_lowers_retrievability`
+and `Reinforcement_never_shortens_a_memory` keep passing under every one of those values. What the bad values
+actually do is **silently switch the mechanism off** while every call site still reads as configured — the
+same failure shape `SpacingWeight`'s own negative branch already documents — and that is what the XML docs now
+say. The one contract fact a guard genuinely defends is `Reinforcement_never_shortens_a_memory` against a
+**non-positive `MaxStability`**, which clamps every reinforcement below its own input. The corrupting end in
+all five is non-finiteness, and `MaxStability` is the only one that reaches persisted state.
+
+**A whole-surface guard, not five field guards.** `Every_option_on_the_record_now_rejects_a_NaN` walks
+`DsrOptions`' own properties by reflection and reports any that accept `NaN`, with an unlisted property
+counted as an offender — so a `double` option added later without a guard fails there rather than shipping as
+the next unguarded neighbour. That is the pitfalls entry's own prescription ("prefer a test that walks the
+whole options surface over one that pins the field just fixed"), which exists because this record had already
+been half-guarded once.
+
+**DSR5 — appended last, and substituted at the INNER resolution.** `UseGraph(…, IMemoryRetrievabilityPolicy?
+policy = null)` sits after `namedRankingPolicies`, so no positional caller re-binds. The argument replaces the
+`sp.GetRequiredService<IMemoryRetrievabilityPolicy>()` call *inside* the `ModulatedRetrievability` wrapper
+rather than the wrapper itself — the same place `ranking:` substitutes — so a consumer selecting a curve is
+choosing a curve, not opting out of the retention policies every other graph engine gets. Handing it to
+`GraphMemoryEngine`'s own `policy:` slot instead would compile, pass every selection fact, and silently drop
+modulation for exactly the engines that named a curve; `A_selected_curve_is_still_wrapped_in_retention_modulation`
+is the fact that rejects it, observed through `MemoryItem.Retrievability` (what modulation actually moves)
+rather than through provenance — which `ModulatedRetrievability` forwards from the inner curve verbatim, so it
+cannot distinguish wrapped from unwrapped — and not through reflection over a private field, which is a rename
+site no build can see.
+
+**Mutation-checked, seven mutations, all killed** (`devtools/_mut/mutate.mjs`, scratch): all five guards
+deleted → 6 facts fail; the finiteness clause alone dropped → the same 6 (so the `IsFinite` half is
+independently load-bearing, not carried by the sign checks); every guard made one notch too strict → the 5
+"a valid value is accepted" facts fail, and only those; the `policy` argument ignored → the two selection
+facts; the selected curve passed unwrapped → the modulation fact alone; the null path short-circuited to a
+bare `DsrRetrievability` → the container-resolution facts; the null path pointed at a differently-configured
+default → all three null-path facts. Every fact this pair added is killed by at least one mutation.
+
+**Also updated:** `docs/migration-2.5-to-3.0.md` gained both — the five newly-throwing options beside the
+existing `HalfLifeOptions` → `DsrOptions` porting decision, and the per-engine curve beside its ranking twin —
+and the API baseline moved by **exactly one line**, the `UseGraph` signature.
+
+---
+
+## Part 54 (items DSR2 and DSR4 of 5) — a ceiling that CUT instead of capping, and the untested connection axis (2026-08-11)
+
+_The last two of the four defects Part 54 opened, and with them the whole Part. Both were defects in the
+curve's own arithmetic rather than in its configuration surface, which is why the DSR3/DSR5 pair above did not
+close them._
+
+- [x] **DSR2 — `Reinforce` can SHORTEN a memory whose stored stability exceeds `MaxStability`**, violating
+  `IMemoryRetrievabilityPolicy.Reinforce`'s own written contract ("must never be smaller than the current one").
+  Measured: a stored stability of 100000 comes back as 2000, a **50× shortening**. Ends in
+  `Math.Min(grown, MaxStability)`. Reachable by lowering the ceiling under an existing corpus, or by any
+  stability written outside this policy. The contract's doc said the guarantee does not hold there; that is a
+  disclosure, not the fix.
+- [x] **DSR4 — `Reinforce`'s connection/`Strength` axis is untested.** Every state in
+  `DsrRetrievabilityTests` has `Strength = 0`, so the whole `EffectiveStrength` → `EffectiveStability` path
+  is exercised only through `Retrievability` (the contract's `Connectedness_never_lowers_retrievability`),
+  never through the reinforcement laws that read it via `r`.
+
+✅ done 2026-08-11 (`feat/dsr2-and-dsr4`) — **Outcome:** both closed; 7 new facts plus one existing contract
+fact widened and one pathology fact inverted, `verify` green on all eleven gates (2438 passed / 0 failed /
+**9 skipped** / 2447 total, e2e 3/3 — 9 skips, so the Postgres leg ran for real).
+
+**DSR2 — one line, and the shape was already in the file.** `Reinforce` now ends in
+`Math.Max(stability, Math.Min(stability * (1 + safeIncrease), MaxStability))` — the identical shape
+`EffectiveStability` has always used one method away, where the outer floor makes the ceiling cap GROWTH
+without ever acting as a CUT. **An over-ceiling entry is FROZEN, not truncated**, which is what
+`DsrOptions.MaxStability`'s own doc asks for: "unbounded compounding would let an ASSOCIATIVE entry become
+permanently retrievable while still labelled associative" is an argument about growth, and freezing stops
+growth as completely as truncation did. **The floor is the SUBSTITUTED local, not `state.Stability`** — every
+other line of the method (and `EffectiveStability`) reads a non-positive stored stability as
+`InitialStability`, so flooring at the raw stored value would let a `MaxStability` configured below
+`InitialStability` return LESS for a zero-stability entry than for one already sitting at `InitialStability`,
+breaking `A_zero_stability_entry_reinforces_from_InitialStability_not_from_zero`'s own claim that the two
+paths agree. One substitution rule for the whole method.
+
+**The two interactions the brief asked to be checked, and what they turned out to be.** (1) *The
+difficulty/grade path below it:* no interaction at all — `DerivedGrade`, `NextDifficulty` and the coerced
+`difficulty` local all read the PRE-reinforcement `state`, never `grown`, so the floor cannot reach them
+within a call. Across calls it is directionally right: a frozen (rather than cut) stability keeps `r` high,
+which keeps the derived grade Easy-leaning, which is the honest reading of a very stable memory. (2)
+*`MaxConnectionBoost`'s `CandidateCutoff` widening:* the superset guarantee is unaffected and in fact gets
+MORE conservative. The cutoff bounds the RATIO `age / storedStability`, and its widening rests on
+`effectiveStability <= storedStability × max(1, MaxConnectionBoost)` — an inequality about
+`EffectiveStability`, which this change does not touch. Truncation used to LOWER the stored value (raising the
+ratio the store filters on); freezing keeps it high, so the ratio is smaller and lands further inside the
+cutoff.
+
+**No test pinned the old truncating behaviour by accident — one pinned it on purpose, and it was the right
+one to invert.** `DsrPathologyTests` carried
+`Known_shared_defect_lowering_MaxStability_under_an_existing_corpus_shortens_a_memory`, a deliberate live
+reproduction asserting `2000`, whose own message said "either the defect was fixed (update `TASKS.md` Part 54
+DSR2/DSR3) or this reproduction is wrong." It is now
+`Lowering_MaxStability_under_an_existing_corpus_FREEZES_a_memory_rather_than_shortening_it`, asserting
+`100000`, and it stays an ENGINE + SQLite round trip because the defect's reach was never the arithmetic
+alone: `GraphMemoryEngine` feeds `Reinforce`'s return straight into `TouchAsync`, so the cut value was
+PERSISTED. It also gained the observability guard that inversion needs — "the stability did not move" passes
+vacuously if the recall never returned the entry, so the fact now asserts the recall was non-empty and that
+the node carries the `Dsr` provenance bit it was written without.
+
+**The contract fact was widened, not duplicated.** `Reinforcement_never_shortens_a_memory` had only ever run
+on a state at `InitialStability`, which sits far under any ceiling — structurally unable to reach the case
+where the guarantee failed. It now also reinforces a stability of `1e6` at four ages. That is the right home:
+any future curve with a ceiling has the identical trap available, so this is a seam fact rather than a
+DSR-only one. The seam's XML doc no longer discloses an exception it does not have — a stale carve-out in a
+contract is worse than none.
+
+**DSR4 — five facts, chosen so each rejects a specific wrong implementation.**
+`A_connected_entry_gains_LESS_per_recall_than_an_isolated_one_because_its_r_is_higher` (connectedness raises
+`r`, which SHRINKS law 3's spacing term — pinned as a consequence of the two laws composing, not as a stated
+design intent); `A_neighbourhood_that_went_quiet_reinforces_more_like_an_isolated_entry` (the `StrengthAge`
+decay, asserted both ways: a quiet neighbourhood is weaker than a fresh one AND still stronger than none, so
+"decayed" is not silently read as "absent"); `A_state_carrying_Strength_with_StrengthAge_unset_reinforces_as_FULLY_connected`
+(the shape DSR4 itself named — the record's `StrengthAge = 0` default is what `EffectiveStrength`'s
+`StrengthAge <= 0` branch is for, and it means fully connected, never "unknown, therefore ignore");
+`Connectedness_reaches_the_derived_grade_and_therefore_the_difficulty_update` (the same raised `r` feeds
+`g = 2 + 2·r`, so the DIFFICULTY half of the path is pinned too, not only the stability laws); and
+`The_connection_boost_saturates_on_the_reinforcement_path_too` (`MaxConnectionBoost` is what keeps the
+candidate cutoff finite, and the write path must honour the same saturation the read path's superset
+guarantee assumes).
+
+**Mutation-checked, six mutations, all killed.** (1) The `Math.Max` floor removed → 3 facts fail (the new
+direct fact, the widened contract fact, the inverted pathology fact) — so the fix is pinned from the unit,
+contract and live-engine sides at once. (2) The `Math.Min` removed instead → 3 fail, including the new
+over-ceiling fact, because its equality is two-sided on purpose: it rejects both a cut and a compounding
+over-ceiling entry. (3) `EffectiveStrength` forced to `0` → all five DSR4 facts fail (plus one pre-existing
+cutoff-boundary fact). (4) The `StrengthAge` decay dropped (raw strength always) → exactly ONE fact fails, the
+one that claims to cover it. (5) The `StrengthAge <= 0` branch returning `0` instead of the raw strength →
+five fail, the unset-age fact among them. (6) The boost's `Math.Min(…, MaxConnectionBoost)` dropped → the
+saturation fact fails (and so does the contract's `Cutoff_superset`, which is the point: the two are the same
+assumption seen from the write and read sides).
+
+**Left deliberately, and why.** `docs/2026-08-09-memory-policy-measurement.md` still records DSR2 as open —
+correct, and left alone: it is a dated, point-in-time measurement record, accurate for the day it was written
+(`.claude/rules/repo-mechanics.md` the archive-finished-documents rule). No `retiredTerms` entry was added for the retired "the guarantee
+does not hold above the ceiling" wording either: the phrase survives legitimately in `docs/DECISIONS.md`'s own
+historical entries, which are owner-only, so a gate entry would fail the build against correct prose and could
+not be silenced with `drift-ok` from here.
+
+---
+
+## Part 53 (item 3 of 3) — a ranking score could overflow to `+Infinity` from FINITE inputs (2026-08-11)
+
+_Part 53's third item closes here; items 2 (measure salience's actual effect) and the two later-filed
+`check-docs`/`retiredTerms` items **remain open** under the same `## Part 53` heading in `TASKS.md` — this
+entry is not a full close._
+
+- [x] **A ranking score can still overflow to `+Infinity` from FINITE inputs, and both policies' docs
+  over-claim that it cannot.** Both policies now exclude a candidate whose `Relevance` or `Retrievability`
+  is non-finite, which closes the poisoned-*input* class. It does not close the poisoned-*product* class:
+  `Relevance = 1e308` × `Retrievability = 1e308` are each finite and admitted, the product is `+Infinity`,
+  `best` and `floor` become `+Infinity`, and every HEALTHY candidate then fails `score >= floor` — recall
+  collapses to the corrupted entry alone. `MultiplicativeRankingOptions.SalienceRankWeight` is a second
+  route: validated as finite and `>= 0` but unbounded above, so it can overflow `boost`.
+
+✅ done 2026-08-11 — **Outcome:** a post-hoc `double.IsFinite(score)` filter, applied where the score is
+computed rather than to what went into it, in **three** policies rather than the two the item named: an
+overflowed score now drops its own candidate and nobody else's, and `best`/`floor` are computed over a set
+that is finite by enforcement.
+
+**The item under-counted the exposure, and the third policy's failure is the worst of the three.**
+`CompositeRankingPolicy` carried the identical latent route to `ReciprocalRankFusionPolicy` — both had an
+inline comment arguing the score was "finite by construction (a sum of positive, bounded reciprocal terms)",
+sound at the shipped weights and false in general, because every weight is validated finite and `>= 0` with
+**no upper bound** while `K` may be any finite positive number, so two terms of `double.MaxValue / 1.5`
+overflow their own sum from four legal option values. And the consequence there is worse than under a
+product: both ship `RelativeFloor = 0`, `+Infinity × 0` is `NaN` by IEEE 754, every `Score >= NaN` is false,
+and the recall comes back **completely empty** rather than collapsed to the poisoned entry — measured, both
+returned `[]`.
+
+**Scope of what a consumer can see: unchanged, still BYO-only.** Every shipped `IMemoryGraphStore` reports
+`Relevance` in `(0,1]` and every shipped `IMemoryRetrievabilityPolicy` clamps to `[0,1]`, so the
+candidate-side route is unreachable from anything this library ships. The OPTION-side routes
+(`SalienceRankWeight`, the fusion weights) need no BYO component at all — only a large configured value —
+but no shipped default is anywhere near one. No public surface changed; the fix is behavioural, and the
+`SalienceRankWeight` bound stays deliberately absent (a legitimate large weight is a legitimate
+configuration, and the ranking loop now contains the failure).
+
+**Four facts, all mutation-checked.** One new shared contract fact
+(`A_finite_input_whose_score_overflows_does_not_empty_a_healthy_recall`) wired to all three policies, plus
+one policy-specific fact per option-side route. The contract fact deliberately does **not** assert the
+overflowing candidate is dropped — reciprocal rank fusion ranks by POSITION, so a `1e308` relevance is
+simply the best relevance rank and yields an ordinary finite score, and dropping it would be wrong. Only
+"no returned score is non-finite" and "a healthy candidate is never cut by somebody else's overflow" are
+contractual. Mutation 1 (remove the filter from all three policies) reddens exactly the 4 new facts and
+leaves 154 others green. Mutation 2 (**clamp** the overflowed score to `double.MaxValue` instead of
+dropping it — the plausible wrong fix) reddens both Multiplicative facts through their *survival*
+assertion while the *finiteness* assertion passes, which is what proves the two halves are independently
+load-bearing: a fix that only made scores finite would still destroy the recall.
+
+**Docs corrected rather than left to read as closed** — the three that over-claimed:
+`MultiplicativeRankingPolicy`'s "one deliberate correctness fix" paragraph (now says the input filter closes
+the input class only), `MultiplicativeRankingOptions.SalienceRankWeight`'s "no upper bound … never a
+reversal" (now distinguishes the claim about the ORDER from the arithmetic), and
+`MemoryRankingPolicyContract`'s own `+Infinity` fact, which stated that reciprocal rank fusion was safe
+"academically" — it was not.
+
+---
+
+## Part 63 (residue item 1 of 2) — the 19 fixture STRING LITERALS the vocabulary sweep left behind (2026-08-11)
+
+_The first of the two residue items Part 63 left open after its measured scope closed. The other (`clock`
+still naming AGE POLICIES in `tests/`) is a separate, larger sweep._
+
+- [x] **19 fixture STRING LITERALS in `tests/` still say `appraisal`/`appraised`.** Node CONTENT, not names:
+  `"a non-finite appraisal"`, `"a half-appraised note"`, `"reappraised fact"`, `"an appraised row"` in
+  `MemoryGraphStoreContract.cs` (13), `SqliteMemoryGraphStoreTests.cs` (4) and `PostgresStorageTests.cs` (2).
+  Left because most are compared by an `Assert` (so moving one means editing an assertion), and because the
+  two Postgres-only ones could not execute with Docker down.
+
+✅ done 2026-08-11 — **Outcome:** all 19 moved, content and assertion in the same edit, into the vocabulary
+the surrounding prose had **already** been swept to: `judgement` / `judged` / `unjudged`. The literals were
+the last holdouts of a word their own doc comments had stopped using — `Seeding_treats_a_below_neutral_salience_as_the_neutral_value`
+already read *"a half-judged entry must order LEVEL with an unjudged one"* three lines above a fixture called
+`"a half-appraised note"`. Mapping: `a non-finite appraisal` → `a non-finite judgement` (9),
+`reappraised fact` → `rejudged fact` (6, which also carries the two `a reappraised fact` sites),
+`a half-appraised note` → `a half-judged note` (2), `an appraised row` → `a judged row` (2).
+
+**Verified by stem search, not by an enumerated word list** — the exact discipline the `IMemory<Domain>Policy` naming shape's own audit note
+says the first pass got wrong. `apprais` now returns **zero** hits in every `.cs` file in the tree.
+
+**Ruled safe before editing, and worth recording because it is what made a bulk rename acceptable here:**
+none of the 19 participates in text MATCHING. Every fact involved calls `SeedAsync(…, query: null, …)`, so
+no literal reaches `FtsQuery.Build`, and the contents that ARE asserted are compared for equality or for
+ordering position, never searched. Distinctness within each fact was preserved (the difficulty fact's three
+contents stay mutually distinct, which its `hits.Single(h => h.Content == …)` requires).
+
+**Mutation-checked, and the mutation is the one this item's own caution called for** — that a rename must
+not silently decouple an assertion from the content it checks. Decoupling two write-site literals from their
+(unchanged) assertions reddens **5** tests: `Below_neutral_salience_is_neutral` and
+`Non_finite_or_out_of_range_difficulty_is_coerced` on both `InMemory` and `Sqlite`, plus
+`PostgresStorageTests.Graph_store_satisfies_the_contract`. So the pairs are genuinely coupled AND the
+contract is genuinely wired to all three backends — the `pitfalls.md` "a cross-backend invariant enforced on
+ONE backend's test class is not enforced" trap, re-confirmed rather than assumed.
+
+**Finding the item did not anticipate: the two Postgres sites carry no assertion on the literal at all.**
+`A_non_finite_judged_salience_writes_the_neutral_column_value_not_NaN` and its `difficulty` twin write the
+fixture and then read the promoted COLUMN back by `task_key` — the content string is never asserted on. So
+the reason those two waited for Docker was not "an assertion might be weakened"; what running them for real
+actually bought was proof the write path still behaves after the edit. Measured with Docker UP: 81 Postgres
+tests executed, **0 skipped**.
+
+---
+
+## Part 63 (residue, `src/` sites) — the 12 `apprais*` comment and XML-doc sites (2026-08-11)
+
+_Filed and closed the same day, by the session that filed it. Moved here verbatim when Part 63 was fully
+closed, because its record existed nowhere else — the wording below is the original._
+
+- [x] **`src/` has 12 surviving `apprais*` sites, all in comments and XML docs.** **Closed 2026-08-11,
+  the same day it was filed.** All twelve rewritten (`appraised` → `judged`, `appraisals` → `judgements`),
+  including the two that shipped to consumers inside XML docs — `MemorySalienceComposition.cs:4` and
+  `ReciprocalRankFusionPolicy.cs:303`. A stem search now returns **zero** `apprais*` in `src/`.
+  **Why this one was worth catching rather than carrying:** the the `IMemory<Domain>Policy` naming shape audit had already reported `src/` clean
+  after finding 5. It searched the public surface by STEM and then searched `src/` with a hand-listed set of
+  word forms (`appraiser|appraisal|appraise|unappraised`) that matches neither `appraised` nor `appraisals`.
+  `MemorySignals.cs` is the tell — line 138's `unappraised` was fixed while line 137's `half-appraised` was
+  left, in the same edit. **An enumerated word list is a guess about morphology; a stem search is not.**
+  Recorded in `docs/DECISIONS.md` — the `IMemory<Domain>Policy` naming shape's audit note.
+
+---
+
+## Part 63 (residue item 2 of 2) — `clock` still named AGE POLICIES in `tests/` (2026-08-11)
+
+_The second and last of Part 63's residue items. **Part 63 is now fully closed** and its heading is gone from
+`TASKS.md` — the three residue items are archived above and here, and the original sweep is the `## Part 63`
+entry earlier in this file._
+
+- [x] **`clock` still names AGE POLICIES in `tests/` prose and locals** — `var clock = new
+  ContentSizeAgePolicy(...)` / `new BurstDampenedAgePolicy(...)` throughout `MemoryAgePolicyTests.cs`, plus
+  "an undamped per-write clock" in four class docs. The retired sense the `IMemory<Domain>Policy` naming shape cared about most (*"there was never
+  a clock — age is interference"*), and a separate, larger sweep than the salience/retention one: tangled with
+  the many genuine `Func<DateTimeOffset> clock` uses that must NOT move.
+
+✅ done 2026-08-11 — **Outcome:** **42** `clock` occurrences moved across 7 files (39 changed lines).
+`MemoryAgePolicyTests.cs`'s locals became `policy` (every one of them constructs an `IMemoryAgePolicy`, never
+a `Func<DateTimeOffset>`), the four class docs' *"an undamped per-write clock"* became *"an undamped per-write
+age policy"*, and the scattered prose sites moved with them. One test method renamed:
+`Damping_composes_over_whichever_clock_was_chosen` → `..._whichever_age_policy_was_chosen`; checked for
+quotes elsewhere first and found none in any tracked file.
+
+**The count in the task was an over-estimate, and the reason matters more than the number.** It said ~60;
+the measured answer is 42. The gap is the whole difficulty of this item: a `grep -c clock` over
+`MemoryAgePolicyTests.cs` returns 30 LINES, but several carry two occurrences and several others are the
+genuine kind on the same line. **Counting matches is not counting sites**, and here the two differ by enough
+to change what "done" looks like.
+
+**275 genuine `clock` sites in `tests/` were left untouched, each judged by TYPE** against the `IMemory<Domain>Policy` naming shape's own audit
+table rather than by reading the word. The four hardest — lines that name an `AgePolicy` AND say `clock` —
+are all genuine and all stayed: `BurstDampenedAgePolicy`'s **wall-clock** burst window is a real wall clock
+(the policy takes a `Func<DateTimeOffset>` precisely so that window can be simulated),
+`MemoryAgeCompositionTests`' `DateTimeOffset Clock() => now` is a clock by type and is passed as one to
+`BurstDampenedAgePolicy`, `ElapsedAgePolicy` and the store alike. Likewise
+`GraphMemoryEngineTests`' `clock: () => fixedNow` (the engine's own genuine injected clock, whose test method
+name says `clock` correctly) and every `MutableClock` in the store tests.
+
+**Two prose sites were kept because they are the retired sense stated CORRECTLY, and they are the ones a
+blanket replace would have cost most:** `MemoryGraphStoreContract`'s *"Aging is done by WRITING, not by
+advancing a clock: an entry's age is how far the engine's …"* and `RetrievabilityPolicyContract`'s *"A policy
+sees no clock: age is a dimensionless quantity …"*. Both use the word to say what age is NOT — they teach
+the `IMemory<Domain>Policy` naming shape's own point, and replacing `clock` there would have turned each into a tautology. This is the concrete
+form of the item's own warning that a blanket replace destroys a deliberate audit.
+
+**Mutation-checked, on the question a pure rename actually raises: did the rename ORPHAN a test?** A renamed
+`[Fact]` that silently stopped running would look identical to one that passes. Breaking
+`BurstDampenedAgePolicy` so it ignores its wrapped policy reddens
+`Damping_composes_over_whichever_age_policy_was_chosen` and **nothing else** in the age-policy suite — so the
+renamed method is still discovered, still executed, and is still the sole discriminator for the behaviour its
+name claims.
+
+**One real (and instructive) slip, caught by the compiler rather than by review.** The bulk local rename was
+done as a replace of `"var clock = new "` with `"var policy = new"` — one character short — which produced
+`newContentSizeAgePolicy` at 9 sites. `CS0103` named all nine immediately. Worth recording only because it is
+the benign half of a pattern this repository has been bitten by in the malignant direction: a mechanical
+string edit that the compiler CANNOT see (a name reached by reflection, a name inside a comment) is the same
+edit with no safety net — `pitfalls.md` §Refactoring already carries both halves.
+
+---
+
+## Part 56 (item 3 of 3) — the measuring corpus's own filler competed with the entries it was measuring (2026-08-11)
+
+_Part 56's third item closes here; FSRS-B (parameter fitting) and FSRS-C (`SpacingWeight`) **remain open**
+under the same `## Part 56` heading in `TASKS.md` — both need a real review corpus and a fitting procedure,
+neither of which this repository has._
+
+- [x] **A handful of early corpus entries are never recalled at all for any of their own relevant queries —
+  outranked by the corpus's own filler padding, a corpus/ranking interaction shared by BOTH curves.** Found
+  by Task 3's falsification battery while checking whether reinforcement ever fires (item 5 of its
+  enumerated list): `MemoryCorpus.WriteFiller`'s own padding shares the token `"item"` with every real entry,
+  and `FtsQuery.Build` OR-joins tokens, so a freshly-written filler write (retrievability ≈1) can outscore an
+  already-decayed-but-relevant target under `Score = Relevance × Retrievability` before the target is ever
+  actually recalled — `IMemoryRetrievabilityPolicy.Reinforce` is never even called for these, so this is not
+  a reinforcement-formula bug on either curve. Measured comparable on both: **9 of 55 relevant ids under
+  `DsrRetrievability`, 10 of 55 under `HalfLifeRetrievability`** never recalled at all. Not disqualifying
+  either curve (curve-symmetric), but a real query-ranking gap worth its own fix — either a token-matching
+  change in `FtsQuery.Build`, or excluding/down-weighting corpus filler from the token vocabulary it shares
+  with real content (the latter is a test-corpus fix, not a product one, and would only sharpen future
+  measurement rather than fix anything a consumer sees).
+
+✅ done 2026-08-11 — **Outcome:** taken as the **test-corpus** fix, the second of the two options the item
+itself named and the one its own parenthesis preferred. `MemoryCorpus.WriteFiller` now writes
+`"padding filler{n} …"` in place of `"item filler{n} …"`. **`FtsQuery.Build` is untouched** — this was a flaw
+in the measuring instrument, not in the product, and changing the library's tokenizer to accommodate a test
+corpus would have been the tail wagging the dog.
+
+**One token changed, and only the leading one**, so the id stays the second space-delimited token and all four
+independent readers of that convention (`MemoryCorpusTests.ExtractId`, `MemoryPolicySweep.ExtractCorpusId`,
+`DsrPathologyTests`, `MemoryDefaultRecallQualityTests`) keep working untouched. The per-entry `Filler(rng)`
+draw is still made in the same order, so **every non-filler entry's content is byte-identical** and the
+change is genuinely isolated to the padding.
+
+**Pinned by a new property-based fact over the existing 60-shape grid**,
+`No_filler_entry_can_match_any_query_in_the_corpus`: no filler content may CONTAIN any query term of 3+
+characters. Two details are load-bearing and were chosen rather than defaulted. **Substring, not token
+equality** — the SQL backends index with an FTS5 **trigram** tokenizer, so a query term matches any document
+containing it as a substring; a token-boundary check would pass while the store still matched. **The
+3-character floor is `FtsQuery.Build`'s own rule**, so the shared `"to"` in *"what happened to critical0"* is
+correctly ignored as genuinely unmatchable rather than papered over.
+
+### A published measurement MOVED, and it moved in the direction that argues against the fix
+
+`MemoryDefaultRecallQualityTests`'s fixed-corpus pin, re-measured on the identical construction:
+
+| | before | after | move |
+|---|---|---|---|
+| miss rate | 0.179310 | **0.234483** | +0.0552, WORSE |
+| pollution rate | 0.865517 | **0.871034** | +0.0055, WORSE |
+
+**No policy changed** — ranking is still `ReciprocalRankFusionPolicy`, forgetting still `DsrRetrievability`.
+This is the first of that pin's four re-baselines caused by the CORPUS rather than by a shipped default, and
+it is stated here rather than absorbed because "removing a competitor made recall worse" is exactly the
+result that should not be quietly re-pinned.
+
+**What is ruled out.** The corpus TIMELINE is structurally unchanged: identical write count, identical
+ordering, identical interposition — every discriminating-band guard in `MemoryCorpusTests` still passes, and
+the age axis (`PerWriteAgePolicy` in this harness) counts writes, which did not move. The only thing that
+changed is which entries are ELIGIBLE TO BE RETURNED.
+
+**The mechanism is a HYPOTHESIS and is labelled as one, because it was not isolated.** Recall reinforces what
+it returns. While filler was matchable it occupied much of every returned page and absorbed that
+reinforcement harmlessly — it is relevant to nothing and queried by nothing. With filler ineligible those
+slots go to REAL but irrelevant entries (noise, and other classes' targets), which are therefore reinforced
+far more often, grow more retrievable, and compete harder against the genuinely relevant but decayed target
+on every later query. If that is right, the OLD numbers were flattered by the scaffolding soaking up
+reinforcement and these are the honest ones. Confirming it needs an instrumented reinforcement count per
+entry class, which this task did not do.
+
+**Either way the absolute values are not comparable across this boundary** — only measurements taken on the
+same side of it are. That is recorded in the test file itself, beside the three earlier re-pins, so the
+sequence stays readable from one place.
+
+**Mutation-checked, and the mutation is unusually informative**: restoring the single word `item` reddens
+**three** tests — the new guarantee, `Filler_entries_are_never_declared_relevant_to_any_query` (whose
+detector keys on the filler content, so this is a positive control proving the detector is not vacuous), and
+the recall-quality pin, which snaps straight back to its old numbers. That last one is the evidence that the
+corpus change is precisely what moved the measurement, rather than something else in the batch.
+
+---
+
+## Part 67 — the multilingual memory work: four languages measured, the cluster gap closed, and objective (1) found broken (2026-08-13)
+
+_Filed out of `TASKS.md` Part 65, which stays open for the items that are still open. The whole sequence
+started from one consumer sentence — "this is not an english only library" — and every entry below was
+found by measuring rather than by review. Preserved verbatim; the `✅` line after each is the outcome._
+
+_**The shape of the sequence is the reusable part.** A recorded blind spot ("every recall figure is measured
+on English") turned out to be hiding a defect, not merely a favourable condition. Fixing it exposed a second
+defect one layer down, three times over: a corpus token below the term floor, a query classifier matching
+English wording, a cue reaching zero cluster members. None was caught by a gate; each was caught by
+disbelieving a number that looked fine._
+
+- [x] **CLOSED 2026-08-12 — the corpus has a LANGUAGE axis and Chinese is measured, not just pinned.**
+  `CorpusShape.Language` selects a `CorpusLexicon` carrying every template AND the readers that parse
+  generated text back; English is the default and byte-identical when unset (five goldens in
+  `MemoryCorpusGoldenTests`, captured before the axis existed). `node devtools/dev.mjs memory-language`
+  reports paired English-vs-Chinese miss/pollution over 30 seeds × 7 shapes. Every attribute-cluster
+  invariant now runs in both languages, and the two timelines are pinned structurally identical, so a gap is
+  the language rather than the corpus. The retrieval defect underneath it is the one-tokenization rule.
+  <br>**Two instrument bugs were found by building this, and both flattered the result** — worth keeping
+  because they are the shape of what goes wrong when a harness gains a language:
+  (1) the Chinese shared leading token was `条目`, TWO characters, below `SearchTerms.MinimumTermLength` — so
+  it yielded no trigram and was dropped from every query, deleting the corpus's central "every queried entry
+  shares a token so they COMPETE" property. The first Chinese sweep reported `topical` miss AND pollution of
+  exactly `0.0000` on almost every shape, which reads like a language finding and is an instrument that
+  stopped measuring. Now `记录条目`, guarded by
+  `The_shared_leading_token_survives_the_term_floor_and_reaches_unrelated_entries`.
+  (2) `MemoryPolicySweep.ClassifyQuery` matched `EndsWith(" recallcue")`, so every Chinese attribute cue fell
+  into `other` and the attribute class vanished from the report entirely — absence reads as "not exercised",
+  not as "mislabelled". It now asks the lexicon.
+
+  ✅ done 2026-08-13 — `CorpusLanguage` + `CorpusLexicon` (templates AND readers together, so a language
+  cannot be half-added); `memory-language` sweep; goldens prove English byte-identical.
+
+- [x] **CLOSED 2026-08-13 — two-character CJK terms are matched on the substring path, two-phase.**
+  `SearchTerms.SubstringTerms` carries them; `Extract` still stops at the trigram floor because an index
+  cannot use them. Cost measured first, at 300k rows with equally selective patterns: `%配偶%` parallel Seq
+  Scan **96.6 ms** vs `%我的配%` Bitmap Heap Scan **0.90 ms** (~108×). So all three Postgres paths run the
+  index-friendly clause first and widen only on a miss, and `HasShortSpacelessTerms` skips the second round
+  trip for any query with nothing to widen with. SQLite's LIKE fallback and both in-process stores widen
+  immediately — they scan either way. Pinned by
+  `MemoryGraphStoreContract.Seeding_matches_a_two_character_chinese_word` on all three backends. the one-tokenization rule.
+
+  ✅ done 2026-08-13 — most Chinese words are two characters, so this is the common case, not a corner. The
+  first two cost measurements were both wrong (a 20k table too small for the index to matter; then a run
+  where every row matched, so selectivity read as cost) — the third, at 300k rows with equal selectivity,
+  is the one on record.
+
+- [x] **CLOSED 2026-08-13 — Japanese was fixed by SCRIPT-RUN SEGMENTATION, with no model involved.** It had
+  measured worse than English on all seven shapes (+0.16 to +0.50 MissRate) while also polluting more. The
+  cause was not a weak ranker and not kana's trigram entropy in the abstract: ordinary Japanese mixes kanji
+  and kana in one token, and sliding a single window across the whole token produced low-information grams
+  spanning the boundary (語の文, の文章) that are words in no language. Segmenting into script runs first — a
+  cheap approximation of word segmentation, kanji runs carrying content and kana runs grammar — collapsed it:
+
+  | shape | before | after | English |
+  |---|---|---|---|
+  | baseline | 0.5756 | **0.2030** | 0.2360 |
+  | low-reuse | 0.7495 | **0.2546** | 0.2535 |
+  | high-reuse | 0.3982 | **0.1552** | 0.2356 |
+  | high-noise | 0.7160 | **0.3499** | 0.3369 |
+  | many-candidates | 0.5381 | **0.3940** | 0.2794 |
+  | rare-critical | 0.4504 | **0.2499** | 0.2929 |
+  | common-cue | 0.6005 | **0.3717** | 0.1649 |
+
+  <br>Japanese is now BETTER than English on four shapes and at parity on two, worse only on
+  `many-candidates` and `common-cue` — which is Chinese's and Korean's profile exactly. **All four languages
+  now behave the same way**, and the two hard shapes are hard for every CJK language rather than for one.
+  <br>**Two lessons worth keeping.** The gather-vs-rank probe correctly said the entries were being retrieved
+  and buried, which pointed at ranking — but the fix was upstream of both: the tokenizer was manufacturing
+  the noise the ranker then could not separate. A "ranking failure" can have a tokenizer cause. And the
+  defect surfaced from a question about MIXED LANGUAGE, not from the Japanese investigation itself.
+
+  ✅ done 2026-08-13 — `SearchTerms.ScriptRuns` + `ScriptProfile`; digits and punctuation are neutral so
+  `第3轮` and `重复0` do not shatter. Superseded the two entries below, both preserved as the record of what
+  was measured before the fix.
+
+- [x] **Superseded — the record of what was measured before the segmentation fix:** Japanese recall was
+  worse on ALL SEVEN shapes, +0.16 to +0.50 MissRate, and polluted more at the same time (2026-08-13, the one-tokenization rule).
+  `all (combined)`: baseline 0.5756 vs English 0.2360, low-reuse 0.7495 vs 0.2535, high-noise 0.7160 vs
+  0.3369, common-cue 0.6005 vs 0.1649. Chinese and Korean sit near parity on the same corpus, so this was
+  Japanese specifically, not CJK.
+  <br>**Missing MORE and polluting MORE together is a weak-discriminator signature.** Hiragana's character
+  inventory is small, so a three-kana trigram recurs across unrelated sentences by chance far more readily
+  than three Han characters do; the query drags in irrelevant material and that material displaces the
+  relevant entries under the limit. The corpus's filler guard passes in Japanese, so it is not scaffolding
+  contamination — it is the tokenizer meeting a script whose trigrams are not selective.
+  <br>Before this, Japanese was ASSERTED to behave like Chinese because `SearchTerms` treats them
+  identically. That assertion was wrong by up to half the metric.
+
+  ✅ done 2026-08-13 — the options considered at the time (morphological segmentation, a longer kana n-gram,
+  or documenting the loss) were ALL wrong; the cause was upstream of every one of them.
+
+- [x] **Superseded — JAPANESE IS A RANKING FAILURE, NOT A GATHER FAILURE, and the cluster case is the exact
+  opposite (2026-08-13).** Method: replay the corpus unchanged at recall limit 10 and again at 50. Raising
+  the limit changes only how many ALREADY-GATHERED candidates survive, so a miss that collapses was a ranking
+  loss and a miss that does not was never retrieved at all.
+
+  | | miss @10 | @50 | drop |
+  |---|---|---|---|
+  | English — all | 0.1981 | 0.1105 | 0.088 |
+  | Chinese — all | 0.2057 | 0.1143 | 0.091 |
+  | **Japanese — all** | **0.5543** | **0.1257** | **0.429** |
+  | Chinese — cluster | 0.6667 | 0.6667 | **0.000** |
+  | Japanese — cluster | 0.6667 | 0.6667 | **0.000** |
+
+  <br>**The cluster case cannot be fixed by ranking at all**: identical miss at both limits means those
+  entries never enter the candidate set. Only linking reaches them.
+
+  ✅ done 2026-08-13 — the cluster half held and drove the annotation work. **The Japanese half was
+  MISLEADING and that is why it is kept**: it was a correct measurement whose obvious reading (reach for a
+  reranker) was wrong, because the tokenizer was manufacturing the noise the ranker could not separate.
+
+- [x] **CLOSED — co-activation cannot link an entity cluster, in either language, and "strengthening" it was
+  a trap (2026-08-13).** The edge census (`MemoryClusterEdgeFormationTests`) counts, over a full replay of
+  `CorpusShape.Default with { AttributeCount = 3 }` at seed 12345, 266 nodes and:
+  **English 442 edges / 2 within the cluster** (one symmetric pair of a possible three);
+  **Chinese 366 edges / 0**.
+  <br>So the graph barely reaches an entity cluster in EITHER language, and English's below-floor result on
+  the two shapes where it has one rests on a single lucky edge. Co-activation links whatever a recall
+  RETURNED, so a cluster connects only when its members happen to share a top-N; nothing in the mechanism is
+  about them being about the same entity.
+  <br>**Widening it does not help, and the reason is structural.** The discriminative cue names ONE subject
+  by construction — that is what makes `miss = 1 - 1/AttributeCount` the no-graph floor — so no query matches
+  more than one member and co-occurrence never happens.
+  <br>**And the lexical signal that WOULD connect them is a corpus artifact — do not fit to it.** All three
+  members share the template tail (`只说过一次而且从未重复` / "stated once and never restated"), so a
+  shared-rare-term linker would connect them and move the number. Real facts about one person share only
+  pronouns. That fix would improve the measurement and represent nothing.
+
+  ✅ done 2026-08-13 — the option the owner had CHOSEN ("strengthen co-activation") was shown unable to work
+  before any of it was built, and that was reported rather than implemented. Annotation replaced it.
+
+- [x] **CLOSED — the graph's contribution does not transfer to Chinese (2026-08-12).** On
+  `attribute (subject cue)`, where `miss = 1 − 1/AttributeCount = 0.667` is the no-graph floor by
+  construction, Chinese sat EXACTLY on it with pollution `0.0000` on six of seven shapes — the cue returned
+  its one lexical match and nothing else. Everything the README and §5.7.0 claimed about spreading activation
+  had been demonstrated in English only.
+
+  ✅ done 2026-08-13 — the leading hypothesis recorded at the time (co-activation windows crowded out by a
+  wider Chinese candidate set) was WRONG: the edge census showed English managed only 2 of 3 pairs itself, so
+  the mechanism barely worked in either language. Closed by annotation, which took Chinese to 0.0000.
+
+- [x] **CLOSED 2026-08-13 — SUBJECT ANNOTATION TAKES CLUSTER RECALL TO ZERO IN CHINESE.** Measured with a
+  PERFECT annotator (`node devtools/dev.mjs memory-annotation`, 20 seeds, paired) — the MECHANISM'S CEILING,
+  not a model's accuracy:
+
+  | language | shape | off | annotated | delta |
+  |---|---|---|---|---|
+  | Chinese | baseline | 0.6667 | **0.0000** | −0.6667 * |
+  | Chinese | many-candidates | 0.6667 | **0.0000** | −0.6667 * |
+  | Chinese | high-noise | 0.6667 | **0.0000** | −0.6667 * |
+  | English | baseline | 0.5933 | **0.2256** | −0.3678 * |
+  | English | many-candidates | 0.2676 | **0.0572** | −0.2104 * |
+  | English | high-noise | 0.6778 | **0.2467** | −0.4311 * |
+
+  <br>**And it does not cost the rest of recall — it helps it.** All-queries MissRate improves on every
+  shape in both languages bar English `common-cue` (neutral).
+  <br>**The one cost, stated:** English cluster pollution rises (baseline 0.3713 → 0.5343). Chinese
+  pollution stays at **0.0000** — it recovers all three members and admits nothing irrelevant.
+
+  ✅ done 2026-08-13 — `IMemoryAnnotationPolicy` + `LlmMemoryAnnotationPolicy` + `AddMemoryAnnotation` +
+  `UseGraph(annotation:)`, over a durable subject index (`RecordSubjectsAsync`/`NodesBySubjectAsync`, one
+  table folded into 3.0's single memory migration). **The first version linked by SEARCHING for the subject
+  and could not have moved this number at all** — three facts about one owner contain no shared word — which
+  a failing-direction test proved before the index was built.
+
+- [x] **CLOSED 2026-08-13 — a real model DID drift, and the fix was a design change rather than a bigger
+  model.** The ceiling measurement used a perfect annotator and could not see this. Run live against Ollama,
+  three Chinese facts about one person produced three different handles and nothing linked:
+  <br>`llama3.2:3b` → `Alice` / `爱丽丝` / `我` (and it TRANSLATED, against an explicit instruction).
+  <br>`qwen2.5-vl:7b` → `我的配偶` / `爱丽丝` / `京都`.
+  <br>**Every one of those is defensible** — the relation, the entity, the location — which is the whole
+  problem: "what is this about" has several valid answers, so a model alternates and nothing matches. Not a
+  capacity failure; the 7B drifted exactly as much as the 3B.
+
+  ✅ done 2026-08-13 — `MemoryAnnotationRequest.Known`, fed by `IMemoryGraphStore.KnownSubjectsAsync` (the
+  one member with a DEFAULT body, because it is an accuracy hint rather than a correctness requirement).
+  Both models then pass in both languages: **a 3B model is sufficient once it is anchored**, the opposite of
+  what the first failure suggested.
+
+- [x] **CLOSED 2026-08-13 — Thai, then Lao, Khmer, Burmese and Tibetan get script profiles.** Each sat
+  outside every range, so a sentence in any of them was handed back as one whitespace token and could only
+  match an entry containing that exact substring — precisely the defect the one-tokenization rule fixed for CJK, still live for
+  scripts nobody had looked at. Tibetan belongs with them despite its tsheg (U+0F0B), which separates
+  SYLLABLES rather than words.
+  <br>**Unmeasured, and the profiles say so.** No corpus exists for any of them, so this claims only that
+  each tokenizes like a spaceless script rather than like one long word.
+
+  ✅ done 2026-08-13 — Thai confirmed as a failing test first (the 7-character sentence came back as a single
+  term). The residual doubt — whether a 3-gram suits an ABUGIDA, where a syllable is a base plus stacked
+  marks — stays open in `TASKS.md`, because Japanese is the standing proof that adding a range without
+  measuring it proves nothing.
+
+- [x] **CLOSED 2026-08-13 — mixed script is measured, and costs nothing.** `CorpusLanguage.ChineseMixed` is
+  Chinese technical prose with English embedded and no spaces around it (`部署pipeline`, `client客户`) — the
+  shape script-run segmentation was built for, and the one every other arm missed because they put ASCII only
+  at a token EDGE rather than inside a run. Its profile is indistinguishable from pure Chinese: better or
+  neutral on five of seven shapes, worse only on the two hard for every CJK arm.
+
+  ✅ done 2026-08-13 — and the more durable half came with it: the corpus tests' language lists are now
+  ENUMERATED rather than listed, so a new arm inherits every invariant automatically. They were hardcoded,
+  which meant a new arm would have been MEASURED by the sweep (which already enumerated) while being CHECKED
+  by nothing.
+
+- [x] **CLOSED 2026-08-13 — objective (1) was measured for the first time, and it was BROKEN.**
+  `CorpusShape.AuthoritativeCount` adds the corpus's only graded material (opt-in, default off,
+  byte-identical when unset) plus a probe that singles out none of it, so only the grade carve-out can return
+  it. First run: **all three authoritative facts lost, in all five languages.**
+  <br>**Not a bug — a contract/implementation contradiction, and the implementation was the half nobody had
+  measured.** Re-admitted exact facts were appended after the ranked set and cut by `Take(limit)`, documented
+  in four places as the "honest reading" of buried-not-cut, on the argument that surviving the limit "would
+  let one authoritative entry evict every ordinary hit". Design §5.7.0 says objective (1) has NO acceptable
+  failure rate. Both could not be true.
+  <br>**Fixed with reserved slots** — authoritative material takes slots within the limit, displacing
+  ordinary hits, bounded by `GraphMemoryOptions.AuthoritativeReserve` (unbounded by default; `0` restores the
+  old behaviour and re-breaks the objective). The promise degrades to "an exact fact is displaced only by
+  ANOTHER exact fact" rather than to nothing.
+  <br>**The first fix attempt was wrong and the reason is worth keeping:** it reserved slots for candidates
+  the policy had OMITTED, and changed nothing — a ranking policy does not omit them, it RANKS them, and an
+  exact fact the query did not match carries `Relevance` 0 so it ranks near the bottom and was cut exactly as
+  before. "Never buried" was true and irrelevant; the loss happened one line later.
+  <br>Guarded by `MemoryAuthoritativeSurvivalTests` (all five languages, plus a control proving the same
+  facts are lost without the grade, so it cannot pass as an ordinary keyword recall). The golden fact that
+  had pinned the old behaviour — `…_and_can_still_be_cut_by_the_limit` — is rewritten, and the claim is
+  corrected in the design contract and README.
+
+  ✅ done 2026-08-13 — **the most consequential finding of this Part, and the last one anyone would have
+  looked for**: the library's highest-priority promise had never been exercised, and the test that came
+  closest was pinning its violation by name. Breaking in BEHAVIOUR (a small-limit recall now returns fewer
+  ordinary hits when authoritative material is present) — `CHANGELOG.md` Breaking and
+  `docs/migration-2.5-to-3.0.md` Step 4 carry the consumer-facing half.
+
+---
+
+## Part 68 — the final pre-freeze research sweep: closing what 3.0 must not defer (2026-08-13)
+
+_Opened when the owner ruled that 3.0 finishes its open research items rather than carrying them past the
+freeze — "we need to finish all open research items too". Items here come from Parts 53, 56, 62, 64, 65 and
+66; each entry records which one it closed and why it was safe (or unsafe) to leave._
+
+- [ ] **Design the seam at the right joint — and note that the obvious one was already tried and reverted.**
+  A `GraphMemoryOptions.ReinforceOn` flags option (which ACT reinforces: recall, expansion, both) was written
+  and **reverted the same day, before 3.0 froze**, because the measurement it enabled showed it gates the
+  wrong pair: one switch over touch-and-growth-together cannot express "reset age, do not grow", which is
+  precisely the configuration the evidence favours. Freezing a seam cut at the wrong joint costs a major to
+  correct. The reshaped seam should separate the two EFFECTS, not the two ACTS — and the act question
+  (below) then composes with it rather than competing.
+
+  ✅ done 2026-08-13 — **the only open item whose deferral would have cost a major**, which is why it went
+  first. `GraphMemoryOptions.Reinforcement` + `MemoryReinforcementEffects` (`None`/`AgeReset`/
+  `StabilityGrowth`/`All`, default `All`, behaviour unchanged) cut the seam at the EFFECTS; the separation
+  lives entirely in `GraphMemoryEngine.ReinforceAsync`, which now chooses what to put in the `GraphTouch`
+  rather than the store gaining a member. `docs/DECISIONS.md` — the effects-not-acts reinforcement seam, design §5.7.0's permanent-change
+  constraint, `CHANGELOG.md` Added, migration Step 5.
+  <br>**`StabilityGrowth` without `AgeReset` THROWS** rather than being implemented: the store resets the age
+  as an inseparable part of the same write, so honouring it would mean applying NEITHER effect while the
+  configuration claimed one. Implementing it instead would have meant a sixth required `IMemoryGraphStore`
+  member — for the arm every measurement ranked worst. Refused, and the refusal recorded so a later session
+  reads it as a conclusion rather than an oversight.
+  <br>**When growth is suppressed the touch writes back the STORED provenance, not the current policy's** —
+  nothing recomputed the entry, so stamping the running policy's bit would claim a computation that did not
+  happen. The review log still records what the policy COMPUTED, because a fitter needs the prediction
+  whether or not the engine banked it.
+  <br>Three facts plus a mutation check: the separation fact, a **control** proving the same curve at the
+  same `ReinforceGain = 2.0` still grows under the default (without it the separation fact would pass if the
+  engine had stopped reinforcing entirely), and one pinning `None`. Forcing `grow = true` kills the
+  separation fact and nothing else.
+
+- [ ] **The case needs a GUARANTEE, and the associative path cannot give one — route it to
+  `MemoryGrade.Authoritative` and then MEASURE that.** ~50% recall is fine for association and wrong for "my
+  wife's name must always be there". Authoritative material is admitted unconditionally and never decays,
+  which IS the mechanism for a fact that must not be lost — so the real answer to the owner's case is that
+  such facts should be written authoritative, and objective (1) is what proves it works. Which brings this
+  straight back to the item below: the corpus still holds no authoritative material at all.
+
+  ✅ done 2026-08-13 — closed by the objective (1) work earlier the same day (Part 67, `DECISIONS.md`
+  the authoritative-slot-within-limit promise), and re-verified here rather than assumed. Its closing clause — "the corpus still holds no
+  authoritative material at all" — is what `CorpusShape.AuthoritativeCount` retired.
+  <br>**The guarantee this item asked for is exactly what the survival fact measures.** The owner's case is
+  "even if I don't mention my wife, this should stay relevant", so a test where the probe MATCHED the fact
+  would answer a different question. It does not: the probe carries only the shared leading token every entry
+  has, so the three graded facts compete on the same weak footing as ~260 others under a limit of 10, and
+  nothing but the grade carve-out can return them. Confirmed across all five corpus languages, with a control
+  requiring the same facts to be LOST when the grade is removed.
+  <br>The associative path's ~50% is unchanged and still the right number for association — the answer was
+  never to make association guarantee-grade, but to route facts that must not be lost to the mechanism that
+  already promises it.
+
+---
+
+### Part 53's remaining items — memory retention (Plan 2): salience's ranking effect is still UNMEASURED (2026-08-09)
+
+_Opened while closing Plan 2's Task 6, reframed the same day once the owner ruled on the escalation it
+raised: **salience means "does not fade away" (decay resistance + store admission priority), not "first
+priority"** (`docs/DECISIONS.md` — the salience admission-priority correction, correcting the salience admission-priority correction). The opt-in rank boost, `1 + weight ×
+ln(salience)`, defaults to **0 (off)**, so this was no longer "pick a default that works"; the owner approved
+building the seam a real ranking decision deserves. **Item 1 below shipped 2026-08-09** in the
+memory-ranking-seam plan (`docs/task-archive.md` Part 53, item 1) — `IMemoryRankingPolicy`
+(`Lyntai.Memory.Ranking`), default `MultiplicativeRankingPolicy`, and the three tunables (`HopAttenuation`,
+`RelativeFloor`, `SalienceRankWeight`) moved off `GraphMemoryOptions` onto that policy's own
+`MultiplicativeRankingOptions`. **The same plan's Task 4 then shipped the seam's second implementation,
+`ReciprocalRankFusionPolicy` (`Lyntai.Memory.Ranking`)**, which became the registered default at 3.0 — the
+whole memory-ranking-seam plan is now closed.
+
+**Three of this part's four items are closed; ONE remains, and it is the measurement.** The `+Infinity`
+overflow closed 2026-08-11 and the cross-record tunable coupling 2026-08-12 (both noted below where they
+sat). What is left is that the seam EXISTING is not the same as its effect being MEASURED — and that still
+needs a real corpus, so it is not codeable from here. It now has two policies to measure against rather than
+one implementation reasoned about in isolation._
+
+_**MEASURED 2026-08-12 for the first time ever** (`node devtools/dev.mjs memory-salience`, 1306s, 2 arms ×
+6 shapes × 30 seeds, both arms enriching identically so only salience varies; 48,625 writes actually judged
+salient, so the ON arm is provably not a silent duplicate of OFF). **Salience HELPS**: mean combined
+ΔMissRate **−0.0102**, 14/30 cells significant. The shape of the win is exactly the salience admission-priority correction's stated purpose —
+`critical-rare` improves on EVERY shape (−0.019/−0.014/−0.009/−0.050, all significant), which is the class
+written once and queried at the very end, i.e. precisely "does not fade away". `topical` shows no consistent
+effect. **One cost worth knowing: `many-candidates` combined gets WORSE (+0.0169, significant)** — with 40
+competitors, admitting salient entries displaces relevant ones. Default-on is earning its place; the
+dense-candidate case is where a consumer might not want it._
+
+- [ ] **The inversion concern remains UNTESTED and the measurement above does not touch it.** See the item
+  below: this corpus's noise is templated, so novelty reads it as familiar. A "salience helps" result on an
+  instrument that cannot present textually diverse junk says nothing about what salience does when it meets
+  some.
+  **Audit 2026-08-12 — the stated blocker was half wrong.**
+  1. **Salience is absent from EVERY measurement this repository has ever taken, by assertion.**
+     `MemoryPolicySweep`'s control C1 does not merely omit it — it reflects `_retentionPolicies` on every
+     constructed engine to confirm the collection is empty. It is doubly invisible: novelty comes from the
+     engine's similarity search, which needs an `IEmbedder`, and no harness registers one. So both schema
+     goldens, the recall-quality pin and all three of 2026-08-12's studies are salience-OFF.
+  2. **It ships ON** — decay resistance and store admission priority are both default-on (only the rank boost
+     is opt-in, the salience admission-priority correction). A retention dimension no measurement has exercised is live in production.
+  3. **"Not codeable from here" is WRONG for the general question.** `Lyntai.Tests.Fakes.FakeEmbedder` is a
+     deterministic feature-hashed bag-of-words embedder and an in-process vector store already exists, so
+     "does salience help or hurt recall on this corpus" is measurable today with the existing harness. That is
+     the fourth deferral reason found wrong on 2026-08-12; the pattern is in `docs/DECISIONS.md` — the break-is-not-a-reason-to-defer rule/the `SpacingWeight` refutation.
+- [ ] **A design concern that this corpus structurally CANNOT test, and that is the finding.**
+  `StructuralSaliencePolicy` is `clamp(1 + NoveltyWeight × novelty, 1, MaxSalience)` — monotone in "how
+  unlike anything already stored". **Random junk is maximally unlike everything**, so on varied noisy input
+  the mechanism that decides "this does not fade away" should preferentially preserve junk AND grant it
+  admission priority, which is `PollutionRate` by definition. `MinimumComparables` guards only the
+  empty-engine case.
+  **This corpus cannot falsify it.** Its noise is TEMPLATED — `"item noise{n} was {Filler} mentioned once and
+  never again"`, sharing a fixed skeleton with every other class and differing by an id token and one random
+  word — so under bag-of-words novelty the second noise entry onward reads as FAMILIAR, not novel. The corpus
+  models noise as *semantically irrelevant*, and the hypothesis is about *textually diverse*. Testing it needs
+  a new corpus axis (varied junk), not just an embedder.
+  _Checked BEFORE running a study rather than after, which is the discipline three earlier findings the same
+  day were missing._
+  <br>_Original item text follows._ `GraphMemoryRankingTests` found that the SQL backends normalize
+  `GraphNode.Relevance` by RANK POSITION (`1 - i / count`), so the reordering a given weight buys is
+  CANDIDATE-COUNT DEPENDENT — clearing one position needs a weight ≥ `1 / ln(MaxSalience)` ≈ 0.72 in a
+  2-candidate result, far less in a 10-candidate one (see
+  `Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight`'s own doc for the general form and
+  `docs/DECISIONS.md` — the salience admission-priority correction for the worked numbers). A real corpus, not a synthetic 2-item one, is what turns "a
+  starting point" into a measured value the way `MEM-TUNE` measured the decay constants. A later plan owns
+  this — not codeable from here.
+
+  ✅ done 2026-08-13 — **both remaining items closed together, because they were one question and the answer
+  is NO.** `TASKS.md` Part 69; `MemorySalienceInversionTests`.
+  <br>`CorpusNoiseKind.Diverse` supplied the condition the corpus could not express (opt-in, default
+  `Templated`, byte-identical when unset — proved per language). Isolated salience effect, English,
+  `CorpusShape.Default`: **templated miss −0.0786 / pollution −0.0924**, **diverse +0.0000 / +0.0000**.
+  Salience LOWERS the junk share of recalls on junk that can reach one, and does nothing at all on diverse
+  junk. The predicted direction appeared nowhere.
+  <br>**Why diverse junk is inert is the interesting half:** the two properties the concern depends on are in
+  tension. Pollution needs the junk RETRIEVABLE, and a lexical recall returns only what shares terms with the
+  query — so junk diverse enough to maximise novelty is, by that same property, junk that matches nothing.
+  The more novel the junk, the less reachable it is.
+  <br>**Two instrument defects found on the way, each of which had already produced a wrong answer.** The
+  first run compared *no embedder* against *embedder + salience* and reported the inversion REPRODUCED at
+  +0.1857 — salience cannot be switched on alone, so that attributed the embedder's whole cost to it. And
+  the corrected control was still wrong: `NormalizeSaliencePolicies` treats an empty list as "take the
+  shipped default", so "no salience" was a second copy of the treatment, caught only because the control
+  asserted it had judged nothing salient and got 255. A no-op policy is the only way to express it.
+  <br>**A finding nobody went looking for, now open in Part 69:** enabling the embedder moves miss from
+  0.5357 to 0.8357 — an order of magnitude more than salience moves anything — because semantic neighbours
+  displace lexical hits from the same bounded slots. Pinned rather than fixed, with a fact requiring salience
+  to remain the smaller effect so a stale attribution fails rather than merely reads wrong.
+
+_**The cross-record tunable-coupling item is closed (2026-08-12), and its own premise had gone stale**: it
+named `HalfLifeOptions` as one of the three records, and that curve was DELETED in this release, so the
+equivalent is now `DsrOptions`. The open question it posed — is the ownership principle itself the answer, or
+does the coupling deserve its own note? — resolves as **both, because they are different questions**.
+Ownership correctly settles WHERE each constant lives and is not going to be consolidated; it says nothing
+about HOW they interact, and that note was genuinely missing. It now exists in design §5.7, stated in the
+order the values actually flow (`MaxSalience` caps the input → retention consumes it by default → rank
+consumes it only opt-in → `ConnectionBoost` is a different axis that merely shares the formula's shape), with
+the one real cross-record trap called out: `MaxSalience` is shared, so lowering it shrinks the retention
+effect and any rank effect at once. Each of the other three is read by exactly one policy._
+_See the Task 6 report (`.superpowers/sdd/2026-08-09-memory-3.0-plan-2-retention-model/task-6-report.md`) for
+the full escalation, the owner's ruling, and the worked numbers behind all three original items._
+
+---
+
+### Part 64 — reinforcement may be NET-HARMFUL to recall quality, and nothing currently rules it out (2026-08-12)
+
+_Opened by the FSRS-C measurement (Part 56), which found the best arm in the grid is the one where
+**reinforcement never happens**. On this corpus, switching it off improves `topical` by up to `−0.356` and
+the combined metric by up to `−0.136`, CI excluding zero on 5 of 6 shapes, while leaving `critical-rare` and
+both `hot-ephemeral` classes untouched. For an engine whose premise is that use strengthens memory, that is
+the most important open question in the subsystem._
+
+_**ISOLATED 2026-08-12** (`node devtools/dev.mjs memory-reinforcement`, 3 arms × 6 shapes × 30 seeds,
+540/540 replays order-checked). The `FrozenR` arm keeps reinforcement ON with law 3's `r`-dependence removed.
+Result: `NoReinforce` mean `topical` **−0.2307** vs shipped (better, sig. 5/6), `FrozenR` **+0.0980**
+(WORSE, sig. 4/6) — **−42%** of the benefit "recovered", i.e. the opposite direction. **The arms order
+monotonically in how much reinforcement happens, and less is better throughout.** Hypothesis (b) is
+CONFIRMED and law 3 is exonerated — its `r`-dependence turns out to be accidentally PROTECTIVE, throttling
+reinforcement exactly where it does the most damage. `SpacingWeight` is therefore NOT changed for 3.0; see
+`docs/DECISIONS.md` — the `SpacingWeight` refutation's amendment, which also records that the mechanism argument behind the earlier
+"lower it" recommendation was refuted despite having predicted the right direction._
+
+_**The mechanism, CONFIRMED rather than proposed.** Recall reinforces whatever it RETURNED, and this library
+has no signal for whether the return was CORRECT — the same missing observable FSRS-B is blocked on
+(`docs/DECISIONS.md` — the 3.0 ships-without record, amended). So reinforcement is positive feedback on the ranker's existing
+preferences, including its mistakes. **Not a task** — it is the finding this Part exists to record, and it
+lives in the `SpacingWeight` refutation/the `ReinforceGain = 0` default; kept here as context for the items that ARE actionable._
+
+_**Do not resolve this by disabling reinforcement.** A memory engine that never strengthens what gets used is
+a decayed cache, not a better engine. **A constraint, not a task**, and now enforced where it belongs: design
+§5.7.0 lists it among the constraints an optimization may not spend._
+
+_**THE DECOMPOSITION, which corrects this Part's own earlier conclusion (measured 2026-08-12).**
+  Reinforcement does TWO separable things to every entry a recall returns, welded into one call:
+  `TouchAsync` **RESETS the entry's age** on every scale, and `Reinforce` **GROWS its stability**. They pull
+  in OPPOSITE directions.
+  <br>**"Reinforcement is net-harmful" — recorded above from the first three studies — was wrong as
+  stated.** Every arm in those studies had the age reset switched ON: the `NoReinforce` arm was
+  `SpacingWeight = 0`, which zeroes the GROWTH while `ReinforceAsync` still runs and still touches. A fourth
+  study, with an arm that skipped the call entirely, separated them (baseline, MissRate):
+
+  | arm | combined | `topical` |
+  |---|---|---|
+  | touch + growth (shipped) | 0.1910 | 0.3675 |
+  | touch, no growth (`ReinforceGain = 0`) | **0.1117** | 0.0800 |
+  | neither | 0.2660 | **0.0000** |
+
+  **The age reset is doing the useful work** — it is what keeps a rarely-queried critical fact alive, and
+  removing it collapses the combined metric on every shape. **The stability growth is what entrenches** —
+  it is what wrecks `topical`. **Acted on: `ReinforceGain` now defaults to `0` (the `ReinforceGain = 0` default).**_
+
+_**BOUNDED GROWTH TESTED AND REJECTED, 2026-08-12** (`node devtools/dev.mjs memory-bounded`, 1728s, 4 arms ×
+6 shapes × 30 seeds). If the damage were the COMPOUNDING rather than the growth, a rule that cannot compound
+should have beaten both. It did not. Mean combined ΔMissRate vs `NoGrowth`: `CountGrowth` **+0.0655**,
+`Shipped` **+0.0671**, `CappedGrowth` **+0.1207** — every growth form worse, and `NoGrowth` winning on all
+six shapes. `CountGrowth` computes stability purely from the entry's recall COUNT, so it cannot compound by
+construction, and it still loses.
+**One arm was badly designed and its result must not be over-read**: `CappedGrowth` lowered `MaxStability`,
+which caps ALL stability rather than only the growth increment, so it measured "everything decays faster"
+rather than "bounded compounding". `CountGrowth` is the clean test and it is the one that refutes the
+principle.
+**What survives**: the age reset EXPIRES while growth PERSISTS, and salience persists but is keyed on
+write-time content rather than on retrieval — so the damaging combination is *permanent* × *retrieval-
+conditioned*. Recorded in `pitfalls.md` as a hypothesis, explicitly not a law: it is the third framing in one
+day and the previous two were both refuted by measurement._
+
+- [ ] **The signal this engine needs, it already produces — and then discards. (Design audit, 2026-08-12.)**
+  Checking the subsystem against its own stated purpose rather than against a constant: the README promises
+  *"every successful recall lengthens an entry's half-life, so **material you keep coming back to** becomes
+  durable while one-off noise falls behind."* The implementation reinforces **whatever the ranker returned**.
+  Those were treated as the same thing and are not — which is the premise error underneath every measurement
+  above, stated at the level it actually lives at.
+  <br>FSRS's "retrieval strengthens memory" comes from a domain where retrieval is **verified**: the learner
+  knows whether they got it right, and reinforcement is conditioned on that. Here retrieval is **asserted by
+  the same ranker being reinforced**, so the loop upvotes its own prior. That is why the damage concentrates
+  in `topical`, the one class where the same entries return repeatedly.
+  <br>**But this engine's own architecture already separates a guess from a decision**, and it is the same
+  split the cheap-index design is built on: `RecallAsync` returns ~10 speculative one-line headlines, while
+  `ExpandAsync` is a caller CHOOSING TO PAY for full content — which is literally "coming back to it". Both
+  call `ReinforceAsync` with identical weight (`GraphMemoryEngine.cs:430` and `:462`). **The discriminating
+  signal is produced as a byproduct of the core loop and then thrown away.**
+  <br>**Proposal to evaluate** (a default-behaviour change, so D-class, and additive in API since
+  `ExpandAsync` and `AddMemoryTools`' expand tool both already exist): condition reinforcement on EXPANSION,
+  or weight expansion far above recall, so the engine learns from evidence rather than from its own output.
+_**The instrument could not express the act at all, and now can — CLOSED 2026-08-12.** `CorpusStep` was
+sealed to `CorpusWrite | CorpusQuery`, so every measurement ever run against this engine had exercised
+reinforcement-on-recall ONLY and had never once exercised expansion. `CorpusExpand` +
+`CorpusShape.ExpandRatio` fixed that (opt-in, default `0`, byte-identical when unset), and the measurement it
+unblocked is the one that produced the decomposition above. The proposal itself — condition reinforcement on
+expansion — remains open, and is the item above._
+
+✅ done 2026-08-13 — **both items closed, and the second one REFUTES this Part's own headline.**
+`docs/DECISIONS.md` — the effects-not-acts reinforcement seam (the effect seam) and the unverified-signal reinforcement rule (the act seam); `MemoryReinforcementActTests`.
+<br>The seam question closed first because it was freeze-gated: `GraphMemoryOptions.Reinforcement` cuts at
+the two EFFECTS (age reset vs stability growth), and `GraphMemoryOptions.ReinforceOn` then cut the two ACTS
+(recall vs expansion) as a separate, composing type — which is exactly the relationship the effects-not-acts reinforcement seam predicted when it
+argued the act question "composes rather than competes".
+<br>**The measurement, over `ExpandRatio = 3`, English, seed 909, 20 expansions replayed:** expansion-only
+beats the default on BOTH miss and pollution in BOTH growth configurations (0.4429/0.1056 vs 0.5786/0.1878
+with growth on; 0.4214/0.2301 vs 0.5357/0.3331 with the shipped growth-free setting). `both` and `recall
+only` land in the same place, so essentially all of the shipped configuration's cost comes from reinforcing
+the ranker's own output.
+<br>**"Less reinforcement is better throughout" — recorded in this Part from three earlier studies — is now
+FALSE as stated.** Expansion-only reinforces MORE than the `neither` arm and beats it on both metrics,
+decisively on pollution (0.2301 against 0.4118). The damage was never the QUANTITY of reinforcement; it was
+the SIGNAL. That is the third framing of this mechanism in two days and the first one a measurement
+supports rather than refutes.
+<br>**The default did NOT move**, and the reason is pinned by its own test: an application that never calls
+`ExpandAsync` would get the reinforce-nothing arm — the worst pollution measured — and the library cannot
+tell which kind of consumer it has. `Expansion` is documented as the better setting for an application that
+expands, in `CHANGELOG.md` and migration Step 5.
+
+---
+
+### Part 66 — what the 3.0 pre-freeze sweep left open (2026-08-12)
+
+_**Renumbered 63 → 66 on 2026-08-13.** An archived `## Part 63` (the 2026-08-11 vocabulary sweep) already
+held that number, so every cross-reference to "Part 63" was ambiguous — the exact collision
+`.claude/skills/archive-task/SKILL.md` warns about, and the second time it has happened (39 → 41 on
+2026-08-05). Part numbers are allocated across BOTH files; the ARCHIVE never renumbers, because it is
+history, so the open part moves._
+
+_The sweep behind `docs/DECISIONS.md` — the break-is-not-a-reason-to-defer rule closed the one deferral gated on a break (swap-safe
+`StrengthAge`) and reconciled `GraphNode.Relevance` across the three backends. It also found that **both of
+those had been declared only in the CONTRACT and in shipped XML docs, and tracked in neither `TASKS.md` nor
+the 3.0 ships-without record** — which is why the 3.0 ships-without record's "everything doable from this repository alone was done" was false when written.
+The items below are what that sweep deliberately did NOT take, each with the reason it is safe to leave._
+
+_**The `GraphNeighbour.EdgeAge` item filed here on 2026-08-12 was closed the same day, and its stated reason
+was wrong** — recorded because the error is the instructive part. It read: "closing it would mean a fourth
+primitive on the edge and a `GraphNeighbour` member, and that is additive, so it does not need the 3.0
+window." Both halves were false. Adding a member to the `GraphNeighbour` record is **binary-breaking**, the
+same shape this very release calls binary-breaking for `GraphNode` — so it was never "free later", it was free
+NOW and a whole major afterwards. And it needed **no new primitive at all**: the edge columns had just been
+added. A deferral's cost estimate is a claim like any other, and this one was written in the same hour as the
+change that falsified it._
+
+_**The `Difficulty` / review-log item is CLOSED (2026-08-13), and closing it required admitting the log was
+not yet worth reading.** It read: "the `Difficulty` axis moves on every review but nothing yet reads the
+review log — the fitting that would consume it is Part 56's FSRS-B, blocked on a real corpus." Two of those
+three clauses have changed.
+<br>**Nothing reading the log at runtime is deliberate and permanent**, not a gap: `GraphMemoryEngine` proves
+by construction that no line reads `ReviewsAsync`, which is the drift guard design §1 asks for. That half
+stays true forever and is a feature.
+<br>**"Blocked on a real corpus" was the wrong diagnosis.** More data could never have unblocked fitting:
+the logged grade was a deterministic function of the curve's own constants, and the log could only contain
+successes because a row existed only where a touch happened. Both are now closed —
+`IMemoryVerificationPolicy` supplies a judgement from outside the curve (the ranking-defect diagnosis), and the log write is
+decoupled from the touch so a REJECTED entry is recorded with `Verified = false` while never being
+reinforced. The log is now a fittable record rather than a self-confirming one.
+<br>What remains is in Part 56 and is honestly named there: real logged reviews from a deployment. That is
+data a consumer produces, and inventing it here would repeat exactly the mistake the `DsrRetrievability` default curve refused._
+
+✅ done 2026-08-13 — every item in this Part is closed. The `GraphNeighbour.EdgeAge` item closed on
+2026-08-12 with its own deferral reasoning recorded as wrong; the `Difficulty`/review-log item closed
+2026-08-13, and closing it meant admitting the log was not yet worth reading: "blocked on a real corpus"
+was the wrong diagnosis, because no amount of data could fix a grade derived from the curve's own constants
+or a log that structurally could not contain a failure. Both are now closed (`docs/DECISIONS.md` — the ranking-defect diagnosis),
+so the log is a fittable record rather than a self-confirming one. The half that stays true forever —
+nothing reads the log at runtime — is the design §1 drift guard, not a gap.
+
+---
+
+### Part 62 — the guard tests cover four scripts; the rest of `devtools/` is still untested (2026-08-11)
+
+_What is left of Part 60 (archived 2026-08-11) after it closed. The harness exists now
+(`node devtools/dev.mjs test-devtools`, first in `verify`), so each item below is one file, not a project._
+
+- [x] **`consumer-smoke` is still untested** — the one surface left from the item above. It is also the one
+  that resists the treatment: it packs every package to a scratch feed and restores/builds/runs a fresh app,
+  so the thing worth testing IS the minutes-long process. A seam that stubbed the pack would test the
+  bookkeeping and none of the risk.
+  _**Closed — the split turned out to be findable.** `consumer-smoke-lib.mjs` was extracted and
+  `__tests__/consumer-smoke.test.mjs` covers its decidable facts, each asserting the FALSE-PASS direction as
+  well as the true one; the pack/restore/build/run itself stays with the live process, which is the honest
+  line. Left as an open checkbox in this archive until the 2026-08-14 documentation sweep found it — an
+  unfinished item filed in the archive is the task-lifecycle rule broken in the direction nobody looks._
+_**`check-warnings` blind to codes outside `[A-Z]{2,4}\d+` — closed 2026-08-12**, in its own change as the
+KNOWN-LIMIT test asked for. The pattern is now `[A-Za-z]{2,10}\d+`, so `SYSLIB0011` (six letters) and the
+camelCase analyzer ids (`xUnit1013`) are seen. Re-measured at the time of the change rather than trusting the
+2026-08-11 figure: a real full `--no-incremental` run with the widened pattern still reports `src/`
+warning-free, so the hole was latent and nothing was reclassified. The bounds are asserted too — a bare
+`warning 42`, a one-letter prefix, an over-long one and a digitless one all stay out — because widening a
+matcher is how false positives get in._
+
+_The second datum from that build stands and is worth more than the first: the `-v normal` log is
+**1,045,677 bytes**, **2,899 bytes** below Node's 1 MiB `spawnSync` default (99.72% full, worse than the
+99.35% in `pitfalls.md`). The explicit 64 MiB `maxBuffer` is the only thing between this gate and reporting
+"build FAILED" for a build that succeeded, and it is pinned by a test._
+
+✅ done 2026-08-13 — closed by disagreeing with half of its own reasoning. "The thing worth testing IS the
+minutes-long process" is true of the PROCESS and false of two pure steps sitting inside it: deriving package
+ids from the feed listing, and deciding whether a symbol package carries a PDB. Both are string work, and
+both fail SILENTLY — a mangled id evicts nothing (so the smoke restores and tests the OLD package while
+reporting success, the exact regression the eviction step was added for), and a substring match on `.pdb`
+waves through a symbol package carrying no symbols. Extracted to `consumer-smoke-lib.mjs` and pinned by 8
+facts in `__tests__/consumer-smoke.test.mjs`, each asserting the FALSE-PASS direction as well as the true
+one. The pack/restore/build/run itself is still left to the live process, which is the honest split.
+Guard-script tests 225 → 233; the refactored script re-run end to end to prove the extraction did not break
+it.
+
+---
+
+## Part 71 — four closed records that were left in the OPEN backlog (2026-08-14)
+
+_Moved out of `TASKS.md` by the 3.0 pre-freeze documentation sweep. Each was already CLOSED and each was
+still sitting under an open Part, which is the defect `.claude/rules/task-lifecycle.md` names: a backlog
+that accumulates finished work stops answering the one question it exists for. Nothing here is new — the
+text is moved verbatim, so the record of how each was closed is unchanged._
+
+### FSRS-C — the spacing knob: closed 2026-08-12, and its own premise was wrong twice over
+
+_Was under `TASKS.md` Part 56. Its conclusion is `docs/DECISIONS.md` **D53**._
+
+_**FSRS-C — CLOSED 2026-08-12, and its own premise was wrong twice over.** Kept as prose rather than a
+checkbox because nothing here is startable: the suspect was measured, exonerated, and then superseded by the
+change that actually shipped (`ReinforceGain = 0`, D54). The record of how it was wrong is the value._
+
+_Its precondition was unreachable and was replaced (2026-08-12). It read "tune it once fitting (FSRS-B)
+  exists, not before" — but FSRS-B cannot arrive as written (above), so this item was queued behind something
+  that never happens, which is the failure `repo-mechanics.md` §"A conditional item is not a task" describes:
+  a permanent backlog resident that makes "what is still to do" a worse question.
+
+  **MEASURED 2026-08-12** (`node devtools/dev.mjs memory-spacing`, 2081s, 30 seeds × 6 shapes × 5 arms,
+  paired per seed; `bench/Lyntai.Benchmarks/MemorySpacingSweep.cs`). Three findings, and the third is the one
+  that matters most:
+
+  1. **The suspect is confirmed responsive, and the response is MONOTONE DOWNWARD.** Halving the shipped
+     `1.5` to `0.75` improves `topical` on every shape and hurts nothing — `−0.189` on `rare-critical`,
+     `−0.145` baseline, `−0.127` low-reuse, `−0.106` high-reuse, CI excluding zero on 4 of 6 — and improves
+     the combined metric too. Raising it to `3` or `6` is worse. There is no interior optimum in the measured
+     range.
+  2. **The optimum is at the BOUNDARY**: `SpacingWeight = 0` is roughly twice as good again (`topical`
+     `−0.356` on rare-critical, `−0.350` low-reuse, `−0.288` baseline; combined `−0.136`), CI excluding zero
+     on 5 of 6 shapes. An optimum at the edge of a knob's domain is the signature of a term that is not
+     earning its place at all, rather than one that is mistuned.
+  3. **This item's own framing was wrong: `SpacingWeight` is NOT a law-3 knob.** It multiplies the WHOLE
+     increase term, so `0` zeroes all three laws together — the property's own doc says so ("recall never
+     strengthens anything"). So the `0` arm is **reinforcement switched off**, not law 3 switched off, and
+     **this study cannot separate the two hypotheses** it was built to distinguish: (a) law 3's premise
+     does not transfer to query-driven recall, and (b) reinforcement is net-harmful here because it has no
+     correctness signal and so entrenches whatever the ranker already returned. Separating them needs a knob
+     that removes the `r`-dependence while keeping reinforcement on, and no such knob exists today.
+
+  **What is established, and what is not.** The DIRECTION is established and reproducible; a VALUE is not —
+  the data says "lower is better all the way to zero", which identifies no interior point, so picking `0.75`
+  would be as arbitrary as keeping `1.5`. That is exactly the line a sensitivity study can draw and a fit
+  cannot, and it is why this is not the corpus-fitting D49 refused.
+
+  **CLOSED 2026-08-12 by the Part 64 isolation run, with the answer NO.** The open decision was going to be
+  whether to lower the shipped default on a mechanism argument — that law 3 penalises recall at high `r`
+  because FSRS assumes a wasted early review, a scheduling premise query-driven recall does not satisfy.
+  **That argument is refuted.** Keeping reinforcement on while removing the `r`-dependence makes recall
+  WORSE than shipped, not better: the arms order monotonically in how much reinforcement happens, and law 3's
+  throttle is accidentally protective. The earlier "lower is better" gradient was tracking reinforcement
+  MAGNITUDE, not a premise mismatch.
+  **`SpacingWeight` stays at `1.5` for 3.0**, and this item closes as "wrong suspect, correctly identified as
+  wrong". The real work is Part 64.
+
+  _Original framing, kept because its mechanism measurement stands:_ Task 3 (2026-08-10, DSR-default falsification plan) measured the mechanism
+  directly: replaying a topical reuse batch, DSR's first touch (`age/S=5`, `r` well below 1) grows stability
+  **+125%**, while every touch after that (`r≈0.97`, one interposed write later) grows only **~2%** — law 3's
+  spacing term (`e^(SpacingWeight·(1−r)) − 1`) correctly shrinking as `r→1`, per FSRS's own model, not a bug.
+  `HalfLifeRetrievability`'s flat, unmeasured `× 1.5` fires regardless of `r` and compounds to **2.1×** DSR's
+  stability over the same four-touch batch — which is what lets HalfLife's entries out-rank DSR's under
+  `MultiplicativeRankingPolicy`'s raw-magnitude scoring. Lowering `SpacingWeight` would shrink touches 2+'s
+  gain less aggressively, trading away some of the model's correctness for competitiveness under this
+  specific ranking policy — worth measuring against a FITTED baseline (FSRS-B), not as a standalone knob-turn
+  against published defaults, or this repeats the mistake D49 explicitly rejected (tuning against a corpus
+  this library invented rather than real evidence).
+
+### Part 69’s two non-embedder items, built the day they were filed (2026-08-13)
+
+_**Both of this Part's non-embedder items were BUILT the same day they were filed (2026-08-13), and are
+recorded here rather than left as open work.**_
+
+_**The thinking-model gap → `LlmReasoning`.** `gemma3:4b` judged the 145-query corpus in 3.5 minutes
+(~1.5 s per recall) while `qwen3:4b` was abandoned after 62 (~25 s), spending the difference on reasoning
+tokens before its JSON; `huihui_ai/qwen3.5-abliterated:4B` showed the same profile, so it is the family and
+not the fine-tune. `LlmRequest.Reasoning` (`Default`/`Suppress`) is the neutral option, mapped by the Ollama
+provider to a TOP-LEVEL `think: false` and requested unconditionally by `LlmMemoryVerificationPolicy`. The
+`/no_think` prompt workaround was refused as a model-specific string in shared code (`model-decoupling.md`).
+Advisory by contract. **Adding it immediately failed
+`ResponseCacheTests.Every_LlmRequest_field_is_classified_for_the_cache_key`** — correctly, because reasoning
+is output-determining and two requests differing only in it must not share a cached hit; that guard caught a
+bug that would otherwise have shipped._
+
+_**The salience trap → `NeutralSaliencePolicy`.** Registering an empty collection takes the shipped default
+rather than disabling salience, so there is now a real type that judges nothing, documented at the interface
+and at the normalizer, with a test asserting BOTH halves of the asymmetry. Shipped rather than merely
+documented because the trap had already fooled the author of the seam — it turned this session's own
+measurement control into a copy of its treatment, caught only by an assertion added for another reason._
+
+### The abugida doubt, measured 2026-08-13 (was under Part 65)
+
+_**The abugida doubt was MEASURED 2026-08-13 and does not reproduce at the level it was raised.**
+`SearchTermsTests.A_three_gram_discriminates_between_unrelated_words_in_each_spaceless_script`: eight
+unrelated everyday words per script, and the share of word PAIRS sharing any index term. Thai, Lao, Khmer,
+Burmese and Tibetan all discriminate, read against `han` — the arm with a corpus behind it — in the same
+run rather than against a fixed constant. The predicted failure was that a syllable's stacked marks make
+3 UTF-16 chars less than one syllable, so the grams would be sub-syllabic fragments shared across the
+vocabulary. They are not.
+<br>**What this does NOT establish**, said plainly because the Japanese lesson was exactly this: it measures
+the tokenizer's discrimination on ISOLATED WORDS, not end-to-end recall quality. A script passing it is not
+thereby measured the way Chinese is, and the `ScriptProfile` docs keep their unmeasured caveat. What it does
+close is the specific doubt — "does a 3-gram discriminate in this script at all" — which needed no corpus and
+was the reason the item existed.
+<br>**It also found a sharp edge that is documented behaviour rather than a defect**: a two-character Han
+word extracts to NO terms, because it is below `SearchTerms.MinimumTermLength`. That is the deliberate signal
+for the caller to fall back to a whole-query substring scan. The first draft of the test asserted every word
+produces terms and failed on `han` — the reference arm — which is a better outcome than it passing, since a
+test that demanded an invariant the library deliberately does not hold would have been wrong about the
+library rather than about the abugidas.
+<br>Tibetan is included with its orthography not independently verified; for a discrimination measurement
+what must be true is that the strings are distinct sequences in the script's own range, which they are._
+
+### Where the inert reinforcement laws live — closed 2026-08-13 (was under Part 65)
+
+_**The "where do the inert reinforcement laws live" item is CLOSED (2026-08-13), decided: the pathology
+suite keeps its permanent reinforcing arm, and it is no longer the only one.** The question was whether a
+suite that forces `ReinforceGain = 2.0` is the right long-term home for arithmetic no shipped configuration
+exercises. It is, for a reason the item did not state: those laws are not dead code — they are LIVE for any
+consumer who raises the gain, so they are shipped behaviour with no default coverage, which is precisely the
+shape a gate exists to catch. Deleting the arm would leave a shipped path unexercised; deleting the LAWS
+would remove a correct model a deployment with real review data may want (**D54** kept them on purpose).
+<br>**The premise also went stale while the item sat.** It assumed `DsrPathologyTests` was the sole
+exerciser. As of 3.0 two more suites force the gain on for their own reasons —
+`GraphMemoryEngineTests` (the effect seam, **D57**, needs growth switched on or every arm is identical) and
+`MemoryReinforcementActTests` (the act seam, **D58**). So the arithmetic now has three independent
+consumers, each testing it for a different purpose, which is a better position than the item feared._
 
 ---
 

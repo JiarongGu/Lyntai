@@ -9,40 +9,73 @@
 // Deprecation is NOT scriptable (no public API — it is web-UI only, on each package's Manage page).
 // This tool covers the unlist half only.
 //
-//   Auth: set NUGET_API_KEY in your environment first. Mint it at
-//         nuget.org -> Account -> API Keys, scope "Unlist", glob pattern `Lyntai.*`.
-//         Never pass it on the command line (it lands in shell history) and never commit it.
+//   Auth: mint the key at nuget.org -> Account -> API Keys, scope "Unlist", glob pattern `Lyntai.*`.
+//         Supply it either way — `--api-key` wins over the environment:
+//           $env:NUGET_API_KEY = "..."           # preferred: stays out of shell history
+//           --api-key <key>                      # convenient, but the key lands in shell history
+//         Never commit it. It is redacted from this tool's own output either way.
 //
 //   Usage:
 //     node devtools/nuget-unlist.mjs                 # DRY RUN — prints exactly what would be unlisted
 //     node devtools/nuget-unlist.mjs --apply         # actually unlist
 //     node devtools/nuget-unlist.mjs --below 1.1.0   # change the cutoff (default 1.1.0)
 //     node devtools/nuget-unlist.mjs --apply --only Lyntai.Core
+//     node devtools/nuget-unlist.mjs --apply --below 2.0.1 --api-key oy2...
 //
 // Idempotent: queries nuget.org for what is currently LISTED and skips everything else, so a re-run after
 // a partial failure only does the remainder.
+//
+// The roster is the packable ids read from `src/*/*.csproj` plus the hand-kept RETIRED list below — never a
+// single hand-written array, which went stale once and skipped a live package without saying so.
 
 import { execFile } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
 const run = promisify(execFile);
 const SOURCE = 'https://api.nuget.org/v3/index.json';
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Every packable Lyntai id, including ones retired from the tree (their published versions still exist). */
-const PACKAGES = [
-  'Lyntai.Core',
-  'Lyntai.Storage.Sqlite',
-  'Lyntai.Storage.InMemory',
-  'Lyntai.Storage.Postgres',
-  'Lyntai.Providers.ClaudeCli',
-  'Lyntai.Providers.ClaudeCli.Mcp', // retired in 1.1.0 — all versions go
-  'Lyntai.Providers.OpenAiCompatible',
-  'Lyntai.Providers.ExtensionsAi',
-  'Lyntai.Providers.Local',
-  'Lyntai.Tools.Mcp',
-  'Lyntai.Tools.Mcp.Hosting',
-  'Lyntai.Secrets.Dpapi',
+/**
+ * Ids retired from the tree. Their published versions still exist on the feed, and NOTHING on disk
+ * remembers them — so this is the only half of the roster maintained by hand. Add an id here whenever a
+ * package is removed or folded into another.
+ */
+const RETIRED = [
+  'Lyntai.Providers.ClaudeCli', //       folded into Lyntai.Providers.Default at 2.0.1
+  'Lyntai.Providers.CodexCli', //        folded into Lyntai.Providers.Default at 2.0.1
+  'Lyntai.Providers.OpenAiCompatible', // folded into Lyntai.Providers.Default at 2.0.1
+  'Lyntai.Providers.ClaudeCli.Mcp', //   removed at 1.1.0
 ];
+
+/**
+ * The currently packable ids, READ FROM THE CSPROJS rather than listed here — because a hand-written
+ * roster goes stale silently and the miss looks exactly like success. This one did: written before the
+ * 2.0.1 repackaging, it omitted `Lyntai.Providers.CodexCli` (which still had 1.2.2 listed) along with
+ * `Lyntai`, `Lyntai.Providers.Default` and `Lyntai.Generation`, and reported a clean run regardless.
+ * Same failure family as `check-packages` (CLAUDE.md §Dev loop) — a missing registry entry means no gate.
+ */
+function currentPackageIds() {
+  const src = join(REPO_ROOT, 'src');
+  const ids = [];
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    let text;
+    try {
+      text = readFileSync(join(src, entry.name, `${entry.name}.csproj`), 'utf8');
+    } catch {
+      continue; // not a project directory
+    }
+    const id = text.match(/<PackageId>([^<]+)<\/PackageId>/)?.[1]?.trim();
+    if (id) ids.push(id); // every packable src project declares one (repo-mechanics §Package layout)
+  }
+  if (ids.length === 0) throw new Error('no packable ids found under src/ — run this from the repository');
+  return ids;
+}
+
+const PACKAGES = [...currentPackageIds(), ...RETIRED].sort();
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
@@ -78,12 +111,16 @@ async function listedVersions(id) {
   return out.sort(cmp);
 }
 
-const key = process.env.NUGET_API_KEY;
+const key = valueOf('--api-key') ?? process.env.NUGET_API_KEY;
 if (apply && !key) {
-  console.error('NUGET_API_KEY is not set. Mint an Unlist-scoped key on nuget.org and set it in your');
-  console.error('environment (PowerShell: $env:NUGET_API_KEY = "..."), then re-run with --apply.');
+  console.error('No API key. Mint an Unlist-scoped key on nuget.org (glob `Lyntai.*`), then either');
+  console.error('  $env:NUGET_API_KEY = "..."   (preferred — stays out of shell history)');
+  console.error('  --api-key <key>              (convenient — the key lands in shell history)');
   process.exit(1);
 }
+
+/** Never let a key reach the console, even inside a tool error that happened to echo the arguments. */
+const redact = (text) => (key ? String(text).split(key).join('***') : String(text));
 
 console.log(`${apply ? 'UNLISTING' : 'DRY RUN — nothing will change'} · versions below ${cutoff}\n`);
 
@@ -130,7 +167,7 @@ for (const id of PACKAGES) {
       process.stdout.write(`  ✓ ${version}\n`);
     } catch (err) {
       failed++;
-      process.stdout.write(`  ✗ ${version} — ${String(err.stderr || err.message).trim().split('\n')[0]}\n`);
+      process.stdout.write(`  ✗ ${version} — ${redact(err.stderr || err.message).trim().split('\n')[0]}\n`);
     }
   }
   console.log('');

@@ -35,7 +35,7 @@ public interface ICliProviderDialect
     /// an <see cref="Agents.ICliToolProvisioner"/>) — the engine then warns rather than dropping them
     /// silently. That warning is ALL this flag drives: a dialect returning true must have its composing
     /// <see cref="ILlmProvider"/> declare <c>SupportsToolCalls =&gt; true</c> itself (per <c>DECISIONS.md</c>
-    /// D27 the provider is the capability declarer), or <see cref="ILlmRouter.SupportsToolCalls"/> answers
+    /// D21 the provider is the capability declarer), or <see cref="ILlmRouter.SupportsToolCalls"/> answers
     /// false and the tool loop silently takes its prompt-based fallback.</summary>
     bool SupportsToolCalls { get; }
 

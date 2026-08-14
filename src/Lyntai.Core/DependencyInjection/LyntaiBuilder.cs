@@ -40,6 +40,11 @@ public sealed class LyntaiBuilder
     /// one another.</summary>
     internal List<(int Order, Func<IServiceProvider, ILlmClient, ILlmClient> Decorate)> FrontDoorDecorators { get; } = [];
 
+    /// <summary>Named LLM clients (<c>AddLlmClient</c>) → the backend ids each routes over, empty meaning
+    /// "every registered provider". Composed by <c>AddLyntai</c> into <see cref="Lyntai.Llm.ILlmClientFactory"/>
+    /// — the chat counterpart of the memory engine registry.</summary>
+    internal Dictionary<string, List<string>> NamedLlmClients { get; } = new(StringComparer.Ordinal);
+
     // Fold order (higher = outer). The cache is OUTERMOST so a hit returns without touching inner
     // decorators — in particular a cached hit is free and must NOT count toward the usage budget or spend a
     // rate-limit permit. Rate-limit is innermost (closest to the provider — it throttles real calls).
@@ -463,11 +468,11 @@ public sealed class LyntaiBuilder
 
     /// <summary>Tune how <c>IMemoryStore</c> bounds its size — count cap + eviction mode (FIFO/LRU), default
     /// TTL, size budget. The defaults reproduce the historical 500-entry FIFO cap; use a
-    /// <see cref="MemoryRetentionPolicy"/> preset (e.g.
-    /// <c>b.ConfigureMemory(p => { p.Eviction = MemoryEvictionMode.Lru; p.DefaultTtl = TimeSpan.FromDays(7); })</c>).</summary>
-    public LyntaiBuilder ConfigureMemory(Action<MemoryRetentionPolicy> configure)
+    /// <see cref="MemoryEvictionPolicy"/> preset (e.g.
+    /// <c>b.ConfigureMemory(p => { p.Mode = MemoryEvictionMode.Lru; p.DefaultTtl = TimeSpan.FromDays(7); })</c>).</summary>
+    public LyntaiBuilder ConfigureMemory(Action<MemoryEvictionPolicy> configure)
     {
-        configure(Options.MemoryRetention);
+        configure(Options.MemoryEviction);
         return this;
     }
 }

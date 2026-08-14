@@ -1,6 +1,7 @@
 using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Interference;
 using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
 
@@ -14,7 +15,7 @@ public class GraphSimilarityTests
     private static GraphMemoryEngine Engine(IEmbedder? embedder, IVectorStore? vectors,
         GraphMemoryOptions? options = null) =>
         new("project/graph", new InMemoryMemoryGraphStore(), options,
-            memoryClock: new PerWriteClock(), embedder: embedder, vectors: vectors);
+            agePolicies: [new PerWriteAgePolicy()], embedder: embedder, vectors: vectors);
 
     [Fact]
     public async Task A_new_entry_is_linked_to_a_similar_existing_one()

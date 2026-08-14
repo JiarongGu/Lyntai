@@ -16,7 +16,7 @@ public abstract class MemoryStoreContractFacts
     protected static readonly LyntaiOptions Options = new() { MemoryCapPerScope = 3, MemoryRecallLimit = 100 };
 
     protected abstract IMemoryStore New();
-    protected abstract IMemoryStore NewWith(MemoryRetentionPolicy p);
+    protected abstract IMemoryStore NewWith(MemoryEvictionPolicy p);
     private void Advance(TimeSpan by) => Now += by;
 
     [Fact] public Task Token_recall() => MemoryStoreContract.Remember_then_recall_by_single_token_substring(New(), "k");
@@ -35,22 +35,22 @@ public abstract class MemoryStoreContractFacts
     [Fact] public Task Forget() => MemoryStoreContract.Forget_clears_a_task(New(), "k");
     [Fact] public Task Forget_scoped() => MemoryStoreContract.Forget_scoped_clears_only_that_scope(New(), "k");
     [Fact] public Task Fail_open() => MemoryStoreContract.Recall_is_fail_open_on_empty_query(New(), "k");
-    [Fact] public Task Lru() => MemoryStoreContract.Lru_evicts_least_recently_recalled(NewWith(MemoryRetentionPolicy.CountCap(3, MemoryEvictionMode.Lru)), "k", Advance);
-    [Fact] public Task Lru_bare() => MemoryStoreContract.Lru_bare_recall_does_not_refresh_recency(NewWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru)), "k", Advance);
-    [Fact] public Task Default_ttl() => MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(NewWith(MemoryRetentionPolicy.TimeToLive(TimeSpan.FromMinutes(5))), "k", Advance);
-    [Fact] public Task Size_budget() => MemoryStoreContract.Size_budget_evicts_to_fit(NewWith(MemoryRetentionPolicy.SizeBudget(25)), "k");
-    [Fact] public Task Size_budget_runes() => MemoryStoreContract.Size_budget_counts_code_points_not_utf16_units(NewWith(MemoryRetentionPolicy.SizeBudget(2)), "k");
-    [Fact] public Task Both_bounds() => MemoryStoreContract.Both_count_cap_and_size_budget_apply(NewWith(new MemoryRetentionPolicy { MaxEntriesPerScope = 3, MaxCharsPerScope = 25 }), "k");
-    [Fact] public Task Lru_tie() => MemoryStoreContract.Lru_recency_tie_broken_by_id(NewWith(MemoryRetentionPolicy.CountCap(2, MemoryEvictionMode.Lru)), "k");
-    [Fact] public Task Manual() => MemoryStoreContract.Manual_policy_never_evicts(NewWith(MemoryRetentionPolicy.Manual), "k");
+    [Fact] public Task Lru() => MemoryStoreContract.Lru_evicts_least_recently_recalled(NewWith(MemoryEvictionPolicy.CountCap(3, MemoryEvictionMode.Lru)), "k", Advance);
+    [Fact] public Task Lru_bare() => MemoryStoreContract.Lru_bare_recall_does_not_refresh_recency(NewWith(MemoryEvictionPolicy.CountCap(2, MemoryEvictionMode.Lru)), "k", Advance);
+    [Fact] public Task Default_ttl() => MemoryStoreContract.Default_ttl_expires_entries_without_per_call_ttl(NewWith(MemoryEvictionPolicy.TimeToLive(TimeSpan.FromMinutes(5))), "k", Advance);
+    [Fact] public Task Size_budget() => MemoryStoreContract.Size_budget_evicts_to_fit(NewWith(MemoryEvictionPolicy.SizeBudget(25)), "k");
+    [Fact] public Task Size_budget_runes() => MemoryStoreContract.Size_budget_counts_code_points_not_utf16_units(NewWith(MemoryEvictionPolicy.SizeBudget(2)), "k");
+    [Fact] public Task Both_bounds() => MemoryStoreContract.Both_count_cap_and_size_budget_apply(NewWith(new MemoryEvictionPolicy { MaxEntriesPerScope = 3, MaxCharsPerScope = 25 }), "k");
+    [Fact] public Task Lru_tie() => MemoryStoreContract.Lru_recency_tie_broken_by_id(NewWith(MemoryEvictionPolicy.CountCap(2, MemoryEvictionMode.Lru)), "k");
+    [Fact] public Task Manual() => MemoryStoreContract.Manual_policy_never_evicts(NewWith(MemoryEvictionPolicy.Manual), "k");
 }
 
 /// <summary>The <see cref="MemoryStoreContract"/> against the InMemory backend.</summary>
 public class InMemoryMemoryStoreContractTests : MemoryStoreContractFacts
 {
     protected override IMemoryStore New() => new InMemoryMemoryStore(Options, clock: () => Now);
-    protected override IMemoryStore NewWith(MemoryRetentionPolicy p) =>
-        new InMemoryMemoryStore(new LyntaiOptions { MemoryRetention = p, MemoryRecallLimit = 100 }, clock: () => Now);
+    protected override IMemoryStore NewWith(MemoryEvictionPolicy p) =>
+        new InMemoryMemoryStore(new LyntaiOptions { MemoryEviction = p, MemoryRecallLimit = 100 }, clock: () => Now);
 }
 
 /// <summary>The <see cref="MemoryStoreContract"/> against SQLite over a per-test temp db.</summary>
@@ -60,6 +60,6 @@ public class SqliteMemoryStoreContractTests : MemoryStoreContractFacts, IDisposa
     public void Dispose() => _db.Dispose();
 
     protected override IMemoryStore New() => new SqliteMemoryStore(_db.Factory, Options, clock: () => Now);
-    protected override IMemoryStore NewWith(MemoryRetentionPolicy p) =>
-        new SqliteMemoryStore(_db.Factory, new LyntaiOptions { MemoryRetention = p, MemoryRecallLimit = 100 }, clock: () => Now);
+    protected override IMemoryStore NewWith(MemoryEvictionPolicy p) =>
+        new SqliteMemoryStore(_db.Factory, new LyntaiOptions { MemoryEviction = p, MemoryRecallLimit = 100 }, clock: () => Now);
 }

@@ -35,10 +35,16 @@ default `Surface` action, since Surface returns first).
 
 The §6 amendment: `RateLimited` used to circuit-break the whole request; it now cools-and-advances.
 `AuthFailed`/`ContextWindowExceeded` are the finer taxonomy added in v0.2.0. If you touch this table, update
-every downstream copy of the taxonomy — there are four: `LlmVerdict.cs` (the CANONICAL statement, and the
-IntelliSense a consumer reads), `ILlmRouter.cs`'s XML doc (the contract a consumer reads), `README.md` §The
-semantics you're getting (the consumer-facing statement), and design §5.1 (the frozen v0.1 record, which takes
-a dated amendment rather than a rewrite).
+every downstream site — there are four, and **they are not four copies of the same thing**, which matters
+because treating them alike leads to either bloating a consuming story or wrongly reading it as stale
+(checked 2026-08-14, all four correct):
+
+| Site | What it is | Obligation when a verdict is added |
+|---|---|---|
+| `LlmVerdict.cs` | the CANONICAL statement, and the IntelliSense a consumer reads | the member, with its own doc |
+| `ILlmRouter.cs`'s XML doc | the contract a consumer reads — genuinely ENUMERATES all nine | add it to the enumeration |
+| design §5.1 + §6 | the frozen v0.1 record | a DATED amendment, never a rewrite (§5.1 already carries the "now nine members" note) |
+| `README.md` §The semantics you're getting | a consuming-story SUMMARY, deliberately not an enumeration — it names six of nine and omits `Unsupported`/`ContextWindowExceeded` on purpose | only if the new verdict changes what a consumer must DO; silence here is not drift |
 
 **A consumer can teach the classifier its own error phrasing** — `LlmVerdictClassifier.AddErrorTextMatcher(text
 => verdict?)` registers a process-wide matcher consulted BEFORE the built-in (English) patterns, first non-null
@@ -144,7 +150,7 @@ polled store owns the configuration; tenants carry their own credentials and end
 wrong unit twice over: one tenant exhausting its quota benches every other tenant on that backend, and two
 consumers pointing at the *same* downed self-hosted host fail to share a bench that would have spared them
 both. `IProviderPool<T>.TryGetKey` is the intended source, and `ILlmRouterFactory` / `IGenerationRouterFactory`
-bind it for you on their pooled overloads — see `docs/DECISIONS.md` D37.
+bind it for you on their pooled overloads — see `docs/DECISIONS.md` D30.
 
 Two properties to hold on to when touching this:
 
@@ -197,7 +203,7 @@ stalls but never finishes) and reports `ProcessResult.TimeoutKind` = `Inactivity
 two are distinguishable; `CliProviderEngine.CompleteAsync` passes the resolved timeout as the inactivity
 window and `MaxProviderTimeout` as the backstop — never below the window, so a consumer budget above the
 ceiling raises it rather than the reverse — for EVERY dialect, claude and codex alike (the per-CLI providers
-are forwarding members; the clocks are the engine's, D27). Do NOT reintroduce a single wall-clock
+are forwarding members; the clocks are the engine's, D21). Do NOT reintroduce a single wall-clock
 `CancelAfter` over the whole
 buffered call — it kills healthy slow turns (the streaming-timeout trap, same failure mode). Tests stub the
 CLI via `LYNTAI_PROVIDER_CMD`.

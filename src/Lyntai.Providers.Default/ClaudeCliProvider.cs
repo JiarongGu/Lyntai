@@ -78,7 +78,7 @@ public sealed class ClaudeCliProvider : ILlmProvider, IProviderInstallation, IPr
     /// Reports the same <see cref="ProviderUpdateResult"/> as an update — including <c>Updated</c> for a
     /// DOWNGRADE, which is a legitimate outcome of pinning.</summary>
     /// <remarks>This drives the installer the CLI already ships; Lyntai still never downloads or stores a
-    /// binary itself (<c>docs/DECISIONS.md</c> D26). A <see cref="ProviderInstallRequest.Version"/> the CLI
+    /// binary itself (<c>docs/DECISIONS.md</c> D20). A <see cref="ProviderInstallRequest.Version"/> the CLI
     /// would read as a flag is refused without spawning anything.</remarks>
     public Task<ProviderUpdateResult> InstallAsync(ProviderInstallRequest? request = null, CancellationToken ct = default) =>
         _engine.InstallAsync(request, ct);

@@ -14,7 +14,7 @@ namespace Lyntai.Tests.Generation;
 /// <see cref="GenerationRoutingPolicy.ActionFor"/> to switch on and nothing but candidate ids left to report.
 /// Every rejection therefore advanced AND took a dead-host strike — including one from a backend that answered
 /// "not configured" before it opened a socket, which is exactly the penalty-for-a-known-fact that
-/// <c>NotConfigured</c> was introduced to prevent (<c>docs/DECISIONS.md</c> D38).</para></summary>
+/// <c>NotConfigured</c> was introduced to prevent (<c>docs/DECISIONS.md</c> D31).</para></summary>
 // serialized with every other class that registers a matcher: LlmVerdictClassifier.AddErrorTextMatcher mutates
 // a PROCESS-WIDE list. It does NOT protect the rest of the suite, so the matcher below answers for its own
 // probe token and nothing else.

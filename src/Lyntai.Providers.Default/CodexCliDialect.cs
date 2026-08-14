@@ -58,7 +58,7 @@ public sealed class CodexCliDialect : CliProviderDialectBase
 
     /// <summary><c>codex login</c> — the browser/account flow. The credential-reading modes codex also offers
     /// (<c>--with-api-key</c> / <c>--with-access-token</c>, which read a secret from stdin) are deliberately
-    /// NOT exposed: Lyntai does not carry or store credentials (<c>docs/DECISIONS.md</c> D26), and
+    /// NOT exposed: Lyntai does not carry or store credentials (<c>docs/DECISIONS.md</c> D20), and
     /// <see cref="ProviderLoginRequest"/> has no field for one. Use the CLI directly for those.</summary>
     public override bool TryBuildLoginArgs(ProviderLoginRequest? request, out IReadOnlyList<string> args, out string? refusal)
     {

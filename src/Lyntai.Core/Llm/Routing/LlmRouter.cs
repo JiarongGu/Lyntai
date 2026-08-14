@@ -139,8 +139,11 @@ public sealed class LlmRouter(
     ///
     /// Without this, <c>[downHost → Failed, neverConfigured → NotConfigured]</c> tells the caller "not
     /// configured" and sends them to set up a key, while the backend they HAD configured is the one that is
-    /// down. Matches <c>GenerationRouter</c>'s guard exactly — the same two verdicts — which is the point:
-    /// one answer per situation across both domains.
+    /// down. Matches <c>GenerationRouter.IsBlameless</c> exactly — the same two verdicts, and since 3.0 the
+    /// same NAMED predicate rather than an inline pattern over there — which is the point: one answer per
+    /// situation across both domains. It cannot be ONE function: the two domains have separate verdict
+    /// enums, so the parity is carried by the pair of names and by each one's docblock pointing at the
+    /// other.
     ///
     /// Deliberately keyed on the VERDICT, not on <see cref="FallbackAction.Advance"/>: that would also
     /// swallow <see cref="LlmVerdict.ContextWindowExceeded"/>, and "your prompt is too big" is a real,

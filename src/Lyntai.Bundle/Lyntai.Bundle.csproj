@@ -4,7 +4,7 @@
     The one-line install: `dotnet add package Lyntai` gets Core, the dependency-free default backends,
     in-memory storage, and BOTH halves of MCP. Everything with a heavy or platform-specific dependency stays an
     explicit opt-in — Lyntai.Storage.Sqlite's native binary, Lyntai.Providers.Local's LLamaSharp,
-    Lyntai.Secrets.Dpapi's Windows-only API, Lyntai.Providers.ExtensionsAi's MEAI. See docs/DECISIONS.md D31.
+    Lyntai.Secrets.Dpapi's Windows-only API, Lyntai.Providers.ExtensionsAi's MEAI. See docs/DECISIONS.md D25.
 
     This is how "most consumers want X" is served WITHOUT putting X's dependencies in front of someone who only
     wanted storage: a metapackage is opt-in convenience, whereas Core is mandatory. MCP is included here rather
@@ -44,7 +44,7 @@
     <ProjectReference Include="..\Lyntai.Tools.Mcp.Hosting\Lyntai.Tools.Mcp.Hosting.csproj" />
     <!-- FREE to include: MCP already drags Microsoft.Extensions.AI.Abstractions transitively, so the bridge
          adds no new third-party dependency to the bundle's closure — 38 KB of managed code, 0 after trimming.
-         See DECISIONS.md D32 for the rule this satisfies. -->
+         See DECISIONS.md D26 for the rule this satisfies. -->
     <ProjectReference Include="..\Lyntai.Providers.ExtensionsAi\Lyntai.Providers.ExtensionsAi.csproj" />
   </ItemGroup>
 

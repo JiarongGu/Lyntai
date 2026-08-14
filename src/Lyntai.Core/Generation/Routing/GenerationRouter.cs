@@ -29,7 +29,7 @@ namespace Lyntai.Generation.Routing;
 /// substantive failure is what the caller is told; the first BLAMELESS result that actually explained itself
 /// is remembered apart and reported only when nothing substantive failed at all. Without the first half,
 /// <c>[downHost → Failed, neverConfigured → NotConfigured]</c> would send a caller off to set up a key while
-/// the backend they HAD configured is the one that is down (<c>docs/DECISIONS.md</c> D38). Without the second,
+/// the backend they HAD configured is the one that is down (<c>docs/DECISIONS.md</c> D31). Without the second,
 /// a run in which every candidate said "your prompt is too long for me" was answered with a synthetic "every
 /// capable backend reported it is not configured" — neither true nor actionable, and what forced
 /// <c>ContextWindowExceeded</c> to translate to a BLAMING verdict to stay reportable at all
@@ -121,7 +121,7 @@ public sealed class GenerationRouter(
             // not-configured / unsupported aren't faults worth reporting over a real failure — but every
             // other verdict is remembered BEFORE the surface check, so advancing past one (a host that
             // configured Refused -> Advance) still reports it when nothing else succeeds
-            if (result.Verdict is not (GenerationVerdict.NotConfigured or GenerationVerdict.Unsupported))
+            if (!IsBlameless(result.Verdict))
                 firstFailure ??= result;
             // …and a blameless backend that EXPLAINED itself goes in the other slot. It can never mask a real
             // failure (the return below settles that), but "your prompt is too long for me" beats a synthetic
@@ -213,7 +213,7 @@ public sealed class GenerationRouter(
                 // is wrong for the same reason it is wrong inline: an unconfigured queue backend
                 // (FalQueueProvider answers "not configured: …" before it opens a socket) would be penalised
                 // on every attempt for a fact known before the call — precisely the harm NotConfigured was
-                // introduced to prevent (docs/DECISIONS.md D38). An operation carries a STATUS, not a verdict,
+                // introduced to prevent (docs/DECISIONS.md D31). An operation carries a STATUS, not a verdict,
                 // so the verdict comes from classifying the backend's own words through the shared corpus;
                 // an unclassifiable rejection still lands on Failed, which is what it did before.
                 var verdict = GenerationVerdictClassifier.FromErrorText(operation.Detail);
@@ -221,7 +221,7 @@ public sealed class GenerationRouter(
                 // blameless verdicts do not outrank reasons — remembered apart, exactly as GenerateAsync does,
                 // so "nothing is set up" never masks "the one you configured refused the job", while a
                 // blameless rejection that explained itself is still better than a list of ids
-                if (verdict is not (GenerationVerdict.NotConfigured or GenerationVerdict.Unsupported))
+                if (!IsBlameless(verdict))
                     firstFailure ??= (provider.Id, operation.Detail);
                 else if (!string.IsNullOrWhiteSpace(operation.Detail))
                     firstBlameless ??= (provider.Id, operation.Detail);
@@ -253,6 +253,27 @@ public sealed class GenerationRouter(
                   $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]") +
                 Because(firstFailure ?? firstBlameless)));
     }
+
+    /// <summary>Verdicts that are not FAULTS — the backend simply wasn't the one for this request, so it is
+    /// remembered apart from real failures and reported only when nothing really failed.
+    ///
+    /// <para>Without it, <c>[configuredBackendRefusedTheJob, neverConfigured]</c> tells the caller "nothing is
+    /// configured" and sends them to set up a key, while the backend they HAD configured is the one that
+    /// declined.</para>
+    ///
+    /// <para><b>Deliberately the same two verdicts as <c>LlmRouter.IsBlameless</c></b>, which is the point:
+    /// one answer per situation across both domains. It cannot be one shared function — the two domains have
+    /// separate verdict enums — so it is the same NAMED predicate on each side instead, and this sentence is
+    /// what connects them. It was inlined at both call sites here until the 3.0 pre-freeze review: the LLM
+    /// side had the rule named and documented while this side had two unnamed copies of the pattern, so the
+    /// parity the other side's docblock ASSERTS was anchored to nothing a reader or a rename could
+    /// follow.</para>
+    ///
+    /// <para>Note this is about ELIGIBILITY only, never about which failure wins: this router keeps the FIRST
+    /// substantive failure where <c>LlmRouter</c> keeps the LAST, and that difference is untouched.</para>
+    /// </summary>
+    private static bool IsBlameless(GenerationVerdict verdict) =>
+        verdict is GenerationVerdict.NotConfigured or GenerationVerdict.Unsupported;
 
     /// <summary>The first rejecting backend's own words, folded onto the synthesized "nobody took it" message
     /// — the first SUBSTANTIVE rejection where there was one, otherwise the first blameless rejection that

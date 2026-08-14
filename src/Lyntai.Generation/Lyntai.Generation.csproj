@@ -2,7 +2,7 @@
 
   <!--
     Lyntai.Generation — an ADAPTER package: it may depend on Lyntai.Core (or a domain package), never on another adapter.
-    Its reason to exist is the dependency it ISOLATES (docs/DECISIONS.md D31) — state that in the Description.
+    Its reason to exist is the dependency it ISOLATES (docs/DECISIONS.md D25) — state that in the Description.
 
     If this package drags a reflection-heavy dependency (an ORM, a serializer, a native runtime), it must OPT
     OUT of the trim/AOT claim rather than inherit it — a false IsTrimmable tells a consumer's trimmer this code
@@ -26,7 +26,7 @@
   <ItemGroup>
     <!-- The per-backend Add* shims register a named client with an infinite timeout, the same way
          Lyntai.Providers.Default does. Managed, on the runtime's own version band, and this package is NOT in
-         the Lyntai bundle — so it adds nothing to the one-line install's closure (D32). -->
+         the Lyntai bundle — so it adds nothing to the one-line install's closure (D26). -->
     <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>
 

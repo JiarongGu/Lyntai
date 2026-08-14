@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>Per-verdict fallback is a POLICY, not a law — the same lesson the LLM router learned in
-/// <c>docs/DECISIONS.md</c> D10. The motivating case is real: a cloud backend refuses content that a
+/// <c>docs/DECISIONS.md</c> D3. The motivating case is real: a cloud backend refuses content that a
 /// permissive local backend will happily produce, and the host — not the library — decides whether a refusal
 /// ends the run or moves to the next candidate.</summary>
 public class GenerationRoutingPolicyTests

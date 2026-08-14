@@ -58,16 +58,185 @@ export default {
    * must be listed here, which is why this list is meant to stay nearly empty.
    *
    * Adding an id = accepting its full size for every consumer of the one-line install. See
-   * `docs/DECISIONS.md` D32 for the rule and the current justification of each entry.
+   * `docs/DECISIONS.md` D26 for the rule and the current justification of each entry.
    */
   bundle: {
     project: 'src/Lyntai.Bundle',
     allowedThirdParty: [
       // 1.19 MB, and it drags Microsoft.Extensions.AI.Abstractions (656 KB). In by explicit exception:
-      // MCP is near-universal for the agentic consumers this library targets (D31/D32).
+      // MCP is near-universal for the agentic consumers this library targets (D25/D26).
       'ModelContextProtocol.Core',
     ],
   },
+
+  /**
+   * RETIRED PUBLIC-API NAMES — identifiers a deliberate decision replaced, which must not reappear in the
+   * frozen public surface. Enforced by `dev.mjs check-api-vocabulary` against the committed API baselines
+   * (`tests/Lyntai.Tests/Api/Baselines/*.txt`), and part of `verify`.
+   *
+   * The gap this closes sits BETWEEN two gates that each work correctly: `check-docs` deliberately excludes
+   * `src/`, so it never reads a parameter name, and the API-surface baseline RECORDS parameter names
+   * without judging them — it reports THAT a name changed, never THAT a name should have. So a stale name
+   * round-trips cleanly through the one gate whose entire job is noticing API changes. Measured cost
+   * (TASKS.md Part 61, docs/DECISIONS.md D47): `GraphMemoryEngine(ageClocks:)`, `(appraisers:)` and
+   * `ModulatedRetrievability(modulators:)` kept the three words that decision retired all the way to the
+   * eve of the 3.0 freeze. A human review caught all three; no gate did. Named arguments are
+   * source-compatible public surface, so after a freeze each costs a major version.
+   *
+   * WHY THIS IS ITS OWN REGISTRY AND NOT `retiredTerms`. That one is written for PROSE — its entries are
+   * claim shapes (`available,? (?:but )?not (?:the )?default`) and qualified namespace paths, both of which
+   * are meaningless against a baseline, which is identifiers and signatures only. The two registries also
+   * want opposite matching: prose needs loose, sentence-spanning regexes; a baseline needs the strictest
+   * possible whole-identifier equality.
+   *
+   * MATCHING IS WHOLE-IDENTIFIER, NEVER SUBSTRING. Each baseline line is tokenized into identifiers:
+   * `names` is set membership, `pattern` is a regex anchored to the WHOLE token (an identifier SHAPE).
+   * This is what lets `modulators`/`IRetentionModulator` be retired while `Lyntai.Memory.Modulation` and
+   * `ModulatedRetrievability` stay live, and `IMemoryClock` be retired while `InactivityClock` and every
+   * genuine `Func<DateTimeOffset> clock` parameter stay live. A substring rule would fire on all of them,
+   * and a gate that cries wolf on a deliberate decision gets an exclusion added and then rots.
+   *
+   * Each entry: the retired identifiers, what to use instead, and why — the same teach-don't-just-refuse
+   * shape `retiredTerms` uses. Add one whenever a decision renames something on the public surface.
+   *
+   * ESCAPE HATCH: a baseline is GENERATED, so `drift-ok` cannot live in it — the next regeneration would
+   * erase it. An escape is instead an `allow: [{ signature, why }]` on the rule it silences: the EXACT
+   * baseline line, so it expires by itself when that signature changes, and a `why`, so it is never a
+   * silent exclusion. An allowance that matches nothing is a FAILURE — a rotting exclusion hides the next
+   * occurrence of the same mistake.
+   *
+   * The limit, stated rather than oversold: this catches the reintroduction of an exact retired
+   * identifier, not every descendant of a retired word. A method named for the verb form of a retired type
+   * is not that type's name, and no rule here would flag it.
+   */
+  /**
+   * Documents `check-links` may not hold to "every in-repo reference resolves", and WHY.
+   *
+   * The gate exists because untracking the ranking × forgetting measurement record under D43 left six
+   * dangling references in maintained state — README, the design contract, DECISIONS — and every gate
+   * stayed green while a reader found them. `docs/superpowers/INDEX.md` already ENDS its archiving
+   * procedure with "check nothing dangles"; this makes that step enforceable rather than remembered.
+   *
+   * An allowance is per-FILE and never per-path: the case it covers is a whole document whose paths were
+   * correct on the day it was written, which is the same rationale `HISTORICAL` carries in check-docs. A
+   * single deliberate mention inside an otherwise-maintained document gets `drift-ok` on its line instead.
+   *
+   * AN ALLOWANCE THAT MATCHES NOTHING IS A FAILURE, exactly as in `retiredApiNames`: once a document's
+   * last stale reference is repaired the allowance is a hole nobody can see expiring, and the next
+   * genuine dangling reference in that file would go unreported forever.
+   */
+  staleReferenceAllowances: [
+    {
+      file: 'docs/2026-08-04-generation-platform-plan.md',
+      why: 'Its own STATUS banner (2026-08-05) says the file-structure table is superseded twice over: the '
+        + '2.0.1 restructure moved the generation CONTRACTS into src/Lyntai.Core/Generation/ (D25) and D25 '
+        + 'then re-split the BACKENDS into the Lyntai.Generation package. Every src/Lyntai.Generation/*.cs '
+        + 'and tests/Lyntai.Tests/Media/*.cs path below that banner is the layout AS FIRST WRITTEN, which is '
+        + 'what makes it a faithful record of how the core was built. The document stays tracked only '
+        + 'because GEN-VERIFY/GEN6/GEN7 still execute from its live half (docs/superpowers/INDEX.md), and '
+        + 'it moves to local/ when the last of those closes — at which point this allowance goes with it.',
+    },
+  ],
+
+  retiredApiNames: [
+    {
+      // The three parameter names the 2026-08-11 whole-branch review caught, plus the 2.5 name the first of
+      // them replaced. All four are GONE — these entries exist so nothing REINTRODUCES them, which is the
+      // same reasoning `retiredTerms` records for its own zero-hit entries. `memoryClock` is included
+      // because it is the one name in this group a real 2.5 consumer can still be holding (D47's closing
+      // amendment: the other two were introduced and renamed entirely inside the unreleased window).
+      names: ['ageClocks', 'appraisers', 'modulators', 'memoryClock'],
+      use: '`agePolicies:` (was `memoryClock:`, then `ageClocks:`), `saliencePolicies:` (was `appraisers:`) '
+        + 'and `retentionPolicies:` (was `modulators:`)',
+      why: 'docs/DECISIONS.md D47 retired "clock", "appraiser" and "modulator" as names for these seams — '
+        + 'there was never a clock, age is INTERFERENCE — and the parameters kept the retired words until '
+        + 'the eve of the 3.0 freeze. `ageClocks` sat three lines from a genuine `Func<DateTimeOffset> '
+        + 'clock`, so the parameter named "clocks" was the one that is not a clock',
+    },
+    {
+      // Added with the rename itself, 2026-08-11, so this entry and the surface it guards land together.
+      //
+      // Worth reading before deciding this one is pedantic: `Appraise` survived the D47 sweep by an
+      // implementer's JUDGEMENT, a reviewer noticed it was missing from D47's "deliberately unchanged"
+      // list, and the reasoning that justified keeping it was composed while closing that review finding —
+      // then repeated to another agent as settled. It became "deliberate" at the moment it was written
+      // down, which is not the same as having been decided. The owner's one question ("is that by
+      // measure?") is what surfaced it.
+      //
+      // The check that settled it was not a measurement — naming never is — but a PATTERN the codebase
+      // already had: every seam method is named for what it RETURNS (`IMemoryRetrievabilityPolicy.
+      // Retrievability`, `IMemoryAgePolicy.Age`, `IMemoryRetentionPolicy.StabilityFactor`,
+      // `IMemoryRankingPolicy.Rank`). `Appraise` alone was named for the ACT, in the verb form of the
+      // retired `ISalienceAppraiser`, while returning `MemorySignals`. Its own XML summary already read
+      // "Signals for this write" — the docs had settled on the return-shaped name; only the identifier
+      // lagged.
+      names: ['Appraise'],
+      use: '`IMemorySaliencePolicy.Signals` — the method is named for what it RETURNS, like every other '
+        + 'seam method in this domain',
+      why: 'renamed 2026-08-11 (owner ruling) in the last window before the 3.0 freeze, where it costs '
+        + 'nothing; after the freeze it would cost a major. Note the LIMIT this entry demonstrates: a '
+        + 'registry of exact identifiers would NOT have caught `Appraise` from a rule naming '
+        + '`ISalienceAppraiser`, because a method named for the verb form of a retired type is not that '
+        + 'type\'s name. This gate catches REINTRODUCTION, not every descendant of a retired word — that '
+        + 'still needs a reader',
+    },
+    {
+      // The ten type renames of D47 itself. `retiredTerms` fences the QUALIFIED old paths in prose; nothing
+      // fenced the surface, which is where a rename actually costs a major version.
+      names: ['IMemoryClock', 'IRetrievabilityPolicy', 'IRetentionModulator', 'ISalienceAppraiser',
+        'PerWriteClock', 'ContentSizeClock', 'ElapsedClock', 'BurstDampenedClock',
+        'SalienceModulator', 'StructuralSalienceAppraiser'],
+      use: '`IMemoryAgePolicy`, `IMemoryRetrievabilityPolicy`, `IMemoryRetentionPolicy`, '
+        + '`IMemorySaliencePolicy`; `PerWriteAgePolicy`, `ContentSizeAgePolicy`, `ElapsedAgePolicy`, '
+        + '`BurstDampenedAgePolicy`; `SalienceRetentionPolicy`, `StructuralSaliencePolicy`',
+      why: 'docs/DECISIONS.md D47 (2026-08-10) gave every memory policy seam ONE naming shape, '
+        + '`IMemory<Domain>Policy`, and renamed every implementation whose own name embedded a retired '
+        + 'word. Deliberately unrenamed and still LIVE: `ModulatedRetrievability` and the '
+        + '`Lyntai.Memory.Modulation` namespace (the word there is Modulation, the domain, not Modulator, '
+        + 'the retired suffix) — which is why this rule matches whole identifiers only',
+    },
+    {
+      // A DELETED type, not a renamed one: there is no forward name to migrate to, so a surface carrying
+      // either of these again would be a restoration nobody decided on.
+      names: ['HalfLifeRetrievability', 'HalfLifeOptions'],
+      use: '`DsrRetrievability` — the only shipped forgetting curve as of 3.0. A consumer who needs the '
+        + 'exponential shape implements `IMemoryRetrievabilityPolicy` themselves',
+      why: 'both were DELETED 2026-08-10 (fsrs-properly plan Task 1, docs/DECISIONS.md D49), with no '
+        + 'restore path — a public surface reintroducing either is a mistake, not a migration',
+    },
+    {
+      // The 3.0 collision fix. `MemoryRetentionPolicy` bounded IMemoryStore's SIZE while
+      // `IMemoryRetentionPolicy` modulates a graph entry's half-life — two unrelated concepts one `I`
+      // apart, in a language where `IFoo` reads as the interface of `Foo`. This gate's own header used to
+      // cite that pair as the example of a live type a substring rule would wrongly flag; the pair is gone
+      // because the STORAGE side moved to the eviction vocabulary it already used (`MemoryEvictionMode`,
+      // `MemoryEviction.Survivors`), leaving "retention" to the graph seam alone.
+      //
+      // `Eviction` is NOT listed, and deliberately: it is an ordinary English word that a future member
+      // could legitimately carry, and whole-identifier matching would fire on any of them. What was retired
+      // is the SPECIFIC property `MemoryEvictionPolicy.Eviction`, which stuttered against its own type —
+      // and a rule that cannot express "this member on this type" should not pretend to by banning the word.
+      names: ['MemoryRetentionPolicy'],
+      use: '`MemoryEvictionPolicy` (and `LyntaiOptions.MemoryEviction`, `ConfigureMemory(p => p.Mode = …)`)',
+      why: 'renamed for 3.0 (docs/DECISIONS.md D13) because it sat one `I` away from the unrelated '
+        + '`IMemoryRetentionPolicy` graph seam. The old name reappearing would restore a collision two '
+        + 'entries in this file had to carry a KNOWN HAZARD note about',
+    },
+    {
+      // Identifier-SHAPED only, mirroring the reasoning of `retiredTerms`'s own `\w+Dto\b` prose entry: the
+      // bare word has to stay sayable (the rules tier quotes what it bans), and a pattern that cannot tell
+      // a leak from a prohibition just teaches people to add escapes. On the SURFACE there is no such
+      // tension — every hit is a real identifier — but the shape is kept so both registries read the same.
+      // The lowercase `dto` alternative is exact, not `dto\w*`: it catches the parameter named `dto`
+      // (repo-mechanics.md is explicit that `dto` is not an abbreviation for `DateTimeOffset` either)
+      // without claiming every identifier that happens to start with those three letters.
+      pattern: '\\w*Dto\\w*|dto',
+      use: '`*Row` for a materialization type, `*Request`/`*Reply`, `*Result`, `*Entry`',
+      why: 'a name says what a thing IS, never which layer it crossed. `.claude/rules/repo-mechanics.md` '
+        + '§Naming records that the tree contains zero `Dto` identifiers and that this is worth keeping; '
+        + '`retiredTerms` already fences the prose, and this fences the surface the prose describes',
+    },
+  ],
 
   /**
    * RETIRED VOCABULARY — words a deliberate decision replaced, which must not reappear in the docs.
@@ -80,10 +249,23 @@ export default {
    * Each entry is a term a decision retired, what to say instead, and why — so the failure message teaches
    * rather than merely refusing. Add one whenever a decision renames or re-dimensions something.
    *
-   * Scope: `docs/`, `.claude/` and README. NOT `src/` (XML docs sit beside the code they describe and the
-   * compiler already gates their crefs), NOT `CHANGELOG.md` or `docs/task-archive.md` (historical records —
-   * accurate BECAUSE they use the vocabulary of their day), and not any file that declares itself
-   * superseded in its status banner.
+   * Scope, and READ IT FROM `check-docs.mjs` RATHER THAN FROM HERE — `IN_SCOPE`, `HISTORICAL` and
+   * `LIVE_PREFIX` are the authority, this paragraph is a summary of them:
+   *   - IN: `docs/`, `.claude/`, `README.md`, `CLAUDE.md`, `TASKS.md`.
+   *   - IN, but only down to its first RELEASED heading: `CHANGELOG.md`. The historical exemption rests on a
+   *     record being accurate BY using the vocabulary of its day, which is true of a released section and
+   *     false of `## Unreleased` — that describes behaviour that has not shipped and can still change under
+   *     the words describing it. (This paragraph said `CHANGELOG.md` was out of scope entirely until
+   *     2026-08-14, which stopped being true on 2026-08-11 when the live prefix was added; three of the
+   *     rules below already cite pointing this gate at that prefix.)
+   *   - OUT wholly: `docs/task-archive.md` (a record, by the same rationale), and any file declaring itself
+   *     superseded in its status banner.
+   *   - OUT: `src/`. The usual justification — "the compiler already gates their crefs" — is only PART true
+   *     and worth stating precisely, because the gap is where real drift has landed: the compiler resolves
+   *     `<see cref>` and nothing else, so a type or file named in a `<c>` tag or a `//` comment is checked by
+   *     no one. `check-api-vocabulary` covers retired IDENTIFIERS on the frozen surface; nothing covers a
+   *     retired CLAIM in an XML doc, which is how `GraphMemoryOptions.AuthoritativeReserve` shipped a
+   *     paragraph describing an implementation the measurement had already rejected (2026-08-14 review).
    *
    * Escape hatch: put `drift-ok` on the line. That is the honest annotation for a passage that deliberately
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
@@ -99,15 +281,40 @@ export default {
       use: '`last_recalled_position`',
       why: 'the node records where the engine\'s position stood, not a timestamp (spec §3.-1)',
     },
-    {
-      term: 'strengthened_at',
-      use: '`strengthened_position`',
-      why: 'an edge ages by what has happened since, not by the clock (spec §3.-1)',
-    },
+    // `strengthened_at` was banned here until 2026-08-12 (D52) and the ban is deliberately GONE, not escaped.
+    // It was written when an edge's ONLY strengthening mark was `strengthened_position`, so a timestamp could
+    // only have REPLACED it — which is the thing spec §3.-1 forbids. An edge now carries the same three
+    // policy-independent primitives a node does, and `strengthened_at` sits BESIDE `strengthened_position`
+    // exactly as the node's own `encoding_at` sits beside its marks, feeding `ElapsedAgePolicy`'s projection.
+    // The tell that the rule had gone stale rather than caught something: `encoding_at` is the identical
+    // construct, appears throughout these same documents, and was never banned — so the registry was
+    // forbidding on the edge what it permits on the node. Four `drift-ok` escapes would have hidden that,
+    // which is the failure mode this registry's own header warns about.
+    // What §3.-1 actually protects is unchanged and still true: decay is measured against the position
+    // accumulator (or a policy's own projection of the primitives), never against the wall clock.
     {
       term: 'YYYYMMDDNNNN',
       use: '`yyyyMMddHHmm`',
       why: 'migration numbering changed 2026-08-08 — the timestamp is self-describing (storage.md)',
+    },
+    {
+      // The retired CLAIM, in the two phrasings the docs actually used, not the words "single" or
+      // "contiguous" on their own — both stay sayable, and this gate's own header warns that a rule which
+      // cannot tell a leak from a prohibition just teaches people to add escapes. The live passages that
+      // NAME the retired claim to explain the reversal carry `drift-ok`.
+      term: 'portable guarantee is (therefore )?(a )?SINGLE-token|single-token (guarantee|one)'
+        + '|match(es)? the (whole )?query as (one|a) contiguous substring',
+      use: 'every backend splits a query the same way (`Lyntai.Storage.SearchTerms`) and an entry carrying '
+        + 'ANY term is recalled — words for a space-separated script, character trigrams for one written '
+        + 'without spaces. What stays backend-specific is RANKING (bm25 on SQLite, matched-term count then '
+        + 'recency elsewhere), never which entries are found',
+      why: 'docs/DECISIONS.md D55 (2026-08-12). Only SQLite\'s FTS path ever split a query; every other path '
+        + 'matched the whole query as one contiguous substring, so a realistic multi-word cue found the fact '
+        + 'on one backend and nothing at all on the others — and a CJK query, which whitespace cannot split '
+        + 'at all, got exact-phrase-or-nothing in every language that writes no spaces. This was recorded '
+        + 'for a year as a by-design divergence and defended by a test that ASSERTED it. The rule that fell '
+        + 'out, and the reason this entry exists: an ORDERING difference between backends is a divergence, a '
+        + 'different answer to "is the fact found" is a defect',
     },
     {
       // Identifier-SHAPED only (`CustomerDto`), not the bare word: the rules tier has to quote what it
@@ -116,6 +323,182 @@ export default {
       use: '`*Row` for a materialization type, `*Request`/`*Reply`, `*Result`, `*Entry`',
       why: 'a name says what a thing IS, never which layer it crossed; the tree holds zero Dto identifiers '
         + 'and prose seeds the name back in on the next change (repo-mechanics.md §Naming)',
+    },
+    {
+      // Two phrasings of the same retired claim — see the "why" for the reversal. Neither hits today: the
+      // claim currently only survives in src/ XML docs and CHANGELOG.md, both out of this gate's scope (see
+      // the module doc above), plus tests/, which was never in scope either. This entry exists so nothing
+      // NEW repeats the claim in a gated document.
+      //
+      // NOTE for a future editor: "salience does not reorder a seed" reads as TRUE again once you know the
+      // rank half is off by default (D45, corrected 2026-08-09) — that is not a reason to remove this entry.
+      // The retired claim was UNCONDITIONAL ("never reorders", full stop, no store-admission ordering
+      // either), and that blanket form is still false: admission ordering is real and always on. A doc
+      // reintroducing the unconditional phrasing is still wrong, just for a subtler reason than before.
+      term: 'never reorders a seed|not retrieval priority',
+      use: 'salience means "does not fade away" — decay resistance AND store ADMISSION priority, both on by '
+        + 'default; it can ALSO lift rank in GraphMemoryEngine (bounded, logarithmic), but that is a '
+        + 'stronger, separate claim and defaults OFF — a consumer opts in',
+      why: 'reversed 2026-08-09 (memory-3.0 plan 2, Task 6) — docs/DECISIONS.md D45, corrected the same day '
+        + 'by D45 from an initial reading that also defaulted ranking on. The store-admission half shipped '
+        + 'in Task 5 and is unconditional; the engine-ranking half shipped in Task 6 but is opt-in '
+        + '(Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight defaults to 0 — moved off '
+        + 'GraphMemoryOptions 2026-08-09 by the memory-ranking-seam plan) — read SalienceRetentionPolicy\'s '
+        + 'own summary carefully: that POLICY itself still only scales stability, D45 explains why',
+    },
+    {
+      // Keyed on the QUALIFIED old names on purpose — see the note below on why the BARE forms of the ten
+      // names this later renamed (IMemoryClock, PerWriteClock, ContentSizeClock, ElapsedClock,
+      // BurstDampenedClock, IRetrievabilityPolicy, IRetentionModulator, SalienceModulator, ISalienceAppraiser,
+      // StructuralSalienceAppraiser) are deliberately NOT added here too. The six names below that were never
+      // touched by that later rename (`MemoryTick`, `HalfLifeOptions`, `HalfLifeRetrievability`,
+      // `ModulatedRetrievability`, `SalienceContext`, `SalienceOptions`) are still exactly right bare, and
+      // still appear all over the docs — a pattern on those would fire on every correct mention and teach
+      // nothing. Only `Lyntai.Memory.<Type>` is now false, and it is false for all sixteen retention types at
+      // once (ten doubly so, post-rename), which is why this is one entry rather than sixteen.
+      //
+      // 2026-08-10 (memory-policy-seams Task 1, docs/DECISIONS.md D47): the ten names above were renamed a
+      // SECOND time onto one `IMemory*Policy`/`*AgePolicy` shape — IMemoryClock, PerWriteClock,
+      // ContentSizeClock, ElapsedClock, BurstDampenedClock -> IMemoryAgePolicy, PerWriteAgePolicy,
+      // ContentSizeAgePolicy, ElapsedAgePolicy, BurstDampenedAgePolicy; IRetrievabilityPolicy ->
+      // IMemoryRetrievabilityPolicy; IRetentionModulator -> IMemoryRetentionPolicy; SalienceModulator ->
+      // SalienceRetentionPolicy; ISalienceAppraiser -> IMemorySaliencePolicy; StructuralSalienceAppraiser ->
+      // StructuralSaliencePolicy. This entry's own regex is untouched by that (it only ever matched the OLD
+      // names under the ROOT-namespace qualification, which stays equally wrong for two reasons now instead
+      // of one) — deliberately NOT extended to catch the new bare-name drift too: doing that needs a
+      // `drift-ok` sweep of docs/DECISIONS.md's own historical D39/D40/D46 mentions first, which is
+      // off-limits to routine task work (see TASKS.md's identical, earlier-deferred note for
+      // GraphMemoryOptions's removed properties).
+      term: 'Lyntai\\.Memory\\.(IMemoryClock|MemoryTick|PerWriteClock|ContentSizeClock|ElapsedClock'
+        + '|BurstDampenedClock|IRetrievabilityPolicy|HalfLifeOptions|HalfLifeRetrievability'
+        + '|IRetentionModulator|ModulatedRetrievability|SalienceModulator|ISalienceAppraiser'
+        + '|SalienceContext|SalienceOptions|StructuralSalienceAppraiser)\\b',
+      use: 'the DOMAIN namespace and the CURRENT name: `Lyntai.Memory.Interference` '
+        + '(`IMemoryAgePolicy`/`MemoryTick`/`PerWriteAgePolicy`/`ContentSizeAgePolicy`/`ElapsedAgePolicy`/'
+        + '`BurstDampenedAgePolicy`), `Lyntai.Memory.Forgetting` (`IMemoryRetrievabilityPolicy`, '
+        + '`HalfLifeOptions`, `HalfLifeRetrievability`), `Lyntai.Memory.Modulation` '
+        + '(`IMemoryRetentionPolicy`, `ModulatedRetrievability`, `SalienceRetentionPolicy`) or '
+        + '`Lyntai.Memory.Salience` (`IMemorySaliencePolicy`, `SalienceContext`, `SalienceOptions`, '
+        + '`StructuralSaliencePolicy`) — only `MemoryDecayState` and `MemorySignals` stayed at the root',
+      why: 'the graph-memory retention types moved into per-domain sub-namespaces 2026-08-09 '
+        + '(docs/DECISIONS.md D46, design §5.7): each varying rule is a domain owning its seam, its '
+        + 'implementations AND its options, and a type no domain owns stays at the root. A pure rename — no '
+        + 'shape changed, so a doc naming the old qualified path is describing an import that no longer '
+        + 'compiles. Ten of the sixteen names were renamed AGAIN 2026-08-10 onto one naming shape '
+        + '(docs/DECISIONS.md D47) — see the code comment above for why this entry\'s own match surface did '
+        + 'not need to change to stay correct.',
+    },
+    {
+      // The prose half of the 3.0 collision fix; `retiredApiNames` fences the surface.
+      //
+      // The lookbehind is the entire point of the pattern: `IMemoryRetentionPolicy` is LIVE and contains
+      // this term as a substring, as do `MemoryRetentionComposition` and the migration
+      // `M202608121100_MemoryRetentionModel`, which keeps its name because a released migration is
+      // identified by NUMBER and renaming the class would say a change happened that did not. Three live
+      // names one character apart from the retired one is exactly the case a bare-word pattern gets wrong.
+      term: '(?<![A-Za-z_])MemoryRetention(Policy\\b|\\b)',
+      use: '`MemoryEvictionPolicy` for the store bound, `LyntaiOptions.MemoryEviction` for the option, and '
+        + '`IMemoryRetentionPolicy` (unchanged) for the graph engine\'s half-life modulation',
+      why: 'renamed for 3.0 (docs/DECISIONS.md D13). The two were unrelated — one EVICTS entries, the other '
+        + 'LENGTHENS a half-life — and sat one `I` apart, which in .NET reads as the interface of the class. '
+        + 'A doc still saying `MemoryRetentionPolicy` is either naming a type that no longer exists or, '
+        + 'worse, describing the graph seam with the storage type\'s semantics',
+    },
+    {
+      // Zero current hits, same as the precedent above (`never reorders a seed`) — added so nothing
+      // REINTRODUCES the claim, not because it fires today. A fix-round review (2026-08-10) found three
+      // markdown hits of this exact shape (README.md twice, docs/2026-07-17-lyntai-design.md once) and they
+      // were fixed by hand; this entry is what stops a fourth. Deliberately does NOT try to catch the same
+      // claim in src/ XML docs (three sites: IMemoryRetrievabilityPolicy.cs x2, DsrRetrievability.cs,
+      // GraphMemoryOptions.cs, all fixed by hand the same review) — see the module doc above for why `src/`
+      // is out of this gate's scope; those four sites need their own eyes on the next touch.
+      term: 'DsrRetrievability[^.]{0,80}available,? (?:but )?not (?:the )?default'
+        + '|HalfLifeRetrievability \\(the exponential curve,? the default\\)'
+        + '|HalfLifeRetrievability (?:ships|is available|remains available|one line away'
+        + '|remains the (?:unchanged )?default)',
+      use: '`DsrRetrievability` is the ONLY shipped forgetting curve as of 3.0 '
+        + '(`MemoryEngineRegistration.AddMemoryEngine`, and a bare-constructed `GraphMemoryEngine` now '
+        + 'agrees); `HalfLifeRetrievability` and `HalfLifeOptions` are DELETED, with no restore path — a '
+        + 'consumer who needs that shape implements `IMemoryRetrievabilityPolicy` themselves',
+      why: 'docs/DECISIONS.md D49 (2026-08-10) first made DsrRetrievability the registered default, '
+        + 'superseding D46\'s "not yet decided" framing on this specific question; a later decision '
+        + '(2026-08-10, fsrs-properly plan Task 1) then DELETED HalfLifeRetrievability outright, closing the '
+        + 'two-defaults split D49 had left open. A doc still calling DsrRetrievability "available, not '
+        + 'default", or describing HalfLifeRetrievability as shipped, available, or a restorable/unchanged '
+        + 'default in ANY form, is describing a behaviour and a TYPE that no longer exist.',
+    },
+    {
+      // Companion to the entry above, for the domain-level claim rather than the default-selection one — a
+      // fix-round review (2026-08-10, the same task that deleted the curve) found this exact shape in
+      // docs/2026-07-17-lyntai-design.md's own §5.7 ("`.Forgetting` now ships two…") and fixed it by hand;
+      // this entry is what stops it recurring, the same precedent as the two entries above it.
+      term: '\\.Forgetting (?:now )?ships two|Forgetting domain ships two (?:curves|implementations)'
+        + '|two (?:shipped|forgetting) curves\\b(?!.{0,120}(?:through 2\\.5|deleted|2026-08-10))'
+        // Added 2026-08-11: CHANGELOG.md's live prefix said "Both shipped curves compute…", counting a
+        // DELETED curve as shipped, and no alternative above matched it — the count was spelled as a word,
+        // not a numeral. Found by reading around a hit rather than by the gate, which is the reason to widen.
+        // Kept to the exact FALSE claim ("both SHIPPED curves") — a first attempt at `[Bb]oth curves`
+        // fired 24 times on correct prose like "Both curves already conform", which is true of the two
+        // that existed then. A pattern that cannot tell a false claim from a true one only teaches
+        // people to add escapes.
+        + '|[Bb]oth shipped curves',
+      use: '`Lyntai.Memory.Forgetting` ships ONE implementation, `DsrRetrievability` — the deleted '
+        + '`HalfLifeRetrievability` is the reason this domain no longer demonstrates "implementations '
+        + 'accumulate" the way `.Ranking` does',
+      why: 'HalfLifeRetrievability was deleted 2026-08-10 (fsrs-properly plan Task 1, docs/DECISIONS.md) — '
+        + 'a doc still counting two curves in this domain, in the present tense, is describing a package '
+        + 'that no longer ships',
+    },
+    {
+      // Companion to the two entries above it — the SAME "fix-round found this exact shape and fixed it by
+      // hand" precedent, this time for the claim D49 makes about DsrRetrievability's own difficulty
+      // handling. docs/DECISIONS.md is off-limits to routine task work (repo-mechanics.md), so this fence
+      // exists precisely because that file's own stale sentence could not be corrected in place — see
+      // TASKS.md's identical, earlier-deferred note for GraphMemoryOptions's removed properties.
+      // Widened 2026-08-11, the first time this rule was pointed at `CHANGELOG.md`'s live prefix: the
+      // second alternative required the word "only" before "reads", and the SAME claim appears four
+      // hundred lines earlier phrased "ours reads … and never writes it back". One phrasing was caught and
+      // the other was not, in the same file, about the same method — which is the argument for keying on
+      // the CLAIM (`reads … never writes it back`) rather than on one sentence's adverb.
+      term: 'Difficulty`? and never writes it back|\\breads\\b[^\\n]{0,90}never writes it back',
+      use: '`DsrRetrievability.Reinforce` now MAINTAINS `MemoryDecayState.Difficulty` on every review '
+        + '(2026-08-10, fsrs-properly plan Task 2) — it no longer merely reads the signal and discards the '
+        + 'update',
+      why: 'true through fsrs-properly plan Task 1 (docs/DECISIONS.md D49\'s own "ours is a PARTIAL, '
+        + 'UNFITTED FSRS" section), false from Task 2 onward — a doc still saying difficulty is read-only '
+        + 'is describing a limitation this library no longer has',
+    },
+    {
+      // The RANKING half of the same reversal the two curve entries above fence. Added 2026-08-11 by the
+      // whole-branch review, which found the registry had an entry for every default this window changed
+      // EXCEPT this one — and the ranking default is the one a consumer feels first, because it reorders
+      // every recall rather than changing how fast an entry fades.
+      //
+      // Deliberately keyed on the CLAIM SHAPE, never the bare type name: `MultiplicativeRankingPolicy` is
+      // still shipped, still registerable in one line, and still correct to name in a doc — it merely stopped
+      // being the default. A bare-name pattern would fire on every correct mention and teach nothing, the
+      // same reasoning the qualified-namespace entry above records for its own six untouched names.
+      // The verb list is `is|remains|stays` and deliberately NOT `as`: "restore `MultiplicativeRankingPolicy`
+      // back as the default" is a correct instruction, and an `as` alternative fired on exactly that line in
+      // the migration guide on this entry's first run. The claim form "ships/registers X as the default" is
+      // covered by its own alternative below, which cannot match a restore sentence.
+      term: '(?:Multiplicative(?:RankingPolicy)?)[^.\\n]{0,60}\\b(?:is|remains|stays)\\b'
+        + '[^.\\n]{0,40}\\b(?:the )?(?:registered |shipped |current )?default'
+        + '|(?:ships|registers|registered) `?MultiplicativeRankingPolicy`? as (?:the )?default'
+        + '|default(?:s)? to (?:the )?`?MultiplicativeRankingPolicy'
+        + '|ReciprocalRankFusionPolicy[^.\\n]{0,60}available,? (?:but )?not (?:the )?default'
+        + '|RRF[^.\\n]{0,40}(?:is )?not (?:the )?default',
+      use: '`ReciprocalRankFusionPolicy` is the REGISTERED default ranking policy as of 3.0; '
+        + '`MultiplicativeRankingPolicy` stays shipped and is one line to restore '
+        + '(`services.AddSingleton<IMemoryRankingPolicy>(new MultiplicativeRankingPolicy())`)',
+      why: 'the owner ruled RRF the 3.0 ranking default 2026-08-11 ("lets use the best so RRF for ranking") '
+        + 'on a re-measurement against the corrected arms: RRF beat MultiplicativeRankingPolicy on the '
+        + 'corpus\'s `topical` class in ALL SIX shapes (+0.431 to +0.746), reproduced across two runs — see '
+        + 'docs/DECISIONS.md D49\'s "ranking half is REOPENED by measurement" amendment. Note this is NOT '
+        + 'the HalfLifeRetrievability case and the "use" above says so on purpose: Multiplicative is not '
+        + 'unmeasured-and-wrong, it lost one measured comparison and remains the better choice on a scale '
+        + 'where raw magnitude carries meaning. A doc calling it the default is wrong; a doc RECOMMENDING it '
+        + 'for such a scale is not.',
     },
   ],
 };

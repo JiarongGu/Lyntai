@@ -18,8 +18,8 @@ public class OllamaLiveTests
 {
     private const string DefaultModel = "llama3.2:3b";
     private const string DefaultEmbedModel = "nomic-embed-text";
-    private const string Reason = "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable";
-    private static string BaseUrl => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
+    private const string Reason = Lyntai.Tests.Live.OllamaLive.SkipReason;
+    private static string BaseUrl => Lyntai.Tests.Live.OllamaLive.BaseUrl;
     private static string Model => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_MODEL") ?? DefaultModel;
     private static string EmbedModel => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? DefaultEmbedModel;
 
@@ -30,21 +30,10 @@ public class OllamaLiveTests
             new LyntaiOptions { ProviderTimeout = TimeSpan.FromMinutes(3) }); // cold model load can be slow
 
     /// <summary>True only when the live path is opted in AND the endpoint answers; otherwise the caller
-    /// skips.</summary>
-    private static async Task<bool> LiveAsync()
-    {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LYNTAI_LIVE_OLLAMA"))) return false;
-        try
-        {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-            using var resp = await http.GetAsync($"{BaseUrl}/api/tags");
-            return resp.IsSuccessStatusCode;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    /// skips. <see cref="Lyntai.Tests.Live.OllamaLive"/> owns the probe — this file's own copy used a
+    /// 3-second timeout where its siblings used 5, which meant the same machine could run one live suite
+    /// and silently skip another.</summary>
+    private static Task<bool> LiveAsync() => Lyntai.Tests.Live.OllamaLive.IsAvailableAsync();
 
     private static LlmRequest Ask(string prompt) => new()
     {

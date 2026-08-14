@@ -154,7 +154,7 @@ public static class GenerationBuilderExtensions
     /// This is the whole coupling between the two domains: the LLM side already knows <c>ITool</c>, so these
     /// work in the in-process tool loop and — with <c>AddMcpToolHost(...)</c> from
     /// <c>Lyntai.Tools.Mcp.Hosting</c> — for a CLI agent that runs its own loop over MCP. Neither domain
-    /// references the other's concrete types (<c>docs/DECISIONS.md</c> D30).</summary>
+    /// references the other's concrete types (<c>docs/DECISIONS.md</c> D24).</summary>
     /// <remarks>Bytes are never returned in a tool observation (a base64 image would blow the context window for
     /// no benefit): if an <see cref="Lyntai.Generation.Jobs.IGenerationArtifactSink"/> is registered the artifacts are delivered to
     /// it and the observation says where they went, otherwise it reports their type/size/URI.</remarks>

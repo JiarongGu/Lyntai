@@ -8,7 +8,7 @@ namespace Lyntai.Storage.Postgres;
 /// <summary>
 /// Task-scoped memory over <c>lyntai_memory_entry</c> + a <c>pg_trgm</c> GIN index. Same contract as the
 /// SQLite/InMemory backends: dedup on remember, per-entry TTL, a configurable
-/// <see cref="MemoryRetentionPolicy"/> (count cap + FIFO/LRU eviction, default TTL, size budget) applied via
+/// <see cref="MemoryEvictionPolicy"/> (count cap + FIFO/LRU eviction, default TTL, size budget) applied via
 /// the shared <see cref="MemoryEviction"/> helper, and fail-open recall (ILIKE substring, trigram-accelerated,
 /// recency-ordered). Null parameters used in IS-NULL checks are cast (Npgsql can't infer the type otherwise).
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class PostgresMemoryStore(
     public async Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default)
     {
         var now = _clock();
-        var policy = options.MemoryRetention;
+        var policy = options.MemoryEviction;
         var expiresAt = (ttl ?? policy.DefaultTtl) is { } eff ? now + eff : (DateTimeOffset?)null; // per-call ttl wins
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
@@ -49,7 +49,7 @@ public sealed class PostgresMemoryStore(
                     "DELETE FROM lyntai_memory_entry WHERE id = ANY(@ids)", new { ids = ids.ToArray() }, cancellationToken: c)),
                 ct).ConfigureAwait(false);
         else if (policy.MaxEntriesPerScope is int cap and > 0)
-            await CapEvictAsync(conn, taskKey, scope, cap, policy.Eviction, now, ct).ConfigureAwait(false);
+            await CapEvictAsync(conn, taskKey, scope, cap, policy.Mode, now, ct).ConfigureAwait(false);
     }
 
     // Count-cap eviction as ONE atomic statement (race-free, no scope fetch) — the statement itself is
@@ -76,22 +76,43 @@ public sealed class PostgresMemoryStore(
         var now = _clock();
         // LRU refreshes last-access only on a QUERIED recall (a targeted lookup = "use"); a bare list-all
         // is enumeration, not use, so it must not bump every returned entry.
-        var touch = options.MemoryRetention.TracksAccess && !string.IsNullOrWhiteSpace(query);
+        var touch = options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
             await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(query))
             {
-                var pattern = LikePattern.Contains(query);
-                var hits = (await conn.QueryAsync<Row>(new CommandDefinition($"""
-                    SELECT {SelectColumns} FROM lyntai_memory_entry
-                    WHERE task_key = @taskKey AND (@scope::text IS NULL OR scope = @scope)
-                      AND (expires_at IS NULL OR expires_at > @now)
-                      AND content ILIKE @pattern ESCAPE '\'
-                    ORDER BY created_at DESC, id DESC LIMIT @take
-                    """, new { taskKey, scope, pattern, take, now }, cancellationToken: ct)).ConfigureAwait(false))
-                    .Select(r => r.ToEntity()).ToList();
+                // Term-wise, via the shared split — the same terms SQLite's FTS path matches on, so a
+                // multi-word recall finds the same entries on both. The term COUNT leads the ordering: an OR
+                // match is otherwise unranked, and a one-term brush-past would outrank a near-exact hit
+                // whenever it happened to be newer.
+                // TWO PASSES, the same shape and for the same measured reason as PostgresMemoryGraphStore's
+                // SeedAsync: pass 1 keeps every ILIKE pattern at three characters or more so pg_trgm's GIN
+                // index can serve it, and only a pass-1 MISS widens to the two-character terms of a spaceless
+                // script, which the index cannot serve (measured at 300k rows: 96.6 ms scan against 0.90 ms
+                // indexed, ~108x). Most Chinese content words are exactly two characters, so the widening is
+                // not an edge case — but neither should an English recall, or a Chinese one that already
+                // matched, pay for it.
+                async Task<List<MemoryEntry>> MatchAsync(bool includeShortTerms)
+                {
+                    var kw = SearchTerms.LikeClause(query, "content", "ILIKE",
+                        includeShortTerms: includeShortTerms);
+                    var p = new DynamicParameters(new { taskKey, scope, take, now });
+                    foreach (var (name, value) in kw.Parameters) p.Add(name, value);
+                    return (await conn.QueryAsync<Row>(new CommandDefinition($"""
+                        SELECT {SelectColumns} FROM lyntai_memory_entry
+                        WHERE task_key = @taskKey AND (@scope::text IS NULL OR scope = @scope)
+                          AND (expires_at IS NULL OR expires_at > @now)
+                          AND {kw.Predicate}
+                        ORDER BY {kw.MatchCount} DESC, created_at DESC, id DESC LIMIT @take
+                        """, p, cancellationToken: ct)).ConfigureAwait(false))
+                        .Select(r => r.ToEntity()).ToList();
+                }
+
+                var hits = await MatchAsync(includeShortTerms: false).ConfigureAwait(false);
+                if (hits.Count == 0 && SearchTerms.HasShortSpacelessTerms(query))
+                    hits = await MatchAsync(includeShortTerms: true).ConfigureAwait(false);
                 return await TouchAsync(conn, hits, touch, now, ct).ConfigureAwait(false);
             }
 

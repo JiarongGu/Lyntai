@@ -2,7 +2,7 @@ namespace Lyntai.Storage.InMemory;
 
 /// <summary>
 /// In-memory <see cref="IMemoryStore"/> honoring the domain contract: dedup on remember, per-entry TTL, a
-/// configurable <see cref="MemoryRetentionPolicy"/> (count cap + FIFO/LRU eviction, default TTL, size
+/// configurable <see cref="MemoryEvictionPolicy"/> (count cap + FIFO/LRU eviction, default TTL, size
 /// budget), and fail-open recall. Recall matches by case-insensitive SUBSTRING (recency-ordered; the
 /// in-memory analogue of SQLite's LIKE fallback) — adequate for tests and ephemeral use.
 /// </summary>
@@ -19,7 +19,7 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
     public Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default)
     {
         var now = _clock();
-        var policy = options.MemoryRetention;
+        var policy = options.MemoryEviction;
         var effectiveTtl = ttl ?? policy.DefaultTtl; // a per-call ttl wins over the policy default
         var expiresAt = effectiveTtl is null ? (DateTimeOffset?)null : now + effectiveTtl.Value;
         lock (_lock)
@@ -55,7 +55,7 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
         // LRU refreshes recency only on a QUERIED recall (a targeted lookup counts as "use"); a bare
         // list-all is enumeration, not use, so it must not bump every returned entry (that would churn the
         // working set — a routine "compose all memories" read would keep resetting the LRU order).
-        var touch = options.MemoryRetention.TracksAccess && !string.IsNullOrWhiteSpace(query);
+        var touch = options.MemoryEviction.TracksAccess && !string.IsNullOrWhiteSpace(query);
         try
         {
             lock (_lock)
@@ -66,8 +66,15 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
                     && (e.ExpiresAt is null || e.ExpiresAt > now));
 
                 if (!string.IsNullOrWhiteSpace(query))
-                    candidates = candidates.Where(e =>
-                        e.Content.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase));
+                {
+                    // Term-wise, via the shared split, so a multi-word recall finds the same entries here as
+                    // on the SQL backends. An empty term list means the query was too short to yield one, and
+                    // the whole-query substring test it always had still applies.
+                    var terms = SearchTerms.SubstringTerms(query);
+                    candidates = terms.Count == 0
+                        ? candidates.Where(e => e.Content.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase))
+                        : candidates.Where(e => terms.Any(t => e.Content.Contains(t, StringComparison.OrdinalIgnoreCase)));
+                }
 
                 var ordered = candidates.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).Take(take).ToList();
 

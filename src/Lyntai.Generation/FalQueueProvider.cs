@@ -18,7 +18,7 @@ public sealed record FalQueueOptions
     public string BaseUrl { get; init; } = "https://queue.fal.run";
 
     /// <summary>The API key, sent as <c>Authorization: Key &lt;key&gt;</c>. Passed in by the host and never
-    /// stored (D26/D30).</summary>
+    /// stored (D20/D24).</summary>
     public string? ApiKey { get; init; }
 
     /// <summary>The candidate id this backend registers under.</summary>
@@ -46,7 +46,7 @@ public sealed record FalQueueOptions
     public string CancelSegment { get; init; } = "cancel";
 
     /// <summary>Query parameter used to hand the backend a webhook URL the APP hosts. Lyntai never hosts one
-    /// (D30) — supply the URL via <c>GenerationRequest.Options["webhook"]</c> and call
+    /// (D24) — supply the URL via <c>GenerationRequest.Options["webhook"]</c> and call
     /// <see cref="FalQueueProvider.FetchAsync"/> when it fires.</summary>
     public string WebhookQueryParameter { get; init; } = "fal_webhook";
 

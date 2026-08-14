@@ -24,7 +24,7 @@ public sealed class LlmVerdictException(LlmVerdict verdict, string? detail = nul
     : InvalidOperationException($"lyntai: {verdict} — {detail}")
 {
     /// <summary>How the call ended. Read this instead of the message: the branch a host most needs is
-    /// <see cref="LlmVerdict.NotConfigured"/>, which is not a fault at all (<c>docs/DECISIONS.md</c> D38) — and
+    /// <see cref="LlmVerdict.NotConfigured"/>, which is not a fault at all (<c>docs/DECISIONS.md</c> D31) — and
     /// <see cref="LlmVerdictExtensions.IsTransient(LlmVerdict)"/> answers "is a retry worth one attempt?".</summary>
     public LlmVerdict Verdict { get; } = verdict;
 

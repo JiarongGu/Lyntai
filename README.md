@@ -36,12 +36,13 @@ package boundaries, a starting bundle, and four build gates that keep the packag
 ownership brought in line with the LLM side · **2.2.0** the provider-lifetime pool for keys owned outside the
 deployment, plus a second agent-session backend · **2.3.0** the pre-release whole-library review, with two
 documented compile-time breaks · **2.4.0** an agent session that can be given the host's own MCP servers on
-either CLI backend.
+either CLI backend · **2.5.0** long-term memory.
 
-**Unreleased — long-term memory.** Several memory systems coexist in one app and resolve by name the way
+**2.5.0 — long-term memory.** Several memory systems coexist in one app and resolve by name the way
 `IHttpClientFactory` resolves clients; entries decay, link to what they were recalled with, and open as a
 cheap index you pay to expand. Decay is measured in what has happened in a memory rather than in elapsed
-time, and a decayed entry is buried rather than deleted. See `## Unreleased` in `CHANGELOG.md`.
+time, and a decayed entry is buried rather than deleted. Purely additive — the three existing memory
+surfaces are unchanged, and an app that never calls `AddMemory`/`AddMemoryEngine` sees no difference.
 `CHANGELOG.md` has the per-release detail; `docs/DECISIONS.md` has the reasoning behind the load-bearing calls.
 **This file documents the working tree, not only the newest package**: anything that has not shipped yet is
 listed under `## Unreleased` in `CHANGELOG.md`, so check there before assuming a member below is in the
@@ -59,14 +60,19 @@ version you installed.
 > already expect, or leaving a known-wrong shape in place — so it is marked instead of pretended.
 > **The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation *contracts* in that
 > namespace (`GenerationResult`, the routing policy, `GenerationVerdictClassifier`, …) ship inside the mandatory
-> `Lyntai.Core` and carry the FULL promise — which is why `docs/DECISIONS.md` D43 treated a verdict-translation
+> `Lyntai.Core` and carry the FULL promise — which is why `docs/DECISIONS.md` D36 treated a verdict-translation
 > fix in one of them as major-bump material rather than claiming the exemption. Everything
 > else (LLM routing, storage, cortex, jobs, guards, secrets, memory, tools) carries the full promise. **Upgrading 0.31 → 1.0:** the 0.x migrations were collapsed
 > into per-domain 1.0 baselines — the net schema is identical but the migration ledger is renumbered, so
 > **drop your `lyntai_*` tables (including `lyntai_version_info`) or delete the dev database before the first
 > 1.0 run**; Lyntai recreates them. One-time; the ledger is append-only thereafter.
+>
+> **Upgrading 2.5 → 3.0:** see `docs/migration-2.5-to-3.0.md` for the ordered path — every breaking change
+> in dependency order, a worked before/after, and why no stored data needs a migration at all.
 
 - `docs/2026-07-17-lyntai-design.md` — the design contract (interfaces, fork decisions, semantics, scope).
+- `docs/migration-2.5-to-3.0.md` — the 2.5 → 3.0 upgrade path: what's automatic (schema), what's manual
+  (everything else), in the order the fixes depend on.
 - `docs/ROADMAP.md` — what's shipped, what's next (generation verification and the open design calls), and
   the standing maintenance policies.
 - `docs/AOT.md` — per-package trimming/Native-AOT status.
@@ -87,16 +93,16 @@ version you installed.
 | `Lyntai.Tools.Mcp` | Expose an MCP server's tools as Lyntai `ITool`s. (The tool *contract* is in Core; this is the wire adapter.) |
 | `Lyntai.Tools.Mcp.Hosting` | The reverse: host your `ITool`s as an ephemeral loopback MCP server for a CLI that runs its own agent loop. Runs on `HttpListener` — **no ASP.NET Core**. |
 | `Lyntai.Secrets.Dpapi` | Windows DPAPI + recovery-key envelope for the secret vault. |
-| `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D34). |
+| `Lyntai.Generation` | **Experimental.** The media backend set — OpenAI images, Automatic1111, ComfyUI, a local `sd-cli` subprocess, and the fal.ai queue for video, each with an `Add*` of its own. Adds only `Microsoft.Extensions.Http` (its shims register named clients); the generation *contracts* are in Core. Split out so media can iterate without churning the LLM packages (D25). |
 
 Packages are split by **dependency footprint**, never by vendor or by size: every boundary answers "which
 dependency does this isolate?" with something concrete. Backends that need nothing extra share
 `Providers.Default`; anything dragging a native runtime (LLamaSharp, native SQLite), a platform-specific API
 (Windows DPAPI) or a protocol stack of its own (`ModelContextProtocol.Core`, via either MCP package) stays
 its own package — and `Lyntai.Core` carries the smallest footprint of all, because it is the one package you
-cannot opt out of (`docs/DECISIONS.md` D31).
+cannot opt out of (`docs/DECISIONS.md` D25).
 
-What goes **in the bundle** is a separate, budgeted decision (D32): a package joins only if it adds no
+What goes **in the bundle** is a separate, budgeted decision (D26): a package joins only if it adds no
 third-party dependency beyond the `Microsoft.Extensions.*` band, or if it is near-universal and the cost is
 accepted explicitly — never if it carries a native payload or a platform-specific API. `node devtools/dev.mjs
 check-bundle` fails the build if that closure ever drifts, so the one-line install can't quietly grow heavy.
@@ -114,7 +120,7 @@ both halves of MCP, and **in-memory** storage. The two that surprise people: not
 `Lyntai.Storage.Sqlite` (or `.Postgres`), and generation is not included. The five packages left out are left
 out for a reason — a native payload (`Storage.Sqlite`, `Providers.Local`), a platform-specific API
 (`Secrets.Dpapi`), a server dependency (`Storage.Postgres`), or an unverified surface (`Lyntai.Generation`) —
-see `docs/DECISIONS.md` D32.
+see `docs/DECISIONS.md` D26.
 
 **Convenience vs size.** `Lyntai` is a bundle with no code of its own — it just pulls a curated set. A
 framework-dependent `dotnet publish` copies the **whole** dependency graph and analyses nothing, so that lands
@@ -122,7 +128,7 @@ framework-dependent `dotnet publish` copies the **whole** dependency graph and a
 including the `Microsoft.Extensions.AI.Abstractions` it pins). Two levers, either of which removes it:
 
 - **Reference only the packages you use** instead of the bundle. `Lyntai.Core` + one provider is the lean path,
-  and the boundaries exist precisely so this is possible (`docs/DECISIONS.md` D31).
+  and the boundaries exist precisely so this is possible (`docs/DECISIONS.md` D25).
 - **`PublishTrimmed=true`** (needs a self-contained publish). Unused assemblies are dropped outright *and* the
   used ones are trimmed internally. Measured on a router-only app, Lyntai's whole footprint goes **3.2 MB →
   0.21 MB** (`Lyntai.Core` alone 528 KB → 40 KB), because every compatible package carries honest `IsTrimmable`
@@ -133,6 +139,7 @@ never touch is never opened.
 
 Then compose in DI:
 
+<!-- compile-given: IChatClient myChatClient; -->
 ```csharp
 using Lyntai;                       // the builder + Add*/Use* extensions
 using Lyntai.Cortex.Scorers;
@@ -193,8 +200,10 @@ That matters for one verdict in particular: `NotConfigured` means *never set up*
 instead of reporting an error, and through this bridge that would otherwise be recoverable only by parsing
 the message text.
 
+<!-- compile-given: List<Microsoft.Extensions.AI.ChatMessage> messages;
+     void ShowSetup(string? detail) { } -->
 ```csharp
-try { var response = await chat.GetResponseAsync(messages, ct); }
+try { var response = await chat.GetResponseAsync(messages, cancellationToken: ct); }
 catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { ShowSetup(ex.Detail); }
 ```
 
@@ -233,12 +242,41 @@ catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { S
   ```
 - **Prompt overrides** live in the key-value store under `lyntai.prompt.<name>`; an override that
   drops a `{placeholder}` present in the default is rejected (falls back to the default, with a warning).
-- **Memory recall is bounded and fail-open:** FTS5 trigram match (works for CJK substrings), LIKE
-  fallback, capped per (task, scope) — and it never throws into your prompt path.
-- **Memory retention is bounded out of the box:** the default `MemoryRetentionPolicy` keeps a **500-entry
+- **Memory recall is bounded and fail-open:** FTS5 trigram match, LIKE fallback, capped per (task, scope) —
+  and it never throws into your prompt path.
+- **Recall is not English-only, and needs no setup to not be.** A query is split into terms the same way on
+  every backend: words for a space-separated script, character **trigrams** for one written without spaces
+  (Chinese, Japanese, Korean). An entry containing any term is recalled, so `"我的配偶叫什么名字"` finds
+  `"我的配偶是爱丽丝"` — no segmenter, no per-language switch, no configuration. Backends still differ in how
+  they RANK matches (bm25 on SQLite, matched-term count then recency elsewhere), never in which they find.
+- **Memory can learn what a fact is ABOUT** (opt-in). `AddMemoryAnnotation()` labels each written fact with
+  its subjects and links entries that share one, so a cue about a person reaches facts that never named
+  them — `"my spouse"` finds "she works as an anaesthetist". Nothing lexical can do that: those sentences
+  share only pronouns, in any language. Costs one model call per write; point it at a cheap backend with
+  `AddLlmClient("memory-fast", …)` and `ClientName`. Absent, memory behaves exactly as it always has.
+- **A model can judge which recalled entries actually ANSWERED the query** (opt-in, and the largest
+  recall-quality lever here). `AddMemoryVerification()` shows a judge the query and the candidate headlines
+  before the limit is applied, so an answer the ranking buried gets promoted — and reinforcement then follows
+  evidence instead of the ranker's own guesses.
+  <br>It exists because of a measurement: of the relevant entries a recall failed to return, **100% were
+  reachable candidates ranked below the limit** and none were unreachable, and the two shipped model-free
+  ranking policies return byte-identical results — so there was no fix inside the library's own arithmetic.
+  Measured effect: miss `0.5357 → 0.2571` with `gemma3:4b`, `→ 0.1857` with Claude Haiku; pollution as low as
+  `0.0492`. Which judge wins depends on which failure you pay for — the small local model returns the least
+  junk, the hosted one finds the most answers.
+  <br>Costs one model call per recall, in the latency path of an answer (~1.5 s locally), so point it at a
+  small fast backend with `ClientName`. **Avoid a *thinking* model** — one spent ~25 s per judgement against
+  another's ~1.5 s; `LlmRequest.Reasoning` asks a backend to skip it where the backend can. A failure leaves
+  the ranking untouched, and a judgement never removes a result unless you set `VerificationFilters`.
+  Verified to work in English, Chinese, Japanese and Korean.
+- **Name an LLM client per use.** `AddLlmClient("memory-fast", c => c.UseProviders("ollama", "openai"))`,
+  resolved through `ILlmClientFactory` — the counterpart of named memory engines. A name selects backends,
+  never permissions: every named client carries the same cache, budget, rate limit and refusal screening as
+  the default one.
+- **The memory store is bounded out of the box:** the default `MemoryEvictionPolicy` keeps a **500-entry
   per-scope FIFO cap**, so the store does not grow without limit unless you ask it to. Change it with
   `ConfigureMemory(p => …)` — count cap, default TTL, per-scope character budget, FIFO or LRU eviction — or
-  the `LYNTAI_MEMORY_*` env family; `MemoryRetentionPolicy.Manual` hands size back to your app. On-write
+  the `LYNTAI_MEMORY_*` env family; `MemoryEvictionPolicy.Manual` hands size back to your app. On-write
   eviction never revisits a cold `(task, scope)`, so `AddMemoryPruneJob(cron, …)` is the scheduled form —
   a recurring durable job that reaps expired and aged-out entries (your app owns the pump).
 - **Curated memory catalog** (`ICuratedMemoryStore`) sits beside the recall log for hand-managed context:
@@ -286,7 +324,7 @@ orchestrator, and scorers all read through it once enabled.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAiProvider(/* … */)
+    .AddOpenAiProvider(apiKey: "…")
     .AddResponseCache(c => c.Ttl = TimeSpan.FromHours(6))); // defaults: 1h TTL, 1000 entries
 ```
 
@@ -366,7 +404,7 @@ services.AddLyntai(cfg => cfg
 
 var memory = sp.GetRequiredService<IMemoryEngineFactory>().Get("project/graph");
 await memory.RememberAsync(new MemoryWrite("proj", "code",
-    "The build gate is node devtools/dev.mjs verify, which runs seven checks."));
+    "The build gate is node devtools/dev.mjs verify, which runs thirteen checks."));
 
 var recall = await memory.RecallAsync(new MemoryQuery("proj", "code", "gate"));
 // headlines only — Content is null until you ask for it
@@ -381,10 +419,18 @@ var detail = await ((IExpandableMemory)memory).ExpandAsync(recall.Items[0].Refer
 memory*, not in elapsed time. Each engine keeps a position that advances when something is written to it,
 and an entry's age is how far that position has moved since the entry was last used. So **a memory nobody
 touches keeps everything, while a busy one lets old material fall behind** — which is the behaviour you
-want and the one wall-clock time gets backwards. Reading never ages anything: recall reinforces what it
-returned, and every successful recall *lengthens* an entry's half-life, so material you keep coming back to
-becomes durable while one-off noise falls behind. It is all computed at read time — no sweeper, no
-background job.
+want and the one wall-clock time gets backwards. Reading never ages anything: a recall *refreshes* what it
+returned, so material you keep coming back to stays reachable while one-off noise falls behind. It is all
+computed at read time — no sweeper, no background job.
+
+**What makes an entry durable is a deliberate design choice, and it is not how often we returned it.** A
+recall resets an entry's age — a boost that expires, because the entry then decays again at its own rate.
+Lasting durability comes instead from two properties of the material itself: how **novel** it was when
+written (salience) and how **connected** it is in the graph. Both measured as improving recall quality;
+raising an entry's half-life every time the ranker happened to return it measured as making recall
+*worse*, on every corpus shape, because it banks the ranker's own mistakes permanently. So
+`DsrOptions.ReinforceGain` ships at `0` — FSRS's three stability-increase laws are implemented and correct,
+and one line switches them back on (`docs/DECISIONS.md` D54).
 
 **Decay buries; it does not cut.** An entry is hidden because something *outranks* it, never because it
 crossed a threshold — so a faint memory alone in a quiet engine is still the best thing there and comes
@@ -392,13 +438,29 @@ back, while the same memory under fifty fresher ones does not. Either way it sta
 specifically, or reach it through a neighbour, and it is there, with its `Retrievability` telling you how
 faint it has become. Nothing is deleted unless you call `PruneAsync`.
 
+**Where these types live.** The retention seams and their implementations sit in per-domain namespaces —
+the age policies below in `Lyntai.Memory.Interference`, the curve and its options in `Lyntai.Memory.Forgetting`,
+retention policies (`IMemoryRetentionPolicy`, which lengthens a half-life — unrelated to the
+`Lyntai.Storage.MemoryEvictionPolicy` size cap above, which *removes* entries) in
+`Lyntai.Memory.Modulation`, salience policies in `Lyntai.Memory.Salience`. They were flat under
+`Lyntai.Memory` up to 2.5.
+
+**Upgrading from 2.5 is more than an added `using`, and there is one ordered path through it:
+[`docs/migration-2.5-to-3.0.md`](docs/migration-2.5-to-3.0.md).** The namespace move is the easy half — the
+seams were also renamed, `Reinforce` returns state rather than a `double`, several records gained members
+(so a positional deconstruction no longer binds), two registered defaults changed and one forgetting curve
+was deleted outright. **Stored data needs nothing**: every schema change runs automatically through
+`MigrateUpAsync`, and `Stability` means the same thing it always did, so 2.5 rows are already correct under
+the new curve. It is a compile-and-decide exercise, not a data one.
+
 What the position *counts* is yours to choose, because "how much has happened" is genuinely ambiguous:
 
+<!-- compile-skip: a menu of alternatives, one per line — not a compilable unit -->
 ```csharp
-new PerWriteClock()        // by count — the default, wrapped in burst damping
-new ContentSizeClock()     // by volume: a long document crowds harder than a note
-new ElapsedClock()         // by real time, for a project memory that should fade on the calendar
-new BurstDampenedClock(inner)   // wraps any of them
+new PerWriteAgePolicy()        // by count — the default, wrapped in burst damping
+new ContentSizeAgePolicy()     // by volume: a long document crowds harder than a note
+new ElapsedAgePolicy()         // by real time, for a project memory that should fade on the calendar
+new BurstDampenedAgePolicy(inner)   // wraps any of them
 ```
 
 **Damping is not optional garnish.** Undamped, ingesting a 500-item document advances the position by 500
@@ -411,20 +473,158 @@ recall most of the book.
 recurs. A later recall spreads through those links, so a query can reach relevant material it never
 literally matched. You can also assert edges yourself with `LinkAsync`.
 
-The curve is swappable. Tune the constants, or replace the model of forgetting entirely:
+The curve is swappable, but as of 3.0 there is only one shipped: `DsrRetrievability` (`Lyntai.Memory.Forgetting`)
+— FSRS's power-law forgetting curve plus its three stability-increase laws. It is the default everywhere a
+graph engine is built, DI or not: `AddMemoryEngine`/`AddMemory` register it for you, and a hand-constructed
+`GraphMemoryEngine` (`policy: null`) now defaults to it too, so nothing has to be configured to get it and
+there is exactly one behaviour to reason about regardless of how the engine was built.
 
 ```csharp
-.UseGraph(new GraphMemoryOptions
-{
-    Hops = 2,
-    MinRetrievability = 0.05,
-    Decay = new HalfLifeOptions { InitialStability = TimeSpan.FromDays(14), ReinforceFactor = 0.3 },
-})
-// …or register your own IRetrievabilityPolicy before AddLyntai
+services.AddSingleton<IMemoryRetrievabilityPolicy>(new DsrRetrievability(new DsrOptions { InitialStability = 14 }));
+// …or register your own before AddLyntai — a consumer's own registration always wins either direction
 ```
 
-Several of those defaults are **not yet measured against real usage** and are marked as such in their XML
-docs. They are deliberately settable for that reason.
+**The exponential curve this domain shipped beside through 2.5.x, `HalfLifeRetrievability`, is DELETED in
+3.0 — there is no restore path.** Its own doc admitted its central `× 1.5` reinforcement constant was
+"reasoned, not measured", and it was later measured compounding to 2.1× a correctly-behaving curve's
+stability over a four-touch reuse batch — over-crediting massed repetition, the exact behaviour FSRS exists
+to correct. A consumer who genuinely needs that shape has to implement `IMemoryRetrievabilityPolicy`
+themselves; this library does not ship it any more.
+
+**This needs no data migration.** `Stability` means one thing across every implementation — the position
+delta at which retrievability is 0.5 — enforced by a contract fact against every shipped curve, so a 2.5.x
+row's stored stability is already valid under DSR with no conversion.
+
+**`GraphMemoryOptions.Decay` (the deleted curve's own `HalfLifeOptions`) is gone too.** The one field on it
+that was ever this ENGINE's rather than that curve's — `EdgeHalfLife`, which decays a co-activation edge's
+own WEIGHT and is read by `GraphMemoryEngine` itself (`EffectiveEdgeWeight`), independent of whichever
+retrievability policy is registered — moved to a new top-level property with the same default (100):
+
+```csharp
+new GraphMemoryOptions { EdgeHalfLife = 60 }   // was: new GraphMemoryOptions { Decay = new HalfLifeOptions { EdgeHalfLife = 60 } }
+```
+
+**Why DSR is the default, and the one measured, known gap it ships with** (`docs/DECISIONS.md` D49): the
+primary evidence is FSRS's own external validation against real review data, outside this repository — never
+a claim this library's own corpus decided it. This library's own falsification pass did not falsify DSR, but
+it did find one real, reproducible regression under the shipped ranking pairing
+(`MultiplicativeRankingPolicy`) against the now-deleted exponential curve: DSR missed more on repeated/reused,
+competing material, because the deleted curve's flat, unmeasured `× 1.5` reinforcement outgrew DSR's own
+correctly-diminishing response to an immediate re-recall — offset by the opposite pattern on freshly-written
+material, so a whole-corpus aggregate would never show either effect. This is a known limitation of shipping
+a PARTIAL, unfitted FSRS (no per-review difficulty update, published rather than fitted constants) — see
+`local/superpowers/records/2026-08-09-memory-policy-measurement.md` for the original measurement (an
+untracked working record — see `docs/superpowers/INDEX.md`) and `TASKS.md` for the prioritized work to close
+the gap. Past one half-life the heavier tail rates a long-untouched entry more
+retrievable than the deleted exponential curve did, so `PruneAsync` is markedly less aggressive than it was
+through 2.5.x.
+
+**Ranking is a swappable seam too** (`Lyntai.Memory.Ranking`), separate from decay: `IMemoryRankingPolicy`
+turns a set of recall candidates into a scored, best-first order, and the shipped `ReciprocalRankFusionPolicy`
+is the REGISTERED DEFAULT as of 3.0 (owner ruling, 2026-08-11) — `Score = Σₛ wₛ / (K + rankₛ)`, summed over
+relevance, retrievability, salience and hop, each contributing its own 1-based RANK POSITION rather than its
+raw value, `K` defaulting to `60` (Cormack/Clarke/Buettcher's published value). It became the default on the
+strength of this library's own measurement
+(`local/superpowers/records/2026-08-09-memory-policy-measurement.md`, fsrs-properly plan
+Task 4): it beat `MultiplicativeRankingPolicy` on the corpus's `topical` class in all six measured shapes,
+across two independent runs — the mechanism being exactly what rank fusion avoids and a product-of-factors
+formula does not: rewarding raw reinforcement magnitude, which let an unmeasured flat multiplier out-rank a
+curve (`DsrRetrievability`) that correctly declined to over-strengthen.
+
+```csharp
+// a lower K steepens the curve (the top few ranks matter more, relative to the rest of the set) and
+// HopWeight above 1 pulls nearby material forward more strongly than the other three signals do
+services.AddSingleton<IMemoryRankingPolicy>(new ReciprocalRankFusionPolicy(
+    new ReciprocalRankFusionOptions { K = 20, HopWeight = 3 }));
+```
+
+**Its own `RelativeFloor` ships at `0`, not the `0.02` the measurement's own confound control equalized both
+ranking arms at — disclosed, not papered over, and verified rather than assumed to make no difference.** Rank
+fusion deliberately compresses its own score range (a `100/61 ≈ 1.639×` ratio top to bottom over forty
+candidates at the default `K`), so a `0.02` relative floor over a range that tight would never cross a single
+candidate's score — copying `MultiplicativeRankingOptions`'s own default here would not weaken burial, it
+would make it PERMANENTLY INERT. A direct instrumentation check (replaying every corpus shape at
+`RelativeFloor = 0.02`) found it cutting ZERO candidates across 995 `Rank` calls and 48,120 candidate
+evaluations — the tightest worst/best score ratio observed anywhere was `0.702`, nowhere near `0.02` — so
+`0.02` and `0` are empirically identical on the measured corpus and the `topical` result transfers cleanly to
+what ships. A consumer who wants burial under THIS policy has to choose a floor deliberately, well above
+`0.02` (see `ReciprocalRankFusionOptions.RelativeFloor`'s own doc for the formula that tells you where it
+actually starts to bite for your own `K` and candidate-set size).
+
+**A first implementation, `MultiplicativeRankingPolicy`, stays shipped and registerable in one line — it is
+NOT the case a comparison found it wrong, only that it lost this one measured comparison.** `Score =
+Relevance × Retrievability × boost × HopAttenuation^hop`, then a relative floor, given a name and a swap
+point rather than changed. It remains the better choice on a scale where raw reinforcement magnitude is
+meaningful — reciprocal rank fusion helps precisely when the signals have no shared scale to multiply, which
+is not every deployment. Its own constants live on `MultiplicativeRankingOptions`:
+
+```csharp
+// the one-line restore for a consumer who wants Multiplicative back
+services.AddSingleton<IMemoryRankingPolicy>(new MultiplicativeRankingPolicy(
+    new MultiplicativeRankingOptions { HopAttenuation = 0.7, SalienceRankWeight = 1.0 }));
+// …or register your own IMemoryRankingPolicy before AddLyntai — a consumer's own registration always wins
+```
+
+**The forgetting-curve question is settled too** — see the forgetting-curve section above and
+`docs/DECISIONS.md` D49: `DsrRetrievability` is the registered default, on FSRS's own external validation.
+Full measurement, both domains and both ranking-default rounds:
+`local/superpowers/records/2026-08-09-memory-policy-measurement.md`.
+
+**One guarantee the engine keeps against a policy that DROPS a candidate:** an `Authoritative` entry a policy
+drops below its own floor is re-admitted afterward — never silently dropped without a trace, even under a
+policy that has never heard of grades. **That check is by `Node.Id` alone**, so it is a guarantee against
+dropping, not against a policy that substitutes a fabricated entry under the same id instead — nothing
+downstream can tell the two apart.
+**And authoritative material takes RESERVED slots within your `Limit`**, so an exact fact is displaced only by
+another exact fact. It can push ordinary hits out — that is what marking a fact authoritative means — and
+`GraphMemoryOptions.AuthoritativeReserve` bounds how many slots it may take if you want the trade the other
+way. Until 3.0 this went the other way round (re-admissions were appended last and cut by the limit), and the
+first end-to-end measurement of "never lose an authoritative fact" found every one of them lost. **This ordering also decides
+which entries get a co-activation edge PERMANENTLY written to the store** — recall's own reinforcement links
+whichever entries land inside its co-activation window, and re-admission order decides who that is, not just
+what a reader of the returned list sees.
+
+**Ranking is scoped per named engine, and a single call can override it by name.** `UseGraph`'s own
+`ranking` parameter is that named engine's choice, ahead of whatever `IMemoryRankingPolicy` is registered in
+the container — an engine that passes nothing here still takes the container's registration, so a consumer
+who never touches this parameter sees no change. `namedRankingPolicies` exposes alternates a single
+`MemoryQuery.RankingPolicyName` can select for one call, resolved BY NAME rather than by passing a live
+policy instance into `MemoryQuery` (which is otherwise plain data — serialized, logged, traced). A name
+that engine does not recognize is an error (`KeyNotFoundException`), never a silent fallback to the default:
+
+```csharp
+services.AddLyntai(b => b.AddMemoryEngine("project", e => e.UseGraph(
+    ranking: new MultiplicativeRankingPolicy(),                     // THIS engine's own choice, overriding
+                                                                     // the container-registered default (RRF)
+    namedRankingPolicies: new Dictionary<string, IMemoryRankingPolicy>
+    {
+        ["rrf"] = new ReciprocalRankFusionPolicy(),                 // selectable per call, by name
+    })));
+
+// ordinary calls use `ranking` above; this one call uses "rrf" instead
+await engine.RecallAsync(new MemoryQuery("t", "s", "query", RankingPolicyName: "rrf"));
+```
+
+**`CompositeRankingPolicy` fuses two OTHER ranking policies into one order — by rank POSITION, never raw
+score.** `MultiplicativeRankingPolicy`'s score is a bounded product roughly in `[0,1]`;
+`ReciprocalRankFusionPolicy`'s sums to around `0.06` at its own defaults; `IMemoryRankingPolicy`'s own
+contract already says a score means nothing outside the policy that produced it. Averaging the two numbers
+directly would be arithmetic over quantities that share no scale, so this class instead re-derives each
+member's own competition rank position over the candidate set and fuses THOSE, the same
+`score = w / (K + rank)` shape `ReciprocalRankFusionPolicy` already uses for its own four signals:
+
+```csharp
+services.AddSingleton<IMemoryRankingPolicy>(new CompositeRankingPolicy(
+    new MultiplicativeRankingPolicy(), new ReciprocalRankFusionPolicy(),
+    new CompositeRankingOptions { PrimaryWeight = 2, SecondaryWeight = 1 }));
+```
+
+A candidate either member's own floor drops is not excluded from the fused result — it is ranked worst for
+that member's signal, never fabricated as better or worse than that; a member that drops every candidate
+contributes the same constant to everyone rather than distorting the order (the same "buried, not cut"
+philosophy every other policy in this domain follows, and the same tie handling `ReciprocalRankFusionPolicy`
+already uses internally — a signal that ties every candidate must not smuggle in a full-strength preference
+through the id tiebreak alone).
 
 Graph entries carry both grades, so one engine can hold exact facts alongside recalled ones — an
 authoritative entry never decays and is never shortened to a headline.
@@ -440,7 +640,7 @@ cosine similarity, so a query finds relevant memories without sharing keywords.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAiProvider(/* … */)
+    .AddOpenAiProvider(apiKey: "…")
     // built-in embedder over any OpenAI-compatible /v1/embeddings (OpenAI, LM Studio, Ollama, Azure)
     .AddOpenAiCompatibleEmbedder("embeddings", o =>
     {
@@ -451,7 +651,7 @@ services.AddLyntai(cfg => cfg
     // …or bring your own in one call: .AddSemanticMemory(myEmbedder)  // any IEmbedder
 
 var memory = sp.GetRequiredService<ISemanticMemory>();
-await memory.RememberAsync(task: "support", scope: "faq", "You can cancel your subscription anytime.");
+await memory.RememberAsync(taskKey: "support", scope: "faq", "You can cancel your subscription anytime.");
 var hits = await memory.RecallAsync("support", "faq", query: "how do I stop paying?", k: 5);
 // hits ranked by similarity, each with a Content + cosine Score
 ```
@@ -484,7 +684,7 @@ reached — without hitting a provider.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAiProvider(/* … */)
+    .AddOpenAiProvider(apiKey: "…")
     .AddUsageBudget(b =>
     {
         b.MaxCostUsd = 20.00;                              // global ceiling
@@ -511,7 +711,7 @@ is refused (`Verdict == RateLimited`) rather than hammering the provider.
 
 ```csharp
 services.AddLyntai(cfg => cfg
-    .AddOpenAiProvider(/* … */)
+    .AddOpenAiProvider(apiKey: "…")
     .AddRateLimit(r =>
     {
         r.PermitsPerSecond = 10;
@@ -550,6 +750,9 @@ Lyntai emits OpenTelemetry GenAI-convention telemetry from the router — the sa
 `Microsoft.Extensions.AI`'s `OpenTelemetryChatClient` uses, so own-seam and bridged providers land
 in one backend. Nothing is emitted unless you subscribe:
 
+<!-- compile-skip: the wiring is on OpenTelemetry's own TracerProviderBuilder/MeterProviderBuilder. No
+     compile-given can declare them: this library takes no OpenTelemetry dependency (it emits over
+     System.Diagnostics), so the types are not in the compilation at all. -->
 ```csharp
 tracerProviderBuilder.AddSource(LyntaiDiagnostics.ActivitySourceName);        // "Lyntai.Llm" spans
 meterProviderBuilder.AddMeter(LyntaiDiagnostics.MeterName);                   // duration, token usage,
@@ -581,6 +784,10 @@ want your own queryable trace timeline; reach for OTel for live tracing/metrics.
 
 Lyntai defines the interfaces; your app owns the resource lifecycle wherever that matters.
 
+<!-- compile-skip: a tour of BYO seams. compile-given was measured and rejected here: IProcessRunner
+     alone is two eight-parameter methods, and with MyCustomProvider (ILlmProvider, four members) and a
+     connection factory the context runs to ~26 lines for a 16-line sample — a whole program, not a few
+     declarations. -->
 ```csharp
 services.AddLyntai(cfg =>
 {
@@ -653,7 +860,7 @@ completion. Two notes on what the probe will and won't tell you:
 - **Nothing is guessed.** The CLI treats an unrecognized token as a *prompt* and spends a turn answering
   it, so every maintenance question is flag-shaped or a documented subcommand. Lyntai drives the tooling the
   backend already ships — it never downloads a backend that isn't there; provisioning stays yours
-  (`docs/DECISIONS.md` D26).
+  (`docs/DECISIONS.md` D20).
 
 Two more capabilities in the same family, discovered the same way:
 
@@ -707,6 +914,8 @@ therefore a real answer, not a maybe.
 where the backend has one, that install's own home directory so it neither reads nor mutates the machine-wide
 install's state:
 
+<!-- compile-given: string portableHome;
+     string bundledClaudePath; -->
 ```csharp
 cfg.AddCodexCliProvider(
     command: Path.Combine(AppContext.BaseDirectory, "tools", "codex.exe"),
@@ -726,6 +935,7 @@ classifier, empty output as a failure, an in-band `turn failed` event classified
 exactly one terminal stream chunk, and probe → run → re-probe for self-maintenance. Those live once, in
 `CliProviderEngine` (`Lyntai.Llm.Cli`). A new CLI supplies only its own vocabulary:
 
+<!-- compile-given: static class MyWireFormat { public static CliOutputEvent Read(string line) => CliOutputEvent.Ignored; } -->
 ```csharp
 public sealed class MyCliDialect : CliProviderDialectBase
 {
@@ -744,6 +954,13 @@ public sealed class MyCliDialect : CliProviderDialectBase
 …plus a provider that forwards to the engine and declares which capability interfaces that backend actually
 has (`ClaudeCliProvider` is exactly this, and nothing else):
 
+<!-- compile-given: sealed class MyCliDialect : CliProviderDialectBase
+     {
+         public override string Id => "my-cli";
+         public override string DefaultCommand => "mycli";
+         public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r) => [];
+         public override CliOutputEvent ParseLine(string line) => CliOutputEvent.Ignored;
+     } -->
 ```csharp
 public sealed class MyCliProvider(IProcessRunner runner, LyntaiOptions options) : ILlmProvider, IProviderUpdater
 {
@@ -767,6 +984,7 @@ them. It is a **platform, not an engine** — every pixel and sample is produced
 `Kind` is an open string, so a medium (or a non-media artifact) nobody has modelled yet uses the same
 submit/poll/stream, capability and routing machinery.
 
+<!-- compile-given: string key; -->
 ```csharp
 services.AddLyntai(cfg => cfg
     // hosted: an OpenAI-compatible images API
@@ -794,6 +1012,7 @@ Lyntai registers a named client with an *infinite* `HttpClient` timeout, so the 
 cancellation rather than the 100-second default aborting a healthy render. To decorate Lyntai's own client
 instead of replacing it, reach it by name:
 
+<!-- compile-given: sealed class MyLoggingHandler : DelegatingHandler { } -->
 ```csharp
 services.AddHttpClient(GenerationProviderBuilderExtensions.HttpClientName("fal"))
         .AddHttpMessageHandler<MyLoggingHandler>();
@@ -819,6 +1038,7 @@ the same generation twice. It is not counted against the backend's cooldown eith
 Inputs — an init image, a first frame, a style reference, a voice sample — are built with the **named
 factories**, never the positional constructor:
 
+<!-- compile-given: byte[] sourcePng; -->
 ```csharp
 new GenerationRequest
 {
@@ -832,12 +1052,14 @@ The constructor takes `(MediaType, Data, Uri, Role)` with `Role` **last**, so a 
 compiles clean, binds the role string to the media type and leaves the role null — and then nothing fails: the
 backend gets a well-formed roleless input and your img2img request quietly becomes text-to-image. Use
 `Init` / `FirstFrame` / `Reference` / `Voice`, or `From(role, …)` for a role a backend documents itself
-(`docs/DECISIONS.md` D35).
+(`docs/DECISIONS.md` D28).
 
 Backends declare what they can do, and the router **skips a candidate that can't serve the request** before
 spending anything — media backends differ far more than chat models do (medium, input roles, duration
 ceilings, model catalogues):
 
+<!-- compile-given: IReadOnlyList<GenerationCandidate> candidates;
+     void Save(byte[] data) { } -->
 ```csharp
 var result = await router.GenerateAsync(candidates, new GenerationRequest
 {
@@ -892,7 +1114,7 @@ failure rather than inventing an artifact.
 | `FalQueueProvider` | **Job** | *Documented, not measured.* One aggregator queue reaching the Wan/Kling/Veo-class video models. The operation id **carries its model** (`"model#requestId"`) because a resumed job has only the id, and a transport failure while polling reports **Running, not Failed** — a 500 says nothing about a paid render still in flight |
 
 **Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook
-endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D26 and D30.
+endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D20 and D24.
 
 ### When your users own the backend configuration (`Lyntai.Lifecycle`)
 
@@ -902,6 +1124,7 @@ settings change at any moment, the choice of backend is itself one of those sett
 configurations of one backend are live at the same time. Hand the router factory a key and a way to build
 each backend, and it does the rest:
 
+<!-- compile-skip: per-tenant pseudo-code over the reader's own settings service and router cache -->
 ```csharp
 var cfg = await _settings.ForTenantAsync(tenantId, ct);   // your source; Lyntai never asks where it lives
 
@@ -944,7 +1167,7 @@ What you get either way, and what a hand-rolled per-call cache gets wrong: **dea
 concurrency admission are keyed on the configuration, not on the backend id** — so one tenant's rate limit
 never benches another's, while two consumers pointing at the same self-hosted host do share a bench. And a
 configuration that changes mid-render never aborts it: a replaced entry is **retired**, not disposed, so
-in-flight calls finish normally (`docs/DECISIONS.md` D37).
+in-flight calls finish normally (`docs/DECISIONS.md` D30).
 
 ```csharp
 services.AddLyntai(b => b.ConfigureProviderAdmission(a => a.BySlot["sd-local"] = 1));  // one render at a time
@@ -1046,6 +1269,7 @@ package (it costs that package no extra dependencies; the host — and the `Mode
 reference it needs — stays here, so apps using the plain CLI provider carry neither). Supporting a different
 CLI is one small class, no new package and no change to the host:
 
+<!-- compile-skip: a type declaration and its registration statement in one fence — a block is wrapped at one scope -->
 ```csharp
 public sealed class MyCliMcpDialect : IMcpCliDialect
 {
@@ -1054,7 +1278,7 @@ public sealed class MyCliMcpDialect : IMcpCliDialect
     public ValueTask<IReadOnlyList<string>> BuildArgsAsync(McpCliContext ctx, CancellationToken ct = default)
     {
         // write whatever config file the CLI reads (JSON, TOML, …) — the host deletes it for you
-        var path = ctx.WriteTempFile("mcp", $$"""{"servers":{"{{ctx.Endpoint.ServerName}}":{"url":"{{ctx.Endpoint.Url}}"}}}""");
+        var path = ctx.WriteTempFile("mcp", $$"""{"servers": {"{{ctx.Endpoint.ServerName}}": {"url": "{{ctx.Endpoint.Url}}"} } }""");
         return ValueTask.FromResult<IReadOnlyList<string>>(["--mcp-config", path]);
     }
 }
@@ -1086,6 +1310,10 @@ servers. This is neutral Core, so the same options object drives both CLIs; each
 own vocabulary (claude: an owner-only `--mcp-config` document, deleted when the turn ends; codex: repeated
 `-c mcp_servers.<name>.…` TOML overrides). Both shapes were measured against the real CLIs.
 
+<!-- compile-given: string cwd;
+     string appToolsExePath;
+     string workspacePath;
+     string token; -->
 ```csharp
 var options = new AgentSessionOptions
 {
@@ -1116,6 +1344,7 @@ Three things worth knowing before you rely on it:
 - Your own `ClaudeAgentOptions.McpConfigPath` still works and is **kept alongside** the rendered one — the
   flag takes a list, so nothing you already wired up is displaced.
 
+<!-- compile-given: string cwd; -->
 ```csharp
 services.AddLyntai(b => b
     .AddClaudeCliProvider()
@@ -1162,7 +1391,7 @@ var claude = sp.GetRequiredKeyedService<IAgentSession>("claude-cli");
 ```
 
 **Read this before adopting it** — the two halves of the codex mapping have different standing, and
-`docs/DECISIONS.md` **D42** has the full account:
+`docs/DECISIONS.md` **D35** has the full account:
 
 - **Measured** against codex-cli 0.146.0: session id, assistant text, final usage, and the terminal —
   including the rule that only `turn.failed` fails a turn (a bare `error` line and an `error` item both
@@ -1198,6 +1427,7 @@ Enqueue a job, a runner claims and runs it, your handler checkpoints — and a j
 reclaimed and **resumed from its checkpoint**. Your app owns the pump (no background threads are started
 for you):
 
+<!-- compile-skip: a handler declaration and its wiring statements in one fence — a block is wrapped at one scope -->
 ```csharp
 sealed class SummarizeHandler : IJobHandler
 {
@@ -1227,6 +1457,8 @@ handlers must be idempotent from their checkpoint.
 that exhausts its retries lands in the dead-letter queue (`JobStatus.Dead`) — inspectable and replayable
 rather than a silent failure:
 
+<!-- compile-given: string payloadJson;
+     Guid jobId; -->
 ```csharp
 await queue.EnqueueAsync("summarize", "summarize", payloadJson, priority: 10); // jumps the lane
 foreach (var dead in await queue.ListDeadAsync())    // inspect what gave up

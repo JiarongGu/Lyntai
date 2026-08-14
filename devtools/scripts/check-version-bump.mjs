@@ -23,25 +23,57 @@
 //
 // Escape hatch: LYNTAI_RELEASE=1 — for the release pipeline itself, and for a human deliberately repairing
 // a botched release (in which case you know exactly which version you are writing and why).
+//
+// The rules take DIFF TEXT rather than reading git themselves, so devtools/scripts/__tests__ can drive each
+// one directly as well as end-to-end over a real staged fixture repo (TASKS.md Part 60).
+//
+// It fails CLOSED on a git failure (2026-08-11, TASKS.md Part 62): an empty diff and an unreadable one are
+// different things, and this guard used to report both as "no problems". See `StagedDiffFailure` below.
 
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const here = fileURLToPath(import.meta.url);
+const repo = path.resolve(path.dirname(here), '..', '..');
 
-if (process.env.LYNTAI_RELEASE === '1') {
-  console.log('check-version-bump: skipped (LYNTAI_RELEASE=1 — release pipeline or deliberate repair).');
-  process.exit(0);
+/**
+ * git could not be ASKED — which is not the same thing as git answering "nothing is staged".
+ *
+ * Until 2026-08-11 `stagedDiff` caught every exception and returned `''`, so an unreadable index, a missing
+ * `git`, or a cwd with no repository anywhere above it all produced an empty diff, which the rules below
+ * read as "nothing staged" and the guard passed. That is fail-OPEN on the one check standing between a
+ * hand-authored version and D19's lost release, and the pre-commit hook only masked it because
+ * check-sensitive runs first and throws on the same condition.
+ *
+ * The distinction the fix rests on, measured rather than assumed: `git diff --cached -- <file>` exits 0
+ * with EMPTY output when the file has no staged change, when the file does not exist at all, and when the
+ * repository has no HEAD yet (a fresh clone's first commit). All three are benign and all three still pass.
+ * Reaching this constructor therefore means git could not answer at all.
+ */
+export class StagedDiffFailure extends Error {
+  constructor(file, cause) {
+    const status = typeof cause?.status === 'number' ? cause.status : null;
+    const stderr = String(cause?.stderr ?? '').split('\n').map((l) => l.trim()).find(Boolean);
+    const detail = status !== null
+      ? `git exited ${status}${stderr ? `: ${stderr}` : ''}`
+      : (cause?.code === 'ENOENT' ? 'git is not on PATH' : `${cause?.code ?? cause?.message ?? 'unknown error'}`);
+    super(`git could not read the staged diff for ${file} — the version-authorship guard cannot see what is `
+      + `being committed (${detail})`);
+    this.name = 'StagedDiffFailure';
+    this.file = file;
+    this.cause = cause;
+  }
 }
 
 // -U0 so only the changed lines are reported; a missing/unstaged file yields an empty diff, not an error.
-const stagedDiff = (file) => {
+// `exec` is a seam so a test can drive the spawn-failure branch (a missing `git`) without uninstalling git.
+export const stagedDiff = (repoRoot, file, exec = execFileSync) => {
   try {
-    return execFileSync('git', ['diff', '--cached', '-U0', '--', file],
-      { cwd: repo, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
-  } catch {
-    return '';
+    return exec('git', ['diff', '--cached', '-U0', '--', file],
+      { cwd: repoRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  } catch (cause) {
+    throw new StagedDiffFailure(file, cause);
   }
 };
 
@@ -49,49 +81,99 @@ const changedLines = (diff, sign) => diff.split('\n')
   .filter((l) => l.startsWith(sign) && !l.startsWith(`${sign}${sign}${sign}`))
   .map((l) => l.slice(1));
 
-const problems = [];
+/** The three rules, over the two staged diffs. Returns a (possibly empty) list of human-readable problems. */
+export function versionBumpProblems({ propsDiff = '', changelogDiff = '' } = {}) {
+  const problems = [];
 
-// 1. <VersionPrefix> — a REMOVED VersionPrefix line means an existing value was rewritten. (A newly ADDED
-//    file has no removal, so seeding this repo's props file was never blocked by this guard.)
-const propsDiff = stagedDiff('src/Directory.Build.props');
-const removedVersions = changedLines(propsDiff, '-').filter((l) => l.includes('<VersionPrefix>'));
-const addedVersions = changedLines(propsDiff, '+').filter((l) => l.includes('<VersionPrefix>'));
-if (removedVersions.length > 0) {
-  const versionOf = (line) => (line.match(/<VersionPrefix>([^<]*)<\/VersionPrefix>/) ?? [])[1] ?? '?';
-  problems.push(
-    `src/Directory.Build.props: <VersionPrefix> ${removedVersions.map(versionOf).join(', ')} → ` +
-    `${addedVersions.map(versionOf).join(', ') || '(removed)'}`);
+  // 1. <VersionPrefix> — a REMOVED VersionPrefix line means an existing value was rewritten. (A newly ADDED
+  //    file has no removal, so seeding this repo's props file was never blocked by this guard.)
+  const removedVersions = changedLines(propsDiff, '-').filter((l) => l.includes('<VersionPrefix>'));
+  const addedVersions = changedLines(propsDiff, '+').filter((l) => l.includes('<VersionPrefix>'));
+  if (removedVersions.length > 0) {
+    const versionOf = (line) => (line.match(/<VersionPrefix>([^<]*)<\/VersionPrefix>/) ?? [])[1] ?? '?';
+    problems.push(
+      `src/Directory.Build.props: <VersionPrefix> ${removedVersions.map(versionOf).join(', ')} → ` +
+      `${addedVersions.map(versionOf).join(', ') || '(removed)'}`);
+  }
+
+  // 2. `## Unreleased` — removing that heading IS stamping a release by hand. A commit that removes it and
+  //    adds it back (reordering the section) is fine.
+  const unreleased = /^## Unreleased\b/;
+  const removedUnreleased = changedLines(changelogDiff, '-').some((l) => unreleased.test(l));
+  const addedUnreleased = changedLines(changelogDiff, '+').some((l) => unreleased.test(l));
+  if (removedUnreleased && !addedUnreleased) {
+    problems.push('CHANGELOG.md: the "## Unreleased" heading is being removed or stamped by hand');
+  }
+
+  // 3. …and the same act from the other direction: WRITING a version-stamped heading. Check 2 only sees a
+  //    stamp when `## Unreleased` was already committed; a session that adds its notes and titles them
+  //    `## 1.3.0` in one go removes nothing, yet leaves the pipeline nothing to stamp just the same — and if
+  //    the release turns out to be a different number, the log ships with a heading for a version that was
+  //    never released. A heading that is re-added after being removed (a whole-file rewrap) is not a stamp.
+  const versionHeading = /^## \d+\.\d+\.\d+/;
+  const removedHeadings = changedLines(changelogDiff, '-').filter((l) => versionHeading.test(l)).map((l) => l.trim());
+  const introducedHeadings = changedLines(changelogDiff, '+')
+    .filter((l) => versionHeading.test(l))
+    .filter((l) => !removedHeadings.includes(l.trim()));
+  if (introducedHeadings.length > 0) {
+    problems.push(`CHANGELOG.md: version-stamped heading(s) written by hand — ${introducedHeadings.join(' | ').trim()}`);
+  }
+
+  return problems;
 }
 
-// 2. `## Unreleased` — removing that heading IS stamping a release by hand. A commit that removes it and
-//    adds it back (reordering the section) is fine.
-const changelogDiff = stagedDiff('CHANGELOG.md');
-const unreleased = /^## Unreleased\b/;
-const removedUnreleased = changedLines(changelogDiff, '-').some((l) => unreleased.test(l));
-const addedUnreleased = changedLines(changelogDiff, '+').some((l) => unreleased.test(l));
-if (removedUnreleased && !addedUnreleased) {
-  problems.push('CHANGELOG.md: the "## Unreleased" heading is being removed or stamped by hand');
+/**
+ * The gate over a real repo's staged changes. `{ skipped }` is the LYNTAI_RELEASE escape hatch, checked
+ * before git is asked anything — a deliberate release repair is not blocked by the state of the index.
+ *
+ * `gitError` is the StagedDiffFailure when git could not be read, and null otherwise. It is reported as a
+ * PROBLEM as well (so every caller blocks by default), but kept separate because the remediation is the
+ * opposite one: "stop hand-editing the version" is nonsense advice for a broken index.
+ */
+export function checkVersionBump({ repo: repoRoot = repo, env = process.env, exec } = {}) {
+  if (env.LYNTAI_RELEASE === '1') return { skipped: true, problems: [], gitError: null };
+  let propsDiff, changelogDiff;
+  try {
+    propsDiff = stagedDiff(repoRoot, 'src/Directory.Build.props', ...(exec ? [exec] : []));
+    changelogDiff = stagedDiff(repoRoot, 'CHANGELOG.md', ...(exec ? [exec] : []));
+  } catch (err) {
+    if (!(err instanceof StagedDiffFailure)) throw err;
+    return { skipped: false, problems: [err.message], gitError: err };
+  }
+  return {
+    skipped: false,
+    problems: versionBumpProblems({ propsDiff, changelogDiff }),
+    gitError: null,
+  };
 }
 
-// 3. …and the same act from the other direction: WRITING a version-stamped heading. Check 2 only sees a
-//    stamp when `## Unreleased` was already committed; a session that adds its notes and titles them
-//    `## 1.3.0` in one go removes nothing, yet leaves the pipeline nothing to stamp just the same — and if
-//    the release turns out to be a different number, the log ships with a heading for a version that was
-//    never released. A heading that is re-added after being removed (a whole-file rewrap) is not a stamp.
-const versionHeading = /^## \d+\.\d+\.\d+/;
-const removedHeadings = changedLines(changelogDiff, '-').filter((l) => versionHeading.test(l)).map((l) => l.trim());
-const introducedHeadings = changedLines(changelogDiff, '+')
-  .filter((l) => versionHeading.test(l))
-  .filter((l) => !removedHeadings.includes(l.trim()));
-if (introducedHeadings.length > 0) {
-  problems.push(`CHANGELOG.md: version-stamped heading(s) written by hand — ${introducedHeadings.join(' | ').trim()}`);
-}
+// CLI entry point — a thin wrapper, so importing this module for a test reads no git state.
+// `import.meta.main` where the runtime has it (Node >= 24.2); the argv fallback compares resolved paths,
+// and a wrong comparison makes this guard silently do NOTHING and exit 0. Pinned by cli-entry.test.mjs.
+if (import.meta.main ?? (process.argv[1] && path.resolve(process.argv[1]) === here)) {
+  const { skipped, problems, gitError } = checkVersionBump({ repo });
+  if (skipped) {
+    console.log('check-version-bump: skipped (LYNTAI_RELEASE=1 — release pipeline or deliberate repair).');
+  } else if (gitError) {
+    // A different failure needs different advice: nothing here says the version was edited, only that this
+    // guard could not tell. Blocking is the point — a guard that cannot look must not report a clean tree.
+    console.error('\n\x1b[31m✖ check-version-bump: blocked — the guard could not read the staged changes:\x1b[0m');
+    console.error(`  ${gitError.message}`);
+    console.error(`
+This is NOT a report that the version was hand-edited — it is a report that nothing checked. An empty diff
+and an unreadable one are different things, and only the first one is safe to pass (TASKS.md Part 62).
 
-if (problems.length === 0) process.exit(0);
-
-console.error('\n\x1b[31m✖ check-version-bump: blocked — the release pipeline owns these edits:\x1b[0m');
-for (const p of problems) console.error(`  ${p}`);
-console.error(`
+Instead:
+  · fix git first (a corrupt .git/index is repaired by deleting it and re-running \`git add\`);
+  · check you are committing from inside the work tree, with \`git\` on PATH;
+  · repairing a botched release, or running the pipeline? LYNTAI_RELEASE=1 git commit …
+(Override once with: git commit --no-verify)
+`);
+    process.exitCode = 1;
+  } else if (problems.length > 0) {
+    console.error('\n\x1b[31m✖ check-version-bump: blocked — the release pipeline owns these edits:\x1b[0m');
+    for (const p of problems) console.error(`  ${p}`);
+    console.error(`
 The version is bumped and the CHANGELOG heading stamped BY THE RELEASE WORKFLOW, which bumps from whatever
 <VersionPrefix> currently says. Moving it by hand silently shifts that baseline, so the next release
 publishes the version AFTER the one you intended — and the version you skipped is gone.
@@ -101,6 +183,8 @@ Instead:
   · cut the release from the Actions tab (Run workflow) — it bumps, stamps, publishes and tags;
   · repairing a botched release, or running the pipeline? LYNTAI_RELEASE=1 git commit …
 
-See .claude/rules/task-lifecycle.md and docs/DECISIONS.md (D25). (Override once with: git commit --no-verify)
+See .claude/rules/task-lifecycle.md and docs/DECISIONS.md (D19). (Override once with: git commit --no-verify)
 `);
-process.exit(1);
+    process.exitCode = 1;
+  }
+}

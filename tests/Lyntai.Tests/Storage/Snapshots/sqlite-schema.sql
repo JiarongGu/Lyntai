@@ -19,8 +19,19 @@ CREATE INDEX ix_lyntai_memory_edge_to ON lyntai_memory_edge(to_id);
 -- index ix_lyntai_memory_expiry
 CREATE INDEX ix_lyntai_memory_expiry ON lyntai_memory_entry(task_key, scope, expires_at);
 
+-- index ix_lyntai_memory_node_salience
+CREATE INDEX ix_lyntai_memory_node_salience
+ON lyntai_memory_node(engine, task_key, scope, salience DESC);
+
 -- index ix_lyntai_memory_node_scope
 CREATE INDEX ix_lyntai_memory_node_scope ON lyntai_memory_node(engine, task_key, scope);
+
+-- index ix_lyntai_memory_review_engine_id
+CREATE INDEX ix_lyntai_memory_review_engine_id ON lyntai_memory_review(engine, id);
+
+-- index ix_lyntai_memory_subject_lookup
+CREATE INDEX ix_lyntai_memory_subject_lookup
+ON lyntai_memory_subject(engine, subject, task_key, scope, node_id DESC);
 
 -- index ix_lyntai_message_thread_seq
 CREATE UNIQUE INDEX ix_lyntai_message_thread_seq ON lyntai_message(thread_id, seq);
@@ -117,7 +128,7 @@ CREATE TABLE lyntai_memory_edge (
     to_id INTEGER NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
     kind TEXT NOT NULL DEFAULT '',
     weight REAL NOT NULL,
-    strengthened_position REAL NOT NULL,
+    strengthened_position REAL NOT NULL, strengthened_ordinal INTEGER NOT NULL DEFAULT 0, strengthened_chars INTEGER NOT NULL DEFAULT 0, strengthened_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.0000000+00:00',
     PRIMARY KEY (from_id, to_id, kind)
 );
 
@@ -160,7 +171,7 @@ CREATE TABLE lyntai_memory_node (
     last_recalled_position REAL NOT NULL,
     recall_count INTEGER NOT NULL DEFAULT 0,
     stability REAL NOT NULL
-);
+, signals TEXT NULL, salience REAL NOT NULL DEFAULT 1, encoding_ordinal INTEGER NOT NULL DEFAULT 0, encoding_chars INTEGER NOT NULL DEFAULT 0, encoding_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.0000000+00:00', provenance_retrievability INTEGER NOT NULL DEFAULT 0, provenance_salience INTEGER NOT NULL DEFAULT 0, difficulty REAL NOT NULL DEFAULT 5);
 
 -- table lyntai_memory_node_fts
 CREATE VIRTUAL TABLE lyntai_memory_node_fts USING fts5(
@@ -182,6 +193,44 @@ CREATE TABLE 'lyntai_memory_node_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, 
 CREATE TABLE lyntai_memory_position (
     engine TEXT PRIMARY KEY,
     position REAL NOT NULL
+, ordinal INTEGER NOT NULL DEFAULT 0, chars INTEGER NOT NULL DEFAULT 0, encoded_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.0000000+00:00');
+
+-- table lyntai_memory_review
+CREATE TABLE lyntai_memory_review (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    engine TEXT NOT NULL,
+    node_id INTEGER NOT NULL,
+    batch_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    pre_age REAL NOT NULL,
+    pre_stability REAL NOT NULL,
+    pre_difficulty REAL NOT NULL,
+    pre_strength REAL NOT NULL,
+    pre_strength_age REAL NOT NULL,
+    grade REAL NULL,
+    post_stability REAL NOT NULL,
+    post_difficulty REAL NOT NULL,
+    provenance_retrievability INTEGER NOT NULL DEFAULT 0,
+    -- What an IMemoryVerificationPolicy judged about this entry for the recall that logged it:
+    -- 1 = it answered the query, 0 = it did not, NULL = no verifier ran.
+    --
+    -- NULLABLE, and the three states are NOT collapsible. `grade` above is derived from the
+    -- curve's own prediction, so a fit against it recovers whatever produced the log (design
+    -- DECISIONS D51). This column is the external observation that breaks that circularity —
+    -- and, because a row is now written for entries that were NOT reinforced, it is also what
+    -- lets the log contain FAILURES rather than only successes, which was D51's second and
+    -- harder blocker.
+    verified INTEGER NULL
+);
+
+-- table lyntai_memory_subject
+CREATE TABLE lyntai_memory_subject (
+    engine TEXT NOT NULL,
+    node_id INTEGER NOT NULL,
+    task_key TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    PRIMARY KEY (engine, node_id, subject)
 );
 
 -- table lyntai_message

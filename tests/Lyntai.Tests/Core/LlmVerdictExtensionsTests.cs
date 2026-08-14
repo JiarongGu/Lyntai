@@ -19,7 +19,7 @@ public class LlmVerdictExtensionsTests
     /// registration: a new verdict fails the key-set assertion until someone adds a row, and a row cannot be
     /// added without writing <c>true</c> or <c>false</c> — which IS the classification. A gate that checked
     /// only membership would be greened by appending a name, letting a new verdict sail through to the
-    /// <c>false</c> default undecided. D38 already states that the enum and the routing policy must move
+    /// <c>false</c> default undecided. D31 already states that the enum and the routing policy must move
     /// together; this makes the call-site helpers the third thing that moves with them.</summary>
     [Fact]
     public void Every_verdict_states_whether_it_is_transient()

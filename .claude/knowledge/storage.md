@@ -33,6 +33,78 @@ would bind: a property-mapped row sidesteps Dapper's record-ctor **exact-type** 
 boolean question — the comment at `PostgresScoreStore.GetAsync` says so.) Name it `Row` / `<Thing>Row` — **never
 `*Dto`**, per the naming rule in `.claude/rules/repo-mechanics.md` §Naming.
 
+## An open bag column, and when a signal instead earns its own column
+
+`lyntai_memory_node.signals` (SQLite `TEXT`, Postgres `JSONB`) carries `MemorySignals` — an open
+name→double bag — as one JSON object, via `MemorySignalsJson` (`Lyntai.Core`, hand-walked
+`Utf8JsonWriter`/`JsonDocument`, no reflection `JsonSerializer` — D14; mirrors `CuratedMetadataJson`
+exactly, including empty-bag → SQL `NULL`, never `"{}"`). **Deserialize defensively**: malformed, null, or
+non-object JSON — including a row from before signals existed, where the column is simply absent — reads
+back as `MemorySignals.Empty` rather than throwing, and a single non-numeric member is skipped rather than
+sinking the whole bag. A row must stay recallable even when one signal cannot be parsed; a lost signal
+silently restores pre-signals decay for that entry, which is recoverable, and losing the memory over it
+would not be.
+
+**The bag is the default; a signal is promoted to its own column only when the DATABASE itself must sort or
+filter on it** — no portable index reaches into a JSON blob. `salience` is the first and, so far, only
+promotion, because a salient entry must be admitted as a candidate even when it matches the query, or
+recency, poorly.
+
+**The promoted column is the COERCED materialisation of the bag's value, not a copy of it** — so the two are
+not byte-for-byte equal, and expecting them to be is the trap. `MemorySignals.Salience(write.Signals)` is the
+one shared rule (below 1 → 1, non-finite → 1), and it is what the column gets; the bag is stored verbatim. A
+bag holding `{"salience": 0.5}` therefore reads back as `0.5` while the column holds `1`. What they cannot do
+is DRIFT: both are written from the same bag, in the same statement, through that one function — which every
+other reader of the value also calls (the in-process store's ordering, `GraphMemoryEngine`'s rank boost), so
+the same data cannot admit differently on different backends. The bag is read back into the node's `Signals`
+on the way out.
+
+**Promotion earns a column; it does not automatically earn an INDEX** — the two legs deliberately differ.
+SQLite indexes `(engine, task_key, scope, salience DESC)` because the FTS-merge path's separate exact-facts
+sub-query genuinely plans against it: its `WHERE` pins `grade = @authoritative` exactly, so its `ORDER BY`
+leads with `salience DESC` and nothing computed sits ahead of it. Postgres has no such sub-query, and both of
+its seed paths lead with the COMPUTED `(grade = @authoritative)` boolean, which no such prefix can satisfy —
+`ix_lyntai_memory_node_scope` already covers the equality part. An index nothing reads is not free
+parallelism; it is write amplification on the hottest table in the schema, paid on every remember. Add one
+with the query that needs it.
+
+**The ordering is per BRANCH, not one rule repeated on every backend — read the query, not this
+paragraph, before assuming a branch's order.** Where nothing has already ranked the candidates by match
+quality — the no-query and LIKE-fallback branches on every backend, and SQLite's separate exact-facts
+sub-query inside the FTS-merge path — salience leads recency:
+`(grade = authoritative) DESC, salience DESC, last_recalled_position DESC, id DESC` (the exact-facts
+sub-query omits the grade term; its `WHERE` already restricts to `grade = authoritative`, so every row
+ties on it). **SQLite's bm25-matched branch is the one exception, and deliberately so**: everything there
+already matched the query, so match quality leads and salience is only a TIEBREAK —
+`ORDER BY bm25(…), salience DESC, id DESC`. Letting salience outrank bm25 would let a salient POOR match
+displace a strong one; that distortion is Task 6's engine-side rank contribution to own (bounded and
+logarithmic there), not the store's to reproduce unbounded on a query that already discriminates by
+relevance.
+
+**A re-remember of identical content with an EMPTY incoming bag must not blank an existing one.** A
+salience policy may decline to judge a re-remembered write for any reason (too few comparables, a novelty probe
+that found only the entry's own prior vector, a caught failure) and reports that as `MemorySignals.Empty` —
+which must never be read as "this entry is no longer salient," or the very write meant to REINFORCE an
+entry would instead erase an earlier judgement. `InMemoryMemoryGraphStore` has had this since Task 4; the
+SQL backends resolve it in the `DO UPDATE SET`/`ON CONFLICT` clause itself:
+`signals = COALESCE(@signals, <table>.signals)`, `salience = CASE WHEN @signals IS NULL THEN
+<table>.salience ELSE @salience END` — an empty incoming bag serializes to SQL `NULL`, which is also the
+"keep what's stored" signal these expressions read. A NON-empty incoming bag still overwrites unconditionally
+— re-appraisal must be able to correct a stale value, not just refuse to erase one.
+
+**`NOT NULL DEFAULT 1`, never nullable — an affinity trap of its own.** 1 is salience's neutral value, so a
+pre-existing row migrates to "no opinion" and orders exactly as before. A nullable column would be worse
+than untidy: `ORDER BY salience DESC` puts NULLs **first** on Postgres, so every legacy row would silently
+outrank every appraised one — wrong data, not an error. `MigrationSchemaSnapshotTests` /
+`PgMigrationSchemaSnapshotTests` pin the DDL text (`NOT NULL DEFAULT 1`) so a regression here fails on the
+golden schema diff, not just on a behavioural test.
+
+**Postgres needs an explicit `::jsonb` cast on the parameter**, unlike the plain-`TEXT` `metadata` column:
+Npgsql infers a bound `string` parameter as `text`, and `INSERT`/`ON CONFLICT DO UPDATE SET` against a
+`jsonb` column raises `42804` (`column "signals" is of type jsonb but expression is of type text`) without
+it — `@signals::jsonb` in both the `VALUES` list and the `DO UPDATE SET` clause, the same `::type` pattern
+`PostgresCuratedMemoryStore` already uses to resolve a NULL update parameter's type.
+
 ## Per-connection pragmas
 
 `foreign_keys`, `busy_timeout`, and `journal_mode` are **per-connection** in SQLite (except WAL, which
@@ -55,20 +127,29 @@ kept in sync by triggers, and this is where bugs hide:
 - **Backfill in the same migration** so existing rows are indexed.
 - Copy `M202607280003_Memory.cs` verbatim; adjust columns only.
 
-Query building: `FtsQuery.Build` drops `<3`-char tokens (trigram's minimum), double-quotes the rest
-(neutralizing FTS operators — this is also the injection guard), OR-joins them, and returns `null` when
-nothing usable remains → the caller **falls back to LIKE** (with `ESCAPE`-guarded `% _ \`). Rank matches
-with `bm25()`. `match` is only ever sourced from `FtsQuery.Build`, never raw user text.
+Query building: **`SearchTerms.Extract` owns the split, for every backend** — words for a space-separated
+script, character **trigrams** for a run written without spaces (CJK), `<3`-char terms dropped (trigram's
+minimum). `FtsQuery.Build` then only applies FTS5 *syntax*: double-quote each term (neutralizing FTS
+operators — this is also the injection guard), OR-join, and return `null` when nothing usable remains → the
+caller **falls back to LIKE** (with `ESCAPE`-guarded `% _ \`). Rank matches with `bm25()`. `match` is only
+ever sourced from `FtsQuery.Build`, never raw user text. The LIKE/ILIKE side uses `SearchTerms.LikeClause`,
+which returns the OR predicate, a matched-term COUNT expression for ranking, and the parameters.
 
-**Cross-backend recall DIVERGENCE (documented on `IMemoryStore.RecallAsync`, not a bug):** the three
-backends use three different index engines, so multi-word recall + ranking differ *by design*. SQLite:
-ANY token (the OR-join above) via the trigram index, ranked by **bm25 relevance**. Postgres (pg_trgm) +
-InMemory: the query as a **contiguous substring**, ranked by **recency**. Consistent guarantee, and it is a
-**single-token** one: an entry whose content contains a ≥3-char SINGLE-token query as a substring is
-recalled on every backend. A MULTI-token query is per-token on SQLite (any one token matches) and
-contiguous-substring on Postgres/InMemory — so `foo bar` recalls `xxfooxx` on SQLite and nothing on the
-other two. Don't "fix" one backend to match another without deciding the semantic — reimplementing bm25
-in-app to converge ranking is out of scope; single salient query terms are portable.
+**WHICH entries a query finds is now the same on all three backends; only RANKING differs** (`D55`). SQLite
+ranks by **bm25**; Postgres (pg_trgm) and InMemory by **matched-term count, then recency**.
+
+**The trap this replaced, because it is the shape of trap to watch for.** Only `FtsQuery` knew how to split a
+query, so only SQLite's FTS path did — every other path (both LIKE fallbacks, all three Postgres queries,
+both InMemory stores) passed the whole query to `LikePattern.Contains` and matched it as one contiguous
+substring. `foo bar` recalled `xxfooxx` on SQLite and nothing on the other two, and a realistic cue like
+`"what is the spouse called"` is contiguous in no entry at all, so keyword seeding was effectively dead on
+two backends. **It was written down as a by-design divergence and defended as one for a year.** The test that
+should have caught it asserted the divergence, and the shared contract's every conformance fact used a
+one-word query. The rule that falls out: *an ORDERING difference between backends is a divergence; a
+different answer to "is the fact found" is a defect* — and a "documented divergence" nobody measured is just
+an undiagnosed bug with a citation. Same root cause gave CJK exact-phrase-or-nothing while English got
+OR-over-words. Converging ranking is still out of scope (reimplementing bm25 in-app); converging **admission**
+was not optional.
 
 ## Don't "dedup" the Sqlite/Postgres stores — the parallelism is intentional
 
@@ -136,7 +217,7 @@ doesn't compile.
 `Task.Run`, which would burn a pool thread for the whole migration and *still* be uncancellable — and honour
 the token only *before* any work and *between* feature passes. `StorageFeature.All` is a single pass, so
 there it means "before starting" only. Say exactly that in any doc you write about it; see `DECISIONS.md`
-**D40**, and `AsyncMigrationTests` pins the no-offload property.
+**D33**, and `AsyncMigrationTests` pins the no-offload property.
 
 **`lyntai_vector` ships under `StorageFeature.Governance`,** alongside the response cache and usage ledger —
 not under `Memory`, and there is no `Vector` feature. A subset omitting `Governance` would otherwise let

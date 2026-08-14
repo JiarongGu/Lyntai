@@ -122,12 +122,16 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
     {
         if (string.IsNullOrWhiteSpace(query)) return Task.FromResult<IReadOnlyList<CuratedMemory>>([]);
         var needle = query.Trim();
+        // Term-wise, via the shared split — the same terms the SQL backends match on, so a multi-word or CJK
+        // search finds the same entries here as it does there. An empty term list means the query was too
+        // short to yield one (a two-character CJK word, "ab"), and the whole-query substring test it always
+        // had still applies. Same semantics as InMemoryMemoryStore.RecallAsync.
+        var terms = SearchTerms.SubstringTerms(needle);
         lock (_lock)
         {
-            // contiguous-substring match over CONTENT, recency-ranked — the same semantics as
-            // InMemoryMemoryStore.RecallAsync (see the divergence note on ICuratedMemoryStore.SearchAsync)
-            IEnumerable<CuratedMemory> q = _entries.Where(e =>
-                e.Content.Contains(needle, StringComparison.OrdinalIgnoreCase));
+            IEnumerable<CuratedMemory> q = _entries.Where(e => terms.Count == 0
+                ? e.Content.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                : terms.Any(t => e.Content.Contains(t, StringComparison.OrdinalIgnoreCase)));
             if (kind is not null) q = q.Where(e => e.Kind == kind);
             if (taskKey is not null) q = q.Where(e => e.TaskKey == taskKey); // strict equality (admin filter)
             if (scope is not null) q = q.Where(e => e.Scope == scope);

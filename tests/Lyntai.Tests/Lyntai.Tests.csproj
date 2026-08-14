@@ -32,6 +32,9 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <!-- Direct only to RAISE the transitive SSH.NET that Testcontainers pulls past its advisory
+         (GHSA-q939-rpr3-3284) — nothing in this project uses SSH. See src/Directory.Packages.props. -->
+    <PackageReference Include="SSH.NET" />
   </ItemGroup>
 
 </Project>

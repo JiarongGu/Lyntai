@@ -20,7 +20,7 @@ namespace Lyntai.Tools.Mcp.Hosting;
 /// itself lives in <c>ModelContextProtocol.Core</c> — <see cref="StreamableHttpServerTransport"/> works on
 /// plain <see cref="Stream"/>s — so the ASP.NET package only ever supplied Kestrel routing glue. Dropping it
 /// removes a framework reference on <c>Microsoft.AspNetCore.App</c>, which a console or desktop consumer has no
-/// reason to acquire just to let a CLI call its tools (<c>docs/DECISIONS.md</c> D31).</para>
+/// reason to acquire just to let a CLI call its tools (<c>docs/DECISIONS.md</c> D25).</para>
 /// <para><see cref="HttpListener"/> is the right tool for exactly this shape: a loopback-only, short-lived
 /// endpoint. It needs no URL ACL (and no elevation) for <c>127.0.0.1</c>, and is implemented in managed code on
 /// non-Windows platforms. It would be the wrong choice for an internet-facing server — which this never is.</para>

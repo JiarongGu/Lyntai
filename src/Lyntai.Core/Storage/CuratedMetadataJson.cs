@@ -9,7 +9,7 @@ namespace Lyntai.Storage;
 /// to the database; only this code parses it). Keys are sorted (ordinal) for a stable, deterministic column
 /// form; a null/empty map serializes to <c>null</c> (an empty metadata set is stored as SQL NULL, never
 /// <c>"{}"</c>). Hand-written via <see cref="Utf8JsonWriter"/>/<see cref="JsonDocument"/> — no reflection
-/// serialization (AOT-clean; see <c>docs/DECISIONS.md</c> D17).</summary>
+/// serialization (AOT-clean; see <c>docs/DECISIONS.md</c> D14).</summary>
 public static class CuratedMetadataJson
 {
     /// <summary>Serialize a metadata map to a canonical (sorted-key) JSON object string, or <c>null</c> when

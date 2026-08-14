@@ -104,7 +104,7 @@ public class LyntaiChatClientTests
     {
         var (chat, provider) = Build();
         // NotConfigured is the case that motivated this: "never set up" is not a fault, and a host is meant
-        // to answer it with a setup prompt rather than an error report (LlmVerdict.NotConfigured, D38).
+        // to answer it with a setup prompt rather than an error report (LlmVerdict.NotConfigured, D31).
         provider.Replies.Enqueue(new LlmReply("", LlmVerdict.NotConfigured, Detail: "no api key"));
 
         var ex = await Assert.ThrowsAsync<LlmVerdictException>(() =>

@@ -35,7 +35,7 @@ public sealed record GenerationRenderJobOptions(TimeSpan? PollDelay = null)
 /// </remarks>
 /// <param name="router">Routes the submission across capable candidates.</param>
 /// <param name="providers">The registered backends — used to find the one that owns a checkpointed operation.</param>
-/// <param name="sink">Where finished artifacts go (the app's concern, D30).</param>
+/// <param name="sink">Where finished artifacts go (the app's concern, D24).</param>
 /// <param name="options">Poll cadence.</param>
 /// <param name="usage">Optional spend ledger. A durable render's cost is only known when it FINISHES, and by
 /// then the request that submitted it is long gone — so the handler is the only place that can bill it. Wired

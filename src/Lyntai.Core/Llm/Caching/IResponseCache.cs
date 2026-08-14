@@ -50,6 +50,11 @@ public static class ResponseCacheKey
         AddInt(h, req.MaxTokens ?? -1);
         AddString(h, req.Temperature?.ToString("R", CultureInfo.InvariantCulture));
         AddString(h, req.JsonSchema);
+        // Reasoning is an OUTPUT DETERMINANT, so it belongs in the key: the same prompt asked with and
+        // without intermediate reasoning can come back with different text, and on a thinking model the
+        // difference is the whole reply. Serving a suppressed-reasoning caller a cached reasoning-laden hit
+        // would be exactly the "cached the wrong shape" bug the excluded-set discipline exists to prevent.
+        AddInt(h, (int)req.Reasoning);
         AddInt(h, req.Messages.Count);
         foreach (var m in req.Messages)
         {

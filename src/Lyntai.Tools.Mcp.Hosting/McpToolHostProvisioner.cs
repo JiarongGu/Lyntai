@@ -60,7 +60,7 @@ internal sealed class McpToolHostProvisioner(
         //
         // TWIN: `CliTempFile.Write` in Lyntai.Providers.Default does the same for an agent session's
         // --mcp-config document. It cannot be shared — a provider package must never reference this one
-        // (docs/DECISIONS.md D23) — so if the permission logic changes here, change it there too.
+        // (docs/DECISIONS.md D17) — so if the permission logic changes here, change it there too.
         var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
         if (!OperatingSystem.IsWindows())
             options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;

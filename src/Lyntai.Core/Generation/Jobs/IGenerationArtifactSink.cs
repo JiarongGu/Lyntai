@@ -1,7 +1,7 @@
 namespace Lyntai.Generation.Jobs;
 
 /// <summary>Where a finished durable generation's artifacts go. Implemented by the APP, because the platform
-/// deliberately doesn't own output locations (<c>docs/DECISIONS.md</c> D26/D30) — Lyntai routes and tracks the
+/// deliberately doesn't own output locations (<c>docs/DECISIONS.md</c> D20/D24) — Lyntai routes and tracks the
 /// render; the app decides whether the bytes become a file, a blob, a database row or a UI notification.</summary>
 /// <remarks>Required rather than optional for the render job handler: a durable render whose artifacts were
 /// dropped on the floor completed in name only, so there is no sensible default to fall back to.</remarks>

@@ -37,7 +37,7 @@ public enum GenerationFallbackAction
 /// deliberately lists a hosted backend AND a locally-run one, where the hosted one refuses content the local
 /// one has no policy against. Then <c>On(Refused, Advance)</c> is exactly right — and it is the HOST's call,
 /// not Lyntai's. Same reasoning, and the same shape, as the LLM router's policy
-/// (<c>docs/DECISIONS.md</c> D10).</summary>
+/// (<c>docs/DECISIONS.md</c> D3).</summary>
 public sealed class GenerationRoutingPolicy
 {
     private readonly Dictionary<GenerationVerdict, GenerationFallbackAction> _actions = new()

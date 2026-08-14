@@ -4,16 +4,17 @@
 >
 > **SHIPPED:** Plan 1 (this document's own tasks) through Plan 5, plus Plan 6's tool/MCP-bridge half, all
 > landed in **2.0.1** on 2026-08-04 — archived as `docs/task-archive.md` Parts 32–33, reasoning in
-> `docs/DECISIONS.md` D30/D31.
+> `docs/DECISIONS.md` D24/D25.
 >
 > **NOT EXECUTABLE AS WRITTEN:** everything from here down to `## Subsequent plans` is the record of *how*
 > the core was built, not a set of steps to run. Its unticked boxes are history, and its assembly layout is
 > superseded twice over: the 2.0.1 restructure moved the generation **contracts** into
-> `src/Lyntai.Core/Generation/` (D31) — so the "File structure" table's `src/Lyntai.Generation/` package is
-> not where those files live — and D34 then re-split the **backends** into the `Lyntai.Generation` package
-> under `Lyntai.Generation.Providers`. That split is package-and-reason-scoped: it is the BACKENDS package
+> `src/Lyntai.Core/Generation/` — so the "File structure" table's `src/Lyntai.Generation/` package is
+> not where those files live — and the **backends** were then re-split into the `Lyntai.Generation` package
+> under `Lyntai.Generation.Providers`. Both moves are D25, whose two clauses are the dependency-footprint
+> test and the release-cadence exception. That split is package-and-reason-scoped: it is the BACKENDS package
 > that ships EXPERIMENTAL, while the contracts in the `Lyntai.Generation` namespace sit inside the mandatory
-> `Lyntai.Core` and carry the FULL SemVer promise (see `CLAUDE.md`, and `DECISIONS.md` D43, which applied it).
+> `Lyntai.Core` and carry the FULL SemVer promise (see `CLAUDE.md`, and `DECISIONS.md` D36, which applied it).
 >
 > **STILL LIVE:** Plan 6's streaming-TTS half and Plan 7 (pipelines) under `## Subsequent plans`, and the
 > `## Decisions (2026-08-04)` section including its `### Still open` items. The live backlog for them is
@@ -23,6 +24,11 @@
 > Its rule references are the ones that existed when it was written — `dev-conventions.md` has since been
 > retired into `.claude/rules/dotnet-package-layout.md` and `.claude/rules/repo-mechanics.md`, so any
 > remaining `dev-conventions.md` citation in the body below (the sample XML doc in Task 7) resolves there.
+
+<!-- compile-skip-file: every C# block below is this plan's own implementation source AS FIRST WRITTEN,
+     including its xunit test files — a record of how the core was built, superseded twice over by D25's two
+     clauses (see the STATUS banner above). They also declare types into `namespace Lyntai.*`, which in a shared
+     compilation would outrank the shipped assemblies for every other sample. -->
 
 > **For agentic workers:** this plan is executed task-by-task, TDD, with a commit per task. Steps use
 > checkbox (`- [ ]`) syntax for tracking. `superpowers:executing-plans` (inline) or
@@ -71,7 +77,7 @@ one-provider-per-model, or every aggregator becomes N fake providers.
 
 **3. The medium must be an OPEN value.** fal already lists 3D alongside image/video/audio. A closed enum would
 make the next medium a breaking change — so `Kind` is a string with well-known constants, the same call the
-repo already made for `ProviderAuthStatus.Method` and `ProviderInstallRequest.Version` (`DECISIONS.md` D26).
+repo already made for `ProviderAuthStatus.Method` and `ProviderInstallRequest.Version` (`DECISIONS.md` D20).
 
 **3b. Media CHAINS, and the contract must not close that door.** A real workflow is a pipeline, not one call:
 **3d → image → video** (render a mesh to stills, animate the stills), or image → video-from-first-frame, or
@@ -86,7 +92,7 @@ has all three), max duration (WAN: ~10s), resolution ceilings, voice lists, work
 (ComfyUI) vs prompt backends. Routing that cannot ask "can this backend even do this request?" is useless.
 
 **5. Probing must not cost a generation.** A sibling app currently tests its image provider with a
-generate-and-discard — the same waste `IProviderAuth` removed for LLM auth (D26). Its *video* seam already
+generate-and-discard — the same waste `IProviderAuth` removed for LLM auth (D20). Its *video* seam already
 does it right (`CheckAsync` → availability), so the correct shape exists in their code; the platform makes it
 the contract for every medium.
 
@@ -94,8 +100,8 @@ the contract for every medium.
 
 - **Generation itself.** No inference, no ffmpeg pipeline authoring, no model math. Backends generate.
 - **Engine/weights provisioning.** Downloading a `sd-cli` binary or a ~1.7 GB GGUF stays the host's concern
-  (`DECISIONS.md` D26). The platform reports "not configured"; the app provisions.
-- **Hosting a webhook endpoint.** Lyntai is a library, not a server (the only scoped exception is D23's
+  (`DECISIONS.md` D20). The platform reports "not configured"; the app provisions.
+- **Hosting a webhook endpoint.** Lyntai is a library, not a server (the only scoped exception is D17's
   ephemeral MCP host). The app owns its HTTP endpoint and calls `FetchAsync(operationId)` when it fires —
   which is why fetch-by-id is on the contract.
 - **Where artifacts land.** No media library, no storage domain in this plan. Bytes/URIs go back to the caller.
@@ -308,7 +314,7 @@ namespace Lyntai.Generation;
 /// <see cref="GenerationRequest.Kind"/> is an open string so a backend offering a medium nobody has modelled yet
 /// (3D meshes already ship on real aggregators; speech-to-speech, motion, whatever follows) fits without a
 /// breaking contract change. Same reasoning as the free-form <c>Method</c>/<c>Version</c> values in
-/// <c>DECISIONS.md</c> D26.</summary>
+/// <c>DECISIONS.md</c> D20.</summary>
 public static class GenerationKinds
 {
     public const string Image = "image";
@@ -1082,7 +1088,7 @@ using Lyntai.Generation;
 namespace Lyntai.Tests.Generation;
 
 /// <summary>Media keeps its OWN verdict vocabulary, but NOT its own corpus of "what does this failure mean" —
-/// that would be a second set of regexes to drift (the mistake `DECISIONS.md` D27 exists to prevent). The
+/// that would be a second set of regexes to drift (the mistake `DECISIONS.md` D21 exists to prevent). The
 /// classifier maps transport/text failures through Core's shared classifier and translates the answer.</summary>
 public class GenerationVerdictClassifierTests
 {
@@ -1145,7 +1151,7 @@ namespace Lyntai.Generation;
 /// into media's vocabulary. That is the deliberate middle path between the two bad options: media does not
 /// adopt LLM-named types (it is a separate domain), and it does not carry a second copy of the "what does a
 /// 429 / a content-policy refusal look like" corpus, which would drift out of sync
-/// (<c>DECISIONS.md</c> D27). Consumer-registered matchers on the shared classifier therefore teach BOTH
+/// (<c>DECISIONS.md</c> D21). Consumer-registered matchers on the shared classifier therefore teach BOTH
 /// domains at once.</summary>
 public static class GenerationVerdictClassifier
 {
@@ -1678,7 +1684,7 @@ only the intended public surface (no accidental leakage of a helper).
 - [ ] **Step 3: Add a decision entry** — append to `docs/DECISIONS.md`:
 
 ```markdown
-## D30 — media generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
+## D24 — media generation is a PLATFORM in its own domain, coupled to the LLM side only through tools (2026-08-04)
 `Lyntai.Generation` is a separate domain package with its own contracts and its own `GenerationVerdict`, not an
 extension of the LLM stack. Three findings forced the shape, and a future session must not "simplify" them
 away:
@@ -1698,10 +1704,10 @@ away:
 referencing the other's concrete types. Where media wants an LLM (prompt rewriting), it takes `ILlmClient` —
 handed in, never owned.
 
-**Not a generation engine (per D26):** no inference, no ffmpeg pipeline authoring, no engine/weights
+**Not a generation engine (per D20):** no inference, no ffmpeg pipeline authoring, no engine/weights
 provisioning, no webhook hosting (the app owns its endpoint and calls `FetchAsync`), no artifact storage.
 Failure PATTERNS are still shared — `GenerationVerdictClassifier` delegates to `LlmVerdictClassifier` — so there is
-one corpus of "what does a 429 mean", per D27's rule against a second copy of the rules.
+one corpus of "what does a 429 mean", per D21's rule against a second copy of the rules.
 ```
 
 - [ ] **Step 4: Add the README section**
@@ -1759,12 +1765,12 @@ Every backend answers **"are you usable?"** without generating anything (`ProbeA
 never has to pay for a test image.
 
 **Not in scope, by design:** generation itself, downloading engines or model weights, hosting a webhook
-endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D26 and D30.
+endpoint, storing artifacts, or holding your credentials — see `docs/DECISIONS.md` D20 and D24.
 ````
 
 - [ ] **Step 5: Add the CHANGELOG entry**
 
-Under `## Unreleased` (create the heading if absent — and NEVER stamp it with a version, `DECISIONS.md` D25):
+Under `## Unreleased` (create the heading if absent — and NEVER stamp it with a version, `DECISIONS.md` D19):
 
 ```markdown
 ### Added
@@ -1781,7 +1787,7 @@ Under `## Unreleased` (create the heading if absent — and NEVER stamp it with 
   otherwise requires. Media keeps its own `GenerationVerdict` vocabulary but **shares the failure corpus**
   (`GenerationVerdictClassifier` delegates to `LlmVerdictClassifier`), so there is one definition of what a 429 or a
   content refusal means. Lyntai generates nothing itself: no inference, no engine/weights provisioning, no
-  webhook host, no artifact storage (`docs/DECISIONS.md` D26, D30). The LLM stack gains **zero** dependency on
+  webhook host, no artifact storage (`docs/DECISIONS.md` D20, D24). The LLM stack gains **zero** dependency on
   media — the bridge is `ITool`/MCP.
 ```
 
@@ -1792,7 +1798,7 @@ Expected: all gates green.
 
 ```bash
 git add -A
-git commit -m "feat(media): seed the API baseline and document the platform (D30)"
+git commit -m "feat(media): seed the API baseline and document the platform (D24)"
 ```
 
 - [ ] **Step 7: Update the backlog**
@@ -1802,7 +1808,7 @@ beneath its **Done when** paragraph — do NOT archive Part 32 until the later p
 
 ```markdown
   **Status 2026-08-04:** the platform core landed — see `docs/2026-08-04-generation-platform-plan.md` (Plan 1) and
-  `docs/DECISIONS.md` D30. Remaining: Plan 2 (HTTP image backends), Plan 3 (local subprocess backend),
+  `docs/DECISIONS.md` D24. Remaining: Plan 2 (HTTP image backends), Plan 3 (local subprocess backend),
   Plan 4 (async video + `Lyntai.Jobs` composition), Plan 5 (governance/telemetry parity), Plan 6 (tool/MCP
   bridge + streaming audio), Plan 7 (pipelines: 3d → image → video).
 ```

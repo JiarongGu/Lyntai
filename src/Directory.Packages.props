@@ -42,6 +42,15 @@
          the Postgres/Docker-gated tests report as SKIPPED (visible) rather than silently PASS -->
     <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
+    <!-- TRANSITIVE PIN, not a dependency this repository uses. Testcontainers 4.13.0 drags SSH.NET 2025.1.0,
+         which carries a known HIGH-severity advisory (GHSA-q939-rpr3-3284) and so makes every restore of the
+         test project emit NU1903. Nothing else would surface it: `check-warnings` gates `src/` projects only
+         — deliberately, since a warning there is a false trim promise shipped to consumers — and this is a
+         test-only package that reaches no consumer. So the warning sat in every build output, unread, which
+         is exactly how a real one gets missed later. Raised to the fixed 2026.0.0.
+         Remove this line once Testcontainers itself moves past the advisory; the version below has to keep
+         being at least as new as whatever Testcontainers resolves, or it does nothing. -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
 
     <!-- benchmarks -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />

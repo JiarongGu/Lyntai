@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="OpenAiImageProvider"/>.</summary>
-/// <remarks>Credentials are passed IN by the host and never stored (D26/D30) — read
+/// <remarks>Credentials are passed IN by the host and never stored (D20/D24) — read
 /// <see cref="ApiKey"/> from your own configuration or secret store.</remarks>
 public sealed record OpenAiImageOptions
 {

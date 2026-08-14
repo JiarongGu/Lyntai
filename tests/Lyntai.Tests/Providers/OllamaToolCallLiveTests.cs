@@ -17,20 +17,10 @@ namespace Lyntai.Tests.Providers;
 /// </summary>
 public class OllamaToolCallLiveTests
 {
-    private static string BaseUrl => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL") ?? "http://localhost:11434";
+    private static string BaseUrl => Lyntai.Tests.Live.OllamaLive.BaseUrl;
     private static string Model => Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_TOOL_MODEL") ?? "llama3.1";
 
-    private static async Task<bool> LiveAsync()
-    {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LYNTAI_LIVE_OLLAMA"))) return false;
-        try
-        {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-            using var resp = await http.GetAsync($"{BaseUrl}/api/tags");
-            return resp.IsSuccessStatusCode;
-        }
-        catch { return false; }
-    }
+    private static Task<bool> LiveAsync() => Lyntai.Tests.Live.OllamaLive.IsAvailableAsync();
 
     [SkippableFact]
     public async Task Model_calls_a_registered_tool_and_the_loop_returns_a_tool_informed_answer()

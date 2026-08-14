@@ -1,15 +1,20 @@
+using System.Globalization;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Forgetting;
+using Lyntai.Memory.Interference;
+using Lyntai.Memory.Ranking;
+using Lyntai.Memory.Salience;
 using Lyntai.Storage.InMemory;
 
 namespace Lyntai.Tests.Memory;
 
 public class GraphMemoryEngineTests
 {
-    /// <summary>An undamped per-write clock, so these facts age deterministically by counting: every write
+    /// <summary>An undamped per-write age policy, so these facts age deterministically by counting: every write
     /// crowds by exactly one, and nothing depends on how fast the test happens to run.</summary>
     private static GraphMemoryEngine Engine(GraphMemoryOptions? options = null) =>
-        new("project/graph", new InMemoryMemoryGraphStore(), options, memoryClock: new PerWriteClock());
+        new("project/graph", new InMemoryMemoryGraphStore(), options, agePolicies: [new PerWriteAgePolicy()]);
 
     /// <summary>Make everything already stored older by writing unrelated material — which is what ages a
     /// memory now: newer material competing with it.</summary>
@@ -97,7 +102,7 @@ public class GraphMemoryEngineTests
     [Fact]
     public async Task Reading_does_not_age_anything()
     {
-        // the property the interference clock exists for: a read-only agent never forgets by reading
+        // the property interference-measured age exists for: a read-only agent never forgets by reading
         var engine = Engine();
         await engine.RememberAsync(new MemoryWrite("t", "s", "a stable fact"));
 
@@ -130,20 +135,37 @@ public class GraphMemoryEngineTests
     {
         // BURIED, NOT CUT: nothing outranks it, so it is still the best thing there. It comes back faint —
         // the caller can see how faint from Retrievability — but it comes back.
+        //
+        // Crowd count and threshold retuned for DsrRetrievability, the bare-constructor default as of 3.0
+        // (docs/DECISIONS.md — HalfLifeRetrievability, whose fast exponential decay reached r<0.01 at a
+        // crowd of 200, is deleted). DSR's heavier power-law tail decays far more slowly by design — the
+        // property FSRS was adopted for — so reaching an absolute r<0.01 needs many tens of thousands of
+        // writes; 2000 keeps this fast while still being unmistakably faint relative to a fresh recall's
+        // r=1. MEASURED (fix round 1): 0.057639, comfortably under the loosened 0.1 bar below.
         var engine = Engine();
         await engine.RememberAsync(new MemoryWrite("t", "s", "one-off noise"));
 
-        await Crowd(engine, 200);
+        await Crowd(engine, 2000);
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "noise"));
 
         Assert.Single(recall.Items);
-        Assert.True(recall.Items[0].Retrievability < 0.01, "it should be faint, just not gone");
+        Assert.True(recall.Items[0].Retrievability < 0.1, "it should be faint, just not gone");
     }
 
     [Fact]
     public async Task A_faint_memory_is_buried_once_something_stronger_exists()
     {
-        var engine = Engine();
+        // Explicit RelativeFloor (2026-08-10, fsrs-properly plan Task 1) rather than a much larger crowd
+        // count: burial is decided by MultiplicativeRankingOptions.RelativeFloor, RELATIVE to the best score
+        // in the result set, and DSR's heavy tail keeps a merely-200-writes-old entry well above the
+        // shipped 0.02 default (MEASURED, fix round 1: old note alone reads 0.179213 at this age — 18% of a
+        // fresh one's r=1), so it would take tens of thousands of writes to push it under that specific bar
+        // by decay alone. Raising the floor here to 0.5 (comfortably above the measured 0.179) proves the
+        // same "something stronger buries something faint" claim this fact has always made, without
+        // resurrecting the write count HalfLifeRetrievability's much faster decay used to need.
+        var ranking = new MultiplicativeRankingPolicy(new MultiplicativeRankingOptions { RelativeFloor = 0.5 });
+        var engine = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            agePolicies: [new PerWriteAgePolicy()], ranking: ranking);
         await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"));
         await Crowd(engine, 200);
         await engine.RememberAsync(new MemoryWrite("t", "s", "a fresh note about widgets"));
@@ -257,7 +279,17 @@ public class GraphMemoryEngineTests
 
         // both are still there — connectedness stretches the hub's half-life, it does not save it from
         // deletion, because nothing here deletes
-        Assert.True(connected.Retrievability > alone.Retrievability * 3,
+        //
+        // Threshold lowered for DsrRetrievability (2026-08-10, fsrs-properly plan Task 1): under the deleted
+        // exponential curve, a stability boost compounds EXPONENTIALLY with age (r = 2^(-age/(S*boost))), so
+        // the connected/isolated ratio grows without bound as age increases. Under DSR's power law the same
+        // boost only rescales the curve's ARGUMENT, so the ratio APPROACHES a ceiling of
+        // sqrt(MaxConnectionBoost) (= 2 at the shipped default of 4) as age grows, and edge-weight decay
+        // (GraphMemoryOptions.EdgeHalfLife) further shrinks the boost actually in force by the time this
+        // recall happens — measured, ~1.4x at this crowd. A ratio bound this file's own predecessor could
+        // ask for unconditionally is now mathematically unreachable; this still proves the same claim
+        // (connectedness measurably helps) with a bound DSR can actually clear.
+        Assert.True(connected.Retrievability > alone.Retrievability * 1.2,
             $"connectedness barely mattered: {connected.Retrievability:F4} vs {alone.Retrievability:F4}");
     }
 
@@ -266,7 +298,7 @@ public class GraphMemoryEngineTests
     {
         // a read-only database must degrade to "no learning", never to "no memory"
         var engine = new GraphMemoryEngine("project/graph", new TouchHostileGraphStore(),
-            memoryClock: new PerWriteClock());
+            agePolicies: [new PerWriteAgePolicy()]);
         await engine.RememberAsync(new MemoryWrite("t", "s", "still recalled"));
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "still"));
@@ -289,8 +321,499 @@ public class GraphMemoryEngineTests
         // connection-boost ceiling. So prune UNDER-reaps rather than over-reaps: an entry can be below the
         // recall floor and still not be deleted. That is the right direction for a destructive operation,
         // and it is why this needs far more crowding than the recall floor does.
-        await Crowd(engine, 400);
+        //
+        // Crowd raised for DsrRetrievability (2026-08-10, fsrs-properly plan Task 1): 400 writes cleared the
+        // deleted exponential curve's 0.05 floor at InitialStability 20 in a few half-lives; DSR's heavier
+        // tail needs far more age to fall under the same floor. MEASURED (fix round 1, via a direct
+        // store read of DsrRetrievability.Retrievability — bypassing RecallAsync so the probe itself does
+        // not reinforce the entry it is measuring): r=0.128037 at a crowd of 400 (still above the floor,
+        // confirming 400 no longer prunes), r=0.047088 at 3000 (technically under the floor but only ~6%
+        // below it — tighter than every other retuned margin in this sweep), r=0.033318 at 6000 (~33% below
+        // the floor, matching the margin quality used elsewhere). 6000 is what ships.
+        await Crowd(engine, 6000);
         var removed = await engine.PruneAsync("t", "s", minRetrievability: 0.05);
+
+        Assert.Equal(1, removed);
+    }
+
+    /// <summary>Fix round 1, I-1's own failure scenario, reproduced directly: a corpus built under
+    /// <see cref="ContentSizeAgePolicy"/> (the store's raw position accumulator advances in CHARACTERS,
+    /// growing large fast), then a SECOND engine instance over the SAME store, reconfigured to
+    /// <see cref="PerWriteAgePolicy"/> alone (resolved age = ordinal WRITE count, small). Before this fix,
+    /// <see cref="GraphMemoryEngine.PruneAsync"/> always delegated to the store's cheap, accumulator-based
+    /// cutoff — which still held the STALE, chars-based residue from before the swap — and would reap an
+    /// entry the swapped engine's own <c>RecallAsync</c> correctly rates well within its retention window.
+    /// No recall runs on either engine before the assertion, so nothing is reinforced/touched first — the
+    /// accumulator is exactly what the ContentSize-governed writes above left it at.
+    /// <para><b>Fix round 2, I-1: extended to a CONNECTED entry, which the original scenario above
+    /// structurally cannot exercise.</b> "the seed fact" alone has <c>Strength == 0</c> (no edge, no recall,
+    /// no embedder before this point), so it was never routed through
+    /// <c>GraphMemoryEngine.HasUnknownStrengthUnit</c>'s guard at all — round 1's own fix (re-deriving
+    /// <c>Age</c>) is a complete story for an UNCONNECTED entry, and this method's first half still proves
+    /// exactly that, unmodified. "the linked fact" below is EXPLICITLY linked to a neighbour while
+    /// <see cref="ContentSizeAgePolicy"/> still governs the store (so <c>strengthened_position</c> is stamped
+    /// in the CHARS unit), then the same 50-filler crowd leaves its <c>StrengthAge</c> stale by the same
+    /// ~10,000 the round-1 scenario already measures for <c>Age</c> — except <c>StrengthAge</c> is never
+    /// re-derived by anything, round 1 or round 2, so after the swap it is STILL that stale number. A floor
+    /// the entry would clear with its rightful connection boost intact, but would NOT clear if that boost
+    /// collapsed to 1x under the bogus, enormous <c>StrengthAge</c> (exactly as if it had no edge at all), is
+    /// what actually discriminates the fix: see the mutation-check note below.</para></summary>
+    [Fact]
+    public async Task Prune_agrees_with_recall_after_a_policy_swap_rather_than_reaping_the_stale_accumulator()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
+
+        await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the seed fact"));
+
+        // fix round 2, I-1: an EXPLICITLY connected entry, linked EARLY (position still small) so its
+        // `strengthened_position` is stamped in the CHARS unit about to become stale — mirroring exactly how
+        // "the seed fact" above is aged: written first, then left behind by 50 chars-heavy filler writes.
+        var linked = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the linked fact"));
+        var neighbour = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "a linked neighbour"));
+        await underContentSize.LinkAsync(linked, neighbour, weight: 20, symmetric: true);
+
+        var filler = new string('x', 200);
+        for (var i = 0; i < 50; i++)
+            await underContentSize.RememberAsync(new MemoryWrite("t", "s", $"{filler} {i}"));
+
+        // SWAP: a fresh engine instance over the SAME store, now governed by PerWriteAgePolicy alone.
+        var underPerWrite = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()]);
+
+        // 50 ordinal writes at InitialStability 20 clears a modest floor easily (2^(-50/20) ~ 0.177). The
+        // SAME fact under the STALE chars-based accumulator (~50*200=10000 over the same stability) reads
+        // 2^(-500) — indistinguishable from zero — which is exactly the divergence round 1's fix closes: the
+        // pre-round-1 code would have reaped it.
+        var removed = await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.05);
+        Assert.Equal(0, removed);
+
+        var recalled = await underPerWrite.RecallAsync(new MemoryQuery("t", "s", "seed"));
+        Assert.Single(recalled.Items);
+
+        // fix round 2, I-1's own assertion: a stricter floor. Plenty of OLD, UNCONNECTED filler genuinely
+        // fails 0.3 and is correctly reaped (unrelated to this fix — nothing protects an unconnected entry
+        // beyond round 1's own age re-derivation), so this does NOT assert `removed == 0` overall. What it
+        // asserts is narrower and load-bearing: "the linked fact" specifically survives.
+        //
+        // 3.0 pre-freeze: it now survives ON ITS MERITS rather than behind the blanket guard this originally
+        // pinned. StrengthAge is re-derived in the CURRENT policy's unit (50 writes, not ~10,150 chars), so
+        // the entry keeps its rightful connection boost and reads r ~ 0.486 — clear of 0.3. Reading the raw
+        // chars-unit residue instead collapses the boost to 1x and gives ~0.340, which also clears 0.3, so
+        // this assertion no longer discriminates between the two on its own; that is exactly what
+        // Prune_reaps_a_connected_entry_on_its_re_derived_strength_age_instead_of_refusing_outright's
+        // two-sided 0.40/0.60 pair exists to do.
+        await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.3);
+        var stillLinked = await underPerWrite.RecallAsync(new MemoryQuery("t", "s", "linked"));
+        Assert.Contains(stillLinked.Items, i => i.Headline.Contains("the linked fact", StringComparison.Ordinal));
+    }
+
+    /// <summary><b>A connected entry's <c>StrengthAge</c> is re-derived in the CURRENT age policy's own unit,
+    /// so pruning is EXACT for it rather than merely conservative</b> (3.0 pre-freeze; closes the
+    /// "future work" the design doc §5.7 and <c>GraphMemoryEngine.PruneAsync</c>'s own remarks recorded).
+    /// <para>Before this, <c>Strength</c>/<c>StrengthAge</c> were the store's raw
+    /// <c>position - strengthened_position</c> subtraction in whatever unit was in force when the edge was
+    /// last strengthened, while <c>Age</c> re-derived from the swap-safe primitives — so the derivable prune
+    /// path could not trust the connection boost and refused to delete ANY connected entry on the
+    /// retrievability criterion. That is safe but wrong: a genuinely unretrievable connected entry was
+    /// unreapable forever.</para>
+    /// <para><b>Both halves are load-bearing, and they fail in OPPOSITE directions</b> — which is what makes
+    /// this discriminate the real fix from either mistake. The scenario is the swap
+    /// <see cref="Prune_agrees_with_recall_after_a_policy_swap_rather_than_reaping_the_stale_accumulator"/>
+    /// already establishes: writes governed by <see cref="ContentSizeAgePolicy"/> (position counts CHARS,
+    /// reaching ~10,150 by the end), then a second engine over the same store governed by
+    /// <see cref="PerWriteAgePolicy"/> alone (resolved age counts WRITES, 51).
+    /// <list type="bullet">
+    /// <item><b>Floor 0.40 — the entry must SURVIVE.</b> With its strength age correctly re-derived as 50
+    /// WRITES, <c>EffectiveStrength = 20·2^(-50/100) = 14.14</c>, so the boost is
+    /// <c>1 + 0.5·ln(15.14) = 2.36</c> and the effective stability <c>20·2.36 = 47.2</c> —
+    /// <c>r = (1 + 3·51/47.2)^-0.5 = 0.486</c>, comfortably clear. An implementation that kept reading the
+    /// RAW, chars-unit <c>StrengthAge</c> (~10,150) collapses the boost to <c>1×</c>, giving
+    /// <c>r = (1 + 3·51/20)^-0.5 = 0.340</c> — below the floor, so the entry is wrongly reaped and this half
+    /// reddens.</item>
+    /// <item><b>Floor 0.60 — the same entry must be REAPED.</b> Its true <c>r</c> is 0.486, genuinely below
+    /// 0.60. The old blanket guard (<c>never delete an entry with Strength &gt; 0 &amp;&amp; StrengthAge &gt;
+    /// 0</c>) retains it unconditionally, so this half is what reddens against the pre-fix code.</item>
+    /// </list>
+    /// Ordered survive-then-reap on ONE store deliberately: the 0.40 prune leaves both endpoints (and so the
+    /// edge) intact, which is what makes the 0.60 prune a test of the same connected state rather than of an
+    /// entry that quietly lost its link.</para></summary>
+    [Fact]
+    public async Task Prune_reaps_a_connected_entry_on_its_re_derived_strength_age_instead_of_refusing_outright()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
+
+        var linked = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the linked fact"));
+        var neighbour = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "a linked neighbour"));
+        await underContentSize.LinkAsync(linked, neighbour, weight: 20, symmetric: true);
+
+        var filler = new string('x', 200);
+        for (var i = 0; i < 50; i++)
+            await underContentSize.RememberAsync(new MemoryWrite("t", "s", $"{filler} {i}"));
+
+        var underPerWrite = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()]);
+        var id = long.Parse(linked.Id, CultureInfo.InvariantCulture);
+
+        // the rightful connection boost clears 0.40 — reading the raw chars-unit StrengthAge does not
+        await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.40);
+        Assert.NotNull(await store.GetAsync("e", id));
+
+        // ...and it is genuinely below 0.60, so it is now reapable rather than guarded forever
+        await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.60);
+        Assert.Null(await store.GetAsync("e", id));
+    }
+
+    /// <summary><b>The THIRD age axis — an edge's own traversal age — is projected through the installed age
+    /// policies too, so all three axes finally speak one unit.</b> `Age` and `StrengthAge` were made
+    /// swap-safe first; `GraphNeighbour.EdgeAge` was the last one still read as the raw
+    /// <c>position - strengthened_position</c> accumulator, which after a policy swap mixes pre- and
+    /// post-swap units WITHIN ITSELF.
+    /// <para>Unlike the other two this one never deleted anything — it only orders a traversal — which is why
+    /// it is a coherence fix rather than a measured data-loss bug. It is taken inside the 3.0 window for the
+    /// same reason D50 and D52's own item were: adding a member to the <c>GraphNeighbour</c> record is
+    /// binary-breaking, so it is free today and a whole major afterwards.</para>
+    /// <para><b>The scenario makes the two units disagree by construction.</b> Under
+    /// <see cref="ContentSizeAgePolicy"/> the position counts CHARS, so the far edge — linked early, then
+    /// buried under ~10,150 characters of filler — reads an edge age of ~10,168 positions but only 51 WRITES.
+    /// At the shipped <c>EdgeHalfLife</c> of 100:
+    /// <list type="bullet">
+    /// <item>raw (chars): <c>100 × 2^(-10168/100)</c> is indistinguishable from zero, so the weak-but-fresh
+    /// "near" edge (weight 10, age 0) wins and this fact reddens;</item>
+    /// <item>projected (writes): <c>100 × 2^(-51/100) = 70.1</c>, comfortably above near's 10, so the heavy
+    /// edge correctly still leads.</item>
+    /// </list>
+    /// Weight 100 vs 10 is deliberately lopsided: the fact must turn on the AGE UNIT, not on the weights, so
+    /// the heavier edge has to be the one the raw unit wrongly buries.</para></summary>
+    [Fact]
+    public async Task Expansion_ranks_an_edge_by_its_re_derived_age_not_the_raw_position_accumulator()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
+
+        var hub = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the hub fact"));
+        var far = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the far neighbour"));
+        await underContentSize.LinkAsync(hub, far, weight: 100);
+
+        var filler = new string('x', 200);
+        for (var i = 0; i < 50; i++)
+            await underContentSize.RememberAsync(new MemoryWrite("t", "s", $"{filler} {i}"));
+
+        // linked LAST, so its edge is fresh on every scale — the control the far edge must still beat
+        var near = await underContentSize.RememberAsync(new MemoryWrite("t", "s", "the near neighbour"));
+        await underContentSize.LinkAsync(hub, near, weight: 10);
+
+        var underPerWrite = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()]);
+        var expanded = await underPerWrite.ExpandAsync(hub);
+
+        // items[0] is the expanded node itself; the neighbours follow, ordered by DECAYED edge weight
+        var neighbours = expanded.Items.Skip(1).Select(i => i.Headline).ToList();
+        Assert.Equal(2, neighbours.Count);
+        Assert.Contains("far", neighbours[0], StringComparison.Ordinal);
+    }
+
+    /// <summary><b>A recall does TWO separable things to every entry it returns — it RESETS the entry's age
+    /// and (when the curve is configured to) GROWS the entry's stability — and they are welded into one
+    /// call.</b> Pinned because the decomposition is the load-bearing finding of `TASKS.md` Part 64, and
+    /// nothing else in the suite states it.
+    /// <para><b>The growth half is switched on explicitly here, because as of 3.0 it is OFF by default</b>
+    /// (<c>DsrOptions.ReinforceGain = 0</c>, <c>docs/DECISIONS.md</c> D54 — retrieval-driven growth measured
+    /// as harmful, and capped and non-compounding variants both lost to not growing). The WELD is what this
+    /// fact is about and the weld is still there: one call, two effects, no way to ask for the reset without
+    /// the growth. That is precisely why the option gating them TOGETHER was reverted rather than
+    /// shipped.</para>
+    /// <para><b>Why it matters that these are separable in EFFECT but not in API.</b> Measured across four
+    /// studies on 2026-08-12, the two pull in OPPOSITE directions: the age reset is what keeps a
+    /// rarely-queried fact alive (removing it collapses recall quality on every shape), while the stability
+    /// growth is what entrenches whatever the ranking policy already favoured (it is what wrecks the
+    /// `topical` class). A `ReinforceOn` option that gated both together was written and REVERTED the same
+    /// day for exactly this reason — it could not express "reset age, do not grow", which is the
+    /// best-measured configuration and is reachable today only through
+    /// <c>DsrOptions.ReinforceGain = 0</c>.</para>
+    /// <para>Both assertions are POSITIVE. A test asserting only that something did not change would pass
+    /// just as well if the recall returned nothing at all (<c>pitfalls.md</c>), so the query here is a
+    /// literal contiguous substring of the content — belt and braces since 3.0, when
+    /// <see cref="Lyntai.Storage.SearchTerms"/> gave this store term-wise matching and a shared term would
+    /// have sufficed — and the recall is asserted non-empty before either effect is checked.</para>
+    /// <para>Crowding first is load-bearing rather than scene-setting: a just-written entry recalls at
+    /// <c>r = 1</c>, where law 3's term is <c>e^0 - 1 = 0</c>, so an immediate re-recall grows NOTHING by
+    /// design. Without ageing it, the stability half of this fact would pass vacuously.</para></summary>
+    [Fact]
+    public async Task A_recall_both_resets_age_and_grows_stability_in_one_inseparable_step()
+    {
+        const string content = "the deploy pipeline requires manual approval";
+        const string query = "deploy pipeline";   // contiguous in the content, so the match needs nothing clever
+
+        var store = new InMemoryMemoryGraphStore();
+        var engine = new GraphMemoryEngine("e", store,
+            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            agePolicies: [new PerWriteAgePolicy()]);
+        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
+
+        await Crowd(engine, 10);
+        var before = (await store.GetAsync("e", id))!;
+        Assert.True(before.OrdinalAge > 0, "the entry must have aged, or the reset below proves nothing");
+
+        Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", query))).Items);
+
+        var after = (await store.GetAsync("e", id))!;
+        Assert.Equal(0, after.OrdinalAge, precision: 9);                 // effect 1: the age reset
+        Assert.True(after.Stability > before.Stability,                   // effect 2: the stability growth
+            $"stability must grow on recall; was {before.Stability}, now {after.Stability}");
+    }
+
+    /// <summary><b>The two effects are separable in the API now, not only in principle — "reset the age, do
+    /// not grow the stability" is expressible without the curve's cooperation.</b> This is the configuration
+    /// four studies converged on (`TASKS.md` Part 64): the age reset is what keeps a rarely-queried critical
+    /// fact alive, the stability growth is what entrenches whatever the ranker already favoured.
+    /// <para><b>Why an ENGINE option and not the curve's own knob.</b> It is reachable today only through
+    /// <c>DsrOptions.ReinforceGain = 0</c> — one shipped curve's private constant. A consumer who writes
+    /// their own <see cref="IMemoryRetrievabilityPolicy"/>, or registers a future one, has no such knob and
+    /// no way to ask for this at all. Which effects a recall applies is the ENGINE's decision about
+    /// learning, not a property of the forgetting curve, so it belongs here.</para>
+    /// <para><b>The growth is switched ON at the policy explicitly</b> (<c>ReinforceGain = 2.0</c>), so the
+    /// assertion cannot pass by accident on 3.0's growth-free default — the curve is trying to grow and the
+    /// engine is what stops it. That also makes this the exact inverse of the weld fact above, which runs
+    /// the same policy with the same gain and gets both effects.</para></summary>
+    [Fact]
+    public async Task Reinforcement_effects_are_separable_the_age_resets_while_stability_is_left_alone()
+    {
+        const string content = "the deploy pipeline requires manual approval";
+        const string query = "deploy pipeline";
+
+        var store = new InMemoryMemoryGraphStore();
+        var engine = new GraphMemoryEngine("e", store,
+            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            agePolicies: [new PerWriteAgePolicy()],
+            options: new GraphMemoryOptions
+            {
+                Reinforcement = MemoryReinforcementEffects.AgeReset,
+            });
+        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
+
+        await Crowd(engine, 10);
+        var before = (await store.GetAsync("e", id))!;
+        Assert.True(before.OrdinalAge > 0, "the entry must have aged, or the reset below proves nothing");
+
+        Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", query))).Items);
+
+        var after = (await store.GetAsync("e", id))!;
+        Assert.Equal(0, after.OrdinalAge, precision: 9);                  // effect 1: still applied
+        Assert.Equal(before.Stability, after.Stability, precision: 9);    // effect 2: suppressed
+    }
+
+    /// <summary><b>The inverse control: with the SAME curve and the same gain, the default option set still
+    /// grows.</b> Without this, the fact above would pass just as well if the engine had stopped reinforcing
+    /// entirely, or if <c>ReinforceGain = 2.0</c> silently did nothing — both of which would make it a test
+    /// of the wrong thing. It is the same shape as the authoritative-survival control (D56): a promise about
+    /// a switch needs the switch's OTHER position measured too.</summary>
+    [Fact]
+    public async Task The_default_effect_set_still_grows_stability_so_the_suppression_above_is_the_option()
+    {
+        const string content = "the deploy pipeline requires manual approval";
+        const string query = "deploy pipeline";
+
+        var store = new InMemoryMemoryGraphStore();
+        var engine = new GraphMemoryEngine("e", store,
+            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            agePolicies: [new PerWriteAgePolicy()]);
+        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
+
+        await Crowd(engine, 10);
+        var before = (await store.GetAsync("e", id))!;
+
+        Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", query))).Items);
+
+        var after = (await store.GetAsync("e", id))!;
+        Assert.True(after.Stability > before.Stability,
+            $"the default must still grow; was {before.Stability}, now {after.Stability}");
+    }
+
+    /// <summary><b><see cref="MemoryReinforcementEffects.None"/> skips the store call outright — it is not
+    /// "touch with everything suppressed".</b> The measured "neither" arm collapsed combined recall quality
+    /// on every shape, so this position exists to be MEASURABLE and configurable, not because it is
+    /// recommended. Asserting the age too is what distinguishes it from
+    /// <see cref="MemoryReinforcementEffects.AgeReset"/>.</summary>
+    [Fact]
+    public async Task None_applies_neither_effect_so_a_recall_leaves_the_entry_exactly_as_it_found_it()
+    {
+        const string content = "the deploy pipeline requires manual approval";
+        const string query = "deploy pipeline";
+
+        var store = new InMemoryMemoryGraphStore();
+        var engine = new GraphMemoryEngine("e", store,
+            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            agePolicies: [new PerWriteAgePolicy()],
+            options: new GraphMemoryOptions { Reinforcement = MemoryReinforcementEffects.None });
+        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
+        var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
+
+        await Crowd(engine, 10);
+        var before = (await store.GetAsync("e", id))!;
+        Assert.True(before.OrdinalAge > 0, "the entry must have aged, or the age assertion proves nothing");
+
+        Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", query))).Items);
+
+        var after = (await store.GetAsync("e", id))!;
+        Assert.Equal(before.OrdinalAge, after.OrdinalAge, precision: 9);
+        Assert.Equal(before.Stability, after.Stability, precision: 9);
+    }
+
+    /// <summary><b>Growth without the age reset is REFUSED at construction, not silently ignored.</b> The
+    /// store resets the age as an inseparable part of the same write, so the engine can only honour that
+    /// combination by skipping the write entirely — which would apply neither effect while the configuration
+    /// claimed one. A deployment whose reinforcement quietly does nothing is the failure this guard exists to
+    /// prevent, and it is the same reasoning `MultiplicativeRankingOptions` validates on: throw at the line
+    /// that configured it rather than return wrong answers for the rest of the process's life.</summary>
+    [Fact]
+    public void Growth_without_the_age_reset_is_refused_because_it_would_silently_apply_neither()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new GraphMemoryOptions { Reinforcement = MemoryReinforcementEffects.StabilityGrowth });
+
+        Assert.Contains("would apply NEITHER effect", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>An undefined bit is refused too — widening a flags enum is how a typo silently becomes a
+    /// configuration.</summary>
+    [Fact]
+    public void An_undefined_reinforcement_flag_is_refused()
+        => Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new GraphMemoryOptions { Reinforcement = (MemoryReinforcementEffects)8 });
+
+    /// <summary><b>A non-finite value is refused at the line that configured it, because this engine has
+    /// already been bitten by exactly this once.</b>
+    ///
+    /// <para><c>DsrOptions.MaxStability</c> accepted <c>NaN</c> until 3.0; it propagated through
+    /// <c>Math.Min</c>, was written back to the store, and a <c>NaN</c> stability compares false against
+    /// every threshold — so the entry neither ranked, nor pruned, nor reported as broken. The fix there was
+    /// a throw at construction, and `GraphMemoryOptions` kept plain accessors that take anything a
+    /// <c>double</c> can hold.</para>
+    ///
+    /// <para><b>The live one is <see cref="GraphMemoryOptions.EdgeHalfLife"/>.</b> <c>EffectiveEdgeWeight</c>
+    /// guards it with <c>halfLife &lt;= 0</c>, which is FALSE for <c>NaN</c> — so a NaN falls straight
+    /// through into <c>Math.Pow(2, -age / NaN)</c> and every edge weight in the graph becomes NaN. Traversal
+    /// then orders by a value that compares false against everything, so spreading silently stops
+    /// discriminating and nothing anywhere reports a problem.</para></summary>
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void A_non_finite_edge_half_life_is_refused_rather_than_poisoning_every_edge_weight(double value)
+        => Assert.Throws<ArgumentOutOfRangeException>(() => new GraphMemoryOptions { EdgeHalfLife = value });
+
+    /// <summary>The other two doubles on this record, for the same reason: both feed comparisons that a
+    /// <c>NaN</c> makes meaningless rather than loud.</summary>
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void A_non_finite_similarity_or_retrievability_floor_is_refused(double value)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GraphMemoryOptions { MinSimilarity = value });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GraphMemoryOptions { MinRetrievability = value });
+    }
+
+    /// <summary>A finite value in range still constructs — the false-positive direction, so the guard cannot
+    /// be "throw on everything".</summary>
+    [Fact]
+    public void Ordinary_finite_values_still_construct()
+    {
+        var o = new GraphMemoryOptions { EdgeHalfLife = 60, MinSimilarity = 0.7, MinRetrievability = 0.1 };
+
+        Assert.Equal(60, o.EdgeHalfLife, precision: 9);
+        Assert.Equal(0.7, o.MinSimilarity, precision: 9);
+        Assert.Equal(0.1, o.MinRetrievability, precision: 9);
+    }
+
+    // ---- provenance validated at construction time (fix round 2, cheap minor) ----
+
+    private sealed class FixedProvenanceSaliencePolicy(MemorySalienceProvenance provenance) : IMemorySaliencePolicy
+    {
+        public MemorySalienceProvenance Provenance => provenance;
+        public MemorySignals Signals(MemoryWrite write, in SalienceContext context) => MemorySignals.Empty;
+    }
+
+    private sealed class FixedProvenanceRetrievability(MemoryRetrievabilityProvenance provenance)
+        : IMemoryRetrievabilityPolicy
+    {
+        public double InitialStability => 20;
+        public MemoryRetrievabilityProvenance Provenance => provenance;
+        public double Retrievability(in MemoryDecayState state) => 1;
+        public MemoryDecayState Reinforce(in MemoryDecayState state) => state;
+        public double CandidateCutoff(double minRetrievability) => double.PositiveInfinity;
+    }
+
+    /// <summary>A second, DIFFERENTLY-NAMED salience policy type — the genuine cross-type collision the production
+    /// check exists to catch (see
+    /// <c>MemoryProvenanceTests.A_consumer_policy_colliding_with_a_shipped_bit_is_rejected_by_the_production_check</c>).</summary>
+    private sealed class AnotherFixedProvenanceSaliencePolicy(MemorySalienceProvenance provenance) : IMemorySaliencePolicy
+    {
+        public MemorySalienceProvenance Provenance => provenance;
+        public MemorySignals Signals(MemoryWrite write, in SalienceContext context) => MemorySignals.Empty;
+    }
+
+    [Fact]
+    public void Two_DIFFERENTLY_TYPED_salience_policies_declaring_the_same_bit_are_rejected_at_construction()
+    {
+        var bit = (MemorySalienceProvenance)(1L << 40);
+
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
+            saliencePolicies: [new FixedProvenanceSaliencePolicy(bit), new AnotherFixedProvenanceSaliencePolicy(bit)]));
+
+        Assert.Contains("Provenance", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_salience_policy_declaring_None_is_rejected_at_construction()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
+            saliencePolicies: [new FixedProvenanceSaliencePolicy(MemorySalienceProvenance.None)]));
+
+        Assert.Contains("None", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_retrievability_policy_declaring_None_is_rejected_at_construction()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
+            policy: new FixedProvenanceRetrievability(MemoryRetrievabilityProvenance.None)));
+
+        Assert.Contains("None", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Two_salience_policy_INSTANCES_of_the_SAME_type_sharing_a_bit_construct_fine()
+    {
+        // the distinction MemoryProvenance.EnsureEachBitIsSingleRealAndUnique exists to make: same TYPE,
+        // same bit, no collision — only a DIFFERENT type sharing a bit (above) is rejected. Constructing
+        // without throwing is the whole assertion.
+        var bit = (MemorySalienceProvenance)(1L << 41);
+        _ = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
+            saliencePolicies: [new FixedProvenanceSaliencePolicy(bit), new FixedProvenanceSaliencePolicy(bit)]);
+    }
+
+    // ---- the engine's own injectable clock (fix round 2, cheap minor) ----
+
+    [Fact]
+    public async Task PruneAsync_olderThan_reads_the_engines_own_injected_clock_on_the_derivable_path()
+    {
+        // before this fix, the derivable branch always read DateTimeOffset.UtcNow directly — no seam on the
+        // engine at all, disagreeing with a test that fakes the STORE's own clock (every IMemoryGraphStore
+        // already takes one). The entry below is written under the REAL clock (an ordinary `CreatedAt`,
+        // "now"); only the ENGINE's clock is faked, to far in the future — `olderThan` becomes trivially
+        // satisfied for anything already written ONLY if the engine actually consulted the injected clock
+        // rather than the real one (which cannot be in the year 2999 in a fast-running test, so a fallback
+        // to the real clock would leave `removed == 0`).
+        var fixedNow = new DateTimeOffset(2999, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var store = new InMemoryMemoryGraphStore();
+        var engine = new GraphMemoryEngine("e", store, agePolicies: [new PerWriteAgePolicy()],
+            clock: () => fixedNow);
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", "long since written"));
+
+        var removed = await engine.PruneAsync("t", "s", olderThan: TimeSpan.FromDays(1));
 
         Assert.Equal(1, removed);
     }

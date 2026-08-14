@@ -1,11 +1,18 @@
 // Lyntai devtools dispatcher (family pattern: one entry, project-specific inputs in project.config.mjs).
 //   node devtools/dev.mjs build            - dotnet build the solution
 //   node devtools/dev.mjs check-warnings   - FAIL if any src/ project compiles with a warning (--list for all)
-//   node devtools/dev.mjs check-bundle     - FAIL if the `Lyntai` bundle's dependency closure drifted (D32)
-//   node devtools/dev.mjs check-packages   - FAIL if a package is missing from any registry it needs (D33)
+//   node devtools/dev.mjs check-bundle     - FAIL if the `Lyntai` bundle's dependency closure drifted (D26)
+//   node devtools/dev.mjs check-packages   - FAIL if a package is missing from any registry it needs (D27)
+//   node devtools/dev.mjs check-docs       - FAIL if a doc uses vocabulary a decision retired (the PROSE)
+//   node devtools/dev.mjs check-encoding   - FAIL if a tracked text file contains MOJIBAKE (mangled UTF-8)
+//   node devtools/dev.mjs check-api-vocabulary
+//                                          - FAIL if a committed API baseline still spells a retired name
+//   node devtools/dev.mjs check-samples [--list]
+//                                          - FAIL if a fenced C# block in our own docs does not COMPILE
 //   node devtools/dev.mjs new-package <Id> - scaffold an adapter package + register it in all nine registries
 //   node devtools/dev.mjs consumer-smoke   - pack, then restore/build/run a fresh app against the PACKAGES
 //   node devtools/dev.mjs test [args]      - dotnet test the test project (extra args pass through)
+//   node devtools/dev.mjs test-devtools    - node --test over devtools/scripts/__tests__ (the gates' own tests)
 //   node devtools/dev.mjs e2e [all|pN|pN-pM|p1,p3] [--build] [--parallel[=N]] - Playground e2e suites
 //   node devtools/dev.mjs playground [args]- run the sample console app (uses LYNTAI_PROVIDER_CMD if set)
 //   node devtools/dev.mjs pack             - dotnet pack the packable libraries -> publish/packages/
@@ -24,7 +31,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import config, { toSemver } from './project.config.mjs';
+import config from './project.config.mjs';
+import { changelogDoctor, packDoctor, versionDoctor } from './scripts/doctors.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const [cmd, ...args] = process.argv.slice(2);
@@ -34,119 +42,9 @@ const run = (exe, argv, opts = {}) => {
   process.exitCode = r.status ?? 1;
 };
 
-// pack-doctor: keep the README `## Status` headline version in lock-step with VersionPrefix (the single
-// source in src/Directory.Build.props), so a shipped nupkg's README never advertises a stale version. The
-// release pipeline BUMPS the version, so `pack` (and `doctor --fix`) SYNC the header to match — no manual
-// README edit. `doctor` with no flag just CHECKS and fails on drift. The value that gets updated is the
-// `**vX.Y.Z` at the start of the `## Status` headline (flagged with an HTML comment in the README).
-const statusVersionOf = (readme) =>
-  ((readme.split(/^## /m).find((s) => s.startsWith('Status')) ?? '').match(/\*\*v(\d+\.\d+\.\d+)/) ?? [])[1] ?? null;
-
-const packDoctor = ({ fix = false } = {}) => {
-  const file = path.join(repo, 'README.md');
-  const readme = fs.readFileSync(file, 'utf8');
-  const found = statusVersionOf(readme);
-  if (found === config.version) {
-    console.log(`pack-doctor: README Status matches VersionPrefix (${config.version}) ✓`);
-    return true;
-  }
-  if (fix) {
-    // rewrite ONLY the first `**vX.Y.Z` inside the `## Status` section
-    const at = readme.search(/^## Status/m);
-    fs.writeFileSync(file, readme.slice(0, at) + readme.slice(at).replace(/\*\*v\d+\.\d+\.\d+/, `**v${config.version}`));
-    console.log(`pack-doctor: synced README "## Status" version ${found ? 'v' + found : '(none)'} → ` +
-      `v${config.version} (from VersionPrefix)`);
-    return true;
-  }
-  console.error(`pack-doctor: README "## Status" version (${found ?? 'none found'}) != VersionPrefix ` +
-    `(${config.version}) — run \`node devtools/dev.mjs doctor --fix\` (or \`pack\`, which auto-syncs it).`);
-  return false;
-};
-
-// version-doctor: VersionPrefix must equal the LAST RELEASED tag. The release workflow bumps VersionPrefix
-// as PART of releasing, so between releases the two are equal by construction — any other value means the
-// version was authored by hand, and the next release will bump FROM that hand-written baseline and publish
-// the version after the intended one (a sibling repo lost 0.2.0 exactly this way: a manual 0.1.2 → 0.2.0
-// became a published 0.3.0). This is the STATE check, so it also catches a bad merge or rebase that moved
-// the version; check-version-bump.mjs catches the ACT at commit time.
-//
-// Deliberately NOT part of `verify` or `pack`: the release workflow writes the NEW version before running
-// both, so during a legitimate release VersionPrefix is *supposed* to be ahead of the newest tag. Silent
-// when there are no tags (a shallow CI checkout or a fresh clone has none) and when LYNTAI_RELEASE=1.
-const newestReleaseTag = () => {
-  const r = spawnSync('git', ['tag', '--list', 'v*', '--sort=-v:refname'],
-    { cwd: repo, encoding: 'utf8', shell: false });
-  return (r.stdout ?? '').split('\n').map((s) => s.trim()).filter(Boolean)[0] ?? null;
-};
-
-const versionDoctor = () => {
-  if (process.env.LYNTAI_RELEASE === '1') {
-    console.log('version-doctor: skipped (LYNTAI_RELEASE=1 — release pipeline or deliberate repair)');
-    return true;
-  }
-  const tag = newestReleaseTag();
-  if (!tag) {
-    console.log('version-doctor: no v* release tags to compare against — skipped ✓');
-    return true;
-  }
-  const tagged = toSemver(tag.replace(/^v/, ''));
-  if (tagged === config.version) {
-    console.log(`version-doctor: VersionPrefix matches the newest release tag (${tag}) ✓`);
-    return true;
-  }
-  console.error(`version-doctor: VersionPrefix (${config.version}) != newest release tag (${tag}) — the ` +
-    'version looks HAND-EDITED.\n  Between releases they are equal by construction (the release workflow ' +
-    'bumps VersionPrefix as part of releasing).\n  A moved baseline makes the next release publish the ' +
-    `version AFTER the intended one — restore <VersionPrefix> to ${tagged} in src/Directory.Build.props ` +
-    'and let the workflow bump it.\n  Mid-release, or repairing one on purpose? LYNTAI_RELEASE=1 ' +
-    'node devtools/dev.mjs doctor');
-  return false;
-};
-
-// changelog-doctor: stamp the CHANGELOG's `## Unreleased` heading with the version being released, the way
-// the release pipeline already stamps VersionPrefix + the README `## Status` headline. Cutting a release is
-// otherwise the ONE place a human had to remember a manual edit — and v1.2.0 shipped with its section still
-// titled "Unreleased" because of it.
-//
-// Two heading shapes are produced, matching what the file already uses:
-//   `## Unreleased`                → `## X.Y.Z — 2026-07-30`
-//   `## Unreleased — <title>`      → `## X.Y.Z — <title> (2026-07-30)`
-// so an author who wants a titled release writes the title on the Unreleased heading in advance; nothing is
-// ever invented here. IDEMPOTENT: a heading for the version already present means the release was already
-// stamped (a pipeline re-run), and the file is left untouched.
-const unreleasedHeading = /^## Unreleased[ \t]*(?:[—–-][ \t]*(.+?))?[ \t]*$/m;
-
-const changelogDoctor = ({ fix = false, version = config.version, date } = {}) => {
-  const file = path.join(repo, 'CHANGELOG.md');
-  const changelog = fs.readFileSync(file, 'utf8');
-  const stamped = new RegExp(`^## ${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[ \t]|$)`, 'm');
-
-  if (stamped.test(changelog)) {
-    console.log(`changelog-doctor: CHANGELOG already has a "## ${version}" heading ✓`);
-    return true;
-  }
-
-  const match = changelog.match(unreleasedHeading);
-  if (!match) {
-    // Neither a section for this version nor an Unreleased one to promote: nothing DOCUMENTS what is being
-    // shipped. Report it, but never fail a release over a doc heading — the packages are the deliverable.
-    console.warn(`changelog-doctor: no "## ${version}" and no "## Unreleased" heading in CHANGELOG.md — ` +
-      'nothing to stamp (add the section by hand).');
-    return true;
-  }
-  if (!fix) {
-    console.error(`changelog-doctor: CHANGELOG "## Unreleased" is not stamped for ${version} — ` +
-      'run `node devtools/dev.mjs changelog --fix` (the release workflow does this for you).');
-    return false;
-  }
-
-  const title = match[1]?.trim();
-  const on = date ?? new Date().toISOString().slice(0, 10); // UTC — the release runs on a UTC runner
-  const heading = title ? `## ${version} — ${title} (${on})` : `## ${version} — ${on}`;
-  fs.writeFileSync(file, changelog.replace(unreleasedHeading, heading));
-  console.log(`changelog-doctor: stamped "${match[0]}" → "${heading}"`);
-  return true;
-};
+// The three doctors (pack / version / changelog) live in scripts/doctors.mjs — extracted 2026-08-11 so they
+// could be TESTED (TASKS.md Part 62); a function inside this switch cannot be driven by anything. They keep
+// their reasoning next to themselves; this file is their command line.
 
 switch (cmd) {
   case 'build':
@@ -160,98 +58,35 @@ switch (cmd) {
   // (four of them shipped into Lyntai.Providers.Default this way). Doc-comment warnings matter for the same
   // reason: unresolved crefs ship inside the XML docs consumers read in IntelliSense.
   // Scoped to src/ — tests and samples are free to warn. Pass --list to see them all.
-  case 'check-warnings': {
-    const label = 'check-warnings';
-    // -warnaserror is deliberately NOT used: it stops the build at the first project, hiding the rest.
-    const r = spawnSync('dotnet', ['build', config.solution, '-v', 'normal', '--no-incremental'],
-      { cwd: repo, encoding: 'utf8' });
-    const lines = [...new Set((r.stdout || '').split(/\r?\n/).filter((l) =>
-      /warning [A-Z]{2,4}\d+/.test(l) && /[\\/]src[\\/]/.test(l)))];
-    if (r.status !== 0) {
-      console.error(`${label}: build FAILED — fix the build first`);
-      process.exitCode = r.status ?? 1;
-      break;
-    }
-    if (!lines.length) {
-      console.log(`${label}: src/ compiles warning-free ✓`);
-      break;
-    }
-    const show = args.includes('--list') ? lines : lines.slice(0, 15);
-    console.error(`${label}: ✗ ${lines.length} warning(s) in src/ — a published project must compile clean`);
-    for (const l of show) console.error(`  ${l.replace(repo, '.').trim()}`);
-    if (show.length < lines.length) console.error(`  … ${lines.length - show.length} more (--list to see all)`);
-    process.exitCode = 1;
+  //
+  // Extracted to its own script 2026-08-11 so it can be TESTED (TASKS.md Part 62) — the three build flags
+  // it passes are load-bearing and two of them fail green (`--no-incremental` most of all: MSBuild does not
+  // re-emit a warning for a project it did not rebuild). Nothing about what it catches changed in the move.
+  case 'check-warnings':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-warnings.mjs'), ...args]);
     break;
-  }
 
-  // The `Lyntai` bundle's DEPENDENCY BUDGET (docs/DECISIONS.md D32). Membership in the one-line install is
+  // The `Lyntai` bundle's DEPENDENCY BUDGET (docs/DECISIONS.md D26). Membership in the one-line install is
   // not free: an untrimmed `dotnet publish` copies the whole graph and analyses nothing, so every package the
   // bundle references lands in every bundle consumer's output folder whether they call it or not. This fails
   // when the bundle's third-party closure gains an id nobody decided on — the drift that a growing package
   // graph produces silently, since adding one ProjectReference can pull a whole SDK behind it.
   // The Microsoft.Extensions.* band is auto-allowed (runtime version band; present in any DI app).
-  case 'check-bundle': {
-    const label = 'check-bundle';
-    const cfg = config.bundle;
-    if (!cfg) { console.log(`${label}: no bundle configured — skipped`); break; }
-
-    // restore so the assets file reflects the CURRENT ProjectReferences (fast when already up to date)
-    const restore = spawnSync('dotnet', ['restore', path.join(cfg.project, path.basename(cfg.project) + '.csproj'),
-      '-v', 'quiet'], { cwd: repo, encoding: 'utf8' });
-    if (restore.status !== 0) {
-      console.error(`${label}: restore failed — cannot read the dependency closure\n${restore.stdout ?? ''}`);
-      process.exitCode = restore.status ?? 1;
-      break;
-    }
-
-    const assetsPath = path.join(repo, cfg.project, 'obj', 'project.assets.json');
-    if (!fs.existsSync(assetsPath)) {
-      console.error(`${label}: no project.assets.json at ${cfg.project}/obj — run a restore/build first`);
-      process.exitCode = 1;
-      break;
-    }
-
-    const libs = JSON.parse(fs.readFileSync(assetsPath, 'utf8')).libraries ?? {};
-    const closure = Object.entries(libs)
-      .filter(([, v]) => v.type === 'package')
-      .map(([k]) => ({ id: k.split('/')[0], version: k.split('/')[1] }));
-    const band = closure.filter((p) => p.id.startsWith('Microsoft.Extensions.'));
-    const outside = closure.filter((p) => !p.id.startsWith('Microsoft.Extensions.'));
-    const allowed = new Set(cfg.allowedThirdParty ?? []);
-
-    const unexpected = outside.filter((p) => !allowed.has(p.id));
-    const stale = [...allowed].filter((id) => !outside.some((p) => p.id === id));
-
-    console.log(`${label}: ${closure.length} third-party packages in the bundle closure ` +
-      `(${band.length} on the Microsoft.Extensions.* band, auto-allowed)`);
-    for (const p of outside) console.log(`  outside the band: ${p.id} ${p.version}`);
-
-    if (unexpected.length) {
-      console.error(`\n${label}: ✗ ${unexpected.length} package(s) nobody decided on:`);
-      for (const p of unexpected) console.error(`    ${p.id} ${p.version}`);
-      console.error('  The bundle forces these on EVERY one-line-install consumer, used or not.\n' +
-        '  Either keep the package out of the bundle (consumers reference it directly), or accept the cost:\n' +
-        '  add the id to `bundle.allowedThirdParty` in devtools/project.config.mjs and record why in D32.');
-      process.exitCode = 1;
-      break;
-    }
-    if (stale.length) {
-      console.error(`\n${label}: ✗ allowlist is stale — no longer in the closure: ${stale.join(', ')}\n` +
-        '  Remove it from `bundle.allowedThirdParty` (and D32) so the budget keeps meaning something.');
-      process.exitCode = 1;
-      break;
-    }
-    console.log(`${label}: bundle dependency budget respected ✓`);
+  //
+  // Extracted to its own script 2026-08-11 so it can be TESTED (TASKS.md Part 62) — its allowlist-STALENESS
+  // branch had never run at all, and a rotted allowance is a standing permission for an id to come back
+  // without anyone deciding again. Nothing about what it catches changed in the move.
+  case 'check-bundle':
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-bundle.mjs'), ...args]);
     break;
-  }
 
-  // The package INVENTORY is consistent across every registry that must know about a package (D33).
+  // The package INVENTORY is consistent across every registry that must know about a package (D27).
   case 'check-packages':
     run('node', [path.join(repo, 'devtools', 'scripts', 'check-packages.mjs'), ...args]);
     break;
 
   // Scaffold an adapter package AND register it in all nine registries — the companion to check-packages.
-  // Bundle membership stays a human decision (D32); everything mechanical is done for you.
+  // Bundle membership stays a human decision (D26); everything mechanical is done for you.
   case 'new-package':
     run('node', [path.join(repo, 'devtools', 'scripts', 'new-package.mjs'), ...args]);
     break;
@@ -267,6 +102,43 @@ switch (cmd) {
     run('dotnet', ['test', config.testProject, '-v', 'minimal', ...args]);
     break;
 
+  // The gates' OWN tests (node --test, in the runtime already — no dependency, which is the same budget
+  // reasoning as D26). It runs FIRST in `verify`, before the guards it covers: every one of these scripts
+  // fails PERMISSIVELY when it breaks, so a broken guard reports a clean repository, and running it proves
+  // nothing. Three measured check-docs defects passed every gate for their whole lifetime that way — see
+  // TASKS.md Part 60 and devtools/scripts/__tests__/. Milliseconds, so unlike consumer-smoke it is in.
+  //
+  // A GLOB, not the directory: Node's runner matches test files by pattern, and a bare directory argument is
+  // loaded as a module instead ("Cannot find module …__tests__"). Forward slashes, resolved against repo/.
+  //
+  // Quiet when green and loud when red, the same shape as check-warnings: `verify` should gain one line for
+  // a gate that costs milliseconds. Pass any --test-reporter (or --watch) to get the runner's own output —
+  // that path streams live and is what to use while writing a test.
+  case 'test-devtools': {
+    const label = 'test-devtools';
+    const pattern = 'devtools/scripts/__tests__/*.test.mjs';
+    if (args.some((a) => a.startsWith('--test-reporter') || a === '--watch')) {
+      run('node', ['--test', ...args, pattern]);
+      break;
+    }
+    const r = spawnSync('node', ['--test', '--test-reporter=spec', ...args, pattern],
+      { cwd: repo, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+    const count = (name) => Number((out.match(new RegExp(`^\\u2139 ${name} (\\d+)`, 'm')) ?? [])[1] ?? NaN);
+    const [tests, passed, failed] = [count('tests'), count('pass'), count('fail')];
+    if (r.status === 0 && failed === 0 && tests > 0) {
+      console.log(`${label}: ${passed}/${tests} guard-script tests pass ✓`);
+      break;
+    }
+    console.error(out.trimEnd());
+    console.error(`\n${label}: ✗ the scripts that GATE this repository are themselves failing` +
+      `${Number.isFinite(failed) && failed > 0 ? ` — ${failed} test(s)` : ''}\n` +
+      '  Nothing below this gate can be trusted until it is green: each of these scripts fails permissively,\n' +
+      '  so a broken one reports a clean repository (TASKS.md Part 60).');
+    process.exitCode = r.status || 1;
+    break;
+  }
+
   case 'playground':
     run('dotnet', ['run', '--project', config.playgroundProject, ...args]);
     break;
@@ -277,6 +149,89 @@ switch (cmd) {
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', ...args]);
     break;
+
+  // Replays the deterministic memory corpus against a live SQLite-backed graph engine under the four
+  // {ranking x forgetting} policy arms, PAIRED BY SEED (every arm at a given seed+shape replays the
+  // byte-identical corpus — DSR-default falsification plan Task 2), and prints paired mean differences with
+  // 95% CIs plus the 2x2 interaction — see bench/Lyntai.Benchmarks/MemoryPolicySweep.cs. `--sweep` is
+  // branched on INSIDE Program.cs before the BenchmarkSwitcher ever runs, so this is deliberately NOT `bench`
+  // with a filter: BDN measures wall-clock time per operation, not recall quality. Runs a pilot (5 seeds)
+  // then scales to the seed count that pilot's own variance implies, one live SQLite db per (seed, shape,
+  // arm) combination, fanned out across all cores — minutes, not hours, but still slow enough, like
+  // `consumer-smoke`, to stay deliberately OUT of `verify`.
+  case 'memory-sweep':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--sweep', ...args]);
+    break;
+
+  // memory-spacing — a SENSITIVITY study over one DsrOptions constant, SpacingWeight, asking whether the
+  // `topical` regression D49 shipped knowingly is even responsive to the knob TASKS.md Part 56 named as its
+  // suspect. Same harness, same corpus, same seed pairing as `memory-sweep`; one factor instead of a 2x2, and
+  // it ADOPTS nothing. That last part is what makes it legitimate where parameter FITTING is not: fitting
+  // DsrOptions against this library's own review log is circular by construction (the log's grade is a
+  // function of the model's own prediction, and it can only ever contain successes) — see docs/DECISIONS.md
+  // D51's 2026-08-12 amendment. A sensitivity curve makes no claim about the true value, so neither
+  // objection touches it. Out of `verify` for the same reason memory-sweep is: tens of minutes.
+  case 'memory-spacing':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--spacing', ...args]);
+    break;
+
+  // memory-reinforcement — the isolation `memory-spacing` structurally could not do. SpacingWeight
+  // multiplies the WHOLE increase, so its best arm (0) is reinforcement switched OFF, which is consistent
+  // with two different diagnoses and distinguishes neither. This adds a third arm that keeps reinforcement
+  // ON with the r-dependence frozen (the real Reinforce called with Age pinned to Stability, where r is
+  // exactly the curve's own 0.5 anchor), so `law 3 does not transfer` and `reinforcement is net-harmful` stop
+  // being the same setting. See TASKS.md Part 64 / docs/DECISIONS.md D53.
+  // memory-reinforcement — isolates the r-dependence of law 3 from reinforcement MAGNITUDE, which
+  // memory-spacing's SpacingWeight knob cannot separate (it multiplies the whole increase term, so its 0 arm
+  // is reinforcement switched OFF rather than law 3 switched off). TASKS.md Part 64.
+  case 'memory-reinforcement':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--reinforcement', ...args]);
+    break;
+
+  // memory-bounded — the study the other four converge on. Salience (clamped) and the age reset (age -> 0)
+  // both help; stability growth, which multiplies on every recall, hurts badly. If the difference is that
+  // the effect COMPOUNDS rather than where its signal comes from, a growth rule that cannot compound should
+  // beat both the shipped rule and switching growth off. Four arms over the FORM of the rule, not its
+  // constants. This is what decides whether 3.0 changes DsrOptions.ReinforceGain. TASKS.md Part 64.
+  case 'memory-bounded':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--bounded', ...args]);
+    break;
+
+  // memory-salience — salience ships ON for two of its three consumers (decay resistance, store admission)
+  // and has never been measured ONCE: MemoryPolicySweep's C1 control asserts its absence, and novelty needs
+  // an embedder + vector store no harness supplied. Both arms here get FakeEmbedder + InMemoryVectorStore so
+  // enrichment is held constant and only salience varies. It cannot settle whether novelty INVERTS on noisy
+  // input — this corpus's noise is templated, so it reads as familiar rather than novel. TASKS.md Part 53.
+  case 'memory-salience':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--salience', ...args]);
+    break;
+
+  // memory-language — the same corpus in Chinese. Every recall-quality figure this repository publishes was
+  // measured on English, space-separated text: the friendliest tokenization the library supports, recorded
+  // as a blind spot in design §5.7.0 and never measured. The two arms replay STRUCTURALLY IDENTICAL corpora
+  // (same steps, ids and ground truth; only the text differs), so a gap is the language and not the
+  // timeline. Adopts nothing — the language is the consumer's, not a setting. docs/DECISIONS.md D55.
+  case 'memory-language':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--language', ...args]);
+    break;
+
+  // memory-annotation — cluster recall sits at the no-graph floor (miss = 1 - 1/AttributeCount) and is
+  // IDENTICAL at recall limit 10 and 50, so those entries are never gathered and no ranking policy can reach
+  // them. IMemoryAnnotationPolicy is the only mechanism that addresses it. The annotator here is PERFECT by
+  // construction, so the numbers are the mechanism's CEILING rather than a model's accuracy — a real one can
+  // only do worse, and if the ceiling is low no prompt rescues it. English + Chinese, because the argument
+  // for a model here is that the judgement is language-independent.
+  case 'memory-annotation':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--annotation', ...args]);
+    break;
+
 
   case 'install-hooks':
     run('git', ['config', 'core.hooksPath', 'devtools/hooks']);
@@ -295,8 +250,8 @@ switch (cmd) {
     // both checks always run (no short-circuit) so drift is reported in one pass. `--fix` syncs the README
     // headline; it deliberately does NOT "fix" the version — a hand-authored version is the problem, not
     // the symptom, so it is restored by hand or by letting the release workflow bump it.
-    const readmeOk = packDoctor({ fix: args.includes('--fix') });
-    const versionOk = versionDoctor();
+    const readmeOk = packDoctor({ repo, version: config.version, fix: args.includes('--fix') });
+    const versionOk = versionDoctor({ repo, version: config.version });
     process.exitCode = readmeOk && versionOk ? 0 : 1;
     break;
   }
@@ -314,6 +269,7 @@ switch (cmd) {
       return at >= 0 ? args[at + 1] : undefined;
     };
     process.exitCode = changelogDoctor({
+      repo,
       fix: args.includes('--fix'),
       version: valueOf('--version') ?? config.version,
       date: valueOf('--date'),
@@ -324,7 +280,7 @@ switch (cmd) {
   case 'pack': {
     // auto-sync the README `## Status` version to VersionPrefix, then pack — the release pipeline bumps the
     // version, so pack updates the header for it (never packs a stale README, never hard-fails on a bump).
-    packDoctor({ fix: true });
+    packDoctor({ repo, version: config.version, fix: true });
     // dotnet pack each packable library → publish/packages/*.nupkg, then print id + sha256.
     const out = path.join(repo, 'publish', 'packages');
     fs.rmSync(out, { recursive: true, force: true });
@@ -439,11 +395,99 @@ switch (cmd) {
     break;
   }
 
+  // check-docs' other twin: the same "does this document still tell the truth" question, asked of its
+  // in-repo REFERENCES rather than its vocabulary. `docs/superpowers/INDEX.md` already ends its archiving
+  // procedure with "repoint every inbound reference, and check nothing dangles" — and that step was skipped
+  // when the ranking × forgetting measurement record was untracked under D43, leaving SIX dead references in
+  // maintained state (README ×3, the design contract, DECISIONS ×2) that every gate reported clean until a
+  // reader found them. Existence only, never line numbers: those rot legitimately on every refactor.
+  // Registry: `staleReferenceAllowances` in project.config.mjs. Line escape: `link-ok`.
+  case 'check-links': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-links.mjs'), ...args]);
+    break;
+  }
+
+  // FAIL when a tracked text file contains mojibake — UTF-8 decoded as another codepage and written back.
+  //
+  // A gate rather than a rule because the rule already existed and was still broken THREE TIMES in one
+  // session (2026-08-13), each time under time pressure, each time caught only because someone looked. The
+  // damage is silent by construction: the file stays valid UTF-8, compiles, passes every test and ships —
+  // so no other gate can see it. Same reasoning as check-warnings and check-docs, applied to bytes.
+  case 'check-encoding': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-encoding.mjs'), ...args]);
+    break;
+  }
+
+  // check-docs' twin, one layer down: the same "vocabulary a decision retired" question, asked of the
+  // frozen PUBLIC SURFACE instead of the prose. It exists because neither neighbour can ask it —
+  // check-docs deliberately excludes src/, and the API baseline records parameter names without JUDGING
+  // them, so a stale name round-trips cleanly through the one gate whose whole job is noticing API
+  // changes. Three of them (`ageClocks:`, `appraisers:`, `modulators:`) reached the eve of the 3.0 freeze
+  // that way and a human review, not a gate, caught them (TASKS.md Part 61, docs/DECISIONS.md D47). Named
+  // arguments are source-compatible surface, so after a freeze each one costs a MAJOR version — which is
+  // what puts this in `verify` rather than beside `decisions-index`.
+  // Registry: `retiredApiNames` in project.config.mjs (its own, NOT retiredTerms — that one is prose).
+  case 'check-api-vocabulary': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-api-vocabulary.mjs'), ...args]);
+    break;
+  }
+
+  // The third gate over the documentation, and the one that reads what a consumer actually COPIES:
+  // every fenced ```csharp block in the maintained prose is wrapped by shape and compiled against the real
+  // projects. `check-docs` gates the words around the sample and `check-api-vocabulary` gates the names
+  // inside the assembly; nothing gated the sample itself, so a README block assigning a `TimeSpan` to a
+  // `double` property shipped through all eight gates (2026-08-09) and the 3.0 migration guide's samples
+  // are correct only because its author hand-built a probe project to compile them (2026-08-11).
+  // Default-ON, with two annotations before the fence. Reach for the first: `<!-- compile-given: <decls>
+  // -->` supplies the reader-side context a fragment assumes and keeps the block COMPILED — the
+  // declarations are compiled with it, so a given naming a type that does not exist fails like any other
+  // unresolved name, and it cannot wave a sample through. `<!-- compile-skip: <reason> -->` takes the block
+  // out and is correct only where no context would help (a partial signature, a before/after pair, a menu
+  // of alternatives) or where the context needed is a whole program. Both on one block is an error.
+  //
+  // IN `verify`, and the measurement is what decided it — the first draft of this comment argued the
+  // opposite from the `consumer-smoke`/`memory-sweep` analogy ("it is a COMPILE, not a scan") before
+  // anyone timed it. Measured 2026-08-11, immediately after `build`: **6.0s green**, twice, on a `verify`
+  // that already spends minutes in `build` + 2309 tests + e2e. Nothing is restored that `build` has not
+  // already restored (the scratch project adds no package reference — only ProjectReferences), so the
+  // marginal cost is one incremental compile of ~43 tiny files. `consumer-smoke` and `memory-sweep` are
+  // MINUTES and pull their own package feed; the analogy fails on the numbers.
+  // The positive argument is stronger than the cost argument anyway: this is the only gate whose subject
+  // can be broken by an edit to a `.md` file alone, and editing `.md` files is what a session does right
+  // before it runs `verify`. Out of `verify` it would be run rarely — which is precisely how
+  // `memory-sweep`'s reflection trip-wire goes unfired (`.claude/knowledge/pitfalls.md` §Refactoring).
+  // `--list` prints the inventory without compiling (375ms); that is what `cli-entry.test.mjs` drives.
+  case 'check-samples': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-samples.mjs'), ...args]);
+    break;
+  }
+
   case 'verify': {
-    // the single "am I done?" gate — eight checks, stopping at the first failure:
-    // build → warnings → packages → bundle → docs → test → e2e → leak scan. Keep this list and `steps` in step.
-    const steps = [['build', []], ['check-warnings', []], ['check-packages', []], ['check-bundle', []],
-      ['check-docs', []], ['test', []], ['e2e', []], ['check-sensitive', ['--tree']]];
+    // The single "am I done?" gate, stopping at the first failure. `steps` below IS the list — deliberately
+    // not restated in prose here, and not counted here either: the previous version of this comment did both
+    // and had silently drifted to "eleven checks" over a list of twelve, omitting `check-encoding` entirely
+    // while the paragraph five lines down explained why that gate runs early. It also seeded the same wrong
+    // count into CLAUDE.md, which then contradicted itself. The summary line printed below is derived from
+    // `steps` for exactly this reason; a comment cannot be, so it says nothing a reader could check against
+    // the array two lines away.
+    //
+    // The guard tests come FIRST, and cost milliseconds: everything after them is enforced BY the scripts
+    // they cover, and those scripts fail permissively — a broken one reports a clean repository. Fail before
+    // the guards run rather than trusting ten green lights that were never checked (TASKS.md Part 60).
+    //
+    // The documentation gates sit together, innermost last: `check-docs` asks whether the PROSE still says
+    // what a decision settled, `check-links` whether its in-repo REFERENCES still resolve,
+    // `check-api-vocabulary` asks the vocabulary question of the frozen public SURFACE (TASKS.md Part 61),
+    // and `check-samples` COMPILES the fenced C# a consumer copies (Part 59).
+    // `check-samples` must follow `build`, which is what makes it a 6s incremental compile rather than a
+    // cold one.
+    // `check-encoding` sits beside `check-sensitive` in spirit — both scan tracked text for damage nothing
+    // else can see — but runs EARLY, because mojibake is cheapest to fix before a build has consumed the
+    // file and while the edit that caused it is still the last thing that happened.
+    const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
+      ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
+      ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
+      ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {
       console.log(`\n=== verify: ${step} ===`);
@@ -451,8 +495,10 @@ switch (cmd) {
       if (r.status !== 0) { failed = step; process.exitCode = r.status ?? 1; break; }
     }
     if (failed) console.error(`\nverify: ✗ FAILED at ${failed}`);
-    else console.log('\nverify: ✓ all gates green ' +
-      '(build · warnings · packages · bundle · docs · test · e2e · check-sensitive)');
+    // Derived from `steps`, never hand-listed: the previous version was a literal and silently stopped
+    // naming every gate the moment one was added — a summary that under-reports what ran is the same class
+    // of quiet inaccuracy the gates themselves exist to prevent.
+    else console.log(`\nverify: ✓ all ${steps.length} gates green (${steps.map(([s]) => s).join(' · ')})`);
     break;
   }
 
@@ -523,8 +569,22 @@ switch (cmd) {
   }
 
   default:
-    console.log('usage: node devtools/dev.mjs <build|check-warnings|check-bundle|check-packages|test|e2e|verify|playground|bench|pack|doctor|changelog|' +
-      'new-migration|new-package|consumer-smoke|install-hooks|check-sensitive|check-version|' +
-      'decisions-index>');
+    // DERIVED from this file's own `case` labels, never hand-listed. The literal it replaces had drifted to
+    // 24 of 30 commands — every memory sweep except `memory-sweep`, plus `check-encoding` the day it was
+    // added — so `dev.mjs` with no argument, which is what CLAUDE.md calls "the authoritative list",
+    // silently stopped being one. Same defect and same fix as `verify`'s summary line.
+    console.log(`usage: node devtools/dev.mjs <${commandNames().join('|')}>`);
     process.exitCode = cmd ? 1 : 0;
+}
+
+/**
+ * Every command this file dispatches, read out of its own source.
+ *
+ * Self-reading rather than a maintained array because an array is a second list that can drift from the
+ * switch exactly the way the usage string did. The switch IS the registry; this makes it readable.
+ * `dedupe` matters because a few commands share a case body through fall-through.
+ */
+export function commandNames(source = null) {
+  const src = source ?? fs.readFileSync(fileURLToPath(import.meta.url), 'utf8');
+  return [...new Set([...src.matchAll(/^\s*case '([a-z][a-z0-9-]*)':/gm)].map((m) => m[1]))];
 }

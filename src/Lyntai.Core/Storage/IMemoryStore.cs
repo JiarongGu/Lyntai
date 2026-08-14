@@ -18,14 +18,16 @@ public interface IMemoryStore
 
     /// <summary>Recall entries for a task, optionally filtered by scope and matched against a query; no
     /// query → most recent first. Expired entries are never returned.
-    /// <para>GUARANTEE (consistent across backends): an entry whose content contains a SINGLE-token query
-    /// (≥3 chars) as a substring is recalled. A MULTI-token query carries no such promise. BACKEND
-    /// DIFFERENCE (by design — three different index engines): SQLite matches per TOKEN, recalling an entry
-    /// that contains ANY of them via the FTS5 trigram index, and ranks by bm25 relevance (a LIKE
-    /// contiguous-substring fallback covers all-short/punctuation queries); Postgres (pg_trgm) and InMemory
-    /// match the WHOLE query as a CONTIGUOUS substring and rank by recency. So a multi-word query where the
-    /// words appear separately can recall on SQLite but not on Postgres/InMemory, and same-match ordering
-    /// differs (relevance vs recency). Prefer single salient terms for portable recall.</para></summary>
+    /// <para>GUARANTEE (consistent across backends): an entry whose content contains ANY term of the query
+    /// (≥3 chars) as a substring is recalled. Terms come from <see cref="SearchTerms"/> — words for a
+    /// space-separated script, character trigrams for one written without spaces (Chinese, Japanese,
+    /// Korean), so the guarantee does not depend on the language. A query too short to yield a term falls
+    /// back to matching the whole query as a substring.</para>
+    /// <para>BACKEND DIFFERENCE (by design — three different index engines) is now RANKING ONLY: SQLite ranks
+    /// matches by bm25 relevance through its FTS5 trigram index; Postgres (pg_trgm) and InMemory rank by how
+    /// many terms matched, then by recency. WHICH entries are recalled is the same on all three. Before 3.0
+    /// it was not — only SQLite split a query, so a multi-word query whose words appeared separately recalled
+    /// there and nowhere else (<c>docs/DECISIONS.md</c> D55).</para></summary>
     Task<IReadOnlyList<MemoryEntry>> RecallAsync(string taskKey, string? scope = null, string? query = null,
         int? limit = null, CancellationToken ct = default);
 

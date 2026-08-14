@@ -7,47 +7,130 @@
 // The registry is `retiredTerms` in devtools/project.config.mjs — a term, what to say instead, and why.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const config = (await import('../project.config.mjs')).default;
+const here = fileURLToPath(import.meta.url);
+const repo = join(dirname(here), '..', '..');
 
 /**
  * Files whose whole job is to be a record of their own day, so retired vocabulary is CORRECT in them.
  *
- * Plans are in here and SPECS are deliberately not. `CLAUDE.md` calls both "point-in-time designs and
- * plans, not maintained state" — but only one of them gets read as the contract. A plan describes what was
- * done on a day and is finished; a spec describes how the thing WORKS and is what the next session builds
- * against, so it has to keep being true.
+ * Specs and plans used to need entries here. They moved to the gitignored `local/superpowers/` (see
+ * `docs/superpowers/INDEX.md`), so they are untracked and never reach this scan at all — what remains is
+ * the maintained set, every document of which has to keep being true. The rule that replaced the gate for
+ * a design record is the stronger one: a conclusion that must outlive its version belongs in a maintained
+ * document, which this scan does cover.
+ *
+ * Exported (with `SUPERSEDED_BANNER`, `IN_SCOPE` and `LIVE_PREFIX`) because `check-samples.mjs` asks the
+ * SAME question — "is this maintained state, or a record of its own day?" — and must not answer it
+ * differently. Two copies drift the moment a document is archived, and the drift is silent, in the
+ * permissive direction, on whichever copy was forgotten.
  */
-const HISTORICAL = [
+export const HISTORICAL = [
   /^CHANGELOG\.md$/,
   /^docs\/task-archive\.md$/,
-  /^docs\/superpowers\/plans\//,
 ];
 
-/** A file that declares itself superseded in its opening banner is a record too — same reasoning. */
-const SUPERSEDED_BANNER = /^(?:.*\n){0,20}?.*\bSUPERSEDED\b/;
+/**
+ * A file that is historical BELOW a boundary and MAINTAINED above it — scanned down to that line and no
+ * further.
+ *
+ * `CHANGELOG.md` is the case, added 2026-08-11 (TASKS.md Part 53). The exemption above rests on records
+ * being "accurate BY using the vocabulary of their day", which is true of a RELEASED section and false of
+ * `## Unreleased`: that section describes behaviour that has not shipped, is still being edited, and can
+ * still change under the words describing it. Measured 2026-08-09 — the `ReciprocalRankFusionPolicy` entry
+ * kept asserting the pre-fix tie behaviour AND its retired justification after the code changed, while a
+ * paragraph five lines below was corrected in the same pass. The gate reported 39 docs clean with it
+ * present, and a human reviewer found it: exactly the failure D42 created the gate to prevent.
+ *
+ * The boundary is the first RELEASED heading, so everything above it — the preamble, the format note, and
+ * the whole Unreleased section — is live and everything from `## 2.5.0 — …` down is the record it was.
+ */
+export const LIVE_PREFIX = [
+  { file: /^CHANGELOG\.md$/, until: /^## \d+\.\d+\.\d+/ },
+];
 
-/** Only prose is checked; see the note on `retiredTerms` for why `src/` is deliberately excluded. */
-const IN_SCOPE = (path) =>
-  path === 'README.md' || path.startsWith('docs/') || path.startsWith('.claude/');
+/** A file is READ when it is not wholly historical; a partly-historical one is read for its live prefix. */
+export const IS_SCANNED = (path) =>
+  !HISTORICAL.some((re) => re.test(path)) || LIVE_PREFIX.some((r) => r.file.test(path));
 
-function checkDocs(repo, config, log = console.log) {
+/**
+ * How many leading lines of `file` are maintained state: `Infinity` for an ordinary document, and for a
+ * partly-historical one the count before its boundary heading (all of it, when the boundary is not there
+ * yet — a CHANGELOG with nothing released is entirely live).
+ */
+export function liveLineCount(file, lines) {
+  const rule = LIVE_PREFIX.find((r) => r.file.test(file));
+  if (!rule) return Infinity;
+  const at = lines.findIndex((l) => rule.until.test(l));
+  return at < 0 ? lines.length : at;
+}
+
+/**
+ * A file that DECLARES itself superseded in its opening banner is a record too — same reasoning.
+ *
+ * Tightened 2026-08-11 from a bare `\bSUPERSEDED\b` anywhere in the first 21 lines. That form exempted the
+ * WHOLE FILE from every rule on the strength of the word appearing in ordinary prose, and it failed in the
+ * permissive direction: a maintained document whose intro happens to say "section X below is superseded"
+ * silently stopped being checked, with no output saying so. `2026-08-09-memory-policy-measurement.md` came
+ * within eight lines of exactly that. The word must now open an emphasized banner (`**SUPERSEDED …**` or
+ * `**Status: SUPERSEDED …**`, optionally block-quoted) — a DECLARATION, not a mention.
+ *
+ * Zero tracked documents matched the old form when this was tightened, so nothing lost its exemption.
+ */
+export const SUPERSEDED_BANNER = /^(?:.*\n){0,20}?[^\S\n]*>?[^\S\n]*\*\*[^*\n]{0,40}?\bSUPERSEDED\b/;
+
+/**
+ * Only prose is checked; see the note on `retiredTerms` for why `src/` is deliberately excluded.
+ *
+ * The two repo-root files were added 2026-08-11, after a whole-branch review found `CLAUDE.md` describing a
+ * subsystem the branch had reshaped underneath it — untouched, unflagged, and never scanned. They are the
+ * highest-leverage omission this gate could have: `CLAUDE.md` is AUTO-LOADED into every session, so a stale
+ * claim there is read by the next session before it reads anything else, and `TASKS.md` is the open backlog
+ * a session picks work from. Both are maintained state by the same definition as `docs/` — the historical
+ * twins (`CHANGELOG.md`, `docs/task-archive.md`) stay excluded below.
+ */
+export const IN_SCOPE = (path) =>
+  path === 'README.md'
+  || path === 'CLAUDE.md'
+  || path === 'TASKS.md'
+  // CHANGELOG.md is in scope but only for its LIVE PREFIX — see LIVE_PREFIX below, which is what keeps the
+  // released sections out. Adding it here was the load-bearing half: this predicate runs FIRST, so while
+  // `CHANGELOG.md` was absent from it the file was excluded before the historical filter was ever consulted,
+  // and narrowing that filter changed nothing at all. Measured 2026-08-11, by probing the gate rather than
+  // trusting a clean run — a silently-unscanned file reports exactly like a clean one.
+  || path === 'CHANGELOG.md'
+  || path.startsWith('docs/')
+  || path.startsWith('.claude/');
+
+/**
+ * The tracked file list this gate scans. Its own seam so a test can supply one without a git fixture.
+ *
+ * `-z` (NUL-separated) is load-bearing: without it git C-QUOTES any path with a non-ASCII byte, so
+ * `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"`, the read below fails, and its `catch`
+ * skips the file — a doc that is never scanned and never reported as unscanned. Same root cause and same
+ * fix as check-sensitive's; measured 2026-08-11 (TASKS.md Part 60).
+ */
+export const trackedFiles = (repo) =>
+  execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
+
+/**
+ * `files` is the raw candidate list (a `git ls-files` shape); it is filtered here, so a test that injects
+ * one still exercises the extension, scope and historical-exclusion filters.
+ */
+export function checkDocs(repo, config, log = console.log, files = null) {
   const rules = config.retiredTerms ?? [];
   if (rules.length === 0) {
     log('check-docs: no retired terms configured — nothing to check.');
     return 0;
   }
 
-  const tracked = execFileSync('git', ['ls-files'], { cwd: repo, encoding: 'utf8' })
-    .split('\n')
-    .map((f) => f.trim())
+  const tracked = (files ?? trackedFiles(repo))
     // .html too: the published design record is a tracked page, and an untracked one drifted three times
     .filter((f) => f.endsWith('.md') || f.endsWith('.html'))
     .filter(IN_SCOPE)
-    .filter((f) => !HISTORICAL.some((re) => re.test(f)));
+    .filter(IS_SCANNED);
 
   const hits = [];
   let skipped = 0;
@@ -58,14 +141,31 @@ function checkDocs(repo, config, log = console.log) {
 
     if (SUPERSEDED_BANNER.test(text)) { skipped++; continue; }
 
-    const lines = text.split(/\r?\n/);
+    // A partly-historical file is scanned down to its boundary and no further, so the windows below never
+    // reach across it. Line numbers are unaffected — this is a PREFIX, so index i is still line i + 1.
+    const all = text.split(/\r?\n/);
+    const lines = all.slice(0, liveLineCount(file, all));
+
+    // Each line is tested BOTH alone and soft-joined to the one after it. Line-only matching was a blind
+    // spot that hid every rule in the registry from any claim spanning a wrap: these documents wrap at ~110
+    // columns, so a sentence like "…`ReciprocalRankFusionPolicy`, available\nbut not the default" reads as
+    // one claim and matched nothing. Found 2026-08-11 when a whole-branch review caught that exact sentence
+    // in CLAUDE.md, stale, while this gate reported the file clean. A two-line window is enough by
+    // construction — a wrap inserts one break, and the claims these rules describe are far shorter than a
+    // line. Rules are authored against prose, so the join is a SPACE: a pattern written with `[^.\n]{0,60}`
+    // still cannot run past a sentence, only past a wrap.
+    const windows = lines.map((line, i) => (i + 1 < lines.length ? `${line} ${lines[i + 1]}` : line));
+
     for (const rule of rules) {
       const re = new RegExp(rule.term, 'g');
       lines.forEach((line, i) => {
-        // `drift-ok` is the honest annotation for a passage that deliberately NAMES the retired thing
-        if (line.includes('drift-ok')) return;
+        // `drift-ok` is the honest annotation for a passage that deliberately NAMES the retired thing.
+        // It covers the joined window too, so annotating either line of a wrapped passage is enough.
+        if (line.includes('drift-ok') || (lines[i + 1] ?? '').includes('drift-ok')) return;
         re.lastIndex = 0;
-        if (re.test(line)) hits.push({ file, line: i + 1, rule, text: line.trim() });
+        if (re.test(line)) { hits.push({ file, line: i + 1, rule, text: line.trim() }); return; }
+        re.lastIndex = 0;
+        if (re.test(windows[i])) hits.push({ file, line: i + 1, rule, text: windows[i].trim() });
       });
     }
   }
@@ -96,4 +196,10 @@ function checkDocs(repo, config, log = console.log) {
   return 1;
 }
 
-process.exitCode = checkDocs(repo, config);
+// CLI entry point — a thin wrapper, so importing this module for a test runs nothing. `import.meta.main`
+// where the runtime has it (Node >= 24.2), because the argv fallback compares resolved paths and any way
+// that comparison can be wrong makes the guard silently do NOTHING and exit 0. Pinned by cli-entry.test.mjs.
+if (import.meta.main ?? (process.argv[1] && resolve(process.argv[1]) === here)) {
+  const config = (await import('../project.config.mjs')).default;
+  process.exitCode = checkDocs(repo, config);
+}

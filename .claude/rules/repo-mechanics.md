@@ -19,10 +19,10 @@ the mechanism.
 > the mistake it prevented. **After any sync, diff the deleted and modified files across
 > `.claude/rules/`, `.claude/knowledge/` AND `.claude/skills/` before committing** and check every rule,
 > knowledge document and skill still has a home. The five local skills (`add-migration`, `add-provider`,
-> `add-scorer`, `add-storage-backend`, `archive-task`) and the five local knowledge documents
-> (`extending-lyntai`, `generic-library`, `llm-and-router`, `pitfalls`, `storage`) carry no provenance
-> header and no `daoris.lock` entry — the same exposure as this file (measured for the rules tier;
-> inferred for the other two).
+> `add-scorer`, `add-storage-backend`, `archive-task`) and the six local knowledge documents
+> (`extending-lyntai`, `generic-library`, `input-is-thinking-not-doctrine`, `llm-and-router`, `pitfalls`,
+> `storage`) carry no provenance header and no `daoris.lock` entry — the same exposure as this file
+> (measured for the rules tier; inferred for the other two).
 
 ## Sensitive info — the guard that enforces it
 
@@ -44,6 +44,48 @@ the mechanism.
 
 - The three records are `TASKS.md` (open backlog only), `docs/task-archive.md` (the per-task history),
   and `CHANGELOG.md` (the release-facing log). Use the `archive-task` skill for the mechanical move.
+
+### A conditional item is not a task — it belongs in the decision record
+
+**An entry whose trigger has not occurred does not go in `TASKS.md`.** Put the option, its trigger and its
+constraint in `docs/DECISIONS.md`, and let the backlog hold only work someone could start today.
+
+The measured case is the JSON source-gen envelopes item (D14), which sat in the open backlog for the
+library's entire life waiting on an envelope-parsing bug that never materialized — a duplicate of D14's own
+closing sentence. Removed 2026-08-11.
+
+Two reasons, and the second is the better one:
+
+- The backlog exists to answer **"what is still to do"**, and every permanent resident makes that answer
+  worse. `task-lifecycle.md` says the same thing about *completed* items; a never-startable item is the same
+  defect from the other end.
+- **A real failure is a better starting point than a speculative one.** Built on a guess, the envelope types
+  would be shaped against vendor formats documented as drifting; built against an actual break, they are
+  shaped by the field that actually moved. Waiting is not merely cheap — it produces a better design.
+
+The test: *could someone begin this today?* If the honest answer is "only once X happens", X is the record's
+concern, not the backlog's.
+
+### Documents have the same lifecycle as tasks (D43)
+
+A finished task moves out of the backlog; a finished **document** moves out of `docs/`. Tracked `docs/` is
+maintained state — the contract, `DECISIONS.md`, `CHANGELOG.md`, `ROADMAP.md`, `TASKS.md`, the task archive,
+`FIXES.md`, `AOT.md`, the design page — and every one of those is kept *current* rather than accumulated.
+
+- **Write a new spec or plan straight into the gitignored `local/superpowers/{specs,plans}/`.** The
+  brainstorming and writing-plans skills default to `docs/superpowers/`; redirect them. Only
+  `docs/superpowers/INDEX.md` is tracked.
+- **Archive when both are true:** nobody needs it to understand how the library works *today*, and nothing
+  open still executes from it. Shipping is not sufficient on its own — a part-live plan stays.
+- **Before archiving, fill the INDEX's "Conclusions live in" column.** If you cannot, the conclusion was
+  never written anywhere durable: put it in the contract / `DECISIONS.md` / `pitfalls.md` / the archive
+  first. Keeping the record tracked is not a substitute for recording its conclusion.
+- **After archiving, repoint every inbound reference — `node devtools/dev.mjs check-links` is the gate.**
+  Added 2026-08-14 because this step was skipped on the one archive that has happened: six references to
+  `docs/2026-08-09-…md` stayed alive in maintained state (README, the design contract, `DECISIONS.md`) and a
+  reader, not a gate, caught them. Point at the file's real `local/superpowers/…` path.
+- **Never archive maintained state**, and never let the ROADMAP grow a prose section per release — it is one
+  line per version, because `CHANGELOG.md` is already the detail.
 - Write changelog entries under `## Unreleased`. The release workflow stamps that heading with the
   version and date (`node devtools/dev.mjs changelog --fix`) — never hand-stamp it. A titled release is
   pre-titled as `## Unreleased — <title>`.
@@ -53,7 +95,7 @@ the mechanism.
 **`<VersionPrefix>` in `src/Directory.Build.props` is written by the release workflow, never by hand.**
 The workflow bumps from whatever that file currently says, so a manual bump silently moves the baseline
 and the next release publishes the version *after* the intended one — the skipped version is simply gone.
-This happened in a sibling repository; see `docs/DECISIONS.md` D25.
+This happened in a sibling repository; see `docs/DECISIONS.md` D19.
 
 - Both that edit and a hand-stamped `## Unreleased` heading are blocked by the `check-version-bump`
   pre-commit guard.
@@ -65,7 +107,24 @@ This happened in a sibling repository; see `docs/DECISIONS.md` D25.
 2.0.0 is permanently taken — published then unlisted on 10 of the 12 package ids, and an unlisted
 version's number is never freed. A 2.0.0 release would report success while `--skip-duplicate` silently
 published nothing for those 10. The 2.x line resumed at 2.0.1 (tag `v2.0.1`); a future major is 3.0.0.
-See `docs/DECISIONS.md` D29.
+See `docs/DECISIONS.md` D23.
+
+### The feed shows 2.0.1+ only — unlisting is `nuget-unlist.mjs`, and its roster is derived
+
+Everything below 2.0.1 is unlisted on nuget.org (D44), so `Lyntai.Providers.ClaudeCli`, `.CodexCli` and
+`.OpenAiCompatible` have no listed version at all — they were folded into `Lyntai.Providers.Default` at
+2.0.1. Unlisting hides a version from search and from *range* resolution but never breaks a pinned
+consumer, and never frees the number.
+
+- The tool is `node devtools/nuget-unlist.mjs [--below <version>] [--only <id>]` — **dry run by default**;
+  add `--apply` to act. Key from `NUGET_API_KEY` or `--api-key <key>`, minted on nuget.org scoped `Unlist`
+  + glob `Lyntai.*`. Prefer the environment variable — `--api-key` puts the key in shell history — and
+  never commit one. The tool redacts the key from its own error output.
+- **The roster is derived from `src/*/*.csproj`**, not hand-listed — only retired ids are hand-kept, in the
+  script's `RETIRED` array. Add an id there whenever a package is removed or folded, because that is the
+  one thing the tree stops remembering. A hand-maintained roster already went stale once and would have
+  skipped a live package while reporting a clean run (D44).
+- Deprecation (as opposed to unlisting) is **web-UI only** — no API, so it is not scriptable.
 
 ## Fix log — where it lives here
 
@@ -93,7 +152,7 @@ Canonical `dotnet-package-layout` states the boundaries; here they resolve to co
   package the moment it drags a native runtime, a platform-specific API, or a dependency a consumer might
   refuse (the footprint test itself is canonical `dotnet-package-layout` §Package boundaries).
   "Most consumers want X" makes it a member of the `Lyntai` metapackage, never a Core dependency.
-  See `docs/DECISIONS.md` D31 (the split), D32 (the bundle budget), D33 (many small packages).
+  See `docs/DECISIONS.md` D25 (the split), D26 (the bundle budget), D27 (many small packages).
 - **Every `src/*` is packable** (`IsPackable=true`, `PackageId`, description); `samples/` and `tests/`
   are not. The version comes from `VersionPrefix` in `src/Directory.Build.props` — the single source, and
   never hand-edited (above). `node devtools/dev.mjs new-package` scaffolds a package into the nine
@@ -125,6 +184,16 @@ the next change. Say "the row type", "the request record", "the wire type". Entr
 - e2e suites live in `devtools/scripts/e2e/` as `pN.mjs`, discovered by `^p\d+\.mjs$`; the shared
   harness is `_e2e-common.mjs` — the leading underscore is what keeps it from being discovered as a
   suite. Each boots the Playground against the stub over an isolated `devtools/_e2e-*` data folder.
+- **The guard scripts have their own tests**, in `devtools/scripts/__tests__/*.test.mjs`, run by
+  `node --test` via `node devtools/dev.mjs test-devtools` and FIRST in `verify`. The shared fixture helper
+  is `_fixtures.mjs` — the leading underscore keeps it out of the runner's discovery, the same trick
+  `e2e/_e2e-common.mjs` uses. `devtools/scripts/` stays a roster of executable gates, which is why the
+  tests sit in a subdirectory rather than beside them. **Each guard is tested through a pure function**
+  (`checkDocs(repo, config, log)` and its siblings), with the CLI entry point a thin wrapper — when adding
+  a guard, extract that seam rather than testing by spawning a process.
+  Two traps already paid for: `node --test <dir>` does NOT work on Node 24 (a bare directory is loaded as a
+  module — it needs a glob), and a fixture must never contain a literal the leak scanner would flag, so
+  synthesize values from concatenated parts.
 - **Tests:** xUnit. Pure logic (router, fallback, dedup, cooldown, prompt render, `FtsQuery`, scoring
   aggregation) is unit-tested with fakes and no I/O. Storage is integration-tested against a per-test
   temp SQLite database, created and migrated then deleted. Providers run against the deterministic
@@ -143,7 +212,7 @@ the next change. Say "the row type", "the request record", "the wire type". Entr
 
 ## Assistant memory
 
-- The 2026-07-22 migration moved the old global memories into `docs/DECISIONS.md` D6–D15 and the
+- The 2026-07-22 migration moved the old global memories into `docs/DECISIONS.md` D5–D12 and the
   `.claude/` rules and knowledge. Global memory is kept empty of project facts.
 - The library's **own** memory subsystem (`IMemoryStore` / `ICuratedMemoryStore` / `ISemanticMemory`) is a
   separate thing entirely — the canonical rule is about the assistant's memory, not the product's.

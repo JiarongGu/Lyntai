@@ -14,7 +14,7 @@ public class MigrationRunnerTests : IDisposable
 
         var versions = conn.Query<long>("SELECT Version FROM lyntai_version_info ORDER BY Version").ToList();
 
-        Assert.Equal([202607280001, 202607280002, 202607280003, 202607280004, 202607280005, 202607280006, 202607280007, 202607280008, 202607280009, 202608081215], versions);
+        Assert.Equal([202607280001, 202607280002, 202607280003, 202607280004, 202607280005, 202607280006, 202607280007, 202607280008, 202607280009, 202608081215, 202608121100], versions);
     }
 
     [Fact]
@@ -38,6 +38,6 @@ public class MigrationRunnerTests : IDisposable
         Lyntai.Storage.Sqlite.Migrations.MigrationRunnerService.MigrateUp(_db.Path);
 
         using var conn = _db.Factory.Open();
-        Assert.Equal(10L, conn.ExecuteScalar<long>("SELECT COUNT(*) FROM lyntai_version_info")); // 9 baseline + MemoryGraph
+        Assert.Equal(11L, conn.ExecuteScalar<long>("SELECT COUNT(*) FROM lyntai_version_info")); // 9 baseline (1.0 squash) + MemoryGraph (2.5.0) + MemoryRetentionModel (3.0 squash)
     }
 }
