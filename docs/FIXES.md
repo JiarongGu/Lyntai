@@ -7,6 +7,46 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-16 — two round-2 findings that were recorded rather than fixed, closed
+
+Round 2 raised both and the pass logged them as observations. Both are the same species as the defects the
+review existed to find, so leaving them written down would have been the failure `check-encoding` and
+`check-links` were each created after: **a rule that is written down and still violated is a missing gate,
+not a knowledge problem.**
+
+**1. D63's constraint was a sentence in a document.** Its remedy for the composite silently dropping
+`IForgettableMemory` read *"when a capability interface is added anywhere in this library, the wrapper over
+it gets a line in the same change"* — while its own diagnosis of the original defect was that **a comment
+asserting an invariant is not the invariant**. The class docblock had claimed "It never guesses about
+capabilities" while implementing two of three, and nothing but that sentence stopped the fourth capability
+going the same way.
+
+*Fix.* `The_composite_implements_every_capability_interface_its_richest_member_does` derives the expected
+set by reflection — every interface `GraphMemoryEngine` implements, `CompositeMemoryEngine` must implement
+— so it cannot go stale the way a hand-listed set would. The graph engine is the right yardstick because it
+is the richest member and the one every `UseGraph` blend wraps. Mutation-checked by removing
+`IForgettableMemory` from the composite's declaration while keeping its members, which is exactly the shape
+that shipped: the fact fails, and no other test does.
+
+**2. `check-links`' escape unit did not match its match unit.** The Part half was given a soft-joined
+two-line window earlier in this same review, and the `link-ok` check was left reading one line. So an
+annotation on line *i+1* — the line where a reader actually SEES `Part 53` — was invisible, and the gate
+would fire on prose somebody had deliberately annotated. The fix a maintainer reaches for in that situation
+is duplicating the token onto both lines, which is how an escape quietly becomes noise.
+
+*Fix.* `link-ok` on either line silences the pair, which is the rule `check-docs` carries in the same breath
+as its own window — `pitfalls.md` states it verbatim, *"drift-ok on either line silences the pair"*, and
+this gate copied the window without it. **Copying a rule copies its assumptions; here it copied the
+mechanism and left the half that makes it usable.** Three guard tests: an annotation on the second line, on
+the first, and — the control that stops the widening becoming a hole — an unannotated wrapped reference
+still failing.
+
+**Verification.** `test-devtools` 326 → 329, `verify` 14/14, 2,932 passed / 2,953. Latent when found, both
+of them: no defect was live in the tree. That is the point at which a gate is cheapest to fix and the point
+at which it is easiest to leave alone.
+
+---
+
 ## 2026-08-15 — round 2 of the pre-3.0 review: four regressions round 1 introduced, and the reasoning error under one of them
 
 **Symptom.** All fourteen gates green, 2,923 tests passing, e2e 3/3 — over four behaviour regressions and one

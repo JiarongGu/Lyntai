@@ -485,7 +485,7 @@ public interface IMemoryEngine {
   weight vs explicit marking) may be registered at once, each contributing its own view, combined by a named
   `IMemoryAgeCompositionPolicy` / `IMemorySalienceCompositionPolicy` the engine calls rather than hardcoding.
   `IMemoryRetentionPolicy`'s own combination rule — multiplying every retention policy's clamped factor — is
-  similarly named now, `IMemoryRetentionCompositionPolicy`/`MultiplicativeRetentionComposition`, and
+  similarly named now, `IMemoryRetentionCompositionPolicy`/`MultiplicativeRetentionCompositionPolicy`, and
   `ModulatedRetrievability` takes it as an optional constructor argument instead of hardcoding the multiply.
   Every shipped default composition reduces a one-element (or, for retention, empty) input to exactly the
   pre-existing behaviour, which is what keeps every engine default unchanged by any of this.
@@ -674,7 +674,7 @@ public interface IMemoryEngine {
   READ-TIME view: whichever policy actually computed the stored stability is the one provenance must credit,
   never the decorator. Bits 0-31 are reserved for this library; bits 32-62 are open for a consumer's own
   policy; bit 63 is never set. Uniqueness and single-bit-ness are validated at construction, against
-  whatever is actually REGISTERED (`MemoryProvenance.EnsureEachBitIsSingleRealAndUnique`,
+  whatever is actually REGISTERED (`MemoryProvenance.ValidateProvenanceBits`,
   `GraphMemoryEngine`'s salience-policy normalization) — a hand-listed test array cannot see a
   third policy that lands on an already-occupied bit; construction-time validation can.
 - **`Stability` means exactly one thing across every `IMemoryRetrievabilityPolicy`: the position delta at

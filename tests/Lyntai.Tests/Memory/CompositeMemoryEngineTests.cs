@@ -324,6 +324,34 @@ public class CompositeMemoryEngineTests
         Assert.NotEmpty(recall.Items);
     }
 
+    /// <summary><b>The capability-forwarding invariant, as a FACT rather than a sentence.</b>
+    ///
+    /// <para>D63's remedy for the composite silently dropping <see cref="IForgettableMemory"/> was written as
+    /// prose — "when a capability interface is added anywhere in this library, the wrapper over it gets a
+    /// line in the same change" — which is another sentence in another document, and D63's own diagnosis of
+    /// the original defect was that <b>a comment asserting an invariant is not the invariant</b>. The class
+    /// docblock had claimed "It never guesses about capabilities" while implementing two of three.</para>
+    ///
+    /// <para>Derived from the tree rather than hand-listed, so it cannot go stale: every interface
+    /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> implements, the composite must implement too.
+    /// The graph engine is the right yardstick because it is the richest member and the one every
+    /// <c>UseGraph</c> blend wraps — add a fourth capability to it and this fails until the wrapper forwards
+    /// it, which is precisely the change that shipped un-forwarded before.</para></summary>
+    [Fact]
+    public void The_composite_implements_every_capability_interface_its_richest_member_does()
+    {
+        var memberCapabilities = typeof(Lyntai.Memory.Engines.GraphMemoryEngine).GetInterfaces();
+        var compositeCapabilities = typeof(CompositeMemoryEngine).GetInterfaces();
+
+        var dropped = memberCapabilities.Except(compositeCapabilities).Select(t => t.Name).Order().ToList();
+
+        Assert.True(dropped.Count == 0,
+            $"CompositeMemoryEngine does not implement {string.Join(", ", dropped)} — so a consumer holding " +
+            "the IMemoryEngine that IMemoryEngineFactory hands back cannot reach it, because " +
+            "MemoryEngineBuilder.Build returns a composite for EVERY registration. Forward it, or the " +
+            "capability ships unreachable (docs/DECISIONS.md D63).");
+    }
+
     [Fact]
     public void Two_members_with_the_same_name_fail_at_construction()
     {

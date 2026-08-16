@@ -12,8 +12,22 @@ are small and fixed in number — the contract, the decisions, the changelog, th
 and every one of them is *current* by design.
 
 **The trade-off, stated plainly:** a fresh clone does not carry these files, and `check-docs` no longer gates
-them (it scans tracked files only). They are recoverable from git history — nothing was destroyed, only
-untracked — but treat them as a working record, not a contract. **When a design record still matters after
+them (it scans tracked files only). Treat them as a working record, not a contract.
+
+**"Recoverable from git history" is true of exactly one of them, and this line used to say it of all** —
+corrected 2026-08-16. A record is only in history if it was once tracked and later moved out of `docs/`, and
+just one ever was: the 2026-08-09 measurement below, whose content is at the commit before its removal —
+
+```
+git show "$(git rev-list -n1 HEAD -- local/superpowers/records/2026-08-09-memory-policy-measurement.md)^:local/superpowers/records/2026-08-09-memory-policy-measurement.md"
+```
+
+Every record written under **Adding one** goes straight into `local/` and is therefore in no history at all:
+it exists on the machine that wrote it and nowhere else. That is the intended design — it is also the reason
+the **Conclusions live in** column is not paperwork. A conclusion left only in one of these is one disk away
+from gone, and no `git show` will bring it back.
+
+**When a design record still matters after
 its version ships, its conclusion belongs in a maintained document**, not in the record: an interface or a
 semantic goes in `docs/2026-07-17-lyntai-design.md`, a decision and its reasoning in `docs/DECISIONS.md`, a
 reusable trap in `.claude/knowledge/pitfalls.md`, and the per-task history in `docs/task-archive.md`.
@@ -29,6 +43,7 @@ true about that day, not about the library._
 | Date | Topic | Shipped in | Spec | Plan | Conclusions live in |
 |---|---|---|---|---|---|
 | 2026-08-09 | Ranking × forgetting policy measurement (the D49 falsification pass) | 3.0.0 | — | record | **D49** · `docs/memory.md` §5 · archive Parts 54–55 (Part 56 is still OPEN) |
+| 2026-08-08 | The memory subsystem design PAGE (a published snapshot, not a spec) | 2.5.0 | — | record | design §5.7 · `docs/memory.md` · D39–D42 · archive Parts 46–52 |
 | 2026-08-08 | Named memory-engine seam (MEM1) | 2.5.0 | ✓ | ✓ | design §5.7 · D39 · archive Part 46 |
 | 2026-08-08 | Graph memory engine (MEM2) | 2.5.0 | ✓ | ✓ | design §5.7 · D40–D41 · archive Parts 47–52 |
 | 2026-08-08 | Graph memory on SQLite + Postgres (MEM2b) | 2.5.0 | — | ✓ | `.claude/knowledge/storage.md` · archive Part 48 |

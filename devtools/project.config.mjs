@@ -333,6 +333,43 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    // The 2026-08-15 naming sweep (D66). Registered here as well as in `retiredApiNames`, because the two
+    // gates see different tiers and the PROSE half is the one that puts a retired name back: `check-docs`
+    // scans docs/ and .claude/ (and .html), `check-api-vocabulary` scans the API baselines, and neither
+    // reads the other's subject. `pitfalls.md` records exactly this — "a rename that stops at the types
+    // leaves the retired word alive in PARAMETER NAMES and PROSE, and the prose is what puts it back" — and
+    // the first pass of this very sweep did it again: four maintained documents kept naming renamed API and
+    // every gate stayed green, because nothing was registered HERE.
+    {
+      term: 'IProviderInstallation',
+      use: '`IProviderProbe`',
+      why: 'it declares one ProbeAsync and installs nothing, one word from IProviderVersionInstaller which '
+        + 'does; the documented use is a capability type-test, so the name is the whole API (D66)',
+    },
+    {
+      term: 'EnsureEachBitIsSingleRealAndUnique',
+      use: '`MemoryProvenance.ValidateProvenanceBits`',
+      why: 'an assertion-shaped, ungrammatical name on frozen surface, beside siblings called Fits/Pack/'
+        + 'Unpack (D66)',
+    },
+    {
+      // Whole-word so `MultiplicativeRetentionCompositionPolicy` — the LIVE name, which contains the retired
+      // one — does not match. The same containment problem `retiredApiNames`' header records for
+      // MemoryRetentionPolicy/IMemoryRetentionPolicy, in a registry whose matching is loose by design.
+      term: '(?<!\\w)(SummedAgeComposition|MultiplicativeRetentionComposition|MaximalSalienceComposition)(?!\\w|Policy)',
+      use: 'the same names with the `Policy` suffix their interfaces and every sibling seam carry',
+      why: 'a reader scanning the surface could not tell MultiplicativeRetentionComposition was a policy '
+        + 'implementation while MultiplicativeRankingPolicy was (D66)',
+    },
+    {
+      // Deliberately NOT a bare `Reserve`: that word appears in ordinary prose about reserving slots, and a
+      // registry that cries wolf gets an exclusion added and then rots. The CALL is what was renamed.
+      term: '\\.Reserve\\(',
+      use: '`.ReserveCharacters(` — the builder call now names its unit',
+      why: 'AuthoritativeReserve named recall SLOTS on GraphMemoryOptions and prompt CHARACTERS on '
+        + 'MemoryCompositionOptions, both reachable from one builder chain, so a bare Reserve(2) read as '
+        + 'slots silently meant two characters (D66)',
+    },
     {
       term: 'age_days',
       use: '`age` — a subtraction on the engine\'s position',

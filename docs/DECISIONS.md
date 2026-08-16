@@ -1257,12 +1257,12 @@ a sibling.
 |---|---|---|
 | `MemoryCompositionOptions.AuthoritativeReserve` | `AuthoritativeCharacters` | the SAME identifier as `GraphMemoryOptions.AuthoritativeReserve`, same namespace, different UNITS — recall SLOTS there, prompt CHARACTERS here — and both reachable from one builder chain. Reading "reserve 2" as slots silently truncated every exact fact to two characters. |
 | `MemoryEngineBuilder.Reserve` | `ReserveCharacters` | the verb carried no unit at all, on the call that sets the above |
-| `IProviderInstallation` | `IProviderProbe` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |
+| `IProviderInstallation` | `IProviderProbe` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |   <!-- drift-ok: a rename record NAMES the retired spelling -->
 | `GraphMemoryEngine(policy:)`, `UseGraph(policy:)` | `retrievability:` | the one parameter of sixteen not named for its domain, surrounded by `agePolicies`, `saliencePolicies`, `ranking`, `annotation`, `verification` — and it is the forgetting curve, the subsystem's most consequential seam |
 | `CuratedMemorySections(task:)` | `taskKey:` | the only place on the whole surface that said `task`, against `taskKey` on twelve interfaces — and `CLAUDE.md` already records a README sample passing `task:` where the parameter was `taskKey` |
-| `EnsureEachBitIsSingleRealAndUnique` | `ValidateProvenanceBits` | an assertion-shaped, ungrammatical name beside siblings called `Fits`/`Pack`/`Unpack` |
+| `EnsureEachBitIsSingleRealAndUnique` | `ValidateProvenanceBits` | an assertion-shaped, ungrammatical name beside siblings called `Fits`/`Pack`/`Unpack` |   <!-- drift-ok: a rename record NAMES the retired spelling -->
 | `Compose` on the two composition seams | `StabilityFactor`, `Signals` | named for the ACT, which is the exact convention retiring `Appraise` settled — every seam method in this domain is named for what it RETURNS, and the age composition already was |
-| `SummedAgeComposition` &c. | `…CompositionPolicy` | dropped the suffix their own interfaces and every sibling policy carry, so a reader could not tell `MultiplicativeRetentionComposition` was a policy while `MultiplicativeRankingPolicy` was |
+| `SummedAgeComposition` &c. | `…CompositionPolicy` | dropped the suffix their own interfaces and every sibling policy carry, so a reader could not tell `MultiplicativeRetentionComposition` was a policy while `MultiplicativeRankingPolicy` was |   <!-- drift-ok: a rename record NAMES the retired spelling -->
 | `LocalDiffusionOptions.Strength` | `DenoisingStrength` | the same img2img dial under two names in one package, where the neighbouring backend already said `DenoisingStrength` |
 | `UseDefaultGenerationCandidates(candidates:)` | `providerIds:` | its own doc asserts it matches `UseDefaultCandidates(providerIds:)` "exactly", and `GenerationCandidate` is a real type in that namespace |
 
@@ -1282,8 +1282,8 @@ not that.** They are recorded here so the question is settled rather than redisc
 taken, it is taken in a major, on this reasoning, not as tidying.
 
 **What this constrains — and the honest half, which round 2 had to force out of the first draft.** Seven of
-the retired spellings are registered in `retiredApiNames`: `EnsureEachBitIsSingleRealAndUnique`,
-`IProviderInstallation`, the three `*Composition` type names, `Reserve` and `task`. **Four cannot be**, and
+the retired spellings are registered in `retiredApiNames`: `EnsureEachBitIsSingleRealAndUnique`,   <!-- drift-ok: a rename record NAMES the retired spelling -->
+`IProviderInstallation`, the three `*Composition` type names, `Reserve` and `task`. **Four cannot be**, and   <!-- drift-ok: a rename record NAMES the retired spelling -->
 the reason is the registry's own stated limit meeting real cases — whole-identifier equality can only ban a
 name that is dead EVERYWHERE, and these are each still live and correct somewhere else:
 

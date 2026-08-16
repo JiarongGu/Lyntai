@@ -21,10 +21,14 @@ agent session, app-owned MCP servers, the long-term memory subsystem and the mul
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**Nothing here is startable today — every open item is blocked on something this repository does not have.**
-That distinction is the point of the list, so it is stated first rather than buried. It became true on
-2026-08-15, when the last three startable Parts closed (70, 72, 69); if you are looking for work, the honest
-answer is that it needs a key, a model download, a CLI install, or a deployment's own data — not a session.
+**Part 75 IS startable today; Parts 33, 41, 65 and 56 are not.** That split is the point of the list, so it
+is stated first rather than buried.
+
+The four older parts are each blocked on something this repository does not have — a key, a model download,
+a CLI install, or a deployment's own data. That was briefly true of the WHOLE file (2026-08-15, when Parts
+70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**, whose six items
+are all startable in a session and each of which was found, verified and deliberately deferred with its
+reason recorded. If you are looking for work, start there.
 
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
@@ -303,6 +307,61 @@ knowingly is where the gap shows up measurably, not a reason to avoid shipping t
   which only a consumer can produce.
 
 ---
+
+
+---
+
+## Part 75 — what the pre-3.0 review deferred, and why (2026-08-15)
+
+_Opened by `docs/task-archive.md` **Part 74**. Each of these was found, verified and deliberately NOT fixed
+in that pass — every one is startable today, unlike the four parts above, so the banner's "nothing here is
+startable" no longer holds and has been amended._
+
+- [ ] **Make the remaining memory engines forgettable.** `CompositeMemoryEngine` now REFUSES to reap unless
+  every member can (**D63**), because reaping some and reporting success is the worse answer. Only
+  `GraphMemoryEngine` implements `IForgettableMemory`, so the common `UseCurated("glossary").UseGraph()`
+  blend cannot reap at all. The three remaining engines are each backed by a store that can:
+  `IMemoryStore.ForgetAsync` (lexical), `ISemanticMemory.ForgetAsync` (semantic),
+  `ICuratedMemoryStore.RemoveAsync` over `ListAsync(taskKey:, scope:)` (curated).
+  <br>**Two real design questions, which is why it was not done blind.** `ISemanticMemory.ForgetAsync`
+  requires a non-null scope, so a null-scope forget has no expression there. And curated material is
+  operator-authored — a glossary is arguably not the user's data to withdraw — so "forget this task+scope"
+  may legitimately mean something different for it. Answer both before implementing, or the fan-out inherits
+  an unstated premise, which is the shape `pitfalls.md` §"Copying a rule copies its assumptions" records.
+
+- [ ] **Decide what an aggregator's in-band `code` means.** `OpenAiHttp.InBandError` deliberately reports
+  only THAT an `error` member is present and what it says; it does not read a numeric `code` as an HTTP
+  status, because that mapping is not measured across the gateways this provider serves. A 200 carrying
+  `{"error":{"code":429}}` therefore classifies from the message text alone. Measuring two or three real
+  aggregators would let the code lead, which is strictly better than text matching — but reading it
+  unmeasured is the documented-not-measured trap GEN-VERIFY exists to correct.
+
+- [ ] **A guard `Block` is TERMINAL in the tool loop and ADVISORY over the hosted MCP endpoint.**
+  `ToolLoop` ends the turn with `LlmVerdict.Refused`; `ToolFunction` returns a refusal string, so the model
+  may retry with perturbed arguments, unbounded, and the host gets no signal (that path has no logger). The
+  gap this closed was "not enforced at all" and it is closed; what remains is that the two doors enforce the
+  same rule with different force. Needs a decision about what a hosted refusal should DO — count attempts,
+  tear down the session, or report to the host — rather than more code.
+
+- [ ] **Widen the memory corpus to author headlines disjoint from content.** The 3.0 review changed headline
+  search twice (narrowed, then widened back — `docs/FIXES.md`) and `memory-sweep` could not observe either
+  direction, because no corpus entry has a headline whose words are absent from its content. That is the
+  `pitfalls.md` "a measurement that cannot observe a change reports nothing moved" shape, live: the
+  instrument is blind to a dimension the library now has a decision about.
+
+- [ ] **`.claude/rules/RULES_INDEX.md` is stale and needs a `daoris` run.** Seven rows read
+  `⚠ needs frontmatter` for files that have it, and `input-is-thinking-not-doctrine.md` appears in no row at
+  all (its key was `guides:` where every sibling uses `enforces:` — corrected 2026-08-15, so a regeneration
+  will now pick it up). This is not cosmetic: `doc-loader` and `skills-workflow` both route off that table's
+  *applies when* column, so **every local knowledge document is currently unroutable by the documented
+  workflow** — including `pitfalls.md`, which `CLAUDE.md` bolds as "read before extending". The index is
+  generated and its header forbids hand-editing, so this needs the tool rather than a patch.
+  **Re-checked 2026-08-16: every SOURCE file behind those rows is correct** — `name` / `applies_when` /
+  `enforces` all present and well-formed, in the two rules (`repo-mechanics`, `TEMPLATE`) and in each local
+  knowledge document the stale rows name, plus `input-is-thinking-not-doctrine` itself. So the
+  staleness is entirely in the generated table, and the fix is a regeneration and nothing else; do not go
+  looking for missing frontmatter to add. Deferred deliberately (owner's call, 2026-08-16) — it degrades
+  session routing only, and no shipped surface depends on it.
 
 ## How to work a task (evergreen)
 

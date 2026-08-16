@@ -108,7 +108,21 @@ the tests) while being wrong. Skim before touching the relevant area.
   operating — and "nothing was destroyed, only untracked" (it was not untracked). A reader who believes
   `local/` is unpublished is one `git mv` away from publishing something they wrote there on that belief;
   `local/sensitive-patterns.txt` lives in the same directory, and its whole premise is that the directory
-  does not ship. **Verified clean today** — that file is untracked, and this is the only escapee.
+  does not ship.
+  <br>**It stayed tracked for two days after this entry was written, and the entry said otherwise.** It had
+  closed with "Verified clean today — that file is untracked" while `git ls-files local/` returned it. So the
+  entry describing the trap had itself fallen into the half it warns about: the escape was recorded, the
+  remedy was not applied, and the closing sentence asserted it had been. **A "verified" claim with no gate
+  behind it decays exactly like any other counted claim** — which is the argument for `check-counts`, one
+  tier up, applied to a boolean. That is the durable half of this incident, and it is why the fix below is
+  reported as an assertion rather than as a claim.
+  <br>**Resolved 2026-08-16** on the owner's call: `git rm --cached` (never a path change), and
+  `git ls-files local/` is now empty — which is the assertion, not "verified clean". The three claims in
+  `docs/superpowers/INDEX.md` are true again. The content is not destroyed, only untracked, and the INDEX
+  records how to retrieve it from history; that it leaves every other clone is D43's intended trade-off
+  ("a fresh clone does not carry these files"), which is exactly why it was the owner's call and not a
+  tidy-up. The TRAP is permanent regardless — `.gitignore` still has no effect on a path already in the
+  index, so the next `git mv` into an ignored directory repeats it.
   <br>The general shape, and it applies to any "move it out of the way" procedure: **untracking is an
   explicit `git rm --cached`, never a side effect of a path change.** Assert it (`git ls-files <dir>` should
   be empty) rather than inferring it from the ignore rule, because the ignore rule is not what decides.

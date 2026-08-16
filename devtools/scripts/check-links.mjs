@@ -223,7 +223,17 @@ export function checkLinks(repo, config, log = console.log, files = null) {
       // that line is the window's own first line, and reporting it from both would double-count every
       // reference in the file. Anchoring on the start index is exact, where deduplicating by file+part
       // would silently collapse two genuinely distinct references into one report.
-      const window = i + 1 < lines.length ? `${line} ${lines[i + 1]}` : line;
+      //
+      // `link-ok` on EITHER line silences the pair, because the ESCAPE unit has to match the MATCH unit.
+      // With a two-line window and a one-line escape, an annotation on line i+1 — the line where a reader
+      // actually SEES "Part 53" — is invisible here, so the gate fires on prose somebody deliberately
+      // annotated and the fix a maintainer reaches for is duplicating the token. check-docs carries the
+      // same rule in the same breath as its own window (`pitfalls.md`: "drift-ok on either line silences
+      // the pair"), and this gate copied the window without it.
+      const next = i + 1 < lines.length ? lines[i + 1] : '';
+      if (next.includes('link-ok')) continue;
+
+      const window = i + 1 < lines.length ? `${line} ${next}` : line;
       for (const match of window.matchAll(PART_PATTERN)) {
         if (match.index > line.length) continue;
         const [, record, num] = match;

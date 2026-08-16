@@ -52,7 +52,7 @@ public sealed class MyCliDialect : CliProviderDialectBase
 ```
 
 Then a ~40-line provider that composes engine + dialect and declares which optional capabilities the
-backend *actually* has (`IProviderInstallation` / `IProviderUpdater` / `IProviderVersionInstaller` /
+backend *actually* has (`IProviderProbe` / `IProviderUpdater` / `IProviderVersionInstaller` /
 `IProviderAuth`) — copy `ClaudeCliProvider`, which is nothing but forwarding members. The engine owns:
 command resolution, neutral cwd, prompt delivery (stdin or trailing argument — set `PromptDelivery`),
 the inactivity clock (plus an absolute backstop on the BUFFERED path only — a streamed turn is bounded by

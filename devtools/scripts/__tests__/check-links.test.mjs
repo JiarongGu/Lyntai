@@ -263,6 +263,35 @@ describe('check-links — a reference naming the WRONG record for a Part', () =>
     assert.equal(code, 0, 'a bullet-declared Part must count as present');
   });
 
+  it('`link-ok` on EITHER line of a wrapped reference silences it', () => {
+    // The escape unit has to match the MATCH unit. Once the Part half reads a soft-joined two-line window,
+    // an annotation on line i+1 — the line where a reader actually sees "Part 53" — would be invisible to a
+    // check that only reads line i, so the gate fires on prose somebody deliberately annotated and the fix a
+    // maintainer reaches for is duplicating the token. pitfalls.md records the identical half of the
+    // check-docs fix in the same sentence that describes the window: "`drift-ok` on either line silences the
+    // pair."
+    const wrapped = 'quoted as it was written — `TASKS.md`\n**Part 53** <!-- link-ok: an illustration -->\n';
+    const { code, out } = run({ ...records, 'README.md': wrapped });
+
+    assert.equal(code, 0, `an annotation on the second line must silence the pair:\n${out}`);
+  });
+
+  it('…and on the first line, which is the case that already worked', () => {
+    const wrapped = 'quoted as it was written — `TASKS.md` <!-- link-ok: an illustration -->\n**Part 53**\n';
+    const { code } = run({ ...records, 'README.md': wrapped });
+
+    assert.equal(code, 0);
+  });
+
+  it('but an UNannotated wrapped reference still fails, so the escape is not a hole', () => {
+    const { code } = run({
+      ...records,
+      'README.md': 'tracked in `TASKS.md`\n**Part 53** — with no annotation at all.\n',
+    });
+
+    assert.equal(code, 1, 'widening the escape must not stop the gate firing on unannotated prose');
+  });
+
   it('still reports a Part that is declared NOWHERE, in either shape', () => {
     // The control for the two above: widening what counts as a declaration must not make the check vacuous.
     const { code, out } = run({ ...records, 'README.md': 'see `docs/task-archive.md` Part 99.\n' });

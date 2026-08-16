@@ -71,8 +71,9 @@ mechanics. New capabilities last, because they need nothing from you at all.
 | 4 | **Three** registered defaults changed (including: a recall no longer lengthens a half-life); one curve deleted outright; authoritative facts now take slots within the limit | Every consumer, even one who configures nothing | **Decision** |
 | 5 | Age/salience plural; ranking selectable; review log runs | Nobody, unless you want it — or deconstruct `MemoryQuery` | No action needed |
 | 6 | Generation backends register with a configure callback | Anyone calling `AddOpenAiImageProvider` and friends | Mechanical |
+| 7 | Eleven renames, two members made `internal`, three BYO seams grown | Anyone naming one of them, or implementing a CLI dialect / memory engine / job store | Mechanical (one silent case — read it) |
 
-### Step 1 — Rename the four policy seams, and one storage type
+### Step 1 — Rename the TWO seams 2.5 actually had, and one storage type
 
 Only **two** of the four seams below existed in 2.5 at all. The other two are genuinely new capabilities
 this library never shipped before 3.0 — there is nothing to rename for them, because a 2.5 consumer never
@@ -846,6 +847,54 @@ to catch an unset URL, that guarantee is gone; a blank one still reports `NotCon
 which is what it always did. And the four HTTP options types are now mutable classes rather than records, so
 `with` expressions and value equality on them no longer compile.
 
+### Step 7 — the renames, and three seams that break a BYO implementation
+
+Mechanical, and a compile error names every site — which is why it is last. Nothing here changes behaviour;
+`docs/DECISIONS.md` **D66** has the reasoning and the list of names deliberately left alone.
+
+**Renames.** Every one is source-level:
+
+| 2.5 / early-3.0 name | 3.0 name | Affects you if |
+|---|---|---|
+| `IProviderInstallation` | `IProviderProbe` | you type-test a provider for probe support |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `MemoryEngineBuilder.Reserve(n)` | `.ReserveCharacters(n)` | you set the prompt reserve on a blend |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `MemoryCompositionOptions.AuthoritativeReserve` | `.AuthoritativeCharacters` | you construct that options record |
+| `GraphMemoryEngine(policy:)` / `UseGraph(policy:)` | `retrievability:` | you pass the curve by NAME |
+| `CuratedMemorySections(task:)` | `taskKey:` | you pass that argument by name |
+| `MemoryProvenance.EnsureEachBitIsSingleRealAndUnique` | `.ValidateProvenanceBits` | you implement a provenance-declaring policy |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `IMemoryRetentionCompositionPolicy.Compose` | `.StabilityFactor` | you implement a retention composition |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `IMemorySalienceCompositionPolicy.Compose` | `.Signals` | you implement a salience composition |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `SummedAgeComposition`, `MultiplicativeRetentionComposition`, `MaximalSalienceComposition` | the same names + `Policy` | you name one of the shipped composition policies |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `LocalDiffusionOptions.Strength` | `.DenoisingStrength` | you set it — **see the warning below** |
+| `UseDefaultGenerationCandidates(candidates:)` | `providerIds:` | you pass that argument by name |
+
+**`LocalDiffusionOptions.Strength` is the one rename a recompile will NOT catch.** Every other row is a
+type, an interface member or a named argument, so the compiler names the site. That one is a settable
+property on a plain class — the shape `IConfiguration.Bind` / `Configure<T>` targets — and config binding
+**ignores unknown keys**. An app with `"LocalDiffusion": { "Strength": 0.35 }` in `appsettings.json` builds
+clean, starts clean, and silently renders at the default instead. Grep your configuration for it.
+
+**Two members are now `internal`**, neither of which had an external caller: `MemoryEngineComposition` (a DI
+carrier record) and `BudgetedGenerationRouter.RecordAsync`. If you were calling the latter, record generation
+spend through `IUsageTracker` directly.
+
+**Three seams break a BYO implementation.** All three are compile errors, none is silent:
+
+- **`ICliProviderDialect.BuildCompletionArgs` takes a second parameter**,
+  `IReadOnlyList<string> toolHostArgs`. Your dialect decides where they go: append them if your argv ends in
+  OPTIONS (`[.. mine, .. toolHostArgs]`, which is what `ClaudeCliDialect` does), or place them earlier if it
+  ends in a positional. This exists because appending is wrong for `codex`, whose argv ends in `-` and which
+  reads anything after it as prompt text — where a swallowed flag costs a turn rather than erroring (D65).
+- **`IForgettableMemory` gains `ForgetAsync`**, with no default body. `PruneAsync` reaps selectively;
+  `ForgetAsync` removes a whole (task, scope). If your engine cannot do the second, it should not claim the
+  interface — a composite now REFUSES to reap at all unless every member can, rather than reaping some and
+  reporting success (D63).
+- **`IJobStore` gains `PollAgainAsync`** — Step 3b above.
+
+**One behaviour change with no compile-time signal**: `GenerationRouter` no longer lets a backend's
+exception escape. A caller that today catches one out of `GenerateAsync`/`SubmitAsync` will instead receive a
+result carrying a verdict (D64). Your own cancellation still propagates.
+
 ## A worked upgrade, before and after
 
 One realistic `AddLyntai` block, close enough to real usage to diff your own against. Both halves below
@@ -931,7 +980,8 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
 1. **Add** the namespaces, then rename. `Lyntai.Memory.Interference` and `Lyntai.Memory.Forgetting` for the
    seams, `Lyntai.Memory.Ranking` if you tuned `HopAttenuation`/`RelativeFloor` — and **keep**
    `Lyntai.Memory`, which still owns `GraphMemoryOptions`, `MemoryDecayState`, `MemoryWrite`, `MemoryQuery`
-   and `IMemoryGraphStore`. Then rename the four seams and their implementations wherever your code names
+   and `IMemoryGraphStore`. Then rename the two seams 2.5 shipped, and their implementations, wherever your
+   code names
    them (Step 1). Do this first — every later fix references the new names.
 2. **Rename the storage type too, if you bound the keyword store's size**: `MemoryRetentionPolicy` → <!-- drift-ok: the checklist step IS the rename -->
    `MemoryEvictionPolicy`, `LyntaiOptions.MemoryRetention` → `.MemoryEviction`, and the policy's `Eviction` <!-- drift-ok: as above -->
@@ -943,9 +993,11 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
 4. **Fix a custom `IMemoryGraphStore`**, if you have one: add all five of `DeleteAsync`,
    `RecordReviewsAsync`, `ReviewsAsync`, `RecordSubjectsAsync` and `NodesBySubjectAsync` — the last two may
    be no-ops (Step 3). Skip if you use a shipped store.
-5. **Decide** on the curve and the ranking policy: adopt `DsrRetrievability` and `ReciprocalRankFusionPolicy`
-   as shipped, or restore `MultiplicativeRankingPolicy` explicitly with your old numbers. There is no
-   restore for the deleted exponential curve (Step 4).
+5. **Decide** on the three changed defaults: the curve (`DsrRetrievability`, with the exponential one deleted
+   and no restore), the ranking policy (`ReciprocalRankFusionPolicy`, or restore `MultiplicativeRankingPolicy`
+   explicitly with your old numbers), and **reinforcement** — a recall no longer lengthens a half-life
+   (`DsrOptions.ReinforceGain` ships at `0`). The third is the one that changes what your existing store
+   returns without you touching anything (Step 4).
 6. **If you use `MemoryGrade.Authoritative`, re-check any recall with a small `limit`** — exact facts now
    take slots within it and displace ordinary hits, so a `limit` chosen against 2.5's behaviour may now
    return less ordinary material than you expect. Either raise the limit or bound the reserve with
@@ -965,7 +1017,12 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
 11. **If you consume `Lyntai.Generation`, convert every `Add*Provider` call to the configure callback**
    (Step 6). Skip if you do not. It is last because it is mechanical and independent: a compile error names
    every site.
-12. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
+12. **Apply the renames** (Step 7). A compile error names every site except ONE:
+   `LocalDiffusionOptions.Strength` is now `DenoisingStrength`, and configuration binding ignores unknown
+   keys — so grep your `appsettings` for it, or renders silently use the default.
+13. **Fix a custom `ICliProviderDialect` or memory engine**, if you have one: `BuildCompletionArgs` takes the
+   tool-host args, and `IForgettableMemory` gained `ForgetAsync` (Step 7).
+14. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
    automatically, and the `Stability` unit contract means your 2.5.x rows are already correct under the new
    curve.
 

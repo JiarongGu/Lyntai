@@ -5278,3 +5278,111 @@ baseline the option is judged against. Full closure note: `docs/task-archive.md`
   <br>Guarded meanwhile by `MemorySalienceInversionTests.The_embedder_not_salience_is_what_moves_recall_quality_on_this_corpus`,
   which asserts salience stays the SMALLER effect — so if that ordering changes, the attribution is
   re-measured rather than quietly re-worded.
+
+## Part 74 — the pre-3.0 whole-library review (2026-08-15)
+
+✅ done 2026-08-15 — Not a `TASKS.md` task; the archive records it as the fourth consolidation review, after
+Part 8 ("generic + sustainable"), Part 20 (foundation hardening) and Part 21 (the 1.0 API sign-off). Scope
+settled with the owner before any code moved: **whole library, breaks on the table, the Part 20 shape,
+stopping at release-ready rather than cutting 3.0.**
+
+**Round 1 — nine parallel read-only reviewers**, sliced by risk × size rather than by package (memory 7.7k
+LOC; llm/providers 7.5k; storage 8.7k; generation 4.1k; jobs/agents/cortex 3.6k; lifecycle/DI 3.1k;
+tests+devtools; the eleven API baselines read as ONE document; the docs). **113 findings raised.** Each was
+reproduced against the code by the lead before anything was acted on — reviewers reported evidence with
+`file:line` and never patches, which bounds their failure mode to "missed something" rather than "landed a
+wrong fix". One finding was **downgraded on inspection** (`LyntaiOptions.MemoryCapPerScope` claimed dead; it
+is a live get/set proxy) and one relayed claim was **retracted** (the two front-door folds were said to have
+diverged on router resolution; that difference is deliberate and documented — a named client narrows
+providers, so it must build its own router).
+
+The findings clustered rather than scattered, and the cluster is the finding: **one contract with two
+implementations that disagree**. A wrapper vs its member, in-process vs SQL, one CLI vs another, one router
+vs its twin.
+
+**What landed.** `CompositeMemoryEngine` was narrowing its members' contract three ways — `IForgettableMemory`
+unimplemented and `ForgetAsync` on no interface at all (so the shipped memory subsystem had **no supported
+way to delete anything**), `MemoryRecall.Answered` dropped (3.0's abstention signal unreachable), and
+`MemoryQuery.CharBudget` unreconciled. Four backends could answer and not be heard: `GenerationRouter` had no
+`try`/`catch` where its LLM twin has one, an OpenAI-compatible `200` carrying an error body was re-sent and
+then blamed for a malformed body, `FalQueueProvider` polled a dead id forever, and `ProcessRunner`'s buffered
+path discarded a complete, billed CLI turn as a stall. Three capabilities stopped at the first door: the
+hosted MCP endpoint ran the app's tools with no guard gating, codex's tool-host args landed in its PROMPT
+slot, and the front-door fold was written twice. Three backends answered one question differently (headline
+search, in-process ranking, sync connection opens). Two gates were fixed — `check-links` was green over a
+stale reference in the design CONTRACT because two blind spots cancelled — and the naming sweep spent the
+last cheap window on eleven names that MISLED, while refusing the ones that merely differ (**D66**).
+
+**Round 2 — two adversarial reviewers over this pass's own diff**, told to assume it was wrong. It found
+**four regressions round 1 had introduced**, all with fourteen gates green over them, plus a false claim in
+the migration guide ("2.5.x shipped `ReinforceGain = 2.0`" — 2.5 had no `DsrOptions` at all) and an
+over-claim in D66 ("every rename is registered" — six of eleven were not, and four *cannot* be). Details in
+`docs/FIXES.md`; the reusable shape is in `pitfalls.md` under **Copying a rule copies its assumptions** —
+three of the four were a rule moved from where it was true to where it was not, carrying a premise nobody had
+written down because where it came from it always held.
+
+**Records written:** `docs/DECISIONS.md` **D63–D66**; a `docs/FIXES.md` entry per incident; two new `pitfalls.md`
+sections ("Second doors", "Copying a rule copies its assumptions"); `retiredApiNames` and `retiredTerms`
+extended so no rename can come back quietly through either the surface or the prose;
+`docs/migration-2.5-to-3.0.md` gained Steps 3b and 7 and a corrected Step 4. `docs/memory-design.html` left
+tracked `docs/` for `local/superpowers/records/` under D43, its INDEX row filled first.
+
+**Verification:** `verify` green at 14/14 at every commit boundary — the pass began by capturing a clean
+baseline (2888/2909, 21 skips with Docker up, so the Postgres leg genuinely ran) precisely so a regression
+would be attributable. Ended at **2930+ passed / 2952+, 21 skipped**, e2e 3/3, guard tests 326/326. Every
+load-bearing fix mutation-checked; two mutation checks initially reported "applied" without matching, and
+were caught by asserting on the intermediate rather than the exit code.
+
+**A round-2 follow-up closed two findings the pass had merely RECORDED** (2026-08-16, `docs/FIXES.md`):
+D63's capability-forwarding constraint became a reflection-derived fact instead of a sentence in a document,
+and `check-links`' `link-ok` escape was widened to the two-line window its matching already used. Both were
+latent. Noted here because "recorded as an observation" is where a review's own findings go to die, and the
+two that survived the triage were both gates — the tier this repository has twice concluded must be fixed
+rather than remembered.
+
+**Deferred, with the reason** — see `TASKS.md` Part 75.
+
+---
+
+## Part 76 — `local/` is now genuinely untracked, and the document describing it overclaimed (2026-08-16)
+
+_Split out of `TASKS.md` Part 75 on closure — that Part stays open for the five items this did not touch, so
+this gets its own number rather than colliding with the still-open one (`.claude/skills/archive-task`'s rule:
+an open Part N and an archived Part N are never the same N)._
+
+**Done, on the owner's call.** `git rm --cached local/superpowers/records/2026-08-09-memory-policy-measurement.md`
+— the one file that was still in the index under a gitignored directory, moved there with `git mv` under
+**D43**, which `.gitignore` cannot untrack. The pre-3.0 review found it and deliberately left it: untracking
+removes a measurement record from every other clone, which is a call about someone else's copy of the work
+rather than a tidy-up.
+
+**Reported as an assertion, because that is the whole lesson of the entry it closes.** `git ls-files local/`
+returns nothing; the file is still on disk; `.gitignore` covers it, so it produces no untracked-file noise.
+The previous version of `pitfalls.md` closed with "Verified clean today — that file is untracked" while
+`git ls-files` returned it, and **a "verified" claim with no gate behind it decays exactly like any counted
+one** — so the remedy is stated as the command whose output anyone can reproduce.
+
+**Preconditions checked rather than assumed.** D43 allows a document to leave `docs/` only when nothing open
+still executes from it and its **Conclusions live in** column is filled first. That column was already
+true — D49, `docs/memory.md` §5, archive Parts 54–55 — and `check-links` skips `local/` targets outright, so
+the seven inbound references in maintained state (README ×3, the design contract, `CHANGELOG.md` ×2,
+`pitfalls.md`) keep resolving on a fresh clone that does not carry the file.
+
+**The finding, which was not the task.** `docs/superpowers/INDEX.md` said of its records: *"They are
+recoverable from git history — nothing was destroyed, only untracked."* That is true of **exactly one** of
+them. A record is in history only if it was once tracked and later moved out of `docs/`, and only the
+2026-08-09 measurement ever was; every record written under the INDEX's own **Adding one** procedure goes
+straight into `local/` and was therefore never tracked at all — it exists on the machine that wrote it and
+nowhere else. The sentence read as a safety net under the entire directory. Corrected, with the retrieval
+command for the one record that has one, and with the consequence stated where it bites: **the Conclusions
+live in column is not paperwork** — a conclusion left only in a design record is one disk away from gone,
+and no `git show` will bring it back.
+
+That correction is the reason this was worth a Part rather than a line. The untracking was five seconds; the
+claim it falsified had been sitting in the document that governs where design work is allowed to live.
+
+**Verification.** `git ls-files local/` empty · `check-links` 44 docs + 668 code files, every reference
+resolves · `verify` 14/14. Records: `.claude/knowledge/pitfalls.md` (the trap kept, its status now an
+assertion), `docs/superpowers/INDEX.md` (the overclaim corrected).
+
+---
