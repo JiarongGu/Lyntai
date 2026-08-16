@@ -764,7 +764,7 @@ sealed class Lyntai.Generation.Routing.RateLimitedGenerationRouter
     StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
     SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Tools.GenerationBackendsTool
-    .ctor(IEnumerable<IGenerationProvider> providers)
+    .ctor(IEnumerable<IGenerationProvider> providers, GenerationOptions options = null)
     Description : String
     InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
@@ -806,6 +806,7 @@ static class Lyntai.GenerationBuilderExtensions
 sealed class Lyntai.GenerationOptions
     .ctor()
     DefaultCandidates : List<GenerationCandidate>
+    ProbeDeadline : TimeSpan
     RateLimit : RateLimitOptions
 sealed class Lyntai.Guards.DenylistGuard
     .ctor(IReadOnlyList<String> terms, String name = null)

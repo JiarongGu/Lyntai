@@ -7,6 +7,107 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-17 — both job backends reported a rejected credential as a failed RENDER
+
+**Symptom.** A host running ComfyUI or fal behind an authenticating proxy, or with a bad key, was told the
+render FAILED. That is wrong, unactionable, and expensive in a way the verdict taxonomy exists to prevent:
+`Failed` makes the router advance AND take a dead-host strike against a backend whose only problem is a
+missing credential, so a deployment one config line from working benches itself instead.
+
+**Root cause.** The typed status was thrown away before anyone could classify it. Both
+`ComfyUiProvider.HistoryAsync` and `FalQueueProvider.GetAsync` collapse a failed response into
+`$"{(int)StatusCode}: {body}"` and return it as a string, so their fetch paths could not call
+`GenerationVerdictClassifier.FromHttpFailure` — the entry point the classifier's own doc names as better
+("typed status wins over body text"). ComfyUI then hardcoded `GenerationVerdict.Failed`; fal called
+`FromErrorText`, which reads a `"401: …"` status line as ordinary prose and also answers `Failed`.
+
+**Why nothing caught it, and the interesting half.** The divergence was already WRITTEN DOWN, in `TASKS.md`
+§Startable — and its description was wrong. It recorded ComfyUI as hardcoding `Failed` "while
+`FalQueueProvider` routes the same class of failure through `GenerationVerdictClassifier`", i.e. fal was
+believed correct. Nobody had run it. This is the second time in two days that a claim recorded in a
+maintained file, by someone who had read the code, turned out false when measured.
+
+**Fix.** Both readers carry `HttpStatusCode?` back, and both fetch paths classify with
+`FromHttpFailure(code, body, hasCredentials)`. fal passes `hasCredentials: true` (it has a key that was
+rejected → `AuthFailed`); ComfyUI passes `false`, because it has no credential surface at all, so a 401 can
+only mean something in front of it wants one → `NotConfigured`, the verdict that tells a host to go and set
+it up. The poll paths are untouched: their transport/terminal split is a separate, deliberately different
+rule.
+
+**Verification.** `GenerationProviderContract.An_authentication_failure_is_classified_rather_than_flattened`,
+driven on every HTTP backend's verdict-bearing doors. It failed for BOTH job backends before the fix.
+A first draft of the fetch fact passed a bare operation id, which fal rejects before calling out — so it
+failed for the wrong reason and would have "confirmed" the defect without reaching it.
+
+**Introduced by.** The commits that added each backend; neither ever classified this door.
+
+---
+
+## 2026-08-17 — `generate_backends` could block an agent for ~20 minutes, and one bad backend took the listing
+
+**Symptom.** The tool an agent is told to call FIRST hangs. With two HTTP backends that accept a connection
+and then stall, it returns nothing for about twenty minutes; with one BYO backend that throws from
+`ProbeAsync`, it returns nothing at all — the exception reaches the tool loop, and the listing of every
+healthy backend is lost with it.
+
+**Root cause.** `GenerationBackendsTool.InvokeAsync` awaited `ProbeAsync` on every registered provider in
+sequence, with no aggregate bound and no `try`. Each probe was capped only by that backend's own `Timeout`,
+and the same option governs a RENDER — `Automatic1111Options` and `OpenAiImageOptions` both default it to ten
+minutes, correctly, since a render routinely outlives `HttpClient`'s own default. Every backend disclosed its
+timeout honestly; the COMPOSITION disclosed nothing, and serial execution multiplied it.
+
+**Why nothing caught it.** No test registered a backend that stalls, and the per-backend suites each assert
+their own probe in isolation — the failure is a property of the composition, which nothing owned.
+`GenerationRouter` names itself the trust boundary for a backend that throws instead of returning a verdict
+(**D64**); this is a SECOND reader of the same registered collection and applied none of it. `pitfalls.md`
+§"Second doors" again.
+
+**Fix.** Probes run concurrently under one `GenerationOptions.ProbeDeadline` (new; 20s, non-positive means
+none), each wrapped so a throw or an overrun becomes `usable: false` WITH the reason rather than an
+exception or an omission — omitting the backend would tell the model it does not exist, which is a different
+and worse answer than "it is not answering". The caller's own cancellation still propagates, told apart from
+the deadline the way `GenerationDeadline` does it.
+
+**Verification.** `GenerationBackendsToolTests` — seven facts covering the deadline binding, the stalled
+backend still being listed, a throwing probe becoming an observation, concurrency (asserted on the clock),
+caller cancellation, and the no-deadline escape.
+
+**Introduced by.** The commit that added `AddGenerationTools`.
+
+---
+
+## 2026-08-17 — `SalienceRetentionPolicy` could return `NaN` from a method that promises a bounded multiplier
+
+**Symptom.** None observable, and that is the whole entry: `ModulatedRetrievability` coerces a non-finite
+factor to 1, so no ranking and no prune ever saw it.
+
+**Root cause — and it is a DUPLICATED READ, not a missing check.** `MemorySignals.Salience(in MemorySignals)`
+exists precisely to be the one coercion every reader shares, and it already handled non-finite values
+(`double.IsFinite(raw) ? Math.Max(1, raw) : 1`). Its own summary says **"every read site calls this"**, and
+names the three that do — the two SQL stores' promoted `salience` column, the in-process store's admission
+ordering, and the engine's rank boost — because they "once normalized the same value three different ways,
+which made identical data admit differently on different backends".
+`SalienceRetentionPolicy` was a FOURTH read site that spelled it out itself, as
+`Math.Clamp(signals.Get(Salience, fallback: 1), 1, MaxSalience)` — and `Math.Clamp` PROPAGATES `NaN` rather
+than clamping it. A `NaN` salience is reachable: the bag is written by `IMemorySaliencePolicy`, a PUBLIC and
+PLURAL seam, and a row stored before `SalienceOptions.NoveltyWeight` was guarded may already hold one.
+
+**Why it is worth fixing anyway.** The decorator's clamp is documented as defence against a BYO policy being
+dishonest — "soundness must not depend on an implementation being honest about itself" — and a SHIPPED policy
+must not be the thing it is defending against. `NoveltyWeight`'s own doc had already stated the rule this
+violates: **the guard belongs to the VALUE, not to whoever reads it last.**
+
+**Fix.** Read through `MemorySignals.Salience` and apply only this policy's own ceiling on top
+(`Math.Min(MemorySignals.Salience(state.Signals), MaxSalience)`), which restores the helper's "every read
+site" claim to being true.
+
+**Verification.** `MemoryRetentionPolicyContract.The_factor_never_exceeds_the_declared_maximum`, whose state
+set includes a `NaN` salience signal. It failed before the fix, naming the value and the declared bound.
+
+**Introduced by.** The commit that added the retention seam; the read side never had the guard.
+
+---
+
 ## 2026-08-16 — a configured generation budget could never fire, because the second door never billed
 
 **Symptom.** None visible. `IUsageTracker.TotalAsync()` under-reported by the full cost of every

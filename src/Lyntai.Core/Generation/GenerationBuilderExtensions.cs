@@ -24,6 +24,24 @@ public sealed class GenerationOptions
     /// bucket would have an image render starve the chat that asked for it. Applied by
     /// <c>AddGenerationRateLimit()</c>; the machinery is the same token bucket.</summary>
     public RateLimitOptions RateLimit { get; } = new();
+
+    /// <summary>How long <c>generate_backends</c> may take IN TOTAL to probe every registered backend.
+    /// Zero or negative means no deadline. Default: 20 seconds.
+    /// <para>It is an AGGREGATE because that is the number a caller can act on. Each backend already bounds
+    /// its own call, but with its RENDER budget — ten minutes on two of the shipped ones, correctly, since a
+    /// render outlives <see cref="HttpClient"/>'s own default — so two backends that accept a connection and
+    /// stall made the tool an agent is told to call FIRST block for twenty. Every backend disclosed its
+    /// timeout and the composition disclosed nothing.</para>
+    /// <para>Short by design: a probe is contractually free and must never generate, so a backend that cannot
+    /// answer in seconds is not usable for the render that would follow. A backend that overruns is reported
+    /// unusable WITH the reason, never dropped from the listing.</para>
+    /// <para><b>To change it, register the options instance before <c>AddLyntai</c></b> —
+    /// <c>services.AddSingleton(new GenerationOptions { ProbeDeadline = … })</c> — the same DI-registration
+    /// path <c>SalienceOptions</c> and <c>DsrOptions</c> take. The builder reuses a pre-registered instance
+    /// rather than replacing it, so the candidate order and rate limit configured through
+    /// <c>UseDefaultGenerationCandidates</c>/<c>AddGenerationRateLimit</c> still land on the same
+    /// object.</para></summary>
+    public TimeSpan ProbeDeadline { get; set; } = TimeSpan.FromSeconds(20);
 }
 
 public static class GenerationBuilderExtensions
@@ -161,7 +179,8 @@ public static class GenerationBuilderExtensions
     public static LyntaiBuilder AddGenerationTools(this LyntaiBuilder builder)
     {
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationBackendsTool(
-            sp.GetServices<IGenerationProvider>()));
+            sp.GetServices<IGenerationProvider>(),
+            GenerationOptionsFor(sp)));   // the listing's aggregate ProbeDeadline lives here
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationInlineTool(
             sp.GetRequiredService<Lyntai.Generation.Routing.IGenerationRouter>(),
             GenerationOptionsFor(sp),

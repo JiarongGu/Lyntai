@@ -35,6 +35,32 @@ public class GenerationDiTests
         Assert.NotNull(sp.GetRequiredService<IGenerationRouter>());
     }
 
+    /// <summary><b>A pre-registered <see cref="GenerationOptions"/> is REUSED, not replaced</b> — the
+    /// documented way to set a knob the builder exposes no dedicated method for, and the same DI-registration
+    /// path <c>SalienceOptions</c> and <c>DsrOptions</c> take. Asserted because the doc on
+    /// <see cref="GenerationOptions.ProbeDeadline"/> tells a consumer to do exactly this, and it holds only
+    /// while the builder's get-or-register keeps preferring an existing instance.
+    /// <para>The second half is what makes it worth a test rather than a comment: the builder's OWN
+    /// configuration must land on that same object, or a consumer who sets one knob this way silently loses
+    /// the others.</para></summary>
+    [Fact]
+    public void A_pre_registered_GenerationOptions_is_reused_so_both_sides_configure_one_instance()
+    {
+        var mine = new GenerationOptions { ProbeDeadline = TimeSpan.FromSeconds(3) };
+        var services = new ServiceCollection();
+        services.AddSingleton(mine);
+        services.AddLyntai(cfg => cfg
+            .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "a" })
+            .UseDefaultGenerationCandidates("a"));
+        using var sp = services.BuildServiceProvider();
+
+        var resolved = sp.GetRequiredService<GenerationOptions>();
+
+        Assert.Same(mine, resolved);
+        Assert.Equal(TimeSpan.FromSeconds(3), resolved.ProbeDeadline);   // the consumer's knob survived
+        Assert.Single(resolved.DefaultCandidates);                       // and the builder's landed on it
+    }
+
     [Fact]
     public async Task Default_candidates_are_used_when_a_caller_names_none()
     {

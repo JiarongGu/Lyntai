@@ -234,7 +234,7 @@ public sealed class FalQueueProvider(
             return new GenerationOperation(operationId, GenerationOperationStatus.Failed,
                 Detail: $"malformed operation id '{operationId}' — expected \"model{ModelSeparator}requestId\"");
 
-        var (body, failure, transport) = await GetAsync(
+        var (body, failure, transport, _) = await GetAsync(
             $"{Root}/{model}/{options.RequestsSegment}/{requestId}/{options.StatusSegment}", ct).ConfigureAwait(false);
         // A failure that never reached the queue leaves the render alive; one the queue ANSWERED — a 4xx for
         // an id it does not know, or a backend with no key — is terminal. Reporting every failure as Running
@@ -279,9 +279,17 @@ public sealed class FalQueueProvider(
 
         // the fetch path classifies the failure rather than branching on transport: a fetch that cannot be
         // completed is a result the caller acts on now, where a poll is a question that can be asked again
-        var (body, failure, _) = await GetAsync(
+        var (body, failure, _, status) = await GetAsync(
             $"{Root}/{model}/{options.RequestsSegment}/{requestId}", ct).ConfigureAwait(false);
-        if (failure is not null) return GenerationResult.Failure(GenerationVerdictClassifier.FromErrorText(failure), failure);
+        // The TYPED status leads where there is one: classifying "401: …" as TEXT reports Failed, because a
+        // status line is not the vocabulary FromErrorText matches on — so a rejected key read as a failed
+        // render, which both benches the backend and hides the one thing a host could act on.
+        if (failure is not null)
+            return GenerationResult.Failure(
+                status is { } code
+                    ? GenerationVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: true)
+                    : GenerationVerdictClassifier.FromErrorText(failure),
+                failure);
 
         var artifacts = ReadArtifacts(body!);
         return artifacts.Count > 0
@@ -369,10 +377,15 @@ public sealed class FalQueueProvider(
     ///
     /// <para>Nothing polls forever regardless: such a job ends by cancellation, a deadline, or the handler
     /// returning <c>Fail</c>. The terminal arm exists for the one case where none of those would ever fire
-    /// because the id is simply unknown.</para></summary>
-    private async Task<(string? Body, string? Failure, bool Transport)> GetAsync(string url, CancellationToken ct)
+    /// because the id is simply unknown.</para>
+    ///
+    /// <para><c>Status</c> carries the TYPED status back rather than only its rendering inside the failure
+    /// text: <see cref="GenerationVerdictClassifier"/> documents that a typed status wins over body text, and
+    /// a caller holding only the string cannot reach the better entry point.</para></summary>
+    private async Task<(string? Body, string? Failure, bool Transport, System.Net.HttpStatusCode? Status)>
+        GetAsync(string url, CancellationToken ct)
     {
-        if (Unconfigured() is { } missing) return (null, missing, false);
+        if (Unconfigured() is { } missing) return (null, missing, false, null);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -383,21 +396,21 @@ public sealed class FalQueueProvider(
             using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode
-                ? (body, null, false)
+                ? (body, null, false, response.StatusCode)
                 : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
                    // transport = "keep waiting". Everything EXCEPT a 404 qualifies: a rate limit, an auth
                    // blip during a key rotation, a gateway challenge and a 5xx all say nothing about whether
                    // the render is still running, and it is already paid for.
-                   response.StatusCode != System.Net.HttpStatusCode.NotFound);
+                   response.StatusCode != System.Net.HttpStatusCode.NotFound, response.StatusCode);
         }
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex)
         {
-            return (null, ex.Message, true);   // never reached the queue — says nothing about the render
+            return (null, ex.Message, true, null);   // never reached the queue — says nothing about the render
         }
         catch (Exception ex)
         {
-            return (null, ex.Message, false);
+            return (null, ex.Message, false, null);
         }
     }
 

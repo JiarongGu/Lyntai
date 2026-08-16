@@ -1107,8 +1107,17 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
 9. **Search for hand-constructed `GraphMemoryEngine`s and positional deconstructions.** Those are the two
    shapes nothing above catches by name: `memoryClock:` is now `agePolicies:` and takes a collection (Step
    1's parameter table lists all three renamed parameters, and why only that one can affect 2.5 code), and
-   `MemoryQuery`/`MemoryDecayState` each gained trailing members, so a five-element deconstruction of either
-   no longer binds (Steps 1, 2 and 5).
+   **six records gained trailing members**, so a positional deconstruction of any of them no longer binds
+   (Steps 1, 2, 3 and 5).
+   <br>**`MemoryRecall` is the one to grep for first, and the only one on the list you can hit without
+   implementing anything.** It is what `RecallAsync` returns, so `var (items, ran) = recall;` is ordinary
+   consumer code and it stops compiling — it gained `Answered`, 3.0's abstention signal (`true` / `false` /
+   `null` = something answered / a judge said nothing did / nothing judged; see Step 5). The other five are
+   `MemoryQuery` (`RankingPolicyName`), `MemoryDecayState` (`Signals`, `Difficulty`) and the store
+   contract's `GraphNode` / `GraphNodeWrite` / `GraphTouch` / `GraphNeighbour`, which only a custom
+   `IMemoryGraphStore` or a custom retrievability policy deconstructs.
+   <br>Constructing any of them positionally still COMPILES — the new members are trailing and defaulted —
+   but is binary-breaking, so a pre-compiled caller needs a rebuild either way.
 10. **Fix a custom `IJobStore`**, if you have one: add `PollAgainAsync`, undoing the attempt increment and
    fencing on the worker id (Step 3b). Skip if you use a shipped job store — or no jobs at all.
 11. **If you consume `Lyntai.Generation`, convert every `Add*Provider` call to the configure callback**
@@ -1123,7 +1132,11 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
 14. **Fix a custom `IGenerationRouter`**, if you have one: it gained a required `StreamAsync` (Step 8). The
    built-in router and its budget/rate-limit decorators ship implemented, so this is only a hand-written one,
    and the compiler names it.
-15. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
+15. **Rebuild if you hand-construct `GenerationBackendsTool`.** It gained a trailing optional
+   `GenerationOptions` (which carries the new `ProbeDeadline`), so existing code still COMPILES but a
+   pre-compiled caller does not re-bind — the same optional-parameter shape as items 9 and 14. Nothing to do
+   if you register through `AddGenerationTools()`, which supplies it.
+16. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
    automatically, and the `Stability` unit contract means your 2.5.x rows are already correct under the new
    curve.
 

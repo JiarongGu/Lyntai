@@ -271,6 +271,18 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
   carry the FULL SemVer promise** — the package held an exemption from 2.0.1 and 3.0 withdrew it once each of
   its three named reasons closed (**D70**; **D67**, **D69**). The namespace-vs-package distinction outlives
   the exemption and is still worth knowing, because it is what the exemption was repeatedly mistaken for.
+- **The router has a door per delivery mode, and the third one is 3.0** (**D67**). `IGenerationRouter` gained
+  `StreamAsync` — a required member, so a hand-written router must add it. Before that the capability
+  pre-filter was only ever asked about `Inline` and `Job`, so a backend advertising `GenerationDelivery.Stream`
+  was **unreachable through the platform**: `IGenerationStreamProvider` was a `Lyntai.Core` contract about to
+  freeze under the full SemVer promise having never been exercised. **Two of its invariants are INHERITED
+  from the LLM router rather than invented** (§6, D4): fallback stops at the first chunk carrying real data,
+  and only real data commits — a metadata-only opening chunk must not. They transfer because the failure
+  they prevent is identical, splicing two responses into one stream, whether the bytes are tokens or audio.
+  **One is this door's own: exactly one terminal chunk, guaranteed by the ROUTER**, so a backend whose stream
+  simply stops gets it closed here and never has to be careful about closing its own. What stays inferred is
+  narrower than a blanket caveat: not the chunk HANDLING, which is measured, but the chunk SHAPE — whether
+  data-then-terminal is the decomposition a real TTS wire format wants.
 - **The coupling to the LLM side is five `ITool`s** (`AddGenerationTools()`), and that is the *entire* coupling
   (D24) — the tool loop and an MCP-hosted CLI agent both drive media through the same five.
 
@@ -306,7 +318,11 @@ line while breaking a higher one is a regression.
 - **No sweeper, no background job.** Decay is computed when read.
 - **A recall performs at most one embed and one bounded candidate query.** Enrichment is best-effort and its
   failure degrades quality, never correctness.
-- **Nothing is deleted except by an explicit `PruneAsync`.** Decay buries by rank; it never removes (**D41**).
+- **Nothing is deleted except by an explicit caller act.** Decay buries by rank; it never removes (**D41**).
+  As of 3.0 there are two such verbs, and they are different capabilities (**D72**): `ForgetAsync`
+  (`IForgettableMemory`) is a targeted withdrawal that must be COMPLETE, `PruneAsync` (`IPrunableMemory`) is
+  best-effort capacity management. Through 2.5.x this line could name only `PruneAsync`, because that was
+  the only one — and the engine's `ForgetAsync` was reachable through no interface at all (**D63**).
 - **`Stability` keeps its unit** — the position delta at which retrievability is `0.5`, enforced by a contract
   fact. A change reinterpreting it silently reinterprets every stored row.
 - **No mechanism may make a permanent change driven by this engine's own retrieval decisions.** The 3.0
@@ -456,9 +472,21 @@ public interface IMemoryEngine {
   once for different purposes, which is the requirement that rules out a single unnamed singleton (**D39**).
 - **A blend IS an engine.** `CompositeMemoryEngine` implements the same interface as its members, so nothing
   branches on whether a caller holds one engine or five. Optional abilities are separate interfaces —
-  `IExpandableMemory`, `ILinkableMemory`, `IForgettableMemory` — routed by `MemoryRef.Engine`, never guessed
-  by type-testing (the same optional-capability shape as §5.6, and the regression it prevents is pinned by a
-  test).
+  `IExpandableMemory`, `ILinkableMemory`, `IForgettableMemory` and (3.0, **D72**) `IPrunableMemory` — never
+  guessed by type-testing (the same optional-capability shape as §5.6, and the regression it prevents is
+  pinned by a test).
+  <br>**Two of them ROUTE and two FAN OUT, and the argument is the addressing, not taste** (**D63**, **D72**;
+  3.0 — through 2.5.x every one of them routed). `ExpandAsync`/`LinkAsync` take a `MemoryRef`, which names
+  exactly one member, so they route by `MemoryRef.Engine`. A removal takes a (task, scope), which every
+  member may hold, so it visits each capable one and SUMS what they removed — a consent withdrawal that
+  silently cleared one engine of five would be the broken promise the verb exists to prevent. Which members
+  a removal visits is the `IMemoryRemovalPolicy` seam, asked per member AND per kind (`Forget` / `Prune`),
+  because eligibility is a deployment question the library cannot answer.
+  <br>**`Forget` and `Prune` are separate capabilities for the same reason** (**D72**): a forget must be
+  COMPLETE, a prune is best-effort capacity management, and one interface forced an engine to claim both or
+  neither — which a vector store cannot honestly do, since it can forget a (task, scope) exactly and cannot
+  prune by age at all. A blend where NO member can remove throws rather than reporting `0`, because `0`
+  already means "nothing matched".
 - **Grades are what let this beat a human memory rather than imitate one.** `MemoryGrade.Authoritative`
   material is allocated from a reserved character budget *before* any associative content is admitted, is
   never truncated to a headline, and renders in its own labelled section. Associative recall must never crowd
@@ -888,7 +916,8 @@ these later without breaking changes.
 > outermost; SQLite/PG persistence) · **semantic memory** (BYO `IEmbedder`, `ISemanticMemory`,
 > `IVectorStore` incl. pgvector; hybrid composer + dual-write) · **durable-jobs expansion** (priorities,
 > DLQ, interval+cron schedules, cooperative cancellation, admission control, `Paused`, live progress,
-> actor/mailbox `PartitionKey`; still deferred: cross-process global limits) · **secrets expansion**
+> actor/mailbox `PartitionKey`; the last deferral, cross-process global limits, shipped in 3.0 as a slot
+> table — see the 3.0 amendment below) · **secrets expansion**
 > (DEK-envelope vault + recovery key; `Lyntai.Secrets.Dpapi`) · **refusal screening**
 > (`LlmRequest.RefusalPattern` + `IRefusalMatcher`) · **curated memory** (`ICuratedMemoryStore`) ·
 > **conversation event store v2** (GUID id + per-thread seq + kind/payload/metadata,
@@ -925,6 +954,38 @@ these later without breaking changes.
 > are frozen (D9); selective migration is FluentMigrator-tag-driven per `StorageFeature` (D12).
 > **v0.30 pre-1.0 breaks:** `ChatResult.BlockReason`→`Detail`; `IRateLimiter` cancellation propagates;
 > `IUsageTracker` fully async; tracker totals aggregate across consumer casings.
+
+> **Amendment (2026-08-17): the 3.0 contract changes, and where each is stated in full.** The memory ones are
+> in §5.7 and the generation ones in §5.6, both edited in place — this block carries only what those sections
+> do not own, plus the index. The ordered upgrade path for a consumer is `docs/migration-2.5-to-3.0.md`; the
+> reasoning is `docs/DECISIONS.md`.
+>
+> **`IJobStore` gains three required members** — `TryAcquireSlotAsync`, `ReleaseSlotAsync`,
+> `HeartbeatSlotsAsync` (**D73**) — closing §9's last durable-jobs deferral. `JobOptions.GlobalMaxConcurrency`
+> bounds concurrent jobs across every process sharing one store; `0` is the default and is the pre-3.0
+> unbounded behaviour with no extra round-trip. **It is a slot TABLE rather than a distributed counter
+> because a count cannot gate a claim**: folding a `COUNT` into the claim works on SQLite, whose single
+> writer makes one statement the whole exclusion, and fails on Postgres, which claims with `FOR UPDATE SKIP
+> LOCKED` precisely so workers do not block each other — two claimers read the same MVCC snapshot and both
+> take the same headroom. A slot being a ROW turns `SKIP LOCKED` into the cap's ally: two workers skipping to
+> two different slot rows is the correct outcome, so the cap is exact *and* claiming stays parallel, by one
+> mechanism on both dialects. A store that declines the cap returns `null` from the acquire, which is a
+> visible refusal rather than a silently ignored limit. Only a hand-written store is affected; all three
+> shipped stores implement them and the compiler names every site.
+>
+> **The other three breaks, each stated where it belongs:** `IForgettableMemory` splits and removal fans out
+> (§5.7, **D63**/**D72**); `IGenerationRouter` gains `StreamAsync` (§5.6, **D67**); and `Lyntai.Generation`
+> comes under the full SemVer promise, its 2.0.1 exemption **withdrawn** rather than merely satisfied (§5.6,
+> **D70**). The last is a change to what the library PROMISES and not to any signature — nothing stops
+> compiling — so it is the one a consumer can miss: those backends are now frozen, and a wire format that
+> differs STRUCTURALLY rather than in a value is a major-version risk taken deliberately (**D69**).
+>
+> **§6 semantic additions:** a generation backend that THROWS is classified and fallen over rather than
+> propagating — the router is a trust boundary, because `AddGenerationProvider` is a documented BYO seam and
+> discarding every remaining candidate for a third party's defect is the outcome fallback exists to prevent.
+> The two paths differ deliberately and it is about money: an inline generation ADVANCES, a thrown SUBMIT is
+> `Inconclusive` and SURFACES, because submitting commits the spend and advancing would buy the same render
+> twice (**D64**). The caller's own `OperationCanceledException` still propagates on both paths.
 
 ## 10. Consuming Lyntai (target ergonomics)
 

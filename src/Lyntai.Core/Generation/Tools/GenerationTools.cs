@@ -165,9 +165,28 @@ internal static class GenerationToolJson
 }
 
 /// <summary>Lists the generation backends and what each can actually do — the tool an agent calls FIRST, so it
-/// picks a backend that exists and supports the medium instead of guessing a name.</summary>
-public sealed class GenerationBackendsTool(IEnumerable<IGenerationProvider> providers) : ITool
+/// picks a backend that exists and supports the medium instead of guessing a name.
+///
+/// <para><b>The listing is bounded as a WHOLE and never fails because one backend did.</b> Probes run
+/// concurrently under a single <see cref="GenerationOptions.ProbeDeadline"/>; a backend that overruns it, or
+/// that throws, is reported <c>usable: false</c> with the reason rather than omitted. Omitting it would tell
+/// the model the backend does not exist, which is a different and worse answer than "it is not answering".</para></summary>
+/// <param name="providers">The registered backends.</param>
+/// <param name="options">Supplies the deadline; null takes the defaults.</param>
+/// <remarks><b>Why the bound is here and not on each backend.</b> A backend's own <c>Timeout</c> is a RENDER
+/// budget — <c>Automatic1111Options</c> and <c>OpenAiImageOptions</c> both default it to ten minutes, correctly,
+/// since a render routinely outlives <see cref="HttpClient"/>'s own default. Probing under that number is what
+/// made two stalled HTTP backends able to block this tool for twenty minutes: each disclosed its own timeout,
+/// and the COMPOSITION disclosed nothing. The aggregate is the number a caller actually needs bounded, so it
+/// is stated once, here.
+/// <para>Concurrency is not merely a speedup: serially, the deadline would have to be divided among backends
+/// whose count this type does not choose, so one slow backend would eat the budget of every backend after
+/// it — and which ones those are would depend on registration order.</para></remarks>
+public sealed class GenerationBackendsTool(
+    IEnumerable<IGenerationProvider> providers, GenerationOptions? options = null) : ITool
 {
+    private readonly GenerationOptions _options = options ?? new GenerationOptions();
+
     /// <inheritdoc/>
     public string Name => "generate_backends";
 
@@ -184,9 +203,11 @@ public sealed class GenerationBackendsTool(IEnumerable<IGenerationProvider> prov
     public async Task<string> InvokeAsync(string argumentsJson, CancellationToken ct = default)
     {
         var list = providers.ToList();
-        var probes = new List<(IGenerationProvider Provider, GenerationProbeResult Probe)>();
-        foreach (var provider in list)
-            probes.Add((provider, await provider.ProbeAsync(ct).ConfigureAwait(false)));
+
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (_options.ProbeDeadline > TimeSpan.Zero) budget.CancelAfter(_options.ProbeDeadline);
+
+        var probes = await Task.WhenAll(list.Select(p => ProbeAsync(p, ct, budget.Token))).ConfigureAwait(false);
 
         return GenerationToolJson.Write(writer =>
         {
@@ -219,6 +240,39 @@ public sealed class GenerationBackendsTool(IEnumerable<IGenerationProvider> prov
             }
             writer.WriteEndArray();
         });
+    }
+
+    /// <summary>One backend's probe, bounded and never allowed to fail the listing.</summary>
+    /// <param name="provider">The backend to ask.</param>
+    /// <param name="caller">The CALLER's own token, kept separate so their cancellation still propagates.</param>
+    /// <param name="budget">The caller's token linked with this listing's deadline.</param>
+    /// <remarks>The two tokens are told apart the same way <c>GenerationDeadline</c> does it: if the caller's
+    /// own token is cancelled the exception is theirs and propagates; otherwise the only clock left is this
+    /// listing's, and that is a report rather than a failure.
+    /// <para>A THROWN probe is an observation too. <c>GenerationRouter</c> is documented as the trust boundary
+    /// for a BYO backend that throws instead of returning a verdict, and this is a second reader of the same
+    /// registered collection — it applied none of it, so one third-party defect discarded the listing of every
+    /// other backend.</para></remarks>
+    private static async Task<(IGenerationProvider Provider, GenerationProbeResult Probe)> ProbeAsync(
+        IGenerationProvider provider, CancellationToken caller, CancellationToken budget)
+    {
+        try
+        {
+            return (provider, await provider.ProbeAsync(budget).ConfigureAwait(false));
+        }
+        catch (OperationCanceledException) when (caller.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return (provider, new GenerationProbeResult(false,
+                "the probe did not answer within this listing's deadline (GenerationOptions.ProbeDeadline)"));
+        }
+        catch (Exception ex)
+        {
+            return (provider, new GenerationProbeResult(false, $"the probe failed: {ex.Message}"));
+        }
     }
 }
 

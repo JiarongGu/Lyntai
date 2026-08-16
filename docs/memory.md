@@ -382,6 +382,73 @@ all, `ReinforceGain` is one curve's magnitude for one of them.
 `StabilityGrowth` without `AgeReset` **throws**: the store resets the age as part of the same write, so that
 combination would apply neither effect.
 
+#### The difficulty law, and how it is adapted from FSRS
+
+Here rather than in the decision log or a method's `<remarks>`, because it is REFERENCE — what you need to
+check the implementation against the published form, or to judge a `DsrOptions` value before changing it.
+The decision to site it here is **D79**; the rule behind that is `.claude/rules/code-commentary.md`.
+
+Adapted from FSRS-5's `next_difficulty` with FSRS-6's constants, checked against `py-fsrs/scheduler.py`,
+`fsrs-rs/model.rs`, fsrs4anki v4.7.2 and the Anki manual. FSRS-4/4.5 has NO damping term; FSRS-5 introduced
+the linear damping and moved the reversion target from `D0(3)` to `D0(4)`; FSRS-6 kept that SHAPE and
+recalibrated `w6`/`w7`/its own `D0` sub-formula. The form:
+
+    ΔD  = -w6 · (G - 3)
+    D'  = D + ΔD · (10 - D) / 9        (linear damping toward the ceiling)
+    D'' = w7 · target + (1 - w7) · D'  (mean reversion)                then clamp to [1, 10]
+
+**Four adaptations, so the implementation can be checked against that form:**
+
+1. **The discrete rating `G ∈ {1,2,3,4}` becomes a continuous derived grade** restricted to the success
+   range, `g = 2 + 2·retrievability ∈ [2, 4]` — exact at both ends (`r=0 → g=2` "Hard", `r=1 → g=4`
+   "Easy"), with `g=3` ("Good", FSRS's own no-change reference) landing at `r = 0.5`, this library's OWN
+   half-life anchor rather than an arbitrary point.
+   <br>**The FLOOR is a constraint, not a tuning choice: the mapping may never reach `g=1`** — `Again`, a
+   LAPSE, the one rating a purely-successful recall must never emit. A linear `1 + 3r` would emit it at
+   `r=0` while growing stability maximally in the same call.
+2. `w6` is `DsrOptions.DifficultyChangeWeight`, `w7` is `DifficultyReversionWeight`, and the target is
+   `DifficultyReversionTarget` — all three adopt FSRS-6's OWN published defaults, not invented numbers.
+3. The linear damping term is kept verbatim.
+4. **The reversion target is a directly-settable NUMBER** rather than FSRS's per-grade `D0` sub-formula:
+   this library has no `w4`/`w5` pair to compute one from, and the target is a plain constant once
+   `w4`/`w5` and the grade (always `4`, Easy) are fixed. Exposing the result changes where one
+   sub-computation's output comes from, and nothing about the SHAPE of the law.
+   <br>**Reversion is not optional**: linear damping's own factor is identically zero at `D = 10`, so
+   dropping it leaves that ceiling ABSORBING.
+
+#### Salience inflates stability growth — measured, shipped, deliberately left
+
+`ModulatedRetrievability` calls `Reinforce` with the RAW stored state, because `Reinforce`'s return is what
+gets STORED and compounding a modulated figure would bake the modulation in permanently. The consequence is
+not neutral: a modulated (for instance salient) entry has a raised effective retrievability the curve never
+sees, so `r` reads LOW, the spacing term `e^(spacing·(1−r)) − 1` reads HIGH, and the entry gains more
+stability per recall than an equally-aged unmodulated one. **The same signal both slows decay and speeds
+growth.**
+
+Measured at the defaults, on the increase term, with a stored stability of 100:
+
+| age/S | salience 1.5 | salience 2.5 | salience 4.0 |
+|---|---|---|---|
+| 0.5 | 1.33× | 1.99× | 2.98× |
+| 1 | 1.26× | 1.77× | 2.53× |
+| 5 | 1.12× | 1.35× | 1.66× |
+
+`SalienceRetentionPolicy` is registered for every graph engine, so a consumer who never mentions salience
+still gets this; `4.0` is `SalienceOptions.MaxSalience`'s own default, so the right-hand column is the most
+a shipped policy can report rather than a corner case. The inflation is LARGEST for the FRESHEST recalls —
+the opposite of the intuition that a retention signal matters most on rarely-touched entries — and it
+COMPOUNDS, because each inflated gain raises the base of the next.
+
+**Left in place, and the alternatives are why.** Removing it means either compounding the modulated figure
+into stored stability — exactly what `ModulatedRetrievability` refuses to do, since that bakes a signal's
+effect in where no later change to the signal could undo it — or giving that wrapper a second,
+modulation-aware seam only one shipped curve would use. Both are changes to the modulation CONTRACT rather
+than fixes to the curve, and the direction is safe (more stability → a wider `CandidateCutoff` → fewer
+deletions).
+
+**It does confound a curve-vs-curve measurement**, so any such comparison must register no retention
+policies or control for salience explicitly (`docs/task-archive.md` Part 54).
+
 ### Model-backed steps (all opt-in, all fail-open)
 
 | call | when | what it costs |

@@ -15,16 +15,20 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ## Active backlog
 
-_**v2.5.0 is released (2026-08-08); `CHANGELOG.md`'s `## Unreleased` carries the 3.0 memory work.**
+_**v2.5.0 is released (2026-08-08); `CHANGELOG.md`'s `## Unreleased` carries the whole of 3.0** — the memory
+retention model AND the pre-freeze sweep that followed it (the generation stream door, the cross-process job
+cap, the forget/prune split, the SemVer-exemption withdrawal). Reading it as "the memory work" is how a
+session misses that `IJobStore` and `IGenerationRouter` gained required members too.
 Everything through the generation platform, the package restructure, the provider-lifetime seam, the codex
 agent session, app-owned MCP servers, the long-term memory subsystem and the multilingual measurement has
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**Two items ARE startable in a session; the rest need something this repository does not have.** That is
-stated first rather than buried, because it is the answer to the question the file exists to answer. The
-file was fully blocked from 2026-08-16 until the 2026-08-17 subsystem sweep (archive Part 85) found two
-pieces of real work needing no key, no vendor and no data — both recorded below under **Startable**.
+**NOTHING here is startable in a session; every remaining item needs something this repository does not
+have.** That is stated first rather than buried, because it is the answer to the question the file exists to
+answer. Three items briefly were startable — two found by the 2026-08-17 subsystem sweep (archive Part 85)
+and one by the pre-release sweep the same day (Part 86) — and all three closed the same day in **Part 87**,
+which is also where the three defects they uncovered are recorded.
 
 **A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
 blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
@@ -39,36 +43,8 @@ a CLI install, or a deployment's own data. That was briefly true of the WHOLE fi
 70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**. Its items
 were all startable in a session, each found, verified and deliberately deferred with its reason recorded —
 and they have all now closed (archive Parts 76, 78–81 and 84) except one, which needs real aggregators to
-measure. **Nothing in this file is startable in a session any more** — every remaining item, old Part or
-new, needs a key, a model download, a CLI install, a vendor pick, a measurement budget, or a deployment's
-own data.
-
-## Startable — found by the 2026-08-17 subsystem sweep
-
-- [ ] **The five generation backends have no shared contract test.** `GenerationContractTests` pins the
-  RECORD defaults (`GenerationRequest`, `GenerationInput`, `GenerationResult`); everything about BACKEND
-  behaviour is per-backend files. That is the shape `pitfalls.md` §"Second doors" names as the defect, and
-  `VectorStoreContract` / `MemoryGraphStoreContract` / `JobStoreContract` are the fix already in the tree.
-  <br>One divergence is known and was the trigger: `ComfyUiProvider.FetchCoreAsync` hardcodes
-  `GenerationVerdict.Failed` for every failed history read, while `FalQueueProvider.FetchCoreAsync` routes
-  the same class of failure through `GenerationVerdictClassifier.FromErrorText` — so ComfyUI behind an
-  authenticating proxy reports `Failed` where fal reports `AuthFailed`. **Consequence is bounded today**
-  (fetch verdicts never reach the router), which is why this is a contract-coverage task and not a bug fix.
-  <br>Two more findings from the same sweep were duplicated-reader defects the contract would have caught
-  (an extension→MIME table that had lost `.gif`/`.flac` on one side, and a scalar-id reader that accepted a
-  JSON number on one side only) — both fixed 2026-08-17, both invisible to every per-backend test.
-
-- [ ] **`generate_backends` probes serially with no aggregate deadline.** `GenerationTools` awaits
-  `ProbeAsync` on every registered provider in sequence, with no overall bound and no `try`. Each probe is
-  capped only by that backend's own `Timeout`, and the same option governs a render — `Automatic1111Options`
-  and `OpenAiImageOptions` both default to **10 minutes**. Two HTTP backends that accept a connection and
-  stall make the tool an agent is told to call FIRST block for ~20 minutes. Each backend discloses its own
-  timeout; the COMPOSITION discloses nothing.
-  <br>Needs a design call rather than a patch: where the aggregate deadline belongs (a tool-level bound, a
-  per-probe cap, or parallel probes with a cancellation budget), and whether a probe that throws should
-  fail the whole listing — `GenerationRouter.AttemptAsync` explicitly names itself the trust boundary for a
-  BYO backend that throws instead of returning a verdict, and this second reader of the same provider
-  collection applies none of it.
+measure. **Every remaining item, old Part or new, needs a key, a model download, a CLI install, a vendor
+pick, a measurement budget, or a deployment's own data.**
 
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.

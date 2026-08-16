@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -237,7 +238,7 @@ public sealed class ComfyUiProvider(
 
     private async Task<GenerationOperation> PollCoreAsync(string operationId, CancellationToken ct)
     {
-        var (body, failure, transport) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
+        var (body, failure, transport, _) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
         if (failure is not null)
             return new GenerationOperation(operationId,
                 transport ? GenerationOperationStatus.Running : GenerationOperationStatus.Failed, Detail: failure);
@@ -260,8 +261,17 @@ public sealed class ComfyUiProvider(
     {
         // a fetch is asked for a finished render's bytes, so an unanswered read is a failed fetch (the caller
         // simply fetches again) rather than the "still going" the poll reports
-        var (body, failure, _) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
-        if (failure is not null) return GenerationResult.Failure(GenerationVerdict.Failed, failure);
+        var (body, failure, _, status) = await HistoryAsync(operationId, ct).ConfigureAwait(false);
+        // CLASSIFY rather than flatten. This hardcoded Failed for every failed read, so ComfyUI behind an
+        // authenticating proxy told a host "the render failed" — which is both wrong and unactionable, where
+        // NotConfigured says to go and set the credential up. hasCredentials is FALSE because this backend
+        // has no credential surface at all: a 401 here can only mean something in front of it wants one.
+        if (failure is not null)
+            return GenerationResult.Failure(
+                status is { } code
+                    ? GenerationVerdictClassifier.FromHttpFailure(code, failure, hasCredentials: false)
+                    : GenerationVerdictClassifier.FromErrorText(failure),
+                failure);
 
         if (Entry(body!, operationId) is not { } entry || !Completed(entry))
             return GenerationResult.Failure(GenerationVerdict.Failed,
@@ -315,11 +325,14 @@ public sealed class ComfyUiProvider(
     /// <summary>Reads the history document. <c>Transport</c> distinguishes "the server did not answer" — an
     /// unreachable host or a 5xx — from a failure that is about THIS operation: an unconfigured BaseUrl, or a
     /// 4xx saying the id (or the guessed <see cref="ComfyUiOptions.HistoryPath"/>) is wrong. Only the poll cares,
-    /// and it is the difference between waiting and giving up.</summary>
-    private async Task<(string? Body, string? Failure, bool Transport)> HistoryAsync(
+    /// and it is the difference between waiting and giving up.
+    /// <para><c>Status</c> carries the TYPED status back rather than only its rendering inside the failure
+    /// text: <c>GenerationVerdictClassifier</c> documents that a typed status wins over body text, and a
+    /// caller holding only the string cannot reach the better entry point.</para></summary>
+    private async Task<(string? Body, string? Failure, bool Transport, HttpStatusCode? Status)> HistoryAsync(
         string operationId, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(options.BaseUrl)) return (null, "no BaseUrl configured", false);
+        if (string.IsNullOrWhiteSpace(options.BaseUrl)) return (null, "no BaseUrl configured", false, null);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -328,17 +341,18 @@ public sealed class ComfyUiProvider(
             using var response = await http.GetAsync($"{Url(options.HistoryPath)}/{operationId}", ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode
-                ? (body, null, false)
-                : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}", (int)response.StatusCode >= 500);
+                ? (body, null, false, response.StatusCode)
+                : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
+                   (int)response.StatusCode >= 500, response.StatusCode);
         }
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex)
         {
-            return (null, $"ComfyUI at {Root} is not reachable: {ex.Message}", true);
+            return (null, $"ComfyUI at {Root} is not reachable: {ex.Message}", true, null);
         }
         catch (Exception ex)
         {
-            return (null, ex.Message, false);
+            return (null, ex.Message, false, null);
         }
     }
 

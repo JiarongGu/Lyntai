@@ -512,21 +512,21 @@ it did find one real, reproducible regression under the shipped ranking pairing
 competing material, because the deleted curve's flat, unmeasured `× 1.5` reinforcement outgrew DSR's own
 correctly-diminishing response to an immediate re-recall — offset by the opposite pattern on freshly-written
 material, so a whole-corpus aggregate would never show either effect. This is a known limitation of shipping
-a PARTIAL, unfitted FSRS (no per-review difficulty update, published rather than fitted constants) — see
-`local/superpowers/records/2026-08-09-memory-policy-measurement.md` for the original measurement (an
-untracked working record — see `docs/superpowers/INDEX.md`) and `TASKS.md` for the prioritized work to close
-the gap. Past one half-life the heavier tail rates a long-untouched entry more
-retrievable than the deleted exponential curve did, so `PruneAsync` is markedly less aggressive than it was
-through 2.5.x.
+a PARTIAL, unfitted FSRS (no per-review difficulty update, published rather than fitted constants) — the
+conclusion and its reasoning are `docs/DECISIONS.md` D49, and `TASKS.md` carries the prioritized work to
+close the gap. (The original measurement is an untracked working record, listed in
+`docs/superpowers/INDEX.md` — it is not in this repository and does not ship with the package.) Past one
+half-life the heavier tail rates a long-untouched entry more retrievable than the deleted exponential curve
+did, so `PruneAsync` is markedly less aggressive than it was through 2.5.x.
 
 **Ranking is a swappable seam too** (`Lyntai.Memory.Ranking`), separate from decay: `IMemoryRankingPolicy`
 turns a set of recall candidates into a scored, best-first order, and the shipped `ReciprocalRankFusionPolicy`
 is the REGISTERED DEFAULT as of 3.0 (owner ruling, 2026-08-11) — `Score = Σₛ wₛ / (K + rankₛ)`, summed over
 relevance, retrievability, salience and hop, each contributing its own 1-based RANK POSITION rather than its
 raw value, `K` defaulting to `60` (Cormack/Clarke/Buettcher's published value). It became the default on the
-strength of this library's own measurement
-(`local/superpowers/records/2026-08-09-memory-policy-measurement.md`, fsrs-properly plan
-Task 4): it beat `MultiplicativeRankingPolicy` on the corpus's `topical` class in all six measured shapes,
+strength of this library's own measurement (recorded as `docs/DECISIONS.md` D49 and D82; the raw run is an
+untracked working record, listed in `docs/superpowers/INDEX.md`): it beat `MultiplicativeRankingPolicy` on
+the corpus's `topical` class in all six measured shapes,
 across two independent runs — the mechanism being exactly what rank fusion avoids and a product-of-factors
 formula does not: rewarding raw reinforcement magnitude, which let an unmeasured flat multiplier out-rank a
 curve (`DsrRetrievability`) that correctly declined to over-strengthen.
@@ -567,8 +567,8 @@ services.AddSingleton<IMemoryRankingPolicy>(new MultiplicativeRankingPolicy(
 
 **The forgetting-curve question is settled too** — see the forgetting-curve section above and
 `docs/DECISIONS.md` D49: `DsrRetrievability` is the registered default, on FSRS's own external validation.
-Full measurement, both domains and both ranking-default rounds:
-`local/superpowers/records/2026-08-09-memory-policy-measurement.md`.
+The full measurement — both domains, both ranking-default rounds — is an untracked working record listed in
+`docs/superpowers/INDEX.md`; its conclusions are D49 (the curve) and D82 (why rank fusion won).
 
 **One guarantee the engine keeps against a policy that DROPS a candidate:** an `Authoritative` entry a policy
 drops below its own floor is re-admitted afterward — never silently dropped without a trace, even under a
@@ -1086,7 +1086,10 @@ An async render exposes its **operation id**, so it survives a process restart a
 output into the next (3d → image → video).
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
-never has to pay for a test image.
+never has to pay for a test image. The `generate_backends` tool asks all of them **concurrently, under one
+aggregate `GenerationOptions.ProbeDeadline`** (20s) — a backend that overruns it or throws is listed
+`usable: false` with the reason rather than dropped, because telling a model a configured backend does not
+exist is worse than telling it one is not answering.
 
 Fallback is a **policy**, not a law. The default matches the LLM router (a content `Refused` surfaces rather
 than being re-submitted elsewhere), but if you deliberately pair a hosted backend with a locally-run one, that

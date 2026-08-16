@@ -169,3 +169,57 @@ public class SalienceTests
         Assert.Equal(0, judged.Count);
     }
 }
+
+/// <summary>Every <see cref="MemorySaliencePolicyContract"/> fact against BOTH shipped salience policies.
+/// Derive a class per policy so a new implementation gets the whole contract by adding one file — the same
+/// shape <see cref="MemoryAgePolicyContractFacts"/> uses.</summary>
+public abstract class MemorySaliencePolicyContractFacts
+{
+    protected abstract IMemorySaliencePolicy New();
+
+    /// <summary>The <c>MaxSalience</c> the implementation was built with — the contract cannot read a ceiling
+    /// off the interface, because the seam deliberately does not expose one (a consumer's policy may bound
+    /// itself however it likes). The driver knows what it configured.</summary>
+    protected virtual double Ceiling => new SalienceOptions().MaxSalience;
+
+    [Fact] public void Finite_signals() => MemorySaliencePolicyContract.Every_signal_it_writes_is_finite(New());
+    [Fact] public void At_least_neutral() => MemorySaliencePolicyContract.A_reported_salience_is_at_least_neutral(New());
+    [Fact] public void Bounded() =>
+        MemorySaliencePolicyContract.A_reported_salience_never_exceeds_its_configured_ceiling(New(), Ceiling);
+    [Fact] public void One_provenance_bit() => MemorySaliencePolicyContract.Provenance_is_exactly_one_bit(New());
+    [Fact] public void Pure() => MemorySaliencePolicyContract.It_is_a_pure_function_of_the_write_and_context(New());
+    [Fact] public void Neutral_is_written_as_nothing() =>
+        MemorySaliencePolicyContract.A_neutral_judgement_is_written_as_nothing_rather_than_as_one(New());
+}
+
+public class StructuralSaliencePolicyContractTests : MemorySaliencePolicyContractFacts
+{
+    protected override IMemorySaliencePolicy New() => new StructuralSaliencePolicy();
+}
+
+/// <summary>The supported way to turn salience OFF. It satisfies the same contract by declining on every
+/// input — including <see cref="MemorySaliencePolicyContract.Provenance_is_exactly_one_bit"/>, which it meets
+/// by declaring the bit of the policy it REPLACES rather than a bit of its own: honest, because a policy that
+/// never returns a signal never contributes provenance to any row.</summary>
+public class NeutralSaliencePolicyContractTests : MemorySaliencePolicyContractFacts
+{
+    protected override IMemorySaliencePolicy New() => new NeutralSaliencePolicy();
+}
+
+/// <summary>Every <see cref="MemoryRetentionPolicyContract"/> fact against the shipped retention policy.</summary>
+public abstract class MemoryRetentionPolicyContractFacts
+{
+    protected abstract IMemoryRetentionPolicy New();
+
+    [Fact] public void Bound_is_sane() => MemoryRetentionPolicyContract.MaxStabilityFactor_is_finite_and_at_least_one(New());
+    [Fact] public void Never_shortens() => MemoryRetentionPolicyContract.The_factor_is_finite_and_never_shortens_a_half_life(New());
+    [Fact] public void Within_its_bound() => MemoryRetentionPolicyContract.The_factor_never_exceeds_the_declared_maximum(New());
+    [Fact] public void Not_age_keyed() => MemoryRetentionPolicyContract.The_factor_does_not_depend_on_age(New());
+    [Fact] public void Pure() => MemoryRetentionPolicyContract.It_is_a_pure_function_of_the_state(New());
+    [Fact] public void Named() => MemoryRetentionPolicyContract.It_has_a_name(New());
+}
+
+public class SalienceRetentionPolicyContractTests : MemoryRetentionPolicyContractFacts
+{
+    protected override IMemoryRetentionPolicy New() => new SalienceRetentionPolicy();
+}

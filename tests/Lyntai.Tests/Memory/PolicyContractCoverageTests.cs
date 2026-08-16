@@ -1,8 +1,12 @@
 using System.Reflection;
 
+using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Forgetting;
 using Lyntai.Memory.Interference;
+using Lyntai.Memory.Modulation;
 using Lyntai.Memory.Ranking;
+using Lyntai.Memory.Salience;
+using Lyntai.Memory.Verification;
 
 namespace Lyntai.Tests.Memory;
 
@@ -29,12 +33,25 @@ namespace Lyntai.Tests.Memory;
 /// </remarks>
 public class PolicyContractCoverageTests
 {
-    /// <summary>Each seam, with the contract class a suite must reference to count as covering it.</summary>
+    /// <summary>Each seam, with the contract class a suite must reference to count as covering it.
+    /// <para><b>All SEVEN of the memory subsystem's policy seams, as of 2026-08-17.</b> It covered three
+    /// until then — the deterministic ones — while salience, retention, annotation and verification had no
+    /// contract at all, so this table could not list them and the backstop below had nothing to compare
+    /// against: the guard was silent about more seams than it checked. Closing it found that
+    /// <c>LlmMemoryVerificationPolicy</c> was constructed by NO offline test whatsoever (archive Part 86).</para>
+    /// <para>The two model-in-the-loop seams are covered by MODEL-FREE contracts on purpose. Every promise
+    /// they make is about what happens when the model answers badly or not at all, which is exactly what a
+    /// live test cannot force — so each driver supplies a working policy and a deliberately broken one, and
+    /// the facts hold on both.</para></summary>
     public static TheoryData<string, string> Seams() => new()
     {
         { nameof(IMemoryAgePolicy), nameof(MemoryAgePolicyContract) },
         { nameof(IMemoryRankingPolicy), nameof(MemoryRankingPolicyContract) },
         { nameof(IMemoryRetrievabilityPolicy), nameof(RetrievabilityPolicyContract) },
+        { nameof(IMemorySaliencePolicy), nameof(MemorySaliencePolicyContract) },
+        { nameof(IMemoryRetentionPolicy), nameof(MemoryRetentionPolicyContract) },
+        { nameof(IMemoryAnnotationPolicy), nameof(MemoryAnnotationPolicyContract) },
+        { nameof(IMemoryVerificationPolicy), nameof(MemoryVerificationPolicyContract) },
     };
 
     private static readonly string TestDir =

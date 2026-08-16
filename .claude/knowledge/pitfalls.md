@@ -53,6 +53,20 @@ the tests) while being wrong. Skim before touching the relevant area.
   there is read by the next session *before it reads anything else*. Adding them found real drift on the
   first run. `docs/task-archive.md` stays excluded on purpose: it is accurate BY using the vocabulary of its
   day. **`CHANGELOG.md` is only HALF that**, and the split cost real drift — see the next entry.
+- **Two pieces of prose SHIP to consumers and no gate reads either: the packaged `README.md` and every
+  csproj `<Description>`.** Found 2026-08-17, auditing 3.0 before the stamp. `PackageReadmeFile` in
+  `src/Directory.Build.props` packs the repo README into **every** package, so it is what nuget.org renders
+  on every package's page — and it named an untracked `local/superpowers/records/…` path three times,
+  a link no consumer can follow, because `check-links` skips `local/**` by design (correctly: those records
+  are untracked). The `<Description>`s are worse off still — `check-packages` asserts one EXISTS and never
+  reads it, and `check-docs`' `CODE_IN_SCOPE` is `.cs`/`.mjs` only — so `Lyntai.Bundle`'s blurb was still
+  justifying its exclusions with "an unverified surface", the reason **D69/D70 retired** for
+  `Lyntai.Generation` a release earlier.
+  <br>**The general shape, and it is the reason this is filed rather than just fixed:** a gate's scope is
+  drawn around *what the repository maintains*, and these two live outside that line while being the most
+  widely READ prose the project publishes. **Before a release, re-read the README as a consumer who has only
+  the package** — no clone, no `local/`, no git history — and read every `<Description>` against the
+  decisions since the last release. Both are cheap; neither is automatic.
 - **"Historical record" can be true of part of a file and false of the rest. `## Unreleased` is not
   history.** `check-docs` exempted `CHANGELOG.md` wholesale on the rationale that a record is accurate by
   using the vocabulary of its day — true of a RELEASED section, false of `## Unreleased`, which describes
@@ -747,6 +761,19 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   plan happens to walk in `vec_id` order — an accident that a rewrite, an `ANALYZE`, or a different plan
   changes silently. When a contract fact passes on a backend you expected to fail, find out WHY before
   believing it.
+- **A shared helper whose doc says "EVERY read site calls this" is making a claim nothing checks — and the
+  site that does not call it is usually the newest one.** `MemorySignals.Salience` was extracted for exactly
+  this reason and says so, naming the three readers that once "normalized the same value three different
+  ways, which made identical data admit differently on different backends". Measured 2026-08-17:
+  `SalienceRetentionPolicy` was a FOURTH reader, added later, that spelled the read out itself — and got it
+  wrong in the one way the helper exists to prevent (`Math.Clamp` propagates `NaN` where the helper coerces
+  it), returning a factor outside the range its own interface promises.
+  <br>**The cheap detection, worth running whenever you extract a coercion:** grep for the raw accessor the
+  helper wraps (here `Get(WellKnown.Salience`) and check every hit is inside the helper. A helper's
+  usefulness is entirely in being universal, so the enumeration in its doc is load-bearing — and it is prose,
+  which means it was true when written and nothing has held it true since. Prefer routing the new caller
+  through the helper over adding a second correct copy of the guard: two correct copies is how the three
+  incorrect ones started.
 - **A SPEND cap is a capability too, and its second door is the one that moves the money.** Measured
   2026-08-16. `GenerationFetchTool` and `GenerationRenderJobHandler` both fetch a finished render; only the
   handler recorded its cost. Because a queue backend prices at FETCH — the only point the total is known —
@@ -900,6 +927,43 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   normalises" — it is a file the next editor may re-save as mixed.
 
 ## Testing
+
+- **A finding that is WRITTEN DOWN is not a finding that was VERIFIED, and this repository keeps treating
+  the two as the same.** Twice in two days (2026-08-17): `TASKS.md` §Startable recorded a divergence as
+  "ComfyUI hardcodes `Failed` while `FalQueueProvider` routes the same class through
+  `GenerationVerdictClassifier`" — so fal was believed correct, and the item was filed as coverage work
+  rather than a bug fix. Measured with the first contract test that reached it: **fal reports `Failed` too**,
+  because it classifies the failure TEXT and a `"401: …"` status line is not vocabulary `FromErrorText`
+  matches on. The other was a `CHANGELOG.md` entry asserting "neither shipped curve sets anything beyond
+  `Stability`" that the same release had already falsified.
+  <br>Both were written by someone who had read the code, which is precisely why they were persuasive. **The
+  half that gets recorded is the half that was READ; the half that was RUN is what a claim needs.** When a
+  record names two implementations and says one of them is fine, the fine one is the claim to check first —
+  it is the only one nobody is planning to touch.
+- **A contract fact can pass or fail for reasons that have nothing to do with its subject, and the failing
+  direction is the dangerous one because it looks like evidence.** Both shapes hit within one hour writing
+  the 3.0 seam contracts:
+  - **Testing the FAKE.** A cancellation fact asserted that a pre-cancelled token propagates — against a
+    stub that ignores its token entirely (`FakeLlmClient`, `StubHttpHandler`). Nothing cancelled, so the fact
+    passed vacuously for some subjects and failed for others by measuring the stub. What it was FOR is the
+    subject's catch ORDERING (`catch (OperationCanceledException) { throw; }` ahead of a fail-safe catch),
+    which needs a double that honours the token.
+  - **Failing before reaching the subject.** A fetch fact passed a bare operation id to every job backend;
+    fal encodes the model into its ids and rejects a malformed one BEFORE calling out, so the fact failed on
+    id validation while reporting the classification defect it was hunting. It would have been "confirmed"
+    without ever exercising the code under test — and then "fixed", and still red.
+  - **Timing what you could OBSERVE.** A concurrency fact asserted three stalled probes finish "under a
+    second" against a 400ms deadline — green alone, failed inside a full-suite run. Same shape as the
+    `ElapsedAgePolicy` entry above, written down here long before and re-read the same session, which is the
+    honest lesson: **knowing a pitfall is not the same as not falling into it.**
+    <br>**The fix generalizes: assert the PROPERTY, not the clock.** Concurrency is observable — have the
+    fakes record their peak overlap, which serial execution cannot push above 1 at any speed. That is both
+    deterministic and a stronger claim than any elapsed bound. And where a bound's failure mode is a HANG
+    rather than a slow pass (a probe stalling on `Task.Delay(Timeout.Infinite)`), drop the clock assertion
+    entirely: the runner reports a hang far more loudly, so the assertion was buying nothing and costing
+    load-dependence.
+  <br>**When a new fact fails, confirm it failed where you think.** Read the failure message against the
+  code path, not against the expectation.
 
 - **Adding a VARIANT to a measurement instrument moves the templates and the READERS, and forgetting the
   readers produces flattering numbers rather than a failure.** Measured 2026-08-12 adding a Chinese arm to

@@ -222,11 +222,15 @@ public sealed class CompositeMemoryEngine
     }
 
     /// <inheritdoc />
-    /// <remarks>Fans out to every member that can remove and SUMS what they removed. Fails LOUD when no member
-    /// can — like <see cref="LinkAsync"/> and unlike <see cref="ExpandAsync"/> — because this method returns a
-    /// COUNT and <c>0</c> already means "nothing matched". Reporting <c>0</c> for "nothing here can ever
-    /// remove" would make a deletion that cannot happen indistinguishable from one that found nothing to do,
-    /// and a caller removing for a consent withdrawal would read it as done.</remarks>
+    /// <remarks>Fans out to every IN-SCOPE member and SUMS what they removed. <b>All-or-nothing:</b> if any
+    /// in-scope member cannot prune, this throws <see cref="NotSupportedException"/> having removed nothing —
+    /// not just when NO member can. A member the <see cref="IMemoryRemovalPolicy"/> excludes is a different
+    /// case and is skipped rather than blocking the verb.
+    /// <para>It fails LOUD — like <see cref="LinkAsync"/> and unlike <see cref="ExpandAsync"/> — because this
+    /// method returns a COUNT and <c>0</c> already means "nothing matched". Reporting <c>0</c> for "nothing
+    /// here can ever remove" would make a deletion that cannot happen indistinguishable from one that found
+    /// nothing to do, and a caller removing for a consent withdrawal would read it as done. Pruning only the
+    /// capable members and returning their count is the same defect one step quieter.</para></remarks>
     public async Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
         TimeSpan? olderThan = null, CancellationToken ct = default)
     {
@@ -243,9 +247,12 @@ public sealed class CompositeMemoryEngine
     }
 
     /// <inheritdoc />
-    /// <remarks>Fans out to every member that can remove, for the reason given on <see cref="PruneAsync"/>:
-    /// a (task, scope) is not owned by one member the way a <see cref="MemoryRef"/> is, so forgetting one
-    /// member's copy and returning would leave the blend still holding the data.</remarks>
+    /// <remarks>Fans out to every IN-SCOPE member, for the reason given on <see cref="PruneAsync"/>: a
+    /// (task, scope) is not owned by one member the way a <see cref="MemoryRef"/> is, so forgetting one
+    /// member's copy and returning would leave the blend still holding the data. <b>All-or-nothing on the
+    /// same terms</b> — one in-scope member that cannot forget throws
+    /// <see cref="NotSupportedException"/> before anything is removed, which matters more here than on the
+    /// prune path: this is the call an application makes when a user withdraws consent.</remarks>
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
         var members = RemovableMembers<IForgettableMemory>(nameof(ForgetAsync), MemoryRemovalKind.Forget);

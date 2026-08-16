@@ -36,6 +36,21 @@ public class LlmMemoryAnnotationPolicyTests
             throw new NotSupportedException();
     }
 
+    /// <summary>Honours the token, which the shared <c>FakeLlmClient</c> deliberately does not — the
+    /// cancellation fact is about the POLICY's catch ordering (<c>catch (OperationCanceledException) { throw; }</c>
+    /// ahead of the fail-open catch), and a client that ignored the token would make it pass vacuously.</summary>
+    private sealed class CancellingClient : ILlmClient
+    {
+        public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(new LlmReply("""{"subjects":["spouse"]}""", LlmVerdict.Ok));
+        }
+
+        public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+    }
+
     private sealed class SingleClientFactory(ILlmClient client) : ILlmClientFactory
     {
         public ILlmClient Get(string name) => client;
@@ -43,6 +58,29 @@ public class LlmMemoryAnnotationPolicyTests
         public bool TryGet(string name, out ILlmClient c) { c = client; return true; }
         public IReadOnlyList<string> Names => [];
     }
+
+    // Spelled out rather than target-typed on purpose: PolicyContractCoverageTests proves coverage by
+    // looking for `new <Implementation>(` in a file that also references the contract, so a `new(...)` here
+    // would leave the seam reported as uncovered.
+    private static LlmMemoryAnnotationPolicy Policy(ILlmClient client) =>
+        new LlmMemoryAnnotationPolicy(new SingleClientFactory(client));
+
+    // ---- the seam's contract, on a working policy and on a broken one -------------------------------
+
+    [Fact] public Task Never_null() => MemoryAnnotationPolicyContract.It_never_returns_null(
+        Policy(new ScriptedClient("""{"subjects":["spouse"]}""")));
+
+    [Fact] public Task Tolerates_no_context() =>
+        MemoryAnnotationPolicyContract.It_tolerates_a_first_write_with_no_context_at_all(
+            Policy(new ScriptedClient("""{"subjects":["spouse"]}""")));
+
+    [Fact] public Task Fails_open() =>
+        MemoryAnnotationPolicyContract.A_failing_policy_yields_no_opinion_rather_than_throwing(
+            Policy(new ThrowingClient()));
+
+    [Fact] public Task Cancellation_propagates() =>
+        MemoryAnnotationPolicyContract.Cancellation_propagates_rather_than_becoming_no_opinion(
+            Policy(new CancellingClient()));
 
     private static Task<MemoryAnnotation> AnnotateAsync(ILlmClient client,
         LlmAnnotationOptions? options = null, IReadOnlyList<string>? recent = null) =>

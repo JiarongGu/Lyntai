@@ -33,7 +33,7 @@ review that 2.2.0 shipped without (D18, D37), **2.4.0** gave an agent session th
 either CLI backend (D38), and **2.5.0** shipped the **long-term memory subsystem**. Per-release detail is
 `CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D82 — the memory subsystem is **D39–D41**,
 **D45–D62**, **D63**, **D72** and **D76–D79**; D42–D44 are the doc and packaging decisions that landed
-beside it, not memory ones). **D67–D81 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
+beside it, not memory ones). **D67–D82 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
 is most likely to have stale assumptions about: the generation stream door (**D67**), the accelerator-derived
 diffusion ceiling (**D68**), every unmeasured generation mapping becoming a host OPTION (**D69**), the
 withdrawal of the generation SemVer exemption (**D70**), tool calls on the streaming contract (**D71**), and
@@ -45,7 +45,8 @@ SIGNAL (**D75**), memory's umbrella verb becoming REMOVAL because the old one me
 option-domain guard whose message is derived from the check it makes (**D78**), the FSRS adaptation
 spec moving out of a method's remarks into the record (**D79**), the rest of the relational row types
 following D77 into Core (**D80**), and the two store domains whose whole SQL surface is dialect-free
-sharing it (**D81**). The pass that produced D77–D81 is archive **Part 82**.
+sharing it (**D81**), and RRF ranking by COMPETITION, so an uninformative signal contributes nothing
+(**D82**). The pass that produced D77–D81 is archive **Part 82**.
 
 **Long-term memory (2.5.0) is the newest subsystem** and the one a session is most likely to reason about
 wrongly, because it is not the three older memory surfaces: named engines resolved by name like
@@ -148,7 +149,7 @@ FALSE trim promise), `check-packages` (a package must be registered in all nine 
 grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3057 passed / 3078 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3149 passed / 3170 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 379/379, doc samples 76/76.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,

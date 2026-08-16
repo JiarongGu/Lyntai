@@ -187,6 +187,34 @@ public sealed class ScriptedStreamProvider : IGenerationProvider, IGenerationStr
     }
 }
 
+/// <summary>A backend whose PROBE misbehaves — it stalls until its token fires, or throws. Both are the
+/// shapes <c>generate_backends</c> has to survive: a probe is capped only by the backend's own
+/// <c>Timeout</c>, which is a RENDER budget (ten minutes on two shipped backends), and a BYO backend may
+/// throw where the seam says to return a result.</summary>
+public sealed class BadProbeProvider : IGenerationProvider
+{
+    public string Id { get; init; } = "bad-probe";
+
+    public GenerationCapabilities Capabilities { get; init; } = new()
+    {
+        Kinds = [GenerationKinds.Image],
+        Deliveries = [GenerationDelivery.Inline],
+    };
+
+    /// <summary>Thrown from <see cref="ProbeAsync"/> instead of stalling, when set.</summary>
+    public Exception? Throws { get; init; }
+
+    public async Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default)
+    {
+        if (Throws is not null) throw Throws;
+        await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);   // stalls until the listing's deadline
+        return new GenerationProbeResult(true, "unreachable");
+    }
+
+    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
+        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Failed, "not used"));
+}
+
 /// <summary>Advertises <see cref="GenerationDelivery.Stream"/> and does NOT implement
 /// <see cref="IGenerationStreamProvider"/> — the shape a BYO backend can ship, and the reason the router
 /// re-checks a capability claim rather than casting on trust.</summary>

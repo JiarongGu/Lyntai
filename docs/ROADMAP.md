@@ -30,7 +30,7 @@ per-version design record, where one exists, is indexed in `docs/superpowers/IND
 | v2.3.0 (2026-08-05) | the pre-release whole-library review — shipped separately only because 2.2.0 was cut from the pushed branch without it (D18, D37; the push-before-release lesson is in pitfalls.md) |
 | v2.4.0 (2026-08-05) | app-owned MCP servers on either CLI agent session (D38) |
 | **v2.5.0** (2026-08-08) | **long-term memory** — named engines, decay measured in interference, burial rather than deletion (D39–D41) |
-| **v3.0.0** (pending) | **the memory retention model** — seven `IMemory*Policy` domains, FSRS as the only shipped curve, RRF the ranking default, a recall that no longer lengthens a half-life, an authoritative fact that takes a slot within the limit, six pre-release migrations folded into one (D45–D66) |
+| **v3.0.0** (pending) | **the memory retention model, then the pre-freeze sweep that followed it.** Memory (D45–D66): seven `IMemory*Policy` domains, FSRS as the only shipped curve, RRF the ranking default, a recall that no longer lengthens a half-life, an authoritative fact that takes a slot within the limit, six pre-release migrations folded into one. Everything else (D67–D82): the generation stream door, streaming tool calls, the cross-process job cap, the forget/prune split, the generation router as a trust boundary, every generation backend registered by configure callback, the naming sweep — and `Lyntai.Generation`'s SemVer exemption **withdrawn**, so no package is exempt |
 
 ## Planned
 
@@ -38,11 +38,18 @@ per-version design record, where one exists, is indexed in `docs/superpowers/IND
 Delivered additively on the existing seams: `Lyntai.Providers.Local` · the agentic tool loop + native
 tool-calling (HTTP/MEAI/CLI) + MCP-client tool source · durable jobs · guards · two-gate chat orchestration
 · secret vault · vision/multimodal. The job deferrals subsequently shipped too — priorities + dead-letter
-queue, recurring scheduling, cron expressions, running-job cancellation. Still open, each deliberately:
+queue, recurring scheduling, cron expressions, running-job cancellation. **After 3.0 exactly ONE item below
+is still open**; the rest are kept with what closed them, because a deferral's *reasoning* is worth reading
+back once the thing deferred turns out to be cheaper, load-bearing, or misframed:
 - **Server/host/launcher + auto-update** — permanently out of scope (an application concern; Lyntai is
-  host-free — the one standing §9 exclusion).
-- **Cross-process GLOBAL concurrency limits** — the last durable-jobs deferral (needs a distributed counter; the
-  per-process cap + atomic claim cover most needs).
+  host-free — the one standing §9 exclusion, and after D73 the only open item in this list).
+- **Cross-process GLOBAL concurrency limits — SHIPPED in 3.0** (`DECISIONS.md` **D73**), which closes the
+  last durable-jobs deferral. `JobOptions.GlobalMaxConcurrency` bounds concurrent jobs across every process
+  sharing one store, and `0` (the default) is the pre-3.0 unbounded behaviour with no extra round-trip. The
+  premise this entry carried — "needs a distributed counter" — is precisely what D73 refused: a count
+  cannot gate a claim, so a slot TABLE reuses the atomic claim both backends already prove correct, and
+  Postgres's `SKIP LOCKED` starts working FOR the cap instead of against it. It costs `IJobStore` three
+  required members, so a hand-written store is affected (`docs/migration-2.5-to-3.0.md` Step 3b).
 - **Streaming tool-calls — SHIPPED in 3.0** (`DECISIONS.md` **D71**). It sat here as "low value, revisit on
   demand", and that judgement was wrong in an instructive way: it priced the missing FEATURE and not the
   defect underneath it. A turn that streamed prose alongside a tool call had the call silently dropped, and

@@ -8,8 +8,14 @@ happened on a particular afternoon.
 
 ## How to read it
 
-- **Ordered by number, ascending, and contiguous.** Every `D<n>` is a live decision; there are no stubs,
-  no gaps and no "newest first" half. If a number is missing, the file is wrong.
+- **Ordered by number, ascending, and contiguous.** Every `D<n>` resolves; there are no gaps and no
+  "newest first" half. If a number is missing, the file is wrong.
+- **A number is never reclaimed, so an entry that stops being its own decision becomes a STUB** naming
+  where its content went — merged into another entry, or relocated to the record that owns it. The file
+  already did this for a decision that gets overturned; it does it for merges and relocations too, for the
+  reason the next section gives: **renumbering again would make a bare `D<n>` ambiguous across two
+  renumberings**, and every reference in `CHANGELOG.md`, `docs/task-archive.md`, `CLAUDE.md` and the code
+  comments would have to move with it. A stub costs one line and keeps all of them resolving.
 - **The index below is GENERATED** (`node devtools/dev.mjs decisions-index`). Run it after adding an entry.
 - **The earliest entries carry no date** because they predate the dating convention; they are the pre-1.0
   foundations. Everything from `D14` on is dated.
@@ -143,8 +149,8 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D77](#d77--the-relational-memory-stores-share-their-materialization-and-the-claim-that-said-otherwise-was-half-right-2026-08-16) | 2026-08-16 | the relational memory stores share their MATERIALIZATION, and the claim that said otherwise was h… |
 | [D78](#d78--one-option-domain-guard-and-the-domain-phrase-is-derived-from-the-check-2026-08-16) | 2026-08-16 | one option-domain guard, and the domain phrase is DERIVED from the check |
 | [D79](#d79--the-fsrs-adaptation-spec-and-the-saliencespacing-interaction-live-in-the-record-not-in-a-methods-remarks-2026-08-16) | 2026-08-16 | the FSRS adaptation spec and the salience×spacing interaction live in the record, not in a method… |
-| [D80](#d80--the-rest-of-the-relational-row-types-follow-d77-because-nine-more-copies-is-nine-more-silent-nulls-2026-08-16) | 2026-08-16 | the rest of the relational row types follow D77, because nine more copies is nine more silent nulls |
-| [D81](#d81--two-store-domains-share-their-sql-and-the-measurement-is-what-says-only-two-2026-08-16) | 2026-08-16 | two store domains share their SQL, and the measurement is what says only two |
+| [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) | — | MERGED INTO D77 (2026-08-16, folded 2026-08-17) |
+| [D81](#d81--shared-sql-has-a-higher-bar-than-a-shared-mapping-because-sql-drift-fails-loudly-2026-08-16) | 2026-08-16 | shared SQL has a HIGHER bar than a shared mapping, because SQL drift fails loudly |
 | [D82](#d82--rrf-ranks-by-competition-so-an-uninformative-signal-contributes-nothing-2026-08-16) | 2026-08-16 | RRF ranks by COMPETITION, so an uninformative signal contributes nothing |
 
 _All 82 entries are live decisions._
@@ -1918,6 +1924,24 @@ still spell the guard themselves, because the spelling IS the dialect difference
 each carry their own `0.000001` literal, which is how the same corpus starts pruning differently on the two
 backends after one edit.
 
+**SCOPE: the whole relational tier, not just the graph store** (extended 2026-08-17, absorbing what was D80).
+The argument above — *a column↔property mismatch is a silent null, so two copies is two places for that
+silence to appear and no gate can see either* — was never specific to the memory graph. Nine more row-type
+pairs across six more store pairs measured byte-identical and moved to `Lyntai.Core/Storage/StorageRows.cs`
+with their projections: `CuratedMemoryRow`, `PromptVersionRow`, `ScoreResultRow`, `ScoreAggregateRow`,
+`ScoreExportEntryRow`, `TraceSessionRow`, `TraceStepRow`, `UsageTotalsRow`, `MemoryEvictionCandidateRow`.
+Fixing one instance of a defect and leaving nine is how a rule becomes folklore.
+<br>**The measurement is also what stops this being a blanket rule.** The tenth pair —
+`SqliteVectorStore.Row` / `PostgresVectorStore.Row` — is genuinely different: SQLite materializes the stored
+vector, Postgres a computed score. They share a NAME and nothing else, and both keep their own. Same line
+drawn above for `verified`: hoist what does not differ, and leave what does rather than inventing a
+portability the storage engines lack.
+<br>One rename was forced on the way in: the score store's private `ExportRow` projects into
+`Lyntai.Cortex.ScoreExportRow`, so hoisting it under its obvious name shadowed the contract type it exists
+to build. It is `ScoreExportEntryRow`, which also matches how its siblings read.
+<br>Measured across the six affected pairs: 405 → 304 distinct identical code lines; private row types in
+the two backends 23 → 5, every survivor one of the exceptions named above.
+
 ## D78 — one option-domain guard, and the domain phrase is DERIVED from the check (2026-08-16)
 
 **The decision.** One function guards every option domain in the memory subsystem:
@@ -1979,123 +2003,39 @@ job; the rest answer "what happens when I call this", which is the doc's. The bl
 the sweep and 107 after — past what anyone reads in place, which makes the invariants inside it invisible,
 which is the same outcome as not writing them down.
 
-### The difficulty law, adapted from FSRS-5's `next_difficulty` with FSRS-6's constants
+**Amended 2026-08-17: the spec moved AGAIN, and the second move is the one this entry was always arguing
+for.** The two arguments landed HERE, which made this entry 76 lines — the longest in the file, and reference
+material rather than a choice between alternatives. That is the same defect one level up: a decision log is
+not a specification's home either. Both now live in **`docs/memory.md` §6 → Learning**, beside the
+`DsrOptions` table a reader consults when they are actually deciding something, and this entry keeps only
+what it decided. **The rule survives the move: an argument about why the code is shaped this way belongs in
+a record, and a SPEC belongs with the configuration it explains.**
 
-Checked against `py-fsrs/scheduler.py`, `fsrs-rs/model.rs`, fsrs4anki v4.7.2 and the Anki manual.
-FSRS-4/4.5's own `next_difficulty` has NO damping term; FSRS-5 introduced the linear damping and moved the
-reversion target from `D0(3)` to `D0(4)`; FSRS-6 kept that SHAPE and recalibrated `w6`/`w7`/its own `D0`
-sub-formula, which went exponential where v5's was linear. The form:
+## D80 — MERGED INTO D77 (2026-08-16, folded 2026-08-17)
 
-    ΔD  = -w6 · (G - 3)
-    D'  = D + ΔD · (10 - D) / 9        (linear damping toward the ceiling)
-    D'' = w7 · target + (1 - w7) · D'  (mean reversion)                then clamp to [1, 10]
+Its own title was *"the rest of the relational row types follow D77"* — an application of that decision to
+the other nine row-type pairs, not a choice between alternatives. It now lives in **D77 §SCOPE**, with the
+negative result that bounds it (the vector-store pair stays per-backend) and the one forced rename. The
+number is kept rather than reclaimed so every existing reference still resolves; see §How to read it.
 
-**Four adaptations, so the implementation can be checked against that form:**
+## D81 — shared SQL has a HIGHER bar than a shared mapping, because SQL drift fails loudly (2026-08-16)
 
-1. **The discrete rating `G ∈ {1,2,3,4}` becomes a continuous derived grade** restricted to the success
-   range, `g = 2 + 2·retrievability ∈ [2, 4]` — exact at both ends (`r=0 → g=2` "Hard", `r=1 → g=4`
-   "Easy"), with `g=3` ("Good", FSRS's own no-change reference) landing at `r = 0.5`, this library's OWN
-   half-life anchor rather than an arbitrary point.
-   <br>**The FLOOR is a constraint, not a tuning choice: the mapping may never reach `g=1`** — `Again`, a
-   LAPSE, the one rating a purely-successful recall must never emit. A linear `1 + 3r` would emit it at
-   `r=0` while growing stability maximally in the same call.
-2. `w6` is `DsrOptions.DifficultyChangeWeight`, `w7` is `DifficultyReversionWeight`, and the target is
-   `DifficultyReversionTarget` — all three adopt FSRS-6's OWN published defaults, not invented numbers.
-3. The linear damping term is kept verbatim.
-4. **The reversion target is a directly-settable NUMBER** rather than FSRS's per-grade `D0` sub-formula:
-   this library has no `w4`/`w5` pair to compute one from, and the target is a plain constant once
-   `w4`/`w5` and the grade (always `4`, Easy) are fixed. Exposing the result changes where one
-   sub-computation's output comes from, and nothing about the SHAPE of the law.
-   <br>**Reversion is not optional**: linear damping's own factor is identically zero at `D = 10`, so
-   dropping it leaves that ceiling ABSORBING.
+**The rule.** Hoist a row type whenever two backends materialize the same columns; hoist SQL only when a
+domain's WHOLE statement surface is dialect-free. The asymmetry is the point: a column↔property mismatch in
+a mapping is a **silent null** nothing can see (D77), while a column list that drifts between two INSERTs
+fails at the database. Sharing the second buys less, so it must cost less to be worth it.
 
-### The salience × spacing interaction — measured, shipped, and deliberately left
+**What that admitted, and what it refused.** Every relational store's SQL was compared against its twin.
+Conversation (9 of 9 statements identical) and trace (4 of 5) qualify and are now `ConversationStoreSql` /
+`TraceStoreSql` beside `JobStoreSql` and `MemoryGraphSql`. Everything else shares only one-line `DELETE`s
+and `SELECT`s — two in the key-value store, three in the response cache, one in the usage tracker. Hoisting
+`DELETE FROM lyntai_kv WHERE key = @key` into a shared constant buys indirection, not safety. **"Only two"
+is a measured result, not a stopping point someone got bored at.**
 
-`ModulatedRetrievability` calls `Reinforce` with the RAW stored state, because `Reinforce`'s return is what
-gets STORED and compounding a modulated figure would bake the modulation in permanently. The consequence is
-not neutral: a modulated (for instance salient) entry has a raised effective retrievability the curve never
-sees, so `r` reads LOW, the spacing term `e^(spacing·(1−r)) − 1` reads HIGH, and the entry gains more
-stability per recall than an equally-aged unmodulated one. **The same signal both slows decay and speeds
-growth.**
-
-Measured at the defaults, on the increase term, with a stored stability of 100:
-
-| age/S | salience 1.5 | salience 2.5 | salience 4.0 |
-|---|---|---|---|
-| 0.5 | 1.33× | 1.99× | 2.98× |
-| 1 | 1.26× | 1.77× | 2.53× |
-| 5 | 1.12× | 1.35× | 1.66× |
-
-`SalienceRetentionPolicy` is registered for every graph engine, so a consumer who never mentions salience
-still gets this; `4.0` is `SalienceOptions.MaxSalience`'s own default, so the right-hand column is the most
-a shipped policy can report rather than a corner case. The inflation is LARGEST for the FRESHEST recalls —
-the opposite of the intuition that a retention signal matters most on rarely-touched entries — and it
-COMPOUNDS, because each inflated gain raises the base of the next.
-
-**Left in place, and the alternatives are why.** Removing it means either compounding the modulated figure
-into stored stability — exactly what `ModulatedRetrievability` refuses to do, since that bakes a signal's
-effect in where no later change to the signal could undo it — or giving that wrapper a second,
-modulation-aware seam only one shipped curve would use. Both are changes to the modulation CONTRACT rather
-than fixes to the curve, and the direction is safe (more stability → a wider `CandidateCutoff` → fewer
-deletions).
-
-**It does confound a curve-vs-curve measurement**, so any such comparison must register no retention
-policies or control for salience explicitly (`docs/task-archive.md` Part 54).
-
-## D80 — the rest of the relational row types follow D77, because nine more copies is nine more silent nulls (2026-08-16)
-
-**The decision.** `CuratedMemoryRow`, `PromptVersionRow`, `ScoreResultRow`, `ScoreAggregateRow`,
-`ScoreExportEntryRow`, `TraceSessionRow`, `TraceStepRow`, `UsageTotalsRow` and
-`MemoryEvictionCandidateRow` move to `Lyntai.Core/Storage/StorageRows.cs`, with their projections. Both
-relational backends consume them. Purely additive: the API baseline gained 75 lines and lost none.
-
-**Why this is D77 again rather than a new judgement.** D77 hoisted the memory-graph store's materialization
-on one argument — *a column↔property mismatch is a SILENT null rather than an error, so two copies is two
-places for that silence to appear and no gate can see either*. That argument was never specific to the
-graph store. Measured across the tier afterwards: **nine more row-type pairs, all byte-identical**, in six
-more store pairs. Fixing one instance of a defect and leaving nine is how a rule becomes folklore.
-
-**What the measurement also settled, which is why this is not a blanket rule.** The tenth pair —
-`SqliteVectorStore.Row` / `PostgresVectorStore.Row` — is genuinely different: SQLite materializes the
-stored vector, Postgres a computed score. They share a NAME and nothing else, and both keep their own.
-That is the same line D77 drew for `verified`: hoist what does not differ, and leave what does rather than
-inventing a portability the storage engines lack.
-
-**One name had to change on the way in.** The score store's private `ExportRow` projects into
-`Lyntai.Cortex.ScoreExportRow`, so hoisting it under its obvious name would have shadowed the contract type
-it exists to build — the compiler caught it immediately, in `ScoringService`. It is `ScoreExportEntryRow`,
-which also matches how its siblings read (`ScoreResultRow` → `ScoredResult`, `ScoreAggregateRow` →
-`ScorerAggregate`).
-
-**Measured.** Distinct identical code lines across the six affected pairs: 405 → 304. Private row types in
-the two backends: 23 → 5, and every survivor is one of the three cases above (the two `ReviewRow`
-subclasses D77 left deliberately, the two vector rows, and one Postgres-only row with no twin).
-
-## D81 — two store domains share their SQL, and the measurement is what says only two (2026-08-16)
-
-**The decision.** `ConversationStoreSql` and `TraceStoreSql` join `JobStoreSql` and `MemoryGraphSql` in
-`Lyntai.Core/Storage`. Both relational backends consume them. Additive: the API baseline gained 16 lines
-and lost none.
-
-**Why exactly two, and why that is a result rather than a stopping point.** Every SQL statement in every
-relational store was compared against its twin. Conversation is **9 of 9** identical and trace **4 of 5** —
-the entire surface, so one copy removes a real drift channel and nothing dialect-specific is left to
-justify a second. Every other store shares only one-line `DELETE`s and `SELECT`s: two in the key-value
-store, three in the response cache, one in the usage tracker. Hoisting
-`DELETE FROM lyntai_kv WHERE key = @key` into a shared constant buys indirection, not safety.
-
-**This is a WEAKER case than D77/D80, and conflating them would be the mistake.** A column↔property
-mismatch in a row type is a SILENT null — nothing can see it. A column list that drifts between two INSERT
-statements fails loudly at the database. These are shared because they are word-for-word identical with no
-dialect left in them, not because a drift would go unnoticed. The bar for hoisting SQL is therefore higher
-than for a mapping, and it is met here only by the two domains whose whole surface qualifies.
-
-**The keyset-paging pair moved with them, which is the part worth having.** Both stores built their page
-query by interpolating a local `cols` constant, and the ordering in the cursor comparison has to match the
-ordering in the unpaged list EXACTLY or a same-tick thread is skipped or duplicated across pages. That
-invariant now lives in two constants next to each other rather than in four interpolations in two files.
-
-**Measured.** Conversation 49 → 37 distinct identical code lines, trace 50 → 43.
+**The keyset-paging pair is the part that actually pays.** Both stores built their page query by
+interpolating a local `cols` constant, and the ordering in the cursor comparison must match the ordering in
+the unpaged list EXACTLY or a same-tick thread is skipped or duplicated across pages. That invariant now
+sits in two adjacent constants rather than four interpolations in two files.
 
 ## D82 — RRF ranks by COMPETITION, so an uninformative signal contributes nothing (2026-08-16)
 

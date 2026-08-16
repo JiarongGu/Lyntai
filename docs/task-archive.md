@@ -5907,3 +5907,176 @@ doc onto the newcomer FOUR times in this session, by the same hand — twice as 
 somebody else's doc.
 
 `verify` 15/15.
+
+## Part 86 — the pre-3.0 release reconcile: what the gates structurally cannot see (2026-08-17)
+
+_Not from `TASKS.md` — asked as "what is left for 3.0, we want a good version with no unfinished dev work".
+Every gate was already green (`verify` 15/15, 3057/3078 with 21 skips and Docker up so the Postgres leg
+really ran, `consumer-smoke` clean, `decisions-index` current), so this pass is entirely about the class of
+defect no gate covers. **v2.5.0 needed exactly the same pass** (commit 7ebbd0e, "reconcile the
+state-describing docs with what actually shipped"), for the reason its own message gives: `check-docs` gates
+VOCABULARY, not ACCURACY, so a document that quietly stops being true survives everything._
+
+**Nine findings, in three classes.**
+
+**1. Prose that SHIPS to consumers, which no gate reads at all — the new one, and the reason it is also in
+`pitfalls.md`.** `PackageReadmeFile` packs `README.md` into all twelve packages, so it is what nuget.org
+renders on every package page; it named an untracked `local/superpowers/records/…` path **three times**, a
+link no consumer can follow. `check-links` skips `local/**` by design and is right to. Separately,
+`Lyntai.Bundle`'s `<Description>` — the blurb on the bundle's own package page — still justified its
+exclusions with "an unverified surface", the reason **D69/D70 retired** for `Lyntai.Generation`;
+`check-packages` asserts a `<Description>` exists and never reads it, and `check-docs`' code scan is
+`.cs`/`.mjs` only. Both fixed; the README now cites the tracked home of each conclusion (D49, D82) and says
+the raw measurement is untracked rather than pointing at it.
+
+**2. Maintained docs stating the opposite of what 3.0 ships.** The sharpest is the **cross-process job
+cap**: D73 ships it, and both `ROADMAP.md` and the design contract's §9 amendment still listed it as the
+last durable-jobs deferral *"needs a distributed counter"* — which is precisely the premise D73 refused. The
+design contract, the document `CLAUDE.md` says to read FIRST, also named the memory capability seams as
+three where 3.0 has four and described removal as ROUTED when **D63** made it fan out and sum; and it
+introduced none of the three 3.0 breaking contract changes (`IPrunableMemory`, `IGenerationRouter.StreamAsync`,
+the `IJobStore` slot trio). Fixed in place in §5.6/§5.7 plus a new dated §9 amendment, on the precedent that
+2.5.0's reconcile added §5.7 for the identical reason. The ROADMAP's `v3.0.0` row described the release as
+"the memory retention model (D45–D66)", omitting **D67–D82** entirely — a row that undersells its own
+release by half. `CLAUDE.md` had the same range one entry short (`D67–D81`).
+
+**3. The backlog banner contradicting itself two screens apart.** `TASKS.md` said *"Two items ARE startable
+in a session"* at the top and *"Nothing in this file is startable in a session any more"* thirty lines
+below. Part 85 added the first and left the second standing. **The failure mode is worth naming because it
+will recur: a banner is edited where the NEWS is, not where the CLAIM is** — so when one end moves, check
+the other. `task-lifecycle.md` §Keep the summary honest is the rule that was already written.
+
+**The CHANGELOG audit its own header demands.** `## Unreleased` is 2,163 lines and its preamble warns that
+once stamped, `check-docs`/`check-links` stop scanning it and every un-annotated claim freezes into the
+shipped record. Most supersessions were already annotated — the three the header itself names, and several
+more inline. **Two were not**, and one is substantive:
+an entry stated that `GraphMemoryEngine.ReinforceAsync` reading `.Stability` alone drops nothing because
+*"neither shipped curve sets anything beyond `Stability`"*, and then predicted the exact change that made it
+false — `DsrRetrievability` maintaining `Difficulty` per review, with `GraphTouch` widened to carry it. **The
+CODE is correct** (`GraphTouch` carries `Difficulty`, and the shipped engine path supplies the policy's own
+value); it was the entry that was about to freeze wrong. The other was a per-engine-curve entry reading as
+though two curves ship when one does.
+
+**Then a second question — "is any DEFECT left?" — and a focused code sweep found one.**
+`CompositeMemoryEngine.PruneAsync`/`ForgetAsync` documented themselves as *"fans out to every member that
+can remove"* and *"fails LOUD when NO member can"*. **The implementation is all-or-nothing**: `RemovableMembers`
+throws `NotSupportedException` if ANY in-scope member lacks the capability, having removed nothing. So the
+XML doc a consumer reads in IntelliSense promised a best-effort fan-out and a count where the code refuses
+outright — a four-of-five blend throws where the doc says it prunes the four.
+<br>**The code is right and deliberate**, pinned by two tests that assert the capable member is untouched
+(`The_refusal_is_checked_before_anything_is_removed_on_the_prune_path_too` and its forget twin) — this was
+the doc alone, on 3.0's newest breaking surface (**D72**), and it would have shipped in the XML docs. Both
+`<remarks>` now state all-or-nothing, and distinguish it from a member the `IMemoryRemovalPolicy` merely
+excludes, which IS skipped. Nothing else in the sweep was a defect: the `IJobStore` slot trio's documented
+null-slot contract is honoured exactly by `JobRunner`, and every "documented, not measured" marker left in
+`src/` is a surface **D69** deliberately converted into a host option rather than an open bug.
+
+**One absence found, and filed rather than fixed — `TASKS.md` §Startable.** `PolicyContractCoverageTests`
+makes contract coverage structural for **three** policy seams (age, ranking, retrievability) out of the
+**seven** the memory subsystem has. Salience, retention, annotation and verification have per-implementation
+suites and no shared contract, so the guard cannot see them and a future implementation of any of the four
+ships uncovered in silence — the exact shape that guard exists to prevent, and the shape Part 85 called its
+most valuable find. Every implementation shipping TODAY is constructed by some test, so this is a gap in the
+ratchet rather than a hole in coverage, which is why it is a task and not a fix.
+
+**Deliberately NOT done in this pass, and why.** The `TASKS.md` §Startable items are CODE and were left as a
+separate call — **the owner took it the same day, and Part 87 closes all three.** The release-time edits
+(`VersionPrefix`, the `## Unreleased` stamp, the README `## Status` headline) stay with the release workflow,
+which authors all three — **D19**, and the pre-commit guard blocks them by hand.
+
+`verify` 15/15.
+
+## Part 87 — the last three startable items, and the three defects closing them found (2026-08-17)
+
+_`TASKS.md` §Startable, opened by Parts 85 and 86 and closed here on the owner's instruction that there is no
+reason left to defer anything to 3.1. **Each item was coverage work; each uncovered a real defect.** That is
+the argument for the whole shape, so it is stated first: a contract is not paperwork over code that already
+works — writing three of them found three things that did not._
+
+**1. All SEVEN memory policy seams now have a contract, up from three.** `PolicyContractCoverageTests` made
+coverage structural for age, ranking and retrievability; salience, retention, annotation and verification had
+no shared contract at all, so its `Seams()` table could not list them and its "every `*PolicyContract` is
+listed" backstop had nothing to compare against — **it was silent about more seams than it checked.**
+
+- **The find was an absence, again.** `LlmMemoryVerificationPolicy` was constructed by **no offline test**.
+  Its only coverage was `LlmVerificationLiveTests`, which skips without a real model, so the entire surface
+  where a model's output meets code — the JSON parse, the ordinal-to-id mapping, the fail-open catch, the
+  non-Ok verdict path — had never executed in the suite on any machine or in CI. It now has a suite mirroring
+  the annotator's, and the implementation turned out correct: a negative result, but one nothing had
+  established.
+- **The defect was `SalienceRetentionPolicy` returning `NaN`** — neither "at or above 1" nor within its own
+  declared maximum, the two things `StabilityFactor` promises. Nothing reached a ranking
+  (`ModulatedRetrievability` coerces a non-finite factor to 1), but that clamp defends against a third-party
+  policy being dishonest, and a shipped policy must not be the thing it is defending against.
+  <br>**The post-feature audit reframed it, and the second reading is the useful one.** The first fix added
+  an `IsFinite` check. But `MemorySignals.Salience` already exists as the ONE coercion every reader shares,
+  its own summary says *"every read site calls this"* and names the three that do — and this was a fourth,
+  added later, that spelled the read out itself. So the defect was a **duplicated read**, not a missing
+  check, and the fix is to route through the helper and keep only this policy's own ceiling. Recorded in
+  `pitfalls.md` with the cheap detection: grep the raw accessor a helper wraps and check every hit is inside
+  it. It now returns exactly one.
+- **The two model-in-the-loop seams get MODEL-FREE contracts**, deliberately. Every promise they make is
+  about what happens when the model answers badly or not at all, which is what a live test cannot force — so
+  each driver supplies a working policy and a deliberately broken one. The sharpest fact is verification's:
+  a failure must yield `NoOpinion` and never `NothingRelevant`, because the two carry no ids and mean
+  opposite things, and collapsing them lets a model outage teach the store that nothing it holds is any use.
+
+**2. The five generation backends now share `GenerationProviderContract`** — identity, declared deliveries
+backed by the interfaces that serve them, a job-only backend declining inline, a failure being a verdict
+rather than a throw, and auth classification on every verdict-bearing door.
+
+- **The defect was on both job backends, and the backlog's description of it was WRONG.** It recorded that
+  ComfyUI hardcoded `Failed` while fal "routes the same class through `GenerationVerdictClassifier`" — so fal
+  was believed correct. Measured: **fal reports `Failed` too.** Its fetch path classifies the failure TEXT,
+  and a `"401: …"` status line is not vocabulary `FromErrorText` matches on. The real defect was structural
+  and shared: both readers collapsed the typed `HttpStatusCode` into a string, so neither could use
+  `FromHttpFailure`, which the classifier's own doc names as the better entry point. Both now carry the
+  status back. fal reports `AuthFailed`; ComfyUI reports `NotConfigured`, which is the right answer for a
+  backend with no credential surface at all — a 401 there can only mean something in FRONT of it wants one.
+- **A written-down finding is not a verified one.** This is the second time in two days that a claim recorded
+  in a maintained file was believed and turned out false when measured (the other was the CHANGELOG's
+  `GraphTouch` entry, Part 86). Both were written by someone who had read the code.
+
+**3. `generate_backends` is bounded as a whole and survives a broken backend.** It awaited `ProbeAsync` on
+every provider in SEQUENCE, with no aggregate bound and no `try`, each probe capped only by that backend's
+own `Timeout` — which is a RENDER budget, ten minutes on two shipped backends. Two stalled HTTP backends
+blocked the tool an agent is told to call FIRST for about twenty.
+
+- **The design call, since the item asked for one rather than a patch.** The bound is an AGGREGATE
+  (`GenerationOptions.ProbeDeadline`, 20s, non-positive means none) rather than per-probe, because that is
+  the number a caller can act on and because dividing one deadline among backends this type does not choose
+  would let a slow backend eat the budget of everything registered after it — with which ones those are
+  depending on registration order. Probes run CONCURRENTLY for the same reason. A backend that overruns or
+  throws is reported `usable: false` WITH the reason and never omitted: dropping it would tell the model the
+  backend does not exist, which is a different and worse answer than "it is not answering".
+- It cost one binary-breaking change (an appended optional constructor parameter), taken inside the window on
+  the same reasoning D50 used — free here, a whole major afterwards.
+
+**What the `post-feature` audit added after the three items looked done**, recorded because the whole point
+of that step is that these are invisible from the code just written: the `SalienceRetentionPolicy` reframing
+above; a doc on `GenerationOptions.ProbeDeadline` saying HOW to set it (the builder exposes no dedicated
+method, so the path is registering the options instance before `AddLyntai` — the same one `SalienceOptions`
+takes), pinned by a test that the pre-registered instance is REUSED and that the builder's own configuration
+lands on the same object; and step 15 of the migration guide's checklist, for a consumer who hand-constructs
+`GenerationBackendsTool`.
+
+**Two process notes.** `check-comments`' stacked-summary rule caught the SAME editing mistake Part 85
+recorded, twice more and by the same hand: inserting a `<summary>` above a member that already had one. The
+insertion anchor is a declaration, and the thing above it is somebody else's doc. And two contract facts had
+to be rewritten because they tested the FAKE rather than the subject — a stub that ignores its cancellation
+token, and a fetch fact whose operation id fal rejected before it ever called out, which reported the defect
+it was hunting for the wrong reason. **A fact that cannot fail is worse than no fact**, and a fact that fails
+for the wrong reason is worse still, because it looks like evidence.
+
+**And a third, which is the one worth reading.** A new concurrency fact asserted three stalled probes finish
+"under a second" against a 400ms deadline — green alone, and it FAILED inside a full-suite run on a loaded
+machine. That is precisely the shape `pitfalls.md` already records from `ElapsedAgePolicy`, written down in
+this repository months ago and re-read *in this same session*: a test that depends on machine load reads as
+coverage and is not. **Knowing a pitfall is not the same as not falling into it, and the gap between the two
+is about an hour.** Fixed by asserting the PROPERTY rather than timing it — probes now report their observed
+overlap, which serial execution cannot push above 1 at any speed, so the fact is both deterministic and
+stronger than the bound it replaced. The sibling deadline fact dropped its clock assertion outright: a
+deadline that does not bind makes that test HANG, not run slowly, which the runner reports far more loudly
+than any elapsed bound would. Confirmed over six consecutive runs.
+
+`verify` 15/15.

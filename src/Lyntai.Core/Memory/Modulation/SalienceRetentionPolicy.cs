@@ -31,7 +31,13 @@ public sealed class SalienceRetentionPolicy(SalienceOptions? options = null) : I
     public double MaxStabilityFactor => _options.MaxSalience;
 
     /// <inheritdoc />
+    /// <remarks>Reads the signal through <see cref="MemorySignals.Salience"/> — the ONE coercion every read
+    /// site shares — and then applies only this policy's own ceiling. It did neither until 2026-08-17: it
+    /// spelled the read out itself as a bare <see cref="Math.Clamp(double,double,double)"/>, which
+    /// PROPAGATES <see cref="double.NaN"/> rather than clamping it, so a non-finite stored signal produced a
+    /// factor that was neither at least 1 nor within <see cref="MaxStabilityFactor"/> — the two things this
+    /// member promises. That helper's own summary already said "every read site calls this", and this was
+    /// the site that did not.</remarks>
     public double StabilityFactor(in MemoryDecayState state) =>
-        Math.Clamp(state.Signals.Get(MemorySignals.WellKnown.Salience, fallback: 1),
-            1, _options.MaxSalience);
+        Math.Min(MemorySignals.Salience(state.Signals), _options.MaxSalience);
 }
