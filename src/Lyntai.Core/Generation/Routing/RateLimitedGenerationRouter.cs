@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
 using Lyntai.Llm.RateLimiting;
 using Microsoft.Extensions.Logging;
@@ -53,6 +54,27 @@ public sealed class RateLimitedGenerationRouter(
                 new GenerationOperation("", GenerationOperationStatus.Failed, Detail: Reason));
         }
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>Throttled on the SAME terms as the other two doors — see
+    /// <c>BudgetedGenerationRouter.StreamAsync</c> for why a decorator may not pass one door straight
+    /// through. ONE permit per stream, taken before the first chunk: a stream is one call to one backend, so
+    /// charging it per chunk would let the length of the media decide the rate rather than the rate deciding
+    /// it.</remarks>
+    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        if (!await limiter.AcquireAsync(request.Consumer, ct).ConfigureAwait(false))
+        {
+            Throttled(request.Consumer);
+            yield return GenerationChunk.Failure(GenerationVerdict.RateLimited, Reason);
+            yield break;
+        }
+
+        await foreach (var chunk in inner.StreamAsync(candidates, request, ct).ConfigureAwait(false))
+            yield return chunk;
     }
 
     private void Throttled(string consumer)

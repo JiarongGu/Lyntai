@@ -22,6 +22,8 @@
 //   node devtools/dev.mjs check-version    - the pre-commit version-authorship guard, run by hand
 //   node devtools/dev.mjs changelog [--fix] [--version X.Y.Z] [--date YYYY-MM-DD]
 //                                          - check/stamp the CHANGELOG `## Unreleased` heading for a release
+//   node devtools/dev.mjs release-notes --tag vX.Y.Z [--from vA.B.C]
+//                                          - PREVIEW the GitHub Release body the workflow will publish
 //   node devtools/dev.mjs install-hooks    - git core.hooksPath -> devtools/hooks (pre-commit guard)
 //   node devtools/dev.mjs check-sensitive  - scan staged changes (--tree for all tracked files)
 //   node devtools/dev.mjs decisions-index  - regenerate the index table at the top of docs/DECISIONS.md
@@ -312,6 +314,14 @@ switch (cmd) {
       version: valueOf('--version') ?? config.version,
       date: valueOf('--date'),
     }) ? 0 : 1;
+    break;
+  }
+
+  case 'release-notes': {
+    // The same module the release workflow runs, so a preview is the real thing rather than an
+    // approximation of it. Worth having as a command: the notes are the one release output a consumer
+    // reads, and until 2026-08-16 nothing could look at them before they were published.
+    run('node', [path.join(repo, 'devtools', 'scripts', 'release-notes.mjs'), ...args]);
     break;
   }
 

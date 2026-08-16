@@ -11,10 +11,13 @@
 > superseded twice over: the 2.0.1 restructure moved the generation **contracts** into
 > `src/Lyntai.Core/Generation/` — so the "File structure" table's `src/Lyntai.Generation/` package is
 > not where those files live — and the **backends** were then re-split into the `Lyntai.Generation` package
-> under `Lyntai.Generation.Providers`. Both moves are D25, whose two clauses are the dependency-footprint
-> test and the release-cadence exception. That split is package-and-reason-scoped: it is the BACKENDS package
-> that ships EXPERIMENTAL, while the contracts in the `Lyntai.Generation` namespace sit inside the mandatory
-> `Lyntai.Core` and carry the FULL SemVer promise (see `CLAUDE.md`, and `DECISIONS.md` D36, which applied it).
+> under `Lyntai.Generation.Providers`. Both moves are D25, whose two clauses were the dependency-footprint
+> test and a release-cadence exception. **The cadence clause has since lapsed** — 3.0 withdrew the SemVer
+> exemption it existed to buy (`DECISIONS.md` **D70**), so BOTH the contracts and the backends package now
+> carry the FULL promise and the split rests on footprint alone. The namespace-vs-package distinction below
+> still holds and is still the thing readers get wrong: the contracts sit inside the mandatory `Lyntai.Core`
+> (see `DECISIONS.md` D36, which applied the full promise to one deliberately, back when there was an
+> exemption to decline).
 >
 > **STILL LIVE:** Plan 6's streaming-TTS half and Plan 7 (pipelines) under `## Subsequent plans`, and the
 > `## Decisions (2026-08-04)` section including its `### Still open` items. The live backlog for them is

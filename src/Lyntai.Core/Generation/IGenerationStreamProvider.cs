@@ -5,15 +5,23 @@ namespace Lyntai.Generation;
 /// text-to-speech backends are built around (playback starts in well under a second, long before generation
 /// finishes). Buffering that into a single result would throw away the only property that makes it useful.
 /// </summary>
-/// <remarks><b>Designed, not yet exercised.</b> No backend implements this seam, and no router path consumes it:
-/// <see cref="Lyntai.Generation.Routing.IGenerationRouter"/> has an inline door and a submit door, and the
-/// capability pre-filter behind them is only ever asked about <see cref="GenerationDelivery.Inline"/> and
-/// <see cref="GenerationDelivery.Job"/> — so a backend advertising <see cref="GenerationDelivery.Stream"/> is
-/// today unreachable through the platform and must be driven directly. The chunk ordering below is designed
-/// FROM the LLM streaming contract rather than measured against a real TTS wire format, so the first backend
-/// that meets one (<c>TASKS.md</c> GEN6) may want it reshaped — and this seam lives in <c>Lyntai.Core</c>, which
-/// carries the FULL SemVer promise (the EXPERIMENTAL carve-out is the <c>Lyntai.Generation</c> PACKAGE, not this
-/// namespace), so reshaping it is a major-version act. Read what follows as inferred, not measured.</remarks>
+/// <remarks><b>Reachable through the platform since 3.0.</b>
+/// <see cref="Lyntai.Generation.Routing.IGenerationRouter.StreamAsync"/> is the third door, so a backend
+/// advertising <see cref="GenerationDelivery.Stream"/> is selected, fallen over, governed and throttled on the
+/// same terms as an inline one. Until then the capability pre-filter was only ever asked about
+/// <see cref="GenerationDelivery.Inline"/> and <see cref="GenerationDelivery.Job"/>, and this seam could only
+/// be driven by hand — which is how it stayed unexercised long enough to be about to freeze that way.
+/// <para><b>Two of the three rules below are the router's, not a backend's.</b> A backend need not be careful
+/// about them: fallback stops at the first chunk carrying real data, and the router closes any stream that
+/// ends without a terminal chunk. What a backend owes the platform is chunks in order and, ideally, its own
+/// terminal marker.</para>
+/// <para><b>What is still INFERRED, stated precisely rather than as a blanket caveat.</b> The chunk SHAPE —
+/// data-then-terminal, with the terminal carrying usage — is modelled on the LLM streaming contract, not
+/// measured against a TTS wire format, because no such backend exists here yet (<c>TASKS.md</c> GEN6 needs a
+/// vendor and a key). The router's handling of that shape is measured, by
+/// <c>GenerationRouterStreamTests</c>. So the risk that remains is not "does this work" but "is this the
+/// decomposition a real TTS stream wants" — and reshaping it is a major-version act, as it is for every
+/// package since 3.0 withdrew the generation carve-out.</para></remarks>
 public interface IGenerationStreamProvider
 {
     /// <summary>Stream the generation. Yields data chunks in order, then exactly ONE terminal chunk:

@@ -16,7 +16,7 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <PackageId>Lyntai.Generation</PackageId>
-    <Description>Generation backends: OpenAI images, Automatic1111, ComfyUI, a local sd-cli subprocess, and the fal.ai queue for video. The generation CONTRACTS live in Lyntai.Core — this is the backend set, split out so media can iterate without churning the LLM packages.</Description>
+    <Description>Generation backends: OpenAI images, Automatic1111, ComfyUI, a local sd-cli subprocess, and the fal.ai queue for video. The generation CONTRACTS live in Lyntai.Core — this is the backend set, kept out of the Lyntai bundle so an application that needs no media generation does not carry it.</Description>
   </PropertyGroup>
 
   <ItemGroup>

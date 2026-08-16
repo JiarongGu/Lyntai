@@ -5,12 +5,12 @@
 > not promises. **From 1.0 the public API is frozen under SemVer 2.0** — no break without a major bump,
 > gated by `ApiSurfaceTests` — **amended by D18 while every consumer is first-party**: a *documented* break
 > may ship in a MINOR, but the `ApiSurfaceTests` gate is unchanged and strict D16 resumes the moment a third
-> party depends on Lyntai. See `CHANGELOG.md` and `DECISIONS.md` **D16**/**D18**. One carve-out: the
-> **`Lyntai.Generation` PACKAGE** (the media backends) ships EXPERIMENTAL until GEN-VERIFY closes — two
-> backends were written from vendor docs with no key to call, and nothing implements the stream seam. **The
-> carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation CONTRACTS live in that
-> namespace inside `Lyntai.Core`, which is mandatory for every consumer and carries the FULL promise — D36
-> applied the full promise to one deliberately rather than claiming the exemption. Released detail lives in
+> party depends on Lyntai. See `CHANGELOG.md` and `DECISIONS.md` **D16**/**D18**. **No package is exempt** —
+> the `Lyntai.Generation` PACKAGE held the only carve-out, from 2.0.1, and 3.0 withdrew it (**D70**) once each
+> of its three named reasons closed (**D67**, **D69**). The distinction that outlives it: the generation
+> CONTRACTS live in the `Lyntai.Generation` NAMESPACE inside `Lyntai.Core`, while the BACKENDS are the
+> separate package — a split that now rests on dependency footprint alone (it stays outside the `Lyntai`
+> bundle, **D26**), since D25's other reason for it was the cadence the carve-out bought. Released detail lives in
 > `CHANGELOG.md`; the reasoning in `DECISIONS.md`.
 
 ## Shipped
@@ -43,17 +43,33 @@ queue, recurring scheduling, cron expressions, running-job cancellation. Still o
   host-free — the one standing §9 exclusion).
 - **Cross-process GLOBAL concurrency limits** — the last durable-jobs deferral (needs a distributed counter; the
   per-process cap + atomic claim cover most needs).
-- **Streaming tool-calls** (the `LlmChunk` contract carries no tool-call payload) and native tool-calling
-  for the ClaudeCli/Local providers (both stay on the prompt fallback) — low value, revisit on demand.
+- **Streaming tool-calls — SHIPPED in 3.0** (`DECISIONS.md` **D71**). It sat here as "low value, revisit on
+  demand", and that judgement was wrong in an instructive way: it priced the missing FEATURE and not the
+  defect underneath it. A turn that streamed prose alongside a tool call had the call silently dropped, and
+  no agentic turn could stream at all. **A deferral is a claim about cost — worth re-reading when the thing
+  deferred turns out to be load-bearing.**
+- **Native tool-calling for the ClaudeCli/Local providers — RETIRED, not deferred** (2026-08-16,
+  `DECISIONS.md` **D74**). Acting on it showed the request was misframed and would have made things worse.
+  `SupportsToolCalls` means "I hand the model's calls back for YOUR loop to run"; the claude CLI structurally
+  cannot — its whole tool surface is `--allowedTools`/`--mcp-config`, ways to GIVE it tools — and the real
+  need is already met by `ICliToolProvisioner`'s in-process MCP host (1.1). For a local GGUF, "native" is not
+  one format but one per model family, so the model-agnostic prompt protocol is the correct mechanism rather
+  than a fallback. Pinned by `NativeToolCallPostureTests`, because flipping the flag would leave every
+  agentic turn silently answering in prose with no tool ever running.
 
-### Next — generation, to close the experimental carve-out
-In priority order, each needing its own measurement:
-1. **GEN-VERIFY** — run `sd-cli` and fal.ai for real, confirm the argv/clamp and the wire format, then drop the
-   remaining "documented, not measured" notes. This is what lets `Lyntai.Generation` lose the EXPERIMENTAL
-   label. (One of the three ported `sd-cli` details — the binary-directory working dir — was confirmed against
-   a real release by a consuming app in 2026-08; argv and the size clamp are what's left.)
-2. **Streaming TTS** — the one contract in the platform no real backend exercises
-   (`IGenerationStreamProvider`). TTS before music. Needs a vendor pick and a measured wire format.
+### Next — generation, what a real run still confirms
+**None of this gates a release any more** — 3.0 withdrew the carve-out (**D70**), so the package ships under
+the full promise and these are confirmations rather than repairs. In priority order:
+1. **GEN-VERIFY** — run `sd-cli` and fal.ai for real and confirm the argv/clamp and the wire format. **A
+   mismatch in any VALUE is now a host's configuration edit, not a release** (**D69**): the status vocabulary,
+   the cost fields, ComfyUI's response field names and the whole `sd-cli` argv are options. What a real run
+   uniquely settles is whether a format differs STRUCTURALLY, which no per-field option can absorb. (One of
+   the three ported `sd-cli` details — the binary-directory working dir — was confirmed against a real release
+   by a consuming app in 2026-08; argv and the size clamp are what's left.)
+2. **Streaming TTS** — a real backend for `IGenerationStreamProvider`. The PLATFORM half shipped in 3.0
+   (**D67**): the router's stream door selects, falls over, governs and throttles a stream-capable backend and
+   guarantees exactly one terminal chunk. What a vendor still settles is whether data-then-terminal is the
+   decomposition a real TTS wire format wants. TTS before music.
 3. **Pipelines** (3d → image → video) — ordered stages feeding `artifact.ToInput(role)` forward. The original
    "defer until ≥2 real backends exist" test now reads as satisfied and is the wrong one: counted by KIND,
    image has five backends and video two, but **3d has ZERO** — so the pipeline's FIRST stage has no backend

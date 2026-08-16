@@ -25,26 +25,33 @@ namespace Lyntai.Memory;
 /// one member and reporting success would leave the rest of the blend holding the very data the caller asked
 /// to remove.</para>
 /// </summary>
-public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory
+public sealed class CompositeMemoryEngine
+    : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
+    private readonly IMemoryReapPolicy _reapPolicy;
 
     /// <summary>Compose <paramref name="members"/> under <paramref name="name"/>. Member order is the
     /// render order; authoritative material renders first regardless of position.</summary>
     /// <param name="name">The blend's name.</param>
     /// <param name="members">Its members, each already carrying its own hierarchical name.</param>
     /// <param name="logger">Optional; a member's recall failure is logged rather than thrown.</param>
+    /// <param name="reapPolicy">Which members a reap visits. Defaults to <see cref="DefaultMemoryReapPolicy"/>,
+    /// which puts an authoritative-ONLY member out of scope — see that type for why eligibility is a
+    /// deployment question rather than a property of an engine.</param>
     /// <exception cref="InvalidOperationException">Two members share a name, which would make an entry's
     /// reference ambiguous about its owner.</exception>
     public CompositeMemoryEngine(string name, IReadOnlyList<IMemoryEngine> members,
-        ILogger<CompositeMemoryEngine>? logger = null)
+        ILogger<CompositeMemoryEngine>? logger = null,
+        IMemoryReapPolicy? reapPolicy = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(members);
         Name = name;
         _members = members;
         _logger = logger ?? NullLogger<CompositeMemoryEngine>.Instance;
+        _reapPolicy = reapPolicy ?? new DefaultMemoryReapPolicy();
 
         var duplicate = members
             .GroupBy(m => m.Name, StringComparer.Ordinal)
@@ -223,13 +230,13 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
     public async Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
         TimeSpan? olderThan = null, CancellationToken ct = default)
     {
-        RequireEveryMemberCanReap(nameof(PruneAsync));
+        var members = ReapableMembers<IPrunableMemory>(nameof(PruneAsync), MemoryReapKind.Prune);
 
         var reaped = 0;
-        foreach (var member in _members)
+        foreach (var member in members)
         {
             ct.ThrowIfCancellationRequested();
-            reaped += await ((IForgettableMemory)member)
+            reaped += await member
                 .PruneAsync(taskKey, scope, minRetrievability, olderThan, ct).ConfigureAwait(false);
         }
         return reaped;
@@ -241,12 +248,12 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
     /// member's copy and returning would leave the blend still holding the data.</remarks>
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
-        RequireEveryMemberCanReap(nameof(ForgetAsync));
+        var members = ReapableMembers<IForgettableMemory>(nameof(ForgetAsync), MemoryReapKind.Forget);
 
-        foreach (var member in _members)
+        foreach (var member in members)
         {
             ct.ThrowIfCancellationRequested();
-            await ((IForgettableMemory)member).ForgetAsync(taskKey, scope, ct).ConfigureAwait(false);
+            await member.ForgetAsync(taskKey, scope, ct).ConfigureAwait(false);
         }
     }
 
@@ -271,17 +278,34 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
     /// remaining engines forgettable (their stores can: <c>IMemoryStore.ForgetAsync</c>,
     /// <c>ISemanticMemory.ForgetAsync</c>, <c>ICuratedMemoryStore.RemoveAsync</c>) is real, bounded work and
     /// is in the backlog; it is not something to infer half-done from a silent skip.</para></summary>
-    private void RequireEveryMemberCanReap(string verb)
+    /// <summary>The members a reap visits, checked for the SPECIFIC capability that verb needs — refusing
+    /// before anything is removed unless every one of them has it.</summary>
+    private List<T> ReapableMembers<T>(string verb, MemoryReapKind kind) where T : class
     {
-        var incapable = _members.Where(m => m is not IForgettableMemory).Select(m => m.Name).ToList();
-        if (incapable.Count == 0) return;
+        // A member the POLICY excludes is OUT OF SCOPE, not a gap. It is skipped, and the skip is LOGGED
+        // rather than silent — the caller of a consent withdrawal is entitled to know a glossary was kept.
+        // The distinction from an incapable member is the whole point: one engine cannot do what was asked,
+        // the other was never asked. Eligibility is the deployment's call (IMemoryReapPolicy); capability is
+        // the store's, and no policy may configure a genuine gap away.
+        var exempt = _members.Where(m => !_reapPolicy.Includes(m, kind)).Select(m => m.Name).ToList();
+        if (exempt.Count > 0)
+            _logger.LogInformation(
+                "memory {Engine}: {Verb} skipped {Count} member(s) the reap policy excludes — {Members}",
+                Name, verb, exempt.Count, string.Join(", ", exempt));
 
-        throw new NotSupportedException(
-            $"Memory engine '{Name}' cannot {verb}: {incapable.Count} of its {_members.Count} member(s) " +
-            $"cannot reap — {string.Join(", ", incapable)}. Nothing was removed, deliberately: reaping only " +
-            "the capable members would leave the rest of the blend holding the data you asked to remove, " +
-            "and report success. Reap those members through their own stores, or compose an engine whose " +
-            "members can all reap.");
+        var mine = _members.Where(m => _reapPolicy.Includes(m, kind)).ToList();
+        var incapable = mine.Where(m => m is not T).Select(m => m.Name).ToList();
+        if (incapable.Count > 0)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' cannot {verb}: {incapable.Count} of its {_members.Count} member(s) " +
+                $"hold user content and do not implement {typeof(T).Name} — {string.Join(", ", incapable)}. " +
+                "Nothing was removed, deliberately: reaping only the capable members would leave the rest of " +
+                "the blend holding the data you asked to remove, and report success. Reap those members " +
+                "through their own stores, or compose an engine whose members can all serve this verb. " +
+                "(A member the reap POLICY excludes is skipped instead of blocking the verb — eligibility is " +
+                "IMemoryReapPolicy's question, capability is this interface's.)");
+
+        return [.. mine.Cast<T>()];
     }
 
     private IMemoryEngine Owner(MemoryRef reference)

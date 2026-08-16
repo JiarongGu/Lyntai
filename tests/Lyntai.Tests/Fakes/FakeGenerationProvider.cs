@@ -138,3 +138,66 @@ public sealed class FakeGenerationStreamProvider : IGenerationProvider, IGenerat
         yield return GenerationChunk.Completed(new GenerationUsage(Seconds: 1.5));
     }
 }
+
+/// <summary>A streaming backend whose emissions are SCRIPTED, so a test can stage the shapes a real one
+/// produces and the shapes the router has to survive: a failure before any data, a failure after data, a
+/// stream that simply stops, and a throw. <see cref="StreamCalls"/> is what proves a fallback did — or did
+/// NOT — reach the next candidate.</summary>
+public sealed class ScriptedStreamProvider : IGenerationProvider, IGenerationStreamProvider
+{
+    public string Id { get; init; } = "scripted";
+
+    public int StreamCalls { get; private set; }
+
+    /// <summary>Chunks to emit, in order. May legitimately end without a terminal chunk — the router is
+    /// what guarantees the caller gets one.</summary>
+    public IReadOnlyList<GenerationChunk> Script { get; init; } = [];
+
+    /// <summary>Thrown from the enumerator AFTER <see cref="Script"/> is exhausted.</summary>
+    public Exception? Throws { get; init; }
+
+    public GenerationCapabilities Capabilities { get; init; } = new()
+    {
+        Kinds = [GenerationKinds.Audio],
+        Deliveries = [GenerationDelivery.Stream],
+    };
+
+    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(new GenerationProbeResult(true, "scripted"));
+
+    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
+        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "streaming only"));
+
+    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
+        GenerationRequest request, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        StreamCalls++;
+        foreach (var chunk in Script)
+        {
+            ct.ThrowIfCancellationRequested();
+            await Task.Yield();
+            yield return chunk;
+        }
+        if (Throws is not null) throw Throws;
+    }
+}
+
+/// <summary>Advertises <see cref="GenerationDelivery.Stream"/> and does NOT implement
+/// <see cref="IGenerationStreamProvider"/> — the shape a BYO backend can ship, and the reason the router
+/// re-checks a capability claim rather than casting on trust.</summary>
+public sealed class LyingStreamProvider : IGenerationProvider
+{
+    public string Id { get; init; } = "liar";
+
+    public GenerationCapabilities Capabilities { get; init; } = new()
+    {
+        Kinds = [GenerationKinds.Audio],
+        Deliveries = [GenerationDelivery.Stream],
+    };
+
+    public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
+        Task.FromResult(new GenerationProbeResult(true, "liar"));
+
+    public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
+        Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "no"));
+}

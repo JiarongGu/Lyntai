@@ -286,4 +286,85 @@ public class ComfyUiProviderTests
 
         Assert.Equal("http://127.0.0.1:8188/api/prompt", http.Requests[0].Uri?.ToString());
     }
+
+    // ---- the unmeasured surface is CORRECTABLE without a library release ------------------------------
+    //
+    // This class's own header says every endpoint path is settable because the surface was never measured
+    // against a running server. The response FIELD names were not, and they fail more quietly than a path
+    // does: a wrong path is a 404 on the first call, a wrong field name means a submitted render is never
+    // recognised as accepted or a finished one is polled forever. These pin that both are now correctable.
+
+    [Fact]
+    public async Task A_host_can_retarget_the_field_carrying_the_accepted_runs_id()
+    {
+        var (provider, http) = Provider(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            PromptIdField = "job_id",
+        });
+        http.Enqueue(HttpStatusCode.OK, """{"job_id":"abc-123","number":1}""");
+
+        var operation = await provider.SubmitAsync(Ask());
+
+        Assert.Equal("abc-123", operation.Id);
+        Assert.Equal(GenerationOperationStatus.Queued, operation.Status);
+    }
+
+    [Fact]
+    public async Task A_missing_id_names_the_CONFIGURED_field_so_the_message_matches_what_was_looked_for()
+    {
+        // A failure that names "prompt_id" while the host configured "job_id" sends them hunting for the
+        // wrong thing — the message has to describe the search that actually happened.
+        var (provider, http) = Provider(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            PromptIdField = "job_id",
+        });
+        http.Enqueue(HttpStatusCode.OK, """{"prompt_id":"abc-123"}""");
+
+        var operation = await provider.SubmitAsync(Ask());
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Contains("job_id", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_host_can_retarget_the_completion_signal_and_the_outputs_container()
+    {
+        var (provider, http) = Provider(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            StatusField = "state",
+            CompletedField = "done",
+            OutputsField = "results",
+        });
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"state":{"done":true},"results":{"9":{"images":[{"filename":"out.png","subfolder":"","type":"output"}]}}}}
+            """);
+
+        var result = await provider.FetchAsync("abc-123");
+
+        Assert.True(result.IsOk);
+        var artifact = Assert.Single(result.Artifacts);
+        Assert.Contains("filename=out.png", artifact.Uri);
+    }
+
+    [Fact]
+    public async Task Retargeting_the_outputs_container_keeps_it_working_as_the_fallback_completion_signal()
+    {
+        // Its PRESENCE is what says "finished" when the status block is absent or shaped unexpectedly. That
+        // defensive path has to follow the rename too, or a host who retargets one field loses the other.
+        var (provider, http) = Provider(new ComfyUiOptions
+        {
+            BaseUrl = "http://127.0.0.1:8188",
+            OutputsField = "results",
+        });
+        http.Enqueue(HttpStatusCode.OK, """
+            {"abc-123":{"results":{"9":{"images":[{"filename":"out.png","subfolder":"","type":"output"}]}}}}
+            """);
+
+        var result = await provider.FetchAsync("abc-123");
+
+        Assert.True(result.IsOk);
+    }
 }

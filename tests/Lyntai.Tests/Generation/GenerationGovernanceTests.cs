@@ -4,6 +4,7 @@ using Lyntai.Diagnostics;
 using Lyntai.Generation;
 using Lyntai.Generation.Jobs;
 using Lyntai.Generation.Routing;
+using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;
 using Lyntai.Llm.RateLimiting;
 using Lyntai.Llm.Routing;
@@ -430,6 +431,79 @@ public class GenerationGovernanceTests
             Router([new FakeGenerationProvider { Id = "hosted" }]), new GenerationOptions());
 
         Assert.Equal("agent", tool.Consumer);
+    }
+
+    // ---- the THIRD door: governance has to reach streaming too ----------------------------------------
+    //
+    // The stream door landed in 3.0, and the compiler only forced the decorators to HAVE a StreamAsync — it
+    // cannot tell a governed implementation from one that forwards straight through. That is precisely the
+    // `pitfalls.md` § "Second doors" shape: a capability enforced at one entry point is not enforced when a
+    // second entry point reaches the same objects, and adding a door is the cheapest way to lose one. So the
+    // behaviour is pinned per door rather than assumed from the signature.
+
+    private static async Task<List<GenerationChunk>> Collect(IAsyncEnumerable<GenerationChunk> stream)
+    {
+        var chunks = new List<GenerationChunk>();
+        await foreach (var chunk in stream) chunks.Add(chunk);
+        return chunks;
+    }
+
+    private static readonly GenerationRequest Speech =
+        new() { Kind = GenerationKinds.Audio, Prompt = "read this aloud" };
+
+    [Fact]
+    public async Task A_stream_over_the_cost_cap_is_refused_without_reaching_a_backend()
+    {
+        var backend = new ScriptedStreamProvider
+        {
+            Id = "tts",
+            Script = [GenerationChunk.Content([1]), GenerationChunk.Completed()],
+        };
+        var (router, tracker) = Budgeted(backend, o => o.Budget.MaxCostUsd = 1.0);
+        await tracker.RecordAsync("default", new LlmUsage(0, 0, 0, 1.0));
+
+        var chunks = await Collect(router.StreamAsync(Order("tts"), Speech));
+
+        var terminal = Assert.Single(chunks);
+        Assert.Equal(GenerationVerdict.Refused, terminal.Error);
+        Assert.Contains("cost budget", terminal.Detail);
+        Assert.Equal(0, backend.StreamCalls);
+    }
+
+    [Fact]
+    public async Task A_stream_records_what_its_terminal_chunk_reports_costing()
+    {
+        // A streaming backend cannot know the total until the stream ends, so the terminal chunk is the ONLY
+        // place it can report one — the inline path's "record the result's usage" has nowhere to attach here.
+        var backend = new ScriptedStreamProvider
+        {
+            Id = "tts",
+            Script = [GenerationChunk.Content([1]), GenerationChunk.Completed(new GenerationUsage(CostUsd: 0.25))],
+        };
+        var (router, tracker) = Budgeted(backend, o => o.Budget.MaxCostUsd = 10.0);
+
+        await Collect(router.StreamAsync(Order("tts"), Speech));
+
+        Assert.Equal(0.25, (await tracker.TotalAsync()).CostUsd);
+    }
+
+    [Fact]
+    public async Task Over_the_configured_rate_a_stream_is_refused_rather_than_queued()
+    {
+        var backend = new ScriptedStreamProvider
+        {
+            Id = "tts",
+            Script = [GenerationChunk.Content([1]), GenerationChunk.Completed()],
+        };
+        var limits = new RateLimitOptions { PermitsPerSecond = 1, Burst = 1, MaxWait = TimeSpan.Zero };
+        var router = new RateLimitedGenerationRouter(Router([backend]), new TokenBucketRateLimiter(limits));
+
+        var first = await Collect(router.StreamAsync(Order("tts"), Speech));
+        var second = await Collect(router.StreamAsync(Order("tts"), Speech));
+
+        Assert.True(first[^1].Final);
+        Assert.Equal(GenerationVerdict.RateLimited, Assert.Single(second).Error);
+        Assert.Equal(1, backend.StreamCalls);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------

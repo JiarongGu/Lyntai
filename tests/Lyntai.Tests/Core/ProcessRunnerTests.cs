@@ -209,10 +209,19 @@ public class ProcessRunnerTests
     public async Task Child_actively_draining_stdin_past_the_window_is_not_killed()
     {
         // stdout closes instantly; the child then SIPS stdin (take one pipe-buffer's worth, nap 150ms,
-        // repeat — ~4 KB per sip on Windows) so the TOTAL drain time far exceeds the 2s inactivity window,
-        // but it never goes SILENT for the window: each sip frees pipe space, the parent's next slice write
-        // completes, and that progress re-arms the clock. Pre-fix, the single fixed post-EOF window killed
-        // this healthy child mid-drain.
+        // repeat — ~4 KB per sip on Windows) so the TOTAL drain time (~11s) far exceeds the inactivity
+        // window, but it never goes SILENT for the window: each sip frees pipe space, the parent's next
+        // slice write completes, and that progress re-arms the clock. Pre-fix, the single fixed post-EOF
+        // window killed this healthy child mid-drain.
+        //
+        // THE WINDOW IS 5s, NOT 2s, AND THAT IS A FLAKE FIX (2026-08-16). At 2s the margin over a 150ms sip
+        // was 13x, which a loaded machine eats: this failed once inside a full ~3,000-test run and passed
+        // 3/3 in isolation, because a stalled Node process going quiet for 2s is indistinguishable from a
+        // wedged one. The property under test is unchanged — total drain still far exceeds the window — and
+        // the margin is now 33x. Widening costs no coverage: the OPPOSITE direction, that the post-EOF
+        // observe is bounded and cannot hang forever, is pinned by its own test below.
+        // A timing test whose failure mode is "the product looks broken" has to be robust to load, or it
+        // teaches the next reader to re-run the suite instead of reading the failure.
         const string script = """
             process.stdout.end();
             process.stdin.on('end', () => process.exit(0));
@@ -222,7 +231,7 @@ public class ProcessRunnerTests
             });
             """;
         var result = await _runner.RunAsync("node", ["-e", script],
-            stdin: new string('x', 300_000), inactivityTimeout: TimeSpan.FromSeconds(2))
+            stdin: new string('x', 300_000), inactivityTimeout: TimeSpan.FromSeconds(5))
             .WaitAsync(TimeSpan.FromSeconds(60)); // guard: fail loud instead of hanging the suite
 
         Assert.Equal(0, result.ExitCode);

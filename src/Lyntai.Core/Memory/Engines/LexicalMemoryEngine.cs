@@ -15,7 +15,7 @@ namespace Lyntai.Memory.Engines;
 public sealed class LexicalMemoryEngine(
     string name,
     IMemoryStore store,
-    ILogger<LexicalMemoryEngine>? logger = null) : IMemoryEngine
+    ILogger<LexicalMemoryEngine>? logger = null) : IMemoryEngine, IForgettableMemory, IPrunableMemory
 {
     private readonly ILogger _logger = logger ?? NullLogger<LexicalMemoryEngine>.Instance;
 
@@ -67,5 +67,36 @@ public sealed class LexicalMemoryEngine(
                 Name, query.TaskKey);
             return MemoryRecall.Empty;
         }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Straight through to <see cref="IMemoryStore.ForgetAsync"/>, which takes the same optional
+    /// scope this contract does — including null for "every scope of the task". Unlike recall this is NOT
+    /// fail-open: a forget that swallows its exception reports success while the data stays.</remarks>
+    public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
+        store.ForgetAsync(taskKey, scope, ct);
+
+    /// <inheritdoc />
+    /// <remarks><b>Two criteria this store cannot EXPRESS, and both make it reap nothing rather than reap
+    /// wrongly.</b> <see cref="IMemoryStore.PruneAsync"/> filters on task and age only: it takes no scope,
+    /// and the keyword store has no retrievability model to compare against. Ignoring either and pruning on
+    /// what is left would delete entries outside the scope asked for, or entries the caller wanted kept
+    /// because they are still retrievable — over-deletion, the one direction a reap must never err in.
+    /// <para>Returning 0 is honest here in a way it would not be for <see cref="ForgetAsync"/>: a prune is
+    /// best-effort capacity management, and reaping less than hoped defers a cost rather than breaking a
+    /// promise. The skip is logged so an operator whose prune returns 0 can find out why.</para></remarks>
+    public Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
+        TimeSpan? olderThan = null, CancellationToken ct = default)
+    {
+        if (scope is not null || minRetrievability is not null)
+        {
+            _logger.LogInformation(
+                "lexical prune on {Engine}/{Task} reaped nothing: the keyword store filters on task and age " +
+                "only, and honouring neither {Criteria} would delete more than was asked for",
+                Name, taskKey, scope is not null && minRetrievability is not null
+                    ? "scope nor minRetrievability" : scope is not null ? "scope" : "minRetrievability");
+            return Task.FromResult(0);
+        }
+        return store.PruneAsync(taskKey, olderThan, ct);
     }
 }

@@ -83,6 +83,7 @@ internal sealed class FaultingEngine(string name) : IMemoryEngine
 /// <summary>An engine that records what it was asked to store, and declares which grades it accepts.</summary>
 internal sealed class RecordingEngine(string name, MemoryGrades grades) : IMemoryEngine
 {
+
     public List<MemoryWrite> Writes { get; } = [];
 
     /// <summary>What this member returns from a recall. Empty by default, so every existing test is
@@ -141,11 +142,39 @@ internal sealed class ExpandableEngine(string name) : IMemoryEngine, IExpandable
     }
 }
 
+/// <summary>An engine that can forget a scope but CANNOT prune a subset — the shape a vector store really
+/// has, and the reason 3.0 split <see cref="IForgettableMemory"/> from <see cref="IPrunableMemory"/>. Under
+/// one combined interface this engine had to claim both or neither.</summary>
+internal sealed class ForgetOnlyEngine(string name) : IMemoryEngine, IForgettableMemory
+{
+    public string Name { get; } = name;
+
+    public MemoryGrades Supported => MemoryGrades.Associative;
+
+    public List<(string TaskKey, string? Scope)> Forgets { get; } = [];
+
+    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        Task.FromResult(new MemoryRef(Name, write.Content));
+
+    public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(MemoryRecall.Empty);
+    }
+
+    public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
+    {
+        Forgets.Add((taskKey, scope));
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>An engine that implements the optional REAPING capability — the twin of
 /// <see cref="ExpandableEngine"/>, and the capability a composite hid behind itself until 3.0. Records what
 /// it was asked to reap so a forwarding test can assert the member was actually reached, not merely that the
 /// call returned.</summary>
-internal sealed class ForgettableEngine(string name, int pruneCount = 0) : IMemoryEngine, IForgettableMemory
+internal sealed class ForgettableEngine(string name, int pruneCount = 0)
+    : IMemoryEngine, IForgettableMemory, IPrunableMemory
 {
     public string Name { get; } = name;
 

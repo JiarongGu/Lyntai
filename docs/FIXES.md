@@ -7,6 +7,52 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-16 — the release notes could not see a breaking change, on the eve of a major release
+
+**Symptom.** None observable, which is the point: the generator ran green every release and published a
+plausible document. Found by asking a question the pre-release checklist did not contain — *can this
+workflow actually cut a 3.0, and what will it say?*
+
+**Root cause.** `.github/workflows/release.yml` categorized commits with `^feat(\([^)]+\))?:` and
+`^fix(\([^)]+\))?:`, dropping `^(chore|docs|refactor|style|perf|test|ci|build)(\([^)]+\))?:` as
+non-user-facing. A complete-looking vocabulary that omits conventional commits' one modifier — the
+BREAKING `!`. `feat(memory)!:` matches none of the three (each expects `:` where the `!` sits), so every
+breaking change fell to the catch-all headed **"Other changes"**: 29 commits of history, and **11 of 11**
+in the `v2.5.0..HEAD` range. The 3.0 notes would have read *"New features: 1"* above a bucket holding
+every change that breaks a consumer's build.
+
+Its sharpest form: plain `refactor:` is *dropped*, so a breaking refactor — the most important line a
+consumer can read — was one regex away from deletion rather than misfiling. **The only reason it survived
+is that the drop pattern also failed to match the `!`.** Correctness rested on a second rule failing.
+
+Two things kept it alive. It lived as ~40 lines of inline `pwsh` in a YAML step, so `test-devtools` — which
+runs FIRST in `verify` precisely because a component whose failure mode is a false PASS cannot be validated
+by running it — had no seam to reach. And its failure mode is *plausible output*: nothing errors, nothing is
+dropped, no count disagrees, every commit appears somewhere.
+
+**Fix.** Extracted to `devtools/scripts/release-notes.mjs` behind pure functions (`categorize`,
+`previousTag`, `renderNotes`), with the workflow step reduced to one `node` call — the shape this
+repository already uses for every guard. Rules: the `!` **outranks the kind**, so a breaking `refactor!:`
+is kept while `refactor:` is dropped; breaking changes lead the body and carry their scope, because "which
+package breaks" is the first thing a reader needs; `bench` and `tasks` joined the non-user-facing list from
+a census of the real history. `node devtools/dev.mjs release-notes --tag vX.Y.Z` previews it — the notes
+are the one release output a consumer reads, and nothing could look at them before publication.
+
+**The honest limit, stated rather than discovered.** Breaking-ness is read from the `!` in the SUBJECT.
+Conventional Commits also allows a `BREAKING CHANGE:` body footer, and this reads `%s`; a commit using only
+the footer is categorized by its kind. Every one of this repository's 29 breaking commits uses `!`.
+
+**Verification.** 16 tests, mutation-checked — neutering the `!` branch fails 6 of them, including the
+regression case. The last is pinned against the REAL log as a property ("no breaking commit lands in Other
+or is dropped") rather than a count, since a count fails on the next commit. `test-devtools` 329 → 345,
+`verify` 14/14. Previewed against the actual range: all 11 breaking changes now lead the notes.
+
+**Commit that introduced it.** The generator has had this shape since the workflow was written; the `!`
+convention arrived later and nothing revisited the categorizer, which is the ordinary way a vocabulary list
+goes stale.
+
+---
+
 ## 2026-08-16 — two round-2 findings that were recorded rather than fixed, closed
 
 Round 2 raised both and the pass logged them as observations. Both are the same species as the defects the

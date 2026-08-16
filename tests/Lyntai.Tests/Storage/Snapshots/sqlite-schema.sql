@@ -119,6 +119,13 @@ CREATE TABLE lyntai_job (
     partition_key TEXT NULL
 );
 
+-- table lyntai_job_slot
+CREATE TABLE lyntai_job_slot (
+    slot_index INTEGER PRIMARY KEY,
+    worker_id TEXT NULL,
+    acquired_at TEXT NULL
+);
+
 -- table lyntai_kv
 CREATE TABLE "lyntai_kv" ("key" TEXT NOT NULL, "value" TEXT NOT NULL, "updated_at" TEXT NOT NULL, CONSTRAINT "PK_lyntai_kv" PRIMARY KEY ("key"));
 

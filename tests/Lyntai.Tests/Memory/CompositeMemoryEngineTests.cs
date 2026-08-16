@@ -183,8 +183,8 @@ public class CompositeMemoryEngineTests
         var b = new ForgettableEngine("project/b", pruneCount: 3);
         IMemoryEngine engine = Composite(a, b);
 
-        var forgettable = Assert.IsAssignableFrom<IForgettableMemory>(engine);
-        var reaped = await forgettable.PruneAsync("t", "s");
+        var prunable = Assert.IsAssignableFrom<IPrunableMemory>(engine);
+        var reaped = await prunable.PruneAsync("t", "s");
 
         Assert.Equal(5, reaped);                      // summed across members, not taken from the first
         Assert.Equal([("t", "s")], a.Prunes);
@@ -201,12 +201,12 @@ public class CompositeMemoryEngineTests
         // README: it cleared the graph half, kept the AUTHORITATIVE half, and returned normally. For the
         // call an application makes when a user withdraws consent, that is the worst available answer.
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
-        var glossary = new RecordingEngine("project/glossary", MemoryGrades.Authoritative);
-        var forgettable = Assert.IsAssignableFrom<IForgettableMemory>(Composite(graph, glossary));
+        var gap = new RecordingEngine("project/gap", MemoryGrades.Associative);   // a GAP, not a catalogue
+        var forgettable = Assert.IsAssignableFrom<IForgettableMemory>(Composite(graph, gap));
 
         var ex = await Assert.ThrowsAsync<NotSupportedException>(() => forgettable.ForgetAsync("t", "s"));
 
-        Assert.Contains("project/glossary", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("project/gap", ex.Message, StringComparison.Ordinal);
         Assert.Empty(graph.Forgets);   // and the CAPABLE member was not reaped either — checked BEFORE acting
     }
 
@@ -214,12 +214,157 @@ public class CompositeMemoryEngineTests
     public async Task The_refusal_is_checked_before_anything_is_removed_on_the_prune_path_too()
     {
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
-        var glossary = new RecordingEngine("project/glossary", MemoryGrades.Authoritative);
-        var forgettable = Assert.IsAssignableFrom<IForgettableMemory>(Composite(graph, glossary));
+        var gap = new RecordingEngine("project/gap", MemoryGrades.Associative);   // a GAP, not a catalogue
+        var prunable = Assert.IsAssignableFrom<IPrunableMemory>(Composite(graph, gap));
 
-        await Assert.ThrowsAsync<NotSupportedException>(() => forgettable.PruneAsync("t", "s"));
+        await Assert.ThrowsAsync<NotSupportedException>(() => prunable.PruneAsync("t", "s"));
 
         Assert.Empty(graph.Prunes);    // a mid-fan-out refusal would be a partial reap AND an exception
+    }
+
+    // ---- operator-authored members are SKIPPED, not blockers (3.0) -----------------------------------
+    //
+    // The distinction the composite now draws: a member that CANNOT reap is a gap and refuses the whole
+    // verb; a member that declares its content OPERATOR-authored is out of scope and is skipped. Collapsing
+    // them would turn every gap into a silent partial, which is what D63 was written about — so both
+    // directions are pinned here.
+
+    private static RecordingEngine Glossary(string name = "project/glossary") =>
+        new(name, MemoryGrades.Authoritative);
+
+    [Fact]
+    public async Task A_glossary_member_no_longer_BLOCKS_a_reap_it_is_skipped()
+    {
+        // THE BLEND FROM THIS LIBRARY'S OWN README: UseCurated("glossary").UseGraph(). Until now it could
+        // not reap at all — the curated member cannot forget, so the whole verb refused, and an application
+        // withdrawing a user's consent had nothing to call.
+        var graph = new ForgettableEngine("project/graph", pruneCount: 4);
+        var engine = Composite(Glossary(), graph);
+
+        await Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s");
+        var reaped = await Assert.IsAssignableFrom<IPrunableMemory>(engine).PruneAsync("t", "s");
+
+        Assert.Equal([("t", "s")], graph.Forgets);   // the USER's data went
+        Assert.Equal(4, reaped);
+    }
+
+    [Fact]
+    public async Task A_member_that_holds_user_content_and_cannot_reap_STILL_refuses()
+    {
+        // The other direction, and the one that must not regress: skipping is earned by DECLARING the
+        // content operator-authored, never by failing to implement the capability.
+        var graph = new ForgettableEngine("project/graph", pruneCount: 4);
+        var gap = new RecordingEngine("project/gap", MemoryGrades.Associative);   // in scope by default
+        var engine = Composite(gap, graph);
+
+        var ex = await Assert.ThrowsAsync<NotSupportedException>(
+            () => Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s"));
+
+        Assert.Contains("project/gap", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(graph.Forgets);   // still checked BEFORE anything is removed
+    }
+
+    [Fact]
+    public async Task A_blend_of_ONLY_operator_authored_members_reaps_nothing_and_does_not_throw()
+    {
+        // Nothing here is the user's, so there is nothing to withdraw — that is a legitimate zero, not the
+        // "cannot" the refusal exists to distinguish it from.
+        var engine = Composite(Glossary("project/a"), Glossary("project/b"));
+
+        await Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s");
+        Assert.Equal(0, await Assert.IsAssignableFrom<IPrunableMemory>(engine).PruneAsync("t", "s"));
+    }
+
+    [Fact]
+    public async Task The_HOST_decides_eligibility_and_can_differ_PER_KIND()
+    {
+        // WHY THIS IS A POLICY AND NOT A PROPERTY OF AN ENGINE. Whether a curated section holds material a
+        // user may withdraw is a fact about the DEPLOYMENT, not about the type: one application's glossary is
+        // operator boilerplate, another's holds preferences the user typed. And the two verbs can legitimately
+        // differ — keep the glossary out of an automatic prune, include it in an explicit consent withdrawal —
+        // which no single boolean on the engine could have expressed.
+        var glossary = new ForgettableEngine("project/glossary") { };
+        var graph = new ForgettableEngine("project/graph", pruneCount: 4);
+        var engine = new CompositeMemoryEngine("project", [glossary, graph],
+            reapPolicy: new ForgetOnlyForAuthoritativePolicy(glossary.Name));
+
+        await Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s");
+        await Assert.IsAssignableFrom<IPrunableMemory>(engine).PruneAsync("t", "s");
+
+        Assert.Equal([("t", "s")], glossary.Forgets);   // included in the withdrawal…
+        Assert.Empty(glossary.Prunes);                  // …and excluded from the capacity sweep
+        Assert.Equal([("t", "s")], graph.Forgets);
+        Assert.Equal([("t", "s")], graph.Prunes);
+    }
+
+    /// <summary>A host policy: one named member is in scope for a forget and out of scope for a prune.</summary>
+    private sealed class ForgetOnlyForAuthoritativePolicy(string member) : IMemoryReapPolicy
+    {
+        public bool Includes(IMemoryEngine candidate, MemoryReapKind kind) =>
+            !string.Equals(candidate.Name, member, StringComparison.Ordinal) || kind == MemoryReapKind.Forget;
+    }
+
+    [Fact]
+    public async Task A_policy_may_not_configure_a_genuine_GAP_away()
+    {
+        // The line between eligibility and capability. A policy that INCLUDES a member which cannot serve the
+        // verb still gets the loud refusal — otherwise a host could silence the very failure D63 exists for
+        // by writing one permissive policy, and a partial reap would report success.
+        var graph = new ForgettableEngine("project/graph", pruneCount: 4);
+        var gap = new RecordingEngine("project/gap", MemoryGrades.Authoritative);   // cannot reap at all
+        var engine = new CompositeMemoryEngine("project", [gap, graph],
+            reapPolicy: new IncludeEverythingPolicy());
+
+        var ex = await Assert.ThrowsAsync<NotSupportedException>(
+            () => Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s"));
+
+        Assert.Contains("project/gap", ex.Message, StringComparison.Ordinal);
+        Assert.Empty(graph.Forgets);
+    }
+
+    private sealed class IncludeEverythingPolicy : IMemoryReapPolicy
+    {
+        public bool Includes(IMemoryEngine candidate, MemoryReapKind kind) => true;
+    }
+
+    [Fact]
+    public void The_default_policy_keys_on_the_GRADES_an_engine_declares_not_on_its_type()
+    {
+        // Keying on the concrete type would be a conditional that must be edited to add a backend, and would
+        // miss a BYO catalogue entirely. Authoritative-ONLY is a curated catalogue by construction — that is
+        // what the grade split means — so the default reads a property every engine already declares.
+        var policy = new DefaultMemoryReapPolicy();
+        var catalogue = new RecordingEngine("byo/catalogue", MemoryGrades.Authoritative);
+        var mixed = new RecordingEngine("byo/graph", MemoryGrades.Associative | MemoryGrades.Authoritative);
+        var associative = new RecordingEngine("byo/lexical", MemoryGrades.Associative);
+
+        foreach (var kind in new[] { MemoryReapKind.Forget, MemoryReapKind.Prune })
+        {
+            Assert.False(policy.Includes(catalogue, kind));   // a BYO catalogue, never named in any switch
+            Assert.True(policy.Includes(mixed, kind));
+            Assert.True(policy.Includes(associative, kind));
+        }
+    }
+
+    [Fact]
+    public async Task A_member_may_be_forgettable_WITHOUT_being_prunable()
+    {
+        // Why the capabilities split. A vector store can forget a scope exactly and cannot prune by age at
+        // all; under one combined interface it had to claim both or neither. The pre-flight now asks for the
+        // capability the VERB needs, so forgetting works and pruning refuses — rather than pruning
+        // half-succeeding and then throwing from a member mid-fan-out.
+        var graph = new ForgettableEngine("project/graph", pruneCount: 4);
+        var forgetOnly = new ForgetOnlyEngine("project/vectors");
+        var engine = Composite(forgetOnly, graph);
+
+        await Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s");
+        Assert.Equal([("t", "s")], forgetOnly.Forgets);
+
+        var ex = await Assert.ThrowsAsync<NotSupportedException>(
+            () => Assert.IsAssignableFrom<IPrunableMemory>(engine).PruneAsync("t", "s"));
+        Assert.Contains("project/vectors", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(IPrunableMemory), ex.Message, StringComparison.Ordinal);
+        Assert.Empty(graph.Prunes);
     }
 
     [Fact]
@@ -244,9 +389,9 @@ public class CompositeMemoryEngineTests
         // "nothing matched". Reporting 0 for "nothing here can ever reap" would make a delete that cannot
         // happen indistinguishable from one that found nothing to do.
         IMemoryEngine engine = Composite(new RecordingEngine("project/flat", MemoryGrades.Associative));
-        var forgettable = Assert.IsAssignableFrom<IForgettableMemory>(engine);
+        var prunable = Assert.IsAssignableFrom<IPrunableMemory>(engine);
 
-        var ex = await Assert.ThrowsAsync<NotSupportedException>(() => forgettable.PruneAsync("t", "s"));
+        var ex = await Assert.ThrowsAsync<NotSupportedException>(() => prunable.PruneAsync("t", "s"));
 
         Assert.Contains("project/flat", ex.Message, StringComparison.Ordinal);
     }

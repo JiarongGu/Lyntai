@@ -27,6 +27,29 @@ public static class JobStoreSql
     /// <summary>The write fence: a mutating statement lands only while THIS worker holds the Running claim.</summary>
     public const string FenceWhere = "WHERE id=@id AND claimed_by=@workerId AND status='Running'";
 
+    /// <summary>The dialect-NEUTRAL free-slot predicate for the cross-process concurrency semaphore: an
+    /// index below the cap that nobody holds, or whose holder's lease has expired. Written against the
+    /// candidate alias <c>s</c>; parameters: <c>@cap</c>, <c>@staleBefore</c>.
+    /// <para>Shared for the same reason <see cref="ClaimCandidateWhere"/> is — the two backends' acquire
+    /// statements must differ only in their LOCKING frame, never in what counts as free. <c>slot_index &lt;
+    /// @cap</c> is what keeps the cap pure configuration: lowering it strands the high rows rather than
+    /// needing them deleted, and raising it lets the lazy insert create more.</para></summary>
+    public const string FreeSlotWhere = """
+        s.slot_index < @cap
+          AND (s.worker_id IS NULL OR s.acquired_at <= @staleBefore)
+        """;
+
+    /// <summary>Renew every slot this worker still holds — one statement, so the cost does not grow with
+    /// the number of jobs in flight. Fenced by holder, so a slot already reclaimed stays with its new owner.</summary>
+    public const string HeartbeatSlots =
+        "UPDATE lyntai_job_slot SET acquired_at=@now WHERE worker_id=@workerId";
+
+    /// <summary>Give the slot back, fenced by the holder so an expired worker cannot free its successor's.</summary>
+    public const string ReleaseSlot = """
+        UPDATE lyntai_job_slot SET worker_id=NULL, acquired_at=NULL
+        WHERE slot_index=@slotIndex AND worker_id=@workerId
+        """;
+
     /// <summary>The dialect-NEUTRAL claim-candidate predicate — pending/stale-lease-reclaim selection plus
     /// the actor-mailbox partition guard and its FIFO tiebreak; the most correctness-critical text in the
     /// subsystem, shared so the two backends' claim statements can only differ in their LOCKING frame

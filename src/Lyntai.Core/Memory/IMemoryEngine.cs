@@ -20,6 +20,7 @@ public interface IMemoryEngine
     /// of its members' and routes an incoming write to a member that can hold it.</summary>
     MemoryGrades Supported { get; }
 
+
     /// <summary>Store a fact and return its address.
     /// <para><b>Surfaces failures</b> — a silently lost write is worse than a throw the caller can see,
     /// which is the asymmetry <see cref="ISemanticMemory"/> already documents. Throws

@@ -20,4 +20,10 @@ public interface ILlmClient
     /// model / cooldown key the completion will use (a live <c>IModelRoutingStore</c> override is not read
     /// by this sync probe — see <see cref="ILlmRouter.SupportsToolCalls"/>).</summary>
     bool SupportsToolCalls(LlmRequest req) => false;
+
+    /// <summary>Whether the routed provider's STREAM delivers native tool calls, so
+    /// <see cref="Agents.IToolLoop"/> can run its native path over <see cref="StreamAsync"/> and emit prose
+    /// as it arrives instead of buffering the whole turn. Default false — the safe answer, which keeps the
+    /// pre-3.0 buffered behaviour for any provider that has not implemented the streaming half.</summary>
+    bool SupportsStreamingToolCalls(LlmRequest req) => false;
 }

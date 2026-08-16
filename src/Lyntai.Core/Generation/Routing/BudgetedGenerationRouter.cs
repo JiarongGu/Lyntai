@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
 using Lyntai.Llm;
 using Lyntai.Llm.Budgeting;
@@ -63,6 +64,35 @@ public sealed class BudgetedGenerationRouter(
                 new GenerationOperation("", GenerationOperationStatus.Failed, Detail: reason));
 
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>Governed on the SAME terms as the other two doors, and it has to be: a decorator that passed
+    /// one door straight through would make streaming the cheapest way to spend past a cap, which is the
+    /// <c>pitfalls.md</c> § "Second doors" shape — a capability enforced at one entry point is not enforced
+    /// when a second entry point reaches the same objects.
+    /// <para>The refusal is delivered as a terminal <see cref="GenerationChunk.Failure"/> rather than a
+    /// thrown exception, because a caller writing <c>await foreach</c> should learn about a budget refusal
+    /// the same way they learn about a backend refusal.</para>
+    /// <para>Cost is recorded from the terminal chunk's <see cref="GenerationChunk.Usage"/>, which is the
+    /// only place a streaming backend can report it — the total is not known until the stream ends. A backend
+    /// that reports none records none, exactly as on the inline path.</para></remarks>
+    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        if (await OverBudgetAsync(request.Consumer, ct).ConfigureAwait(false) is { } reason)
+        {
+            yield return GenerationChunk.Failure(GenerationVerdict.Refused, reason);
+            yield break;
+        }
+
+        await foreach (var chunk in inner.StreamAsync(candidates, request, ct).ConfigureAwait(false))
+        {
+            if (chunk.Usage is not null)
+                await RecordAsync(request.Consumer, chunk.Usage, ct).ConfigureAwait(false);
+            yield return chunk;
+        }
     }
 
     /// <summary>Record a reported cost into the shared ledger as a zero-token, cost-only entry — one place

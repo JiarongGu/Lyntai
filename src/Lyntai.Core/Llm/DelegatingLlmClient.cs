@@ -19,4 +19,6 @@ public abstract class DelegatingLlmClient(ILlmClient inner) : ILlmClient
         Inner.StreamAsync(req, ct);
 
     public virtual bool SupportsToolCalls(LlmRequest req) => Inner.SupportsToolCalls(req);
+
+    public virtual bool SupportsStreamingToolCalls(LlmRequest req) => Inner.SupportsStreamingToolCalls(req);
 }

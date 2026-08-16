@@ -711,6 +711,7 @@ interface Lyntai.Generation.Jobs.IGenerationArtifactSink
 sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
     .ctor(IGenerationRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedGenerationRouter> logger = null)
     GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
     SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Routing.GenerationCandidate
     .ctor(String ProviderId, String Model = null)
@@ -730,6 +731,7 @@ enum Lyntai.Generation.Routing.GenerationFallbackAction
 sealed class Lyntai.Generation.Routing.GenerationRouter
     .ctor(IEnumerable<IGenerationProvider> providers, GenerationRoutingPolicy policy = null, DeadHostTracker deadHosts = null, Func<IGenerationProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
     GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
     SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Routing.GenerationRouterFactory
     .ctor(IProviderPool<IGenerationProvider> pool, DeadHostTracker deadHosts, GenerationRoutingPolicy policy = null, IRateLimiter rateLimiter = null, IUsageTracker usage = null, LyntaiOptions options = null, ILoggerFactory loggers = null, IProviderAdmission admission = null)
@@ -751,6 +753,7 @@ sealed class Lyntai.Generation.Routing.GenerationSubmission
     ToString() : String
 interface Lyntai.Generation.Routing.IGenerationRouter
     GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
     SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 interface Lyntai.Generation.Routing.IGenerationRouterFactory
     For(IReadOnlyList<IGenerationProvider> providers) : IGenerationRouter
@@ -758,6 +761,7 @@ interface Lyntai.Generation.Routing.IGenerationRouterFactory
 sealed class Lyntai.Generation.Routing.RateLimitedGenerationRouter
     .ctor(IGenerationRouter inner, IRateLimiter limiter, ILogger<RateLimitedGenerationRouter> logger = null)
     GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
+    StreamAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : IAsyncEnumerable<GenerationChunk>
     SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
 sealed class Lyntai.Generation.Tools.GenerationBackendsTool
     .ctor(IEnumerable<IGenerationProvider> providers)
@@ -892,6 +896,7 @@ sealed class Lyntai.Jobs.JobOptions
     .ctor()
     DefaultLaneConcurrency : Int32
     DefaultMaxAttempts : Int32
+    GlobalMaxConcurrency : Int32
     LaneConcurrency : Dictionary<String,Int32>
     Lease : TimeSpan
     LimitFor(String lane) : Int32
@@ -899,6 +904,7 @@ sealed class Lyntai.Jobs.JobOptions
     MaxStepLog : Int32
     PollInterval : TimeSpan
     RetryBackoff : TimeSpan
+    SlotLease : TimeSpan
 sealed class Lyntai.Jobs.JobOutcome
     Equals(JobOutcome other) : Boolean
     Equals(Object obj) : Boolean
@@ -1213,10 +1219,12 @@ abstract class Lyntai.Llm.DelegatingLlmClient
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     Inner : ILlmClient
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls(LlmRequest req) : Boolean
     SupportsToolCalls(LlmRequest req) : Boolean
 interface Lyntai.Llm.ILlmClient
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls(LlmRequest req) : Boolean
     SupportsToolCalls(LlmRequest req) : Boolean
 interface Lyntai.Llm.ILlmClientFactory
     Get() : ILlmClient
@@ -1228,10 +1236,12 @@ interface Lyntai.Llm.ILlmProvider
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls : Boolean
     SupportsToolCalls : Boolean
 interface Lyntai.Llm.ILlmRouter
     CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
     SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
 interface Lyntai.Llm.IProviderAuth
     LoginAsync(ProviderLoginRequest request = null, CancellationToken ct = default) : Task<ProviderAuthResult>
@@ -1275,15 +1285,18 @@ sealed class Lyntai.Llm.LlmChunk
     Kind : LlmChunkKind required
     Text : String
     ToString() : String
+    ToolCall : LlmToolCall
     Usage : LlmUsage
     Verdict : LlmVerdict
     static Content(String text) : LlmChunk
     static Error(LlmVerdict verdict, String detail = null) : LlmChunk
     static Final(LlmUsage usage = null, String detail = null) : LlmChunk
+    static Tool(LlmToolCall call) : LlmChunk
 enum Lyntai.Llm.LlmChunkKind
     Content : LlmChunkKind const
     Error : LlmChunkKind const
     Final : LlmChunkKind const
+    ToolCall : LlmChunkKind const
     value__ : Int32
 sealed class Lyntai.Llm.LlmClientFactory
     .ctor(IReadOnlyDictionary<String,ILlmClient> named, ILlmClient fallback)
@@ -1505,11 +1518,13 @@ sealed class Lyntai.Llm.Routing.LlmClient
     .ctor(ILlmRouter router, LyntaiOptions options)
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls(LlmRequest req) : Boolean
     SupportsToolCalls(LlmRequest req) : Boolean
 sealed class Lyntai.Llm.Routing.LlmRouter
     .ctor(IEnumerable<ILlmProvider> providers, DeadHostTracker deadHosts, LyntaiOptions options, ILogger<LlmRouter> logger = null, IModelRoutingStore modelRouting = null, Func<ILlmProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
     CompleteAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     StreamAsync(IReadOnlyList<LlmCandidate> candidates, LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
     SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) : Boolean
 sealed class Lyntai.Llm.Routing.LlmRouterFactory
     .ctor(IProviderPool<ILlmProvider> pool, DeadHostTracker deadHosts, LyntaiOptions options, ILoggerFactory loggers = null, IModelRoutingStore modelRouting = null, IProviderAdmission admission = null)
@@ -1637,7 +1652,7 @@ sealed class Lyntai.Memory.Annotation.MemoryAnnotationRequest
     ToString() : String
     Write : MemoryWrite
 sealed class Lyntai.Memory.CompositeMemoryEngine
-    .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null)
+    .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null, IMemoryReapPolicy reapPolicy = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -1647,6 +1662,9 @@ sealed class Lyntai.Memory.CompositeMemoryEngine
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
+sealed class Lyntai.Memory.DefaultMemoryReapPolicy
+    .ctor()
+    Includes(IMemoryEngine member, MemoryReapKind kind) : Boolean
 sealed class Lyntai.Memory.EngineBackedPromptComposer
     .ctor(IMemoryEngine engine, MemoryCompositionOptions options)
     ComposeAsync(String basePrompt, String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<String>
@@ -1668,12 +1686,15 @@ sealed class Lyntai.Memory.Engines.GraphMemoryEngine
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.LexicalMemoryEngine
     .ctor(String name, IMemoryStore store, ILogger<LexicalMemoryEngine> logger = null)
+    ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     Name : String
+    PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.SemanticMemoryEngine
     .ctor(String name, ISemanticMemory semantic, Int32 defaultK = 10, ILogger<SemanticMemoryEngine> logger = null)
+    ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     Name : String
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
@@ -1831,7 +1852,6 @@ interface Lyntai.Memory.IExpandableMemory
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
 interface Lyntai.Memory.IForgettableMemory
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
-    PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
 interface Lyntai.Memory.ILinkableMemory
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
 interface Lyntai.Memory.IMemoryEngine
@@ -1859,6 +1879,10 @@ interface Lyntai.Memory.IMemoryGraphStore
     SeedAsync(String engine, String taskKey, String scope, String query, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
     TouchAsync(String engine, IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) : Task
     UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) : Task<Int64>
+interface Lyntai.Memory.IMemoryReapPolicy
+    Includes(IMemoryEngine member, MemoryReapKind kind) : Boolean
+interface Lyntai.Memory.IPrunableMemory
+    PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
 interface Lyntai.Memory.ISemanticMemory
     ForgetAsync(String taskKey, String scope, CancellationToken ct = default) : Task
     RecallAsync(String taskKey, String scope, String query, Int32 k = 5, Double minScore = 0, CancellationToken ct = default) : Task<IReadOnlyList<SemanticHit>>
@@ -2013,6 +2037,10 @@ sealed class Lyntai.Memory.MemoryQuery
     Scope : String
     TaskKey : String
     ToString() : String
+enum Lyntai.Memory.MemoryReapKind
+    Forget : MemoryReapKind const
+    Prune : MemoryReapKind const
+    value__ : Int32
 sealed class Lyntai.Memory.MemoryRecall
     .ctor(IReadOnlyList<MemoryItem> Items, MemorySources Ran, Nullable<Boolean> Answered = null)
     Answered : Nullable<Boolean>
@@ -2559,15 +2587,18 @@ interface Lyntai.Storage.IJobStore
     EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
     FailAsync(Guid id, String workerId, String error, Nullable<DateTimeOffset> retryAt = null, CancellationToken ct = default) : Task<Boolean>
     GetAsync(Guid id, CancellationToken ct = default) : Task<JobRecord>
+    HeartbeatSlotsAsync(String workerId, CancellationToken ct = default) : Task
     ListAsync(Nullable<JobStatus> status = null, String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
     PauseAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     PollAgainAsync(Guid id, String workerId, DateTimeOffset runAt, CancellationToken ct = default) : Task<Boolean>
+    ReleaseSlotAsync(Int32 slotIndex, String workerId, CancellationToken ct = default) : Task
     ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ReportProgressAsync(Guid id, String workerId, Int32 done, Int32 total, String stage, CancellationToken ct = default) : Task<Boolean>
     ReportStepAsync(Guid id, String workerId, String message, CancellationToken ct = default) : Task<Boolean>
     RequestCancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ResumeAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     SaveCheckpointAsync(Guid id, String workerId, String checkpoint, CancellationToken ct = default) : Task<Boolean>
+    TryAcquireSlotAsync(Int32 cap, String workerId, TimeSpan lease, CancellationToken ct = default) : Task<Nullable<Int32>>
 interface Lyntai.Storage.IKeyValueStore
     DeleteAsync(String key, CancellationToken ct = default) : Task
     GetAsync(String key, CancellationToken ct = default) : Task<String>
@@ -2622,9 +2653,12 @@ static class Lyntai.Storage.JobStoreSql
     Cols : String const
     CountRunning : String const
     FenceWhere : String const
+    FreeSlotWhere : String const
     GetById : String const
+    HeartbeatSlots : String const
     Insert : String const
     Pause : String const
+    ReleaseSlot : String const
     Replay : String const
     RequestCancel : String const
     Resume : String const

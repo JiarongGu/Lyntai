@@ -306,6 +306,194 @@ public class JobRunnerTests
         Assert.Equal(2, (await store.ListAsync(JobStatus.Pending, lane: "b")).Count);
     }
 
+    // ---- the CROSS-PROCESS cap (3.0) -----------------------------------------------------------------
+    //
+    // MaxConcurrency bounds one runner; GlobalMaxConcurrency bounds every runner sharing the store. The
+    // tests below use TWO runners over ONE store, because a single-runner test cannot tell the two apart —
+    // which is exactly how a per-process cap could masquerade as a global one.
+
+    private static (JobRunner A, JobRunner B, InMemoryJobStore Store, JobQueue Queue) TwoWorkers(
+        Action<LyntaiOptions> tune, params IJobHandler[] handlers)
+    {
+        var clock = new MutableClock();
+        var store = new InMemoryJobStore(clock.Get);   // ONE store — the shared "database"
+        var options = new LyntaiOptions();
+        options.Jobs.Lease = Lease;
+        options.Jobs.RetryBackoff = TimeSpan.FromMinutes(1);
+        tune(options);
+        var registry = new JobHandlerRegistry(handlers);
+        return (new JobRunner(store, registry, options, clock: clock.Get),
+                new JobRunner(store, registry, options, clock: clock.Get),
+                store, new JobQueue(store, options));
+    }
+
+    [Fact]
+    public async Task Two_workers_share_ONE_global_cap_rather_than_one_each()
+    {
+        // THE POINT, and it has to be observed as SIMULTANEITY rather than throughput. A first draft
+        // asserted "two passes run 2 jobs, not 4" and failed at 4 — correctly: each pass completes its jobs
+        // and hands the slots back, so four jobs across two sequential passes never breaks a cap of 2. The
+        // cap bounds how many run AT ONCE, so the handler blocks and the test counts what is in flight.
+        var inFlight = 0;
+        var peak = 0;
+        var gate = new SemaphoreSlim(0);
+        var release = new TaskCompletionSource();
+        var handler = new FakeJobHandler("t", async _ =>
+        {
+            lock (release) { inFlight++; peak = Math.Max(peak, inFlight); }
+            gate.Release();
+            await release.Task;
+            lock (release) inFlight--;
+            return JobOutcome.Complete;
+        });
+        var (a, b, _, queue) = TwoWorkers(
+            o => { o.Jobs.DefaultLaneConcurrency = 10; o.Jobs.MaxConcurrency = 2; o.Jobs.GlobalMaxConcurrency = 2; },
+            handler);
+        for (var i = 0; i < 6; i++) await queue.EnqueueAsync("x", "t", "{}");
+
+        // Both workers poll the same store at the same time. Without a shared cap each would take its own
+        // MaxConcurrency of 2 and four handlers would be inside the gate at once.
+        var runA = a.RunOnceAsync();
+        var runB = b.RunOnceAsync();
+        Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "no job started");
+        Assert.True(await gate.WaitAsync(TimeSpan.FromSeconds(30)), "a second job did not start");
+        // A third entrant would have to arrive while the first two are blocked; give it a real chance to.
+        Assert.False(await gate.WaitAsync(TimeSpan.FromSeconds(2)), "a THIRD job ran past the global cap of 2");
+        release.SetResult();
+        await Task.WhenAll(runA, runB);
+
+        Assert.Equal(2, peak);
+    }
+
+    [Fact]
+    public async Task A_released_slot_is_reusable_by_the_OTHER_worker_on_the_next_pass()
+    {
+        // A cap that never gives slots back is a deadlock wearing a limit's clothes. The first worker's
+        // jobs complete, so its slots must be free for the second.
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var (a, b, store, queue) = TwoWorkers(
+            o => { o.Jobs.DefaultLaneConcurrency = 10; o.Jobs.GlobalMaxConcurrency = 2; }, handler);
+        for (var i = 0; i < 4; i++) await queue.EnqueueAsync("x", "t", "{}");
+
+        Assert.Equal(2, await a.RunOnceAsync());
+        Assert.Equal(2, await b.RunOnceAsync());   // a's slots came back
+        Assert.Empty(await store.ListAsync(JobStatus.Pending));
+    }
+
+    [Fact]
+    public async Task An_empty_lane_gives_its_speculatively_taken_slot_straight_back()
+    {
+        // The slot is taken BEFORE the claim, so a drained lane must not strand one — otherwise a polling
+        // runner with no work would exhaust the deployment's slots and throttle the workers that do.
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var (a, b, _, queue) = TwoWorkers(
+            o => { o.Jobs.DefaultLaneConcurrency = 10; o.Jobs.GlobalMaxConcurrency = 1; }, handler);
+
+        Assert.Equal(0, await a.RunOnceAsync());   // nothing enqueued: acquires a slot, finds no job, releases
+
+        await queue.EnqueueAsync("x", "t", "{}");
+        Assert.Equal(1, await b.RunOnceAsync());   // the slot was NOT stranded by a's empty pass
+    }
+
+    [Fact]
+    public async Task Zero_means_unbounded_and_costs_no_slot_round_trip()
+    {
+        // The default, and the pre-3.0 behaviour: two workers with no global cap run everything their own
+        // per-process caps allow.
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var (a, b, store, queue) = TwoWorkers(
+            o => { o.Jobs.DefaultLaneConcurrency = 10; o.Jobs.MaxConcurrency = 2; }, handler);   // Global = 0
+        for (var i = 0; i < 4; i++) await queue.EnqueueAsync("x", "t", "{}");
+
+        Assert.Equal(4, await a.RunOnceAsync() + await b.RunOnceAsync());
+        Assert.Empty(await store.ListAsync(JobStatus.Pending));
+    }
+
+    [Fact]
+    public async Task A_crashed_workers_slot_is_reclaimed_after_the_slot_lease()
+    {
+        // No release ever arrives from a process that died, so expiry is what stops a crash throttling the
+        // deployment. SlotLease can be SHORT because a live worker heartbeats — see the test below.
+        var store = new InMemoryJobStore(() => DateTimeOffset.UnixEpoch);
+        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "dead-worker", Lease));
+        Assert.Null(await store.TryAcquireSlotAsync(1, "live-worker", Lease));   // cap of 1, and it is held
+
+        var later = new InMemoryJobStore(() => DateTimeOffset.UnixEpoch);
+        Assert.Equal(0, await later.TryAcquireSlotAsync(1, "dead-worker", TimeSpan.Zero));
+        Assert.Equal(0, await later.TryAcquireSlotAsync(1, "live-worker", TimeSpan.Zero)); // expired → retaken
+    }
+
+    [Fact]
+    public async Task A_heartbeat_keeps_a_LONG_job_holding_its_slot_past_the_lease()
+    {
+        // THE PROPERTY THE HEARTBEAT BUYS. A single expiry cannot serve both questions: long enough for a
+        // job that runs for hours and a crashed worker throttles the fleet for hours; short enough to
+        // recover quickly and that long job loses its slot while still running. Renewal separates them —
+        // the lease measures only "how long since we last heard from you".
+        var clock = new MutableClock();
+        var store = new InMemoryJobStore(clock.Get);
+        var slotLease = TimeSpan.FromSeconds(30);
+
+        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "long-runner", slotLease));
+
+        // well past the lease, but the worker has been beating throughout
+        for (var beat = 0; beat < 10; beat++)
+        {
+            clock.Advance(TimeSpan.FromSeconds(10));
+            await store.HeartbeatSlotsAsync("long-runner");
+        }
+
+        Assert.Null(await store.TryAcquireSlotAsync(1, "someone-else", slotLease)); // still held, 100s in
+
+        clock.Advance(slotLease + TimeSpan.FromSeconds(1));                          // beats stop: it died
+        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "someone-else", slotLease));
+    }
+
+    [Fact]
+    public async Task A_heartbeat_does_NOT_revive_a_slot_already_reclaimed_from_this_worker()
+    {
+        // A stalled worker that wakes up and beats must not steal back a slot its successor now holds —
+        // the same fencing the release has, for the same reason.
+        var clock = new MutableClock();
+        var store = new InMemoryJobStore(clock.Get);
+        var slotLease = TimeSpan.FromSeconds(30);
+        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "stalled", slotLease));
+
+        clock.Advance(slotLease + TimeSpan.FromSeconds(1));
+        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "successor", slotLease));   // taken over
+
+        await store.HeartbeatSlotsAsync("stalled");                                    // too late
+
+        clock.Advance(TimeSpan.FromSeconds(10));
+        Assert.Null(await store.TryAcquireSlotAsync(1, "third", slotLease));           // successor still holds it
+    }
+
+    [Fact]
+    public async Task Releasing_is_FENCED_so_an_expired_worker_cannot_free_its_successors_slot()
+    {
+        var store = new InMemoryJobStore(() => DateTimeOffset.UnixEpoch);
+        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "first", TimeSpan.Zero));
+        Assert.Equal(0, await store.TryAcquireSlotAsync(1, "second", TimeSpan.Zero));   // took it over
+
+        await store.ReleaseSlotAsync(0, "first");   // the evicted worker finishes and tidies up
+
+        Assert.Null(await store.TryAcquireSlotAsync(1, "third", Lease));   // 'second' still holds it
+    }
+
+    [Fact]
+    public async Task The_cap_is_CONFIGURATION_so_lowering_it_needs_no_cleanup()
+    {
+        // Slots are created lazily and selected only below the cap, which is what lets a host retune without
+        // a migration or a stranded row.
+        var store = new InMemoryJobStore(() => DateTimeOffset.UnixEpoch);
+        Assert.Equal(0, await store.TryAcquireSlotAsync(3, "w", Lease));
+        Assert.Equal(1, await store.TryAcquireSlotAsync(3, "w", Lease));
+        Assert.Equal(2, await store.TryAcquireSlotAsync(3, "w", Lease));
+
+        await store.ReleaseSlotAsync(2, "w");
+        Assert.Null(await store.TryAcquireSlotAsync(2, "w", Lease));   // index 2 exists but is above the cap
+    }
+
     [Fact]
     public async Task A_lost_lease_outcome_is_abandoned_not_applied()
     {

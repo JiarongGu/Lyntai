@@ -482,4 +482,116 @@ public class ToolLoopTests
         Assert.Equal("done", result.Answer);
         Assert.Single(result.Steps);
     }
+
+    // ---- native path over a STREAM (3.0) --------------------------------------------------------------
+    //
+    // Before this, the native path always buffered a whole turn through CompleteAsync, because LlmChunk
+    // carried no tool-call payload — so an agentic answer had no time-to-first-token at all, however long
+    // the model spent writing prose before its last tool call. The loop now streams when, and only when,
+    // the provider says its STREAM delivers tool calls.
+
+    private static ToolLoop StreamingNativeLoop(FakeLlmClient client, params ITool[] tools)
+    {
+        client.SupportsToolCallsResult = true;
+        client.SupportsStreamingToolCallsResult = true;
+        return new ToolLoop(client, new ToolRegistry(tools), Options());
+    }
+
+    [Fact]
+    public async Task Streaming_native_emits_prose_AS_IT_ARRIVES_and_still_runs_the_tool()
+    {
+        var turn = 0;
+        var client = new FakeLlmClient
+        {
+            StreamScript = _ => ++turn == 1
+                ? [LlmChunk.Content("let "), LlmChunk.Content("me check"),
+                   LlmChunk.Tool(new LlmToolCall("call_1", "echo", """{"x":1}""")), LlmChunk.Final()]
+                : [LlmChunk.Content("all done"), LlmChunk.Final()],
+        };
+
+        var events = new List<AgentStreamEvent>();
+        await foreach (var e in StreamingNativeLoop(client, Echo()).StreamAsync(Ask())) events.Add(e);
+
+        // THE POINT: two separate deltas from the first turn, not one buffered string.
+        var deltas = events.OfType<TextDelta>().Select(d => d.Text).ToList();
+        Assert.Equal(["let ", "me check", "all done"], deltas);
+
+        var call = Assert.Single(events.OfType<ToolCall>());
+        Assert.Equal("echo", call.Name);
+        Assert.Equal("""observed:{"x":1}""", Assert.Single(events.OfType<ToolResult>()).Content);
+    }
+
+    [Fact]
+    public async Task Streaming_native_does_NOT_replay_the_accumulated_prose_at_the_end()
+    {
+        // The buffered path yields one TextDelta carrying the whole answer; the streaming path has already
+        // delivered it in pieces. Doing both would hand the consumer the entire answer twice.
+        var client = new FakeLlmClient
+        {
+            StreamScript = _ => [LlmChunk.Content("one "), LlmChunk.Content("answer"), LlmChunk.Final()],
+        };
+
+        var events = new List<AgentStreamEvent>();
+        await foreach (var e in StreamingNativeLoop(client, Echo()).StreamAsync(Ask())) events.Add(e);
+
+        Assert.Equal(["one ", "answer"], events.OfType<TextDelta>().Select(d => d.Text));
+    }
+
+    [Fact]
+    public async Task A_provider_whose_STREAM_drops_tool_calls_keeps_the_buffered_path()
+    {
+        // THE REGRESSION THIS CAPABILITY EXISTS FOR. Native tool-calling and streaming tool-calling are
+        // independent: a provider can surface calls on LlmReply.ToolCalls while its stream drops them, which
+        // is what every provider here did until 3.0. Streaming such a provider would see no call chunk and
+        // report the turn's prose as a final answer — the tool silently never runs. So the loop must use
+        // CompleteAsync, and the StreamScript below would fail the test if it ever reached it.
+        var client = new FakeLlmClient
+        {
+            SupportsToolCallsResult = true,
+            SupportsStreamingToolCallsResult = false,
+            StreamScript = _ => [LlmChunk.Content("WRONG PATH"), LlmChunk.Final()],
+        };
+        client.Replies.Enqueue(new LlmReply("", LlmVerdict.Ok)
+        { ToolCalls = [new LlmToolCall("call_1", "echo", """{"x":1}""")] });
+        client.Replies.Enqueue(new LlmReply("all done", LlmVerdict.Ok));
+
+        var result = await new ToolLoop(client, new ToolRegistry([Echo()]), Options()).RunAsync(Ask());
+
+        Assert.True(result.Ok);
+        Assert.Equal("all done", result.Answer);
+        Assert.Equal("echo", Assert.Single(result.Steps).Tool);   // the tool RAN
+    }
+
+    [Fact]
+    public async Task A_streamed_error_ends_the_turn_with_its_verdict()
+    {
+        var client = new FakeLlmClient
+        {
+            StreamScript = _ => [LlmChunk.Error(LlmVerdict.RateLimited, "slow down")],
+        };
+
+        var result = await StreamingNativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.Equal(LlmVerdict.RateLimited, result.Verdict);
+        Assert.Empty(result.Steps);
+    }
+
+    [Fact]
+    public async Task Streamed_usage_from_the_terminal_chunk_is_accumulated_across_turns()
+    {
+        // Usage arrives on Final rather than on a reply object; losing it would silently stop budgeting
+        // every agentic turn, which is the kind of gap that shows up as a bill.
+        var turn = 0;
+        var client = new FakeLlmClient
+        {
+            StreamScript = _ => ++turn == 1
+                ? [LlmChunk.Tool(new LlmToolCall("c1", "echo", "{}")), LlmChunk.Final(new LlmUsage(10, 4))]
+                : [LlmChunk.Content("done"), LlmChunk.Final(new LlmUsage(5, 2))],
+        };
+
+        var result = await StreamingNativeLoop(client, Echo()).RunAsync(Ask());
+
+        Assert.Equal(15, result.Usage.InputTokens);
+        Assert.Equal(6, result.Usage.OutputTokens);
+    }
 }

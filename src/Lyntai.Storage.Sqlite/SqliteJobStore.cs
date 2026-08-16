@@ -54,6 +54,56 @@ public sealed class SqliteJobStore(IDbConnectionFactory factory, Func<DateTimeOf
         return row?.ToRecord();
     }
 
+    /// <inheritdoc />
+    /// <remarks>Two statements, and the SECOND is what makes the cap configuration rather than schema. The
+    /// first takes an existing free or expired slot; when none exists the second creates the next index, but
+    /// only while fewer than <c>cap</c> rows exist. The insert is <c>ON CONFLICT DO NOTHING</c> because two
+    /// workers racing to create the same index is EXPECTED — the primary key decides, the loser gets no row
+    /// back and simply has no slot this pass, which is the correct answer.</remarks>
+    public async Task<int?> TryAcquireSlotAsync(int cap, string workerId, TimeSpan lease, CancellationToken ct = default)
+    {
+        if (cap <= 0) return null;
+        var now = _clock();
+        var staleBefore = now - lease;
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+
+        // SQLite serializes writers, so this UPDATE…RETURNING is the whole mutual exclusion.
+        var taken = await conn.QuerySingleOrDefaultAsync<int?>(new CommandDefinition($"""
+            UPDATE lyntai_job_slot
+            SET worker_id=@workerId, acquired_at=@now
+            WHERE slot_index = (
+                SELECT s.slot_index FROM lyntai_job_slot s
+                WHERE {JobStoreSql.FreeSlotWhere}
+                ORDER BY s.slot_index LIMIT 1)
+            RETURNING slot_index
+            """, new { cap, workerId, now, staleBefore }, cancellationToken: ct)).ConfigureAwait(false);
+        if (taken is not null) return taken;
+
+        return await conn.QuerySingleOrDefaultAsync<int?>(new CommandDefinition("""
+            INSERT INTO lyntai_job_slot (slot_index, worker_id, acquired_at)
+            SELECT COALESCE(MAX(slot_index) + 1, 0), @workerId, @now FROM lyntai_job_slot
+            WHERE (SELECT COUNT(*) FROM lyntai_job_slot) < @cap
+            ON CONFLICT (slot_index) DO NOTHING
+            RETURNING slot_index
+            """, new { cap, workerId, now }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task HeartbeatSlotsAsync(string workerId, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(
+            JobStoreSql.HeartbeatSlots, new { workerId, now = _clock() }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task ReleaseSlotAsync(int slotIndex, string workerId, CancellationToken ct = default)
+    {
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(
+            JobStoreSql.ReleaseSlot, new { slotIndex, workerId }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
     public Task<bool> SaveCheckpointAsync(Guid id, string workerId, string checkpoint, CancellationToken ct = default) =>
         Fenced(JobStoreSql.SetCheckpoint, id, workerId, ct, new { checkpoint });
 

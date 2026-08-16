@@ -93,9 +93,11 @@ runtime, which is exactly the footprint a consumer might refuse.)*
 > `Lyntai.Storage.Sqlite`, `Lyntai.Storage.Postgres`, `Lyntai.Storage.InMemory`, `Lyntai.Secrets.Dpapi`,
 > `Lyntai.Tools.Mcp`, `Lyntai.Tools.Mcp.Hosting`, `Lyntai.Generation`, and the `Lyntai` starting bundle
 > (`src/Lyntai.Bundle/`, which ships no assembly).
-> `Lyntai.Generation` — the media BACKENDS — is the one boundary NOT drawn for dependency isolation: it is
-> split from `Providers.Default` for release CADENCE, because it ships EXPERIMENTAL while its host is frozen
-> (**D25**). Its contracts stay in `Lyntai.Core` under the `Lyntai.Generation` namespace and carry the full
+> `Lyntai.Generation` — the media BACKENDS — was split from `Providers.Default` for release CADENCE
+> (**D25**), and that reason lapsed in 3.0 when the carve-out it depended on was withdrawn (**D70**). The
+> boundary stands on dependency isolation after all: the package sits outside the `Lyntai` bundle, so a
+> one-line install does not drag the media backends for a feature most applications never use.
+> Its contracts stay in `Lyntai.Core` under the `Lyntai.Generation` namespace and carry the full
 > promise; see §5.6. Bundle membership is a DEPENDENCY BUDGET, not a preference (**D26**), and many small
 > packages is the intended shape, paid for in tooling rather than in merging (**D27** —
 > `node devtools/dev.mjs check-packages` gates the nine registries a package must enter).
@@ -264,11 +266,11 @@ public interface IGenerationProvider : Lyntai.Lifecycle.IProviderIdentity {
 - **A submit whose deadline expires is `GenerationOperation.Inconclusive`, and is never re-submitted** — the
   work may have been accepted, so a retry double-bills the host (`Inconclusive` shipped in 2.2.0). The operation id is checkpointed BEFORE the first poll, so a crash
   resumes the render already running instead of paying for a second one.
-- **The CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation` + `.Routing`/`.Jobs`/`.Tools`) and
-  carry the FULL SemVer promise. Only the BACKENDS **package** — `Lyntai.Generation`, namespaces
-  `Lyntai.Generation.Providers` — is EXPERIMENTAL, and only until GEN-VERIFY closes. **The carve-out is the
-  package, not the namespace** (§3 amendment, D25; D36 applied the full promise to a `Lyntai.Core` generation
-  type deliberately rather than claiming the exemption).
+- **The CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation` + `.Routing`/`.Jobs`/`.Tools`); the
+  BACKENDS are the separate `Lyntai.Generation` package (namespace `Lyntai.Generation.Providers`). **Both
+  carry the FULL SemVer promise** — the package held an exemption from 2.0.1 and 3.0 withdrew it once each of
+  its three named reasons closed (**D70**; **D67**, **D69**). The namespace-vs-package distinction outlives
+  the exemption and is still worth knowing, because it is what the exemption was repeatedly mistaken for.
 - **The coupling to the LLM side is five `ITool`s** (`AddGenerationTools()`), and that is the *entire* coupling
   (D24) — the tool loop and an MCP-hosted CLI agent both drive media through the same five.
 

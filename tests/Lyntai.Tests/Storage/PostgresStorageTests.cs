@@ -161,7 +161,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         // content` since the graph store shipped. A per-backend count is the honest shape here: migrations
         // are per-backend projects, and forcing symmetry would mean adding a SQLite migration that does
         // nothing just to keep two numbers equal.
-        Assert.Equal(12L, applied);
+        Assert.Equal(13L, applied);
     }
 
     private static async Task<bool> TableExists(IDbConnectionFactory factory, string table)

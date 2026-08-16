@@ -32,6 +32,9 @@ lyntai_job|step_log|text|YES|
 lyntai_job|total|integer|NO|0
 lyntai_job|type|text|NO|
 lyntai_job|updated_at|timestamp with time zone|NO|
+lyntai_job_slot|acquired_at|timestamp with time zone|YES|
+lyntai_job_slot|slot_index|integer|NO|
+lyntai_job_slot|worker_id|text|YES|
 lyntai_kv|key|text|NO|
 lyntai_kv|updated_at|timestamp with time zone|NO|
 lyntai_kv|value|text|NO|
@@ -159,6 +162,7 @@ lyntai_curated_meta|lyntai_curated_meta_pkey|CREATE UNIQUE INDEX lyntai_curated_
 lyntai_job|ix_lyntai_job_claim|CREATE INDEX ix_lyntai_job_claim ON public.lyntai_job USING btree (lane, status, priority DESC, available_at)
 lyntai_job|ix_lyntai_job_partition|CREATE INDEX ix_lyntai_job_partition ON public.lyntai_job USING btree (lane, partition_key)
 lyntai_job|lyntai_job_pkey|CREATE UNIQUE INDEX lyntai_job_pkey ON public.lyntai_job USING btree (id)
+lyntai_job_slot|lyntai_job_slot_pkey|CREATE UNIQUE INDEX lyntai_job_slot_pkey ON public.lyntai_job_slot USING btree (slot_index)
 lyntai_kv|lyntai_kv_pkey|CREATE UNIQUE INDEX lyntai_kv_pkey ON public.lyntai_kv USING btree (key)
 lyntai_memory_edge|ix_lyntai_memory_edge_to|CREATE INDEX ix_lyntai_memory_edge_to ON public.lyntai_memory_edge USING btree (to_id)
 lyntai_memory_edge|lyntai_memory_edge_pkey|CREATE UNIQUE INDEX lyntai_memory_edge_pkey ON public.lyntai_memory_edge USING btree (from_id, to_id, kind)

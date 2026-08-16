@@ -383,11 +383,74 @@ public class OpenAiCompatibleProviderTests
     }
 
     [Fact]
-    public async Task Sse_tool_calls_finish_with_no_content_surfaces_unsupported()
+    public async Task Sse_tool_calls_are_ASSEMBLED_from_their_fragments_and_delivered()
     {
-        // a streamed tool call with NO text: streaming can't carry it, but it's not a host failure
+        // THE SHAPE THAT MATTERS: a vendor sends one call across several lines — id and name first, then
+        // arguments a few characters at a time. LlmChunk.ToolCall promises a COMPLETE call, so the joining
+        // is the provider's job and no consumer ever sees partial JSON.
+        // This test replaced one asserting Unsupported ("streaming can't carry it"), which pinned the
+        // deferral 3.0 removed.
         const string sse = """
-            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"f"}}]}}]}
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_a","function":{"name":"get_weather","arguments":"{\"ci"}}]}}]}
+
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"ty\":\"Paris\"}"}}]}}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        var call = Assert.Single(chunks, c => c.Kind == LlmChunkKind.ToolCall).ToolCall;
+        Assert.NotNull(call);
+        Assert.Equal("call_a", call.Id);
+        Assert.Equal("get_weather", call.Name);
+        Assert.Equal("""{"city":"Paris"}""", call.ArgumentsJson);   // joined across two lines
+        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+    }
+
+    [Fact]
+    public async Task Sse_interleaved_calls_are_joined_by_INDEX_not_arrival_order()
+    {
+        // A model calling two tools interleaves their argument fragments. Joining by arrival order would
+        // splice one call's arguments into the other's — producing two calls that both parse and are both
+        // wrong, which is the worst available outcome.
+        const string sse = """
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"a","function":{"name":"first","arguments":"{\"x\":"}}]}}]}
+
+            data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"b","function":{"name":"second","arguments":"{\"y\":"}}]}}]}
+
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"1}"}}]}}]}
+
+            data: {"choices":[{"delta":{"tool_calls":[{"index":1,"function":{"arguments":"2}"}}]}}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        var calls = chunks.Where(c => c.Kind == LlmChunkKind.ToolCall).Select(c => c.ToolCall!).ToList();
+        Assert.Equal(2, calls.Count);
+        Assert.Equal(("a", "first", """{"x":1}"""), (calls[0].Id, calls[0].Name, calls[0].ArgumentsJson));
+        Assert.Equal(("b", "second", """{"y":2}"""), (calls[1].Id, calls[1].Name, calls[1].ArgumentsJson));
+    }
+
+    [Fact]
+    public async Task A_finish_for_tool_calls_that_assembles_NONE_is_a_failure_rather_than_an_empty_answer()
+    {
+        // The model asked for something this build could not read. Saying so beats the synthetic
+        // "no output produced", which describes the symptom and not the cause.
+        const string sse = """
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"x"}]}}]}
 
             data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
 
@@ -401,15 +464,21 @@ public class OpenAiCompatibleProviderTests
 
         var only = Assert.Single(chunks);
         Assert.Equal(LlmChunkKind.Error, only.Kind);
-        Assert.Equal(LlmVerdict.Unsupported, only.Verdict); // NOT Failed (healthy host); NOT Refused (not policy)
+        Assert.Contains("none could be assembled", only.Detail);
     }
 
     [Fact]
-    public async Task Sse_content_then_tool_calls_finish_keeps_content_with_a_benign_final()
+    public async Task Sse_content_AND_a_tool_call_delivers_BOTH()
     {
-        // content streamed, THEN finish_reason=tool_calls — must NOT emit a trailing Error after the content
+        // REGRESSION for a silent data loss. This turn — prose alongside a call — used to fall through to a
+        // benign Final with the call DROPPED, and the code said so in a comment: "if content ALSO streamed,
+        // don't clobber it — fall through to a benign Final (tool call dropped)". Nothing errored; the model
+        // asked for a tool and the caller was handed prose. That is why 3.0 treats this as a fix and not
+        // only as a feature.
         const string sse = """
-            data: {"choices":[{"delta":{"content":"partial answer"}}]}
+            data: {"choices":[{"delta":{"content":"let me check"}}]}
+
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"lookup","arguments":"{}"}}]}}]}
 
             data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
 
@@ -421,9 +490,10 @@ public class OpenAiCompatibleProviderTests
         var chunks = new List<LlmChunk>();
         await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
 
-        Assert.Equal(["partial answer"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
-        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);            // benign Final
-        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Error); // no spurious trailing Error
+        Assert.Equal(["let me check"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal("lookup", Assert.Single(chunks, c => c.Kind == LlmChunkKind.ToolCall).ToolCall!.Name);
+        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+        Assert.DoesNotContain(chunks, c => c.Kind == LlmChunkKind.Error);
     }
 
     [Fact]

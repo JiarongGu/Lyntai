@@ -21,4 +21,8 @@ public interface ILlmRouter
     /// it does NOT read a live <c>IModelRoutingStore</c> override — under <c>ProviderAndModel</c> cooldown
     /// scope plus a live override, the probe's cooldown key can differ from the completion's. Default false.</summary>
     bool SupportsToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) => false;
+
+    /// <summary>Whether the first live candidate's STREAM delivers native tool calls. Same selection rule
+    /// and same caveats as <see cref="SupportsToolCalls"/>; default false.</summary>
+    bool SupportsStreamingToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req) => false;
 }

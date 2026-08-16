@@ -120,6 +120,7 @@ sealed class Lyntai.Providers.OpenAiCompatible.OpenAiCompatibleProvider
     Id : String
     IsAvailable : Boolean
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
+    SupportsStreamingToolCalls : Boolean
     SupportsToolCalls : Boolean
 enum Lyntai.Providers.OpenAiCompatible.OpenAiFlavor
     Auto : OpenAiFlavor const

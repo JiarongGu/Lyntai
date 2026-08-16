@@ -45,6 +45,32 @@ public sealed class FalQueueOptions
     /// <see cref="StatusSegment"/> on the same request path, and settable for the same reason.</summary>
     public string CancelSegment { get; set; } = "cancel";
 
+    /// <summary>How the queue's own status strings map onto <see cref="GenerationOperationStatus"/>.
+    /// Case-insensitive. A status NOT in this map is treated as still running — never as a failure, because
+    /// declaring an unknown state terminal abandons a render that is merely in a state this build has not
+    /// heard of.</summary>
+    /// <remarks><b>Settable for the same reason the path segments are, and it matters more.</b> A wrong PATH
+    /// fails loudly on the first call; a wrong status STRING fails quietly — the render is polled forever, or
+    /// is reported finished when it is not. The shipped three are a reading of vendor documentation that
+    /// nobody here has been able to call, so the host who first runs this against the real queue is the one
+    /// who finds out, and they must be able to fix it in `appsettings.json` rather than wait for a release.
+    /// That is also why this is a dictionary rather than a delegate: configuration binding can reach it.
+    /// <para>Replacing the map replaces it wholesale — add to it to extend the vocabulary, assign to it to
+    /// redefine one.</para></remarks>
+    public IDictionary<string, GenerationOperationStatus> StatusVocabulary { get; set; } =
+        new Dictionary<string, GenerationOperationStatus>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["IN_QUEUE"] = GenerationOperationStatus.Queued,
+            ["IN_PROGRESS"] = GenerationOperationStatus.Running,
+            ["COMPLETED"] = GenerationOperationStatus.Succeeded,
+        };
+
+    /// <summary>Result fields read, in order, as the render's cost — the first numeric one wins. Settable
+    /// for the same reason as <see cref="StatusVocabulary"/>: what this queue calls the field, and whether
+    /// it reports one at all, is documented rather than measured. An empty list disables cost reporting,
+    /// which is honest when a deployment knows the number is wrong.</summary>
+    public IList<string> CostFields { get; set; } = ["cost", "cost_usd", "price"];
+
     /// <summary>Query parameter used to hand the backend a webhook URL the APP hosts. Lyntai never hosts one
     /// (D24) — supply the URL via <c>GenerationRequest.Options["webhook"]</c> and call
     /// <see cref="FalQueueProvider.FetchAsync"/> when it fires.</summary>
@@ -222,16 +248,20 @@ public sealed class FalQueueProvider(
                 Detail: failure);
 
         var status = Field(body!, "status");
-        return status?.ToUpperInvariant() switch
-        {
-            "IN_QUEUE" => new GenerationOperation(operationId, GenerationOperationStatus.Queued, Detail: QueueDetail(body!)),
-            "IN_PROGRESS" => new GenerationOperation(operationId, GenerationOperationStatus.Running),
-            "COMPLETED" => new GenerationOperation(operationId, GenerationOperationStatus.Succeeded, Progress: 1),
-            // an unknown status is NOT a failure: treating "something new" as terminal would abandon a render
-            // that is merely in a state this build hasn't heard of
-            _ => new GenerationOperation(operationId, GenerationOperationStatus.Running,
-                Detail: $"unrecognised status '{status}'"),
-        };
+
+        // The vocabulary is CONFIGURED, not compiled in. This backend's wire format is documented, not
+        // measured, so the shipped three are a best reading of vendor docs — and the host who first runs it
+        // for real is the one who finds out. Correcting a wrong string must not require a library release,
+        // and `StatusVocabulary` is a plain dictionary precisely so it can be fixed in `appsettings.json`.
+        if (status is not null && options.StatusVocabulary.TryGetValue(status, out var mapped))
+            return new GenerationOperation(operationId, mapped,
+                Progress: mapped == GenerationOperationStatus.Succeeded ? 1 : null,
+                Detail: mapped == GenerationOperationStatus.Queued ? QueueDetail(body!) : null);
+
+        // an unknown status is NOT a failure: treating "something new" as terminal would abandon a render
+        // that is merely in a state this build hasn't heard of
+        return new GenerationOperation(operationId, GenerationOperationStatus.Running,
+            Detail: $"unrecognised status '{status}'");
     }
 
     /// <inheritdoc/>
@@ -439,12 +469,12 @@ public sealed class FalQueueProvider(
         }
     }
 
-    private static double? Cost(string body)
+    private double? Cost(string body)
     {
         if (!JsonExtract.TryParseObject(body, out var doc)) return null;
         using (doc)
         {
-            foreach (var name in (string[])["cost", "cost_usd", "price"])
+            foreach (var name in options.CostFields)
                 if (doc.RootElement.TryGetProperty(name, out var value) &&
                     value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var cost))
                     return cost;

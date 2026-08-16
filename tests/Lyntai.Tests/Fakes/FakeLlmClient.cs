@@ -15,6 +15,14 @@ public sealed class FakeLlmClient : ILlmClient
 
     public bool SupportsToolCalls(LlmRequest req) => SupportsToolCallsResult;
 
+    /// <summary>Backs <see cref="ILlmClient.SupportsStreamingToolCalls"/>. SEPARATE from
+    /// <see cref="SupportsToolCallsResult"/> on purpose — the two are independent in the contract, and a
+    /// fake that conflated them could not express the case that matters most: a provider doing native
+    /// tool-calling whose STREAM drops the calls.</summary>
+    public bool SupportsStreamingToolCallsResult { get; set; }
+
+    public bool SupportsStreamingToolCalls(LlmRequest req) => SupportsStreamingToolCallsResult;
+
     public Func<LlmRequest, IReadOnlyList<LlmChunk>>? StreamScript { get; set; }
 
     public Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)

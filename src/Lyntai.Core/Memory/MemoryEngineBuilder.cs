@@ -259,9 +259,14 @@ public sealed class MemoryEngineBuilder
     /// <para>ALWAYS a composite, even for one member: returning the bare member would name the engine after
     /// the member ("chat/lexical" rather than "chat") and make it unreachable by the name it was
     /// registered under. One indirection buys uniform naming, routing and <c>Supported</c>.</para></summary>
+    /// <remarks>The reap policy is resolved from DI when the host registered one, so
+    /// <c>services.AddSingleton&lt;IMemoryReapPolicy, MyPolicy&gt;()</c> is the whole opt-in. Unregistered, the
+    /// composite falls back to <see cref="DefaultMemoryReapPolicy"/> — eligibility is a DEPLOYMENT question
+    /// (see <see cref="IMemoryReapPolicy"/>), so it has to be reachable without editing an engine.</remarks>
     internal IMemoryEngine Build(IServiceProvider sp) =>
         new CompositeMemoryEngine(Name, [.. _members.Select(m => m.Build(sp, $"{Name}/{m.Label}"))],
-            sp.GetService<ILogger<CompositeMemoryEngine>>());
+            sp.GetService<ILogger<CompositeMemoryEngine>>(),
+            sp.GetService<IMemoryReapPolicy>());
 
     private static T Required<T>(IServiceProvider sp) where T : class =>
         sp.GetService<T>() ?? throw new InvalidOperationException(

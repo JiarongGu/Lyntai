@@ -130,8 +130,16 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D64](#d64--the-generation-router-is-a-trust-boundary-and-a-thrown-submit-is-inconclusive-rather-than-failed-2026-08-15) | 2026-08-15 | the generation router is a TRUST BOUNDARY, and a thrown SUBMIT is inconclusive rather than failed |
 | [D65](#d65--the-dialect-places-tool-host-args-because-only-it-knows-where-they-may-legally-go-2026-08-15) | 2026-08-15 | the DIALECT places tool-host args, because only it knows where they may legally go |
 | [D66](#d66--the-30-naming-sweep-names-that-mislead-are-spent-names-that-merely-differ-are-not-2026-08-15) | 2026-08-15 | the 3.0 naming sweep: names that mislead are spent, names that merely differ are not |
+| [D67](#d67--the-stream-seam-is-wired-through-the-platform-rather-than-frozen-unreachable-2026-08-16) | 2026-08-16 | the stream seam is wired through the platform rather than frozen unreachable |
+| [D68](#d68--the-diffusion-size-ceiling-is-derived-from-a-declared-accelerator-and-the-gpu-profile-derives-none-2026-08-16) | 2026-08-16 | the diffusion size ceiling is derived from a DECLARED accelerator, and the GPU profile derives none |
+| [D69](#d69--an-unmeasured-wire-mapping-is-an-option-not-a-pending-bug-2026-08-16) | 2026-08-16 | an unmeasured wire mapping is an OPTION, not a pending bug |
+| [D70](#d70--lyntaigeneration-comes-under-the-full-semver-promise-its-201-exemption-is-withdrawn-2026-08-16) | 2026-08-16 | `Lyntai.Generation` comes under the full SemVer promise; its 2.0.1 exemption is withdrawn |
+| [D71](#d71--the-streaming-contract-carries-tool-calls-and-a-second-capability-says-whether-a-stream-delivers-them-2026-08-16) | 2026-08-16 | the streaming contract carries tool calls, and a SECOND capability says whether a stream delivers… |
+| [D72](#d72--forgetting-and-pruning-are-different-capabilities-and-an-engine-declares-whose-content-it-holds-2026-08-16) | 2026-08-16 | forgetting and pruning are different capabilities, and an engine declares whose content it holds |
+| [D73](#d73--the-cross-process-job-cap-is-a-slot-table-because-a-count-cannot-gate-a-claim-2026-08-16) | 2026-08-16 | the cross-process job cap is a SLOT TABLE, because a count cannot gate a claim |
+| [D74](#d74--native-tool-calling-for-claudeclilocal-is-retired-the-request-was-misframed-2026-08-16) | 2026-08-16 | "native tool-calling for ClaudeCli/Local" is RETIRED: the request was misframed |
 
-_All 66 entries are live decisions._
+_All 74 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1301,3 +1309,428 @@ cannot notice a name nobody registered. **An entry inventing a name that never e
 removed**: a registry line that guards nothing is worse than an honest hole, because it reads as coverage.
 The practical hole around `AuthoritativeReserve` is closed from the other side by banning `Reserve`, which
 was the only way to SET the characters one.
+
+---
+
+## D67 — the stream seam is wired through the platform rather than frozen unreachable (2026-08-16)
+
+**The decision.** `IGenerationRouter` gains a third door, `StreamAsync`, and 3.0 ships the streaming path
+wired: capability pre-filter, verdict-driven fallback, dead-host cooldown, budget and rate limiting, all on
+the same terms as the inline and submit doors. `IGenerationStreamProvider` stays in `Lyntai.Core` under the
+full SemVer promise.
+
+**The alternative, and why it lost.** The seam was heading into the freeze in the worst possible state: its
+own remarks said *"Designed, not yet exercised. No backend implements this seam, and no router path consumes
+it"* and *"Read what follows as inferred, not measured"* — and it lives in Core, so 3.0 would have frozen it
+under the full promise. Three options were live. **Delete it until GEN6** had the strongest precedent
+(**D14**: a real failure is a better starting point than a speculative one) and was the recommendation.
+**Move it to the EXPERIMENTAL `Lyntai.Generation` package** would have bought reshaping room in a minor at
+the cost of the layout rule that generation CONTRACTS live in Core. Both were refused for the same reason,
+and the owner's is the sharper statement of it: **nothing was blocking the platform work.** What GEN6 needs a
+vendor for is a *backend*; what made this seam unshippable was that the *router* could not reach it, and no
+key was ever required to fix that.
+
+**So the caveat is now narrower rather than removed, which is the part worth keeping.** What was inferred was
+never the chunk *handling* — it is the chunk *shape*: data-then-terminal, with usage on the terminal, modelled
+on the LLM streaming contract. That shape is now specified and enforced, and the handling of it is measured by
+fifteen tests. The residual risk is not "does this work" but "is this the decomposition a real TTS stream
+wants", and saying that precisely is worth more than a blanket "unverified" that a reader learns to skip.
+
+**Two invariants are INHERITED, not invented**, from `.claude/knowledge/llm-and-router.md` § Streaming:
+fallback stops at the first chunk carrying real data, and only real data commits (a metadata-only opening
+chunk must not). They transfer because the failure they prevent is identical — splicing two responses into
+one stream — whether the bytes are tokens or audio. Reusing the measured rule rather than deriving a new one
+is the whole reason this path did not need its own measurement.
+
+**One invariant is this door's own: exactly one terminal chunk, guaranteed by the ROUTER.** A backend whose
+stream simply stops gets it closed here — a synthesized `Completed` if it produced data, a failure chunk if it
+produced nothing. The consumer's `await foreach` therefore never has to ask whether the loop ended because the
+media finished or because the process died, which is the one question a raw `IAsyncEnumerable` cannot answer.
+Putting that in the router rather than the contract means a BYO backend cannot get it wrong.
+
+**A rule the inline door does not need had to be added here.** On the other two doors, "nothing was tried"
+implies "nothing was learned", so a synthetic message is the only honest answer. On this one a backend can be
+disqualified *without being called* — it advertised `Stream` and does not implement the seam — so the
+two-slot reason is consulted *before* the synthetic message, not after. A first draft got that ordering wrong
+and a test caught it: the one sentence naming the actual problem was replaced by "no capable media backend".
+
+**Measured while implementing, and worth recording:** the compiler named **two** decorators, not one.
+`RateLimitedGenerationRouter` was as much a second door as `BudgetedGenerationRouter`, and only an abstract
+interface member — no default body, the same choice `IMemoryGraphStore`'s five members took in this major —
+made that failure a build error instead of a silently ungoverned path. Behaviour is pinned per door anyway,
+because the compiler forces a decorator to *have* a `StreamAsync` and cannot tell a governed one from a
+pass-through.
+
+## D68 — the diffusion size ceiling is derived from a DECLARED accelerator, and the GPU profile derives none (2026-08-16)
+
+**The decision.** `LocalDiffusionOptions` gains `Accelerator` (`Cpu` | `Gpu`, default `Cpu`) and a nullable
+`MaxDimension` that overrides it. The CPU profile derives a 768px ceiling; **the GPU profile derives no
+ceiling at all**. The clamp scales both sides by one factor so the caller's aspect ratio survives, and the
+engine's multiple-of-64 rounding and 256px floor apply regardless.
+
+**Where the number comes from.** A consuming app measured it: on a GPU-less laptop an accepted `1024x1792`
+means about ten minutes of grinding, which is a worse experience than a smaller image arriving promptly. Its
+clamp capped the longer side at 768, and that is what `Cpu` derives — a measured default, not a guess.
+
+**Why `Gpu` derives NOTHING, which is the actual decision.** The obvious shape is a second number, and there
+is no measurement here that would justify any particular one. The *reason* for the CPU cap is that each step
+is expensive enough to turn a render into a wait; with an accelerator that premise does not hold, so the
+honest derivation is "no ceiling" and a host that wants one sets `MaxDimension`. Inventing 2048 would be the
+documented-not-measured mistake GEN-VERIFY exists to correct, in the very backend it was opened against.
+
+**A declaration, never a probe.** The library does not inspect the host's hardware. What settles this is
+which build of the engine was installed, which the host knows and this code cannot — and probing would make
+the same option behave differently on two machines with the same configuration.
+
+**The ceiling lived in THREE places, and each was found a different way.** That is the whole lesson of this
+entry: a constant does not sit in one place just because it was written once.
+
+1. **The scale.** `ClampSize` brought the longer side down to a hard-coded 768. The obvious one.
+2. **The rounding.** `Round64` then re-clamped through a *second* hard-coded 768, so raising the cap would
+   have moved the scale and left every result pinned at 768 by the rounder — a knob that appears to work and
+   cannot exceed its old value. Found by writing the test at 1024 *because* that is above the old constant;
+   mutation-checked by restoring the second constant.
+3. **The ADVERTISEMENT.** `Capabilities.Limits` published `max-width: 768` from a property initializer, so a
+   `Gpu` host would have accepted any size while still telling callers its ceiling was 768. Found by the
+   owner reading the diff and asking where the number came from — not by a test, and not by a gate.
+
+The third is the one worth generalizing. `GenerationCapabilities.Limits` is documented as informational —
+*"the platform does not enforce them"* — so nothing would have failed, no test would have reddened, and the
+backend would simply have been **lying to consumers who plan against a published ceiling**. A limit nobody
+enforces is exactly the kind of value that goes stale silently, because the only thing that reads it is a
+human. With no ceiling the keys are now **omitted** rather than set to a large number: an absent key already
+means "not enumerated", while any number would be the invented GPU ceiling this decision refuses to invent.
+
+**The shipped default is byte-identical** to the hard-coded behaviour it replaces, pinned by its own test. A
+configuration knob that changes what an unconfigured host gets is a behaviour change wearing a feature's
+clothes.
+
+---
+
+## D69 — an unmeasured wire mapping is an OPTION, not a pending bug (2026-08-16)
+
+**The decision.** Every mapping in a documented-not-measured generation backend is settable by the host:
+fal's status vocabulary and cost field names, ComfyUI's `prompt_id` / `outputs` / `status` / `completed`
+field names, and `sd-cli`'s entire argv flag set plus an `ExtraArgs` escape. The backends stay unmeasured;
+what changes is that **finding out costs a configuration edit rather than a Lyntai release.**
+
+**What this replaces.** GEN-VERIFY had sat open since 2026-08-04 as "confirm these surfaces against reality",
+blocked on a fal.ai key and a ~1.7 GB model download. That framing made a *third party's* availability a
+precondition for this library's backlog being clean, which is the wrong dependency: the library cannot
+promise to have called every vendor, and pretending the item is merely pending misdescribes it. The
+answerable question is not "is our reading correct" but **"what happens to the host who finds out it isn't"**
+— and that was: nothing they can do.
+
+**Three of these already had it, which is what made the gap visible.** ComfyUI's own header has always said
+*"Every endpoint path is settable for one specific reason: this backend's surface was not measured."* fal
+says the same of its path segments. But both stopped at the URL and hard-coded the INTERPRETATION — and the
+interpretation is the half that fails quietly. A wrong path is a 404 on the first call. A wrong status
+string means a finished render is polled forever, or an unfinished one is reported done; a wrong cost field
+means the budget decorator spends against a number that is not the price. **The loud half was configurable
+and the silent half was not.**
+
+**Declarative, not delegates, and the reason is specific.** A `Func<string, GenerationOperationStatus?>` seam
+would be the more idiomatic shape and is the wrong one here: these options are bound from `appsettings.json`,
+and a delegate cannot be. The whole value is that a host correcting a vendor's real vocabulary at 2am edits
+configuration and restarts — `docs/DECISIONS.md` D66's `LocalDiffusionOptions.Strength` rename is the
+evidence that configuration binding is how these are actually set, since it was the one rename a recompile
+could not catch.
+
+**Two rules the overrides do not get to weaken.** An unmapped status is still treated as RUNNING, never
+failed, so a host who maps two states of three cannot lose a render by omission. And an empty `CostFields`
+reports no cost rather than a wrong one, which is the honest answer when a deployment knows the shipped
+names are wrong — the budget decorator spends against whatever this reports.
+
+**What is still genuinely unmeasured, and this decision does not claim otherwise.** If a wire format differs
+STRUCTURALLY — a status that is not a string field at all, a history document shaped differently — no
+per-field option saves it, and that is what a real run still has to confirm. The claim here is narrower and
+true: every *value* that could be wrong is now the host's to fix, so the residual risk is a shape, not a
+spelling.
+
+**Byte-identical unconfigured**, pinned per backend, including a test that reconstructs `sd-cli`'s full
+ported argv literally — the flags became a dictionary lookup rather than literals, and an unconfigured host
+must not be able to tell.
+
+---
+
+## D70 — `Lyntai.Generation` comes under the full SemVer promise; its 2.0.1 exemption is withdrawn (2026-08-16)
+
+**The decision.** From 3.0, `Lyntai.Generation` is under the same SemVer 2.0 promise as every other package.
+The exemption introduced at 2.0.1 is withdrawn, not merely satisfied.
+
+**Why it is retirable rather than a judgement call: the carve-out NAMED its reasons, and every one is
+closed.** `README.md` stated three, and they are checkable one by one —
+
+| The stated reason | What closed it |
+|---|---|
+| "two of its backends were written from vendor documentation with no key to call" | **D69** — every mapping those backends could have got wrong is now a host option, so a mismatch is a configuration edit rather than a library release |
+| "a third's argv is ported rather than measured" | **D69** — `LocalDiffusionOptions.Flags` makes the whole `sd-cli` argv the host's, keyed by meaning rather than spelling |
+| "`IGenerationStreamProvider` has no implementation at all yet" | **D67** — the router's stream door, with fifteen tests over the handling |
+
+**That is the argument for writing a reason clause into an exemption in the first place.** An exemption
+justified by "this is new" can only ever be retired by taste. One justified by three specific facts is
+retired by closing them, and anyone can check the work.
+
+**The owner's reason is the stronger one, and it is about the premise rather than the reasons.** The
+carve-out assumed no adopting application had exercised these backends — that is what "shapes that meet
+reality tend to change" means. The owner is the adopting application, and will use and test the generation
+backends on the same terms as every other feature. **An exemption that exists because nobody is using
+something stops being true the moment somebody is**, and keeping it would have been a caveat whose stated
+cause had gone — the exact class of stale claim the 3.0 review pass existed to remove. It also invites the
+opposite error: a reader who sees EXPERIMENTAL concludes the package is unfinished, when it is tested like
+the rest.
+
+**What is given up, knowingly.** Reshaping these backends in a MINOR. If a wire format turns out to differ
+STRUCTURALLY — a status that is not a string field, a differently-shaped history document — that now costs a
+major. D69 states that residual risk precisely and it is bounded: every VALUE is a host option, so what
+remains is a shape, not a spelling. 3.0 is the right moment to accept it, because it is the release where
+such a reshape would have been free anyway.
+
+**A dependent claim this withdraws, stated so it is not rediscovered later.** **D25** gave two reasons for
+the `Lyntai.Generation` package boundary: the dependency-footprint test, which it admits these backends
+answer "weakly", and RELEASE CADENCE — *"they need to ship EXPERIMENTAL and be reshaped in a minor while the
+rest of the library holds a frozen surface."* That second reason is now gone with the carve-out. **The
+boundary survives on the first after all, but on a form of it D25 did not spell out:** the package is
+deliberately outside the `Lyntai` bundle (**D26**), so a one-line-install consumer does not drag the media
+backends and their surface for a feature most applications never use. Merging it into `Providers.Default`
+would force exactly that. So the split stands — for footprint, not for cadence, and a future reader
+comparing D25's wording against a frozen package should find this paragraph rather than a contradiction.
+
+**Mechanically**, this is prose plus a registry entry: `experimental` and `carve-out` join `retiredTerms`, so
+`check-docs` fails any maintained document that reintroduces the claim. Historical `CHANGELOG.md` entries and
+`docs/task-archive.md` are exempt, as always — they are accurate BY using the vocabulary of their day.
+
+---
+
+## D71 — the streaming contract carries tool calls, and a SECOND capability says whether a stream delivers them (2026-08-16)
+
+**The decision.** `LlmChunk` gains a `ToolCall` kind and payload, so a provider's stream can deliver native
+tool calls. `ToolLoop`'s native path runs over `StreamAsync` when — and only when — the provider declares
+`SupportsStreamingToolCalls`, a capability separate from `SupportsToolCalls`.
+
+**It is a fix before it is a feature, and that was not how the backlog described it.** The ROADMAP carried
+this as "streaming tool-calls (the `LlmChunk` contract carries no tool-call payload) — low value, revisit on
+demand". The code said something worse, in a comment: *"if content ALSO streamed, don't clobber it — fall
+through to a benign Final (**tool call dropped**)."* A model that streamed prose alongside a tool call had
+the call **silently discarded** — no error, no verdict, no log. The caller asked for an agent and got a
+sentence. "Low value" described the feature; nobody had priced the defect underneath it.
+
+**The measured cost of the missing payload, beyond that.** `ToolLoop` documented its own workaround —
+*"CompleteAsync, NOT CompleteJsonAsync/StreamAsync: a native tool-call turn has empty text and its structured
+ToolCalls aren't surfaced by the JSON/streaming contracts"* — which means **no agentic turn could stream at
+all.** Whatever prose a model wrote before its last tool call arrived only after the whole turn finished, so
+the one property streaming exists for was unavailable precisely where turns are longest.
+
+**A chunk carries a COMPLETE call, never a fragment.** Vendors stream tool calls in pieces: an id and name on
+one line, arguments a few characters at a time, interleaved across slots when the model calls two tools. The
+provider assembles them (`StreamingToolCalls`, joined by the vendor's **index** and not by arrival order) and
+yields whole calls. Putting fragments in the contract would have frozen a shape in which every consumer must
+know each vendor's fragmentation rules — the same reasoning that puts the terminal-chunk guarantee in the
+generation router rather than in every backend (**D67**).
+
+**Why a SECOND capability rather than reusing `SupportsToolCalls`.** They are genuinely independent: a
+provider can surface calls on `LlmReply.ToolCalls` while its stream drops them — which is what every provider
+in this library did until now. Answering one for the other would make an agentic turn look like a plain
+answer: no call chunk arrives, the loop sees zero calls, and it reports the turn's prose as the final answer
+while the tool never runs. **That failure is silent, which is why it gets its own question and why the
+default is `false`.** Only `OpenAiCompatibleProvider` opts in; every other provider keeps the pre-3.0
+buffered path byte for byte.
+
+**A tool call COMMITS a stream, for a sharper reason than content does.** The router's existing rule is "no
+fallback after the first real content chunk", because falling over would duplicate tokens. Here it would
+duplicate an ACTION: `ToolLoop` invokes on the chunk, so a second candidate could run somebody's side effect
+twice. A malformed `ToolCall` chunk carrying no call is dropped rather than committing, the same
+trust-boundary rule the empty-content chunk already followed.
+
+**One behaviour deliberately replaced rather than kept.** A stream that finished *for* tool calls and
+assembled none used to report `Unsupported` with "use CompleteAsync for tool-calling". That was the honest
+answer while the contract could not carry calls; now it would be false. It is `Failed` with "the stream
+finished for tool calls but none could be assembled from its deltas" — the model asked for something this
+build could not read, which is a real failure and not a capability gap.
+
+---
+
+## D72 — forgetting and pruning are different capabilities, and an engine declares whose content it holds (2026-08-16)
+
+**Two decisions, taken together because each is incomplete without the other.**
+
+**1. `IForgettableMemory` is split; `IPrunableMemory` carries `PruneAsync`.** They answer different questions.
+Forgetting is a targeted withdrawal of one user's data: it must be COMPLETE, and a partial one is a broken
+promise. Pruning bounds an ever-growing store: it is best-effort by nature, an operator's or a scheduler's
+act, and reaping fewer entries than hoped defers a cost rather than breaking anything.
+
+The combined interface forced every engine to claim both or neither, and a vector store is the case that
+shows why that is wrong — it can forget a (task, scope) exactly and cannot prune by age at all, because
+nothing in `ISemanticMemory` exposes one. Under the old shape it had to lie about pruning or give up
+forgetting. **And the composite could only pre-check that a member implemented the interface**, so a member
+that implemented it and threw from one of the two methods produced precisely the outcome the pre-check
+exists to prevent: some members reaped, then an exception. The pre-flight now asks for the capability the
+VERB needs.
+
+**2. `IMemoryReapPolicy` decides which members a reap visits** — a seam, asked per member AND per kind
+(`Forget` / `Prune`). A member the policy excludes is SKIPPED instead of refusing the whole verb.
+
+**AMENDED the same day it landed, and the correction is the more interesting half.** The first version was
+`IMemoryEngine.HoldsUserContent`, a `bool` on the engine with `CuratedMemoryEngine` answering false. The
+owner's objection — *"isn't that should be a policy based or manually updatable"* — was right, and it is the
+one this repository already had a rule for: **eligibility is a DEPLOYMENT question**, and the library cannot
+know the answer. One application's glossary is operator boilerplate; another's holds preferences the user
+typed. A compile-time property states a fact about the HOST inside a type the host did not write, which is
+exactly the shape `.claude/knowledge/model-decoupling.md` exists to prevent. It was also the odd one out in a
+subsystem whose every other variable is an `IMemory*Policy` — seven of them, all DI-registered.
+
+**The seam is asked per KIND, which the boolean could not do at all.** A host can legitimately keep a
+glossary out of an automatic prune and include it in an explicit consent withdrawal, or the reverse. That
+possibility only becomes expressible once eligibility stops being a property of the engine.
+
+**Not a type check either, and not in the default.** `DefaultMemoryReapPolicy` excludes an
+authoritative-ONLY member, keying on `MemoryGrades` — a property every engine already declares. The grade
+split exists precisely to separate operator-maintained exact facts from decaying associative material, so
+authoritative-only IS a curated catalogue by construction, whoever wrote it. `member is CuratedMemoryEngine`
+would have been a conditional requiring an edit per backend and would have missed a BYO catalogue entirely.
+It is a HEURISTIC, and appropriate *because* it is a default: a deployment that disagrees registers one
+policy, which is the line that makes a guess acceptable here and not inside the engine.
+
+**The distinction it preserves is the whole point, and collapsing it would undo D63.** An engine that holds
+user data and cannot reap it is a **gap** — the composite refuses loudly, because reaping the rest and
+reporting success leaves the blend holding exactly what the caller asked to remove. An engine that declares
+itself operator-authored is **out of scope** — skipping it is correct. One engine cannot do what was asked;
+the other was never asked. Treating them alike turns every gap into a silent partial, which is the defect
+D63 was written about. The skip is LOGGED, not silent: a caller withdrawing consent is entitled to know a
+glossary was kept.
+
+**What this unblocks, and it is the reason it was worth doing.** `UseCurated("glossary").UseGraph()` — a
+blend from this library's own README — could not reap AT ALL, because the curated member cannot forget. So an
+application withdrawing a user's consent had nothing to call, and an operator bounding disk had nothing
+either: `PruneAsync` and its durable `MemoryPruneJobHandler` already existed and were unreachable through the
+common blend. Curated material is what an operator maintains; it is neither the user's to withdraw nor what
+unbounded growth is made of.
+
+**Three engines gained what their stores could always do.** `LexicalMemoryEngine` forgets (its store takes
+the same optional scope, null included) and prunes. `SemanticMemoryEngine` forgets and does NOT prune.
+`CuratedMemoryEngine` needs no change at all — the default policy already reads its authoritative-only
+grade.
+
+**Two refusals that look like limitations and are the point.** A semantic forget with a NULL scope throws:
+the vector store is addressed by (task, scope) and cannot enumerate a task's scopes, so "every scope" is
+inexpressible — and the alternatives are worse, since forgetting nothing reports success while the embeddings
+remain. A lexical prune given a `scope` or a `minRetrievability` reaps NOTHING and says so: that store filters
+on task and age only, and honouring the criteria it can while ignoring the ones it cannot deletes MORE than
+was asked for. **Over-deletion is the one direction a reap must never err in**, which is also why returning 0
+is honest for a prune and would not be for a forget.
+
+---
+
+## D73 — the cross-process job cap is a SLOT TABLE, because a count cannot gate a claim (2026-08-16)
+
+**The decision.** `JobOptions.GlobalMaxConcurrency` bounds concurrent jobs across every process sharing one
+store, enforced by `lyntai_job_slot` — a row per execution slot, acquired by the same atomic-claim pattern
+the job table already uses. `0` is the default and means unbounded, which is the pre-3.0 behaviour with no
+extra round-trip.
+
+**Why not the obvious thing.** `IJobStore.CountRunningAsync` has carried a warning since it shipped: *"for
+observability/tests only, NEVER a claim gate (a count-then-claim would race). The atomic claim is the real
+mutual exclusion."* That warning is correct, and it also rules out the next idea — folding the count INTO
+the claim statement. That works on SQLite, whose single writer makes one statement the whole exclusion. It
+does NOT work on Postgres, which claims with `FOR UPDATE SKIP LOCKED` *specifically so workers do not block
+each other*: a `COUNT` in the same statement reads an MVCC snapshot, so two claimers see the same headroom
+and both take it.
+
+**The alternative that was refused, and it is the interesting one.** Postgres can be made exact with
+`pg_advisory_xact_lock`, serializing claimers whenever a cap is set. It is less code than a table. It is
+also self-defeating: it removes the parallel claiming `SKIP LOCKED` exists to provide, exactly when there
+are most workers — and it would leave the two backends reaching correctness by different mechanisms, which
+`.claude/knowledge/sql-storage.md` records as where wrong-data bugs live.
+
+**A slot is a ROW, and that turns the problem inside out.** Exclusion then comes from the mechanism already
+proven on both backends, and **`SKIP LOCKED` starts working FOR the cap instead of against it** — two
+workers skipping to two DIFFERENT slot rows is precisely the correct outcome, so the cap is exact *and*
+claiming stays parallel. One mechanism, one correctness argument, both dialects.
+
+**The cap stays pure CONFIGURATION.** Rows are created lazily up to `cap`, and the acquire predicate reads
+`slot_index < @cap`. Raising the cap needs no migration; lowering it needs no cleanup, because the high rows
+simply stop being selected. The lazy insert is `ON CONFLICT DO NOTHING` because two workers racing to create
+the same index is EXPECTED — the primary key decides, and the loser correctly gets no slot this pass.
+
+**A slot is freed two ways, and the second is why a crash cannot wedge a deployment.** The runner releases in
+a `finally` (with `CancellationToken.None`, so a graceful shutdown still hands slots back rather than
+throttling the fleet until they expire). A process that dies releases nothing — so an unrenewed slot expires
+and returns to the pool. Release is fenced by worker id, so a worker whose slot already expired and was
+retaken cannot free its successor's.
+
+**The slot lease is SHORT and HEARTBEATED, which is a correction to this entry's first draft.** That draft
+expired a slot on `JobOptions.Lease`, reasoning that reusing the job's own rule beat inventing a second
+expiry concept. The owner's objection killed it: *"instead of a long hard expiry time for the slot, we can
+have a shorter one and let the working job processor keep update its time"*. One expiry cannot serve two
+questions — how fast a dead worker is detected, and how long live work may take. Tuned long enough for a job
+that runs for hours, a crash throttles the deployment for hours; tuned short enough to recover promptly,
+that same job loses its slot while still running. `JobOptions.SlotLease` (30s) now measures ONLY "how long
+since we last heard from you", a live runner renews every third of it, and a job may run as long as it likes.
+
+**And renewal is not a new concept here, which is what makes the correction clearly right rather than merely
+different.** A job's own claim already works this way: `JobStoreSql.SetCheckpoint` refreshes `claimed_at`, so
+checkpointing is already a heartbeat. The first draft's "same rule as the job" was therefore the
+*inconsistent* choice — it copied the job's TIMEOUT while ignoring the job's RENEWAL.
+
+`HeartbeatSlotsAsync` renews by WORKER rather than by slot, so one statement covers every job a runner has in
+flight and the cost does not grow with the batch. It is fenced the same way release is: it touches only rows
+the worker still holds, so a stalled worker that wakes and beats cannot steal back a slot its successor now
+owns.
+
+**The slot is taken BEFORE the job is claimed**, which is the one ordering that works. Claiming first and
+then finding no headroom would mean handing a claimed job back to Pending — churn that burns an attempt and
+briefly hides the job from every other worker. Taking the slot first costs at most one wasted acquire when a
+lane turns out to be empty, released immediately.
+
+**Measured while testing, and worth recording because it is a definition rather than a bug.** The first
+version of the headline test asserted "two passes run 2 jobs, not 4" and failed at 4 — correctly. The cap
+bounds how many run AT ONCE, and a pass completes its jobs and hands the slots back, so four jobs across two
+sequential passes never breaks a cap of two. The test now blocks inside the handler and counts what is in
+flight, with two runners over one store: a single-runner test cannot distinguish a global cap from the
+per-process one, which is exactly how a broken implementation would pass.
+
+---
+
+## D74 — "native tool-calling for ClaudeCli/Local" is RETIRED: the request was misframed (2026-08-16)
+
+**The decision.** The §9 leftover *"streaming tool-calls … and native tool-calling for the ClaudeCli/Local
+providers (both stay on the prompt fallback) — low value, revisit on demand"* is retired for its second half.
+Both providers keep `SupportsToolCalls => false`, and a test now pins that with the reason.
+
+**It was picked up as work, not dismissed.** The owner asked for all three §9 leftovers, and the claude CLI
+is installed on this machine (v2.1.220), so unlike the codex item this one was measurable. Measuring it is
+what killed it.
+
+**What the flag actually means, and why turning it on would be a REGRESSION.**
+`ILlmProvider.SupportsToolCalls` means *"I return the model's calls on `LlmReply.ToolCalls` for YOUR loop to
+execute"*. `ToolLoop` branches on it. Flipping it true on a backend that cannot do that makes the loop take
+the native path, send tool declarations the backend ignores, and wait for calls that never arrive — so every
+agentic turn silently degrades to "the model answered in prose" and **no tool ever runs**. The item as
+written asked for a change that removes working behaviour.
+
+**The claude CLI cannot hand back an unexecuted call, and that is structural.** Its entire tool surface —
+confirmed against the live CLI's `--help`, not inferred — is `--allowedTools`, `--disallowedTools` and
+`--mcp-config`: ways to GIVE it tools. `--output-format stream-json` reports `tool_use` blocks it has already
+run. There is no mode that yields control back.
+
+**The real need was already met, by a different mechanism, three releases ago.** An application's own
+`ITool`s must be reachable BY the CLI — which is exactly what `ICliToolProvisioner` does (1.1): it stands up
+an in-process MCP server and passes `--mcp-config`. The tools therefore run in this process, with the host's
+guards applied. They are simply not shaped as `LlmReply.ToolCalls`, and the seam's own summary said so all
+along: *"a CLI-spawning provider whose model runs its OWN agent loop … which can't hand tool calls back to
+the caller and reaches custom tools only over MCP."* The roadmap line and that summary had contradicted each
+other since 1.1; nobody reconciled them because nobody tried to do the work.
+
+**For a local GGUF, "native" is not one thing.** `LocalProvider` runs an arbitrary model through
+llama.cpp, and tool-call syntax is per model FAMILY — Llama's `python_tag`, Qwen's `tool_call` XML,
+Mistral's `[TOOL_CALLS]`, and others. Supporting "native" would mean picking one family and breaking every
+other model a host might load, or shipping a per-family registry unmeasurable without downloading each one.
+**The prompt protocol is the model-AGNOSTIC answer** — for this backend it is the correct mechanism, not a
+fallback, and calling it a fallback is what made it look like a gap.
+
+**The generalizable part, and it is why this is a decision rather than a deleted line.** A deferral records a
+judgement about COST, and cost is the thing that goes stale. Two of these three leftovers were wrong when
+finally examined, in opposite directions: streaming tool-calls hid a real defect (a dropped call, **D71**),
+and this one hid a misunderstanding of what the capability meant. **Re-read a deferral when you finally act
+on it, rather than treating "we already decided to skip this" as the answer** — the skip was reasoning about
+a world that may no longer exist, or may never have existed.

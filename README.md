@@ -20,9 +20,9 @@ Twelve packages, one public front door, and a public API frozen under SemVer 2.0
 
 What is in it, by domain: **LLM** — routing with streaming-aware fallback across CLI / HTTP / MEAI-bridged
 backends, a configurable per-verdict `RoutingPolicy`, dead-host cooldown, native + prompt tool-calling.
-**Generation** *(the backend package is experimental; the contracts in Core are not)* — one capability-aware
-seam for image/video/audio/3d with three delivery modes (inline, submit→poll→fetch, streaming), durable
-renders over `Lyntai.Jobs`, and five backends.
+**Generation** — one capability-aware seam for image/video/audio/3d with three delivery modes (inline,
+submit→poll→fetch, streaming — all three routed, governed and throttled alike), durable renders over
+`Lyntai.Jobs`, and five backends.
 **Storage** — SQLite / Postgres / InMemory, mixable per domain, with FTS5-trigram recall and feature toggles.
 **Agents** — a tool loop, two-gate chat orchestration, guards, and both halves of MCP. **Ops** — prompt
 registry, scoring/eval, run traces, task-scoped + semantic + curated memory, **named memory engines** over a
@@ -51,13 +51,13 @@ version you installed.
 > **Versioning.** From **1.0**, Lyntai follows **SemVer 2.0**: no breaking public-API change without a major
 > bump (the `ApiSurfaceTests` baseline gates it).
 >
-> **One carve-out, stated plainly: the `Lyntai.Generation` PACKAGE (the media backends) is EXPERIMENTAL as of
-> 2.0.1** and is exempt from that promise until its backends have been verified against real services
-> (`TASKS.md` GEN-VERIFY). It is a complete, tested platform — but two of its backends were written from vendor
-> documentation with no key to call, a third's argv is ported rather than measured, and
-> `IGenerationStreamProvider` has no implementation at all yet. Shapes
-> that meet reality tend to change. Freezing that under SemVer would mean either a major bump for a fix we
-> already expect, or leaving a known-wrong shape in place — so it is marked instead of pretended.
+> **Every package carries that promise. There is no carve-out** — `Lyntai.Generation` had one from 2.0.1 and
+> it was withdrawn in 3.0 (`docs/DECISIONS.md` **D70**). It named three reasons and each is closed: the two
+> backends written from vendor documentation now expose every mapping they could have got wrong as a host
+> option, so a mismatch is a configuration edit rather than a release (**D69**); the same is true of the
+> third's ported argv; and `IGenerationStreamProvider` is reachable through the router (**D67**). What a real
+> run can still surprise is a wire format's SHAPE, not a value — and that is now a major-version risk taken
+> deliberately rather than a caveat carried indefinitely.
 > **The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE:** the generation *contracts* in that
 > namespace (`GenerationResult`, the routing policy, `GenerationVerdictClassifier`, …) ship inside the mandatory
 > `Lyntai.Core` and carry the FULL promise — which is why `docs/DECISIONS.md` D36 treated a verdict-translation
@@ -112,7 +112,7 @@ check-bundle` fails the build if that closure ever drifts, so the one-line insta
 ```bash
 dotnet add package Lyntai                  # the recommended STARTING set — 6 of the 12 packages
 dotnet add package Lyntai.Storage.Sqlite   # persistence (the bundle's storage is IN-MEMORY)
-dotnet add package Lyntai.Generation       # image/video/audio backends (experimental)
+dotnet add package Lyntai.Generation       # image/video/audio backends
 ```
 
 **`Lyntai` is a starting set, not the whole library.** It gives you Core, the LLM backends, the MEAI bridge,

@@ -24,6 +24,17 @@ public interface ILlmProvider : Lyntai.Lifecycle.IProviderIdentity
     /// that ignores tools just answers in prose, which the loop treats as a final answer.</summary>
     bool SupportsToolCalls => false;
 
+    /// <summary>Whether this provider's STREAM delivers native tool calls — i.e. <see cref="StreamAsync"/>
+    /// yields <see cref="LlmChunkKind.ToolCall"/> chunks carrying complete calls. Default false, and the
+    /// default is the safe answer: a provider that does native tool-calling but has not implemented the
+    /// streaming half keeps <see cref="Agents.IToolLoop"/> on its buffered path, exactly as before 3.0.</summary>
+    /// <remarks>SEPARATE from <see cref="SupportsToolCalls"/> because the two are genuinely independent: a
+    /// provider can surface calls on <see cref="LlmReply.ToolCalls"/> while its stream drops them, which is
+    /// what every provider here did until 3.0. Answering one for the other would make an agentic turn look
+    /// like a plain answer — the model asks for a tool, no call chunk arrives, and the loop reports the empty
+    /// prose as its final answer. That failure is silent, which is why this is its own question.</remarks>
+    bool SupportsStreamingToolCalls => false;
+
     Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default);
 
     IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default);

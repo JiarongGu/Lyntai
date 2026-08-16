@@ -35,6 +35,32 @@ public interface IGenerationRouter
     /// on the same rule <see cref="GenerateAsync"/> follows.</para></remarks>
     Task<GenerationSubmission> SubmitAsync(
         IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
+
+    /// <summary>Stream through the first capable <see cref="GenerationDelivery.Stream"/> candidate, emitting
+    /// media as it is produced. The third door, added in 3.0 — before it, a backend advertising
+    /// <see cref="GenerationDelivery.Stream"/> was unreachable through the platform and had to be driven
+    /// directly, which made <see cref="IGenerationStreamProvider"/> a seam nothing could use.</summary>
+    /// <remarks><b>Fallback stops at the first byte, and that is the whole contract.</b> This path inherits
+    /// the two invariants the LLM router measured rather than inventing its own
+    /// (<c>.claude/knowledge/llm-and-router.md</c> § Streaming):
+    /// <list type="number">
+    /// <item><description><b>No fallback after commit.</b> Once a chunk carrying real data has been yielded,
+    /// the caller holds bytes this router cannot take back — trying a second backend would splice two
+    /// renders into one stream. Every later chunk passes through unchanged and the stream ends.</description></item>
+    /// <item><description><b>Only real data commits.</b> The gate is <see cref="GenerationChunk.Data"/> being
+    /// non-empty. A metadata-only first chunk (a <see cref="GenerationChunk.MediaType"/> announcement, say)
+    /// must NOT commit — the router is the trust boundary, and a third-party backend may open with one.
+    /// A pre-commit failure advances exactly as the inline door does.</description></item>
+    /// </list>
+    /// <para><b>Exactly one terminal chunk is GUARANTEED to the caller, by this router rather than by the
+    /// backend.</b> A backend whose stream simply stops — no <see cref="GenerationChunk.Final"/>, no
+    /// <see cref="GenerationChunk.Error"/> — has its stream closed here: with a synthesized
+    /// <see cref="GenerationChunk.Completed"/> if it produced data, and a failure chunk if it produced
+    /// nothing. So a consumer's <c>await foreach</c> never has to ask whether the loop ended because the
+    /// media finished or because the process died, which is the one question a raw stream cannot
+    /// answer.</para></remarks>
+    IAsyncEnumerable<GenerationChunk> StreamAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default);
 }
 
 /// <summary>An accepted asynchronous generation plus the backend that owns it — persist BOTH: an operation id

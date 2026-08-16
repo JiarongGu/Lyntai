@@ -12,8 +12,9 @@ namespace Lyntai.Jobs;
 /// and runs them ALL concurrently — including across lanes — so parallel work (e.g. many agent runs) truly
 /// runs in parallel, with the per-lane + global limits as the control knobs. Scale further by running
 /// several runner instances (one process or many): each has a distinct worker id and the store's atomic
-/// claim hands every job to exactly one. There is deliberately NO count-then-claim gate (it would race);
-/// the atomic claim is the mutual exclusion. Outcome mapping: Complete → done; Retry → requeue with
+/// claim hands every job to exactly one, and <see cref="JobOptions.GlobalMaxConcurrency"/> bounds what they
+/// run BETWEEN them. There is deliberately NO count-then-claim gate (it would race); the atomic claim is the
+/// mutual exclusion, and the cross-process cap is a row-per-slot semaphore taken by that same claim pattern. Outcome mapping: Complete → done; Retry → requeue with
 /// backoff up to max attempts, else DEAD-LETTERED (inspectable/replayable); Fail → terminal Failed; a
 /// thrown handler exception → transient retry up to max. Writes are fenced by the worker id; a write the
 /// store ignores (lease lost) is logged and the
@@ -64,8 +65,9 @@ public sealed class JobRunner(
         if (admitted.Count == 0) return 0;
 
         var cap = Opts.MaxConcurrency; // 0 = unbounded
+        var globalCap = Opts.GlobalMaxConcurrency; // 0 = unbounded, and then no slot round-trip at all
         var remaining = admitted.ToDictionary(l => l, Opts.LimitFor, StringComparer.Ordinal);
-        var claimed = new List<JobRecord>();
+        var claimed = new List<(JobRecord Job, int? Slot)>();
         bool progressed;
         do
         {
@@ -74,9 +76,35 @@ public sealed class JobRunner(
             {
                 if (cap > 0 && claimed.Count >= cap) break;
                 if (remaining[lane] <= 0) continue;
+
+                // THE SLOT COMES FIRST, and the order is the whole design. Claiming then discovering there
+                // is no headroom would mean handing a claimed job back to Pending — a churn that burns an
+                // attempt and briefly hides the job from every other worker. Taking the slot first costs at
+                // most one wasted acquire when a lane turns out to be empty, which is released immediately
+                // below.
+                int? slot = null;
+                if (globalCap > 0)
+                {
+                    slot = await _store.TryAcquireSlotAsync(globalCap, _workerId, Opts.SlotLease, ct)
+                        .ConfigureAwait(false);
+                    if (slot is null)
+                    {
+                        _logger.LogDebug(
+                            "global concurrency cap {Cap} reached across all workers — no slot this pass", globalCap);
+                        progressed = false;
+                        break;
+                    }
+                }
+
                 var job = await _store.ClaimNextAsync(lane, _workerId, Opts.Lease, ct).ConfigureAwait(false);
-                if (job is null) { remaining[lane] = 0; continue; } // this lane is drained for now
-                claimed.Add(job);
+                if (job is null)
+                {
+                    if (slot is { } unused)
+                        await _store.ReleaseSlotAsync(unused, _workerId, ct).ConfigureAwait(false);
+                    remaining[lane] = 0; // this lane is drained for now
+                    continue;
+                }
+                claimed.Add((job, slot));
                 remaining[lane]--;
                 progressed = true;
             }
@@ -84,8 +112,67 @@ public sealed class JobRunner(
         while (progressed && (cap <= 0 || claimed.Count < cap));
 
         if (claimed.Count == 0) return 0;
-        await Task.WhenAll(claimed.Select(j => RunJobAsync(j, ct))).ConfigureAwait(false);
+
+        // ONE heartbeat for the whole pass, not one per job: HeartbeatSlotsAsync renews every slot this
+        // worker holds in a single statement, so the cost does not grow with the batch. It runs for as long
+        // as the pass does and is stopped in the finally — a heartbeat that outlived the work would keep a
+        // slot alive for a worker that had finished with it.
+        using var beating = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var heartbeat = claimed.Any(c => c.Slot is not null)
+            ? HeartbeatAsync(beating.Token)
+            : Task.CompletedTask;
+        try
+        {
+            await Task.WhenAll(claimed.Select(c => RunAndReleaseAsync(c.Job, c.Slot, ct))).ConfigureAwait(false);
+        }
+        finally
+        {
+            await beating.CancelAsync().ConfigureAwait(false);
+            await heartbeat.ConfigureAwait(false);
+        }
         return claimed.Count;
+    }
+
+    /// <summary>Renew this worker's slots while its pass runs, so <see cref="JobOptions.SlotLease"/> can be
+    /// short enough to recover a crashed worker quickly WITHOUT capping how long a job may take.</summary>
+    /// <remarks>A third of the lease, so two consecutive missed beats are survivable — a full GC pause or a
+    /// saturated thread pool delays a heartbeat, and losing a slot for that would throttle a healthy
+    /// deployment. A failed renewal is logged and retried on the next beat rather than ending the pass: the
+    /// jobs themselves are fenced by their own claims, so the worst case is a slot expiring early and being
+    /// taken by somebody else, not a job running twice.</remarks>
+    private async Task HeartbeatAsync(CancellationToken ct)
+    {
+        var every = Opts.SlotLease / 3;
+        if (every <= TimeSpan.Zero) return;
+        while (!ct.IsCancellationRequested)
+        {
+            try { await Task.Delay(every, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
+            try { await _store.HeartbeatSlotsAsync(_workerId, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { _logger.LogWarning(ex, "slot heartbeat failed; retrying next beat"); }
+        }
+    }
+
+    /// <summary>Run a job and give its slot back on EVERY path — including a throw, which
+    /// <see cref="RunJobAsync"/> is not expected to produce but must not be able to leak a slot through.
+    /// A process that dies here releases nothing, which is what the slot's lease is for.</summary>
+    private async Task RunAndReleaseAsync(JobRecord job, int? slot, CancellationToken ct)
+    {
+        try
+        {
+            await RunJobAsync(job, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (slot is { } held)
+            {
+                // Never cancelled: a cancelled pass must still hand its slot back, or a graceful shutdown
+                // would leave the deployment throttled until the lease expired.
+                try { await _store.ReleaseSlotAsync(held, _workerId, CancellationToken.None).ConfigureAwait(false); }
+                catch (Exception ex) { _logger.LogWarning(ex, "releasing job slot {Slot} failed; it expires with the lease", held); }
+            }
+        }
     }
 
     public async Task RunAsync(CancellationToken ct = default)

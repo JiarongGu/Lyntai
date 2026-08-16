@@ -24,6 +24,14 @@ task, with why and how; this file does not summarize it._
 **Part 75 IS startable today; Parts 33, 41, 65 and 56 are not.** That split is the point of the list, so it
 is stated first rather than buried.
 
+**A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
+blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
+GEN-VERIFY's notes (the max-dimension question, closed as **D68**) and a platform gap the seam's own remarks
+described without ever being filed as work (the unreachable stream door, closed as **D67**). Neither needed
+the key the Part is blocked on. **A Part is blocked when its DELIVERABLE is; that does not make every
+sentence in it blocked**, and a startable sub-item buried in a blocked Part is invisible in exactly the way
+this list exists to prevent. When labelling something blocked, name what the blocker actually gates.
+
 The four older parts are each blocked on something this repository does not have — a key, a model download,
 a CLI install, or a deployment's own data. That was briefly true of the WHOLE file (2026-08-15, when Parts
 70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**, whose six items
@@ -66,19 +74,29 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   the status vocabulary, the result field names and what `cost` reports. Then delete the remaining "unverified"
   notes from the XML docs — or fix the mappings and keep them.
 
+  _**The BLOCKING half is gone (2026-08-16, `docs/DECISIONS.md` D69) — what is left is confirmation, not
+  repair.** Every mapping that could be wrong is now a host option: fal's status vocabulary and cost fields,
+  ComfyUI's four response field names, and `sd-cli`'s whole argv plus an `ExtraArgs` escape. So an adopting
+  application that discovers the real wire format fixes it in `appsettings.json` and keeps going — it no
+  longer waits on a Lyntai release, which is what made this item block anything. Reframed deliberately: the
+  old wording made a third party's availability a precondition for this backlog being clean, and the library
+  cannot promise to have called every vendor._
+
+  _**What a real run is still for**, stated so this is not read as closed: a STRUCTURAL difference — a status
+  that is not a string field at all, a history document shaped differently — is not fixable by a per-field
+  option. The residual risk is a shape, not a spelling._
+
   _**The binary-directory working dir is CONFIRMED (2026-08-04)** and no longer part of this task — measured by
   a consuming app against a real downloaded release: the engine ships `ggml*.dll` beside the exe, so spawning
-  from anywhere else fails at load time on a perfectly good install. Already implemented
-  (`src/Lyntai.Generation/LocalDiffusionProvider.cs:145`) and pinned by a test._
+  from anywhere else fails at load time on a perfectly good install. Already implemented (the spawn's working
+  directory in `LocalDiffusionProvider.GenerateAsync`) and pinned by a test._
 
-  _**A consumer's own clamp did more than round, and that difference is worth a decision (2026-08-04).** The
-  app that reported the working-dir finding has now migrated its image generation onto `Lyntai.Generation` and
-  deleted its backend. Its `ClampSize` rounded to a multiple of 64 **and capped a CPU render at 768px** — not
-  for correctness but for usability: on a laptop with no GPU, an accepted `1024x1792` request means ten
-  minutes of grinding, which is a worse experience than a refusal. That guard is now this backend's clamp.
-  Worth settling alongside the argv: should `LocalDiffusionOptions` carry a max-dimension (or should a CPU
-  build cap itself), or is an unbounded size the caller's problem? Either answer is fine written down; the
-  consumer will report what the engine actually does with `1024x1792` when it runs GEN-VERIFY's render._
+  _**The max-dimension question is SETTLED (2026-08-16, `docs/DECISIONS.md` D68) and is no longer part of this
+  task.** It asked whether `LocalDiffusionOptions` should carry a max-dimension, whether a CPU build should cap
+  itself, or whether an unbounded size is the caller's problem. The answer: the ceiling is DERIVED from a
+  declared `Accelerator` — `Cpu` (the default) derives the consumer's measured 768, `Gpu` derives none, and
+  `MaxDimension` overrides either. A declaration, never a probe. What remains below is the ARGV, which still
+  needs a real render._
 
   _Two more facts from that same measurement, **already true here** — recorded so they aren't re-investigated:
   the binary is `sd-cli.exe` (upstream renamed it from `sd.exe`), and the tree contains zero `sd.exe`
@@ -93,11 +111,16 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   at `--help` (a render needs a ~1.7 GB model download per run), but it is migrating its media stack onto
   `Lyntai.Generation`, and driving a real render with real weights for a real use case is what that migration
   does. Measuring where there is a real setup and a real use case is the owner's stated preference, and is why
-  the experimental marker needn't block anything._
+  this never blocked a release — 3.0 ships the package under the full SemVer promise (**D70**)._
 
-- [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend to exercise `IGenerationStreamProvider` end to
-  end — nothing implements that seam yet, so it is the one contract in the platform no real backend has
-  exercised. **TTS before music** (owner). Needs a vendor pick and a MEASURED wire format (the GEN-VERIFY
+- [ ] **GEN6 — streaming audio (TTS).** A streaming TTS backend against a real vendor. **The scope shrank on
+  2026-08-16** (`docs/DECISIONS.md` **D67**): the PLATFORM half is done and shipped in 3.0 —
+  `IGenerationRouter.StreamAsync` selects, falls over, governs and throttles a `Stream`-capable backend, and
+  the router guarantees exactly one terminal chunk, so a backend no longer has to be careful about fallback or
+  closing its own stream. What is left is a real backend and the thing only it can settle: whether
+  data-then-terminal is the decomposition a real TTS wire format wants. So this is no longer "the seam is
+  unexercised" — the handling is measured by `GenerationRouterStreamTests`; it is "the chunk SHAPE is still
+  inferred". **TTS before music** (owner). Needs a vendor pick and a MEASURED wire format (the GEN-VERIFY
   lesson), so it waits on a key rather than shipping another documented-not-measured surface.
 - [ ] **GEN7 — pipelines (3d → image → video)**: ordered stages feeding `artifact.ToInput(role)` forward, with
   per-stage candidates and per-stage failure semantics.

@@ -35,6 +35,13 @@ public sealed class OpenAiCompatibleProvider(
     // model's tool_calls on the reply. Coarse — an Ollama MODEL that ignores tools just answers in prose.
     public bool SupportsToolCalls => true;
 
+    /// <inheritdoc/>
+    /// <remarks>True since 3.0: the stream assembles a vendor's tool-call fragments and yields complete
+    /// calls as <see cref="LlmChunkKind.ToolCall"/> chunks. Both dialects — OpenAI SSE, which fragments
+    /// arguments across lines, and Ollama NDJSON, which sends them complete — go through the same
+    /// accumulator.</remarks>
+    public bool SupportsStreamingToolCalls => true;
+
     /// <summary>Get the per-call HttpClient. Lyntai-created clients (from the named IHttpClientFactory
     /// client) are disposed after each call; an APP-supplied (BYO) client is NEVER disposed — the app
     /// owns its lifetime, so disposing it would break every call after the first.</summary>
@@ -153,6 +160,9 @@ public sealed class OpenAiCompatibleProvider(
         LlmUsage? usage = null;
         string? finishReason = null;
         var sawContent = false;
+        // Tool-call fragments, folded per vendor slot as they arrive and assembled once at the end. Held
+        // across the whole loop because a single call's arguments span many lines.
+        var toolCalls = new StreamingToolCalls();
         // The last error the backend reported IN BAND. Remembered rather than acted on: an error line that
         // arrives AFTER content is not terminal — codex's measured `{"type":"error","message":"Reconnecting
         // ... 2/5"}` appeared in runs that went on to SUCCEED, and treating every error-ish line as fatal
@@ -180,9 +190,10 @@ public sealed class OpenAiCompatibleProvider(
             if (payload.Length == 0) continue;
             if (payload == "[DONE]") break;
 
-            var (text, chunkUsage, isFinal, reason) = ParseStreamLine(payload);
+            var (text, chunkUsage, isFinal, reason, toolCallDeltas) = ParseStreamLine(payload);
             if (chunkUsage is not null) usage = chunkUsage;
             if (reason is not null) finishReason = reason;
+            if (toolCallDeltas is not null) toolCalls.Add(toolCallDeltas);
             if (OpenAiHttp.InBandError(payload) is { } streamed) inBandError = streamed;
             if (text is { Length: > 0 })
             {
@@ -202,15 +213,31 @@ public sealed class OpenAiCompatibleProvider(
             yield return LlmChunk.Error(LlmVerdict.Refused, $"{id}: content filter");
             yield break;
         }
-        // the streaming contract (LlmChunk) carries no tool-call payload — streaming native tool-calls is
-        // deferred. A model that STREAMED a tool call with NO content (finish_reason=tool_calls) is NOT a
-        // host failure: surface Unsupported (a capability gap — no fallback/cooldown) pointing the caller at
-        // CompleteAsync, rather than the empty→Failed below which would penalize a healthy host. But if
-        // content ALSO streamed, don't clobber it — fall through to a benign Final (tool call dropped).
+        // TOOL CALLS, assembled from their fragments and delivered before the terminal chunk (3.0). Until
+        // then LlmChunk had no tool-call payload, and the two shapes this replaces were both wrong: a
+        // tool-call-only turn reported Unsupported and told the caller to use CompleteAsync, while a turn
+        // that streamed prose ALONGSIDE a call fell through to a benign Final and SILENTLY DROPPED the call.
+        // The second is why this is a fix and not only a feature.
+        //
+        // They are yielded here rather than as they arrive because a vendor sends arguments in pieces and
+        // LlmChunk.ToolCall promises a COMPLETE call — the assembly is the provider's job so no consumer has
+        // to know a vendor's fragmentation rules. `finish_reason` is not required: Ollama sends none, and a
+        // stream that produced complete calls has produced them whatever it says about why it stopped.
+        var assembled = toolCalls.Any ? toolCalls.Build() : [];
+        foreach (var call in assembled) yield return LlmChunk.Tool(call);
+        if (assembled.Count > 0)
+        {
+            yield return LlmChunk.Final(usage);
+            yield break;
+        }
+
+        // A stream that said it stopped FOR tool calls and assembled none is a real failure rather than an
+        // empty answer — the model asked for something this build could not read, and saying so beats the
+        // synthetic "no output produced" below.
         if (finishReason == "tool_calls" && !sawContent)
         {
-            yield return LlmChunk.Error(LlmVerdict.Unsupported,
-                $"{id}: streaming does not deliver native tool calls — use CompleteAsync for tool-calling");
+            yield return LlmChunk.Error(LlmVerdict.Failed,
+                $"{id}: the stream finished for tool calls but none could be assembled from its deltas");
             yield break;
         }
         // zero-content stream = the streaming twin of CompleteAsync's empty→Failed, so the router
@@ -376,13 +403,14 @@ public sealed class OpenAiCompatibleProvider(
     /// <summary>One streaming line → (delta text, usage if present, is-final, finish reason). The
     /// finish reason travels out so the stream can classify a content_filter as Refused — a string
     /// finish_reason is a stream terminator, never automatically a benign one.</summary>
-    private static (string? Text, LlmUsage? Usage, bool IsFinal, string? FinishReason) ParseStreamLine(string payload)
+    private static (string? Text, LlmUsage? Usage, bool IsFinal, string? FinishReason,
+        IReadOnlyList<ToolCallDelta>? ToolCalls) ParseStreamLine(string payload)
     {
         try
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return (null, null, false, null);
+            if (root.ValueKind != JsonValueKind.Object) return (null, null, false, null, null);
 
             // OpenAI SSE: choices[0].delta.content, finish_reason set on the last data line
             if (root.TryGetProperty("choices", out var choices) &&
@@ -390,35 +418,41 @@ public sealed class OpenAiCompatibleProvider(
             {
                 var choice = choices[0];
                 string? text = null;
-                if (choice.TryGetProperty("delta", out var delta) &&
-                    delta.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
-                    text = c.GetString();
+                IReadOnlyList<ToolCallDelta>? toolCalls = null;
+                if (choice.TryGetProperty("delta", out var delta))
+                {
+                    if (delta.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
+                        text = c.GetString();
+                    toolCalls = StreamingToolCalls.Read(delta);
+                }
                 string? finishReason = null;
                 if (choice.TryGetProperty("finish_reason", out var fr) && fr.ValueKind == JsonValueKind.String)
                     finishReason = fr.GetString();
-                return (text, ExtractUsage(root), finishReason is not null, finishReason);
+                return (text, ExtractUsage(root), finishReason is not null, finishReason, toolCalls);
             }
 
             // OpenAI stream_options usage chunk: the trailing data line AFTER finish_reason carries usage
             // with an EMPTY choices array (the branch above requires a non-empty one) — usage only, not a
             // terminator ([DONE] follows it)
             if (root.TryGetProperty("usage", out var trailing) && trailing.ValueKind == JsonValueKind.Object)
-                return (null, ExtractUsage(root), false, null);
+                return (null, ExtractUsage(root), false, null, null);
 
-            // Ollama NDJSON: message.content per line, done:true on the last (with eval counts)
+            // Ollama NDJSON: message.content per line, done:true on the last (with eval counts). Its tool
+            // calls arrive COMPLETE on one line rather than fragmented, which the assembler handles as a
+            // single-fragment accumulation — one path, not a dialect branch.
             if (root.TryGetProperty("message", out var message))
             {
                 string? text = null;
                 if (message.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
                     text = c.GetString();
                 var final = root.TryGetProperty("done", out var d) && d.ValueKind == JsonValueKind.True;
-                return (text, final ? ExtractUsage(root) : null, final, null);
+                return (text, final ? ExtractUsage(root) : null, final, null, StreamingToolCalls.Read(message));
             }
-            return (null, null, false, null);
+            return (null, null, false, null, null);
         }
         catch (JsonException)
         {
-            return (null, null, false, null); // malformed stream line — skip it
+            return (null, null, false, null, null); // malformed stream line — skip it
         }
     }
 }

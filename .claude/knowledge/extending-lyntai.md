@@ -154,12 +154,15 @@ else: **the CONTRACTS are in `Lyntai.Core`** (namespaces `Lyntai.Generation`, `.
 the BACKENDS live in the `Lyntai.Generation` package under `Lyntai.Generation.Providers`, and each ships a
 one-line `builder.Add<Name>Provider(...)` shim over `AddGenerationProvider(sp => …)`.
 
-**Read the SemVer scope before you rely on the carve-out.** `Lyntai.Generation` is EXPERIMENTAL as a
-**PACKAGE** — the backends — because they were written from vendor docs with no key to call and because
-`IGenerationStreamProvider` has no implementer. The `Lyntai.Generation` **NAMESPACE** is a different thing:
+**A generation backend needs a MAJOR to reshape, like everything else.** `Lyntai.Generation` was EXEMPT as a
+**PACKAGE** from 2.0.1 — the backends were written from vendor docs with no key to call, and
+`IGenerationStreamProvider` had no implementer — and 3.0 withdrew that once both were addressed
+(`docs/DECISIONS.md` **D70**; the mappings became host options in **D69**, the stream seam was wired in
+**D67**). If you are adding a backend, the practical consequence is: **put anything you are unsure of behind
+an OPTION rather than a literal**, which is what makes a wrong guess a consumer's config edit instead of your
+major bump. The `Lyntai.Generation` **NAMESPACE** is still a different thing from the package:
 `GenerationResult`, `GenerationVerdictClassifier`, the routing policy and the rest of the contracts ship
-inside mandatory `Lyntai.Core` and carry the **FULL** SemVer promise. Read CLAUDE.md's reason clause before
-claiming the exemption; when in doubt apply the full promise — `docs/DECISIONS.md` D36 did exactly that for a
+inside mandatory `Lyntai.Core` — a distinction worth keeping straight, since `docs/DECISIONS.md` D36 did
 verdict-translation fix and treated it as major-bump material.
 
 What a backend implements:

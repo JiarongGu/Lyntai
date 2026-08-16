@@ -100,32 +100,91 @@ public sealed class ToolLoop(
             var declarations = tools.Select(t => new LlmTool(t.Name, t.Description, t.ParametersJsonSchema)).ToList();
             var messages = new List<LlmMessage>(req.Messages); // no protocol prompt — the model calls tools natively
 
+            // Can this provider's STREAM carry tool calls? Until 3.0 nothing could, so this path always
+            // buffered the whole turn through CompleteAsync — and an agentic answer therefore had no
+            // time-to-first-token at all, however long the model spent writing prose before its last tool
+            // call. Streaming is used only where the provider says its stream delivers calls, because the
+            // failure of guessing wrong is SILENT: no call chunk arrives, and the loop reports the turn's
+            // prose as a final answer instead of running the tool.
+            var streaming = client.SupportsStreamingToolCalls(req);
+
             for (var iteration = 0; iteration < budget; iteration++)
             {
-                // CompleteAsync, NOT CompleteJsonAsync/StreamAsync: a native tool-call turn has empty text and
-                // its structured ToolCalls (the loop's signal) aren't surfaced by the JSON/streaming contracts.
                 Enter();
-                var reply = await client.CompleteAsync(req with { Messages = [.. messages], Tools = declarations }, ct)
-                    .ConfigureAwait(false);
-                usage.Add(reply.Usage);
-                if (reply.Verdict != LlmVerdict.Ok)
+                var turn = req with { Messages = [.. messages], Tools = declarations };
+
+                string text;
+                IReadOnlyList<LlmToolCall> calls;
+                LlmVerdict verdict;
+                string? detail;
+
+                if (streaming)
                 {
-                    foreach (var ev in Finish("native", reply.Verdict, null, reply.Detail)) yield return ev;
+                    var prose = new System.Text.StringBuilder();
+                    var streamed = new List<LlmToolCall>();
+                    LlmUsage? turnUsage = null;
+                    verdict = LlmVerdict.Ok;
+                    detail = null;
+
+                    await foreach (var chunk in client.StreamAsync(turn, ct).ConfigureAwait(false))
+                    {
+                        switch (chunk.Kind)
+                        {
+                            case LlmChunkKind.Content:
+                                // THE POINT of this path: prose reaches the caller as the model writes it,
+                                // rather than after the turn's last tool call has been decided.
+                                prose.Append(chunk.Text);
+                                yield return new TextDelta(chunk.Text);
+                                break;
+                            case LlmChunkKind.ToolCall:
+                                if (chunk.ToolCall is { } streamedCall) streamed.Add(streamedCall);
+                                break;
+                            case LlmChunkKind.Final:
+                                turnUsage = chunk.Usage;
+                                break;
+                            case LlmChunkKind.Error:
+                                verdict = chunk.Verdict;
+                                detail = chunk.Detail;
+                                break;
+                        }
+                    }
+
+                    usage.Add(turnUsage);
+                    text = prose.ToString();
+                    calls = streamed;
+                }
+                else
+                {
+                    // CompleteAsync, NOT CompleteJsonAsync: a native tool-call turn has empty text and its
+                    // structured ToolCalls (the loop's signal) aren't surfaced by the JSON contract.
+                    var reply = await client.CompleteAsync(turn, ct).ConfigureAwait(false);
+                    usage.Add(reply.Usage);
+                    text = reply.Text;
+                    calls = reply.ToolCalls ?? [];
+                    verdict = reply.Verdict;
+                    detail = reply.Detail;
+                }
+
+                if (verdict != LlmVerdict.Ok)
+                {
+                    foreach (var ev in Finish("native", verdict, null, detail)) yield return ev;
                     yield break;
                 }
-                if (reply.ToolCalls is not { Count: > 0 })
+                if (calls.Count == 0)
                 {
                     _logger.LogDebug("tool-loop (native): final answer after {Steps} tool step(s)", steps.Count);
-                    if (reply.Text.Length > 0) yield return new TextDelta(reply.Text);
-                    foreach (var ev in Finish("native", LlmVerdict.Ok, reply.Text, null)) yield return ev; // no calls → answered
+                    // On the streaming path the prose has ALREADY been delivered chunk by chunk; re-emitting
+                    // the accumulated text here would duplicate the whole answer.
+                    if (!streaming && text.Length > 0) yield return new TextDelta(text);
+                    foreach (var ev in Finish("native", LlmVerdict.Ok, text, null)) yield return ev; // no calls → answered
                     yield break;
                 }
 
                 // any prose the model emitted alongside the calls is surfaced (and preserved in the transcript);
                 // then one tool-result per call (a missing tool_call_id makes providers reject the next request)
-                if (!string.IsNullOrEmpty(reply.Text)) yield return new TextDelta(reply.Text);
-                messages.Add(LlmMessage.AssistantToolCalls(reply.ToolCalls, reply.Text));
-                foreach (var call in reply.ToolCalls)
+                if (!streaming && !string.IsNullOrEmpty(text)) yield return new TextDelta(text);
+                messages.Add(LlmMessage.AssistantToolCalls(calls, text));
+                foreach (var call in calls)
                 {
                     yield return new ToolCall(call.Name, call.ArgumentsJson, call.Id);
                     Enter();

@@ -196,60 +196,21 @@ jobs:
             git push origin $tag
           }
 
+      # The notes are the one piece of release output a consumer actually READS, and until 2026-08-16 they
+      # were the only piece nothing could test — ~40 lines of inline pwsh. The categorizer keyed on
+      # `^feat(scope)?:` / `^fix(scope)?:`, neither of which matches conventional commits' BREAKING marker,
+      # so every `feat(memory)!:` / `fix(core)!:` / `refactor(api)!:` landed under "Other changes" — 29
+      # commits of history when measured, and 11 of 11 in the v2.5.0..3.0 range. A major release whose
+      # entire story is breaking changes would have published "New features: 1".
+      #
+      # It now lives in devtools/scripts/release-notes.mjs behind pure functions, tested by
+      # `node devtools/dev.mjs test-devtools` (FIRST in verify, which the gate above already ran). The
+      # previous-tag selection moved with it for the same reason. Breaking leads the body when present.
       - name: Generate release notes
         id: notes
-        shell: pwsh
         run: |
-          $currentTag = "${{ steps.version.outputs.tag }}"
-
-          # Previous RELEASE tag = the highest tag STRICTLY LESS than the current version, compared by VERSION
-          # (orders 1.10.0 > 1.6.0 numerically; handles 2- or 3-part tags; robust on a first release).
-          function Parse-Ver($t) {
-            if ($t -match '^v?(\d+)\.(\d+)(\.(\d+))?') {
-              $patch = if ($matches[4]) { $matches[4] } else { '0' }
-              return [version]"$($matches[1]).$($matches[2]).$patch"
-            }
-            return $null
-          }
-          $curV = Parse-Ver $currentTag
-          $previousTag = $null; $prevV = $null
-          foreach ($t in (git tag)) {
-            $v = Parse-Ver $t
-            if ($null -eq $v) { continue }
-            if ($curV -and $v -ge $curV) { continue }   # skip the current tag + anything newer
-            if ($null -eq $prevV -or $v -gt $prevV) { $prevV = $v; $previousTag = $t }
-          }
-
-          if ($previousTag) {
-            Write-Host "notes: $previousTag..HEAD (current $currentTag)"
-            $commits = git log "$previousTag..HEAD" --pretty=format:"%s" --no-merges
-          } else {
-            Write-Host "no previous release tag — using all commits"
-            $commits = git log --pretty=format:"%s" --no-merges
-          }
-
-          # Categorize by conventional-commit prefix; drop the non-user-facing kinds so the notes read like a
-          # changelog. Anything without a recognized prefix falls into "Other changes".
-          $features = @(); $fixes = @(); $other = @()
-          foreach ($msg in $commits) {
-            if ($msg -match '^feat(\([^)]+\))?:\s*(.+)')    { $features += $matches[2].Trim() }
-            elseif ($msg -match '^fix(\([^)]+\))?:\s*(.+)') { $fixes += $matches[2].Trim() }
-            elseif ($msg -match '^(chore|docs|refactor|style|perf|test|ci|build)(\([^)]+\))?:\s*') { }
-            else { $other += $msg }
-          }
-
-          $notes = @("## Lyntai $currentTag", "")
-          if ($features.Count) { $notes += "### New features"; $notes += ""; $features | ForEach-Object { $notes += "- $_" }; $notes += "" }
-          if ($fixes.Count)    { $notes += "### Fixes";        $notes += ""; $fixes    | ForEach-Object { $notes += "- $_" }; $notes += "" }
-          if ($other.Count)    { $notes += "### Other changes"; $notes += ""; $other   | ForEach-Object { $notes += "- $_" }; $notes += "" }
-          if (($features.Count + $fixes.Count + $other.Count) -eq 0) { $notes += "See CHANGELOG.md for details."; $notes += "" }
-
-          $notes += "---"; $notes += ""
-          $notes += "Install from NuGet: ``dotnet add package Lyntai.Core`` (+ the provider/storage packages you need). Full detail in CHANGELOG.md."
-
-          $md = $notes -join "`n"
-          $md | Out-File release-notes.md -Encoding utf8
-          Write-Host $md
+          node devtools/scripts/release-notes.mjs --tag "${{ steps.version.outputs.tag }}" > release-notes.md
+          cat release-notes.md
 
       # The Release carries only the notes — NOT the .nupkg/.snupkg files. nuget.org is the canonical,
       # permanent home for every published version, so attaching the packages here just duplicates them

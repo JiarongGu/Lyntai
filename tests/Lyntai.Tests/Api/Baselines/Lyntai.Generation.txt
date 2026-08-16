@@ -17,11 +17,15 @@ sealed class Lyntai.Generation.Providers.Automatic1111Provider
 sealed class Lyntai.Generation.Providers.ComfyUiOptions
     .ctor()
     BaseUrl : String
+    CompletedField : String
     HistoryPath : String
     Id : String
     InterruptPath : String
     Kinds : IReadOnlyList<String>
+    OutputsField : String
+    PromptIdField : String
     PromptPathOption : String
+    StatusField : String
     SubmitPath : String
     SystemStatsPath : String
     Timeout : TimeSpan
@@ -37,16 +41,22 @@ sealed class Lyntai.Generation.Providers.ComfyUiProvider
     PollAsync(String operationId, CancellationToken ct = default) : Task<GenerationOperation>
     ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
     SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
+enum Lyntai.Generation.Providers.DiffusionAccelerator
+    Cpu : DiffusionAccelerator const
+    Gpu : DiffusionAccelerator const
+    value__ : Int32
 sealed class Lyntai.Generation.Providers.FalQueueOptions
     .ctor()
     ApiKey : String
     BaseUrl : String
     CancelSegment : String
+    CostFields : IList<String>
     Id : String
     Kinds : IReadOnlyList<String>
     Model : String
     RequestsSegment : String
     StatusSegment : String
+    StatusVocabulary : IDictionary<String,GenerationOperationStatus>
     Timeout : TimeSpan
     WebhookQueryParameter : String
 sealed class Lyntai.Generation.Providers.FalQueueProvider
@@ -61,11 +71,16 @@ sealed class Lyntai.Generation.Providers.FalQueueProvider
     SubmitAsync(GenerationRequest request, CancellationToken ct = default) : Task<GenerationOperation>
 sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     .ctor()
+    Accelerator : DiffusionAccelerator
     BinaryPath : String
     CfgScale : Double
     DenoisingStrength : Double
+    ExtraArgs : IList<String>
+    Flags : IDictionary<String,String>
     Id : String
+    Img2ImgMode : String
     InactivityTimeout : TimeSpan
+    MaxDimension : Nullable<Int32>
     ModelPath : String
     Steps : Int32
     Timeout : TimeSpan

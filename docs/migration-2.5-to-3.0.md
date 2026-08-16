@@ -67,7 +67,7 @@ mechanics. New capabilities last, because they need nothing from you at all.
 | 1 | **Two** seams renamed and moved namespace (the other two of the four are new in 3.0), plus one storage type | Anyone naming `IMemoryClock`, `IRetrievabilityPolicy` — or configuring the keyword store's size | Mechanical |
 | 2 | Signatures on those seams changed/grew | Anyone *implementing* one of the four seams | Mechanical, one exception (see below) |
 | 3 | `IMemoryGraphStore` grew five required members | Anyone with a custom `IMemoryGraphStore` | Mechanical |
-| 3b | `IJobStore` grew one required member, `PollAgainAsync` | Anyone with a custom `IJobStore` | Mechanical |
+| 3b | `IJobStore` grew FOUR required members: `PollAgainAsync` and the three slot members | Anyone with a custom `IJobStore` | Mechanical |
 | 4 | **Three** registered defaults changed (including: a recall no longer lengthens a half-life); one curve deleted outright; authoritative facts now take slots within the limit | Every consumer, even one who configures nothing | **Decision** |
 | 5 | Age/salience plural; ranking selectable; review log runs | Nobody, unless you want it — or deconstruct `MemoryQuery` | No action needed |
 | 6 | Generation backends register with a configure callback | Anyone calling `AddOpenAiImageProvider` and friends | Mechanical |
@@ -424,10 +424,19 @@ Only if you implement `IJobStore` yourself. The shipped SQLite, Postgres and in-
 this. It is listed separately from Step 3 because it is a different seam in a different subsystem, and a
 consumer with a custom memory store usually does not have a custom job store.
 
-**`IJobStore` gains one required member, `PollAgainAsync(id, workerId, runAt, ct)`, with no default body.**
-That is deliberate: the only default body available would fall back to the attempt-consuming retry path,
-which would leave every BYO store silently carrying the very bug this change exists to remove. A compile
-error is the point.
+**`IJobStore` gains FOUR required members, none with a default body**: `PollAgainAsync(id, workerId, runAt,
+ct)`, and the slot trio `TryAcquireSlotAsync(cap, workerId, lease, ct)` / `ReleaseSlotAsync(slotIndex,
+workerId, ct)` / `HeartbeatSlotsAsync(workerId, ct)`. For `PollAgainAsync` the absence of a default is deliberate: the only body available would fall back to
+the attempt-consuming retry path, leaving every BYO store silently carrying the very bug this change exists
+to remove. A compile error is the point.
+
+**The slot trio backs `JobOptions.GlobalMaxConcurrency`** — a job cap across every process sharing your
+store (D73). **If you do not want to support it, return `null` from the acquire and make the other two
+no-ops.** That is a visible refusal rather than a silently ignored limit: a host that sets a global cap
+against such a store gets no jobs claimed at all, which is loud, instead of a cap that quietly does nothing.
+To support it, add a table of `(slot_index PRIMARY KEY, worker_id NULL, acquired_at NULL)` and acquire the
+lowest free-or-expired index below `cap` with the same atomic pattern your `ClaimNextAsync` already uses —
+the shipped SQL is in `JobStoreSql.FreeSlotWhere` and the two store implementations.
 
 **What it is for.** `JobOutcome.Poll` is new — *"not finished, and nothing went wrong; look again"*, which
 the contract previously had no word for. A handler WATCHING a long-running operation elsewhere had to
@@ -885,11 +894,31 @@ spend through `IUsageTracker` directly.
   OPTIONS (`[.. mine, .. toolHostArgs]`, which is what `ClaudeCliDialect` does), or place them earlier if it
   ends in a positional. This exists because appending is wrong for `codex`, whose argv ends in `-` and which
   reads anything after it as prompt text — where a swallowed flag costs a turn rather than erroring (D65).
-- **`IForgettableMemory` gains `ForgetAsync`**, with no default body. `PruneAsync` reaps selectively;
-  `ForgetAsync` removes a whole (task, scope). If your engine cannot do the second, it should not claim the
-  interface — a composite now REFUSES to reap at all unless every member can, rather than reaping some and
-  reporting success (D63).
-- **`IJobStore` gains `PollAgainAsync`** — Step 3b above.
+- **`IForgettableMemory` is now FORGET-ONLY, and `PruneAsync` lives on the new `IPrunableMemory`** (D72).
+  A custom engine keeps compiling for `ForgetAsync`; add `IPrunableMemory` to its declaration to keep serving
+  prunes, and the compiler names every site. **If your engine can honestly do only one, implement only one**
+  — that is the point of the split. A vector store forgets a (task, scope) exactly and cannot prune by age at
+  all; under the old combined interface it had to lie about one or give up the other.
+  <br>`ForgetAsync` removes a whole (task, scope) and must be COMPLETE — if your engine cannot express a null
+  scope ("every scope of the task"), THROW rather than forgetting one or none, because a consent withdrawal
+  that silently does less than it says is the failure this surface exists to prevent. `PruneAsync` reaps a
+  qualifying subset and is best-effort — but **a criterion you cannot express must reap NOTHING rather than
+  be ignored**, since pruning on the criteria you have while dropping the ones you do not deletes MORE than
+  was asked for.
+  <br>A composite still refuses to reap unless every member holding user content can serve the verb (D63) —
+  now checked per VERB, so a member that forgets but does not prune no longer half-succeeds and then throws.
+- **Which members a blend-level reap visits is now a policy, `IMemoryReapPolicy`** (D72). **Nothing to do
+  unless you disagree with the default**, which excludes an authoritative-ONLY member — a curated catalogue
+  by construction, whoever wrote it — and includes everything else. That reproduces the conventional roles of
+  the shipped engines.
+  <br>Register your own when your arrangement differs: `services.AddSingleton<IMemoryReapPolicy, MyPolicy>()`
+  is the whole opt-in. It is asked per member AND per kind, so "keep the glossary out of an automatic prune
+  but include it in an explicit consent withdrawal" is expressible.
+  <br>**Eligibility is deliberately NOT the same question as the capability interfaces.** A policy decides
+  what is IN SCOPE; `IForgettableMemory`/`IPrunableMemory` decide what a store CAN do. A policy that includes
+  a member which cannot serve the verb still gets the loud refusal — otherwise one permissive policy could
+  silence a genuine gap, and a partial reap would report success.
+- **`IJobStore` gains `PollAgainAsync` plus the two slot members** — Step 3b above.
 
 **One behaviour change with no compile-time signal**: `GenerationRouter` no longer lets a backend's
 exception escape. A caller that today catches one out of `GenerateAsync`/`SubmitAsync` will instead receive a
@@ -1021,10 +1050,82 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
    `LocalDiffusionOptions.Strength` is now `DenoisingStrength`, and configuration binding ignores unknown
    keys — so grep your `appsettings` for it, or renders silently use the default.
 13. **Fix a custom `ICliProviderDialect` or memory engine**, if you have one: `BuildCompletionArgs` takes the
-   tool-host args, and `IForgettableMemory` gained `ForgetAsync` (Step 7).
-14. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
+   tool-host args; `IForgettableMemory` is forget-only with `PruneAsync` moved to
+   `IPrunableMemory`, and which members a reap visits is now `IMemoryReapPolicy` (Step 7).
+14. **Fix a custom `IGenerationRouter`**, if you have one: it gained a required `StreamAsync` (Step 8). The
+   built-in router and its budget/rate-limit decorators ship implemented, so this is only a hand-written one,
+   and the compiler names it.
+15. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
    automatically, and the `Stability` unit contract means your 2.5.x rows are already correct under the new
    curve.
+
+### Step 8 — a custom `IGenerationRouter` gains a third door
+
+Skip this unless you **implement `IGenerationRouter` yourself**. Using the built-in one, or decorating it
+with `AddGenerationUsageBudget()` / `AddGenerationRateLimit()`, needs nothing — those ship implemented.
+
+`IGenerationRouter.StreamAsync` is a required member with no default body, so a hand-written router stops
+compiling until it has one. That is deliberate: a default body would have let a BYO router silently keep the
+old behaviour, and the old behaviour is the defect — a backend advertising `GenerationDelivery.Stream` was
+unreachable through the platform, because the capability pre-filter was only ever asked about `Inline` and
+`Job`.
+
+<!-- compile-skip: the member as it appears on the interface — a partial signature, not a standalone unit -->
+```csharp
+IAsyncEnumerable<GenerationChunk> StreamAsync(
+    IReadOnlyList<GenerationCandidate> candidates,
+    GenerationRequest request,
+    CancellationToken ct = default);
+```
+
+**If you do not want to support streaming**, the honest implementation is one terminal chunk — not an
+exception, because a caller writing `await foreach` should learn this the way they learn about any other
+refusal:
+
+<!-- compile-given: using System.Runtime.CompilerServices; using Lyntai.Generation; using Lyntai.Generation.Routing; -->
+```csharp
+public sealed class MyRouter : IGenerationRouter
+{
+    public Task<GenerationResult> GenerateAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        CancellationToken ct = default) => throw new NotImplementedException("your inline door");
+
+    public Task<GenerationSubmission> SubmitAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        CancellationToken ct = default) => throw new NotImplementedException("your submit door");
+
+    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await Task.CompletedTask;
+        yield return GenerationChunk.Failure(
+            GenerationVerdict.Unsupported, "this router does not serve streaming delivery");
+    }
+}
+```
+
+**If you do**, three rules make a streaming router correct, and two of them are not yours to choose — they
+are the LLM router's measured invariants, transferred because the failure they prevent (splicing two
+responses into one stream) is identical whether the bytes are tokens or audio:
+
+1. **No fallback after commit.** Once you have yielded a chunk carrying real data, the caller holds bytes you
+   cannot take back. Every later chunk passes through and the stream ends; do not try another candidate.
+2. **Only real data commits.** The gate is `Data` being non-empty. A metadata-only opening chunk — a
+   `MediaType` announcement — must NOT commit, or a backend that announces and then dies strands the caller
+   on it. You are the trust boundary; a third-party backend may open that way.
+3. **Emit exactly one terminal chunk, last.** A backend that just stops is not the caller's problem to
+   diagnose: close it yourself with `GenerationChunk.Completed()` if data was produced and
+   `GenerationChunk.Failure(...)` if none was. This is the rule that lets a consumer's `await foreach` end
+   without asking whether the media finished or the process died.
+
+`docs/DECISIONS.md` **D67** has the reasoning, and `GenerationRouterStreamTests` is the executable version of
+all three.
+
+**Decorating rather than replacing?** Apply your policy on all three doors. A decorator that forwards
+`StreamAsync` straight through makes streaming the cheapest way around whatever it enforces — the
+`.claude/knowledge/pitfalls.md` § "Second doors" shape, which this library has now paid for three times.
+
 
 ## What this guide does not cover
 

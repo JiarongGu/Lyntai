@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased
+## Unreleased — the memory retention model + the pre-freeze whole-library review
 
 **Upgrading from 2.5? Start at `docs/migration-2.5-to-3.0.md`** — one ordered path through everything
 below: the seam renames (**two** of the four `IMemory*Policy` seams were renamed from types 2.5 shipped —
@@ -34,6 +34,42 @@ worked before/after.
 > never a single entry here.**
 
 ### Breaking
+
+- **`IJobStore` gains `TryAcquireSlotAsync`, `ReleaseSlotAsync` and `HeartbeatSlotsAsync`**, none with a default body, for the
+  cross-process job cap above (`docs/DECISIONS.md` **D73**). Only a hand-written store is affected; all three
+  shipped stores implement them, and the compiler names every site. A store that does not want to support
+  the cap can return `null` from the acquire — the runner then simply never claims while
+  `GlobalMaxConcurrency` is set, which is a visible refusal rather than a silently ignored limit. It is the
+  third member `IJobStore` gained this release, after `PollAgainAsync`.
+
+- **`IForgettableMemory` is SPLIT: `PruneAsync` moves to the new `IPrunableMemory`**, and `IMemoryEngine`
+  gains nothing; which members a reap visits is decided by the new `IMemoryReapPolicy` seam —
+  `docs/DECISIONS.md` **D72**. A custom engine keeps compiling for `ForgetAsync` and must add
+  `IPrunableMemory` to its declaration to keep serving prunes; the compiler names every site. The two verbs
+  answer different questions — a forget must be COMPLETE, where a partial one is a broken promise, while a
+  prune is best-effort capacity management — and one interface forced an engine to claim both or neither,
+  which a vector store cannot honestly do. **It also closes a real hole:** a composite could only pre-check
+  that a member implemented the interface, so a member that implemented it and threw from one of the two
+  methods produced exactly the partial-reap-then-exception the pre-check exists to prevent.
+
+- **`Lyntai.Generation` is no longer exempt from the SemVer promise** (`docs/DECISIONS.md` **D70**). <!-- drift-ok: the entry ANNOUNCING the withdrawal has to name what was withdrawn -->
+  The package shipped EXPERIMENTAL from 2.0.1, and the exemption is **withdrawn**, not merely satisfied — every
+  package now needs a major to reshape. It named three reasons and each is closed: the two backends written
+  from vendor documentation and the third's ported `sd-cli` argv now expose every mapping they could have got
+  wrong as a host option (**D69**), and `IGenerationStreamProvider` is reachable through the router (**D67**).
+  Listed under Breaking because it is a change to what the library PROMISES, not to any signature: nothing
+  here stops compiling, and a consumer who was relying on these backends being reshapable in a minor should
+  know they are now frozen. What a real run can still surprise is a wire format's SHAPE rather than a value,
+  and that is now a major-version risk taken deliberately.
+
+- **`IGenerationRouter` gained a third door, `StreamAsync`** — a required member with no default body, so a
+  BYO router implementation must add it (`docs/migration-2.5-to-3.0.md` Step 8). The built-in decorators
+  implement it; only a hand-written `IGenerationRouter` is affected, and the compiler names it. Before this,
+  a backend advertising `GenerationDelivery.Stream` was unreachable through the platform — the capability
+  pre-filter was only ever asked about `Inline` and `Job` — so `IGenerationStreamProvider` was a `Lyntai.Core`
+  contract about to be frozen under the full SemVer promise having never been exercised.
+  `docs/DECISIONS.md` **D67** for why it was wired rather than deleted or moved to the then-exempt package,
+  and for the two invariants it INHERITS from the LLM router rather than inventing.
 
 - **The 3.0 naming sweep — names that MISLED are changed; names that merely differed are not**
   (`docs/DECISIONS.md` **D66**). All source-level. **Seven** of the retired spellings are registered in
@@ -847,6 +883,83 @@ worked before/after.
 
 ### Added
 
+- **`JobOptions.GlobalMaxConcurrency` — a job concurrency cap across every process sharing one store**
+  (`docs/DECISIONS.md` **D73**). The last durable-jobs deferral: `MaxConcurrency` bounds one runner, this
+  bounds the deployment, so three workers with a global cap of 5 run five jobs between them rather than
+  fifteen. `0` is the default and means unbounded — the pre-3.0 behaviour, with no extra round-trip.
+  <br>Enforced by a new `lyntai_job_slot` table (one migration, both backends), NOT by counting running
+  jobs: a count cannot gate a claim without racing, and folding the count into the claim statement fixes
+  that only on a single-writer store — Postgres claims with `FOR UPDATE SKIP LOCKED` precisely so workers do
+  not block each other. A slot is a ROW, so exclusion comes from the atomic-claim pattern that already works
+  on both backends, and `SKIP LOCKED` then helps rather than hurts: two workers taking two different slots
+  is the correct outcome, so the cap is exact **and** claiming stays parallel.
+  <br>The cap is pure configuration — slots are created lazily up to it and never selected above it, so
+  raising it needs no migration and lowering it needs no cleanup. A slot is released when the job ends, or
+  expires after **`JobOptions.SlotLease`** (30s) when a worker dies. That lease is short because a live
+  runner HEARTBEATS it: one expiry cannot both detect a dead worker quickly and let a live one run for
+  hours, so the lease measures only "how long since we last heard from you" and a job may take as long as it
+  needs. Renewal is by worker, so it is one statement however many jobs are in flight — and it mirrors what
+  a job's own claim already does, since checkpointing refreshes `claimed_at`.
+  **A BYO `IJobStore` must implement `TryAcquireSlotAsync`, `ReleaseSlotAsync` and `HeartbeatSlotsAsync`**
+  (see Breaking).
+
+- **A `UseCurated(…).UseGraph()` blend can finally reap** (`docs/DECISIONS.md` **D72**). That blend — from
+  this library's own README — could not forget OR prune at ALL, because the curated member cannot reap and
+  the composite refuses unless every member can. So an application withdrawing a user's consent had nothing
+  to call, and an operator bounding disk had nothing either: `PruneAsync` and its durable
+  `MemoryPruneJobHandler` already existed and were unreachable through the common blend. `CuratedMemoryEngine`
+  is excluded by the DEFAULT reap policy — operator-authored material is neither the user's to withdraw nor
+  what unbounded growth is made of — and the composite SKIPS it (logging the skip) instead of refusing.
+  A member that holds user content and cannot reap still refuses loudly: the distinction between "not yours
+  to reap" and "cannot reap" is what keeps a gap from becoming a silent partial.
+  `LexicalMemoryEngine` gained forget + prune and `SemanticMemoryEngine` gained forget, so the engines now do
+  what their stores could always do.
+
+- **The streaming contract carries native tool calls, and an agentic turn can finally stream**
+  (`docs/DECISIONS.md` **D71**). `LlmChunk` gains a `ToolCall` kind and payload; `ToolLoop`'s native path
+  runs over `StreamAsync` when the provider declares the new `SupportsStreamingToolCalls`. Before this,
+  `ToolLoop` had to buffer every native turn through `CompleteAsync` — its own comment said why — so **no
+  agentic answer had time-to-first-token at all**, however long the model spent writing before its last tool
+  call. A chunk always carries a **complete** call: vendors fragment them (id and name on one line, arguments
+  a few characters at a time, interleaved when two tools are called) and the provider assembles, joining by
+  the vendor's **index** rather than arrival order. The capability is separate from `SupportsToolCalls` and
+  defaults to **false**, so every provider that has not implemented the streaming half keeps its previous
+  behaviour exactly; only `OpenAiCompatibleProvider` opts in.
+
+- **Streaming generation is reachable through the platform** — `IGenerationRouter.StreamAsync` selects a
+  `GenerationDelivery.Stream`-capable backend and applies the same capability pre-filter, verdict-driven
+  fallback, dead-host cooldown, budget and rate limiting the other two doors get. Two invariants are
+  inherited from the LLM router rather than invented (`.claude/knowledge/llm-and-router.md` § Streaming):
+  **fallback stops at the first chunk carrying real data**, and **only real data commits** — a metadata-only
+  opening chunk does not, so a backend that announces a media type and then dies still falls over. A third is
+  this door's own: **exactly one terminal chunk, guaranteed by the router**, so a backend whose stream simply
+  stops is closed with a synthesized completion (if it produced data) or a failure chunk (if it did not), and
+  a consumer's `await foreach` never has to ask whether the loop ended because the media finished or because
+  the process died. `docs/DECISIONS.md` **D67**.
+
+- **Every unmeasured generation wire mapping is now a host option** (`docs/DECISIONS.md` **D69**). The
+  documented-not-measured backends already made their URLs settable *"for one specific reason: this
+  backend's surface was not measured"* — and stopped at the URL, hard-coding the interpretation. That is the
+  half that fails quietly: a wrong path is a 404 on the first call, a wrong status string means a finished
+  render is polled forever, and a wrong cost field means the budget decorator spends against a number that
+  is not the price. Now settable: `FalQueueOptions.StatusVocabulary` and `.CostFields`;
+  `ComfyUiOptions.PromptIdField`, `.OutputsField`, `.StatusField`, `.CompletedField`;
+  `LocalDiffusionOptions.Flags` (the whole `sd-cli` argv, keyed by meaning rather than spelling), `.Img2ImgMode`
+  and `.ExtraArgs`. Declarative rather than delegates, deliberately — these are bound from `appsettings.json`,
+  which is how they actually get set. Two rules the overrides cannot weaken: an unmapped status is still
+  RUNNING and never failed, and an empty `CostFields` reports NO cost rather than a wrong one. Unconfigured
+  behaviour is byte-identical, pinned per backend.
+
+- **`LocalDiffusionOptions.Accelerator` and `MaxDimension`** — the render size ceiling is now the host's
+  rather than a constant. `Cpu` (the default) derives 768px, the figure a consuming app measured on a
+  GPU-less laptop where an accepted `1024x1792` meant about ten minutes of grinding; **`Gpu` derives no
+  ceiling at all**, because the reason for the cap does not survive acceleration and no measurement here
+  justifies inventing a different number. It is a declaration, never a probe. The clamp scales both sides by
+  one factor so the requested aspect ratio survives. The backend's **advertised** `max-width`/`max-height`
+  now follow the configured ceiling too, and are OMITTED when there is none — an absent limit reads as "not
+  enumerated", where a number would be a ceiling nobody measured. **Unconfigured behaviour is byte-identical**
+  to the hard-coded ceiling it replaces, pinned by its own test. `docs/DECISIONS.md` **D68**.
+
 - **`GraphMemoryOptions.ExpandCharBudget`** — the fallback character budget an expansion uses when the caller
   passes none, which is the *"engine's configured budget"* `IExpandableMemory.ExpandAsync` has documented
   since it shipped without one ever existing. Null (the default) means unbounded, which is what the engine
@@ -1273,7 +1386,8 @@ worked before/after.
   and no consumer database has ever applied one — exactly the condition `docs/DECISIONS.md` — the pre-release migration-folding rule names for
   folding a pre-release migration into its owner, and the same thing 1.0 did when it collapsed the accreted
   0.x set into the nine per-domain baselines this schema still starts from. A fresh 3.0 database now applies
-  **11** migrations rather than 16.
+  **12** migrations rather than 16 — the twelfth being `M202608161159_JobSlots`, which is not part of this
+  fold at all but of the cross-process job cap below.
   **`M202608081215_MemoryGraph` is deliberately NOT folded in** — it shipped in 2.5.0, so its tables are
   released and every change above stays an `ALTER`. Folding them into that `CREATE TABLE` would be the
   migration-number trap: FluentMigrator records an applied migration by NUMBER, so a 2.5.0 database would
@@ -1285,6 +1399,15 @@ worked before/after.
   and re-migrate.
 
 ### Fixed
+
+- **A streamed turn that produced prose AND a tool call silently DROPPED the call** — no error, no verdict,
+  no log; the caller asked for an agent and got a sentence. The old code named it in a comment (*"fall
+  through to a benign Final (tool call dropped)"*) while the roadmap carried the missing payload as "low
+  value, revisit on demand": the feature had been priced, the defect underneath it had not. Both are closed
+  by the streaming tool-call contract above (`docs/DECISIONS.md` **D71**), and the drop is pinned by a
+  regression test. Also changed: a stream that finishes FOR tool calls and assembles none now reports
+  `Failed` with what happened, rather than `Unsupported` advising `CompleteAsync` — that advice was honest
+  while the contract could not carry calls, and is false now.
 
 - **A deleted memory left its SUBJECT rows behind on both SQL backends — unbounded growth, a corrupted
   reuse list, and `ForgetAsync` leaving model-derived text in the database.** `lyntai_memory_subject` was

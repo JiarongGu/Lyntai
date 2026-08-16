@@ -88,6 +88,71 @@ public class FalQueueProviderTests
         Assert.Equal("https://queue.fal.run/fal-ai/wan-t2v/requests/req-123/status", http.Requests[0].Uri?.ToString());
     }
 
+    // ---- the unmeasured surface is CORRECTABLE without a library release ------------------------------
+    //
+    // This backend's wire format is documented, not measured — nobody here has a key to call it. The
+    // defaults are therefore a reading of vendor docs, and the host who first runs it for real is the one
+    // who finds out. What these pin is that finding out is CHEAP: every mapping that could be wrong is an
+    // option, so the fix is a configuration edit rather than an upstream release. That is what makes
+    // "leave it unmeasured" a defensible position instead of a deferred bug.
+
+    [Fact]
+    public async Task A_host_that_learns_the_real_status_vocabulary_can_correct_it_in_configuration()
+    {
+        var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
+        options.StatusVocabulary["ENQUEUED"] = GenerationOperationStatus.Queued;      // extend
+        options.StatusVocabulary["COMPLETED"] = GenerationOperationStatus.Running;    // redefine
+        var (provider, http) = Provider(options);
+
+        http.Enqueue(HttpStatusCode.OK, """{"status":"ENQUEUED"}""");
+        Assert.Equal(GenerationOperationStatus.Queued, (await provider.PollAsync("fal-ai/wan-t2v#req-1")).Status);
+
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
+        Assert.Equal(GenerationOperationStatus.Running, (await provider.PollAsync("fal-ai/wan-t2v#req-1")).Status);
+    }
+
+    [Fact]
+    public async Task A_status_the_host_has_NOT_mapped_still_keeps_the_render_alive()
+    {
+        // The override must not weaken the rule that matters most: an unknown state is never terminal, so a
+        // host who maps two of three states cannot lose a render by omission.
+        var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v" };
+        options.StatusVocabulary.Clear();
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"status":"COMPLETED"}""");
+
+        var operation = await provider.PollAsync("fal-ai/wan-t2v#req-1");
+
+        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+        Assert.Contains("unrecognised status", operation.Detail);
+    }
+
+    [Fact]
+    public async Task A_host_can_retarget_or_disable_the_cost_field()
+    {
+        var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", CostFields = ["billing_usd"] };
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"billing_usd":0.42,"video":{"url":"https://x.invalid/a.mp4"}}""");
+
+        var fetched = await provider.FetchAsync("fal-ai/wan-t2v#req-1");
+
+        Assert.Equal(0.42, fetched.Usage?.CostUsd);
+    }
+
+    [Fact]
+    public async Task An_empty_cost_field_list_reports_no_cost_rather_than_a_wrong_one()
+    {
+        // Honest when a deployment knows the shipped names are wrong: no number beats a number that is not
+        // the price, because the budget decorator SPENDS against whatever this reports.
+        var options = new FalQueueOptions { ApiKey = "k", Model = "fal-ai/wan-t2v", CostFields = [] };
+        var (provider, http) = Provider(options);
+        http.Enqueue(HttpStatusCode.OK, """{"cost":9.99,"video":{"url":"https://x.invalid/a.mp4"}}""");
+
+        var fetched = await provider.FetchAsync("fal-ai/wan-t2v#req-1");
+
+        Assert.Null(fetched.Usage?.CostUsd);
+    }
+
     [Fact]
     public async Task A_transport_failure_while_polling_keeps_the_render_alive_rather_than_abandoning_it()
     {

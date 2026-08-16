@@ -104,6 +104,50 @@ public interface IJobStore
     /// count-then-claim would race). The atomic claim is the real mutual exclusion.</summary>
     Task<int> CountRunningAsync(string lane, CancellationToken ct = default);
 
+    /// <summary>Take one of at most <paramref name="cap"/> shared execution slots, returning its index, or
+    /// null when every slot is held. The CROSS-PROCESS concurrency limit
+    /// (<see cref="Lyntai.Jobs.JobOptions.GlobalMaxConcurrency"/>): every runner against this store draws
+    /// from the same set, so N processes together run at most <paramref name="cap"/> jobs.</summary>
+    /// <param name="cap">How many slots exist. Pure CONFIGURATION, not schema — slots are created lazily up
+    /// to it, and a slot at or above it is never selected, so lowering the cap needs no cleanup and raising
+    /// it needs no migration.</param>
+    /// <param name="workerId">Fences the release, exactly as a job's claim does.</param>
+    /// <param name="lease">How long a held slot stays valid WITHOUT a heartbeat
+    /// (<see cref="Lyntai.Jobs.JobOptions.SlotLease"/>). A live worker renews continuously via
+    /// <see cref="HeartbeatSlotsAsync"/>, so this is a liveness window rather than a job budget: it can be
+    /// short — seconds — without threatening a job that legitimately runs for hours.</param>
+    /// <param name="ct">Cancellation, which is never swallowed.</param>
+    /// <remarks><b>Why a slot table rather than counting Running jobs.</b> Counting cannot gate a claim —
+    /// see <see cref="CountRunningAsync"/> — and putting the count inside the claim statement fixes that
+    /// only on a single-writer store. Postgres claims with <c>FOR UPDATE SKIP LOCKED</c> precisely so
+    /// workers do not block each other, so a count in the same statement reads an MVCC snapshot and two
+    /// claimers see the same headroom.
+    /// <para>A slot is a ROW, so the same atomic-claim pattern that already makes job claiming safe makes
+    /// this exact — and <c>SKIP LOCKED</c> now works FOR the cap instead of against it, because two workers
+    /// taking two DIFFERENT slot rows is the correct outcome. One mechanism, correct on every backend,
+    /// rather than exactness reached differently per dialect (<c>.claude/knowledge/sql-storage.md</c>).</para></remarks>
+    Task<int?> TryAcquireSlotAsync(int cap, string workerId, TimeSpan lease, CancellationToken ct = default);
+
+    /// <summary>Give back a slot taken by <see cref="TryAcquireSlotAsync"/>. Fenced by
+    /// <paramref name="workerId"/>, so a worker whose slot was already reclaimed after its lease expired
+    /// cannot free the slot its successor now holds.</summary>
+    Task ReleaseSlotAsync(int slotIndex, string workerId, CancellationToken ct = default);
+
+    /// <summary>Renew EVERY slot <paramref name="workerId"/> currently holds, in one statement — the
+    /// liveness signal that lets the slot lease be short.</summary>
+    /// <remarks><b>Why renewal rather than a long lease.</b> A single expiry has to serve two
+    /// irreconcilable jobs: detecting a dead worker quickly, and letting a live one work for as long as the
+    /// work takes. Tuned long, a crash throttles the whole deployment until it expires; tuned short, a job
+    /// that legitimately runs for hours has its slot handed to somebody else while it is still running.
+    /// Heartbeating separates them — expiry becomes purely "how long since we last heard from you".
+    /// <para>Not a new idea in this subsystem: a job's own claim already works this way, since
+    /// <c>SaveCheckpointAsync</c> refreshes <c>claimed_at</c>. This makes the slot consistent with the claim
+    /// it accompanies rather than introducing a second model.</para>
+    /// <para>Renewing by WORKER rather than by slot index is what keeps it one round-trip however many jobs
+    /// a runner has in flight. Fenced the same way: it touches only rows this worker still holds, so a slot
+    /// already reclaimed from it stays with its new owner.</para></remarks>
+    Task HeartbeatSlotsAsync(string workerId, CancellationToken ct = default);
+
     /// <summary>Distinct lanes that currently have a non-terminal (Pending or Running) job — so the runner
     /// can poll every lane with work without the app having to pre-declare it.</summary>
     Task<IReadOnlyList<string>> ActiveLanesAsync(CancellationToken ct = default);

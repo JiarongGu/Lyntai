@@ -17,9 +17,9 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Released: v2.5.0.** Twelve packages; public API frozen under SemVer 2.0 since 1.0 — with ONE
-carve-out, the **`Lyntai.Generation` PACKAGE** (the backends), which ships EXPERIMENTAL until `TASKS.md`
-GEN-VERIFY closes.
+**Released: v2.5.0.** Twelve packages; public API frozen under SemVer 2.0 since 1.0, **with no carve-out** —
+the one that existed (the `Lyntai.Generation` PACKAGE, from 2.0.1) was withdrawn in 3.0, `docs/DECISIONS.md`
+**D70**.
 
 The whole pre-1.0 line shipped (routing depth, LLM-ops, three storage backends, BYO
 resource seams, local GGUF, agentic tool-calling native + prompt, MCP both directions, durable jobs, the §9
@@ -31,8 +31,15 @@ made the generation backends registerable in one line each, **2.2.0** shipped th
 `MigrateUpAsync` twins (D33) and `CodexAgentSession` (D35), **2.3.0** carried the pre-release whole-library
 review that 2.2.0 shipped without (D18, D37), **2.4.0** gave an agent session the host's own MCP servers on
 either CLI backend (D38), and **2.5.0** shipped the **long-term memory subsystem**. Per-release detail is
-`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D66 — the memory subsystem is **D39–D41**,
-**D45–D62** and **D63**; D42–D44 are the doc and packaging decisions that landed beside it, not memory ones).
+`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D74 — the memory subsystem is **D39–D41**,
+**D45–D62**, **D63** and **D72**; D42–D44 are the doc and packaging decisions that landed beside it, not
+memory ones). **D67–D74 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
+is most likely to have stale assumptions about: the generation stream door (**D67**), the accelerator-derived
+diffusion ceiling (**D68**), every unmeasured generation mapping becoming a host OPTION (**D69**), the
+withdrawal of the generation SemVer exemption (**D70**), tool calls on the streaming contract (**D71**), and
+the forget/prune capability split with the `IMemoryReapPolicy` seam (**D72**), and the cross-process
+job cap as a heartbeated slot table (**D73**), and the retirement of "native tool-calling for
+ClaudeCli/Local" as misframed (**D74**).
 
 **Long-term memory (2.5.0) is the newest subsystem** and the one a session is most likely to reason about
 wrongly, because it is not the three older memory surfaces: named engines resolved by name like
@@ -97,11 +104,14 @@ is NOT required is `KnownSubjectsAsync`, which defaults to an empty list.
    `GraphMemoryOptions.EdgeHalfLife` is denominated in whatever the policies count. **The shipped
    `Accumulating` default is byte-identical on every axis.**
 9. **3.0 ships ONE memory RETENTION migration**, `M202608121100_MemoryRetentionModel` — the six that landed
-   after `v2.5.0` were folded into it under D9 (none was ever released), so a fresh database applies **11**
+   after `v2.5.0` were folded into it under D9 (none was ever released), so a fresh database applies **12**
    migrations. `M202608081215_MemoryGraph` is deliberately NOT folded in: it shipped in 2.5.0, and editing a
    migration a database has already recorded by NUMBER is silently skipped. The schema goldens, captured
    pre-squash, still match — that is the proof, not an assertion.
-   <br>**The count is 11 on SQLite and 12 on POSTGRES**, and the asymmetry is deliberate:
+   <br>The twelfth is `M202608161159_JobSlots`, the cross-process concurrency semaphore (**D73**) — a
+   JOBS-feature migration that lands on BOTH backends, so it moves the two counts together and leaves the
+   asymmetry below unchanged.
+   <br>**The count is 12 on SQLite and 13 on POSTGRES**, and the asymmetry is deliberate:
    `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so recall can match an authored
    one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
    `headline, content` since the graph store shipped. Migrations are per-backend projects; forcing the two
@@ -132,8 +142,8 @@ FALSE trim promise), `check-packages` (a package must be registered in all nine 
 grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **2932 passed / 2953 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 329/329, doc samples 75/75.
+Tests/e2e green: **2997 passed / 3018 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 345/345, doc samples 76/76.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -148,8 +158,8 @@ comparing.
 **The records, and what each is for:**
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
   note the dated §6 amendments; §6 is now the default `RoutingPolicy`). Read it first.
-- `docs/ROADMAP.md` — what is shipped per version, then `## Planned`: the next sequence (generation, to
-  close the experimental carve-out) and the standing maintenance policies.
+- `docs/ROADMAP.md` — what is shipped per version, then `## Planned`: what a real run still has to confirm
+  in the generation backends, and the standing maintenance policies.
 - `CHANGELOG.md` — per-release detail; breaking changes called out.
 - `docs/DECISIONS.md` — the rationale log, in the present tense: what each decision IS today. Contiguous
   `D1..Dn`, no stubs. **Numbers were reassigned 2026-08-14**, so a `D<n>` in older git history means a
@@ -168,15 +178,18 @@ comparing.
   archive). Write new ones straight into `local/`; the brainstorming/writing-plans skills default to
   `docs/superpowers/`, so redirect them.
 
-**The `Lyntai.Generation` PACKAGE is EXPERIMENTAL as of 2.0.1** — exempt from the SemVer promise until
-GEN-VERIFY closes (unmeasured backends + an unimplemented stream seam), so it may be reshaped in a minor. Say
-so in the docs before changing it; every other domain needs a major.
-**The carve-out is the PACKAGE, not the `Lyntai.Generation` NAMESPACE** — the generation CONTRACTS
-(`GenerationResult`, the routing policy, `GenerationVerdictClassifier`, …) live in that namespace *inside
-`Lyntai.Core`*, which is mandatory for every consumer and carries the FULL promise. Read the reason clause
-before claiming the exemption: it is about backends written from vendor docs with no key to call and a stream
-seam nothing implements — all of which are in the package. When in doubt, apply the full promise
-(`docs/DECISIONS.md` D36 did).
+**There is NO SemVer carve-out any more — every package needs a major, `Lyntai.Generation` included.** It
+held one from 2.0.1 and 3.0 withdrew it (**D70**), because the carve-out named three reasons and all three
+closed: the two vendor-doc backends and the ported `sd-cli` argv now expose every mapping they could have got
+wrong as a host OPTION (**D69**), and the stream seam is reachable through the router (**D67**). A session
+reading older text — a 2.x `CHANGELOG.md` entry, an archived Part — will find the exemption described in the
+present tense; it was accurate then. `check-docs` fails any MAINTAINED document that reintroduces it.
+<br>The still-live half of that old paragraph, because it was always the part people got wrong: the
+generation CONTRACTS (`GenerationResult`, the routing policy, `GenerationVerdictClassifier`, …) live in the
+`Lyntai.Generation` NAMESPACE *inside `Lyntai.Core`*, while the BACKENDS are the separate
+`Lyntai.Generation` package. That split is now justified by dependency footprint alone — the package sits
+outside the `Lyntai` bundle so a one-line install does not drag the media backends — since D25's other
+reason for it, release cadence, went with the carve-out (D70 records the withdrawal).
 
 Namespace map (Core): `Lyntai.Llm` (contract types) / `Lyntai.Llm.Cli` (the shared spawned-CLI engine +
 per-CLI `ICliProviderDialect` — a new CLI backend is a dialect, never a new provider; see `DECISIONS.md`

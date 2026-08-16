@@ -62,15 +62,18 @@ sealed class Lyntai.Storage.Sqlite.SqliteJobStore
     EnqueueAsync(JobSpec spec, CancellationToken ct = default) : Task<Guid>
     FailAsync(Guid id, String workerId, String error, Nullable<DateTimeOffset> retryAt = null, CancellationToken ct = default) : Task<Boolean>
     GetAsync(Guid id, CancellationToken ct = default) : Task<JobRecord>
+    HeartbeatSlotsAsync(String workerId, CancellationToken ct = default) : Task
     ListAsync(Nullable<JobStatus> status = null, String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
     PauseAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     PollAgainAsync(Guid id, String workerId, DateTimeOffset runAt, CancellationToken ct = default) : Task<Boolean>
+    ReleaseSlotAsync(Int32 slotIndex, String workerId, CancellationToken ct = default) : Task
     ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ReportProgressAsync(Guid id, String workerId, Int32 done, Int32 total, String stage, CancellationToken ct = default) : Task<Boolean>
     ReportStepAsync(Guid id, String workerId, String message, CancellationToken ct = default) : Task<Boolean>
     RequestCancelAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ResumeAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     SaveCheckpointAsync(Guid id, String workerId, String checkpoint, CancellationToken ct = default) : Task<Boolean>
+    TryAcquireSlotAsync(Int32 cap, String workerId, TimeSpan lease, CancellationToken ct = default) : Task<Nullable<Int32>>
 sealed class Lyntai.Storage.Sqlite.SqliteKeyValueStore
     .ctor(IDbConnectionFactory factory)
     DeleteAsync(String key, CancellationToken ct = default) : Task

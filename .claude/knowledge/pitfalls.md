@@ -184,6 +184,26 @@ the tests) while being wrong. Skim before touching the relevant area.
   whatever references it — prefer `<Compile Include>` links for the handful of files you actually need; and
   when a gate reports a failure whose detail is empty or truncated, **suspect the harness before the build**.
   A `--verbosity` reduction or an explicit `maxBuffer` on the spawn would close it at the root.
+- **A classifier written from a vocabulary list is blind to MODIFIERS on that vocabulary, and it fails
+  silently because every item still lands somewhere.** Measured 2026-08-16, in the release workflow's
+  notes generator. It matched `^feat(scope)?:` and `^fix(scope)?:` and dropped
+  `^(chore|docs|refactor|…)(scope)?:` — a complete-looking vocabulary that omits conventional commits'
+  one modifier, the BREAKING `!`. So `feat(memory)!:` matched no rule and fell to the catch-all bucket,
+  titled "Other changes": **29 commits of history, and 11 of 11 in the v2.5.0..3.0 range.** A major release
+  whose entire story is breaking changes was one run away from publishing "New features: 1".
+  <br>**The tell is a catch-all that never looks wrong.** Nothing errored, nothing was dropped, no count
+  disagreed — every commit appeared in the output, under a heading a reader would skim. Contrast a
+  classifier that throws on an unrecognized token, where the same defect is a build failure. **When a
+  classifier has an "everything else" branch, the question is not "does it run?" but "what is landing in
+  the catch-all, and does that list look like the name on it?"**
+  <br>Its sharpest form here: plain `refactor:` is *dropped* as non-user-facing, so a breaking refactor —
+  the single most important line a consumer can read — was one regex away from being deleted rather than
+  merely misfiled. The only reason it survived is that the drop pattern *also* failed to match the `!`.
+  **Correctness rested on a second rule failing**, which is not a property anybody can maintain.
+  <br>The fix is the shape this repo already uses for gates: a pure function in
+  `devtools/scripts/release-notes.mjs`, tested by `test-devtools`, with the workflow a thin caller — and
+  the rule pinned by a test over the REAL commit log, as a property ("no breaking commit lands in Other")
+  rather than a count, since a count there fails on the next commit.
 
 ## LLM / router (details in `llm-and-router.md`)
 
@@ -694,6 +714,32 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>The same shape is worth checking for any capability that reads as a global promise: guards, budgets,
   rate limits, redaction. Each is enforced by a specific wrapper at a specific door, and adding a door is
   the cheapest way to lose one.
+  <br>**Third instance, 2026-08-16 — and this time the compiler found it, which is the point.** Adding
+  `IGenerationRouter.StreamAsync` as a required member with NO default body turned "a decorator silently
+  fails to govern the new door" into a build error naming both offenders — and there were **two**,
+  `BudgetedGenerationRouter` and `RateLimitedGenerationRouter`, where only the first had been anticipated. A
+  default interface implementation would have compiled clean and shipped an ungoverned path. **When adding a
+  member to an interface the library itself decorates, no default body is the cheap gate**; it costs BYO
+  implementers a compile error in a major, which is exactly when that is affordable. Note the limit, though:
+  the compiler forces a decorator to HAVE the member and cannot tell a governed implementation from a
+  pass-through, so the behaviour still needs a test per door (`GenerationGovernanceTests`).
+- **A constant does not live in one place just because it was written once — and the copy nothing ENFORCES
+  is the one that rots silently.** Measured 2026-08-16 making the local-diffusion size ceiling configurable
+  (`docs/DECISIONS.md` **D68**). The hard-coded 768 lived in **three** places, and each was found a different
+  way. The **scale** was obvious. The **rounding** re-clamped through a second copy, so raising the cap would
+  have moved the scale and left every result pinned at 768 by the rounder — a knob that appears to work and
+  cannot exceed its old value; found only by writing the test at 1024 *because* that is above the old
+  constant. The **advertisement** — `GenerationCapabilities.Limits["max-width"]` — was found by a human
+  reading the diff and asking where the number came from.
+  <br>**The third is the general lesson.** `Limits` is documented as informational: *"the platform does not
+  enforce them (only the backend knows the real rule)"*. So a stale value there fails no test, trips no gate,
+  and breaks nothing — the backend simply **lies to consumers who plan against a published ceiling**. An
+  enforced constant is corrected by its own failure; an advertised one has no such feedback, and the only
+  thing that reads it is a person. **When a value becomes configurable, grep the number itself, not the
+  identifier** — the identifier finds the code paths, and the literal finds the documentation of them.
+  <br>Related: with no ceiling the keys are now OMITTED rather than set to something large. An absent key
+  already reads as "not enumerated"; a number would have been a limit nobody measured, which is the same
+  defect wearing a bigger value.
 - **A rule that is right for the only implementation exercising it is a coincidence, and the second
   implementation is where that shows.** `CliProviderEngine` appended an `ICliToolProvisioner`'s args after
   the dialect's argv. Correct for `claude`, whose argv ends in options; wrong for `codex`, whose argv ends

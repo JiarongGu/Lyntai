@@ -16,7 +16,7 @@ public sealed class SemanticMemoryEngine(
     string name,
     ISemanticMemory semantic,
     int defaultK = 10,
-    ILogger<SemanticMemoryEngine>? logger = null) : IMemoryEngine
+    ILogger<SemanticMemoryEngine>? logger = null) : IMemoryEngine, IForgettableMemory
 {
     private readonly ILogger _logger = logger ?? NullLogger<SemanticMemoryEngine>.Instance;
 
@@ -71,5 +71,27 @@ public sealed class SemanticMemoryEngine(
                 Name, query.TaskKey);
             return MemoryRecall.Empty;
         }
+    }
+
+    /// <inheritdoc />
+    /// <remarks><b>A null scope THROWS, and that is the contract's own instruction rather than a shortcut.</b>
+    /// <see cref="ISemanticMemory.ForgetAsync"/> requires a scope — a vector store is addressed by
+    /// (taskKey, scope) and cannot enumerate the scopes a task has used — so "forget every scope" is
+    /// inexpressible here. The alternatives are both worse: forgetting nothing would report success while the
+    /// embeddings remain, and forgetting some arbitrary scope would delete the wrong data. A consent
+    /// withdrawal that silently does less than it says is the failure this surface exists to prevent, so it
+    /// fails LOUDLY and names the fix.
+    /// <para>This engine deliberately does NOT implement <see cref="IPrunableMemory"/> — see the class
+    /// remarks. Before 3.0 split the two capabilities it could not have made that distinction.</para></remarks>
+    public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
+    {
+        if (scope is null)
+            throw new NotSupportedException(
+                $"Memory engine '{Name}' is backed by a vector store addressed by (task, scope) and cannot " +
+                "forget every scope of a task at once — it has no way to enumerate which scopes exist. Call " +
+                "ForgetAsync once per scope you know of. Nothing was removed, deliberately: reporting " +
+                "success here would leave the embeddings in place.");
+
+        return semantic.ForgetAsync(taskKey, scope, ct);
     }
 }

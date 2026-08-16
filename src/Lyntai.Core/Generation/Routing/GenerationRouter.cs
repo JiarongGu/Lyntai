@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Lyntai.Diagnostics;
 using Lyntai.Lifecycle;
 using Lyntai.Llm.Routing;
@@ -277,6 +278,133 @@ public sealed class GenerationRouter(
                 : $"no capable media backend accepted a '{request.Kind}' job among " +
                   $"[{string.Join(", ", candidates.Select(c => c.ProviderId))}]") +
                 Because(firstFailure ?? firstBlameless)));
+    }
+
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var capable = Capable(candidates, request, GenerationDelivery.Stream);
+        GenerationChunk? firstFailure = null;     // the first SUBSTANTIVE failure — the same two-slot rule
+        GenerationChunk? firstBlameless = null;   // …GenerateAsync follows, so all three doors answer alike
+        var tried = 0;
+        var benched = 0;
+
+        foreach (var (provider, resolved) in capable)
+        {
+            if (IsBenched(provider, capable.Count)) { benched++; continue; }
+
+            // Declaring Stream in Capabilities and not implementing the seam is a configuration fault, not a
+            // crash: the router is the trust boundary for what a third-party backend claims about itself.
+            if (provider is not IGenerationStreamProvider streamer)
+            {
+                firstBlameless ??= GenerationChunk.Failure(GenerationVerdict.Unsupported,
+                    $"{provider.Id}: advertises {GenerationDelivery.Stream} delivery but does not implement " +
+                    $"{nameof(IGenerationStreamProvider)}");
+                continue;
+            }
+
+            tried++;
+            var committed = false;             // invariant 2: set only by a chunk carrying real DATA
+            var closed = false;                // did the backend send a terminal chunk of its own?
+            GenerationChunk? failure = null;
+
+            await using var chunks = streamer.StreamAsync(resolved, ct).GetAsyncEnumerator(ct);
+            while (true)
+            {
+                bool moved;
+                try
+                {
+                    moved = await chunks.MoveNextAsync().ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;   // the CALLER cancelled — never a backend fault, and never something to fall over
+                }
+                catch (Exception ex) when (!NeverReachedTheBackend(ex))
+                {
+                    failure = GenerationChunk.Failure(ClassifyThrown(ex), $"{provider.Id}: {ex.Message}");
+                    break;
+                }
+
+                if (!moved) break;
+                var chunk = chunks.Current;
+
+                if (chunk.Error is not null)
+                {
+                    closed = true;
+                    if (committed) { yield return chunk; yield break; }   // invariant 1: no fallback after commit
+                    failure = chunk;
+                    break;
+                }
+
+                if (chunk.Final)
+                {
+                    closed = true;
+                    deadHosts?.RecordSuccess(CooldownKey(provider));
+                    yield return chunk;
+                    yield break;
+                }
+
+                if (chunk.Data is { Length: > 0 }) committed = true;
+                yield return chunk;
+            }
+
+            // A stream that just STOPPED. The backend told the caller nothing about why, so this router says
+            // it instead — the terminal-chunk guarantee is the platform's, not the backend's.
+            if (failure is null && !closed)
+            {
+                if (committed)
+                {
+                    deadHosts?.RecordSuccess(CooldownKey(provider));
+                    yield return GenerationChunk.Completed();
+                    yield break;
+                }
+                failure = GenerationChunk.Failure(GenerationVerdict.Failed,
+                    $"{provider.Id}: the stream ended without producing data or a terminal chunk");
+            }
+
+            // Committed and then failed: the caller already holds bytes, so this is the answer whatever the
+            // fallback policy says about the verdict.
+            if (committed) { yield return failure!; yield break; }
+
+            var verdict = failure!.Error ?? GenerationVerdict.Failed;
+            if (!IsBlameless(verdict)) firstFailure ??= failure;
+            else if (!string.IsNullOrWhiteSpace(failure.Detail)) firstBlameless ??= failure;
+
+            switch (_policy.ActionFor(verdict))
+            {
+                case GenerationFallbackAction.Surface:
+                    yield return failure;
+                    yield break;
+                case GenerationFallbackAction.CooldownAndAdvance:
+                    deadHosts?.MarkDead(CooldownKey(provider));
+                    break;
+                case GenerationFallbackAction.PenalizeAndAdvance:
+                    deadHosts?.RecordFailure(CooldownKey(provider));
+                    break;
+            }
+        }
+
+        // Nothing produced a stream — still exactly one terminal chunk, so a consumer's loop shape is the
+        // same whether five backends were tried or none existed.
+        //
+        // A REASON SOMEBODY GAVE OUTRANKS A SYNTHESIZED ONE, and the ordering here is not the inline door's
+        // for a reason that only exists on this path: a backend can be disqualified WITHOUT being called (it
+        // advertised Stream and does not implement the seam), so `tried == 0` no longer implies "nothing was
+        // learned". Checking the two slots first is what keeps that backend's own words — the only sentence
+        // in the run that names the actual problem — from being replaced by "no capable media backend".
+        yield return firstFailure ?? firstBlameless ?? (tried == 0
+            ? GenerationChunk.Failure(
+                benched > 0 ? GenerationVerdict.RateLimited : GenerationVerdict.Unsupported,
+                benched > 0
+                    ? $"every capable media backend for kind '{request.Kind}' is on dead-host cooldown " +
+                      $"({benched} of [{string.Join(", ", candidates.Select(c => c.ProviderId))}])"
+                    : $"no capable media backend for kind '{request.Kind}' via {GenerationDelivery.Stream} " +
+                      $"among [{string.Join(", ", candidates.Select(c => c.ProviderId))}]")
+            : GenerationChunk.Failure(GenerationVerdict.NotConfigured,
+                "every capable backend reported it is not configured"));
     }
 
     /// <summary>Verdicts that are not FAULTS — the backend simply wasn't the one for this request, so it is

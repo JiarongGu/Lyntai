@@ -10,4 +10,7 @@ public sealed class LlmClient(ILlmRouter router, LyntaiOptions options) : ILlmCl
         router.StreamAsync(options.DefaultCandidates, req, ct);
 
     public bool SupportsToolCalls(LlmRequest req) => router.SupportsToolCalls(options.DefaultCandidates, req);
+
+    public bool SupportsStreamingToolCalls(LlmRequest req) =>
+        router.SupportsStreamingToolCalls(options.DefaultCandidates, req);
 }

@@ -5386,3 +5386,79 @@ resolves · `verify` 14/14. Records: `.claude/knowledge/pitfalls.md` (the trap k
 assertion), `docs/superpowers/INDEX.md` (the overclaim corrected).
 
 ---
+
+## Part 77 — the two generation items that were never blocked on a key (2026-08-16)
+
+_Not from `TASKS.md`. Both were sitting INSIDE Part 33, which is marked blocked on a fal.ai key and a ~1.7 GB
+model download — and neither of these needed either. That is the finding, and it is now a caveat on the
+backlog's own banner: **a Part is blocked when its DELIVERABLE is, which does not make every sentence in it
+blocked.**_
+
+**How they surfaced.** The owner asked whether the pre-3.0 review had covered the generation library. It had
+— nine files, ~289 lines, across all three review commits — but answering honestly meant naming what it had
+NOT covered, and that list turned out to contain one item that was time-critical and one that was simply
+answerable.
+
+### The stream seam was about to freeze unreachable (D67)
+
+`IGenerationStreamProvider` lives in `Lyntai.Core`, which carries the FULL SemVer promise — the EXPERIMENTAL
+carve-out is the `Lyntai.Generation` PACKAGE, not the namespace. Its own remarks said *"Designed, not yet
+exercised. No backend implements this seam, and no router path consumes it"* and *"Read what follows as
+inferred, not measured."* A grep confirmed it: `GenerationDelivery.Stream` was read **nowhere**; the
+capability pre-filter was only ever asked about `Inline` (`GenerationRouter.cs:103`) and `Job` (`:167`). So
+3.0 was days from freezing an admittedly-inferred contract that the platform could not reach.
+
+Three options were put to the owner: delete it until GEN6 (recommended, on **D14**'s precedent that a real
+failure beats a speculative one), move it to the experimental package, or ship it frozen. **The owner picked
+a fourth and was right:** *"there is nothing blocking why we cannot ship it in 3.0."* What GEN6 needs a
+vendor for is a **backend**; what made the seam unshippable was that the **router** could not reach it, and
+no key was ever required to fix that.
+
+What landed: `IGenerationRouter.StreamAsync`, a required member with no default body. Capability pre-filter,
+verdict-driven fallback, dead-host cooldown, budget and rate limiting — the same terms the other two doors
+get. Two invariants **inherited** from the LLM router rather than invented, because the failure they prevent
+(splicing two responses into one stream) is identical whether the bytes are tokens or audio. One invariant
+this door's own: exactly one terminal chunk, guaranteed by the ROUTER, so a backend that just stops is closed
+here and a consumer's `await foreach` never has to ask whether the media finished or the process died.
+
+**Three things were found by building it rather than by planning it.** The compiler named **two** decorators,
+not the one anticipated — `RateLimitedGenerationRouter` was as much a second door as `BudgetedGenerationRouter`,
+and a default interface body would have shipped an ungoverned path silently. A first draft got the
+no-candidate reporting wrong in a way only this door can suffer: a backend can be disqualified *without being
+called* (it advertised `Stream` and does not implement the seam), so `tried == 0` no longer implies "nothing
+was learned" — a test caught the specific reason being replaced by a synthetic one. And the caveat on the
+seam is now **narrower rather than removed**: the chunk *handling* is measured by fifteen tests, and what
+stays inferred is the chunk *shape*. Saying that precisely is worth more than a blanket "unverified" a reader
+learns to skip.
+
+### The diffusion ceiling belonged to the host, and lived in three places (D68)
+
+GEN-VERIFY's notes had carried an open question since 2026-08-04 — should `LocalDiffusionOptions` carry a
+max-dimension, should a CPU build cap itself, or is size the caller's problem — with the owner's own note
+that *"either answer is fine written down"*. It was answerable without the render the rest of GEN-VERIFY
+waits on, and it had been sitting there for twelve days because it lived inside a blocked Part.
+
+`Accelerator` (`Cpu` default) derives 768, the figure a consuming app measured on a GPU-less laptop where an
+accepted `1024x1792` meant ten minutes of grinding. **`Gpu` derives nothing** — the reason for the cap does
+not survive acceleration and no measurement here justifies a different number, so inventing 2048 would be the
+documented-not-measured mistake GEN-VERIFY exists to correct, in the very backend it was opened against. A
+declaration, never a probe: what settles it is which build the host installed.
+
+**The ceiling lived in three places and each was found a different way** — the scale (obvious), the ROUNDING
+(found by writing the test at 1024 *because* that is above the old constant), and the ADVERTISEMENT, found by
+the owner reading the diff and asking where the number came from. That third one is the reusable half, now in
+`pitfalls.md`: `Capabilities.Limits` is documented as informational, so a stale value there fails no test and
+trips no gate — the backend simply lies to consumers who plan against a published ceiling. An enforced
+constant is corrected by its own failure; an advertised one has no such feedback.
+
+**Records:** `docs/DECISIONS.md` **D67**, **D68**; `CHANGELOG.md` Added + Breaking;
+`docs/migration-2.5-to-3.0.md` Step 8 (a BYO router gains a door) and checklist item 14; two `pitfalls.md`
+entries (the third "second doors" instance, and the constant-in-three-places trap); `TASKS.md` Part 33
+corrected in three places — the settled question removed, GEN6's scope narrowed to what a vendor alone can
+answer, and a rotted `file.cs:line` reference replaced with a name.
+
+**Verification.** 2958 passed / 2979 (21 skipped, live-backend only), `verify` 14/14, `consumer-smoke` green.
+Both changes are byte-identical for an unconfigured consumer, each pinned by its own test — a knob that
+changes what an unconfigured host gets is a behaviour change wearing a feature's clothes.
+
+---

@@ -11,6 +11,12 @@ public enum LlmChunkKind
 
     /// <summary>The stream ended in an error; <see cref="LlmChunk.Verdict"/> says how.</summary>
     Error,
+
+    /// <summary>The model asked for a tool. <see cref="LlmChunk.ToolCall"/> carries it, COMPLETE — a
+    /// provider assembles a vendor's incremental fragments before yielding, so partial JSON never reaches a
+    /// consumer. Like <see cref="Content"/>, it COMMITS the stream: once a call has been announced the
+    /// router cannot fall over, because the caller may already have executed it.</summary>
+    ToolCall,
 }
 
 /// <summary>One streaming event. Providers yield Content* then exactly one Final or Error.</summary>
@@ -27,7 +33,19 @@ public sealed record LlmChunk
 
     public string? Detail { get; init; }
 
+    /// <summary>The requested tool call, on a <see cref="LlmChunkKind.ToolCall"/> chunk. Always COMPLETE:
+    /// vendors stream tool calls as fragments (an id here, a name there, arguments in pieces) and assembling
+    /// them is the PROVIDER's job, so this is never partial JSON a consumer has to accumulate.</summary>
+    /// <remarks>Added in 3.0. Before it, the streaming contract carried no tool-call payload at all — which
+    /// made a native tool-calling turn unstreamable (<c>ToolLoop</c> had to buffer the whole turn through
+    /// <c>CompleteAsync</c>, losing time-to-first-token for every agentic answer) and, worse, silently DROPPED
+    /// a call from any turn that streamed prose alongside one.</remarks>
+    public LlmToolCall? ToolCall { get; init; }
+
     public static LlmChunk Content(string text) => new() { Kind = LlmChunkKind.Content, Text = text };
+
+    /// <summary>A requested tool call. Yield one per call, each complete.</summary>
+    public static LlmChunk Tool(LlmToolCall call) => new() { Kind = LlmChunkKind.ToolCall, ToolCall = call };
 
     public static LlmChunk Final(LlmUsage? usage = null, string? detail = null) =>
         new() { Kind = LlmChunkKind.Final, Usage = usage, Detail = detail };

@@ -333,6 +333,26 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    // D70 (2026-08-16) withdrew the `Lyntai.Generation` SemVer exemption. This is registered because the
+    // claim was stated in NINE maintained documents plus two code comments — a caveat that widely copied is
+    // exactly the kind that grows back, and every one of those copies read as current fact. Historical
+    // `CHANGELOG.md` entries and `docs/task-archive.md` are out of `check-docs`' scope already, which is
+    // right: they were accurate on their own day.
+    //
+    // The pattern is deliberately narrow. `experimental` alone would fire on the ROADMAP's genuine uses —
+    // MEAI's experimental surfaces, OTel's experimental semconv — which are other projects' labels and
+    // nothing to do with this promise. What is retired is the CLAIM: this library marking its own package.
+    {
+      term: '(?:EXPERIMENTAL|experimental)(?:\\s+\\w+){0,3}\\s+(?:carve-out|carveout)'
+        + '|(?:carve-out|carveout)(?:\\s+\\w+){0,3}\\s+(?:EXPERIMENTAL|experimental)'
+        + '|Lyntai\\.Generation`?(?:\\s+\\w+){0,4}\\s+(?:is|ships)\\s+EXPERIMENTAL'
+        + '|exempt from (?:that |the )?(?:SemVer )?promise',
+      use: 'say every package carries the full SemVer promise (D70), and name D67/D69 for why the three '
+        + 'reasons the exemption gave are closed',
+      why: 'the carve-out was WITHDRAWN in 3.0, not satisfied — a document still describing Lyntai.Generation '
+        + 'as exempt tells a consumer they may rely on minor-version reshaping that will not happen, and '
+        + 'tells a contributor they may reshape a frozen package (D70)',
+    },
     // The 2026-08-15 naming sweep (D66). Registered here as well as in `retiredApiNames`, because the two
     // gates see different tiers and the PROSE half is the one that puts a retired name back: `check-docs`
     // scans docs/ and .claude/ (and .html), `check-api-vocabulary` scans the API baselines, and neither

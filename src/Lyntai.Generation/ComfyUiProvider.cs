@@ -40,6 +40,24 @@ public sealed class ComfyUiOptions
     /// <summary>The option key holding the workflow graph JSON.</summary>
     public string WorkflowOption { get; set; } = "workflow";
 
+    /// <summary>Response field carrying the accepted run's id, read from the submit reply.</summary>
+    /// <remarks><b>The response FIELD names are settable for the same reason the endpoint paths are</b> — this
+    /// backend's surface is documented, not measured — and they fail more quietly. A wrong path is a 404 on
+    /// the first call; a wrong field name means a submitted render is never recognised as accepted, or a
+    /// finished one is polled forever. The host who first runs this against a real ComfyUI is who finds out,
+    /// and they must be able to correct it in `appsettings.json` rather than wait for a release.</remarks>
+    public string PromptIdField { get; set; } = "prompt_id";
+
+    /// <summary>History-entry field holding a run's produced files, keyed by node. Its PRESENCE is also the
+    /// fallback completion signal when <see cref="StatusField"/> is absent or shaped unexpectedly.</summary>
+    public string OutputsField { get; set; } = "outputs";
+
+    /// <summary>History-entry field holding the run's status block.</summary>
+    public string StatusField { get; set; } = "status";
+
+    /// <summary>Boolean inside <see cref="StatusField"/> that says a run has finished.</summary>
+    public string CompletedField { get; set; } = "completed";
+
     /// <summary>The option key holding a dotted path to the node input that receives
     /// <see cref="GenerationRequest.Prompt"/> (e.g. <c>"6.inputs.text"</c>).</summary>
     public string PromptPathOption { get; set; } = "prompt-path";
@@ -191,9 +209,9 @@ public sealed class ComfyUiProvider(
             if (!response.IsSuccessStatusCode)
                 return Failed($"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
 
-            var id = Field(body, "prompt_id");
+            var id = Field(body, options.PromptIdField);
             return id is null
-                ? Failed($"no prompt_id in the response: {HttpArtifacts.FailureDetail(body, 200)}")
+                ? Failed($"no {options.PromptIdField} in the response: {HttpArtifacts.FailureDetail(body, 200)}")
                 : new GenerationOperation(id, GenerationOperationStatus.Queued);
         }
         catch (OperationCanceledException) { throw; }
@@ -364,14 +382,14 @@ public sealed class ComfyUiProvider(
 
     /// <summary>Treats a run as done when it says so, and — defensively — when it has outputs but no status
     /// block, since an unrecognised status shape shouldn't strand a finished render.</summary>
-    private static bool Completed(JsonElement? entry)
+    private bool Completed(JsonElement? entry)
     {
         if (entry is not { ValueKind: JsonValueKind.Object } value) return false;
-        if (value.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.Object &&
-            status.TryGetProperty("completed", out var completed) &&
+        if (value.TryGetProperty(options.StatusField, out var status) && status.ValueKind == JsonValueKind.Object &&
+            status.TryGetProperty(options.CompletedField, out var completed) &&
             completed.ValueKind is JsonValueKind.True or JsonValueKind.False)
             return completed.GetBoolean();
-        return value.TryGetProperty("outputs", out var outputs) && outputs.ValueKind == JsonValueKind.Object;
+        return value.TryGetProperty(options.OutputsField, out var outputs) && outputs.ValueKind == JsonValueKind.Object;
     }
 
     /// <summary>Walk <c>outputs.&lt;node&gt;.&lt;images|gifs|…&gt;[]</c> and turn each file reference into a
@@ -380,7 +398,7 @@ public sealed class ComfyUiProvider(
     private IReadOnlyList<GenerationArtifact> OutputArtifacts(JsonElement? entry)
     {
         if (entry is not { ValueKind: JsonValueKind.Object } value ||
-            !value.TryGetProperty("outputs", out var outputs) || outputs.ValueKind != JsonValueKind.Object)
+            !value.TryGetProperty(options.OutputsField, out var outputs) || outputs.ValueKind != JsonValueKind.Object)
             return [];
 
         var artifacts = new List<GenerationArtifact>();

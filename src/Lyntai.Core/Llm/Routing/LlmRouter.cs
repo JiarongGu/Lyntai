@@ -230,11 +230,19 @@ public sealed class LlmRouter(
                                 break; // leave the enumerator; decide retry-vs-advance below
                             }
 
-                            if (chunk.Kind == LlmChunkKind.Content)
+                            // A TOOL CALL commits exactly as content does, and for a sharper reason (3.0). Once
+                            // a call has been announced the consumer may already have EXECUTED it — ToolLoop
+                            // invokes on the chunk — so falling over to another candidate would run somebody's
+                            // side effect twice. Content only duplicates tokens; this duplicates actions.
+                            // A malformed ToolCall chunk carrying no call is dropped rather than committing,
+                            // the same trust-boundary rule the empty content chunk below follows.
+                            if (chunk.Kind == LlmChunkKind.ToolCall && chunk.ToolCall is null) continue;
+
+                            if (chunk.Kind is LlmChunkKind.Content or LlmChunkKind.ToolCall)
                             {
                                 // an empty/role-only content chunk is NOT real content: never yield it
                                 // (no leak to the consumer) and it must not commit the stream / disable fallback
-                                if (chunk.Text.Length == 0) continue;
+                                if (chunk.Kind == LlmChunkKind.Content && chunk.Text.Length == 0) continue;
                                 if (!committed)
                                 {
                                     committed = true;
@@ -306,6 +314,14 @@ public sealed class LlmRouter(
     {
         foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
             return candidate.Provider.SupportsToolCalls; // first live candidate decides
+        return false;
+    }
+
+    /// <inheritdoc/>
+    public bool SupportsStreamingToolCalls(IReadOnlyList<LlmCandidate> candidates, LlmRequest req)
+    {
+        foreach (var candidate in LiveCandidates(candidates, req, liveModel: null))
+            return candidate.Provider.SupportsStreamingToolCalls; // first live candidate decides, as above
         return false;
     }
 

@@ -134,6 +134,167 @@ public class LocalDiffusionProviderTests
         Assert.Equal((width, height), LocalDiffusionProvider.ClampSize(size));
     }
 
+    // ---- the ported argv is CORRECTABLE without a library release ------------------------------------
+    //
+    // The class header says this argv is PORTED from a working implementation, not measured here. The
+    // engine is a third-party binary whose flags can be renamed upstream between releases, so a host that
+    // hits that must be able to edit configuration rather than wait for a Lyntai release.
+
+    private static LocalDiffusionProvider Configured(Action<LocalDiffusionOptions> configure)
+    {
+        var options = new LocalDiffusionOptions { BinaryPath = "sd", ModelPath = "m" };
+        configure(options);
+        return new LocalDiffusionProvider(options, new FakeProcessRunner());
+    }
+
+    [Fact]
+    public void A_host_can_rename_one_flag_without_restating_the_others()
+    {
+        var provider = Configured(o => o.Flags["cfg-scale"] = "--cfg");
+
+        var args = provider.BuildArgs("model.gguf", "a cat", "out.png", 512, 512, initPath: null);
+
+        Assert.Contains("--cfg", args);
+        Assert.DoesNotContain("--cfg-scale", args);
+        Assert.Equal("7", args[args.IndexOf("--cfg") + 1]);
+        // everything NOT overridden keeps its ported spelling — a partial override is the common case
+        Assert.Contains("--steps", args);
+        Assert.Contains("-W", args);
+    }
+
+    [Fact]
+    public void A_host_can_rename_the_img2img_flags_and_the_mode_VALUE()
+    {
+        var provider = Configured(o =>
+        {
+            o.Flags["init"] = "--init-img";
+            o.Flags["mode"] = "--mode";
+            o.Img2ImgMode = "i2i";
+        });
+
+        var args = provider.BuildArgs("model.gguf", "a cat", "out.png", 512, 512, initPath: "init.png");
+
+        Assert.Equal("i2i", args[args.IndexOf("--mode") + 1]);
+        Assert.Equal("init.png", args[args.IndexOf("--init-img") + 1]);
+    }
+
+    [Fact]
+    public void Extra_args_are_appended_verbatim_and_LAST()
+    {
+        // Safe for THIS engine because its argv is options all the way down — no trailing positional the way
+        // codex's `-` stdin marker is, where anything after it is swallowed as prompt text (D65).
+        var provider = Configured(o => o.ExtraArgs = ["--seed", "42", "--vae", "vae.safetensors"]);
+
+        var args = provider.BuildArgs("model.gguf", "a cat", "out.png", 512, 512, initPath: null);
+
+        Assert.Equal(["--seed", "42", "--vae", "vae.safetensors"], args[^4..]);
+    }
+
+    [Fact]
+    public void The_unconfigured_argv_is_byte_identical_to_the_ported_one()
+    {
+        // The flags became a lookup rather than literals; an unconfigured host must not be able to tell.
+        var ported = Configured(_ => { }).BuildArgs("model.gguf", "a cat", "out.png", 512, 512, "init.png");
+
+        Assert.Equal(
+            ["-m", "model.gguf", "-p", "a cat", "-o", "out.png", "-W", "512", "-H", "512",
+             "--steps", "20", "--cfg-scale", "7", "-M", "img2img", "-i", "init.png", "--strength", "0.5"],
+            ported);
+    }
+
+    // ---- the ceiling is the HOST's, and it has to reach both halves of the clamp ----------------------
+
+    [Fact]
+    public void A_raised_ceiling_moves_the_ROUNDING_too_not_just_the_scale()
+    {
+        // THE DEFECT THIS PINS. The clamp scaled against one hard-coded 768 and then rounded through a
+        // SECOND, so a raised ceiling moved the scale and left every result pinned at 768 by the rounder —
+        // a knob that appears to work and cannot exceed its old value. Both halves now take the same cap,
+        // and 1024 is chosen here precisely because it is above the old constant.
+        Assert.Equal((1024, 1024), LocalDiffusionProvider.ClampSize("1024x1024", 1024));
+        Assert.Equal((1024, 576), LocalDiffusionProvider.ClampSize("1280x720", 1024));
+    }
+
+    [Fact]
+    public void No_ceiling_leaves_a_large_request_alone_apart_from_the_engines_rounding()
+    {
+        // What a GPU host gets by default: the multiple-of-64 requirement still applies (it is the engine's,
+        // not a policy), and nothing else is imposed.
+        Assert.Equal((1024, 1792), LocalDiffusionProvider.ClampSize("1024x1792", null));
+        Assert.Equal((1024, 1792), LocalDiffusionProvider.ClampSize("1020x1790", null));   // rounded to 64
+    }
+
+    [Fact]
+    public void The_engines_floor_outranks_a_ceiling_set_below_it()
+    {
+        // A cap under the floor asks for something the engine cannot render. Honouring it would turn a
+        // policy into a failed render, so the floor wins.
+        Assert.Equal((256, 256), LocalDiffusionProvider.ClampSize("512x512", 64));
+    }
+
+    [Theory]
+    [InlineData(DiffusionAccelerator.Cpu, 768)]
+    [InlineData(DiffusionAccelerator.Gpu, null)]
+    public void The_declared_accelerator_derives_the_default_ceiling(DiffusionAccelerator accelerator, int? expected)
+    {
+        // A DECLARATION, never a probe: which build of the engine is installed is something the host knows
+        // and this library cannot. Gpu derives NO ceiling rather than an invented number — the reason for
+        // the CPU cap is that each step is expensive, and that premise does not survive acceleration.
+        var options = new LocalDiffusionOptions { Accelerator = accelerator };
+        Assert.Equal(expected, options.EffectiveMaxDimension);
+    }
+
+    [Fact]
+    public void An_explicit_ceiling_outranks_the_one_the_accelerator_derives()
+    {
+        var capped = new LocalDiffusionOptions { Accelerator = DiffusionAccelerator.Gpu, MaxDimension = 1536 };
+        var lowered = new LocalDiffusionOptions { Accelerator = DiffusionAccelerator.Cpu, MaxDimension = 512 };
+
+        Assert.Equal(1536, capped.EffectiveMaxDimension);
+        Assert.Equal(512, lowered.EffectiveMaxDimension);
+    }
+
+    [Fact]
+    public void The_ADVERTISED_ceiling_follows_the_configured_one_rather_than_a_constant()
+    {
+        // The third site the cap had to reach, and the easiest to miss: Limits is informational, so a stale
+        // number here fails nothing — it just tells a consumer a ceiling the backend does not have.
+        static LocalDiffusionProvider Provider(Action<LocalDiffusionOptions> configure)
+        {
+            var options = new LocalDiffusionOptions { BinaryPath = "sd", ModelPath = "m" };
+            configure(options);
+            return new LocalDiffusionProvider(options, new FakeProcessRunner());
+        }
+
+        var cpu = Provider(_ => { });
+        var gpu = Provider(o => o.Accelerator = DiffusionAccelerator.Gpu);
+        var explicitCap = Provider(o => o.MaxDimension = 1536);
+
+        Assert.Equal("768", cpu.Capabilities.Limits["max-width"]);
+        Assert.Equal("1536", explicitCap.Capabilities.Limits["max-height"]);
+
+        // No ceiling → the keys are OMITTED, which reads as "not enumerated". Advertising a large number
+        // instead would be inventing the ceiling this profile deliberately refuses to invent.
+        Assert.False(gpu.Capabilities.Limits.ContainsKey("max-width"));
+        Assert.False(gpu.Capabilities.Limits.ContainsKey("max-height"));
+
+        // The engine's own requirement holds on every profile — it is not a policy.
+        foreach (var provider in new[] { cpu, gpu, explicitCap })
+            Assert.Equal("64", provider.Capabilities.Limits["size-multiple-of"]);
+    }
+
+    [Fact]
+    public void The_default_options_render_exactly_as_they_did_before_the_ceiling_became_configurable()
+    {
+        // The shipped default is byte-identical to the hard-coded behaviour it replaced. A knob that changes
+        // what an unconfigured host gets is a silent behaviour change wearing a feature's clothes.
+        var options = new LocalDiffusionOptions();
+        foreach (var size in new[] { "512x512", "1024x1024", "1280x720", "64x64", null })
+            Assert.Equal(
+                LocalDiffusionProvider.ClampSize(size),
+                LocalDiffusionProvider.ClampSize(size, options.EffectiveMaxDimension));
+    }
+
     [Fact]
     public async Task A_produced_image_comes_back_as_bytes()
     {

@@ -221,6 +221,55 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         lock (_lock) return Task.FromResult(_jobs.Values.Count(j => j.Lane == lane && j.Status == JobStatus.Running));
     }
 
+    /// <summary>Slots held right now: index → (worker, when taken). Absent = free.</summary>
+    private readonly Dictionary<int, (string Worker, DateTimeOffset At)> _slots = [];
+
+    /// <inheritdoc />
+    /// <remarks>This store is one process by definition, so the cap it enforces is a per-process one — it
+    /// exists so the CONTRACT is testable without a database, not to make an in-memory store distributed.
+    /// The semantics it pins are the ones the SQL stores must match: lowest free index wins, an index at or
+    /// above the cap is never handed out, and a slot older than the lease is reclaimable.</remarks>
+    public Task<int?> TryAcquireSlotAsync(int cap, string workerId, TimeSpan lease, CancellationToken ct = default)
+    {
+        if (cap <= 0) return Task.FromResult<int?>(null);
+        lock (_lock)
+        {
+            var staleBefore = _clock() - lease;
+            for (var index = 0; index < cap; index++)
+            {
+                if (_slots.TryGetValue(index, out var held) && held.At > staleBefore) continue;
+                _slots[index] = (workerId, _clock());
+                return Task.FromResult<int?>(index);
+            }
+            return Task.FromResult<int?>(null);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task HeartbeatSlotsAsync(string workerId, CancellationToken ct = default)
+    {
+        lock (_lock)
+        {
+            var now = _clock();
+            // Only rows this worker STILL holds: one already reclaimed belongs to its new owner, and
+            // refreshing it here would let a stalled worker steal its successor's slot back.
+            foreach (var index in _slots.Where(s => s.Value.Worker == workerId).Select(s => s.Key).ToList())
+                _slots[index] = (workerId, now);
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task ReleaseSlotAsync(int slotIndex, string workerId, CancellationToken ct = default)
+    {
+        lock (_lock)
+        {
+            // FENCED: a worker whose slot already expired and was retaken must not free its successor's.
+            if (_slots.TryGetValue(slotIndex, out var held) && held.Worker == workerId) _slots.Remove(slotIndex);
+        }
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<string>> ActiveLanesAsync(CancellationToken ct = default)
     {
         lock (_lock)

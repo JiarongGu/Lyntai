@@ -30,6 +30,7 @@ public sealed class CuratedMemoryEngine(
     /// <inheritdoc />
     public MemoryGrades Supported => MemoryGrades.Authoritative;
 
+
     /// <inheritdoc />
     public async Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
