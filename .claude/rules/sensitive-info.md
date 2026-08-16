@@ -3,7 +3,6 @@ name: sensitive-info
 applies_when: writing any tracked file or commit message, or rewriting history
 enforces: no machine paths, no private repo names, no credentials; a committed leak is a history problem
 ---
-<!-- daoris: core/core/rules/sensitive-info.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # Sensitive info — keep machine specifics and private names out of tracked files
 

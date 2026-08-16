@@ -2154,6 +2154,17 @@ worked before/after.
   <br>**The one that remains is contract, not fat**: `IMemoryGraphStore.SeedAsync` states SEVEN distinct
   guarantees a BYO store must honour, at 2–11 lines each. It stays a recorded, ratcheted allowance rather
   than being silenced with `comment-ok`, so it can never grow and the number stays visible.
+  <br>**`check-docs` now scans code COMMENTS too** — `src`, `tests` and `bench`, comment lines only. Its own
+  registry had described this hole and left it open: the compiler resolves `<see cref>` and nothing else, so
+  a retired CLAIM in a `<c>` tag or a `//` comment was gated by no one. Closing it found a test still
+  asserting there were two shipped curves after 3.0 deleted one of them. <!-- drift-ok: describes the false claim the new scan caught -->
+  <br>(That sentence needed a `drift-ok` of its own, which is the gate working: quoting a retired claim in
+  order to report it is exactly the case the escape exists for.)
+  <br>**The gate covers all four code tiers**, not `src/` alone — `tests/`, `devtools/` and `bench/` were
+  unscanned while holding longer individual blocks than anything left in `src/`. The header had argued that
+  scope was deliberate; measurement said it was half right, and widening it (a ratchet freezes, it does not
+  demand a paydown) immediately surfaced five more misplaced-doc defects, including a 53-line record doc
+  stranded above a different type so the record it described had none.
   <br>**Two corrections to the figures this entry carried when the gate landed, both found by re-measuring
   rather than by a gate.** The ledger recorded one number per FILE — its worst block — so the "19 files /
   614 lines" it reported was the sum of per-file worsts and not the debt: the tree actually held **28 blocks

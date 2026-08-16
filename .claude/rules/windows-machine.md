@@ -3,7 +3,6 @@ name: windows-machine
 applies_when: running any shell command, script, or file write on a Windows development machine
 enforces: never round-trip text through PowerShell 5; BOM and encoding traps; exit codes that lie; never kill a shared runtime by name
 ---
-<!-- daoris: windows-machine/packs/windows-machine/rules/windows-machine.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # Windows machine traps — the ones that pass silently
 

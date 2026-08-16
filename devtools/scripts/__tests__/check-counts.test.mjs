@@ -15,8 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  COUNTED_CLAIMS, checkCounts, countDecisions, countGuardTests, countLanguageArms, countLocalKnowledge,
-  countLocalSkills, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates,
+  COUNTED_CLAIMS, checkCounts, countDecisions, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates,
   parseCount,
 } from '../check-counts.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
@@ -163,22 +162,6 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.ok(seamOwners.has('Annotation') && seamOwners.has('Verification'),
       'the two model-in-the-loop domains must be counted — they defaulted to none and were missed for that reason');
     assert.ok(!seamOwners.has('Engines'), 'Engines holds engines, not a policy seam, and is not a domain');
-  });
-
-  it('local tiers count what the sync does NOT own, not what the directory holds', () => {
-    // Part 73's own worked example of a subtly-wrong counter, and it bit while writing this: the marker
-    // must be matched as a DECLARATION at line start, because a local file's own marker reads "not a daoris
-    // artifact" and a naive `includes('daoris')` therefore classifies every local file as canonical and
-    // returns ZERO. That first probe nearly produced a "fix" to a claim that was already correct.
-    const skills = fs.readdirSync(path.join(repo, '.claude', 'skills'), { withFileTypes: true })
-      .filter((e) => e.isDirectory()).length;
-    const knowledge = fs.readdirSync(path.join(repo, '.claude', 'knowledge'))
-      .filter((f) => f.endsWith('.md')).length;
-
-    assert.equal(countLocalSkills(repo), 5);
-    assert.equal(countLocalKnowledge(repo), 6);
-    assert.ok(countLocalSkills(repo) < skills, `the tier holds ${skills}; only the local ones count`);
-    assert.ok(countLocalKnowledge(repo) < knowledge, `the tier holds ${knowledge}; only the local ones count`);
   });
 
   it('the option-guard counter counts CALL SITES, and matches the files D78 names', () => {

@@ -186,6 +186,9 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
 
     public async Task<IReadOnlyList<JobRecord>> ListAsync(JobStatus? status = null, string? lane = null, int limit = 100, CancellationToken ct = default)
     {
+        // A non-positive limit asks for nothing, on every backend. Left unguarded the three disagreed: `.Take` gave empty, SQLite reads a negative LIMIT as NO
+        // limit and returned the whole table, and Postgres threw. Same guard the memory-graph reads carry.
+        if (limit <= 0) return [];
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<JobRow>(new CommandDefinition($"""
             SELECT {JobStoreSql.Cols} FROM lyntai_job

@@ -21,9 +21,10 @@ agent session, app-owned MCP servers, the long-term memory subsystem and the mul
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**Nothing here is startable in a session — every item needs something this repository does not have.** That
-is stated first rather than buried, because it is the answer to the question the file exists to answer. It
-became true again on 2026-08-16 when the last of Part 75 closed.
+**Two items ARE startable in a session; the rest need something this repository does not have.** That is
+stated first rather than buried, because it is the answer to the question the file exists to answer. The
+file was fully blocked from 2026-08-16 until the 2026-08-17 subsystem sweep (archive Part 85) found two
+pieces of real work needing no key, no vendor and no data — both recorded below under **Startable**.
 
 **A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
 blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
@@ -37,10 +38,37 @@ The four older parts are each blocked on something this repository does not have
 a CLI install, or a deployment's own data. That was briefly true of the WHOLE file (2026-08-15, when Parts
 70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**. Its items
 were all startable in a session, each found, verified and deliberately deferred with its reason recorded —
-and they have all now closed (archive Parts 76, 78, 79, 80 and 81) except two: one needing real aggregators
-to measure, and one waiting on a `daoris` run the owner deferred. **Nothing in this file is startable in a
-session any more** — every remaining item, old Part or new, needs a key, a model download, a CLI install, a
-vendor pick, a measurement budget, a deployment's own data, or a tool run outside this repository.
+and they have all now closed (archive Parts 76, 78–81 and 84) except one, which needs real aggregators to
+measure. **Nothing in this file is startable in a session any more** — every remaining item, old Part or
+new, needs a key, a model download, a CLI install, a vendor pick, a measurement budget, or a deployment's
+own data.
+
+## Startable — found by the 2026-08-17 subsystem sweep
+
+- [ ] **The five generation backends have no shared contract test.** `GenerationContractTests` pins the
+  RECORD defaults (`GenerationRequest`, `GenerationInput`, `GenerationResult`); everything about BACKEND
+  behaviour is per-backend files. That is the shape `pitfalls.md` §"Second doors" names as the defect, and
+  `VectorStoreContract` / `MemoryGraphStoreContract` / `JobStoreContract` are the fix already in the tree.
+  <br>One divergence is known and was the trigger: `ComfyUiProvider.FetchCoreAsync` hardcodes
+  `GenerationVerdict.Failed` for every failed history read, while `FalQueueProvider.FetchCoreAsync` routes
+  the same class of failure through `GenerationVerdictClassifier.FromErrorText` — so ComfyUI behind an
+  authenticating proxy reports `Failed` where fal reports `AuthFailed`. **Consequence is bounded today**
+  (fetch verdicts never reach the router), which is why this is a contract-coverage task and not a bug fix.
+  <br>Two more findings from the same sweep were duplicated-reader defects the contract would have caught
+  (an extension→MIME table that had lost `.gif`/`.flac` on one side, and a scalar-id reader that accepted a
+  JSON number on one side only) — both fixed 2026-08-17, both invisible to every per-backend test.
+
+- [ ] **`generate_backends` probes serially with no aggregate deadline.** `GenerationTools` awaits
+  `ProbeAsync` on every registered provider in sequence, with no overall bound and no `try`. Each probe is
+  capped only by that backend's own `Timeout`, and the same option governs a render — `Automatic1111Options`
+  and `OpenAiImageOptions` both default to **10 minutes**. Two HTTP backends that accept a connection and
+  stall make the tool an agent is told to call FIRST block for ~20 minutes. Each backend discloses its own
+  timeout; the COMPOSITION discloses nothing.
+  <br>Needs a design call rather than a patch: where the aggregate deadline belongs (a tool-level bound, a
+  per-probe cap, or parallel probes with a cancellation budget), and whether a probe that throws should
+  fail the whole listing — `GenerationRouter.AttemptAsync` explicitly names itself the trust boundary for a
+  BYO backend that throws instead of returning a verdict, and this second reader of the same provider
+  collection applies none of it.
 
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
@@ -351,26 +379,6 @@ startable" no longer holds and has been amended._
   aggregators would let the code lead, which is strictly better than text matching — but reading it
   unmeasured is the documented-not-measured trap GEN-VERIFY exists to correct.
 
-- [ ] **`.claude/rules/RULES_INDEX.md` is stale and needs a `daoris` run.** Seven rows read
-  `⚠ needs frontmatter` for files that have it, and `input-is-thinking-not-doctrine.md` appears in no row at
-  all (its key was `guides:` where every sibling uses `enforces:` — corrected 2026-08-15, so a regeneration
-  will now pick it up). This is not cosmetic: `doc-loader` and `skills-workflow` both route off that table's
-  *applies when* column, so **every local knowledge document is currently unroutable by the documented
-  workflow** — including `pitfalls.md`, which `CLAUDE.md` bolds as "read before extending". The index is
-  generated and its header forbids hand-editing, so this needs the tool rather than a patch.
-  **Re-checked 2026-08-16: every SOURCE file behind those rows is correct** — `name` / `applies_when` /
-  `enforces` all present and well-formed, in the two rules (`repo-mechanics`, `TEMPLATE`) and in each local
-  knowledge document the stale rows name, plus `input-is-thinking-not-doctrine` itself. So the
-  staleness is entirely in the generated table, and the fix is a regeneration and nothing else; do not go
-  looking for missing frontmatter to add. Deferred deliberately (owner's call, 2026-08-16) — it degrades
-  session routing only, and no shipped surface depends on it.
-  <br>**The cost grew on 2026-08-16 (archive Part 82).** `.claude/rules/code-commentary.md` is a NEW local
-  rule and is in no row at all, so it is unroutable by `doc-loader` and `skills-workflow` until the tool
-  runs — and unlike the stale rows, which name documents a session may already know, this one is a
-  convention nothing else states. Its summary is duplicated into `CLAUDE.md` §Rules precisely so the
-  deferral costs less; that duplication is the workaround, not the fix, and should come back out once the
-  index is regenerated.
-
 ## How to work a task (evergreen)
 
 - **TDD, every task:** failing test → run it fail → minimal impl → run it pass → commit. Read
@@ -388,11 +396,3 @@ startable" no longer holds and has been amended._
   message.
 - **When a task completes, archive it** (`.claude/rules/task-lifecycle.md`): move its entry (with the
   completion date + a one-line **Outcome**) into `docs/task-archive.md`, and delete it from here.
-
-## Quests from other repositories
-
-_Posted by other repositories in this family, which do not edit this one. Take one with
-`daoris quest take <id>`, finish it with `done`, or turn it down with `decline` — declining is a
-real answer, and the reason is what the asker can actually act on._
-
-_None open._

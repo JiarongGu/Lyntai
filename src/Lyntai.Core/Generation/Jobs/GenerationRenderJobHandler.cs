@@ -119,12 +119,29 @@ public sealed class GenerationRenderJobHandler(
             case GenerationOperationStatus.Running:
                 var done = operation.Progress is { } fraction ? (int)Math.Round(fraction * 100) : 0;
                 await ctx.ReportProgressAsync(done, 100, "running", ct).ConfigureAwait(false);
-                // re-checkpoint the same value to RENEW THE LEASE across a long render
-                await ctx.SaveCheckpointAsync(checkpoint.ToJson(), ct).ConfigureAwait(false);
+                // Re-checkpoint the same value to RENEW THE LEASE across a long render — and HONOUR the
+                // answer. `IJobStore` states the rule as a must: a false means this worker lost the lease,
+                // so the caller must abandon. The submit arm above already stops on it; this arm discarded
+                // it, so a worker that stalled past the lease kept polling a render another worker had
+                // already reclaimed.
+                if (!await ctx.SaveCheckpointAsync(checkpoint.ToJson(), ct).ConfigureAwait(false))
+                    return JobOutcome.Fail(
+                        $"lease lost while polling operation {checkpoint.OperationId} — stopping so the "
+                        + "worker that reclaimed it is the only one still running it");
                 // the backend says the render is progressing normally, so this is a Poll — see JobOutcome.Poll
                 return JobOutcome.Poll(_options.EffectivePollDelay);
 
             case GenerationOperationStatus.Succeeded:
+                // Revalidate the lease BEFORE fetching, because everything past this point has side
+                // effects the job store cannot fence: the fetch RECORDS SPEND and the sink RECEIVES the
+                // artifacts. `CompleteAsync` is fenced, so a zombie worker's outcome is discarded — but
+                // only after those landed. Double delivery is explicitly allowed (a sink must be safe to
+                // call twice) and a double spend record over-counts, so a cap fires early rather than
+                // late; neither is a disaster, and neither is free.
+                if (!await ctx.SaveCheckpointAsync(checkpoint.ToJson(), ct).ConfigureAwait(false))
+                    return JobOutcome.Fail(
+                        $"lease lost before fetching operation {checkpoint.OperationId} — stopping so the "
+                        + "render is not fetched, billed and delivered twice");
                 var result = await backend.FetchAsync(checkpoint.OperationId, ct).ConfigureAwait(false);
                 if (!result.IsOk)
                     return JobOutcome.Fail(

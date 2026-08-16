@@ -113,6 +113,40 @@ public class McpToolHostTests
         Assert.Contains("read_secret", line, StringComparison.Ordinal);   // WHICH tool, or the line is unactionable
     }
 
+    [Fact]
+    public async Task A_THROWING_tool_becomes_an_error_observation_on_this_door_too()
+    {
+        // `ITool.InvokeAsync` promises every implementer: "Throwing is tolerated — the loop turns a thrown
+        // message into an error observation so the model can recover". That is a promise about the TOOL
+        // seam, not about one caller, and this endpoint executes the same ITool instances the in-process
+        // loop does. Left bare, a BYO tool throwing HttpRequestException or KeyNotFoundException escaped
+        // Lyntai entirely: whatever the model saw was the MCP SDK's choice, with no Lyntai log and no
+        // `error:` prefix that ToolObservations.IsError recognises. Same second-door argument this class's
+        // own remarks already make for guards.
+        var logs = new List<string>();
+        ITool boom = new FunctionTool("boom",
+            (_, _) => throw new KeyNotFoundException("no such record"), "throws",
+            """{"type":"object","properties":{}}""");
+
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync(
+            [boom], token, logger: new CapturingLogger(logs));
+
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
+        await using var client = await McpClient.CreateAsync(transport);
+        var tool = Assert.Single(await McpToolset.FromClientAsync(client));
+
+        var result = (await tool.InvokeAsync("""{}""")).ToString() ?? string.Empty;
+
+        Assert.Contains("error:", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no such record", result, StringComparison.Ordinal);
+        Assert.Contains(logs, l => l.Contains("boom", StringComparison.Ordinal));
+    }
+
     private sealed class CapturingLogger(List<string> sink) : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;

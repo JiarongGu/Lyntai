@@ -18,17 +18,17 @@ public class ModulatedRetrievabilityTests
     }
 
     /// <summary>A minimal, purpose-built curve for isolating <see cref="ModulatedRetrievability"/>'s own
-    /// behaviour from any shipped curve's arithmetic. <c>HalfLifeRetrievability</c> is deleted (2026-08-10,
-    /// fsrs-properly plan Task 1); substituting <see cref="DsrRetrievability"/> here would trade the clean,
+    /// behaviour from any shipped curve's arithmetic. <c>HalfLifeRetrievability</c> is deleted; <!-- drift-ok: names the deleted curve deliberately -->
+    /// substituting <see cref="DsrRetrievability"/> here would trade the clean,
     /// hand-checkable expected values below (<c>0.25</c>, <c>0.5</c>, <c>Math.Pow(2, -0.5)</c>, …) for a
     /// power-law formula with no equally simple closed form — exactly the "copy of the deleted curve" the
     /// task brief warns against, wearing a different excuse. This keeps only the plain
-    /// <c>r = 2^(-age/effectiveStability)</c> exponential shape both shipped curves' own connection-boost
-    /// math already assumed, with no reinforcement growth and no unmeasured tuning constants — the minimum
+    /// <c>r = 2^(-age/effectiveStability)</c> exponential shape the shipped curve's own connection-boost
+    /// math already assumes, with no reinforcement growth and no unmeasured tuning constants — the minimum
     /// surface <see cref="IMemoryRetrievabilityPolicy"/> demands, nothing more. Every fact below leaves
     /// <see cref="MemoryDecayState.Strength"/> at its default (0), so the boost/decay arithmetic is never
     /// actually exercised through this type; <c>CandidateCutoff_is_never_narrower_than_the_modulated_curve_requires</c>
-    /// below is the one exception, so the boost ceiling here matches both shipped curves' own default
+    /// below is the one exception, so the boost ceiling here matches the shipped curve's own default
     /// (<c>MaxConnectionBoost = 4</c>) rather than being invented independently.</summary>
     private sealed class SimpleExponentialRetrievability : IMemoryRetrievabilityPolicy
     {

@@ -1064,6 +1064,14 @@ and rules out a better formula as the fix: every constant this subsystem tuned m
 so a buried answer is promoted rather than merely observed. Advisory by contract, and `VerificationDepth`
 bounds what a judgement costs.
 
+**The depth default is the measured SATURATION point, not a round number** — recorded here 2026-08-17
+because it had lived only in that property's own remarks, where the rule says a measurement must not. With a
+perfect-oracle judge over a full corpus replay at limit 10: depth 10 (observe-only) recovered `-0.0857` of
+the miss rate, depth 20 `-0.2214`, depth 40 `-0.2500` — and 80, 160 and 5000 all returned exactly what 40
+did. Four times the limit is where rescuing stops paying, which is what `DefaultVerificationDepthFactor`
+encodes. The shape matters more than the constant: rescue depth has a knee, so raising it past the knee buys
+nothing while costing per-recall tokens linearly.
+
 **A hosted judge cut the miss rate by 65% relative** (`0.5357 → 0.1857`), past the ground-truth reference.
 **But ranking judges on miss alone is wrong** — the second metric is pollution, and on it a small local
 model (`gemma3:4b`) beat the ground-truth judge reproducibly on BOTH, at a third the pollution. Which model

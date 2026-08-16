@@ -3,7 +3,6 @@ name: no-global-memory
 applies_when: about to save a project fact to the assistant's global or cross-project memory
 enforces: project facts live in the repository, versioned and reviewable; global memory is user preferences only
 ---
-<!-- daoris: core/core/rules/no-global-memory.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # No global memory for project facts — they belong in the repository
 

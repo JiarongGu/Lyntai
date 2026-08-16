@@ -47,7 +47,13 @@ internal sealed class ToolFunction(
     /// instances: a guard enforced on one door and not the other is not enforced at all.
     /// <para>A Block cannot abort the CLI's own agent loop the way it aborts this library's, so it is
     /// reported to the model as a refusal observation — the tool does not run and its payload is never
-    /// produced, which is the enforcement actually available from this side.</para></summary>
+    /// produced, which is the enforcement actually available from this side.</para>
+    /// <para><b>What this door does NOT share with the loop: the OTel span and the
+    /// <c>lyntai.tool.invocations</c> counter.</b> Both are <c>internal</c> to <c>Lyntai.Core</c>, so
+    /// emitting them here would mean opening a public diagnostics seam on a frozen surface. The counter's own
+    /// description says "by the tool loop" and is therefore accurate rather than misleading — but a
+    /// deployment whose tools are driven ONLY by a CLI agent over MCP records zero on it, which is worth
+    /// knowing before reading that number as "tool executions".</para></summary>
     protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
         var argsJson = SerializeArgs(arguments);
@@ -69,7 +75,27 @@ internal sealed class ToolFunction(
             if (pre.Result == Lyntai.Guards.GuardOutcome.Kind.Replace) argsJson = pre.Replacement!;
         }
 
-        var observation = await tool.InvokeAsync(argsJson, cancellationToken).ConfigureAwait(false);
+        // A THROWING tool becomes an error observation here too. `ITool.InvokeAsync` promises every
+        // implementer that "throwing is tolerated — the loop turns a thrown message into an error
+        // observation so the model can recover", and that is a promise about the SEAM, not about one caller.
+        // Left bare, the throw escaped Lyntai and the model got the MCP SDK's generic "An error occurred
+        // invoking 'x'" — no tool message to recover from, no Lyntai log, and no `error:` prefix that
+        // `ToolObservations.IsError` recognises. Same second-door argument the remarks above make for guards.
+        string observation;
+        try
+        {
+            observation = await tool.InvokeAsync(argsJson, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;   // a caller-initiated cancel is not a tool error, exactly as ToolLoop treats it
+        }
+        catch (Exception ex)
+        {
+            Microsoft.Extensions.Logging.LoggerExtensions.LogWarning(
+                _logger, ex, "mcp-host: tool {Tool} threw", tool.Name);
+            return $"error: {ex.Message}";
+        }
 
         if (guards is not null)
         {

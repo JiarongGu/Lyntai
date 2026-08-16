@@ -714,6 +714,18 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Second doors
 
+- **Inserting a member ABOVE an existing one strands that one's doc onto your new member.** Measured FOUR
+  times on 2026-08-16/17, by the same hand, in one session — adding a private helper before its neighbour
+  left the neighbour's `<summary>` (or, twice, only its `<param>` tags) attached to the newcomer, so the
+  newcomer carried two docs and the member below carried none or half. It is a JSDoc problem too: the same
+  edit in `check-counts.mjs` separated `countGuardTests`' block from its function.
+  <br>**The insertion anchor is a declaration; the thing above it is somebody else's doc.** So the check is
+  not "did I write my doc correctly" but **"what was already sitting above the line I anchored to?"** Anchor
+  below the neighbour's doc, or move the doc with the declaration.
+  <br>Every one of the four was caught by `check-comments`' stacked-`<summary>` rule and none by the compiler
+  — duplicate `<summary>` is not a warning, the XML stays well-formed, and it SHIPS. The two `<param>`-only
+  cases did warn (CS1571 duplicate param tag), which is why they were found in seconds and the summary cases
+  were not found for a release.
 - **An invariant DOCUMENTED in one implementation is not a contract, and the backend that wrote it down is
   usually the only one that keeps it.** Measured 2026-08-16, three times in one pass, all in storage:
   `InMemoryVectorStore` carried a top-k tiebreak and a doc calling it *"load-bearing, not tidiness"* while
@@ -838,9 +850,13 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   the baseline, and renaming one after a freeze costs a major), and **a deferral whose justification depends
   on a window staying open needs re-checking when that window closes** — by then it reads as a settled
   choice rather than a deferral, and nobody re-opens it.
-  It also escaped every gate by construction: `check-docs` deliberately excludes `src/`, and the
+  It also escaped every gate by construction: `check-docs` excluded `src/` entirely at the time, and the
   API-surface baseline **records parameter names without judging them**, so a stale name round-trips
   through the one gate that exists to notice API changes. A human review caught all three.
+  <br>Half of that has since been closed — `check-docs` scans code COMMENTS in `src`, `tests` and `bench`
+  as of 2026-08-17 — but only half, and the halves are different in kind: a comment is PROSE and a parameter
+  name is SURFACE, which is why `check-api-vocabulary` is a separate gate with a separate registry rather
+  than a wider glob on this one.
 
 - **A doc comment asserting "this is NOT duplication waiting to be extracted" is unfalsifiable, and it is
   the one claim nobody re-reads.** Measured 2026-08-16 (`docs/DECISIONS.md` **D77**).

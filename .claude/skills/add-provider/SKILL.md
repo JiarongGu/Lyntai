@@ -2,7 +2,6 @@
 name: add-provider
 description: Use when adding a new LLM provider to Lyntai (a new backend/model source behind ILlmProvider, or bridging an existing Microsoft.Extensions.AI IChatClient). Covers the correct pattern, the verdict/streaming/timeout invariants, and stub-based tests.
 ---
-<!-- local: never synced; not a daoris artifact -->
 
 # Add an LLM provider to Lyntai
 

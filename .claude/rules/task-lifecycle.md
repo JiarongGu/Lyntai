@@ -3,7 +3,6 @@ name: task-lifecycle
 applies_when: adding or finishing a task, or editing the backlog
 enforces: the backlog holds OPEN work only; a finished task MOVES to the archive; three records, three jobs
 ---
-<!-- daoris: core/core/rules/task-lifecycle.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # Task lifecycle — the backlog is open work; finished work moves to the archive
 

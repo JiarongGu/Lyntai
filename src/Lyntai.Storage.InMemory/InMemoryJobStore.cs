@@ -288,6 +288,9 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
 
     public Task<IReadOnlyList<JobRecord>> ListAsync(JobStatus? status = null, string? lane = null, int limit = 100, CancellationToken ct = default)
     {
+        // A non-positive limit asks for nothing, on every backend. Left unguarded the three disagreed: `.Take` gave empty, SQLite reads a negative LIMIT as NO
+        // limit and returned the whole table, and Postgres threw. Same guard the memory-graph reads carry.
+        if (limit <= 0) return Task.FromResult<IReadOnlyList<JobRecord>>([]);
         lock (_lock)
         {
             IReadOnlyList<JobRecord> result =

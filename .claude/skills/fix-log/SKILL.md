@@ -2,7 +2,6 @@
 name: fix-log
 description: After landing a non-trivial bug or regression fix, record its root cause, fix, and verification in the repository's fix log. Also use to review past fixes or trace when a behaviour regressed. Use as part of "done", before moving on — not later.
 ---
-<!-- daoris: core/core/skills/fix-log/SKILL.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # fix-log
 

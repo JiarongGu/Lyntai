@@ -3,7 +3,6 @@ name: input-is-thinking-not-doctrine
 applies_when: recording something the owner said into a spec, a decision record, a schema, or a commit
 enforces: default to recording it as an open working position with its reversal cost, rather than as a settled rule
 ---
-<!-- local: never synced; not a daoris artifact -->
 
 # The owner's input is usually thinking, not doctrine
 
@@ -48,5 +47,5 @@ recorded a real one.
 - `.claude/rules/persist-working-state.md` — checkpoint it when it happens; this note is about the *status*
   it gets checkpointed with.
 - `.claude/rules/no-global-memory.md` — why this lives in the repository at all.
-- `.claude/rules/repo-mechanics.md` § the sync warning — local, no `daoris.lock` entry, same deletion
+- `.claude/rules/repo-mechanics.md` — this repository's own bindings, and the same deletion
   exposure as every other local document.

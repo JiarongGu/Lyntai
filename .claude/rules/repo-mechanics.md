@@ -1,30 +1,18 @@
 ---
 name: repo-mechanics
-applies_when: applying a canonical rule in this repository — package names, version authorship, the dev loop, guard scripts, or scratch paths
+applies_when: applying a general rule in this repository — package names, version authorship, the dev loop, guard scripts, or scratch paths
 enforces: contract in Lyntai.Core with adapters, never adapter-to-adapter; zero Dto identifiers; never hand-edit VersionPrefix or the Unreleased heading; scratch under devtools/_*
 ---
-<!-- local: never synced; not a daoris artifact -->
 
-# Repo mechanics — this repository's concrete bindings for the canonical rules
+# Repo mechanics — this repository's concrete bindings for the general rules
 
-**Local rule.** The canonical rules installed by `daoris` state the principles; this file states how they
-are *enforced here* — the commands, paths, and version policy specific to this repository. When a
-canonical rule and this file appear to disagree, the canonical rule states the intent and this file states
-the mechanism.
+**The general rules state the principle; this file states how it is enforced HERE** — the commands, paths,
+and version policy specific to this repository. When a general rule and this file appear to disagree, the
+general rule states the intent and this file states the mechanism.
 
-> **"Local" is not protection from a sync — measured 2026-08-05.** A `daoris` run **deleted**
-> `dev-conventions.md`, which was in no lock entry and had no provenance header, exactly like this file.
-> Most of it had been migrated first, but **three rules were lost outright** and survived only because a
-> review went looking. Nothing failed and no link dangled: a lost rule is invisible until someone repeats
-> the mistake it prevented. **After any sync, diff the deleted and modified files across
-> `.claude/rules/`, `.claude/knowledge/` AND `.claude/skills/` before committing** and check every rule,
-> knowledge document and skill still has a home. The five local skills (`add-migration`, `add-provider`,
-> `add-scorer`, `add-storage-backend`, `archive-task`) and the six local knowledge documents
-> (`extending-lyntai`, `generic-library`, `input-is-thinking-not-doctrine`, `llm-and-router`, `pitfalls`,
-> `storage`) carry no provenance header and no `daoris.lock` entry — the same exposure as this file
-> (measured for the rules tier; inferred for the other two). **`code-commentary.md` joined that list on
-> 2026-08-16** and is the only local rule besides this one that states a convention rather than a mechanism,
-> so losing it loses the convention itself rather than a pointer to one.
+> **Every file under `.claude/` is this repository's own.** There is no sync, no upstream and no
+> provenance tier: a rule, a knowledge document or a skill lives here because someone wrote it here, and
+> editing one is an ordinary change reviewed like any other.
 
 ## Sensitive info — the guard that enforces it
 
@@ -130,7 +118,7 @@ consumer, and never frees the number.
 
 ## Fix log — where it lives here
 
-The canonical `fix-log` skill routes to "the repository's fix log"; here that is **`docs/FIXES.md`**,
+The `fix-log` skill routes to "the repository's fix log"; here that is **`docs/FIXES.md`**,
 newest entry first under a dated heading. It does not exist until the first fix is recorded — create it
 with that entry rather than leaving an empty file. Three homes, three jobs, so nothing has to be guessed:
 
@@ -140,19 +128,19 @@ with that entry rather than leaving an empty file. Three homes, three jobs, so n
 - `docs/FIXES.md` — the per-incident record: symptom, root cause, fix, verification, and the commit that
   introduced the bug.
 
-Do not edit `.claude/skills/fix-log/SKILL.md` to say this — it is canonical and synced, so a local edit
-is overwritten on the next `daoris` run. The binding belongs here.
+Keep this binding here rather than in `.claude/skills/fix-log/SKILL.md`: the skill states the
+procedure, and which file it writes to is this repository's concern.
 
-## Package layout — the binding for the canonical rule
+## Package layout — the binding for the general rule
 
-Canonical `dotnet-package-layout` states the boundaries; here they resolve to concrete names.
+`dotnet-package-layout` states the boundaries; here they resolve to concrete names.
 
 - **Contract in `Lyntai.Core`, implementation in an adapter** (`Lyntai.Storage.Sqlite`,
   `Lyntai.Providers.Default`, `Lyntai.Providers.ExtensionsAi`, `Lyntai.Providers.Local`, …) that
   project-references Core only — or one domain package, such as `Lyntai.Generation` — and **never
   adapter→adapter**. Backends needing nothing extra share `Lyntai.Providers.Default`; one earns its own
   package the moment it drags a native runtime, a platform-specific API, or a dependency a consumer might
-  refuse (the footprint test itself is canonical `dotnet-package-layout` §Package boundaries).
+  refuse (the footprint test itself is `dotnet-package-layout` §Package boundaries).
   "Most consumers want X" makes it a member of the `Lyntai` metapackage, never a Core dependency.
   See `docs/DECISIONS.md` D25 (the split), D26 (the bundle budget), D27 (many small packages).
 - **Every `src/*` is packable** (`IsPackable=true`, `PackageId`, description); `samples/` and `tests/`
@@ -165,12 +153,12 @@ Canonical `dotnet-package-layout` states the boundaries; here they resolve to co
   `IScoringService` iterates `IEnumerable<IScorer>` — adding one is a class plus a registration, never a
   `switch` edit.
 
-## Naming — the binding for the canonical rule
+## Naming — the binding for the general rule
 
-Canonical `dotnet-package-layout` says never to name a type for the layer it crosses. Here that has a
+`dotnet-package-layout` says never to name a type for the layer it crosses. Here that has a
 measurable invariant: **the tree contains zero `Dto` identifiers, and that is worth keeping.** Reach for
 the established suffixes — `*Options`, `*Request`/`*Reply`, `*Result`, `*Entry`/`*Record`, `*Row`,
-`*Event`, `*Args`, `*Policy` (the full suffix vocabulary with glosses is canonical
+`*Event`, `*Args`, `*Policy` (the full suffix vocabulary with glosses is in
 `dotnet-package-layout` §Naming).
 
 Do not write "DTO" in prose about these types either — docs and XML comments seed the name back in on
@@ -209,7 +197,7 @@ the next change. Say "the row type", "the request record", "the wire type". Entr
 - **This machine's console is GBK.** Write files with the file-writing tools — in a script,
   `fs.writeFileSync` or an explicit `-Encoding utf8`, which on PowerShell 5 adds a BOM, so write BOM-less
   UTF-8 deliberately wherever the reader is BOM-sensitive. Never build file content by echoing it through
-  the console, which lossily mangles CJK and em-dashes. See `.claude/knowledge/pitfalls.md` and canonical
+  the console, which lossily mangles CJK and em-dashes. See `.claude/knowledge/pitfalls.md` and
   `windows-machine.md` §Text and encoding.
 
 ## Assistant memory
@@ -217,4 +205,4 @@ the next change. Say "the row type", "the request record", "the wire type". Entr
 - The 2026-07-22 migration moved the old global memories into `docs/DECISIONS.md` D5–D12 and the
   `.claude/` rules and knowledge. Global memory is kept empty of project facts.
 - The library's **own** memory subsystem (`IMemoryStore` / `ICuratedMemoryStore` / `ISemanticMemory`) is a
-  separate thing entirely — the canonical rule is about the assistant's memory, not the product's.
+  separate thing entirely — `no-global-memory.md` is about the assistant's memory, not the product's.

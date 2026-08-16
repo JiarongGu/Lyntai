@@ -5,7 +5,9 @@
 // PERMISSIVE direction (TASKS.md Part 60). Each was mutation-checked: revert that specific fix in
 // check-docs.mjs and that test fails. They are not coverage theatre — they are the reason this file exists.
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { HISTORICAL, IN_SCOPE, IS_SCANNED, checkDocs, liveLineCount, trackedFiles } from '../check-docs.mjs';
 import { git, makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
@@ -17,6 +19,9 @@ const claimRule = {
   why: 'the default changed 2026-08-11',
 };
 const config = { retiredTerms: [claimRule] };
+
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const realConfig = (await import('../../project.config.mjs')).default;
 
 /** Run the gate over a fixture tree with an INJECTED file list (no git fixture needed for the scan itself). */
 function run(files, { rules = config } = {}) {
@@ -181,6 +186,57 @@ describe('check-docs — CHANGELOG.md is historical only BELOW its first release
     assert.equal(liveLineCount('CHANGELOG.md', lines), 6, 'the boundary heading itself is not live');
     assert.equal(liveLineCount('CHANGELOG.md', ['# Changelog', '## Unreleased']), 2, 'nothing released yet');
     assert.equal(liveLineCount('docs/design.md', lines), Infinity, 'an ordinary document is live throughout');
+  });
+});
+
+describe('check-docs — the CODE tiers, comment lines only', () => {
+  it('catches a retired claim in an XML doc comment, which nothing gated before', () => {
+    // The measured hole: the compiler resolves `<see cref>` and NOTHING else, so a claim in a `<c>` tag or a
+    // `//` comment was checked by no gate at all. `check-api-vocabulary` covers retired IDENTIFIERS on the
+    // frozen surface; a retired CLAIM had no owner.
+    const { code, out } = run({ 'src/A.cs': '/// <summary>RRF is available but not the default.</summary>\nclass A;\n' });
+    assert.equal(code, 1, out);
+    assert.match(out, /src\/A\.cs:1/);
+  });
+
+  it('IGNORES the same words in a string literal — data the program uses, not a claim', () => {
+    // The narrowing `check-links` already applies to its own code scan. A prompt, a SQL fragment or a test
+    // fixture may legitimately contain any phrase; only a comment asserts something to a reader.
+    const { code, out } = run({ 'src/A.cs': 'const string S = "available but not the default";\nclass A;\n' });
+    assert.equal(code, 0, out);
+  });
+
+  it('blanks non-comment lines rather than dropping them, so line numbers stay true', () => {
+    const text = 'class A;\n\n\n/// RRF is available but not the default\nclass B;\n';
+    const { code, out } = run({ 'src/A.cs': text });
+    assert.equal(code, 1);
+    assert.match(out, /src\/A\.cs:4/, 'the hit must report its REAL line, not its index among comments');
+  });
+
+  it('honours drift-ok on a comment line, the same escape prose uses', () => {
+    const line = '/// available but not the default — drift-ok: names the retired default deliberately\nclass A;\n';
+    assert.equal(run({ 'src/A.cs': line }).code, 0);
+  });
+
+  it('does NOT scan devtools/, because the registry that defines the terms lives there', () => {
+    // Structural, not a judgement call: a registry necessarily quotes every term it bans, and scanning it
+    // yields only the rules themselves (15 hits, measured). `check-encoding` met the identical problem and
+    // solved it by construction — patterns stored as code points — which prose patterns cannot do.
+    assert.equal(run({ 'devtools/project.config.mjs': '// available but not the default\n' }).code, 0);
+    assert.equal(run({ 'devtools/scripts/x.mjs': '// available but not the default\n' }).code, 0);
+  });
+
+  it('scans tests/ and bench/, not just src/ — the tiers a review would forget', () => {
+    assert.equal(run({ 'tests/T.cs': '// available but not the default\nclass T;\n' }).code, 1);
+    assert.equal(run({ 'bench/B.cs': '// available but not the default\nclass B;\n' }).code, 1);
+  });
+
+  it('the real tree is clean under the widened scope', () => {
+    // Pinned against the tree rather than a fixture: closing this hole cost four annotations once, and a
+    // regression would be a stale CLAIM shipping in a doc comment — the exact defect it was opened for.
+    const log = recorder();
+    assert.equal(checkDocs(repo, realConfig, log), 0, log.text());
+    assert.match(log.text(), /\d{3,} doc\(s\) clean/, 'the widened scan must reach the hundreds, not 45');
   });
 });
 

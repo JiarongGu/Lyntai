@@ -6,7 +6,7 @@ enforces: ship the general need, never the consumer's shape; neutral need in Cor
 
 # Generic-library discipline — generalize the consumer request, never ship its shape
 
-The PRINCIPLE is canonical `.claude/knowledge/library-api-design.md`; this document is how it is satisfied
+The PRINCIPLE is `.claude/knowledge/library-api-design.md`; this document is how it is satisfied
 here — the same rule with Lyntai's own types, red flags and worked consumer asks.
 
 **Lyntai is a reusable, publishable library. Every change must be an app-agnostic improvement behind the

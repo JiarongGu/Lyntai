@@ -552,4 +552,36 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         var clock = new MutableClock();
         await body(new PostgresJobStore(pg.Factory, clock.Get), clock, Uid());
     }
+
+    [SkippableFact] public Task Job_slots_cap_and_reuse() =>
+        SlotPg(JobStoreContract.Slots_are_handed_out_up_to_the_cap_and_reused_after_release);
+    [SkippableFact] public Task Job_slot_lease_reclaim() =>
+        SlotPg(JobStoreContract.A_slot_past_its_lease_is_reclaimed_and_a_heartbeat_prevents_it);
+    [SkippableFact] public Task Job_slot_release_fenced() =>
+        SlotPg(JobStoreContract.Releasing_a_slot_is_fenced_by_worker_id);
+    [SkippableFact] public Task Job_slot_cap_non_positive() =>
+        SlotPg(JobStoreContract.A_non_positive_cap_hands_out_no_slot);
+
+    /// <summary>The list-limit guard on the real Postgres, where an unguarded negative LIMIT THROWS —
+    /// a different wrong answer from SQLite's (the whole table) and the in-process store's (empty).
+    /// Self-isolating by lane, so it needs no table clear.</summary>
+    [SkippableFact] public Task Job_list_limit_non_positive() =>
+        JobPg((store, clock, _) => JobStoreContract.A_non_positive_list_limit_returns_nothing(store, clock));
+
+    /// <summary>Runner for a SLOT contract fact, which cannot use <see cref="JobPg"/>'s unique-lane trick:
+    /// slot state is TABLE-WIDE by design — a cross-process cap that a lane could partition would not be
+    /// one — so the table is cleared first instead. Safe because every Postgres suite shares the
+    /// <c>postgres</c> collection and therefore runs serially.
+    /// <para>These four ran on the in-process store ONLY until 2026-08-17, which is the backend where a
+    /// cross-PROCESS cap is meaningless by definition. Both SQL statements behind them — including the
+    /// <c>ON CONFLICT (slot_index)</c> that actually enforces the cap — had never executed in the
+    /// suite.</para></summary>
+    private async Task SlotPg(Func<IJobStore, MutableClock, Task> body)
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        using (var conn = pg.Factory.Open())
+            await Dapper.SqlMapper.ExecuteAsync(conn, "DELETE FROM lyntai_job_slot");
+        var clock = new MutableClock();
+        await body(new PostgresJobStore(pg.Factory, clock.Get), clock);
+    }
 }

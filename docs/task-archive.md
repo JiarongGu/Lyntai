@@ -5786,5 +5786,124 @@ having done the work rather than from measuring what was left, and the same sent
 the ledger. Both survived every gate. What caught them was pointing an adversary at the conclusion and
 requiring per-file evidence — and the fix in each case was a gate, not a resolution.
 
-Seven commits. `verify` 15/15; suite 3037 passed / 3058 with 21 skipped, which is the count that says Docker
+**The gate's scope was the last thing checked, and it was wrong too.** `check-comments` scanned `src/` only,
+and its header argued that was deliberate — the ratio problem is `src/`-specific by ~3x, and a test
+explaining its fixture at length is doing its job. Sampling said half right: the worst block in `tests/`
+carries a real constraint AND a dated heading AND a narration of an earlier version's mistakes. Widening it
+cost nothing (a ratchet freezes rather than demanding a paydown, which is how `src/` itself started) and
+immediately surfaced **five more misplaced-doc defects** — including `CorpusShape`'s entire 53-line doc
+stranded above a different type, so the enum carried two docs and the record had none. That block was the
+"88-line worst block in tests" the scope argument had been built on: never fat, misplaced, and the old gate
+measured it as one long comment on the wrong member. **Eight stacked-summary defects total across the
+session**, none of which any compiler, gate or review had ever reported.
+
+**And the last gate in the prose family got the same treatment.** `check-docs` had excluded `src/` for its
+whole life, and its own registry header stated the cost exactly: the compiler resolves `<see cref>` and
+nothing else, so a retired CLAIM in a `<c>` tag or a `//` comment was checked by no one — which is how a
+paragraph describing an already-rejected implementation shipped. It now scans code COMMENTS across `src`,
+`tests` and `bench` (string literals excluded — that is data, not a claim; `devtools/` excluded structurally,
+because the registry that defines the terms necessarily quotes them). Cost: four sites, two of them a live
+false claim asserting "both shipped curves" in a test whose own summary says one was deleted. Scope 45
+documents → 699 files.
+
+**No commit count is quoted here on purpose.** This entry has already had one corrected, and the archive is
+not a commit log; a number that goes stale on the next commit teaches a reader to stop comparing, which is
+the failure this whole session was about.
+
+`verify` 15/15, plus `consumer-smoke` (12 packages restore, build and run for a fresh consumer against the
+shipped surface — the only check that exercises what actually ships). Suite 3037 passed / 3058 with 21
+skipped, which is the count that says Docker
 was up and the whole Postgres leg actually ran.
+
+## Part 84 — the daoris references come out, and the stale index they were blocking is rebuilt (2026-08-17)
+
+_Not from `TASKS.md` as an item of its own — the owner asked for it directly. It CLOSES the one open
+backlog entry that was waiting on a tool run._
+
+**Why.** `daoris` — a rules/knowledge/skills sync tool — was referenced across roughly thirty files: a
+tracked `daoris.lock` with a per-file `sha256`, `<!-- daoris: … — canonical -->` provenance headers on
+seventeen documents, and prose in `CLAUDE.md`, `repo-mechanics.md`, `TASKS.md`, `TEMPLATE.md` and
+`RULES_INDEX.md`. The owner's call: it is not fully implemented, and **what the repository said about it
+might not be true**, so the references come out rather than being maintained. The documents themselves
+stay — they are real, in use, and unrelated to how they were once said to arrive.
+
+**What went.** The lock file; every provenance marker (24 files, both the `daoris:` and the
+`local: never synced` kind); the canonical-vs-local framing throughout; a blockquote in `repo-mechanics.md`
+describing a sync that deleted a local rule file and lost three rules; the "Quests from other repositories"
+section of `TASKS.md` and its `daoris quest take <id>` protocol.
+
+**What that made startable, and it was closed the same pass.** `RULES_INDEX.md` had a standing backlog
+entry: seven rows read `⚠ needs frontmatter` for files that HAVE it, `input-is-thinking-not-doctrine.md`
+appeared in no row at all, and `code-commentary.md` — a rule nothing else states — was unroutable by
+`doc-loader` and `skills-workflow`, which both route off that table. The entry could not be actioned
+because the index was generated and its own header forbade hand-editing. With the generator gone the file
+is simply maintained by hand, so it was rebuilt from the frontmatter actually on disk: **11 rules, 9
+knowledge documents, 10 skills**, every row carrying that file's own `applies_when` and `enforces`.
+The re-check the entry recorded proved correct — every source file's frontmatter was already well-formed,
+and the staleness was entirely in the generated table.
+
+**One gate lost its subject.** `check-counts` carried two claims — "five local skills", "six local
+knowledge documents" — whose counter classified a file by the ABSENCE of a `daoris:` header. With no
+headers left the distinction does not exist, so the counters, the claims and their test came out rather
+than being rewritten to count something nobody asserts. Guard tests 380 → 379.
+
+**A defect found while doing it, of the exact kind this session has been chasing.** Removing the counters
+exposed that an earlier insertion in `check-counts.mjs` had placed `countOptionGuards` BETWEEN
+`countGuardTests`' JSDoc block and the function it documents — the same displaced-doc shape as the eight
+`<summary>` cases, in JSDoc form, and equally invisible to every gate. Re-attached.
+
+`verify` 15/15.
+
+## Part 85 — the subsystems the review had not reached (2026-08-17)
+
+_Not from `TASKS.md` — the tail of the whole-library review, aimed at the areas no earlier pass had
+touched: durable jobs, the secret vault, the generation backends and the MCP surface._
+
+**Five defects, and the classes are the ones this review keeps finding.**
+
+- **ComfyUI could return ANOTHER RENDER's artifacts.** `Entry` claimed in a comment that "a single-entry
+  object is unambiguous enough to use" and then returned the first property of an object of any size. Poll
+  reads another run's status, fetch hands its artifacts to the sink, the job completes with them — silent
+  wrong data, no failure anywhere. Reachable because `HistoryPath` is a host option, which it is precisely
+  because that surface is unmeasured.
+- **A documented promise broken on one door.** `ITool.InvokeAsync` tells every implementer that "throwing is
+  tolerated — the loop turns a thrown message into an error observation so the model can recover". The
+  hosted MCP endpoint awaited it bare, so the model got the SDK's generic "An error occurred invoking 'x'"
+  with nothing to recover FROM. The class's own remarks already made that argument for guards.
+- **D75's guard-BLOCK log was unreachable through the only public wiring** — `AddMcpToolHost` left the
+  logger null one line below where it resolves `IGuardRail` optionally for the same reason. The pinning test
+  passed one in by hand: it tested the class, not the documented path.
+- **Two shared readers had already diverged** — a MIME table missing `.gif`/`.flac` on one side, and a
+  scalar-id reader accepting a JSON number on one side only (so `{"prompt_id": 12345}` reported an accepted
+  workflow as rejected).
+- **A non-positive list limit did three different things on three job backends** — empty in process, THE
+  WHOLE TABLE on SQLite, a throw on Postgres.
+- **The render job's poll path discarded its lease answer**, and the `Succeeded` arm fetched with no
+  revalidation — past which the fetch records spend and the sink receives artifacts, neither of which
+  `CompleteAsync`'s fencing can undo.
+
+**The most valuable find was an absence.** The D73 concurrency-slot API had ZERO contract facts: its three
+members were asserted only against the in-process store — the one backend where a cross-PROCESS cap is
+meaningless by definition, and whose own remarks name "the semantics the SQL stores must match". Neither SQL
+statement had ever executed in the suite, including the `ON CONFLICT (slot_index)` that actually enforces
+the cap. Four facts now pin it on all three backends, and **both SQL implementations turn out correct** — a
+negative result, but one nothing had established.
+
+**Two coverage guards generalized.** `PostgresContractCoverageTests` makes storage-contract coverage on
+Postgres structural (it immediately found four facts that had never run there); `PolicyContractCoverageTests`
+does the same for the age, ranking and retrievability seams. Mutation-testing the second found a hole in the
+CHECK itself — a "mention" was satisfied by the suite's own class name — so it now requires the construction.
+
+**What was deliberately NOT done, and is now in `TASKS.md` §Startable:** a shared contract test across the
+five generation backends (the ComfyUI/fal verdict divergence is bounded today, so it is coverage work rather
+than a bug fix), and an aggregate deadline for `generate_backends` (which needs a design call about where
+the bound belongs, not a patch). Recording them there rather than leaving them in a report is the point —
+the backlog had claimed nothing in it was startable, and that claim is corrected with them.
+
+**A pattern about the EDITING, not the code.** Inserting a member above an existing one stranded that one's
+doc onto the newcomer FOUR times in this session, by the same hand — twice as a whole `<summary>`, twice as
+`<param>` tags only. `check-comments`' stacked-summary rule caught every one; the compiler caught only the
+`<param>` cases. Recorded in `pitfalls.md`: the insertion anchor is a declaration, and the thing above it is
+somebody else's doc.
+
+`verify` 15/15.

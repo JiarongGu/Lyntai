@@ -484,18 +484,9 @@ public sealed class FalQueueProvider(
     private static string? QueueDetail(string body) =>
         Field(body, "queue_position") is { } position ? $"queue position {position}" : null;
 
-    private static string MediaTypeOf(string url) => Path.GetExtension(new Uri(url, UriKind.RelativeOrAbsolute)
-        .ToString().Split('?')[0]).ToLowerInvariant() switch
-    {
-        ".mp4" => "video/mp4",
-        ".webm" => "video/webm",
-        ".png" => "image/png",
-        ".jpg" or ".jpeg" => "image/jpeg",
-        ".webp" => "image/webp",
-        ".mp3" => "audio/mpeg",
-        ".wav" => "audio/wav",
-        _ => "application/octet-stream",
-    };
+    private static string MediaTypeOf(string url) =>
+        HttpArtifacts.MediaTypeForExtension(Path.GetExtension(
+            new Uri(url, UriKind.RelativeOrAbsolute).ToString().Split('?')[0]));
 
     private static string? Field(string body, string name)
     {

@@ -86,6 +86,52 @@ internal static class HttpArtifacts
         return message.Length <= max ? message : message[..max];
     }
 
+    /// <summary>A scalar identifier field as text, accepting a JSON <b>string OR number</b>.
+    /// <para>Separate from <see cref="Str"/> deliberately, rather than widening it: <c>Str</c> reads
+    /// <c>url</c>, <c>b64_json</c> and error messages, where a number is meaningless and answering null is
+    /// the honest result. An ID is the one field a backend may legitimately send either way.</para>
+    /// <para>Shared because the two spellings had already DIVERGED — fal accepted a numeric id and the
+    /// ComfyUI reader did not, so a build returning <c>{"prompt_id": 12345}</c> had an accepted workflow
+    /// reported as rejected, which is the exact failure the reader's own doc says it guards against.</para></summary>
+    /// <param name="element">The element to read from; anything but an object answers null.</param>
+    /// <param name="name">The property name.</param>
+    public static string? Scalar(JsonElement element, string name)
+    {
+        if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var value))
+            return null;
+        return value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() is { Length: > 0 } s ? s : null,
+            JsonValueKind.Number => value.ToString(),
+            _ => null,
+        };
+    }
+
+    /// <summary>MIME type for a produced file's extension — the only signal these backends give about what a
+    /// job actually made, since the same request can yield an image or a video depending on the model.
+    /// <para>ONE table, because two had already drifted: fal's copy was missing <c>.gif</c> and
+    /// <c>.flac</c>, so the same extension became <c>audio/flac</c> from one backend and
+    /// <c>application/octet-stream</c> from the other — and that media type is what a consumer's
+    /// <c>IGenerationArtifactSink</c> switches on and what <c>GenerationArtifact.ToInput</c> carries into
+    /// the next stage of a chain.</para>
+    /// <para>Extension EXTRACTION stays per-backend: ComfyUI reports a filename, fal a URL that may carry a
+    /// query string. Those are genuinely different inputs; the mapping is not.</para></summary>
+    /// <param name="extension">The file extension, with or without its leading dot; case-insensitive.</param>
+    public static string MediaTypeForExtension(string? extension) =>
+        (extension ?? string.Empty).ToLowerInvariant().TrimStart('.') switch
+        {
+            "png" => "image/png",
+            "jpg" or "jpeg" => "image/jpeg",
+            "webp" => "image/webp",
+            "gif" => "image/gif",
+            "mp4" => "video/mp4",
+            "webm" => "video/webm",
+            "flac" => "audio/flac",
+            "wav" => "audio/wav",
+            "mp3" => "audio/mpeg",
+            _ => "application/octet-stream",
+        };
+
     /// <summary>A non-empty string property of a JSON object, or null. Shared with the queue backends, which
     /// read their own envelopes the same way — the object-kind guard is the part a copied reader loses, and
     /// <c>JsonElement.TryGetProperty</c> throws rather than answering false when the element is not an

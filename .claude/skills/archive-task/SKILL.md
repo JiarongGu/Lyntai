@@ -2,7 +2,6 @@
 name: archive-task
 description: Use when a task in TASKS.md is complete (implemented, tested, committed, verified) and needs to be moved out of the active backlog. Moves the entry from TASKS.md into docs/task-archive.md per the task-lifecycle rule, so TASKS.md holds only open work.
 ---
-<!-- local: never synced; not a daoris artifact -->
 
 # Archive a completed task
 

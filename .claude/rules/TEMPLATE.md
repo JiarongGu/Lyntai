@@ -32,6 +32,6 @@ and the edge cases where it does NOT apply.
 2. Copy this template, replace the content — including the `name`/`applies_when`/`enforces` frontmatter
    above, which is what the discovery workflow matches on. Without it the file renders as `⚠ needs
    frontmatter` in the index and no skill can route to it.
-3. **Regenerate `RULES_INDEX.md`** (daoris) — never hand-edit it; it is generated, and a hand-added row
-   is replaced at the next sync, taking the routing with it.
+3. **Add a row to `RULES_INDEX.md`** — the index is what the discovery workflow reads, so a rule missing
+   from it is a rule nothing routes to.
 4. Name it for *what is enforced*, kebab-case (e.g. `no-global-memory.md`, not `fix-2026-07-bug.md`).

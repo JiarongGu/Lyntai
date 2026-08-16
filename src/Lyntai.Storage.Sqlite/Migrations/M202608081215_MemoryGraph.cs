@@ -12,7 +12,8 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// connection comes from <see cref="SqliteConnectionFactory"/>, which applies <c>foreign_keys=ON</c>
 /// per connection.</para>
 /// <para>First migration numbered <c>yyyyMMddHHmm</c>; the nine baseline migrations keep their historical
-/// <c>YYYYMMDDNNNN</c> numbers, which sort below this one and are never renumbered — a number that has been
+/// <c>YYYYMMDDNNNN</c> numbers — drift-ok: names the retired scheme deliberately, because these nine still
+/// carry it — which sort below this one and are never renumbered. A number that has been
 /// applied is recorded in <c>lyntai_version_info</c>, so changing it would re-run the migration against a
 /// database that already has its tables.</para></summary>
 [Migration(202608081215)]

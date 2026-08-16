@@ -2,7 +2,6 @@
 name: add-storage-backend
 description: Use when adding a new storage backend to Lyntai (a new Lyntai.Storage.* package implementing one or more of the TWELVE domain interfaces — IKeyValueStore, IConversationStore, IMemoryStore, IScoreStore, ITraceStore, IPromptVersionStore, IJobStore, ICuratedMemoryStore, IVectorStore, IResponseCache, IUsageTracker, IModelRoutingStore — for Postgres, etc.). Covers the repository pattern, FTS, migrations, and the load-bearing SQLite/SQL traps.
 ---
-<!-- local: never synced; not a daoris artifact -->
 
 # Add a storage backend to Lyntai
 

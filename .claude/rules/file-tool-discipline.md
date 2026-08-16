@@ -3,7 +3,6 @@ name: file-tool-discipline
 applies_when: inspecting files, or running a destructive or irreversible command
 enforces: use the dedicated read/search/find tools, not shell equivalents; never route a command through a side channel to skip approval
 ---
-<!-- daoris: core/core/rules/file-tool-discipline.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # Use the dedicated file tools — and never evade the approval gate
 

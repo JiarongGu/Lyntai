@@ -447,4 +447,86 @@ public static class JobStoreContract
         Assert.True(await store.CompleteAsync(j1, "w2"));
         Assert.Equal(j2, (await store.ClaimNextAsync(lane, "w3", Lease))!.Id);
     }
+
+    // ---- cross-process concurrency slots (D73) ------------------------------------------------------
+    // These pin the three properties `InMemoryJobStore.TryAcquireSlotAsync` names as "the semantics the SQL
+    // stores must match": lowest free index wins, an index at or above the cap is never handed out, and a
+    // slot older than the lease is reclaimable. Until 2026-08-17 they were asserted ONLY against the
+    // in-process store -- the one backend where a cross-PROCESS cap is meaningless by definition -- so the
+    // two that ship the feature ran neither SQL statement anywhere in the suite.
+
+    /// <summary>The cap is a real ceiling, and a released slot is reused rather than leaked.</summary>
+    public static async Task Slots_are_handed_out_up_to_the_cap_and_reused_after_release(
+        IJobStore store, MutableClock clock)
+    {
+        var lease = TimeSpan.FromMinutes(5);
+        var first = await store.TryAcquireSlotAsync(2, "w1", lease);
+        var second = await store.TryAcquireSlotAsync(2, "w2", lease);
+
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        Assert.NotEqual(first, second);
+        Assert.Null(await store.TryAcquireSlotAsync(2, "w3", lease));   // the cap holds
+
+        await store.ReleaseSlotAsync(second!.Value, "w2");
+        Assert.Equal(second, await store.TryAcquireSlotAsync(2, "w3", lease));  // lowest free index wins
+    }
+
+    /// <summary>A slot whose holder stopped heartbeating past its lease is reclaimable — the property that
+    /// keeps a crashed worker from consuming a slot forever. Heartbeating one keeps it.</summary>
+    public static async Task A_slot_past_its_lease_is_reclaimed_and_a_heartbeat_prevents_it(
+        IJobStore store, MutableClock clock)
+    {
+        var lease = TimeSpan.FromMinutes(1);
+        var mine = await store.TryAcquireSlotAsync(1, "w1", lease);
+        Assert.NotNull(mine);
+        Assert.Null(await store.TryAcquireSlotAsync(1, "w2", lease));
+
+        clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(mine, await store.TryAcquireSlotAsync(1, "w2", lease));   // stale, so reclaimed
+
+        // …and a live holder keeps it: heartbeat, advance less than the lease, and it is still not free.
+        await store.HeartbeatSlotsAsync("w2");
+        clock.Advance(TimeSpan.FromSeconds(30));
+        Assert.Null(await store.TryAcquireSlotAsync(1, "w3", lease));
+    }
+
+    /// <summary>Release is FENCED by worker id, so a worker whose slot was already reclaimed cannot free
+    /// the slot its successor now holds — the same fencing every other write on this store carries.</summary>
+    public static async Task Releasing_a_slot_is_fenced_by_worker_id(IJobStore store, MutableClock clock)
+    {
+        var lease = TimeSpan.FromMinutes(5);
+        var slot = await store.TryAcquireSlotAsync(1, "w1", lease);
+        Assert.NotNull(slot);
+
+        await store.ReleaseSlotAsync(slot!.Value, "someone-else");
+
+        Assert.Null(await store.TryAcquireSlotAsync(1, "w2", lease));   // still held by w1
+    }
+
+    /// <summary>A cap of zero or less hands out nothing rather than throwing or handing out slot 0 — the
+    /// boundary a caller reaches by computing the cap from configuration.</summary>
+    public static async Task A_non_positive_cap_hands_out_no_slot(IJobStore store, MutableClock clock)
+    {
+        Assert.Null(await store.TryAcquireSlotAsync(0, "w1", TimeSpan.FromMinutes(5)));
+        Assert.Null(await store.TryAcquireSlotAsync(-1, "w1", TimeSpan.FromMinutes(5)));
+    }
+
+    /// <summary>A non-positive limit asks for nothing, on every backend.
+    /// <para>Left unguarded the three disagreed, and one of them dangerously: <c>.Take(limit)</c> gave an
+    /// empty list, SQLite reads a NEGATIVE <c>LIMIT</c> as no limit at all and returned the whole matching
+    /// table, and Postgres threw. Reachable through the public front door, whose <c>ListAsync</c> /
+    /// <c>ListDeadAsync</c> document no bound — an admin page computing <c>pageSize - offset</c> gets there.</para>
+    /// <para>This is the same guard the memory-graph reads already carry; the job stores were simply outside
+    /// the convention.</para></summary>
+    public static async Task A_non_positive_list_limit_returns_nothing(IJobStore store, MutableClock clock)
+    {
+        var lane = "lim-" + Guid.NewGuid().ToString("N");   // self-isolating: the container is shared
+        await store.EnqueueAsync(Spec(lane));
+        await store.EnqueueAsync(Spec(lane));
+
+        Assert.NotEmpty(await store.ListAsync(lane: lane, limit: 10));   // sanity: the rows are really there
+        Assert.Empty(await store.ListAsync(lane: lane, limit: 0));
+        Assert.Empty(await store.ListAsync(lane: lane, limit: -1));
+    }
 }

@@ -367,7 +367,13 @@ public sealed class ComfyUiProvider(
             if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
             if (doc.RootElement.TryGetProperty(operationId, out var entry))
                 return entry.Clone();
-            // some builds key history by their own id; a single-entry object is unambiguous enough to use
+
+            // Some builds key history by their own id, so a SINGLE-entry object is unambiguous and is used.
+            // The count check is the whole guard: `foreach { return }` took the first property of an object
+            // of ANY size, so an un-keyed listing — which `HistoryPath` being a host option makes reachable —
+            // silently returned ANOTHER RENDER's status and artifacts, and the job handler completed the job
+            // with them. Wrong data, no failure anywhere.
+            if (doc.RootElement.EnumerateObject().Count() != 1) return null;
             foreach (var property in doc.RootElement.EnumerateObject())
                 return property.Value.Clone();
             return null;
@@ -429,26 +435,15 @@ public sealed class ComfyUiProvider(
 
     /// <summary>MIME from the produced file's extension — the only signal ComfyUI gives about what a workflow
     /// actually made (the same graph can emit a PNG or an MP4 depending on its nodes).</summary>
-    private static string MediaTypeOf(string filename) => Path.GetExtension(filename).ToLowerInvariant() switch
-    {
-        ".png" => "image/png",
-        ".jpg" or ".jpeg" => "image/jpeg",
-        ".webp" => "image/webp",
-        ".gif" => "image/gif",
-        ".mp4" => "video/mp4",
-        ".webm" => "video/webm",
-        ".flac" => "audio/flac",
-        ".wav" => "audio/wav",
-        ".mp3" => "audio/mpeg",
-        _ => "application/octet-stream",
-    };
+    private static string MediaTypeOf(string filename) =>
+        HttpArtifacts.MediaTypeForExtension(Path.GetExtension(filename));
 
     private static string? Field(string body, string name)
     {
         try
         {
             using var doc = JsonDocument.Parse(body);
-            return HttpArtifacts.Str(doc.RootElement, name);
+            return HttpArtifacts.Scalar(doc.RootElement, name);
         }
         catch (JsonException)
         {

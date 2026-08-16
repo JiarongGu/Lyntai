@@ -3,7 +3,6 @@ name: dotnet-package-layout
 applies_when: adding or moving a project, naming a public type, or adding a variation point
 enforces: contract in core, implementation in an adapter, never adapter-to-adapter; split by dependency footprint; DI collections over conditionals
 ---
-<!-- daoris: dotnet-library/packs/dotnet-library/rules/dotnet-package-layout.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # .NET library layout — boundaries, names, and variation points
 

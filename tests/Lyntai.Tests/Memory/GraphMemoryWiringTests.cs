@@ -422,8 +422,9 @@ public class GraphMemoryWiringTests
     [Fact]
     public void A_registered_MultiplicativeRankingOptions_reaches_an_explicitly_restored_MultiplicativeRankingPolicy()
     {
-        // MultiplicativeRankingPolicy is no longer the DI DEFAULT as of 3.0 (owner ruling, 2026-08-11 —
-        // ReciprocalRankFusionPolicy is; see MemoryEngineRegistration's own remarks). This fact used to prove
+        // MultiplicativeRankingPolicy is no longer the DI DEFAULT as of 3.0 — drift-ok: names the retired
+        // default deliberately. ReciprocalRankFusionPolicy is; see MemoryEngineRegistration's own remarks.
+        // This fact used to prove
         // a registered MultiplicativeRankingOptions reached the (then-default) policy with NOTHING else
         // registered; that shape went from "discriminating" to "silently wrong" the moment the default
         // changed — registering ONLY the options record now reaches nothing at all, since the default

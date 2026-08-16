@@ -3,7 +3,6 @@ name: skills-workflow
 applies_when: starting any non-trivial task, and whenever a follow-up changes its scope
 enforces: run the discovery skills before exploring code, actually read what they route you to, and re-run them when the scope moves
 ---
-<!-- daoris: core/core/rules/skills-workflow.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # Start a non-trivial task through the discovery skills — and read what they return
 

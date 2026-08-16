@@ -8,7 +8,8 @@ namespace Lyntai.Tests.Generation;
 /// <summary>The two <c>"WxH"</c> parsers in this package — <c>Automatic1111Provider.Size</c> and
 /// <see cref="LocalDiffusionProvider.ClampSize"/> — must agree on WHICH hints are usable, even though they
 /// deliberately disagree on what to do with a usable one (the local engine clamps to multiples of 64 within
-/// 256–768 because <c>sd-cli</c> requires it; the WebUI serves arbitrary sizes and must not be clamped).
+/// a CONFIGURED ceiling because <c>sd-cli</c> requires it — the bound is derived from the accelerator rather
+/// than fixed at 768, <c>docs/DECISIONS.md</c> D68; the WebUI serves arbitrary sizes and must not be clamped).
 ///
 /// The half they share is that a size must be POSITIVE, not merely numeric. <c>"0x0"</c> parses, and forwarding
 /// it hands the backend a render it can only reject — so a bad hint falls back to the configured default, which

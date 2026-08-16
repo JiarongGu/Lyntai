@@ -148,8 +148,8 @@ FALSE trim promise), `check-packages` (a package must be registered in all nine 
 grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3037 passed / 3058 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 373/373, doc samples 76/76.
+Tests/e2e green: **3057 passed / 3078 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 379/379, doc samples 76/76.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -235,32 +235,27 @@ owned outside the deployment; `DECISIONS.md` D30) /
   `file-tool-discipline.md` (inspect files with `Read`/`Grep`/`Glob` not `Bash cat/ls/find`; never evade
   the permission gate), `no-tmp-for-repo-files.md` (compose with `Write`; scratch → `devtools/_*`, never
   OS temp), and `windows-machine.md` (the traps that succeed WRONGLY — PowerShell 5 round-trips, BOMs,
-  lying exit codes). Those are canonical (synced by `daoris`) and state the PRINCIPLE; this repo's
-  concrete bindings — package names and the packable/version layout, the `Dto`-free naming invariant,
-  guard scripts, version-authorship policy, the dev loop and test conventions, scratch paths — live in
-  the local, never-synced `repo-mechanics.md`.
-  <br>**`code-commentary.md` is the other LOCAL rule** (added 2026-08-16): three tiers, three jobs — the
-  XML doc is the CONTRACT a consumer reads, a `//` comment ANNOTATES the code beneath it, and the DESIGN
-  argument lives in a record. Written because `src/` had reached **0.86 comment lines per line of real
-  code** and carried 1.6× more prose than `DECISIONS.md` + `pitfalls.md` + the archive + the design
-  contract combined — prose that no gate can see, in the one place none of them scans.
-  See `.claude/rules/RULES_INDEX.md` (generated — and stale; it will not route to this rule until the next
-  `daoris` run, which is why the summary is here).
+  lying exit codes). Those state the PRINCIPLE; this repo's concrete bindings — package names and the
+  packable/version layout, the `Dto`-free naming invariant, guard scripts, version-authorship policy, the
+  dev loop and test conventions, scratch paths — live in `repo-mechanics.md`.
+  <br>**`code-commentary.md`** (added 2026-08-16): three tiers, three jobs — the XML doc is the CONTRACT a
+  consumer reads, a `//` comment ANNOTATES the code beneath it, and the DESIGN argument lives in a record.
+  Written because `src/` had reached **0.86 comment lines per line of real code** and carried 1.6× more
+  prose than `DECISIONS.md` + `pitfalls.md` + the archive + the design contract combined — prose that no
+  gate could see, in the one place none of them scanned.
+  See `.claude/rules/RULES_INDEX.md` for the routing table.
 - **`.claude/knowledge/`** (on-demand deep dives — read the one you're touching):
   `extending-lyntai.md` (the six extension points — provider, generation backend, storage backend, scorer,
   CLI tool-hosting dialect, migration), `llm-and-router.md` (verdict taxonomy, fallback §6 amended,
   streaming-commit + inactivity-clock invariants, CLI hygiene), `storage.md` (Dapper/CAST/FTS5
   trigram triggers/pragmas/`lyntai_` prefix), **`pitfalls.md` (traps that pass the build/tests while
   being wrong — read before extending)**, `generic-library.md` (turning a consumer ask into app-agnostic
-  surface), `input-is-thinking-not-doctrine.md` — plus the canonical `library-api-design.md` (generalize
-  the ask, never ship its shape), `sql-storage.md` (the SQL traps that return wrong data rather than
-  failing), and `model-decoupling.md` (which model is a DEPLOYMENT choice, never part of a feature's
-  definition).
-- **`.claude/skills/`** — five LOCAL (extension tasks `add-provider`, `add-storage-backend`, `add-scorer`,
-  `add-migration`; process `archive-task` — move a finished task from `TASKS.md` to the archive) plus the
-  five canonical (`doc-loader`, `pattern-finder`, `post-feature`, `fix-log`, `caveman`). The local five and
-  the six local knowledge documents carry no `daoris` provenance header, which is the exposure
-  `repo-mechanics.md` opens with: a sync can delete them and nothing fails.
+  surface), `input-is-thinking-not-doctrine.md`, `library-api-design.md` (generalize the ask, never ship
+  its shape), `sql-storage.md` (the SQL traps that return wrong data rather than failing), and
+  `model-decoupling.md` (which model is a DEPLOYMENT choice, never part of a feature's definition).
+- **`.claude/skills/`** — extension tasks (`add-provider`, `add-storage-backend`, `add-scorer`,
+  `add-migration`), process (`archive-task` — move a finished task from `TASKS.md` to the archive), and
+  workflow (`doc-loader`, `pattern-finder`, `post-feature`, `fix-log`, `caveman`).
 - **TDD** (failing test first) and **commit per task**. **Never commit without explicit user approval.**
 - **Backlog vs archive:** `TASKS.md` holds only OPEN tasks; completed work is moved to
   `docs/task-archive.md` (see `task-lifecycle.md`), and `CHANGELOG.md` is the release-facing log.
@@ -393,25 +388,32 @@ owned outside the deployment; `DECISIONS.md` D30) /
   `verify`, and the FOURTH member of the prose family). Its siblings ask whether a document still SAYS what
   a decision settled, whether what it POINTS AT exists, and whether what it COUNTS is true — all of
   MAINTAINED prose. This one asks whether a COMMENT is still doing a comment's job, and it is the only one
-  that looks at `src/`.
-  Measured cost of not having it: **0.86 comment lines per line of real code**, and `src/` carrying 1.6×
-  more prose than `DECISIONS.md` + `pitfalls.md` + the task archive + the design contract COMBINED — prose
-  in the one place no other gate scans, rotting exactly as `pitfalls.md` records. The rule it enforces is
-  `.claude/rules/code-commentary.md`: **the XML doc is the CONTRACT, a `//` comment ANNOTATES the code
-  beneath it, and the DESIGN argument belongs in a record.**
+  that looks at CODE — all four tiers (`src`, `tests`, `devtools`, `bench`), `.cs` and `.mjs`.
+  Measured cost of not having it: **0.86 comment lines per line of real code** in `src/` (now 0.65), and
+  `src/` carrying 1.6× more prose than `DECISIONS.md` + `pitfalls.md` + the task archive + the design
+  contract COMBINED — prose in the one place no other gate scanned, rotting exactly as `pitfalls.md`
+  records. The rule it enforces is `.claude/rules/code-commentary.md`: **the XML doc is the CONTRACT, a `//`
+  comment ANNOTATES the code beneath it, and the DESIGN argument belongs in a record.**
+  <br>**It fails three other things besides length**, each added because a real defect walked past it: a doc
+  run carrying more than one `<summary>` (eight found — a long block describing member A sitting above
+  member B's own summary, so B has two and A has none; the compiler does not warn and it SHIPS), punctuation
+  a deleted clause left stranded (two shipped in public XML docs), and an allowance that no longer matches.
   **It is a RATCHET, not a threshold.** 49 files were already over the 25-line limit when it landed (1879
-  lines), so a plain threshold would have been switched off on day one. Each is recorded at its CURRENT
-  worst in `commentBlockAllowances` (`devtools/project.config.mjs`), and **an allowance looser than the
-  file needs FAILS** — so the numbers only ever come down, and a regression back to an old size is caught.
+  lines), so a plain threshold would have been switched off on day one. Every over-limit block in a file is
+  recorded in `commentBlockAllowances` (`devtools/project.config.mjs`) — the MULTISET, not just the file's
+  worst, because one number per file left 279 lines of debt invisible and let a budgeted file grow new long
+  blocks behind it. **An allowance looser than the file needs FAILS** — so the numbers only ever come down,
+  and a regression back to an old size is caught.
   Paying one down means moving the design argument to the record that owns it and keeping the RULE plus a
   pointer; deleting the entry is the goal, not an edge case. Line escape is **`comment-ok`** on a block's
   first line, deliberately not `drift-ok`.
 - `node devtools/dev.mjs check-api-vocabulary` — **fail if the FROZEN public surface reintroduces a name a
   decision retired** (part of `verify`, beside `check-docs`). The two are twins: one asks whether the PROSE
-  still says what a decision settled, the other asks it of the SURFACE. It exists because `check-docs`
-  deliberately excludes `src/` and the API baseline **records parameter names without judging them** — it
-  reports THAT a name changed, never that one SHOULD have — so three retired parameter names reached the eve
-  of the 3.0 freeze and a human, not a gate, caught them. Registry is `retiredApiNames` in
+  still says what a decision settled, the other asks it of the SURFACE. It exists because the API baseline
+  **records parameter names without judging them** — it reports THAT a name changed, never that one SHOULD
+  have — so three retired parameter names reached the eve of the 3.0 freeze and a human, not a gate, caught
+  them. (`check-docs` excluded `src/` entirely back then; it now scans code COMMENTS in `src`, `tests` and
+  `bench`, which is a different half — a comment is prose, a parameter name is surface.) Registry is `retiredApiNames` in
   `devtools/project.config.mjs` (deliberately NOT `retiredTerms`: prose needs loose patterns, a baseline
   needs whole-identifier equality). Escapes live in the registry, since a generated file cannot hold a
   `drift-ok`, and **an allowance that matches nothing FAILS** so exclusions cannot rot.

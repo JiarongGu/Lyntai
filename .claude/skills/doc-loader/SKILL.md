@@ -2,7 +2,6 @@
 name: doc-loader
 description: Load the documents a task actually needs before touching code — the repository's own doc router plus every on-demand knowledge document whose "applies when" matches. Use at the START of any non-trivial task, because on-demand documents are not auto-loaded and an unread match is a missing contract.
 ---
-<!-- daoris: core/core/skills/doc-loader/SKILL.md @ 0.0.1 — canonical; edit via `daoris upstream` -->
 
 # doc-loader
 

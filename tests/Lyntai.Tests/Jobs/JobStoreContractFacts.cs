@@ -32,6 +32,11 @@ public abstract class JobStoreContractFacts
     [Fact] public Task Active_lanes_and_count() => Run(JobStoreContract.Active_lanes_and_running_count);
     [Fact] public Task Priority_first() => Run(JobStoreContract.Higher_priority_is_claimed_first);
     [Fact] public Task Dead_letter() => Run(JobStoreContract.Dead_letter_is_terminal_inspectable_and_fenced);
+    [Fact] public Task Slots_cap_and_reuse() => Run(JobStoreContract.Slots_are_handed_out_up_to_the_cap_and_reused_after_release);
+    [Fact] public Task Slot_lease_reclaim() => Run(JobStoreContract.A_slot_past_its_lease_is_reclaimed_and_a_heartbeat_prevents_it);
+    [Fact] public Task Slot_release_fenced() => Run(JobStoreContract.Releasing_a_slot_is_fenced_by_worker_id);
+    [Fact] public Task Slot_cap_non_positive() => Run(JobStoreContract.A_non_positive_cap_hands_out_no_slot);
+    [Fact] public Task List_limit_non_positive() => Run(JobStoreContract.A_non_positive_list_limit_returns_nothing);
     [Fact] public Task Replay_dead() => Run(JobStoreContract.Replay_requeues_a_dead_job);
     [Fact] public Task Request_cancel() => Run(JobStoreContract.Request_cancel_flags_a_running_job_then_cancel_running_finalizes);
     [Fact] public Task Tiebreak_by_id() => Run(JobStoreContract.Same_tick_same_priority_claims_in_id_order);

@@ -229,16 +229,11 @@ public sealed record GraphMemoryOptions
     /// <see cref="DefaultVerificationDepthFactor"/> times the recall's own limit — the MEASURED saturation
     /// point, not a round number.
     ///
-    /// <para><b>The measurement that set it</b> (perfect-oracle judge, full corpus replay, limit 10):
-    /// depth 10 (observe-only) recovered <c>-0.0857</c> of the miss rate; depth 20 <c>-0.2214</c>; depth 40
-    /// <c>-0.2500</c>; and 80, 160 and 5000 all returned exactly the same as 40. Four times the limit is
-    /// where rescuing stops paying, so it is what a consumer who says nothing gets.</para>
-    ///
-    /// <para><b>This is the knob that decides whether verification is worth anything.</b> Measured over a
-    /// full corpus replay: of the relevant entries a recall failed to return, <b>100% were reachable
-    /// candidates ranked below the limit</b> and none were unreachable. The miss rate is a RANKING failure
-    /// end to end — so a judge shown only the entries that already won can correct almost nothing, while one
-    /// shown the next tier down can promote an answer that was there all along.</para>
+    /// <para><b>This is the knob that decides whether verification is worth anything.</b> Every miss this
+    /// subsystem has is a reachable candidate ranked below the limit, never an unreachable one — so a judge
+    /// shown only the entries that already won can correct almost nothing, while one shown the next tier
+    /// down can promote an answer that was there all along. Rescue depth SATURATES, and the default sits at
+    /// the knee (<c>docs/DECISIONS.md</c> D59 has the sweep).</para>
     ///
     /// <para>Bounded because judgement is not free: showing a model every candidate would cost more per
     /// recall than the recall itself. Depth trades that cost against how far down an answer may be rescued
@@ -247,7 +242,7 @@ public sealed record GraphMemoryOptions
     public int? VerificationDepth { get; init; }
 
     /// <summary>What <see cref="VerificationDepth"/> defaults to, as a multiple of the recall's limit.
-    /// Measured saturation point — see that property's own remarks for the sweep behind it.</summary>
+    /// The measured saturation point — <c>docs/DECISIONS.md</c> D59 has the sweep.</summary>
     public const int DefaultVerificationDepthFactor = 4;
 
     /// <summary>The most recent logged reviews <see cref="LogReviews"/> retains, PER ENGINE, before older

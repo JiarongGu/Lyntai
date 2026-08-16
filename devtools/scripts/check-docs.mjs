@@ -91,6 +91,38 @@ export const SUPERSEDED_BANNER = /^(?:.*\n){0,20}?[^\S\n]*>?[^\S\n]*\*\*[^*\n]{0
  * a session picks work from. Both are maintained state by the same definition as `docs/` — the historical
  * twins (`CHANGELOG.md`, `docs/task-archive.md`) stay excluded below.
  */
+/**
+ * The CODE tiers this gate scans, added 2026-08-17 — comment lines only.
+ *
+ * `src/` was excluded for the gate's whole life, and the registry's own header stated the cost precisely:
+ * the compiler resolves `<see cref>` and NOTHING else, so a retired claim in a `<c>` tag or a `//` comment
+ * was checked by no one. `check-api-vocabulary` covers retired IDENTIFIERS on the frozen surface; nothing
+ * covered a retired CLAIM. That is how `GraphMemoryOptions.AuthoritativeReserve` shipped a paragraph
+ * describing an implementation the measurement had already rejected.
+ *
+ * Measured cost of closing it: FOUR sites. Two were real stale claims — a test asserting "both shipped
+ * curves" when 3.0 deleted one of the two — and two are deliberate mentions that took `drift-ok`.
+ *
+ * <p>Two narrowings, both for the same reason `check-links` narrows its own code scan.</p>
+ *
+ * COMMENT LINES ONLY. A retired term inside a string literal is data the program uses — a SQL fragment, a
+ * prompt, a test fixture — not a claim a reader believes. Non-comment lines are blanked rather than removed
+ * so line numbers stay true and the soft-join window cannot bridge across code.
+ *
+ * `devtools/` IS EXCLUDED, and this is the one exclusion that is structural rather than a judgement: the
+ * retired-term registry LIVES there, and a registry necessarily quotes every term it bans. Scanning it
+ * yields 15 hits that are all the rules themselves. `check-encoding` met the identical problem and solved it
+ * by construction — storing its patterns as code points so the guard never contains what it hunts — which
+ * is not available for prose patterns, so the carve-out is stated instead of engineered.
+ */
+export const CODE_IN_SCOPE = (path) =>
+  (path.endsWith('.cs') || path.endsWith('.mjs'))
+  && (path.startsWith('src/') || path.startsWith('tests/') || path.startsWith('bench/'));
+
+/** Non-comment lines blanked, so only prose is scanned and every line number stays true. */
+export const commentLinesOnly = (lines) =>
+  lines.map((l) => (l.trim().startsWith('//') ? l : ''));
+
 export const IN_SCOPE = (path) =>
   path === 'README.md'
   || path === 'CLAUDE.md'
@@ -131,7 +163,8 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     // .html too: the published design record is a tracked page, and an untracked one drifted three times
     .filter((f) => f.endsWith('.md') || f.endsWith('.html'))
     .filter(IN_SCOPE)
-    .filter(IS_SCANNED);
+    .filter(IS_SCANNED)
+    .concat(source.filter(CODE_IN_SCOPE));
 
   // Fail-closed: a gate that scanned nothing must never print a tick — the rule check-api-vocabulary already
   // carries, and the one this gate was missing. `pitfalls.md` records the general shape: for any filter
@@ -154,12 +187,13 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     let text;
     try { text = readFileSync(join(repo, file), 'utf8'); } catch { continue; }
 
-    if (SUPERSEDED_BANNER.test(text)) { skipped++; continue; }
+    const isCode = CODE_IN_SCOPE(file);
+    if (!isCode && SUPERSEDED_BANNER.test(text)) { skipped++; continue; }
 
     // A partly-historical file is scanned down to its boundary and no further, so the windows below never
     // reach across it. Line numbers are unaffected — this is a PREFIX, so index i is still line i + 1.
     const all = text.split(/\r?\n/);
-    const lines = all.slice(0, liveLineCount(file, all));
+    const lines = isCode ? commentLinesOnly(all) : all.slice(0, liveLineCount(file, all));
 
     // Each line is tested BOTH alone and soft-joined to the one after it. Line-only matching was a blind
     // spot that hid every rule in the registry from any claim spanning a wrap: these documents wrap at ~110

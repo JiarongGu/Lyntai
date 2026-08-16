@@ -2,7 +2,6 @@
 name: add-migration
 description: Use when adding or changing a database schema in Lyntai.Storage.Sqlite (a new FluentMigrator migration — new table, column, index, or FTS search table). Covers safe numbering, SQLite constraints, and the FTS trigger pattern.
 ---
-<!-- local: never synced; not a daoris artifact -->
 
 # Add a migration to Lyntai.Storage.Sqlite
 

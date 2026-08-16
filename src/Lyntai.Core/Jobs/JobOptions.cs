@@ -6,8 +6,14 @@ namespace Lyntai.Jobs;
 public sealed class JobOptions
 {
     /// <summary>Max concurrent jobs per lane, per process. A lane not listed uses
-    /// <see cref="DefaultLaneConcurrency"/>.</summary>
-    public Dictionary<string, int> LaneConcurrency { get; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <see cref="DefaultLaneConcurrency"/>.
+    /// <para><b>Lane names are matched ORDINALLY, as they are everywhere else.</b> This lookup was
+    /// case-INSENSITIVE while every other treatment of a lane is byte-exact — the stores' <c>lane = @lane</c>
+    /// predicates, <c>ActiveLanesAsync</c>, and the runner's own per-pass budget. So <c>"render"</c> and
+    /// <c>"Render"</c> were two lanes in the store that both matched ONE limit here, and a cap meant as "one
+    /// render at a time" ran two. Making this ordinal does not merge them — nothing can, short of changing
+    /// what a lane IS — but it stops the option quietly promising a bound it cannot deliver.</para></summary>
+    public Dictionary<string, int> LaneConcurrency { get; } = new(StringComparer.Ordinal);
 
     public int DefaultLaneConcurrency { get; set; } = 1;
 

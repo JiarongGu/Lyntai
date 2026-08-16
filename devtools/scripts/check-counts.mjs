@@ -87,14 +87,6 @@ export function countMigrations(repo) {
 }
 
 /**
- * Guard-script tests.
- *
- * Counted STATICALLY from the declarations, which is exact here and was verified to be: on 2026-08-15 the
- * static count matched `node --test`'s reported total on all sixteen files individually AND in aggregate.
- * That equality is a property of how these files are written (no test is generated in a loop), so the test
- * pinning this counter compares it against a real run rather than against a hard-coded number.
- */
-/**
  * Call sites of the one memory option-domain guard (`MemoryOption.Require`, D78).
  *
  * Registered because this claim went stale IN THE COMMIT THAT MADE IT: D78 shipped saying "all 23 … across
@@ -121,6 +113,14 @@ export function countOptionGuards(repo) {
   return n;
 }
 
+/**
+ * Guard-script tests.
+ *
+ * Counted STATICALLY from the declarations, which is exact here and was verified to be: on 2026-08-15 the
+ * static count matched `node --test`'s reported total on all sixteen files individually AND in aggregate.
+ * That equality is a property of how these files are written (no test is generated in a loop), so the test
+ * pinning this counter compares it against a real run rather than against a hard-coded number.
+ */
 export function countGuardTests(repo) {
   const dir = path.join(repo, 'devtools', 'scripts', '__tests__');
   if (!fs.existsSync(dir)) return -1;
@@ -197,37 +197,6 @@ export function countMemoryDomains(repo) {
 }
 
 /**
- * Files in a `.claude/` tier that are THIS repository's own — the ones a `daoris` sync does not own and
- * can therefore delete without anything failing (`repo-mechanics.md` opens with that exposure).
- *
- * Canonical artifacts carry `<!-- daoris: … — canonical`; local ones carry `<!-- local: never synced`. The
- * marker must be matched as a DECLARATION at line start, not by searching for the word: a local file's own
- * marker reads "not a daoris artifact", so a naive `includes('daoris')` classifies every local file as
- * canonical and returns ZERO. Measured 2026-08-15 — the first probe did exactly that and nearly produced a
- * "fix" to a claim that was already correct.
- *
- * This is Part 73's own worked example of a subtly-wrong counter: the directories hold 10 skills and 9
- * knowledge documents, while the LOCAL counts are 5 and 6.
- */
-function countLocal(repo, tier, file = null) {
-  const dir = path.join(repo, '.claude', tier);
-  if (!fs.existsSync(dir)) return -1;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  let n = 0;
-  for (const e of entries) {
-    const target = file ? path.join(dir, e.name, file) : path.join(dir, e.name);
-    if (file ? !e.isDirectory() : !e.name.endsWith('.md')) continue;
-    if (!fs.existsSync(target)) continue;
-    if (!/^<!-- daoris:/m.test(fs.readFileSync(target, 'utf8'))) n++;
-  }
-  return n;
-}
-
-export const countLocalSkills = (repo) => countLocal(repo, 'skills', 'SKILL.md');
-
-/** Local knowledge documents. `RULES_INDEX`/`TEMPLATE` live in the rules tier, so they are not counted. */
-export const countLocalKnowledge = (repo) => countLocal(repo, 'knowledge');
-
 /**
  * The registry. One entry per counted claim: a pattern whose first capture group is the number, the
  * function that computes the truth, and why the claim is worth gating.
@@ -274,18 +243,6 @@ export const COUNTED_CLAIMS = [
     pattern: /guard-script tests\s+([\d]+)\s*\/\s*\d+/gi,
     count: countGuardTests,
     why: 'CLAUDE.md instructs the reader to COMPARE against this baseline — a stale one teaches them to stop comparing',
-  },
-  {
-    what: 'local skills',
-    pattern: /(?:the\s+)?([\w]+)\s+local skills|—\s*([\w]+)\s+LOCAL\b/g,
-    count: countLocalSkills,
-    why: 'a sync can delete a local skill and nothing fails — the count is the only thing that would notice',
-  },
-  {
-    what: 'local knowledge documents',
-    pattern: /(?:the\s+)?([\w]+)\s+local knowledge documents/gi,
-    count: countLocalKnowledge,
-    why: 'same exposure as the skills tier: unowned by the sync, so a loss is silent',
   },
   {
     what: 'memory policy domains',
