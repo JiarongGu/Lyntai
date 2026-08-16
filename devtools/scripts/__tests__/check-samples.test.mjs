@@ -120,6 +120,31 @@ describe('check-samples — the compile-skip escapes', () => {
     }
   });
 
+  it('defect 3: a file-level marker must be a DECLARATION, not a MENTION of one', () => {
+    // Found 2026-08-15. SKIP_FILE was matched against the whole document with no requirement that the
+    // annotation be real, so a document DESCRIBING the annotation opted itself out. CLAUDE.md documents it
+    // ("`<!-- compile-skip-file: … -->` opts out a historical document") and was therefore excluded
+    // wholesale from the gate — silently, because skippedDocs is populated from BLOCKS, so a document with
+    // no blocks contributes nothing to the "opted out wholesale" count and nothing anywhere says it was
+    // dropped. Latent only because CLAUDE.md has no csharp fences today; the day someone adds one it is
+    // uncompiled and unreported.
+    //
+    // Same defect and same fix as check-docs' SUPERSEDED_BANNER, tightened on 2026-08-11 for exactly this:
+    // the marker must OPEN a line, which a backticked mention inside a sentence never does.
+    const mention = 'Prefer `compile-given`: a skip is unchecked.\n'
+      + '  `<!-- compile-skip-file: … -->` opts out a historical document.\n\n'
+      + fence('services.AddLyntai(x);');
+    const blocks = extractBlocks(mention, 'CLAUDE.md');
+    assert.equal(blocks.length, 1);
+    assert.equal(blocks[0].skip, null, 'a documented MENTION must not opt the document out');
+
+    // ...and the real thing, at column 0, still does
+    const declared = '<!-- compile-skip-file: a record of its own day -->\n\n' + fence('x');
+    const real = extractBlocks(declared, 'docs/plan.md');
+    assert.match(real[0].skip, /record of its own day/);
+    assert.equal(real[0].skipScope, 'file');
+  });
+
   it('reports the two skip SCOPES apart, so a wholesale opt-out cannot hide inside per-block ones', () => {
     const { out } = run({
       'README.md': '<!-- compile-skip: mine -->\n' + fence('a'),
@@ -506,5 +531,23 @@ describe('check-samples — the --list inventory', () => {
     assert.equal(rounds.length, 0, 'nothing was compiled');
     assert.match(out, /1 block in 1 document would compile/);
     assert.match(out, /README\.md:1 {2}statement/);
+  });
+});
+
+describe('check-samples — fail-closed on an empty scan', () => {
+  it('an empty listing FAILS rather than printing a tick', () => {
+    // check-api-vocabulary's rule, which this gate was missing until 2026-08-15. This is the gate whose
+    // subject breaks from editing a `.md` alone, so it is also the one a session runs last and trusts most.
+    const log = recorder();
+    assert.equal(checkSamples('/repo', { log, files: [], read: () => '', compile: () => ({ byFile: new Map(), harness: null }) }), 1);
+    assert.match(log.text(), /found no documented C# samples/);
+    assert.match(log.text(), /proves nothing/);
+  });
+
+  it('a caller-supplied list with no samples in it still PASSES', () => {
+    // The other direction: a commit touching only prose legitimately carries no sample, so zero blocks is
+    // only an indictment on the full-tree path — where 74 of them exist and a zero is impossible.
+    const { code, out } = run({ 'README.md': 'prose with no fenced sample at all\n' });
+    assert.equal(code, 0, out);
   });
 });

@@ -51,7 +51,7 @@ public class GraphMemorySalienceTests
 
     private static GraphMemoryEngine Engine(IMemoryGraphStore store, IMemorySaliencePolicy? saliencePolicy) =>
         new("e", store, saliencePolicies: saliencePolicy is null ? null : [saliencePolicy],
-            policy: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]));
+            retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]));
 
     [Fact]
     public async Task A_judged_salience_is_stored_with_the_node_and_read_back()
@@ -183,7 +183,7 @@ public class GraphMemorySalienceTests
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
             saliencePolicies: [new FixedSaliencePolicy(double.NaN)],
-            policy: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
+            retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
             ranking: new MultiplicativeRankingPolicy(
                 new MultiplicativeRankingOptions { SalienceRankWeight = 1.0 }));
 

@@ -203,7 +203,7 @@ public class GraphMemoryWiringTests
         // AddLyntai (the fact above), the consumer's own salience policy wins outright — TryAddSingleton sees an
         // existing registration and never adds the default at all. Registered AFTER, TryAddSingleton has
         // ALREADY seeded the default, so this is a genuine SECOND registration into the collection —
-        // GetServices returns BOTH, and the engine's own default composition (MaximalSalienceComposition)
+        // GetServices returns BOTH, and the engine's own default composition (MaximalSalienceCompositionPolicy)
         // combines them per signal name rather than either replacing the other. A consumer who wants a pure
         // replacement, whichever way they register, registers BEFORE AddLyntai.
         var services = new ServiceCollection();
@@ -334,8 +334,8 @@ public class GraphMemoryWiringTests
         // being smoothed over to match what was expected going in.
         //
         // Attempt 1 (task brief's own suggestion): commented out MemoryEngineRegistration's own
-        // `TryAddSingleton&lt;IMemoryRankingPolicy&gt;` line entirely. This fact did NOT fail —
-        // `UseGraph`'s own `sp.GetService&lt;IMemoryRankingPolicy&gt;()` call (GetService, not
+        // `TryAddSingleton<IMemoryRankingPolicy>` line entirely. This fact did NOT fail —
+        // `UseGraph`'s own `sp.GetService<IMemoryRankingPolicy>()` call (GetService, not
         // GetRequiredService — it returns null rather than throwing) hands `ranking: null` to
         // `GraphMemoryEngine`'s constructor, whose OWN bare-constructor fallback (`ranking ?? new
         // ReciprocalRankFusionPolicy()`, changed to match the very same task) silently supplies RRF anyway —
@@ -348,7 +348,7 @@ public class GraphMemoryWiringTests
         //
         // Attempt 2 (the one that actually discriminates this fact from a tautology): kept the
         // `TryAddSingleton` registration in place but changed WHAT it supplies —
-        // `new MultiplicativeRankingPolicy(sp.GetService&lt;MultiplicativeRankingOptions&gt;())` instead of
+        // `new MultiplicativeRankingPolicy(sp.GetService<MultiplicativeRankingOptions>())` instead of
         // RRF. This fact FAILED exactly as expected: the observed order flipped to Multiplicative's own
         // (`[aged-but-relevant, fresh-but-weaker]`), proving the assertion is genuinely sensitive to what the
         // DI default supplies, not passing by coincidence of the bare-constructor fallback agreeing with it.
@@ -507,7 +507,7 @@ public class GraphMemoryWiringTests
     {
         using var sp = Build(cfg => cfg
             .AddMemoryEngine("project", e => e
-                .UseCurated("glossary").Reserve(200)
+                .UseCurated("glossary").ReserveCharacters(200)
                 .UseGraph()
                 .Budget(600))
             .UseMemoryComposer("project"));

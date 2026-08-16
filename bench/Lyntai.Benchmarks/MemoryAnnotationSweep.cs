@@ -87,7 +87,7 @@ internal static class MemoryAnnotationSweep
 
             using var db = new MemoryPolicySweep.SweepDb();
             var engine = new GraphMemoryEngine("annotation", new SqliteMemoryGraphStore(db.Factory),
-                policy: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()], ranking: rrf,
+                retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()], ranking: rrf,
                 annotation: arm.Annotated ? new PerfectAnnotator() : null);
 
             var replay = await MemoryPolicySweep.ReplayAsync(corpus, engine, QueryLimit);

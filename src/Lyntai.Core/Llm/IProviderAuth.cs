@@ -12,7 +12,7 @@ namespace Lyntai.Llm;
 /// exactly the bespoke provider handling Lyntai exists to remove.
 ///
 /// Discovered by pattern-matching (<c>provider is IProviderAuth a</c>) over the registered provider
-/// collection, like <see cref="IProviderInstallation"/> / <see cref="IProviderUpdater"/>: a backend with
+/// collection, like <see cref="IProviderProbe"/> / <see cref="IProviderUpdater"/>: a backend with
 /// no login story (an API-key provider configured by the host, a local GGUF runtime) simply doesn't
 /// implement it.
 ///
@@ -26,7 +26,7 @@ public interface IProviderAuth
     /// also FAIL SAFE for an absent/unreachable/stalled backend (same shape, reason in
     /// <see cref="ProviderAuthStatus.Detail"/>), except for caller cancellation, which propagates.</summary>
     /// <remarks>Because both "signed out" and "backend broken" surface as <c>Authenticated: false</c>, a
-    /// caller that must distinguish them should ask <see cref="IProviderInstallation.ProbeAsync"/> first —
+    /// caller that must distinguish them should ask <see cref="IProviderProbe.ProbeAsync"/> first —
     /// that reports reachability.</remarks>
     Task<ProviderAuthStatus> StatusAsync(CancellationToken ct = default);
 
@@ -51,7 +51,7 @@ public interface IProviderAuth
 /// <summary>What a backend says about its own authentication.</summary>
 /// <param name="Authenticated">The backend reports usable credentials. <c>false</c> covers BOTH "signed
 /// out" and "couldn't be asked" — <see cref="Detail"/> says which, and
-/// <see cref="IProviderInstallation.ProbeAsync"/> distinguishes them properly.</param>
+/// <see cref="IProviderProbe.ProbeAsync"/> distinguishes them properly.</param>
 /// <param name="Method">How it is signed in, in the backend's OWN vocabulary (a subscription account, a
 /// console/API-billed account, an SSO tenant, an API key). Free-form on purpose: another backend's account
 /// kinds must fit without an enum change. Null when unknown.</param>

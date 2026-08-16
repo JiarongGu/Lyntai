@@ -218,6 +218,12 @@ public sealed class SqliteMemoryGraphStore(
         var ordinal = totals.Ordinal;
         var chars = totals.Chars;
 
+        // UNCONFINED, matching either indexed column: this FTS table declares `headline, content`, and an
+        // authored headline is a summary a caller wrote so the entry could be found by it — words that may
+        // appear nowhere in the content. Postgres and the in-process store now match headline too, so the
+        // three agree. The 3.0 review's first attempt confined this expression instead, which made them
+        // agree by REMOVING the capability from the only backend that had it; see
+        // M202608152310_MemoryHeadlineSearch for why that reading of the contract was wrong.
         var match = FtsQuery.Build(query);
         if (match is not null)
         {
@@ -276,7 +282,7 @@ public sealed class SqliteMemoryGraphStore(
         {
             // Term-wise, via the same split the FTS path above uses — so falling back to LIKE degrades the
             // RANKING (a term count instead of bm25) without changing which entries are found.
-            var kw = SearchTerms.LikeClause(query, "n.content");
+            var kw = SearchTerms.LikeClause(query, ["n.content", "n.headline"]);
             var p = new DynamicParameters(new
             {
                 engine, taskKey, scope, position, ordinal, chars, limit, authoritative = Authoritative,

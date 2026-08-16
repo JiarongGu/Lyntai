@@ -4,7 +4,7 @@
 > Lyntai is the shared **cortex + persistence** substrate the sibling apps plug into.
 
 Status: **approved design — SHIPPED and amended** (see the dated amendments in §6/§9; the 2026-07-26 one
-reconciles v0.16–v0.30) · Date: 2026-07-17 · Scope: *Brain + persistence core → platform kit (D11)*
+reconciles the later pre-1.0 line) · Date: 2026-07-17 · Scope: *Brain + persistence core → platform kit (D11)*
 
 > **How to read this doc post-1.0-track:** it governs *semantics* (the rules code must follow); the
 > public-API baselines (`tests/Lyntai.Tests/Api/Baselines/`, D8) govern *shape*. Where a §5 snippet
@@ -326,6 +326,59 @@ line while breaking a higher one is a regression.
 - **Maximising durability as such.** Durability is instrumental. An engine that retains everything perfectly
   and returns the wrong ten headlines has failed every line above.
 
+**How to read a `PollutionRate` at all — the structural floor (measured 2026-08-15).** `PollutionRate` is the
+fraction of the `limit`-sized page occupied by ids outside the relevant set, and a real engine FILLS the page
+whenever the store holds at least `limit` candidates. So whenever the relevant set is smaller than the limit,
+the surplus slots are unavoidably non-relevant and the metric floors at `(limit − |relevant|) / limit` —
+**for `critical-rare`'s 2-target ground truth against a limit of 10 that floor is `0.800`, and the shipped
+engine measures `0.805`.** A published pollution number near its floor therefore reports the corpus shape,
+not a failing policy; `RecallQuality`'s own remarks carry the same statement for the mirror case, where a
+relevant set LARGER than the limit floors `MissRate` instead. **`MissRate` is the number that discriminates**
+— which is also the priority order objective (2) and (3) already state.
+<br>The only way under that floor is to return FEWER items, which is what `GraphMemoryOptions.VerificationFilters`
+does, and it is why the verification seam is the one mechanism aimed at pollution rather than at miss.
+
+**What a MODEL IN THE LOOP is worth — the largest lever measured, and the first measurement of it
+(2026-08-15).** Every other recall-quality figure in this repository is **model-free**: `memory-sweep` wires
+no annotator and no verifier, so its numbers are the lexical floor rather than what a consumer who
+registered an LLM would see. `node devtools/dev.mjs memory-verification` measures the gap with a PERFECT
+judge — the mechanism's **ceiling**, never a model's accuracy, the same stance `memory-annotation` takes.
+
+| shape / class | off | judge REORDERS only |
+|---|---|---|
+| `high-noise` / `topical` | miss `0.690` | miss **`0.000`** |
+| `high-noise` / combined | miss `0.281`, pollution `0.874` | miss **`0.000`**, pollution `0.674` |
+| `critical-rare` / `critical-rare` | miss `0.275`, pollution `0.707` | miss **`0.000`**, pollution `0.473` |
+
+**The reordering arm is the finding, and it filters nothing.** The relevant material was already inside the
+candidate set — within `VerificationDepth` — and merely ranked below the cut, so **the bottleneck this
+measures is RANKING, not retrieval.** Every ranking-policy decision on record moves recall by hundredths;
+this moves it by an order of magnitude. The `filter` arm's `0.000/0.000` is close to tautological with a
+perfect oracle ("only relevant items survive" is what that phrase means) and is reported as an upper bound
+rather than a result.
+<br>**Two limits that decide how to use it.** The judge's ACCURACY is a separate question, and it is already
+measured: **`docs/memory.md` §5 carries the judge ladder** — six judges with miss, pollution and a
+share-of-reference column — and is the authority. It is not restated here; a second table would drift from
+it. Two of its findings bear directly on the ceiling above: the ground-truth arm is a REFERENCE and not an
+upper bound (`gemma3:4b` beats it on both metrics), and **newer beats bigger**. And the judge COSTS a model
+call per recall, which is why the seam ships OFF and is a lever a deployment opts into.
+<br>**Do not put a REASONING model in this seam** — `docs/memory.md` records ~25s per judgement against
+gemma3's ~1.5s, disqualifying whatever it scores when it sits in the latency path of every recall.
+Re-confirmed 2026-08-15: qwen3:4b emits ~2,200 output tokens for a four-note question whose answer is about
+8, and `LlmRequest.Reasoning` (which `LlmMemoryVerificationPolicy` already sets to `Suppress`) does not stop
+Ollama's qwen3 reasoning anyway.
+
+**The difficulty axis is INERT at shipped defaults (measured 2026-08-15).** `DsrRetrievability.Reinforce`'s
+growth term is `ReinforceGain × exp(−DifficultyWeight × (difficulty − 1)) × …`, and `ReinforceGain` ships at
+`0` (**D54**). Difficulty is the first factor multiplied by that zero, so it cannot move retrievability at
+all unless a deployment turns the gain on. `memory-sweep`'s `{difficulty-live, difficulty-inert}` arms are
+therefore structurally identical and came back equal to three decimals — **equal arms there are evidence the
+run could not SEE the axis, never evidence the axis does nothing.** Difficulty remains LIVE in the sense
+**D49** claims — maintained and persisted per review, which is what makes later fitting possible — and that
+is the whole of the claim. Pinned by
+`DsrRetrievabilityTests.Difficulty_changes_nothing_while_ReinforceGain_is_zero_and_something_once_it_is_not`,
+which fails if the default ever moves and forces this paragraph to be revisited with it.
+
 **The instrument, and what it cannot see.** All published numbers come from `MemoryCorpus` replayed against a
 real SQLite store. It is an INSTRUMENT built to make policies disagree, not a simulation of usage, and three
 blind spots are known and load-bearing — a null result on any of them means *untested*, never *fine*:
@@ -349,14 +402,22 @@ blind spots are known and load-bearing — a null result on any of them means *u
   identical timelines — same steps, same ids, same ground truth, only the text differing — so a gap is the
   language rather than the corpus. **The sentence above no longer describes the instrument, only the figures
   published before that date**, which remain English-measured and should be read that way.
-  <br>The three CJK arms probe different failure modes rather than repeating one: Chinese is a spaceless run
-  of Han characters; Japanese is a spaceless run mixing kanji, hiragana and katakana, where kana's small
-  inventory makes trigram collisions likelier; **Korean writes spaces** and is trigram-expanded anyway
-  (Hangul sits in `SearchTerms`' spaceless range), which is defensible only because Korean is agglutinative —
-  making it the arm where the expansion would first cost more than it recovers. What is still unmeasured is
-  in the sweep's own "NOT swept" section: mixed-script content beyond what each arm carries, and any
-  spaceless script outside those ranges (Thai).
-- **No authoritative material at all** (zero `MemoryGrade` references), so objective (1) is unmeasured by it.
+  <br>The FOUR non-English arms probe different failure modes rather than repeating one: Chinese is a
+  spaceless run of Han characters; Japanese is a spaceless run mixing kanji, hiragana and katakana, where
+  kana's small inventory makes trigram collisions likelier; **Korean writes spaces** and is trigram-expanded
+  anyway (Hangul sits in `SearchTerms`' spaceless range), which is defensible only because Korean is
+  agglutinative — making it the arm where the expansion would first cost more than it recovers; and
+  **`ChineseMixed`** embeds English terms in Chinese prose WITHOUT spaces (`部署pipeline`), putting the script
+  boundary mid-run rather than at a token edge, which is where a Latin word inside a CJK run used to be
+  shredded into fragments that are words in no language. What is still unmeasured is any spaceless script
+  outside those ranges (Thai).
+  <br>**CLOSED as of 2026-08-14 for mixed script**, which this bullet listed as unmeasured until the
+  `ChineseMixed` arm landed and is the case that arm exists for.
+- **No authoritative material BY DEFAULT** — `CorpusShape.AuthoritativeCount` is opt-in and `0` unless a
+  caller asks, so the SWEEP's arms remain blind to objective (1) and an unchanged sweep number means "not
+  exercised" rather than "no regression". **The promise itself is measured**, by
+  `MemoryAuthoritativeSurvivalTests` across five languages plus a control (**D56**) — which is what found it
+  broken. Partially closed, and the half that remains open is the instrument, not the promise.
 - **Noise is TEMPLATED by DEFAULT**, so "novelty" cannot meet textually diverse junk. This was a blind spot
   until 2026-08-13; it is now an axis rather than a limit — `CorpusNoiseKind.Diverse` draws near-skeletonless
   junk from `CorpusLexicon.NoiseVocabulary`, which is the shape a novelty-driven salience policy actually has
@@ -532,7 +593,7 @@ public interface IMemoryEngine {
   `MultiplicativeRankingPolicy` on the corpus's `topical` class in all six measured shapes, across two
   independent runs; `MultiplicativeRankingPolicy` stays shipped, unchanged, and registerable in one line.
   (The salience-measurement work is unrelated to which ranking policy is the default, and is tracked
-  separately — `TASKS.md` Part 65 and Part 69.)
+  separately — `TASKS.md` Part 65, and `docs/task-archive.md` Part 69, which closed 2026-08-15.)
 - **Ranking is scoped per named engine, and a single call can override it BY NAME (memory-policy-seams
   plan, Task 6).** `MemoryEngineBuilder.UseGraph` takes an explicit `ranking` argument — that named engine's
   own choice, ahead of whatever `IMemoryRankingPolicy` the container has registered; omitted, the container
@@ -559,8 +620,9 @@ public interface IMemoryEngine {
 - **Every varying rule here is a named DOMAIN with one policy seam, and implementations accumulate rather
   than replace it — usually.** `IMemoryAgePolicy` (`Lyntai.Memory.Interference`), `IMemoryRetrievabilityPolicy`
   (`Lyntai.Memory.Forgetting`), `IMemoryRetentionPolicy` (`Lyntai.Memory.Modulation`), `IMemorySaliencePolicy`
-  (`Lyntai.Memory.Salience`) and `IMemoryRankingPolicy` (`Lyntai.Memory.Ranking`) are the five domains so
-  far, each its own sub-namespace holding the seam plus every shipped implementation. `.Ranking` is the
+  (`Lyntai.Memory.Salience`), `IMemoryRankingPolicy` (`Lyntai.Memory.Ranking`), `IMemoryAnnotationPolicy`
+  (`Lyntai.Memory.Annotation`) and `IMemoryVerificationPolicy` (`Lyntai.Memory.Verification`) are the seven
+  domains so far, each its own sub-namespace holding the seam plus every shipped implementation. `.Ranking` is the
   live proof — `MultiplicativeRankingPolicy` and `ReciprocalRankFusionPolicy` (the default as of 3.0, above)
   genuinely coexist. `.Forgetting` is the counter-example, on purpose: it shipped two curves through 2.5.x
   — `HalfLifeRetrievability`, the exponential curve, alongside `DsrRetrievability` — and 3.0 DELETES the
@@ -570,9 +632,17 @@ public interface IMemoryEngine {
   (a power law with a heavier tail plus FSRS's three stability-increase laws in
   `Reinforce`) is therefore the ONLY implementation this domain ships — **the registered default as of 3.0**,
   `docs/DECISIONS.md` D49, on FSRS's own external validation rather than this library's corpus. Accumulation
-  is the norm the other four domains demonstrate, not a law this one was ever exempt from breaking when a
+  is the norm the other six domains demonstrate, not a law this one was ever exempt from breaking when a
   measured defect said to. A domain earns a seam when a plausible alternative algorithm
-  genuinely exists, not merely because it is a rule. **What lives where is settled by OWNERSHIP, not by
+  genuinely exists, not merely because it is a rule.
+  <br>**`.Annotation` and `.Verification` are the two that read like exceptions and are not.** Both are
+  MODEL-IN-THE-LOOP seams — the annotator links entries about the same subject on write, the verifier judges
+  a recall's candidates — and both are **singular** rather than plural (D48) and default to **none**, so the
+  whole library runs model-free unless a consumer registers one. That default is why this list said "five"
+  until 2026-08-15 while the tree held seven: a domain nothing constructs by default is invisible to
+  everything except the namespace map. They are domains by the same test as the other five — one seam, its
+  own sub-namespace, implementations that would accumulate — and `docs/memory.md` is where a consumer is
+  told what registering one costs and buys. **What lives where is settled by OWNERSHIP, not by
   consumption:** a
   domain owns its seam, its implementations **and its options**, and they stay with it even when a sibling
   domain depends on them — `SalienceOptions` is the salience domain's constants though `SalienceRetentionPolicy`
@@ -684,7 +754,7 @@ public interface IMemoryEngine {
 
 ## 6. Data flow & error handling (the parts that matter)
 
-**Fallback router** (odysseus semantics). *As of v0.3 all of this is the **default** `RoutingPolicy`
+**Fallback router** (odysseus semantics). *All of this is the **default** `RoutingPolicy`
 (`LyntaiOptions.Routing`); each rule below is a per-verdict `FallbackAction`, a same-candidate retry
 count, a cooldown-key scope, and a sole-candidate exemption — overridable via `ConfigureRouting` /
 `LYNTAI_*` env without changing the documented defaults.*
@@ -739,8 +809,9 @@ retry on parse failure, else `Failed` verdict.
 > CS8509 is only a warning). `ContextWindowExceeded` is the one member with no media counterpart and collapses
 > to `Failed` **deliberately — a TRADE, not a free choice**: `GenerationRouter` never reports a blameless
 > verdict over a real failure, so as `Unsupported` it would advance silently and the caller would be told "no
-> capable backend" instead of the one actionable answer. That router rule is the open call — `TASKS.md`
-> **Part 40** — and the arm must not be revisited on its own before it lands.
+> capable backend" instead of the one actionable answer. That router rule LANDED —
+> `docs/task-archive.md` **Part 40** — so the arm is settled: the reporting slot went in first and the
+> verdict mapping followed it, which was the load-bearing order.
 
 ## 7. Storage conventions (from the family)
 
@@ -753,12 +824,18 @@ retry on parse failure, else `Failed` verdict.
   and never renumber one that has shipped. Composite PKs inline at CreateTable (SQLite has no ALTER ADD
   CONSTRAINT).
 - **FTS5 `trigram`** external-content virtual tables kept in sync by AFTER INSERT/DELETE/UPDATE
-  triggers, backfilled in the same migration; build the MATCH string via a shared `FtsQuery` helper
-  (drop `<3`-char tokens, quote the rest), fall back to LIKE, rank with `bm25()`.
+  triggers, backfilled in the same migration; fall back to LIKE, rank with `bm25()`.
+  <br>**The ONE tokenization is `Lyntai.Storage.SearchTerms`** (**D55**, 2026-08-12) — words for a
+  space-separated script, character trigrams for one written without spaces (Chinese, Japanese, Korean), so
+  every backend admits the same entries whatever the language. `FtsQuery` keeps only the FTS5 SYNTAX on top
+  of it (quoting, and confining the expression to a named column where the table indexes more than one).
+  A backend that splits a query its own way is the divergence D55 exists to prevent.
 - BOM-less UTF-8 sources + `<CodePage>65001</CodePage>` so csc on a CJK-locale machine doesn't mojibake
   string literals.
 
-*(2026-08-05: re-checked clause by clause and still current. The maintained deep dives cite this section
+*(2026-08-15: re-checked clause by clause. The FTS clause was restated — it named `FtsQuery` as the owner of
+the tokenization, which D55 moved to `SearchTerms` three days after this attestation last said "still
+current"; the rest holds. The maintained deep dives cite this section
 rather than competing with it — `.claude/knowledge/storage.md` is this repo's binding (the `lyntai_` prefix,
 the SQLite/Postgres parallels of the same number, `StorageFeature` tags) and canonical
 `.claude/knowledge/sql-storage.md` states the traps themselves.)*

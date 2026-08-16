@@ -132,7 +132,7 @@ internal static class MemoryLanguageSweep
                 "language",
                 new SqliteMemoryGraphStore(db.Factory),
                 options: graphOptions,
-                policy: curve,
+                retrievability: curve,
                 agePolicies: [agePolicy],
                 ranking: rrf);
 

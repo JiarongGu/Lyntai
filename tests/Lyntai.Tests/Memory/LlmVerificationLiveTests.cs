@@ -55,8 +55,36 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
 
     private static string BaseUrl => OllamaLive.BaseUrl;
 
+    /// <summary>The default judge. <b><c>llama3.2:3b</c> held this slot until 2026-08-15 and was retired on a
+    /// measurement, not on age:</b> it FAILS the multilingual fact outright, answering <c>[1,2]</c> on the
+    /// Japanese case — the two non-answering notes, missing the answer entirely — while passing English,
+    /// Chinese and Korean. A default that fails the library's own multilingual promise makes the seam look
+    /// worse than it is, and it is the value anyone runs first.
+    /// <para><b>The judge ladder lives in <c>docs/memory.md</c> §5 and is not duplicated here</b> — it
+    /// carries miss, pollution and a share-of-reference column for six judges, which is strictly more than a
+    /// list of model names would say. <c>gemma3:4b</c> is the default because that table makes it the best
+    /// LOCAL arm: pollution <c>0.0492</c>, the lowest of any judge measured including the ground-truth
+    /// reference, at ~1.5s per judgement.</para>
+    /// <para><b>Do NOT default this to a reasoning model, and the reason is measured rather than aesthetic:</b>
+    /// <c>docs/memory.md</c> records <c>qwen3:4b</c> at ~25s per judgement against gemma3's ~1.5s, and a seam
+    /// in the latency path of EVERY recall makes that disqualifying whatever it scores. Re-confirmed
+    /// 2026-08-15 the hard way: qwen3 emits ~2,200 output tokens for a four-note question whose answer is
+    /// about 8, and two full ceiling runs were abandoned after 40+ and 55+ minutes. The policy already sets
+    /// <c>LlmReasoning.Suppress</c>; Ollama's qwen3 reasons regardless.</para>
+    /// <para><b>One narrow observation worth keeping, and NOT a precision failure:</b> on this file's
+    /// adversarial four-note fixture <c>gemma3:4b</c> also takes the trivia distractor (<c>[3,4]</c> in
+    /// Chinese, Japanese and Korean) where <c>qwen3:4b</c> answers <c>[3]</c>. That is a LEXICALLY ADJACENT
+    /// distractor chosen to be hard, and it does not generalise: on the real corpus gemma3 admits the least
+    /// junk of any judge. The distractor result is REPORTED below rather than asserted, because a fixture
+    /// that fails the best-measured local model is mis-calibrated as a gate.</para>
+    /// <para><c>llama3.2:3b</c> was the default until 2026-08-15 and is retired on the ladder's own numbers —
+    /// the weakest judge measured (60–69% of reference) — and separately fails the multilingual RECALL fact,
+    /// answering <c>[1,2]</c> in Japanese and missing the answer entirely.</para>
+    /// <para>Which model runs is a deployment choice
+    /// (<c>.claude/knowledge/model-decoupling.md</c>); this default only decides what an unconfigured run
+    /// measures.</para></summary>
     private static string Model =>
-        Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_VERIFY_MODEL") ?? "llama3.2:3b";
+        Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_VERIFY_MODEL") ?? "gemma3:4b";
 
     private static async Task<bool> LiveAsync()
     {
@@ -151,7 +179,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
         var store = new InMemoryMemoryGraphStore();
         var counting = verifier is null ? null : new CountingVerifier(verifier);
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
             agePolicies: [new PerWriteAgePolicy()],
             verification: counting);
 
@@ -274,6 +302,22 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
             $"[{language}] the judge returned no opinion at all — it either refused or emitted unparseable " +
             "output for a perfectly ordinary question in this language");
         Assert.Contains("3", verdict.RelevantIds);
+
+        // The PRECISION half is REPORTED, not asserted, and the distinction is the point. Note 4 is the
+        // designed lexical near-miss ("the small meeting room was repainted last year") — it shares the
+        // answer's vocabulary and answers nothing, so taking it is a real precision error, and it matters
+        // for this seam specifically: under GraphMemoryOptions.VerificationFilters a false positive SURVIVES
+        // the filter, turning verification from a precision gain into a no-op.
+        //
+        // It is not a GATE because the fixture is deliberately adversarial and does not generalise. Measured
+        // 2026-08-15: gemma3:4b takes the distractor here in Chinese, Japanese and Korean — yet on the real
+        // corpus it admits the LEAST junk of any judge measured (pollution 0.0492, docs/memory.md §5, better
+        // than the ground-truth reference). A fixture that fails the best-measured local model is
+        // mis-calibrated as a pass/fail bar; asserting on it would have forced the default to a reasoning
+        // model the library's own docs disqualify on latency. So the number goes to the ladder and the
+        // judgement stays with the reader.
+        var tookDistractor = verdict.RelevantIds.Contains("4");
+        output.WriteLine($"[{language}] precision: distractor taken = {tookDistractor}");
     }
 
     /// <summary><b>THE LIVE NUMBER.</b> No verifier, a real model, and the perfect oracle — same corpus, same

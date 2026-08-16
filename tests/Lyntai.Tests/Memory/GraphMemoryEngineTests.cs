@@ -232,6 +232,145 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
+    public async Task A_recall_honours_the_query_char_budget_without_dropping_an_exact_fact()
+    {
+        // MemoryQuery.CharBudget shipped in 2.5.0 documented as "maximum characters the caller intends to
+        // spend" and was read by NOTHING for a whole released version — the same class as ExpandAsync's own
+        // charBudget and GraphMemoryOptions.MinRetrievability. Found 2026-08-14.
+        var engine = Engine();
+        await engine.RememberAsync(new MemoryWrite("t", "s",
+            "the deployment gate is the verify command", Grade: MemoryGrade.Authoritative));
+        for (var i = 0; i < 6; i++)
+            await engine.RememberAsync(new MemoryWrite("t", "s",
+                $"deployment note number {i} with a reasonable amount of surrounding text"));
+
+        var unbounded = await engine.RecallAsync(new MemoryQuery("t", "s", "deployment"));
+        var bounded = await engine.RecallAsync(new MemoryQuery("t", "s", "deployment", CharBudget: 60));
+
+        Assert.True(bounded.Items.Count < unbounded.Items.Count,
+            $"the budget must cut: unbounded {unbounded.Items.Count}, bounded {bounded.Items.Count}");
+        // objective (1): the exact fact survives a budget that cuts everything around it
+        Assert.Contains(bounded.Items, i => i.Grade == MemoryGrade.Authoritative);
+    }
+
+    [Fact]
+    public async Task A_char_budget_too_small_for_anything_still_returns_one_item()
+    {
+        // A caller asking for less than one fact gets one fact, not nothing — a recall that answers a
+        // too-small budget with silence is indistinguishable from "nothing matched", which is the
+        // degradation shape this subsystem keeps getting wrong.
+        var engine = Engine();
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a deployment note of some length"));
+
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "deployment", CharBudget: 1));
+
+        Assert.NotEmpty(recall.Items);
+    }
+
+    [Fact]
+    public async Task Prune_uses_the_configured_MinRetrievability_when_the_caller_names_no_floor()
+    {
+        // Found 2026-08-14: GraphMemoryOptions.MinRetrievability occurred ONLY in its own declaration and its
+        // own validation guard. PruneAsync took an independent parameter and never consulted the option, so
+        // with both criteria null `doomed` was empty and `engine.PruneAsync("t")` — the documented shape —
+        // deleted NOTHING while design §5.7 and the option's own summary both said it governs pruning.
+        // The entry must actually BE faint — a fresh one is fully retrievable, so no floor would reach it and
+        // the test would pass for the wrong reason. Crowd() is how this subsystem ages something: newer
+        // material competing with it.
+        var engine = Engine(new GraphMemoryOptions { MinRetrievability = 0.9 });
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry"));
+        await Crowd(engine, 40);
+
+        var reaped = await engine.PruneAsync("t", "s");
+
+        Assert.True(reaped >= 1, $"the configured floor must reap the faded entry; reaped {reaped}");
+        Assert.Empty((await engine.RecallAsync(new MemoryQuery("t", "s", "faint"))).Items);
+    }
+
+    [Fact]
+    public async Task A_zero_MinRetrievability_reaps_nothing_which_is_the_opt_out()
+    {
+        // The escape hatch, asserted rather than assumed: retrievability is never below zero, so a floor of 0
+        // means "never reap on this criterion" and restores the pre-fix behaviour for a deployment that wants
+        // deletion to happen only when a caller names a floor explicitly.
+        var engine = Engine(new GraphMemoryOptions { MinRetrievability = 0 });
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry"));
+        await Crowd(engine, 40);
+
+        Assert.Equal(0, await engine.PruneAsync("t", "s"));
+        Assert.NotEmpty((await engine.RecallAsync(new MemoryQuery("t", "s", "faint"))).Items);
+    }
+
+    [Fact]
+    public async Task Prune_never_reaps_an_authoritative_fact_however_low_the_floor()
+    {
+        // Objective (1) again: an exact fact is not eligible for reaping at any floor. Guarded here because
+        // wiring the option turned PruneAsync from a no-op into something that actually deletes.
+        var engine = Engine(new GraphMemoryOptions { MinRetrievability = 0.99 });
+        await engine.RememberAsync(new MemoryWrite("t", "s", "the exact fact", Grade: MemoryGrade.Authoritative));
+
+        Assert.Equal(0, await engine.PruneAsync("t", "s"));
+    }
+
+    [Fact]
+    public async Task Expansion_walks_the_requested_number_of_hops()
+    {
+        // Found 2026-08-14: `hops` appeared ONLY in ExpandAsync's signature — never in its body, which
+        // hard-coded a single hop. MemoryTools forwards a model-supplied value AND advertises it in the tool
+        // JSON schema, so an agent asking for hops:2 silently got one hop with no error and no signal.
+        var engine = Engine(new GraphMemoryOptions { Hops = 3 });
+        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"));
+        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"));
+        var c = await engine.RememberAsync(new MemoryWrite("t", "s", "gamma fact"));
+        await engine.LinkAsync(a, b, symmetric: true);
+        await engine.LinkAsync(b, c, symmetric: true);   // c is TWO hops from a
+
+        var one = await engine.ExpandAsync(a, hops: 1);
+        Assert.DoesNotContain(one.Items, i => i.Headline.Contains("gamma", StringComparison.Ordinal));
+
+        var two = await engine.ExpandAsync(a, hops: 2);
+        Assert.Contains(two.Items, i => i.Headline.Contains("beta", StringComparison.Ordinal));
+        Assert.Contains(two.Items, i => i.Headline.Contains("gamma", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Expansion_with_zero_hops_returns_only_the_entry_itself()
+    {
+        // GraphMemoryWiringTests documents `hops: 0` as "nothing but the entry itself returns" and reads
+        // Items[0] — so it passed while neighbours were returned anyway. Now the claim is the behaviour.
+        var engine = Engine();
+        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"));
+        var b = await engine.RememberAsync(new MemoryWrite("t", "s", "beta fact"));
+        await engine.LinkAsync(a, b, symmetric: true);
+
+        var expanded = await engine.ExpandAsync(a, hops: 0);
+
+        Assert.Single(expanded.Items);
+        Assert.Contains("alpha", expanded.Items[0].Headline, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Expansion_stops_adding_neighbours_once_the_char_budget_is_spent()
+    {
+        // charBudget had the same defect as hops — accepted, documented, never read. The expanded entry is
+        // ALWAYS returned whatever the budget: returning its full content is what expansion IS, so a budget
+        // smaller than that entry bounds the NEIGHBOURS rather than refusing the request.
+        var engine = Engine();
+        var a = await engine.RememberAsync(new MemoryWrite("t", "s", "alpha fact"));
+        for (var i = 0; i < 5; i++)
+            await engine.LinkAsync(a, await engine.RememberAsync(
+                new MemoryWrite("t", "s", $"neighbour number {i} with a reasonable amount of text")), symmetric: true);
+
+        var unbounded = await engine.ExpandAsync(a, hops: 1);
+        var bounded = await engine.ExpandAsync(a, hops: 1, charBudget: 40);
+
+        Assert.True(unbounded.Items.Count > bounded.Items.Count,
+            $"a budget must cut neighbours: unbounded {unbounded.Items.Count}, bounded {bounded.Items.Count}");
+        Assert.NotEmpty(bounded.Items);
+        Assert.Contains("alpha", bounded.Items[0].Headline, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Spreading_reaches_a_neighbour_the_query_never_matched()
     {
         var engine = Engine(new GraphMemoryOptions { Hops = 1 });
@@ -545,7 +684,7 @@ public class GraphMemoryEngineTests
 
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()]);
         var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
@@ -583,7 +722,7 @@ public class GraphMemoryEngineTests
 
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()],
             options: new GraphMemoryOptions
             {
@@ -616,7 +755,7 @@ public class GraphMemoryEngineTests
 
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()]);
         var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
         var id = long.Parse(reference.Id, CultureInfo.InvariantCulture);
@@ -644,7 +783,7 @@ public class GraphMemoryEngineTests
 
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()],
             options: new GraphMemoryOptions { Reinforcement = MemoryReinforcementEffects.None });
         var reference = await engine.RememberAsync(new MemoryWrite("t", "s", content));
@@ -778,7 +917,7 @@ public class GraphMemoryEngineTests
     public void A_retrievability_policy_declaring_None_is_rejected_at_construction()
     {
         var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
-            policy: new FixedProvenanceRetrievability(MemoryRetrievabilityProvenance.None)));
+            retrievability: new FixedProvenanceRetrievability(MemoryRetrievabilityProvenance.None)));
 
         Assert.Contains("None", ex.Message, StringComparison.Ordinal);
     }
@@ -786,7 +925,7 @@ public class GraphMemoryEngineTests
     [Fact]
     public void Two_salience_policy_INSTANCES_of_the_SAME_type_sharing_a_bit_construct_fine()
     {
-        // the distinction MemoryProvenance.EnsureEachBitIsSingleRealAndUnique exists to make: same TYPE,
+        // the distinction MemoryProvenance.ValidateProvenanceBits exists to make: same TYPE,
         // same bit, no collision — only a DIFFERENT type sharing a bit (above) is rejected. Constructing
         // without throwing is the whole assertion.
         var bit = (MemorySalienceProvenance)(1L << 41);

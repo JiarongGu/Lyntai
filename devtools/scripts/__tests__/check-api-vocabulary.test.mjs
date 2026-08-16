@@ -31,6 +31,15 @@ const LIVE = [
   'sealed class Lyntai.Memory.Modulation.SalienceRetentionPolicy',
   'sealed class Lyntai.Llm.Streaming.InactivityClock',
   'sealed class Lyntai.Storage.MemoryEvictionPolicy',
+  // The one ALLOWED line in the shipped registry, carried here on purpose. `Compose` is retired as a
+  // composition-seam method name (D48's policies are named for what they RETURN), while this static
+  // prose-rendering helper genuinely composes and returns a bare String. Without the line, the shipped
+  // allowance matches nothing in this fixture and the fail-closed "an allowance that matches nothing is a
+  // FAILURE" rule fires — correctly, which is why the fixture carries the line rather than the test
+  // tolerating the gap.
+  'static class Lyntai.Cortex.CuratedMemorySections',
+  '    static Compose(IEnumerable<CuratedMemory> entries, Func<String,String> header = null,'
+    + ' String bullet = "- ", String taskKey = null, IEnumerable<String> scopes = null) : String',
 ].join('\n') + '\n';
 
 /** Run the gate over a fixture tree of baselines: `{ 'Lyntai.Core.txt': '…' }`. */

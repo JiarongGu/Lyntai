@@ -226,6 +226,48 @@ public class StreamJsonAgentReaderTests
         Assert.Null(ended.Diagnostic);  // reader never sets diagnostic
     }
 
+    /// <summary>A FAILED turn does not hand back its pre-error partial text as the answer.
+    /// <para>Present in the released 2.5.0. The fallback that substitutes the last assistant text for an
+    /// empty terminal result was not gated on <c>is_error</c>, so a run that streamed some text and then
+    /// failed returned that text as <c>FinalText</c>. The fold one layer up applies the identical gate and
+    /// explains it — "a terminal that IS an error must NOT be dressed up as a partial success … those
+    /// callers would then consume garbage instead of retrying" — but it could never fire, because this
+    /// reader had already filled the field. The codex twin has always returned null here.</para>
+    /// <para>The pre-existing error fact could not catch this: it feeds no assistant text before the
+    /// failure, so the fallback had nothing to substitute and <c>FinalText</c> was null either way.</para>
+    /// </summary>
+    [Fact]
+    public void A_failed_turn_does_not_return_its_partial_text_as_the_answer()
+    {
+        var reader = new StreamJsonAgentReader();
+        _ = reader.Read("""{"type":"assistant","message":{"content":[{"type":"text","text":"half an answ"}]}}""").ToList();
+
+        var events = reader.Read(
+            """{"type":"result","subtype":"error_max_turns","is_error":true,"session_id":"s"}""").ToList();
+
+        var ended = Assert.IsType<SessionEnded>(events.Last());
+        Assert.True(ended.IsError);
+        Assert.Null(ended.FinalText);
+    }
+
+    /// <summary>A failed turn's verdict is CLASSIFIED from the backend's own words, not hard-coded.
+    /// <para>Through 2.5.0 this was a bare <c>isError ? Failed : Ok</c> — the only in-band failure path in
+    /// either agent session that skipped <c>LlmVerdictClassifier</c>, so an expired login reported
+    /// <c>Failed</c> and a host switching on the verdict retried immediately instead of prompting to
+    /// re-authenticate. <c>AuthFailed</c> cools the host; <c>Failed</c> merely advances.</para></summary>
+    [Fact]
+    public void A_failed_turn_classifies_an_auth_error_rather_than_reporting_a_bare_failure()
+    {
+        var reader = new StreamJsonAgentReader();
+
+        var events = reader.Read(
+            """{"type":"result","is_error":true,"result":"401 Unauthorized: please run claude auth login","session_id":"s"}""")
+            .ToList();
+
+        var ended = Assert.IsType<SessionEnded>(events.Last());
+        Assert.Equal(LlmVerdict.AuthFailed, ended.Verdict);
+    }
+
     [Fact]
     public void Result_without_usage_yields_only_SessionEnded()
     {

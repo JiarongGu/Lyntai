@@ -90,6 +90,10 @@ public sealed class OpenAiCompatibleProvider(
                 // well-formed but empty and not filtered — same retry-once as a malformed body
             }
 
+            // The backend ANSWERED, at HTTP 200, in the other channel. Classified before the retry on
+            // purpose: re-sending to a host that just reported a rate limit is the harm, not the symptom.
+            if (OpenAiHttp.InBandError(body) is { } inBand) return InBandFailure(inBand);
+
             if (attempt == 0)
             {
                 _logger.LogWarning("{Id}: malformed or empty response body; retrying once", id);
@@ -149,6 +153,12 @@ public sealed class OpenAiCompatibleProvider(
         LlmUsage? usage = null;
         string? finishReason = null;
         var sawContent = false;
+        // The last error the backend reported IN BAND. Remembered rather than acted on: an error line that
+        // arrives AFTER content is not terminal — codex's measured `{"type":"error","message":"Reconnecting
+        // ... 2/5"}` appeared in runs that went on to SUCCEED, and treating every error-ish line as fatal
+        // kills healthy calls that recovered (pitfalls.md, the mirror of the trap this fix closes). So it is
+        // consulted only on the zero-content path below, where the alternative is a reasonless "no output".
+        string? inBandError = null;
         // the guarded loop (arm/read/stop + caller-cancel rethrow + fault→terminal) lives once in Core
         var guarded = GuardedStream.ReadAll<string, LlmChunk>(
             async () => await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false),
@@ -173,6 +183,7 @@ public sealed class OpenAiCompatibleProvider(
             var (text, chunkUsage, isFinal, reason) = ParseStreamLine(payload);
             if (chunkUsage is not null) usage = chunkUsage;
             if (reason is not null) finishReason = reason;
+            if (OpenAiHttp.InBandError(payload) is { } streamed) inBandError = streamed;
             if (text is { Length: > 0 })
             {
                 sawContent = true;
@@ -203,10 +214,15 @@ public sealed class OpenAiCompatibleProvider(
             yield break;
         }
         // zero-content stream = the streaming twin of CompleteAsync's empty→Failed, so the router
-        // can fall over pre-content instead of reporting a clean empty answer
+        // can fall over pre-content instead of reporting a clean empty answer. When the backend said WHY in
+        // band, that answer outranks the synthetic one: "no output produced" is the right verdict CLASS with
+        // no reason and the wrong routing (Failed advances and strikes; RateLimited cools).
         if (!sawContent)
         {
-            yield return LlmChunk.Error(LlmVerdict.Failed, $"{id}: no output produced");
+            var reply = inBandError is not null
+                ? InBandFailure(inBandError)
+                : new LlmReply("", LlmVerdict.Failed, Detail: $"{id}: no output produced");
+            yield return LlmChunk.Error(reply.Verdict, reply.Detail);
             yield break;
         }
         yield return LlmChunk.Final(usage);
@@ -236,6 +252,21 @@ public sealed class OpenAiCompatibleProvider(
     /// <summary>Whether this provider has anything to authenticate WITH — what separates "not set up yet"
     /// from "your key was rejected" when the server answers 401/403.</summary>
     private bool HasCredentials => !string.IsNullOrWhiteSpace(config.ApiKey);
+
+    /// <summary>Classify an error the backend reported IN BAND under a 2xx status. The status carries no
+    /// information here — it said success — so the verdict comes from the backend's own words through the
+    /// ONE shared corpus, never a local heuristic.
+    /// <para>The <see cref="LlmVerdict.AuthFailed"/> → <see cref="LlmVerdict.NotConfigured"/> promotion is
+    /// the same two-term rule <see cref="LlmVerdictClassifier.FromHttpFailure(HttpStatusCode, string, bool)"/>
+    /// applies on the status path, restated here because that overload needs a FAILED status to key on and
+    /// this path has none. Keeping the two in step matters: NotConfigured skips a candidate blamelessly and
+    /// lets a host offer setup, while AuthFailed benches it for the cooldown window.</para></summary>
+    private LlmReply InBandFailure(string error)
+    {
+        var verdict = LlmVerdictClassifier.FromErrorText(error);
+        if (verdict == LlmVerdict.AuthFailed && !HasCredentials) verdict = LlmVerdict.NotConfigured;
+        return new LlmReply("", verdict, Detail: $"{id}: {OpenAiHttp.Head(error)}");
+    }
 
     private LlmReply MapHttpFailure(HttpStatusCode status, string body)
     {

@@ -53,7 +53,19 @@ public interface ICliProviderDialect
     /// <summary>The static argv for one completion — print/non-interactive mode, output format, model
     /// selection. The PROMPT is not included here: it is delivered per
     /// <see cref="CliPromptDelivery"/>.</summary>
-    IReadOnlyList<string> BuildCompletionArgs(LlmRequest request);
+    /// <param name="request">The call being built.</param>
+    /// <param name="toolHostArgs">Args from an <see cref="Lyntai.Agents.ICliToolProvisioner"/> that point
+    /// this CLI at the host's own MCP endpoint — empty when nothing is hosted.
+    ///
+    /// <para><b>The DIALECT places these, because only the dialect knows where they may legally go.</b> The
+    /// engine used to append them after this method's return value, which is correct only for a CLI whose
+    /// argv ends in options. It does not for <c>codex</c>, whose argv ends in the <c>-</c> stdin positional:
+    /// everything after it is read as PROMPT text, and on that CLI a swallowed flag is a SPENT TURN rather
+    /// than an error. That hazard was documented on <c>CodexExecArgs</c> — which takes its own
+    /// <c>extraOptions</c> parameter for exactly this reason — and the agent path honoured it while the
+    /// completion path had no way to. Appending is still the right answer for most CLIs; it is now a choice
+    /// each dialect makes rather than one the engine makes for all of them.</para></param>
+    IReadOnlyList<string> BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs);
 
     /// <summary>Flatten the request's messages into the single prompt this CLI takes.</summary>
     string BuildPrompt(LlmRequest request);

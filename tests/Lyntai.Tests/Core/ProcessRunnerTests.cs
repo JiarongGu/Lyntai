@@ -462,6 +462,25 @@ public class ProcessRunnerTests
         return (dir, shim);
     }
 
+    // The kill-versus-clean-exit decision, as a truth table. It was written TWICE — StreamLinesAsync tested
+    // `timeoutCts.IsCancellationRequested && process.ExitCode != 0` with the race named in a comment, and
+    // RunAsync tested only the cancellation flag — so the buffered path reported a TIMEOUT for a child that
+    // had exited 0, discarding the complete stdout it was holding. CliProviderEngine.CompleteAsync branches
+    // on TimedOut BEFORE it parses stdout, so that turned an already-billed CLI turn into
+    // LlmVerdict.Timeout and made the router pay for a second one.
+    //
+    // The race itself cannot be driven deterministically from outside the class — which is exactly why the
+    // guard that DID exist had no test either. Extracting the decision is what makes it observable: one
+    // function, both callers, and the truth table pinned here.
+    [Theory]
+    [InlineData(true, 1, true)]    // killed mid-flight — a real timeout
+    [InlineData(true, 0, false)]   // THE RACE: the kill fired, but the child had already finished cleanly
+    [InlineData(false, 1, false)]  // a plain nonzero exit is a child failure, not a timeout
+    [InlineData(false, 0, false)]  // the ordinary success path
+    public void Timed_out_is_a_kill_that_beat_the_child_not_merely_a_kill_that_fired(
+        bool killRequested, int exitCode, bool expected) =>
+        Assert.Equal(expected, ProcessRunner.TimedOut(killRequested, exitCode));
+
     [Fact]
     public void Resolve_command_path_finds_node_and_caches()
     {

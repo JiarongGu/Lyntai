@@ -4,6 +4,7 @@ using Lyntai.Llm.Budgeting;
 using Lyntai.Memory;
 using Lyntai.Storage.Postgres;
 using Lyntai.Tests.Fakes;
+using Lyntai.Tests.Memory;
 using Xunit;
 
 namespace Lyntai.Tests.Storage;
@@ -110,6 +111,27 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
         await new PostgresUsageTracker(pg.Factory).ResetAsync(a);
         Assert.Equal(UsageTotals.Empty, (await new PostgresUsageTracker(pg.Factory).TotalAsync(a)));
     }
+
+    // The cross-backend VectorStoreContract, wired here because this class owns the container lifetime and
+    // NAMESPACED with Uid() so it coexists with the other tests on the shared instance. This is the backend
+    // that computes similarity in SQL (pgvector's <=> cosine distance) rather than through VectorMath, so it
+    // is where a divergence from the in-process store would actually live — and the pre-existing fixtures
+    // could not have seen one: they used unit basis vectors, under which cosine and a raw dot product agree
+    // on both ordering and sign. Measured 2026-08-14: swapping VectorMath.Cosine for a bare dot product left
+    // all 29 existing vector/semantic tests green, including the one named "ranks_by_cosine".
+    private async Task VecPg(Func<IVectorStore, string, Task> body)
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        await body(new PostgresVectorStore(pg.Factory), Uid());
+    }
+
+    [SkippableFact] public Task Contract_cosine_not_dot() => VecPg(VectorStoreContract.Ranking_is_by_cosine_so_magnitude_does_not_win);
+    [SkippableFact] public Task Contract_score_in_range() => VecPg(VectorStoreContract.A_score_is_a_cosine_in_the_documented_range);
+    [SkippableFact] public Task Contract_upsert_replaces() => VecPg(VectorStoreContract.Upserting_the_same_id_replaces_rather_than_duplicating);
+    [SkippableFact] public Task Contract_bounded_by_k() => VecPg(VectorStoreContract.Search_returns_at_most_k);
+    [SkippableFact] public Task Contract_delete_one() => VecPg(VectorStoreContract.Delete_removes_one_entry_and_leaves_the_others);
+    [SkippableFact] public Task Contract_remove_collection() => VecPg(VectorStoreContract.Removing_a_collection_clears_it_and_absent_deletes_are_no_ops);
+    [SkippableFact] public Task Contract_isolated() => VecPg(VectorStoreContract.Collections_are_isolated);
 
     [SkippableFact]
     public async Task VectorStore_pgvector_ranks_by_cosine_dedups_and_removes()

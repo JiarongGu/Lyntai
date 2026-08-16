@@ -42,7 +42,7 @@ public class MemoryClusterEdgeFormationTests
         using var db = new TempDb();
         var engine = new GraphMemoryEngine("edge-census", new SqliteMemoryGraphStore(db.Factory),
             agePolicies: [new PerWriteAgePolicy()],
-            policy: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
+            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
 
         var firstWrite = corpus.Steps.OfType<CorpusWrite>().First().Write;
         var clusterNodeIds = new HashSet<long>();

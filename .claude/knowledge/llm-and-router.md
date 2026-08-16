@@ -34,7 +34,7 @@ sees only one of the pair (`Unsupported` reaches the blameless slot only where a
 default `Surface` action, since Surface returns first).
 
 The §6 amendment: `RateLimited` used to circuit-break the whole request; it now cools-and-advances.
-`AuthFailed`/`ContextWindowExceeded` are the finer taxonomy added in v0.2.0. If you touch this table, update
+`AuthFailed`/`ContextWindowExceeded` are the finer taxonomy added before 1.0. If you touch this table, update
 every downstream site — there are four, and **they are not four copies of the same thing**, which matters
 because treating them alike leads to either bloating a consuming story or wrongly reading it as stale
 (checked 2026-08-14, all four correct):

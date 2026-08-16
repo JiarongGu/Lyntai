@@ -226,3 +226,19 @@ describe('check-packages — the exit code and the report', () => {
     }
   });
 });
+
+describe('check-packages — the packableProjects check must read that ARRAY, not the whole file', () => {
+  it('a project named only as bundle.project is NOT registered as packable', () => {
+    // The same vacuous-match defect this gate already learned for the two ApiSurfaceTests registries, in the
+    // one registry that never got the treatment. `devtools/project.config.mjs` names `src/Lyntai.Bundle`
+    // TWICE — once in `packableProjects` and once as `bundle.project` (D26's budget) — so a whole-file
+    // `includes` finds the second and passes even with the first deleted. Measured against the real config
+    // 2026-08-15: Lyntai.Bundle was the one package whose packable registration was unprotected.
+    const r = run((f) => {
+      f['devtools/project.config.mjs'] =
+        "export default { packableProjects: ['src/Lyntai.Core'],\n"
+        + "  bundle: { project: 'src/Lyntai.Bundle' } };\n";
+    });
+    assert.match(problemText(r), /Lyntai\.Bundle: not in packableProjects/);
+  });
+});

@@ -30,6 +30,32 @@ per-change record (what, and the full reasoning); the guide is the walk-through 
 
 ### Added
 
+- **`GraphMemoryOptions.ExpandCharBudget`** — the fallback character budget an expansion uses when the caller
+  passes none, which is the *"engine's configured budget"* `IExpandableMemory.ExpandAsync` has documented
+  since it shipped without one ever existing. Null (the default) means unbounded, which is what the engine
+  already did, so leaving it unset changes nothing. It bounds the NEIGHBOURS only — the expanded entry's own
+  content is always returned whole, because that is what expansion is for.
+
+- **`JobOutcome.Poll` — "not finished, and nothing went wrong; look again", which the contract had no word
+  for.** A handler that WATCHES a long-running operation somewhere else had to express waiting as
+  `JobOutcome.Retry`, and a retry SPENDS an attempt: at the default `MaxAttempts` of 3 a durable render was
+  submitted, polled twice, and then dead-lettered as *"retries exhausted"*. At the 15-second default poll
+  delay that meant **any hosted render slower than about thirty seconds died**, against a handler whose own
+  documentation promised to "poll to completion across as many process lifetimes as it takes" — and the
+  dead-letter reason named neither the backend nor the operation id, so the operator was never told a paid
+  render was still running, unwatched. `Retry` keeps its meaning (a failed attempt worth repeating, bounded
+  by `MaxAttempts`); `Poll` is not bounded by the attempt counter at all, because a look at a healthy
+  operation is not an attempt — such a job ends by cancellation, a deadline, or the handler returning `Fail`.
+  <br>**BREAKING for a BYO `IJobStore`:** the seam gains a required `PollAgainAsync(id, workerId, runAt, ct)`,
+  with no default body. A default body was considered and rejected: the only one it could have is a fallback
+  to the attempt-consuming path, which would leave every BYO store silently carrying the bug — the exact
+  failure mode this change exists to remove. Implementations must UNDO the increment `ClaimNextAsync`
+  applied (the SQL backends do it with `attempts=attempts-1`, the in-process store with a floored
+  subtraction) and must be FENCED on the worker id: this is the one outcome that moves a job BACKWARDS, so
+  an unfenced version would let a worker whose lease was already reclaimed reset another worker's job
+  indefinitely. Pinned by a `JobStoreContract` fact wired to all three backends, plus two runner facts.
+  Found by the 2026-08-14 whole-codebase review.
+
 - **Three cross-backend memory rules that were held as private copies now have ONE definition each**, all
   additive and all behaviour-neutral. Each was a CONTRACT fact — something every `IMemoryGraphStore` has to
   agree on — implemented separately in two or three places, which is the shape `pitfalls.md` §Storage records
@@ -135,6 +161,258 @@ per-change record (what, and the full reasoning); the guide is the walk-through 
   and re-migrate.
 
 ### Fixed
+
+- **A deleted memory left its SUBJECT rows behind on both SQL backends — unbounded growth, a corrupted
+  reuse list, and `ForgetAsync` leaving model-derived text in the database.** `lyntai_memory_subject` was
+  created with a bare `node_id` — no foreign key, no cascade — and `DeleteAsync`/`PruneAsync`/`ForgetAsync`
+  touched only the node table, so nothing ever removed a subject row. The in-process store did the opposite,
+  so this was a cross-backend divergence rather than a shared choice. The table now declares
+  `REFERENCES lyntai_memory_node(id) ON DELETE CASCADE`, exactly as `lyntai_memory_edge` has since it
+  shipped; the cascade fires because every connection comes from the shared factory with `foreign_keys=ON`.
+  <br>**The contract fact that claims to cover this could not see it**, which is why it survived: it asserted
+  only through `NodesBySubjectAsync`, whose JOIN against the node table hides an orphan. It now also asserts
+  through `KnownSubjectsAsync`, which does not join — and which is the reader that actually matters, since
+  the engine feeds its top-N to the annotator as reuse candidates ordered by `COUNT(*)`, so a fully dead
+  subject with many orphans outranked a live one and pushed real handles out of a bounded list. Both schema
+  goldens regenerated; the diff is one line each. Found by the 2026-08-14 whole-codebase review.
+
+- **`GraphMemoryOptions.MinRetrievability` was read by nothing, so `PruneAsync` with no explicit floor was a
+  silent NO-OP.** The option occurred only in its own declaration and its own validation guard, while
+  `PruneAsync` took an independent `minRetrievability` parameter and never consulted it — so with both that
+  parameter and `olderThan` null, the candidate filter matched nothing and the documented call
+  `engine.PruneAsync("task")` deleted nothing at all, against the option's own summary ("the retrievability
+  below which `PruneAsync` may REAP an entry") and design §5.7 ("the absolute `MinRetrievability` governs
+  `PruneAsync` alone"). The caller's floor now falls back to the configured one.
+  <br>**This is a behaviour change with data-loss implications, stated plainly rather than buried:** a
+  deployment calling `PruneAsync` without a floor previously deleted nothing on that criterion and now reaps
+  entries below `MinRetrievability` (default `0.05`). **`MinRetrievability = 0` is the opt-out** — a
+  retrievability is never below zero, so a floor of zero reaps nothing and restores the old behaviour — and
+  that escape is asserted by a test rather than assumed. Authoritative material remains ineligible at any
+  floor, which is objective (1) and is also now pinned. Found by the 2026-08-14 whole-codebase review.
+
+- **A curated engine's query-less recall returned every section of the catalog, unbounded.** The branch taken
+  when `MemoryQuery.Query` is empty calls `ForCompositionAsync`, which accepts neither `kind` nor a limit,
+  while the `SearchAsync` branch one line below passes both. So an engine bound to one section returned the
+  whole catalog, every section, with no limit and everything graded `Authoritative` — and a blend of two
+  curated engines over one catalog returned each fact once per member, the duplicates consuming the
+  authoritative reserve objective (1) exists to protect. Both filters are now applied engine-side, leaving
+  `ForCompositionAsync` doing the one job its other caller (`CuratedMemorySections`) needs. Found by the
+  2026-08-14 whole-codebase review.
+
+- **A failing embedder at RECALL emptied the whole recall instead of degrading to the lexical hits.**
+  `GraphMemoryEngine`'s semantic-seed step had no `try`/`catch` and ran *after* the store had already returned
+  lexical seeds, so a transient embedder or vector-store fault threw out of the gather step into
+  `RecallAsync`'s best-effort catch and returned `MemoryRecall.Empty` — discarding good seeds and reporting an
+  outage as "nothing matched", which a caller cannot distinguish from a genuine miss. Design §5.7.0 is
+  explicit that enrichment's failure degrades quality, never correctness, and the WRITE path's twin has always
+  been guarded this way. Cancellation is still never swallowed. Found by the 2026-08-14 whole-codebase review.
+
+- **A blended memory engine ignored `MemoryQuery.Limit` entirely, so an N-member blend returned up to N × the
+  limit asked for.** `CompositeMemoryEngine.RecallAsync` added every member's items and returned them with no
+  cut — and `MemoryEngineBuilder` **always** wraps members in a composite, so this was the shape every
+  multi-member consumer had (the README's own headline example is a two-member blend). The same class as the
+  `AuthoritativeReserve` defect above: a bound configured on one scope (the query) and enforced on another
+  (nothing). The blend is now ordered **authoritative-first, then by relevance**, and cut to the limit.
+  <br>Grade leads the ordering because design §5.7.0's objective (1) — never lose an authoritative fact — is
+  the only objective with no acceptable failure rate, so an exact fact must survive a cut a higher-scoring
+  associative hit would otherwise win; the graph engine already reconciles its own reserve against a limit
+  the same way. Relevance breaks ties below that tier, with a limit worth stating plainly: two members score
+  on scales that are not comparable, so the ordering is principled about the grade tier and merely reasonable
+  within it. **Only an explicit limit cuts** — `Limit: null` documents "the engine's default", a composite
+  has no default of its own, and inventing one here would silently truncate a blend somebody configured
+  deliberately. Found by the 2026-08-14 whole-codebase review.
+
+- **`ExpandAsync` accepted `hops` and `charBudget`, advertised `hops` to models, and ignored both.** Neither
+  identifier appeared anywhere in `GraphMemoryEngine.ExpandAsync`'s body — only in its signature — while the
+  method hard-coded a single hop and the engine's own limit. `MemoryTools` forwards a model-supplied `hops`
+  **and declares it in the tool JSON schema**, so an agent calling `project_expand {"hops":3}` received a
+  one-hop answer with no error and no signal that its request had been dropped. Both are now honoured:
+  the walk is breadth-first over the requested number of levels, deduplicated so a symmetric edge cannot
+  return to the seed and a diamond yields its far node once, and `hops: 0` genuinely returns the entry alone
+  (which a wiring test already *documented* while reading only `Items[0]`, so it passed either way).
+  <br>`hops` is CLAMPED to `GraphMemoryOptions.Hops` rather than honoured unbounded — this is a model-facing
+  seam, so an agent must not be able to request a walk of the whole graph. `charBudget` bounds the
+  neighbours only. Found by the 2026-08-14 whole-codebase review.
+
+- **Two MCP servers whose names differ only by `-` versus `_` sent one server's bearer token to the other's
+  URL.** `AgentMcpServer` names legally contain both characters, and the duplicate check keyed on the RAW
+  name, so `app-tools` and `app_tools` both validated. codex derives a bearer-token environment variable per
+  server by replacing `-` with `_` and upper-casing — so both collapsed onto one variable holding a single
+  token, while both servers' `bearer_token_env_var` pointed at it: one server was presented a credential
+  issued for a different endpoint, and the other failed to authenticate. `AgentMcpServers.TryValidate` now
+  refuses such a pair, on the NAMES rather than on whether a token happens to be set today, because the
+  collision is a property of the derived variable and a token-less pair is the same defect waiting for
+  someone to add one. The normalisation now lives once, in `AgentMcpServers.EnvKey`, which the codex config
+  renderer calls — two copies of a normalisation rule drift, and the drift is invisible until the halves
+  disagree about whether two names are the same. Claude-side keyed on the raw name and was never affected.
+  Found by the 2026-08-14 whole-codebase review.
+
+- **The pre-commit leak guard never scanned a staged RENAME.** `check-sensitive`'s staged-file list used
+  `git diff --cached --diff-filter=ACM`, and rename detection is on by default — so `git mv` plus an edit
+  stages as status `R`, the file list came back EMPTY, and the hook exited 0 having printed nothing. This
+  repository's own procedures are built on `git mv` (archiving a document, moving a record into `local/`),
+  and a committed leak is a HISTORY problem: the `--tree` sweep would only have caught it once it was
+  already in history. Now `ACMR`; `D` stays excluded deliberately, since a deletion has no staged blob to
+  scan. Pinned by a test whose precondition asserts git really scored the change as a rename, so it cannot
+  pass for the wrong reason. Found by the 2026-08-14 whole-codebase review.
+
+- **Four gates printed a tick over an empty scan.** `check-docs`, `check-encoding`, `check-links` and
+  `check-samples` all reported success when their file list came back empty — a wrong repository root or a
+  broken scope predicate silently disarmed the gate while producing output indistinguishable from a genuinely
+  clean tree. `check-api-vocabulary` already carried the rule and is the model the other four now follow. The
+  same failure shape as the staged-rename defect above, which is what makes it a class rather than an
+  incident: **the permissive direction is the one no run can report.**
+  <br>The guard is on the SOURCE list, not the filtered count, because a filtered zero is sometimes honest —
+  written the obvious way it immediately broke check-encoding's own `an unscanned extension is ignored` fact,
+  and that test was right. An empty source indicts any caller; zero survivors indicts only the full-tree path,
+  where this repository cannot produce one (761 text files, 45 maintained docs, 74 samples). Each of the four
+  is pinned in BOTH directions and mutation-checked. `.claude/knowledge/pitfalls.md` §Testing carries the
+  rule. Found by the 2026-08-14 whole-codebase review.
+
+- **`consumer-smoke`'s symbol-package check had never run on this machine.** It listed each `.snupkg` with
+  `tar -tf` under a comment asserting "bsdtar reads zips on win/git-bash" — but GNU tar is what is installed
+  here, and GNU tar cannot read zip at all (`exit 2`, *"This does not look like a tar archive"*). The call
+  site was `if (listing.status === 0 && !hasPdb) bail(...)`, so a tar that could not open the archive skipped
+  the check, and the step printed `every symbol package carries a PDB ✓` regardless. The release gate's last
+  word before publishing was a tick over an inspection that never happened.
+  <br>Now read from the archive's own CENTRAL DIRECTORY (`zipEntryNames`), which removes the dependency
+  rather than swapping it for another guess about which tar is installed, and an unreadable archive or an
+  empty symbol-package set now bails. Verified against all **11** real `.snupkg` files on disk plus a zip
+  from an independent producer — the hand-built fixture alone would only have proved the parser agrees with
+  its own author. Found by the 2026-08-14 whole-codebase review.
+
+- **`check-packages` could not see one package's missing registration.** The `packableProjects` check searched
+  the WHOLE of `devtools/project.config.mjs`, which names `src/Lyntai.Bundle` twice — once in that registry
+  and once as `bundle.project` (D26's budget) — so deleting the real registration still matched the second
+  occurrence and the gate reported *"every package is registered everywhere it needs to be ✓"*. Proved both
+  ways against the real tree, not a fixture. The gate had already learned this exact lesson for the two
+  `ApiSurfaceTests` registries and says so in a comment; `packableProjects` never got the treatment. Both the
+  forward and the reverse check now read the ARRAY.
+
+- **`dev.mjs e2e` exited 0 when it ran nothing.** A missing `devtools/scripts/e2e/` printed a note and
+  returned success — and `verify` propagates that code, so the gate could report green having run no suite at
+  all. A selector matching nothing did the same, making `e2e p12` (when the suites are p1–p3) indistinguishable
+  from a pass. Both now exit 1, and the selector error lists what is available.
+
+- **New sweep: `memory-enrichment` — WHY an embedder costs recall quality** (closes
+  `docs/task-archive.md` Part 69). Registering an `IEmbedder` + `IVectorStore` measurably costs recall
+  quality on this corpus, and two write-time mechanisms could explain it with nothing separating them:
+  similarity LINKING adding edges, and NOVELTY feeding salience. They separate with knobs that already ship —
+  `MinSimilarity` above 1 admits no cosine so no edge is written while the embed and search still run, and
+  salience is a DI collection so a neutral policy drops novelty while linking continues.
+  <br>**Both are real, and they have different SHAPES — which is why one number never explained it.**
+  Similarity linking is a **redistribution, not a cost**: averaged over shapes it takes `topical` misses down
+  **−0.2963** and `attribute` down **−0.2758** while driving `critical-rare` **+0.6758** (0.16 → 0.77 on the
+  baseline shape). Its aggregate reads as a small cost only because those cancel. Novelty→salience is a broad
+  shallow cost, positive on nearly every class, and the only arm that ever helps in aggregate — **−0.0532**
+  on the high-noise shape, where there is noise to discriminate against. The two are sub-additive in four of
+  five shapes.
+  <br>**The only sweep here that calls a REAL model, and it exits rather than substituting one** — the arm it
+  replaces used a feature-hashed bag of words in which "semantic similarity" IS word overlap, which is why
+  those numbers were withdrawn. Embeddings are cached by text (deterministic input, deterministic output), so
+  a real-model run at this scale costs 3,549 calls rather than 41,580.
+  <br>**The instrument's own trap is recorded because the first run walked into it:** the shape-level table
+  averages over classes and therefore over two large OPPOSING effects, reporting linking as a small cost when
+  it is a ±0.3–0.7 redistribution. The sweep now prints both tables.
+
+- **Per-backend contract coverage is now STRUCTURAL rather than counted** (closes `docs/task-archive.md`
+  Part 70). All three graph-store backends drive `MemoryGraphStoreContract` from one reflection-fed theory
+  source, so a fact added to the contract runs on InMemory, SQLite and Postgres the moment it compiles. The
+  hand-bumped `covered` literal is gone; per-fact test names survive as the theory argument.
+  <br>**The hole it closes is one direction only, and that is why it needed fixing.** The old
+  `Assert.Equal(declared, covered)` caught a fact wired NOWHERE and one wired everywhere except Postgres —
+  but not one wired to Postgres ALONE, where the author bumps the literal, it passes, and the other two
+  backends silently never run it. The invariant at stake ("a cross-backend invariant enforced on ONE
+  backend's test class is not enforced") is one this repository has already been bitten by.
+  <br>**Proved by mutation, not asserted:** planting one method on the contract took the contract suites from
+  407 to 410 passing — exactly +3, one per backend, nothing wired. Three further mutations are caught too, one
+  of them at COMPILE time (`xUnit1015`). A fifth test closes what the fix cannot close by itself — a shipped
+  store with no suite at all — by checking the suite list against the `IMemoryGraphStore` implementations the
+  packages actually ship.
+  <br>The deferral's stated risk did not materialise: the Postgres fixture is shared across its collection and
+  xUnit runs a class's cases sequentially, so container startup is still paid once (170 tests, 22s). Suite
+  totals moved to **2888 / 2909, 21 skipped**.
+
+- **`check-links` now scans the CODE tiers** (closes `docs/task-archive.md` Part 72, which left the scope
+  as an open question rather than widening it in the pass that found the defects). Narrower than the prose
+  scan on two axes: **comment lines only**, and **`docs/` targets only** — source files are renamed for
+  legitimate reasons, and `pitfalls.md` records an all-paths existence check over prose returning ~45 hits
+  and zero defects, while a moved DOCUMENT is what this gate exists for.
+  <br>**The entry proposed a third narrowing and the measurement refused it.** Replaying the pre-repair tree
+  found **9** genuine dead references in `src/` and `tests/`; an XML-doc-only rule catches **6**, and all
+  three it misses were in ordinary `//` comments and all three were real. Part 72's stated hypothesis was
+  that `//` comments are where false positives live — every false positive turned out to be a guard script
+  naming a FIXTURE, so the line belongs at the TARGET, not the comment style. Cost: six `link-ok`
+  annotations, once. Verified by planting a dead reference in `src/` and watching the gate fail.
+  <br>The code half deliberately has **no fail-closed guard**, unlike every other scanner here: that check
+  needs a source the filtered set can be compared against, and this filter has intentional exclusions, so
+  "zero survivors" cannot be told from "nothing to scan" without duplicating the filter. Two attempts proved
+  it — each broke a legitimate fixture test. The green line reports the count instead (`44 maintained doc(s)
+  + 664 code file(s)`), and a test pins the real tree's above zero.
+
+- **Two shipped memory domains were missing from the documented domain list.** `IMemoryAnnotationPolicy`
+  (`Lyntai.Memory.Annotation`) and `IMemoryVerificationPolicy` (`Lyntai.Memory.Verification`) are public
+  seams on the frozen 3.0 surface — both exposed on `UseGraph(...)` and the engine constructor — while
+  design §5.7 said "the five domains so far" and `CLAUDE.md`'s namespace map listed five.  <!-- count-ok: quotes the pre-fix claim -->
+  The tree has **seven**.
+  <br>**Why they were the two that got missed, which is the part worth keeping:** both are SINGULAR and
+  default to **none**, so nothing constructs them, no test names them, and the whole library runs model-free
+  unless a consumer registers one. A domain that is invisible to every other signal is exactly what a
+  counted-claim gate is for, so `memory policy domains` is now a registered claim — counted from the SEAMS
+  rather than the sub-directories, since `.Engines` is a sub-namespace and not a domain and counting folders
+  would give the plausible-and-wrong answer of eight.
+
+- **The migration guide never mentioned `KnownSubjectsAsync`.** It is the only 3.0 addition to
+  `IMemoryGraphStore` with a default body, so a 2.5 custom store keeps compiling and silently takes the
+  empty-list default — five members break your build and this one quietly limits a feature, which is why it
+  now has its own paragraph rather than a place in the list of five. The member arithmetic is stated and was
+  measured against the `v2.5.0` tag rather than reconstructed: 8 unchanged + 5 required + 1 defaulted = 14.
+
+- **The ROADMAP's thirty pre-1.0 rows collapsed to one.** Every 0.x version is unlisted on nuget.org (D44),
+  so none is resolvable by a consumer and none carries the SemVer promise, which begins at 1.0 — thirty
+  scannable rows for a line nobody can install is the opposite of what that table is for, and its own
+  preamble says the detail belongs to `CHANGELOG.md`. The single row keeps what the era delivered. The four
+  live claims anchored to a 0.x number lost the anchor rather than the meaning (the design contract's
+  routing-default note, the platform-kit heading, the job-deferral narrative, the verdict-taxonomy
+  provenance in `llm-and-router.md`).
+  <br>**The dated AMENDMENTS in the design contract keep their version numbers**, deliberately: an amendment
+  is a record of what changed on a date and is accurate BY naming the version of its day — the same reason
+  `check-docs` exempts `CHANGELOG.md` and the task archive. Rewriting those would falsify the record rather
+  than clean it.
+
+- **`CLAUDE.md` claimed the roadmap shipped through `v0.31`, a version that never existed** — the string
+  occurs nowhere else in the tree and the ROADMAP's v0.x sequence ends at `v0.30.0`.
+
+- **New gate: `check-counts`, the fourteenth in `verify`** — fails when a COUNT written in prose disagrees
+  with the tree. The third member of the maintained-state family: `check-docs` asks whether a document still
+  SAYS what a decision settled, `check-links` whether what it POINTS AT still exists, this whether what it
+  COUNTS is still true. `check-docs` structurally cannot see it — its registry holds vocabulary a decision
+  RETIRED, and a stale count retires nothing, so the sentence stays grammatical, plausible and wrong.
+  <br>**Eight measured incidents, zero automated catches.** `docs/task-archive.md` Part 73 found six
+  corrections to a counted claim inside sixty commits; two more went stale during the session that built the
+  gate, and the gate caught the second itself. Registered claims: packable packages, `verify` gates,
+  migrations, guard-script tests, corpus language arms. Line escape is **`count-ok`**, deliberately not
+  `drift-ok`.
+  <br>**Its own first counter proved Part 73's warning.** The `verify`-gate counter returned the CORRECT
+  total from two cancelling errors — its character class could not match `e2e`, and it counted the inner
+  `['--tree']` argument array as a step. Only a test comparing the parsed NAMES caught it, which is why every
+  counter is pinned against the real tree rather than a fixture. Two rules keep the registry from rotting: a
+  claim matching nothing FAILS, and a counter computing nothing is reported as a broken GATE rather than as
+  stale prose — "fix the number" being wrong advice when the counter is what failed.
+
+- **`new-package` spliced a lone LF into every CRLF registry it edited.** The insertion joined with a bare
+  `\n` while all seven registries are CRLF in a Windows working copy under `core.autocrlf=true`, leaving
+  mixed line endings — committed clean here only because autocrlf normalises on the way in, and committed
+  MIXED by anyone whose config does not. No gate can see it: mixed endings are not mojibake, so
+  `check-encoding` is blind to them by design. It now joins with the line ending the file already uses,
+  pinned in both directions.
+
+- **`drift-ok` silenced the line ABOVE it.** The escape is read from line N and N+1 so that annotating either
+  half of a WRAPPED claim works — correct, and why the window exists — but it was applied before the
+  line-alone test too, so an ordinary line inherited the exemption of whatever happened to follow it. Two
+  unrelated adjacent paragraphs were enough: the second legitimately names the retired thing and is
+  annotated, the first silently stops being checked. The two matches now take different escapes. No existing
+  annotation in the tree relied on the old behaviour.
 
 - **A recall could return MORE entries than its own `Limit`.** `GraphMemoryOptions.AuthoritativeReserve` is
   configured per ENGINE while `MemoryQuery.Limit` arrives per QUERY, and only the `null` default was capped by
@@ -251,7 +529,7 @@ per-change record (what, and the full reasoning); the guide is the walk-through 
   answer it differently. Escapes are per-file in `staleReferenceAllowances` with a reason and **fail when
   they stop matching**; a single deliberate mention takes `link-ok`, deliberately not `drift-ok`.
   <br>**It checks a reference TWO ways, because there are two ways one rots.** The path half asks whether the
-  target still exists. The **Part half** asks whether a reference naming a task record — `` `TASKS.md`
+  target still exists. The **Part half** asks whether a reference naming a task record — `` `TASKS.md` <!-- link-ok: an ILLUSTRATION of the shape, not a claim about where Part 53 lives -->
   Part 53 `` — names the record that actually holds it: the path resolves, the Part exists, in the OTHER
   file, so nothing else can see it. **Archiving a task is what breaks these**, silently and for every inbound
   reference at once. Five were live when the half was added (three in this section, two in `docs/FIXES.md`);
@@ -627,7 +905,225 @@ per-change record (what, and the full reasoning); the guide is the walk-through 
   <br>Co-activation edges and the review log are deliberately outside this option and keep their own
   switches; the log still records what the policy computed even when the engine does not bank it.
 
+### Fixed
+
+- **An OpenAI-compatible backend that reported a failure at HTTP 200 was never classified — and the request
+  was re-sent to it first.** A gateway answering `200` with `{"error":{"code":429,…}}` produced
+  `Failed: "malformed or empty response after retry"`, having sent the identical request a second time to a
+  host that had just reported a rate limit. `Failed` ADVANCES and takes a dead-host strike where
+  `RateLimited` COOLS, so an honest backend was penalised toward being benched. Both the buffered and the
+  streaming path now read the in-band channel through one reader and classify through the shared corpus,
+  with the same `AuthFailed → NotConfigured` promotion the status path makes. **This is the third instance
+  of one class** — the CLI engine shipped it twice — so the rule is worth restating: *whenever a backend can
+  answer in two channels, decide the precedence explicitly and pin it with a test.* See `docs/FIXES.md`.
+
+- **A durable render polled a backend that could never answer, forever.** `FalQueueProvider` reported EVERY
+  status-call failure as `Running`, including a 4xx for an id fal does not know and a backend whose key was
+  rotated away — so the job re-checkpointed and polled every 15 seconds for the life of the process, never
+  dead-lettered and never failed, with the reason sitting in `Detail` where nothing acts on it. A failure
+  that never reached the queue still leaves the render alive; one the queue ANSWERED is now terminal. This
+  is `ComfyUiProvider`'s existing rule, which had reasoned the case through in writing while its sibling in
+  the same package answered the opposite way.
+
+- **A CLI turn that finished cleanly could be reported as a stall, and paid for twice.** The buffered
+  `ProcessRunner.RunAsync` decided "timed out" on the cancellation flag alone, but `KillTree` is a no-op
+  against a process that has already gone — so a child exiting `0` as the clock fired had its complete
+  stdout discarded and reported as `Timeout`, and `CliProviderEngine` branches on that before it parses
+  stdout, so the router paid for a second turn. `StreamLinesAsync` had always asked the fuller question; the
+  two now ask it through one function rather than two copies kept in step by review.
+
+### Fixed
+
+- **A headline-only query found the fact on SQLite and nowhere else.** `lyntai_memory_node_fts` declares
+  `headline, content` and an unconfined FTS5 expression matches either, while Postgres's trigram index and
+  the in-process store match content only — so the same call answered differently per backend, and SQLite
+  disagreed with itself depending on whether the trigram index hit. `IMemoryGraphStore.SeedAsync`'s written
+  portable guarantee is content-only, so SQLite was the outlier exceeding the contract; the FTS expression
+  is now confined to `content`, with no migration and no released schema touched. Pinned by two facts on
+  `MemoryGraphStoreContract`, which run on all three backends by construction.
+  <br>Widening all three to match headlines instead is a legitimate additive change and a separate
+  decision — it needs a Postgres index and a recall-quality measurement, neither of which a divergence fix
+  should smuggle in.
+
+- **The in-process stores ranked by recency where their own interface docs promise matched-term count.**
+  `IMemoryStore.RecallAsync`, `ICuratedMemoryStore.SearchAsync` and `storage.md` all state that Postgres
+  *and* InMemory rank by matched terms then recency; both SQL stores did and neither in-process store did.
+  With a `limit` that is a different ANSWER, not a different order — an entry matching one term displaced
+  one matching every term by being newer. New `SearchTerms.MatchCount` is the in-process twin of the count
+  expression `LikeClause` already builds for SQL, so the split and the scoring stay one rule.
+
+- **`PostgresMemoryGraphStore` opened every connection synchronously — all fourteen sites, alone among the
+  twelve Postgres stores.** `SeedAsync` runs on every recall, so under concurrent recalls each call blocked
+  a thread-pool thread for a full TCP connect and authentication, and the cancellation token could not reach
+  the connect at all. No wrong data; a liveness defect, of the kind `IDbConnectionFactory` exists to prevent.
+
+### Tests
+
+- **A contract fact that depended on machine load has been made deterministic.**
+  `Advance_is_keyed_per_engine` asserts an interleaved run equals an isolated one to nine decimal places —
+  which for `ElapsedAgePolicy` is a wall-clock quantity, so the interleaved arm also absorbed however long
+  the intervening writes took. It held only while the machine was fast enough for both arms to round to
+  zero, and it failed inside a full-suite run and passed alone. That policy now takes a frozen clock for the
+  shared fact, and the property the fact was standing in for — elapsed is measured from THIS engine's own
+  last write — is asserted directly, on a clock the test moves.
+
+
 ### Breaking
+
+- **The 3.0 naming sweep — names that MISLED are changed; names that merely differed are not**
+  (`docs/DECISIONS.md` **D66**). All source-level. **Seven** of the retired spellings are registered in
+  `retiredApiNames` so they cannot come back quietly; **four cannot be**, because each is still live and
+  correct elsewhere on the surface — `AuthoritativeReserve` on `GraphMemoryOptions` (the slots one, which
+  keeps its name), `policy` on `InMemorySecretVault`, `Strength` on `GraphNode`, and `candidates` throughout
+  the routing surface. D66 has the table and the reason.
+
+  | was | is |
+  |---|---|
+  | `MemoryCompositionOptions.AuthoritativeReserve` | `AuthoritativeCharacters` |
+  | `MemoryEngineBuilder.Reserve(characters)` | `ReserveCharacters(characters)` |
+  | `IProviderInstallation` | `IProviderProbe` |
+  | `GraphMemoryEngine(policy:)` / `UseGraph(policy:)` | `retrievability:` |
+  | `CuratedMemorySections(task:)` | `taskKey:` |
+  | `MemoryProvenance.EnsureEachBitIsSingleRealAndUnique` | `ValidateProvenanceBits` |
+  | `IMemoryRetentionCompositionPolicy.Compose` | `StabilityFactor` |
+  | `IMemorySalienceCompositionPolicy.Compose` | `Signals` |
+  | `SummedAgeComposition` / `MultiplicativeRetentionComposition` / `MaximalSalienceComposition` | `…CompositionPolicy` |
+  | `LocalDiffusionOptions.Strength` | `DenoisingStrength` |
+  | `UseDefaultGenerationCandidates(candidates:)` | `providerIds:` |
+
+  <br>**The sharpest one, if you read only one row:** `AuthoritativeReserve` named TWO quantities — recall
+  SLOTS on `GraphMemoryOptions`, prompt CHARACTERS on `MemoryCompositionOptions` — in the same namespace,
+  with different null conventions, both reachable from a single `MemoryEngineBuilder` chain. A consumer
+  reading "reserve 2" as slots was setting a two-character budget, which truncates every authoritative fact
+  to nothing. The slots one keeps its name; the characters one now says its unit.
+  <br>`IProviderInstallation` declared a single `ProbeAsync` and installed nothing, one word away from
+  `IProviderVersionInstaller`, which does — and the documented use is a capability type-test, so the name
+  was the whole API for a reader choosing between them.
+
+- **`MemoryEngineComposition` and `BudgetedGenerationRouter.RecordAsync` are now `internal`.** Neither had
+  an external caller; the latter's own doc said "public so the durable-render handler can record …", and
+  that handler is in the same assembly, so `internal` satisfied the stated reason all along.
+
+  <br>**Deliberately NOT renamed, recorded so it is settled rather than rediscovered:** `LlmRequest req`
+  versus `request` (74 signatures), `httpClient` for a `Func<…,HttpClient>` on ten builder extensions, and
+  `AgentStreamEvent`'s eight subtypes carrying no `*Event` suffix. All are real inconsistencies; none makes
+  a reader believe a false thing, and `AgentStreamEvent` is a sealed hierarchy consumers `switch` over, so
+  renaming it churns every call site to settle a preference. A break must buy a reader something.
+
+
+### Breaking
+
+- **`ICliProviderDialect.BuildCompletionArgs` takes the tool-host args**
+  (`BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs)`), and the engine no longer
+  appends them itself. Breaking for a BYO dialect; both in-tree dialects are updated. See
+  `docs/DECISIONS.md` **D65**.
+  <br>**What was wrong.** `CliProviderEngine` appended an `ICliToolProvisioner`'s args after the dialect's
+  argv — correct for a CLI whose argv ends in OPTIONS, wrong for one ending in a POSITIONAL. On `codex` the
+  argv ends in the `-` stdin marker, so the MCP config overrides landed in the `[PROMPT]` slot: the tools
+  the provisioner exists to expose were absent and **the turn was spent**, because that CLI reads an
+  unrecognised token as a prompt rather than erroring. `CodexExecArgs` had documented this hazard and taken
+  an `extraOptions` parameter for it, and the agent path used it — the completion path had no way to.
+  <br>It never bit because `claude` is the only CLI that had driven that path, and appending is correct
+  there. A BYO dialect that ends its argv in options can simply append (`[.. mine, .. toolHostArgs]`), which
+  is what `ClaudeCliDialect` now does explicitly.
+
+### Fixed
+
+- **The hosted MCP endpoint ran the application's tools with no guard gating at all.** An app that
+  registered an `IGuard` had it enforced through `IToolLoop` and silently NOT enforced when a CLI's own
+  agent called the same tool over the hosted endpoint — the same `ITool` instances, reached by a second
+  door. `AddMcpToolHost` now resolves `IGuardRail` optionally and gates both the call's args and its
+  observation, exactly as the tool loop does. A blocked call does not execute and its payload is never
+  produced; with no guards registered nothing changes. See `docs/FIXES.md`.
+
+### Internal (no public surface change)
+
+- **The front-door fold is built once for every client the container hands out.** It was written twice — the
+  default `ILlmClient` and each named one — with a comment above the second copy asserting the parity the
+  two were supposed to maintain by hand. Nothing enforced it: deleting the refusal screening from the named
+  copy left the whole suite green, and any new outermost layer added to the default would have been silently
+  absent from every named client, which is what `AddMemoryAnnotation` and `AddMemoryVerification` resolve
+  through. Only the ROUTER differs now (the default takes the container's, a name takes one narrowed to its
+  provider set), and that difference is the parameter.
+
+
+### Breaking
+
+- **`GenerationRouter` is now a TRUST BOUNDARY: a backend that throws is classified and fallen over instead
+  of propagating.** See `docs/DECISIONS.md` **D64**. Behavioural, with no compile-time signal — a caller
+  that today catches an exception out of `GenerateAsync`/`SubmitAsync` will instead receive a
+  `GenerationResult`/`GenerationSubmission` carrying a verdict. `AddGenerationProvider` is a documented BYO
+  seam, so the throwing party is frequently neither this library nor the caller, and discarding every
+  remaining candidate for a third-party defect is the outcome fallback exists to prevent.
+  <br>**The two paths differ deliberately, and it is about money.** Inline generation ADVANCES to the next
+  candidate. A thrown SUBMIT is reported `Inconclusive` and SURFACES, because submitting commits the spend:
+  the backend never answered, so it may already hold a billable render and advancing would buy the same
+  generation twice.
+  <br>`OperationCanceledException` under the caller's own token still propagates on both paths — a caller
+  must be able to tell their own cancellation from a backend's failure. A thrown `Refused` is clamped to
+  `Failed`, so a "content policy" string in a proxy's error page cannot stop the chain.
+
+
+### Breaking
+
+- **A memory engine you can actually delete from: `CompositeMemoryEngine` implements `IForgettableMemory`,
+  and `IForgettableMemory` gains `ForgetAsync`.** Breaking for a BYO implementor of that interface (the only
+  in-tree one is `GraphMemoryEngine`, which already had a matching method). See `docs/DECISIONS.md` **D63**.
+  <br>**Why it could not wait for 3.1.** `MemoryEngineBuilder.Build` returns a composite for *every*
+  registration — single-member included, and it is documented as doing so — and the composite did not
+  implement `IForgettableMemory`. So `engine is IForgettableMemory` was **false** for everything
+  `IMemoryEngineFactory` hands back, and `ForgetAsync` was a bare public method on `GraphMemoryEngine`
+  declared on no interface at all. A consumer holding an `IMemoryEngine` could reach neither: through 2.5.x
+  the shipped memory subsystem had **no supported way to delete anything**.
+  <br>Reaping FANS OUT to every capable member and sums what they removed, where `ExpandAsync`/`LinkAsync`
+  ROUTE to one owner — the argument is the reason, not taste: a `MemoryRef` names exactly one member, a
+  (task, scope) may be held by all of them. A blend where no member can reap **throws**
+  `NotSupportedException` naming the members considered, rather than reporting `0`: `PruneAsync` returns a
+  count and `0` already means "nothing matched", so a caller reaping for a consent withdrawal must not read
+  "nothing here can ever reap" as "done".
+
+### Fixed
+
+- **`MemoryRecall.Answered` was `null` on every DI-registered engine, so 3.0's abstention signal was
+  unreachable through the documented path.** `CompositeMemoryEngine.RecallAsync` returned
+  `new MemoryRecall(items, ran)` — the third positional argument defaulted away — so a judge that ran and
+  reported `false` was indistinguishable from no judge at all, which is the one distinction the field
+  exists to make. `docs/memory.md`'s own *"know when the memory has nothing useful"* sample tests
+  `recall.Answered == false` and could never fire.
+  <br>It now folds across members as a three-value lattice: **`true`** if any member's judge found an
+  answer, **`false`** if at least one judged and none did, **`null`** only when nothing judged anywhere —
+  the last clause being what stops the shipped no-verifier default from ever synthesising `false`, which
+  would make a consumer abstaining on `false` abstain on everything.
+
+- **`MemoryQuery.CharBudget` was reconciled by nothing at a blend, so an N-member engine could spend N× the
+  budget.** The same two-scopes defect as the `Limit` cut one field over — a bound configured on the query
+  and enforced nowhere — and it lands on a value callers set precisely because it is a *prompt* budget. The
+  blend now applies `GraphMemoryEngine`'s own rule verbatim, so a blend and a bare engine cannot answer one
+  query differently: after the limit so the budget cuts the weakest tail rather than changing what wins, an
+  authoritative item is never dropped by it, and a budget too small for even one item still yields one.
+
+### Breaking
+
+- **Every generation backend registers with a CONFIGURE CALLBACK, like the rest of the library.**
+  `AddOpenAiImageProvider`, `AddAutomatic1111Provider`, `AddComfyUiProvider`, `AddFalProvider` and
+  `AddLocalDiffusionProvider` now take `Action<TOptions> configure` instead of a constructed options object —
+  the same shape as `AddOpenAiCompatibleProvider(id, o => …)` on the LLM side and `AddMemoryEngine(name,
+  e => …)` in 3.0's memory work.
+
+  <!-- compile-skip: a side-by-side before/after pair, and the "before" half is the 2.5 API -->
+  ```csharp
+  // before                                        // after
+  .AddOpenAiImageProvider(new OpenAiImageOptions    .AddOpenAiImageProvider(o =>
+      { BaseUrl = "…/v1", ApiKey = key })               { o.ApiKey = key; })
+  ```
+
+  <br>The four HTTP options types became mutable classes (they were records with `init` members), and the
+  three `required BaseUrl` members gained the default their own documentation already named — the backend's
+  conventional local URL, or the vendor's API root. **A registration that previously had to state a base URL
+  now takes that default instead of failing to compile**, and `with` expressions and value equality on those
+  four types no longer work. A blank base URL still reports `NotConfigured` at render time.
+  <br>The registration keeps the instance the callback configured, so paths that only exist after a setup step
+  can be set afterwards (`b.AddLocalDiffusionProvider(o => opts = o)`).
 
 - **`MemoryRetentionPolicy` is now `MemoryEvictionPolicy`, and `LyntaiOptions.MemoryRetention` is <!-- drift-ok: an entry announcing a rename names the old name -->
   `LyntaiOptions.MemoryEviction`** — a rename with no behaviour change, resolving a name collision this

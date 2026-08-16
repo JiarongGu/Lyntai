@@ -12,8 +12,13 @@ public sealed record MemoryCompositionOptions
     /// content is admitted. Associative content then spends what remains of <see cref="Budget"/>.
     /// <para>A flat first-come budget lets a burst of loosely-relevant recall push a hard constraint out of
     /// the prompt entirely, with nothing reporting it — the prompt still looks full. That is the failure
-    /// this reservation exists to prevent.</para></summary>
-    public int AuthoritativeReserve { get; init; } = 1000;
+    /// this reservation exists to prevent.</para>
+    /// <para><b>CHARACTERS, and named for it.</b> Through 2.5.x this was <c>AuthoritativeReserve</c> — the
+    /// same identifier as <see cref="GraphMemoryOptions.AuthoritativeReserve"/>, in the same namespace, in
+    /// different UNITS (that one reserves recall SLOTS) and with different null conventions, both reachable
+    /// from one <see cref="MemoryEngineBuilder"/> chain. A consumer reading "reserve 2" as slots got two
+    /// characters, which truncates every authoritative fact to nothing.</para></summary>
+    public int AuthoritativeCharacters { get; init; } = 1000;
 
     /// <summary>Heading for exact material.</summary>
     public string AuthoritativeHeading { get; init; } = "## Known facts (authoritative)";
@@ -60,7 +65,7 @@ public static class MemoryComposition
         var recalled = recall.Items.Where(i => i.Grade != MemoryGrade.Authoritative).ToList();
 
         // authoritative out of its own reserve FIRST, then associative from whatever of the total is left
-        var (exactText, omitted) = Fill(exact, Math.Min(opts.AuthoritativeReserve, opts.Budget), verbatim: true);
+        var (exactText, omitted) = Fill(exact, Math.Min(opts.AuthoritativeCharacters, opts.Budget), verbatim: true);
         var (recalledText, _) = Fill(recalled, Math.Max(0, opts.Budget - exactText.Length), verbatim: false);
 
         if (exactText.Length == 0 && recalledText.Length == 0) return basePrompt;

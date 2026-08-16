@@ -24,8 +24,13 @@ public sealed class ClaudeCliDialect : CliProviderDialectBase
     /// <summary>The shared stub seam first, then this CLI's own override.</summary>
     public override IReadOnlyList<string> CommandEnvironmentVariables => ["LYNTAI_PROVIDER_CMD", "CLAUDE_CMD"];
 
-    /// <summary>Print mode + stream-json, with interactive UI tools disallowed for a library call.</summary>
-    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest request) => ClaudeArgs.Build(request.Model);
+    /// <summary>Print mode + stream-json, with interactive UI tools disallowed for a library call.
+    /// <para>This argv ends in OPTIONS and takes its prompt on stdin, so appending the tool-host args is
+    /// correct here — which is exactly why the engine appending them for every dialect went unnoticed: the
+    /// only CLI that had driven that path is the one where it happens to work.</para></summary>
+    public override IReadOnlyList<string> BuildCompletionArgs(
+        LlmRequest request, IReadOnlyList<string> toolHostArgs) =>
+        [.. ClaudeArgs.Build(request.Model), .. toolHostArgs];
 
     /// <summary>Decode one <c>stream-json</c> line into the engine's vocabulary.</summary>
     public override CliOutputEvent ParseLine(string line)
@@ -35,6 +40,11 @@ public sealed class ClaudeCliDialect : CliProviderDialectBase
         {
             StreamJsonEventKind.AssistantText => CliOutputEvent.Content(evt.Text),
             StreamJsonEventKind.Result => CliOutputEvent.Result(evt.Text, evt.Usage),
+            // The engine's in-band-failure precedence exists for exactly this and was unreachable from this
+            // dialect until 2026-08-14: a turn the CLI flagged `is_error` came back as an Ok reply carrying
+            // whatever text had arrived. The message is the backend's OWN words, so a 401 classifies as
+            // AuthFailed (which cools the host) rather than a bare Failed (which merely advances).
+            StreamJsonEventKind.Failure => CliOutputEvent.Failure(evt.Text),
             _ => CliOutputEvent.Ignored,
         };
     }

@@ -28,7 +28,7 @@ public sealed class LocalDiffusionOptions
     public double CfgScale { get; set; } = 7;
 
     /// <summary>How much of the source image an img2img run may change (0..1).</summary>
-    public double Strength { get; set; } = 0.5;
+    public double DenoisingStrength { get; set; } = 0.5;
 
     /// <summary>Absolute ceiling for one render. CPU diffusion legitimately runs for many minutes, so this is
     /// generous; it exists so a wedged engine cannot hang a caller forever.</summary>
@@ -202,7 +202,7 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
             args.Add("-i");
             args.Add(initPath);
             args.Add("--strength");
-            args.Add(options.Strength.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            args.Add(options.DenoisingStrength.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
         return args;
     }

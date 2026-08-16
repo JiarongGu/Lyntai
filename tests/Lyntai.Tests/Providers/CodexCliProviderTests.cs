@@ -18,6 +18,42 @@ namespace Lyntai.Tests.Providers;
 /// <c>login</c>/<c>logout</c> against one (they mutate a developer's credentials).</summary>
 public class CodexCliProviderTests
 {
+    [Fact]
+    public void Tool_host_args_land_before_the_stdin_positional_not_after_it()
+    {
+        // Found 2026-08-15. CodexExecArgs has always taken an `extraOptions` parameter SPECIFICALLY so
+        // options land before the `-`, and says why in its own words: "an option landing after the `-` would
+        // be read as part of the [PROMPT] positional, and on this CLI a swallowed flag is a SPENT TURN
+        // rather than an error." The AGENT path honoured that (CodexAgentArgs passes mcpArgs through it);
+        // the COMPLETION path structurally could not, because ICliProviderDialect.BuildCompletionArgs took
+        // only the request — so CliProviderEngine appended the tool-host args AFTER the dialect's argv, i.e.
+        // after the `-`. It never bit only because claude is the sole CLI that has driven that path and its
+        // argv happens to end in an option.
+        var dialect = new CodexCliDialect();
+
+        var argv = dialect.BuildCompletionArgs(
+            new LlmRequest { Messages = [LlmMessage.User("hi")] },
+            ["-c", "mcp_servers.lyntai.command=\"node\""]).ToList();
+
+        var dash = argv.IndexOf("-");
+        var config = argv.IndexOf("-c");
+        Assert.True(dash >= 0, $"the stdin positional must still be present; got [{string.Join(" ", argv)}]");
+        Assert.True(config >= 0, $"the tool-host args must be present; got [{string.Join(" ", argv)}]");
+        Assert.True(config < dash,
+            $"tool-host args must PRECEDE the '-' positional; got [{string.Join(" ", argv)}]");
+    }
+
+    [Fact]
+    public void A_dialect_with_no_tool_host_args_builds_exactly_what_it_always_did()
+    {
+        // The control: the seam change must be free for every caller that hosts no tools, which is most.
+        var argv = new CodexCliDialect()
+            .BuildCompletionArgs(new LlmRequest { Messages = [LlmMessage.User("hi")] }, []).ToList();
+
+        Assert.Equal("-", argv[^1]);
+        Assert.DoesNotContain("-c", argv);
+    }
+
     public static string StubCommand
     {
         get
@@ -45,7 +81,7 @@ public class CodexCliProviderTests
     {
         ILlmProvider provider = Provider(new FakeProcessRunner());
 
-        Assert.IsAssignableFrom<IProviderInstallation>(provider);   // codex --version
+        Assert.IsAssignableFrom<IProviderProbe>(provider);   // codex --version
         Assert.IsAssignableFrom<IProviderUpdater>(provider);        // codex update
         Assert.IsAssignableFrom<IProviderAuth>(provider);           // codex login status / login / logout
 

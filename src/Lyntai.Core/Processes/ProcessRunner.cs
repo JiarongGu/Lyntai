@@ -140,9 +140,20 @@ public sealed class ProcessRunner : IProcessRunner
             if (killCts.IsCancellationRequested)
             {
                 ct.ThrowIfCancellationRequested(); // caller cancel propagates; only a timeout is reported as a result
-                // killCts fired without a tagged reason ⇒ the caller's own token (handled above) or a race; default to inactivity
-                var kind = stopReason == (int)ProcessTimeoutKind.None ? ProcessTimeoutKind.Inactivity : (ProcessTimeoutKind)stopReason;
-                return new ProcessResult(-1, stdout.ToString(), stderr, kind);
+
+                // …but a kill that FIRED is not the same as a kill that BEAT the child. Through 2.5.x this
+                // branch reported a timeout on the cancellation flag alone, so a child that exited 0 as the
+                // timer fired had its complete, successful stdout thrown away and reported as a stall — and
+                // CliProviderEngine.CompleteAsync branches on TimedOut before it parses stdout, so an
+                // already-billed turn became a Timeout verdict and the router paid for a second one.
+                // StreamLinesAsync has always asked the fuller question; the two now ask it through ONE
+                // function rather than through two copies kept in step by review.
+                if (TimedOut(true, process.ExitCode))
+                {
+                    // killCts fired without a tagged reason ⇒ the caller's own token (handled above) or a race; default to inactivity
+                    var kind = stopReason == (int)ProcessTimeoutKind.None ? ProcessTimeoutKind.Inactivity : (ProcessTimeoutKind)stopReason;
+                    return new ProcessResult(-1, stdout.ToString(), stderr, kind);
+                }
             }
             return new ProcessResult(process.ExitCode, stdout.ToString(), stderr);
         }
@@ -152,6 +163,24 @@ public sealed class ProcessRunner : IProcessRunner
             try { if (!process.HasExited) KillTree(process); } catch { /* already gone */ }
         }
     }
+
+    /// <summary>Did the kill BEAT the child, or did the child finish first? A kill request on its own does
+    /// not mean a timeout: <c>KillTree</c> is a no-op against a process that has already gone, so a child
+    /// exiting <c>0</c> as the clock fires leaves the flag set and the run entirely successful.
+    ///
+    /// <para><b>One function because it was two copies, and they had already diverged.</b>
+    /// <c>StreamLinesAsync</c> asked both halves of this question; <c>RunAsync</c> asked only whether the
+    /// flag was set, and therefore reported a stall for a run whose complete stdout it was holding. The two
+    /// call sites are far apart in this file and neither is reachable from the other's tests, which is how a
+    /// guard existed on one path and was absent from the other for a whole release. Keeping the decision in
+    /// one place is what makes the divergence unrepresentable rather than merely fixed.</para>
+    ///
+    /// <para><b>Internal, and unit-tested through the truth table</b>, because the race it settles cannot be
+    /// driven deterministically from outside this class — which is precisely why the copy that DID carry the
+    /// guard never had a test.</para></summary>
+    /// <param name="killRequested">Whether a stop was requested (an inactivity or max-duration clock).</param>
+    /// <param name="exitCode">The reaped child's exit code.</param>
+    internal static bool TimedOut(bool killRequested, int exitCode) => killRequested && exitCode != 0;
 
     /// <summary>Streamed run: yields stdout lines as they arrive. <paramref name="inactivityTimeout"/> is
     /// an INACTIVITY window on the child (the stdin write and each stdout read) — it deliberately does NOT
@@ -240,7 +269,7 @@ public sealed class ProcessRunner : IProcessRunner
             ct.ThrowIfCancellationRequested();
             // a kill that fired during the stdin observe / reap is a TIMEOUT, not a child failure — classify
             // it as one (unless the child actually finished cleanly first: the kill can race a clean exit)
-            if (timeoutCts.IsCancellationRequested && process.ExitCode != 0) timedOut = true;
+            if (TimedOut(timeoutCts.IsCancellationRequested, process.ExitCode)) timedOut = true;
             if (timedOut)
             {
                 // report the window that fired — the ceiling when maxCts tagged the kill, else the inactivity one

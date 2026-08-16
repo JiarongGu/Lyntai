@@ -117,6 +117,53 @@ public class JobRunnerTests
     }
 
     [Fact]
+    public async Task Poll_requeues_without_spending_an_attempt_so_a_long_operation_is_never_dead_lettered()
+    {
+        // Found 2026-08-14 by the whole-codebase review. GenerationRenderJobHandler expressed "the render is
+        // still running, come back later" as JobOutcome.Retry — and a retry SPENDS an attempt, so at the
+        // default MaxAttempts of 3 the third poll dead-lettered the job. At a 15s poll delay that meant any
+        // render over ~30 seconds died, against a class doc promising to "poll to completion across as many
+        // process lifetimes as it takes", and the operator was told "retries exhausted" while a PAID render
+        // carried on unwatched. Polling and retrying are different things; Retry keeps its meaning (a failed
+        // attempt worth repeating) and Poll is the word that was missing.
+        var polls = 0;
+        var handler = new FakeJobHandler("render",
+            _ => Task.FromResult(++polls < 5 ? JobOutcome.Poll(TimeSpan.FromSeconds(1)) : JobOutcome.Complete));
+        var (runner, store, queue, clock) = Build(o => o.Jobs.DefaultMaxAttempts = 2, handler);
+        var id = await queue.EnqueueAsync("default", "render", "{}");
+
+        for (var i = 0; i < 5; i++)
+        {
+            await runner.RunOnceAsync();
+            clock.Advance(TimeSpan.FromMinutes(2));       // past the poll delay
+        }
+
+        var final = (await store.GetAsync(id))!;
+        Assert.Equal(JobStatus.Succeeded, final.Status);
+        Assert.Equal(5, handler.Calls);                   // four polls then the completing run
+        Assert.True(final.Attempts <= 2,
+            $"polling must not accumulate attempts — MaxAttempts is 2 and the job ran 5 times, saw {final.Attempts}");
+    }
+
+    [Fact]
+    public async Task A_poll_outcome_still_dead_letters_a_job_whose_lease_was_lost()
+    {
+        // Poll un-counts the claim's attempt increment, so it must stay FENCED on the worker id exactly like
+        // every other terminal transition — otherwise a worker whose lease was reclaimed could drive another
+        // worker's job backwards forever, which is the one way an un-counted outcome could become unbounded.
+        var handler = new FakeJobHandler("render", _ => Task.FromResult(JobOutcome.Poll(TimeSpan.FromSeconds(1))));
+        var (runner, store, queue, _) = Build(o => o.Jobs.DefaultMaxAttempts = 3, handler);
+        var id = await queue.EnqueueAsync("default", "render", "{}");
+
+        await runner.RunOnceAsync();
+        var afterPoll = (await store.GetAsync(id))!;
+        Assert.Equal(JobStatus.Pending, afterPoll.Status);
+
+        // a DIFFERENT worker's poll must not land on this record
+        Assert.False(await store.PollAgainAsync(id, "someone-else", DateTimeOffset.UtcNow.AddMinutes(5)));
+    }
+
+    [Fact]
     public async Task A_job_past_max_attempts_is_dead_lettered_without_running()
     {
         // simulates a poison pill that CRASHES the worker every run (the handler never returns/throws, so

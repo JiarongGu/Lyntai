@@ -21,36 +21,7 @@ per-version design record, where one exists, is indexed in `docs/superpowers/IND
 
 | Version | What it added |
 |---|---|
-| v0.1.0 | the substrate — core abstractions, fallback router, SQLite storage |
-| v0.2.0 | production hardening |
-| v0.3.0 | routing & resilience depth |
-| v0.4.0 | LLM-ops depth |
-| v0.5.0 | ecosystem & backends |
-| v0.6.0 | Postgres + live-provider validation |
-| v0.7.0 | bring-your-own resources |
-| v0.8.0 | in-process local inference (`Lyntai.Providers.Local`) |
-| v0.9.0 | agentic tool-calling — the first platform-kit cut |
-| v0.10.0 | native tool-calling |
-| v0.11.0 | native tool-calling through the MEAI bridge |
-| v0.12.0 | MCP tool source |
-| v0.13.0 | proper tool-calling for the claude CLI |
-| v0.14.0 | durable jobs |
-| v0.15.0 | the rest of the platform kit |
-| v0.16.0 | agentic observability |
-| v0.17.0 | response caching |
-| v0.18.0 | usage budgeting |
-| v0.19.0 | semantic memory |
-| v0.20.0 | semantic memory wired into the chat path |
-| v0.21.0 | client-side rate limiting |
-| v0.22.0 | persistent SQLite backends for the new seams |
-| v0.23.0 | Postgres backends for the new seams, with pgvector |
-| v0.24.0 | durable-job priorities + dead-letter queue |
-| v0.25.0 | recurring job scheduling |
-| v0.26.0 | cron expressions |
-| v0.27.0 | running-job cancellation |
-| v0.28.x | recoverable secrets, job admission, curated memory |
-| v0.29.x | app-owned storage adoption |
-| v0.30.0 | consumer ergonomics + foundation hardening |
+| v0.1–v0.30 | **the pre-1.0 line, collapsed to one row on 2026-08-15.** The substrate and fallback router; three storage backends; the §9 platform kit (in-process local inference, the agentic tool loop, native tool-calling across HTTP/MEAI/CLI, MCP, durable jobs with priorities/cron/cancellation, guards); observability, response caching, usage budgeting, rate limiting; semantic + curated memory; recoverable secrets and app-owned storage. **Every 0.x version is unlisted on nuget.org (D44)**, so none is resolvable by a consumer and none carries the SemVer promise, which begins at 1.0 — thirty scannable rows for a line nobody can install was the opposite of what this table is for. Per-release detail is `CHANGELOG.md`. |
 | **v1.0.0** (2026-07-28) | **the API freeze** — SemVer 2.0 from here, gated by `ApiSurfaceTests` (D16, amended by D18) |
 | v1.1–v1.2.2 | CLI tool-hosting generalized; turn-free backend probe/auth + pinned self-install |
 | v2.0.1 (2026-08-04) | the generation platform + a coherent package graph (D24–D25; 2.0.0 is burned — D23) |
@@ -59,18 +30,18 @@ per-version design record, where one exists, is indexed in `docs/superpowers/IND
 | v2.3.0 (2026-08-05) | the pre-release whole-library review — shipped separately only because 2.2.0 was cut from the pushed branch without it (D18, D37; the push-before-release lesson is in pitfalls.md) |
 | v2.4.0 (2026-08-05) | app-owned MCP servers on either CLI agent session (D38) |
 | **v2.5.0** (2026-08-08) | **long-term memory** — named engines, decay measured in interference, burial rather than deletion (D39–D41) |
-| **v3.0.0** (pending) | **the memory retention model** — four `IMemory*Policy` seams, FSRS as the only shipped curve, RRF the ranking default, an authoritative fact that takes a slot within the limit, one squashed migration (D46–D60) |
+| **v3.0.0** (pending) | **the memory retention model** — seven `IMemory*Policy` domains, FSRS as the only shipped curve, RRF the ranking default, a recall that no longer lengthens a half-life, an authoritative fact that takes a slot within the limit, six pre-release migrations folded into one (D45–D66) |
 
 ## Planned
 
-### The platform kit (design §9) — SHIPPED (v0.8–v0.15, deferrals closed through v0.27)
+### The platform kit (design §9) — SHIPPED pre-1.0, final deferrals closed before the freeze
 Delivered additively on the existing seams: `Lyntai.Providers.Local` · the agentic tool loop + native
 tool-calling (HTTP/MEAI/CLI) + MCP-client tool source · durable jobs · guards · two-gate chat orchestration
-· secret vault · vision/multimodal. The v0.14 job deferrals subsequently shipped too (priorities + DLQ
-v0.24, scheduling v0.25, cron v0.26, running-job cancellation v0.27). Still open, each deliberately:
+· secret vault · vision/multimodal. The job deferrals subsequently shipped too — priorities + dead-letter
+queue, recurring scheduling, cron expressions, running-job cancellation. Still open, each deliberately:
 - **Server/host/launcher + auto-update** — permanently out of scope (an application concern; Lyntai is
   host-free — the one standing §9 exclusion).
-- **Cross-process GLOBAL concurrency limits** — the last v0.14 deferral (needs a distributed counter; the
+- **Cross-process GLOBAL concurrency limits** — the last durable-jobs deferral (needs a distributed counter; the
   per-process cap + atomic claim cover most needs).
 - **Streaming tool-calls** (the `LlmChunk` contract carries no tool-call payload) and native tool-calling
   for the ClaudeCli/Local providers (both stay on the prompt fallback) — low value, revisit on demand.

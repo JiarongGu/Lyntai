@@ -65,7 +65,7 @@ public static class MemoryEngineRegistration
         // BEFORE this call, a consumer's own policy makes TryAddSingleton a no-op (one already exists), so
         // it REPLACES the default outright — nothing else is ever registered. Registered AFTER, the default
         // is already seeded, so the consumer's own AddSingleton is a genuine SECOND registration: both run,
-        // composed by whatever IMemorySalienceCompositionPolicy is registered (MaximalSalienceComposition by
+        // composed by whatever IMemorySalienceCompositionPolicy is registered (MaximalSalienceCompositionPolicy by
         // default). A consumer who wants a pure replacement registers before AddLyntai, whichever direction
         // they call it from. IMemoryRetentionPolicy carries no such asymmetry — SalienceRetentionPolicy is
         // registered via TryAddEnumerable, which is unconditionally additive regardless of ordering, and that
@@ -95,7 +95,7 @@ public static class MemoryEngineRegistration
         // the HalfLifeRetrievability case: its formula is not unmeasured-and-wrong, it simply lost a
         // measured comparison on this one dimension, and it remains the better choice on a scale where raw
         // magnitude is meaningful — it stays shipped, registerable in one line
-        // (`services.AddSingleton&lt;IMemoryRankingPolicy&gt;(new MultiplicativeRankingPolicy())` before
+        // (`services.AddSingleton<IMemoryRankingPolicy>(new MultiplicativeRankingPolicy())` before
         // `AddLyntai`, or after — either direction wins, the same TryAdd ordering below already establishes).
         //
         // The floor ships at RRF's OWN default (0), not the 0.02 the measurement's own confound control
@@ -217,4 +217,4 @@ public static class MemoryEngineRegistration
 /// time.</summary>
 /// <param name="Name">The engine's name.</param>
 /// <param name="Options">Its composition options.</param>
-public sealed record MemoryEngineComposition(string Name, MemoryCompositionOptions Options);
+internal sealed record MemoryEngineComposition(string Name, MemoryCompositionOptions Options);

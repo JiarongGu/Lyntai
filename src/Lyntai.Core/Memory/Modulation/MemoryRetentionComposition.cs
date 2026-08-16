@@ -15,7 +15,7 @@ namespace Lyntai.Memory.Modulation;
 /// regardless of how the clamped values are later combined. This seam only decides how to combine values
 /// already known to be safe.</para>
 /// <para><b>Zero or one registered retention policy makes this the identity</b> — the default
-/// <see cref="MultiplicativeRetentionComposition"/> reduces an empty list to 1 (no widening at all) and a
+/// <see cref="MultiplicativeRetentionCompositionPolicy"/> reduces an empty list to 1 (no widening at all) and a
 /// one-element list to that element's own value, both unchanged from <see cref="ModulatedRetrievability"/>'s
 /// pre-Task-3 behaviour.</para>
 /// </summary>
@@ -26,7 +26,7 @@ public interface IMemoryRetentionCompositionPolicy
     /// multiplier: no widening at all.</summary>
     /// <param name="factors">Each policy's <see cref="IMemoryRetentionPolicy.StabilityFactor"/>, already
     /// clamped into <c>[1, its own declared maximum]</c>, in registration order.</param>
-    double Compose(IReadOnlyList<double> factors);
+    double StabilityFactor(IReadOnlyList<double> factors);
 }
 
 /// <summary>
@@ -37,10 +37,10 @@ public interface IMemoryRetentionCompositionPolicy
 /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.CandidateCutoff"/> widening already assumes
 /// (the product of every declared maximum, not a sum or a max).
 /// </summary>
-public sealed class MultiplicativeRetentionComposition : IMemoryRetentionCompositionPolicy
+public sealed class MultiplicativeRetentionCompositionPolicy : IMemoryRetentionCompositionPolicy
 {
     /// <inheritdoc />
-    public double Compose(IReadOnlyList<double> factors)
+    public double StabilityFactor(IReadOnlyList<double> factors)
     {
         ArgumentNullException.ThrowIfNull(factors);
         var product = 1d;

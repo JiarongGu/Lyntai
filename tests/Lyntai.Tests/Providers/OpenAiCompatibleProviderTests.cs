@@ -217,6 +217,95 @@ public class OpenAiCompatibleProviderTests
     }
 
     [Fact]
+    public async Task A_rate_limit_reported_in_band_at_http_200_classifies_and_does_not_resend()
+    {
+        // THE TWO-ANSWER-CHANNEL RULE, third instance (2026-08-15). The CLI sites were fixed twice — codex,
+        // then claude — and the HTTP provider read its failure channel only when the STATUS was non-2xx. A
+        // gateway that answers 200 with an error body therefore fell through to "malformed or empty", which
+        // (a) re-sent the identical request to a host that had just said it was rate-limited, and (b)
+        // classified as Failed, which ADVANCES and takes a dead-host strike, where RateLimited COOLS.
+        var handler = new StubHttpHandler()
+            .Enqueue(HttpStatusCode.OK, """{"error":{"code":429,"message":"Rate limit exceeded"}}""");
+
+        var reply = await Provider(handler).CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.RateLimited, reply.Verdict);
+        Assert.Single(handler.Requests);              // the request is NOT re-sent
+        Assert.Contains("Rate limit exceeded", reply.Detail);
+    }
+
+    [Fact]
+    public async Task An_in_band_auth_error_with_no_key_is_NotConfigured_rather_than_AuthFailed()
+    {
+        // The same two-term promotion FromHttpFailure makes on the status path, and for the same reason:
+        // NotConfigured skips the candidate blamelessly and lets a host offer setup, AuthFailed BENCHES it.
+        // A backend a consumer merely listed must not be penalised for never having been configured.
+        var handler = new StubHttpHandler()
+            .Enqueue(HttpStatusCode.OK, """{"error":{"message":"401 Unauthorized: no api key provided"}}""");
+
+        var reply = await Provider(handler, c => c.ApiKey = null).CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.NotConfigured, reply.Verdict);
+    }
+
+    [Fact]
+    public async Task An_in_band_auth_error_WITH_a_key_stays_AuthFailed()
+    {
+        // The control for the test above: with credentials actually supplied, a rejection is a real auth
+        // failure and SHOULD bench the host. Without this, the promotion could swallow every auth error.
+        var handler = new StubHttpHandler()
+            .Enqueue(HttpStatusCode.OK, """{"error":{"message":"401 Unauthorized: invalid api key"}}""");
+
+        var reply = await Provider(handler, c => c.ApiKey = "wrong-key").CompleteAsync(Req);
+
+        Assert.Equal(LlmVerdict.AuthFailed, reply.Verdict);
+    }
+
+    [Fact]
+    public async Task A_streamed_in_band_error_classifies_instead_of_reporting_no_output()
+    {
+        // The streaming twin. ParseStreamLine yields nothing for an error-only line, so the stream ended
+        // "no output produced" (Failed) — right verdict CLASS, no reason, wrong routing.
+        const string sse = """
+            data: {"error":{"code":429,"message":"Rate limit exceeded"}}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        var terminal = chunks[^1];
+        Assert.Equal(LlmChunkKind.Error, terminal.Kind);
+        Assert.Equal(LlmVerdict.RateLimited, terminal.Verdict);
+    }
+
+    [Fact]
+    public async Task An_error_line_AFTER_content_does_not_clobber_a_stream_that_delivered()
+    {
+        // The mirror-image trap, measured on codex and recorded in pitfalls.md: treating every error-ish
+        // line as terminal kills healthy calls that recovered. An in-band error is consulted ONLY when no
+        // content streamed at all.
+        const string sse = """
+            data: {"choices":[{"delta":{"content":"hi"}}]}
+
+            data: {"error":{"message":"Reconnecting... 2/5"}}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        Assert.Equal(["hi"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(LlmChunkKind.Final, chunks[^1].Kind);
+    }
+
+    [Fact]
     public async Task Malformed_then_good_recovers_on_the_retry()
     {
         var handler = new StubHttpHandler()

@@ -57,7 +57,7 @@ public interface IMemoryAgeCompositionPolicy
 /// so an additional, independent aspect crowding an entry ADDS to what already crowded it, the same way two
 /// witnesses of unrelated events each make an alibi harder to hold. Encoding is a quality multiplier in
 /// (0, 1] already (a burst's <c>1/√n</c> being the shipped example), so composing several judgments the same
-/// way <see cref="Lyntai.Memory.Modulation.MultiplicativeRetentionComposition"/> composes retention factors —
+/// way <see cref="Lyntai.Memory.Modulation.MultiplicativeRetentionCompositionPolicy"/> composes retention factors —
 /// each can only weaken it further — keeps one convention for "a multiplier several things influence" across
 /// the two plural domains that have one.
 /// <para>Both reduce a one-element list to that element's own value: <c>Sum</c> of one term and <c>product</c>
@@ -78,7 +78,7 @@ public interface IMemoryAgeCompositionPolicy
 /// against the COMBINED scale those policies compose to, the same way they would when choosing a single
 /// policy today.</para>
 /// </summary>
-public sealed class SummedAgeComposition : IMemoryAgeCompositionPolicy
+public sealed class SummedAgeCompositionPolicy : IMemoryAgeCompositionPolicy
 {
     /// <inheritdoc />
     public MemoryTick Advance(IReadOnlyList<MemoryTick> ticks)

@@ -71,6 +71,32 @@ public class GraphSimilarityTests
     }
 
     [Fact]
+    public async Task A_failing_embedder_at_RECALL_degrades_to_the_lexical_hits_rather_than_to_nothing()
+    {
+        // The twin of the write-path fact above, and it was missing: SemanticScoresAsync had no try/catch and
+        // was called AFTER store.SeedAsync had already produced lexical seeds, so a transient embedder fault
+        // threw out of GatherAsync, hit RecallAsync's best-effort catch, and returned MemoryRecall.Empty —
+        // good seeds discarded, and indistinguishable from "the query matched nothing". Design §5.7.0:
+        // "enrichment is best-effort and its failure degrades QUALITY, never CORRECTNESS."
+        //
+        // The write must go in with a WORKING embedder (the write path is separately guarded, but this test is
+        // about recall), so the throwing one is installed for the read only.
+        var store = new InMemoryMemoryGraphStore();
+        var options = new GraphMemoryOptions { SemanticSeedK = 5 };
+        var writing = new GraphMemoryEngine("e", store, options: options,
+            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore());
+        await writing.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
+
+        var reading = new GraphMemoryEngine("e", store, options: options,
+            embedder: new ThrowingEmbedder(), vectors: new InMemoryVectorStore());
+
+        var recall = await reading.RecallAsync(new MemoryQuery("t", "s", "deploy pipeline"));
+
+        Assert.NotEmpty(recall.Items);
+        Assert.Contains(recall.Items, i => i.Headline.Contains("deploy", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task An_unrelated_entry_is_not_linked()
     {
         // without a floor a new entry links to its k nearest however unrelated, which in a young graph

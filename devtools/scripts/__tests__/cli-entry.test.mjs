@@ -70,6 +70,22 @@ describe('the guard CLIs run when invoked as scripts', () => {
     assert.match(invoke('check-sensitive.mjs', ['--tree']), /check-sensitive: /);
   });
 
+  it('check-counts reports on the counted claims', () => {
+    // Absent from this roster until 2026-08-15, and it is a `verify` step — so if its entry wrapper ever
+    // stopped matching, `verify` would print one more green line over a tree it never counted. It was added
+    // by the very sweep (273d4e0) that fixed seven other gates for reporting success without having
+    // checked, and was not itself entered here: the roster is hand-maintained, which is the same shape
+    // dev.mjs fixed for its own usage line by DERIVING it.
+    assert.match(invoke('check-counts.mjs'), /^check-counts: /m);
+  });
+
+  it('check-encoding reports on the tracked text files', () => {
+    // The worst one of the fourteen to lose silently: its own header says mojibake "is silent by
+    // construction, so no other gate can see it". A dead entry point here would mean nothing at all was
+    // scanned for it, in `verify` AND in the pre-commit hook, with a tick printed either way.
+    assert.match(invoke('check-encoding.mjs'), /^check-encoding: /m);
+  });
+
   it('check-bundle runs — reported through its own restore, with dotnet unreachable', () => {
     assert.match(invokeWithoutDotnet('check-bundle.mjs'), /^check-bundle: /m);
   });

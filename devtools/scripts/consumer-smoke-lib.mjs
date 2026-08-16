@@ -36,3 +36,44 @@ export function packageIdsFrom(feedFiles, version) {
 export function listingHasPdb(listing) {
   return (listing ?? '').split('\n').some((line) => line.trim().toLowerCase().endsWith('.pdb'));
 }
+
+/**
+ * Entry names inside a zip archive (a `.snupkg` is one), read from its CENTRAL DIRECTORY.
+ *
+ * This replaced `tar -tf`, which was never able to do the job on this machine and failed in the permissive
+ * direction for the whole life of the check. The call site read `if (listing.status === 0 && !hasPdb)` — so
+ * a tar that could not open the archive skipped the check and the step printed its ✓ regardless. Measured
+ * 2026-08-15: GNU tar 1.35 is what is installed here, GNU tar cannot read zip at all (`tar -tf` on a zip
+ * exits 2, "This does not look like a tar archive"), and the comment beside the call asserted the opposite —
+ * it assumed bsdtar. So the release gate's symbol-package check had never once run here.
+ *
+ * Reading the archive directly removes the dependency rather than swapping it for another guess about which
+ * tar is installed. The central directory is the authority on what an archive contains: scanning for local
+ * file headers instead would also match a name inside compressed DATA, and would miss nothing only by luck.
+ */
+export function zipEntryNames(buffer) {
+  const names = [];
+  if (!buffer || buffer.length < 22) return names;
+
+  // Locate the End of Central Directory record, which is last and variable-length (it may carry a comment),
+  // so it is found by scanning BACKWARDS for its signature rather than assumed to be at a fixed offset.
+  const EOCD = 0x06054b50;
+  let eocd = -1;
+  for (let i = buffer.length - 22; i >= 0; i--) {
+    if (buffer.readUInt32LE(i) === EOCD) { eocd = i; break; }
+  }
+  if (eocd < 0) return names;
+
+  const count = buffer.readUInt16LE(eocd + 10);
+  let at = buffer.readUInt32LE(eocd + 16);
+
+  for (let i = 0; i < count && at + 46 <= buffer.length; i++) {
+    if (buffer.readUInt32LE(at) !== 0x02014b50) break;   // not a central-directory header: stop rather than guess
+    const nameLen = buffer.readUInt16LE(at + 28);
+    const extraLen = buffer.readUInt16LE(at + 30);
+    const commentLen = buffer.readUInt16LE(at + 32);
+    names.push(buffer.toString('utf8', at + 46, at + 46 + nameLen));
+    at += 46 + nameLen + extraLen + commentLen;
+  }
+  return names;
+}

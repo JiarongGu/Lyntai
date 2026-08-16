@@ -108,6 +108,28 @@ public sealed class InMemoryJobStore(Func<DateTimeOffset>? clock = null, int ste
         }
     }
 
+    public Task<bool> PollAgainAsync(Guid id, string workerId, DateTimeOffset runAt, CancellationToken ct = default)
+    {
+        var now = _clock();
+        lock (_lock)
+        {
+            if (!Owned(id, workerId, out var j)) return Task.FromResult(false);
+            // Attempts - 1 undoes ClaimNextAsync's increment: a look at a healthy operation is not an attempt.
+            // Floored at 0 so a store reached out of order can never report a negative count.
+            _jobs[id] = j with
+            {
+                Status = JobStatus.Pending,
+                AvailableAt = runAt,
+                Attempts = Math.Max(0, j.Attempts - 1),
+                LastError = null,
+                ClaimedBy = null,
+                ClaimedAt = null,
+                UpdatedAt = now,
+            };
+            return Task.FromResult(true);
+        }
+    }
+
     public Task<bool> DeadLetterAsync(Guid id, string workerId, string error, CancellationToken ct = default)
     {
         var now = _clock();

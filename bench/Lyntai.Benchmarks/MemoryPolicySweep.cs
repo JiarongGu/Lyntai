@@ -255,7 +255,7 @@ internal static class MemoryPolicySweep
                 "sweep",
                 store,
                 options: graphOptions,
-                policy: arm.Retrieval,
+                retrievability: arm.Retrieval,
                 agePolicies: [agePolicy],
                 ranking: arm.Ranking);
 
@@ -946,7 +946,7 @@ internal static class MemoryPolicySweep
         Console.WriteLine("GraphMemoryEngine's own _agePolicies/_policy fields):");
         var agePolicyTypes = facts.Select(f => f.AgePolicyType).Distinct().ToList();
         if (agePolicyTypes.Count == 1 && agePolicyTypes[0] == nameof(PerWriteAgePolicy))
-            Console.WriteLine($"  C3 — age policy: {agePolicyTypes[0]} (confirmed uniform on all {facts.Count} engines)");
+            Console.WriteLine($"  C3 — age retrievability: {agePolicyTypes[0]} (confirmed uniform on all {facts.Count} engines)");
         else
         {
             Console.WriteLine($"  C3 — MISMATCH: expected {nameof(PerWriteAgePolicy)} on every engine; observed: "
@@ -1130,6 +1130,19 @@ internal static class MemoryPolicySweep
         Console.WriteLine("  - CandidateCount beyond 40 — kept small to bound SQLite I/O time per combination.");
         Console.WriteLine("  - PollutionRate's own paired effect sizes — computed on MissRate only; see");
         Console.WriteLine("    PrintEffectsTable's own doc for why (an exact restatement on full pages).");
+        // Measured 2026-08-14: every cell's difficulty-live and difficulty-inert arms came back identical to
+        // three decimals, because Reinforce's growth term is ReinforceGain x exp(-DifficultyWeight x (d-1))
+        // x ... and ReinforceGain SHIPS AT ZERO (D54). Difficulty is the first factor multiplied by that
+        // zero, so this axis cannot move anything at shipped defaults. Stated here rather than left for a
+        // reader to notice, because two arms that cannot differ reporting equal numbers reads exactly like
+        // "measured, no regression" — the failure this whole NOT-swept block exists to prevent. Pinned by
+        // DsrRetrievabilityTests.Difficulty_changes_nothing_while_ReinforceGain_is_zero_and_something_once_it_is_not,
+        // which fails if that default ever moves, so this paragraph is revisited with it.
+        Console.WriteLine("  - The DIFFICULTY axis is INERT at shipped defaults — its two arms are");
+        Console.WriteLine("    structurally identical while DsrOptions.ReinforceGain is 0 (D54), because");
+        Console.WriteLine("    difficulty only ever multiplies that gain. Equal arms here are NOT evidence");
+        Console.WriteLine("    that difficulty does nothing; they are evidence this run could not see it.");
+        Console.WriteLine("    Re-run with ReinforceGain > 0 to measure the axis at all.");
         Console.WriteLine("  - RelativeFloor as its OWN swept axis — it is EQUALIZED (a fixed value shared by");
         Console.WriteLine("    both ranking arms), not varied.");
     }

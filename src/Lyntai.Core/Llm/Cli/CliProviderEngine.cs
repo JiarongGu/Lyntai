@@ -33,7 +33,7 @@ namespace Lyntai.Llm.Cli;
 ///
 /// A provider package therefore contains a dialect plus a thin <see cref="ILlmProvider"/> that forwards to
 /// this engine and declares which OPTIONAL capability interfaces its backend actually has
-/// (<see cref="IProviderInstallation"/>, <see cref="IProviderUpdater"/>,
+/// (<see cref="IProviderProbe"/>, <see cref="IProviderUpdater"/>,
 /// <see cref="IProviderVersionInstaller"/>, <see cref="IProviderAuth"/>).
 /// </summary>
 /// <param name="dialect">The backend-specific vocabulary.</param>
@@ -43,8 +43,10 @@ namespace Lyntai.Llm.Cli;
 /// <param name="command">Explicit command override; wins over the dialect's environment variables. This is
 /// how a host points at a PORTABLE copy of a CLI (a binary it ships or unpacks itself) instead of a global
 /// PATH install — quote a path containing spaces.</param>
-/// <param name="provisioner">Optional tool host (e.g. MCP) consulted per call, whose extra args are appended
-/// to the completion argv and whose session lives for the length of the call.</param>
+/// <param name="provisioner">Optional tool host (e.g. MCP) consulted per call, whose session lives for the
+/// length of the call. Its args are handed to the DIALECT (<c>BuildCompletionArgs</c>) rather than appended
+/// here: where they may legally sit depends on that CLI's own argv grammar, and appending is wrong for one
+/// whose argv ends in a positional (<c>docs/DECISIONS.md</c> D65).</param>
 /// <param name="environment">Extra environment variables for EVERY spawn (completions and maintenance
 /// alike). The other half of portable support: a bundled CLI usually needs its own home/config directory
 /// (<c>CODEX_HOME</c>, <c>CLAUDE_CONFIG_DIR</c>) so it doesn't read — or mutate — the machine-wide install's
@@ -289,7 +291,10 @@ public sealed class CliProviderEngine(
         LlmRequest req, IReadOnlyList<string> prefixArgs, IReadOnlyList<string>? extraArgs)
     {
         var prompt = dialect.BuildPrompt(req);
-        var argv = prefixArgs.Concat(dialect.BuildCompletionArgs(req)).Concat(extraArgs ?? []).ToList();
+        // the tool-host args go THROUGH the dialect, never around it: only the dialect knows whether its
+        // argv ends in options (append is fine) or in a positional (append feeds them to the model as
+        // prompt text, and on codex a swallowed flag is a spent turn)
+        var argv = prefixArgs.Concat(dialect.BuildCompletionArgs(req, extraArgs ?? [])).ToList();
         if (dialect.PromptDelivery != CliPromptDelivery.Argument) return (argv, prompt);
         argv.Add(prompt);
         return (argv, null);

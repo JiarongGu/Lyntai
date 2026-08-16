@@ -11,6 +11,16 @@ internal enum StreamJsonEventKind
     /// <summary>The terminal result line: final text + usage/cost.</summary>
     Result,
 
+    /// <summary>A terminal result the CLI itself flagged as failed (<c>is_error</c>). Carries the backend's
+    /// OWN words so the engine can classify them, which is what turns a 401 into <c>AuthFailed</c> rather
+    /// than a bare <c>Failed</c>.
+    /// <para>This member did not exist through 2.5.0, so no claude line could reach
+    /// <c>CliOutputEventKind.Failure</c> and the engine's in-band-failure precedence was dead code for this
+    /// backend — a failed turn came back as an <c>Ok</c> reply carrying whatever text had arrived. The
+    /// sibling reader of this same wire format (<c>StreamJsonAgentReader</c>) has always read
+    /// <c>is_error</c>; the two halves had drifted.</para></summary>
+    Failure,
+
     /// <summary>Anything else (system/init, tool chatter, malformed) — ignored by the provider.</summary>
     Other,
 }
@@ -67,6 +77,23 @@ internal static class StreamJsonParser
         var usage = StreamJsonFields.ReadUsage(root) is { } w
             ? new LlmUsage(w.Input, w.Output, w.CacheRead, w.CostUsd)
             : null;
-        return new StreamJsonEvent(StreamJsonEventKind.Result, text, usage);
+
+        // The backend's own failure flag OUTRANKS the presence of text: a run that produced partial output
+        // and then failed is a failed run, and returning its text as the answer is the defect this reads for.
+        // Only an explicit `true` counts — absent or false is the ordinary success path, and a looser test
+        // here would fail every healthy turn.
+        var isError = root.TryGetProperty("is_error", out var e) && e.ValueKind == JsonValueKind.True;
+        if (!isError) return new StreamJsonEvent(StreamJsonEventKind.Result, text, usage);
+
+        // Carry the CLI's OWN words so LlmVerdictClassifier can see them; `subtype` is the machine-readable
+        // reason and is included when `result` is empty, so the message is never blank (an empty failure
+        // message is what makes the engine fall back to the stderr tail).
+        var subtype = root.TryGetProperty("subtype", out var s) && s.ValueKind == JsonValueKind.String
+            ? s.GetString()
+            : null;
+        var message = !string.IsNullOrWhiteSpace(text) ? text
+            : !string.IsNullOrWhiteSpace(subtype) ? subtype!
+            : "the CLI reported the turn as failed";
+        return new StreamJsonEvent(StreamJsonEventKind.Failure, message, usage);
     }
 }

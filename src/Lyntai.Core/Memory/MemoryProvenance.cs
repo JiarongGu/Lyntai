@@ -87,7 +87,7 @@ public static class MemoryProvenance
     /// <exception cref="ArgumentException">An entry is <c>0</c> (<c>None</c> — reserved for "nothing
     /// computed this," never a running policy's own declared identity), is not a single bit, or shares a bit
     /// with an entry <paramref name="describe"/> names DIFFERENTLY.</exception>
-    public static void EnsureEachBitIsSingleRealAndUnique(IReadOnlyList<long> bits, Func<int, string> describe)
+    public static void ValidateProvenanceBits(IReadOnlyList<long> bits, Func<int, string> describe)
     {
         ArgumentNullException.ThrowIfNull(bits);
         ArgumentNullException.ThrowIfNull(describe);

@@ -1,17 +1,13 @@
 sealed class Lyntai.Generation.Providers.Automatic1111Options
     .ctor()
-    BaseUrl : String required
+    BaseUrl : String
     CfgScale : Double
     DefaultHeight : Int32
     DefaultWidth : Int32
     DenoisingStrength : Double
-    Equals(Automatic1111Options other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
     Id : String
     Steps : Int32
     Timeout : TimeSpan
-    ToString() : String
 sealed class Lyntai.Generation.Providers.Automatic1111Provider
     .ctor(Automatic1111Options options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     Capabilities : GenerationCapabilities
@@ -20,10 +16,7 @@ sealed class Lyntai.Generation.Providers.Automatic1111Provider
     ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
 sealed class Lyntai.Generation.Providers.ComfyUiOptions
     .ctor()
-    BaseUrl : String required
-    Equals(ComfyUiOptions other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
+    BaseUrl : String
     HistoryPath : String
     Id : String
     InterruptPath : String
@@ -32,7 +25,6 @@ sealed class Lyntai.Generation.Providers.ComfyUiOptions
     SubmitPath : String
     SystemStatsPath : String
     Timeout : TimeSpan
-    ToString() : String
     ViewPath : String
     WorkflowOption : String
 sealed class Lyntai.Generation.Providers.ComfyUiProvider
@@ -50,16 +42,12 @@ sealed class Lyntai.Generation.Providers.FalQueueOptions
     ApiKey : String
     BaseUrl : String
     CancelSegment : String
-    Equals(FalQueueOptions other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
     Id : String
     Kinds : IReadOnlyList<String>
     Model : String
     RequestsSegment : String
     StatusSegment : String
     Timeout : TimeSpan
-    ToString() : String
     WebhookQueryParameter : String
 sealed class Lyntai.Generation.Providers.FalQueueProvider
     .ctor(FalQueueOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
@@ -75,11 +63,11 @@ sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     .ctor()
     BinaryPath : String
     CfgScale : Double
+    DenoisingStrength : Double
     Id : String
     InactivityTimeout : TimeSpan
     ModelPath : String
     Steps : Int32
-    Strength : Double
     Timeout : TimeSpan
     WorkDirectory : String
 sealed class Lyntai.Generation.Providers.LocalDiffusionProvider
@@ -91,15 +79,11 @@ sealed class Lyntai.Generation.Providers.LocalDiffusionProvider
 sealed class Lyntai.Generation.Providers.OpenAiImageOptions
     .ctor()
     ApiKey : String
-    BaseUrl : String required
+    BaseUrl : String
     DefaultSize : String
-    Equals(Object obj) : Boolean
-    Equals(OpenAiImageOptions other) : Boolean
-    GetHashCode() : Int32
     Id : String
     Model : String
     Timeout : TimeSpan
-    ToString() : String
 sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     .ctor(OpenAiImageOptions options, Func<HttpClient> httpFactory, Boolean disposeHttpClient = true)
     Capabilities : GenerationCapabilities
@@ -107,9 +91,9 @@ sealed class Lyntai.Generation.Providers.OpenAiImageProvider
     Id : String
     ProbeAsync(CancellationToken ct = default) : Task<GenerationProbeResult>
 static class Lyntai.GenerationProviderBuilderExtensions
-    static AddAutomatic1111Provider(LyntaiBuilder builder, Automatic1111Options options, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddComfyUiProvider(LyntaiBuilder builder, ComfyUiOptions options, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddFalProvider(LyntaiBuilder builder, FalQueueOptions options, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
-    static AddLocalDiffusionProvider(LyntaiBuilder builder, LocalDiffusionOptions options, Func<IServiceProvider,IProcessRunner> runner = null) : LyntaiBuilder
-    static AddOpenAiImageProvider(LyntaiBuilder builder, OpenAiImageOptions options, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddAutomatic1111Provider(LyntaiBuilder builder, Action<Automatic1111Options> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddComfyUiProvider(LyntaiBuilder builder, Action<ComfyUiOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddFalProvider(LyntaiBuilder builder, Action<FalQueueOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
+    static AddLocalDiffusionProvider(LyntaiBuilder builder, Action<LocalDiffusionOptions> configure, Func<IServiceProvider,IProcessRunner> runner = null) : LyntaiBuilder
+    static AddOpenAiImageProvider(LyntaiBuilder builder, Action<OpenAiImageOptions> configure, Func<IServiceProvider,HttpClient> httpClient = null) : LyntaiBuilder
     static HttpClientName(String id) : String

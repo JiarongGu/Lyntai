@@ -125,8 +125,13 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D59](#d59--the-memory-subsystems-defect-is-ranking-and-the-fix-is-a-judge-that-can-rescue-2026-08-13) | 2026-08-13 | the memory subsystem's defect is RANKING, and the fix is a judge that can RESCUE |
 | [D60](#d60--a-cross-backend-rule-is-a-function-not-a-sentence-and-the-archiving-step-became-a-gate-2026-08-14) | 2026-08-14 | a cross-backend rule is a FUNCTION, not a sentence; and the archiving step became a gate |
 | [D61](#d61--30s-development-history-is-squashed-and-the-backup-ref-is-part-of-the-repository-2026-08-14) | 2026-08-14 | 3.0's development history is squashed, and the backup ref is part of the repository |
+| [D62](#d62--act-rs-fan-effect-is-implemented-measured-and-off-the-proxy-is-wrong-for-a-co-activation-graph-2026-08-15) | 2026-08-15 | ACT-R's fan effect is implemented, measured, and OFF: the proxy is wrong for a co-activation graph |
+| [D63](#d63--a-wrappers-capability-set-is-a-contract-with-a-test-per-capability-not-a-comment-2026-08-15) | 2026-08-15 | a wrapper's capability set is a contract with a test per capability, not a comment |
+| [D64](#d64--the-generation-router-is-a-trust-boundary-and-a-thrown-submit-is-inconclusive-rather-than-failed-2026-08-15) | 2026-08-15 | the generation router is a TRUST BOUNDARY, and a thrown SUBMIT is inconclusive rather than failed |
+| [D65](#d65--the-dialect-places-tool-host-args-because-only-it-knows-where-they-may-legally-go-2026-08-15) | 2026-08-15 | the DIALECT places tool-host args, because only it knows where they may legally go |
+| [D66](#d66--the-30-naming-sweep-names-that-mislead-are-spent-names-that-merely-differ-are-not-2026-08-15) | 2026-08-15 | the 3.0 naming sweep: names that mislead are spent, names that merely differ are not |
 
-_All 61 entries are live decisions._
+_All 66 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1050,7 +1055,8 @@ cost below was measured rather than in ignorance of it.
 **What the squash costs, stated because a decision record that only lists benefits is an advertisement.**
 Eight commit-hash citations in tracked documents pointed into that range: `docs/DECISIONS.md`'s own recovery
 instruction for the pre-renumbering `D<n>` scheme, `CLAUDE.md`'s `dev.mjs`-derived-usage citation, and six in
-`TASKS.md` Part 73, whose entire evidence is that six separate commits made the same counting mistake.
+`docs/task-archive.md` Part 73, whose entire evidence is that six separate commits made the same counting
+mistake.
 **No gate can see a broken hash** — `check-links` checks paths and Part numbers, and a hash is neither.
 
 **`backup/pre-squash-2026-08-14` is therefore load-bearing state, not housekeeping.** It is a branch on
@@ -1070,3 +1076,228 @@ not what this repository's history is for. Both are true; the second is the one 
 
 **The rule that falls out for next time:** a squash across published history needs a pushed backup ref and a
 citation sweep BEFORE the rewrite, not after — the sweep is only possible while the hashes still resolve.
+
+## D62 — ACT-R's fan effect is implemented, measured, and OFF: the proxy is wrong for a co-activation graph (2026-08-15)
+
+`ReciprocalRankFusionOptions.DiagnosticityWeight` ships at `0`. It exists, it works, and the measurement
+that would have justified turning it on refused it.
+
+**Where the idea came from, and why it looked strong.** A research review of the memory subsystem
+(2026-08-15) found this engine is an **ACT-R-shaped** system that nobody had noticed was one: base-level
+activation ≈ `Retrievability`, spreading activation ≈ the graph walk, retrieval threshold ≈ `RelativeFloor`.
+FSRS is cited 116 times in `src/`; ACT-R zero. One component of Anderson's model was missing entirely — the
+**fan effect**, where a cue's association strength falls as it gains associates. Nothing anywhere consulted
+`GraphNode.Degree`, so a node with fifty neighbours spread exactly as much as one with a single edge, while
+subject annotation exists *precisely to build hubs* (`AnnotationKnownSubjects` offers 24 by default). The
+supporting argument is information-theoretic rather than biomimetic, which is the form this library should
+be judged on: **a node adjacent to everything discriminates nothing.**
+
+**The measurement said no.** `node devtools/dev.mjs memory-fan`, 20 seeds × 4 shapes, weights 0/0.5/1/2:
+
+- `topical` miss `0.059 → 0.064 → 0.131 → 0.320` — cleanly monotonic in the WRONG direction;
+- `critical-rare` miss `0.275 → 0.536 → 0.190 → 0.509` — non-monotonic, which reads as noise, not signal.
+
+**Why it fails HERE, which is the part worth keeping.** The fan effect assumes degree measures how
+INDISCRIMINATE a node is. In this engine most edges come from **co-activation** — the engine links whatever a
+recall returned together — so degree ALSO measures **how often an entry has been useful**. Penalising it
+penalises exactly the entries a caller keeps coming back to, which is the opposite of the intent. *The
+mechanism is not wrong; the proxy is, in a graph built this way.* That confound was written into the sweep's
+own `NOT swept` block BEFORE the run, so it is a prediction that held rather than an explanation fitted
+afterwards.
+
+**Kept as a knob at zero rather than deleted**, and the condition under which it would earn its keep is
+stated so the option is not merely dead weight: a deployment whose edges come predominantly from **subject
+annotation** rather than co-activation has a degree that means "shares a handle with many things" — the
+thing ACT-R actually describes. That is an annotation-on versus annotation-off measurement nobody has run.
+
+**What this constrains.** Do not re-propose a degree penalty for this engine on the strength of the
+literature alone; the literature has already been consulted and the measurement is on record. Re-propose it
+with an annotation-dominated graph and a measurement, or not at all.
+
+**A guard the change exposed, recorded because it is the more general lesson.** RRF's "at least one signal
+above zero" validation listed four weights by name. Adding a fifth signal without adding it there made the
+guard wrong in the REFUSING direction — a coherent diagnosticity-only configuration was rejected. The mirror
+defect is worse and just as silent: a weight added to the score and not to the guard would let a
+configuration through whose score is identically zero, where ordering falls entirely to the id tiebreak.
+**A validation that enumerates its subjects by name is a maintenance obligation every time the set grows.**
+
+## D63 — a wrapper's capability set is a contract with a test per capability, not a comment (2026-08-15)
+
+**`CompositeMemoryEngine` now implements `IForgettableMemory`, and `IForgettableMemory` now declares
+`ForgetAsync` as well as `PruneAsync`.** Both are breaking for a BYO implementor and neither could wait: the
+composite is what `MemoryEngineBuilder.Build` returns for **every** registration, single-member included, so
+through 2.5.x **a consumer of the shipped memory subsystem had no supported way to delete anything.**
+
+**Two independent losses, one cause.** `engine is IForgettableMemory` was false for everything
+`IMemoryEngineFactory` hands back, so `PruneAsync` was unreachable; and `ForgetAsync` was a bare public
+method on `GraphMemoryEngine`, declared on no interface at all, so it was unreachable through any
+abstraction. A consumer holding an `IMemoryEngine` could reach neither, and nothing reported it.
+
+**The alternatives, and why they lost.**
+
+- *A separate `IErasableMemory` for `ForgetAsync`.* Rejected: both verbs are "this engine can delete", and
+  the split would mean two type tests for one question. `IForgettableMemory`'s own summary already says
+  reaping is always explicit — a whole-scope erase is the most explicit reap there is.
+- *Leave the surface and document the concrete type.* Rejected outright: telling a consumer to downcast to
+  `GraphMemoryEngine` to delete their users' data defeats the named-engine seam (**D39**) and breaks the
+  moment a blend has two members.
+- *Return `0` when no member can reap.* Rejected because `PruneAsync` returns a COUNT and `0` already means
+  "nothing matched". Reaping fails LOUD (`NotSupportedException`, naming the members considered) like
+  `LinkAsync` and unlike `ExpandAsync` — a caller reaping for a consent withdrawal must not read "nothing
+  here can ever reap" as "done".
+
+**Reaping fans OUT where expansion and linking ROUTE**, and the difference is the argument, not taste:
+`ExpandAsync`/`LinkAsync` take a `MemoryRef`, which names exactly one owning member, while reaping takes a
+(task, scope) every member may hold material under. Reaping one member and returning would leave the blend
+still holding the data the caller asked to remove.
+
+**Two more members of the same defect landed with it.** `MemoryRecall.Answered` — the abstention signal the
+3.0 verification seam exists to produce — was dropped by the composite's `new MemoryRecall(items, ran)`, so
+it was `null` on every DI-registered engine even when a judge had returned `false`, and `docs/memory.md`'s
+own "know when the memory has nothing useful" sample could never fire. It now folds as a three-value lattice
+(any `true` wins; `false` if some judged and none answered; `null` only when nothing judged), which is what
+keeps the no-verifier default from ever synthesising `false`. And `MemoryQuery.CharBudget` was reconciled by
+nothing, so an N-member blend could spend N× a budget a caller set as a *prompt* budget — the same
+two-scopes shape as the `Limit` cut one field over, using `GraphMemoryEngine`'s own rule verbatim so a blend
+and a bare engine cannot answer one query differently.
+
+**What this constrains.** *Every* optional capability interface a member can implement must be implemented
+by the composite and pinned by its own forwarding test. The class docblock had asserted this in bold — *"It
+never guesses about capabilities"* — while naming only the two capabilities it actually forwarded, and cited
+the generation-router regression as the thing it existed to avoid. **A comment asserting an invariant is not
+the invariant**, and the way this stayed invisible for a release is that the one forwarding test covered
+`IExpandableMemory` and no test asked the same question of the other two. When a capability interface is
+added anywhere in this library, the wrapper over it gets a line in the same change.
+
+## D64 — the generation router is a TRUST BOUNDARY, and a thrown SUBMIT is inconclusive rather than failed (2026-08-15)
+
+**`GenerationRouter` now catches, classifies and falls over a backend that throws, exactly as `LlmRouter`
+has since it shipped.** It previously contained no `try`/`catch` at all, so one throwing backend killed the
+whole chain: the healthy candidate was never tried, `RecordGeneration` never fired so the attempt was
+invisible in telemetry, and the caller received a raw exception from a contract whose stated promise is *"a
+value with a verdict, never a throw"*.
+
+**Why this is a decision and not merely a bug fix.** The alternative is defensible on its face and was the
+shipped behaviour: `IGenerationProvider` documents that a backend must fail safe, so a throw is a *bug*, and
+letting a bug surface loudly rather than degrading it into a verdict is a real position. It loses on one
+fact — **`AddGenerationProvider` is a documented BYO seam**, so the throwing party is frequently not this
+library and not the caller either. Punishing a caller for a third-party backend's defect by discarding every
+remaining candidate is the outcome fallback exists to prevent. `LlmRouter` reached the same conclusion first
+and wrote the reason down: *"a provider that THROWS must get the same fallback policy as one that returns a
+verdict reply; hand-rolling `Failed` here would hammer a rate-limited host instead of cooling it."*
+
+**The asymmetry between the two paths is deliberate, and it is about money.** Inline `GenerateAsync`
+classifies a throw and ADVANCES. `SubmitAsync` classifies a throw as **`Inconclusive`**, which SURFACES.
+Submitting is what commits the spend: the backend never answered, so it may already hold a billable render,
+and advancing would buy the same generation twice. That is the identical reasoning the `Inconclusive` arm
+already carried for a backend that reports the condition itself — the throw simply reaches it by a different
+route. The cost is stated rather than hidden: a BYO backend whose `SubmitAsync` throws synchronously (a
+plain bug, no request sent) also stops the chain. Spending a caller's money to avoid that is the worse
+trade, and the operator is told which backend to check.
+
+**`Refused` is clamped to `Failed` on the thrown path**, the same clamp `LlmRouter.ClassifyThrown` makes: a
+throw is transport-layer — an error page mentioning "content filter" at a proxy or CDN — and `Refused` is
+terminal under the routing policy, so a keyword match in an exception message must never stop the router
+from trying a healthy candidate. Backends signal a real refusal with a verdict RESULT.
+
+**What this constrains.** Any future router, decorator or dispatch loop over a BYO seam in this library
+catches and classifies rather than propagating, and says which of the two shapes it is: advance (a retryable
+attempt) or surface (an act that may already have cost something). Note also what this did NOT change:
+`OperationCanceledException` under the caller's own token still propagates on both paths, because a caller
+must be able to tell their own cancellation from a backend's failure.
+
+**A test that pinned the old behaviour was rewritten rather than deleted, and the distinction matters.**
+`A_throwing_backend_still_releases_its_permit` asserted the throw escaped — but the escape was never its
+SUBJECT, permit release was; the assertion merely encoded whatever behaviour existed while the subject was
+tested. It now asserts the permit comes back on the CLASSIFIED path, which is the stronger claim, because
+the release has to survive a catch block rather than an unwinding stack. **Before changing a test that
+blocks a fix, separate what it was written to prove from what it happens to assert.**
+
+## D65 — the DIALECT places tool-host args, because only it knows where they may legally go (2026-08-15)
+
+**`ICliProviderDialect.BuildCompletionArgs` now takes the tool-host args**
+(`BuildCompletionArgs(LlmRequest request, IReadOnlyList<string> toolHostArgs)`), and `CliProviderEngine` no
+longer appends them itself. Breaking for a BYO dialect; the in-tree implementors are two.
+
+**The defect this closes was documented in one file and committed in another.** `CodexExecArgs` takes an
+`extraOptions` parameter *specifically* so options land before the `-` stdin positional, and states why in
+its own words: *"an option landing after the `-` would be read as part of the [PROMPT] positional, and on
+this CLI a swallowed flag is a SPENT TURN rather than an error."* The AGENT path honoured that.
+`CodexCliDialect.BuildCompletionArgs` could not — the seam handed it only the request — so
+`CliProviderEngine` appended the provisioner's args after the dialect's argv, i.e. after the `-`. MCP
+tool-host args on codex therefore landed in the prompt slot.
+
+**Why it never bit:** `claude` is the only CLI that has driven the tool-hosting path, and its argv ends in
+options, so appending is correct *there*. **A rule that is right for the only implementation that exercises
+it is not a rule, it is a coincidence** — and the second implementation is where that shows.
+
+**The alternative, and why it lost.** The engine could have kept appending and special-cased the positional
+CLIs — a `PromptDelivery`-style flag, or "insert before the last element if it is a positional". That puts
+knowledge of one CLI's argv grammar in the shared engine, which is precisely what `ICliProviderDialect`
+exists to prevent (**D21**/**D22**: a new CLI is a dialect, never a fork of the engine). It also cannot be
+right in general: where the args go is a property of each CLI's parser, and only the dialect has it.
+Appending is still the answer for most CLIs — `ClaudeCliDialect` and the test fake both append — but it is
+now a choice each dialect makes rather than one the engine makes on every dialect's behalf.
+
+**What this constrains.** A new CLI dialect must decide where tool-host args go and say why, in the same
+way it already decides prompt delivery. The general rule, which is the part worth carrying past this seam:
+**when a shared engine composes something whose correctness depends on a backend's own grammar, the backend
+places it.** The engine may supply the pieces; it may not choose the order.
+
+## D66 — the 3.0 naming sweep: names that mislead are spent, names that merely differ are not (2026-08-15)
+
+3.0 is the last window in which a public name costs nothing to change, so the pre-3.0 review read the whole
+frozen surface as one document. **The rule applied, because "be consistent" is not one:** a name was changed
+where it would make a competent reader believe something FALSE, and left alone where it merely differs from
+a sibling.
+
+**Changed, with what each one misled about:**
+
+| was | is | the false belief |
+|---|---|---|
+| `MemoryCompositionOptions.AuthoritativeReserve` | `AuthoritativeCharacters` | the SAME identifier as `GraphMemoryOptions.AuthoritativeReserve`, same namespace, different UNITS — recall SLOTS there, prompt CHARACTERS here — and both reachable from one builder chain. Reading "reserve 2" as slots silently truncated every exact fact to two characters. |
+| `MemoryEngineBuilder.Reserve` | `ReserveCharacters` | the verb carried no unit at all, on the call that sets the above |
+| `IProviderInstallation` | `IProviderProbe` | declares one `ProbeAsync` and installs NOTHING, one word from `IProviderVersionInstaller`, which does. The documented use is a capability type-test, so the name IS the API for a reader choosing between them. |
+| `GraphMemoryEngine(policy:)`, `UseGraph(policy:)` | `retrievability:` | the one parameter of sixteen not named for its domain, surrounded by `agePolicies`, `saliencePolicies`, `ranking`, `annotation`, `verification` — and it is the forgetting curve, the subsystem's most consequential seam |
+| `CuratedMemorySections(task:)` | `taskKey:` | the only place on the whole surface that said `task`, against `taskKey` on twelve interfaces — and `CLAUDE.md` already records a README sample passing `task:` where the parameter was `taskKey` |
+| `EnsureEachBitIsSingleRealAndUnique` | `ValidateProvenanceBits` | an assertion-shaped, ungrammatical name beside siblings called `Fits`/`Pack`/`Unpack` |
+| `Compose` on the two composition seams | `StabilityFactor`, `Signals` | named for the ACT, which is the exact convention retiring `Appraise` settled — every seam method in this domain is named for what it RETURNS, and the age composition already was |
+| `SummedAgeComposition` &c. | `…CompositionPolicy` | dropped the suffix their own interfaces and every sibling policy carry, so a reader could not tell `MultiplicativeRetentionComposition` was a policy while `MultiplicativeRankingPolicy` was |
+| `LocalDiffusionOptions.Strength` | `DenoisingStrength` | the same img2img dial under two names in one package, where the neighbouring backend already said `DenoisingStrength` |
+| `UseDefaultGenerationCandidates(candidates:)` | `providerIds:` | its own doc asserts it matches `UseDefaultCandidates(providerIds:)` "exactly", and `GenerationCandidate` is a real type in that namespace |
+
+**Made internal, having never earned their surface:** `MemoryEngineComposition` (a DI carrier record whose
+five references are all in the file that declares it) and `BudgetedGenerationRouter.RecordAsync` — whose own
+doc said *"public so the durable-render handler can record …"*, and that handler is in the same assembly, so
+the stated reason was satisfied by `internal` all along.
+
+**Deliberately NOT changed, and this half is the decision.** `LlmRequest req` versus `request` splits the
+LLM domain against itself across 74 signatures; `httpClient` names a `Func<…,HttpClient>` on ten builder
+extensions whose constructors call it `httpFactory`; `AgentStreamEvent`'s eight subtypes carry no `*Event`
+suffix. Every one is a genuine inconsistency and none of them makes a reader believe a false thing — a
+parameter called `req` is a request. Against that: each is a source break for every consumer, and
+`AgentStreamEvent` in particular is a sealed hierarchy consumers `switch` over, so renaming its members
+churns every call site to settle a preference. **A break must buy a reader something; consistency alone is
+not that.** They are recorded here so the question is settled rather than rediscovered — and if any is ever
+taken, it is taken in a major, on this reasoning, not as tidying.
+
+**What this constrains — and the honest half, which round 2 had to force out of the first draft.** Seven of
+the retired spellings are registered in `retiredApiNames`: `EnsureEachBitIsSingleRealAndUnique`,
+`IProviderInstallation`, the three `*Composition` type names, `Reserve` and `task`. **Four cannot be**, and
+the reason is the registry's own stated limit meeting real cases — whole-identifier equality can only ban a
+name that is dead EVERYWHERE, and these are each still live and correct somewhere else:
+
+| unregisterable | live occurrences on the surface | where |
+|---|---|---|
+| `AuthoritativeReserve` | 1 | `GraphMemoryOptions` — the SLOTS member, which keeps its name |
+| `policy` | 7 | including `InMemorySecretVault(policy:)`, an access policy |
+| `Strength` | 6 | `GraphNode.Strength`, `MemoryDecayState.Strength` — connection strength |
+| `candidates` | 19 | `GenerationCandidate[]` parameters throughout the routing surface |
+
+The first draft of this entry claimed "every rename above is registered", which was false for six of eleven,
+and its registry comment asserted `Reserve` was banned when `Reserve` appeared in no `names` array at all.
+Both were caught by an adversarial re-read of this pass's own diff, not by a gate — `check-api-vocabulary`
+cannot notice a name nobody registered. **An entry inventing a name that never existed was also tried and
+removed**: a registry line that guards nothing is worse than an honest hole, because it reads as coverage.
+The practical hole around `AuthoritativeReserve` is closed from the other side by banning `Reserve`, which
+was the only way to SET the characters one.

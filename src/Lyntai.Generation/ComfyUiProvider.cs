@@ -10,39 +10,39 @@ namespace Lyntai.Generation.Providers;
 /// against a running server (none was available on the machine where it was written), so the defaults are
 /// documented-surface rather than observed. If a path or field turns out to differ, a host retargets it here
 /// instead of waiting for a Lyntai release.</summary>
-public sealed record ComfyUiOptions
+public sealed class ComfyUiOptions
 {
     /// <summary>Where ComfyUI is listening (<c>http://127.0.0.1:8188</c>). Blank = not configured.</summary>
-    public required string BaseUrl { get; init; }
+    public string BaseUrl { get; set; } = "http://127.0.0.1:8188";
 
     /// <summary>The candidate id this backend registers under.</summary>
-    public string Id { get; init; } = "comfyui";
+    public string Id { get; set; } = "comfyui";
 
     /// <summary>Media kinds this install can serve. Both by default: which one a run produces is decided by
     /// the WORKFLOW, not by the endpoint — so the host declares what its graphs cover.</summary>
-    public IReadOnlyList<string> Kinds { get; init; } = [GenerationKinds.Image, GenerationKinds.Video];
+    public IReadOnlyList<string> Kinds { get; set; } = [GenerationKinds.Image, GenerationKinds.Video];
 
     /// <summary>Queue a workflow (returns a prompt id).</summary>
-    public string SubmitPath { get; init; } = "prompt";
+    public string SubmitPath { get; set; } = "prompt";
 
     /// <summary>Completed-run history, keyed by prompt id.</summary>
-    public string HistoryPath { get; init; } = "history";
+    public string HistoryPath { get; set; } = "history";
 
     /// <summary>Serves a produced file by filename/subfolder/type.</summary>
-    public string ViewPath { get; init; } = "view";
+    public string ViewPath { get; set; } = "view";
 
     /// <summary>Interrupts the running job.</summary>
-    public string InterruptPath { get; init; } = "interrupt";
+    public string InterruptPath { get; set; } = "interrupt";
 
     /// <summary>Server/version info — the free probe.</summary>
-    public string SystemStatsPath { get; init; } = "system_stats";
+    public string SystemStatsPath { get; set; } = "system_stats";
 
     /// <summary>The option key holding the workflow graph JSON.</summary>
-    public string WorkflowOption { get; init; } = "workflow";
+    public string WorkflowOption { get; set; } = "workflow";
 
     /// <summary>The option key holding a dotted path to the node input that receives
     /// <see cref="GenerationRequest.Prompt"/> (e.g. <c>"6.inputs.text"</c>).</summary>
-    public string PromptPathOption { get; init; } = "prompt-path";
+    public string PromptPathOption { get; set; } = "prompt-path";
 
     /// <summary>Ceiling for ONE HTTP call to the server — a submit, a history read, an interrupt, a probe.
     ///
@@ -59,7 +59,7 @@ public sealed record ComfyUiOptions
     /// caller can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a
     /// submit whose request carries its own <see cref="GenerationRequest.TimeoutSeconds"/> still has
     /// one.</para></summary>
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(2);
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(2);
 }
 
 /// <summary>

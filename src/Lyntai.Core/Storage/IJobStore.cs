@@ -49,6 +49,18 @@ public interface IJobStore
     /// Pending available at that time; otherwise Failed (terminal). Fenced; false = lost the lease.</summary>
     Task<bool> FailAsync(Guid id, string workerId, string error, DateTimeOffset? retryAt = null, CancellationToken ct = default);
 
+    /// <summary>Put the job back to Pending at <paramref name="runAt"/> WITHOUT counting the claim against
+    /// its attempts — the store side of <see cref="Lyntai.Jobs.JobOutcome.Poll"/>. Fenced; false = lost the lease.
+    /// <para>Implementations must UNDO the increment <see cref="ClaimNextAsync"/> applied, because a poll is
+    /// not an attempt: the handler looked at an operation that is progressing normally and found it unfinished.
+    /// Without that, a long-running render is dead-lettered after <c>MaxAttempts</c> looks — measured
+    /// 2026-08-14 at roughly thirty seconds for a hosted render. It also clears <c>last_error</c>: nothing
+    /// failed, and leaving a stale error makes the next dead-letter report the wrong reason.</para>
+    /// <para>The fence is load-bearing here in a way it is not for the terminal transitions: this is the one
+    /// outcome that moves a job BACKWARDS, so an unfenced version would let a worker whose lease was already
+    /// reclaimed keep resetting another worker's job indefinitely.</para></summary>
+    Task<bool> PollAgainAsync(Guid id, string workerId, DateTimeOffset runAt, CancellationToken ct = default);
+
     /// <summary>Move the job to the DEAD-LETTER queue (<see cref="JobStatus.Dead"/>, terminal) — used when
     /// transient retries are exhausted, so it's inspectable (<c>ListAsync(JobStatus.Dead)</c>) and
     /// replayable rather than a silent Failed. Fenced by <paramref name="workerId"/>; false = lost the lease.</summary>

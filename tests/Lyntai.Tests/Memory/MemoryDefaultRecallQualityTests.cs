@@ -70,10 +70,10 @@ public class MemoryDefaultRecallQualityTests
         using var db = new TempDb();
         var store = new SqliteMemoryGraphStore(db.Factory);
         var engine = new GraphMemoryEngine("default-guard", store, agePolicies: [new PerWriteAgePolicy()],
-            policy: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
+            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
         // ranking: ReciprocalRankFusionPolicy, the DI-REGISTERED default as of 3.0 (owner ruling, 2026-08-11)
         // — also the bare constructor's own default now, but passed explicitly anyway to pin INTENT.
-        // policy: DsrRetrievability, the DI-REGISTERED default as of 3.0 (D49) — also the bare constructor's
+        // retrievability: DsrRetrievability, the DI-REGISTERED default as of 3.0 (D49) — also the bare constructor's
         // own default now that HalfLifeRetrievability is deleted, but passed explicitly anyway to pin INTENT
         // (see the class doc's last paragraph).
 

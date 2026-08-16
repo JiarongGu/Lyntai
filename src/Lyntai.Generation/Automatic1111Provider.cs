@@ -5,29 +5,29 @@ using System.Text.Json.Nodes;
 namespace Lyntai.Generation.Providers;
 
 /// <summary>Configuration for <see cref="Automatic1111Provider"/>.</summary>
-public sealed record Automatic1111Options
+public sealed class Automatic1111Options
 {
     /// <summary>Where the WebUI is listening (<c>http://127.0.0.1:7860</c>). Blank = not configured.</summary>
-    public required string BaseUrl { get; init; }
+    public string BaseUrl { get; set; } = "http://127.0.0.1:7860";
 
     /// <summary>The candidate id this backend registers under.</summary>
-    public string Id { get; init; } = "a1111";
+    public string Id { get; set; } = "a1111";
 
     /// <summary>Sampling steps when the request doesn't override them.</summary>
-    public int Steps { get; init; } = 25;
+    public int Steps { get; set; } = 25;
 
     /// <summary>Classifier-free guidance scale when the request doesn't override it.</summary>
-    public double CfgScale { get; init; } = 7;
+    public double CfgScale { get; set; } = 7;
 
     /// <summary>How much of the source image an img2img edit may change (0..1).</summary>
-    public double DenoisingStrength { get; init; } = 0.45;
+    public double DenoisingStrength { get; set; } = 0.45;
 
     /// <summary>Pixel size when the request doesn't ask for one — modest by default, because this backend
     /// runs on the host's own GPU and a large default makes a first call look broken rather than slow.</summary>
-    public int DefaultWidth { get; init; } = 512;
+    public int DefaultWidth { get; set; } = 512;
 
     /// <summary>See <see cref="DefaultWidth"/>.</summary>
-    public int DefaultHeight { get; init; } = 512;
+    public int DefaultHeight { get; set; } = 512;
 
     /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because a render on
     /// the host's own GPU legitimately runs for minutes (which is why <c>AddAutomatic1111Provider</c> gives its
@@ -37,7 +37,7 @@ public sealed record Automatic1111Options
     /// <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline — a request that carries its own
     /// <see cref="GenerationRequest.TimeoutSeconds"/> still imposes one, since the more specific instruction
     /// wins either way.</summary>
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(10);
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(10);
 }
 
 /// <summary>

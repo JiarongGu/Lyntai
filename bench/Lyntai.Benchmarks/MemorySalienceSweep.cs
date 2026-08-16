@@ -119,7 +119,7 @@ internal static class MemorySalienceSweep
                 "salience",
                 store,
                 options: graphOptions,
-                policy: new ModulatedRetrievability(new DsrRetrievability(), retention),
+                retrievability: new ModulatedRetrievability(new DsrRetrievability(), retention),
                 agePolicies: [agePolicy],
                 embedder: embedder,
                 vectors: vectors,

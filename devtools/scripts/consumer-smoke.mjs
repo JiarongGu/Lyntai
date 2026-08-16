@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 // The two pure steps INSIDE this process that fail silently when wrong live in `consumer-smoke-lib.mjs`
 // and are unit-tested there. This file stays a linear script: the thing worth testing here IS the
 // pack/restore/build/run, and a seam that stubbed the pack would test the bookkeeping and none of the risk.
-import { listingHasPdb, packageIdsFrom } from './consumer-smoke-lib.mjs';
+import { listingHasPdb, packageIdsFrom, zipEntryNames } from './consumer-smoke-lib.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const work = path.join(repo, 'devtools', '_consumer-smoke');   // git-ignored scratch, per the repo convention
@@ -72,12 +72,23 @@ step(`evicted ${evicted} stale ${version} package(s) from the global cache ✓`)
 
 // ---- 2. every symbol package must carry a PDB ---------------------------------------------------------
 // An empty .snupkg is pushed automatically alongside its .nupkg and offered to symbol validation for nothing.
+// Fail-closed both ways, because this is the RELEASE gate and a tick here is the last thing anyone reads
+// before publishing. Zero symbol packages means the pack step produced none — an empty loop that printed the
+// same ✓ as a genuine pass — and a `tar` that cannot read the archive means the PDB was never inspected. The
+// old form skipped on `status !== 0` and then announced success, so a missing or incompatible tar silently
+// downgraded this to a no-op on exactly the machine where symbol packages are hardest to get right.
+if (snupkgs.length === 0)
+  bail('no symbol packages were produced — nothing to check, so this step proves nothing about PDBs');
+
 for (const s of snupkgs) {
-  const listing = sh('tar', ['-tf', path.join(work, 'feed', s)], repo);   // bsdtar reads zips on win/git-bash
-  if (listing.status === 0 && !listingHasPdb(listing.stdout))
+  // Read the archive's own entry table — see zipEntryNames for why this no longer shells out to tar.
+  const entries = zipEntryNames(fs.readFileSync(path.join(work, 'feed', s)));
+  if (entries.length === 0)
+    bail(`could not read any entry from ${s} — the PDB check cannot run, so it must not report success`);
+  if (!listingHasPdb(entries.join('\n')))
     bail(`${s} contains no PDB — set <IncludeSymbols>false</IncludeSymbols> on a package that ships no assembly`);
 }
-step('every symbol package carries a PDB ✓');
+step(`every symbol package carries a PDB ✓ (${snupkgs.length} checked)`);
 
 // ---- 3. a fresh consumer app, restored from the feed --------------------------------------------------
 const app = path.join(work, 'app');
@@ -126,7 +137,9 @@ services.AddLyntai(cfg => cfg
     .UseSqliteStorage(Path.Combine(Path.GetTempPath(), $"lyntai-smoke-{Guid.NewGuid():N}.db"))
     // the per-backend shim, through the PACKAGE — it registers a named HttpClient, which is what needs
     // Microsoft.Extensions.Http to have travelled with Lyntai.Generation's nuspec
-    .AddOpenAiImageProvider(new OpenAiImageOptions { BaseUrl = "", ApiKey = null })
+    // BaseUrl blanked deliberately: the assertion below is that an UNCONFIGURED backend reports a verdict a
+    // host can act on. The default is the vendor's API root, so it has to be cleared to reach that state.
+    .AddOpenAiImageProvider(o => { o.BaseUrl = ""; o.ApiKey = null; })
     .UseDefaultGenerationCandidates("openai-images"));
 using var sp = services.BuildServiceProvider();
 

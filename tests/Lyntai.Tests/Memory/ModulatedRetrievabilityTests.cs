@@ -161,16 +161,16 @@ public class ModulatedRetrievabilityTests
     }
 
     /// <summary>Composition itself as the shipped default, given a name rather than hardcoded — pins
-    /// <see cref="MultiplicativeRetentionComposition"/>'s own arithmetic in isolation from
+    /// <see cref="MultiplicativeRetentionCompositionPolicy"/>'s own arithmetic in isolation from
     /// <see cref="ModulatedRetrievability"/>'s clamping, including the empty-list identity its
     /// <see cref="ModulatedRetrievability"/> constructor call relies on for a retention-policy-free engine.</summary>
     [Fact]
     public void MultiplicativeRetentionComposition_multiplies_and_the_empty_product_is_one()
     {
-        var composition = new MultiplicativeRetentionComposition();
+        var composition = new MultiplicativeRetentionCompositionPolicy();
 
-        Assert.Equal(1, composition.Compose([]));
-        Assert.Equal(6, composition.Compose([2, 3]), 9);
+        Assert.Equal(1, composition.StabilityFactor([]));
+        Assert.Equal(6, composition.StabilityFactor([2, 3]), 9);
     }
 
     /// <summary>A composition policy nothing can vary is decoration (2026-08-10 memory-policy-seams plan,
@@ -180,7 +180,7 @@ public class ModulatedRetrievabilityTests
     /// to be unmistakable, not a rounding difference.</summary>
     private sealed class MaxRetentionComposition : IMemoryRetentionCompositionPolicy
     {
-        public double Compose(IReadOnlyList<double> factors) => factors.Count == 0 ? 1 : factors.Max();
+        public double StabilityFactor(IReadOnlyList<double> factors) => factors.Count == 0 ? 1 : factors.Max();
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public class ModulatedRetrievabilityTests
             new FixedRetentionPolicy(2, declaredMax: 3), new FixedRetentionPolicy(3, declaredMax: 3),
         };
 
-        var multiplied = new ModulatedRetrievability(Inner(), retentionPolicies, new MultiplicativeRetentionComposition());
+        var multiplied = new ModulatedRetrievability(Inner(), retentionPolicies, new MultiplicativeRetentionCompositionPolicy());
         var maxed = new ModulatedRetrievability(Inner(), retentionPolicies, new MaxRetentionComposition());
 
         // half-life 20 × 6 = 120 under multiply, 20 × 3 = 60 under max — genuinely different retrievability,

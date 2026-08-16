@@ -7,6 +7,406 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-15 — round 2 of the pre-3.0 review: four regressions round 1 introduced, and the reasoning error under one of them
+
+**Symptom.** All fourteen gates green, 2,923 tests passing, e2e 3/3 — over four behaviour regressions and one
+false claim. Round 1's own author verified every finding it acted on and still shipped these, which is the
+case for having a round 2 at all: this repository's last comparable pass found five the same way.
+
+---
+
+**1. A rate limit dead-lettered an already-paid render.** `FalQueueProvider.GetAsync` classified
+`transport = status >= 500`, copied from `ComfyUiProvider.HistoryAsync`. `GenerationRenderJobHandler` turns a
+`Failed` poll into `JobOutcome.Fail`, so ONE `429` from fal permanently dead-lettered a render that was still
+running and already billed — as would a `401` mid key-rotation, a `403` WAF challenge, or a `408`.
+
+*Root cause is the copy, not the code.* ComfyUI is a loopback server that never rate-limits; fal is a hosted,
+paid, rate-limiting API. **A rule copied between two backends inherits the assumptions of the one it came
+from**, and those were never stated because on ComfyUI they are always true. Terminal now means a `404` (the
+queue does not know this id) or the unconfigured pre-check, and nothing else. The new tests covered `404` and
+unconfigured only — the two regimes where terminal IS right, which is `pitfalls.md`'s "pick fixture values
+from the regime where they DISAGREE" exactly.
+
+**2. A transport blip dead-lettered a durable job.** `GenerationRouter.SubmitAsync`'s new catch mapped EVERY
+throw to `Inconclusive`, which surfaces, which the handler fails. Before round 1 the throw propagated and
+`JobRunner` retried it. A connection-refused during a deploy went from "retries and succeeds" to "dead-
+lettered, permanently". The duplicate-charge reasoning was right for an ambiguous failure and wrong for one
+that provably never left the process — **the same distinction round 1 taught `FalQueueProvider` one file
+over, and did not apply to its own catch.** `NeverReachedTheBackend` now decides it, and such a throw
+propagates untouched.
+
+**3. Narrowing removed a capability, on a misreading of the contract.** Round 1 confined SQLite's FTS
+expression to `content` so the three backends would agree, reading `IMemoryGraphStore.SeedAsync`'s portable
+guarantee as content-only. **That guarantee states a MINIMUM** — *"a node whose content contains … is found
+on every backend"* — not a ceiling. SQLite was not exceeding a contract; it was the only backend that could
+match an authored `MemoryWrite.Headline`, which is a summary a caller writes precisely so the entry can be
+found by it. After the fix, a headline-only match was found by no path on any backend, and `memory-sweep`
+could not have seen it because no corpus entry authors a headline disjoint from its content.
+
+Converged by WIDENING instead: `SearchTerms.LikeClause` gained a multi-column overload (per-column
+disjuncts, so each trigram index stays usable), Postgres gained `M202608152310_MemoryHeadlineSearch`, the
+in-process store reads both, and SQLite's expression is unconfined again. The contract fact is inverted and
+still runs on all three backends. **The lesson is about the reading, not the code: a floor and a ceiling look
+identical in a sentence that starts "is found".**
+
+**4. The composite reaped SOME members and reported success.** `PruneAsync`/`ForgetAsync` fanned out to
+whichever members implemented `IForgettableMemory` and silently skipped the rest — the exact outcome the
+fan-out exists to prevent, written one paragraph above it. Only `GraphMemoryEngine` implements it, so
+`UseCurated("glossary").UseGraph()` — a blend from this library's own README — cleared the graph half, kept
+the AUTHORITATIVE half, and returned normally. For the call an application makes when a user withdraws
+consent, that is the worst available answer.
+
+**And round 1's own test pinned it**: it put a non-forgettable member in the blend and asserted success. The
+composite now refuses unless every member can reap, **checked before anything is removed** — a mid-fan-out
+refusal would be a partial reap AND an exception. This takes nothing away: through 2.5.x the interface was
+unreachable through a composite at all.
+
+---
+
+**Verification.** Nine new tests across the four, each pinning the regime the original fixture missed: four
+retryable fal statuses; both directions of the submit-throw distinction; the headline fact inverted on three
+backends; and two composite facts asserting that the capable member is NOT reaped when a sibling cannot be.
+`verify` green at 14/14, 2,930 passed / 2,952, e2e 3/3. The Postgres schema golden was regenerated and its
+diff reviewed line by line: exactly one index added.
+
+**What generalises, and it is not "review harder".** Three of the four are one shape — **a rule moved from
+where it was true to where it was not**: ComfyUI's status policy onto fal, a contract floor read as a
+ceiling, and a fan-out justification that stopped applying the moment a member could not serve it. The
+fourth is the same shape aimed inward: round 1 wrote the transport-versus-ambiguous distinction and then did
+not apply it to the code it was writing at the time. **Copying a rule copies its assumptions, and the
+assumptions are the part nobody writes down** — because where the rule came from, they were always true.
+
+---
+
+## 2026-08-15 — `check-links` was green over a stale reference in the design CONTRACT, because two blind spots cancelled
+
+**Symptom.** `check-links` reported *"every in-repo reference resolves ✓"* while
+`docs/2026-07-17-lyntai-design.md` — the document this repository tells a reader to open first — said a
+shipped router rule was *"the open call — `TASKS.md` **Part 40**"* and *"must not be revisited on its own <!-- link-ok: QUOTING the defect this entry is about -->
+before it lands"*. Part 40 landed and lives in the archive. This is precisely the defect the gate's Part
+half was built for.
+
+**Root cause — two of them, with opposite signs.**
+
+1. **The Part half matched one line at a time.** `check-docs` builds a soft-joined two-line window and its
+   comment generalises the rule — *"the unit you match must be the unit the claim is written in… worth
+   carrying to any future text gate."* `check-links` was written **three days later** and did not carry it.
+   These documents wrap at ~110 columns and a Part reference spans a backtick, a filename and a bold
+   marker, so it is among the likeliest claims to straddle a break. This one did: line 804 ended
+   `` `TASKS.md` `` and line 805 opened `**Part 40**`.
+2. **`declaredParts` read `##`/`###` headings only.** Parts 40 and 42 are filed in the archive as
+   `- [x] **Part N — …**` list items, so both were invisible to the record scan.
+
+**The cancellation is the interesting part.** (1) is a false NEGATIVE and (2) a false POSITIVE. Had the
+reference not wrapped, (2) would have reported it as *"in NEITHER record"* — wrong, but loud. Had the Parts
+been headings, (1) would still have hidden it. **Fixing either alone surfaces the defect; having both kept
+the gate quiet for a release.** A measured instance of the shape `pitfalls.md` records for filter chains: a
+clean run proves nothing about the stage you did not check.
+
+**Fix.** The Part half matches a soft-joined window, keeping only matches that BEGIN in the current line so
+a reference is never double-counted; `declaredParts` recognises the list-item shape alongside both heading
+levels. The path half deliberately keeps `line` as its unit — a target is a single token and cannot wrap
+mid-name.
+
+**Verification.** Three guard tests — a wrapped reference is caught, a bullet-declared Part counts as
+present, and a Part declared in NEITHER shape is still reported (the control that stops the widening making
+the check vacuous). On the real tree the fixed gate immediately found three references: the design
+contract's, now corrected, and two in `CLAUDE.md`/`CHANGELOG.md` that quote `` `TASKS.md` Part 53 `` as an <!-- link-ok: quoting the illustration, same reason those two carry it -->
+ILLUSTRATION of what the gate matches — prose about data, now annotated `link-ok`, which is the case the
+gate's own header describes.
+
+**Introduced by.** `check-links` itself (2026-08-14), which was built from the lesson of one incident and
+not from the lesson written down for the gate before it.
+
+---
+
+## 2026-08-15 — two of the fourteen `verify` gates had no CLI-entry test, in the file whose premise is that all of them do
+
+**Symptom.** Latent. `cli-entry.test.mjs` exists because a guard whose entry wrapper stops matching
+*"starts, scans nothing, prints nothing, and exits 0"* — a green line over an unscanned tree. It drove
+eleven of the thirteen scripts that carry such a wrapper; `check-counts` and `check-encoding` were absent.
+
+**Root cause.** The roster is hand-written, one `it(...)` per script, with nothing deriving it from the
+scripts on disk. `check-counts` was added by `273d4e0` — the sweep that fixed seven other gates for
+reporting success without having checked — and was not entered into it.
+
+**Why these two matter most.** Both are `verify` steps, and `check-encoding`'s own header states that
+mojibake *"is silent by construction, so no other gate can see it"*: a dead entry point there means nothing
+is scanned for it in `verify` **or** in the pre-commit hook, with a tick printed either way. The exported
+`checkCounts`/`checkEncoding` functions are unit-tested and would keep passing throughout.
+
+**Fix.** Both added to the roster. **Not** derived from disk, deliberately: several scripts need arguments
+or a hostile environment to produce observable output (`--tree`, `--list`, `LYNTAI_RELEASE=1`), so a
+derived roster would either invoke them wrongly or need a per-script exception table — which is the same
+hand-maintained list with an extra step. Recorded so the next reader does not re-derive the tradeoff.
+
+**Verification.** `test-devtools` 321 → 326.
+
+---
+
+## 2026-08-15 — a headline-only query found the fact on SQLite and nowhere else
+
+**Symptom.** A node written with an authored headline carrying a word its content does not contain was
+returned by `SeedAsync` on SQLite and not on Postgres or the in-process store. Same call, same data, three
+backends, two answers.
+
+**Root cause.** `lyntai_memory_node_fts` declares `fts5(headline, content, …)`, and an unconfined FTS5
+expression matches ANY indexed column — so SQLite's FTS branch matched headlines. Postgres's GIN index is
+`gin (content gin_trgm_ops)` and `InMemoryMemoryGraphStore.Matches` reads `node.Content`; both are
+content-only, as is SQLite's own LIKE fallback. So SQLite also disagreed with ITSELF depending on whether
+the trigram index happened to hit.
+
+**Why this is a defect and not a divergence.** `storage.md` states the rule: *an ORDERING difference between
+backends is a divergence; a different answer to "is the fact found" is a defect.* And
+`IMemoryGraphStore.SeedAsync`'s own portable guarantee is written content-only — *"a node whose CONTENT
+contains a single ≥3-character query token as a substring is found on every backend"* — so SQLite was the
+outlier EXCEEDING the contract rather than the other two falling short of it.
+
+**Fix.** `FtsQuery.Build` takes an optional column and emits `{content} : (…)`; the graph store passes
+`content`. No migration, no index, no released schema touched. **The parentheses are load-bearing**: an
+FTS5 column filter binds tighter than `OR`, so `content : "a" OR "b"` would confine only the first term —
+correct-looking in a single-term test and wrong for every real multi-token query.
+
+**Deliberately NOT done: widening the other two to match headlines.** That is a legitimate, additive change
+and a different decision — it needs a Postgres index on `headline` and a recall-quality measurement, and a
+divergence fix should not smuggle in a behaviour change nobody measured. If it lands, the contract fact
+below is what has to be rewritten on purpose.
+
+**Verification.** Two facts on `MemoryGraphStoreContract`, so they run on all three backends by
+construction: a word only in the headline matches nowhere, and — the control that keeps the first honest —
+a word in the content matches everywhere. Mutation-checked by removing the confinement: **exactly one of
+the 157 cases fails, SQLite's**, which is the proof that the divergence was one-sided and the fix is
+targeted.
+
+**Introduced by.** The 2.5.0 memory-graph migration, which indexed both columns while the contract promised
+one.
+
+---
+
+## 2026-08-15 — the in-process stores ranked by recency where their own interface docs promise match count
+
+**Symptom.** `RecallAsync(task, "deploy pipeline", limit: 1)` returned a different ENTRY on
+`InMemoryMemoryStore` than on SQLite or Postgres: an entry matching one term displaced one matching both,
+simply by being newer.
+
+**Root cause.** Both SQL stores order by `{kw.MatchCount} DESC, created_at DESC, id DESC`. The two
+in-process stores ordered by `CreatedAt`, `Id` only — while `IMemoryStore.RecallAsync`,
+`ICuratedMemoryStore.SearchAsync` and `storage.md` all state that Postgres **and InMemory** rank by matched
+terms then recency. With a `limit`, an ordering difference becomes a different answer.
+
+**Fix.** `SearchTerms.MatchCount` — the in-process twin of the `MatchCount` expression `LikeClause` already
+builds for SQL — used by both in-process stores. Put beside the tokenization that produced the terms on
+purpose: a store that splits a query with `SubstringTerms` and then counts matches its own way is two rules
+for one question, which is the shape `MemorySignals.Salience` exists to prevent. With no query every count
+is 0, so the documented "most recent first" is unchanged.
+
+**Introduced by.** D55's tokenization convergence, which made admission agree across backends and declared
+ranking backend-specific — but declared InMemory's ranking to be term-count, which it never was.
+
+---
+
+## 2026-08-15 — the Postgres graph store opened every connection synchronously, alone among twelve
+
+**Symptom.** No wrong data; a liveness defect. Under concurrent recalls each call blocked a thread-pool
+thread for a whole TCP connect plus authentication.
+
+**Root cause.** `PostgresMemoryGraphStore` used `factory.Open()` at all **fourteen** sites, plus a
+synchronous `BeginTransaction`/`Commit`. Every other Postgres store in the package uses
+`await factory.OpenAsync(ct)`, and `PostgresUsageTracker`'s own docblock states the reason: a network
+round-trip inside the async front door must not block a pool thread. On a cold pool, or one at
+`MaxPoolSize`, this is thread-pool starvation rather than a slow query. `SeedAsync` runs on every recall.
+The cancellation token also could not reach the connect, since `Open()` takes none.
+
+**Fix.** All fourteen converted to `await using … await factory.OpenAsync(ct)`, with the transaction pair
+converted alongside; the class docblock now states the rule and why the SQLite twin may open synchronously
+(its "connect" is a file handle).
+
+**Verification.** The full Postgres leg, 172/172 green against a real container, and a clean build with zero
+warnings. No behavioural assertion is possible for the liveness property itself — stated rather than papered
+over.
+
+**Introduced by.** The 2.5.0 graph-store work, which was written from the SQLite store's shape rather than
+from its Postgres siblings'.
+
+---
+
+## 2026-08-15 — the hosted MCP endpoint ran the app's tools with no guard gating, reopening a hole closed for the tool loop
+
+**Symptom.** An application that registered an `IGuard` had it enforced when the model drove a tool through
+`IToolLoop`, and silently not enforced when a CLI's own agent invoked the same tool through the hosted MCP
+endpoint. No error, no log: the tool ran and its output went straight back to the model.
+
+**Root cause.** `ToolFunction` — the `ITool` → `AIFunction` bridge the host exposes — took only the tool and
+called `tool.InvokeAsync(...)` directly. `ToolLoop.GatedInvokeAsync` wraps the identical call in
+`InspectToolCallAsync` / `InspectToolResultAsync`, and its own docblock states why: *"the tool-loop guard
+hook (guards otherwise only cover the chat boundary, not model-driven tool calls)"*. Both paths receive the
+same instances from `sp.GetServices<ITool>()`. Neither `ChatOrchestrator` gate covers it either — gate 1 saw
+the user message, gate 2 sees only the final answer.
+
+**Why it survived.** `docs/task-archive.md` records item R2, *"Guards don't cover the agent tool loop
+(security)"*, closed 2026-07-20 — for `ToolLoop`. MCP hosting shipped later, as a separate package, and
+nothing asked the same question of it. A grep for `guard` across both MCP packages returned one unrelated
+comment.
+
+**Fix.** The rail is resolved optionally in `AddMcpToolHost` and travels with the tools into
+`McpToolHost.StartAsync` and on into `ToolFunction`, which now gates both ways. A Block cannot abort the
+CLI's own agent loop the way it aborts this library's, so it is reported to the model as a refusal
+observation — the tool does not run and its payload is never produced, which is the enforcement available
+from this side. With no rail registered, nothing changes.
+
+**Verification.** Three facts in `McpToolHostTests` driven through a real in-process host and Lyntai's own
+MCP client: a blocking rail leaves the tool unexecuted and the payload absent; a replacing rail redacts the
+observation; and a host with no rail behaves exactly as before. Mutation-checked — disabling either gate
+fails the corresponding fact. **The first mutation attempt reported "applied" and the tests still passed,
+because the replacement string never matched**; asserting on the intermediate (the count of sites replaced)
+is what caught that, and it is the same lesson `pitfalls.md` records for filter chains.
+
+**Introduced by.** The MCP tool-hosting work, which added a second door onto the tools without asking what
+already guarded the first.
+
+---
+
+## 2026-08-15 — MCP tool-host args landed in codex's PROMPT, where a swallowed flag is a spent turn
+
+**Symptom.** An app registering `AddCodexCliProvider()` together with `AddMcpToolHost(...)` spawned
+`codex exec … - -c mcp_servers.…`, with the config overrides AFTER the `-` stdin positional. Everything
+after `-` is read as prompt text, so the tools the provisioner exists to expose were absent and the turn was
+spent on a prompt made of config strings.
+
+**Root cause.** `ICliProviderDialect.BuildCompletionArgs` took only the request, so `CliProviderEngine`
+appended the provisioner's args after the dialect's argv. That is correct for a CLI whose argv ends in
+options and wrong for one that ends in a positional. `CodexExecArgs` already had the right shape — an
+`extraOptions` parameter, with a comment explaining that appending afterwards is exactly what must not
+happen — and the agent path used it. The completion path had no way to.
+
+**Why it never bit.** `claude` is the only CLI that has driven the tool-hosting path, and its argv ends in
+options, so appending happens to be correct there. The second implementation is where a rule that was
+really a coincidence shows up.
+
+**Fix.** The seam carries the args (`docs/DECISIONS.md` **D65**); `CodexCliDialect` passes them to
+`CodexExecArgs` as `extraOptions`, `ClaudeCliDialect` appends them and says why it may.
+
+**Verification.** `Tool_host_args_land_before_the_stdin_positional_not_after_it` asserts the `-c` index is
+below the `-` index, mutation-checked by making the codex dialect append; plus a control that a dialect
+given no tool args builds exactly what it always did.
+
+**Introduced by.** The CLI tool-hosting generalization (1.1), which added the provisioner without giving the
+dialect a say in where its args go.
+
+---
+
+## 2026-08-15 — an OpenAI-compatible backend that reported its failure at HTTP 200 was re-sent the same request, then blamed for a malformed body
+
+**Symptom.** A gateway answering `200` with `{"error":{"code":429,"message":"Rate limit exceeded"}}` — the
+shape aggregators and proxies use — produced `LlmVerdict.Failed` with the detail *"malformed or empty
+response after retry"*, after the identical request had been sent a second time to the host that had just
+said it was rate-limited. The operator was pointed at the response shape; the actual problem was quota.
+
+**Root cause.** `OpenAiCompatibleProvider` read the failure channel only when the STATUS was non-2xx
+(`if (!response.IsSuccessStatusCode) return MapHttpFailure(...)`). On a 2xx the body went to `TryExtract`,
+which returns false for a body carrying no `choices`/`message`/`finish_reason` — so an error-only body fell
+into the malformed-body path, which retries once and then reports `Failed`. Streaming had the same shape:
+`ParseStreamLine` yields nothing for an error-only SSE line, so the stream ended `Failed: no output
+produced` — the right verdict CLASS with no reason.
+
+**Why it matters beyond the message.** `Failed` and `RateLimited` route differently: `Failed` ADVANCES and
+takes a dead-host strike, `RateLimited` COOLS the host. So a backend answering honestly in band was
+penalised toward being benched, and a second billable request was sent first.
+
+**This is the THIRD instance of one class.** The same "two answer channels, precedence pinned on one" defect
+shipped in `CliProviderEngine.CompleteAsync` (2026-08-05, this log) and again on the claude agent session
+(`8dac87f`). Both sweeps checked the CLI seams; neither checked the HTTP provider.
+
+**Fix.** `OpenAiHttp.InBandError(body)` — one reader of the in-band channel for every OpenAI-compatible
+surface in the package — consulted BEFORE the retry on the buffered path, and on the zero-content path when
+streaming. The verdict comes from the shared corpus (`LlmVerdictClassifier.FromErrorText`), never a local
+heuristic, and carries the same `AuthFailed → NotConfigured` promotion `FromHttpFailure` makes, restated
+because that overload needs a failed status to key on and this path has none.
+<br>Deliberately narrow: it reports only that an `error` member is present and what it says. It does not
+read a `code` as an HTTP status — that mapping is not measured across the aggregators this provider serves.
+<br>And on the streaming path it is consulted ONLY when no content arrived, because the mirror-image trap is
+real and measured: a bare `{"error":"Reconnecting... 2/5"}` appeared in codex runs that went on to succeed,
+so treating every error-ish line as terminal kills healthy calls that recovered.
+
+**Verification.** Five facts in `OpenAiCompatibleProviderTests`: the 429 classifies AND `handler.Requests`
+holds exactly one entry (no resend); an in-band 401 with no key is `NotConfigured`; the same WITH a key
+stays `AuthFailed` (the control that stops the promotion swallowing every auth error); the streamed twin;
+and an error line arriving AFTER content leaves a delivering stream alone. The last was green before the fix
+and is what keeps the mirror trap closed.
+
+**Introduced by.** The provider as originally written — the status check has gated the failure channel since
+it shipped.
+
+---
+
+## 2026-08-15 — a durable render polled a backend that could never answer, forever
+
+**Symptom.** A `GenerationRenderJob` against fal whose key was rotated out of configuration, or whose
+request id fal no longer knew, polled every 15 seconds for the life of the process. The job was never
+dead-lettered, never failed and never completed; the reason — *"not configured: BaseUrl and ApiKey are both
+required"* — sat in `GenerationOperation.Detail`, where nothing acts on it.
+
+**Root cause.** `FalQueueProvider.PollCoreAsync` mapped EVERY `GetAsync` failure to
+`GenerationOperationStatus.Running`, and `GetAsync` produces a failure for three unrelated things: an
+unconfigured backend, any non-2xx, and any exception. The method's own `<remarks>` justified only the narrow
+case — *"the same treatment a transport failure already gets here"* — so the code was broader than the
+reasoning written above it. `GenerationRenderJobHandler` reads `Running` as "re-checkpoint and poll again",
+which is correct behaviour on an incorrect input.
+
+**Why no test caught it.** The suite pinned the 500 case (`A_transport_failure_while_polling_keeps_the_render
+_alive`), which is the regime where the bug is invisible — that case SHOULD report `Running`. No fixture
+exercised a 4xx or an unconfigured backend on the poll path.
+
+**Fix.** `GetAsync` now returns a `Transport` flag and `PollCoreAsync` branches on it: a failure that never
+reached the queue (5xx, `HttpRequestException`) leaves the render alive; one the queue ANSWERED — a 4xx for
+an id it does not know — or a backend with no key at all is terminal. This is `ComfyUiProvider.HistoryAsync`'s
+shape verbatim, whose docblock had already reasoned the case through: *"A 4xx or an unconfigured BaseUrl IS
+terminal — that id will never resolve, and polling it forever strands the job."* Two sibling backends in one
+package answered the same question opposite ways, and only one had written down why.
+<br>The fetch path takes the flag and discards it deliberately: a fetch that cannot be completed is a result
+the caller acts on now, where a poll is a question that can be asked again.
+
+**Verification.** `A_4xx_while_polling_is_TERMINAL_rather_than_polled_forever` and
+`An_unconfigured_backend_polling_is_TERMINAL_rather_than_polled_forever`, with the pre-existing 500 fact
+still green — it is the control that stops the fix over-firing into "abandon a render that is still running".
+
+**Introduced by.** `FalQueueProvider` as first written (the 2026-08-04 durable-renders work); the surface is
+one of the two GEN-VERIFY names as documented-not-measured, though this half is control flow rather than
+wire format and needed no key to settle.
+
+---
+
+## 2026-08-15 — a CLI turn that finished cleanly was reported as a stall, and paid for twice
+
+**Symptom.** A buffered `ProcessRunner.RunAsync` whose child exited `0` at the instant its inactivity (or
+max-duration) clock fired returned `ProcessResult(-1, <the complete stdout>, …, Inactivity)`. Because
+`CliProviderEngine.CompleteAsync` branches on `result.TimedOut` BEFORE it parses stdout, a complete,
+successful, already-billed CLI turn was discarded as `LlmVerdict.Timeout` — *"stalled, no output for …"* —
+and the router fell over to the next candidate and paid for a second turn.
+
+**Root cause.** The buffered path decided on the cancellation flag alone
+(`if (killCts.IsCancellationRequested)`). `KillTree` is a no-op against a process that has already gone, so
+the flag being set does not mean the kill BEAT the child. `StreamLinesAsync`, forty lines away, asked the
+fuller question and named the race in a comment — *"unless the child actually finished cleanly first: the
+kill can race a clean exit"* — so the guard existed on one path and was absent from the other for a whole
+release. The window widens for any child that closes stdout and then lingers (a flush, an atexit hook, a
+telemetry upload) while still exiting `0`.
+
+**Fix.** The decision is now one internal function, `ProcessRunner.TimedOut(killRequested, exitCode)`, called
+by both paths — the `MemorySignals.Salience` prescription (`pitfalls.md`: one thing read at N sites grows N
+rules) applied to a decision rather than a coercion. Two copies kept in step by review is what produced the
+divergence; one function makes it unrepresentable.
+
+**Verification.** A four-case `[Theory]` over the truth table, including the case that was wrong
+(`killRequested: true, exitCode: 0 → false`). **The race itself cannot be driven deterministically from
+outside the class**, which is exactly why the copy that DID carry the guard never had a test either —
+extracting the decision is what made it observable at all. Stated rather than papered over: a timing test
+here would be flaky, and a flaky test is worse than none.
+
+**Introduced by.** The buffered path's inactivity-clock work; it has never had the exit-code half.
+
+---
+
 ## 2026-08-14 — a recall returned more entries than its own `Limit`, because a per-ENGINE bound was never reconciled with a per-QUERY one
 
 **Symptom.** `RecallAsync` returned three items for `Limit: 2`, and none of them was an ordinary hit. No

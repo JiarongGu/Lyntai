@@ -81,7 +81,7 @@ public sealed class MemoryEngineBuilder
     /// engine alone — a name meaningful on one named engine is simply unknown on another, and each engine's
     /// query throws on a name it does not itself recognize rather than consulting any other engine's
     /// catalog.</param>
-    /// <param name="policy">THIS engine's own forgetting curve, overriding the container's registered
+    /// <param name="retrievability">THIS engine's own forgetting curve, overriding the container's registered
     /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy"/> for this named engine alone; null
     /// keeps the container registration as the default (or <see cref="DsrRetrievability"/> when nothing is
     /// registered — <c>AddMemoryEngine</c>'s own <c>TryAdd</c>), so an engine that names nothing here behaves
@@ -108,14 +108,14 @@ public sealed class MemoryEngineBuilder
     public MemoryEngineBuilder UseGraph(GraphMemoryOptions? options = null, string label = "graph",
         IMemoryRankingPolicy? ranking = null,
         IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
-        IMemoryRetrievabilityPolicy? policy = null,
+        IMemoryRetrievabilityPolicy? retrievability = null,
         Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
         Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null)
     {
         var resolved = options ?? new GraphMemoryOptions();
         _members.Add(new MemberSpec(label, (sp, full) => BuildGraph(
             sp, full, Required<IMemoryGraphStore>(sp), resolved,
-            ranking, namedRankingPolicies, policy, annotation, verification)));
+            ranking, namedRankingPolicies, retrievability, annotation, verification)));
         return this;
     }
 
@@ -147,7 +147,7 @@ public sealed class MemoryEngineBuilder
         GraphMemoryOptions? options = null,
         IMemoryRankingPolicy? ranking = null,
         IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
-        IMemoryRetrievabilityPolicy? policy = null,
+        IMemoryRetrievabilityPolicy? retrievability = null,
         Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
         Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null) =>
         new(
@@ -167,10 +167,10 @@ public sealed class MemoryEngineBuilder
             // curve and wins outright, and `?? `'s short-circuit means GetRequiredService is not even
             // consulted then. Passing it here rather than as the engine's `policy:` keeps the modulation
             // wrapper on BOTH paths — a consumer selecting a curve is choosing a curve, not opting out of
-            // the retention policies every other graph engine gets. `policy: null` therefore resolves
+            // the retention policies every other graph engine gets. `retrievability: null` therefore resolves
             // exactly as it did before this parameter existed.
-            policy: new ModulatedRetrievability(
-                policy ?? sp.GetRequiredService<IMemoryRetrievabilityPolicy>(),
+            retrievability: new ModulatedRetrievability(
+                retrievability ?? sp.GetRequiredService<IMemoryRetrievabilityPolicy>(),
                 sp.GetServices<IMemoryRetentionPolicy>(),
                 sp.GetService<IMemoryRetentionCompositionPolicy>()),
             // age is a DI collection too (2026-08-10 memory-policy-seams plan, Task 3): registering an
@@ -230,11 +230,14 @@ public sealed class MemoryEngineBuilder
     /// admitted.
     /// <para><b>This is an engine-level allocation, not a per-member one</b>, however it reads in the
     /// chain: it covers every authoritative member of the blend together. Writing it after the member it is
-    /// meant for is a readability convention only.</para></summary>
-    /// <param name="characters">The reserve.</param>
-    public MemoryEngineBuilder Reserve(int characters)
+    /// meant for is a readability convention only.</para>
+    /// <para>Named for its UNIT, because the neighbouring <see cref="GraphMemoryOptions.AuthoritativeReserve"/>
+    /// reserves recall SLOTS and both are reachable from this one chain — a bare <c>Reserve(2)</c> read as
+    /// slots would silently mean two characters.</para></summary>
+    /// <param name="characters">The reserve, in characters.</param>
+    public MemoryEngineBuilder ReserveCharacters(int characters)
     {
-        Composition = Composition with { AuthoritativeReserve = characters };
+        Composition = Composition with { AuthoritativeCharacters = characters };
         return this;
     }
 

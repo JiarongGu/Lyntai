@@ -47,6 +47,106 @@ public class McpToolHostTests
     }
 
     [Fact]
+    public async Task A_guard_blocks_a_hosted_tool_call_the_same_way_it_blocks_one_in_the_tool_loop()
+    {
+        // THE JAIL, found 2026-08-15. The archive records "Guards don't cover the agent tool loop" being
+        // closed for ToolLoop in 2026-07; MCP hosting arrived later and reopened it from the other side. The
+        // SAME ITool instances (sp.GetServices<ITool>()) are reachable both ways, so a consumer who
+        // registered a guard had it enforced through IToolLoop and silently not through the hosted endpoint
+        // the CLI's own agent calls. Neither ChatOrchestrator gate can see it either: gate 1 saw the user
+        // message, gate 2 sees only the final answer.
+        var ran = false;
+        ITool secret = new FunctionTool("read_secret",
+            (_, _) => { ran = true; return Task.FromResult("SECRET_KEY=hunter2"); },
+            "reads a secret",
+            """{"type":"object","properties":{}}""");
+
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync([secret], token, guards: new BlockingRail());
+
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
+        await using var client = await McpClient.CreateAsync(transport);
+        var tool = Assert.Single(await McpToolset.FromClientAsync(client));
+
+        var result = await tool.InvokeAsync("""{}""");
+
+        Assert.False(ran);                              // the tool did not execute at all
+        Assert.DoesNotContain("hunter2", result);       // and the model never saw the payload
+        Assert.Contains("blocked", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task A_guard_redacts_a_hosted_tools_OBSERVATION_before_the_model_sees_it()
+    {
+        // The output gate. Blocking the call is only half: a tool that legitimately runs can still return
+        // something a guard must not let out, which is why IGuardRail has InspectToolResultAsync at all.
+        ITool leaky = new FunctionTool("read_file",
+            (_, _) => Task.FromResult("token=hunter2"),
+            "reads a file",
+            """{"type":"object","properties":{}}""");
+
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync([leaky], token, guards: new RedactingRail());
+
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
+        await using var client = await McpClient.CreateAsync(transport);
+        var tool = Assert.Single(await McpToolset.FromClientAsync(client));
+
+        var result = await tool.InvokeAsync("""{}""");
+
+        Assert.DoesNotContain("hunter2", result);
+        Assert.Contains("[redacted]", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task With_no_guard_rail_a_hosted_tool_runs_exactly_as_before()
+    {
+        // The control. Guarding must be free when nothing is registered — the overwhelmingly common case,
+        // and the one where a regression here would be most expensive.
+        ITool echo = new FunctionTool("echo", (args, _) => Task.FromResult($"echoed:{args}"), "echoes",
+            """{"type":"object","properties":{"message":{"type":"string"}}}""");
+
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync([echo], token);
+
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
+        await using var client = await McpClient.CreateAsync(transport);
+        var tool = Assert.Single(await McpToolset.FromClientAsync(client));
+
+        Assert.Contains("echoed", await tool.InvokeAsync("""{"message":"hi"}"""));
+    }
+
+    private sealed class BlockingRail : Lyntai.Guards.IGuardRail
+    {
+        public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(Lyntai.Llm.LlmRequest req, CancellationToken ct = default) =>
+            Task.FromResult(Lyntai.Guards.GuardOutcome.Block("blocked by policy"));
+
+        public Task<Lyntai.Guards.GuardOutcome> InspectResponseAsync(Lyntai.Llm.LlmReply reply, CancellationToken ct = default) =>
+            Task.FromResult(Lyntai.Guards.GuardOutcome.Allow);
+    }
+
+    private sealed class RedactingRail : Lyntai.Guards.IGuardRail
+    {
+        public Task<Lyntai.Guards.GuardOutcome> InspectRequestAsync(Lyntai.Llm.LlmRequest req, CancellationToken ct = default) =>
+            Task.FromResult(Lyntai.Guards.GuardOutcome.Allow);
+
+        public Task<Lyntai.Guards.GuardOutcome> InspectResponseAsync(Lyntai.Llm.LlmReply reply, CancellationToken ct = default) =>
+            Task.FromResult(Lyntai.Guards.GuardOutcome.Replace("[redacted]"));
+    }
+
+    [Fact]
     public async Task Host_rejects_requests_without_the_bearer_token()
     {
         ITool echo = new FunctionTool("echo", (a, _) => Task.FromResult(a));

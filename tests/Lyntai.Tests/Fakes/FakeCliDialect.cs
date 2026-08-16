@@ -46,8 +46,13 @@ public sealed class FakeCliDialect : CliProviderDialectBase
     public IReadOnlyList<string>? LoginArgsValue { get; set; }
     public IReadOnlyList<string>? InstallArgsValue { get; set; }
 
-    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest request) =>
-        request.Model is { Length: > 0 } model ? ["run", "--model", model] : ["run"];
+    /// <summary>Appends the tool-host args, like the claude dialect and unlike the codex one — this fake
+    /// stands in for an ordinary options-terminated CLI.</summary>
+    public override IReadOnlyList<string> BuildCompletionArgs(
+        LlmRequest request, IReadOnlyList<string> toolHostArgs) =>
+        request.Model is { Length: > 0 } model
+            ? ["run", "--model", model, .. toolHostArgs]
+            : ["run", .. toolHostArgs];
 
     public override CliOutputEvent ParseLine(string line) => line switch
     {

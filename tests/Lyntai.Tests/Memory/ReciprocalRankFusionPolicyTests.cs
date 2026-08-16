@@ -12,14 +12,15 @@ namespace Lyntai.Tests.Memory;
 /// this file does not itself assert.</summary>
 public class ReciprocalRankFusionPolicyTests
 {
-    private static GraphNode Node(long id, double relevance = 1, MemorySignals signals = default) =>
+    private static GraphNode Node(long id, double relevance = 1, MemorySignals signals = default,
+        int degree = 0) =>
         new(id, "e", "t", "s", $"headline {id}", $"content {id}", MemoryGrade.Associative,
             DateTimeOffset.UnixEpoch, RecallCount: 0, Stability: 20, Age: 0, Relevance: relevance,
-            Degree: 0, Metadata: null, Signals: signals);
+            Degree: degree, Metadata: null, Signals: signals);
 
     private static MemoryCandidate Candidate(long id, double relevance = 1, double retrievability = 1,
-        int hop = 0, MemorySignals signals = default) =>
-        new(Node(id, relevance, signals), retrievability, hop);
+        int hop = 0, MemorySignals signals = default, int degree = 0) =>
+        new(Node(id, relevance, signals, degree), retrievability, hop);
 
     private static MemorySignals Salience(double value) =>
         MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, value);
@@ -367,4 +368,74 @@ public class ReciprocalRankFusionPolicyTests
     [Fact]
     public void A_zero_RelativeFloor_is_accepted_as_the_shipped_default() =>
         Assert.Equal(0, new ReciprocalRankFusionOptions { RelativeFloor = 0 }.RelativeFloor);
+
+    // ── the fan effect (DiagnosticityWeight) ────────────────────────────────────────────────────────────
+
+    /// <summary><b>OFF by default, and byte-identical when unset.</b> The whole reason this can be added to a
+    /// registered default policy without a measurement first: at weight 0 the new term contributes exactly
+    /// zero and every existing arm is unchanged. Asserted rather than assumed, because "additive and
+    /// defaulted" is a claim about arithmetic, not an intention.</summary>
+    [Fact]
+    public void Diagnosticity_is_off_by_default_and_changes_nothing_when_unset()
+    {
+        Assert.Equal(0, new ReciprocalRankFusionOptions().DiagnosticityWeight);
+
+        var policy = new ReciprocalRankFusionPolicy();
+        var hub = Candidate(1, degree: 50);
+        var leaf = Candidate(2, degree: 1);
+
+        var ranked = policy.Rank([hub, leaf], in Context);
+
+        // identical on every other signal, so with the fan term off the two are tied and neither is demoted
+        Assert.Equal(2, ranked.Count);
+        Assert.Equal(ranked[0].Score, ranked[1].Score, precision: 12);
+    }
+
+    /// <summary>ACT-R's FAN EFFECT: a node associated with many things is less diagnostic of any one cue, so
+    /// it should spread less. Lyntai builds hubs deliberately (subject annotation exists to produce shared
+    /// handles), and nothing anywhere consulted <see cref="GraphNode.Degree"/> — a node with fifty
+    /// neighbours contributed exactly as much as a node with one.
+    /// <para>The argument for adopting it is information-theoretic rather than biomimetic: a node adjacent to
+    /// everything discriminates nothing. That is why it is worth having even though this library is not
+    /// trying to be a cognitive model.</para></summary>
+    [Fact]
+    public void A_high_fan_node_ranks_below_an_otherwise_identical_low_fan_one()
+    {
+        var policy = new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+        {
+            DiagnosticityWeight = 1, RelevanceWeight = 0, RetrievabilityWeight = 0,
+            SalienceWeight = 0, HopWeight = 0,
+        });
+        var hub = Candidate(1, degree: 50);
+        var leaf = Candidate(2, degree: 1);
+
+        var ranked = policy.Rank([hub, leaf], in Context);
+
+        Assert.Equal(2, ranked[0].Candidate.Node.Id);   // the LEAF leads — it is the diagnostic one
+        Assert.True(ranked[0].Score > ranked[1].Score);
+    }
+
+    /// <summary>An unconnected node (degree 0) is the MOST diagnostic, not a special case to exclude. It
+    /// reached the candidate set on its own textual merits and has no hub inflating it.</summary>
+    [Fact]
+    public void An_unconnected_node_is_treated_as_maximally_diagnostic()
+    {
+        var policy = new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions
+        {
+            DiagnosticityWeight = 1, RelevanceWeight = 0, RetrievabilityWeight = 0,
+            SalienceWeight = 0, HopWeight = 0,
+        });
+
+        var ranked = policy.Rank([Candidate(1, degree: 9), Candidate(2, degree: 0)], in Context);
+
+        Assert.Equal(2, ranked[0].Candidate.Node.Id);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void A_negative_or_non_finite_diagnosticity_weight_is_refused(double weight) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ReciprocalRankFusionOptions { DiagnosticityWeight = weight });
 }

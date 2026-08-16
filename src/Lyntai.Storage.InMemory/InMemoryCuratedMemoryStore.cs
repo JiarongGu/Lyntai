@@ -137,7 +137,14 @@ public sealed class InMemoryCuratedMemoryStore(Func<DateTimeOffset>? clock = nul
             if (scope is not null) q = q.Where(e => e.Scope == scope);
             if (enabledOnly) q = q.Where(e => e.Enabled);
             q = q.Where(e => Matches(e, metadataMatch));
-            q = q.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id);
+            // MATCHED-TERM COUNT leads, then recency — the ordering ICuratedMemoryStore.SearchAsync and
+            // storage.md both document for this backend, and which both SQL twins implement
+            // (`ORDER BY {kw.MatchCount} DESC, created_at DESC, id DESC`). This store ordered by recency
+            // alone, so with a LIMIT it returned DIFFERENT entries from its siblings for the same query —
+            // an entry matching one term could displace one matching every term simply by being newer.
+            q = q.OrderByDescending(e => SearchTerms.MatchCount(e.Content, terms, needle))
+                .ThenByDescending(e => e.CreatedAt)
+                .ThenByDescending(e => e.Id);
             if (limit is { } n) q = q.Take(n);
             IReadOnlyList<CuratedMemory> result = [.. q];
             return Task.FromResult(result);

@@ -1,7 +1,7 @@
 ---
 name: input-is-thinking-not-doctrine
 applies_when: recording something the owner said into a spec, a decision record, a schema, or a commit
-guides: default to recording it as an open working position with its reversal cost, rather than as a settled rule
+enforces: default to recording it as an open working position with its reversal cost, rather than as a settled rule
 ---
 <!-- local: never synced; not a daoris artifact -->
 

@@ -71,7 +71,7 @@ public class GenerationRenderJobHandlerTests
 
         var outcome = await handler.HandleAsync(ctx.Build(Payload()));
 
-        Assert.Equal(JobOutcome.Kind.Retry, outcome.Result);          // come back and poll
+        Assert.Equal(JobOutcome.Kind.Poll, outcome.Result);           // come back and poll — NOT an attempt
         Assert.Equal(1, backend.SubmitCalls);
         Assert.NotNull(ctx.Checkpoint);
         Assert.Contains("op-1", ctx.Checkpoint);
@@ -85,7 +85,7 @@ public class GenerationRenderJobHandlerTests
         var (handler, backend, sink) = Handler();
         var ctx = new RecordingContext();
         var first = await handler.HandleAsync(ctx.Build(Payload()));
-        Assert.Equal(JobOutcome.Kind.Retry, first.Result);
+        Assert.Equal(JobOutcome.Kind.Poll, first.Result);
 
         // a new process picks the job back up with the checkpoint the previous one saved
         var resumed = await handler.HandleAsync(ctx.Build(Payload(), ctx.Checkpoint, attempts: 2));
@@ -108,7 +108,7 @@ public class GenerationRenderJobHandlerTests
 
         var outcome = await handler.HandleAsync(ctx.Build(Payload(), ctx.Checkpoint, attempts: 2));
 
-        Assert.Equal(JobOutcome.Kind.Retry, outcome.Result);
+        Assert.Equal(JobOutcome.Kind.Poll, outcome.Result);
         Assert.Empty(sink.Received);
         Assert.Contains("running", ctx.Stages);
     }

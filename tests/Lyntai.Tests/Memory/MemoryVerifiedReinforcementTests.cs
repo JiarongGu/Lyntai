@@ -56,6 +56,54 @@ public sealed class MemoryVerifiedReinforcementTests
         }
     }
 
+    /// <summary><b>Abstention: the engine can say "a judge looked and none of this answered".</b>
+    ///
+    /// <para>Nothing in the memory subsystem expressed insufficiency before 2026-08-15. A recall returned its
+    /// best candidates whatever their absolute quality, so a caller could not tell "here are the three
+    /// relevant facts" from "here are the three least-irrelevant things I hold" — and a confidently-returned
+    /// irrelevant fact is worse than an empty result, because the model treats it as context.</para>
+    ///
+    /// <para><b>This is NOT <c>RelativeFloor</c>.</b> That floor is relative to the best candidate in the
+    /// set, so a page of uniformly-irrelevant material still has a perfectly good internal ranking and
+    /// survives it. Abstention needs an ABSOLUTE signal, and the verification verdict is the only one this
+    /// engine has: <c>MemoryVerification.NothingRelevant</c> already existed and already meant exactly this,
+    /// it simply stopped at the policy boundary and never reached the caller.</para>
+    ///
+    /// <para><b>Nullable for the same reason <c>MemoryReviewWrite.Verified</c> is</b> — "false is an observed
+    /// failure, null is no judgement, and they are not interchangeable". With no verifier registered (the
+    /// shipped default) the answer is <c>null</c>, never <c>false</c>: an unjudged recall must not be
+    /// reported as a judged-empty one, or a consumer that abstains on <c>false</c> would abstain always.</para>
+    /// <para>LongMemEval measures abstention as one of its five core memory abilities.</para></summary>
+    [Fact]
+    public async Task A_recall_reports_whether_a_judge_found_anything_that_answered()
+    {
+        var store = new InMemoryMemoryGraphStore();
+        var oracle = new OracleVerifier();
+        var engine = new GraphMemoryEngine("e", store,
+            retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()], verification: oracle);
+
+        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
+
+        // 1. the judge says this one answered
+        oracle.Teach("deploy", [reference.Id]);
+        var answered = await engine.RecallAsync(new MemoryQuery("t", "s", "deploy"));
+        Assert.NotEmpty(answered.Items);
+        Assert.True(answered.Answered);
+
+        // 2. the judge looked at the same page and said NONE of it answered — the abstention signal
+        oracle.Teach("deploy", []);
+        var abstained = await engine.RecallAsync(new MemoryQuery("t", "s", "deploy"));
+        Assert.NotEmpty(abstained.Items);          // material still returned; abstention is ADVISORY
+        Assert.False(abstained.Answered);
+
+        // 3. no judgement at all is NULL, never false — the shipped default with no verifier registered
+        var unjudged = await new GraphMemoryEngine("e", store,
+                retrievability: new DsrRetrievability(), agePolicies: [new PerWriteAgePolicy()])
+            .RecallAsync(new MemoryQuery("t", "s", "deploy"));
+        Assert.NotEmpty(unjudged.Items);
+        Assert.Null(unjudged.Answered);
+    }
+
     private readonly record struct Arm(double Miss, double Pollution);
 
     private static async Task<Arm> RunAsync(bool verified, double gain, int? depth = null)
@@ -64,7 +112,7 @@ public sealed class MemoryVerifiedReinforcementTests
         var store = new InMemoryMemoryGraphStore();
         var oracle = verified ? new OracleVerifier() : null;
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
             agePolicies: [new PerWriteAgePolicy()],
             options: new GraphMemoryOptions { VerificationDepth = depth },
             verification: oracle);
@@ -219,7 +267,7 @@ public sealed class MemoryVerifiedReinforcementTests
             var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
             var store = new InMemoryMemoryGraphStore();
             var engine = new GraphMemoryEngine("e", store,
-                policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
+                retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
                 agePolicies: [new PerWriteAgePolicy()],
                 ranking: ranking);
             var first = corpus.Steps.OfType<CorpusWrite>().First().Write;
@@ -275,7 +323,7 @@ public sealed class MemoryVerifiedReinforcementTests
         var store = new InMemoryMemoryGraphStore();
         var oracle = new OracleVerifier();
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()],
             verification: oracle);
 
@@ -317,7 +365,7 @@ public sealed class MemoryVerifiedReinforcementTests
     {
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }),
             agePolicies: [new PerWriteAgePolicy()]);
 
         await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy pipeline needs approval"));
@@ -350,7 +398,7 @@ public sealed class MemoryVerifiedReinforcementTests
         var corpus = MemoryCorpus.Generate(CorpusShape.Default, Seed);
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = 0 }),
             agePolicies: [new PerWriteAgePolicy()]);
 
         var first = corpus.Steps.OfType<CorpusWrite>().First().Write;

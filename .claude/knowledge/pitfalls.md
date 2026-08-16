@@ -636,6 +636,59 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   Register* block that owns it. `RegisterProviderLifetime` is all `TryAdd` deliberately for the mirror-image
   reason: everything it seeds is meant to lose to a host or a `Use*` call.
 
+## Copying a rule copies its assumptions
+
+- **A rule moved from where it was true to where it is not — the shape behind three of the four regressions
+  a single review round introduced (2026-08-15, `docs/FIXES.md`).** Each looked like careful reuse of an
+  existing, correct decision, and each carried an unstated premise that held only where it came from:
+  · `ComfyUiProvider`'s poll rule — *"a 4xx is terminal, a 5xx is transport"* — copied onto
+    `FalQueueProvider`. True for a loopback server that never rate-limits; on a hosted, paid, rate-limiting
+    API one `429` permanently dead-lettered a render that was still running and already billed. **The
+    premise "this backend does not rate-limit" was never written down, because where the rule was written
+    it was always true.**
+  · `IMemoryGraphStore.SeedAsync`'s portable guarantee — *"a node whose content contains a query token is
+    found on every backend"* — read as a CEILING and used to justify narrowing the one backend that matched
+    more. It is a FLOOR. **A minimum and a maximum are the same sentence in English**, and the difference
+    only shows when you ask what the sentence FORBIDS.
+  · `CompositeMemoryEngine`'s fan-out justification — *"reaping one member and returning success leaves the
+    blend holding the data"* — applied to the members that could reap and silently not to the ones that
+    could not, which is the case it was written for.
+  <br>**The fourth is the same shape aimed inward**: the same round taught `FalQueueProvider` to distinguish
+  "never reached the backend" from "may have been delivered", and then wrote a `catch` in another file that
+  treated every throw as ambiguous — turning a connection-refused blip into a dead-lettered job.
+  <br>**What to actually do**, since "review harder" is not a technique: when you reuse a rule, write down
+  the premise that makes it true THERE and check it holds HERE. If you cannot name the premise, you are
+  copying a conclusion rather than reasoning. And when a rule you just wrote is about a distinction (this
+  versus that), grep your own diff for the other places that distinction applies — the round that
+  articulates a rule is the round most likely to violate it elsewhere, because attention is on the sentence
+  rather than on the code.
+
+## Second doors
+
+- **A capability enforced at one entry point is not enforced if a second entry point reaches the same
+  objects.** Measured 2026-08-15. `ToolLoop.GatedInvokeAsync` runs every model-driven tool call through
+  `IGuardRail` — that gap was found and closed for the tool loop in 2026-07 and recorded as a security item.
+  The hosted MCP endpoint, added later and in a different package, executes **the same `ITool` instances**
+  (`sp.GetServices<ITool>()`) through `ToolFunction`, which called `tool.InvokeAsync` directly. So an app
+  that registered a guard had it applied on one door and silently skipped on the other — and neither
+  `ChatOrchestrator` gate could see it, because gate 1 sees the user message and gate 2 sees only the final
+  answer. A `grep` for `guard` across both MCP packages returned one unrelated comment.
+  <br>**The tell is shared STATE, not shared code.** The two paths have nothing in common to review side by
+  side; what they share is the collection they both resolve. So the question that finds this is not "is this
+  code guarded?" but **"what else can reach these objects, and does it apply the same rules?"** — asked
+  whenever a new surface is given the app's tools, stores, or provider collections.
+  <br>The same shape is worth checking for any capability that reads as a global promise: guards, budgets,
+  rate limits, redaction. Each is enforced by a specific wrapper at a specific door, and adding a door is
+  the cheapest way to lose one.
+- **A rule that is right for the only implementation exercising it is a coincidence, and the second
+  implementation is where that shows.** `CliProviderEngine` appended an `ICliToolProvisioner`'s args after
+  the dialect's argv. Correct for `claude`, whose argv ends in options; wrong for `codex`, whose argv ends
+  in the `-` stdin positional, where everything after it is read as PROMPT text and **a swallowed flag is a
+  spent turn rather than an error**. `CodexExecArgs` had documented that hazard and taken an `extraOptions`
+  parameter for it; the agent path used it and the completion path structurally could not
+  (`docs/DECISIONS.md` **D65**). **When a shared engine composes something whose correctness depends on a
+  backend's own grammar, the backend places it** — the engine may supply the pieces, not choose the order.
+
 ## Refactoring & namespace moves
 
 - **A compiler error list is not the authoritative site-list for a rename or move — it misses silently in
@@ -752,3 +805,25 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   instead of a red test, and the next person bisects the harness rather than reading the failure. Bound every
   await that can block on a permit (a timeout on the wait, asserting the timeout is what fails), so the
   regression the test exists for arrives as an assertion.
+- **A counter can return the RIGHT number from two errors that cancel, and only comparing the ITEMS finds
+  it.** Measured 2026-08-15 writing `check-counts`' `verify`-gate counter. It parsed `dev.mjs`'s `steps`
+  array with `\['[a-z-]+'`, which cannot match `e2e` (the class excludes digits) and DOES match the inner
+  argument array in `['check-sensitive', ['--tree']]`. Twelve real steps plus one phantom is thirteen — the
+  documented number, on a clean tree, agreeing with the prose it was gating. A test asserting only the COUNT
+  passes forever. The test that caught it compared the parsed NAMES and asserted two specific properties:
+  `e2e` is present, `--tree` is not. **When a counter's output is a number, pin the SET it derived the number
+  from** — the number alone cannot distinguish a correct parse from a wrong one that happens to tie, and the
+  tie is likelier than it sounds because both errors are off-by-one in opposite directions.
+- **A fail-closed guard belongs on the SOURCE list, not on the post-filter count — the filtered count has a
+  legitimate zero.** Measured 2026-08-15 giving `check-docs` / `check-encoding` / `check-links` /
+  `check-samples` the fail-closed rule `check-api-vocabulary` already carried (a gate that scanned nothing
+  must never print a tick). Written the obvious way — `if (candidates.length === 0) return 1` — it
+  immediately failed check-encoding's own `an unscanned extension is ignored` fact, and that test was RIGHT:
+  a call whose only input is a binary has legitimately nothing to scan. The distinction that makes the guard
+  correct is **who chose the scope**. An empty SOURCE list is a broken listing whoever supplied it (the exact
+  shape that let `check-sensitive` skip every renamed file), so it indicts any caller; zero SURVIVORS of the
+  filters is an indictment only on the full-tree path, where this repository cannot legitimately produce one
+  — README/CLAUDE.md/TASKS.md guarantee three docs, 761 files pass the text filter, 74 samples exist. Hence
+  `source.length === 0 || (files === null && filtered.length === 0)`. **Write the both-directions test at the
+  same time**: a fail-closed guard that over-fires is a broken build on legitimate input, which is the
+  failure people fix by deleting the guard.

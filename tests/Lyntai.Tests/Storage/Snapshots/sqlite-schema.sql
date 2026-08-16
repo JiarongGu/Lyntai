@@ -226,7 +226,7 @@ CREATE TABLE lyntai_memory_review (
 -- table lyntai_memory_subject
 CREATE TABLE lyntai_memory_subject (
     engine TEXT NOT NULL,
-    node_id INTEGER NOT NULL,
+    node_id INTEGER NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
     task_key TEXT NOT NULL,
     scope TEXT NOT NULL,
     subject TEXT NOT NULL,

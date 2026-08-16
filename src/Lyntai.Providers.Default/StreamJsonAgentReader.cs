@@ -220,7 +220,14 @@ internal sealed class StreamJsonAgentReader
         // Robustness fallback: a run that ended with assistant text but an empty/absent terminal result
         // string leaves consumers (one-shot extract, kb-merge, validate, dry-plan preview) that treat
         // empty FinalText as failure spuriously failing — fall back to the last assistant text instead.
-        if (string.IsNullOrWhiteSpace(finalText) && !string.IsNullOrEmpty(_lastAssistantText))
+        //
+        // GATED ON !isError, and that gate was missing through 2.5.0. The fold one layer up applies the
+        // identical condition and says why (IAgentSession: "a terminal that IS an error must NOT be dressed
+        // up as a partial success … those callers would then consume garbage instead of retrying") — but
+        // because this reader had already filled FinalText, that guard could never fire for claude. The codex
+        // twin does the opposite deliberately: `FinalText: null, // a failed turn's partial text is not an
+        // answer`. Two readers of one contract had drifted, and the weaker side was the one that shipped.
+        if (!isError && string.IsNullOrWhiteSpace(finalText) && !string.IsNullOrEmpty(_lastAssistantText))
             finalText = _lastAssistantText;
 
         // UsageFinal first (if usage present), then SessionEnded — shared wire read; UsageFinal projects
@@ -229,7 +236,16 @@ internal sealed class StreamJsonAgentReader
             yield return new UsageFinal(w.Input, w.Output, w.CacheRead, w.CacheCreate, _model);
 
         yield return new SessionEnded(
-            Verdict: isError ? LlmVerdict.Failed : LlmVerdict.Ok,
+            // Classified, never hand-rolled: this was the only in-band failure path in either agent session
+            // that skipped LlmVerdictClassifier, so an expired login or a 429 reported a bare Failed and a
+            // host switching on Verdict retried immediately instead of prompting to re-authenticate or
+            // backing off. The codex twin has always classified. Falls back to Failed when the CLI gives no
+            // words to read, which is what the bare value used to assume unconditionally.
+            Verdict: isError
+                ? (string.IsNullOrWhiteSpace(finalText ?? subtype)
+                    ? LlmVerdict.Failed
+                    : LlmVerdictClassifier.FromErrorText(finalText ?? subtype!))
+                : LlmVerdict.Ok,
             IsError: isError,
             Subtype: subtype,
             SessionId: sessionId,

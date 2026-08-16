@@ -8,25 +8,25 @@ namespace Lyntai.Generation.Providers;
 /// <summary>Configuration for <see cref="OpenAiImageProvider"/>.</summary>
 /// <remarks>Credentials are passed IN by the host and never stored (D20/D24) — read
 /// <see cref="ApiKey"/> from your own configuration or secret store.</remarks>
-public sealed record OpenAiImageOptions
+public sealed class OpenAiImageOptions
 {
     /// <summary>The API root, including any version segment (<c>https://api.openai.com/v1</c>). Blank means
     /// "not configured", which the provider reports as <see cref="GenerationVerdict.NotConfigured"/> rather
     /// than failing.</summary>
-    public required string BaseUrl { get; init; }
+    public string BaseUrl { get; set; } = "https://api.openai.com/v1";
 
     /// <summary>Bearer token, where the endpoint needs one. A local OpenAI-images-shaped server usually
     /// doesn't.</summary>
-    public string? ApiKey { get; init; }
+    public string? ApiKey { get; set; }
 
     /// <summary>Model sent when the request doesn't name one.</summary>
-    public string? Model { get; init; }
+    public string? Model { get; set; }
 
     /// <summary>The candidate id this backend registers under.</summary>
-    public string Id { get; init; } = "openai-images";
+    public string Id { get; set; } = "openai-images";
 
     /// <summary>Size used when the request doesn't ask for one.</summary>
-    public string DefaultSize { get; init; } = "1024x1024";
+    public string DefaultSize { get; set; } = "1024x1024";
 
     /// <summary>Ceiling for ONE call to this backend — the render, and the probe. Generous because an image
     /// render legitimately runs for minutes (which is why <c>AddOpenAiImageProvider</c> gives its client an
@@ -36,7 +36,7 @@ public sealed record OpenAiImageOptions
     /// <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline — a request that carries its own
     /// <see cref="GenerationRequest.TimeoutSeconds"/> still imposes one, since the more specific instruction
     /// wins either way.</summary>
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(10);
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(10);
 }
 
 /// <summary>

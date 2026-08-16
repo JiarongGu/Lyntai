@@ -28,6 +28,45 @@ public static class MemoryEngineContract
             StringComparison.Ordinal));
     }
 
+    /// <summary>A recall returns AT MOST <see cref="MemoryQuery.Limit"/> items — the flat property that
+    /// nothing anywhere asserted.
+    /// <para>Written as a CONTRACT fact rather than fixed per engine on purpose. The composite and the
+    /// curated engine were each found ignoring the limit on 2026-08-14 and repaired individually, which is
+    /// exactly the shape <c>pitfalls.md</c> records as not working: "a cross-backend invariant enforced on
+    /// ONE backend's test class is not enforced". Every engine answers this question, so every engine is
+    /// asked it here.</para>
+    /// <para>Deliberately writes MORE entries than the limit and uses a query every one of them matches, so
+    /// the bound is the only thing that can cut the result. An engine that returns nothing would pass a bare
+    /// upper-bound assertion vacuously, so the non-empty check is part of the fact.</para>
+    /// <para><b>It writes EVERY grade the engine supports, and that is what makes it discriminating on a
+    /// blend.</b> The first version wrote only `Inherit`, which a composite routes entirely to its FIRST
+    /// member — so one member held everything, applied the limit itself, and the blend never had more than
+    /// the limit to cut. Disabling the composite's cut outright left that version passing: a fixture sitting
+    /// in the one regime where the property cannot fail, which is the trap <c>pitfalls.md</c> records for the
+    /// AuthoritativeReserve fixtures. Loading every member is what forces the blend past its own bound.</para>
+    /// </summary>
+    public static async Task A_recall_returns_at_most_the_limit(IMemoryEngine engine, string key)
+    {
+        for (var i = 0; i < 6; i++)
+        {
+            if (engine.Supported.HasFlag(MemoryGrades.Associative))
+                await engine.RememberAsync(new MemoryWrite(key, "s",
+                    $"bounded entry number {i} about deployment", Grade: MemoryGrade.Associative));
+            if (engine.Supported.HasFlag(MemoryGrades.Authoritative))
+                await engine.RememberAsync(new MemoryWrite(key, "s",
+                    $"exact deployment fact number {i}", Grade: MemoryGrade.Authoritative));
+        }
+
+        var unbounded = await engine.RecallAsync(new MemoryQuery(key, "s", "deployment"));
+        Assert.NotEmpty(unbounded.Items);   // the corpus really is reachable, so the bound below means something
+
+        var recall = await engine.RecallAsync(new MemoryQuery(key, "s", "deployment", Limit: 2));
+
+        Assert.NotEmpty(recall.Items);
+        Assert.True(recall.Items.Count <= 2,
+            $"{engine.Name} returned {recall.Items.Count} items for a Limit of 2");
+    }
+
     public static async Task Recall_reports_the_tier_that_ran(IMemoryEngine engine, string key)
     {
         await engine.RememberAsync(new MemoryWrite(key, "s", "tiers are reported"));

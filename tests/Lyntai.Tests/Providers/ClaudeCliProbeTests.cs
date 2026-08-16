@@ -26,7 +26,7 @@ public class ClaudeCliProbeTests
         // pattern-matching over the registered providers, not by referencing this adapter's type
         ILlmProvider provider = Provider(new FakeProcessRunner());
 
-        Assert.IsAssignableFrom<IProviderInstallation>(provider);
+        Assert.IsAssignableFrom<IProviderProbe>(provider);
         Assert.IsAssignableFrom<IProviderUpdater>(provider);
     }
 

@@ -46,7 +46,8 @@ internal sealed class StaticEngine(
     string name,
     IReadOnlyList<MemoryItem> items,
     MemorySources ran = MemorySources.Lexical,
-    MemoryGrades grades = MemoryGrades.Associative) : IMemoryEngine
+    MemoryGrades grades = MemoryGrades.Associative,
+    bool? answered = null) : IMemoryEngine
 {
     public string Name { get; } = name;
 
@@ -58,7 +59,9 @@ internal sealed class StaticEngine(
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult(items.Count == 0 ? MemoryRecall.Empty : new MemoryRecall(items, ran));
+        return Task.FromResult(items.Count == 0
+            ? MemoryRecall.Empty
+            : new MemoryRecall(items, ran, answered));
     }
 }
 
@@ -82,6 +85,10 @@ internal sealed class RecordingEngine(string name, MemoryGrades grades) : IMemor
 {
     public List<MemoryWrite> Writes { get; } = [];
 
+    /// <summary>What this member returns from a recall. Empty by default, so every existing test is
+    /// unaffected; a blending test seeds it to give the composite something to cut.</summary>
+    public List<MemoryItem> Items { get; } = [];
+
     public string Name { get; } = name;
 
     public MemoryGrades Supported => grades;
@@ -95,7 +102,16 @@ internal sealed class RecordingEngine(string name, MemoryGrades grades) : IMemor
     public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult(MemoryRecall.Empty);
+        return Task.FromResult(Items.Count == 0
+            ? MemoryRecall.Empty
+            : new MemoryRecall(Items, MemorySources.Lexical));
+    }
+
+    /// <summary>Seed one recall item. `relevance` is what the composite's cut orders on below the grade tier.</summary>
+    public RecordingEngine Returning(string headline, MemoryGrade grade, double relevance)
+    {
+        Items.Add(new MemoryItem(new MemoryRef(Name, headline), headline, null, grade, relevance, 1, 0));
+        return this;
     }
 }
 
@@ -122,6 +138,45 @@ internal sealed class ExpandableEngine(string name) : IMemoryEngine, IExpandable
         var expanded = new MemoryItem(reference, $"expanded {reference.Id}", $"expanded {reference.Id}",
             MemoryGrade.Associative, 1, 1, 1);
         return Task.FromResult(new MemoryRecall([expanded], MemorySources.Graph));
+    }
+}
+
+/// <summary>An engine that implements the optional REAPING capability — the twin of
+/// <see cref="ExpandableEngine"/>, and the capability a composite hid behind itself until 3.0. Records what
+/// it was asked to reap so a forwarding test can assert the member was actually reached, not merely that the
+/// call returned.</summary>
+internal sealed class ForgettableEngine(string name, int pruneCount = 0) : IMemoryEngine, IForgettableMemory
+{
+    public string Name { get; } = name;
+
+    public MemoryGrades Supported => MemoryGrades.Associative | MemoryGrades.Authoritative;
+
+    public List<(string TaskKey, string? Scope)> Prunes { get; } = [];
+
+    public List<(string TaskKey, string? Scope)> Forgets { get; } = [];
+
+    public Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default) =>
+        Task.FromResult(new MemoryRef(Name, write.Content));
+
+    public Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(MemoryRecall.Empty);
+    }
+
+    public Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
+        TimeSpan? olderThan = null, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        Prunes.Add((taskKey, scope));
+        return Task.FromResult(pruneCount);
+    }
+
+    public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        Forgets.Add((taskKey, scope));
+        return Task.CompletedTask;
     }
 }
 

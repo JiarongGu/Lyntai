@@ -7,13 +7,25 @@ namespace Lyntai.Memory;
 /// A blend of member engines, which is itself an engine — so naming, blending, remembering and expanding
 /// stay ONE concept rather than four. Members carry hierarchical names ("project/graph"), and every
 /// <see cref="MemoryRef"/> records its owning member, which is what makes routing unambiguous.
-/// <para><b>It never guesses about capabilities.</b> It always implements <see cref="IExpandableMemory"/>
-/// and <see cref="ILinkableMemory"/> and routes strictly by <see cref="MemoryRef.Engine"/>. A wrapper
-/// implementing only the base interface would make a capable member invisible — the exact regression that
-/// shipped once in the generation router, where wrapping a provider silently stopped every queue-backed
-/// render from routing while inline renders kept working and every inline test stayed green.</para>
+/// <para><b>It never guesses about capabilities.</b> It always implements <see cref="IExpandableMemory"/>,
+/// <see cref="ILinkableMemory"/> and <see cref="IForgettableMemory"/>, and routes strictly by
+/// <see cref="MemoryRef.Engine"/>. A wrapper implementing only the base interface would make a capable
+/// member invisible — the exact regression that shipped once in the generation router, where wrapping a
+/// provider silently stopped every queue-backed render from routing while inline renders kept working and
+/// every inline test stayed green.
+/// <br/><b>That paragraph was true of two capabilities and false of the third until 3.0</b>, which is why it
+/// now names all three. <see cref="IForgettableMemory"/> was omitted, so <c>engine is IForgettableMemory</c>
+/// was FALSE for every <c>AddMemoryEngine</c> registration — this class is what
+/// <c>MemoryEngineBuilder.Build</c> returns for ALL of them — and a consumer of the shipped memory subsystem
+/// had no supported way to delete anything. A comment asserting an invariant is not the invariant.</para>
+///
+/// <para><b>Reaping fans OUT; expansion and linking ROUTE.</b> The difference is the argument:
+/// <see cref="ExpandAsync"/> and <see cref="LinkAsync"/> take a <see cref="MemoryRef"/>, which names exactly
+/// one owning member, while reaping takes a (task, scope) that every member may hold material under. Reaping
+/// one member and reporting success would leave the rest of the blend holding the very data the caller asked
+/// to remove.</para>
 /// </summary>
-public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, ILinkableMemory
+public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
@@ -89,6 +101,19 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
         var items = new List<MemoryItem>();
         var ran = MemorySources.None;
 
+        // THE ABSTENTION SIGNAL, folded rather than dropped. Through 2.5.x this method returned
+        // `new MemoryRecall(items, ran)` — the third positional argument defaulted to null — so
+        // MemoryRecall.Answered was ALWAYS null on every DI-registered engine, because
+        // MemoryEngineBuilder.Build is documented "ALWAYS a composite, even for one member". A judge that
+        // ran and abstained was indistinguishable from no judge at all, which is the one distinction the
+        // field exists to make.
+        //
+        // The fold is a three-value lattice, not a boolean: TRUE if any member's judge found an answer,
+        // FALSE if at least one judged and none did, and NULL only when nothing judged anywhere. The last
+        // clause is what keeps the shipped default (no verifier) from ever synthesising `false` — a
+        // consumer abstaining on `false` would otherwise abstain on everything.
+        bool? answered = null;
+
         foreach (var member in _members)
         {
             ct.ThrowIfCancellationRequested();
@@ -97,6 +122,7 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
                 var recall = await member.RecallAsync(query, ct).ConfigureAwait(false);
                 items.AddRange(recall.Items);
                 ran |= recall.Ran;
+                if (recall.Answered is { } judged) answered = (answered ?? false) || judged;
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
@@ -107,7 +133,61 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
             }
         }
 
-        return items.Count == 0 ? MemoryRecall.Empty : new MemoryRecall(items, ran);
+        if (items.Count == 0) return MemoryRecall.Empty;
+
+        // THE CUT. Every member was asked for up to `Limit` items, so a blend of N members could return N x
+        // Limit — and `MemoryEngineBuilder` always wraps members in a composite, so that was the shape every
+        // multi-member consumer had. Same class as the AuthoritativeReserve incident: a bound configured on
+        // one scope (the query) and enforced on another (nothing).
+        //
+        // ORDERED BY GRADE FIRST, and that is not a taste. Design §5.7.0 states a LEXICOGRAPHIC objective
+        // whose objective (1) — never lose an authoritative fact — is the only one with no acceptable failure
+        // rate, so an exact fact must survive a cut that a higher-scoring associative hit would otherwise win.
+        // The graph engine already reconciles its own AuthoritativeReserve against a limit the same way.
+        //
+        // Relevance breaks ties BELOW that tier, and its honest limit is worth stating: two members score on
+        // scales that are not comparable (a curated store's relevance and a graph engine's fused rank mean
+        // different things), so this ordering is principled about the grade tier and merely reasonable within
+        // it. Making the sub-authoritative order better needs a cross-engine measurement this repository has
+        // no instrument for — and building a bad one would produce numbers nobody can act on, which is the
+        // failure §5.7.0 was written after.
+        // Only an EXPLICIT limit cuts. `Limit: null` documents "the engine's default", and a composite has no
+        // default of its own — each member already applied its own — so the honest answer is what the members
+        // returned. Inventing a constant here would silently truncate a blend somebody deliberately
+        // configured, which is a behaviour change wearing a bug fix's clothes; what a composite's own default
+        // should be is a real design question and does not get settled by a magic number in this method.
+        if (query.Limit is { } limit && limit > 0 && items.Count > limit)
+            items = [.. items
+                .OrderByDescending(i => i.Grade == MemoryGrade.Authoritative)
+                .ThenByDescending(i => i.Relevance)
+                .Take(limit)];
+
+        // THE SECOND CUT, and it is the same defect as the first one field over. `CharBudget` travelled to
+        // every member unchanged and was reconciled by NOTHING, so an N-member blend could spend N x the
+        // budget a caller set — and a caller sets it precisely because it is a prompt budget. Same class as
+        // the AuthoritativeReserve incident pitfalls.md records: a bound configured on one scope (the query)
+        // and enforced on another (none).
+        //
+        // The rule is GraphMemoryEngine's own, deliberately identical so a blend and a bare engine cannot
+        // answer the same query differently: applied AFTER the limit so the budget cuts the weakest tail
+        // rather than changing what wins, an authoritative item is never dropped by it (objective (1) has no
+        // acceptable failure rate), and a budget too small even for one item still yields one — a caller
+        // asking for less than one fact gets one fact, not nothing.
+        if (query.CharBudget is { } budget && budget > 0)
+        {
+            var spent = 0;
+            var kept = new List<MemoryItem>(items.Count);
+            foreach (var item in items)
+            {
+                var cost = item.Content?.Length ?? item.Headline.Length;
+                if (item.Grade != MemoryGrade.Authoritative && kept.Count > 0 && spent + cost > budget) continue;
+                spent += cost;
+                kept.Add(item);
+            }
+            items = kept;
+        }
+
+        return new MemoryRecall(items, ran, answered);
     }
 
     /// <inheritdoc />
@@ -132,6 +212,76 @@ public sealed class CompositeMemoryEngine : IMemoryEngine, IExpandableMemory, IL
                 $"Memory engine '{from.Engine}' does not support linking, so the link from '{from.Id}' was " +
                 "not recorded.");
         await linkable.LinkAsync(from, to, kind, weight, symmetric, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Fans out to every member that can reap and SUMS what they removed. Fails LOUD when no member
+    /// can — like <see cref="LinkAsync"/> and unlike <see cref="ExpandAsync"/> — because this method returns a
+    /// COUNT and <c>0</c> already means "nothing matched". Reporting <c>0</c> for "nothing here can ever
+    /// reap" would make a deletion that cannot happen indistinguishable from one that found nothing to do,
+    /// and a caller reaping for a consent withdrawal would read it as done.</remarks>
+    public async Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
+        TimeSpan? olderThan = null, CancellationToken ct = default)
+    {
+        RequireEveryMemberCanReap(nameof(PruneAsync));
+
+        var reaped = 0;
+        foreach (var member in _members)
+        {
+            ct.ThrowIfCancellationRequested();
+            reaped += await ((IForgettableMemory)member)
+                .PruneAsync(taskKey, scope, minRetrievability, olderThan, ct).ConfigureAwait(false);
+        }
+        return reaped;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Fans out to every member that can reap, for the reason given on <see cref="PruneAsync"/>:
+    /// a (task, scope) is not owned by one member the way a <see cref="MemoryRef"/> is, so forgetting one
+    /// member's copy and returning would leave the blend still holding the data.</remarks>
+    public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
+    {
+        RequireEveryMemberCanReap(nameof(ForgetAsync));
+
+        foreach (var member in _members)
+        {
+            ct.ThrowIfCancellationRequested();
+            await ((IForgettableMemory)member).ForgetAsync(taskKey, scope, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Refuse BEFORE removing anything unless EVERY member can reap.
+    ///
+    /// <para><b>Why all-or-nothing, and why the check runs first.</b> The first version of this fanned out to
+    /// whichever members implemented <see cref="IForgettableMemory"/> and silently skipped the rest — which
+    /// is precisely the outcome the fan-out exists to prevent, written one paragraph above it: reaping some
+    /// members and returning success leaves the blend holding the very data the caller asked to remove.
+    /// Today only <c>GraphMemoryEngine</c> implements the interface, so
+    /// <c>UseCurated("glossary").UseGraph()</c> — a blend from this library's own README — cleared the graph
+    /// half, kept the authoritative half, and returned normally. For the call an application makes when a
+    /// user withdraws consent, a partial success that reports nothing is the worst available answer.</para>
+    ///
+    /// <para>Checking first is the other half: a mid-fan-out refusal would delete from the members reached
+    /// so far and then throw, which is a partial reap AND an exception. Nothing is removed unless everything
+    /// can be.</para>
+    ///
+    /// <para><b>This takes nothing away.</b> Through 2.5.x <see cref="IForgettableMemory"/> was unreachable
+    /// through a composite at all, so a graph-only blend gains a working reap and a mixed blend gets a loud
+    /// refusal naming the members that cannot serve it — where before it had no reap to call. Making the
+    /// remaining engines forgettable (their stores can: <c>IMemoryStore.ForgetAsync</c>,
+    /// <c>ISemanticMemory.ForgetAsync</c>, <c>ICuratedMemoryStore.RemoveAsync</c>) is real, bounded work and
+    /// is in the backlog; it is not something to infer half-done from a silent skip.</para></summary>
+    private void RequireEveryMemberCanReap(string verb)
+    {
+        var incapable = _members.Where(m => m is not IForgettableMemory).Select(m => m.Name).ToList();
+        if (incapable.Count == 0) return;
+
+        throw new NotSupportedException(
+            $"Memory engine '{Name}' cannot {verb}: {incapable.Count} of its {_members.Count} member(s) " +
+            $"cannot reap — {string.Join(", ", incapable)}. Nothing was removed, deliberately: reaping only " +
+            "the capable members would leave the rest of the blend holding the data you asked to remove, " +
+            "and report success. Reap those members through their own stores, or compose an engine whose " +
+            "members can all reap.");
     }
 
     private IMemoryEngine Owner(MemoryRef reference)

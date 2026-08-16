@@ -161,7 +161,7 @@ public class MemoryEngineRegistrationTests
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
             .AddMemoryEngine("project", e => e
-                .UseCurated("glossary").Reserve(200)
+                .UseCurated("glossary").ReserveCharacters(200)
                 .UseLexical()
                 .Budget(400))
             .UseMemoryComposer("project"));

@@ -121,7 +121,7 @@ internal static class MemorySpacingSweep
                 "spacing",
                 new SqliteMemoryGraphStore(db.Factory),
                 options: graphOptions,
-                policy: arm.Retrieval,
+                retrievability: arm.Retrieval,
                 agePolicies: [agePolicy],
                 ranking: rrf);
 

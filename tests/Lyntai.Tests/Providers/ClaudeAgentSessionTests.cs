@@ -57,10 +57,13 @@ public class ClaudeAgentSessionTests
 
         var dtIdx = argv.IndexOf("--disallowed-tools");
         Assert.True(dtIdx >= 0, "--disallowed-tools flag expected");
-        var dtVal = argv[dtIdx + 1];
-        Assert.Contains("Edit", dtVal);
-        Assert.Contains("Write", dtVal);
-        Assert.Contains("NotebookEdit", dtVal);
+        // Split on the comma and compare whole NAMES. Asserting `Contains("Edit", dtVal)` against the joined
+        // string is satisfied by "NotebookEdit", so dropping "Edit" from ReadOnlyDenied left this test green
+        // while a ReadOnly agent could edit the caller's disk (found 2026-08-14 by the whole-codebase review).
+        var denied = argv[dtIdx + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.Contains("Edit", denied);
+        Assert.Contains("Write", denied);
+        Assert.Contains("NotebookEdit", denied);
         Assert.DoesNotContain("--permission-mode", argv);
     }
 
@@ -74,14 +77,16 @@ public class ClaudeAgentSessionTests
         var pmIdx = argv.IndexOf("--permission-mode");
         Assert.Equal("acceptEdits", argv[pmIdx + 1]);
 
-        // disallowed-tools may still be present (for the always-denied flow tools) but must not contain Edit
+        // disallowed-tools IS present under Write (the always-denied flow tools go there — see the sibling
+        // fact below), so this is asserted rather than guarded by an `if`: wrapped in a conditional, the only
+        // check that ReadOnlyDenied is NOT applied here would silently stop running the day AlwaysDenied
+        // emptied. Whole-name comparison for the same reason as the ReadOnly fact above — a substring
+        // `DoesNotContain("Edit", …)` fails spuriously the moment any denied tool contains "Edit".
         var dtIdx = argv.IndexOf("--disallowed-tools");
-        if (dtIdx >= 0)
-        {
-            var dtVal = argv[dtIdx + 1];
-            Assert.DoesNotContain("Edit", dtVal);
-            Assert.DoesNotContain("Write", dtVal);
-        }
+        Assert.True(dtIdx >= 0, "--disallowed-tools carries the always-denied flow tools under Write");
+        var denied = argv[dtIdx + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.DoesNotContain("Edit", denied);
+        Assert.DoesNotContain("Write", denied);
     }
 
     [Fact]
@@ -388,10 +393,13 @@ public class ClaudeAgentSessionTests
 
         var dtIdx = argv.IndexOf("--disallowed-tools");
         Assert.True(dtIdx >= 0, "ReadOnly denial must survive the bypass");
-        var dtVal = argv[dtIdx + 1];
-        Assert.Contains("Edit", dtVal);
-        Assert.Contains("Write", dtVal);
-        Assert.Contains("NotebookEdit", dtVal);
+        // Whole NAMES, not substrings — see Build_readonly_policy_includes_edit_write_notebookedit_in_disallowed.
+        // This is the sharpest of the three: it is what pins that the permission BYPASS does not re-enable the
+        // write tools, and a substring match let the "Edit" half of that promise be deleted silently.
+        var denied = argv[dtIdx + 1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.Contains("Edit", denied);
+        Assert.Contains("Write", denied);
+        Assert.Contains("NotebookEdit", denied);
     }
 
     [Fact]

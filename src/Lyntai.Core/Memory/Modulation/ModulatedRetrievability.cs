@@ -37,7 +37,7 @@ public sealed class ModulatedRetrievability : IMemoryRetrievabilityPolicy
     /// <param name="retentionPolicies">The registered dimensions; an empty set makes this exactly
     /// <paramref name="inner"/>.</param>
     /// <param name="composition">How the retention policies' clamped factors combine into one; null takes
-    /// <see cref="MultiplicativeRetentionComposition"/> — today's behaviour, given a name and a swap
+    /// <see cref="MultiplicativeRetentionCompositionPolicy"/> — today's behaviour, given a name and a swap
     /// point.</param>
     public ModulatedRetrievability(IMemoryRetrievabilityPolicy inner,
         IEnumerable<IMemoryRetentionPolicy> retentionPolicies,
@@ -45,8 +45,8 @@ public sealed class ModulatedRetrievability : IMemoryRetrievabilityPolicy
     {
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
         _retentionPolicies = [.. retentionPolicies ?? throw new ArgumentNullException(nameof(retentionPolicies))];
-        _composition = composition ?? new MultiplicativeRetentionComposition();
-        _maxFactor = _composition.Compose([.. _retentionPolicies.Select(Declared)]);
+        _composition = composition ?? new MultiplicativeRetentionCompositionPolicy();
+        _maxFactor = _composition.StabilityFactor([.. _retentionPolicies.Select(Declared)]);
     }
 
     /// <inheritdoc />
@@ -92,7 +92,7 @@ public sealed class ModulatedRetrievability : IMemoryRetrievabilityPolicy
             // and the symptom of that is a memory that quietly stops coming back
             clamped[i] = double.IsFinite(reported) ? Math.Clamp(reported, 1, declared) : 1;
         }
-        var factor = _composition.Compose(clamped);
+        var factor = _composition.StabilityFactor(clamped);
 
         return factor == 1 ? state : state with { Stability = state.Stability * factor };
     }

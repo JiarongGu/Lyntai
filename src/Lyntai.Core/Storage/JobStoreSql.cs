@@ -58,6 +58,11 @@ public static class JobStoreSql
     public const string SetStepLog = "SET step_log=@stepLog, updated_at=@now";
     public const string SetSucceeded = "SET status='Succeeded', updated_at=@now";
     public const string SetFailedRetry = "SET status='Pending', available_at=@retryAt, last_error=@error, claimed_by=NULL, claimed_at=NULL, updated_at=@now";
+    /// <summary>A poll: back to Pending at @retryAt, and <c>attempts</c> DECREMENTED to undo the increment the
+    /// claim applied — a look at a healthy operation is not an attempt. <c>last_error</c> is cleared because
+    /// nothing failed; leaving a stale one makes a later dead-letter report the wrong reason.</summary>
+    public const string SetPollAgain = "SET status='Pending', available_at=@retryAt, attempts=attempts-1, " +
+        "last_error=NULL, claimed_by=NULL, claimed_at=NULL, updated_at=@now";
     public const string SetFailedTerminal = "SET status='Failed', last_error=@error, updated_at=@now";
     public const string SetDead = "SET status='Dead', last_error=@error, updated_at=@now";
     public const string SetCancelled = "SET status='Cancelled', updated_at=@now";

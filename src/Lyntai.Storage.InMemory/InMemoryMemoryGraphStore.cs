@@ -200,11 +200,17 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
         // A node matches when it carries ANY term. `terms` is empty when the query was too short to yield
         // one (a two-character CJK word, "ab"), and then the whole query is matched as a substring — the
         // same fallback the SQL backends take, and the behaviour a short query always had.
+        // HEADLINE as well as content: an authored headline is a summary the caller wrote so the entry could
+        // be found by it, and SQLite's FTS mirror has indexed both since the graph store shipped. Matching
+        // content alone here was one side of a three-way divergence — the same call answering differently
+        // depending on which backend was wired.
         static bool Matches(Row node, string? query, IReadOnlyList<string> terms) =>
             string.IsNullOrWhiteSpace(query) ||
             (terms.Count == 0
                 ? node.Content.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)
-                : terms.Any(t => node.Content.Contains(t, StringComparison.OrdinalIgnoreCase)));
+                  || node.Headline.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase)
+                : terms.Any(t => node.Content.Contains(t, StringComparison.OrdinalIgnoreCase)
+                              || node.Headline.Contains(t, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <inheritdoc />

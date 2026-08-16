@@ -8,7 +8,7 @@ namespace Lyntai.Tests.Memory;
 /// <summary>
 /// <see cref="IMemoryAgeCompositionPolicy"/> — the seam that combines several coexisting
 /// <see cref="IMemoryAgePolicy"/>s' own ticks and ages into ONE (2026-08-10 memory-policy-seams plan, Task 3,
-/// Steps 1-3). <see cref="SummedAgeComposition"/> is pinned in isolation, and a mutation-check proves the
+/// Steps 1-3). <see cref="SummedAgeCompositionPolicy"/> is pinned in isolation, and a mutation-check proves the
 /// seam is genuinely load-bearing by swapping it for a different combination rule and showing the result
 /// changes end to end, through a real <see cref="GraphMemoryEngine"/> — a seam nothing can vary is
 /// decoration.
@@ -21,7 +21,7 @@ public class MemoryAgeCompositionTests
     [Fact]
     public void SummedAgeComposition_sums_ticks_and_ages_and_the_empty_case_is_the_identity()
     {
-        var composition = new SummedAgeComposition();
+        var composition = new SummedAgeCompositionPolicy();
 
         // empty: no age policy registered is never reached in practice (the engine always falls back to a
         // default), but the seam still has to answer something sane rather than throw
@@ -39,7 +39,7 @@ public class MemoryAgeCompositionTests
         Assert.Equal(2 + 3 + 5, composition.Age([2, 3, 5]), 9);
     }
 
-    /// <summary>A composition policy nothing can vary is decoration — this swaps <see cref="SummedAgeComposition"/>
+    /// <summary>A composition policy nothing can vary is decoration — this swaps <see cref="SummedAgeCompositionPolicy"/>
     /// for a MAX-based one over the SAME two coexisting Derivable policies and shows retrievability actually
     /// moves, through a real engine rather than the composition type in isolation.</summary>
     private sealed class MaxAgeComposition : IMemoryAgeCompositionPolicy
@@ -63,7 +63,7 @@ public class MemoryAgeCompositionTests
     [Fact]
     public async Task Swapping_the_age_composition_policy_changes_retrievability()
     {
-        var summed = Build(new SummedAgeComposition());
+        var summed = Build(new SummedAgeCompositionPolicy());
         var maxed = Build(new MaxAgeComposition());
 
         // long content: VolumeAge (chars) grows far faster than OrdinalAge (write count), so Sum's
@@ -121,7 +121,7 @@ public class MemoryAgeCompositionTests
         // or the primitive advances by real wall-clock microseconds instead of the simulated 10-day gaps
         var store = new InMemoryMemoryGraphStore(Clock);
         var engine = new GraphMemoryEngine("mixed", store, agePolicies: [burst, elapsed],
-            policy: new AgeEchoRetrievability());
+            retrievability: new AgeEchoRetrievability());
 
         var seed = await engine.RememberAsync(new MemoryWrite("t", "s", "the seed fact"));
         now = now.AddDays(10);
@@ -138,7 +138,7 @@ public class MemoryAgeCompositionTests
         Assert.Equal(2, node.AgeSample.Ordinal, precision: 9); // unconditional primitive, unaffected either way
         Assert.Equal(20, node.AgeSample.ElapsedDays, precision: 9); // unconditional primitive, unaffected either way
 
-        // the READ-side result, via the echo policy: composed age is 22, never 42
+        // the READ-side result, via the echo retrievability: composed age is 22, never 42
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "seed"));
         var item = Assert.Single(recall.Items);
         Assert.Equal(22, item.Retrievability, precision: 9);

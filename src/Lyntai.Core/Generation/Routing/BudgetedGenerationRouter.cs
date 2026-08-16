@@ -65,10 +65,14 @@ public sealed class BudgetedGenerationRouter(
         return await inner.SubmitAsync(candidates, request, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Record a reported cost into the shared ledger as a zero-token, cost-only entry. Public so the
-    /// durable-render handler can record what a job's fetch reported through the same path — one place that
-    /// knows how generation spend maps onto the ledger.</summary>
-    public static ValueTask RecordAsync(
+    /// <summary>Record a reported cost into the shared ledger as a zero-token, cost-only entry — one place
+    /// that knows how generation spend maps onto the ledger.
+    /// <para><b>Internal.</b> Its previous doc said "public so the durable-render handler can record …", and
+    /// that handler is <c>GenerationRenderJobHandler</c>, in THIS assembly — so the stated reason was
+    /// satisfied by <c>internal</c> and the surface was a permanent promise nothing outside had asked for.
+    /// Recording generation spend is something the library's own components do on a caller's behalf; if it
+    /// ever becomes a consumer capability it belongs on <c>IUsageTracker</c>, not on a router decorator.</para></summary>
+    internal static ValueTask RecordAsync(
         IUsageTracker tracker, string consumer, GenerationUsage? usage, CancellationToken ct = default) =>
         usage?.CostUsd is { } cost && cost > 0
             ? tracker.RecordAsync(consumer, new LlmUsage(0, 0, 0, cost), ct)

@@ -62,7 +62,9 @@ internal static class CodexMcpConfig
                 if (server.AuthToken is { Length: > 0 } token)
                 {
                     // the NAME goes to argv; the VALUE goes to the child's environment (see the class doc)
-                    var variable = BearerPrefix + server.Name.Replace('-', '_').ToUpperInvariant();
+                    // AgentMcpServers.EnvKey, not a local copy: TryValidate refuses a pair whose names collide
+                    // under this exact normalisation, and a second copy here would let the two disagree.
+                    var variable = BearerPrefix + AgentMcpServers.EnvKey(server.Name);
                     environment[variable] = token;
                     Add(args, $"{key}.bearer_token_env_var", Toml(variable));
                 }

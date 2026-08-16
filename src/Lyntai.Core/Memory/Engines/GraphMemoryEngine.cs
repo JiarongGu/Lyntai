@@ -24,7 +24,7 @@ namespace Lyntai.Memory.Engines;
 /// <param name="name">This engine's name, hierarchical when it is a member of a composite.</param>
 /// <param name="store">Node and edge storage.</param>
 /// <param name="options">Retrieval knobs; null takes the defaults.</param>
-/// <param name="policy">The decay curve; null builds a <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>
+/// <param name="retrievability">The decay curve; null builds a <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>
 /// with default options. <b>This bare default and the DI-registered one now agree</b>
 /// (<c>AddMemoryEngine</c>/<c>AddMemory</c>/<c>UseGraph</c> — see <c>docs/DECISIONS.md</c> D49) — a
 /// two-defaults split existed here through 3.0's own D49 change, when this constructor's own fallback stayed
@@ -43,7 +43,7 @@ namespace Lyntai.Memory.Engines;
 /// an <see cref="MemoryAgeKind.Accumulating"/> one's comes from the store's own <c>Advance</c>-driven
 /// accumulator (<see cref="GraphNode.Age"/>) — see <see cref="ResolvedAge"/>.</param>
 /// <param name="ageComposition">How several coexisting age policies combine into one tick and one age; null
-/// takes <see cref="SummedAgeComposition"/>. Irrelevant when only one policy is registered — composing a
+/// takes <see cref="SummedAgeCompositionPolicy"/>. Irrelevant when only one policy is registered — composing a
 /// singleton is the identity.</param>
 /// <param name="logger">Optional; reinforcement and recall failures are logged rather than thrown.</param>
 /// <param name="embedder">Optional. With a <paramref name="vectors"/> store, enables similarity
@@ -54,7 +54,7 @@ namespace Lyntai.Memory.Engines;
 /// in play; null or empty takes a single <see cref="StructuralSaliencePolicy"/>. Without an embedder there is
 /// no novelty to judge and it reports nothing.</param>
 /// <param name="salienceComposition">How several coexisting salience policies' bags combine into one; null
-/// takes <see cref="MaximalSalienceComposition"/>. Irrelevant when only one salience policy is
+/// takes <see cref="MaximalSalienceCompositionPolicy"/>. Irrelevant when only one salience policy is
 /// registered.</param>
 /// <param name="ranking">Turns seeded, spread candidates into a scored, best-first order; null takes
 /// <see cref="ReciprocalRankFusionPolicy"/> — the registered default as of 3.0 (owner ruling, 2026-08-11;
@@ -92,7 +92,7 @@ public sealed class GraphMemoryEngine(
     string name,
     IMemoryGraphStore store,
     GraphMemoryOptions? options = null,
-    IMemoryRetrievabilityPolicy? policy = null,
+    IMemoryRetrievabilityPolicy? retrievability = null,
     IEnumerable<IMemoryAgePolicy>? agePolicies = null,
     ILogger<GraphMemoryEngine>? logger = null,
     IEmbedder? embedder = null,
@@ -109,14 +109,14 @@ public sealed class GraphMemoryEngine(
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
-        ValidatedRetrievability(policy ?? new DsrRetrievability());
+        ValidatedRetrievability(retrievability ?? new DsrRetrievability());
     private readonly IReadOnlyList<IMemoryAgePolicy> _agePolicies = NormalizeAgePolicies(agePolicies);
-    private readonly IMemoryAgeCompositionPolicy _ageComposition = ageComposition ?? new SummedAgeComposition();
+    private readonly IMemoryAgeCompositionPolicy _ageComposition = ageComposition ?? new SummedAgeCompositionPolicy();
     private readonly ILogger _logger = logger ?? NullLogger<GraphMemoryEngine>.Instance;
     private readonly IReadOnlyList<IMemorySaliencePolicy> _saliencePolicies =
         NormalizeSaliencePolicies(saliencePolicies);
     private readonly IMemorySalienceCompositionPolicy _salienceComposition =
-        salienceComposition ?? new MaximalSalienceComposition();
+        salienceComposition ?? new MaximalSalienceCompositionPolicy();
     private readonly IMemoryRankingPolicy _ranking = ranking ?? new ReciprocalRankFusionPolicy();
     private readonly IReadOnlyDictionary<string, IMemoryRankingPolicy> _namedRanking =
         NormalizeNamedRanking(namedRankingPolicies);
@@ -176,7 +176,7 @@ public sealed class GraphMemoryEngine(
     {
         var list = saliencePolicies?.ToList() ?? [];
         if (list.Count == 0) return [new StructuralSaliencePolicy()];
-        MemoryProvenance.EnsureEachBitIsSingleRealAndUnique(
+        MemoryProvenance.ValidateProvenanceBits(
             [.. list.Select(a => (long)a.Provenance)], i => list[i].GetType().Name);
         return list;
     }
@@ -186,7 +186,7 @@ public sealed class GraphMemoryEngine(
     /// salience policies, applied here to the one policy this seam ever has (fix round 2 minor).</summary>
     private static IMemoryRetrievabilityPolicy ValidatedRetrievability(IMemoryRetrievabilityPolicy policy)
     {
-        MemoryProvenance.EnsureEachBitIsSingleRealAndUnique(
+        MemoryProvenance.ValidateProvenanceBits(
             [(long)policy.Provenance], _ => policy.GetType().Name);
         return policy;
     }
@@ -422,7 +422,7 @@ public sealed class GraphMemoryEngine(
             results.Add(signals);
             if (signals.Count > 0) contributions.Add((long)policy.Provenance);
         }
-        return (_salienceComposition.Compose(results), MemoryProvenance.Pack(contributions));
+        return (_salienceComposition.Signals(results), MemoryProvenance.Pack(contributions));
     }
 
     /// <summary>Link a newly stored entry to its nearest existing neighbours and index its own vector, from
@@ -647,7 +647,34 @@ public sealed class GraphMemoryEngine(
                 x.Candidate.Node.Degree))
             .ToList();
 
-        return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
+        // MemoryQuery.CharBudget, honoured — it shipped in 2.5.0 documented as "maximum characters the caller
+        // intends to spend" and was read by NOTHING, the same class as ExpandAsync's own charBudget and
+        // GraphMemoryOptions.MinRetrievability. Applied AFTER ranking so the budget cuts the weakest tail
+        // rather than changing what wins, and an authoritative item is never dropped by it: objective (1) has
+        // no acceptable failure rate, and its content is the one thing this engine never returns truncated.
+        // A budget too small even for the reserved material still yields that material — a caller asking for
+        // less than one fact gets one fact, not nothing.
+        if (query.CharBudget is { } budget && budget > 0)
+        {
+            var spent = 0;
+            var kept = new List<MemoryItem>(items.Count);
+            foreach (var item in items)
+            {
+                var cost = item.Content?.Length ?? item.Headline.Length;
+                if (item.Grade != MemoryGrade.Authoritative && kept.Count > 0 && spent + cost > budget) continue;
+                spent += cost;
+                kept.Add(item);
+            }
+            items = kept;
+        }
+
+        // The ABSTENTION signal. `Judged` is the only absolute quality statement available here — ranking is
+        // relative by construction, so a page of uniformly-irrelevant material ranks perfectly well among
+        // itself. Null when nothing judged, so the shipped default (no verifier) never reports `false` and a
+        // consumer abstaining on `false` does not abstain on everything.
+        var answered = verdict.Judged ? verdict.RelevantIds.Count > 0 : (bool?)null;
+
+        return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0), answered);
     }
 
     /// <inheritdoc />
@@ -661,26 +688,55 @@ public sealed class GraphMemoryEngine(
         var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
         if (node is null) return MemoryRecall.Empty;
 
-        var neighbours = await store
-            .NeighboursAsync(Name, [id], _options.DefaultLimit, ct).ConfigureAwait(false);
+        // `hops` is CLAMPED to the engine's configured ceiling rather than honoured unbounded: this is a
+        // model-facing seam (MemoryTools advertises the parameter in its tool schema), so an agent asking for
+        // a large number must not be able to walk the whole graph. Zero is legal and means "just this entry".
+        var depth = Math.Clamp(hops, 0, Math.Max(0, _options.Hops));
+
+        // Breadth-first, level by level, each level ordered by effective edge weight. `seen` carries the seed
+        // so a symmetric edge cannot walk back to it, and so a diamond yields its far node once.
+        var walked = new List<GraphNeighbour>();
+        var seen = new HashSet<long> { id };
+        var frontier = new List<long> { id };
+        for (var level = 0; level < depth && frontier.Count > 0; level++)
+        {
+            var next = await store.NeighboursAsync(Name, frontier, _options.DefaultLimit, ct).ConfigureAwait(false);
+            frontier = [];
+            foreach (var neighbour in next.OrderByDescending(EffectiveEdgeWeight).ThenByDescending(n => n.Node.Id))
+            {
+                if (!seen.Add(neighbour.Node.Id)) continue;
+                walked.Add(neighbour);
+                frontier.Add(neighbour.Node.Id);
+            }
+        }
 
         // expanding a node reinforces it — digging in one direction is exactly what should make that
         // direction more retrievable next time, and it is the one act here a caller PAID for
         await ReinforceAsync([node], MemoryReinforcementActs.Expansion, ct).ConfigureAwait(false);
 
-        var items = new List<MemoryItem>(neighbours.Count + 1)
+        var items = new List<MemoryItem>(walked.Count + 1)
         {
             // the expanded node carries its FULL content whatever its grade — that is what expansion IS
             new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree),
         };
-        items.AddRange(neighbours
-            .OrderByDescending(EffectiveEdgeWeight)
-            .ThenByDescending(n => n.Node.Id)
-            .Select(n => n.Node)
-            .Select(n => new MemoryItem(
+
+        // The budget bounds the NEIGHBOURS, never the entry itself: returning that entry's full content is
+        // what expansion means, so a budget smaller than it trims the walk rather than refusing the request.
+        // Null takes the engine's configured budget, which is itself null (unbounded) unless a host sets one.
+        var budget = charBudget ?? _options.ExpandCharBudget;
+        var spent = node.Content?.Length ?? node.Headline.Length;
+
+        foreach (var neighbour in walked)
+        {
+            var n = neighbour.Node;
+            var content = n.Grade == MemoryGrade.Authoritative ? n.Content : null;
+            var cost = content?.Length ?? n.Headline.Length;
+            if (budget is { } cap && spent + cost > cap) break;
+            spent += cost;
+            items.Add(new MemoryItem(
                 new MemoryRef(Name, n.Id.ToString(CultureInfo.InvariantCulture)),
-                n.Headline, n.Grade == MemoryGrade.Authoritative ? n.Content : null,
-                n.Grade, n.Relevance, Retrievability(n), n.Degree)));
+                n.Headline, content, n.Grade, n.Relevance, Retrievability(n), n.Degree));
+        }
 
         return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
     }
@@ -738,9 +794,17 @@ public sealed class GraphMemoryEngine(
     {
         ct.ThrowIfCancellationRequested();
 
+        // The caller's floor, else the engine's CONFIGURED one — which is what GraphMemoryOptions.
+        // MinRetrievability has always documented ("the retrievability below which PruneAsync may REAP an
+        // entry") and design §5.7 restates ("the absolute MinRetrievability governs PruneAsync alone").
+        // Neither was true: the option was read NOWHERE, so with no explicit floor and no olderThan this
+        // method matched nothing and deleted nothing — the documented call was a silent no-op.
+        // A floor of 0 is the opt-out and is asserted as such: retrievability is never below zero.
+        var floorValue = minRetrievability ?? _options.MinRetrievability;
+
         if (!_agePolicies.Any(c => c.Kind == MemoryAgeKind.Derivable))
             return await store.PruneAsync(Name, taskKey, scope,
-                minRetrievability is double m ? _policy.CandidateCutoff(m) : null, olderThan, ct)
+                floorValue > 0 ? _policy.CandidateCutoff(floorValue) : null, olderThan, ct)
                 .ConfigureAwait(false);
 
         var createdBefore = olderThan is null ? (DateTimeOffset?)null : _clock() - olderThan.Value;
@@ -753,7 +817,7 @@ public sealed class GraphMemoryEngine(
                 // both age axes are now resolved through the installed policies (ResolvedState), so a
                 // connected entry's boost is computed in the same unit as its age and the retrievability
                 // criterion is exact for it — no connected-entry carve-out remains
-                (minRetrievability is double floor && Retrievability(n) < floor) ||
+                (floorValue > 0 && Retrievability(n) < floorValue) ||
                 (createdBefore is DateTimeOffset before && n.CreatedAt < before))
             .Select(n => n.Id)
             .ToList();
@@ -905,10 +969,27 @@ public sealed class GraphMemoryEngine(
     {
         if (!Enriches || _options.SemanticSeedK <= 0 || string.IsNullOrWhiteSpace(query.Query)) return [];
 
-        var vector = await embedder!.EmbedAsync(query.Query, ct).ConfigureAwait(false);
-        var near = await vectors!
-            .SearchAsync($"{Name}|{query.TaskKey}|{query.Scope}", vector, _options.SemanticSeedK, ct)
-            .ConfigureAwait(false);
+        // Best-effort, and the try/catch is the whole point. This runs AFTER store.SeedAsync has already
+        // produced the lexical seeds, so letting an embedder or vector-store fault propagate would throw out
+        // of GatherAsync into RecallAsync's catch and return MemoryRecall.Empty — discarding good seeds and
+        // reporting a transient outage as "nothing matched", which a caller cannot tell apart from a genuine
+        // miss. Design §5.7.0: enrichment's failure degrades QUALITY, never CORRECTNESS. The WRITE path's
+        // twin (SearchAsync's own guard) has always worked this way; the read path did not.
+        // Cancellation is never swallowed — that is the caller leaving, not an enrichment fault.
+        IReadOnlyList<VectorMatch> near;
+        try
+        {
+            var vector = await embedder!.EmbedAsync(query.Query, ct).ConfigureAwait(false);
+            near = await vectors!
+                .SearchAsync($"{Name}|{query.TaskKey}|{query.Scope}", vector, _options.SemanticSeedK, ct)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "semantic seeding failed for {Engine}; falling back to the lexical seeds", Name);
+            return [];
+        }
 
         var scores = new Dictionary<long, double>(near.Count);
         foreach (var match in near)

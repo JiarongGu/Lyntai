@@ -99,7 +99,7 @@ public sealed class GraphMemoryRankingGoldenTests
     /// <summary>A second (or third) view of the SAME store and engine name, differing only in the
     /// salience policy bound to it — the device <c>GraphMemoryRankingTests</c> already uses to give distinct
     /// writes distinct salience, since the salience policy is per-engine-instance rather than per-write. Still
-    /// no retention policy: <c>SalienceRankWeight</c> is a RANK term read straight off the stored signals bag,
+    /// no retention retrievability: <c>SalienceRankWeight</c> is a RANK term read straight off the stored signals bag,
     /// not a retrievability modulation.</summary>
     private static GraphMemoryEngine EngineWithSaliencePolicy(IMemoryGraphStore store, IMemorySaliencePolicy saliencePolicy,
         IMemoryRankingPolicy? ranking = null) =>

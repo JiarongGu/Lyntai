@@ -19,6 +19,7 @@ internal static class AgentMcpServers
     public static bool TryValidate(IReadOnlyList<AgentMcpServer> servers, out string? refusal)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenEnvKeys = new HashSet<string>(StringComparer.Ordinal);   // EnvKey already upper-cases
         foreach (var server in servers)
         {
             if (!IsUsableName(server.Name))
@@ -38,6 +39,22 @@ internal static class AgentMcpServers
                 refusal = $"MCP server '{server.Name}' is listed more than once — the second entry would " +
                     "overwrite the first in the backend's configuration and one of the two servers would " +
                     "silently not exist.";
+                return false;
+            }
+
+            // ...and the same question asked of the DERIVED bearer-token variable, which normalises '-' to '_'
+            // and upper-cases. Two names that survive the check above can still collapse here ('app-tools' and
+            // 'app_tools'), and the consequence is worse than a lost server: both entries' bearer_token_env_var
+            // point at one variable that holds only the LAST token, so codex presents one server's credential
+            // to the OTHER server's URL. Refused on the NAMES rather than on whether a token is set today —
+            // the collision is a property of the derived variable, so a token-less pair is the same defect
+            // waiting for someone to add one. Found 2026-08-14 by the whole-codebase review.
+            if (!seenEnvKeys.Add(EnvKey(server.Name)))
+            {
+                refusal = $"MCP server '{server.Name}' collides with an earlier server once the bearer-token " +
+                    "environment variable is derived from it ('-' becomes '_', and the name is upper-cased), " +
+                    "so both would read one variable holding a single token — one server would be sent the " +
+                    "other's credential. Rename one so the two differ by more than '-' versus '_' or case.";
                 return false;
             }
 
@@ -62,6 +79,14 @@ internal static class AgentMcpServers
         refusal = null;
         return true;
     }
+
+    /// <summary>The suffix codex derives from a server name for that server's bearer-token environment
+    /// variable ('-' to '_', upper-cased).
+    /// <para>Declared HERE, beside the validation that refuses a collision in it, rather than inline where it
+    /// is used: two copies of a normalisation rule drift, and the drift is invisible until the halves disagree
+    /// about whether two names are the same. <c>CodexMcpConfig</c> calls this instead of repeating the
+    /// expression, so the rule and its enforcement cannot separate.</para></summary>
+    internal static string EnvKey(string name) => name.Replace('-', '_').ToUpperInvariant();
 
     /// <summary>The name rule, stated once. Deliberately narrower than either backend would accept: the
     /// intersection is what keeps one <see cref="AgentSessionOptions"/> renderable on both.</summary>

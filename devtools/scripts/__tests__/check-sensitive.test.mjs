@@ -203,6 +203,31 @@ describe('check-sensitive — end to end over a real repository', () => {
     assert.match(err.text(), /docs\/notes\.md:1/);
   });
 
+  it('scans a staged RENAME — git reports those as R, which --diff-filter=ACM excludes', (t) => {
+    // Found 2026-08-14 by the whole-codebase review. Rename detection is ON by default, so `git mv` plus an
+    // edit stages as status R and an ACM filter drops it: the file list comes back EMPTY and the hook exits 0
+    // printing nothing. This repository's own procedures are built on `git mv` — archiving a document,
+    // moving a record into local/ — and sensitive-info.md is explicit that a committed leak is a HISTORY
+    // problem. The --tree pass would catch it only after it is in history.
+    const body = ['# notes', '', 'a paragraph that stays the same so git scores this as a rename', ''];
+    const dir = makeRepo({ 'docs/a.md': body.join('\n') });
+    t.after(() => removeTree(dir));
+    git(dir, ['add', '.']);
+    git(dir, ['commit', '-qm', 'seed']);
+
+    git(dir, ['mv', 'docs/a.md', 'docs/b.md']);
+    writeInto(dir, 'docs/b.md', `${body.join('\n')}\nbuilt at ${DEV_LEAK}\n`);
+    git(dir, ['add', '-A']);
+
+    assert.match(git(dir, ['diff', '--cached', '--name-status']), /^R/m,
+      'precondition: git must actually score this as a rename, or the test proves nothing');
+
+    const log = recorder(); const err = recorder();
+    assert.equal(checkSensitive({ repo: dir, tree: false, log, err }), 1,
+      'a renamed-and-edited file is still a file being committed');
+    assert.match(err.text(), /docs\/b\.md:5/);
+  });
+
   it('sees a leak in a file whose NAME is non-ASCII (git C-quotes such paths without -z)', (t) => {
     // Measured 2026-08-11 while writing these tests. Without `-z`, `git ls-files` emits
     // `"docs/\347\201\265\345\217\260.md"`, the on-disk read ENOENTs, and the ENOENT branch classifies it as

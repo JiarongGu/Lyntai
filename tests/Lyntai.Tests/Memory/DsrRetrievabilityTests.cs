@@ -29,6 +29,38 @@ public class DsrRetrievabilityTests
     private static DsrRetrievability Reinforcing(DsrOptions? options = null) =>
         new((options ?? new DsrOptions()) with { ReinforceGain = 2.0 });
 
+    /// <summary><b>The difficulty axis has NO EFFECT at the shipped defaults, and that is worth an explicit
+    /// fact rather than an inference.</b>
+    /// <para><c>Reinforce</c>'s growth term is
+    /// <c>ReinforceGain × exp(−DifficultyWeight × (difficulty − 1)) × …</c> — difficulty is the first factor
+    /// multiplied by <c>ReinforceGain</c>, which ships at <c>0</c> (D54, a measured ruling). So the whole
+    /// product is zero whatever the difficulty, and two entries differing only in difficulty decay
+    /// identically.</para>
+    /// <para>Difficulty is still LIVE in the sense <c>CLAUDE.md</c> claims — it is maintained and persisted
+    /// per review, which is what makes later parameter fitting possible. It simply changes nothing about
+    /// retrievability today. Both halves are asserted here so neither can be quietly assumed.</para>
+    /// <para><b>Why this is pinned:</b> <c>memory-sweep</c> runs a <c>{difficulty-live, difficulty-inert}</c>
+    /// axis whose arms are therefore bit-identical at shipped defaults — measured 2026-08-14, all cells equal
+    /// to three decimals. An instrument reporting two arms it cannot distinguish is the shape
+    /// <c>pitfalls.md</c> records as "a measurement that cannot observe a change reports nothing moved, which
+    /// reads exactly like no regression". If <c>ReinforceGain</c>'s default ever moves off zero, this fact
+    /// fails and the sweep's own disclosure has to be revisited with it.</para></summary>
+    [Fact]
+    public void Difficulty_changes_nothing_while_ReinforceGain_is_zero_and_something_once_it_is_not()
+    {
+        var shipped = new DsrRetrievability();                       // ReinforceGain = 0, the shipped default
+        Assert.Equal(0, new DsrOptions().ReinforceGain);
+
+        var easy = State(10, 20) with { Difficulty = 1 };
+        var hard = State(10, 20) with { Difficulty = 10 };
+
+        Assert.Equal(shipped.Reinforce(easy).Stability, shipped.Reinforce(hard).Stability, precision: 12);
+
+        // ...and the law itself is real: switch the gain on and the two diverge
+        var growing = Reinforcing();
+        Assert.NotEqual(growing.Reinforce(easy).Stability, growing.Reinforce(hard).Stability);
+    }
+
     /// <summary>The 3.0 default itself, pinned so it cannot drift back without someone deciding to.
     /// <para>Two assertions, because the value alone would not catch a build where the laws still ran: the
     /// constant is checked AND a recall of a genuinely faded entry — the case law 3 rewards most — is shown

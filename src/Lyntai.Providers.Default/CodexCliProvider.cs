@@ -20,7 +20,7 @@ namespace Lyntai.Providers.CodexCli;
 /// version/channel argument — this backend cannot pin a version, so it doesn't claim to. That difference from
 /// the claude provider is the capability model working as intended.
 /// </summary>
-public sealed class CodexCliProvider : ILlmProvider, IProviderInstallation, IProviderUpdater, IProviderAuth
+public sealed class CodexCliProvider : ILlmProvider, IProviderProbe, IProviderUpdater, IProviderAuth
 {
     public const string ProviderId = "codex-cli";
 

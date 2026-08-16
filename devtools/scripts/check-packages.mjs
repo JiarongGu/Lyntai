@@ -83,10 +83,15 @@ export function inventory(repoRoot) {
 
   const gatedList = between(apiTests, /Assemblies\(\)\s*=>/, '];');
   const loadedMap = between(apiTests, /Loaded\s*=\s*new\(\)/, '};');
+  // Scoped for exactly the reason the two above are, and missed until 2026-08-15: `project.config.mjs` names
+  // `src/Lyntai.Bundle` twice — in `packableProjects` and again as `bundle.project` (D26's budget) — so a
+  // whole-file `includes` found the second and passed with the first deleted. One package's packable
+  // registration was therefore ungated, and the gate reported clean.
+  const packableList = between(config, /packableProjects:\s*\[/, ']');
 
   for (const p of projects) {
     // --- every packable project is packed and built ---
-    if (!config.includes(`'${p.dir}'`))
+    if (!packableList.includes(`'${p.dir}'`))
       fail(`${p.id}: not in packableProjects`, `add '${p.dir}' to devtools/project.config.mjs → packableProjects`);
     if (!solution.includes(`${p.dir}/${p.project}.csproj`))
       fail(`${p.id}: not in the solution`, `add src/${p.project}/${p.project}.csproj to Lyntai.slnx`);
@@ -121,7 +126,10 @@ export function inventory(repoRoot) {
   // ---- reverse: registries must not name packages that no longer exist -------------------------------
   const assemblies = new Set(projects.filter((p) => p.shipsAssembly).map((p) => p.assembly));
 
-  for (const m of config.matchAll(/'(src\/[\w.]+)'/g))
+  // Scoped to the array for the same reason the forward check is: over the whole file this reads
+  // `bundle.project` and every `src/…` path in a prose comment, and would report them as stale
+  // `packableProjects` entries under a message naming a registry they are not in.
+  for (const m of packableList.matchAll(/'(src\/[\w.]+)'/g))
     if (!projects.some((p) => p.dir === m[1]))
       fail(`packableProjects names ${m[1]}, which is not a packable project`,
         `remove it from devtools/project.config.mjs — pack would fail on it`);

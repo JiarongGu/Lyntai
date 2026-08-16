@@ -114,7 +114,19 @@ const RETRY_ORDER = {
 // silently matched nothing — the marker was present, the document was scanned anyway, and the only symptom
 // was failures in a document that had explicitly opted out.
 const SKIP_BLOCK = /<!--\s*compile-skip:\s*([\s\S]+?)\s*-->/;
-const SKIP_FILE = /<!--\s*compile-skip-file:\s*([\s\S]+?)\s*-->/;
+
+// A DECLARATION, never a MENTION — the marker must OPEN a line (`m` + `^`), which a backticked reference
+// inside a sentence never does. Found 2026-08-15: this was matched against the whole document with no such
+// requirement, so CLAUDE.md, which DOCUMENTS the annotation ("`<!-- compile-skip-file: … -->` opts out a
+// historical document"), opted ITSELF out of the gate. Silently, and worse than the usual silent: skippedDocs
+// is populated from BLOCKS, so a document with no fences contributes nothing to the "opted out wholesale"
+// count and nothing anywhere reports it. Latent only while CLAUDE.md has no csharp fences; the first one
+// added would have been uncompiled and unmentioned.
+//
+// Identical defect and identical fix to check-docs' SUPERSEDED_BANNER, tightened 2026-08-11 for exactly
+// this reason. A per-BLOCK skip needs no such anchor: it is read from the annotation lines immediately above
+// one fence (annotationsAbove), so prose elsewhere in the document cannot reach it.
+const SKIP_FILE = /^<!--\s*compile-skip-file:\s*([\s\S]+?)\s*-->/m;
 
 /**
  * `<!-- compile-given: <C# declarations> -->` — the reader-side context a fragment assumes.
@@ -463,7 +475,8 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  */
 export function checkSamples(repo, { log = console.log, files = null, compile = null, read = null, list = false } = {}) {
   const readFile = read ?? ((f) => readFileSync(join(repo, f), 'utf8'));
-  const tracked = (files ?? trackedFiles(repo))
+  const source = files ?? trackedFiles(repo);
+  const tracked = source
     .filter((f) => f.endsWith('.md'))
     .filter(IN_SCOPE)
     .filter(IS_SCANNED);
@@ -512,6 +525,20 @@ export function checkSamples(repo, { log = console.log, files = null, compile = 
       + `${plural(skipped.length, 'block')} skipped (--list: nothing was compiled)`);
     for (const block of blocks) log(`  ${block.file}:${block.line}  ${guessShape(block.body)}`);
     return 0;
+  }
+
+  // Fail-closed: a gate that scanned nothing must never exit 0 (check-api-vocabulary's rule).
+  //
+  // Blocks and skips are counted SEPARATELY because only one combination is a defect. `skipped.length > 0`
+  // means the documents were read and every block opted out with a reason — legitimate. Zero of both on the
+  // FULL-TREE path means no document was read at all (a broken scope predicate or repo root), and this gate
+  // would otherwise announce success over an unscanned tree. From a caller-supplied list, zero of both is
+  // ordinary — a commit touching only `src/` carries no samples — so that half applies to the tree path
+  // alone, while an EMPTY source list indicts any caller.
+  if (source.length === 0 || (files === null && blocks.length === 0 && skipped.length === 0)) {
+    log('check-samples: ✗ found no documented C# samples at all — not even a skipped one');
+    log('  Nothing was scanned, so this gate proves nothing — check IN_SCOPE and the repo root.');
+    return 1;
   }
 
   if (blocks.length === 0) {

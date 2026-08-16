@@ -37,7 +37,8 @@ public abstract class CliProviderDialectBase : ICliProviderDialect
     public virtual TimeSpan LoginTimeout => TimeSpan.FromMinutes(10);
 
     /// <inheritdoc/>
-    public abstract IReadOnlyList<string> BuildCompletionArgs(LlmRequest request);
+    public abstract IReadOnlyList<string> BuildCompletionArgs(
+        LlmRequest request, IReadOnlyList<string> toolHostArgs);
 
     /// <summary>The shared flattening: a lone user message verbatim, otherwise role-labeled blocks, plus the
     /// structured-output instruction for a <see cref="LlmRequest.JsonSchema"/> request.</summary>

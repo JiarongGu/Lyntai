@@ -136,6 +136,31 @@ public class LlmMemoryAnnotationPolicyTests
         Assert.Equal(expected, annotation.Grade);
     }
 
+    /// <summary><b>The prompt must ASK for every field the parser reads.</b> The fact above scripts a reply
+    /// containing a grade, so it exercises the parser and is structurally unable to notice that nothing ever
+    /// requested one — and nothing did: the system prompt was a <c>const</c>, used unconditionally, that
+    /// mentioned only <c>subjects</c>. So <c>SuggestGrade = true</c> was inert against any real model, while
+    /// every offline test passed. Found 2026-08-14 by the whole-codebase review.
+    /// <para>This is the shape of defect that only a LIVE model reveals and no fake can — unless the
+    /// assertion is made on the REQUEST rather than on the reply, which is what this fact does.</para>
+    /// </summary>
+    [Fact]
+    public async Task The_prompt_asks_for_a_grade_exactly_when_the_option_is_on()
+    {
+        var on = new ScriptedClient("""{"subjects":["spouse"]}""");
+        await AnnotateAsync(on, new LlmAnnotationOptions { SuggestGrade = true });
+        var withGrade = on.Last!.Messages[0].Content;
+        Assert.Contains("grade", withGrade, StringComparison.OrdinalIgnoreCase);
+        // and the exact token the parser compares against, so the model is told what value to send
+        Assert.Contains("authoritative", withGrade, StringComparison.OrdinalIgnoreCase);
+
+        var off = new ScriptedClient("""{"subjects":["spouse"]}""");
+        await AnnotateAsync(off, new LlmAnnotationOptions { SuggestGrade = false });
+        // off by default keeps the instruction lean — a prompt that asks for a field nobody reads is waste,
+        // and invites the model to volunteer a grade this policy would then discard
+        Assert.DoesNotContain("grade", off.Last!.Messages[0].Content, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Recent facts reach the prompt, and the fact being labelled comes last — the order a reader
     /// needs to resolve a pronoun, and the whole reason context is passed at all.</summary>
     [Fact]

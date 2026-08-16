@@ -17,7 +17,7 @@ namespace Lyntai.Providers.ClaudeCli;
 /// plus the declaration of which OPTIONAL capabilities the claude CLI actually has — which is why it is a
 /// dozen forwarding members rather than a second copy of the spawn/verdict/streaming rules.
 /// </summary>
-public sealed class ClaudeCliProvider : ILlmProvider, IProviderInstallation, IProviderUpdater,
+public sealed class ClaudeCliProvider : ILlmProvider, IProviderProbe, IProviderUpdater,
     IProviderVersionInstaller, IProviderAuth
 {
     /// <summary>The router-facing id this provider answers to — name it in a candidate list, or in

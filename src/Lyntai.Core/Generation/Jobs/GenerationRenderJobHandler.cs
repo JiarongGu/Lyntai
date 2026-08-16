@@ -98,7 +98,10 @@ public sealed class GenerationRenderJobHandler(
                 "(the operation id is in this message for manual recovery)");
 
         await ctx.ReportProgressAsync(0, 1, "submitted", ct).ConfigureAwait(false);
-        return JobOutcome.Retry(_options.EffectivePollDelay);
+        // Poll, never Retry: the submit SUCCEEDED, so counting this against MaxAttempts spends the job's
+        // budget on looking rather than on failing. At the default of 3 that dead-lettered every render
+        // slower than two poll delays — see JobOutcome.Poll.
+        return JobOutcome.Poll(_options.EffectivePollDelay);
     }
 
     private async Task<JobOutcome> PollAsync(
@@ -119,7 +122,8 @@ public sealed class GenerationRenderJobHandler(
                 await ctx.ReportProgressAsync(done, 100, "running", ct).ConfigureAwait(false);
                 // re-checkpoint the same value to RENEW THE LEASE across a long render
                 await ctx.SaveCheckpointAsync(checkpoint.ToJson(), ct).ConfigureAwait(false);
-                return JobOutcome.Retry(_options.EffectivePollDelay);
+                // the backend says the render is progressing normally, so this is a Poll — see JobOutcome.Poll
+                return JobOutcome.Poll(_options.EffectivePollDelay);
 
             case GenerationOperationStatus.Succeeded:
                 var result = await backend.FetchAsync(checkpoint.OperationId, ct).ConfigureAwait(false);

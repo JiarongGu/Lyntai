@@ -116,4 +116,33 @@ public class LlmClientFactoryTests
 
         Assert.Equal(LlmVerdict.Refused, reply.Verdict);
     }
+
+    /// <summary><b>The other half of that promise, and the half nothing asserted.</b>
+    /// <c>LlmClientRegistration</c>'s own doc says every named client carries "the same outermost refusal
+    /// screening as the default one" — and the fold was written TWICE, so deleting the screening from the
+    /// named copy left the entire suite green. The budget fact above covers the decorator half; this covers
+    /// the layer that sits outside them, which is the one a second copy loses first because it is added last.
+    /// </summary>
+    [Fact]
+    public async Task A_named_client_is_screened_for_refusals_like_the_default()
+    {
+        // UseDefaultCandidates matters here and not in the budget fact above: a name narrows the PROVIDER
+        // set, while the candidates a call actually tries still come from options. The budget refuses before
+        // routing, so that test never needed them; this one has to reach the provider and come back Ok
+        // before screening has anything to screen.
+        using var sp = Build(b => WithProviders(b, "cheap")
+            .UseDefaultCandidates("cheap")
+            .AddRefusalMatcher(new AlwaysRefuses())
+            .AddLlmClient("memory", c => c.UseProviders("cheap")));
+
+        var reply = await sp.GetRequiredService<ILlmClientFactory>().Get("memory")
+            .CompleteAsync(new LlmRequest { Messages = [new LlmMessage("user", "anything")] });
+
+        Assert.Equal(LlmVerdict.Refused, reply.Verdict);
+    }
+
+    private sealed class AlwaysRefuses : IRefusalMatcher
+    {
+        public bool IsRefusal(LlmRequest request, string replyText) => true;
+    }
 }

@@ -65,7 +65,7 @@ public class CuratedMemorySectionsTests
             E(4, "persona",  "be terse",  task: null,         scope: null),    // null task → every task
         };
 
-        var text = CuratedMemorySections.Compose(entries, task: "translation", scopes: ["lang:zh"]);
+        var text = CuratedMemorySections.Compose(entries, taskKey: "translation", scopes: ["lang:zh"]);
 
         Assert.Contains("zh term", text);
         Assert.Contains("any lang", text);

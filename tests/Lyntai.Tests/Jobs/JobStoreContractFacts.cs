@@ -26,6 +26,7 @@ public abstract class JobStoreContractFacts
     [Fact] public Task Checkpoint_renews_lease() => Run(JobStoreContract.Checkpoint_round_trips_and_renews_the_lease);
     [Fact] public Task Stale_reclaim() => Run(JobStoreContract.Stale_lease_is_reclaimed_with_the_checkpoint);
     [Fact] public Task Fenced_by_worker() => Run(JobStoreContract.Writes_are_fenced_by_worker_id);
+    [Fact] public Task Poll_does_not_spend_an_attempt() => Run((s, c) => JobStoreContract.Poll_requeues_without_spending_an_attempt_and_is_fenced(s, c));
     [Fact] public Task Cancel_pending_not_running() => Run(JobStoreContract.Cancel_takes_a_pending_job_but_not_a_running_one);
     [Fact] public Task Enqueue_default_max_attempts() => Run(JobStoreContract.Enqueue_without_max_attempts_uses_the_shared_default);
     [Fact] public Task Active_lanes_and_count() => Run(JobStoreContract.Active_lanes_and_running_count);

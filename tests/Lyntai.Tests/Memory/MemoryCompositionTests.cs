@@ -36,7 +36,7 @@ public class MemoryCompositionTests
             items.Add(Item($"noise item number {i} which is quite wordy indeed", MemoryGrade.Associative));
 
         var composed = await EngineWith([.. items]).ComposeAsync("BASE", new MemoryQuery("t", "s", "q"),
-            new MemoryCompositionOptions { Budget = 300, AuthoritativeReserve = 100 });
+            new MemoryCompositionOptions { Budget = 300, AuthoritativeCharacters = 100 });
 
         Assert.Contains("the build gate is dev.mjs verify", composed, StringComparison.Ordinal);
     }
@@ -49,7 +49,7 @@ public class MemoryCompositionTests
             .ToArray();
 
         var composed = await EngineWith(items).ComposeAsync("BASE", new MemoryQuery("t", "s", "q"),
-            new MemoryCompositionOptions { Budget = 200, AuthoritativeReserve = 200 });
+            new MemoryCompositionOptions { Budget = 200, AuthoritativeCharacters = 200 });
 
         Assert.Matches(@"… \d+ further authoritative facts omitted \(budget\)", composed);
     }
@@ -83,7 +83,7 @@ public class MemoryCompositionTests
             Item("short and useful", MemoryGrade.Associative));
 
         var composed = await engine.ComposeAsync("BASE", new MemoryQuery("t", "s", "q"),
-            new MemoryCompositionOptions { Budget = 100, AuthoritativeReserve = 0 });
+            new MemoryCompositionOptions { Budget = 100, AuthoritativeCharacters = 0 });
 
         Assert.Contains("short and useful", composed, StringComparison.Ordinal);
     }

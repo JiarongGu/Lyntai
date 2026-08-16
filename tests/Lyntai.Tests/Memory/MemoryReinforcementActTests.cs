@@ -34,7 +34,7 @@ public sealed class MemoryReinforcementActTests
     private static GraphMemoryEngine NewEngine(InMemoryMemoryGraphStore store, MemoryReinforcementActs acts,
         double gain) =>
         new("e", store,
-            policy: new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
+            retrievability: new DsrRetrievability(new DsrOptions { ReinforceGain = gain }),
             agePolicies: [new PerWriteAgePolicy()],
             options: new GraphMemoryOptions { ReinforceOn = acts });
 

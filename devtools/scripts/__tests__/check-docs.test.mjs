@@ -235,3 +235,48 @@ describe('check-docs — the tracked-file list', () => {
     assert.match(log.text(), /docs\/灵台\.md:1/);
   });
 });
+
+describe('check-docs — fail-closed on an empty scan', () => {
+  it('an empty listing FAILS rather than printing a tick', () => {
+    // check-api-vocabulary's rule, which this gate was missing until 2026-08-15. A scanner that reports
+    // success over zero files is the most permissive failure there is: every check above it is vacuous and
+    // the output is indistinguishable from a genuinely clean tree.
+    const log = recorder();
+    assert.equal(checkDocs('/nowhere', config, log, []), 1);
+    assert.match(log.text(), /found no maintained documents/);
+    assert.match(log.text(), /proves nothing/);
+  });
+
+  it('a caller-supplied list with no maintained doc in it still PASSES', () => {
+    // The other direction, and the reason the guard is not simply `tracked.length === 0`: a commit that
+    // touches only `src/` legitimately has nothing for this gate to read. Only the FULL-TREE path can
+    // indict IN_SCOPE, because only there is a zero impossible — README, CLAUDE.md and TASKS.md guarantee
+    // three. Written after the first shape of this guard broke check-encoding's binary-only test.
+    const { code, out } = run({ 'src/a.cs': '// nothing to see\n' });
+    assert.equal(code, 0, out);
+  });
+});
+
+describe('check-docs — `drift-ok` must not silence the line ABOVE it', () => {
+  it('a drift-ok on line N+1 does not excuse a stale claim that stands alone on line N', () => {
+    // The escape covers the joined window so that annotating EITHER line of a wrapped passage is enough —
+    // correct, and the reason it reads line N+1 at all. But it was applied before the line-alone test too,
+    // so an ordinary line inherited the exemption of whatever happened to follow it. Two unrelated
+    // paragraphs is all it takes: the second legitimately names the retired thing and is annotated, and the
+    // first silently stops being checked. Found 2026-08-15.
+    const { code, out } = run({
+      'docs/a.md': 'The ranking policy is available, not default in 3.0.\n'
+        + 'The rule below bans that phrasing deliberately. drift-ok\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /docs\/a\.md:1/);
+  });
+
+  it('but a drift-ok on either line of a WRAPPED claim still excuses it', () => {
+    // The behaviour that must survive the fix — this is why the window reads N+1 in the first place.
+    const { code, out } = run({
+      'docs/b.md': 'The ranking policy is available,\nnot default in 3.0. drift-ok\n',
+    });
+    assert.equal(code, 0, out);
+  });
+});

@@ -89,6 +89,25 @@ public sealed class LlmMemoryAnnotationPolicy(
         - Return an empty list if the fact is about nothing worth connecting.
         """;
 
+    /// <summary>The extra instruction used ONLY when <see cref="LlmAnnotationOptions.SuggestGrade"/> is on.
+    /// <para>Kept separate rather than folded into <see cref="System"/> because the option defaults OFF and a
+    /// prompt asking for a field nobody reads is waste — worse, it invites the model to volunteer a grade
+    /// this policy would then silently discard.</para>
+    /// <para><b>It exists at all because the parser read a <c>grade</c> the prompt never requested.</b>
+    /// <see cref="System"/> was a const used unconditionally and mentioned only <c>subjects</c>, so
+    /// <c>SuggestGrade = true</c> could never fire against a real model while every offline test passed —
+    /// the scripted reply supplied a grade nothing had asked for. The wording names the exact token the
+    /// parser compares against, so the model is told what to send rather than left to guess a synonym.</para>
+    /// </summary>
+    private const string GradeInstruction = """
+
+        Also judge whether the fact is an EXACT, durable fact that should always be available verbatim —
+        a definition, an identifier, a rule, a stable preference — as opposed to an ordinary observation
+        that may fade. Add one more field to the JSON object: {"subjects":["..."],"grade":"authoritative"}
+        Use the value "authoritative" for such a fact, and omit the field entirely otherwise. Be sparing:
+        an authoritative fact is kept and returned in full for the rest of the memory's life.
+        """;
+
     /// <inheritdoc />
     public async Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request,
         CancellationToken ct = default)
@@ -101,10 +120,18 @@ public sealed class LlmMemoryAnnotationPolicy(
             {
                 Messages =
                 [
-                    new LlmMessage("system", System),
+                    new LlmMessage("system", _options.SuggestGrade ? System + GradeInstruction : System),
                     new LlmMessage("user", Compose(request)),
                 ],
                 Model = _options.Model,
+                // Same reasoning, and the same measured stakes, as LlmMemoryVerificationPolicy's own
+                // Suppress: this call's value is a short structured label, and it sits in the latency path
+                // of every WRITE — the higher-traffic seam of the two, since a store takes many more writes
+                // than a caller takes recalls. It was missing here while verification had it (found
+                // 2026-08-15); a thinking model spent ~25s per judgement against ~1.5s for one that answers
+                // directly (docs/memory.md §5). Advisory: a backend that cannot express it ignores it, and
+                // the parser below still tolerates a reply that reasons anyway.
+                Reasoning = LlmReasoning.Suppress,
             }, ct).ConfigureAwait(false);
 
             if (reply.Verdict != LlmVerdict.Ok || string.IsNullOrWhiteSpace(reply.Text))

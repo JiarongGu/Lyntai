@@ -66,7 +66,7 @@ public class MemorySubjectLinkingTests
         GraphMemoryOptions? options = null) =>
         new("subjects", new SqliteMemoryGraphStore(db.Factory), options: options,
             agePolicies: [new PerWriteAgePolicy()],
-            policy: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy(),
+            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy(),
             annotation: annotator);
 
     private static async Task WriteClusterAsync(GraphMemoryEngine engine)
@@ -104,6 +104,13 @@ public class MemorySubjectLinkingTests
 
         var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "my spouse", Limit: 10));
         var texts = recall.Items.Select(i => i.Content ?? i.Headline).ToList();
+
+        // The POSITIVE half, and without it this control was vacuous: it asserted only two absences, so any
+        // change making RecallAsync return nothing at all would have satisfied it — while the docstring above
+        // promises "reaches only the lexical match". A control that passes when the mechanism it controls for
+        // is dead is the failure it exists to rule out. Found 2026-08-14.
+        Assert.NotEmpty(texts);
+        Assert.Contains(texts, t => t!.Contains("Alice", StringComparison.Ordinal));
 
         Assert.DoesNotContain(texts, t => t!.Contains("anaesthetist", StringComparison.Ordinal));
         Assert.DoesNotContain(texts, t => t!.Contains("Kyoto", StringComparison.Ordinal));

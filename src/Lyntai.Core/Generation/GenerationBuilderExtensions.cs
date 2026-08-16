@@ -139,11 +139,11 @@ public static class GenerationBuilderExtensions
     /// <summary>Set the media candidate order used when a caller doesn't pass one. SETS (clears + replaces) —
     /// the last call wins, it does not append — matching <c>LyntaiBuilder.UseDefaultCandidates</c> exactly, so
     /// the two domains behave identically. Each entry is a provider id, optionally <c>"provider:model"</c>.</summary>
-    public static LyntaiBuilder UseDefaultGenerationCandidates(this LyntaiBuilder builder, params string[] candidates)
+    public static LyntaiBuilder UseDefaultGenerationCandidates(this LyntaiBuilder builder, params string[] providerIds)
     {
         var options = GenerationOptionsFor(builder);
         options.DefaultCandidates.Clear();
-        options.DefaultCandidates.AddRange(candidates.Select(GenerationCandidateSpec.Parse));
+        options.DefaultCandidates.AddRange(providerIds.Select(GenerationCandidateSpec.Parse));
         return builder;
     }
 

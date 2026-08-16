@@ -13,7 +13,7 @@ namespace Lyntai.Tests.Memory;
 /// can run two curves. Until 3.0 the curve was resolved from the global container alone, making it a
 /// per-PROCESS choice while <c>ranking</c> — the subsystem's only other SINGULAR seam (D48) — was already
 /// per-engine.
-/// <para><b>The load-bearing half is the NULL path</b>, not the override: <c>policy: null</c> must resolve
+/// <para><b>The load-bearing half is the NULL path</b>, not the override: <c>retrievability: null</c> must resolve
 /// exactly as it did before this parameter existed — the container's registration, else
 /// <see cref="DsrRetrievability"/> (<c>AddMemoryEngine</c>'s own <c>TryAdd</c>, D49). A consumer passing
 /// nothing seeing no behavioural difference is the whole promise of an appended optional parameter, so both
@@ -83,8 +83,8 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
         // THE feature. Before D50 both engines resolved the same IMemoryRetrievabilityPolicy from the
         // container and this was inexpressible.
         using var sp = Build(b => b
-            .AddMemoryEngine("alpha", e => e.UseGraph(policy: new MarkedCurve(11, 40)))
-            .AddMemoryEngine("beta", e => e.UseGraph(policy: new MarkedCurve(77, 41))));
+            .AddMemoryEngine("alpha", e => e.UseGraph(retrievability: new MarkedCurve(11, 40)))
+            .AddMemoryEngine("beta", e => e.UseGraph(retrievability: new MarkedCurve(77, 41))));
 
         var alpha = await WriteAndRead(sp, "alpha", "gadget alpha note");
         var beta = await WriteAndRead(sp, "beta", "gadget beta note");
@@ -108,7 +108,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
         services.AddSingleton<IMemoryRetrievabilityPolicy>(new MarkedCurve(63, 41)); // container default
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .AddMemoryEngine("named", e => e.UseGraph(policy: new MarkedCurve(11, 40)))
+            .AddMemoryEngine("named", e => e.UseGraph(retrievability: new MarkedCurve(11, 40)))
             .AddMemoryEngine("plain", e => e.UseGraph()));
         using var sp = services.BuildServiceProvider();
 
@@ -199,7 +199,7 @@ public sealed class GraphMemoryCurveOverrideTests : IDisposable
             services.AddSingleton<IMemoryRetentionPolicy>(new FixedRetentionPolicy(factor));
         services.AddLyntai(b => b
             .AddProvider(_ => new FakeLlmProvider("p"))
-            .AddMemoryEngine("named", e => e.UseGraph(policy: new MarkedCurve(11, 40))));
+            .AddMemoryEngine("named", e => e.UseGraph(retrievability: new MarkedCurve(11, 40))));
         using var sp = services.BuildServiceProvider();
         var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get("named/graph");
 

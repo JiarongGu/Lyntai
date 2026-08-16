@@ -132,8 +132,12 @@ public class RouterCooldownKeyTests
         (await next).Dispose();
     }
 
-    // A provider that THROWS is the other path a `using` has to cover — the router lets the throw out of
-    // GenerateAsync, so the permit is only returned if it was scoped rather than released by hand.
+    // A provider that THROWS is the other path a `using` has to cover. Until 3.0 the router let the throw
+    // out of GenerateAsync and this test asserted that — but the escape was never this test's SUBJECT, it
+    // was the behaviour that happened to exist while the subject was permit release. The router is now the
+    // trust boundary (docs/DECISIONS.md D64), so the throw is classified into a verdict, and the permit must
+    // come back on THAT path too — which is the stronger claim, because the release now has to survive a
+    // catch block rather than an unwinding stack.
     [Fact]
     public async Task A_throwing_backend_still_releases_its_permit()
     {
@@ -143,12 +147,18 @@ public class RouterCooldownKeyTests
         var key = ProviderKey.For("a1111").With("v", "a").Build();
 
         var router = new GenerationRouter(
-            [new ThrowingGenerationProvider { Id = "a1111" }], null, new DeadHostTracker(), _ => key, admission);
+            [new FakeGenerationProvider { Id = "a1111", Throws = new InvalidOperationException("backend blew up") }],
+            null, new DeadHostTracker(), _ => key, admission);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => router.GenerateAsync(Candidates("a1111"), Request()));
+        var result = await router.GenerateAsync(Candidates("a1111"), Request());
 
+        Assert.False(result.IsOk);                       // classified, not propagated
+        Assert.Contains("backend blew up", result.Detail);
         Assert.Equal(0, admission.GateCount);
+        // and the gate still admits, which a leaked permit on a limit of 1 would prevent
+        var next = admission.EnterAsync(key, CancellationToken.None);
+        Assert.True(next.IsCompleted);
+        (await next).Dispose();
     }
 
     // SUBMISSION takes a permit too, and its `using` has to cover the loop's CONTINUE as well as its
@@ -327,21 +337,4 @@ public class RouterCooldownKeyTests
         public void Release() => _gate.TrySetResult();
     }
 
-    /// <summary>Violates the fail-safe contract on purpose: the permit must come back anyway.</summary>
-    private sealed class ThrowingGenerationProvider : IGenerationProvider
-    {
-        public string Id { get; init; } = "a1111";
-
-        public GenerationCapabilities Capabilities { get; } = new()
-        {
-            Kinds = [GenerationKinds.Image],
-            Deliveries = [GenerationDelivery.Inline],
-        };
-
-        public Task<GenerationProbeResult> ProbeAsync(CancellationToken ct = default) =>
-            Task.FromResult(new GenerationProbeResult(true, "ready"));
-
-        public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
-            throw new InvalidOperationException("backend blew up");
-    }
 }

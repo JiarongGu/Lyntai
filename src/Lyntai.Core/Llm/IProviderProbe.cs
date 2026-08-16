@@ -8,9 +8,9 @@ namespace Lyntai.Llm;
 ///
 /// A separate interface rather than members on <see cref="ILlmProvider"/>: a provider that can't answer
 /// cheaply simply doesn't implement it, and callers discover the capability by pattern-matching
-/// (<c>provider is IProviderInstallation p</c>) over the registered provider collection.
+/// (<c>provider is IProviderProbe p</c>) over the registered provider collection.
 /// </summary>
-public interface IProviderInstallation
+public interface IProviderProbe
 {
     /// <summary>Ask the backend what it is, WITHOUT running a completion (no tokens, no model call).
     /// Implementations must FAIL SAFE — an absent/unreachable/stalled backend returns
@@ -20,7 +20,7 @@ public interface IProviderInstallation
     Task<ProviderProbeResult> ProbeAsync(CancellationToken ct = default);
 }
 
-/// <summary>The outcome of <see cref="IProviderInstallation.ProbeAsync"/>.</summary>
+/// <summary>The outcome of <see cref="IProviderProbe.ProbeAsync"/>.</summary>
 /// <param name="Available">The backend answered — a STRONGER signal than
 /// <see cref="ILlmProvider.IsAvailable"/>, which is a cheap guess that never contacts anything.</param>
 /// <param name="Version">The backend's own version, normalized to its dotted number where it reports one

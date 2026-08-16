@@ -191,7 +191,32 @@ public sealed class GenerationRouter(
             {
                 var started = Stopwatch.GetTimestamp();
                 using var span = LyntaiDiagnostics.StartGeneration("submit", provider.Id, resolved.Kind, resolved.Model);
-                var operation = await job.SubmitAsync(resolved, ct).ConfigureAwait(false);
+                GenerationOperation operation;
+                try
+                {
+                    operation = await job.SubmitAsync(resolved, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw; // caller-initiated cancel is not a backend failure
+                }
+                catch (Exception ex) when (!NeverReachedTheBackend(ex))
+                {
+                    // A throw during SUBMIT that MAY have been delivered is INCONCLUSIVE, and that is the one
+                    // place this path deliberately differs from the inline one above. Submitting is what
+                    // commits the money: the backend may already hold a billable render, so advancing to the
+                    // next candidate would buy the same generation twice — the duplicate-payment case the
+                    // Inconclusive arm below exists to prevent.
+                    //
+                    // A throw that provably never left this process is NOT caught here (see the filter): it
+                    // committed nothing, so it propagates and the durable-job runner retries it exactly as it
+                    // did before this router had any catch at all. Round 2 of the 3.0 review caught the first
+                    // version swallowing those too, which turned a connection-refused blip during a deploy
+                    // into a permanently dead-lettered job — a regression, and on the same distinction this
+                    // round taught FalQueueProvider one file over.
+                    operation = new GenerationOperation("", GenerationOperationStatus.Failed,
+                        Detail: $"{provider.Id}: {ex.Message}") { Inconclusive = true };
+                }
                 LyntaiDiagnostics.RecordSubmission(span, provider.Id, resolved.Kind, operation.Id, operation.Status,
                     Stopwatch.GetElapsedTime(started).TotalSeconds, operation.Inconclusive);
 
@@ -309,13 +334,66 @@ public sealed class GenerationRouter(
 
         var started = Stopwatch.GetTimestamp();
         using var span = LyntaiDiagnostics.StartGeneration("generate", provider.Id, request.Kind, request.Model);
-        var result = await provider.GenerateAsync(request, ct).ConfigureAwait(false);
+        GenerationResult result;
+        try
+        {
+            result = await provider.GenerateAsync(request, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw; // caller-initiated cancel is not a backend failure
+        }
+        catch (Exception ex)
+        {
+            // THE TRUST BOUNDARY. IGenerationProvider documents "a value with a verdict, never a throw", and
+            // AddGenerationProvider is a documented BYO seam — so a backend that breaks that contract is a
+            // case this router HANDLES rather than a case that cannot happen. Without this, one throwing
+            // backend killed the whole chain: the healthy candidate was never tried, RecordGeneration never
+            // fired so the attempt was invisible in telemetry, and the caller got a raw exception.
+            // Classified through the shared taxonomy for the same reason the LLM side gives — hand-rolling
+            // Failed here would hammer a rate-limited host instead of cooling it.
+            result = GenerationResult.Failure(ClassifyThrown(ex), $"{provider.Id}: {ex.Message}");
+        }
         LyntaiDiagnostics.RecordGeneration(span, provider.Id, request.Kind, result.Verdict,
             // an Ok result always has artifacts (GenerationResult.Success enforces it), so the count is
             // reported even by a backend that returns no usage of its own
             result.IsOk ? result.Usage ?? new GenerationUsage(Count: result.Artifacts.Count) : result.Usage,
             Stopwatch.GetElapsedTime(started).TotalSeconds, result.Detail);
         return result;
+    }
+
+    /// <summary>Whether a thrown exception proves the request never left this process — a refused
+    /// connection, a name that would not resolve, a TLS handshake that never completed. Nothing was
+    /// submitted, so nothing was charged.
+    ///
+    /// <para>Used ONLY on the submit path, and only to decide whether to swallow the throw at all. A submit
+    /// that may have been delivered becomes an <c>Inconclusive</c> result this router surfaces rather than
+    /// advancing past; one that provably was not propagates untouched, so the durable-job runner applies its
+    /// ordinary retry. Getting this wrong in the safe-looking direction — treating everything as ambiguous —
+    /// converts a transient blip into a dead-lettered job, which is what the first version of this catch
+    /// did. The inline <see cref="GenerateAsync"/> path needs none of this: nothing there is billed by the
+    /// act of asking.</para></summary>
+    private static bool NeverReachedTheBackend(Exception ex) => ex switch
+    {
+        HttpRequestException { HttpRequestError: HttpRequestError.ConnectionError
+                                              or HttpRequestError.NameResolutionError
+                                              or HttpRequestError.SecureConnectionError } => true,
+        System.Net.Sockets.SocketException => true,
+        // Deliberately NOT a catch-all: a timeout, a protocol error mid-response, or anything unrecognised
+        // may have been delivered, and the expensive mistake is assuming it was not.
+        _ => false,
+    };
+
+    /// <summary>Classify a THROWN backend exception, with <see cref="GenerationVerdict.Refused"/> clamped to
+    /// <see cref="GenerationVerdict.Failed"/> — the same clamp <c>LlmRouter.ClassifyThrown</c> makes, for the
+    /// same reason. A throw is transport-layer (an error page mentioning "content filter" at a proxy or CDN,
+    /// not the model declining), and Refused is TERMINAL under the routing policy — it Surfaces, with no
+    /// fallback. A keyword match in an exception message must never stop this router from trying a healthy
+    /// candidate. Backends signal a real refusal with a verdict RESULT, never an exception.</summary>
+    private static GenerationVerdict ClassifyThrown(Exception ex)
+    {
+        var verdict = GenerationVerdictClassifier.FromException(ex);
+        return verdict == GenerationVerdict.Refused ? GenerationVerdict.Failed : verdict;
     }
 
     /// <summary>Take a concurrency permit for this provider's CONFIGURATION, or nothing at all when no

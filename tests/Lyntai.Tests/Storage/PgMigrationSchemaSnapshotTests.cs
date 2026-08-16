@@ -48,8 +48,15 @@ public sealed class PgMigrationSchemaSnapshotTests(PostgresFixture pg)
         Directory.CreateDirectory(SnapshotDir);
         var goldenPath = Path.Combine(SnapshotDir, "pg-schema.txt");
 
+        // Regeneration FAILS the run, for the reason spelled out in MigrationSchemaSnapshotTests' twin: the
+        // write preceded the compare, so with this variable set the assertion read actual == actual and could
+        // not fail. Both schema guards had that shape, so a stray export disarmed BOTH at once.
         if (Environment.GetEnvironmentVariable("LYNTAI_UPDATE_SCHEMA_SNAPSHOT") == "1")
+        {
             File.WriteAllText(goldenPath, actual);
+            Assert.Fail($"golden regenerated: {goldenPath} — re-run WITHOUT LYNTAI_UPDATE_SCHEMA_SNAPSHOT " +
+                "to verify it, and review the diff before committing it");
+        }
 
         Assert.True(File.Exists(goldenPath),
             $"golden missing: {goldenPath} — capture once with LYNTAI_UPDATE_SCHEMA_SNAPSHOT=1");

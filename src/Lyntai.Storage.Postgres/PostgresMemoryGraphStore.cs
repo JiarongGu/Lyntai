@@ -13,6 +13,13 @@ namespace Lyntai.Storage.Postgres;
 /// extracted: the two differ by dialect necessity — <c>GREATEST</c> versus <c>MAX</c>, an <c>ILIKE</c> over
 /// a GIN index versus an FTS5 virtual table and its three triggers, and the table reference Postgres
 /// requires in <c>DO UPDATE SET</c>. The shared store contract is what holds them to one behaviour.</para>
+/// <para><b>Every connection is opened ASYNCHRONOUSLY</b>, like every other store in this package. This one
+/// alone used the synchronous <c>factory.Open()</c> at all fourteen sites until 3.0 — and
+/// <see cref="SeedAsync"/> runs on every recall, so under concurrent recalls each blocked a thread-pool
+/// thread for a whole TCP connect plus authentication. On a cold pool, or one at <c>MaxPoolSize</c>, that is
+/// thread-pool starvation rather than a slow query, and the cancellation token could not reach the connect
+/// either. <c>IDbConnectionFactory</c> exists precisely because a networked backend must not block the async
+/// front door; the SQLite twin may open synchronously because its "connect" is a file handle.</para>
 /// <para><b>Age is a subtraction, not a duration</b> — <c>lyntai_memory_position</c> holds a monotone
 /// position per engine — and <b>the decay curve is never evaluated here</b>. Recall matches the query
 /// term-wise through <see cref="SearchTerms"/> — the same split SQLite's FTS path uses — and orders by
@@ -137,8 +144,8 @@ public sealed class PostgresMemoryGraphStore(
         var hasDifficultySignal = write.Signals.Values.ContainsKey(MemorySignals.WellKnown.Difficulty);
         var difficulty = MemorySignals.Difficulty(write.Signals);
         var now = _clock();
-        using var conn = factory.Open();
-        using var tx = conn.BeginTransaction();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         // advance the engine's position AND the three policy-independent primitives FIRST and atomically, so
         // the new entry's own age is zero relative to everything it is stamped with. The primitives advance
@@ -191,7 +198,7 @@ public sealed class PostgresMemoryGraphStore(
             provenanceRetrievability = write.ProvenanceRetrievability, provenanceSalience = write.ProvenanceSalience,
         }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
 
-        tx.Commit();
+        await tx.CommitAsync(ct).ConfigureAwait(false);
         return id;
     }
 
@@ -200,7 +207,7 @@ public sealed class PostgresMemoryGraphStore(
         string? query, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
         var position = totals.Position;
         var ordinal = totals.Ordinal;
@@ -269,7 +276,7 @@ public sealed class PostgresMemoryGraphStore(
         string engine, string taskKey, string? scope, string? query, int limit, TotalsRow totals,
         bool includeShortTerms, CancellationToken ct)
     {
-        var kw = SearchTerms.LikeClause(query, "n.content", "ILIKE", includeShortTerms: includeShortTerms);
+        var kw = SearchTerms.LikeClause(query, ["n.content", "n.headline"], "ILIKE", includeShortTerms: includeShortTerms);
         var p = new DynamicParameters(new
         {
             engine, taskKey, scope,
@@ -299,7 +306,7 @@ public sealed class PostgresMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (ids.Count == 0) return [];
 
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
         var position = totals.Position;
         var idArray = ids.ToArray();
@@ -336,7 +343,7 @@ public sealed class PostgresMemoryGraphStore(
     public async Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
         var hits = await QueryAsync(conn,
             $"SELECT {NodeColumns} FROM lyntai_memory_node n WHERE n.id = @id AND n.engine = @engine",
@@ -353,7 +360,7 @@ public sealed class PostgresMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (touches.Count == 0) return;
 
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // a recall does NOT advance the position or any of the three primitives — it stamps the touched
         // node's own snapshot to wherever the engine already is, on every scale at once
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
@@ -380,7 +387,7 @@ public sealed class PostgresMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (from == to) return; // a self-edge is never useful and would skew Degree
 
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
         await StrengthenAsync(conn, from, to, kind ?? "", weight, totals, ct).ConfigureAwait(false);
         if (symmetric)
@@ -416,7 +423,7 @@ public sealed class PostgresMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         var cut = maxAgeOverStability;
         var createdBefore = olderThan is null ? (DateTimeOffset?)null : _clock() - olderThan.Value;
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var position = (await TotalsAsync(conn, engine, ct).ConfigureAwait(false)).Position;
         return await conn.ExecuteAsync(new CommandDefinition($"""
             DELETE FROM lyntai_memory_node WHERE id IN (
@@ -436,7 +443,7 @@ public sealed class PostgresMemoryGraphStore(
         ArgumentNullException.ThrowIfNull(ids);
         ct.ThrowIfCancellationRequested();
         if (ids.Count == 0) return 0;
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_node WHERE engine = @engine AND id = ANY(@ids)
             """, new { engine, ids = ids.ToArray() }, cancellationToken: ct)).ConfigureAwait(false);
@@ -447,7 +454,7 @@ public sealed class PostgresMemoryGraphStore(
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             DELETE FROM lyntai_memory_node
             WHERE engine = @engine AND task_key = @taskKey AND (@scope IS NULL OR scope = @scope)
@@ -464,7 +471,7 @@ public sealed class PostgresMemoryGraphStore(
 
         var effectiveCap = Math.Max(0, cap);
         var now = _clock();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition("""
             INSERT INTO lyntai_memory_review
                 (engine, node_id, batch_id, created_at, pre_age, pre_stability, pre_difficulty, pre_strength,
@@ -498,7 +505,7 @@ public sealed class PostgresMemoryGraphStore(
     public async Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = (await conn.QueryAsync<ReviewRow>(new CommandDefinition("""
             SELECT id AS "Id", engine AS "Engine", node_id AS "NodeId", batch_id AS "BatchId",
                    created_at AS "CreatedAt", pre_age AS "PreAge", pre_stability AS "PreStability",
@@ -520,7 +527,7 @@ public sealed class PostgresMemoryGraphStore(
     {
         ArgumentNullException.ThrowIfNull(subjects);
         ct.ThrowIfCancellationRequested();
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
 
         // REPLACE, never accumulate — see the SQLite twin. The delete runs even for an empty set, which is
         // how an annotator that changes its mind to "no opinion" actually clears them.
@@ -548,7 +555,7 @@ public sealed class PostgresMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (limit <= 0) return [];
 
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<string>(new CommandDefinition("""
             SELECT subject FROM lyntai_memory_subject
             WHERE engine = @engine AND task_key = @taskKey AND (@scope::text IS NULL OR scope = @scope)
@@ -564,7 +571,7 @@ public sealed class PostgresMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (!MemorySubject.IsUsable(subject) || limit <= 0) return [];
 
-        using var conn = factory.Open();
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<long>(new CommandDefinition("""
             SELECT s.node_id
             FROM lyntai_memory_subject s

@@ -627,6 +627,48 @@ public class CodexAgentSessionTests
         Assert.Empty(runner.Calls);
     }
 
+    [Theory]
+    [InlineData("app-tools", "app_tools")]   // the live case: both derive LYNTAI_MCP_BEARER_APP_TOOLS
+    [InlineData("a-b", "a_b")]
+    public async Task Two_names_differing_only_by_dash_or_underscore_refuse_rather_than_crossing_tokens(
+        string first, string second)
+    {
+        // Found 2026-08-14 by the whole-codebase review. IsUsableName permits BOTH '_' and '-', and the dedup
+        // above keys on the RAW name, so this pair validates. CodexMcpConfig then derives the bearer variable
+        // as Name.Replace('-','_').ToUpperInvariant() — both collapse to one variable, the dictionary keeps the
+        // LAST token, and BOTH servers' bearer_token_env_var point at it. codex therefore presents the second
+        // server's token to the FIRST server's URL: a credential disclosed to an endpoint it was never issued
+        // for, while the first server fails to authenticate.
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        AgentMcpServer[] servers =
+        [
+            AgentMcpServer.Http(first, "https://first.example/mcp", authToken: "token-first"),
+            AgentMcpServer.Http(second, "https://second.example/mcp", authToken: "token-second"),
+        ];
+
+        var events = await Session(runner).StreamAsync(Ask() with { McpServers = servers }).ToListAsync();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.Empty(runner.Calls);
+    }
+
+    [Fact]
+    public async Task The_dash_underscore_collision_is_refused_even_with_no_tokens_because_it_is_latent()
+    {
+        // Refused on the NAMES, not on whether a token happens to be set today: the collision is a property of
+        // the derived variable, so a token-less pair is the same defect waiting for someone to add one. Same
+        // reasoning as IsUsableName being deliberately narrower than either backend would accept.
+        var runner = new FakeProcessRunner(MeasuredSuccess);
+        AgentMcpServer[] servers = [AgentMcpServer.Stdio("app-tools", "a.exe"), AgentMcpServer.Stdio("app_tools", "b.exe")];
+
+        var events = await Session(runner).StreamAsync(Ask() with { McpServers = servers }).ToListAsync();
+
+        var ended = Assert.IsType<SessionEnded>(Assert.Single(events));
+        Assert.Equal("mcp-server-invalid", ended.Subtype);
+        Assert.Empty(runner.Calls);
+    }
+
     // ── process faults (the shared guarded-stream contract) ──────────────────
 
     [Fact]

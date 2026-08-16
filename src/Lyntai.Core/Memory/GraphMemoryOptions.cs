@@ -8,6 +8,13 @@ public sealed record GraphMemoryOptions
     /// which defeats the purpose. Reasoned, not measured.</summary>
     public int Hops { get; init; } = 2;
 
+    /// <summary>The character budget an expansion falls back to when the caller passes none — the "engine's
+    /// configured budget" <see cref="IExpandableMemory.ExpandAsync"/> has always promised.
+    /// <para>Null (the default) means UNBOUNDED, which is what the engine did before the parameter was
+    /// honoured at all, so leaving it unset changes nothing. It bounds the NEIGHBOURS only: the expanded
+    /// entry's own content is always returned whole, because that is what expansion is for.</para></summary>
+    public int? ExpandCharBudget { get; init; }
+
     /// <summary>The retrievability below which <c>PruneAsync</c> may REAP an entry — "forgotten enough to
     /// delete".
     /// <para>Recall does not use it. Deleting is the only thing in this model that removes a memory, and it

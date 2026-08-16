@@ -56,8 +56,18 @@ internal sealed class McpToolHost : IAsyncDisposable
     /// <summary>Start the host. <paramref name="authToken"/> is required as a bearer token on every
     /// request — the endpoint EXECUTES the app's tools, so even on loopback another local process must
     /// not be able to invoke them.</summary>
+    /// <param name="tools">The application tools to expose.</param>
+    /// <param name="authToken">The per-host bearer token every request must carry.</param>
+    /// <param name="options">Binding and naming; defaults when null.</param>
+    /// <param name="guards">The guard rail to gate every hosted tool call and observation through, or null
+    /// for no gating. <b>This endpoint is a second door onto the same <see cref="ITool"/> instances the
+    /// in-process tool loop runs</b>, so a rail that is enforced on one and not the other is not enforced:
+    /// a consumer who registered a guard would have it applied through <c>IToolLoop</c> and silently skipped
+    /// here, where the CLI's own agent calls them.</param>
+    /// <param name="ct">Cancellation.</param>
     public static async Task<McpToolHost> StartAsync(
-        IReadOnlyList<ITool> tools, string authToken, McpToolHostOptions? options = null, CancellationToken ct = default)
+        IReadOnlyList<ITool> tools, string authToken, McpToolHostOptions? options = null,
+        Lyntai.Guards.IGuardRail? guards = null, CancellationToken ct = default)
     {
         options ??= new McpToolHostOptions();
         ct.ThrowIfCancellationRequested();
@@ -88,7 +98,7 @@ internal sealed class McpToolHost : IAsyncDisposable
                 ToolCollection = [],
             };
             foreach (var tool in tools)
-                serverOptions.ToolCollection.Add(McpServerTool.Create(new ToolFunction(tool)));
+                serverOptions.ToolCollection.Add(McpServerTool.Create(new ToolFunction(tool, guards)));
 
             server = McpServer.Create(transport, serverOptions, NullLoggerFactory.Instance, serviceProvider: null);
 

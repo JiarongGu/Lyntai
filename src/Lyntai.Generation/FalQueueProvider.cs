@@ -12,43 +12,43 @@ namespace Lyntai.Generation.Providers;
 /// instead of waiting for a Lyntai release. <b>Every</b> segment the provider builds a URL from is one of these;
 /// a hardcoded literal among them would be the one path a host could not repair without a Lyntai
 /// release.</remarks>
-public sealed record FalQueueOptions
+public sealed class FalQueueOptions
 {
     /// <summary>The queue API root. Blank = not configured.</summary>
-    public string BaseUrl { get; init; } = "https://queue.fal.run";
+    public string BaseUrl { get; set; } = "https://queue.fal.run";
 
     /// <summary>The API key, sent as <c>Authorization: Key &lt;key&gt;</c>. Passed in by the host and never
     /// stored (D20/D24).</summary>
-    public string? ApiKey { get; init; }
+    public string? ApiKey { get; set; }
 
     /// <summary>The candidate id this backend registers under.</summary>
-    public string Id { get; init; } = "fal";
+    public string Id { get; set; } = "fal";
 
     /// <summary>Model/endpoint id used when a request doesn't name one (e.g. <c>fal-ai/wan-t2v</c>). An
     /// aggregator serves hundreds, so most callers name one per request instead.</summary>
-    public string? Model { get; init; }
+    public string? Model { get; set; }
 
     /// <summary>Media kinds this account's models cover. Declared rather than discovered — the catalogue is
     /// large and changes without us, so the host states what it actually uses.</summary>
-    public IReadOnlyList<string> Kinds { get; init; } =
+    public IReadOnlyList<string> Kinds { get; set; } =
         [GenerationKinds.Video, GenerationKinds.Image, GenerationKinds.Audio];
 
     /// <summary>Path segment for a request's status, appended as
     /// <c>{BaseUrl}/{model}/{RequestsSegment}/{id}/{StatusSegment}</c>.</summary>
-    public string StatusSegment { get; init; } = "status";
+    public string StatusSegment { get; set; } = "status";
 
     /// <summary>Path segment collection for requests: <c>{BaseUrl}/{model}/{RequestsSegment}/{id}</c>.</summary>
-    public string RequestsSegment { get; init; } = "requests";
+    public string RequestsSegment { get; set; } = "requests";
 
     /// <summary>Path segment that abandons a request, appended as
     /// <c>{BaseUrl}/{model}/{RequestsSegment}/{id}/{CancelSegment}</c> — the sibling of
     /// <see cref="StatusSegment"/> on the same request path, and settable for the same reason.</summary>
-    public string CancelSegment { get; init; } = "cancel";
+    public string CancelSegment { get; set; } = "cancel";
 
     /// <summary>Query parameter used to hand the backend a webhook URL the APP hosts. Lyntai never hosts one
     /// (D24) — supply the URL via <c>GenerationRequest.Options["webhook"]</c> and call
     /// <see cref="FalQueueProvider.FetchAsync"/> when it fires.</summary>
-    public string WebhookQueryParameter { get; init; } = "fal_webhook";
+    public string WebhookQueryParameter { get; set; } = "fal_webhook";
 
     /// <summary>Ceiling for ONE HTTP call to the queue — a submit, a status read, a result fetch, a cancel.
     ///
@@ -66,7 +66,7 @@ public sealed record FalQueueOptions
     /// can say about that call). <see cref="Timeout.InfiniteTimeSpan"/> removes THIS deadline, but a submit
     /// whose request carries its own <see cref="GenerationRequest.TimeoutSeconds"/> still has
     /// one.</para></summary>
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(2);
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(2);
 }
 
 /// <summary>
@@ -209,10 +209,17 @@ public sealed class FalQueueProvider(
             return new GenerationOperation(operationId, GenerationOperationStatus.Failed,
                 Detail: $"malformed operation id '{operationId}' — expected \"model{ModelSeparator}requestId\"");
 
-        var (body, failure) = await GetAsync(
+        var (body, failure, transport) = await GetAsync(
             $"{Root}/{model}/{options.RequestsSegment}/{requestId}/{options.StatusSegment}", ct).ConfigureAwait(false);
+        // A failure that never reached the queue leaves the render alive; one the queue ANSWERED — a 4xx for
+        // an id it does not know, or a backend with no key — is terminal. Reporting every failure as Running
+        // stranded the job: GenerationRenderJobHandler re-checkpoints and polls again, forever, so the render
+        // was never dead-lettered, never failed and never completed, with the reason sitting in Detail where
+        // nothing acts on it.
         if (failure is not null)
-            return new GenerationOperation(operationId, GenerationOperationStatus.Running, Detail: failure);
+            return new GenerationOperation(operationId,
+                transport ? GenerationOperationStatus.Running : GenerationOperationStatus.Failed,
+                Detail: failure);
 
         var status = Field(body!, "status");
         return status?.ToUpperInvariant() switch
@@ -241,7 +248,9 @@ public sealed class FalQueueProvider(
         if (requestId is null)
             return GenerationResult.Failure(GenerationVerdict.Failed, $"malformed operation id '{operationId}'");
 
-        var (body, failure) = await GetAsync(
+        // the fetch path classifies the failure rather than branching on transport: a fetch that cannot be
+        // completed is a result the caller acts on now, where a poll is a question that can be asked again
+        var (body, failure, _) = await GetAsync(
             $"{Root}/{model}/{options.RequestsSegment}/{requestId}", ct).ConfigureAwait(false);
         if (failure is not null) return GenerationResult.Failure(GenerationVerdictClassifier.FromErrorText(failure), failure);
 
@@ -317,9 +326,24 @@ public sealed class FalQueueProvider(
             : (operationId[..at], operationId[(at + 1)..]);
     }
 
-    private async Task<(string? Body, string? Failure)> GetAsync(string url, CancellationToken ct)
+    /// <summary><c>Transport</c> distinguishes a failure that says NOTHING about the render from one that
+    /// says this id will never resolve. Only <see cref="PollAsync"/> cares, and it is the difference between
+    /// waiting and abandoning something already paid for.
+    ///
+    /// <para><b>The bar for terminal is high, and deliberately higher than ComfyUI's.</b> Only a <c>404</c>
+    /// — the queue saying it does not know this id — and the unconfigured pre-check are terminal.
+    /// <c>429</c>, <c>401</c>, <c>403</c>, <c>408</c> and every 5xx keep polling. This rule was first
+    /// written as "terminal unless 5xx", copied from <c>ComfyUiProvider.HistoryAsync</c>, and that copy does
+    /// not transfer: ComfyUI is a loopback server that never rate-limits, while fal is a hosted, paid,
+    /// rate-limiting API — so a single <c>429</c> would have dead-lettered a render that was still running
+    /// and already billed. A render abandoned is money gone; a render polled a few times too many is not.</para>
+    ///
+    /// <para>Nothing polls forever regardless: such a job ends by cancellation, a deadline, or the handler
+    /// returning <c>Fail</c>. The terminal arm exists for the one case where none of those would ever fire
+    /// because the id is simply unknown.</para></summary>
+    private async Task<(string? Body, string? Failure, bool Transport)> GetAsync(string url, CancellationToken ct)
     {
-        if (Unconfigured() is { } missing) return (null, missing);
+        if (Unconfigured() is { } missing) return (null, missing, false);
 
         using var lease = HttpClientLease.From(httpFactory, disposeHttpClient);
         var http = lease.Client;
@@ -330,13 +354,21 @@ public sealed class FalQueueProvider(
             using var response = await http.SendAsync(message, ct).ConfigureAwait(false);
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             return response.IsSuccessStatusCode
-                ? (body, null)
-                : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}");
+                ? (body, null, false)
+                : (null, $"{(int)response.StatusCode}: {HttpArtifacts.FailureDetail(body)}",
+                   // transport = "keep waiting". Everything EXCEPT a 404 qualifies: a rate limit, an auth
+                   // blip during a key rotation, a gateway challenge and a 5xx all say nothing about whether
+                   // the render is still running, and it is already paid for.
+                   response.StatusCode != System.Net.HttpStatusCode.NotFound);
         }
         catch (OperationCanceledException) { throw; }
+        catch (HttpRequestException ex)
+        {
+            return (null, ex.Message, true);   // never reached the queue — says nothing about the render
+        }
         catch (Exception ex)
         {
-            return (null, ex.Message);
+            return (null, ex.Message, false);
         }
     }
 

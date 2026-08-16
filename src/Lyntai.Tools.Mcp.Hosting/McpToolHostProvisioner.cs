@@ -11,7 +11,8 @@ namespace Lyntai.Tools.Mcp.Hosting;
 /// no args, dialect never consulted), so the CLI runs exactly as before.
 /// </summary>
 internal sealed class McpToolHostProvisioner(
-    IEnumerable<ITool> tools, IMcpCliDialect dialect, McpToolHostOptions options) : ICliToolProvisioner
+    IEnumerable<ITool> tools, IMcpCliDialect dialect, McpToolHostOptions options,
+    Lyntai.Guards.IGuardRail? guards = null) : ICliToolProvisioner
 {
     public async Task<CliToolSession> ProvisionAsync(CancellationToken ct = default)
     {
@@ -19,7 +20,9 @@ internal sealed class McpToolHostProvisioner(
         if (toolList.Count == 0) return new CliToolSession([]);
 
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)); // per-host bearer
-        var host = await McpToolHost.StartAsync(toolList, token, options, ct).ConfigureAwait(false);
+        // the rail travels with the tools: this host is a second door onto the same instances the in-process
+        // tool loop runs, and a guard enforced on one door only is not enforced
+        var host = await McpToolHost.StartAsync(toolList, token, options, guards, ct).ConfigureAwait(false);
 
         // every path the dialect asks for is tracked HERE, so cleanup can't be forgotten by a dialect
         var tempFiles = new List<string>();

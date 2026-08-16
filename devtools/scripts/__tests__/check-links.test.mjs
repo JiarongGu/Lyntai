@@ -9,7 +9,9 @@
 // A guard whose failure mode is a false PASS cannot be validated by running it, which is why the negative
 // cases below matter as much as the positive one (TASKS.md Part 60).
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { PATH_PATTERN, checkLinks, trackedFiles } from '../check-links.mjs';
 import { git, makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
@@ -229,6 +231,46 @@ describe('check-links — a reference naming the WRONG record for a Part', () =>
     assert.equal(code, 0);
   });
 
+  it('catches a Part reference that WRAPS across two lines', () => {
+    // Found 2026-08-15. The Part half matched one line at a time, while check-docs and check-counts both
+    // build a soft-joined two-line window and check-docs' own comment generalises the lesson — "the unit
+    // you match must be the unit the claim is written in… worth carrying to any future text gate". This
+    // gate was written THREE DAYS after that comment and did not carry it.
+    //
+    // These documents wrap at ~110 columns and a Part reference spans a backtick, a filename and a bold
+    // marker, so it is among the likeliest claims to straddle a break — which is exactly what had happened
+    // to the design contract's own "TASKS.md\n**Part 40**", a Part that had long since been archived.
+    const { code, out } = run({
+      ...records,
+      'README.md': 'that rule is the open call — `TASKS.md`\n**Part 53** — and must not be revisited.\n',
+    });
+
+    assert.equal(code, 1, 'a wrapped reference names the wrong record just as loudly as an unwrapped one');
+    assert.match(out, /Part 53/);
+  });
+
+  it('counts a Part declared as a LIST ITEM, not only as a heading', () => {
+    // The archive files some closed work as `- [x] **Part N — …**` rather than a heading. Reading headings
+    // only made those Parts invisible to the record scan, so a correct reference to one would be reported
+    // as "in NEITHER record" — a false positive that in practice CANCELLED the false negative above, since
+    // the one live defect happened to be both wrapped and bullet-declared.
+    const { code } = run({
+      'TASKS.md': '## Part 70 — still open\n',
+      'docs/task-archive.md': '- [x] **Part 41 — closed as a list item.**\n',
+      'README.md': 'see `docs/task-archive.md` Part 41.\n',
+    });
+
+    assert.equal(code, 0, 'a bullet-declared Part must count as present');
+  });
+
+  it('still reports a Part that is declared NOWHERE, in either shape', () => {
+    // The control for the two above: widening what counts as a declaration must not make the check vacuous.
+    const { code, out } = run({ ...records, 'README.md': 'see `docs/task-archive.md` Part 99.\n' });
+
+    assert.equal(code, 1);
+    assert.match(out, /NEITHER/i);
+  });
+
   it('leaves a bare "Part N" with no record named alone', () => {
     // Prose says "Part 53" constantly without claiming which file holds it. Only a reference that NAMES a
     // record makes a checkable claim; flagging the rest would be the crying-wolf failure check-docs' own
@@ -240,5 +282,119 @@ describe('check-links — a reference naming the WRONG record for a Part', () =>
   it('honours `link-ok`, the same annotation the path half uses', () => {
     const { code } = run({ ...records, 'README.md': 'was `TASKS.md` Part 53 <!-- link-ok: quoting the entry as written -->\n' });
     assert.equal(code, 0);
+  });
+});
+
+describe('check-links — fail-closed on an empty scan', () => {
+  it('an empty listing FAILS rather than printing a tick', () => {
+    // check-api-vocabulary's rule, which this gate was missing until 2026-08-15. It shares check-docs' scope
+    // predicates, so one broken predicate disarms BOTH gates at once — the divergence sharing them was meant
+    // to prevent, arriving from the direction sharing cannot help with.
+    const log = recorder();
+    assert.equal(checkLinks('/nowhere', noAllowances, log, []), 1);
+    assert.match(log.text(), /found no maintained documents/);
+    assert.match(log.text(), /proves nothing/);
+  });
+
+  it('a caller-supplied list with no maintained doc in it still PASSES', () => {
+    // The other direction: a commit touching only `src/` legitimately has nothing to check, so zero
+    // survivors is only an indictment on the full-tree path.
+    const { code, out } = run({ 'src/a.cs': '// nothing to see\n' });
+    assert.equal(code, 0, out);
+  });
+});
+
+describe('check-links — the CODE tiers (Part 72)', () => {
+  it('a dead docs/ reference inside an XML doc comment is caught', () => {
+    // The tier that SHIPS: `///` content is compiled into the .xml doc file consumers read, and the
+    // compiler resolves `<see cref>` only — a path in prose is invisible to it.
+    const { code, out } = run({
+      'README.md': 'intro\n',
+      'src/Lyntai.Core/Thing.cs': '/// <remarks>Measured in docs/2026-08-09-gone.md.</remarks>\npublic class Thing;\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /src\/Lyntai\.Core\/Thing\.cs:1/);
+  });
+
+  it('a dead docs/ reference in an ORDINARY `//` comment is caught too', () => {
+    // Measured, and it reverses the scope entry's own hypothesis. Part 72 expected `//` comments to be
+    // where false positives live ("a code comment is the one place a reference to something that no longer
+    // exists is often CORRECT"). Replaying the pre-repair tree found the opposite: all three dead
+    // references that a `///`-only rule would have missed were in `//` comments and all three were REAL,
+    // while every false positive sat in a guard script naming a FIXTURE. So the line is drawn at the
+    // TARGET (documents move) rather than at the comment style.
+    const { code, out } = run({
+      'README.md': 'intro\n',
+      'tests/Lyntai.Tests/AThing.cs': 'class X {\n  // on the strength of docs/2026-08-09-gone.md\n}\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /AThing\.cs:2/);
+  });
+
+  it('a reference to a SOURCE path is NOT checked in code — only documents move', () => {
+    // pitfalls.md records an existence check over prose returning ~45 hits and zero defects. That came
+    // from checking every path: source files are renamed for legitimate reasons and a comment describing
+    // the old shape is correct. Documents are the case this gate exists for, so only `docs/` is checked.
+    const { code, out } = run({
+      'README.md': 'intro\n',
+      'src/Lyntai.Core/Thing.cs': '// see src/Lyntai.Core/Gone.cs for the old shape\npublic class Thing;\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('a live docs/ reference in code passes', () => {
+    const { code, out } = run({
+      'README.md': 'intro\n',
+      'docs/memory.md': '# memory\n',
+      'src/Lyntai.Core/Thing.cs': '/// See docs/memory.md.\npublic class Thing;\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('a NON-comment line in code is not scanned — a string literal is data, not a reference', () => {
+    const { code, out } = run({
+      'README.md': 'intro\n',
+      'src/Lyntai.Core/Thing.cs': 'var p = "docs/2026-08-09-gone.md";\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('the guard-script fixture tree is skipped — its paths are synthetic by design', () => {
+    const { code, out } = run({
+      'README.md': 'intro\n',
+      'devtools/scripts/__tests__/x.test.mjs': "// makeTree({'docs/2026-08-09-gone.md': ''})\n",
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('`link-ok` works in code exactly as it does in prose', () => {
+    const { code, out } = run({
+      'README.md': 'intro\n',
+      'devtools/scripts/g.mjs': '// the fixture is docs/灵台.md — never a real file link-ok\n',
+    });
+    assert.equal(code, 0, out);
+  });
+});
+
+describe('check-links — the code tier is actually covered on the real tree', () => {
+  it('scans a substantial number of code files, and says so on a PASSING run', async () => {
+    // This stands in for the fail-closed guard the code half deliberately does not have (see the note in
+    // check-links.mjs). The filter has intentional exclusions, so "zero survivors" cannot be distinguished
+    // from "nothing to scan" inside the gate — but it can be pinned from outside, against the real tree.
+    // The REAL config, not `noAllowances`: the tree has one legitimate allowance (a superseded plan that
+    // names its original file layout on purpose), and running without it reports 29 hits that the shipped
+    // gate does not.
+    const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+    const config = (await import('../../project.config.mjs')).default;
+    const log = recorder();
+    checkLinks(repo, config, log);
+
+    // The COUNT, not the exit code. Asserting exit 0 would make this test fail whenever the tree happens to
+    // hold a dangling reference — which is `verify`'s job to report, from check-links itself, with the
+    // offending path named. Measured 2026-08-15: archiving three Parts left one stale reference in
+    // `docs/memory.md`, and the over-assertion turned that into a red GUARD-SCRIPT suite, pointing the
+    // reader at the harness instead of at the document. This test's claim is only that the tier is scanned.
+    const scanned = Number((log.text().match(/\+ (\d+) code file\(s\)/) ?? [])[1]);
+    assert.ok(scanned > 100, `expected the code tier to be covered; the run reported ${scanned}`);
   });
 });

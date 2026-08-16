@@ -106,7 +106,7 @@ internal static class MemoryReinforcementSweep
                 "reinforcement",
                 new SqliteMemoryGraphStore(db.Factory),
                 options: graphOptions,
-                policy: new ModulatedRetrievability(arm.Curve, retentionPolicies),
+                retrievability: new ModulatedRetrievability(arm.Curve, retentionPolicies),
                 agePolicies: [agePolicy],
                 ranking: rrf);
 

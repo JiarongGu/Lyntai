@@ -14,6 +14,8 @@ public sealed record ReciprocalRankFusionOptions
     private readonly double _retrievabilityWeight = 1;
     private readonly double _salienceWeight = 1;
     private readonly double _hopWeight = 1;
+    // 0 = off. Unmeasured, so it ships inert — see DiagnosticityWeight's own remarks.
+    private readonly double _diagnosticityWeight;
     private readonly double _relativeFloor = 0;
 
     /// <summary>The fusion constant, added to every rank before it is inverted. <c>60</c> — the default here
@@ -103,6 +105,56 @@ public sealed record ReciprocalRankFusionOptions
     {
         get => _hopWeight;
         init => _hopWeight = GuardWeight(value, nameof(HopWeight));
+    }
+
+    /// <summary>How much a candidate's DIAGNOSTICITY counts — its <see cref="GraphNode.Degree"/>, ranked
+    /// ASCENDING, so a node with few connections outranks an otherwise identical hub. <b>Defaults to 0
+    /// (off)</b>, like <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/> before it: the term
+    /// contributes exactly zero when unset, so adding it to the registered default policy changed no
+    /// existing arm.
+    ///
+    /// <para><b>This is ACT-R's fan effect</b>, and it was missing entirely — nothing anywhere consulted
+    /// <see cref="GraphNode.Degree"/>, so a node with fifty neighbours spread exactly as much as a node with
+    /// one. Anderson's declarative-memory model has the association strength <c>S_ji</c> fall as cue <c>j</c>
+    /// gains associates, and this engine BUILDS hubs on purpose — subject annotation exists to produce shared
+    /// handles, and <c>GraphMemoryOptions.AnnotationKnownSubjects</c> offers the model 24 of them by
+    /// default.</para>
+    ///
+    /// <para><b>Adopt it for the information-theoretic argument, not the biomimetic one.</b> A node adjacent
+    /// to everything discriminates nothing — the same reasoning that makes an inverse document frequency
+    /// useful, arrived at from the other direction. This library is not trying to be a cognitive model, and
+    /// "human memory does it" would be a bad reason on its own; §2.1 of the 2026-08-15 research review
+    /// records both arguments so a later reader can weigh them separately.</para>
+    ///
+    /// <para><b>MEASURED 2026-08-15, and the measurement REFUSED it. The default stays 0.</b>
+    /// <c>node devtools/dev.mjs memory-fan</c>, 20 seeds × 4 shapes. On <c>topical</c> the damage is cleanly
+    /// monotonic in the weight — miss <c>0.059 → 0.064 → 0.131 → 0.320</c> at weights 0 / 0.5 / 1 / 2 — and
+    /// on <c>critical-rare</c> the response is non-monotonic (<c>0.275 → 0.536 → 0.190 → 0.509</c>), which
+    /// reads as noise rather than signal. Nothing here supports switching it on.</para>
+    ///
+    /// <para><b>Why it fails HERE, which is the part worth keeping.</b> The fan effect assumes degree is a
+    /// measure of how INDISCRIMINATE a node is. In this engine most edges come from CO-ACTIVATION — the
+    /// engine links whatever a recall returned together — so degree also measures how OFTEN AN ENTRY HAS
+    /// BEEN USEFUL. Penalising it therefore penalises exactly the entries a caller keeps coming back to,
+    /// which is the opposite of the intent. The mechanism is not wrong; the proxy is, in a graph built this
+    /// way. This confound was named in the sweep's own NOT-swept block BEFORE the run, so it is a prediction
+    /// that held rather than an explanation fitted afterwards.</para>
+    ///
+    /// <para><b>When it might still earn its keep</b>, stated so the option is not merely dead weight: a
+    /// deployment whose edges come predominantly from SUBJECT ANNOTATION rather than co-activation has a
+    /// degree that means "shares a handle with many things" and not "has been recalled a lot" — the
+    /// condition ACT-R's fan effect actually describes. That is a different measurement
+    /// (annotation-on versus annotation-off), and it is why this ships as a knob at zero rather than being
+    /// deleted.</para>
+    /// <para>Domain and failure mode identical to <see cref="RelevanceWeight"/>: FINITE and <c>&gt;= 0</c>.
+    /// A negative weight would invert the signal and promote hubs, which is the opposite of the point.</para>
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set to a negative value or a non-finite value
+    /// (<c>NaN</c>, <c>+Infinity</c>, or <c>-Infinity</c>).</exception>
+    public double DiagnosticityWeight
+    {
+        get => _diagnosticityWeight;
+        init => _diagnosticityWeight = GuardWeight(value, nameof(DiagnosticityWeight));
     }
 
     /// <summary>How far below the STRONGEST candidate's score an entry may fall before this policy drops it,
@@ -216,17 +268,23 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
     /// list the properties.</summary>
     /// <exception cref="ArgumentException">Every one of <see cref="ReciprocalRankFusionOptions.RelevanceWeight"/>,
     /// <see cref="ReciprocalRankFusionOptions.RetrievabilityWeight"/>,
-    /// <see cref="ReciprocalRankFusionOptions.SalienceWeight"/> and
-    /// <see cref="ReciprocalRankFusionOptions.HopWeight"/> is zero.</exception>
+    /// <see cref="ReciprocalRankFusionOptions.SalienceWeight"/>,
+    /// <see cref="ReciprocalRankFusionOptions.HopWeight"/> and
+    /// <see cref="ReciprocalRankFusionOptions.DiagnosticityWeight"/> is zero.</exception>
     private static ReciprocalRankFusionOptions Validated(ReciprocalRankFusionOptions options)
     {
+        // DiagnosticityWeight joined this list when it was added (2026-08-15). The guard's subject is "does
+        // ANY signal contribute", so a new signal that is not listed makes the guard WRONG in the refusing
+        // direction — it would reject a perfectly coherent diagnosticity-only configuration. A weight added
+        // to the score without being added here is the mirror defect, and just as silent: the guard would
+        // pass while the score was still identically zero.
         if (options.RelevanceWeight <= 0 && options.RetrievabilityWeight <= 0 &&
-            options.SalienceWeight <= 0 && options.HopWeight <= 0)
+            options.SalienceWeight <= 0 && options.HopWeight <= 0 && options.DiagnosticityWeight <= 0)
             throw new ArgumentException(
                 "ReciprocalRankFusionOptions must set at least one of RelevanceWeight, RetrievabilityWeight, " +
-                "SalienceWeight or HopWeight above zero — with all four at zero every candidate scores " +
-                "exactly 0 and ordering falls entirely to the id tiebreak, a silent failure rather than a " +
-                "loud one.", nameof(options));
+                "SalienceWeight, HopWeight or DiagnosticityWeight above zero — with all five at zero every " +
+                "candidate scores exactly 0 and ordering falls entirely to the id tiebreak, a silent failure " +
+                "rather than a loud one.", nameof(options));
         return options;
     }
 
@@ -255,6 +313,11 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
         // that ranks ascending. See ReciprocalRankFusionOptions.HopWeight's own doc for why this is a
         // deliberate deviation from the design spec's three-signal list rather than an oversight.
         var hopRank = RankPositions(rankable, static c => (double)c.Hop, ascending: true);
+        // Degree ranks ASCENDING for the same reason hop does: it is a count to be small, not a strength to
+        // be large. A node adjacent to everything discriminates nothing (ACT-R's fan effect), and degree 0 —
+        // an entry that reached the set on its own textual merits with no hub inflating it — is therefore the
+        // most diagnostic rather than a case to exclude.
+        var diagnosticityRank = RankPositions(rankable, static c => (double)c.Node.Degree, ascending: true);
 
         var scored = new List<RankedMemory>(rankable.Count);
         for (var i = 0; i < rankable.Count; i++)
@@ -263,7 +326,8 @@ public sealed class ReciprocalRankFusionPolicy(ReciprocalRankFusionOptions? opti
                 _options.RelevanceWeight / (_options.K + relevanceRank[i]) +
                 _options.RetrievabilityWeight / (_options.K + retrievabilityRank[i]) +
                 _options.SalienceWeight / (_options.K + salienceRank[i]) +
-                _options.HopWeight / (_options.K + hopRank[i]);
+                _options.HopWeight / (_options.K + hopRank[i]) +
+                _options.DiagnosticityWeight / (_options.K + diagnosticityRank[i]);
             // The shared post-hoc guard, and NOT because this formula is shaped like the multiplicative one.
             // An earlier version of this method argued the sum was finite by construction — true at the
             // shipped weights, false in general: every weight is validated finite and >= 0 with NO upper

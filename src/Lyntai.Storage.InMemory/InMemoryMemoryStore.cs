@@ -65,18 +65,29 @@ public sealed class InMemoryMemoryStore(LyntaiOptions options, Func<DateTimeOffs
                     && (scope is null || e.Scope == scope)
                     && (e.ExpiresAt is null || e.ExpiresAt > now));
 
+                IReadOnlyList<string> terms = [];
                 if (!string.IsNullOrWhiteSpace(query))
                 {
                     // Term-wise, via the shared split, so a multi-word recall finds the same entries here as
                     // on the SQL backends. An empty term list means the query was too short to yield one, and
                     // the whole-query substring test it always had still applies.
-                    var terms = SearchTerms.SubstringTerms(query);
+                    terms = SearchTerms.SubstringTerms(query);
                     candidates = terms.Count == 0
                         ? candidates.Where(e => e.Content.Contains(query.Trim(), StringComparison.OrdinalIgnoreCase))
                         : candidates.Where(e => terms.Any(t => e.Content.Contains(t, StringComparison.OrdinalIgnoreCase)));
                 }
 
-                var ordered = candidates.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).Take(take).ToList();
+                // MATCHED-TERM COUNT leads, then recency — the ordering IMemoryStore.RecallAsync documents
+                // for this backend and both SQL stores implement. Ordering by recency alone meant a LIMIT
+                // returned different ENTRIES here than on SQLite/Postgres for the same query: an entry
+                // matching one term could displace one matching every term simply by being newer. With no
+                // query every count is 0, so this collapses to the documented "most recent first".
+                var ordered = candidates
+                    .OrderByDescending(e => SearchTerms.MatchCount(e.Content, terms, query))
+                    .ThenByDescending(e => e.CreatedAt)
+                    .ThenByDescending(e => e.Id)
+                    .Take(take)
+                    .ToList();
 
                 if (touch && ordered.Count > 0) // LRU: mark the recalled entries as recently used
                 {

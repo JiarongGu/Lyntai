@@ -222,6 +222,14 @@ public sealed class JobRunner(
                 ok = await _store.CompleteAsync(job.Id, _workerId, ct).ConfigureAwait(false);
                 label = "succeeded";
                 break;
+            case JobOutcome.Kind.Poll:
+                // Deliberately NOT bounded by MaxAttempts — that bound exists to stop a failing job repeating
+                // forever, and a poll is not a failure. PollAgainAsync un-counts the claim's increment, so a
+                // long-running operation is limited by cancellation, a deadline, or the handler saying Fail.
+                ok = await _store.PollAgainAsync(job.Id, _workerId,
+                    _clock() + (outcome.RetryDelay ?? Opts.RetryBackoff), ct).ConfigureAwait(false);
+                label = "poll";
+                break;
             case JobOutcome.Kind.Retry when job.Attempts < job.MaxAttempts:
                 ok = await _store.FailAsync(job.Id, _workerId, error ?? "retrying",
                     _clock() + (outcome.RetryDelay ?? Opts.RetryBackoff), ct).ConfigureAwait(false);

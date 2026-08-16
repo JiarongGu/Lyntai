@@ -38,8 +38,14 @@ public sealed class CodexCliDialect : CliProviderDialectBase
     /// <summary><c>codex exec --json ... -</c>: non-interactive, JSONL events on stdout, prompt from stdin.
     /// Built by <see cref="CodexExecArgs"/>, shared with <see cref="CodexAgentSession"/> so a flag (notably
     /// <c>--skip-git-repo-check</c>) can never go missing from one of the two paths.</summary>
-    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest request) =>
-        CodexExecArgs.Build(SandboxMode, request.Model);
+    /// <remarks>The tool-host args are handed to <see cref="CodexExecArgs"/> as <c>extraOptions</c> rather
+    /// than appended, because this argv ENDS in the <c>-</c> stdin positional: anything after it is read as
+    /// prompt text, and on this CLI a swallowed flag is a spent turn rather than an error. The agent path
+    /// has always placed its MCP args this way; the completion path could not until the dialect seam
+    /// carried them.</remarks>
+    public override IReadOnlyList<string> BuildCompletionArgs(
+        LlmRequest request, IReadOnlyList<string> toolHostArgs) =>
+        CodexExecArgs.Build(SandboxMode, request.Model, toolHostArgs);
 
     /// <inheritdoc/>
     public override CliOutputEvent ParseLine(string line) => CodexJsonlParser.Parse(line);

@@ -103,6 +103,57 @@ public class FalQueueProviderTests
     }
 
     [Fact]
+    public async Task A_4xx_while_polling_is_TERMINAL_rather_than_polled_forever()
+    {
+        // The sibling of the test above, and the case it was silently covering. Every GetAsync failure —
+        // 4xx, 5xx, unconfigured, transport — was reported as Running, so an id fal will never resolve was
+        // polled every 15 seconds for the life of the job: never dead-lettered, never failed, never
+        // completed, with the reason sitting in Detail where nothing acts on it. ComfyUiProvider reasons
+        // about exactly this case and answers the opposite way, in writing: "A 4xx or an unconfigured
+        // BaseUrl IS terminal — that id will never resolve, and polling it forever strands the job."
+        var (provider, http) = Provider();
+        http.Enqueue(HttpStatusCode.NotFound, "{\"detail\":\"request not found\"}");
+
+        var operation = await provider.PollAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Contains("not found", operation.Detail);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests)]   // fal rate-limits its queue endpoints
+    [InlineData(HttpStatusCode.Unauthorized)]      // a key rotation in flight
+    [InlineData(HttpStatusCode.Forbidden)]         // a WAF/CDN challenge
+    [InlineData(HttpStatusCode.RequestTimeout)]
+    public async Task A_retryable_status_while_polling_keeps_an_already_paid_render_alive(HttpStatusCode status)
+    {
+        // Round 2 of this review caught the first version classifying "terminal unless 5xx", copied from
+        // ComfyUiProvider — where it is right, because ComfyUI is a loopback server that never rate-limits.
+        // fal is a hosted, paid, rate-limiting API: under that rule ONE 429 dead-lettered a render that was
+        // still running and already billed, because the job handler turns Failed into JobOutcome.Fail.
+        // Only a 404 (this id will never resolve) and the unconfigured pre-check are terminal now.
+        var (provider, http) = Provider();
+        http.Enqueue(status, "{\"detail\":\"slow down\"}");
+
+        var operation = await provider.PollAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(GenerationOperationStatus.Running, operation.Status);
+    }
+
+    [Fact]
+    public async Task An_unconfigured_backend_polling_is_TERMINAL_rather_than_polled_forever()
+    {
+        // The worst shape of the same bug: an operator rotates the key out of configuration and every
+        // in-flight durable render polls "not configured: BaseUrl and ApiKey are both required" forever.
+        var (provider, _) = Provider(new FalQueueOptions { BaseUrl = "https://queue.fal.run", ApiKey = null });
+
+        var operation = await provider.PollAsync("fal-ai/wan-t2v#req-123");
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Contains("not configured", operation.Detail);
+    }
+
+    [Fact]
     public async Task A_fetch_finds_the_output_url_whatever_the_model_calls_it()
     {
         var (provider, http) = Provider();

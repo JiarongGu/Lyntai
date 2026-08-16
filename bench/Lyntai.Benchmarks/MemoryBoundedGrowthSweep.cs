@@ -111,7 +111,7 @@ internal static class MemoryBoundedGrowthSweep
                 "bounded",
                 new SqliteMemoryGraphStore(db.Factory),
                 options: graphOptions,
-                policy: new ModulatedRetrievability(arm.Curve, retention),
+                retrievability: new ModulatedRetrievability(arm.Curve, retention),
                 agePolicies: [agePolicy],
                 ranking: rrf);
 

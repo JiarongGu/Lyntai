@@ -60,9 +60,26 @@ export const trackedFiles = (repo) =>
   execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
 
 export function checkEncoding(repo, log = console.log, files = null) {
-  const candidates = (files ?? trackedFiles(repo))
+  const source = files ?? trackedFiles(repo);
+  const candidates = source
     .filter((f) => SCANNED.test(f))
     .filter((f) => !EXCLUDED.includes(f.replace(/\\/g, '/')));
+
+  // Fail-closed: a gate that scanned nothing must never print a tick (check-api-vocabulary's rule, which
+  // this gate was missing). It matters more here than anywhere: this gate's whole premise is that mojibake
+  // is invisible to every OTHER check, so a false pass is unrecoverable in the same way check-sensitive's
+  // rename blind spot was.
+  //
+  // TWO ways a run scans nothing, and only one of them is always wrong. An empty SOURCE is a broken listing
+  // whoever supplied it — the exact shape that let check-sensitive skip every renamed file. Zero CANDIDATES
+  // from a full tree means the text filter rejected everything, which this repository cannot legitimately
+  // produce; from a caller-supplied list it is ordinary (a commit touching only binaries), so that half is
+  // checked on the tree path alone.
+  if (source.length === 0 || (files === null && candidates.length === 0)) {
+    log('check-encoding: ✗ found no tracked text files to scan');
+    log('  Nothing was scanned, so this gate proves nothing — check the repo root and the file listing.');
+    return 1;
+  }
 
   const hits = [];
   for (const file of candidates) {

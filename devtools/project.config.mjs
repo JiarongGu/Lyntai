@@ -236,6 +236,68 @@ export default {
         + '§Naming records that the tree contains zero `Dto` identifiers and that this is worth keeping; '
         + '`retiredTerms` already fences the prose, and this fences the surface the prose describes',
     },
+    {
+      // The 2026-08-15 pre-3.0 review's renames. Registered WITH the renames, so this entry and the surface
+      // it guards land together — the discipline the `Appraise` entry above records paying for.
+      //
+      // WHAT IS AND IS NOT HERE, because the gap is the interesting part. Whole-identifier equality can
+      // only ban a name that is dead EVERYWHERE, so a rename whose old spelling survives elsewhere — on a
+      // different type, for a different thing — is unregisterable by construction. Measured against the
+      // baselines at the time of the rename:
+      //
+      //   registerable (0 live occurrences): Reserve, task
+      //   NOT registerable:  AuthoritativeReserve (1 — the GraphMemoryOptions SLOTS member, which keeps
+      //                      its name and is correct), policy (7), Strength (6 — GraphNode/MemoryDecayState),
+      //                      candidates (19 — GenerationCandidate parameters throughout)
+      //
+      // `AuthoritativeReserve` is the sharpest rename in the group and the one this cannot guard: it named
+      // TWO quantities in the SAME namespace in different UNITS — recall SLOTS on `GraphMemoryOptions`,
+      // prompt CHARACTERS on `MemoryCompositionOptions` — both reachable from one builder chain. Banning
+      // the identifier would fail the build on the member that legitimately kept it. Banning `Reserve`
+      // is what closes the practical hole: that was the only way to SET the characters one.
+      names: [
+        'EnsureEachBitIsSingleRealAndUnique',
+        'IProviderInstallation',
+        'SummedAgeComposition',
+        'MultiplicativeRetentionComposition',
+        'MaximalSalienceComposition',
+        'Reserve',
+        'task',
+      ],
+      use: '`ValidateProvenanceBits`, `IProviderProbe`, and the three composition policies with the '
+        + '`Policy` suffix their own interfaces and every sibling seam carry',
+      why: 'EnsureEachBitIsSingleRealAndUnique was an assertion-shaped, ungrammatical name on frozen '
+        + 'surface, beside three siblings called Fits/Pack/Unpack. IProviderInstallation declares a single '
+        + 'ProbeAsync and installs nothing — one word from IProviderVersionInstaller, which does — and the '
+        + 'documented use is a capability type-test, so the NAME is the whole API for a reader choosing '
+        + 'between them. The three *Composition implementations dropped the suffix that every other policy '
+        + 'in the seven memory domains carries, so a reader scanning the surface could not tell '
+        + 'MultiplicativeRetentionComposition was a policy while MultiplicativeRankingPolicy was',
+    },
+    {
+      // Method names on the two composition seams. Separate entry because the reason is the RULE rather
+      // than any one identifier: both were named for the ACT while returning something the domain already
+      // has a word for — the exact convention the `Appraise` entry above settled, applied to the seams
+      // created in the same window and missed by it.
+      names: ['Compose'],
+      allow: [
+        {
+          signature: 'static Compose(IEnumerable<CuratedMemory> entries, Func<String,String> header = null, '
+            + 'String bullet = "- ", String taskKey = null, IEnumerable<String> scopes = null) : String',
+          why: 'CuratedMemorySections.Compose is NOT a policy-seam method and the rule above does not reach '
+            + 'it: composing is genuinely what it DOES — it renders catalog entries into prose sections — '
+            + 'and it returns a bare String, which is not a domain noun the seam convention could name it '
+            + 'for. Its sibling MemoryComposition.ComposeAsync uses the same verb for the same act. The '
+            + 'convention retired is "named for the act rather than the RETURN"; here the act is the thing',
+        },
+      ],
+      use: '`IMemoryRetentionCompositionPolicy.StabilityFactor` and '
+        + '`IMemorySalienceCompositionPolicy.Signals` — named for what they RETURN',
+      why: 'D48 gave each plural domain a composition policy, and two of the three were named for the act '
+        + 'while the age one (Advance/Age) followed the rule. The Appraise entry above states the pattern: '
+        + 'every seam method in this domain is named for what it returns. These two were created in the '
+        + 'same window as that ruling and did not inherit it',
+    },
   ],
 
   /**
@@ -413,8 +475,11 @@ export default {
       // GraphMemoryOptions.cs, all fixed by hand the same review) — see the module doc above for why `src/`
       // is out of this gate's scope; those four sites need their own eyes on the next touch.
       term: 'DsrRetrievability[^.]{0,80}available,? (?:but )?not (?:the )?default'
-        + '|HalfLifeRetrievability \\(the exponential curve,? the default\\)'
-        + '|HalfLifeRetrievability (?:ships|is available|remains available|one line away'
+        // wildcard gaps, not literal spaces — this rule fences a DELETED type, so a form it cannot match is
+        // worse than for a merely-demoted one: there is no forward name to migrate to. Dead since written,
+        // measured 2026-08-14 alongside the two entries above.
+        + '|HalfLifeRetrievability[^.\\n]{0,3}\\(the exponential curve,? the default\\)'
+        + '|HalfLifeRetrievability[^.\\n]{0,3}(?:ships|is available|remains available|one line away'
         + '|remains the (?:unchanged )?default)',
       use: '`DsrRetrievability` is the ONLY shipped forgetting curve as of 3.0 '
         + '(`MemoryEngineRegistration.AddMemoryEngine`, and a bare-constructed `GraphMemoryEngine` now '
@@ -432,7 +497,11 @@ export default {
       // fix-round review (2026-08-10, the same task that deleted the curve) found this exact shape in
       // docs/2026-07-17-lyntai-design.md's own §5.7 ("`.Forgetting` now ships two…") and fixed it by hand;
       // this entry is what stops it recurring, the same precedent as the two entries above it.
-      term: '\\.Forgetting (?:now )?ships two|Forgetting domain ships two (?:curves|implementations)'
+      // The gap after the identifier is a WILDCARD, not a literal space — measured 2026-08-14: with a literal
+      // space this rule could never fire on `.Forgetting` now ships two…, the backticked form its own comment
+      // below quotes as the motivating sentence, and which is the only form this repository's prose uses. It
+      // had been dead since the day it was written. Same repair as the Multiplicative entry above.
+      term: '\\.Forgetting[^.\\n]{0,3}(?:now )?ships two|Forgetting[^.\\n]{0,3}domain ships two (?:curves|implementations)'
         + '|two (?:shipped|forgetting) curves\\b(?!.{0,120}(?:through 2\\.5|deleted|2026-08-10))'
         // Added 2026-08-11: CHANGELOG.md's live prefix said "Both shipped curves compute…", counting a
         // DELETED curve as shipped, and no alternative above matched it — the count was spelled as a word,
@@ -482,10 +551,20 @@ export default {
       // back as the default" is a correct instruction, and an `as` alternative fired on exactly that line in
       // the migration guide on this entry's first run. The claim form "ships/registers X as the default" is
       // covered by its own alternative below, which cannot match a restore sentence.
+      // 2026-08-14: widened after the whole-codebase review found CLAUDE.md's NAMESPACE MAP saying
+      // "`IMemoryRankingPolicy`, default `MultiplicativeRankingPolicy`" — the claim written as a NOUN PHRASE
+      // (default X) rather than a sentence (X is the default), which every alternative here assumed. All five
+      // required the type to precede the word "default", so the gate reported the file clean for the whole
+      // window in which its most-read reference block taught the wrong default. The lesson generalises past
+      // this entry and is why the others were audited in the same pass: a rule must match the CLAIM in every
+      // order it is writable, not the one sentence someone had in mind.
       term: '(?:Multiplicative(?:RankingPolicy)?)[^.\\n]{0,60}\\b(?:is|remains|stays)\\b'
         + '[^.\\n]{0,40}\\b(?:the )?(?:registered |shipped |current )?default'
         + '|(?:ships|registers|registered) `?MultiplicativeRankingPolicy`? as (?:the )?default'
         + '|default(?:s)? to (?:the )?`?MultiplicativeRankingPolicy'
+        // the noun-phrase order, in both directions: "default `X`" and "the ranking default is `X`"
+        + '|(?:^|[^a-zA-Z])default,? `?MultiplicativeRankingPolicy'
+        + '|(?:ranking )?default[^.\\n]{0,20}\\bis\\b[^.\\n]{0,20}`?MultiplicativeRankingPolicy'
         + '|ReciprocalRankFusionPolicy[^.\\n]{0,60}available,? (?:but )?not (?:the )?default'
         + '|RRF[^.\\n]{0,40}(?:is )?not (?:the )?default',
       use: '`ReciprocalRankFusionPolicy` is the REGISTERED default ranking policy as of 3.0; '

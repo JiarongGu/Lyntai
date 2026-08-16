@@ -21,7 +21,7 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 carve-out, the **`Lyntai.Generation` PACKAGE** (the backends), which ships EXPERIMENTAL until `TASKS.md`
 GEN-VERIFY closes.
 
-Everything through the roadmap's v0.3–v0.31 shipped (routing depth, LLM-ops, three storage backends, BYO
+The whole pre-1.0 line shipped (routing depth, LLM-ops, three storage backends, BYO
 resource seams, local GGUF, agentic tool-calling native + prompt, MCP both directions, durable jobs, the §9
 platform kit, OTel, governance decorators, semantic + curated memory, the agent-session primitive), then
 **1.0** froze the API, **1.1** generalized CLI tool-hosting, **1.2** added turn-free backend probe/auth +
@@ -31,8 +31,8 @@ made the generation backends registerable in one line each, **2.2.0** shipped th
 `MigrateUpAsync` twins (D33) and `CodexAgentSession` (D35), **2.3.0** carried the pre-release whole-library
 review that 2.2.0 shipped without (D18, D37), **2.4.0** gave an agent session the host's own MCP servers on
 either CLI backend (D38), and **2.5.0** shipped the **long-term memory subsystem**. Per-release detail is
-`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D60 — the memory subsystem is **D39–D42** and
-**D56–D59**).
+`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D66 — the memory subsystem is **D39–D41**,
+**D45–D62** and **D63**; D42–D44 are the doc and packaging decisions that landed beside it, not memory ones).
 
 **Long-term memory (2.5.0) is the newest subsystem** and the one a session is most likely to reason about
 wrongly, because it is not the three older memory surfaces: named engines resolved by name like
@@ -96,11 +96,17 @@ is NOT required is `KnownSubjectsAsync`, which defaults to an empty list.
    gained the same three + `EdgeAgeSample` — **all THREE age axes now speak one unit**, so
    `GraphMemoryOptions.EdgeHalfLife` is denominated in whatever the policies count. **The shipped
    `Accumulating` default is byte-identical on every axis.**
-9. **3.0 ships ONE memory migration**, `M202608121100_MemoryRetentionModel` — the six that landed after
-   `v2.5.0` were folded into it under D9 (none was ever released), so a fresh database applies **11**
+9. **3.0 ships ONE memory RETENTION migration**, `M202608121100_MemoryRetentionModel` — the six that landed
+   after `v2.5.0` were folded into it under D9 (none was ever released), so a fresh database applies **11**
    migrations. `M202608081215_MemoryGraph` is deliberately NOT folded in: it shipped in 2.5.0, and editing a
    migration a database has already recorded by NUMBER is silently skipped. The schema goldens, captured
    pre-squash, still match — that is the proof, not an assertion.
+   <br>**The count is 11 on SQLite and 12 on POSTGRES**, and the asymmetry is deliberate:
+   `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so recall can match an authored
+   one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
+   `headline, content` since the graph store shipped. Migrations are per-backend projects; forcing the two
+   numbers to match would mean shipping a SQLite migration that does nothing. It is its OWN migration rather
+   than a line in the retention one precisely so that one's goldens keep proving the fold.
 10. **An authoritative fact the query did not match reports `Relevance` 0 on every backend.** All three used
     to disagree and SQLite disagreed with itself (FTS path: tail; substring path: head). Admission is
     unaffected — it comes from the grade carve-out and the engine's re-admission, never from relevance.
@@ -118,7 +124,7 @@ is NOT required is `KnownSubjectsAsync`, which defaults to an empty list.
 reconstructing it from `CHANGELOG.md`, whose `## Unreleased` records each change as it landed and therefore
 contains entries later ones supersede.
 
-**The packaging rules are now gated, not remembered** — `verify` runs thirteen checks, four of them added at
+**The packaging rules are now gated, not remembered** — `verify` runs fourteen checks, four of them added at
 2.0.1 and `check-docs` added with the memory work (a doc that uses vocabulary a decision retired fails the
 build — the prose counterpart to `check-warnings`; **D42**): `check-warnings` (a warning in a published project fails the build, because an unfailed IL2026 is a
 FALSE trim promise), `check-packages` (a package must be registered in all nine registries — a missing
@@ -126,13 +132,15 @@ FALSE trim promise), `check-packages` (a package must be registered in all nine 
 grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **2733 passed / 2754 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 272/272, doc samples 63/63.
-**If you see ~99
-skips, Docker is down and the whole
+Tests/e2e green: **2923 passed / 2944 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 326/326, doc samples 74/74.
+**A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
-is worth comparing against). **Re-measure these four numbers whenever you change them** — all four had gone
+is worth comparing against). The old form of this line named a specific Docker-down figure; it is now a
+RELATION rather than a number, because Part 70 turned the Postgres contract from one test into 69 theory
+cases and any figure quoted here would be one restructure from wrong — and a wrong number is what teaches a
+reader to stop comparing. **Re-measure these four numbers whenever you change them** — all four had gone
 stale by the 3.0 pre-freeze sweep (2652/2664/12, 225, 58), and a stale baseline is worse than none here: the
 whole point is that a reader can compare, and a count that no longer matches a green run teaches them to stop
 comparing.
@@ -179,8 +187,11 @@ capability-aware seam; the CONTRACTS are in Core, the BACKENDS are the `Lyntai.G
 `Lyntai.Llm.Caching` (response cache) / `Lyntai.Llm.Budgeting` (usage budget) /
 `Lyntai.Llm.RateLimiting` (rate limiter) /
 `Lyntai.Embeddings` (embedder seam) / `Lyntai.Memory` (semantic memory + vector store; the graph-memory
-DOMAINS are `.Interference` / `.Forgetting` / `.Modulation` / `.Salience` (retention) and `.Ranking` (how a
-recall's candidates are scored and ordered — `IMemoryRankingPolicy`, default `MultiplicativeRankingPolicy`),
+DOMAINS are SEVEN: `.Interference` / `.Forgetting` / `.Modulation` / `.Salience` (retention), `.Ranking` (how
+a recall's candidates are scored and ordered — `IMemoryRankingPolicy`, default `ReciprocalRankFusionPolicy`),
+and the two MODEL-IN-THE-LOOP seams `.Annotation` / `.Verification` (both SINGULAR, both defaulting to
+**none**, which is why this list said five until 2026-08-15 — a domain nothing constructs by default is
+invisible to everything but the namespace map),
 each one seam plus its implementations AND its options — placement is by OWNERSHIP, not consumption, so a
 type a sibling domain merely depends on stays with its owner and only a type no domain owns
 (`MemoryDecayState`) sits at the root; see design §5.7) /
@@ -234,10 +245,10 @@ owned outside the deployment; `DECISIONS.md` D30) /
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate, thirteen checks stopping at the first failure:
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, fourteen checks stopping at the first failure:
   **guard tests** → build → warnings → packages → bundle → **encoding** → **docs** → **links** →
-  **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from the step list,
-  so a gate added without updating prose still names itself. Run before
+  **counts** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
+  the step list, so a gate added without updating prose still names itself. Run before
   claiming a change is complete. The guard tests run FIRST on purpose: nothing below that gate can be
   trusted if the gates themselves are broken.
 - `node devtools/dev.mjs build` — build the solution.
@@ -287,12 +298,21 @@ owned outside the deployment; `DECISIONS.md` D30) /
   prefix. Every gate reported clean; a reader found them. **A written-down rule that is still violated is a
   missing gate**, the same reasoning that produced `check-encoding`.
   It checks a reference **two ways**, because there are two ways one rots. The path half asks whether the
-  target still exists. The **Part half** asks whether a reference naming a task record (`` `TASKS.md`
+  target still exists. The **Part half** asks whether a reference naming a task record (`` `TASKS.md` <!-- link-ok: an ILLUSTRATION of the shape, not a claim about where Part 53 lives -->
   Part 53 ``) names the record that actually holds it — the path resolves and the Part exists, in the OTHER
   file, so nothing else can see it. **Archiving a task is what breaks these**, silently, for every inbound
   reference; five were live on 2026-08-14, in `CHANGELOG.md`'s Unreleased prefix and `docs/FIXES.md`. A bare
   `Part 53` with no record named is deliberately ignored — only a reference that NAMES one makes a checkable
   claim.
+  **It now scans the CODE tiers too** (Part 72, decided 2026-08-15), but narrower than the prose scan on two
+  axes: **comment lines only** (a path in a string literal is data the program uses, not a reference a reader
+  follows) and **`docs/` targets only** (source files are renamed for legitimate reasons — `pitfalls.md`
+  records an all-paths existence check returning ~45 hits and zero defects — while a moved DOCUMENT is the
+  defect this gate exists for). The entry proposed a third narrowing, `///` XML docs only, and **the
+  measurement refused it**: replaying the pre-repair tree, 9 genuine dead references lived in the code tiers,
+  an XML-only rule catches 6, and all 3 it misses were in ordinary `//` comments and all 3 were real. Its
+  hypothesis had been that `//` comments are where false positives live; every false positive was in fact a
+  guard script naming a FIXTURE, which is what `link-ok` is for. Cost: **six annotations, once.**
   **EXISTENCE only, never line numbers** — a `file.cs:123` reference rots on the next edit for entirely
   legitimate reasons, and `pitfalls.md` records line numbers rotting twice and being deleted in favour of
   names; gating them would fail every refactor for no defect. `local/**` is skipped (untracked by design).
@@ -321,6 +341,28 @@ owned outside the deployment; `DECISIONS.md` D30) /
   carrying a syntax error (so 11 samples naming nonexistent types were reported as compiling), and a type
   declared in a sample OUTRANKS the same type from a referenced assembly compilation-wide (`CS0436` is only
   a warning).
+- `node devtools/dev.mjs check-counts` — **fail if a COUNT written in prose disagrees with the tree** (part
+  of `verify`, beside `check-docs` and `check-links`). The THIRD member of that family: `check-docs` asks
+  whether a document still SAYS what a decision settled, `check-links` whether what it POINTS AT still
+  exists, this whether what it COUNTS is still true. `check-docs` structurally cannot see it — its registry
+  holds vocabulary a decision RETIRED, and a count going stale retires nothing, so the sentence stays
+  grammatical, plausible and wrong.
+  Measured cost of not having it, and it is the strongest case any gate here has: `docs/task-archive.md`
+  Part 73 found **six** corrections to a counted claim inside sixty commits, and **two more went stale during
+  the session that built the gate** — eight incidents, every one caught by a person, four of them by a person who
+  happened to be counting something else. Registry is `COUNTED_CLAIMS` in the script itself rather than
+  `project.config.mjs`, because an entry is a regex plus a FUNCTION over the tree and that file is data.
+  Line escape is **`count-ok`**, deliberately not `drift-ok` — one token silencing two unrelated gates is a
+  hole nobody can see opening, the same reasoning `link-ok` carries.
+  **Its honest limit, stated rather than discovered: it only covers counts somebody REGISTERED**, so it is a
+  gate against recurrence and not a proof that every number in the docs is right. Two rules keep the
+  registry from rotting: a claim whose pattern matches NOTHING fails (an entry that cannot expire), and a
+  counter that computes nothing is reported as a BROKEN GATE rather than as stale prose — because "fix the
+  number" is wrong advice when the counter is what failed.
+  **Every counter is pinned by a test against the real tree**, which is not ceremony: the first
+  `verify`-gate counter returned the RIGHT total from two cancelling errors (its character class could not
+  match `e2e`, and it counted the inner `['--tree']` argument array as a step). Only comparing the parsed
+  NAMES caught it — the literal case Part 73 predicted when it said a subtly-wrong counter is worse than none.
 - `node devtools/dev.mjs check-api-vocabulary` — **fail if the FROZEN public surface reintroduces a name a
   decision retired** (part of `verify`, beside `check-docs`). The two are twins: one asks whether the PROSE
   still says what a decision settled, the other asks it of the SURFACE. It exists because `check-docs`
@@ -393,16 +435,32 @@ owned outside the deployment; `DECISIONS.md` D30) /
   own prediction, and the log can only ever contain successes) — `DECISIONS.md` **D51**'s 2026-08-12
   amendment. A sensitivity curve makes no claim about the true value, so neither objection touches it. Tens of
   minutes, so out of `verify` for the same reason.
-- **Four more one-factor sweeps on that same harness**, all out of `verify` for the same cost reason, and all
-  listed here because a roster that names three of seven is how the reader learns the roster is not one (the
-  same drift `dev.mjs`'s own usage line had, fixed in 208a7ca — on `backup/pre-squash-2026-08-14`, D61):
+- **Seven more one-factor sweeps on that same harness**, all out of `verify` for the same cost reason, and
+  all listed here because a roster naming a SUBSET is how a reader learns the roster is not one (the same
+  drift `dev.mjs`'s own usage line had, fixed in 208a7ca — on `backup/pre-squash-2026-08-14`, D61). **The
+  authoritative list is `node devtools/dev.mjs` with no argument**, which derives it; every `memory-*`
+  command there is a sweep, and exactly one of them (`memory-sweep`, the 2×2) is not one-factor. This
+  paragraph said "six more … three of nine" while enumerating seven of ten, which is the drift it is
+  about — so the count is stated as a relation rather than a number:
   `memory-reinforcement` isolates law 3's
   `r`-dependence from reinforcement MAGNITUDE, which `memory-spacing`'s knob provably cannot separate;
   `memory-bounded` varies the FORM of the growth rule rather than its constants, and is what decided
   `DsrOptions.ReinforceGain` for 3.0; `memory-salience` holds enrichment constant so only salience varies —
   the first measurement of a default that ships ON for two of its three consumers; `memory-annotation`
   measures subject linking with a PERFECT annotator, so its numbers are the mechanism's CEILING rather than
-  any model's accuracy. `node devtools/dev.mjs` with no argument is the authoritative list; this section is
+  any model's accuracy. **`memory-verification`** (2026-08-15) is the same stance for the judge seam and is
+  the FIRST measurement of what a model in the loop is worth — every other figure here is model-free — and
+  **`memory-fan`** is the axis that measured ACT-R's fan effect and REFUSED it (**D62**).
+  **`memory-enrichment`** (2026-08-15) answered the oldest open question in that backlog — WHY registering an
+  embedder costs recall quality — and is the **only sweep that calls a REAL model**, EXITING rather than
+  substituting a double, because the arm it replaces was measured through a bag-of-words fake in which
+  "semantic similarity" IS word overlap. Its answer is that the two write-time mechanisms have different
+  SHAPES, which is why one number never explained it: **similarity linking is a REDISTRIBUTION** (`topical`
+  −0.30, `attribute` −0.28, `critical-rare` **+0.68**) whose aggregate looks small only because those
+  cancel, while **novelty→salience is a broad shallow cost** that turns beneficial only under high noise.
+  It needed no new API — `MinSimilarity` above 1 keeps the embed and writes no edge; a neutral salience
+  policy keeps the edges and drops novelty.
+  `node devtools/dev.mjs` with no argument is the authoritative list; this section is
   a curated one and says why each entry earns its place.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.
 - `node devtools/dev.mjs consumer-smoke` — **the release gate**: packs every package to a scratch feed under a

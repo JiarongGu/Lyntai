@@ -356,7 +356,7 @@ services.AddLyntai(cfg => cfg
     .UseSqliteStorage("app.db")
     .AddMemoryEngine("chat",    e => e.UseLexical().UseSemantic().Budget(1500))
     .AddMemoryEngine("project", e => e
-        .UseCurated("glossary").Reserve(1200)   // authoritative — exact, never decays
+        .UseCurated("glossary").ReserveCharacters(1200)   // authoritative — exact, never decays
         .UseLexical()                           // associative — recalled context
         .Budget(3000))
     .UseMemoryComposer("chat"));                // which engine backs the chat prompt
@@ -404,7 +404,7 @@ services.AddLyntai(cfg => cfg
 
 var memory = sp.GetRequiredService<IMemoryEngineFactory>().Get("project/graph");
 await memory.RememberAsync(new MemoryWrite("proj", "code",
-    "The build gate is node devtools/dev.mjs verify, which runs thirteen checks."));
+    "The build gate is node devtools/dev.mjs verify, which runs fourteen checks."));
 
 var recall = await memory.RecallAsync(new MemoryQuery("proj", "code", "gate"));
 // headlines only — Content is null until you ask for it
@@ -821,7 +821,7 @@ is itself an interface (`IKeyValueStore`, `IMemoryStore`, …) you can implement
 
 ### Backend self-maintenance: version · upgrade · pinned install · auth
 
-Four **optional** provider capabilities (`IProviderInstallation`, `IProviderUpdater`,
+Four **optional** provider capabilities (`IProviderProbe`, `IProviderUpdater`,
 `IProviderVersionInstaller`, `IProviderAuth`), so a host can show what its backend actually is, whether it
 is usable at all, and offer an upgrade — instead of hardcoding a version it will drift away from, or
 burning a turn to discover the backend isn't signed in. All are discovered by pattern-matching over the
@@ -831,7 +831,7 @@ is reported, never thrown.
 ```csharp
 foreach (var provider in serviceProvider.GetServices<ILlmProvider>())
 {
-    if (provider is not IProviderInstallation installation) continue;
+    if (provider is not IProviderProbe installation) continue;
 
     var probe = await installation.ProbeAsync(ct);   // NO completion is run: no tokens, no model call
     Console.WriteLine(probe.Available
@@ -942,7 +942,12 @@ public sealed class MyCliDialect : CliProviderDialectBase
     public override string Id => "my-cli";
     public override string DefaultCommand => "mycli";
     public override IReadOnlyList<string> CommandEnvironmentVariables => ["LYNTAI_PROVIDER_CMD", "MYCLI_CMD"];
-    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r) => ["exec", "--json"];
+    // `toolHostArgs` point this CLI at Lyntai's own MCP endpoint (empty unless you AddMcpToolHost).
+    // WHERE they go is yours to decide, because only you know your CLI's grammar: append when your argv
+    // ends in options, place them earlier when it ends in a positional — anything after a positional is
+    // read as prompt text by some CLIs, and on codex a swallowed flag costs a turn rather than erroring.
+    public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r, IReadOnlyList<string> toolHostArgs) =>
+        ["exec", "--json", .. toolHostArgs];
     public override CliOutputEvent ParseLine(string line) =>   // → Content / Result / Failure / Ignored
         MyWireFormat.Read(line);
 
@@ -958,7 +963,7 @@ has (`ClaudeCliProvider` is exactly this, and nothing else):
      {
          public override string Id => "my-cli";
          public override string DefaultCommand => "mycli";
-         public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r) => [];
+         public override IReadOnlyList<string> BuildCompletionArgs(LlmRequest r, IReadOnlyList<string> toolHostArgs) => [];
          public override CliOutputEvent ParseLine(string line) => CliOutputEvent.Ignored;
      } -->
 ```csharp
@@ -988,22 +993,18 @@ submit/poll/stream, capability and routing machinery.
 ```csharp
 services.AddLyntai(cfg => cfg
     // hosted: an OpenAI-compatible images API
-    .AddOpenAiImageProvider(new OpenAiImageOptions
-        { BaseUrl = "https://api.openai.com/v1", ApiKey = key, Model = "gpt-image-1" })
+    .AddOpenAiImageProvider(o => { o.ApiKey = key; o.Model = "gpt-image-1"; })
     // local: a Stable Diffusion WebUI on this machine
-    .AddAutomatic1111Provider(new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" })
+    .AddAutomatic1111Provider(o => { })
     .UseDefaultGenerationCandidates("openai-images", "a1111"));
 ```
 
 Each backend has an `Add*` of its own — `AddOpenAiImageProvider`, `AddAutomatic1111Provider`,
-`AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider` — and each takes an **options object**
-rather than a configure callback, because three of them are records with `required` members
-(`OpenAiImageOptions`, `Automatic1111Options`, `ComfyUiOptions`): passing the instance is what keeps
-`required BaseUrl` compiler-enforced. The other two take the same shape so every backend registers the same
-way — `FalQueueOptions` is a record whose `BaseUrl` is defaulted rather than required, and
-`LocalDiffusionOptions` is a plain class of settable properties (it has no `BaseUrl` at all — it drives a
-binary, by `BinaryPath` and `ModelPath`). `AddGenerationProvider(sp => …)` remains the BYO
-seam for a backend of your own.
+`AddComfyUiProvider`, `AddFalProvider`, `AddLocalDiffusionProvider` — and each takes a **configure
+callback**, the same shape as `AddOpenAiCompatibleProvider(id, o => …)` on the LLM side. Every option has a
+default (each backend's conventional local URL, or the vendor's API root), so a registration sets only what
+differs from it; a blank base URL reports `NotConfigured` rather than failing.
+`AddGenerationProvider(sp => …)` remains the BYO seam for a backend of your own.
 
 BYO `HttpClient` is optional on every one of the four HTTP backends — `AddLocalDiffusionProvider` takes a BYO
 `IProcessRunner` instead, because it spawns a binary and never makes a request — and Lyntai **never disposes a
@@ -1436,7 +1437,7 @@ sealed class SummarizeHandler : IJobHandler
     {
         if (ctx.Checkpoint is null) { /* step 1 … */ await ctx.SaveCheckpointAsync("fetched", ct); }
         /* step 2 (skipped-ahead on resume) … */
-        return JobOutcome.Complete;   // or JobOutcome.Retry(delay) / JobOutcome.Fail(reason)
+        return JobOutcome.Complete;   // or Retry(delay) / Fail(reason) / Poll(delay)
     }
 }
 
@@ -1502,17 +1503,22 @@ await scheduler.RunAsync(ct);   // in your IHostedService, alongside runner.RunA
 ## Dev loop
 
 ```
+node devtools/dev.mjs verify           # THE "am I done?" gate — fourteen checks, stopping at the first
 node devtools/dev.mjs build            # build the solution
 node devtools/dev.mjs test             # xUnit tests (unit + integration, zero real tokens)
 node devtools/dev.mjs e2e --build      # Playground full-stack smoke against the provider-stub
 node devtools/dev.mjs playground       # run the sample console app yourself
 node devtools/dev.mjs pack             # dotnet pack → publish/packages/
-node devtools/dev.mjs install-hooks    # enable the pre-commit sensitive-info guard
+node devtools/dev.mjs install-hooks    # enable the pre-commit guards (sensitive info, encoding, version)
 ```
 
+`verify` is first because three of the commands under it are steps INSIDE it; running them individually is
+for a fast loop, not for deciding you are done. `node devtools/dev.mjs` with no argument prints the
+authoritative command list — it is derived, so it cannot go stale the way a copy here can.
+
 See `.claude/rules/dotnet-package-layout.md` (package boundaries, naming, variation points) and
-`.claude/rules/repo-mechanics.md` (this repo's dev loop and test conventions) for the load-bearing
-patterns.
+`.claude/rules/repo-mechanics.md` (this repo's concrete bindings), with `CLAUDE.md` §Dev loop for what each
+gate is for.
 
 ## License
 

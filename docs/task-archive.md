@@ -4977,3 +4977,304 @@ consumers, each testing it for a different purpose, which is a better position t
   without cause.
 - The provider-stub (`devtools/scripts/provider-stub.mjs`) is the seam that keeps every provider/e2e test
   free of real tokens — extend its prompt-marker behavior as new tests need deterministic outputs.
+
+## Part 73 — a COUNT in prose is this repository's most-repeated drift, and nothing derives one (2026-08-14)
+
+_**CLOSED 2026-08-15** by building the gate. The open question the entry posed — DERIVE the counts or GATE
+them — was decided in favour of GATING: `CLAUDE.md` is hand-written prose a session reads first, and a
+generated block inside it would be a new kind of thing this repository does not have, while a curated
+registry is a shape the repo already trusts (`retiredTerms`, `retiredApiNames`,
+`staleReferenceAllowances`). Shipped as `devtools/dev.mjs check-counts`, the fourteenth `verify` gate,
+beside its two twins._
+
+_**The entry predicted its own hardest defect and was right.** It warned that "a counter that is subtly
+wrong is worse than none". The first `verify`-gate counter returned the CORRECT total from two cancelling
+errors — its character class `[a-z-]+` could not match `e2e`, and it counted the inner `['--tree']`
+argument array as if it were a step. 12 real + 1 bogus = 13, exactly the documented number. Only a test
+comparing the parsed NAMES rather than the total caught it._
+
+_**It was also a repair, not only a recurrence gate**, contrary to the entry's own 2026-08-14 measurement
+that every published count was correct: two went stale during the session that built the gate (guard-script
+tests, twice), and the gate caught the second itself._
+
+_Six claims are registered — packable packages, `verify` gates, migrations, guard-script tests, corpus
+language arms. Its honest limit is stated in its own header: it only ever covers counts somebody
+registered. Two rules keep the registry from rotting — a claim matching NOTHING fails, and a counter that
+computes nothing is reported as a broken GATE rather than as stale prose._
+
+_Original entry, verbatim:_
+
+
+_Opened by the 2026-08-14 review, from the commit history rather than from the code — the individual
+incidents were each fixed correctly and none of them looked like a pattern on its own._
+
+**The measurement.** Six corrections to a counted claim, all within sixty commits, all the same shape —
+a number written in prose that nothing computes. **Every hash in this entry is on
+`backup/pre-squash-2026-08-14`, not on `master`** (D61 squashed everything after `v2.5.0`), so
+`git fetch origin backup/pre-squash-2026-08-14` before trying to `git show` one; the SUBJECTS are quoted
+in full precisely so the evidence stands without the hash:
+
+| Commit | The count that was wrong |
+|---|---|
+| `909a376` | "the list said seven and had eleven; the sub-list said three and had four" |
+| `24710f3` | CLAUDE.md "under-reported a BYO-breaking change by two members" |
+| `e5807d4` | CLAUDE.md "undercounted its own knowledge tier" |
+| `1c55b1d` | "re-measure the four baseline counts CLAUDE.md publishes" |
+| `208a7ca` | `dev.mjs`'s own usage list "had drifted to 24 of 30 commands" |
+| (this review) | `memory-language` said four languages; `CorpusLanguage` declares five |
+
+**Why it is worth a gate rather than another sweep.** `check-docs` structurally cannot see it: that registry
+holds terms a decision RETIRED, and a count going stale retires no vocabulary — the sentence stays
+grammatical, plausible and wrong. Every one of the six was caught by a person, and four of them were caught
+by a person who happened to be counting something else at the time.
+
+**The repository has already solved this twice, in the same direction both times, which is the argument that
+it is solvable here too.** `dev.mjs`'s usage line is DERIVED from the command table (`208a7ca`, after it
+drifted), and `verify`'s summary line is derived from its step list precisely so "a gate added without
+updating prose still names itself". Neither is gated — both are computed, so they cannot drift.
+
+- [ ] **Decide between DERIVING the counts and GATING them, and do one.** `CLAUDE.md` alone publishes
+  roughly fifteen: twelve packages, thirteen `verify` checks, nine registries, eleven fresh-session facts,
+  five required `IMemoryGraphStore` members, eleven migrations, four test/e2e baselines, `D1–D60`, five local
+  skills, six local knowledge documents, five language arms, six extension points, four memory domains.
+  At least eight are computable from the tree today.
+  <br>**Deriving** is the stronger fix and the harder sell: `CLAUDE.md` is hand-written prose that a session
+  reads first, and a generated block inside it is a new kind of thing this repository does not have.
+  <br>**Gating** fits the shape the repo already trusts — a curated registry, one entry per count, mapping a
+  phrase to a function that computes the number, so a hit is a defect BY CONSTRUCTION exactly as
+  `retiredTerms` intends. Same honest limit, too, and it should be stated in the header rather than
+  discovered: it only ever covers counts somebody registered.
+  <br>**Cheapest useful subset if the whole thing is too much**: the four test/e2e baselines, which `verify`
+  already computes and prints on every run, and which `CLAUDE.md` itself instructs the reader to compare
+  against — a stale baseline there actively teaches the next session to stop comparing.
+  <br>**A caveat measured while writing this entry, because it is the thing that would sink a naive
+  implementation.** Every count `CLAUDE.md` publishes was re-checked here and **all of them are correct
+  today** — so this is a gate against RECURRENCE, not a repair. And getting each one right is fiddlier than
+  it looks: a first probe counted `Migrations/M*.cs` and got **12**, because `MigrationRunnerService.cs`
+  matches that glob and is not a migration; "five local skills" and "six local knowledge documents" are
+  correct but the DIRECTORIES hold 10 and 9, since both tiers mix local files with synced canonical ones.
+  A counter that is subtly wrong is worse than none — it fails a clean tree and the fix is to edit the
+  counter, which trains exactly the "ignore this gate" reflex `check-warnings`' own ENOBUFS incident
+  records. **Every entry needs a test pinning the counter against the tree as it stands.**
+  <br>Not blocked on anything; this is a design call about how much of an auto-loaded file may be generated.
+
+## Part 72 — `check-links` scans markdown only, and the defect it was built for was alive in the code tiers (2026-08-14)
+
+_**CLOSED 2026-08-15.** Decided in favour of widening, with the scope drawn at the TARGET rather than the
+comment style: comment lines only, `docs/` targets only. `local/` stays skipped (untracked by design) and
+source paths stay unchecked, because `pitfalls.md` records an all-paths existence check over prose
+returning ~45 hits and zero defects — source files are renamed for legitimate reasons, documents moving is
+the defect._
+
+_**The entry's own narrower proposal was measured and REFUSED, which is what made this decidable.** It
+suggested restricting to `///` XML docs, "the tier that actually ships", as possibly "most of the value for
+none of the noise". Replaying the pre-repair tree (`92558e3^`) gives the numbers: **9** genuine dead
+references lived in the code tiers, an XML-only rule catches **6**, and all **3** it misses were in ordinary
+`//` comments and all three were real defects. The entry's stated argument AGAINST — "a code comment is the
+one place a reference to something that no longer exists is often CORRECT" — did not survive contact: every
+false positive was a GUARD SCRIPT naming a fixture (`docs/灵台.md`, `docs/plain.md`), never an <!-- link-ok: quoting the entry's own fixture names -->
+implementation comment describing history._
+
+_Cost, as the entry framed it: **six `link-ok` annotations, once**, all in `devtools/scripts/`. Verified in
+both directions — the six annotated, then a dead reference planted in `src/` and the gate failed on it._
+
+_**One deliberate asymmetry, recorded because every other scanner here differs.** The code half has NO
+fail-closed guard. That check needs a SOURCE the filtered set can be compared against, and this filter has
+intentional exclusions (`__tests__`, non-tier directories), so "zero survivors" cannot be distinguished from
+"legitimately nothing to scan" without duplicating the filter — which would then agree with itself by
+construction. Two attempts proved it empirically, each breaking a legitimate fixture test. The green line
+reports the count instead, and a test pins the real tree's above zero._
+
+_Original entry, verbatim:_
+
+
+_Opened by the 2026-08-14 whole-repo review. **The instances are already fixed** — seven dead references
+repaired in `src/` and `tests/`, and the gate's own `.csproj`-blind `PATH_PATTERN` corrected and pinned. What
+is open is the SCOPE question, which the owner asked to decide separately rather than have widened by the
+same pass that found it._
+
+- [ ] **Decide whether `check-links` should read the code tiers, and what it may check there.** It scans
+  `.md` under the `check-docs` scope predicates; `PATH_PATTERN` itself already anchors on `src|tests|devtools|
+  bench|samples`, so the pattern was always able to see them and only the file filter stops it.
+  <br>**What the miss cost, measured**: on the day the gate went green, seven references to archived documents
+  were alive in `src/` and `tests/` — two inside XML documentation that ships to consumers — plus a second
+  archived spec (`2026-07-19-agent-session-design.md`) nobody had swept at all, and two paths that never
+  existed in the repository. `bench/Lyntai.Benchmarks/MemoryLanguageSweep.cs` separately cited a test name
+  that had been renamed away, twice.
+  <br>**The argument FOR**: the gate's own header excludes `src/` because "the compiler already gates their
+  crefs", and that covers `<see cref>` and nothing else — a path or a type in a `<c>` tag is prose the
+  compiler never resolves, and this repository's XML docs put load-bearing references there constantly.
+  <br>**The argument AGAINST, and why this is a real question rather than a formality**: a code comment is
+  the one place a reference to something that no longer exists is often CORRECT — `pitfalls.md` already
+  records that an existence-check over prose produced ~45 hits and zero defects for exactly that reason, and
+  a `//` comment describing a defect as it was is the same shape. Widening the file filter without deciding
+  what counts would import that false-positive problem into `verify`.
+  <br>**A narrower option worth costing first**: check only paths under `docs/` and `local/` (documents move;
+  source files get renamed for legitimate reasons and `pitfalls.md` already forbids gating line numbers), and
+  only in `///` XML docs rather than `//` comments — the tier that actually ships. That may be most of the
+  value for none of the noise.
+  <br>**MEASURED once the repairs landed, which is what makes this decidable rather than arguable.** Re-running
+  the pattern over all 677 code files (excluding `__tests__`, whose fixture paths are synthetic by design)
+  returns **seven hits, and all seven are correct prose**: five name `docs/灵台.md` / `docs/plain.md`, guard <!-- link-ok: the gate's own fixture names, quoted as data -->
+  FIXTURE names that have never existed in this repository, and two are `check-links.mjs`'s own incident
+  narrative naming the dead path it was built for and the truncated `.cs` example from its `PATH_PATTERN`
+  fix. So a naive widening would ship a gate whose entire output is false positives — exactly the
+  ~45-hits-zero-defects shape `pitfalls.md` records for existence checks over prose. **The `link-ok` escape
+  already handles all seven**, so the real question is only whether five annotations on guard-script comments
+  are a fair price for covering the tier where seven genuine dead references actually lived.
+  <br>Not blocked on anything external; this is a scope call.
+
+## Part 70 — the cross-backend contract guard is blind in one direction (2026-08-14)
+
+_**CLOSED 2026-08-15.** All three backends now drive `MemoryGraphStoreContract` from one reflection-fed
+theory source (`MemoryGraphStoreFacts.Names`), so exhaustiveness holds BY CONSTRUCTION and the hand-bumped
+`covered` literal is gone. The per-fact test name survives as the theory argument._
+
+_**Proved by mutation, not asserted.** Planting one new method on the contract took the contract suites from
+407 to 410 passing — **exactly +3, one per backend** — with nothing wired and no literal touched. That is the
+blind direction the old check could not see: a fact wired to Postgres alone used to pass the moment the
+author bumped the literal._
+
+_**Three further mutations, each caught:** a backend pointed at a nonexistent theory source fails at COMPILE
+time (`xUnit1015` is an error, not a warning); a backend drifted back to a hand-rolled local source fails
+`Every_backend_drives_the_contract_from_the_shared_theory_source`; and a shipped store with no suite fails
+`Every_SHIPPED_graph_store_has_a_suite_in_the_list_above` — that last one closes the hole the fix could not
+close by itself, since driving three known backends from one source says nothing about a FOURTH backend
+shipping with no suite at all._
+
+_**The deferral's stated risk did not materialise.** It flagged that "the Postgres leg's single-container
+sequencing needs checking against a theory-per-fact shape first". It was already safe: the fixture is shared
+across the `postgres` COLLECTION and xUnit runs a class's cases sequentially, so container startup is still
+paid once — the whole Postgres suite runs 170 tests in 22s. Each case takes a fresh `Uid` because the
+database is shared._
+
+_Suite totals moved 2815/2836 → **2888/2909** (+68 as the Postgres contract became 69 theory cases, +5 the
+new coverage meta-tests), skips unchanged at 21. `CLAUDE.md`'s Docker-down heuristic was rewritten from a
+fixed figure to a RELATION, since this restructure is exactly what makes such a figure go stale._
+
+_Original entry, verbatim:_
+
+
+_Opened by the 3.0 pre-freeze whole-repo review. **Latent, not live** — a per-backend call census that day
+found all 68 `MemoryGraphStoreContract` facts wired on all three backends (68/68/68), so nothing is
+currently unexercised. Recorded because the MECHANISM has a hole, and the entry it protects
+(`.claude/knowledge/pitfalls.md`, "a cross-backend invariant enforced on ONE backend's test class is not
+enforced") is one this repository has already been bitten by._
+
+- [ ] **Make per-backend contract coverage structural rather than counted.** `PostgresStorageTests` asserts
+  `Assert.Equal(declared, covered)` where `declared` is reflected over the contract's public statics and
+  `covered` is a hand-bumped literal (`68`). That catches a fact wired NOWHERE, and one wired everywhere
+  except Postgres — but **not** one wired to Postgres ALONE: the author bumps the literal, it passes, and
+  InMemory and Sqlite silently never run it.
+  <br>The fix is to drive all three backends from a reflection-fed `[Theory]` over the contract's methods,
+  so exhaustiveness holds by construction on every backend and the literal disappears. That keeps
+  per-fact test names (the theory argument) while making a missing wiring impossible rather than merely
+  counted.
+  <br>**Deliberately deferred from the review that found it**: it restructures ~200 tests to close a gap
+  with no live instance, days before the 3.0 freeze, and the Postgres leg's single-container sequencing
+  needs checking against a theory-per-fact shape first. Not blocked on anything external — this is a
+  scheduling call, so it is startable today.
+
+## Part 69 — the embedder costs recall quality on this corpus, and nothing yet says whether that generalizes (2026-08-13)
+
+_**CLOSED 2026-08-15, both items.**_
+
+_**Item 1 (should the graph engine seed candidates semantically?) was already shipped when this entry was
+next read.** `GraphMemoryOptions.SemanticSeedK` embeds the query and joins its nearest entries to the
+candidate set carrying their cosine as `Relevance`; both arms are pinned in `LlmSemanticRecallLiveTests`
+(`0` → 0/3, `5` → reachable), and it defaults to `0`. The honest caveat shipped with it: **reachable is
+not returned** — no ranking setting closes that gap, so it is useful in combination with
+`AddMemoryVerification` and not on its own._
+
+_**Item 2 (WHY an embedder costs recall quality) is now measured**, by `node devtools/dev.mjs
+memory-enrichment` — a 2×2 that varies the two write-time mechanisms INDEPENDENTLY, which nothing had done.
+It needed no new API: `MinSimilarity` is validated only for finiteness, so a value above 1 admits no cosine
+and writes NO edge while the embed and vector search still run, and salience is a DI collection so
+`NeutralSaliencePolicy` drops novelty while linking continues. **A real model** (`nomic-embed-text`), and
+the sweep EXITS rather than substituting a fake — the arm it replaces used `FakeEmbedder`, a feature-hashed
+bag of words in which "semantic similarity" IS word overlap, which is why those numbers were withdrawn._
+
+_**The answer: both mechanisms are real, and they have different SHAPES — which is why one number never
+explained it.** Averaged over shapes, miss-rate delta vs the model-free floor:_
+
+| class | (a) linking | (b) novelty→salience |
+|---|---|---|
+| `topical` | **−0.2963** | +0.2905 |
+| `attribute (subject cue)` | **−0.2758** | +0.1132 |
+| `critical-rare` | **+0.6758** | +0.1640 |
+| `hot-ephemeral` | 0.0000 | +0.0040 |
+
+_**(a) LINKING IS A REDISTRIBUTION, NOT A COST.** It nearly halves misses on the two classes where related
+entries cluster and it destroys `critical-rare` (0.16 → 0.77 on the baseline shape). Its aggregate looks
+small — +0.01 to +0.08 per shape — only because those cancel. **(b) NOVELTY IS A BROAD, SHALLOW COST**,
+positive on nearly every class, and the only arm that ever HELPS in aggregate: on the `high-noise` shape it
+is −0.0532, so novelty-driven salience earns its keep exactly where there is noise to discriminate against._
+
+_The two are SUB-additive in four of five shapes — `both` costs less than `a+b` — so they overlap rather
+than stack._
+
+_**The instrument's own trap, recorded because the first run walked into it.** The shape-level table averages
+over classes and therefore averages over two large OPPOSING effects, reporting linking as a small cost when
+it is in fact a ±0.3–0.7 redistribution. The per-class table was added after reading that first output, and
+the sweep now prints both. A single averaged number describes neither._
+
+_Controls, which is what makes the factorial believable rather than a set of labels: 157,846 similarity edges
+in each linking arm and ZERO in each non-linking one; 13,710 salient writes in each novelty arm and ZERO
+otherwise; corpus order identical in all 200 cells. Full output:
+`local/superpowers/records/2026-08-15-enrichment-attribution.txt` (untracked, per D43)._
+
+_Still true and still stated: this corpus defines relevance LEXICALLY, so a semantic neighbour is wrong here
+BY CONSTRUCTION. The claim is which mechanism moves the number, never that enrichment harms a real consumer._
+
+_Original entry, verbatim:_
+
+
+_Opened by the salience study of archive Part 53, which found it while controlling for something else.
+**Not a regression and not new** — it has presumably always been true; what is new is that anyone measured
+it separately from the policies that ride on top of it._
+
+_**The MECHANISM in the item below is wrong, found 2026-08-13 while building the instrument to test it.**
+It explains the embedder's cost as "semantic neighbours and lexical hits compete for the same bounded
+slots". **There are no semantic neighbours at recall.** `GraphMemoryEngine.GatherAsync` seeds candidates
+only from `IMemoryGraphStore.SeedAsync` — a LEXICAL query — and then walks edges. The vector store is
+consulted at WRITE time (novelty for salience, and similarity linking) and never at query time. The graph
+engine has **no semantic retrieval path at all**._
+
+_**Measured with a REAL embedding model** (`nomic-embed-text`, `LlmSemanticRecallLiveTests`) over new
+`CorpusLexicon.ParaphrasePairs` — statement/cue pairs that mean the same and share NO index term, asserted
+disjoint in all five languages. A real model recovers **0 of 3**, identical to no embedder. The cost is
+real; its cause is write-time linking and salience changing what traversal reaches, not slot competition._
+
+_**A second instrument defect, and it invalidated the original arm.** That measurement used `FakeEmbedder`
+— a feature-hashed bag of WORDS, in which "semantic similarity" IS word overlap. A double that cannot
+represent meaning cannot show meaning-based retrieval helping, so the embedder was only ever measurable
+costing slots it could never be seen earning back._
+
+_**The first item — whether the graph engine should have a query-time semantic seed — was CLOSED before this
+entry was next read, and the entry was not updated.** `GraphMemoryOptions.SemanticSeedK` shipped it: the query
+is embedded and its nearest entries join the candidates carrying their cosine as `Relevance`. Both arms are
+pinned in `LlmSemanticRecallLiveTests` (`0` → 0/3, `5` → reachable), it is in `CHANGELOG.md`, `docs/memory.md`
+and the API baseline, and it defaults to `0` so nothing changed for anyone who does not set it. **The
+paragraph above still saying the engine "has no semantic retrieval path at all" is therefore stale as
+written** — it describes the tree before that commit. Left in place rather than rewritten, because the
+measurement it reports (a real model recovering 0 of 3 WITHOUT the seed) is still exactly true and is the
+baseline the option is judged against. Full closure note: `docs/task-archive.md` Part 69._
+- [ ] **Registering an `IEmbedder` + `IVectorStore` costs recall quality on this corpus, and WHY is now the
+  open question.** The effect is much larger than anything salience produces in either direction, and it is
+  reproducible; the explanation this item shipped with is not. Two candidate mechanisms remain, both
+  write-time, because recall has no semantic path to blame (the part header above):
+  **(a)** similarity linking adds edges that change what traversal reaches, and
+  **(b)** novelty feeds salience, which changes what is admitted and how it decays.
+  Nothing separates them yet — the write-time seams would have to be varied independently.
+  <br>**The published numbers were measured through an instrument that could not answer the question**, so
+  they are not restated here: that arm used `FakeEmbedder`, a feature-hashed bag of WORDS in which "semantic
+  similarity" IS word overlap. A double that cannot represent meaning can only ever be seen paying a cost it
+  could never be seen earning back. Re-measure with a real model before quoting a figure.
+  <br>**Why this is not simply a defect to fix.** This corpus defines relevance LEXICALLY — ground truth is
+  "the entry whose id the query names" — so a semantic neighbour is *by construction* wrong here. The honest
+  statement is that the instrument cannot say which resembles a real consumer, not that enrichment is
+  harmful. `CorpusLexicon.ParaphrasePairs` now supplies the missing axis (queries answerable only
+  semantically, asserted term-disjoint in all five languages) and is what a re-measurement should use.
+  <br>Guarded meanwhile by `MemorySalienceInversionTests.The_embedder_not_salience_is_what_moves_recall_quality_on_this_corpus`,
+  which asserts salience stays the SMALLER effect — so if that ordering changes, the attribution is
+  re-measured rather than quietly re-worded.

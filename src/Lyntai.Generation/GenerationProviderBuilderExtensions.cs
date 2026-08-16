@@ -11,15 +11,16 @@ namespace Lyntai;
 /// <c>Func&lt;HttpClient&gt;</c>, which is a lot of ceremony to ask of someone whose LLM providers register in
 /// one call each.
 ///
-/// <para><b>Options are passed as an object, not an <c>Action&lt;T&gt;</c> configure callback</b> (the shape the
-/// LLM presets use). The HTTP backends' options are records with <c>init</c> members — three of them
-/// (<see cref="OpenAiImageOptions"/>, <see cref="Automatic1111Options"/>, <see cref="ComfyUiOptions"/>) with a
-/// <c>required BaseUrl</c>, and passing the instance is what keeps that compiler-enforced rather than discovered
-/// at the first render. <see cref="LocalDiffusionOptions"/> is the exception, and deliberately: it is a settable
-/// class because the engine's binary and model paths may only exist once the HOST has provisioned them, and an
-/// absent <see cref="LocalDiffusionOptions.BinaryPath"/> is the documented
-/// <see cref="GenerationVerdict.NotConfigured"/> state rather than a construction error. The registration
-/// captures that same instance, so a path set later is picked up on the next render.</para>
+/// <para><b>Options are configured by an <c>Action&lt;T&gt;</c> callback</b>, the same shape as the LLM
+/// presets (<c>AddOpenAiCompatibleProvider(id, o =&gt; …)</c>) and the memory engines
+/// (<c>AddMemoryEngine(name, e =&gt; …)</c>). Every option carries a default — each backend's conventional
+/// local URL, or the vendor's API root — so a registration sets only what differs from it, and a blank base
+/// URL is the documented <see cref="GenerationVerdict.NotConfigured"/> verdict rather than a failure.</para>
+///
+/// <para><b>The registration keeps the instance the callback configured</b>, so a host whose engine paths
+/// only exist after some setup step can capture it and set them later; the next render reads the current
+/// values. That matters most for <see cref="LocalDiffusionOptions"/>, whose binary and model paths are the
+/// host's to provision.</para>
 ///
 /// <para><b>BYO HttpClient</b> stays optional on every method (design §7). Supply one to own its configuration
 /// and lifecycle — a Polly-resilient client, an auth handler, a proxy, service discovery, or a named
@@ -42,12 +43,14 @@ public static class GenerationProviderBuilderExtensions
     /// <summary>An OpenAI-compatible images endpoint — the cloud service, or any local server speaking the same
     /// shape. Default id <c>"openai-images"</c> (<see cref="OpenAiImageOptions.Id"/>).</summary>
     /// <param name="builder">The builder.</param>
-    /// <param name="options">Endpoint, credential and defaults.</param>
+    /// <param name="configure">Endpoint, credential and defaults.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
     public static LyntaiBuilder AddOpenAiImageProvider(this LyntaiBuilder builder,
-        OpenAiImageOptions options, Func<IServiceProvider, HttpClient>? httpClient = null)
+        Action<OpenAiImageOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = new OpenAiImageOptions();
+        configure(options);
         return builder.AddGenerationProvider(HttpBackend(builder, options.Id, httpClient,
             (client, dispose) => new OpenAiImageProvider(options, client, dispose)));
     }
@@ -55,12 +58,14 @@ public static class GenerationProviderBuilderExtensions
     /// <summary>A locally-run Stable Diffusion WebUI (Automatic1111). Default id <c>"a1111"</c>
     /// (<see cref="Automatic1111Options.Id"/>).</summary>
     /// <param name="builder">The builder.</param>
-    /// <param name="options">Endpoint and sampling defaults.</param>
+    /// <param name="configure">Endpoint and sampling defaults.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
     public static LyntaiBuilder AddAutomatic1111Provider(this LyntaiBuilder builder,
-        Automatic1111Options options, Func<IServiceProvider, HttpClient>? httpClient = null)
+        Action<Automatic1111Options> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = new Automatic1111Options();
+        configure(options);
         return builder.AddGenerationProvider(HttpBackend(builder, options.Id, httpClient,
             (client, dispose) => new Automatic1111Provider(options, client, dispose)));
     }
@@ -69,12 +74,14 @@ public static class GenerationProviderBuilderExtensions
     /// (<see cref="ComfyUiOptions.Id"/>). Note this backend's surface is documented-not-measured — every
     /// endpoint path is an option for exactly that reason.</summary>
     /// <param name="builder">The builder.</param>
-    /// <param name="options">Endpoint paths, declared kinds and option keys.</param>
+    /// <param name="configure">Endpoint paths, declared kinds and option keys.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
     public static LyntaiBuilder AddComfyUiProvider(this LyntaiBuilder builder,
-        ComfyUiOptions options, Func<IServiceProvider, HttpClient>? httpClient = null)
+        Action<ComfyUiOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = new ComfyUiOptions();
+        configure(options);
         return builder.AddGenerationProvider(HttpBackend(builder, options.Id, httpClient,
             (client, dispose) => new ComfyUiProvider(options, client, dispose)));
     }
@@ -83,12 +90,14 @@ public static class GenerationProviderBuilderExtensions
     /// <c>"fal"</c> (<see cref="FalQueueOptions.Id"/>). This backend's wire format is documented-not-measured
     /// (TASKS.md GEN-VERIFY); every URL segment is an option so a host can retarget it.</summary>
     /// <param name="builder">The builder.</param>
-    /// <param name="options">Endpoint, credential and declared kinds.</param>
+    /// <param name="configure">Endpoint, credential and declared kinds.</param>
     /// <param name="httpClient">BYO client — see the type summary. Null = Lyntai's own.</param>
     public static LyntaiBuilder AddFalProvider(this LyntaiBuilder builder,
-        FalQueueOptions options, Func<IServiceProvider, HttpClient>? httpClient = null)
+        Action<FalQueueOptions> configure, Func<IServiceProvider, HttpClient>? httpClient = null)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = new FalQueueOptions();
+        configure(options);
         return builder.AddGenerationProvider(HttpBackend(builder, options.Id, httpClient,
             (client, dispose) => new FalQueueProvider(options, client, dispose)));
     }
@@ -100,14 +109,21 @@ public static class GenerationProviderBuilderExtensions
     /// <para>This one spawns rather than calls, so its seam is <see cref="IProcessRunner"/> rather than
     /// <see cref="HttpClient"/> — taken from DI by default, which is what lets a host's sandboxed or audited
     /// runner apply here too. The engine and its weights are the host's to provide; Lyntai downloads
-    /// neither.</para></summary>
+    /// neither.</para>
+    ///
+    /// <para><b>Late provisioning.</b> The registration keeps the very instance the callback configured, so
+    /// paths that only exist after a setup step can be set afterwards — the next render reads the current
+    /// values: <c>LocalDiffusionOptions? opts = null; b.AddLocalDiffusionProvider(o =&gt; opts = o); …
+    /// opts!.BinaryPath = downloaded;</c></para></summary>
     /// <param name="builder">The builder.</param>
-    /// <param name="options">Engine paths and sampling defaults.</param>
+    /// <param name="configure">Engine paths and sampling defaults.</param>
     /// <param name="runner">BYO process runner. Null = the one registered in DI.</param>
     public static LyntaiBuilder AddLocalDiffusionProvider(this LyntaiBuilder builder,
-        LocalDiffusionOptions options, Func<IServiceProvider, IProcessRunner>? runner = null)
+        Action<LocalDiffusionOptions> configure, Func<IServiceProvider, IProcessRunner>? runner = null)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(configure);
+        var options = new LocalDiffusionOptions();
+        configure(options);
         return builder.AddGenerationProvider(sp => new LocalDiffusionProvider(options,
             runner?.Invoke(sp) ?? sp.GetRequiredService<IProcessRunner>()));
     }

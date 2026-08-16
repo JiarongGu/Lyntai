@@ -108,7 +108,7 @@ export const IN_SCOPE = (path) =>
  * The tracked file list this gate scans. Its own seam so a test can supply one without a git fixture.
  *
  * `-z` (NUL-separated) is load-bearing: without it git C-QUOTES any path with a non-ASCII byte, so
- * `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"`, the read below fails, and its `catch`
+ * `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"`, the read below fails, and its `catch`  link-ok: a fixture name, quoted as data
  * skips the file — a doc that is never scanned and never reported as unscanned. Same root cause and same
  * fix as check-sensitive's; measured 2026-08-11 (TASKS.md Part 60).
  */
@@ -126,11 +126,26 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     return 0;
   }
 
-  const tracked = (files ?? trackedFiles(repo))
+  const source = files ?? trackedFiles(repo);
+  const tracked = source
     // .html too: the published design record is a tracked page, and an untracked one drifted three times
     .filter((f) => f.endsWith('.md') || f.endsWith('.html'))
     .filter(IN_SCOPE)
     .filter(IS_SCANNED);
+
+  // Fail-closed: a gate that scanned nothing must never print a tick — the rule check-api-vocabulary already
+  // carries, and the one this gate was missing. `pitfalls.md` records the general shape: for any filter
+  // chain, a clean run proves nothing about the stage you edited, so assert on the INTERMEDIATE.
+  //
+  // TWO ways a run scans nothing, and only one is always wrong. An empty SOURCE is a broken listing whoever
+  // supplied it. Zero survivors of a FULL TREE means `IN_SCOPE` or the extension filter rejected everything
+  // — impossible here, where README/CLAUDE/TASKS alone guarantee three — while zero from a caller-supplied
+  // list is ordinary (a commit touching only `src/`), so that half is checked on the tree path alone.
+  if (source.length === 0 || (files === null && tracked.length === 0)) {
+    log('check-docs: ✗ found no maintained documents to scan');
+    log('  Nothing was scanned, so this gate proves nothing — check IN_SCOPE and the repo root.');
+    return 1;
+  }
 
   const hits = [];
   let skipped = 0;
@@ -160,10 +175,20 @@ export function checkDocs(repo, config, log = console.log, files = null) {
       const re = new RegExp(rule.term, 'g');
       lines.forEach((line, i) => {
         // `drift-ok` is the honest annotation for a passage that deliberately NAMES the retired thing.
-        // It covers the joined window too, so annotating either line of a wrapped passage is enough.
-        if (line.includes('drift-ok') || (lines[i + 1] ?? '').includes('drift-ok')) return;
+        //
+        // The two matches take DIFFERENT escapes, and conflating them was a hole (found 2026-08-15). A hit on
+        // the line ALONE is excused only by that line's own annotation. A hit on the joined window spans a
+        // wrap, so either line may carry it — which is the whole reason the window reads N+1. Applying the
+        // N+1 escape to both meant an ordinary line inherited the exemption of whatever followed it, and two
+        // unrelated adjacent paragraphs were enough to silence a genuine stale claim.
+        const selfOk = line.includes('drift-ok');
+        const nextOk = (lines[i + 1] ?? '').includes('drift-ok');
         re.lastIndex = 0;
-        if (re.test(line)) { hits.push({ file, line: i + 1, rule, text: line.trim() }); return; }
+        if (re.test(line)) {
+          if (!selfOk) hits.push({ file, line: i + 1, rule, text: line.trim() });
+          return;
+        }
+        if (selfOk || nextOk) return;
         re.lastIndex = 0;
         if (re.test(windows[i])) hits.push({ file, line: i + 1, rule, text: windows[i].trim() });
       });

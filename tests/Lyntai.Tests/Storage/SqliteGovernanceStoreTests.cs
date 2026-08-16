@@ -4,6 +4,7 @@ using Lyntai.Llm.Budgeting;
 using Lyntai.Memory;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Fakes;
+using Lyntai.Tests.Memory;
 
 namespace Lyntai.Tests.Storage;
 
@@ -128,6 +129,20 @@ public class SqliteGovernanceStoreTests : IDisposable
     }
 
     // ---- vector store --------------------------------------------------------------------------------
+
+    // The cross-backend contract, wired here because this class owns the database lifetime — same split
+    // MemoryGraphStoreContract uses. Added 2026-08-14: IVectorStore had three implementations and no
+    // contract, and every vector fixture in the repository was a UNIT BASIS VECTOR, under which cosine and a
+    // raw dot product induce the same ordering AND the same sign — so the per-backend tests below could not
+    // tell them apart. Measured: replacing VectorMath.Cosine with a bare dot product left all 29 existing
+    // vector/semantic tests green, including the one named "ranks_by_cosine".
+    [Fact] public Task Contract_cosine_not_dot() => VectorStoreContract.Ranking_is_by_cosine_so_magnitude_does_not_win(new SqliteVectorStore(_db.Factory), "vc1");
+    [Fact] public Task Contract_score_in_range() => VectorStoreContract.A_score_is_a_cosine_in_the_documented_range(new SqliteVectorStore(_db.Factory), "vc2");
+    [Fact] public Task Contract_upsert_replaces() => VectorStoreContract.Upserting_the_same_id_replaces_rather_than_duplicating(new SqliteVectorStore(_db.Factory), "vc3");
+    [Fact] public Task Contract_bounded_by_k() => VectorStoreContract.Search_returns_at_most_k(new SqliteVectorStore(_db.Factory), "vc4");
+    [Fact] public Task Contract_delete_one() => VectorStoreContract.Delete_removes_one_entry_and_leaves_the_others(new SqliteVectorStore(_db.Factory), "vc5");
+    [Fact] public Task Contract_remove_collection() => VectorStoreContract.Removing_a_collection_clears_it_and_absent_deletes_are_no_ops(new SqliteVectorStore(_db.Factory), "vc6");
+    [Fact] public Task Contract_isolated() => VectorStoreContract.Collections_are_isolated(new SqliteVectorStore(_db.Factory), "vc7");
 
     [Fact]
     public async Task VectorStore_ranks_by_cosine_and_persists()

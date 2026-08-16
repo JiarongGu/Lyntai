@@ -5,6 +5,7 @@
 //   node devtools/dev.mjs check-packages   - FAIL if a package is missing from any registry it needs (D27)
 //   node devtools/dev.mjs check-docs       - FAIL if a doc uses vocabulary a decision retired (the PROSE)
 //   node devtools/dev.mjs check-encoding   - FAIL if a tracked text file contains MOJIBAKE (mangled UTF-8)
+//   node devtools/dev.mjs check-counts     - FAIL if a COUNT written in prose disagrees with the tree
 //   node devtools/dev.mjs check-api-vocabulary
 //                                          - FAIL if a committed API baseline still spells a retired name
 //   node devtools/dev.mjs check-samples [--list]
@@ -232,6 +233,43 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--annotation', ...args]);
     break;
 
+  // memory-verification — the only mechanism aimed at PollutionRate, and the only 3.0 seam that had no sweep
+  // (added 2026-08-15). Every OTHER recall-quality figure this repository publishes is MODEL-FREE: the policy
+  // sweep wires no verifier and no annotator, so its numbers are the lexical floor rather than what a
+  // consumer who registered an LLM would see. That matters for reading them: critical-rare's ~0.805 pollution
+  // sits half a point above the STRUCTURAL floor (limit - |relevant|) / limit = 0.800, because a 10-slot page
+  // over a 2-target ground truth is 80% non-relevant however perfect the ranker. The only way under that
+  // floor is to return FEWER things, which is what VerificationFilters does. Perfect judge = the mechanism's
+  // CEILING, never a model's accuracy; three arms (off / reorder / filter) so "consulted" and "obeyed" are
+  // distinguishable.
+  case 'memory-verification':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--verification', ...args]);
+    break;
+
+  // memory-fan — ACT-R's fan effect (ReciprocalRankFusionOptions.DiagnosticityWeight), added 2026-08-15 and
+  // shipped at 0 because nothing had measured it. Nothing in the engine consulted GraphNode.Degree, so a node
+  // with fifty neighbours contributed exactly as much as one with a single edge — while subject annotation
+  // exists precisely to BUILD hubs. The argument for penalising a hub is information-theoretic (a node
+  // adjacent to everything discriminates nothing), not biomimetic. Four coarse arms: direction and magnitude,
+  // never a search, and no default moves off zero on one run.
+  case 'memory-fan':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--fan', ...args]);
+    break;
+
+  // memory-enrichment — WHY registering an embedder costs recall quality, which had never been separated
+  // from THAT it does. Two write-time mechanisms could explain it (similarity linking; novelty feeding
+  // salience) and one knob switched both, so a 2x2 needed `MinSimilarity` above 1 to keep the embed while
+  // writing no edge, and a neutral salience policy to keep the edges while dropping novelty.
+  // The ONLY sweep here that calls a REAL model, and it exits rather than substituting a double: the arm it
+  // replaces used a feature-hashed bag of words in which "semantic similarity" IS word overlap, so the
+  // embedder could only ever be seen paying a cost it could never be seen earning back.
+  case 'memory-enrichment':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--enrichment', ...args]);
+    break;
+
 
   case 'install-hooks':
     run('git', ['config', 'core.hooksPath', 'devtools/hooks']);
@@ -299,7 +337,14 @@ switch (cmd) {
 
   case 'e2e': {
     const scriptsDir = path.join(repo, 'devtools', 'scripts', 'e2e');
-    if (!fs.existsSync(scriptsDir)) { console.log('no e2e suites yet (devtools/scripts/e2e/)'); break; }
+    // Fail-closed, the same rule the check-* scanners carry: `e2e` is a VERIFY GATE, and verify propagates
+    // this exit code — so a vanished directory or a wrong repo root would otherwise let the gate report
+    // success having run nothing at all. Suites existing is a property of this repository, not a maybe.
+    if (!fs.existsSync(scriptsDir)) {
+      console.error('e2e: ✗ no suite directory at devtools/scripts/e2e/ — nothing ran, so this gate proves nothing');
+      process.exitCode = 1;
+      break;
+    }
     const all = fs.readdirSync(scriptsDir)
       .filter((f) => /^p\d+\.mjs$/.test(f))   // suites live in scripts/e2e/ as p1.mjs, p2.mjs, …
       .map((f) => f.slice(0, -4))
@@ -328,7 +373,14 @@ switch (cmd) {
       return [s];
     };
     const suites = expand(sel).filter((s) => all.includes(s));
-    if (suites.length === 0) { console.log(`no e2e suites match "${sel}"`); break; }
+    // Same rule from the other end: a selector that matches nothing ran nothing. This is the typo case —
+    // `e2e p12` when the suites are p1..p3 — and printing a note while exiting 0 makes a mistyped run
+    // indistinguishable from a passing one, to a person and to any script that checks the code.
+    if (suites.length === 0) {
+      console.error(`e2e: ✗ no suites match "${sel}" — available: ${all.join(', ') || '(none)'}`);
+      process.exitCode = 1;
+      break;
+    }
 
     if (doBuild) {
       console.log('e2e: building first…');
@@ -404,6 +456,17 @@ switch (cmd) {
   // Registry: `staleReferenceAllowances` in project.config.mjs. Line escape: `link-ok`.
   case 'check-links': {
     run('node', [path.join(repo, 'devtools', 'scripts', 'check-links.mjs'), ...args]);
+    break;
+  }
+
+  // The THIRD member of that family, asking whether what a document COUNTS is still true. TASKS.md Part 73
+  // measured six corrections to a counted claim inside sixty commits, plus two more that went stale during
+  // the session which built this — eight incidents, zero automated catches, because check-docs structurally
+  // cannot see one: a count going stale retires no vocabulary, so the sentence stays grammatical and wrong.
+  // Registry: `COUNTED_CLAIMS` in the script itself (an entry is a regex plus a FUNCTION, so it is code and
+  // project.config.mjs stays a data file). Line escape: `count-ok`, deliberately not `drift-ok`.
+  case 'check-counts': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-counts.mjs'), ...args]);
     break;
   }
 
@@ -486,7 +549,7 @@ switch (cmd) {
     // file and while the edit that caused it is still the last thing that happened.
     const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
-      ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
+      ['check-counts', []], ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {

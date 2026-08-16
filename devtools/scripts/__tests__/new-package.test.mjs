@@ -164,3 +164,33 @@ describe('new-package — the refusals', () => {
     assert.match(s.read('src/Lyntai.Storage.Redis/Lyntai.Storage.Redis.csproj'), /<PackageId>/);
   });
 });
+
+describe('new-package — an insertion must match the file it edits', () => {
+  it('splices CRLF into a CRLF registry, not a lone LF', () => {
+    // On Windows with `core.autocrlf=true` — this repository's setup — every tracked registry is CRLF in the
+    // working copy, while the scaffolder joined with a bare `\n`. That leaves a MIXED file: valid, committed
+    // clean here only because autocrlf normalises on the way in, and committed mixed by anyone whose config
+    // does not. `check-encoding` cannot see it either, since mixed endings are not mojibake. Found
+    // 2026-08-15, after the same splice landed by hand in this session's own edits.
+    const crlf = Object.fromEntries(Object.entries(FIXTURE).map(([f, t]) => [f, t.replace(/\n/g, '\r\n')]));
+    const s = scaffold('Lyntai.Storage.Redis', { files: crlf });
+    try {
+      assert.equal(s.code, 0, s.out);
+      for (const f of Object.keys(crlf)) {
+        const text = s.read(f);
+        const lone = (text.match(/(?<!\r)\n/g) ?? []).length;
+        assert.equal(lone, 0, `${f} gained ${lone} lone-LF line ending(s)`);
+      }
+    } finally { s.cleanup(); }
+  });
+
+  it('and leaves an LF registry as LF', () => {
+    // The other direction: matching the file means matching it either way, never normalising to CRLF.
+    const s = scaffold('Lyntai.Storage.Redis');
+    try {
+      assert.equal(s.code, 0, s.out);
+      for (const f of Object.keys(FIXTURE))
+        assert.equal((s.read(f).match(/\r\n/g) ?? []).length, 0, `${f} gained CRLF`);
+    } finally { s.cleanup(); }
+  });
+});

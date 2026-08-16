@@ -87,6 +87,9 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
             ? Fenced(JobStoreSql.SetFailedRetry, id, workerId, ct, new { error, retryAt = at })
             : Fenced(JobStoreSql.SetFailedTerminal, id, workerId, ct, new { error });
 
+    public Task<bool> PollAgainAsync(Guid id, string workerId, DateTimeOffset runAt, CancellationToken ct = default) =>
+        Fenced(JobStoreSql.SetPollAgain, id, workerId, ct, new { retryAt = runAt });
+
     public Task<bool> DeadLetterAsync(Guid id, string workerId, string error, CancellationToken ct = default) =>
         Fenced(JobStoreSql.SetDead, id, workerId, ct, new { error });
 

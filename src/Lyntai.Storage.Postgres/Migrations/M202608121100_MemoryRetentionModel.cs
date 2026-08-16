@@ -128,7 +128,7 @@ public sealed class M202608121100_MemoryRetentionModel : Migration
         Execute.Sql("""
             CREATE TABLE lyntai_memory_subject (
                 engine   TEXT NOT NULL,
-                node_id  BIGINT NOT NULL,
+                node_id  BIGINT NOT NULL REFERENCES lyntai_memory_node(id) ON DELETE CASCADE,
                 task_key TEXT NOT NULL,
                 scope    TEXT NOT NULL,
                 subject  TEXT NOT NULL,

@@ -30,92 +30,24 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     }
 
     /// <summary>Every <see cref="Lyntai.Tests.Memory.MemoryGraphStoreContract"/> fact against a real
-    /// Postgres. One test running all of them, like the other Postgres suites, so container startup is
-    /// paid once; each fact is namespaced by a fresh Uid because the container is shared.</summary>
-    [SkippableFact]
-    public async Task Graph_store_satisfies_the_contract()
+    /// Postgres, driven from the shared theory source so coverage is STRUCTURAL rather than counted.</summary>
+    /// <remarks>
+    /// <para>This replaced one long method that awaited all sixty-nine facts in sequence and then asserted
+    /// a hand-bumped <c>covered</c> literal against the reflected <c>declared</c> count. That assertion
+    /// could not see the case it most needed to: a fact wired to Postgres ALONE passes once the author
+    /// bumps the literal, while InMemory and SQLite silently never run it.</para>
+    /// <para>Still one container: the fixture is shared across the whole <c>postgres</c> collection, and
+    /// xUnit runs a class's cases sequentially, so startup is paid once exactly as before. Each case takes a
+    /// fresh <see cref="Uid"/> because the database is shared.</para>
+    /// </remarks>
+    [SkippableTheory]
+    [MemberData(nameof(Lyntai.Tests.Memory.MemoryGraphStoreFacts.Names),
+        MemberType = typeof(Lyntai.Tests.Memory.MemoryGraphStoreFacts))]
+    public Task Graph_store_satisfies_the_contract(string fact)
     {
         Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
-        // a controllable clock, ONLY for Elapsed_age_advances_by_real_time_between_writes below — every
-        // other fact here uses created_at solely for audit purposes and does not depend on wall-clock time
-        var clock = new MutableClock();
-        var store = new PostgresMemoryGraphStore(pg.Factory, clock: clock.Get);
-        var key = Uid();
-        var contract = typeof(Lyntai.Tests.Memory.MemoryGraphStoreContract);
-
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Upsert_then_seed_by_single_token_substring(store, key + "a");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_matches_any_term_of_a_multi_word_query(store, key + "a1");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_matches_a_chinese_query_without_spaces(store, key + "a2");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_matches_a_two_character_chinese_word(store, key + "a3");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Subjects_round_trip_and_are_scoped_to_their_task(store, key + "a4");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Recording_subjects_replaces_the_previous_set(store, key + "a5");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Subjects_match_case_insensitively(store, key + "a6");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Deleting_a_node_takes_its_subjects_with_it(store, key + "a7");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Upserting_identical_content_refreshes_rather_than_duplicating(store, key + "b");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Engines_are_isolated_from_one_another(store, key + "c");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_busy_engine_does_not_age_a_quiet_ones_memories(store, key + "c2");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_never_excludes_a_faint_entry(store, key + "e");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_bigger_write_ages_more(store, key + "e2");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Touch_records_reinforcement(store, key + "f");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_touch_does_not_advance_the_position(store, key + "f2");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Linked_nodes_are_reachable_as_neighbours(store, key + "g");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Linking_the_same_pair_again_strengthens_it(store, key + "h");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Degree_counts_connections(store, key + "i");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Prune_removes_only_what_it_is_told_to(store, key + "j");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Forget_clears_a_scope(store, key + "k");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Deleting_a_node_takes_its_edges_with_it(store, key + "l");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Cancellation_propagates(store, key + "m");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.An_edge_ages_as_the_memory_moves_on(store, key + "n");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_node_reports_its_connection_strength_and_freshness(store, key + "o");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.An_unconnected_node_reports_no_strength(store, key + "p");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_node_reports_its_connection_freshness_on_every_age_scale(store, key + "o2");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.An_admitted_but_non_matching_exact_fact_reports_zero_relevance(store, key + "o3");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.An_admitted_but_non_matching_exact_fact_reports_zero_on_the_short_query_path(store, key + "o4");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_neighbour_reports_its_edge_age_on_every_scale(store, key + "n2");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.An_unconnected_node_reports_no_connection_freshness(store, key + "p2");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_admits_authoritative_material_the_query_does_not_match(store, key + "q");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_admits_a_long_quiet_exact_fact_over_fresher_material(store, key + "r");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_cannot_admit_more_exact_facts_than_the_limit(store, key + "s");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Signals_round_trip_through_the_store(store, key + "t");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_node_with_no_signals_reads_back_empty(store, key + "u");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_admits_a_long_quiet_salient_entry_over_fresher_material(store, key + "v");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Re_remembering_with_no_signals_keeps_the_existing_bag(store, key + "w");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Re_remembering_with_fresh_signals_replaces_the_existing_bag(store, key + "x");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_treats_a_non_finite_salience_as_the_neutral_value(store, key + "y");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_treats_a_below_neutral_salience_as_the_neutral_value(store, key + "z");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Ordinal_age_counts_writes_since_last_use(store, key + "aa");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Volume_age_counts_characters_written_since_last_use(store, key + "ab");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_quiet_engine_does_not_age_on_any_of_the_three_primitives(store, key + "ac");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Touch_resets_all_three_primitives_together_with_the_legacy_position(store, key + "ad");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_touch_does_not_advance_any_of_the_three_primitives(store, key + "ae");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Ordinals_are_monotone_but_not_dense_after_a_prune(store, key + "af");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Elapsed_age_advances_by_real_time_between_writes(store, key + "ag", clock.Advance);
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.DeleteAsync_removes_exactly_the_given_ids(store, key + "ah");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.DeleteAsync_takes_edges_with_the_nodes(store, key + "ai");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.DeleteAsync_is_scoped_to_the_named_engine(store, key + "aj");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.DeleteAsync_with_no_ids_removes_nothing(store, key + "ak");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Provenance_round_trips_through_the_store(store, key + "al");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_node_with_no_provenance_reads_back_as_none(store, key + "am");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_plain_re_remember_does_not_touch_retrievability_provenance(store, key + "an");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Re_remembering_with_no_signals_keeps_the_existing_salience_provenance(store, key + "ao");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Re_remembering_with_fresh_signals_replaces_the_salience_provenance(store, key + "ap");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Touch_updates_the_retrievability_provenance(store, key + "aq");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Difficulty_is_seeded_from_the_signal_at_first_write(store, key + "ar");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.A_node_with_no_difficulty_signal_reads_back_neutral(store, key + "as");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Re_remembering_with_no_signals_keeps_the_existing_difficulty(store, key + "at");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Re_remembering_with_fresh_signals_replaces_the_difficulty(store, key + "au");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Touch_updates_difficulty(store, key + "av");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Seeding_treats_a_non_finite_or_out_of_range_difficulty_signal_as_coerced(store, key + "aw");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Re_remembering_with_an_unrelated_signal_does_not_touch_the_tracked_difficulty(store, key + "ax");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Reviews_round_trip_through_the_store(store, key + "ay");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.Reviews_round_trip_the_verified_tri_state(store, key + "ay2");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.RecordReviewsAsync_with_no_reviews_is_a_no_op(store, key + "az");
-        await Lyntai.Tests.Memory.MemoryGraphStoreContract.RecordReviewsAsync_evicts_down_to_the_cap(store, key + "ba");
-
-        // no silent skips: if a fact is added to the contract and not called here, this fails
-        var covered = 68;
-        var declared = contract.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Length;
-        Assert.Equal(declared, covered);
+        return Lyntai.Tests.Memory.MemoryGraphStoreFacts.RunAsync(
+            fact, clock => new PostgresMemoryGraphStore(pg.Factory, clock: clock), Uid());
     }
 
     /// <summary>The write path's own finiteness guard, pinned as ACTUAL COLUMN CONTENT — the same fact
@@ -222,7 +154,14 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         using var conn = pg.Factory.Open();
         var applied = await Dapper.SqlMapper.ExecuteScalarAsync<long>(conn,
             "SELECT COUNT(*) FROM lyntai_version_info");
-        Assert.Equal(11L, applied); // 9 baseline (1.0 squash) + MemoryGraph (2.5.0) + MemoryRetentionModel (3.0 squash)
+        // 9 baseline (1.0 squash) + MemoryGraph (2.5.0) + MemoryRetentionModel (3.0 squash)
+        // + MemoryHeadlineSearch (3.0) — POSTGRES-ONLY, which is why this is 12 where SQLite is 11.
+        // That migration adds a trigram index on `headline` so recall can match an authored one without a
+        // sequential scan; SQLite needs no counterpart because its FTS5 mirror has indexed `headline,
+        // content` since the graph store shipped. A per-backend count is the honest shape here: migrations
+        // are per-backend projects, and forcing symmetry would mean adding a SQLite migration that does
+        // nothing just to keep two numbers equal.
+        Assert.Equal(12L, applied);
     }
 
     private static async Task<bool> TableExists(IDbConnectionFactory factory, string table)
@@ -589,6 +528,9 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     // exercised on the SKIP-LOCKED claim path in isolation from the other tests' rows.
 
     [SkippableFact] public Task Job_fail_retry_requeue() => JobPg(JobStoreContract.Fail_with_retry_requeues_available_later); // retry-requeue timestamp math on timestamptz
+    // per-JOB, not table-wide, so it is safe on the shared container — and the `attempts=attempts-1` decrement
+    // is SQL that only this backend's dialect can prove correct here
+    [SkippableFact] public Task Job_poll_does_not_spend_an_attempt() => JobPg(JobStoreContract.Poll_requeues_without_spending_an_attempt_and_is_fenced);
     [SkippableFact] public Task Job_partition_serial_fifo() => JobPg(JobStoreContract.Same_partition_serializes_and_is_fifo);
     [SkippableFact] public Task Job_partitions_parallel() => JobPg(JobStoreContract.Different_partitions_run_in_parallel);
     [SkippableFact] public Task Job_partition_priority_ignored_within() => JobPg(JobStoreContract.Priority_is_ignored_within_a_partition_but_honored_across);

@@ -72,7 +72,23 @@ public sealed record MemoryItem(
 /// <param name="Items">Hits, most relevant first.</param>
 /// <param name="Ran">Which tiers produced them — so an empty tier is distinguishable from an absent
 /// one.</param>
-public sealed record MemoryRecall(IReadOnlyList<MemoryItem> Items, MemorySources Ran)
+/// <param name="Answered">Whether a judge found anything here that actually answered the query — the
+/// ABSTENTION signal, and the only ABSOLUTE quality statement a recall makes.
+/// <para><c>null</c> = no judgement happened (no <c>IMemoryVerificationPolicy</c> registered, or it returned
+/// no opinion). <c>true</c> = at least one returned item was judged to answer. <c>false</c> = a judge looked
+/// at these items and said NONE of them did.</para>
+/// <para><b>Nullable for the same reason <c>MemoryReviewWrite.Verified</c> is:</b> <c>false</c> is an
+/// observed judgement and <c>null</c> is the absence of one, and they are not interchangeable. With the
+/// shipped default (no verifier) this is always <c>null</c> — never <c>false</c> — so a consumer that
+/// abstains on <c>false</c> does not abstain on every recall.</para>
+/// <para><b>It is ADVISORY, not a filter.</b> The items are still returned; <c>false</c> says the engine
+/// does not believe they answer the question. Dropping them is
+/// <c>GraphMemoryOptions.VerificationFilters</c>, a separate and deliberate opt-in — a mistaken verdict
+/// should cost a little confidence, not a lost result.</para>
+/// <para><b>Distinct from <c>RelativeFloor</c>,</b> which is relative to the best candidate present: a page
+/// of uniformly-irrelevant material passes that floor with a perfectly good internal ranking. This is the
+/// absolute question, and answering it is why the verification seam exists.</para></param>
+public sealed record MemoryRecall(IReadOnlyList<MemoryItem> Items, MemorySources Ran, bool? Answered = null)
 {
     /// <summary>An empty result from no tier at all.</summary>
     public static MemoryRecall Empty { get; } = new([], MemorySources.None);

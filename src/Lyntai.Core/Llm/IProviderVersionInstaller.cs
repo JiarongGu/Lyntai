@@ -15,7 +15,7 @@ namespace Lyntai.Llm;
 /// Kept separate from <see cref="IProviderUpdater"/> rather than added to it: a backend can be
 /// self-updating without being able to pin, and callers discover the capability by pattern-matching
 /// (<c>provider is IProviderVersionInstaller i</c>) over the registered providers. Distinct from
-/// <see cref="IProviderInstallation"/>, which only READS what is installed.
+/// <see cref="IProviderProbe"/>, which only READS what is installed.
 /// </summary>
 public interface IProviderVersionInstaller
 {

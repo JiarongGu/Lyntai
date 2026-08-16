@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { listingHasPdb, packageIdsFrom } from '../consumer-smoke-lib.mjs';
+import { listingHasPdb, packageIdsFrom, zipEntryNames } from '../consumer-smoke-lib.mjs';
 
 // `consumer-smoke` was the last guard with no tests, and its own backlog entry explained why: the thing
 // worth testing IS the minutes-long pack/restore/build/run, and stubbing the pack would test the
@@ -59,4 +59,58 @@ test('listingHasPdb treats an empty or missing listing as no symbols', () => {
 
 test('listingHasPdb ignores surrounding whitespace and case', () => {
   assert.equal(listingHasPdb('  lib/net10.0/Lyntai.Core.PDB  \n'), true);
+});
+
+/** A minimal but REAL zip (stored, no compression), built by hand so the test needs no fixture binary. */
+function zip(entries) {
+  const locals = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, body] of entries) {
+    const n = Buffer.from(name, 'utf8');
+    const d = Buffer.from(body, 'utf8');
+    const lh = Buffer.alloc(30);
+    lh.writeUInt32LE(0x04034b50, 0);
+    lh.writeUInt16LE(n.length, 26);
+    locals.push(lh, n, d);
+
+    const ch = Buffer.alloc(46);
+    ch.writeUInt32LE(0x02014b50, 0);
+    ch.writeUInt32LE(d.length, 20);
+    ch.writeUInt32LE(d.length, 24);
+    ch.writeUInt16LE(n.length, 28);
+    ch.writeUInt32LE(offset, 42);
+    central.push(ch, n);
+    offset += 30 + n.length + d.length;
+  }
+  const cd = Buffer.concat(central);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(cd.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  return Buffer.concat([Buffer.concat(locals), cd, eocd]);
+}
+
+test('lists every entry name', () => {
+  const names = zipEntryNames(zip([['lib/net10.0/Lyntai.Core.pdb', 'x'], ['_rels/.rels', 'y']]));
+  assert.deepEqual(names, ['lib/net10.0/Lyntai.Core.pdb', '_rels/.rels']);
+});
+
+test('a symbol package carrying a PDB is recognised', () => {
+  assert.ok(listingHasPdb(zipEntryNames(zip([['lib/net10.0/Lyntai.Core.pdb', 'x']])).join('\n')));
+});
+
+test('one carrying NO pdb is not — the defect this step exists to catch', () => {
+  assert.ok(!listingHasPdb(zipEntryNames(zip([['_rels/.rels', 'y'], ['Lyntai.nuspec', 'z']])).join('\n')));
+});
+
+test('an unreadable buffer yields NO names, so the caller can fail closed', () => {
+  // The whole point of the rewrite: `tar -tf` returned a non-zero status on this machine for every
+  // snupkg (GNU tar cannot read zip), the call site skipped the check on non-zero, and the step printed
+  // its ✓ anyway. An empty result must be distinguishable from "checked and fine".
+  assert.deepEqual(zipEntryNames(Buffer.from('not a zip at all')), []);
+  assert.deepEqual(zipEntryNames(Buffer.alloc(0)), []);
+  assert.deepEqual(zipEntryNames(null), []);
 });

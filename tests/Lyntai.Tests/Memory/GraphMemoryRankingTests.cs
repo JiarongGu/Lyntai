@@ -50,7 +50,7 @@ public sealed class GraphMemoryRankingTests : IDisposable
     private GraphMemoryEngine Engine(IMemoryGraphStore store, IMemorySaliencePolicy saliencePolicy,
         IMemoryRankingPolicy? ranking = null) =>
         new("e", store, saliencePolicies: [saliencePolicy],
-            policy: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
+            retrievability: new ModulatedRetrievability(new DsrRetrievability(), [new SalienceRetentionPolicy()]),
             ranking: ranking);
 
     [Fact]

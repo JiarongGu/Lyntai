@@ -24,7 +24,7 @@ public class GenerationProviderWiringTests
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OneImage);
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddOpenAiImageProvider(
-            new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", ApiKey = "k" },
+            o => { o.BaseUrl = "https://example.invalid/v1"; o.ApiKey = "k"; },
             _ => new HttpClient(handler, disposeHandler: false)));
         using var sp = services.BuildServiceProvider();
 
@@ -54,12 +54,12 @@ public class GenerationProviderWiringTests
     public static TheoryData<string, Action<LyntaiBuilder>> HttpBackends() => new()
     {
         { "images", b => b.AddOpenAiImageProvider(
-            new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", Id = "images" }) },
+            o => { o.BaseUrl = "https://example.invalid/v1"; o.Id = "images"; }) },
         { "webui", b => b.AddAutomatic1111Provider(
-            new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860", Id = "webui" }) },
+            o => { o.BaseUrl = "http://127.0.0.1:7860"; o.Id = "webui"; }) },
         { "comfy", b => b.AddComfyUiProvider(
-            new ComfyUiOptions { BaseUrl = "http://127.0.0.1:8188", Id = "comfy" }) },
-        { "queue", b => b.AddFalProvider(new FalQueueOptions { ApiKey = "k", Id = "queue" }) },
+            o => { o.BaseUrl = "http://127.0.0.1:8188"; o.Id = "comfy"; }) },
+        { "queue", b => b.AddFalProvider(o => { o.ApiKey = "k"; o.Id = "queue"; }) },
     };
 
     [Fact]
@@ -68,7 +68,7 @@ public class GenerationProviderWiringTests
         // HttpClient's 100s default would abort a legitimately slow render (a hosted video submit, a local
         // WebUI at high step counts) as a transport failure — the same rule the LLM presets follow
         var services = new ServiceCollection();
-        services.AddLyntai(b => b.AddFalProvider(new FalQueueOptions { ApiKey = "k" }));
+        services.AddLyntai(b => b.AddFalProvider(o => { o.ApiKey = "k"; }));
         using var sp = services.BuildServiceProvider();
 
         var client = sp.GetRequiredService<IHttpClientFactory>().CreateClient("lyntai.generation.fal");
@@ -87,7 +87,7 @@ public class GenerationProviderWiringTests
         using var mine = new HttpClient(handler);
         var services = new ServiceCollection();
         services.AddLyntai(b => b.AddOpenAiImageProvider(
-            new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", ApiKey = "k" }, _ => mine));
+            o => { o.BaseUrl = "https://example.invalid/v1"; o.ApiKey = "k"; }, _ => mine));
         using var sp = services.BuildServiceProvider();
 
         var provider = Assert.Single(sp.GetServices<IGenerationProvider>());
@@ -104,6 +104,8 @@ public class GenerationProviderWiringTests
         // `() => new HttpClient(...)` must not leak one client per render
         var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, OneImage);
         HttpClient? made = null;
+        // The PROVIDER constructor still takes an options instance — only the Add* registration shims moved
+        // to a configure callback, because a callback is a registration idiom and this is direct construction.
         var provider = new OpenAiImageProvider(
             new OpenAiImageOptions { BaseUrl = "https://example.invalid/v1", ApiKey = "k" },
             () => made = new HttpClient(handler, disposeHandler: false));
@@ -126,8 +128,8 @@ public class GenerationProviderWiringTests
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddFalProvider(new FalQueueOptions { ApiKey = "k" })
-            .AddAutomatic1111Provider(new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" })
+            .AddFalProvider(o => { o.ApiKey = "k"; })
+            .AddAutomatic1111Provider(o => { o.BaseUrl = "http://127.0.0.1:7860"; })
             .AddGenerationProvider(_ => new FakeGenerationProvider { Id = "byo" })   // the BYO seam stays open
             .UseDefaultGenerationCandidates("fal", "a1111", "byo"));
         using var sp = services.BuildServiceProvider();
@@ -150,12 +152,7 @@ public class GenerationProviderWiringTests
         var runner = new FakeProcessRunner();
         var services = new ServiceCollection();
         services.AddSingleton<IProcessRunner>(runner);         // BYO, registered BEFORE AddLyntai's TryAdd
-        services.AddLyntai(b => b.AddLocalDiffusionProvider(new LocalDiffusionOptions
-        {
-            BinaryPath = exe,
-            ModelPath = model,
-            WorkDirectory = dir,
-        }));
+        services.AddLyntai(b => b.AddLocalDiffusionProvider(o => { o.BinaryPath = exe; o.ModelPath = model; o.WorkDirectory = dir; }));
         using var sp = services.BuildServiceProvider();
 
         var provider = Assert.Single(sp.GetServices<IGenerationProvider>());

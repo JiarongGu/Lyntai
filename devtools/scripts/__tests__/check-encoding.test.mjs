@@ -107,3 +107,27 @@ test('every registered pattern is actually detected', () => {
     });
   }
 });
+
+
+test('fail-closed: an empty listing FAILS rather than printing a tick', () => {
+  // check-api-vocabulary's rule, which this gate was missing (2026-08-15). An empty source list is a broken
+  // listing, not a clean tree — the same shape that let check-sensitive skip every renamed file — and here a
+  // false pass is unrecoverable, because mojibake is invisible to every OTHER check.
+  const lines = [];
+  const code = checkEncoding('/nowhere', (m) => lines.push(m), []);
+
+  assert.equal(code, 1);
+  const out = lines.join(' ');
+  assert.match(out, /found no tracked text files/);
+  assert.match(out, /proves nothing/);
+});
+
+test('fail-closed: an honest zero still PASSES — only binaries in scope is not a broken harness', () => {
+  // The other direction, and the reason the guard is not simply `candidates.length === 0`: writing it that
+  // way made "an unscanned extension is ignored" fail, which is a legitimate result and not a defect. A
+  // caller who supplies a list has already chosen the scope; only the full-tree path can indict its filter.
+  withRepo({ 'assets/blob.bin': 'x\n' }, (repo) => {
+    const lines = [];
+    assert.equal(checkEncoding(repo, (m) => lines.push(m), ['assets/blob.bin']), 0, lines.join('\n'));
+  });
+});

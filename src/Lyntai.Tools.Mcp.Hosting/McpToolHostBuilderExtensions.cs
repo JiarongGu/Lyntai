@@ -36,8 +36,12 @@ public static class McpToolHostBuilderExtensions
         var options = new McpToolHostOptions();
         configure?.Invoke(options);
 
+        // The guard rail is resolved OPTIONALLY and travels into the host: this endpoint executes the same
+        // ITool instances the in-process tool loop does, so a rail applied to one and not the other is not
+        // applied. Resolved rather than required so an app with no guards wires exactly as before.
         builder.Services.AddKeyedSingleton<ICliToolProvisioner>(dialect.ProviderId,
-            (sp, _) => new McpToolHostProvisioner(sp.GetServices<ITool>(), dialect, options));
+            (sp, _) => new McpToolHostProvisioner(sp.GetServices<ITool>(), dialect, options,
+                sp.GetService<Lyntai.Guards.IGuardRail>()));
 
         // the first dialect registered also answers the unkeyed lookup, so a provider that doesn't ask by
         // key (and the single-CLI case, which is most apps) keeps working with no extra wiring

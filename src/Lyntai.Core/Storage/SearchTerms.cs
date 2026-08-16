@@ -141,7 +141,7 @@ public static class SearchTerms
     /// <see cref="Extract"/> being empty.</b> That short-circuit shipped through 3.0 and silently deleted
     /// every term for a query whose tokens are ALL below the index floor: <c>"配偶 客户"</c>, two ordinary
     /// two-character Chinese words, yielded NOTHING, so every substring backend fell back to matching the
-    /// whole trimmed query as one literal (<see cref="LikeClause"/>'s own empty-terms fallback) — i.e.
+    /// whole trimmed query as one literal (<see cref="LikeClause(string, string, string, string, bool)"/>'s own empty-terms fallback) — i.e.
     /// <c>%配偶 客户%</c>, which demands that exact phrase INCLUDING the space and matches no ordinary prose.
     /// <para><b>The tell was the asymmetry, not the empty list</b>: the identical token survived when a
     /// LONGER word accompanied it (<c>"配偶 叫什么名字"</c>), because that neighbour made <c>Extract</c>
@@ -269,6 +269,35 @@ public static class SearchTerms
     /// </summary>
     public static ScriptProfile ProfileOf(string token) =>
         string.IsNullOrEmpty(token) ? ScriptProfile.Spaced : ScriptRuns(token)[0].Profile;
+    /// <summary>How many of <paramref name="terms"/> appear in <paramref name="text"/>, case-insensitively —
+    /// the IN-PROCESS twin of the <c>MatchCount</c> expression <see cref="LikeClause(string, string, string, string, bool)"/> builds for the SQL
+    /// backends, so an in-memory store can order by match quality the same way they do.
+    ///
+    /// <para><b>Why it lives here.</b> <c>IMemoryStore.RecallAsync</c> and <c>ICuratedMemoryStore.SearchAsync</c>
+    /// both document the ordering as "matched-term count, then recency" for Postgres AND in-process, and the
+    /// in-process stores ordered by recency alone — so with a LIMIT they returned different ENTRIES from
+    /// their SQL siblings for the same query, which is a different answer rather than a different order.
+    /// Putting the count beside the tokenization that produced the terms is what stops the two halves
+    /// drifting again: a store that splits a query with <see cref="SubstringTerms"/> and then counts matches
+    /// its own way is two rules for one question.</para></summary>
+    /// <param name="text">The text to score.</param>
+    /// <param name="terms">The query's terms, from <see cref="SubstringTerms"/> or <see cref="Extract"/>.</param>
+    /// <param name="whole">The raw query, used when <paramref name="terms"/> is empty — the same
+    /// whole-query fallback the stores apply when a query is too short to yield a term. Scores 1 or 0.</param>
+    public static int MatchCount(string? text, IReadOnlyList<string> terms, string? whole = null)
+    {
+        if (string.IsNullOrEmpty(text)) return 0;
+
+        if (terms.Count == 0)
+            return !string.IsNullOrWhiteSpace(whole)
+                   && text.Contains(whole.Trim(), StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+
+        var matched = 0;
+        for (var i = 0; i < terms.Count; i++)
+            if (text.Contains(terms[i], StringComparison.OrdinalIgnoreCase)) matched++;
+        return matched;
+    }
+
 
     /// <summary>Builds the SQL for matching <paramref name="column"/> against every term of
     /// <paramref name="raw"/>, for the backends that search with <c>LIKE</c>/<c>ILIKE</c> rather than a
@@ -291,8 +320,32 @@ public static class SearchTerms
     /// only in the case the short terms exist to rescue. A backend that scans anyway (in-process, or
     /// SQLite's own LIKE fallback) can widen immediately at no cost.</param>
     public static LikeTermClause LikeClause(string? raw, string column,
+        string op = "LIKE", string parameterPrefix = "kw", bool includeShortTerms = true) =>
+        LikeClause(raw, [column], op, parameterPrefix, includeShortTerms);
+
+    /// <summary>As above, over SEVERAL columns: a term matches when ANY of them contains it, and counts
+    /// once whichever did.
+    ///
+    /// <para><b>Per-column disjuncts, deliberately, rather than one test over a concatenation.</b>
+    /// <c>(content ILIKE @kw0 OR headline ILIKE @kw0)</c> leaves each column's own trigram index usable —
+    /// Postgres can bitmap-OR two index scans — where <c>(content || ' ' || headline) ILIKE @kw0</c> would
+    /// need an expression index that does not exist and otherwise degrades to a sequential scan. The
+    /// measured cost of losing a trigram index on this table is in the <c>includeShortTerms</c> note above:
+    /// 96.6 ms against 0.90 ms on identical data.</para>
+    ///
+    /// <para>One parameter per TERM, shared across the columns — the pattern is the same string whichever
+    /// column is tested, so a per-column parameter would be the same value bound twice.</para></summary>
+    /// <param name="raw">As above.</param>
+    /// <param name="columns">The column expressions to test, e.g. <c>["n.content", "n.headline"]</c>.</param>
+    /// <param name="op">As above.</param>
+    /// <param name="parameterPrefix">As above.</param>
+    /// <param name="includeShortTerms">As above.</param>
+    public static LikeTermClause LikeClause(string? raw, IReadOnlyList<string> columns,
         string op = "LIKE", string parameterPrefix = "kw", bool includeShortTerms = true)
     {
+        ArgumentNullException.ThrowIfNull(columns);
+        if (columns.Count == 0) throw new ArgumentException("At least one column is required.", nameof(columns));
+
         var terms = includeShortTerms ? SubstringTerms(raw) : Extract(raw);
         if (terms.Count == 0) terms = [raw?.Trim() ?? string.Empty];
 
@@ -303,7 +356,8 @@ public static class SearchTerms
         {
             var name = parameterPrefix + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
             parameters[name] = LikePattern.Contains(terms[i]);
-            var predicate = $"{column} {op} @{name} ESCAPE '\\'";
+            var perColumn = columns.Select(c => $"{c} {op} @{name} ESCAPE '\\'");
+            var predicate = columns.Count == 1 ? perColumn.First() : "(" + string.Join(" OR ", perColumn) + ")";
             predicates.Add(predicate);
             scores.Add($"CASE WHEN {predicate} THEN 1 ELSE 0 END");
         }
@@ -316,7 +370,7 @@ public static class SearchTerms
     }
 }
 
-/// <summary>The SQL produced by <see cref="SearchTerms.LikeClause"/>: a predicate that is true when ANY
+/// <summary>The SQL produced by <see cref="SearchTerms.LikeClause(string, string, string, string, bool)"/>: a predicate that is true when ANY
 /// term matches, and an expression counting HOW MANY did.</summary>
 /// <param name="Predicate">Parenthesized <c>OR</c> of one substring test per term — use in <c>WHERE</c>.</param>
 /// <param name="MatchCount">Parenthesized sum, <c>0</c>..<see cref="TermCount"/> — use to lead an

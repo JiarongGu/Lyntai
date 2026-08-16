@@ -63,7 +63,7 @@ public class DsrPathologyTests
     /// the curve under test.</summary>
     private static GraphMemoryEngine BuildEngine(IMemoryGraphStore store, IMemoryRetrievabilityPolicy policy,
         IMemoryRankingPolicy? ranking = null) =>
-        new(EngineName, store, policy: policy, agePolicies: [new PerWriteAgePolicy()], ranking: ranking);
+        new(EngineName, store, retrievability: policy, agePolicies: [new PerWriteAgePolicy()], ranking: ranking);
 
     /// <summary>The curve(s) every fact in this file runs against.
     /// <para><b>Reinforcement is switched ON here, and that is deliberate as of 3.0.</b>

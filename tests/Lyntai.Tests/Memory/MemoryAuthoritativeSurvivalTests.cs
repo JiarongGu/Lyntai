@@ -32,7 +32,7 @@ public class MemoryAuthoritativeSurvivalTests
     private static GraphMemoryEngine NewEngine(TempDb db) =>
         new("authoritative", new SqliteMemoryGraphStore(db.Factory),
             agePolicies: [new PerWriteAgePolicy()],
-            policy: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
+            retrievability: new DsrRetrievability(), ranking: new ReciprocalRankFusionPolicy());
 
     /// <summary><b>Every authoritative fact comes back, in every language, from a query that singles out
     /// none of them.</b>

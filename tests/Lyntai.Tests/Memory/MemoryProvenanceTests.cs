@@ -137,7 +137,7 @@ public class MemoryProvenanceTests
         return list.Count == list.Distinct().Count();
     }
 
-    // ---- MemoryProvenance.EnsureEachBitIsSingleRealAndUnique (fix round 2, cheap minor) ----
+    // ---- MemoryProvenance.ValidateProvenanceBits (fix round 2, cheap minor) ----
     // The facts above test HAND-LISTED arrays; these test the PRODUCTION validation itself — the one that
     // actually runs where policies are resolved (GraphMemoryEngine's constructor), so a third policy joining
     // the registered set is caught without anyone remembering to grow a test array.
@@ -149,7 +149,7 @@ public class MemoryProvenanceTests
     /// reading the retirement comment on the member itself.</summary>
     [Fact]
     public void Every_shipped_and_retired_bit_remains_individually_valid() =>
-        MemoryProvenance.EnsureEachBitIsSingleRealAndUnique(
+        MemoryProvenance.ValidateProvenanceBits(
             [(long)MemoryRetrievabilityProvenance.HalfLife, (long)MemoryRetrievabilityProvenance.Dsr],
             i => i == 0 ? "HalfLifeRetrievability (retired)" : "DsrRetrievability");
 
@@ -157,7 +157,7 @@ public class MemoryProvenanceTests
     public void A_bit_of_zero_None_is_rejected()
     {
         var ex = Assert.Throws<ArgumentException>(() =>
-            MemoryProvenance.EnsureEachBitIsSingleRealAndUnique([0L], _ => "SomePolicy"));
+            MemoryProvenance.ValidateProvenanceBits([0L], _ => "SomePolicy"));
         Assert.Contains("SomePolicy", ex.Message, StringComparison.Ordinal);
         Assert.Contains("None", ex.Message, StringComparison.Ordinal);
     }
@@ -166,7 +166,7 @@ public class MemoryProvenanceTests
     public void A_multi_bit_value_is_rejected()
     {
         var ex = Assert.Throws<ArgumentException>(() =>
-            MemoryProvenance.EnsureEachBitIsSingleRealAndUnique([0x3L], _ => "SomePolicy"));
+            MemoryProvenance.ValidateProvenanceBits([0x3L], _ => "SomePolicy"));
         Assert.Contains("SomePolicy", ex.Message, StringComparison.Ordinal);
         Assert.Contains("single bit", ex.Message, StringComparison.Ordinal);
     }
@@ -177,7 +177,7 @@ public class MemoryProvenanceTests
     [Fact]
     public void A_consumer_policy_colliding_with_a_shipped_bit_is_rejected_by_the_production_check()
     {
-        var ex = Assert.Throws<ArgumentException>(() => MemoryProvenance.EnsureEachBitIsSingleRealAndUnique(
+        var ex = Assert.Throws<ArgumentException>(() => MemoryProvenance.ValidateProvenanceBits(
             [(long)MemoryRetrievabilityProvenance.HalfLife, (long)MemoryRetrievabilityProvenance.HalfLife],
             i => i == 0 ? "HalfLifeRetrievability" : "SomeConsumerPolicy"));
 
@@ -191,7 +191,7 @@ public class MemoryProvenanceTests
     /// bit shared across DIFFERENT type names is a genuine collision.</summary>
     [Fact]
     public void Two_instances_of_the_SAME_policy_type_sharing_a_bit_is_not_a_collision() =>
-        MemoryProvenance.EnsureEachBitIsSingleRealAndUnique(
+        MemoryProvenance.ValidateProvenanceBits(
             [(long)MemoryRetrievabilityProvenance.HalfLife, (long)MemoryRetrievabilityProvenance.HalfLife],
             _ => "HalfLifeRetrievability"); // same name both times — no throw
 }

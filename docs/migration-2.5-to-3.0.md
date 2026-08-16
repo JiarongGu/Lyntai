@@ -64,11 +64,13 @@ mechanics. New capabilities last, because they need nothing from you at all.
 
 | Step | What changes | Who it affects | Mechanical or a decision? |
 |---|---|---|---|
-| 1 | Four policy seams renamed (two of them also moved namespace), plus one storage type | Anyone naming `IMemoryClock`, `IRetrievabilityPolicy` — or configuring the keyword store's size | Mechanical |
+| 1 | **Two** seams renamed and moved namespace (the other two of the four are new in 3.0), plus one storage type | Anyone naming `IMemoryClock`, `IRetrievabilityPolicy` — or configuring the keyword store's size | Mechanical |
 | 2 | Signatures on those seams changed/grew | Anyone *implementing* one of the four seams | Mechanical, one exception (see below) |
 | 3 | `IMemoryGraphStore` grew five required members | Anyone with a custom `IMemoryGraphStore` | Mechanical |
-| 4 | Two registered defaults changed; one curve deleted outright; authoritative facts now take slots within the limit | Every consumer, even one who configures nothing | **Decision** |
+| 3b | `IJobStore` grew one required member, `PollAgainAsync` | Anyone with a custom `IJobStore` | Mechanical |
+| 4 | **Three** registered defaults changed (including: a recall no longer lengthens a half-life); one curve deleted outright; authoritative facts now take slots within the limit | Every consumer, even one who configures nothing | **Decision** |
 | 5 | Age/salience plural; ranking selectable; review log runs | Nobody, unless you want it — or deconstruct `MemoryQuery` | No action needed |
+| 6 | Generation backends register with a configure callback | Anyone calling `AddOpenAiImageProvider` and friends | Mechanical |
 
 ### Step 1 — Rename the four policy seams, and one storage type
 
@@ -87,8 +89,8 @@ Every shipped implementation whose own name embedded the retired word renamed wi
 `PerWriteClock`/`ContentSizeClock`/`ElapsedClock`/`BurstDampenedClock` become
 `PerWriteAgePolicy`/`ContentSizeAgePolicy`/`ElapsedAgePolicy`/`BurstDampenedAgePolicy`. Both moved into
 `Lyntai.Memory.Interference` and `Lyntai.Memory.Forgetting` respectively. `HalfLifeOptions` and
-`HalfLifeRetrievability` also moved into `Lyntai.Memory.Forgetting` — but see Step 4, because that curve
-does not survive this release at all.
+`HalfLifeRetrievability` are **not in that list, and adding a `using` for them will not help**: they are
+DELETED in 3.0, declared in no namespace at all, so the fix is the decision in Step 4 rather than a rename.
 
 This step is purely mechanical: add a `using`, change the type name. It changes no behaviour by itself —
 the retired working names (`IRetentionModulator`, `ISalienceAppraiser`) that the four-seam-rename note in
@@ -345,9 +347,20 @@ compiling until all five are added:
   that node (a stale subject links future facts into the wrong cluster forever), match the subject
   case-insensitively, scope the lookup to the task, and drop a node's subjects when the node is deleted.
 
+There is a **sixth** new member, and it is the one you will not be told about by the compiler:
+`KnownSubjectsAsync(engine, taskKey, scope, limit, ct)` is the only 3.0 addition with a **default body** (it
+returns an empty list), so a 2.5 store keeps compiling and silently takes that default. Nothing breaks —
+the default is the honest "this store does not track subjects" answer, and it is exactly right if you
+implemented the subject pair as no-ops above. Implement it only if you implemented `RecordSubjectsAsync`
+for real: it reports which subjects a task has seen, which an annotator uses to reuse an existing subject
+label instead of coining a near-duplicate. **Five members break your build; this one quietly limits a
+feature**, which is why it is called out separately rather than listed with them.
+
 Confirmed live against this branch: removing `DeleteAsync` from an otherwise-complete implementation
 fails with `error CS0535: '...' does not implement interface member 'IMemoryGraphStore.DeleteAsync(...)'`
-— adding it back compiles clean again.
+— adding it back compiles clean again. And measured against the `v2.5.0` tag rather than reconstructed:
+that interface had exactly **eight** members, so 8 unchanged + 5 required + 1 defaulted = the **14** on the
+3.0 interface.
 
 A minimal stub showing all five new members (the other eight are unchanged in shape from 2.5):
 
@@ -404,12 +417,43 @@ to decide what to DELETE:
 `MAX` across all of a node's edges. `NeighboursAsync` should report them. Leaving them at `0` tells the engine
 every edge was strengthened just now, which keeps stale links ranking high during traversal.
 
+### Step 3b — Update a custom `IJobStore`
+
+Only if you implement `IJobStore` yourself. The shipped SQLite, Postgres and in-process stores already do
+this. It is listed separately from Step 3 because it is a different seam in a different subsystem, and a
+consumer with a custom memory store usually does not have a custom job store.
+
+**`IJobStore` gains one required member, `PollAgainAsync(id, workerId, runAt, ct)`, with no default body.**
+That is deliberate: the only default body available would fall back to the attempt-consuming retry path,
+which would leave every BYO store silently carrying the very bug this change exists to remove. A compile
+error is the point.
+
+**What it is for.** `JobOutcome.Poll` is new — *"not finished, and nothing went wrong; look again"*, which
+the contract previously had no word for. A handler WATCHING a long-running operation elsewhere had to
+express waiting as `JobOutcome.Retry`, and a retry SPENDS an attempt: at the default `MaxAttempts` of 3 a
+durable render was submitted, polled twice, then dead-lettered as *"retries exhausted"*. At the 15-second
+default poll delay that killed **any hosted render slower than about thirty seconds**, against a handler
+whose own documentation promised to poll to completion across as many process lifetimes as it takes.
+
+**Two things your implementation must get right**, both of which the shipped stores demonstrate:
+
+- **UNDO the attempt increment `ClaimNextAsync` applied.** `Poll` is not bounded by the attempt counter at
+  all, because a look at a healthy operation is not an attempt. The SQL backends do it with
+  `attempts = attempts - 1`; the in-process store uses a floored subtraction so a store reached out of order
+  can never report a negative count.
+- **FENCE it on the worker id.** This is the one outcome that moves a job BACKWARDS, so an unfenced version
+  would let a worker whose lease was already reclaimed reset another worker's job indefinitely.
+
+Such a job now ends by cancellation, a deadline, or the handler returning `Fail` — never by exhausting
+attempts it never spent. Pinned by a `JobStoreContract` fact wired to all three backends plus two runner
+facts.
+
 ### Step 4 — Decide: keep the new defaults, or restore the old ones
 
 This is the step every consumer meets, even one who configures nothing and has no custom policy or store.
-Two registered defaults changed, one curve was deleted outright with no restore path, and one recall
+**Three** registered defaults changed, one curve was deleted outright with no restore path, and one recall
 behaviour changed for anyone who uses `MemoryGrade.Authoritative`. Read this step even if you did nothing
-but call `AddMemory()`.
+but call `AddMemory()` — the reinforcement default below changes what your existing store returns.
 
 **An authoritative fact now takes a slot WITHIN a recall's `limit` instead of being cut by it.** Through
 2.5.x, a recall re-admitted exact facts the query had not matched and then appended them *after* the ranked
@@ -459,6 +503,41 @@ services.AddSingleton<IMemoryRetrievabilityPolicy>(
     new DsrRetrievability(new DsrOptions { InitialStability = 14 }));
 // ...or register your own IMemoryRetrievabilityPolicy — before AddLyntai or after, either direction wins
 ```
+
+**A recall no longer lengthens a memory's half-life — `DsrOptions.ReinforceGain` ships at `0`.** This is the
+largest behavioural change in the release for a consumer who configures nothing, and the only default 3.0
+sets on measured evidence rather than on a shape argument (`docs/DECISIONS.md` **D54**).
+
+**Be precise about what changed, because it is not a value you can put back.** 2.5.x had no `DsrOptions` at
+all: it shipped `HalfLifeRetrievability`, whose `HalfLifeOptions.ReinforceFactor = 0.5` multiplied stability
+by **1.5** on every recall. That curve is deleted (above), so the comparison is between two different curves
+rather than between two settings of one. `ReinforceGain = 2.0` was a development default inside the
+unreleased 3.0 window and **was never released** — if you read that number somewhere, it is not a version
+you can have been running.
+
+The age reset a recall performs is unchanged — an entry you keep coming back to still stops looking stale.
+What is gone is the PERMANENT stability growth on top of it. On the fixed-corpus pin the new default reads
+`miss 0.234 → 0.103` (a 56% reduction) with pollution also slightly better, and it won on every one of six
+corpus shapes across thirty paired seeds. Every alternative was built and lost, not just the shipped rule: a
+capped variant, and one computing stability purely from an entry's recall COUNT so it cannot compound by
+construction, both lost to simply not growing.
+
+The mechanism, because it decides whether you want growth at all: what a recall is worth comes from the age
+reset, which EXPIRES — the entry decays again at its own rate. A permanent half-life increase instead banks
+the ranking policy's own errors, so an entry wrongly returned becomes more retrievable and is more likely to
+be returned wrongly again. Durability has not gone away; it moved to properties of the material and the
+graph (write-time salience, and how connected an entry is) rather than of what this engine's own ranker
+chose to return.
+
+```csharp
+// turn the growth arm back ON, if your deployment measures better with it. This is NOT a 2.5 restore —
+// 2.5's curve is gone; this asks the 3.0 curve for the behaviour 2.5's had.
+services.AddSingleton<IMemoryRetrievabilityPolicy>(
+    new DsrRetrievability(new DsrOptions { ReinforceGain = 2.0 }));
+```
+
+FSRS's three stability-increase laws are kept, not deleted — only the gain is zero. The measurement behind
+that is one synthetic corpus, so a deployment with real logged reviews may well find its own value.
 
 **Every `DsrOptions` field is now domain-guarded, and five of them started throwing in 3.0.** `MaxStability`,
 `ConnectionBoost`, `MaxConnectionBoost`, `EdgeHalfLife` and `ReinforceGain` joined the guarded half of the
@@ -667,8 +746,9 @@ simply unknown on another.
 **The forgetting curve became selectable per engine too** (`docs/DECISIONS.md` D50). `UseGraph` gained a
 `policy:` parameter — this named engine's own `IMemoryRetrievabilityPolicy`, overriding the container
 registration for it alone — so one process can now run two graph engines on two curves, which was
-inexpressible before. It is **appended last**, after `namedRankingPolicies:`, so every existing positional
-call still binds to the same parameters; and `policy: null` resolves exactly as it always did (the
+inexpressible before. It sits **after `namedRankingPolicies:`** — fifth of seven, with `annotation:` and
+`verification:` added after it later in the same window — so every 2.5 positional call still binds to the
+same parameters; and `policy: null` resolves exactly as it always did (the
 container's registration, else `DsrRetrievability`), so an engine that names nothing sees no difference.
 Selecting a curve selects the CURVE and nothing else: the policy you pass is still wrapped in retention
 modulation over the registered `IMemoryRetentionPolicy` collection, the same as the resolved default.
@@ -679,7 +759,7 @@ services.AddLyntai(cfg => cfg
     .AddMemoryEngine("chat", e => e.UseGraph())
     // this engine's own — any IMemoryRetrievabilityPolicy, not only a retuned shipped one
     .AddMemoryEngine("docs", e => e.UseGraph(
-        policy: new DsrRetrievability(new DsrOptions { InitialStability = 90 }))));
+        retrievability: new DsrRetrievability(new DsrOptions { InitialStability = 90 }))));
 ```
 
 `RankingPolicyName` is `MemoryQuery`'s sixth positional member, appended after `CharBudget`, so every
@@ -737,6 +817,34 @@ intend to fit parameters against it:
 ```csharp
 new GraphMemoryOptions { LogReviews = false }
 ```
+
+### Step 6 — generation backends take a configure callback
+
+Only for a consumer of the `Lyntai.Generation` package. Every `Add*Provider` now takes
+`Action<TOptions> configure` instead of a constructed options object, matching
+`AddOpenAiCompatibleProvider(id, o => …)` on the LLM side and `AddMemoryEngine(name, e => …)` above.
+
+<!-- compile-skip: a before/after pair — the "before" is the 2.5 API and cannot compile here -->
+```csharp
+// 2.5
+.AddOpenAiImageProvider(new OpenAiImageOptions { BaseUrl = "https://api.openai.com/v1", ApiKey = key })
+.AddAutomatic1111Provider(new Automatic1111Options { BaseUrl = "http://127.0.0.1:7860" })
+
+// 3.0 — every option has a sensible default, so set only what differs
+.AddOpenAiImageProvider(o => { o.ApiKey = key; })
+.AddAutomatic1111Provider(o => { })
+```
+
+The compiler finds every site: the parameter type changed, so a 2.5 call fails with `CS1503` naming the
+options type. There is no silent-behaviour-change risk here — it is the mechanical kind.
+
+**Two details worth knowing rather than discovering.** The three `required BaseUrl` members are no longer
+required and default to the URL their own documentation always named (`http://127.0.0.1:7860`,
+`http://127.0.0.1:8188`, `https://api.openai.com/v1`) — so a registration that previously *had* to state a
+base URL may now silently take the default instead of failing to compile. If you were relying on `required`
+to catch an unset URL, that guarantee is gone; a blank one still reports `NotConfigured` at render time,
+which is what it always did. And the four HTTP options types are now mutable classes rather than records, so
+`with` expressions and value equality on them no longer compile.
 
 ## A worked upgrade, before and after
 
@@ -852,7 +960,12 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
    1's parameter table lists all three renamed parameters, and why only that one can affect 2.5 code), and
    `MemoryQuery`/`MemoryDecayState` each gained trailing members, so a five-element deconstruction of either
    no longer binds (Steps 1, 2 and 5).
-10. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
+10. **Fix a custom `IJobStore`**, if you have one: add `PollAgainAsync`, undoing the attempt increment and
+   fencing on the worker id (Step 3b). Skip if you use a shipped job store — or no jobs at all.
+11. **If you consume `Lyntai.Generation`, convert every `Add*Provider` call to the configure callback**
+   (Step 6). Skip if you do not. It is last because it is mechanical and independent: a compile error names
+   every site.
+12. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
    automatically, and the `Stability` unit contract means your 2.5.x rows are already correct under the new
    curve.
 

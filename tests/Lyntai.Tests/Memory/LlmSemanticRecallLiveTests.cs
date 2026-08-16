@@ -159,7 +159,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
         var store = new InMemoryMemoryGraphStore();
         var engine = new GraphMemoryEngine("e", store,
             options: new GraphMemoryOptions { SemanticSeedK = semanticSeedK },
-            policy: new DsrRetrievability(),
+            retrievability: new DsrRetrievability(),
             agePolicies: [new PerWriteAgePolicy()],
             embedder: embedder,
             vectors: embedder is null ? null : new InMemoryVectorStore());

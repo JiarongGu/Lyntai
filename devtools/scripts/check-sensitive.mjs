@@ -75,11 +75,18 @@ const gitBuf = (repoRoot, args) => execFileSync('git', args, { cwd: repoRoot, ma
  * Files to scan + a getter for their raw bytes (staged blob vs on-disk).
  *
  * `-z` (NUL-separated) is load-bearing, not tidiness. Without it git C-QUOTES any path containing a
- * non-ASCII byte — `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — and that name matches no
+ * non-ASCII byte — `docs/灵台.md` arrives as `"docs/\347\201\265\345\217\260.md"` — and that name matches no  link-ok
  * file on disk. In `--tree` mode the read then ENOENTs and lands in the "pending deletion" branch below, so
  * the file is SILENTLY SKIPPED and a leak inside it is never seen; in staged mode `git show :<quoted>` fails
  * and it is (correctly, but confusingly) fail-closed. Measured 2026-08-11 while writing this gate's tests —
  * a false PASS in the highest-stakes guard, in a repository whose own name is CJK.
+ *
+ * `R` in the staged filter is load-bearing for the same reason. Rename detection is ON by default, so
+ * `git mv` plus an edit stages as status R — and an `ACM` filter drops it, returning an EMPTY file list, so
+ * the pre-commit hook exits 0 having printed nothing. This repository's own procedures are built on `git mv`
+ * (archiving a document, moving a record into `local/`), and `sensitive-info.md` is explicit that a committed
+ * leak is a HISTORY problem: `--tree` would catch it only once it is already in history. Found 2026-08-14 by
+ * the whole-codebase review. `D` stays excluded deliberately — a deletion has no staged blob to scan.
  */
 export function sources(repoRoot, { tree = false } = {}) {
   if (tree) {
@@ -89,7 +96,7 @@ export function sources(repoRoot, { tree = false } = {}) {
     };
   }
   return {
-    files: git(repoRoot, ['diff', '--cached', '--name-only', '--diff-filter=ACM', '-z'])
+    files: git(repoRoot, ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z'])
       .split('\0').filter(Boolean),
     bytesOf: (f) => gitBuf(repoRoot, ['show', `:${f}`]),
   };

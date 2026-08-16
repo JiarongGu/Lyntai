@@ -63,6 +63,7 @@ sealed class Lyntai.Storage.Postgres.PostgresJobStore
     GetAsync(Guid id, CancellationToken ct = default) : Task<JobRecord>
     ListAsync(Nullable<JobStatus> status = null, String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
     PauseAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    PollAgainAsync(Guid id, String workerId, DateTimeOffset runAt, CancellationToken ct = default) : Task<Boolean>
     ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ReportProgressAsync(Guid id, String workerId, Int32 done, Int32 total, String stage, CancellationToken ct = default) : Task<Boolean>
     ReportStepAsync(Guid id, String workerId, String message, CancellationToken ct = default) : Task<Boolean>

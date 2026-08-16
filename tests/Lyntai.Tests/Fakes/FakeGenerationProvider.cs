@@ -34,9 +34,15 @@ public sealed class FakeGenerationProvider : IGenerationProvider
             ProbeAvailable ? "fake ready" : "fake not configured"));
     }
 
+    /// <summary>When set, <see cref="GenerateAsync"/> THROWS it instead of returning a verdict — a backend
+    /// that violates the fail-safe contract on purpose. The router is the trust boundary, so a BYO backend's
+    /// bug must be classified and fallen over, never propagated to the caller.</summary>
+    public Exception? Throws { get; set; }
+
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default)
     {
         GenerateCalls++;
+        if (Throws is not null) throw Throws;
         var verdict = Verdicts.Count > 1 ? Verdicts.Dequeue()
             : Verdicts.Count == 1 ? Verdicts.Peek()
             : GenerationVerdict.Ok;
@@ -83,8 +89,15 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, CancellationToken ct = default) =>
         Task.FromResult(GenerationResult.Failure(GenerationVerdict.Unsupported, "this backend generates via submit/poll"));
 
-    public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default) =>
-        Task.FromResult(new GenerationOperation($"op-{++_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
+    /// <summary>When set, <see cref="SubmitAsync"/> THROWS it — a backend violating the fail-safe contract on
+    /// the one path where a throw may or may not already have committed money.</summary>
+    public Exception? SubmitThrows { get; set; }
+
+    public Task<GenerationOperation> SubmitAsync(GenerationRequest request, CancellationToken ct = default)
+    {
+        if (SubmitThrows is not null) throw SubmitThrows;
+        return Task.FromResult(new GenerationOperation($"op-{++_submits}", SubmitStatus) { Inconclusive = SubmitInconclusive });
+    }
 
     public Task<GenerationOperation> PollAsync(string operationId, CancellationToken ct = default) =>
         Task.FromResult(new GenerationOperation(operationId, PollStatus,

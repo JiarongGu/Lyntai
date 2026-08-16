@@ -174,6 +174,17 @@ public static class MemoryGraphStoreContract
         await store.DeleteAsync("e", [id]);
 
         Assert.Empty(await store.NodesBySubjectAsync("e", key, "s", "owner", 10));
+
+        // ...AND through the reader that does NOT join. Measured 2026-08-14: this fact asserted only through
+        // NodesBySubjectAsync, whose JOIN against the node table hides an orphaned subject row — so it passed
+        // on all three backends while neither SQL backend deleted the row at all (no foreign key, no cascade,
+        // and DeleteAsync/PruneAsync/ForgetAsync touched only the node table). KnownSubjectsAsync does not
+        // join, so it is the reader that can see the leak, and it is the one the annotator actually consumes:
+        // GraphMemoryEngine feeds its top-N to the model as reuse candidates ordered by COUNT(*), so a fully
+        // dead subject with many orphans outranks a live one and pushes real handles out of a bounded list.
+        // The table also grew without bound, and ForgetAsync -- the user-facing erase -- left model-derived
+        // subject strings in the database.
+        Assert.DoesNotContain("owner", await store.KnownSubjectsAsync("e", key, "s", 50));
     }
 
     public static async Task Upserting_identical_content_refreshes_rather_than_duplicating(
@@ -239,6 +250,46 @@ public static class MemoryGraphStoreContract
     /// the carve-out. SQLite's FTS branch filtered on engine/task/scope only and returned early on any hit,
     /// so an exact fact sharing no trigram with the query was silently not seeded — ask about "restaurant"
     /// and the dietary constraint never reaches the prompt.</para></summary>
+    /// <summary><b>A word only in the HEADLINE is found, on every backend.</b> Found 2026-08-15:
+    /// <c>lyntai_memory_node_fts</c> declares <c>headline, content</c> so SQLite matched one, while
+    /// Postgres's trigram index and the in-process store read content alone — the same call answering
+    /// differently per backend, which <c>storage.md</c> calls a defect rather than a difference.
+    /// <para><b>Converged by WIDENING, and the first attempt got the direction wrong.</b> It confined
+    /// SQLite's expression to <c>content</c>, reading this interface's portable guarantee as content-only.
+    /// That guarantee states a MINIMUM ("is found on every backend"), not a ceiling — so SQLite was not
+    /// exceeding a contract, and narrowing removed a real capability from the one backend that had it. An
+    /// authored <c>MemoryWrite.Headline</c> is a summary a caller wrote so the entry could be found by it,
+    /// with words that may appear nowhere in the content. Round 2 of that review caught it; Postgres gained
+    /// a headline trigram index (<c>M202608152310_MemoryHeadlineSearch</c>) and the in-process store now
+    /// reads both.</para></summary>
+    public static async Task A_word_only_in_the_HEADLINE_matches_on_every_backend(
+        IMemoryGraphStore store, string key)
+    {
+        // headline carries "kestrel"; content does not mention it at all
+        await store.UpsertAsync(new GraphNodeWrite("e", key, "s", "kestrel deployment notes",
+            "the service listens on port 5001 behind a reverse proxy", MemoryGrade.Associative,
+            Stability, 1, null));
+
+        var seeded = await store.SeedAsync("e", key, "s", "kestrel", 10);
+
+        Assert.Contains(seeded, n => n.Content.Contains("reverse proxy", StringComparison.Ordinal));
+    }
+
+    /// <summary>The control for the fact above: the same entry IS found by a word its content carries, so
+    /// the assertion above is about the headline/content split rather than about the query failing to match
+    /// anything at all. Without this, deleting the whole search path would satisfy the guarantee.</summary>
+    public static async Task A_word_in_the_CONTENT_matches_on_every_backend(
+        IMemoryGraphStore store, string key)
+    {
+        await store.UpsertAsync(new GraphNodeWrite("e", key, "s", "kestrel deployment notes",
+            "the service listens on port 5001 behind a reverse proxy", MemoryGrade.Associative,
+            Stability, 1, null));
+
+        var seeded = await store.SeedAsync("e", key, "s", "proxy", 10);
+
+        Assert.Contains(seeded, n => n.Content.Contains("reverse proxy", StringComparison.Ordinal));
+    }
+
     public static async Task Seeding_admits_authoritative_material_the_query_does_not_match(
         IMemoryGraphStore store, string key)
     {
@@ -810,6 +861,38 @@ public static class MemoryGraphStoreContract
         var hits = await store.SeedAsync("e", key, "s", "aged", 10);
 
         Assert.Equal(3, hits.Single().ElapsedAge, precision: 6);
+    }
+
+    /// <summary>The STRENGTH-side twin of <see cref="Elapsed_age_advances_by_real_time_between_writes"/>,
+    /// and it was missing.
+    /// <para><b>Why that mattered.</b> The only assertions on <see cref="GraphNode.StrengthElapsedAge"/> and
+    /// <see cref="GraphNeighbour.EdgeElapsedAge"/> anywhere were <c>&gt;= 0</c>, plus one that positively
+    /// REQUIRES <c>0</c> for an unconnected node — so a store hard-coding <c>0</c> for both satisfied every
+    /// one of them. The encoding axis had this discriminating fact; the strength and edge axes got only the
+    /// weak shape, which is the "a guard that cannot observe the thing it guards" trap.</para>
+    /// <para><b>The consequence, which is why this is a contract fact and not a per-backend test.</b>
+    /// <c>GraphMemoryEngine</c> projects these through whichever age policy is installed, and
+    /// <c>ElapsedAgePolicy</c> is shipped. Under it, a constant zero means every edge reads as freshly
+    /// strengthened forever: <c>GraphMemoryOptions.EdgeHalfLife</c> decays nothing and a connection boost
+    /// never fades. That is <c>CLAUDE.md</c>'s own headline claim — "all THREE age axes now speak one unit"
+    /// — resting on two axes nothing could observe. Found 2026-08-14.</para></summary>
+    public static async Task Strength_elapsed_age_advances_by_real_time_between_strengthenings(
+        IMemoryGraphStore store, string key, Action<TimeSpan> advance)
+    {
+        var a = await store.UpsertAsync(Write("e", key, "the connected entry being aged"));
+        var b = await store.UpsertAsync(Write("e", key, "its neighbour across the edge"));
+        await store.LinkAsync("e", a, b, null, 1, symmetric: true);
+
+        advance(TimeSpan.FromDays(3));
+        // a later, UNRELATED write moves the clock's reference without touching the edge
+        await store.UpsertAsync(Write("e", key, "a later unrelated write"));
+
+        var node = await store.GetAsync("e", a);
+        Assert.NotNull(node);
+        Assert.Equal(3, node!.StrengthElapsedAge, precision: 6);
+
+        var neighbours = await store.NeighboursAsync("e", [a], 10);
+        Assert.Equal(3, neighbours.Single().EdgeElapsedAge, precision: 6);
     }
 
     /// <summary>A quiet engine must not age on ANY of the three primitives — the reason the totals are per

@@ -51,11 +51,23 @@ public sealed class CuratedMemoryEngine(
         ct.ThrowIfCancellationRequested();
         try
         {
-            // no query = "everything that applies to this task", which is the catalog's composition read
+            // no query = "everything that applies to this task", which is the catalog's composition read.
+            //
+            // ForCompositionAsync takes NEITHER kind NOR limit — it is the whole-catalog read that
+            // CuratedMemorySections renders per section — so both are applied HERE, matching what the
+            // SearchAsync branch below already passes down. Without that, an engine bound to one section
+            // returned every section of the catalog, unbounded, all graded Authoritative; a blend of two
+            // curated engines over one catalog therefore returned each fact once per member, and the
+            // duplicates consumed the authoritative reserve objective (1) exists to protect. Filtering in the
+            // engine rather than widening the store contract keeps this a two-line fix and leaves
+            // ForCompositionAsync doing the one job its other caller needs (found 2026-08-14).
             var entries = string.IsNullOrWhiteSpace(query.Query)
-                ? await store.ForCompositionAsync(query.TaskKey,
-                        query.Scope is null ? [] : [query.Scope], enabledOnly: true, ct)
-                    .ConfigureAwait(false)
+                ? (await store.ForCompositionAsync(query.TaskKey,
+                            query.Scope is null ? [] : [query.Scope], enabledOnly: true, ct)
+                        .ConfigureAwait(false))
+                    .Where(e => string.Equals(e.Kind, kind, StringComparison.Ordinal))
+                    .Take(query.Limit is { } cap && cap > 0 ? cap : int.MaxValue)
+                    .ToList()
                 : await store.SearchAsync(query.Query, kind, query.TaskKey, query.Scope,
                     enabledOnly: true, query.Limit, ct: ct).ConfigureAwait(false);
             if (entries.Count == 0) return MemoryRecall.Empty;

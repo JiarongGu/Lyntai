@@ -35,7 +35,15 @@ public interface ILinkableMemory
 }
 
 /// <summary>An engine that can reap entries. Reaping is always EXPLICIT — nothing in this library deletes
-/// remembered material as a side effect of decay, which only ever affects ranking.</summary>
+/// remembered material as a side effect of decay, which only ever affects ranking.
+///
+/// <para><b>Both reaping verbs live here, and that is what makes them reachable.</b> Through 2.5.x
+/// <c>ForgetAsync</c> was a bare public method on <c>GraphMemoryEngine</c> and on no interface at all, while
+/// <c>CompositeMemoryEngine</c> — which <c>MemoryEngineBuilder.Build</c> produces for EVERY registration,
+/// even a single-member one — did not implement this interface. So a consumer holding the
+/// <see cref="IMemoryEngine"/> that <see cref="IMemoryEngineFactory"/> hands back could reach neither: the
+/// type test failed and the method was invisible. A memory subsystem you cannot delete from is not a
+/// capability that was deferred, it is one that was lost behind a wrapper.</para></summary>
 public interface IForgettableMemory
 {
     /// <summary>Reap entries, returning how many were removed.</summary>
@@ -46,4 +54,15 @@ public interface IForgettableMemory
     /// <param name="ct">Cancellation, which is never swallowed.</param>
     Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
         TimeSpan? olderThan = null, CancellationToken ct = default);
+
+    /// <summary>Forget everything remembered under (<paramref name="taskKey"/>, <paramref name="scope"/>),
+    /// unconditionally — the whole-scope counterpart to <see cref="PruneAsync"/>'s selective reap.
+    /// <para>Unlike <see cref="PruneAsync"/> this returns no count: it removes the scope rather than a
+    /// qualifying subset, so "how many" is not the question a caller is asking. It is the deletion path an
+    /// application uses when a user withdraws consent or a task ends, which is why it must be reachable
+    /// through the interface rather than through a concrete type.</para></summary>
+    /// <param name="taskKey">The task to forget within.</param>
+    /// <param name="scope">Optional scope filter; null forgets across the task's scopes.</param>
+    /// <param name="ct">Cancellation, which is never swallowed.</param>
+    Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default);
 }

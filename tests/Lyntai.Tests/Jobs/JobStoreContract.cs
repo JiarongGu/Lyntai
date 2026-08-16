@@ -129,6 +129,38 @@ public static class JobStoreContract
         Assert.Equal(JobStatus.Running, (await store.GetAsync(id))!.Status); // untouched
     }
 
+    /// <summary>A poll returns the job to Pending WITHOUT spending an attempt, and is fenced like every other
+    /// write. Found 2026-08-14: expressing "still running, look again" as a Retry dead-lettered a healthy
+    /// render after MaxAttempts looks, so the un-counting is the whole point of the member and is asserted
+    /// here rather than on one backend's own test class — the SQL does it with `attempts=attempts-1` and the
+    /// in-process store with a floored subtraction, which is exactly the kind of divergence a contract fact
+    /// exists to pin.</summary>
+    public static async Task Poll_requeues_without_spending_an_attempt_and_is_fenced(
+        IJobStore store, MutableClock clock, string lane = "default")
+    {
+        var id = await store.EnqueueAsync(Spec(lane));
+        await store.ClaimNextAsync(lane, "w1", Lease);
+        var claimed = (await store.GetAsync(id))!;
+        Assert.Equal(1, claimed.Attempts);                       // the claim counted one
+
+        // a different worker cannot drive it backwards — the one outcome that MOVES A JOB BACK, so an
+        // unfenced version would let a zombie reset another worker's job forever
+        Assert.False(await store.PollAgainAsync(id, "intruder", clock.Now.AddMinutes(1)));
+        Assert.Equal(JobStatus.Running, (await store.GetAsync(id))!.Status);
+
+        Assert.True(await store.PollAgainAsync(id, "w1", clock.Now.AddMinutes(1)));
+        var polled = (await store.GetAsync(id))!;
+        Assert.Equal(JobStatus.Pending, polled.Status);
+        Assert.Equal(0, polled.Attempts);                        // the claim's increment is UNDONE
+        Assert.Null(polled.LastError);                           // nothing failed, so nothing is reported
+        Assert.Null(polled.ClaimedBy);
+
+        // and it is genuinely re-claimable, so polling can continue indefinitely
+        clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.NotNull(await store.ClaimNextAsync(lane, "w1", Lease));
+        Assert.Equal(1, (await store.GetAsync(id))!.Attempts);
+    }
+
     // CancelAsync takes a job that has NOT STARTED (Pending here, Paused in
     // Cancel_reaches_a_paused_job_without_resuming_it) and never a Running one — a running job is cancelled
     // cooperatively through RequestCancelAsync, which is the other half of IJobQueue.CancelAsync.

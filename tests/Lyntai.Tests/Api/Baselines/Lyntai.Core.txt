@@ -311,8 +311,8 @@ sealed class Lyntai.Cortex.AgreementReport
     PearsonCorrelation : Nullable<Double>
     ToString() : String
 static class Lyntai.Cortex.CuratedMemorySections
-    static AppliesTo(CuratedMemory entry, String task, IReadOnlyCollection<String> scopes) : Boolean
-    static Compose(IEnumerable<CuratedMemory> entries, Func<String,String> header = null, String bullet = "- ", String task = null, IEnumerable<String> scopes = null) : String
+    static AppliesTo(CuratedMemory entry, String taskKey, IReadOnlyCollection<String> scopes) : Boolean
+    static Compose(IEnumerable<CuratedMemory> entries, Func<String,String> header = null, String bullet = "- ", String taskKey = null, IEnumerable<String> scopes = null) : String
 interface Lyntai.Cortex.IPairwiseComparer
     CompareAsync(String input, String outputA, String outputB, CancellationToken ct = default) : Task<PairwiseResult>
 interface Lyntai.Cortex.IPromptComposer
@@ -712,7 +712,6 @@ sealed class Lyntai.Generation.Routing.BudgetedGenerationRouter
     .ctor(IGenerationRouter inner, IUsageTracker tracker, LyntaiOptions options, ILogger<BudgetedGenerationRouter> logger = null)
     GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
     SubmitAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationSubmission>
-    static RecordAsync(IUsageTracker tracker, String consumer, GenerationUsage usage, CancellationToken ct = default) : ValueTask
 sealed class Lyntai.Generation.Routing.GenerationCandidate
     .ctor(String ProviderId, String Model = null)
     Deconstruct(String& ProviderId, String& Model) : Void
@@ -798,7 +797,7 @@ static class Lyntai.GenerationBuilderExtensions
     static AddGenerationTools(LyntaiBuilder builder) : LyntaiBuilder
     static AddGenerationUsageBudget(LyntaiBuilder builder, Action<BudgetOptions> configure = null) : LyntaiBuilder
     static ConfigureGenerationRouting(LyntaiBuilder builder, Action<GenerationRoutingPolicy> configure) : LyntaiBuilder
-    static UseDefaultGenerationCandidates(LyntaiBuilder builder, String[] candidates) : LyntaiBuilder
+    static UseDefaultGenerationCandidates(LyntaiBuilder builder, String[] providerIds) : LyntaiBuilder
 sealed class Lyntai.GenerationOptions
     .ctor()
     DefaultCandidates : List<GenerationCandidate>
@@ -910,10 +909,12 @@ sealed class Lyntai.Jobs.JobOutcome
     ToString() : String
     static Complete : JobOutcome
     static Fail(String error) : JobOutcome
+    static Poll(Nullable<TimeSpan> delay = null) : JobOutcome
     static Retry(Nullable<TimeSpan> delay = null) : JobOutcome
 enum Lyntai.Jobs.JobOutcome+Kind
     Complete : Kind const
     Fail : Kind const
+    Poll : Kind const
     Retry : Kind const
     value__ : Int32
 sealed class Lyntai.Jobs.JobQueue
@@ -1156,7 +1157,7 @@ enum Lyntai.Llm.Cli.CliPromptDelivery
 abstract class Lyntai.Llm.Cli.CliProviderDialectBase
     .ctor()
     AuthStatusArgs : IReadOnlyList<String>
-    BuildCompletionArgs(LlmRequest request) : IReadOnlyList<String>
+    BuildCompletionArgs(LlmRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
     BuildPrompt(LlmRequest request) : String
     CommandEnvironmentVariables : IReadOnlyList<String>
     DefaultCommand : String
@@ -1190,7 +1191,7 @@ sealed class Lyntai.Llm.Cli.CliProviderEngine
     static NeutralWorkingDirectory : String
 interface Lyntai.Llm.Cli.ICliProviderDialect
     AuthStatusArgs : IReadOnlyList<String>
-    BuildCompletionArgs(LlmRequest request) : IReadOnlyList<String>
+    BuildCompletionArgs(LlmRequest request, IReadOnlyList<String> toolHostArgs) : IReadOnlyList<String>
     BuildPrompt(LlmRequest request) : String
     CommandEnvironmentVariables : IReadOnlyList<String>
     DefaultCommand : String
@@ -1236,7 +1237,7 @@ interface Lyntai.Llm.IProviderAuth
     LoginAsync(ProviderLoginRequest request = null, CancellationToken ct = default) : Task<ProviderAuthResult>
     LogoutAsync(CancellationToken ct = default) : Task<ProviderAuthResult>
     StatusAsync(CancellationToken ct = default) : Task<ProviderAuthStatus>
-interface Lyntai.Llm.IProviderInstallation
+interface Lyntai.Llm.IProviderProbe
     ProbeAsync(CancellationToken ct = default) : Task<ProviderProbeResult>
 interface Lyntai.Llm.IProviderUpdater
     UpdateAsync(CancellationToken ct = default) : Task<ProviderUpdateResult>
@@ -1638,9 +1639,11 @@ sealed class Lyntai.Memory.Annotation.MemoryAnnotationRequest
 sealed class Lyntai.Memory.CompositeMemoryEngine
     .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
+    ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
     Members : IReadOnlyList<IMemoryEngine>
     Name : String
+    PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
@@ -1654,7 +1657,7 @@ sealed class Lyntai.Memory.Engines.CuratedMemoryEngine
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
 sealed class Lyntai.Memory.Engines.GraphMemoryEngine
-    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy policy = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEmbedder embedder = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null)
+    .ctor(String name, IMemoryGraphStore store, GraphMemoryOptions options = null, IMemoryRetrievabilityPolicy retrievability = null, IEnumerable<IMemoryAgePolicy> agePolicies = null, ILogger<GraphMemoryEngine> logger = null, IEmbedder embedder = null, IVectorStore vectors = null, IEnumerable<IMemorySaliencePolicy> saliencePolicies = null, IMemoryRankingPolicy ranking = null, IMemoryAgeCompositionPolicy ageComposition = null, IMemorySalienceCompositionPolicy salienceComposition = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, Func<DateTimeOffset> clock = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -1728,6 +1731,7 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     EdgeHalfLife : Double
     Equals(GraphMemoryOptions other) : Boolean
     Equals(Object obj) : Boolean
+    ExpandCharBudget : Nullable<Int32>
     GetHashCode() : Int32
     HeadlineChars : Int32
     Hops : Int32
@@ -1826,6 +1830,7 @@ struct Lyntai.Memory.GraphTouch
 interface Lyntai.Memory.IExpandableMemory
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
 interface Lyntai.Memory.IForgettableMemory
+    ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
 interface Lyntai.Memory.ILinkableMemory
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -1920,7 +1925,7 @@ sealed class Lyntai.Memory.Interference.PerWriteAgePolicy
     Advance(MemoryWrite write, String engine) : MemoryTick
     Age(MemoryAgeSample sample) : Double
     Kind : MemoryAgeKind
-sealed class Lyntai.Memory.Interference.SummedAgeComposition
+sealed class Lyntai.Memory.Interference.SummedAgeCompositionPolicy
     .ctor()
     Advance(IReadOnlyList<MemoryTick> ticks) : MemoryTick
     Age(IReadOnlyList<Double> ages) : Double
@@ -1929,8 +1934,8 @@ static class Lyntai.Memory.MemoryComposition
 sealed class Lyntai.Memory.MemoryCompositionOptions
     .ctor()
     AssociativeHeading : String
+    AuthoritativeCharacters : Int32
     AuthoritativeHeading : String
-    AuthoritativeReserve : Int32
     Budget : Int32
     Equals(MemoryCompositionOptions other) : Boolean
     Equals(Object obj) : Boolean
@@ -1954,9 +1959,9 @@ struct Lyntai.Memory.MemoryDecayState
     ToString() : String
 sealed class Lyntai.Memory.MemoryEngineBuilder
     Budget(Int32 characters) : MemoryEngineBuilder
-    Reserve(Int32 characters) : MemoryEngineBuilder
+    ReserveCharacters(Int32 characters) : MemoryEngineBuilder
     UseCurated(String kind = "memory", String label = null) : MemoryEngineBuilder
-    UseGraph(GraphMemoryOptions options = null, String label = "graph", IMemoryRankingPolicy ranking = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, IMemoryRetrievabilityPolicy policy = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null) : MemoryEngineBuilder
+    UseGraph(GraphMemoryOptions options = null, String label = "graph", IMemoryRankingPolicy ranking = null, IReadOnlyDictionary<String,IMemoryRankingPolicy> namedRankingPolicies = null, IMemoryRetrievabilityPolicy retrievability = null, IMemoryAnnotationPolicy annotation = null, IMemoryVerificationPolicy verification = null) : MemoryEngineBuilder
     UseLexical(String label = "lexical") : MemoryEngineBuilder
     UseSemantic(String label = "semantic") : MemoryEngineBuilder
 sealed class Lyntai.Memory.MemoryEngineFactory
@@ -1990,11 +1995,11 @@ sealed class Lyntai.Memory.MemoryItem
     Retrievability : Double
     ToString() : String
 static class Lyntai.Memory.MemoryProvenance
-    static EnsureEachBitIsSingleRealAndUnique(IReadOnlyList<Int64> bits, Func<Int32,String> describe) : Void
     static Fits(Int64 stored, Int64 required) : Boolean
     static Pack(IEnumerable<Int64> contributions) : Int64
     static Pack(Int64[] contributions) : Int64
     static Unpack(Int64 stored) : Int64
+    static ValidateProvenanceBits(IReadOnlyList<Int64> bits, Func<Int32,String> describe) : Void
 sealed class Lyntai.Memory.MemoryQuery
     .ctor(String TaskKey, String Scope = null, String Query = null, Nullable<Int32> Limit = null, Nullable<Int32> CharBudget = null, String RankingPolicyName = null)
     CharBudget : Nullable<Int32>
@@ -2009,8 +2014,9 @@ sealed class Lyntai.Memory.MemoryQuery
     TaskKey : String
     ToString() : String
 sealed class Lyntai.Memory.MemoryRecall
-    .ctor(IReadOnlyList<MemoryItem> Items, MemorySources Ran)
-    Deconstruct(IReadOnlyList`1& Items, MemorySources& Ran) : Void
+    .ctor(IReadOnlyList<MemoryItem> Items, MemorySources Ran, Nullable<Boolean> Answered = null)
+    Answered : Nullable<Boolean>
+    Deconstruct(IReadOnlyList`1& Items, MemorySources& Ran, Nullable`1& Answered) : Void
     Equals(MemoryRecall other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
@@ -2132,7 +2138,7 @@ sealed class Lyntai.Memory.MemoryWrite
     TaskKey : String
     ToString() : String
 interface Lyntai.Memory.Modulation.IMemoryRetentionCompositionPolicy
-    Compose(IReadOnlyList<Double> factors) : Double
+    StabilityFactor(IReadOnlyList<Double> factors) : Double
 interface Lyntai.Memory.Modulation.IMemoryRetentionPolicy
     MaxStabilityFactor : Double
     Name : String
@@ -2145,9 +2151,9 @@ sealed class Lyntai.Memory.Modulation.ModulatedRetrievability
     Provenance : MemoryRetrievabilityProvenance
     Reinforce(MemoryDecayState& state) : MemoryDecayState
     Retrievability(MemoryDecayState& state) : Double
-sealed class Lyntai.Memory.Modulation.MultiplicativeRetentionComposition
+sealed class Lyntai.Memory.Modulation.MultiplicativeRetentionCompositionPolicy
     .ctor()
-    Compose(IReadOnlyList<Double> factors) : Double
+    StabilityFactor(IReadOnlyList<Double> factors) : Double
 sealed class Lyntai.Memory.Modulation.SalienceRetentionPolicy
     .ctor(SalienceOptions options = null)
     MaxStabilityFactor : Double
@@ -2210,6 +2216,7 @@ struct Lyntai.Memory.Ranking.RankedMemory
     ToString() : String
 sealed class Lyntai.Memory.Ranking.ReciprocalRankFusionOptions
     .ctor()
+    DiagnosticityWeight : Double
     Equals(Object obj) : Boolean
     Equals(ReciprocalRankFusionOptions other) : Boolean
     GetHashCode() : Int32
@@ -2224,13 +2231,13 @@ sealed class Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy
     .ctor(ReciprocalRankFusionOptions options = null)
     Rank(IReadOnlyList<MemoryCandidate> candidates, MemoryRankingContext& context) : IReadOnlyList<RankedMemory>
 interface Lyntai.Memory.Salience.IMemorySalienceCompositionPolicy
-    Compose(IReadOnlyList<MemorySignals> signals) : MemorySignals
+    Signals(IReadOnlyList<MemorySignals> signals) : MemorySignals
 interface Lyntai.Memory.Salience.IMemorySaliencePolicy
     Provenance : MemorySalienceProvenance
     Signals(MemoryWrite write, SalienceContext& context) : MemorySignals
-sealed class Lyntai.Memory.Salience.MaximalSalienceComposition
+sealed class Lyntai.Memory.Salience.MaximalSalienceCompositionPolicy
     .ctor()
-    Compose(IReadOnlyList<MemorySignals> signals) : MemorySignals
+    Signals(IReadOnlyList<MemorySignals> signals) : MemorySignals
 enum Lyntai.Memory.Salience.MemorySalienceProvenance
     None : MemorySalienceProvenance const
     Structural : MemorySalienceProvenance const
@@ -2328,15 +2335,6 @@ sealed class Lyntai.Memory.Verification.MemoryVerificationRequest
     ToString() : String
 static class Lyntai.MemoryAnnotationRegistration
     static AddMemoryAnnotation(LyntaiBuilder builder, Action<LlmAnnotationOptions> configure = null) : LyntaiBuilder
-sealed class Lyntai.MemoryEngineComposition
-    .ctor(String Name, MemoryCompositionOptions Options)
-    Deconstruct(String& Name, MemoryCompositionOptions& Options) : Void
-    Equals(MemoryEngineComposition other) : Boolean
-    Equals(Object obj) : Boolean
-    GetHashCode() : Int32
-    Name : String
-    Options : MemoryCompositionOptions
-    ToString() : String
 static class Lyntai.MemoryEngineRegistration
     static AddMemory(LyntaiBuilder builder, String name = "default") : LyntaiBuilder
     static AddMemoryEngine(LyntaiBuilder builder, String name, Action<MemoryEngineBuilder> configure = null) : LyntaiBuilder
@@ -2525,6 +2523,7 @@ sealed class Lyntai.Storage.EnrichingConversationStore
     SetThreadMetadataAsync(String id, String metadata, CancellationToken ct = default) : Task
 static class Lyntai.Storage.FtsQuery
     static Build(String raw) : String
+    static Build(String raw, String column) : String
 interface Lyntai.Storage.IConversationEnricher
     OnMessageAppendedAsync(ChatMessage message, CancellationToken ct = default) : Task
     OnThreadCreatedAsync(ChatThread thread, CancellationToken ct = default) : Task
@@ -2562,6 +2561,7 @@ interface Lyntai.Storage.IJobStore
     GetAsync(Guid id, CancellationToken ct = default) : Task<JobRecord>
     ListAsync(Nullable<JobStatus> status = null, String lane = null, Int32 limit = 100, CancellationToken ct = default) : Task<IReadOnlyList<JobRecord>>
     PauseAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
+    PollAgainAsync(Guid id, String workerId, DateTimeOffset runAt, CancellationToken ct = default) : Task<Boolean>
     ReplayAsync(Guid id, CancellationToken ct = default) : Task<Boolean>
     ReportProgressAsync(Guid id, String workerId, Int32 done, Int32 total, String stage, CancellationToken ct = default) : Task<Boolean>
     ReportStepAsync(Guid id, String workerId, String message, CancellationToken ct = default) : Task<Boolean>
@@ -2633,6 +2633,7 @@ static class Lyntai.Storage.JobStoreSql
     SetDead : String const
     SetFailedRetry : String const
     SetFailedTerminal : String const
+    SetPollAgain : String const
     SetProgress : String const
     SetStepLog : String const
     SetSucceeded : String const
@@ -2744,7 +2745,9 @@ static class Lyntai.Storage.SearchTerms
     MinimumTermLength : Int32 const
     static Extract(String raw) : IReadOnlyList<String>
     static HasShortSpacelessTerms(String raw) : Boolean
+    static LikeClause(String raw, IReadOnlyList<String> columns, String op = "LIKE", String parameterPrefix = "kw", Boolean includeShortTerms = true) : LikeTermClause
     static LikeClause(String raw, String column, String op = "LIKE", String parameterPrefix = "kw", Boolean includeShortTerms = true) : LikeTermClause
+    static MatchCount(String text, IReadOnlyList<String> terms, String whole = null) : Int32
     static ProfileOf(String token) : ScriptProfile
     static Profiles : IReadOnlyList<ScriptProfile>
     static SubstringTerms(String raw) : IReadOnlyList<String>

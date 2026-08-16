@@ -146,18 +146,7 @@ public static class LyntaiServiceCollectionExtensions
         // Default candidates internal. Any registered front-door decorators (response cache, usage budget, …)
         // are folded over the base client in ascending Order (the decorator's declared position — NOT raw
         // registration order), so they compose predictably instead of clobbering.
-        services.TryAddSingleton<ILlmClient>(sp =>
-        {
-            ILlmClient client = new LlmClient(sp.GetRequiredService<ILlmRouter>(), options);
-            foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
-                client = decorate(sp, client);
-            // refusal screening (per-request LlmRequest.RefusalPattern + any registered IRefusalMatcher) is
-            // OUTERMOST + always on (the pattern is a request field), so it re-screens even a cached hit.
-            // Deliberately NOT in FrontDoorDecorators, so it doesn't trip the "decorators configured but
-            // ILlmClient pre-registered" guard above.
-            return new RefusalScreeningLlmClient(client, sp.GetServices<IRefusalMatcher>(),
-                sp.GetService<ILogger<RefusalScreeningLlmClient>>());
-        });
+        services.TryAddSingleton<ILlmClient>(sp => Compose(sp, sp.GetRequiredService<ILlmRouter>()));
 
         // Named clients (AddLlmClient) — the chat counterpart of the memory engine registry. Each is the
         // SAME composition as the default client over a narrower provider set: base client, the same
@@ -168,17 +157,33 @@ public static class LyntaiServiceCollectionExtensions
         {
             var named = builder.NamedLlmClients.ToDictionary(
                 entry => entry.Key,
-                entry => Compose(sp, ProvidersFor(sp, entry.Key, entry.Value)),
+                entry => Compose(sp, sp.GetRequiredService<ILlmRouterFactory>()
+                    .For(ProvidersFor(sp, entry.Key, entry.Value))),
                 StringComparer.Ordinal);
             return new LlmClientFactory(named, sp.GetRequiredService<ILlmClient>());
         });
 
-        ILlmClient Compose(IServiceProvider sp, IReadOnlyList<ILlmProvider> providers)
+        // THE FRONT DOOR, built ONCE for every client this container hands out. Only the ROUTER differs
+        // between the default client and a named one — the default takes the container's own ILlmRouter,
+        // a name takes one narrowed to its provider set — and that difference is the whole point of a name,
+        // so it is the parameter. Everything outside it is the governance promise and must not vary.
+        //
+        // It was written twice until 3.0, and the comment above the named registration ASSERTED the parity
+        // the two copies were supposed to maintain by hand. Nothing enforced it: deleting the refusal
+        // screening from the named copy left the whole suite green, and any new outermost layer added to the
+        // default would have been silently absent from every named client — which is what
+        // AddMemoryAnnotation and AddMemoryVerification resolve through. Same shape as MemoryEngineBuilder's
+        // two construction sites (docs/FIXES.md), where an optional argument added to one path and not the
+        // other left a documented knob unwired and the compiler could not see it.
+        ILlmClient Compose(IServiceProvider sp, ILlmRouter router)
         {
-            ILlmClient client = new LlmClient(
-                sp.GetRequiredService<ILlmRouterFactory>().For(providers), options);
+            ILlmClient client = new LlmClient(router, options);
             foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
                 client = decorate(sp, client);
+            // refusal screening (per-request LlmRequest.RefusalPattern + any registered IRefusalMatcher) is
+            // OUTERMOST + always on (the pattern is a request field), so it re-screens even a cached hit.
+            // Deliberately NOT in FrontDoorDecorators, so it doesn't trip the "decorators configured but
+            // ILlmClient pre-registered" guard above.
             return new RefusalScreeningLlmClient(client, sp.GetServices<IRefusalMatcher>(),
                 sp.GetService<ILogger<RefusalScreeningLlmClient>>());
         }
