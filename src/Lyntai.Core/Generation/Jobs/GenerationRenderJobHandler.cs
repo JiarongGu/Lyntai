@@ -18,11 +18,10 @@ public sealed record GenerationRenderJobOptions(TimeSpan? PollDelay = null)
 /// Runs an asynchronous generation as a DURABLE job: submit once, then poll to completion across as many
 /// process lifetimes as it takes.
 ///
-/// This is where the platform earns its keep over a thin HTTP client. The operation id is
-/// <b>checkpointed before the first poll</b>, so a crash, deploy or restart resumes polling the render that is
-/// already running instead of submitting — and paying for — a second one. Progress is reported for a UI, the
-/// lease is renewed by checkpointing, and a lost lease stops the handler rather than letting two workers drive
-/// the same paid render.
+/// The operation id is <b>checkpointed before the first poll</b>, so a crash, deploy or restart resumes
+/// polling the render already running instead of submitting — and paying for — a second one. The lease is
+/// renewed by checkpointing, and a lost lease stops the handler rather than letting two workers drive the
+/// same paid render.
 /// </summary>
 /// <remarks>
 /// <para>Composes with <c>Lyntai.Jobs</c> rather than reimplementing any of it: lanes, priorities, retry

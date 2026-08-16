@@ -41,12 +41,10 @@ internal static class CodexExecArgs
     /// FLAG and therefore costs no turn): <c>Usage: codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]</c>,
     /// where <c>[SESSION_ID]</c> is the "Conversation/session id (UUID) or thread name" and <c>[PROMPT]</c> is
     /// the same slot the fresh path fills with <c>-</c> ("If <c>-</c> is used, read from stdin"). Two things
-    /// that measurement settles and a guess could not: <c>resume</c> is a real SUBCOMMAND of <c>exec</c> — an
-    /// unrecognized one would have been read as a PROMPT and silently spent a turn — and the id is a
-    /// POSITIONAL that must therefore precede the <c>-</c>, which is where the guess would most likely have
-    /// gone wrong. The flags around it are clap options: a wrong one errors out, it does not bill. The one
-    /// thing measurement does NOT settle is where the OPTIONS sit relative to the id, so the argv follows the
-    /// CLI's own usage line (options, then id, then <c>-</c>) — see <c>BuildArgv</c>.</para>
+    /// measurement settles and a guess could not: <c>resume</c> is a real SUBCOMMAND of <c>exec</c> — an
+    /// unrecognized one is read as a PROMPT and silently spends a turn — and the id is a POSITIONAL that must
+    /// precede the <c>-</c>. What it does NOT settle is where the OPTIONS sit relative to the id, so the argv
+    /// follows the CLI's own usage line (options, then id, then <c>-</c>) — see <c>BuildArgv</c>.</para>
     ///
     /// <para>The token is free-form and opaque to Lyntai, so it is REFUSED when codex would read it as an
     /// OPTION instead of an id — anything starting with <c>-</c>, notably this subcommand's own <c>--last</c>

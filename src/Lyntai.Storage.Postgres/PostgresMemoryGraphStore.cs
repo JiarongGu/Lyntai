@@ -9,38 +9,28 @@ namespace Lyntai.Storage.Postgres;
 
 /// <summary>PostgreSQL <see cref="IMemoryGraphStore"/> over <c>lyntai_memory_node</c> +
 /// <c>lyntai_memory_edge</c>, with substring recall through the <c>pg_trgm</c> GIN index.
-/// <para>The parallel with <c>SqliteMemoryGraphStore</c> is deliberate and is NOT duplication waiting to be
-/// extracted: the two differ by dialect necessity — <c>GREATEST</c> versus <c>MAX</c>, an <c>ILIKE</c> over
-/// a GIN index versus an FTS5 virtual table and its three triggers, and the table reference Postgres
-/// requires in <c>DO UPDATE SET</c>. The shared store contract is what holds them to one behaviour.</para>
-/// <para><b>Every connection is opened ASYNCHRONOUSLY</b>, like every other store in this package. This one
-/// alone used the synchronous <c>factory.Open()</c> at all fourteen sites until 3.0 — and
-/// <see cref="SeedAsync"/> runs on every recall, so under concurrent recalls each blocked a thread-pool
-/// thread for a whole TCP connect plus authentication. On a cold pool, or one at <c>MaxPoolSize</c>, that is
-/// thread-pool starvation rather than a slow query, and the cancellation token could not reach the connect
-/// either. <c>IDbConnectionFactory</c> exists precisely because a networked backend must not block the async
-/// front door; the SQLite twin may open synchronously because its "connect" is a file handle.</para>
-/// <para><b>Age is a subtraction, not a duration</b> — <c>lyntai_memory_position</c> holds a monotone
-/// position per engine — and <b>the decay curve is never evaluated here</b>. Recall matches the query
-/// term-wise through <see cref="SearchTerms"/> — the same split SQLite's FTS path uses — and orders by
-/// GRADE, then by how many terms matched, then by recency. What remains backend-specific is the RANKING
-/// within that (a term count here, <c>bm25</c> on SQLite), not WHICH entries are found.</para>
-/// <para><b><see cref="GraphNode.OrdinalAge"/> and <see cref="GraphNode.VolumeAge"/> are the SAME shape of
-/// subtraction</b>, against two ADDITIONAL primitives the same table now also tracks unconditionally —
-/// design doc §5.7. <see cref="GraphNode.ElapsedAge"/> is computed in .NET, not SQL, matching the SQLite twin's
-/// own reasoning.</para>
-/// <para><b>Grade leads the ordering</b> because authoritative material is admitted unconditionally: a
-/// recency-led ordering would let the candidate <c>LIMIT</c> cut the quietest exact fact before the engine
-/// ranked anything. So an authoritative node the query never matched is returned near the HEAD of this
-/// store's row ORDER, where SQLite's two-query merge puts the same node at the tail —
-/// <see cref="IMemoryGraphStore.SeedAsync"/> makes that ordering explicitly backend-specific.
-/// <para><b>What is NOT backend-specific is the <see cref="GraphNode.Relevance"/> it REPORTS: exactly
-/// <c>0</c>, on every backend, as of 3.0.</b> Position in the row order and the relevance number are
-/// different things, and this paragraph used to conflate them — it claimed such a node "lands at the HEAD of
-/// that gradient", describing pre-3.0 behaviour in the present tense long after
-/// <see cref="MemoryRelevance.ByRankPosition"/> began returning <c>0</c> for an unmatched row.
-/// <c>SeedByTermsAsync</c>'s own doc, twenty lines below, said "Both now report 0" the whole time.</para>
-/// </para></summary>
+/// <para><b>The QUERIES here are this backend's own; the MATERIALIZATION is shared</b> — the row types, the
+/// projection to <see cref="GraphNode"/> and the dialect-free statements live once, in
+/// <see cref="MemoryNodeRow"/> and <see cref="MemoryGraphSql"/>, stated in full on the
+/// <c>SqliteMemoryGraphStore</c> twin (<c>docs/DECISIONS.md</c> D77). What stays here is what the dialect
+/// forces: <c>GREATEST</c> versus <c>MAX</c>, <c>ILIKE</c> over a GIN index versus an FTS5 virtual table and
+/// its triggers, <c>= ANY(@ids)</c> versus <c>IN @ids</c>, the table reference in <c>DO UPDATE SET</c>.</para>
+/// <para><b>Every connection is opened ASYNCHRONOUSLY.</b> <see cref="SeedAsync"/> runs on every recall, so a
+/// synchronous open blocks a thread-pool thread for a whole TCP connect plus authentication — thread-pool
+/// starvation on a cold pool rather than a slow query, and the cancellation token cannot reach the connect
+/// either. The SQLite twin may open synchronously because its "connect" is a file handle.</para>
+/// <para><b>Age is a subtraction, not a duration</b> — <c>lyntai_memory_position</c> holds a monotone position
+/// per engine — and <b>the decay curve is never evaluated here</b>. <see cref="GraphNode.OrdinalAge"/> and
+/// <see cref="GraphNode.VolumeAge"/> are the SAME shape of subtraction against two ADDITIONAL primitives the
+/// table also tracks unconditionally (design doc §5.7); <see cref="GraphNode.ElapsedAge"/> is computed in
+/// .NET, not SQL.</para>
+/// <para>Recall matches the query term-wise through <see cref="SearchTerms"/> and orders by GRADE, then by
+/// how many terms matched, then by recency; the RANKING within that is backend-specific (a term count here),
+/// WHICH entries are found is not. <b>Grade leads</b> because authoritative material is admitted
+/// unconditionally: a recency-led ordering would let the candidate <c>LIMIT</c> cut the quietest exact fact
+/// before the engine ranked anything, so an admitted non-match lands near the HEAD of this store's row ORDER
+/// — backend-specific by <see cref="IMemoryGraphStore.SeedAsync"/>, and a different thing from the
+/// <see cref="GraphNode.Relevance"/> reported for it (<see cref="MemoryRelevance.ByRankPosition"/>).</para></summary>
 /// <param name="factory">Connection factory.</param>
 /// <param name="logger">Optional.</param>
 /// <param name="clock">Time source for the audit timestamps; null takes the system clock.</param>
@@ -63,17 +53,17 @@ public sealed class PostgresMemoryGraphStore(
     // OrdinalAge/VolumeAge are the SAME shape of subtraction, against the two new policy-independent
     // primitives (design doc §5.7) — @ordinal and @chars advance unconditionally on every write, regardless of
     // which IMemoryAgePolicy the engine has installed. EncodingAt is read RAW; ElapsedAge is a .NET-side
-    // subtraction in ToNode, matching the SQLite twin's own reasoning (avoiding a date-parsing round trip in
+    // subtraction in MemoryNodeRow.ToNode, matching the SQLite twin's own reasoning (avoiding a date-parsing round trip in
     // the database).
     // ProvenanceRetrievability/ProvenanceSalience are plain BIGINTs (design doc §5.7, Task 4), read exactly
     // like RecallCount/Degree — no computation, so nothing to cast.
-    // Difficulty (2026-08-10, fsrs-properly plan Task 2) is DOUBLE PRECISION, same as Stability — no CAST
+    // Difficulty is DOUBLE PRECISION, same as Stability — no CAST
     // needed on this backend either (Npgsql binds DOUBLE PRECISION straight to double).
-    // StrengthOrdinalAge/StrengthVolumeAge are the strength-side counterparts of OrdinalAge/VolumeAge (3.0
-    // pre-freeze), and StrengthenedAt is read RAW for the reason EncodingAt is. Each takes its own MAX: all
+    // StrengthOrdinalAge/StrengthVolumeAge are the strength-side counterparts of OrdinalAge/VolumeAge, and
+    // StrengthenedAt is read RAW for the reason EncodingAt is. Each takes its own MAX: all
     // four strengthening marks advance monotonically together from one write's totals, so the freshest edge
     // holds the maximum of every one. MAX over no rows is NULL, so StrengthenedAt alone is nullable — a node
-    // with no edges has no strengthening to date and ToNode reports 0, matching the other two's COALESCE.
+    // with no edges has no strengthening to date and MemoryNodeRow.ToNode reports 0, matching the other two's COALESCE.
     private const string NodeColumns = """
         n.id AS "Id", n.engine AS "Engine", n.task_key AS "TaskKey", n.scope AS "Scope",
         n.headline AS "Headline", n.content AS "Content", n.grade AS "Grade",
@@ -100,12 +90,11 @@ public sealed class PostgresMemoryGraphStore(
     // GREATEST guards a zero stability: dividing by zero raises here rather than yielding NULL as it does
     // on SQLite, but the guard is what keeps both backends agreeing instead of one erroring.
     private const string AgeOverStability =
-        "(@position - n.last_recalled_position) / GREATEST(n.stability, 0.000001)";
+        "(@position - n.last_recalled_position) / GREATEST(n.stability, "
+        + MemoryGraphSql.MinimumStability + ")";
 
     // Seeding applies NO faintness bound — decay buries by rank in the engine, never by excluding a row
-    // here. AgeOverStability is PruneAsync's alone, where removing a memory is the explicit intent. (A
-    // `CutoffPredicate` const combining it with the grade carve-out lived here unreferenced until the 3.0
-    // pre-freeze sweep: an unused private const raises no warning, so nothing but a reader could see it.)
+    // here. AgeOverStability is PruneAsync's alone, where removing a memory is the explicit intent.
 
     // Bound as a parameter, never a literal: MemoryGrade is Inherit=0, Associative=1, Authoritative=2, so
     // a hand-written "grade = 1" silently means the OPPOSITE of what it reads like.
@@ -119,13 +108,9 @@ public sealed class PostgresMemoryGraphStore(
         // the same memory?" differently, which is a contract difference, not a storage detail.
         var hash = MemoryContentKey.Of(write.Content);
         var metadata = CuratedMetadataJson.Serialize(write.Metadata);
-        // NULL, not "{}", for an empty bag — that NULL is also the refresh signal the DO UPDATE SET below
-        // reads: an EMPTY incoming bag keeps whatever is already stored rather than blanking it, exactly
-        // like InMemoryMemoryGraphStore.UpsertAsync. A salience policy may decline to judge a re-remembered
-        // write for any reason (too few comparables, a novelty probe that found only its own prior vector,
-        // a caught failure) and reports that as MemorySignals.Empty — which must never be read as "this
-        // entry is no longer salient". Without the COALESCE/CASE below, the very re-remember that is
-        // supposed to REINFORCE an entry would instead erase an earlier judgement.
+        // NULL, not "{}", for an empty bag — the NULL is what the DO UPDATE SET below reads as "no
+        // opinion", keeping the stored signals. See GraphNodeWrite.Signals for why blanking would be
+        // wrong.
         var signals = MemorySignalsJson.Serialize(write.Signals);
         // The column is the COERCED materialization of the bag's salience for the database to sort on; the
         // bag stays the source of truth and is stored verbatim, so the two are not byte-for-byte equal — a
@@ -137,8 +122,8 @@ public sealed class PostgresMemoryGraphStore(
         // all: Npgsql binds a NaN double without complaint, straight into a NOT NULL column every seed query
         // orders on — and Postgres sorts NaN ABOVE every real number, so the corruption is silent.
         var salience = MemorySignals.Salience(write.Signals);
-        // The LIVE difficulty column (2026-08-10, fsrs-properly plan Task 2) — promoted from the bag, but
-        // NOT on salience's own "bag is non-empty" trigger (fix round 1, C1: see the SQLite twin's own
+        // The LIVE difficulty column — promoted from the bag, but
+        // NOT on salience's own "bag is non-empty" trigger (see the SQLite twin's own
         // comment for why difficulty needs its own key — a second writer, the retrievability policy, means
         // a write that judged something else entirely must never reset what THAT policy has tracked).
         var hasDifficultySignal = write.Signals.Values.ContainsKey(MemorySignals.WellKnown.Difficulty);
@@ -151,7 +136,7 @@ public sealed class PostgresMemoryGraphStore(
         // the new entry's own age is zero relative to everything it is stamped with. The primitives advance
         // UNCONDITIONALLY — one write, this write's own content length, this write's own timestamp — never
         // from write.Advance, which is this write's chosen IMemoryAgePolicy's business, not the store's.
-        var totals = await conn.QuerySingleAsync<TotalsRow>(new CommandDefinition("""
+        var totals = await conn.QuerySingleAsync<MemoryPositionRow>(new CommandDefinition("""
             INSERT INTO lyntai_memory_position (engine, position, ordinal, chars, encoded_at)
             VALUES (@engine, @advance, 1, @contentLength, @now)
             ON CONFLICT (engine) DO UPDATE SET
@@ -180,7 +165,7 @@ public sealed class PostgresMemoryGraphStore(
                               signals = COALESCE(@signals::jsonb, lyntai_memory_node.signals),
                               salience = CASE WHEN @signals::jsonb IS NULL THEN lyntai_memory_node.salience ELSE @salience END,
                               -- difficulty overwrites ONLY when THIS write's bag names a difficulty signal
-                              -- (fix round 1, C1) — see the SQLite twin's own comment for why
+                              -- see the SQLite twin's own comment for why
                               difficulty = CASE WHEN @hasDifficultySignal THEN @difficulty ELSE lyntai_memory_node.difficulty END,
                               -- provenance_salience follows signals' own "empty incoming keeps what's
                               -- stored" rule exactly; provenance_retrievability is deliberately ABSENT from
@@ -220,20 +205,16 @@ public sealed class PostgresMemoryGraphStore(
         if (!string.IsNullOrWhiteSpace(query))
         {
             // Term-wise, via the shared split: a multi-word cue matches an entry carrying ANY of its terms,
-            // exactly as SQLite's FTS path has always done. Matching the whole query as one contiguous
-            // substring meant a realistic cue ("what is the spouse called") found nothing here while finding
-            // the entry there — a different answer to whether the fact exists, not a ranking difference.
-            // TWO PASSES, and the second is where the whole cost of CJK correctness is contained.
+            // exactly as SQLite's FTS path does. TWO PASSES, and the second is where the whole cost of CJK
+            // correctness is contained.
             //
             // Pass 1 is INDEX-FRIENDLY: trigrams and whole words only, so every ILIKE pattern is at least
             // three characters and pg_trgm's GIN index can serve it. Pass 2 adds the two-character terms of a
-            // spaceless script, which the index structurally CANNOT serve — measured at 300k rows, a
-            // two-character pattern degrades to a parallel sequential scan at 96.6 ms against 0.90 ms for the
-            // three-character one on identical, equally selective data (~108x). Running the wide clause
-            // unconditionally would make every Chinese recall pay that; dropping the short terms here instead
-            // would reintroduce the cross-backend divergence D55 exists to remove. So the scan is paid only
-            // when the fast pass found NOTHING — exactly the case the short terms exist to rescue — which is
-            // the same zero-rows-then-widen shape SQLite already uses between FTS and LIKE.
+            // spaceless script, which the index structurally CANNOT serve — such a pattern degrades to a
+            // sequential scan. Running the wide clause unconditionally would make every Chinese recall pay
+            // that; dropping the short terms instead would reintroduce the cross-backend divergence D55
+            // exists to remove. So the scan is paid only when the fast pass found NOTHING — the same
+            // zero-rows-then-widen shape SQLite already uses between FTS and LIKE.
             //
             // Most Chinese content words are exactly two characters (配偶, 客户), so pass 2 is not an edge case;
             // it is the reason a CJK consumer gets an answer at all.
@@ -263,17 +244,17 @@ public sealed class PostgresMemoryGraphStore(
     }
 
     /// <summary>One seeding pass over a term-wise clause. Extracted so the index-friendly and widened passes
-    /// are the SAME query differing in exactly one argument — the alternative, two near-identical inline
-    /// statements, is how the two drift apart and only one of them keeps the grade carve-out.
-    /// <para><c>Matched</c> is selected ONLY here. This backend's grade-first ORDER BY put an admitted-but-
-    /// non-matching exact fact at the HEAD of the gradient — the opposite end from SQLite's FTS path, for the
-    /// same row. Both now report 0. <c>NodeRow.Matched</c> is nullable so the no-query path, which omits the
-    /// column, keeps the plain gradient rather than zeroing every row.</para>
+    /// are the SAME query differing in exactly one argument, and so the grade carve-out cannot be kept by
+    /// only one of them.
+    /// <para><c>Matched</c> is selected ONLY here, and it is what makes an admitted-but-non-matching exact
+    /// fact report <c>0</c> despite this backend's grade-first ORDER BY putting it at the HEAD of the
+    /// gradient. <c>NodeRow.Matched</c> is nullable so the no-query path, which omits the column, keeps the
+    /// plain gradient rather than zeroing every row.</para>
     /// <para>The term COUNT leads the ordering within a grade: an OR match is otherwise unranked, so a row
     /// brushing one term could displace a near-exact hit. It is this backend's coarse stand-in for the bm25
     /// SQLite ranks by.</para></summary>
     private async Task<IReadOnlyList<GraphNode>> SeedByTermsAsync(IDbConnection conn,
-        string engine, string taskKey, string? scope, string? query, int limit, TotalsRow totals,
+        string engine, string taskKey, string? scope, string? query, int limit, MemoryPositionRow totals,
         bool includeShortTerms, CancellationToken ct)
     {
         var kw = SearchTerms.LikeClause(query, ["n.content", "n.headline"], "ILIKE", includeShortTerms: includeShortTerms);
@@ -312,8 +293,8 @@ public sealed class PostgresMemoryGraphStore(
         var idArray = ids.ToArray();
         // = ANY / <> ALL over a bound array rather than Dapper's IN expansion: Npgsql binds an array
         // natively, so the statement text stays constant and stays plan-cacheable
-        // One EdgeRow rather than five more positional splits — see the SQLite twin.
-        var rows = await conn.QueryAsync<NodeRow, EdgeRow, GraphNeighbour>(
+        // One MemoryEdgeRow rather than five more positional splits — see the SQLite twin.
+        var rows = await conn.QueryAsync<MemoryNodeRow, MemoryEdgeRow, GraphNeighbour>(
             new CommandDefinition($"""
                 SELECT {NodeColumns}, x.w AS "EdgeWeight", (@position - x.at) AS "EdgeAge",
                        (@ordinal - x.ord) AS "EdgeOrdinalAge", (@chars - x.ch) AS "EdgeVolumeAge",
@@ -330,7 +311,7 @@ public sealed class PostgresMemoryGraphStore(
                 LIMIT @limit
                 """, new { idArray, engine, limit, position, ordinal = totals.Ordinal, chars = totals.Chars },
                 cancellationToken: ct),
-            (row, edge) => new GraphNeighbour(ToNode(row, totals.EncodedAt), edge.EdgeWeight, edge.EdgeAge,
+            (row, edge) => new GraphNeighbour(row.ToNode(totals.EncodedAt), edge.EdgeWeight, edge.EdgeAge,
                 EdgeOrdinalAge: edge.EdgeOrdinalAge, EdgeVolumeAge: edge.EdgeVolumeAge,
                 EdgeElapsedAge: edge.EdgeStrengthenedAt is { } at
                     ? (totals.EncodedAt - at).TotalDays
@@ -398,7 +379,7 @@ public sealed class PostgresMemoryGraphStore(
     // column — one of the dialect differences that make sharing this text impossible.
     // Stamps all FOUR strengthening marks from one totals snapshot, exactly as the SQLite twin does.
     private static Task StrengthenAsync(IDbConnection conn, long from, long to, string kind, double weight,
-        TotalsRow totals, CancellationToken ct) =>
+        MemoryPositionRow totals, CancellationToken ct) =>
         conn.ExecuteAsync(new CommandDefinition("""
             INSERT INTO lyntai_memory_edge (from_id, to_id, kind, weight, strengthened_position,
                 strengthened_ordinal, strengthened_chars, strengthened_at)
@@ -425,15 +406,10 @@ public sealed class PostgresMemoryGraphStore(
         var createdBefore = olderThan is null ? (DateTimeOffset?)null : _clock() - olderThan.Value;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var position = (await TotalsAsync(conn, engine, ct).ConfigureAwait(false)).Position;
-        return await conn.ExecuteAsync(new CommandDefinition($"""
-            DELETE FROM lyntai_memory_node WHERE id IN (
-                SELECT n.id FROM lyntai_memory_node n
-                WHERE n.engine = @engine AND n.task_key = @taskKey
-                  AND (@scope IS NULL OR n.scope = @scope)
-                  AND n.grade <> @authoritative
-                  AND ( (@cut IS NOT NULL AND {AgeOverStability} > @cut)
-                        OR (@createdBefore IS NOT NULL AND n.created_at < @createdBefore) ))
-            """, new { engine, taskKey, scope, cut, createdBefore, position, authoritative = Authoritative },
+        // Shared with the SQLite twin apart from the zero-stability guard's spelling; edges follow the nodes
+        // through ON DELETE CASCADE.
+        return await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.Prune(AgeOverStability),
+            new { engine, taskKey, scope, cut, createdBefore, position, authoritative = Authoritative },
             cancellationToken: ct)).ConfigureAwait(false);
     }
 
@@ -455,10 +431,8 @@ public sealed class PostgresMemoryGraphStore(
     {
         ct.ThrowIfCancellationRequested();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        await conn.ExecuteAsync(new CommandDefinition("""
-            DELETE FROM lyntai_memory_node
-            WHERE engine = @engine AND task_key = @taskKey AND (@scope IS NULL OR scope = @scope)
-            """, new { engine, taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.Forget,
+            new { engine, taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -472,15 +446,8 @@ public sealed class PostgresMemoryGraphStore(
         var effectiveCap = Math.Max(0, cap);
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        await conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO lyntai_memory_review
-                (engine, node_id, batch_id, created_at, pre_age, pre_stability, pre_difficulty, pre_strength,
-                 pre_strength_age, grade, post_stability, post_difficulty, provenance_retrievability,
-                 verified)
-            VALUES (@engine, @NodeId, @batchId, @now, @PreAge, @PreStability, @PreDifficulty, @PreStrength,
-                    @PreStrengthAge, @Grade, @PostStability, @PostDifficulty, @ProvenanceRetrievability,
-                    @Verified)
-            """, reviews.Select(r => new
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertReview,
+            reviews.Select(r => new
             {
                 engine, now, r.NodeId, batchId = r.BatchId.ToString(), r.PreAge, r.PreStability,
                 r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.Grade, r.PostStability, r.PostDifficulty,
@@ -493,12 +460,8 @@ public sealed class PostgresMemoryGraphStore(
         _reviewCounters.AddOrUpdate(engine, reviews.Count,
             (_, existing) => { before = existing; return existing + reviews.Count; });
         if (MemoryReviewLogPacing.CrossesBoundary(before, reviews.Count, effectiveCap))
-            await conn.ExecuteAsync(new CommandDefinition("""
-                DELETE FROM lyntai_memory_review
-                WHERE engine = @engine AND id <= (
-                    SELECT id FROM lyntai_memory_review WHERE engine = @engine
-                    ORDER BY id DESC LIMIT 1 OFFSET @cap)
-                """, new { engine, cap = effectiveCap }, cancellationToken: ct)).ConfigureAwait(false);
+            await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.TrimReviews,
+                new { engine, cap = effectiveCap }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -516,9 +479,9 @@ public sealed class PostgresMemoryGraphStore(
                    verified AS "Verified"
             FROM lyntai_memory_review WHERE engine = @engine ORDER BY id
             """, new { engine }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
-        return [.. rows.Select(r => new MemoryReview(r.Id, r.Engine, r.NodeId, Guid.Parse(r.BatchId),
-            r.CreatedAt, r.PreAge, r.PreStability, r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.Grade,
-            r.PostStability, r.PostDifficulty, r.ProvenanceRetrievability, r.Verified))];
+        // The native bool? binds straight through here; the other thirteen columns project through the
+        // shared row, exactly as on the SQLite twin.
+        return [.. rows.Select(r => r.ToReview(r.Verified))];
     }
 
     /// <inheritdoc />
@@ -531,8 +494,7 @@ public sealed class PostgresMemoryGraphStore(
 
         // REPLACE, never accumulate — see the SQLite twin. The delete runs even for an empty set, which is
         // how an annotator that changes its mind to "no opinion" actually clears them.
-        await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM lyntai_memory_subject WHERE engine = @engine AND node_id = @nodeId",
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.DeleteSubjects,
             new { engine, nodeId }, cancellationToken: ct)).ConfigureAwait(false);
 
         // MemorySubject.Canonicalize is the ONE normalization — see the SQLite twin.
@@ -588,129 +550,37 @@ public sealed class PostgresMemoryGraphStore(
     }
 
     /// <summary>Where the engine currently stands, on every scale a store tracks: the legacy,
-    /// <c>Advance</c>-driven <see cref="TotalsRow.Position"/>, and the three primitives that advance
+    /// <c>Advance</c>-driven <see cref="MemoryPositionRow.Position"/>, and the three primitives that advance
     /// unconditionally. All default to their zero value for an engine nothing has been written to — which is
     /// correct: nothing has happened in it, so nothing has aged.</summary>
-    private static async Task<TotalsRow> TotalsAsync(IDbConnection conn, string engine, CancellationToken ct) =>
-        await conn.QuerySingleOrDefaultAsync<TotalsRow>(new CommandDefinition("""
+    private static async Task<MemoryPositionRow> TotalsAsync(IDbConnection conn, string engine, CancellationToken ct) =>
+        await conn.QuerySingleOrDefaultAsync<MemoryPositionRow>(new CommandDefinition("""
             SELECT position AS "Position", ordinal AS "Ordinal", chars AS "Chars", encoded_at AS "EncodedAt"
             FROM lyntai_memory_position WHERE engine = @engine
             """, new { engine }, cancellationToken: ct)).ConfigureAwait(false)
-        ?? new TotalsRow { EncodedAt = DateTimeOffset.UnixEpoch };
+        ?? new MemoryPositionRow { EncodedAt = DateTimeOffset.UnixEpoch };
 
     private static async Task<IReadOnlyList<GraphNode>> QueryAsync(IDbConnection conn, string sql,
         object parameters, DateTimeOffset encodedAt, CancellationToken ct)
     {
-        var rows = (await conn.QueryAsync<NodeRow>(
+        var rows = (await conn.QueryAsync<MemoryNodeRow>(
             new CommandDefinition(sql, parameters, cancellationToken: ct)).ConfigureAwait(false)).AsList();
-        // MemoryRelevance.ByRankPosition is the ONE rule, shared with the SQLite twin — including the
-        // contract clause all three backends used to disagree about: a row admitted by GRADE that the query
-        // never matched reports 0. Only the substring query selects `Matched`; elsewhere it is null ("not
-        // asked") and the plain gradient applies.
+        // MemoryRelevance.ByRankPosition is the ONE rule, shared with the SQLite twin, including its contract
+        // clause: a row admitted by GRADE that the query never matched reports 0. Only the substring query
+        // selects `Matched`; elsewhere it is null ("not asked") and the plain gradient applies.
         return [.. rows.Select((row, i) =>
-            ToNode(row, encodedAt) with { Relevance = MemoryRelevance.ByRankPosition(i, rows.Count, row.Matched) })];
+            row.ToNode(encodedAt) with { Relevance = MemoryRelevance.ByRankPosition(i, rows.Count, row.Matched) })];
     }
 
-    // ElapsedAge is a .NET-side subtraction, not a SQL one — matching the SQLite twin's own reasoning
-    // (avoiding a date-parsing round trip in the database).
-    private static GraphNode ToNode(NodeRow row, DateTimeOffset encodedAt) => new(
-        row.Id, row.Engine, row.TaskKey, row.Scope, row.Headline, row.Content, (MemoryGrade)row.Grade,
-        row.CreatedAt, row.RecallCount, row.Stability, row.Age, 1, row.Degree,
-        CuratedMetadataJson.Deserialize(row.Metadata), row.Strength, row.StrengthAge,
-        MemorySignalsJson.Deserialize(row.Signals),
-        OrdinalAge: row.OrdinalAge, VolumeAge: row.VolumeAge,
-        ElapsedAge: (encodedAt - row.EncodingAt).TotalDays,
-        ProvenanceRetrievability: row.ProvenanceRetrievability, ProvenanceSalience: row.ProvenanceSalience,
-        Difficulty: row.Difficulty,
-        StrengthOrdinalAge: row.StrengthOrdinalAge, StrengthVolumeAge: row.StrengthVolumeAge,
-        StrengthElapsedAge: row.StrengthenedAt is { } at ? (encodedAt - at).TotalDays : 0);
-
-    /// <summary>Materialization type — settable properties rather than a positional record, which
-    /// sidesteps Dapper's record-constructor exact-type matching (the reason every Postgres store here uses
-    /// one).</summary>
-    private sealed class NodeRow
+    /// <summary>This backend's half of a review row: the thirteen shared columns come from
+    /// <see cref="MemoryReviewRow"/>, and only <see cref="Verified"/> is declared here.
+    /// <para>Postgres has a native BOOLEAN so this binds directly, where the SQLite twin must type the same
+    /// column <c>long?</c> and convert. That is a real dialect difference rather than an accident, which is
+    /// why the shared row declines to declare it — and it stays NULLABLE for a reason that is not dialect at
+    /// all: "judged not relevant" and "never judged" are different observations (see
+    /// <see cref="MemoryReviewWrite.Verified"/>).</para></summary>
+    private sealed class ReviewRow : MemoryReviewRow
     {
-        public long Id { get; set; }
-        public string Engine { get; set; } = "";
-        public string TaskKey { get; set; } = "";
-        public string Scope { get; set; } = "";
-        public string Headline { get; set; } = "";
-        public string Content { get; set; } = "";
-        public int Grade { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public int RecallCount { get; set; }
-        public double Stability { get; set; }
-        public double Difficulty { get; set; }
-        public double Age { get; set; }
-        public string? Metadata { get; set; }
-        public string? Signals { get; set; }
-        public int Degree { get; set; }
-        public double Strength { get; set; }
-        public double StrengthAge { get; set; }
-        public double StrengthOrdinalAge { get; set; }
-        public double StrengthVolumeAge { get; set; }
-        public DateTimeOffset? StrengthenedAt { get; set; }
-        public double OrdinalAge { get; set; }
-        public double VolumeAge { get; set; }
-        public DateTimeOffset EncodingAt { get; set; }
-        public long ProvenanceRetrievability { get; set; }
-        public long ProvenanceSalience { get; set; }
-
-        /// <summary>Whether the seeding query actually matched this row — selected ONLY by the substring
-        /// query. NULLABLE on purpose: the no-query path omits the column, leaving this null, which
-        /// <c>QueryAsync</c> reads as "not asked". A non-nullable <c>bool</c> would default to <c>false</c>
-        /// there and zero every row's relevance.</summary>
-        public bool? Matched { get; set; }
-    }
-
-    /// <summary>The connecting edge's half of a <see cref="NeighboursAsync"/> row — settable properties,
-    /// matching <see cref="NodeRow"/>'s own reasoning. <c>EdgeStrengthenedAt</c> is nullable because
-    /// <c>MAX</c> over no rows is NULL.</summary>
-    private sealed class EdgeRow
-    {
-        public double EdgeWeight { get; set; }
-        public double EdgeAge { get; set; }
-        public double EdgeOrdinalAge { get; set; }
-        public double EdgeVolumeAge { get; set; }
-        public DateTimeOffset? EdgeStrengthenedAt { get; set; }
-    }
-
-    /// <summary>Materialization type for <see cref="TotalsAsync"/> — settable properties, matching
-    /// <see cref="NodeRow"/>'s own reasoning.</summary>
-    private sealed class TotalsRow
-    {
-        public double Position { get; set; }
-        public long Ordinal { get; set; }
-        public long Chars { get; set; }
-        public DateTimeOffset EncodedAt { get; set; }
-    }
-
-    /// <summary>Materialization type for <see cref="ReviewsAsync"/> — settable properties, matching
-    /// <see cref="NodeRow"/>'s own reasoning. <see cref="BatchId"/> stays a <see cref="string"/> here and is
-    /// parsed to <see cref="Guid"/> only when projecting to <see cref="MemoryReview"/>, matching the SQLite
-    /// twin's own reasoning (and <c>JobRow.Id</c>'s own precedent) even though Npgsql itself could bind a
-    /// native <c>uuid</c> column directly — the column is plain <c>TEXT</c> on both backends, so both read it
-    /// the same way.</summary>
-    private sealed class ReviewRow
-    {
-        public long Id { get; set; }
-        public string Engine { get; set; } = "";
-        public long NodeId { get; set; }
-        public string BatchId { get; set; } = "";
-        public DateTimeOffset CreatedAt { get; set; }
-        public double PreAge { get; set; }
-        public double PreStability { get; set; }
-        public double PreDifficulty { get; set; }
-        public double PreStrength { get; set; }
-        public double PreStrengthAge { get; set; }
-        public double? Grade { get; set; }
-        public double PostStability { get; set; }
-        public double PostDifficulty { get; set; }
-        public long ProvenanceRetrievability { get; set; }
-
-        /// <summary>Postgres has a native BOOLEAN, so unlike the SQLite twin this binds directly — but it
-        /// stays NULLABLE for the same load-bearing reason: "judged not relevant" and "never judged" are
-        /// different observations (see <see cref="MemoryReviewWrite.Verified"/>).</summary>
         public bool? Verified { get; set; }
     }
 }

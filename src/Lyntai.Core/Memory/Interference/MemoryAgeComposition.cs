@@ -3,33 +3,26 @@ namespace Lyntai.Memory.Interference;
 /// <summary>
 /// Owns how several coexisting <see cref="IMemoryAgePolicy"/>s combine into ONE write-time tick and ONE
 /// read-time age — the plural counterpart of <see cref="Lyntai.Memory.Modulation.IMemoryRetentionCompositionPolicy"/>
-/// and <see cref="Lyntai.Memory.Salience.IMemorySalienceCompositionPolicy"/> (2026-08-10 memory-policy-seams
-/// plan, Task 3). Age became plural because writes, characters and elapsed time are different ASPECTS of "how
-/// much has happened" — they coexist rather than compete — and combining them is therefore a decision, not a
-/// given; before this seam existed the answer was implicit in there being only ever one clock installed.
+/// and <see cref="Lyntai.Memory.Salience.IMemorySalienceCompositionPolicy"/>. Age is plural because writes,
+/// characters and elapsed time are different ASPECTS of "how much has happened" — they coexist rather than
+/// compete — so combining them is a decision, not a given.
 /// <para><b>The engine composes nothing itself.</b> <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> calls
 /// every registered <see cref="IMemoryAgePolicy"/> and hands this seam the resulting list — never a hardcoded
 /// sum or product — so a consumer who disagrees with the default combination rule swaps this one type.</para>
-/// <para><b>A single registered policy makes this the identity</b> — every shipped implementation reduces a
-/// one-element list to that element's own value, unchanged. That is what keeps the engine's default (one
-/// <see cref="BurstDampenedAgePolicy"/>) byte-for-byte identical to the pre-Task-3 behaviour: composing a
-/// singleton is composing nothing.</para>
-/// <para><b><see cref="MemoryTick"/>'s two halves have DIFFERENT correctness properties under composition —
-/// found in fix round 1, C-1, and load-bearing for any implementer of <see cref="Advance"/>.</b> Encoding is
-/// applied once, at write time, to a fresh entry's initial stability, and is never re-derived anywhere else —
-/// composing it across EVERY registered policy can never double-count. Position is different: it accumulates
-/// into the store's SINGLE position counter, and a <see cref="MemoryAgeKind.Derivable"/> policy's own
-/// contribution is ALSO recorded exactly, unconditionally, in the primitives that back its
-/// <see cref="IMemoryAgePolicy.Age"/> projection — so composing a Derivable policy's tick into the SAME
-/// accumulator an <see cref="MemoryAgeKind.Accumulating"/> policy also feeds double-counts that policy's
-/// share of "how much happened" the moment <see cref="Age"/> adds its own Derivable projection back in.
-/// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> therefore calls <see cref="Advance"/> TWICE with
-/// deliberately different ticks lists when needed — the full set for Encoding, only the Accumulating
-/// policy's own tick (if one is registered) for Position — and reads only the relevant half of each
-/// result; see <c>GraphMemoryEngine.AdvanceAgePolicies</c>'s own remarks for the exact rule. An implementation
-/// of this interface must therefore treat <see cref="Advance"/>'s <c>ticks</c> parameter as whatever SUBSET
-/// the caller decided is safe to sum for Position — never assume it is "every registered policy" the way it
-/// safely can for Encoding.</para>
+/// <para><b>A single registered policy makes this the identity</b>: every shipped implementation reduces a
+/// one-element list to that element's own value, which is what keeps the engine's default (one
+/// <see cref="BurstDampenedAgePolicy"/>) byte-for-byte unchanged.</para>
+/// <para><b><see cref="MemoryTick"/>'s two halves have DIFFERENT correctness properties under composition,
+/// and this is load-bearing for any implementer of <see cref="Advance"/>.</b> Encoding is applied once at
+/// write time and never re-derived, so composing it across EVERY registered policy cannot double-count.
+/// Position accumulates into the store's SINGLE counter, and a <see cref="MemoryAgeKind.Derivable"/>
+/// policy's contribution is ALSO recorded in the primitives backing its <see cref="IMemoryAgePolicy.Age"/>
+/// projection — so summing a Derivable tick into the accumulator an
+/// <see cref="MemoryAgeKind.Accumulating"/> policy feeds double-counts it the moment <see cref="Age"/> adds
+/// the projection back. <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> therefore calls
+/// <see cref="Advance"/> TWICE with different tick lists — the full set for Encoding, the Accumulating
+/// policy's own tick for Position. <b>An implementation must treat <c>ticks</c> as whatever SUBSET the
+/// caller decided is safe to sum, never as "every registered policy".</b></para>
 /// </summary>
 public interface IMemoryAgeCompositionPolicy
 {
@@ -53,30 +46,20 @@ public interface IMemoryAgeCompositionPolicy
 
 /// <summary>
 /// The default composition: <see cref="Advance"/> SUMS positions and MULTIPLIES encodings; <see cref="Age"/>
-/// SUMS the resolved ages. Position and age are both crowding-shaped quantities — how much has happened —
-/// so an additional, independent aspect crowding an entry ADDS to what already crowded it, the same way two
-/// witnesses of unrelated events each make an alibi harder to hold. Encoding is a quality multiplier in
-/// (0, 1] already (a burst's <c>1/√n</c> being the shipped example), so composing several judgments the same
-/// way <see cref="Lyntai.Memory.Modulation.MultiplicativeRetentionCompositionPolicy"/> composes retention factors —
-/// each can only weaken it further — keeps one convention for "a multiplier several things influence" across
-/// the two plural domains that have one.
-/// <para>Both reduce a one-element list to that element's own value: <c>Sum</c> of one term and <c>product</c>
-/// starting at 1 are both the identity, which is what keeps the shipped default unchanged (see the interface's
-/// own remarks).</para>
+/// SUMS the resolved ages. Position and age are both crowding-shaped quantities — how much has happened — so
+/// an additional, independent aspect crowding an entry ADDS to what already crowded it. Encoding is a quality
+/// multiplier in (0, 1] already (a burst's <c>1/√n</c> being the shipped example), so several judgments
+/// compose by PRODUCT: each can only weaken it further.
+/// <para>Identity on a one-element list — see <see cref="IMemoryAgeCompositionPolicy"/>'s own remarks.</para>
 /// <para><b>Sum assumes composed age, <see cref="MemoryDecayState.Stability"/> and
-/// <see cref="Lyntai.Memory.GraphMemoryOptions.EdgeHalfLife"/> already share ONE scale — recorded
-/// here rather than solved, because solving it is a bigger design question than this fix round owns (fix
-/// round 1, I-3).</b> Two <see cref="MemoryAgeKind.Derivable"/> policies with genuinely different UNITS
+/// <see cref="Lyntai.Memory.GraphMemoryOptions.EdgeHalfLife"/> already share ONE scale.</b>
+/// Two <see cref="MemoryAgeKind.Derivable"/> policies with genuinely different UNITS
 /// (writes vs characters vs days) summed together produce a composed age in neither unit — arithmetically
 /// well-defined, but only MEANINGFUL if the engine's <c>Stability</c> (chosen against ONE of those units when
-/// the entry was created) and edge decay's own half-life are calibrated against the SAME combined scale. This
-/// is not new to composition: it is the same "one unit convention per engine" assumption every single-policy
-/// engine already makes (§3 of the design doc), sharpened by having several units ACTIVE at once instead of
-/// one chosen once. <c>Sum</c> is still the defensible default — the double count fix round 1's C-1 closed was
-/// the real defect, not the choice of Sum over Max or any other rule — but a consumer mixing Derivable policies
-/// of different units should choose <c>Stability</c> (and <c>EdgeHalfLife</c>, if edges matter to them)
-/// against the COMBINED scale those policies compose to, the same way they would when choosing a single
-/// policy today.</para>
+/// the entry was created) and edge decay's own half-life are calibrated against the SAME combined scale. So a
+/// consumer mixing Derivable policies of different units should choose <c>Stability</c> (and
+/// <c>EdgeHalfLife</c>, if edges matter to them) against the COMBINED scale those policies compose to, the
+/// same way they would when choosing a single policy today.</para>
 /// </summary>
 public sealed class SummedAgeCompositionPolicy : IMemoryAgeCompositionPolicy
 {

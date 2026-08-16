@@ -306,7 +306,7 @@ line while breaking a higher one is a regression.
 - **No sweeper, no background job.** Decay is computed when read.
 - **A recall performs at most one embed and one bounded candidate query.** Enrichment is best-effort and its
   failure degrades quality, never correctness.
-- **Nothing is deleted except by an explicit `PruneAsync`.** Decay buries by rank; it never reaps (**D41**).
+- **Nothing is deleted except by an explicit `PruneAsync`.** Decay buries by rank; it never removes (**D41**).
 - **`Stability` keeps its unit** — the position delta at which retrievability is `0.5`, enforced by a contract
   fact. A change reinterpreting it silently reinterprets every stored row.
 - **No mechanism may make a permanent change driven by this engine's own retrieval decisions.** The 3.0
@@ -732,7 +732,7 @@ public interface IMemoryEngine {
   recently the edge actually strengthened in the new unit. Because deleting a retrievable entry is
   unrecoverable while retaining a prunable one is not, `GraphMemoryEngine.PruneAsync`'s derivable branch then
   refused to delete ANY entry with `Strength > 0 && StrengthAge > 0` on the retrievability floor — safe, but
-  it also left a genuinely unretrievable connected entry unreapable forever.
+  it also left a genuinely unretrievable connected entry unremovable forever.
   `lyntai_memory_edge` now stamps `strengthened_ordinal`/`strengthened_chars`/`strengthened_at` beside
   `strengthened_position`, a store reports them as `GraphNode.StrengthOrdinalAge`/`StrengthVolumeAge`/
   `StrengthElapsedAge`, and `GraphNode.StrengthAgeSample` hands them to a policy as the SAME

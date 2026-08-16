@@ -23,7 +23,7 @@ public abstract class LlmScorerBase(ILlmClient llm) : IScorer
 
     /// <summary>The consumer tag for this judge's calls — drives per-consumer model + timeout routing.
     /// Default <c>"scoring"</c>; override per scorer to route different judges differently.</summary>
-    protected virtual string Consumer => "scoring";
+    protected virtual string Consumer => LlmConsumers.Scoring;
 
     /// <summary>Whether this dimension applies to <paramref name="ctx"/> — checked BEFORE the judge call, so
     /// a conditional scorer (e.g. a "faithfulness" dimension that applies to a plan but not a code-edit turn)

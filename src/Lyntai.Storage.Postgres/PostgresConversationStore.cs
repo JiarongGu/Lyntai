@@ -9,7 +9,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
         var thread = new ChatThread(id, title, DateTimeOffset.UtcNow, metadata);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
-            "INSERT INTO lyntai_thread (id, title, created_at, metadata) VALUES (@Id, @Title, @CreatedAt, @Metadata)",
+            ConversationStoreSql.InsertThread,
             thread, cancellationToken: ct)).ConfigureAwait(false);
         return thread;
     }
@@ -18,7 +18,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return await conn.QuerySingleOrDefaultAsync<ChatThread>(new CommandDefinition(
-            "SELECT id AS Id, title AS Title, created_at AS CreatedAt, metadata AS Metadata FROM lyntai_thread WHERE id = @id",
+            ConversationStoreSql.GetThread,
             new { id }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
@@ -26,7 +26,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var rows = await conn.QueryAsync<ChatThread>(new CommandDefinition(
-            "SELECT id AS Id, title AS Title, created_at AS CreatedAt, metadata AS Metadata FROM lyntai_thread ORDER BY created_at DESC, id DESC LIMIT @limit",
+            ConversationStoreSql.ListThreads,
             new { limit }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }
@@ -35,19 +35,15 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         return (int)await conn.ExecuteScalarAsync<long>(new CommandDefinition(
-            "SELECT COUNT(*) FROM lyntai_thread", cancellationToken: ct)).ConfigureAwait(false);
+            ConversationStoreSql.CountThreads, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ChatThread>> ListThreadsPageAsync(int limit, ChatThread? after = null, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        const string cols = "SELECT id AS Id, title AS Title, created_at AS CreatedAt, metadata AS Metadata FROM lyntai_thread";
-        // keyset paging: the (created_at, id) cursor is compared with the SAME ordering as ListThreadsAsync
+        // keyset paging: the (created_at, id) cursor is compared with the SAME ordering ListThreads uses
         // (created_at DESC, id DESC) so same-timestamp threads are neither skipped nor duplicated.
-        var sql = after is null
-            ? $"{cols} ORDER BY created_at DESC, id DESC LIMIT @limit"
-            : $"{cols} WHERE created_at < @AfterCreatedAt OR (created_at = @AfterCreatedAt AND id < @AfterId) " +
-              "ORDER BY created_at DESC, id DESC LIMIT @limit";
+        var sql = after is null ? ConversationStoreSql.ListThreads : ConversationStoreSql.PageThreadsAfter;
         var rows = await conn.QueryAsync<ChatThread>(new CommandDefinition(sql,
             new { limit, AfterCreatedAt = after?.CreatedAt, AfterId = after?.Id }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
@@ -57,7 +53,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
-            "UPDATE lyntai_thread SET metadata = @metadata WHERE id = @id",
+            ConversationStoreSql.SetThreadMetadata,
             new { id, metadata }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
@@ -75,12 +71,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
         {
             try
             {
-                var seq = await conn.ExecuteScalarAsync<long>(new CommandDefinition("""
-                    INSERT INTO lyntai_message (id, thread_id, seq, kind, payload, metadata, created_at)
-                    VALUES (@id, @threadId, (SELECT COALESCE(MAX(seq), 0) + 1 FROM lyntai_message WHERE thread_id = @threadId),
-                            @kind, @payload, @metadata, @createdAt)
-                    RETURNING seq
-                    """, new { id, threadId, kind, payload, metadata, createdAt }, cancellationToken: ct)).ConfigureAwait(false);
+                var seq = await conn.ExecuteScalarAsync<long>(new CommandDefinition(ConversationStoreSql.AppendMessage, new { id, threadId, kind, payload, metadata, createdAt }, cancellationToken: ct)).ConfigureAwait(false);
                 return new ChatMessage(id, threadId, seq, kind, payload, metadata, createdAt);
             }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505" && attempt < 3)
@@ -93,10 +84,7 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
     public async Task<IReadOnlyList<ChatMessage>> GetMessagesAsync(string threadId, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<ChatMessage>(new CommandDefinition("""
-            SELECT id AS Id, thread_id AS ThreadId, seq AS Seq, kind AS Kind, payload AS Payload, metadata AS Metadata, created_at AS CreatedAt
-            FROM lyntai_message WHERE thread_id = @threadId ORDER BY seq
-            """, new { threadId }, cancellationToken: ct)).ConfigureAwait(false);
+        var rows = await conn.QueryAsync<ChatMessage>(new CommandDefinition(ConversationStoreSql.GetMessages, new { threadId }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }
 
@@ -104,6 +92,6 @@ public sealed class PostgresConversationStore(IDbConnectionFactory factory) : IC
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM lyntai_thread WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
+            ConversationStoreSql.DeleteThread, new { id }, cancellationToken: ct)).ConfigureAwait(false);
     }
 }

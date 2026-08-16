@@ -10,7 +10,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
     public async Task<PromptVersion?> GetActiveAsync(string name, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var row = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
+        var row = await conn.QuerySingleOrDefaultAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name AND is_active", new { name },
             cancellationToken: ct)).ConfigureAwait(false);
         return row?.ToEntity();
@@ -42,7 +42,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
     public async Task<IReadOnlyList<PromptVersion>> HistoryAsync(string name, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<Row>(new CommandDefinition(
+        var rows = await conn.QueryAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name ORDER BY version DESC",
             new { name }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => r.ToEntity())];
@@ -53,7 +53,7 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         using var tx = conn.BeginTransaction();
 
-        var target = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
+        var target = await conn.QuerySingleOrDefaultAsync<PromptVersionRow>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM lyntai_prompt_version WHERE name = @name AND version = @version",
             new { name, version }, tx, cancellationToken: ct)).ConfigureAwait(false);
         if (target is null) { tx.Rollback(); return null; }
@@ -69,15 +69,4 @@ public sealed class PostgresPromptVersionStore(IDbConnectionFactory factory) : I
         return target.ToEntity() with { IsActive = true };
     }
 
-    private sealed class Row
-    {
-        public string Name { get; set; } = "";
-        public int Version { get; set; }
-        public string Template { get; set; } = "";
-        public string? Author { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public bool IsActive { get; set; }
-
-        public PromptVersion ToEntity() => new(Name, Version, Template, Author, CreatedAt, IsActive);
-    }
 }

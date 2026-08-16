@@ -183,6 +183,22 @@ internal abstract class CorpusLexicon
     /// passes for the wrong reason.</summary>
     public abstract string UnrelatedProbe();
 
+    /// <summary>A term that appears ONLY in an authored headline and in nothing else the corpus writes —
+    /// the instrument for headline search.
+    ///
+    /// <para><b>Why this class exists.</b> Every other entry lets the engine DERIVE its headline from the
+    /// content, so headline words are a subset of content words and a query matching the headline matches
+    /// the content too. That made headline search unobservable: the 3.0 review narrowed it and then widened
+    /// it back (<c>docs/FIXES.md</c>) and <c>memory-sweep</c> could not see either direction — the
+    /// <c>pitfalls.md</c> "a measurement that cannot observe a change reports nothing moved" shape, live in
+    /// the instrument rather than in the library.</para>
+    ///
+    /// <para>Must share NO term with any other class, for the same reason
+    /// <see cref="UnrelatedProbe"/> must: an overlap turns the measurement into an ordinary content recall
+    /// that passes for the wrong reason. Pinned by
+    /// <c>MemoryCorpusTests.A_headline_only_entry_hides_its_marker_from_its_own_content</c>.</para></summary>
+    public abstract string HeadlineMarker { get; }
+
     /// <summary>The cue whose only live term is the subject — reaches exactly one cluster member, so the
     /// rest can arrive only through the graph.</summary>
     public abstract string DiscriminativeCue(string subject);
@@ -229,6 +245,8 @@ internal abstract class CorpusLexicon
             $"item {id} the passport number is {filler} XK4419 and must survive everything";
 
         public override string UnrelatedProbe() => "item repeat focus material";
+
+        public override string HeadlineMarker => "beacon";
 
         public override string Attribute(string id, string subject, string value, string filler) =>
             $"item {id} the {subject} is {value} {filler} stated once and never restated";
@@ -331,6 +349,8 @@ internal abstract class CorpusLexicon
             $"记录条目 {id} 护照号码是{filler}XK4419必须永远保留";
 
         public override string UnrelatedProbe() => "记录条目 重复 关注材料";
+
+        public override string HeadlineMarker => "灯塔";
 
         public override string Attribute(string id, string subject, string value, string filler) =>
             $"记录条目 {id} 我的{subject}是{value}{filler}只说过一次而且从未重复";
@@ -453,6 +473,11 @@ internal abstract class CorpusLexicon
 
         public override string ItemToken => "记录条目";
 
+        /// <summary>Latin INSIDE the CJK run, like the rest of this arm — the marker has to cross the same
+        /// script boundary the entries do, or the one arm that exists to test mixed script would test it
+        /// everywhere except in its own instrument.</summary>
+        public override string HeadlineMarker => "灯塔beacon";
+
         public override IReadOnlyList<string> Fillers => ChineseLexicon.Instance.Fillers;
 
         /// <summary>One pure-Chinese subject and two that straddle a script boundary mid-token.</summary>
@@ -571,6 +596,8 @@ internal abstract class CorpusLexicon
 
         public override string UnrelatedProbe() => "記録項目 反復 関心資料";
 
+        public override string HeadlineMarker => "灯台標識";
+
         public override string Attribute(string id, string subject, string value, string filler) =>
             $"記録項目 {id} 私の{subject}は{value}{filler}一度だけ述べられ二度と繰り返されない";
 
@@ -668,6 +695,8 @@ internal abstract class CorpusLexicon
         /// <summary>"record item" — four syllables, clearing the trigram floor so the shared token competes.
         /// </summary>
         public override string ItemToken => "기록항목";
+
+        public override string HeadlineMarker => "등대표지";
 
         /// <summary>Single tokens, never phrases: the value reader below finds the value POSITIONALLY among
         /// space-delimited tokens, so a filler containing a space would shift every index after it.</summary>

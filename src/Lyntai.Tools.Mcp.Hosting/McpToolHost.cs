@@ -64,10 +64,15 @@ internal sealed class McpToolHost : IAsyncDisposable
     /// in-process tool loop runs</b>, so a rail that is enforced on one and not the other is not enforced:
     /// a consumer who registered a guard would have it applied through <c>IToolLoop</c> and silently skipped
     /// here, where the CLI's own agent calls them.</param>
+    /// <param name="logger">Optional; one line per guard BLOCK, so a refusal through this door is as visible
+    /// in logs as the tool loop's own. Both doors always emitted the guard-decision counter, but only the
+    /// loop logged — an accident of which class had been given a logger, not a decision
+    /// (<c>docs/DECISIONS.md</c> D75).</param>
     /// <param name="ct">Cancellation.</param>
     public static async Task<McpToolHost> StartAsync(
         IReadOnlyList<ITool> tools, string authToken, McpToolHostOptions? options = null,
-        Lyntai.Guards.IGuardRail? guards = null, CancellationToken ct = default)
+        Lyntai.Guards.IGuardRail? guards = null, Microsoft.Extensions.Logging.ILogger? logger = null,
+        CancellationToken ct = default)
     {
         options ??= new McpToolHostOptions();
         ct.ThrowIfCancellationRequested();
@@ -98,7 +103,7 @@ internal sealed class McpToolHost : IAsyncDisposable
                 ToolCollection = [],
             };
             foreach (var tool in tools)
-                serverOptions.ToolCollection.Add(McpServerTool.Create(new ToolFunction(tool, guards)));
+                serverOptions.ToolCollection.Add(McpServerTool.Create(new ToolFunction(tool, guards, logger)));
 
             server = McpServer.Create(transport, serverOptions, NullLoggerFactory.Instance, serviceProvider: null);
 

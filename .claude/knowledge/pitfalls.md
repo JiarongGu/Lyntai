@@ -475,6 +475,21 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   (here, `DerivedGrade` screening the retrievability once for both readers) or the `MemorySignals.Salience`
   treatment — one public coercion function every reader calls. Two call sites reasoning separately about the
   same double is the same defect as two call sites coercing it separately, which is the entry above this one.
+  <br>**Fourth occurrence, 2026-08-16, on the WRITE path — and the prescription two lines up is what missed
+  it.** `GraphMemoryEngine` shipped `_policy.InitialStability * Math.Max(0, tick.Encoding)` and
+  `Math.Max(0, tick.Position)`, both persisted, both fed from the public `IMemoryAgePolicy.Advance` seam. The
+  rule was already written HERE, in this entry, naming the exact replacement — and the search that would
+  have found it is not "where do we clamp a derived double" but "**what does this seam RETURN, and is any of
+  it stored**". `IMemoryAgePolicy.Age` carries a long paragraph promising a non-finite return "cannot corrupt
+  the store, the review log, or anyone else's recall" because everything downstream that would persist the
+  poison is defended. That was true of `Age`, which is never persisted, and false of `Advance` on the very
+  next member — so the doc's own confidence was what made the gap invisible. **A contract paragraph that
+  reasons about one member of a seam does not cover its siblings**, and the more thorough it is, the more it
+  reads as though it does.
+  <br>The two backends then disagreed about the poisoned write, which is worse than either answer: Postgres
+  added `NaN` into the engine's running position permanently (every LATER entry reports a non-finite age, so
+  nothing ranks and nothing prunes), while SQLite refused the bind and threw. Fixed by coercing to `1` —
+  taken from `MemoryTick.One`'s existing definition of an ordinary write, rather than inventing a neutral.
 - **A ceiling written as a bare `Math.Min(grown, max)` is a CUT, not a cap, for anything already above it —
   and the value it cuts is usually persisted.** `DsrRetrievability.Reinforce` shipped that shape through
   2.5.x, so recalling an entry whose STORED stability already exceeded `MaxStability` wrote the ceiling back:
@@ -684,8 +699,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
     found on every backend"* — read as a CEILING and used to justify narrowing the one backend that matched
     more. It is a FLOOR. **A minimum and a maximum are the same sentence in English**, and the difference
     only shows when you ask what the sentence FORBIDS.
-  · `CompositeMemoryEngine`'s fan-out justification — *"reaping one member and returning success leaves the
-    blend holding the data"* — applied to the members that could reap and silently not to the ones that
+  · `CompositeMemoryEngine`'s fan-out justification — *"removing one member and returning success leaves the
+    blend holding the data"* — applied to the members that could remove and silently not to the ones that
     could not, which is the case it was written for.
   <br>**The fourth is the same shape aimed inward**: the same round taught `FalQueueProvider` to distinguish
   "never reached the backend" from "may have been delivered", and then wrote a `catch` in another file that
@@ -699,6 +714,39 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Second doors
 
+- **An invariant DOCUMENTED in one implementation is not a contract, and the backend that wrote it down is
+  usually the only one that keeps it.** Measured 2026-08-16, three times in one pass, all in storage:
+  `InMemoryVectorStore` carried a top-k tiebreak and a doc calling it *"load-bearing, not tidiness"* while
+  neither persistent backend had one; `MemoryGraphSql.MinimumStability` was hoisted with a doc saying *"two
+  literals is how that happens"* while the in-process store was the second literal — and spelled it as a
+  SUBSTITUTE where SQL FLOORS, which is identical at the value the guard was written for and different for
+  everything between it and zero, on a DELETE path.
+  <br>**The tell is a doc that argues for a rule in the first person.** Prose explaining why THIS class does
+  something careful is evidence the author knew it mattered and no evidence that anyone else does — so the
+  question is not "is this implementation correct?" but **"is this a promise, and if so what holds the
+  others to it?"** In this repository the answer is a shared contract class every backend runs
+  (`VectorStoreContract`, `MemoryGraphStoreContract`), never a per-backend test file.
+  <br>A single-backend test file with a rule's name on it is the same smell as the doc:
+  `InMemoryVectorStoreTiebreakTests` existed, was thorough, and proved the property for the one backend that
+  already had it. **Moving a fact into the contract is the fix; adding a second per-backend test is the
+  defect repeated.**
+  <br>**And a green cross-backend run does not mean the backends AGREE for the same reason.** SQLite passed
+  the tiebreak facts before the fix, because `PRIMARY KEY (collection, vec_id)` gives it an autoindex the
+  plan happens to walk in `vec_id` order — an accident that a rewrite, an `ANALYZE`, or a different plan
+  changes silently. When a contract fact passes on a backend you expected to fail, find out WHY before
+  believing it.
+- **A SPEND cap is a capability too, and its second door is the one that moves the money.** Measured
+  2026-08-16. `GenerationFetchTool` and `GenerationRenderJobHandler` both fetch a finished render; only the
+  handler recorded its cost. Because a queue backend prices at FETCH — the only point the total is known —
+  the unbilled door was the one carrying the entire cost, and `GenerationSubmitTool` then re-checked its cap
+  on every submit against a total that could not grow. A configured cap never fired.
+  <br>**The tell is a check and a record living on different paths.** A limit is two halves — something
+  reads the total, something else adds to it — and reviewing either half alone reads as correct. So the
+  question is not "is this path budgeted?" but **"where is the total INCREMENTED, and does every path that
+  spends reach it?"** A cap whose total never moves fails silently and permissively, and looks like a
+  generous limit.
+  <br>Coverage was no help: a test already drove submit → status → fetch end to end and asserted nothing
+  about usage. **Exercising a path is not testing its accounting.**
 - **A capability enforced at one entry point is not enforced if a second entry point reaches the same
   objects.** Measured 2026-08-15. `ToolLoop.GatedInvokeAsync` runs every model-driven tool call through
   `IGuardRail` — that gap was found and closed for the tool loop in 2026-07 and recorded as a security item.
@@ -793,6 +841,47 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   It also escaped every gate by construction: `check-docs` deliberately excludes `src/`, and the
   API-surface baseline **records parameter names without judging them**, so a stale name round-trips
   through the one gate that exists to notice API changes. A human review caught all three.
+
+- **A doc comment asserting "this is NOT duplication waiting to be extracted" is unfalsifiable, and it is
+  the one claim nobody re-reads.** Measured 2026-08-16 (`docs/DECISIONS.md` **D77**).
+  `PostgresMemoryGraphStore`'s class doc said exactly that, and justified it with three real dialect
+  differences — `GREATEST` versus `MAX`, an `ILIKE` over a GIN index versus an FTS5 virtual table, the table
+  reference Postgres requires in `DO UPDATE SET`. Every clause was TRUE and every clause was about the SQL.
+  The file also held four materialization row types and a projection that were **byte-identical** to the
+  SQLite twin's, and the sentence covered them by adjacency alone.
+  <br>The cost is the class of defect it protected: those types alias 25 columns explicitly *because a
+  column↔property mismatch is a SILENT null rather than an error*, so two copies is two places for that
+  silence to appear, and nothing can see either — the compiler binds nothing there, and a test only ever
+  exercises whichever backend it runs on. The repository's own counter-example was one directory away
+  (`JobStoreSql`, which hoists the job state machine for the same pair and says why in its header).
+  <br>**What generalises: a "these must stay separate" claim needs the same treatment as a bound — ask what
+  it FORBIDS, and check that the answer covers the whole file it is written on.** Here it forbade sharing
+  the SQL, and the SQL was maybe half the file. A defence written against the part someone was looking at
+  reads, forever after, as a defence of everything beside it. When you write one, name the part it does NOT
+  cover — the same rule `check-links`' own header states for a gate whose scope is narrower than its defect.
+
+- **A "tidy up the formatting" regex in a scripted sweep is a rewrite of every line it can match, and the
+  build stays green while it happens.** Measured 2026-08-16 stripping work-log citations out of `src/`
+  comments. The substitutions were narrow and correct; three cleanup rules appended to "fix the punctuation
+  a removed parenthetical strands" were not. `'  +([a-z(<])' → ' \1'` collapsed the INDENTATION of **all
+  349 tracked files in `src/`** — the script reported "349 files swept" and the number read like success —
+  and `body.replace('()', '')` turned `AddScorer&lt;T&gt;()` into `AddScorer&lt;T&gt;` in a file the sweep
+  had no business editing at all. **C# does not care about indentation, so `dotnet build` succeeded both
+  times.** Recovered by `git checkout -- src/` and re-running the intentional passes, which only worked
+  because every one of them was already a script.
+  <br>Three things generalise, and the third is the one worth carrying past this incident.
+  **(1) A sweep must only touch a line one of its REAL rules changed** — compare before/after per line and
+  keep the original otherwise; an unconditional tidy applied after the substitutions cannot tell the lines
+  it was written for from the rest of the file. **(2) Assert the invariant the sweep must not break**, in
+  the script: line count unchanged, and per-line leading whitespace unchanged for every line. That check
+  costs six lines and turns this class of accident into a crash. **(3) The file COUNT is the tell.** A
+  targeted sweep that reports touching nearly every file in the tree has stopped being targeted, and that
+  is visible in the output before any diff is read — the corrected run touched 15.
+  <br>Related but distinct from the CRLF entry above, which the same session also hit: splicing `\n`-joined
+  lines into CRLF files left three of them mixed, and `git diff` says only *"LF will be replaced by CRLF"*,
+  which reads like routine autocrlf noise. Detect by codepoint and normalise deliberately; `core.autocrlf`
+  is `true` here, so the working-tree convention is CRLF and a uniformly-LF file is not "fine because git
+  normalises" — it is a file the next editor may re-save as mixed.
 
 ## Testing
 

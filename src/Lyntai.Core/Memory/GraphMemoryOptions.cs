@@ -15,23 +15,22 @@ public sealed record GraphMemoryOptions
     /// entry's own content is always returned whole, because that is what expansion is for.</para></summary>
     public int? ExpandCharBudget { get; init; }
 
-    /// <summary>The retrievability below which <c>PruneAsync</c> may REAP an entry — "forgotten enough to
+    /// <summary>The retrievability below which <c>PruneAsync</c> may REMOVE an entry — "forgotten enough to
     /// delete".
     /// <para>Recall does not use it. Deleting is the only thing in this model that removes a memory, and it
     /// is always explicit; being faint hides an entry behind stronger ones
     /// (<see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.RelativeFloor"/>) and never removes
     /// it.</para>
-    /// Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
-    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
+    /// <para><b>A starting point, not a tuned value</b> — chosen against a synthetic corpus, never against
+    /// production usage.</para></summary>
     public double MinRetrievability
     {
         get;
-        init => field = Finite(value, nameof(MinRetrievability));
+        init => field = MemoryOption.Require(value, MemoryOptionRange.Finite, nameof(GraphMemoryOptions), Disables);
     } = 0.05;
 
     /// <summary>Length cap for a DERIVED headline; an authored one is used as given, and authoritative
-    /// content is never shortened at all. Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
-    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
+    /// content is never shortened at all. <b>A starting point, not a tuned value.</b></summary>
     public int HeadlineChars { get; init; } = 120;
 
     /// <summary>How many of the returned nodes get co-activation edges. A ten-item recall would otherwise
@@ -40,42 +39,20 @@ public sealed record GraphMemoryOptions
 
     /// <summary>
     /// How many of a recall's slots <see cref="MemoryGrade.Authoritative"/> material may take. <c>null</c>
-    /// (the default) means "as many as it needs". <b>Always capped by the recall's own limit</b>, whatever
-    /// value is set here — this option can only ever REDUCE displacement, never raise the number of items a
-    /// recall returns.
+    /// (the default) means "as many as it needs" — design §5.7.0's objective (1), never lose an
+    /// authoritative fact (<c>docs/DECISIONS.md</c> <b>D56</b>). <b>Always capped by the recall's own
+    /// limit</b>, whatever value is set here — this option can only ever REDUCE displacement, never raise
+    /// the number of items a recall returns.
     ///
-    /// <para><b>That cap is unconditional as of the 2026-08-14 review, and it was not before.</b> Only
-    /// the <c>null</c> default carried it, so an explicit value larger than a caller's
-    /// <see cref="MemoryQuery.Limit"/> overran the limit outright — measured at reserve <c>5</c> /
-    /// <c>Limit: 2</c>, three items came back and not one ordinary hit. That is the ordinary case rather than
-    /// a corner: this option is configured per ENGINE, sized against <see cref="DefaultLimit"/>, while the
-    /// limit arrives per QUERY, so any caller trimming a prompt budget passes a smaller one.</para>
+    /// <para><b>What a value buys.</b> With <c>2</c> against a limit of <c>10</c>, at most two slots go to
+    /// re-admitted exact facts and eight remain for ordinary hits — for a task that marks many facts
+    /// authoritative and still needs ordinary recall through. <c>0</c> restores the pre-3.0 behaviour and
+    /// re-breaks objective (1), which is why it is not the default.</para>
     ///
-    /// <para><b>Why the default is unbounded.</b> Design §5.7.0's objective (1) — never lose an authoritative
-    /// fact — is the only goal with no acceptable failure rate. Before this option existed, re-admitted exact
-    /// facts were appended after the ranked set and then cut by the limit, and the first end-to-end
-    /// measurement found ALL of them lost in ALL five languages. An authoritative entry displacing ordinary
-    /// material is what marking a fact authoritative MEANS; it is the caller's explicit decision, not an
-    /// accident.</para>
-    ///
-    /// <para><b>What a value buys.</b> Setting it bounds the displacement: with <c>2</c> and a limit of
-    /// <c>10</c>, at most two slots go to re-admitted exact facts and eight remain for ordinary hits. Use it
-    /// when a task marks many facts authoritative and ordinary recall still has to get through. <c>0</c>
-    /// restores the pre-3.0 behaviour exactly — and re-breaks objective (1), which is why it is not the
-    /// default.</para>
-    ///
-    /// <para><b>It counts EVERY authoritative candidate, not only the ones a ranking policy dropped</b> — and
-    /// that distinction is the whole of why the reserve works at all. The first version of this mechanism
-    /// reserved slots only for entries the policy had OMITTED and changed nothing measurable: a policy does
-    /// not omit an exact fact, it RANKS it, and one the query did not match carries <c>Relevance 0</c>, so it
-    /// sorted to the bottom and the limit cut it exactly as before. A reserved entry keeps the policy's own
-    /// score where the policy produced one, so a fact that ranked on merit is not silently re-scored to zero
-    /// by being reserved.</para>
-    ///
-    /// <para>The paragraph above said the OPPOSITE until 2026-08-14 — that an entry the policy returned on
-    /// merit "is not counted against this" — which described the rejected first version, and sat three lines
-    /// from the engine comment that says so in capitals. A public doc kept the wording of an implementation
-    /// the measurement had already thrown out.</para>
+    /// <para><b>It counts EVERY authoritative candidate, not only the ones a ranking policy dropped.</b> A
+    /// policy does not omit an exact fact, it RANKS it, and one the query did not match carries
+    /// <c>Relevance 0</c>, so reserving only for OMITTED entries would change nothing. A reserved entry
+    /// keeps the policy's own score where it produced one.</para>
     /// </summary>
     public int? AuthoritativeReserve { get; init; }
 
@@ -97,15 +74,6 @@ public sealed record GraphMemoryOptions
     /// annotated write.</summary>
     public int AnnotationKnownSubjects { get; init; } = 24;
 
-    // A `ReinforceOn` option lived here briefly on 2026-08-12 and was REVERTED before 3.0 froze, by the
-    // measurement it existed to enable — recorded because the reason is a design fact, not an accident.
-    // It gated "does this act reinforce" as ONE switch, but GraphMemoryEngine.ReinforceAsync does two
-    // separable things: TouchAsync RESETS an entry's age primitives, and Reinforce GROWS its stability.
-    // Those pull in OPPOSITE directions (TASKS.md Part 64) — the age reset is what keeps a rarely-queried
-    // fact alive, while the growth is what entrenches whatever the ranker already favoured — so a single
-    // gate cannot express the configuration the evidence actually favours. Freezing a seam cut at the wrong
-    // joint costs a major to correct; the reshaped one is designed with the evidence rather than ahead of it.
-
     /// <summary>How many candidates to fetch per requested item. The store bounds the candidate set with
     /// plain arithmetic and the policy ranks it exactly afterwards, so a multiple above 1 is what keeps
     /// that ranking meaningful.</summary>
@@ -120,18 +88,18 @@ public sealed record GraphMemoryOptions
 
     /// <summary>How many near neighbours a new entry is linked to when similarity enrichment is wired (an
     /// <see cref="Lyntai.Embeddings.IEmbedder"/> and an <see cref="IVectorStore"/> are registered).
-    /// Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
-    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
+    /// <b>A starting point, not a tuned value</b> — chosen against a synthetic corpus, never against
+    /// production usage.</summary>
     public int SimilarityK { get; init; } = 5;
 
     /// <summary>Cosine similarity below which enrichment does not link. Without a floor a new entry links
     /// to its <see cref="SimilarityK"/> nearest neighbours however unrelated they are, which in a small or
-    /// young graph means linking to nearly everything. Chosen against the corpus in <c>MemoryDecaySimulationTests</c>, which pins the DYNAMICS — reuse
-    /// outrunning interference — and not against production usage. A starting point, not a tuned value.</summary>
+    /// young graph means linking to nearly everything. <b>A starting point, not a tuned value</b> — chosen
+    /// against a synthetic corpus, never against production usage.</summary>
     public double MinSimilarity
     {
         get;
-        init => field = Finite(value, nameof(MinSimilarity));
+        init => field = MemoryOption.Require(value, MemoryOptionRange.Finite, nameof(GraphMemoryOptions), Disables);
     } = 0.6;
 
     /// <summary>Half-life of a co-activation edge's WEIGHT — never the retrievability curve's own connection
@@ -150,10 +118,12 @@ public sealed record GraphMemoryOptions
     public double EdgeHalfLife
     {
         get;
-        init => field = Finite(value, nameof(EdgeHalfLife));
+        init => field = MemoryOption.Require(value, MemoryOptionRange.Finite, nameof(GraphMemoryOptions), Disables);
     } = 100;
 
-    /// <summary>Reject a non-finite value at the line that configured it.
+    /// <summary>Why the three knobs above take <see cref="MemoryOptionRange.Finite"/> and no domain beyond
+    /// it. Shared as one constant because they share one failure mode; the guard itself is shared with every
+    /// other memory options record through <see cref="MemoryOption"/>.
     ///
     /// <para><b>NaN is the one that matters, and it is not theoretical here.</b> <c>EffectiveEdgeWeight</c>
     /// guards <see cref="EdgeHalfLife"/> with <c>halfLife &lt;= 0</c> — false for <c>NaN</c> — so a NaN
@@ -169,16 +139,13 @@ public sealed record GraphMemoryOptions
     /// bounds the measurements have not justified is the honest line — and the same one
     /// <c>MultiplicativeRankingOptions</c> draws when it rejects NaN and both infinities everywhere.</para>
     /// </summary>
-    private static double Finite(double value, string name) =>
-        double.IsFinite(value)
-            ? value
-            : throw new ArgumentOutOfRangeException(name, value,
-                $"{nameof(GraphMemoryOptions)}.{name} must be a finite number. A NaN or an infinity here " +
-                "does not exaggerate the knob, it silently disables every comparison that reads it — an " +
-                "edge weight or a floor that compares false against everything, with nothing reported.");
+    private const string Disables =
+        "a NaN or an infinity here does not exaggerate the knob, it silently disables every comparison that "
+        + "reads it — an edge weight or a floor that compares false against everything, with nothing "
+        + "reported.";
 
     /// <summary>Whether every reinforcement is logged — the pre-review state, the derived grade, and the
-    /// post-review state (design spec §3, 2026-08-11 fsrs-properly plan Task 3) — so a future fitting task
+    /// post-review state (design spec §3) — so a future fitting task
     /// has something to read (<c>TASKS.md</c> Part 56 FSRS-B; <c>docs/DECISIONS.md</c> D49 rejected fitting
     /// against an invented corpus). <b>Default ON, deliberately opt-OUT rather than opt-in</b>: a consumer
     /// who never fits pays one small, capped write per reinforcement; a consumer who wants to fit later
@@ -191,8 +158,7 @@ public sealed record GraphMemoryOptions
 
     /// <summary>Which of reinforcement's two effects a recall applies to the entries it returned — the age
     /// reset, the stability growth, both (the default) or neither. See
-    /// <see cref="MemoryReinforcementEffects"/> for what each one measured and why the seam is cut at the
-    /// effects rather than at the acts.
+    /// <see cref="MemoryReinforcementEffects"/> for what each effect does.
     /// <para>Governs <see cref="IMemoryGraphStore.TouchAsync"/> only. Co-activation edges and the review
     /// log are separate concerns with their own switches (<see cref="CoActivationCap"/>,
     /// <see cref="LogReviews"/>) and are unaffected by this — they record that a recall happened rather

@@ -7,37 +7,29 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Lyntai;
 
 /// <summary>One-line registration per media backend — the generation counterpart of <c>AddOpenAiProvider()</c> /
-/// <c>AddOllamaProvider()</c>. Before these, every backend in this package had to be hand-constructed WITH its
-/// <c>Func&lt;HttpClient&gt;</c>, which is a lot of ceremony to ask of someone whose LLM providers register in
-/// one call each.
+/// <c>AddOllamaProvider()</c>.
 ///
 /// <para><b>Options are configured by an <c>Action&lt;T&gt;</c> callback</b>, the same shape as the LLM
-/// presets (<c>AddOpenAiCompatibleProvider(id, o =&gt; …)</c>) and the memory engines
-/// (<c>AddMemoryEngine(name, e =&gt; …)</c>). Every option carries a default — each backend's conventional
-/// local URL, or the vendor's API root — so a registration sets only what differs from it, and a blank base
-/// URL is the documented <see cref="GenerationVerdict.NotConfigured"/> verdict rather than a failure.</para>
+/// presets and the memory engines. Every option carries a default — each backend's conventional local URL,
+/// or the vendor's API root — so a registration sets only what differs, and a blank base URL is the
+/// documented <see cref="GenerationVerdict.NotConfigured"/> verdict rather than a failure.</para>
 ///
 /// <para><b>The registration keeps the instance the callback configured</b>, so a host whose engine paths
 /// only exist after some setup step can capture it and set them later; the next render reads the current
 /// values. That matters most for <see cref="LocalDiffusionOptions"/>, whose binary and model paths are the
 /// host's to provision.</para>
 ///
-/// <para><b>BYO HttpClient</b> stays optional on every method (design §7). Supply one to own its configuration
-/// and lifecycle — a Polly-resilient client, an auth handler, a proxy, service discovery, or a named
-/// <see cref="IHttpClientFactory"/> client (<c>sp =&gt;
-/// sp.GetRequiredService&lt;IHttpClientFactory&gt;().CreateClient("my")</c>). Lyntai then never disposes it. When
-/// omitted, Lyntai registers a named client with an INFINITE <see cref="HttpClient"/> timeout, because a render
-/// legitimately runs for minutes and the 100-second default would abort a healthy one as a transport
-/// failure.</para>
+/// <para><b>BYO HttpClient</b> stays optional on every method (design §7). Supply one to own its
+/// configuration and lifecycle, and Lyntai never disposes it. When omitted, Lyntai registers a named client
+/// with an INFINITE <see cref="HttpClient"/> timeout, because a render legitimately runs for minutes and the
+/// 100-second default would abort a healthy one as a transport failure.</para>
 ///
 /// <para><b>Infinite there does not mean unbounded.</b> Every backend enforces its own per-call deadline —
-/// each options record carries a <c>Timeout</c> (generous for the inline render backends, shorter for the
-/// queue ones), overridden per call by <see cref="Generation.GenerationRequest.TimeoutSeconds"/>. A fired
-/// deadline is a <see cref="GenerationVerdict.Timeout"/> result rather than a throw. That deadline is what
-/// makes the infinite client timeout safe: until it existed, these shims traded a 100-second cut-off for no
-/// cut-off at all, and a stalled backend hung a background render forever. A BYO client keeps its own
-/// <see cref="HttpClient.Timeout"/> as well — whichever fires first, the caller sees the same
-/// <see cref="GenerationVerdict.Timeout"/> verdict.</para></summary>
+/// each options record carries a <c>Timeout</c>, overridden per call by
+/// <see cref="Generation.GenerationRequest.TimeoutSeconds"/> — and a fired deadline is a
+/// <see cref="GenerationVerdict.Timeout"/> result rather than a throw. That deadline is what makes the
+/// infinite client timeout safe. A BYO client keeps its own <see cref="HttpClient.Timeout"/> too;
+/// whichever fires first, the caller sees the same verdict.</para></summary>
 public static class GenerationProviderBuilderExtensions
 {
     /// <summary>An OpenAI-compatible images endpoint — the cloud service, or any local server speaking the same

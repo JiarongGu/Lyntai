@@ -2,44 +2,21 @@ namespace Lyntai.Memory.Verification;
 
 /// <summary>
 /// Which of a recall's results actually ANSWERED the query — the correctness signal this engine otherwise
-/// does not have.
+/// does not have. Without one, a recall reinforces whatever it RETURNED, so reinforcement is positive
+/// feedback on the ranker's own prior including its mistakes.
 ///
-/// <para><b>The problem it exists for, and it is the root of most of this subsystem's open questions.</b>
-/// A recall reinforces what it RETURNED, and nothing observes whether the return was right. So reinforcement
-/// is positive feedback on the ranker's own prior, including its mistakes: the entries a ranking policy
-/// already favours get their age reset and their stability grown, which makes the ranker favour them harder
-/// next time. FSRS's "retrieval strengthens memory" comes from a domain where retrieval is <b>verified</b> —
-/// the learner knows whether they got it right. This seam is that missing observer.</para>
+/// <para><b>It is a JUDGEMENT, not a tokenizer, so it is language-neutral by construction</b> — like
+/// <see cref="Lyntai.Memory.Annotation.IMemoryAnnotationPolicy"/>, it routes around CJK tokenization rather
+/// than adding to it. An implementation that reasons in one language only would reintroduce the bias.</para>
 ///
-/// <para><b>What it unblocks, stated so the value is checkable rather than asserted.</b> Three separate
-/// dead ends reduce to this one missing signal:</para>
-/// <list type="number">
-/// <item>Reinforcement can be conditioned on being RIGHT rather than on being returned — which is what
-/// `TASKS.md` Part 64's act gate could only approximate by switching whole call kinds off.</item>
-/// <item>The review log gains real outcomes. Parameter fitting was recorded as structurally impossible
-/// (<c>docs/DECISIONS.md</c> <b>D51</b>) for two reasons — the grade was a deterministic function of the
-/// model's own prediction, and the log could only ever contain successes. A verifier breaks both: the
-/// judgement comes from outside the curve, and it can say NO.</item>
-/// <item>Recall quality itself becomes measurable against something other than a corpus this library
-/// invented.</item>
-/// </list>
+/// <para><b>Best-effort over a model-free floor: any failure must yield
+/// <see cref="MemoryVerification.NoOpinion"/></b> — never "nothing was relevant", never a failed recall and
+/// never no memory. A memory that stops answering because a judge is down is worse than one with no
+/// judge.</para>
 ///
-/// <para><b>It is a JUDGEMENT, not a tokenizer, which is why it is language-neutral by construction.</b>
-/// "did this entry answer that question" is the same question in every language, so — like
-/// <see cref="Lyntai.Memory.Annotation.IMemoryAnnotationPolicy"/> — it routes around the CJK tokenization
-/// problem rather than adding to it. An implementation that reasons in one language only is the one thing
-/// that would reintroduce the bias.</para>
-///
-/// <para><b>Best-effort over a model-free floor, exactly like annotation.</b> Graph memory works with no
-/// verifier and no model at all. A failing, slow or absent verifier degrades to "reinforce what was
-/// returned" — today's behaviour — never to a failed recall and never to no memory. A memory that stops
-/// answering because a judge is down is worse than a memory with no judge.</para>
-///
-/// <para><b>It never invents results.</b> A verifier only ever narrows what a recall already found; it
-/// cannot add an entry, and by default it does not remove one from the caller's answer either — see
-/// <see cref="GraphMemoryOptions.VerificationFilters"/> for the opt-in that lets it. Keeping "what the
-/// caller sees" separate from "what gets reinforced" is what makes a mistaken judgement cost a little
-/// learning rather than a lost answer.</para>
+/// <para><b>It never invents results.</b> A verifier only narrows what a recall already found; it cannot
+/// add an entry, and by default removes none from the caller's answer either (see
+/// <see cref="GraphMemoryOptions.VerificationFilters"/>).</para>
 /// </summary>
 public interface IMemoryVerificationPolicy
 {

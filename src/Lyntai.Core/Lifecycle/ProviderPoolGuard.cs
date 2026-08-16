@@ -27,12 +27,17 @@ internal static class ProviderPoolGuard
     /// the later key in the pool's lookup table, quietly attributing the earlier configuration's cooldown to
     /// the wrong one.</para>
     ///
-    /// <para>Compared case-insensitively, matching how the generation router and the rest of this subsystem
-    /// resolve an id, and the stricter of the two schemes in the tree — it rejects a pair that an ordinal
-    /// comparison would wave through. It is NOT how the LLM router resolves a candidate: <c>LlmRouter</c>
-    /// keys its provider table ordinally, so a candidate id must be cased exactly as the provider reports its
-    /// <see cref="IProviderIdentity.Id"/> — which <see cref="EnsureIdMatchesSlot"/> deliberately allows to
-    /// differ in case from the slot it was registered under.</para></summary>
+    /// <para>Compared case-insensitively, matching EVERY id lookup in the tree — both routers, the pool, the
+    /// tool registry and the job-handler registry. It is also the stricter of the two possible schemes: it
+    /// rejects a pair an ordinal comparison would wave through.
+    /// <para><b>This paragraph asserted the opposite until 2026-08-16</b>, claiming <c>LlmRouter</c> keyed
+    /// its provider table ordinally so a candidate id had to match the provider's own case. It does not, and
+    /// the comment above <c>LlmRouter._byId</c> records WHY: an ordinal table made a pool slot cased
+    /// differently from the provider's <see cref="IProviderIdentity.Id"/> — which
+    /// <see cref="EnsureIdMatchesSlot"/> deliberately ACCEPTS — reachable by this guard, poolable, and then
+    /// never selected, so the backend was simply never tried with no error and one debug line. Both hunks
+    /// shipped in one commit; the claim was wrong on arrival. Do not "restore" an ordinal lookup on the
+    /// strength of it.</para></para></summary>
     internal static void EnsureDistinctSlots<TProvider>(
         IReadOnlyList<ProviderRegistration<TProvider>> registrations, string paramName)
         where TProvider : class, IProviderIdentity

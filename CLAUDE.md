@@ -31,15 +31,21 @@ made the generation backends registerable in one line each, **2.2.0** shipped th
 `MigrateUpAsync` twins (D33) and `CodexAgentSession` (D35), **2.3.0** carried the pre-release whole-library
 review that 2.2.0 shipped without (D18, D37), **2.4.0** gave an agent session the host's own MCP servers on
 either CLI backend (D38), and **2.5.0** shipped the **long-term memory subsystem**. Per-release detail is
-`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D74 — the memory subsystem is **D39–D41**,
-**D45–D62**, **D63** and **D72**; D42–D44 are the doc and packaging decisions that landed beside it, not
-memory ones). **D67–D74 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
+`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D82 — the memory subsystem is **D39–D41**,
+**D45–D62**, **D63**, **D72** and **D76–D79**; D42–D44 are the doc and packaging decisions that landed
+beside it, not memory ones). **D67–D81 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
 is most likely to have stale assumptions about: the generation stream door (**D67**), the accelerator-derived
 diffusion ceiling (**D68**), every unmeasured generation mapping becoming a host OPTION (**D69**), the
 withdrawal of the generation SemVer exemption (**D70**), tool calls on the streaming contract (**D71**), and
-the forget/prune capability split with the `IMemoryReapPolicy` seam (**D72**), and the cross-process
+the forget/prune capability split with the `IMemoryRemovalPolicy` seam (**D72**), and the cross-process
 job cap as a heartbeated slot table (**D73**), and the retirement of "native tool-calling for
-ClaudeCli/Local" as misframed (**D74**).
+ClaudeCli/Local" as misframed (**D74**), and the guard-parity split — forced in FORCE, accidental in
+SIGNAL (**D75**), memory's umbrella verb becoming REMOVAL because the old one meant to *harvest*
+(**D76**), the two relational memory-graph stores sharing their materialization (**D77**), and one
+option-domain guard whose message is derived from the check it makes (**D78**), the FSRS adaptation
+spec moving out of a method's remarks into the record (**D79**), the rest of the relational row types
+following D77 into Core (**D80**), and the two store domains whose whole SQL surface is dialect-free
+sharing it (**D81**). The pass that produced D77–D81 is archive **Part 82**.
 
 **Long-term memory (2.5.0) is the newest subsystem** and the one a session is most likely to reason about
 wrongly, because it is not the three older memory surfaces: named engines resolved by name like
@@ -134,7 +140,7 @@ is NOT required is `KnownSubjectsAsync`, which defaults to an empty list.
 reconstructing it from `CHANGELOG.md`, whose `## Unreleased` records each change as it landed and therefore
 contains entries later ones supersede.
 
-**The packaging rules are now gated, not remembered** — `verify` runs fourteen checks, four of them added at
+**The packaging rules are now gated, not remembered** — `verify` runs fifteen checks, four of them added at
 2.0.1 and `check-docs` added with the memory work (a doc that uses vocabulary a decision retired fails the
 build — the prose counterpart to `check-warnings`; **D42**): `check-warnings` (a warning in a published project fails the build, because an unfailed IL2026 is a
 FALSE trim promise), `check-packages` (a package must be registered in all nine registries — a missing
@@ -142,8 +148,8 @@ FALSE trim promise), `check-packages` (a package must be registered in all nine 
 grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **2997 passed / 3018 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 345/345, doc samples 76/76.
+Tests/e2e green: **3037 passed / 3058 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 373/373, doc samples 76/76.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -232,7 +238,14 @@ owned outside the deployment; `DECISIONS.md` D30) /
   lying exit codes). Those are canonical (synced by `daoris`) and state the PRINCIPLE; this repo's
   concrete bindings — package names and the packable/version layout, the `Dto`-free naming invariant,
   guard scripts, version-authorship policy, the dev loop and test conventions, scratch paths — live in
-  the local, never-synced `repo-mechanics.md`. See `.claude/rules/RULES_INDEX.md` (generated).
+  the local, never-synced `repo-mechanics.md`.
+  <br>**`code-commentary.md` is the other LOCAL rule** (added 2026-08-16): three tiers, three jobs — the
+  XML doc is the CONTRACT a consumer reads, a `//` comment ANNOTATES the code beneath it, and the DESIGN
+  argument lives in a record. Written because `src/` had reached **0.86 comment lines per line of real
+  code** and carried 1.6× more prose than `DECISIONS.md` + `pitfalls.md` + the archive + the design
+  contract combined — prose that no gate can see, in the one place none of them scans.
+  See `.claude/rules/RULES_INDEX.md` (generated — and stale; it will not route to this rule until the next
+  `daoris` run, which is why the summary is here).
 - **`.claude/knowledge/`** (on-demand deep dives — read the one you're touching):
   `extending-lyntai.md` (the six extension points — provider, generation backend, storage backend, scorer,
   CLI tool-hosting dialect, migration), `llm-and-router.md` (verdict taxonomy, fallback §6 amended,
@@ -258,9 +271,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate, fourteen checks stopping at the first failure:
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, fifteen checks stopping at the first failure:
   **guard tests** → build → warnings → packages → bundle → **encoding** → **docs** → **links** →
-  **counts** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
+  **counts** → **comments** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
   the step list, so a gate added without updating prose still names itself. Run before
   claiming a change is complete. The guard tests run FIRST on purpose: nothing below that gate can be
   trusted if the gates themselves are broken.
@@ -376,6 +389,23 @@ owned outside the deployment; `DECISIONS.md` D30) /
   `verify`-gate counter returned the RIGHT total from two cancelling errors (its character class could not
   match `e2e`, and it counted the inner `['--tree']` argument array as a step). Only comparing the parsed
   NAMES caught it — the literal case Part 73 predicted when it said a subtly-wrong counter is worse than none.
+- `node devtools/dev.mjs check-comments` — **fail if a comment block outgrows what it explains** (part of
+  `verify`, and the FOURTH member of the prose family). Its siblings ask whether a document still SAYS what
+  a decision settled, whether what it POINTS AT exists, and whether what it COUNTS is true — all of
+  MAINTAINED prose. This one asks whether a COMMENT is still doing a comment's job, and it is the only one
+  that looks at `src/`.
+  Measured cost of not having it: **0.86 comment lines per line of real code**, and `src/` carrying 1.6×
+  more prose than `DECISIONS.md` + `pitfalls.md` + the task archive + the design contract COMBINED — prose
+  in the one place no other gate scans, rotting exactly as `pitfalls.md` records. The rule it enforces is
+  `.claude/rules/code-commentary.md`: **the XML doc is the CONTRACT, a `//` comment ANNOTATES the code
+  beneath it, and the DESIGN argument belongs in a record.**
+  **It is a RATCHET, not a threshold.** 49 files were already over the 25-line limit when it landed (1879
+  lines), so a plain threshold would have been switched off on day one. Each is recorded at its CURRENT
+  worst in `commentBlockAllowances` (`devtools/project.config.mjs`), and **an allowance looser than the
+  file needs FAILS** — so the numbers only ever come down, and a regression back to an old size is caught.
+  Paying one down means moving the design argument to the record that owns it and keeping the RULE plus a
+  pointer; deleting the entry is the goal, not an edge case. Line escape is **`comment-ok`** on a block's
+  first line, deliberately not `drift-ok`.
 - `node devtools/dev.mjs check-api-vocabulary` — **fail if the FROZEN public surface reintroduces a name a
   decision retired** (part of `verify`, beside `check-docs`). The two are twins: one asks whether the PROSE
   still says what a decision settled, the other asks it of the SURFACE. It exists because `check-docs`
@@ -412,7 +442,7 @@ owned outside the deployment; `DECISIONS.md` D30) /
   **before** `BenchmarkSwitcher` ever runs, because BDN measures wall-clock time per operation, not recall
   quality. Slow by design (a fresh migrated SQLite db per arm × shape), so deliberately NOT in `verify` — the
   same reasoning `consumer-smoke` carries.
-  **Its corpus holds no authoritative material BY DEFAULT** — `CorpusShape.AuthoritativeCount` is opt-in and
+  **Its corpus holds neither authoritative material nor an authored headline BY DEFAULT** — `CorpusShape.AuthoritativeCount` is opt-in and
   `0` unless a caller asks, so the sweep's arms are byte-identical to their pre-3.0 selves and any change to
   grade behaviour is still unreachable *there*. An unchanged sweep number is "not exercised", never "no
   regression". The promise itself is measured by `MemoryAuthoritativeSurvivalTests` (five languages + a

@@ -4,10 +4,9 @@ namespace Lyntai.Generation.Providers;
 ///
 /// <para>It exists because the <c>Add*</c> shims give their named client
 /// <see cref="Timeout.InfiniteTimeSpan"/> — correctly, since a render routinely outlives
-/// <see cref="HttpClient"/>'s 100-second default — which is only safe if something ELSE bounds the call. Without
-/// it, a backend that accepts the connection and then stalls hangs until the caller's token fires, and a
-/// background render with no cancel waits forever: unbounded and silent, which is worse than the cut-off it
-/// replaced.</para>
+/// <see cref="HttpClient"/>'s 100-second default — which is only safe if something ELSE bounds the call.
+/// Without it a backend that accepts the connection and then stalls hangs until the caller's token fires,
+/// and a background render with no cancel waits forever.</para>
 ///
 /// <para><b>The subtle part is telling the two clocks apart.</b> A fired deadline must surface as a
 /// <see cref="GenerationVerdict.Timeout"/> RESULT, because <see cref="IGenerationProvider"/> is contractually

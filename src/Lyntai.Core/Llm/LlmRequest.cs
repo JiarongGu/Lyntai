@@ -23,8 +23,10 @@ public sealed record LlmRequest
 
     public IReadOnlyList<LlmTool>? Tools { get; init; }
 
-    /// <summary>Per-feature routing/telemetry tag (e.g. "scoring", "chat").</summary>
-    public string Consumer { get; init; } = "default";
+    /// <summary>Per-feature routing/telemetry tag — what <see cref="LyntaiOptions.DefaultModelByConsumer"/>
+    /// resolves a model by, and what <c>Budget.PerConsumer</c> caps and reports against. The tags this
+    /// library itself uses are <see cref="LlmConsumers"/>; a consumer's own are free-form.</summary>
+    public string Consumer { get; init; } = LlmConsumers.Default;
 
     /// <summary>An optional per-request timeout override (seconds) for the provider call — for a call that
     /// legitimately runs far longer than the global <see cref="LyntaiOptions.ProviderTimeout"/> (e.g. a
@@ -40,4 +42,28 @@ public sealed record LlmRequest
     /// cached hit. A malformed pattern is logged and ignored (the reply passes through). Completion-path
     /// only — streamed replies aren't screened.</summary>
     public string? RefusalPattern { get; init; }
+}
+
+/// <summary>The per-feature <see cref="LlmRequest.Consumer"/> tags this library itself sends.
+/// <para>Declared once rather than spelled at each call site, because a tag is a KEY a host writes its
+/// <see cref="LyntaiOptions.DefaultModelByConsumer"/> and <c>Budget.PerConsumer</c> against — so a typo
+/// does not fail, it silently opens a second bucket that no cap covers and no report names.</para>
+/// <para>A consumer's own tags are free-form and need no entry here; these exist so the library's own
+/// traffic is separable from the application's.</para></summary>
+public static class LlmConsumers
+{
+    /// <summary>Anything untagged, and the fallback every unlisted tag resolves through.</summary>
+    public const string Default = "default";
+
+    /// <summary>An LLM judge or comparer in the cortex layer.</summary>
+    public const string Scoring = "scoring";
+
+    /// <summary>The memory subsystem's own model calls — annotation and verification.
+    /// <para>Verification fires on EVERY recall, so this is the tag an operator most often wants to cap or
+    /// watch on its own. Both seams billed to <see cref="Default"/> until 3.0, which made memory spend
+    /// inseparable from the application's.</para></summary>
+    public const string Memory = "memory";
+
+    /// <summary>A tool the model drives itself, including the generation tools.</summary>
+    public const string Agent = "agent";
 }

@@ -19,9 +19,9 @@ namespace Lyntai.Memory;
 /// <c>MemoryEngineBuilder.Build</c> returns for ALL of them — and a consumer of the shipped memory subsystem
 /// had no supported way to delete anything. A comment asserting an invariant is not the invariant.</para>
 ///
-/// <para><b>Reaping fans OUT; expansion and linking ROUTE.</b> The difference is the argument:
+/// <para><b>Removal fans OUT; expansion and linking ROUTE.</b> The difference is the argument:
 /// <see cref="ExpandAsync"/> and <see cref="LinkAsync"/> take a <see cref="MemoryRef"/>, which names exactly
-/// one owning member, while reaping takes a (task, scope) that every member may hold material under. Reaping
+/// one owning member, while removing takes a (task, scope) that every member may hold material under. Removal
 /// one member and reporting success would leave the rest of the blend holding the very data the caller asked
 /// to remove.</para>
 /// </summary>
@@ -30,28 +30,28 @@ public sealed class CompositeMemoryEngine
 {
     private readonly IReadOnlyList<IMemoryEngine> _members;
     private readonly ILogger _logger;
-    private readonly IMemoryReapPolicy _reapPolicy;
+    private readonly IMemoryRemovalPolicy _removalPolicy;
 
     /// <summary>Compose <paramref name="members"/> under <paramref name="name"/>. Member order is the
     /// render order; authoritative material renders first regardless of position.</summary>
     /// <param name="name">The blend's name.</param>
     /// <param name="members">Its members, each already carrying its own hierarchical name.</param>
     /// <param name="logger">Optional; a member's recall failure is logged rather than thrown.</param>
-    /// <param name="reapPolicy">Which members a reap visits. Defaults to <see cref="DefaultMemoryReapPolicy"/>,
+    /// <param name="removalPolicy">Which members a removal visits. Defaults to <see cref="DefaultMemoryRemovalPolicy"/>,
     /// which puts an authoritative-ONLY member out of scope — see that type for why eligibility is a
     /// deployment question rather than a property of an engine.</param>
     /// <exception cref="InvalidOperationException">Two members share a name, which would make an entry's
     /// reference ambiguous about its owner.</exception>
     public CompositeMemoryEngine(string name, IReadOnlyList<IMemoryEngine> members,
         ILogger<CompositeMemoryEngine>? logger = null,
-        IMemoryReapPolicy? reapPolicy = null)
+        IMemoryRemovalPolicy? removalPolicy = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(members);
         Name = name;
         _members = members;
         _logger = logger ?? NullLogger<CompositeMemoryEngine>.Instance;
-        _reapPolicy = reapPolicy ?? new DefaultMemoryReapPolicy();
+        _removalPolicy = removalPolicy ?? new DefaultMemoryRemovalPolicy();
 
         var duplicate = members
             .GroupBy(m => m.Name, StringComparer.Ordinal)
@@ -222,33 +222,33 @@ public sealed class CompositeMemoryEngine
     }
 
     /// <inheritdoc />
-    /// <remarks>Fans out to every member that can reap and SUMS what they removed. Fails LOUD when no member
+    /// <remarks>Fans out to every member that can remove and SUMS what they removed. Fails LOUD when no member
     /// can — like <see cref="LinkAsync"/> and unlike <see cref="ExpandAsync"/> — because this method returns a
     /// COUNT and <c>0</c> already means "nothing matched". Reporting <c>0</c> for "nothing here can ever
-    /// reap" would make a deletion that cannot happen indistinguishable from one that found nothing to do,
-    /// and a caller reaping for a consent withdrawal would read it as done.</remarks>
+    /// remove" would make a deletion that cannot happen indistinguishable from one that found nothing to do,
+    /// and a caller removing for a consent withdrawal would read it as done.</remarks>
     public async Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
         TimeSpan? olderThan = null, CancellationToken ct = default)
     {
-        var members = ReapableMembers<IPrunableMemory>(nameof(PruneAsync), MemoryReapKind.Prune);
+        var members = RemovableMembers<IPrunableMemory>(nameof(PruneAsync), MemoryRemovalKind.Prune);
 
-        var reaped = 0;
+        var removed = 0;
         foreach (var member in members)
         {
             ct.ThrowIfCancellationRequested();
-            reaped += await member
+            removed += await member
                 .PruneAsync(taskKey, scope, minRetrievability, olderThan, ct).ConfigureAwait(false);
         }
-        return reaped;
+        return removed;
     }
 
     /// <inheritdoc />
-    /// <remarks>Fans out to every member that can reap, for the reason given on <see cref="PruneAsync"/>:
+    /// <remarks>Fans out to every member that can remove, for the reason given on <see cref="PruneAsync"/>:
     /// a (task, scope) is not owned by one member the way a <see cref="MemoryRef"/> is, so forgetting one
     /// member's copy and returning would leave the blend still holding the data.</remarks>
     public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
     {
-        var members = ReapableMembers<IForgettableMemory>(nameof(ForgetAsync), MemoryReapKind.Forget);
+        var members = RemovableMembers<IForgettableMemory>(nameof(ForgetAsync), MemoryRemovalKind.Forget);
 
         foreach (var member in members)
         {
@@ -257,53 +257,38 @@ public sealed class CompositeMemoryEngine
         }
     }
 
-    /// <summary>Refuse BEFORE removing anything unless EVERY member can reap.
-    ///
-    /// <para><b>Why all-or-nothing, and why the check runs first.</b> The first version of this fanned out to
-    /// whichever members implemented <see cref="IForgettableMemory"/> and silently skipped the rest — which
-    /// is precisely the outcome the fan-out exists to prevent, written one paragraph above it: reaping some
-    /// members and returning success leaves the blend holding the very data the caller asked to remove.
-    /// Today only <c>GraphMemoryEngine</c> implements the interface, so
-    /// <c>UseCurated("glossary").UseGraph()</c> — a blend from this library's own README — cleared the graph
-    /// half, kept the authoritative half, and returned normally. For the call an application makes when a
-    /// user withdraws consent, a partial success that reports nothing is the worst available answer.</para>
-    ///
-    /// <para>Checking first is the other half: a mid-fan-out refusal would delete from the members reached
-    /// so far and then throw, which is a partial reap AND an exception. Nothing is removed unless everything
-    /// can be.</para>
-    ///
-    /// <para><b>This takes nothing away.</b> Through 2.5.x <see cref="IForgettableMemory"/> was unreachable
-    /// through a composite at all, so a graph-only blend gains a working reap and a mixed blend gets a loud
-    /// refusal naming the members that cannot serve it — where before it had no reap to call. Making the
-    /// remaining engines forgettable (their stores can: <c>IMemoryStore.ForgetAsync</c>,
-    /// <c>ISemanticMemory.ForgetAsync</c>, <c>ICuratedMemoryStore.RemoveAsync</c>) is real, bounded work and
-    /// is in the backlog; it is not something to infer half-done from a silent skip.</para></summary>
-    /// <summary>The members a reap visits, checked for the SPECIFIC capability that verb needs — refusing
+    /// <summary>The members a removal visits, checked for the SPECIFIC capability that verb needs — refusing
     /// before anything is removed unless every one of them has it.</summary>
-    private List<T> ReapableMembers<T>(string verb, MemoryReapKind kind) where T : class
+    /// <remarks>All-or-nothing, and the check runs FIRST. Removing from some members and returning success
+    /// leaves the blend holding the very data the caller asked to remove — and a mid-fan-out refusal would be
+    /// worse still, a partial remove AND an exception. Only <c>GraphMemoryEngine</c> implements
+    /// <see cref="IForgettableMemory"/> today, so a mixed blend refuses loudly and names the members that
+    /// cannot serve the call, rather than clearing what it can. For the call an application makes when a user
+    /// withdraws consent, a partial success that reports nothing is the worst available answer.</remarks>
+    private List<T> RemovableMembers<T>(string verb, MemoryRemovalKind kind) where T : class
     {
         // A member the POLICY excludes is OUT OF SCOPE, not a gap. It is skipped, and the skip is LOGGED
         // rather than silent — the caller of a consent withdrawal is entitled to know a glossary was kept.
         // The distinction from an incapable member is the whole point: one engine cannot do what was asked,
-        // the other was never asked. Eligibility is the deployment's call (IMemoryReapPolicy); capability is
+        // the other was never asked. Eligibility is the deployment's call (IMemoryRemovalPolicy); capability is
         // the store's, and no policy may configure a genuine gap away.
-        var exempt = _members.Where(m => !_reapPolicy.Includes(m, kind)).Select(m => m.Name).ToList();
+        var exempt = _members.Where(m => !_removalPolicy.Includes(m, kind)).Select(m => m.Name).ToList();
         if (exempt.Count > 0)
             _logger.LogInformation(
-                "memory {Engine}: {Verb} skipped {Count} member(s) the reap policy excludes — {Members}",
+                "memory {Engine}: {Verb} skipped {Count} member(s) the removal policy excludes — {Members}",
                 Name, verb, exempt.Count, string.Join(", ", exempt));
 
-        var mine = _members.Where(m => _reapPolicy.Includes(m, kind)).ToList();
+        var mine = _members.Where(m => _removalPolicy.Includes(m, kind)).ToList();
         var incapable = mine.Where(m => m is not T).Select(m => m.Name).ToList();
         if (incapable.Count > 0)
             throw new NotSupportedException(
                 $"Memory engine '{Name}' cannot {verb}: {incapable.Count} of its {_members.Count} member(s) " +
                 $"hold user content and do not implement {typeof(T).Name} — {string.Join(", ", incapable)}. " +
-                "Nothing was removed, deliberately: reaping only the capable members would leave the rest of " +
-                "the blend holding the data you asked to remove, and report success. Reap those members " +
+                "Nothing was removed, deliberately: removing only the capable members would leave the rest of " +
+                "the blend holding the data you asked to remove, and report success. Remove those members " +
                 "through their own stores, or compose an engine whose members can all serve this verb. " +
-                "(A member the reap POLICY excludes is skipped instead of blocking the verb — eligibility is " +
-                "IMemoryReapPolicy's question, capability is this interface's.)");
+                "(A member the removal POLICY excludes is skipped instead of blocking the verb — eligibility is " +
+                "IMemoryRemovalPolicy's question, capability is this interface's.)");
 
         return [.. mine.Cast<T>()];
     }

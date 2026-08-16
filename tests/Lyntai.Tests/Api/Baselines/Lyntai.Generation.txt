@@ -72,11 +72,11 @@ sealed class Lyntai.Generation.Providers.FalQueueProvider
 sealed class Lyntai.Generation.Providers.LocalDiffusionOptions
     .ctor()
     Accelerator : DiffusionAccelerator
+    ArgvFlags : IDictionary<String,String>
     BinaryPath : String
     CfgScale : Double
     DenoisingStrength : Double
     ExtraArgs : IList<String>
-    Flags : IDictionary<String,String>
     Id : String
     Img2ImgMode : String
     InactivityTimeout : TimeSpan

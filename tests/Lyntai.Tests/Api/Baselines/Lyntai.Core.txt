@@ -770,7 +770,8 @@ sealed class Lyntai.Generation.Tools.GenerationBackendsTool
     Name : String
     ParametersJsonSchema : String
 sealed class Lyntai.Generation.Tools.GenerationFetchTool
-    .ctor(IEnumerable<IGenerationProvider> providers, IGenerationArtifactSink sink = null)
+    .ctor(IEnumerable<IGenerationProvider> providers, IGenerationArtifactSink sink = null, IUsageTracker usage = null, String consumer = "agent")
+    Consumer : String
     Description : String
     InvokeAsync(String argumentsJson, CancellationToken ct = default) : Task<String>
     Name : String
@@ -1304,6 +1305,11 @@ sealed class Lyntai.Llm.LlmClientFactory
     Get(String name) : ILlmClient
     Names : IReadOnlyList<String>
     TryGet(String name, ILlmClient& client) : Boolean
+static class Lyntai.Llm.LlmConsumers
+    Agent : String const
+    Default : String const
+    Memory : String const
+    Scoring : String const
 sealed class Lyntai.Llm.LlmMessage
     .ctor(String Role, String Content)
     Attachments : IReadOnlyList<LlmAttachment>
@@ -1652,7 +1658,7 @@ sealed class Lyntai.Memory.Annotation.MemoryAnnotationRequest
     ToString() : String
     Write : MemoryWrite
 sealed class Lyntai.Memory.CompositeMemoryEngine
-    .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null, IMemoryReapPolicy reapPolicy = null)
+    .ctor(String name, IReadOnlyList<IMemoryEngine> members, ILogger<CompositeMemoryEngine> logger = null, IMemoryRemovalPolicy removalPolicy = null)
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task
     LinkAsync(MemoryRef from, MemoryRef to, String kind = null, Double weight = 1, Boolean symmetric = false, CancellationToken ct = default) : Task
@@ -1662,9 +1668,9 @@ sealed class Lyntai.Memory.CompositeMemoryEngine
     RecallAsync(MemoryQuery query, CancellationToken ct = default) : Task<MemoryRecall>
     RememberAsync(MemoryWrite write, CancellationToken ct = default) : Task<MemoryRef>
     Supported : MemoryGrades
-sealed class Lyntai.Memory.DefaultMemoryReapPolicy
+sealed class Lyntai.Memory.DefaultMemoryRemovalPolicy
     .ctor()
-    Includes(IMemoryEngine member, MemoryReapKind kind) : Boolean
+    Includes(IMemoryEngine member, MemoryRemovalKind kind) : Boolean
 sealed class Lyntai.Memory.EngineBackedPromptComposer
     .ctor(IMemoryEngine engine, MemoryCompositionOptions options)
     ComposeAsync(String basePrompt, String taskKey, String scope = null, String query = null, Nullable<Int32> limit = null, CancellationToken ct = default) : Task<String>
@@ -1879,8 +1885,8 @@ interface Lyntai.Memory.IMemoryGraphStore
     SeedAsync(String engine, String taskKey, String scope, String query, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
     TouchAsync(String engine, IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) : Task
     UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) : Task<Int64>
-interface Lyntai.Memory.IMemoryReapPolicy
-    Includes(IMemoryEngine member, MemoryReapKind kind) : Boolean
+interface Lyntai.Memory.IMemoryRemovalPolicy
+    Includes(IMemoryEngine member, MemoryRemovalKind kind) : Boolean
 interface Lyntai.Memory.IPrunableMemory
     PruneAsync(String taskKey, String scope = null, Nullable<Double> minRetrievability = null, Nullable<TimeSpan> olderThan = null, CancellationToken ct = default) : Task<Int32>
 interface Lyntai.Memory.ISemanticMemory
@@ -2037,10 +2043,6 @@ sealed class Lyntai.Memory.MemoryQuery
     Scope : String
     TaskKey : String
     ToString() : String
-enum Lyntai.Memory.MemoryReapKind
-    Forget : MemoryReapKind const
-    Prune : MemoryReapKind const
-    value__ : Int32
 sealed class Lyntai.Memory.MemoryRecall
     .ctor(IReadOnlyList<MemoryItem> Items, MemorySources Ran, Nullable<Boolean> Answered = null)
     Answered : Nullable<Boolean>
@@ -2075,6 +2077,10 @@ enum Lyntai.Memory.MemoryReinforcementEffects
     value__ : Int32
 static class Lyntai.Memory.MemoryRelevance
     static ByRankPosition(Int32 index, Int32 count, Nullable<Boolean> matched = null) : Double
+enum Lyntai.Memory.MemoryRemovalKind
+    Forget : MemoryRemovalKind const
+    Prune : MemoryRemovalKind const
+    value__ : Int32
 sealed class Lyntai.Memory.MemoryReview
     .ctor(Int64 Id, String Engine, Int64 NodeId, Guid BatchId, DateTimeOffset CreatedAt, Double PreAge, Double PreStability, Double PreDifficulty, Double PreStrength, Double PreStrengthAge, Nullable<Double> Grade, Double PostStability, Double PostDifficulty, Int64 ProvenanceRetrievability, Nullable<Boolean> Verified = null)
     BatchId : Guid
@@ -2517,6 +2523,17 @@ sealed class Lyntai.Storage.ChatThread
     Metadata : String
     Title : String
     ToString() : String
+static class Lyntai.Storage.ConversationStoreSql
+    AppendMessage : String const
+    CountThreads : String const
+    DeleteThread : String const
+    GetMessages : String const
+    GetThread : String const
+    InsertThread : String const
+    ListThreads : String const
+    PageThreadsAfter : String const
+    SetThreadMetadata : String const
+    ThreadCols : String const
 sealed class Lyntai.Storage.CuratedMemory
     .ctor(Int64 Id, String Kind, String Content, Boolean Enabled, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, String TaskKey = null, String Scope = null, IReadOnlyDictionary<String,String> Metadata = null)
     Content : String
@@ -2535,6 +2552,18 @@ sealed class Lyntai.Storage.CuratedMemory
     UpdatedAt : DateTimeOffset
 static class Lyntai.Storage.CuratedMemoryExtensions
     static MetadataValue(CuratedMemory entry, String key) : String
+sealed class Lyntai.Storage.CuratedMemoryRow
+    .ctor()
+    Content : String
+    CreatedAt : DateTimeOffset
+    Enabled : Boolean
+    Id : Int64
+    Kind : String
+    Metadata : String
+    Scope : String
+    TaskKey : String
+    ToRecord() : CuratedMemory
+    UpdatedAt : DateTimeOffset
 static class Lyntai.Storage.CuratedMetadataJson
     static Deserialize(String json) : IReadOnlyDictionary<String,String>
     static Serialize(IReadOnlyDictionary<String,String> metadata) : String
@@ -2690,6 +2719,13 @@ sealed class Lyntai.Storage.LikeTermClause
     Predicate : String
     TermCount : Int32
     ToString() : String
+class Lyntai.Storage.MemoryEdgeRow
+    .ctor()
+    EdgeAge : Double
+    EdgeOrdinalAge : Double
+    EdgeStrengthenedAt : Nullable<DateTimeOffset>
+    EdgeVolumeAge : Double
+    EdgeWeight : Double
 sealed class Lyntai.Storage.MemoryEntry
     .ctor(Int64 Id, String TaskKey, String Scope, String Content, DateTimeOffset CreatedAt)
     Content : String
@@ -2718,6 +2754,14 @@ struct Lyntai.Storage.MemoryEviction+Row
     LastAccessedAt : DateTimeOffset
     Length : Int32
     ToString() : String
+sealed class Lyntai.Storage.MemoryEvictionCandidateRow
+    .ctor()
+    CreatedAt : DateTimeOffset
+    ExpiresAt : Nullable<DateTimeOffset>
+    Id : Int64
+    LastAccessedAt : DateTimeOffset
+    Length : Int32
+    ToRow() : Row
 enum Lyntai.Storage.MemoryEvictionMode
     Fifo : MemoryEvictionMode const
     Lru : MemoryEvictionMode const
@@ -2736,6 +2780,66 @@ sealed class Lyntai.Storage.MemoryEvictionPolicy
     static Manual : MemoryEvictionPolicy
     static SizeBudget(Int32 maxChars, MemoryEvictionMode mode = MemoryEvictionMode.Fifo) : MemoryEvictionPolicy
     static TimeToLive(TimeSpan ttl, Nullable<Int32> maxEntries = null) : MemoryEvictionPolicy
+static class Lyntai.Storage.MemoryGraphSql
+    DeleteSubjects : String const
+    Forget : String const
+    InsertReview : String const
+    MinimumStability : String const
+    TrimReviews : String const
+    static MinimumStabilityValue : Double
+    static Prune(String ageOverStability) : String
+class Lyntai.Storage.MemoryNodeRow
+    .ctor()
+    Age : Double
+    Content : String
+    CreatedAt : DateTimeOffset
+    Degree : Int32
+    Difficulty : Double
+    EncodingAt : DateTimeOffset
+    Engine : String
+    Grade : Int32
+    Headline : String
+    Id : Int64
+    Matched : Nullable<Boolean>
+    Metadata : String
+    OrdinalAge : Double
+    ProvenanceRetrievability : Int64
+    ProvenanceSalience : Int64
+    RecallCount : Int32
+    Scope : String
+    Signals : String
+    Stability : Double
+    Strength : Double
+    StrengthAge : Double
+    StrengthOrdinalAge : Double
+    StrengthVolumeAge : Double
+    StrengthenedAt : Nullable<DateTimeOffset>
+    TaskKey : String
+    ToNode(DateTimeOffset encodedAt) : GraphNode
+    VolumeAge : Double
+class Lyntai.Storage.MemoryPositionRow
+    .ctor()
+    Chars : Int64
+    EncodedAt : DateTimeOffset
+    Ordinal : Int64
+    Position : Double
+class Lyntai.Storage.MemoryReviewRow
+    .ctor()
+    BatchId : String
+    CreatedAt : DateTimeOffset
+    Engine : String
+    Grade : Nullable<Double>
+    Id : Int64
+    NodeId : Int64
+    PostDifficulty : Double
+    PostStability : Double
+    PreAge : Double
+    PreDifficulty : Double
+    PreStability : Double
+    PreStrength : Double
+    PreStrengthAge : Double
+    ProvenanceRetrievability : Int64
+    ToReview(Nullable<Boolean> verified) : MemoryReview
 sealed class Lyntai.Storage.PromptVersion
     .ctor(String Name, Int32 Version, String Template, String Author, DateTimeOffset CreatedAt, Boolean IsActive)
     Author : String
@@ -2749,11 +2853,42 @@ sealed class Lyntai.Storage.PromptVersion
     Template : String
     ToString() : String
     Version : Int32
+sealed class Lyntai.Storage.PromptVersionRow
+    .ctor()
+    Author : String
+    CreatedAt : DateTimeOffset
+    IsActive : Boolean
+    Name : String
+    Template : String
+    ToEntity() : PromptVersion
+    Version : Int32
 enum Lyntai.Storage.SchemaMigration
     None : SchemaMigration const
     OnFirstUse : SchemaMigration const
     OnStartup : SchemaMigration const
     value__ : Int32
+sealed class Lyntai.Storage.ScoreAggregateRow
+    .ctor()
+    AverageScore : Double
+    Count : Int64
+    ScorerId : String
+    ScorerName : String
+    ToRecord() : ScorerAggregate
+sealed class Lyntai.Storage.ScoreExportEntryRow
+    .ctor()
+    Score : Double
+    ScorerId : String
+    SessionId : String
+    ToRecord() : ScoreExportRow
+sealed class Lyntai.Storage.ScoreResultRow
+    .ctor()
+    IsLlm : Boolean
+    Reason : String
+    Score : Double
+    ScoreGroup : String
+    ScorerId : String
+    ScorerName : String
+    ToRecord() : ScoredResult
 sealed class Lyntai.Storage.ScriptProfile
     .ctor(String Name, Boolean ExpandsIntoGrams, Int32 IndexGramLength, Int32 SubstringGramLength)
     Deconstruct(String& Name, Boolean& ExpandsIntoGrams, Int32& IndexGramLength, Int32& SubstringGramLength) : Void
@@ -2802,6 +2937,35 @@ static class Lyntai.Storage.StorageFeatures
     AllTag : String const
     static TagPasses(StorageFeature features) : IEnumerable<String[]>
     static TagsFor(StorageFeature features) : String[]
+sealed class Lyntai.Storage.TraceSessionRow
+    .ctor()
+    EndedAt : Nullable<DateTimeOffset>
+    Mode : String
+    SessionId : String
+    StartedAt : DateTimeOffset
+    TraceId : String
+sealed class Lyntai.Storage.TraceStepRow
+    .ctor()
+    CostUsd : Double
+    Detail : String
+    DurationMs : Int64
+    InputTokens : Int64
+    Kind : String
+    Label : String
+    OffsetMs : Int64
+    OutputTokens : Int64
+    Sequence : Int64
+static class Lyntai.Storage.TraceStoreSql
+    DeleteTrace : String const
+    GetTrace : String const
+    InsertStep : String const
+    InsertTrace : String const
+sealed class Lyntai.Storage.UsageTotalsRow
+    .ctor()
+    Calls : Int64
+    CostUsd : Double
+    InputTokens : Int64
+    OutputTokens : Int64
 static class Lyntai.Text.JsonArgs
     static Parse(String argumentsJson) : IDictionary<String,Object>
     static Serialize(IEnumerable<KeyValuePair<String,Object>> args) : String

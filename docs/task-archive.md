@@ -1070,7 +1070,7 @@ olderThan?, taskKey?)` registers an internal `MemoryPruneJobHandler` (`IJobHandl
 `IMemoryStore.PruneAsync`, idempotent) + a cron `JobSchedule` on the EXISTING durable-jobs + cron
 machinery — Lyntai owns the prune work, the app owns the pump (no self-run timer; consistent with the "no
 host" boundary the platform-kit direction/the platform-kit direction). Handler + payload record are internal (only `AddMemoryPruneJob` is public surface).
-TDD'd (handler parses payload / reaps; registration wires one handler + N schedules; bad cron throws).
+TDD'd (handler parses payload / removes; registration wires one handler + N schedules; bad cron throws).
 Decided WITH the user: needed because this is a generic library used across many apps (unbounded cold-scope
 growth is the real case).
 
@@ -1496,13 +1496,13 @@ The remaining 2026-07-26 hardening-pass deferrals, taken up one by one after the
   derived classes. Postgres deliberately does not derive (documented on each base: shared container →
   Uid-namespaced subset). Fact count identical before/after (1002) — nothing lost in the conversion.
 
-- [x] **I5 — ProcessRunner shared session/reap extraction.** `RunAsync`/`StreamLinesAsync` share ~45 lines
-  of spawn/stderr-drain/kill-registration/reap scaffolding. The I2 hang fix already landed; the extraction
+- [x] **I5 — ProcessRunner shared session/remove extraction.** `RunAsync`/`StreamLinesAsync` share ~45 lines
+  of spawn/stderr-drain/kill-registration/remove scaffolding. The I2 hang fix already landed; the extraction
   is cleanliness. Keep the two CLOCK topologies separate (buffered dual-clock vs streamed single-clock —
   they are different contracts).
   ✅ done 2026-07-27 — Outcome: the genuinely shared piece post-hardening is the post-read-loop tail —
   the I2 fresh-window discipline (fresh window for the stdin observe → observe the writer → fresh window
-  for the reap → reap → drained stderr) — now `ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
+  for the removal → remove → drained stderr) — now `ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
   reArm, killed)`, with each path passing its OWN clock re-arm (the buffered dual-clock/tagged-reason and
   streamed single-clock topologies stay separate exactly as the deferral demanded; `Start`/
   `WriteStdinAsync`/`KillTree` were already shared, and the stderr readers differ deliberately —
@@ -3231,7 +3231,7 @@ the only memory work left._
   4. **`TimeSpan` left the options.** It asserted wall-clock in the type signature, which is a dimension
      the application had not chosen yet.
 
-  _Two test calibrations, and one property they exposed: **prune under-reaps by design.** It reaps by the
+  _Two test calibrations, and one property they exposed: **prune under-removes by design.** It removes by the
   policy's candidate cutoff, which is a conservative superset widened by the connection-boost ceiling, so
   an entry can be below the recall floor and still not be deleted. That is the right direction for a
   destructive operation, and it is now stated in the test rather than left to be rediscovered._
@@ -5462,3 +5462,329 @@ Both changes are byte-identical for an unconfigured consumer, each pinned by its
 changes what an unconfigured host gets is a behaviour change wearing a feature's clothes.
 
 ---
+
+## Part 78 — memory can be removed by the blend people actually use (2026-08-16)
+
+_Closes `TASKS.md` Part 75's "make the remaining memory engines forgettable". `docs/DECISIONS.md` **D72**._
+
+**The reported symptom understated it.** The item said the common `UseCurated("glossary").UseGraph()` blend
+"cannot remove at all" — true, and the consequence is two things, not one. An application withdrawing a user's
+consent had nothing to call, AND an operator bounding disk had nothing either: `IMemoryStore.PruneAsync`
+and its durable `MemoryPruneJobHandler` already existed and were simply unreachable through the blend every
+`AddMemoryEngine` registration produces. The capacity half only surfaced when the owner asked, separately,
+about "memory removal logic due to management for ever growing dataset" — which turned out to be mostly
+built and blocked by the same gate.
+
+**Two changes, each incomplete without the other.** `IForgettableMemory` was split, with `PruneAsync` moving
+to a new `IPrunableMemory`; and eligibility became a policy. `LexicalMemoryEngine` gained forget + prune,
+`SemanticMemoryEngine` gained forget and deliberately not prune.
+
+**The split closed a hole the old shape could not even express.** A composite could pre-check only that a
+member implemented the interface — so a member that implemented it and threw from one of its two methods
+produced exactly the partial-remove-then-exception the pre-check exists to prevent. A vector store is that
+member: it forgets a (task, scope) exactly and cannot prune by age at all.
+
+**The eligibility half was AMENDED the same day, and the correction is the part worth reading.** The first
+version was `IMemoryEngine.HoldsUserContent`, a `bool` on the engine with curated answering false. The owner
+objected — *"isn't that should be a policy based or manually updatable"* — and was right on a rule this
+repository already had: **eligibility is a DEPLOYMENT question**. One application's glossary is operator
+boilerplate; another's holds preferences the user typed. A compile-time property states a fact about the
+HOST inside a type the host did not write. It was also the odd one out in a subsystem whose every other
+variable is an `IMemory*Policy`, seven of them, all DI-registered.
+
+`IMemoryRemovalPolicy` is asked per member AND per kind, which the boolean could not do at all: keeping a
+glossary out of an automatic prune while including it in an explicit withdrawal is only sayable once
+eligibility stops being a property of the engine. The default keys on `MemoryGrades` — authoritative-ONLY is
+a curated catalogue by construction — rather than on a concrete type, so a BYO catalogue is covered and no
+conditional needs editing per backend.
+
+**The line held throughout:** a policy may not configure a genuine GAP away. A member the policy INCLUDES
+that cannot serve the verb still gets the loud refusal, pinned by its own test — otherwise one permissive
+policy could silence the failure D63 exists for.
+
+**Two refusals that look like limitations and are the point.** A semantic forget with a NULL scope throws (a
+vector store cannot enumerate a task's scopes, and forgetting nothing would report success while the
+embeddings remain). A lexical prune given `scope` or `minRetrievability` removes NOTHING (that store filters on
+task and age only; honouring what it can while ignoring what it cannot deletes MORE than asked).
+**Over-deletion is the one direction a removal must never err in** — which is also why returning 0 is honest for
+a prune and would not be for a forget.
+
+**Found while fixing the tests:** two pre-existing refusal tests used an authoritative-only engine as their
+"cannot remove" member. They now use an associative one, because they had been conflating *curated* with
+*incapable* — the exact conflation this change separates.
+
+---
+
+## Part 79 — the three §9 leftovers, and what re-reading a deferral is worth (2026-08-16)
+
+_Not from `TASKS.md` — from `docs/ROADMAP.md`'s standing §9 list, taken up on the owner's "all three".
+`docs/DECISIONS.md` **D71**, **D73**, **D74**._
+
+**All three had been sitting under one judgement — "low value, revisit on demand" — and examining them
+showed that judgement was wrong twice, in OPPOSITE directions.** That is the durable finding, now in D74: a
+deferral records a claim about COST, and cost is the thing that goes stale.
+
+**Streaming tool-calls hid a defect (D71).** The roadmap priced a missing feature; the code had priced
+nothing. `LlmChunk` carried no tool-call payload, and the provider's own comment admitted the consequence —
+*"if content ALSO streamed, don't clobber it — fall through to a benign Final (tool call dropped)"*. A model
+that streamed prose alongside a call had the call **silently discarded**: no error, no verdict, no log. A
+second cost was in `ToolLoop`'s workaround comment: no agentic turn could stream at all, so an answer had no
+time-to-first-token precisely where turns are longest. Both closed, with a second capability
+(`SupportsStreamingToolCalls`, default false) so a provider that surfaces calls on `LlmReply` but drops them
+in stream keeps its old path — conflating the two would make an agentic turn look like a plain answer.
+
+**The cross-process job cap needed a design, not just code (D73).** A count cannot gate a claim; the store
+has warned so since it shipped. Folding the count into the claim fixes SQLite only, because Postgres claims
+with `FOR UPDATE SKIP LOCKED` specifically so workers do not block each other. The owner chose a slot table
+over an advisory lock, and it is the better answer for a reason worth keeping: **a slot is a row, so
+`SKIP LOCKED` starts working FOR the cap** — two workers taking two different slots is correct — giving an
+exact cap that stays parallel, by one mechanism on both backends.
+<br>Its lease was then corrected on the owner's second objection: a single expiry cannot both detect a dead
+worker quickly and let a live one run for hours, so the slot is heartbeated. Notably this was not a new
+concept — `SetCheckpoint` already refreshes `claimed_at` — so the first draft's "same rule as the job" had
+copied the job's TIMEOUT while ignoring its RENEWAL.
+
+**The third was retired rather than built (D74), and would have been a regression.** Native tool-calling for
+ClaudeCli/Local asked for `SupportsToolCalls => true`; that flag means "I hand calls back for YOUR loop to
+run", which the claude CLI structurally cannot do — verified against the live CLI's `--help`, whose entire
+tool surface is ways to GIVE it tools. Flipping it would send `ToolLoop` down the native path to wait for
+calls that never arrive, so every agentic turn would answer in prose with no tool running. The real need was
+met in 1.1 by `ICliToolProvisioner`'s in-process MCP host — and that seam's own summary had said so for three
+releases, contradicting the roadmap line, unnoticed because nobody tried the work.
+
+**Verification across all three.** `verify` 14/14 throughout; 2997 passed / 3018 at the end (from 2932 at
+the start of the day). One new migration on both backends. Every change mutation-checked; the job cap's
+headline test was rewritten after failing correctly, because it had asserted throughput where the cap bounds
+simultaneity.
+
+---
+
+## Part 80 — the memory corpus can finally SEE headline search (2026-08-16)
+
+_Closes `TASKS.md` Part 75's "widen the memory corpus to author headlines disjoint from content"._
+
+**The instrument was blind to a dimension the library had just made a decision about.** The 3.0 review
+changed headline search twice — narrowed it, then widened it back (`docs/FIXES.md`) — and `memory-sweep`
+could not observe either direction. The reason is structural rather than an oversight in any one class:
+**every corpus entry let the engine DERIVE its headline from the content**, so headline words are a subset
+of content words, and any query that matches a headline matches the content too. A change to headline search
+therefore moved no number, and an unchanged number read as "no regression" when the honest reading was "not
+exercised" — the `pitfalls.md` shape *"a measurement that cannot observe a change reports nothing moved"*,
+living in the instrument rather than in the library.
+
+**`CorpusShape.HeadlineOnlyCount` adds entries whose marker exists ONLY in an authored headline.** The
+content is drawn from the padding class, which shares no term with the marker, and a probe query naming just
+the marker is emitted LAST — so the gap between write and probe is the whole rest of the corpus, and a hit is
+retrieval rather than freshness. The only thing that can answer it is a search that reads headlines.
+
+**Opt-in and `0` by default, which is what made it safe to add**: every existing corpus is byte-identical and
+no published measurement moves. `MemoryCorpusGoldenTests` — captured before this axis existed — is the proof
+rather than the claim, and the same guarantee `AuthoritativeCount` carries.
+
+**Per-language, because the corpus is.** `CorpusLexicon.HeadlineMarker` is abstract, so the compiler named
+all five arms. `ChineseMixed`'s marker deliberately puts Latin INSIDE the CJK run (`灯塔beacon`) like the rest
+of that arm: the one language arm that exists to exercise a mid-run script boundary would otherwise have
+tested it everywhere except in its own instrument.
+
+**The disjointness is pinned, not assumed.** A marker that leaked into content would turn this into an
+ordinary content recall and report headline search as working when it was never exercised — the same failure
+mode the authoritative probe's own guard exists for. The test asserts the marker appears in no entry's
+content anywhere in the corpus, not merely in its own.
+
+**What this does NOT do, stated so the axis is not over-read:** it makes the dimension observable; it does
+not measure it. No sweep sets `HeadlineOnlyCount` yet, so the shipped arms are unchanged. The next person to
+touch headline search now has an instrument that can disagree with them, which is the thing that was
+missing.
+
+---
+
+## Part 81 — a guard Block: forced asymmetry, accidental silence (2026-08-16)
+
+_Closes the last startable item in `TASKS.md` Part 75. `docs/DECISIONS.md` **D75**._
+
+**The item asked for one decision and turned out to contain two complaints with opposite answers.** It read:
+*"`ToolLoop` ends the turn with `LlmVerdict.Refused`; `ToolFunction` returns a refusal string, so the model
+may retry with perturbed arguments, unbounded, and the host gets no signal (that path has no logger) …
+Needs a decision about what a hosted refusal should DO."*
+
+**FORCE — kept, and documented as intended.** `ToolLoop` owns the turn, so ending it is available to it.
+`ToolFunction` is one MCP function invocation inside a loop the CLIENT owns, and the protocol has no
+"abandon the session" response: a tool returns content or an error. The nearest thing to termination is
+throwing, which the client may catch and retry — the appearance of force without the substance. Parity here
+is not achievable, and faking it would be worse than the asymmetry, because a consumer would believe a
+refusal stops a session it cannot stop. What the hosted door does enforce is the part that matters: the tool
+never runs and its payload is never produced.
+
+**SIGNAL — fixed.** Both doors always emitted the guard-decision COUNTER (`IGuardRail` records it), so the
+item's "the host gets no signal" was overstated and worth checking rather than accepting. But `ToolLoop`
+logged both block paths at Information while `ToolFunction` had no logger at all, so an operator reading
+LOGS saw a refusal from one door and silence from the other. Nobody decided that; it is what happens when one
+class is constructed with a logger and its twin is not. A logger is now threaded from `McpToolHost.StartAsync`
+through to each `ToolFunction`, and the new test asserts the line names the TOOL — an unactionable log line
+would satisfy a weaker test and help nobody.
+
+**Deliberately not added: a retry counter.** The unbounded-retry worry is real, but the bound belongs to the
+client's loop budget, and inventing a policy would mean per-session state this seam does not have for a rule
+no consumer has asked for. Repetition is already observable as a RATE on `lyntai.guard.result=block`. A
+concrete report of a model looping on a blocked tool is what would justify more — the same "a real failure is
+a better starting point than a speculative one" rule the backlog itself follows.
+
+**The reusable question, and it is the third door-parity finding in this subsystem.** The useful question was
+not "do both doors behave identically" but **"which differences are forced by what each door IS, and which
+are leftovers?"** Force was forced; signal was a leftover. Treating the item as one asymmetry would have
+produced either a fake termination or a shrug, and both were available and wrong.
+
+**Verification.** Mutation-checked: garbling the log message fails the new test and nothing else.
+`verify` 14/14.
+
+---
+
+## Part 82 — a whole-library review: dedup, then the comment problem it exposed (2026-08-16)
+
+_Not from `TASKS.md` — an ad-hoc review pass requested directly. `docs/DECISIONS.md` **D77–D81**, two
+`pitfalls.md` entries, one new always-on rule, two new `verify` gates._
+
+**What it was asked to find.** A full code review, weighted toward refactor/dedup inconsistency, plus a
+check on whether comments had grown too verbose. Both halves found something, and the second half turned
+out to be the larger problem.
+
+**The dedup half, in the order the evidence arrived.** A mechanical duplicate-block scan over `src/` put
+every hit in the SQLite/Postgres tier and nowhere else — the generation package, the CLI dialects and the
+DI extensions were clean at six lines and above. Within that tier the memory graph store was the outlier:
+400 of SQLite's 526 code lines appeared verbatim in Postgres's 482, and it was the ONLY pair with no shared
+Core half, while `JobStoreSql`/`JobRow` had been doing exactly that job for the job store since 1.0. That
+became **D77**.
+
+Measuring the rest of the tier afterwards found **nine more byte-identical row-type pairs** in six more
+store pairs (**D80**), and then a statement-level comparison found two domains whose ENTIRE SQL surface is
+dialect-free (**D81**). Each step was measured before it was built, which is what kept the scope honest:
+the tenth row pair and seven of the nine store domains were left alone because the measurement said their
+differences are real.
+
+**One written claim had to be overturned, and how it was wrong is the transferable part.**
+`PostgresMemoryGraphStore`'s class doc said the parallel with its twin "is NOT duplication waiting to be
+extracted", justified by three genuine dialect differences. Every clause was true and every clause was
+about the SQL; the sentence covered four byte-identical materialization types by adjacency alone. Recorded
+in `pitfalls.md`: a "these must stay separate" claim needs the same treatment as a bound — ask what it
+FORBIDS, and check the answer covers the whole file it is written on.
+
+**The comment half started as a small finding and became the bigger one.** The first report called it a
+routing problem — work-log narration in shipped XML docs — and was too generous. The owner pushed back
+twice, and the numbers supported them: **0.86 comment lines per line of real code**, and `src/` carrying
+**1.6× more prose than `DECISIONS.md` + `pitfalls.md` + the task archive + the design contract COMBINED**.
+Three gates exist in this repository to stop its maintained prose rotting; none of them can see a code
+comment, so the longest and least-read prose in the tree was also the only prose nothing checked.
+
+That produced `.claude/rules/code-commentary.md` (three tiers, three jobs) and `check-comments`, the
+fifteenth `verify` gate — a RATCHET rather than a threshold, because 49 files were already over the limit
+and a plain threshold would have been switched off on day one.
+
+**Where the comment work stopped — and the stopping point was WRONG, which is the more useful record.**
+This pass reported "49 files over the limit → 19; 1879 lines of block → 614; worst block 88 → 42;
+meta-commentary and work-log citations both to zero", and concluded that **"the 19 that remain are contract,
+not fat"**. An adversarial re-check of that conclusion the same day found it honest for **2 files of 19**,
+arguable for 1, and cover for the other 16 — and found three errors underneath it:
+
+- **The "614 lines" was not the debt.** The ledger held one number per FILE (its worst block), so every
+  other over-limit block was invisible to the gate and to the total it printed. The tree held **28 blocks
+  totalling 893 lines**; `DsrRetrievability.cs` alone carried seven against a single recorded number, and a
+  budgeted file could grow unboundedly many new long blocks and stay green.
+- **`IMemoryGraphStore.SeedAsync` states SEVEN guarantees, not six**, at 2–11 lines each — and even it was
+  not maximally trimmed: six lines defending the admission rule against a misreading came out afterwards.
+- **One of the 19 was not over the limit at all**, and one was a DEFECT the gate had disguised. The gate
+  fused a `<summary>` with an adjacent `<remarks>`, so `CodexAgentSession` measured 27 when its longest
+  subject was 16; and in `GraphMemoryEngine` it fused two STACKED `<summary>` elements — one method carrying
+  two summaries while the method it described carried none — into a single "35-line block" that read as fat
+  prose and was blessed with an allowance.
+
+**Corrected outcome after the re-check: 28 blocks / 893 lines → ONE block of 31 lines**, the seven-guarantee
+`SeedAsync` contract, still on a ratcheted allowance rather than silenced with `comment-ok`. Fourteen of the
+"irreducible" files came under 25 by relocating exactly what the rule's own always-wrong list names —
+"why X rather than Y" paragraphs, measured numbers, dated work-log provenance, and most often a paragraph
+that points at a record and then restates it anyway. The duplication the pass had been about was what the
+largest surviving blocks were mostly made of: the generation fallback table existed in three places, the
+memory fail-open rule in three, the store materialization rule in two.
+
+**The transferable lesson is about the claim, not the comments.** "Contract, not fat" was asserted from
+having done the work rather than from measuring what was left, and the same sentence carried a count taken
+from the LEDGER instead of the TREE. Both survived every gate. What caught them was pointing an adversary at
+the conclusion and requiring per-file evidence — and the fix in each case was a gate, not a resolution:
+the ledger now records every block, `check-comments` breaks on `summary`/`remarks`, and stacked summaries
+and edit-stranded punctuation are both failures.
+
+**Two self-inflicted incidents, both recorded in `pitfalls.md` because both were caught by luck rather than
+by a gate.** A "tidy up the punctuation" regex appended to a scripted sweep collapsed the INDENTATION of
+all 349 tracked files in `src/` and ate a `()` in a file it had no business editing — and `dotnet build`
+succeeded both times, because C# does not care about indentation. Recovery was `git checkout -- src/` plus
+re-running the intentional passes, which only worked because every one of them was already a script. The
+corrected sweep touches 15 files, only edits lines a real rule changed, and ASSERTS that line count and
+per-line leading whitespace are unchanged. Separately, `\n`-joined splices left three files with mixed line
+endings, which `git` reports only as routine-looking autocrlf noise.
+
+**Gates added, and both caught something immediately.** `check-counts` gained a claim for the decision-log
+range — `CLAUDE.md` was publishing `D1–D75` against a log at D76, in the file every session reads first —
+and it caught its own arrival moving the guard-test baseline. `check-comments` refused to let an
+improvement go unrecorded the first time one landed (`allowed 107, worst block is now 41`).
+
+**Outcome.** Storage-pair identical code lines 867 → 730 and private row types 23 → 5 across the two
+backends; every public-surface change purely additive (the API baseline gained 157 lines and lost none, so
+nothing a consumer compiled against moved). Four measured baselines in `CLAUDE.md` re-measured. `verify`
+15/15; suite 3022 passed / 3043 with 21 skipped, which is the count that says Docker was up and the whole
+Postgres leg actually ran.
+
+## Part 83 — the adversarial re-check, and the three findings it unblocked (2026-08-16)
+
+_Not from `TASKS.md` — the continuation of Part 82, after its own conclusion was challenged._
+`docs/DECISIONS.md` **D82**, D30 and D36 amended, two `FIXES.md` incidents, two `pitfalls.md` entries.
+
+**What changed the pass.** Part 82 concluded that the 19 comment blocks it left over the limit were
+"contract, not fat". That conclusion was checked adversarially rather than accepted, and it was honest for
+**two of nineteen**. The re-check also found the pass had measured its own result off the LEDGER instead of
+the tree — 28 blocks totalling 893 lines against a reported 19 files / 614 — and that one of the 19 was not
+over the limit at all while another was a DEFECT the gate had disguised by fusing two stacked `<summary>`
+elements into one long block.
+
+**The comment work, finished.** 28 blocks / 893 lines → **one block of 31**, the seven-guarantee
+`IMemoryGraphStore.SeedAsync` contract. `src/` ratio 0.86 → 0.65. Work-log citations 11 → 0, measured this
+time rather than asserted. Fourteen "irreducible" files came under 25 by relocating exactly what the rule's
+own always-wrong list names, and the most common single offender was a paragraph that points at a record and
+then restates it anyway — the generation fallback table existed in three places, the memory fail-open rule in
+three, the store materialization rule in two. Seven agents did the relocation on disjoint file sets; every
+diff was verified comment-only.
+
+**Three correctness defects, one shape.** An invariant written down carefully on the backend that first
+needed it and promoted to no contract: the vector top-k tiebreak (present, and DOCUMENTED as "load-bearing,
+not tidiness", on the ONE backend that had it), the zero-stability floor (hoisted to stop exactly this, with
+the in-process store as the second literal — and spelling SUBSTITUTE where SQL spells FLOOR, on a DELETE
+path), and `Math.Max` standing in for a finiteness guard on the persisted write path. Each was fixed by
+moving the fact INTO the shared contract, never by patching the backend that lacked it.
+
+**A configured spend cap that could never fire.** `GenerationFetchTool` bypassed the router and never
+recorded usage, while the job handler recorded the same fetch — and a queue backend prices at FETCH, so the
+unbilled door carried the entire cost. `GenerationSubmitTool` then re-checked its cap against a total that
+could not grow. A test already drove submit → status → fetch and asserted nothing about usage: exercising a
+path is not testing its accounting.
+
+**Defects in Part 82's own commits.** Two mangled sentences shipped in public XML docs (a sweep deleted
+work-log parentheticals and left their punctuation), a guard count wrong in five places at once, and a
+"work-log citations at zero" claim that was false when written — in the archive AND the consumer-facing
+CHANGELOG. All three passed every gate.
+
+**Four gate capabilities, each from a defect that walked through.** The comment ledger now budgets the full
+multiset of a file's blocks rather than its worst one; blocks break on `summary`/`remarks`; stacked
+summaries fail; edit-stranded punctuation fails (both punctuation rules measured at ZERO false positives
+across four tiers while firing on both real defects). `check-counts` gained the option-guard claim, and
+`PostgresContractCoverageTests` makes Postgres contract coverage structural — it found four facts that had
+never run there.
+
+**Two tests that could not fail for the reason they existed.** The keyset cursor's id tiebreak: deleting the
+tiebreak from the shared predicate left the existing walk test GREEN on every backend. And Postgres coverage
+was whatever someone remembered to wire.
+
+**The transferable lesson is about the CLAIM, not the comments.** "Contract, not fat" was asserted from
+having done the work rather than from measuring what was left, and the same sentence carried a count read off
+the ledger. Both survived every gate. What caught them was pointing an adversary at the conclusion and
+requiring per-file evidence — and the fix in each case was a gate, not a resolution.
+
+Seven commits. `verify` 15/15; suite 3037 passed / 3058 with 21 skipped, which is the count that says Docker
+was up and the whole Postgres leg actually ran.

@@ -7,13 +7,13 @@ public sealed record MemoryEntry(long Id, string TaskKey, string Scope, string C
 /// Task-scoped learned facts. Bounded: entries per (taskKey, scope) are capped (oldest trimmed).
 /// Fail-open: recall never throws on an empty/short/unmatchable query — it degrades (FTS → LIKE →
 /// most-recent) and at worst returns an empty list. Lifecycle: remembering an identical fact refreshes
-/// it rather than duplicating; an optional TTL expires it from recall; <see cref="PruneAsync"/> reaps.
+/// it rather than duplicating; an optional TTL expires it from recall; <see cref="PruneAsync"/> removes.
 /// </summary>
 public interface IMemoryStore
 {
     /// <summary>Remember a fact. Remembering an identical <paramref name="content"/> in the same
     /// (taskKey, scope) refreshes the existing entry's recency + TTL instead of duplicating it. An
-    /// optional <paramref name="ttl"/> makes the entry expire (dropped from recall, reaped by prune).</summary>
+    /// optional <paramref name="ttl"/> makes the entry expire (dropped from recall, removed by prune).</summary>
     Task RememberAsync(string taskKey, string scope, string content, TimeSpan? ttl = null, CancellationToken ct = default);
 
     /// <summary>Recall entries for a task, optionally filtered by scope and matched against a query; no
@@ -33,7 +33,7 @@ public interface IMemoryStore
 
     Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default);
 
-    /// <summary>Reap entries that are expired, and (when <paramref name="olderThan"/> is given) those
+    /// <summary>Remove entries that are expired, and (when <paramref name="olderThan"/> is given) those
     /// older than that age — optionally scoped to one task. Returns the number removed.</summary>
     Task<int> PruneAsync(string? taskKey = null, TimeSpan? olderThan = null, CancellationToken ct = default);
 }

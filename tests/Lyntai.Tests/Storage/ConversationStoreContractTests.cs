@@ -22,6 +22,7 @@ public abstract class ConversationStoreContractFacts
     [Fact] public Task List_newest_first() => ConversationStoreContract.List_threads_returns_newest_first(NewStore(), "k");
     [Fact] public Task Count() => ConversationStoreContract.Count_reflects_inserted_and_deleted_threads(NewStore(), "k");
     [Fact] public Task Paged() => ConversationStoreContract.Paged_cursor_walks_every_thread_exactly_once(NewStore(), "k");
+    [Fact] public Task Paged_tiebreak() => ConversationStoreContract.A_cursor_at_the_same_instant_falls_back_to_the_id(NewStore(), "k");
 }
 
 /// <summary>The <see cref="ConversationStoreContract"/> against the InMemory backend.</summary>

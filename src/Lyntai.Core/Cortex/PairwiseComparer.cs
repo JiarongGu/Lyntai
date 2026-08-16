@@ -66,7 +66,7 @@ public sealed class LlmPairwiseComparer(ILlmClient llm, bool mitigatePositionBia
                 LlmMessage.User($"[request]\n{input}\n\n[reply a]\n{a}\n\n[reply b]\n{b}"),
             ],
             JsonSchema = """{"type":"object","properties":{"winner":{"type":"string","enum":["a","b","tie"]},"reason":{"type":"string"}},"required":["winner"]}""",
-            Consumer = "scoring",
+            Consumer = LlmConsumers.Scoring,
         };
 
         var reply = await llm.CompleteJsonAsync(req, ct).ConfigureAwait(false);

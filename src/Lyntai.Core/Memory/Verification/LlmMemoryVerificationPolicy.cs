@@ -32,22 +32,18 @@ public sealed class LlmVerificationOptions
 /// Judges which of a recall's candidates answered the query, by asking a model — the shipped
 /// <see cref="IMemoryVerificationPolicy"/>.
 ///
-/// <para><b>Why this seam is worth a model call when nothing else in the memory path is.</b> Measured over a
-/// full corpus replay: of the relevant entries a recall failed to return, <b>100% were reachable candidates
-/// that the ranking put below the limit</b> and none were unreachable. The miss rate is a ranking failure
-/// end to end. And the two shipped model-free ranking policies return byte-identical results on that
-/// corpus, so policy choice has no headroom left — reordering by something that can actually read the query
-/// is the remaining lever.</para>
-///
-/// <para><b>What it is worth, measured with a PERFECT judge</b> (an oracle wired to the corpus's own ground
-/// truth, so this is a ceiling no model exceeds): at the shipped depth it cut the miss rate from
-/// <c>0.5357</c> to <c>0.2857</c> and pollution from <c>0.3331</c> to <c>0.1549</c>. A real model lands
-/// below that ceiling; the headroom is what makes the attempt worth its latency.</para>
+/// <para><b>Why this seam is worth a model call when nothing else in the memory path is.</b> Over a full
+/// corpus replay, <b>every</b> relevant entry a recall failed to return was a reachable candidate the
+/// ranking put below the limit — the miss rate is a ranking failure end to end. The two shipped model-free
+/// ranking policies return byte-identical results on that corpus, so policy choice has no headroom left;
+/// reordering by something that can actually read the query is the remaining lever. Measured with a PERFECT
+/// judge (an oracle on the corpus's own ground truth, so a ceiling no model exceeds) it cut miss
+/// <c>0.5357 → 0.2857</c> and pollution <c>0.3331 → 0.1549</c>.</para>
 ///
 /// <para><b>The prompt names no language and gives no examples in one</b> — the same rule
-/// <see cref="Lyntai.Memory.Annotation.LlmMemoryAnnotationPolicy"/> follows, for the same reason. "Did this
-/// answer that" is the same judgement in every language, and an English-shaped instruction would quietly
-/// reintroduce the bias this subsystem spent a release removing.</para>
+/// <see cref="Lyntai.Memory.Annotation.LlmMemoryAnnotationPolicy"/> follows: "did this answer that" is the
+/// same judgement in every language, and an English-shaped instruction would reintroduce the bias this
+/// subsystem spent a release removing.</para>
 ///
 /// <para><b>Fail-open, and asymmetrically so.</b> Any failure — refusal, timeout, unparseable output, an id
 /// the model invented — yields <see cref="MemoryVerification.NoOpinion"/>, never
@@ -105,6 +101,10 @@ public sealed class LlmMemoryVerificationPolicy(
                     new LlmMessage("user", Compose(request)),
                 ],
                 Model = _options.Model,
+                // Tagged for the same reason the annotator is: this one fires on EVERY recall, and
+                // `docs/memory.md` prices a hosted judge in dollars per thousand recalls, so it is precisely
+                // the spend an operator needs to see and cap on its own.
+                Consumer = LlmConsumers.Memory,
                 // This call's value is a short structured verdict, and it sits in the latency path of every
                 // recall — so it asks for no intermediate reasoning. Advisory: a backend that cannot
                 // express it ignores it, and Parse below still tolerates a reply that reasons anyway.

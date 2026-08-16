@@ -19,22 +19,16 @@ namespace Lyntai.Providers.CodexCli;
 /// {"type":"turn.failed","error":{"message":"unexpected status 401 Unauthorized …"}}
 /// </code>
 ///
-/// Two measurements shape the mapping, and both would be easy to get wrong by guessing:
-/// <list type="bullet">
-/// <item>a bare <c>error</c> line, and an <c>item.completed</c> whose item type is <c>error</c>, are NOT
-///   terminal — both appeared in the run that went on to SUCCEED (a retry notice and a model-metadata
-///   warning). Only <c>turn.failed</c> means the turn failed, so only it maps to
-///   <see cref="CliOutputEventKind.Failure"/>.</item>
-/// <item><c>turn.completed</c> carries usage but NO text, so it is a result event with empty text — the
-///   answer arrives in the preceding <c>agent_message</c> item, which the engine keeps.</item>
-/// </list>
+/// Two measurements shape the mapping, and both are easy to get wrong by guessing: a bare <c>error</c> line
+/// and an <c>item.completed</c> whose item type is <c>error</c> are NOT terminal (both appeared in the run
+/// that went on to SUCCEED), so only <c>turn.failed</c> maps to
+/// <see cref="CliOutputEventKind.Failure"/>; and <c>turn.completed</c> carries usage but NO text, so it is a
+/// result event with empty text — the answer arrives in the preceding <c>agent_message</c>.
 ///
 /// Tolerant: unknown/malformed lines (including codex's non-JSON <c>ERROR codex_api::…</c> tracing) become
-/// <see cref="CliOutputEvent.Ignored"/>, never a throw.
-///
-/// The envelope's vocabulary and field reads live in <see cref="CodexEnvelope"/>, shared with
-/// <see cref="CodexAgentReader"/> so the completion path and the agent-session path cannot drift apart about
-/// what a line means.</summary>
+/// <see cref="CliOutputEvent.Ignored"/>, never a throw. The envelope's vocabulary and field reads live in
+/// <see cref="CodexEnvelope"/>, shared with <see cref="CodexAgentReader"/> so the completion and
+/// agent-session paths cannot drift about what a line means.</summary>
 internal static class CodexJsonlParser
 {
     public static CliOutputEvent Parse(string line)

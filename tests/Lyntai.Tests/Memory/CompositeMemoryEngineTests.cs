@@ -171,30 +171,30 @@ public class CompositeMemoryEngineTests
     }
 
     [Fact]
-    public async Task Reaping_routes_THROUGH_the_composite_to_every_member_that_can_reap()
+    public async Task Removal_routes_THROUGH_the_composite_to_every_member_that_can_remove()
     {
         // THE CAPABILITY-FORWARDING TEST'S MISSING TWIN, found 2026-08-15. The composite forwarded
         // IExpandableMemory and ILinkableMemory and silently dropped IForgettableMemory — so
         // `engine is IForgettableMemory` was FALSE for every AddMemoryEngine registration (Build is
         // documented "ALWAYS a composite, even for one member"), and a consumer of the shipped memory
-        // subsystem had no supported way to reap anything. The engine is typed as IMemoryEngine here on
+        // subsystem had no supported way to remove anything. The engine is typed as IMemoryEngine here on
         // purpose: that is what IMemoryEngineFactory.Get hands back, so this is the consumer's own view.
         var a = new ForgettableEngine("project/a", pruneCount: 2);
         var b = new ForgettableEngine("project/b", pruneCount: 3);
         IMemoryEngine engine = Composite(a, b);
 
         var prunable = Assert.IsAssignableFrom<IPrunableMemory>(engine);
-        var reaped = await prunable.PruneAsync("t", "s");
+        var removed = await prunable.PruneAsync("t", "s");
 
-        Assert.Equal(5, reaped);                      // summed across members, not taken from the first
+        Assert.Equal(5, removed);                      // summed across members, not taken from the first
         Assert.Equal([("t", "s")], a.Prunes);
         Assert.Equal([("t", "s")], b.Prunes);
     }
 
     [Fact]
-    public async Task A_blend_with_ONE_member_that_cannot_reap_refuses_and_removes_NOTHING()
+    public async Task A_blend_with_ONE_member_that_cannot_remove_refuses_and_removes_NOTHING()
     {
-        // Round 2 of this review caught the first version fanning out to whichever members could reap and
+        // Round 2 of this review caught the first version fanning out to whichever members could remove and
         // SILENTLY SKIPPING the rest — the exact outcome the fan-out exists to prevent, and the first
         // version of this very test pinned it as correct by putting a non-forgettable member in the blend
         // and asserting success. `UseCurated("glossary").UseGraph()` is a blend from this library's own
@@ -207,7 +207,7 @@ public class CompositeMemoryEngineTests
         var ex = await Assert.ThrowsAsync<NotSupportedException>(() => forgettable.ForgetAsync("t", "s"));
 
         Assert.Contains("project/gap", ex.Message, StringComparison.Ordinal);
-        Assert.Empty(graph.Forgets);   // and the CAPABLE member was not reaped either — checked BEFORE acting
+        Assert.Empty(graph.Forgets);   // and the CAPABLE member was not removed either — checked BEFORE acting
     }
 
     [Fact]
@@ -219,12 +219,12 @@ public class CompositeMemoryEngineTests
 
         await Assert.ThrowsAsync<NotSupportedException>(() => prunable.PruneAsync("t", "s"));
 
-        Assert.Empty(graph.Prunes);    // a mid-fan-out refusal would be a partial reap AND an exception
+        Assert.Empty(graph.Prunes);    // a mid-fan-out refusal would be a partial remove AND an exception
     }
 
     // ---- operator-authored members are SKIPPED, not blockers (3.0) -----------------------------------
     //
-    // The distinction the composite now draws: a member that CANNOT reap is a gap and refuses the whole
+    // The distinction the composite now draws: a member that CANNOT remove is a gap and refuses the whole
     // verb; a member that declares its content OPERATOR-authored is out of scope and is skipped. Collapsing
     // them would turn every gap into a silent partial, which is what D63 was written about — so both
     // directions are pinned here.
@@ -233,23 +233,23 @@ public class CompositeMemoryEngineTests
         new(name, MemoryGrades.Authoritative);
 
     [Fact]
-    public async Task A_glossary_member_no_longer_BLOCKS_a_reap_it_is_skipped()
+    public async Task A_glossary_member_no_longer_BLOCKS_a_removal_it_is_skipped()
     {
         // THE BLEND FROM THIS LIBRARY'S OWN README: UseCurated("glossary").UseGraph(). Until now it could
-        // not reap at all — the curated member cannot forget, so the whole verb refused, and an application
+        // not remove at all — the curated member cannot forget, so the whole verb refused, and an application
         // withdrawing a user's consent had nothing to call.
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
         var engine = Composite(Glossary(), graph);
 
         await Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s");
-        var reaped = await Assert.IsAssignableFrom<IPrunableMemory>(engine).PruneAsync("t", "s");
+        var removed = await Assert.IsAssignableFrom<IPrunableMemory>(engine).PruneAsync("t", "s");
 
         Assert.Equal([("t", "s")], graph.Forgets);   // the USER's data went
-        Assert.Equal(4, reaped);
+        Assert.Equal(4, removed);
     }
 
     [Fact]
-    public async Task A_member_that_holds_user_content_and_cannot_reap_STILL_refuses()
+    public async Task A_member_that_holds_user_content_and_cannot_remove_STILL_refuses()
     {
         // The other direction, and the one that must not regress: skipping is earned by DECLARING the
         // content operator-authored, never by failing to implement the capability.
@@ -265,7 +265,7 @@ public class CompositeMemoryEngineTests
     }
 
     [Fact]
-    public async Task A_blend_of_ONLY_operator_authored_members_reaps_nothing_and_does_not_throw()
+    public async Task A_blend_of_ONLY_operator_authored_members_removes_nothing_and_does_not_throw()
     {
         // Nothing here is the user's, so there is nothing to withdraw — that is a legitimate zero, not the
         // "cannot" the refusal exists to distinguish it from.
@@ -286,7 +286,7 @@ public class CompositeMemoryEngineTests
         var glossary = new ForgettableEngine("project/glossary") { };
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
         var engine = new CompositeMemoryEngine("project", [glossary, graph],
-            reapPolicy: new ForgetOnlyForAuthoritativePolicy(glossary.Name));
+            removalPolicy: new ForgetOnlyForAuthoritativePolicy(glossary.Name));
 
         await Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s");
         await Assert.IsAssignableFrom<IPrunableMemory>(engine).PruneAsync("t", "s");
@@ -298,10 +298,10 @@ public class CompositeMemoryEngineTests
     }
 
     /// <summary>A host policy: one named member is in scope for a forget and out of scope for a prune.</summary>
-    private sealed class ForgetOnlyForAuthoritativePolicy(string member) : IMemoryReapPolicy
+    private sealed class ForgetOnlyForAuthoritativePolicy(string member) : IMemoryRemovalPolicy
     {
-        public bool Includes(IMemoryEngine candidate, MemoryReapKind kind) =>
-            !string.Equals(candidate.Name, member, StringComparison.Ordinal) || kind == MemoryReapKind.Forget;
+        public bool Includes(IMemoryEngine candidate, MemoryRemovalKind kind) =>
+            !string.Equals(candidate.Name, member, StringComparison.Ordinal) || kind == MemoryRemovalKind.Forget;
     }
 
     [Fact]
@@ -309,11 +309,11 @@ public class CompositeMemoryEngineTests
     {
         // The line between eligibility and capability. A policy that INCLUDES a member which cannot serve the
         // verb still gets the loud refusal — otherwise a host could silence the very failure D63 exists for
-        // by writing one permissive policy, and a partial reap would report success.
+        // by writing one permissive policy, and a partial remove would report success.
         var graph = new ForgettableEngine("project/graph", pruneCount: 4);
-        var gap = new RecordingEngine("project/gap", MemoryGrades.Authoritative);   // cannot reap at all
+        var gap = new RecordingEngine("project/gap", MemoryGrades.Authoritative);   // cannot remove at all
         var engine = new CompositeMemoryEngine("project", [gap, graph],
-            reapPolicy: new IncludeEverythingPolicy());
+            removalPolicy: new IncludeEverythingPolicy());
 
         var ex = await Assert.ThrowsAsync<NotSupportedException>(
             () => Assert.IsAssignableFrom<IForgettableMemory>(engine).ForgetAsync("t", "s"));
@@ -322,9 +322,9 @@ public class CompositeMemoryEngineTests
         Assert.Empty(graph.Forgets);
     }
 
-    private sealed class IncludeEverythingPolicy : IMemoryReapPolicy
+    private sealed class IncludeEverythingPolicy : IMemoryRemovalPolicy
     {
-        public bool Includes(IMemoryEngine candidate, MemoryReapKind kind) => true;
+        public bool Includes(IMemoryEngine candidate, MemoryRemovalKind kind) => true;
     }
 
     [Fact]
@@ -333,12 +333,12 @@ public class CompositeMemoryEngineTests
         // Keying on the concrete type would be a conditional that must be edited to add a backend, and would
         // miss a BYO catalogue entirely. Authoritative-ONLY is a curated catalogue by construction — that is
         // what the grade split means — so the default reads a property every engine already declares.
-        var policy = new DefaultMemoryReapPolicy();
+        var policy = new DefaultMemoryRemovalPolicy();
         var catalogue = new RecordingEngine("byo/catalogue", MemoryGrades.Authoritative);
         var mixed = new RecordingEngine("byo/graph", MemoryGrades.Associative | MemoryGrades.Authoritative);
         var associative = new RecordingEngine("byo/lexical", MemoryGrades.Associative);
 
-        foreach (var kind in new[] { MemoryReapKind.Forget, MemoryReapKind.Prune })
+        foreach (var kind in new[] { MemoryRemovalKind.Forget, MemoryRemovalKind.Prune })
         {
             Assert.False(policy.Includes(catalogue, kind));   // a BYO catalogue, never named in any switch
             Assert.True(policy.Includes(mixed, kind));
@@ -368,7 +368,7 @@ public class CompositeMemoryEngineTests
     }
 
     [Fact]
-    public async Task Forgetting_routes_THROUGH_the_composite_to_every_member_that_can_reap()
+    public async Task Forgetting_routes_THROUGH_the_composite_to_every_member_that_can_remove()
     {
         // ForgetAsync was on NO interface at all before 3.0 — a bare public method on GraphMemoryEngine —
         // so it was unreachable through any abstraction, composite or not.
@@ -383,10 +383,10 @@ public class CompositeMemoryEngineTests
     }
 
     [Fact]
-    public async Task Reaping_a_blend_where_no_member_can_reap_throws_rather_than_reporting_zero()
+    public async Task Removing_a_blend_where_no_member_can_remove_throws_rather_than_reporting_zero()
     {
         // Fails LOUD, like LinkAsync and unlike ExpandAsync: PruneAsync returns a COUNT, and 0 already means
-        // "nothing matched". Reporting 0 for "nothing here can ever reap" would make a delete that cannot
+        // "nothing matched". Reporting 0 for "nothing here can ever remove" would make a delete that cannot
         // happen indistinguishable from one that found nothing to do.
         IMemoryEngine engine = Composite(new RecordingEngine("project/flat", MemoryGrades.Associative));
         var prunable = Assert.IsAssignableFrom<IPrunableMemory>(engine);

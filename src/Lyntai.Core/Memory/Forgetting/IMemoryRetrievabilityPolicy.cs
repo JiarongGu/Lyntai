@@ -5,9 +5,9 @@ namespace Lyntai.Memory.Forgetting;
 /// <see cref="MemoryDecayState.Difficulty"/> — read through <see cref="Lyntai.Memory.MemoryProvenance"/>,
 /// never compared or combined directly (design doc §5.7). Retrievability needs provenance because it WRITES
 /// persisted state a later policy might need and not find: <see cref="DsrRetrievability"/> maintains
-/// difficulty on every review now too (2026-08-10, fsrs-properly plan Task 2), which is what makes this
+/// difficulty on every review now too, which is what makes this
 /// distinction load-bearing rather than hypothetical — an entry whose difficulty reads <c>5</c> (the neutral
-/// value, corrected 2026-08-11 — see <see cref="DsrOptions.NeutralDifficulty"/>) might be a row this policy
+/// value — see <see cref="DsrOptions.NeutralDifficulty"/>) might be a row this policy
 /// judged genuinely average, or a row that has simply never been touched since it was written with no
 /// explicit signal, and a bare number cannot tell the two apart. (A row whose difficulty reads <c>1</c>,
 /// the OLD neutral, is most likely a row written or last reinforced before this correction — see
@@ -63,7 +63,7 @@ public interface IMemoryRetrievabilityPolicy
 
     /// <summary>The entry's new decay bookkeeping after a successful recall — the FULL state, not a
     /// delta. A scalar return can only ever persist <see cref="MemoryDecayState.Stability"/>; <see cref="DsrRetrievability"/>
-    /// is the first policy to use the wider seam (2026-08-10, fsrs-properly plan Task 2): it now maintains
+    /// is the first policy to use the wider seam: it now maintains
     /// <see cref="MemoryDecayState.Difficulty"/> too, per FSRS's own difficulty-update law adapted to a
     /// GRADE this library derives rather than receives (see <see cref="DsrRetrievability.Reinforce"/>'s own
     /// remarks for exactly what was adapted). Returning the state gives a policy room to own more tomorrow —
@@ -110,7 +110,7 @@ public interface IMemoryRetrievabilityPolicy
     MemoryRetrievabilityProvenance Provenance { get; }
 
     /// <summary>The grade this policy would derive from <paramref name="state"/> — for a REVIEW LOG (design
-    /// spec §3, 2026-08-11 fsrs-properly plan Task 3) to record what a reinforcement actually did, never to
+    /// spec §3) to record what a reinforcement actually did, never to
     /// re-derive it later from whatever state happens to be at hand. <b>MUST be exactly the value
     /// <see cref="Reinforce"/> itself would use internally were it called on this SAME <paramref name="state"/>
     /// right now</b> — <see cref="DsrRetrievability"/> guarantees this by construction: both this member and

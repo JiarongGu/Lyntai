@@ -40,6 +40,50 @@ public class GenerationToolsTests
     private static ITool Tool(ServiceProvider sp, string name) =>
         sp.GetServices<ITool>().Single(t => t.Name == name);
 
+    /// <summary>A tool-driven async render is BILLED, exactly as the job-handler path is.
+    ///
+    /// <para>The defect: <c>GenerationFetchTool</c> called <c>backend.FetchAsync</c> directly, bypassing the
+    /// router, and handed <c>result.Usage</c> to the artifact sink without ever reaching
+    /// <see cref="Lyntai.Llm.Budgeting.IUsageTracker"/>. A queue backend prices at FETCH — that is the only
+    /// point the total is known — so the entire cost of every tool-driven async render was invisible.</para>
+    ///
+    /// <para>Why that breaks a promise rather than merely under-reporting. <c>GenerationInlineTool.Consumer</c>
+    /// tells the reader to "set <c>Budget.PerConsumer["agent"]</c> and it binds agent-driven renders", and
+    /// <c>AddGenerationUsageBudget</c> promises that "what has this app spent" stays ONE number across chat
+    /// and media. With the fetch unrecorded, <c>SubmitAsync</c> re-checks a cap against a total that never
+    /// grows, so a configured cap never fires and spend is unbounded underneath it — while the SAME tool set's
+    /// inline <c>generate</c> is billed correctly. One registration, two delivery modes, one of them metered.
+    /// Textbook `pitfalls.md` §"Second doors".</para></summary>
+    [Fact]
+    public async Task Fetching_a_finished_render_through_the_TOOL_bills_it_like_the_job_handler_does()
+    {
+        var sink = new CollectingSink();
+        var backend = new FakeGenerationJobProvider { Id = "video", FetchCostUsd = 0.50 };
+        var services = new ServiceCollection();
+        services.AddLyntai(cfg =>
+        {
+            cfg.AddGenerationProvider(_ => backend);
+            cfg.UseDefaultGenerationCandidates(["video"]);
+            cfg.AddGenerationUsageBudget();   // the registration whose whole promise is ONE spend number
+            cfg.AddGenerationTools();
+        });
+        services.AddSingleton<IGenerationArtifactSink>(sink);
+        using var sp = services.BuildServiceProvider();
+        var usage = sp.GetRequiredService<Lyntai.Llm.Budgeting.IUsageTracker>();
+
+        var submitted = Json(await Tool(sp, "generate_submit")
+            .InvokeAsync("""{"kind":"video","prompt":"a cat surfing"}"""));
+        var operationId = submitted.GetProperty("operationId").GetString();
+
+        var before = await usage.TotalAsync();
+        var fetched = Json(await Tool(sp, "generate_fetch")
+            .InvokeAsync($"{{\"backend\":\"video\",\"operationId\":\"{operationId}\"}}"));
+        var after = await usage.TotalAsync();
+
+        Assert.True(fetched.GetProperty("ok").GetBoolean());
+        Assert.Equal(0.50, after.CostUsd - before.CostUsd, precision: 6);
+    }
+
     private static JsonElement Json(string observation) => JsonDocument.Parse(observation).RootElement;
 
     [Fact]

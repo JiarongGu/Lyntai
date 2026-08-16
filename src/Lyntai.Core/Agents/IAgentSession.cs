@@ -5,7 +5,25 @@ namespace Lyntai.Agents;
 /// <summary>A self-driving agent loop: the agent runs its OWN tool loop (out-of-process) and we observe
 /// the stream, gate it (read-only vs write), and resume it across a human gate. Distinct from
 /// <see cref="IToolLoop"/> (where Lyntai drives the loop). Adapters implement ONLY <see cref="StreamAsync"/>;
-/// the result-door <c>RunAsync</c> extension folds the stream for callers that just want the outcome.</summary>
+/// the result-door <c>RunAsync</c> extension folds the stream for callers that just want the outcome.
+///
+/// <para><b>A session is NOT bound by the front door.</b> <c>AddUsageBudget</c> and <c>AddRateLimit</c>
+/// decorate <see cref="Lyntai.Llm.ILlmClient"/>, and a session never goes through one — it spawns a CLI that
+/// runs its own loop — so a configured cap does not cap it and a configured limiter does not throttle it.
+/// Stated here because nothing else says so, and "the app has one budget" is the reasonable thing to assume.
+/// <list type="bullet">
+/// <item><description><b>Usage</b> is reported, not priced: <see cref="UsageFinal"/> hands the caller raw
+/// counts deliberately, so an app that needs one wallet records them against its own ledger.</description>
+/// </item>
+/// <item><description><b>Tools</b> ARE gated. Custom tools reach the agent over MCP, and that door applies
+/// <see cref="Lyntai.Guards.IGuardRail"/> to every call and observation — the second-door case
+/// <c>.claude/knowledge/pitfalls.md</c> records as closed.</description></item>
+/// <item><description><b>Guards on the agent's own prose</b> are not applied: a guard is typed on
+/// <see cref="LlmRequest"/>/<see cref="LlmReply"/> and a session emits
+/// <see cref="AgentStreamEvent"/>s. Gate the outcome yourself if that matters.</description></item>
+/// <item><description><b>Caching</b> does not apply and should not: replaying a turn that edited a
+/// filesystem would be wrong.</description></item>
+/// </list></para></summary>
 public interface IAgentSession
 {
     IAsyncEnumerable<AgentStreamEvent> StreamAsync(AgentSessionOptions options, CancellationToken ct = default);

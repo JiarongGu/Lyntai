@@ -156,27 +156,18 @@ public static class SqliteStorageBuilderExtensions
     // service collection and verifies whatever the other side already recorded. Nothing ever resolves these
     // sentinels — a guard you can defeat by swapping THOSE two builder lines is not a guard.
     //
-    // Scoped to the pair on purpose, because it does not generalise. Two Use*Storage calls are not a pair to
-    // be commuted, they are competing SELECTIONS, and the LAST one wins — so order is load-bearing there by
-    // design, in both directions: see Selection() for a narrow selection rejecting a helper that the final
-    // selection would have allowed, and the CONSEQUENCE note below for a BYO factory standing the guard down.
+    // Scoped to that pair on purpose. Two Use*Storage calls are not commutable — they are competing
+    // SELECTIONS and the LAST one wins, so order is load-bearing there by design.
     //
-    // It applies ONLY where Lyntai owns the schema, which is why the selection carries LyntaiMigrates. Under
-    // SchemaMigration.None or an app-supplied IDbConnectionFactory, Lyntai runs no migrations at all: the
-    // feature set no longer decides which tables exist, the app's own DDL does. Firing there would reject a
-    // wiring that has always worked (an app that created lyntai_vector itself and passed a narrow feature
-    // set), and the remedy the message offers — add StorageFeature.Governance — would create no table anyway.
+    // It applies ONLY where Lyntai owns the schema (the selection carries LyntaiMigrates). Under
+    // SchemaMigration.None or an app-supplied IDbConnectionFactory the app's own DDL decides which tables
+    // exist, so firing would reject a wiring that has always worked and the remedy it offers would create no
+    // table anyway.
     //
-    // CONSEQUENCE WORTH KNOWING: a BYO-factory call made LAST disables the guard for the whole wiring.
-    //   UseSqliteStorage(path, Memory, SchemaMigration.OnStartup)   // Lyntai migrates; guard is live
-    //   UseSqliteStorage(factory, Memory)                           // app owns the schema; guard stands down
-    //   UseSqliteVectorStore()                                      // no longer rejected
-    // That is defensible — the app supplied the factory, and it supplied it LAST, so the app owns the schema
-    // and there is no migration left for the guard to speak about. It is nonetheless an interaction a host can
-    // trip by REORDERING two lines it thought were independent, so it is written down rather than discovered.
-    // The rule to hold on to: the guard follows the SELECTION, and a BYO factory is a selection that says
-    // "not Lyntai's schema". If both overloads are called, the last one decides — for the guard exactly as for
-    // the connection factory itself.
+    // CONSEQUENCE WORTH KNOWING: a BYO-factory call made LAST stands the guard down for the whole wiring,
+    // because that selection says "not Lyntai's schema". Defensible — but a host can trip it by REORDERING
+    // two lines it thought were independent, so: the guard follows the SELECTION, and if both overloads are
+    // called the last one decides, for the guard exactly as for the connection factory.
 
     private sealed record SqliteFeatureSelection(StorageFeature Features, bool LyntaiMigrates);
 

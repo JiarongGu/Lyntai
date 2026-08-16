@@ -12,31 +12,26 @@ namespace Lyntai.Storage.Sqlite;
 /// <c>lyntai_memory_edge</c>, with recall through the <c>lyntai_memory_node_fts</c> trigram index
 /// (bm25-ranked, LIKE fallback) — the same machinery as <see cref="SqliteMemoryStore"/>.
 /// <para><b>Seeding orders by GRADE first, then recency</b> — authoritative material is admitted
-/// unconditionally, and an ordering that led with recency would let the candidate <c>LIMIT</c> cut the
-/// quietest exact fact before the engine ranked anything (the same guarantee, reached by ordering instead of
-/// by predicate).</para>
+/// unconditionally, and leading with recency would let the candidate <c>LIMIT</c> cut the quietest exact
+/// fact before the engine ranked anything (the same guarantee, reached by ordering rather than by predicate).</para>
 /// <para><b>The FTS path is TWO queries merged</b>, alone among the backends: an FTS5 <c>MATCH</c> predicate
 /// cannot carry the grade carve-out and keep its bm25 ordering, so the scope's exact facts are fetched
-/// separately and combined by <c>Merge</c> — which reserves capacity for them rather than appending, and
-/// tail-orders only the ones the query did not match.</para>
-/// <para><b>Age is a subtraction, not a duration.</b> <c>lyntai_memory_position</c> holds a monotone
-/// position per engine, advanced by each write; an entry's age is how far it has moved since that entry
-/// was last used. So no date arithmetic appears in any query — which also removes the hazard the previous
-/// design sat next to, where <c>julianday</c> returning NULL on an unparseable timestamp would silently
-/// exclude every row.</para>
-/// <para><b><see cref="GraphNode.OrdinalAge"/> and <see cref="GraphNode.VolumeAge"/> are the SAME shape of
-/// subtraction</b>, against two ADDITIONAL primitives the same table now also tracks unconditionally —
-/// design doc §5.7. <see cref="GraphNode.ElapsedAge"/> is the one exception to "no date arithmetic": it is
-/// still computed in .NET, not SQL, for the identical reason <c>julianday</c> is avoided above — see
-/// <see cref="ToNode"/>.</para>
-/// <para><b>The decay curve is never evaluated here.</b> Candidates are bounded by a plain
-/// <c>age / stability &lt;= @cut</c> comparison whose right-hand side comes from
-/// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.CandidateCutoff"/>; exact retrievability and ranking happen in the
-/// engine, because no fixed SQL could encode a policy the application supplies.</para>
-/// <para><b><see cref="GraphNode.Relevance"/> is this backend's own rank position, normalized</b> to the
-/// contractual 0..1. <c>bm25()</c> returns an unbounded negative score, so rather than invent a
-/// normalization the store reports a monotone transform of its own ordering — which is all the engine's
-/// rank multiplication needs.</para></summary>
+/// separately and combined by <c>Merge</c>, which reserves capacity for them rather than appending.</para>
+/// <para><b>Age is a subtraction, not a duration.</b> <c>lyntai_memory_position</c> holds a monotone position
+/// per engine, so no date arithmetic appears in any query — which also avoids <c>julianday</c> returning NULL
+/// on an unparseable timestamp and silently excluding every row. <see cref="GraphNode.OrdinalAge"/> and
+/// <see cref="GraphNode.VolumeAge"/> are the same shape of subtraction against two more primitives the table
+/// tracks unconditionally (design §5.7); <see cref="GraphNode.ElapsedAge"/> is the one exception, computed in
+/// .NET for the identical reason — see <see cref="MemoryNodeRow.ToNode"/>.</para>
+/// <para><b>The QUERIES here are this backend's own; the MATERIALIZATION is shared</b> with the Postgres
+/// twin: every row type, the projection to <see cref="GraphNode"/> and the dialect-free statements live once
+/// in <see cref="MemoryNodeRow"/> and <see cref="MemoryGraphSql"/> — a column↔property mismatch is a SILENT
+/// null rather than an error, so the 25-property mapping gets ONE copy (<c>docs/DECISIONS.md</c> D77).</para>
+/// <para><b>The decay curve is never evaluated here</b> — the only faintness bound is <see cref="PruneAsync"/>'s
+/// plain <c>age / stability &lt;= @cut</c>, supplied by <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.CandidateCutoff"/>.
+/// And <see cref="GraphNode.Relevance"/> is <b>this backend's own rank position, normalized</b> to the
+/// contractual 0..1: <c>bm25()</c> returns an unbounded negative score, so rather than invent a
+/// normalization the store reports a monotone transform of its own ordering.</para></summary>
 /// <param name="factory">Connection factory — the ONLY way to open a connection here, because it applies
 /// <c>foreign_keys=ON</c> per connection and the edge cascade depends on it.</param>
 /// <param name="logger">Optional.</param>
@@ -62,19 +57,19 @@ public sealed class SqliteMemoryGraphStore(
     // primitives (design doc §5.7) — @ordinal and @chars advance unconditionally on every write, regardless of
     // which IMemoryAgePolicy the engine has installed, so they can never be corrupted by swapping it.
     // EncodingAt is read RAW rather than diffed in SQL: this store deliberately does no date arithmetic (see
-    // the type doc's remark on `julianday`), so ElapsedAge is computed in .NET, in ToNode.
+    // the type doc's remark on `julianday`), so ElapsedAge is computed in .NET, in MemoryNodeRow.ToNode.
     // ProvenanceRetrievability/ProvenanceSalience are plain integers (design doc §5.7, Task 4) — unlike
     // Age/OrdinalAge/VolumeAge above they are never computed here, so no affinity-trap CAST applies; they
     // are read exactly like RecallCount/Degree.
-    // Difficulty (2026-08-10, fsrs-properly plan Task 2) IS a 0..1-shaped affinity trap like Stability, not
+    // Difficulty IS a 0..1-shaped affinity trap like Stability, not
     // like the provenance ints above: SQLite can store 1.0 as an INTEGER and 0.5 as a REAL in the SAME
     // column, so it needs the same CAST(... AS REAL) Stability already gets.
-    // StrengthOrdinalAge/StrengthVolumeAge are the strength-side counterparts of OrdinalAge/VolumeAge (3.0
-    // pre-freeze), and StrengthenedAt is read RAW for exactly the reason EncodingAt is. Each takes its own
+    // StrengthOrdinalAge/StrengthVolumeAge are the strength-side counterparts of OrdinalAge/VolumeAge, and
+    // StrengthenedAt is read RAW for exactly the reason EncodingAt is. Each takes its own
     // MAX rather than "the primitives of whichever edge has the max position": all four advance monotonically
     // together from one write's totals, so the freshest edge holds the maximum of every one of them. MAX over
     // no rows is NULL, which is why StrengthenedAt alone is nullable here — a node with no edges has no
-    // strengthening to date, and ToNode reports 0 for it, matching the COALESCE the other two apply in SQL.
+    // strengthening to date, and MemoryNodeRow.ToNode reports 0 for it, matching the COALESCE the other two apply in SQL.
     private const string NodeColumns = """
         n.id AS Id, n.engine AS Engine, n.task_key AS TaskKey, n.scope AS Scope,
         n.headline AS Headline, n.content AS Content, n.grade AS Grade,
@@ -101,7 +96,8 @@ public sealed class SqliteMemoryGraphStore(
     // The MAX() guard is load-bearing: a zero stability divides by zero, SQLite evaluates that to NULL, and
     // a NULL predicate excludes the row SILENTLY — losing a memory rather than erroring.
     private const string AgeOverStability =
-        "(@position - n.last_recalled_position) / MAX(CAST(n.stability AS REAL), 0.000001)";
+        "(@position - n.last_recalled_position) / MAX(CAST(n.stability AS REAL), "
+        + MemoryGraphSql.MinimumStability + ")";
 
     // Seeding applies NO faintness bound — decay buries by rank in the engine, never by excluding a row
     // here. This predicate is PruneAsync's alone, where removing a memory is the explicit intent.
@@ -118,13 +114,9 @@ public sealed class SqliteMemoryGraphStore(
         // the same memory?" differently, which is a contract difference, not a storage detail.
         var hash = MemoryContentKey.Of(write.Content);
         var metadata = CuratedMetadataJson.Serialize(write.Metadata);
-        // NULL, not "{}", for an empty bag — that NULL is also the refresh signal the DO UPDATE SET below
-        // reads: an EMPTY incoming bag keeps whatever is already stored rather than blanking it, exactly
-        // like InMemoryMemoryGraphStore.UpsertAsync. A salience policy may decline to judge a re-remembered
-        // write for any reason (too few comparables, a novelty probe that found only its own prior vector,
-        // a caught failure) and reports that as MemorySignals.Empty — which must never be read as "this
-        // entry is no longer salient". Without the COALESCE/CASE below, the very re-remember that is
-        // supposed to REINFORCE an entry would instead erase an earlier judgement.
+        // NULL, not "{}", for an empty bag — the NULL is what the DO UPDATE SET below reads as "no
+        // opinion", keeping the stored signals. See GraphNodeWrite.Signals for why blanking would be
+        // wrong.
         var signals = MemorySignalsJson.Serialize(write.Signals);
         // The column is the COERCED materialization of the bag's salience for the database to sort on; the
         // bag stays the source of truth and is stored verbatim, so the two are not byte-for-byte equal — a
@@ -136,11 +128,8 @@ public sealed class SqliteMemoryGraphStore(
         // all: an unguarded NaN does not merely mis-sort here — Microsoft.Data.Sqlite refuses to bind it and
         // fails the whole write.
         var salience = MemorySignals.Salience(write.Signals);
-        // The LIVE difficulty column (2026-08-10, fsrs-properly plan Task 2) — promoted from the bag, but
-        // NOT the same trigger salience uses (fix round 1, C1: an earlier draft keyed this off "the bag is
-        // non-empty", exactly like salience — so a write that judged SALIENCE ALONE silently reset
-        // whatever Reinforce had tracked, back toward the write-time judgement or the neutral default).
-        // difficulty has a SECOND writer salience does not (the retrievability policy, via TouchAsync), so
+        // The LIVE difficulty column — promoted from the bag, but NOT on the trigger salience uses.
+        // Difficulty has a SECOND writer salience does not (the retrievability policy, via TouchAsync), so
         // its own precedence must key on whether THIS bag actually carries a difficulty signal, not on
         // whether it carries anything at all. See MemoryDecayState.Difficulty's own remarks for the full rule.
         var hasDifficultySignal = write.Signals.Values.ContainsKey(MemorySignals.WellKnown.Difficulty);
@@ -153,7 +142,7 @@ public sealed class SqliteMemoryGraphStore(
         // the new entry's own age is zero relative to everything it is stamped with. The primitives advance
         // UNCONDITIONALLY — one write, this write's own content length, this write's own timestamp — never
         // from write.Advance, which is this write's chosen IMemoryAgePolicy's business, not the store's.
-        var totals = await conn.QuerySingleAsync<TotalsRow>(new CommandDefinition("""
+        var totals = await conn.QuerySingleAsync<MemoryPositionRow>(new CommandDefinition("""
             INSERT INTO lyntai_memory_position (engine, position, ordinal, chars, encoded_at)
             VALUES (@engine, @advance, 1, @contentLength, @now)
             ON CONFLICT(engine) DO UPDATE SET
@@ -183,7 +172,7 @@ public sealed class SqliteMemoryGraphStore(
                               signals = COALESCE(@signals, lyntai_memory_node.signals),
                               salience = CASE WHEN @signals IS NULL THEN lyntai_memory_node.salience ELSE @salience END,
                               -- difficulty overwrites ONLY when THIS write's bag actually names a difficulty
-                              -- signal (fix round 1, C1) - unlike salience, "the bag is merely non-empty" is
+                              -- signal - unlike salience, "the bag is merely non-empty" is
                               -- NOT the trigger: a write that judged something else entirely (salience,
                               -- say) must never reset what Reinforce has since tracked.
                               difficulty = CASE WHEN @hasDifficultySignal THEN @difficulty ELSE lyntai_memory_node.difficulty END,
@@ -220,10 +209,8 @@ public sealed class SqliteMemoryGraphStore(
 
         // UNCONFINED, matching either indexed column: this FTS table declares `headline, content`, and an
         // authored headline is a summary a caller wrote so the entry could be found by it — words that may
-        // appear nowhere in the content. Postgres and the in-process store now match headline too, so the
-        // three agree. The 3.0 review's first attempt confined this expression instead, which made them
-        // agree by REMOVING the capability from the only backend that had it; see
-        // M202608152310_MemoryHeadlineSearch for why that reading of the contract was wrong.
+        // appear nowhere in the content. Never confine this to `content` to make the backends agree: the
+        // portable guarantee is a MINIMUM, and the other two match headline too.
         var match = FtsQuery.Build(query);
         if (match is not null)
         {
@@ -290,9 +277,8 @@ public sealed class SqliteMemoryGraphStore(
             foreach (var (name, value) in kw.Parameters) p.Add(name, value);
 
             // `Matched` is selected ONLY here, and it is what stops this path reporting a grade-admitted
-            // non-match at the HEAD of the gradient — which is where the grade-first ORDER BY puts it, and
-            // which is the opposite of what the FTS path above reported for the same row. Both now say 0.
-            // NodeRow.Matched is nullable so every other query, which does not select it, keeps the plain
+            // non-match at the HEAD of the gradient — which is where the grade-first ORDER BY puts it.
+            // MemoryNodeRow.Matched is nullable so every other query, which does not select it, keeps the plain
             // gradient rather than silently zeroing every row.
             return await QueryAsync(conn, $"""
                 SELECT {NodeColumns},
@@ -322,7 +308,7 @@ public sealed class SqliteMemoryGraphStore(
     /// both.
     /// <para><b>Exact facts get RESERVED capacity, not an append.</b> <paramref name="matched"/> is itself
     /// <c>LIMIT</c>-bound, so appending exact facts after a full page of matches and truncating the tail
-    /// would drop every one of them — this method's own defect, reintroduced.</para>
+    /// would drop every one of them.</para>
     /// <para><b>Only exact facts the query did NOT match are ordered last, then the whole list is
     /// renormalized.</b> <see cref="GraphNode.Relevance"/> is a per-QUERY rank position, so the two
     /// independent queries each arrive with their own 1.0-topped gradient; splicing them would report a fact
@@ -334,12 +320,9 @@ public sealed class SqliteMemoryGraphStore(
     /// the gradient, and <c>GraphMemoryEngine.RecallAsync</c> multiplies that
     /// <see cref="GraphNode.Relevance"/> into its rank before taking the top <c>limit</c> — so the demotion
     /// can drop it from recall outright, which is strictly worse than not merging at all.</para>
-    /// <para>Where an admitted-but-non-matching exact fact lands in this gradient is SQLite's own answer, not
-    /// the contract's, and as of 3.0 all three agree on it: an exact fact the query never matched reports
-    /// <see cref="GraphNode.Relevance"/> <b>0</b>, because 0 is what "matched the query this well" honestly
-    /// says about something admitted by GRADE instead. Its admission is guaranteed by the grade carve-out
-    /// above and by <c>GraphMemoryEngine</c>'s own re-admission of authoritative candidates — never by
-    /// borrowing a relevance it did not earn. See <see cref="IMemoryGraphStore.SeedAsync"/>.</para></summary>
+    /// <para>WHERE an admitted-but-non-matching exact fact lands in this gradient is SQLite's own answer; the
+    /// <see cref="GraphNode.Relevance"/> it reports for one — <b>0</b> — is the contract's, on every backend
+    /// (<see cref="IMemoryGraphStore.SeedAsync"/>). Admission never rides on that number.</para></summary>
     private static IReadOnlyList<GraphNode> Merge(IReadOnlyList<GraphNode> matched,
         IReadOnlyList<GraphNode> exact, int limit)
     {
@@ -383,9 +366,9 @@ public sealed class SqliteMemoryGraphStore(
         var idList = ids.ToList();
         // RAW weight and staleness — the engine applies the decay curve and re-ranks; ordering here is a
         // cheap pre-sort only
-        // One EdgeRow rather than five more positional splits: Dapper's multi-map arity is finite and a
+        // One MemoryEdgeRow rather than five more positional splits: Dapper's multi-map arity is finite and a
         // five-double signature is exactly the shape whose slots get silently transposed.
-        var rows = await conn.QueryAsync<NodeRow, EdgeRow, GraphNeighbour>(
+        var rows = await conn.QueryAsync<MemoryNodeRow, MemoryEdgeRow, GraphNeighbour>(
             new CommandDefinition($"""
                 SELECT {NodeColumns},
                        CAST(x.w AS REAL) AS EdgeWeight,
@@ -405,7 +388,7 @@ public sealed class SqliteMemoryGraphStore(
                 LIMIT @limit
                 """, new { idList, engine, limit, position, ordinal = totals.Ordinal, chars = totals.Chars },
                 cancellationToken: ct),
-            (row, edge) => new GraphNeighbour(ToNode(row, totals.EncodedAt), edge.EdgeWeight, edge.EdgeAge,
+            (row, edge) => new GraphNeighbour(row.ToNode(totals.EncodedAt), edge.EdgeWeight, edge.EdgeAge,
                 EdgeOrdinalAge: edge.EdgeOrdinalAge, EdgeVolumeAge: edge.EdgeVolumeAge,
                 EdgeElapsedAge: edge.EdgeStrengthenedAt is { } at
                     ? (totals.EncodedAt - at).TotalDays
@@ -473,7 +456,7 @@ public sealed class SqliteMemoryGraphStore(
     // policy-independent primitives beside it, from one totals snapshot, so they can never disagree about
     // when this edge was last strengthened.
     private static Task StrengthenAsync(IDbConnection conn, long from, long to, string kind, double weight,
-        TotalsRow totals, CancellationToken ct) =>
+        MemoryPositionRow totals, CancellationToken ct) =>
         conn.ExecuteAsync(new CommandDefinition("""
             INSERT INTO lyntai_memory_edge (from_id, to_id, kind, weight, strengthened_position,
                 strengthened_ordinal, strengthened_chars, strengthened_at)
@@ -497,17 +480,11 @@ public sealed class SqliteMemoryGraphStore(
         var createdBefore = olderThan is null ? (DateTimeOffset?)null : _clock() - olderThan.Value;
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         var position = (await TotalsAsync(conn, engine, ct).ConfigureAwait(false)).Position;
-        // edges go with the nodes through ON DELETE CASCADE — which only fires because the factory sets
-        // foreign_keys=ON per connection
-        return await conn.ExecuteAsync(new CommandDefinition($"""
-            DELETE FROM lyntai_memory_node WHERE id IN (
-                SELECT n.id FROM lyntai_memory_node n
-                WHERE n.engine = @engine AND n.task_key = @taskKey
-                  AND (@scope IS NULL OR n.scope = @scope)
-                  AND n.grade <> @authoritative
-                  AND ( (@cut IS NOT NULL AND {AgeOverStability} > @cut)
-                        OR (@createdBefore IS NOT NULL AND n.created_at < @createdBefore) ))
-            """, new { engine, taskKey, scope, cut, createdBefore, position, authoritative = Authoritative },
+        // Shared with the Postgres twin apart from the zero-stability guard's spelling — edges go with the
+        // nodes through ON DELETE CASCADE, which here only fires because the factory sets foreign_keys=ON
+        // per connection.
+        return await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.Prune(AgeOverStability),
+            new { engine, taskKey, scope, cut, createdBefore, position, authoritative = Authoritative },
             cancellationToken: ct)).ConfigureAwait(false);
     }
 
@@ -530,10 +507,8 @@ public sealed class SqliteMemoryGraphStore(
     {
         ct.ThrowIfCancellationRequested();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        await conn.ExecuteAsync(new CommandDefinition("""
-            DELETE FROM lyntai_memory_node
-            WHERE engine = @engine AND task_key = @taskKey AND (@scope IS NULL OR scope = @scope)
-            """, new { engine, taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.Forget,
+            new { engine, taskKey, scope }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -547,15 +522,8 @@ public sealed class SqliteMemoryGraphStore(
         var effectiveCap = Math.Max(0, cap);
         var now = _clock();
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        await conn.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO lyntai_memory_review
-                (engine, node_id, batch_id, created_at, pre_age, pre_stability, pre_difficulty, pre_strength,
-                 pre_strength_age, grade, post_stability, post_difficulty, provenance_retrievability,
-                 verified)
-            VALUES (@engine, @NodeId, @batchId, @now, @PreAge, @PreStability, @PreDifficulty, @PreStrength,
-                    @PreStrengthAge, @Grade, @PostStability, @PostDifficulty, @ProvenanceRetrievability,
-                    @Verified)
-            """, reviews.Select(r => new
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertReview,
+            reviews.Select(r => new
             {
                 engine, now, r.NodeId, batchId = r.BatchId.ToString(), r.PreAge, r.PreStability,
                 r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.Grade, r.PostStability, r.PostDifficulty,
@@ -574,12 +542,8 @@ public sealed class SqliteMemoryGraphStore(
         _reviewCounters.AddOrUpdate(engine, reviews.Count,
             (_, existing) => { before = existing; return existing + reviews.Count; });
         if (MemoryReviewLogPacing.CrossesBoundary(before, reviews.Count, effectiveCap))
-            await conn.ExecuteAsync(new CommandDefinition("""
-                DELETE FROM lyntai_memory_review
-                WHERE engine = @engine AND id <= (
-                    SELECT id FROM lyntai_memory_review WHERE engine = @engine
-                    ORDER BY id DESC LIMIT 1 OFFSET @cap)
-                """, new { engine, cap = effectiveCap }, cancellationToken: ct)).ConfigureAwait(false);
+            await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.TrimReviews,
+                new { engine, cap = effectiveCap }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -599,10 +563,9 @@ public sealed class SqliteMemoryGraphStore(
                    verified AS Verified
             FROM lyntai_memory_review WHERE engine = @engine ORDER BY id
             """, new { engine }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
-        return [.. rows.Select(r => new MemoryReview(r.Id, r.Engine, r.NodeId, Guid.Parse(r.BatchId),
-            r.CreatedAt, r.PreAge, r.PreStability, r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.Grade,
-            r.PostStability, r.PostDifficulty, r.ProvenanceRetrievability,
-            r.Verified is null ? null : r.Verified != 0))];
+        // The 1/0/NULL -> tri-state conversion is this backend's alone; the other thirteen columns project
+        // through the shared row.
+        return [.. rows.Select(r => r.ToReview(r.Verified is null ? null : r.Verified != 0))];
     }
 
     /// <inheritdoc />
@@ -616,8 +579,7 @@ public sealed class SqliteMemoryGraphStore(
         // REPLACE, never accumulate: a stale subject from an earlier annotation keeps linking future facts
         // into the wrong cluster, and nothing would ever surface it. The delete runs even when the new set is
         // empty, which is how an annotator that changes its mind to "no opinion" actually clears them.
-        await conn.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM lyntai_memory_subject WHERE engine = @engine AND node_id = @nodeId",
+        await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.DeleteSubjects,
             new { engine, nodeId }, cancellationToken: ct)).ConfigureAwait(false);
 
         // MemorySubject.Canonicalize is the ONE normalization, shared with the other two backends and with
@@ -678,131 +640,38 @@ public sealed class SqliteMemoryGraphStore(
     }
 
     /// <summary>Where the engine currently stands, on every scale a store tracks: the legacy,
-    /// <c>Advance</c>-driven <see cref="TotalsRow.Position"/>, and the three primitives that advance
+    /// <c>Advance</c>-driven <see cref="MemoryPositionRow.Position"/>, and the three primitives that advance
     /// unconditionally. All default to their zero value for an engine nothing has been written to — which is
     /// correct: nothing has happened in it, so nothing has aged.</summary>
-    private static async Task<TotalsRow> TotalsAsync(IDbConnection conn, string engine, CancellationToken ct) =>
-        await conn.QuerySingleOrDefaultAsync<TotalsRow>(new CommandDefinition("""
+    private static async Task<MemoryPositionRow> TotalsAsync(IDbConnection conn, string engine, CancellationToken ct) =>
+        await conn.QuerySingleOrDefaultAsync<MemoryPositionRow>(new CommandDefinition("""
             SELECT CAST(position AS REAL) AS Position, ordinal AS Ordinal, chars AS Chars, encoded_at AS EncodedAt
             FROM lyntai_memory_position WHERE engine = @engine
             """, new { engine }, cancellationToken: ct)).ConfigureAwait(false)
-        ?? new TotalsRow { EncodedAt = DateTimeOffset.UnixEpoch };
+        ?? new MemoryPositionRow { EncodedAt = DateTimeOffset.UnixEpoch };
 
     private static async Task<IReadOnlyList<GraphNode>> QueryAsync(IDbConnection conn, string sql,
         object parameters, DateTimeOffset encodedAt, CancellationToken ct)
     {
-        var rows = (await conn.QueryAsync<NodeRow>(
+        var rows = (await conn.QueryAsync<MemoryNodeRow>(
             new CommandDefinition(sql, parameters, cancellationToken: ct)).ConfigureAwait(false)).AsList();
         // MemoryRelevance.ByRankPosition is the ONE rule, shared with the Postgres twin and with Merge below:
-        // this backend's own rank position, normalized, with the grade-admitted non-match reporting 0. That
-        // last clause is a CONTRACT fact all three backends used to disagree about — see its own remarks.
+        // this backend's own rank position, normalized, with the grade-admitted non-match reporting 0.
         // Only the substring-fallback query selects `Matched`; everywhere else it is null ("not asked") and
         // the plain gradient applies.
         return [.. rows.Select((row, i) =>
-            ToNode(row, encodedAt) with { Relevance = MemoryRelevance.ByRankPosition(i, rows.Count, row.Matched) })];
+            row.ToNode(encodedAt) with { Relevance = MemoryRelevance.ByRankPosition(i, rows.Count, row.Matched) })];
     }
 
-    // ElapsedAge is a .NET-side subtraction, not a SQL one: this store deliberately does no date arithmetic
-    // (see the type doc's remark on `julianday`), and row.EncodingAt/encodedAt are both plain DateTimeOffset
-    // values Dapper already parsed, so the subtraction is exact and needs no date-string parsing at all.
-    private static GraphNode ToNode(NodeRow row, DateTimeOffset encodedAt) => new(
-        row.Id, row.Engine, row.TaskKey, row.Scope, row.Headline, row.Content, (MemoryGrade)row.Grade,
-        row.CreatedAt, row.RecallCount, row.Stability, row.Age, 1, row.Degree,
-        CuratedMetadataJson.Deserialize(row.Metadata), row.Strength, row.StrengthAge,
-        MemorySignalsJson.Deserialize(row.Signals),
-        OrdinalAge: row.OrdinalAge, VolumeAge: row.VolumeAge,
-        ElapsedAge: (encodedAt - row.EncodingAt).TotalDays,
-        ProvenanceRetrievability: row.ProvenanceRetrievability, ProvenanceSalience: row.ProvenanceSalience,
-        Difficulty: row.Difficulty,
-        StrengthOrdinalAge: row.StrengthOrdinalAge, StrengthVolumeAge: row.StrengthVolumeAge,
-        StrengthElapsedAge: row.StrengthenedAt is { } at ? (encodedAt - at).TotalDays : 0);
-
-    /// <summary>Materialization type — settable properties, never a positional record: Dapper will not bind
-    /// a SQLite INTEGER to a positional record constructor parameter, and a property-mapped row sidesteps
-    /// its exact-type matching entirely.</summary>
-    private sealed class NodeRow
+    /// <summary>This backend's half of a review row: the thirteen shared columns come from
+    /// <see cref="MemoryReviewRow"/>, and only <see cref="Verified"/> is declared here.
+    /// <para>SQLite has no boolean, so the tri-state arrives as <c>1</c>/<c>0</c>/NULL and is typed
+    /// <c>long?</c> — the Postgres twin binds a native <c>bool?</c> for the same column. That is a real
+    /// dialect difference rather than an accident, which is why the shared row declines to declare it: the
+    /// distinction between "judged not relevant" and "never judged" is load-bearing (see
+    /// <see cref="MemoryReviewWrite.Verified"/>) and a bind that erased it would be silent.</para></summary>
+    private sealed class ReviewRow : MemoryReviewRow
     {
-        public long Id { get; set; }
-        public string Engine { get; set; } = "";
-        public string TaskKey { get; set; } = "";
-        public string Scope { get; set; } = "";
-        public string Headline { get; set; } = "";
-        public string Content { get; set; } = "";
-        public int Grade { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public int RecallCount { get; set; }
-        public double Stability { get; set; }
-        public double Difficulty { get; set; }
-        public double Age { get; set; }
-        public string? Metadata { get; set; }
-        public string? Signals { get; set; }
-        public int Degree { get; set; }
-        public double Strength { get; set; }
-        public double StrengthAge { get; set; }
-        public double StrengthOrdinalAge { get; set; }
-        public double StrengthVolumeAge { get; set; }
-        public DateTimeOffset? StrengthenedAt { get; set; }
-        public double OrdinalAge { get; set; }
-        public double VolumeAge { get; set; }
-        public DateTimeOffset EncodingAt { get; set; }
-        public long ProvenanceRetrievability { get; set; }
-        public long ProvenanceSalience { get; set; }
-
-        /// <summary>Whether the seeding query actually matched this row — selected ONLY by the
-        /// substring-fallback path. NULLABLE on purpose: every other query omits the column, leaving this
-        /// null, which <c>QueryAsync</c> reads as "not asked" and normalizes as usual. A non-nullable
-        /// <c>bool</c> would default to <c>false</c> there and zero every row's relevance.</summary>
-        public bool? Matched { get; set; }
-    }
-
-    /// <summary>The connecting edge's half of a <see cref="NeighboursAsync"/> row — settable properties,
-    /// matching <see cref="NodeRow"/>'s own reasoning. <c>EdgeStrengthenedAt</c> is read RAW and is nullable
-    /// for the same reason the node's own <c>StrengthenedAt</c> is: <c>MAX</c> over no rows is NULL.</summary>
-    private sealed class EdgeRow
-    {
-        public double EdgeWeight { get; set; }
-        public double EdgeAge { get; set; }
-        public double EdgeOrdinalAge { get; set; }
-        public double EdgeVolumeAge { get; set; }
-        public DateTimeOffset? EdgeStrengthenedAt { get; set; }
-    }
-
-    /// <summary>Materialization type for <see cref="TotalsAsync"/> — settable properties, matching
-    /// <see cref="NodeRow"/>'s own reasoning.</summary>
-    private sealed class TotalsRow
-    {
-        public double Position { get; set; }
-        public long Ordinal { get; set; }
-        public long Chars { get; set; }
-        public DateTimeOffset EncodedAt { get; set; }
-    }
-
-    /// <summary>Materialization type for <see cref="ReviewsAsync"/> — settable properties, matching
-    /// <see cref="NodeRow"/>'s own reasoning. <see cref="BatchId"/> stays a <see cref="string"/> here and is
-    /// parsed to <see cref="Guid"/> only when projecting to <see cref="MemoryReview"/> — the same pattern
-    /// <c>JobRow.Id</c> uses for its own TEXT-stored id, since Dapper does not bind a SQLite TEXT column to a
-    /// <see cref="Guid"/> property.</summary>
-    private sealed class ReviewRow
-    {
-        public long Id { get; set; }
-        public string Engine { get; set; } = "";
-        public long NodeId { get; set; }
-        public string BatchId { get; set; } = "";
-        public DateTimeOffset CreatedAt { get; set; }
-        public double PreAge { get; set; }
-        public double PreStability { get; set; }
-        public double PreDifficulty { get; set; }
-        public double PreStrength { get; set; }
-        public double PreStrengthAge { get; set; }
-        public double? Grade { get; set; }
-        public double PostStability { get; set; }
-        public double PostDifficulty { get; set; }
-        public long ProvenanceRetrievability { get; set; }
-
-        /// <summary>SQLite has no boolean, so the tri-state arrives as <c>1</c>/<c>0</c>/NULL and is mapped
-        /// back at the call site. Typed <c>long?</c> rather than <c>bool?</c> because the distinction
-        /// between "false" and "never judged" is load-bearing (see
-        /// <see cref="MemoryReviewWrite.Verified"/>) and a non-nullable bind would erase it.</summary>
         public long? Verified { get; set; }
     }
 }

@@ -124,7 +124,7 @@ public sealed class ProcessRunner : IProcessRunner
                 }
                 catch (Exception) when (killCts.IsCancellationRequested)
                 {
-                    break; // killed (inactivity / caller) — reason resolved after the reap
+                    break; // killed (inactivity / caller) — reason resolved after the removal
                 }
                 catch (IOException)
                 {
@@ -179,7 +179,7 @@ public sealed class ProcessRunner : IProcessRunner
     /// driven deterministically from outside this class — which is precisely why the copy that DID carry the
     /// guard never had a test.</para></summary>
     /// <param name="killRequested">Whether a stop was requested (an inactivity or max-duration clock).</param>
-    /// <param name="exitCode">The reaped child's exit code.</param>
+    /// <param name="exitCode">The removed child's exit code.</param>
     internal static bool TimedOut(bool killRequested, int exitCode) => killRequested && exitCode != 0;
 
     /// <summary>Streamed run: yields stdout lines as they arrive. <paramref name="inactivityTimeout"/> is
@@ -260,14 +260,14 @@ public sealed class ProcessRunner : IProcessRunner
             }
 
             // The stdout loop ended (child closed stdout, or a timeout). Enable writer-progress re-arms,
-            // then run the shared observe-stdin/reap tail below.
+            // then run the shared observe-stdin/remove tail below.
             Volatile.Write(ref observeStdin, true);
             var stderr = await ObserveStdinAndReapAsync(process, stdinTask, stderrTask,
                 reArm: () => { if (inactivityTimeout is not null) timeoutCts.CancelAfter(inactivityTimeout.Value); },
                 killed: () => timeoutCts.IsCancellationRequested).ConfigureAwait(false);
 
             ct.ThrowIfCancellationRequested();
-            // a kill that fired during the stdin observe / reap is a TIMEOUT, not a child failure — classify
+            // a kill that fired during the stdin observe / remove is a TIMEOUT, not a child failure — classify
             // it as one (unless the child actually finished cleanly first: the kill can race a clean exit)
             if (TimedOut(timeoutCts.IsCancellationRequested, process.ExitCode)) timedOut = true;
             if (timedOut)
@@ -282,7 +282,7 @@ public sealed class ProcessRunner : IProcessRunner
         finally
         {
             // early enumerator abandonment (consumer breaks out of await foreach) resumes HERE with
-            // the child still running: kill it, or it keeps generating with nothing left to reap it.
+            // the child still running: kill it, or it keeps generating with nothing left to remove it.
             // On the normal path the process has already exited and this is a no-op.
             try { if (!process.HasExited) KillTree(process); } catch { /* already gone */ }
         }
@@ -475,8 +475,8 @@ public sealed class ProcessRunner : IProcessRunner
     /// forever, while a child actively DRAINING keeps re-arming via the writer's per-slice progress and
     /// lives; the armed clock's kill breaks the pipes either way), observe the concurrent stdin write so it
     /// is never left unobserved (a broken pipe from an early child exit is already swallowed in
-    /// <see cref="WriteStdinAsync"/>), give the final reap a fresh window too (a child that drained
-    /// everything but lingers), then reap and return the drained stderr. <paramref name="reArm"/> re-arms
+    /// <see cref="WriteStdinAsync"/>), give the final remove a fresh window too (a child that drained
+    /// everything but lingers), then remove and return the drained stderr. <paramref name="reArm"/> re-arms
     /// the caller's OWN inactivity clock — the two run shapes deliberately keep their distinct clock
     /// topologies (buffered dual-clock with tagged reasons vs streamed single-clock) — and
     /// <paramref name="killed"/> reports the caller's kill state so a fired clock is never re-armed.</summary>

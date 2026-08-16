@@ -38,7 +38,7 @@ public sealed class MemoryEvictionPolicy
     public MemoryEvictionMode Mode { get; set; } = MemoryEvictionMode.Fifo;
 
     /// <summary>A default max age applied to entries remembered WITHOUT a per-call ttl — they expire (drop
-    /// from recall, reaped by <c>PruneAsync</c>) after this. A per-call ttl still wins. <c>null</c> = no
+    /// from recall, removed by <c>PruneAsync</c>) after this. A per-call ttl still wins. <c>null</c> = no
     /// default expiry (an entry lives until evicted by a size bound).</summary>
     public TimeSpan? DefaultTtl { get; set; }
 

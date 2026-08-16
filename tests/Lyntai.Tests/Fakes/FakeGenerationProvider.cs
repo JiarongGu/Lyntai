@@ -103,10 +103,15 @@ public sealed class FakeGenerationJobProvider : IGenerationProvider, IGeneration
         Task.FromResult(new GenerationOperation(operationId, PollStatus,
             Progress: PollStatus == GenerationOperationStatus.Succeeded ? 1 : 0.5, Detail: PollDetail));
 
+    /// <summary>What the completed render COST, reported by the fetch. Null keeps the pre-existing usage
+    /// (seconds only, no money), so every test written before this knob is byte-identical — a real queue
+    /// backend prices at fetch, which is the only point the total is known.</summary>
+    public double? FetchCostUsd { get; set; }
+
     public Task<GenerationResult> FetchAsync(string operationId, CancellationToken ct = default) =>
         Task.FromResult(GenerationResult.Success(
             [new GenerationArtifact("video/mp4", Uri: $"https://example.invalid/{operationId}.mp4")],
-            new GenerationUsage(Seconds: 5)));
+            new GenerationUsage(Seconds: 5, CostUsd: FetchCostUsd)));
 
     public Task<GenerationOperation> CancelAsync(string operationId, CancellationToken ct = default) =>
         Task.FromResult(new GenerationOperation(operationId, GenerationOperationStatus.Cancelled));

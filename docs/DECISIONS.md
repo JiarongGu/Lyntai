@@ -138,8 +138,16 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D72](#d72--forgetting-and-pruning-are-different-capabilities-and-an-engine-declares-whose-content-it-holds-2026-08-16) | 2026-08-16 | forgetting and pruning are different capabilities, and an engine declares whose content it holds |
 | [D73](#d73--the-cross-process-job-cap-is-a-slot-table-because-a-count-cannot-gate-a-claim-2026-08-16) | 2026-08-16 | the cross-process job cap is a SLOT TABLE, because a count cannot gate a claim |
 | [D74](#d74--native-tool-calling-for-claudeclilocal-is-retired-the-request-was-misframed-2026-08-16) | 2026-08-16 | "native tool-calling for ClaudeCli/Local" is RETIRED: the request was misframed |
+| [D75](#d75--a-guard-block-differs-in-force-between-the-two-doors-by-necessity-and-differed-in-signal-by-accident-2026-08-16) | 2026-08-16 | a guard Block differs in FORCE between the two doors by necessity, and differed in SIGNAL by acci… |
+| [D76](#d76--memorys-umbrella-verb-becomes-removal-because-the-old-one-meant-to-harvest-2026-08-16) | 2026-08-16 | memory's umbrella verb becomes REMOVAL, because the old one meant to harvest |
+| [D77](#d77--the-relational-memory-stores-share-their-materialization-and-the-claim-that-said-otherwise-was-half-right-2026-08-16) | 2026-08-16 | the relational memory stores share their MATERIALIZATION, and the claim that said otherwise was h… |
+| [D78](#d78--one-option-domain-guard-and-the-domain-phrase-is-derived-from-the-check-2026-08-16) | 2026-08-16 | one option-domain guard, and the domain phrase is DERIVED from the check |
+| [D79](#d79--the-fsrs-adaptation-spec-and-the-saliencespacing-interaction-live-in-the-record-not-in-a-methods-remarks-2026-08-16) | 2026-08-16 | the FSRS adaptation spec and the salience×spacing interaction live in the record, not in a method… |
+| [D80](#d80--the-rest-of-the-relational-row-types-follow-d77-because-nine-more-copies-is-nine-more-silent-nulls-2026-08-16) | 2026-08-16 | the rest of the relational row types follow D77, because nine more copies is nine more silent nulls |
+| [D81](#d81--two-store-domains-share-their-sql-and-the-measurement-is-what-says-only-two-2026-08-16) | 2026-08-16 | two store domains share their SQL, and the measurement is what says only two |
+| [D82](#d82--rrf-ranks-by-competition-so-an-uninformative-signal-contributes-nothing-2026-08-16) | 2026-08-16 | RRF ranks by COMPETITION, so an uninformative signal contributes nothing |
 
-_All 74 entries are live decisions._
+_All 82 entries are live decisions._
 
 <!-- index:end -->
 
@@ -593,6 +601,15 @@ pool's reference so new callers get the fresh instance; it cannot dispose, becau
 has no way to know when existing callers are finished. Disposing on retirement would abort in-flight work
 whenever configuration changed.
 
+**Admission is keyed and SHARED, never a field on the provider — which is the same entailment one level
+down.** A semaphore carried by a provider instance bounds nothing as soon as instances are per-call: under
+`TransientProviderPool<TProvider>` every call constructs its own limiter, so every caller is admitted at
+once and the bound reads as configured while enforcing nothing. Keyed-and-shared is therefore the only shape
+that survives BOTH pooling strategies, rather than a preference between them. Recorded here 2026-08-16
+because it had been written only as a "why this is not a field on the provider" paragraph in
+`ProviderAdmission`'s own remarks — an argument against a real alternative, which is a decision and not a
+comment.
+
 ## D31 — "never set up" is its own verdict in BOTH domains, and a blameless verdict never masks a real one (2026-08-05)
 `LlmVerdict.NotConfigured` and its generation twin distinguish "this backend was never configured" from
 "this backend failed". A router keeps the two apart: a real failure outranks a blameless one, so
@@ -674,13 +691,20 @@ not the switch — the catch-all is what hid the defect, so it now holds nothing
 can describe the same situation and still carry different fallback behaviour, so mapping by name alone
 changes what the router DOES while looking like a rename.
 
-**`ContextWindowExceeded` collapses to `Failed`, and that is a TRADE rather than an omission.** It is the
-one member with no media counterpart, and it is genuinely reachable — the shared corpus matches "prompt is
-too long", which image backends do say. `Unsupported` would describe it better *and* route it better
-(advance without penalty), but a blameless verdict must never outrank a real failure in the generation
-router, so it stays at `Failed` — and `Failed` carries `PenalizeAndAdvance`, so a backend that keeps
-refusing an oversized prompt is penalised for it. **The real remedy is a router change, not a mapping
-change**, which is why it is filed rather than patched here.
+**`ContextWindowExceeded` maps to `Unsupported`.** It is the one member with no media counterpart, and it is
+genuinely reachable — the shared corpus matches "prompt is too long", which image backends do say. Too big
+for THIS backend is a capability gap rather than ill health, so it must ADVANCE without counting toward the
+dead-host threshold.
+
+**Amended 2026-08-16 — this paragraph said the opposite, and was stale rather than wrong.** As first
+written it recorded a TRADE: `Unsupported` describes and routes it better, but a blameless verdict must
+never outrank a real failure while the router has only ONE reporting slot, so the member stayed at `Failed`
+(and therefore at `PenalizeAndAdvance`, penalising a backend for refusing an oversized prompt). It closed
+with *"the real remedy is a router change, not a mapping change, which is why it is filed rather than
+patched here"* — and that router change LANDED, as the second reporting slot in **D31**. The mapping moved
+with it; the decision record did not, so the log asserted a behaviour the code had not had for some time.
+Nothing could see it: `check-docs` gates retired VOCABULARY, and a decision going stale retires no word.
+Found while relocating a comment that cited this entry.
 
 ## D37 — refuse an identity collision; and a Core exception may carry a verdict (2026-08-05)
 **Two rules, from items that stayed open until each got a decision.** An identity collision — two
@@ -854,6 +878,17 @@ multiplicative policy on the corpus's `topical` class in all six shapes; the mul
 shipped and is one line to restore. **No data migration either way** — `Stability`'s unit contract is what
 made deleting a curve free.
 
+**Why a power law is the right FAMILY, not merely the better-validated one** (recorded 2026-08-16; it had
+lived only in a comment, and the comment paydown had nowhere to move it). A single memory decaying
+exponentially and a CORPUS decaying exponentially are different claims. A heterogeneous corpus is a
+superposition of exponentials with different stabilities, and a sum of exponentials over a spread of rates
+is approximated far better by a power function than by any one exponential — the fast-decaying entries
+dominate early and the slow ones dominate the tail, which is exactly a heavy tail. FSRS's own curve moved
+from exponential to power at v4 for this reason. So the exponential curve was not merely less validated: it
+was the wrong shape for the thing being modelled, which is a corpus and never a single item. Do not
+"simplify" back to one on the grounds that per-item decay is exponential — that premise is true and does not
+imply the conclusion.
+
 **The curve and the ranking default are NOT independent decisions.** The `topical` regression this ships
 knowingly is a property of the PAIRING, not of the curve alone — the rank policy decides how much a
 stability difference is allowed to move an entry's position. Changing one without re-measuring the other is
@@ -910,11 +945,11 @@ and `PruneAsync` became exact rather than refusing to delete any connected entry
 
 **Re-reading the deferral note is what found it, and the note understated the problem.** It read as a
 conservative bound; the guard it described actually left a genuinely unretrievable connected entry
-**unreapable forever**, which is a defect rather than a safe margin. A deferral's own summary is written by
+**unremovable forever**, which is a defect rather than a safe margin. A deferral's own summary is written by
 someone who decided not to look further.
 
 **Rejected: keep the guard and declare the strength axis accumulator-unit BY CONTRACT.** That closes the
-inconsistency on paper while leaving the unreapable entry in place — a definition change rather than a fix.
+inconsistency on paper while leaving the unremovable entry in place — a definition change rather than a fix.
 
 **The backfill is the part that cannot be exact, and its direction is the decision.** An existing edge's
 true primitives are unknowable, so they are seeded such that an old edge reads as *recently* strengthened
@@ -1145,18 +1180,18 @@ abstraction. A consumer holding an `IMemoryEngine` could reach neither, and noth
 
 - *A separate `IErasableMemory` for `ForgetAsync`.* Rejected: both verbs are "this engine can delete", and
   the split would mean two type tests for one question. `IForgettableMemory`'s own summary already says
-  reaping is always explicit — a whole-scope erase is the most explicit reap there is.
+  removing is always explicit — a whole-scope erase is the most explicit remove there is.
 - *Leave the surface and document the concrete type.* Rejected outright: telling a consumer to downcast to
   `GraphMemoryEngine` to delete their users' data defeats the named-engine seam (**D39**) and breaks the
   moment a blend has two members.
-- *Return `0` when no member can reap.* Rejected because `PruneAsync` returns a COUNT and `0` already means
-  "nothing matched". Reaping fails LOUD (`NotSupportedException`, naming the members considered) like
-  `LinkAsync` and unlike `ExpandAsync` — a caller reaping for a consent withdrawal must not read "nothing
-  here can ever reap" as "done".
+- *Return `0` when no member can remove.* Rejected because `PruneAsync` returns a COUNT and `0` already means
+  "nothing matched". Removal fails LOUD (`NotSupportedException`, naming the members considered) like
+  `LinkAsync` and unlike `ExpandAsync` — a caller removing for a consent withdrawal must not read "nothing
+  here can ever remove" as "done".
 
-**Reaping fans OUT where expansion and linking ROUTE**, and the difference is the argument, not taste:
-`ExpandAsync`/`LinkAsync` take a `MemoryRef`, which names exactly one owning member, while reaping takes a
-(task, scope) every member may hold material under. Reaping one member and returning would leave the blend
+**Removal fans OUT where expansion and linking ROUTE**, and the difference is the argument, not taste:
+`ExpandAsync`/`LinkAsync` take a `MemoryRef`, which names exactly one owning member, while removing takes a
+(task, scope) every member may hold material under. Removal one member and returning would leave the blend
 still holding the data the caller asked to remove.
 
 **Two more members of the same defect landed with it.** `MemoryRecall.Answered` — the abstention signal the
@@ -1464,7 +1499,7 @@ closed.** `README.md` stated three, and they are checkable one by one —
 | The stated reason | What closed it |
 |---|---|
 | "two of its backends were written from vendor documentation with no key to call" | **D69** — every mapping those backends could have got wrong is now a host option, so a mismatch is a configuration edit rather than a library release |
-| "a third's argv is ported rather than measured" | **D69** — `LocalDiffusionOptions.Flags` makes the whole `sd-cli` argv the host's, keyed by meaning rather than spelling |
+| "a third's argv is ported rather than measured" | **D69** — `LocalDiffusionOptions.ArgvFlags` makes the whole `sd-cli` argv the host's, keyed by meaning rather than spelling |
 | "`IGenerationStreamProvider` has no implementation at all yet" | **D67** — the router's stream door, with fifteen tests over the handling |
 
 **That is the argument for writing a reason clause into an exemption in the first place.** An exemption
@@ -1557,17 +1592,17 @@ build could not read, which is a real failure and not a capability gap.
 **1. `IForgettableMemory` is split; `IPrunableMemory` carries `PruneAsync`.** They answer different questions.
 Forgetting is a targeted withdrawal of one user's data: it must be COMPLETE, and a partial one is a broken
 promise. Pruning bounds an ever-growing store: it is best-effort by nature, an operator's or a scheduler's
-act, and reaping fewer entries than hoped defers a cost rather than breaking anything.
+act, and removing fewer entries than hoped defers a cost rather than breaking anything.
 
 The combined interface forced every engine to claim both or neither, and a vector store is the case that
 shows why that is wrong — it can forget a (task, scope) exactly and cannot prune by age at all, because
 nothing in `ISemanticMemory` exposes one. Under the old shape it had to lie about pruning or give up
 forgetting. **And the composite could only pre-check that a member implemented the interface**, so a member
 that implemented it and threw from one of the two methods produced precisely the outcome the pre-check
-exists to prevent: some members reaped, then an exception. The pre-flight now asks for the capability the
+exists to prevent: some members removed, then an exception. The pre-flight now asks for the capability the
 VERB needs.
 
-**2. `IMemoryReapPolicy` decides which members a reap visits** — a seam, asked per member AND per kind
+**2. `IMemoryRemovalPolicy` decides which members a removal visits** — a seam, asked per member AND per kind
 (`Forget` / `Prune`). A member the policy excludes is SKIPPED instead of refusing the whole verb.
 
 **AMENDED the same day it landed, and the correction is the more interesting half.** The first version was
@@ -1583,7 +1618,7 @@ subsystem whose every other variable is an `IMemory*Policy` — seven of them, a
 glossary out of an automatic prune and include it in an explicit consent withdrawal, or the reverse. That
 possibility only becomes expressible once eligibility stops being a property of the engine.
 
-**Not a type check either, and not in the default.** `DefaultMemoryReapPolicy` excludes an
+**Not a type check either, and not in the default.** `DefaultMemoryRemovalPolicy` excludes an
 authoritative-ONLY member, keying on `MemoryGrades` — a property every engine already declares. The grade
 split exists precisely to separate operator-maintained exact facts from decaying associative material, so
 authoritative-only IS a curated catalogue by construction, whoever wrote it. `member is CuratedMemoryEngine`
@@ -1592,7 +1627,7 @@ It is a HEURISTIC, and appropriate *because* it is a default: a deployment that 
 policy, which is the line that makes a guess acceptable here and not inside the engine.
 
 **The distinction it preserves is the whole point, and collapsing it would undo D63.** An engine that holds
-user data and cannot reap it is a **gap** — the composite refuses loudly, because reaping the rest and
+user data and cannot remove it is a **gap** — the composite refuses loudly, because removing the rest and
 reporting success leaves the blend holding exactly what the caller asked to remove. An engine that declares
 itself operator-authored is **out of scope** — skipping it is correct. One engine cannot do what was asked;
 the other was never asked. Treating them alike turns every gap into a silent partial, which is the defect
@@ -1600,7 +1635,7 @@ D63 was written about. The skip is LOGGED, not silent: a caller withdrawing cons
 glossary was kept.
 
 **What this unblocks, and it is the reason it was worth doing.** `UseCurated("glossary").UseGraph()` — a
-blend from this library's own README — could not reap AT ALL, because the curated member cannot forget. So an
+blend from this library's own README — could not remove AT ALL, because the curated member cannot forget. So an
 application withdrawing a user's consent had nothing to call, and an operator bounding disk had nothing
 either: `PruneAsync` and its durable `MemoryPruneJobHandler` already existed and were unreachable through the
 common blend. Curated material is what an operator maintains; it is neither the user's to withdraw nor what
@@ -1614,9 +1649,9 @@ grade.
 **Two refusals that look like limitations and are the point.** A semantic forget with a NULL scope throws:
 the vector store is addressed by (task, scope) and cannot enumerate a task's scopes, so "every scope" is
 inexpressible — and the alternatives are worse, since forgetting nothing reports success while the embeddings
-remain. A lexical prune given a `scope` or a `minRetrievability` reaps NOTHING and says so: that store filters
+remain. A lexical prune given a `scope` or a `minRetrievability` removes NOTHING and says so: that store filters
 on task and age only, and honouring the criteria it can while ignoring the ones it cannot deletes MORE than
-was asked for. **Over-deletion is the one direction a reap must never err in**, which is also why returning 0
+was asked for. **Over-deletion is the one direction a removal must never err in**, which is also why returning 0
 is honest for a prune and would not be for a forget.
 
 ---
@@ -1734,3 +1769,353 @@ finally examined, in opposite directions: streaming tool-calls hid a real defect
 and this one hid a misunderstanding of what the capability meant. **Re-read a deferral when you finally act
 on it, rather than treating "we already decided to skip this" as the answer** — the skip was reasoning about
 a world that may no longer exist, or may never have existed.
+
+---
+
+## D75 — a guard Block differs in FORCE between the two doors by necessity, and differed in SIGNAL by accident (2026-08-16)
+
+**The decision.** The hosted MCP endpoint keeps its advisory refusal; the in-process tool loop keeps its
+terminal one. That asymmetry is documented as intended. What is fixed is the SIGNAL: `ToolFunction` now logs
+a block the way `ToolLoop` already did.
+
+**The backlog item was half right, and finding out which half is the point.** It read: *"`ToolLoop` ends the
+turn with `LlmVerdict.Refused`; `ToolFunction` returns a refusal string, so the model may retry with
+perturbed arguments, unbounded, and the host gets no signal (that path has no logger) … Needs a decision
+about what a hosted refusal should DO."* Investigating it split the complaint in two, and the halves have
+opposite answers.
+
+**FORCE: the difference is imposed, not chosen.** `ToolLoop` OWNS the turn, so ending it is a thing it can
+do. `ToolFunction` is one MCP function invocation inside a loop the CLIENT owns, and the protocol has no
+"abandon the session" response — a tool may return content or an error, and nothing else. The nearest thing
+to termination available here is throwing, which the client is equally free to catch and retry: **the
+appearance of force without the substance.** So parity of force is not achievable, and pretending to it
+would be worse than the honest asymmetry, because a consumer would believe a refusal stops a session that it
+cannot stop. What the hosted door DOES enforce is the part that matters most: the tool does not run and its
+payload is never produced.
+
+**SIGNAL: the difference was an accident, and it is fixed.** Both doors always emitted the guard-decision
+COUNTER — `IGuardRail` records it, so a block was never invisible in telemetry, and the item's "the host
+gets no signal" overstated it. But `ToolLoop` logged both of its block paths at Information and
+`ToolFunction` had no logger at all, so an operator reading LOGS saw a refusal from one door and silence
+from the other. That was not a decision anybody took; it is what happens when one class is constructed with
+a logger and its twin is not.
+
+**What is deliberately NOT added: a retry counter.** The unbounded-retry worry is real but the bound belongs
+to the client's own loop budget, and inventing a policy here would mean holding per-session state this seam
+does not have, for a rule no consumer has asked for. Repetition is already observable — every block
+increments `lyntai.guard.result=block`, so an operator can alert on a RATE rather than discover it after the
+fact. **A concrete report of a model looping on a blocked tool is what would justify more**, which is the
+same "a real failure is a better starting point than a speculative one" rule `repo-mechanics.md` records for
+the backlog.
+
+**The generalizable half.** This is the third door-parity finding in the same subsystem, and the useful
+question turned out not to be "do both doors behave identically" but **"which differences are forced by what
+each door IS, and which are leftovers?"** Force was forced. Signal was a leftover. Treating the whole item as
+one asymmetry would have produced either a fake termination or a shrug, and both were available and wrong.
+
+---
+
+## D76 — memory's umbrella verb becomes REMOVAL, because the old one meant to harvest (2026-08-16)
+
+**The decision.** `IMemoryReapPolicy` → `IMemoryRemovalPolicy`, `MemoryReapKind` → `MemoryRemovalKind`, <!-- drift-ok: the entry RETIRING the name must name it -->
+`DefaultMemoryReapPolicy` → `DefaultMemoryRemovalPolicy`, `reapPolicy` → `removalPolicy`, and every prose use <!-- drift-ok: the entry RETIRING the name must name it -->
+of the word about memory becomes *remove* / *removal*. Registered in both `retiredTerms` and
+`retiredApiNames` so it cannot return through prose or surface.
+
+**Why it is a name that MISLEADS rather than merely differs**, which is D66's own test for whether a rename
+is worth spending. In ordinary English **to reap is to HARVEST** — "reap what you sow", "reap the rewards" —
+so the word's connotation is *gathering a yield*, close to the opposite of removing data. A reader meeting
+`IMemoryReapPolicy` cold could reasonably take it for something governing RECALL. The concrete verbs were <!-- drift-ok: the entry RETIRING the name must name it -->
+never the problem: `Forget` and `Prune` say exactly what they do. Only the invented umbrella did.
+
+**Caught on the eve of the freeze, by the owner asking "Reap?" — one word.** That timing is the whole
+point. The word had reached the frozen 3.0 API as three type names and a parameter, and prose can be
+reworded at any time while a shipped type name costs a major. A day later this would have been permanent.
+
+**Two candidate replacements were unavailable, and the reasons are worth recording** so nobody re-proposes
+them. **Retention** is taken: `IMemoryRetentionPolicy` is an existing seam (**D47**) for something else
+entirely, and reusing the stem would collide in the one subsystem where seven policy domains already have to
+stay distinguishable. **Deletion** is contested here: **D41** makes "deletion" precisely the thing the graph
+engine does NOT do to decayed entries (it buries them), so naming the umbrella after it would fight a
+distinction the subsystem is built on. *Removal* is plain, collides with nothing, and is honestly what both
+verbs perform.
+
+**The word is NOT banned outright, and the two survivors say why the ban had to be scoped.**
+`ProcessRunner.ObserveStdinAndReapAsync` keeps it: reaping a child process is the established POSIX term for
+exactly that operation, and renaming it would trade a correct term for a vaguer one. One idiomatic
+"nothing to reap it" in `PairwiseComparer` is ordinary English about benefit, not about data. So the
+registered pattern requires a memory-domain word nearby and excludes process vocabulary — **a rule that
+banned the token everywhere would have been simpler to write and wrong**, and would have taught the next
+reader to add an exclusion rather than think.
+
+**A correction to the record made while doing this.** The word was assumed to be this pass's coinage and was
+not: `MemoryPruneJobHandler` used it on 2026-07-22, three weeks earlier. What this pass did was PROMOTE it
+from a comment into the public surface — which is the worse act, and the one that made the rename urgent
+rather than optional.
+
+**One question deserved the whole sweep, so the surface added after D66 got one.** D66's naming pass ran
+before D67–D76 existed, so ~35 public names had never been reviewed with the freeze in sight. Every one was
+read against the same test. **One more failed it: `LocalDiffusionOptions.Flags` → `ArgvFlags`** — in .NET
+*Flags* connotes booleans or a `[Flags]` enum, not "the argv token for each argument", so a reader scanning
+the options learns the wrong thing about the type. Registered in `retiredApiNames` like the rest.
+
+**And one was deliberately LEFT, which is the half that shows the rule cuts both ways.**
+`LlmChunk.Tool(call)` breaks the sibling pattern where a factory is named for its kind
+(`Content`/`Final`/`Error`), because the kind here is `ToolCall` and a type cannot carry a method and a
+property of that one name — and `ToolCall` is the better name for the PAYLOAD. It differs from the pattern
+without misleading anyone about what it does, which is precisely the case D66 says NOT to spend a rename on.
+The reasoning now sits on the method, so the asymmetry is not "fixed" later by someone who assumes it was an
+oversight.
+
+## D77 — the relational memory stores share their MATERIALIZATION, and the claim that said otherwise was half right (2026-08-16)
+
+**The decision.** `MemoryNodeRow`, `MemoryEdgeRow`, `MemoryPositionRow` and `MemoryReviewRow` (with
+`MemoryNodeRow.ToNode` and `MemoryReviewRow.ToReview`) plus `MemoryGraphSql` now live once, in
+`Lyntai.Core/Storage`, and both relational `IMemoryGraphStore` backends consume them. The QUERIES stay
+per-backend. Purely additive to the public surface — the API baseline gained 66 lines and lost none.
+
+**The alternative, and it was written down as settled.** `PostgresMemoryGraphStore`'s own class doc said the
+parallel with the SQLite twin "is deliberate and is NOT duplication waiting to be extracted: the two differ
+by dialect necessity". That sentence is TRUE — `GREATEST` versus `MAX`, `ILIKE` over a GIN index versus an
+FTS5 virtual table and its triggers, `= ANY(@ids)` versus `IN @ids`, `ON CONFLICT … DO NOTHING` versus
+`INSERT OR IGNORE`, the table reference Postgres requires in `DO UPDATE SET`. Every clause of it is about
+the SQL, and it was read as a claim about the file.
+
+**What it cost.** Four materialization types and the projection to `GraphNode` were byte-identical in both
+files — 25 properties, aliased explicitly in both because **a column↔property mismatch is a SILENT null
+rather than an error**. Two copies of that is two places for the silence to appear, and no gate can see
+either: the compiler binds nothing here, and the tests exercise whichever backend they happen to run on.
+Measured across the pair: 291 distinct identical code lines before, 215 after; 1008 code lines down to 825.
+
+**Why the precedent was already in the repository.** `JobStoreSql` + `JobRow` hoists the job state machine
+and its row into Core for the same pair of backends and says why in its own header — "so the SQLite and
+Postgres stores can't drift on it (drift in fencing = a correctness bug, not a style nit)". The memory graph
+store had the stronger case, because `pitfalls.md` §Storage records **three** measured drift incidents in
+this exact subsystem (the three-way `Relevance` divergence, `salience` read at four sites under three rules,
+and a recall divergence that failed on two of three backends for a year). Each was closed by hoisting the
+RULE — `MemoryRelevance`, `MemorySignals`, `MemorySubject`, `SearchTerms` — while the mapping those rules
+feed stayed duplicated.
+
+**What deliberately did NOT move, said here so the next reader does not "finish" it.** The seed and
+neighbour queries, `UpsertAsync`'s two statements, the by-id delete and the subject INSERT are genuine
+dialect. So are the two subject READS, and those are the interesting ones: they differ by a single `::text`
+cast Npgsql needs on the scope parameter, and threading a cast token through a shared string is more obscure
+than the two lines it saves. **`verified` stays per-backend too** — SQLite has no boolean and takes
+1/0/NULL, Postgres binds a native `bool?` — so `MemoryReviewRow` declines to declare that one column and is
+left unsealed for each backend to add it. Forcing it into one shape would be inventing a portability the
+storage engines do not have, and the tri-state it carries is load-bearing (**D59**).
+
+**The floor under `age / stability` is now one number, `MemoryGraphSql.MinimumStability`.** Both backends
+still spell the guard themselves, because the spelling IS the dialect difference; what they no longer do is
+each carry their own `0.000001` literal, which is how the same corpus starts pruning differently on the two
+backends after one edit.
+
+## D78 — one option-domain guard, and the domain phrase is DERIVED from the check (2026-08-16)
+
+**The decision.** One function guards every option domain in the memory subsystem:
+`MemoryOption.Require(value, MemoryOptionRange, owner, why)` is the sole `ArgumentOutOfRangeException` guard
+at all 32 sites across six files. It replaced 31 hand-rolled copies across five when it landed —
+`DsrOptions`, `GraphMemoryOptions` and the three ranking options records — and every option guarded since has
+gone through it, `SalienceOptions.NoveltyWeight` first. `MemoryOptionRange` both TESTS the value and DESCRIBES itself, so the message's domain phrase and
+the comparison that rejected the caller come from one place. Both types are `internal`.
+
+**Why this is not merely line count.** The check had not drifted; two things around it had.
+
+1. **The sites disagreed about `ParamName`.** An inline `nameof(value)` inside an `init` accessor is the
+   literal string `"value"` — useless to a caller — and 21 sites reported that, while the ones routed through
+   a file's own local helper reported the PROPERTY name. Nothing could see the split,
+   because no test asserts a `ParamName` and the exception type is identical either way.
+2. **Every domain phrase was hand-written beside a check nothing tied it to.** `SpacingWeight` says
+   "in [0, 700]" and tests `is < 0 or > 700`; they agree today by attention. A record whose text says
+   `[0, 1]` while its code tests `< 0 || >= 1` compiles, passes, and misleads — the same class of defect as
+   a comment that stops being true, but inside an exception a consumer is being handed as an explanation.
+
+**Three local extractions already existed, which is the argument.** `GraphMemoryOptions.Finite(value,
+name)`, `CompositeRankingOptions.GuardWeight(value, propertyName)` and
+`ReciprocalRankFusionOptions.GuardWeight(value, propertyName)` — three files, three signatures, one idea,
+and `CompositeRankingOptions` used its own helper for two of its four guarded properties and inlined the
+other two. **When the same extraction is performed independently three times, the seam is in the wrong
+place**, and the next options record makes a fourth.
+
+**`[CallerMemberName]` supplies the property name.** Inside an `init` accessor it is the property's own
+name, which removes the last thing a copy-paste can get wrong: a guard carrying the name of the property it
+was copied FROM compiles, reads perfectly, and names the wrong option in the exception.
+
+**What deliberately stayed per-property: the WHY.** The domain is derivable and the consequence is not —
+"must be a finite negative number" is arithmetic, and "at `Decay = 0` nothing is ever forgotten while
+`CandidateCutoff` still reports a finite bound, so `PruneAsync` deletes rows the curve rates fully
+retrievable" is the reason that option has a domain at all. Every one of those sentences survives verbatim.
+Where several properties share ONE failure mode — the five reciprocal-rank-fusion weights, the two
+composite weights, the three `GraphMemoryOptions` knobs — the reason is one named constant rather than three
+copies of a sentence.
+
+**Internal, not public.** The behaviour that is public is the exception. A BYO policy with its own options
+record writes its own guard, exactly as it writes its own options — `library-api-design.md`'s "every public
+type earns its keep", and nobody has asked for this one. Reachable from the tests through
+`InternalsVisibleTo`, like `MemoryRankingContract` and `CandidateDedup`.
+
+**Measured:** 237 lines deleted, 111 added across the five files. No public surface change — the API
+baseline is untouched by this decision, and the options records' own tests (which assert the exception TYPE,
+never its text) all pass unchanged.
+
+## D79 — the FSRS adaptation spec and the salience×spacing interaction live in the record, not in a method's remarks (2026-08-16)
+
+**The decision.** `DsrRetrievability.Reinforce`'s `<remarks>` keeps the three laws, the drift guard, the
+Δt=0 branch and the coercion rule — what a caller must know. The two DESIGN arguments it carried move here:
+how the difficulty law is adapted from FSRS, and what the salience×spacing interaction costs. The method
+keeps the rule and a pointer. First paydown under `.claude/rules/code-commentary.md` and
+`check-comments`' ratchet.
+
+**Why these two and not the rest.** Both answer "why is the code shaped this way", which is this record's
+job; the rest answer "what happens when I call this", which is the doc's. The block was 120 lines before
+the sweep and 107 after — past what anyone reads in place, which makes the invariants inside it invisible,
+which is the same outcome as not writing them down.
+
+### The difficulty law, adapted from FSRS-5's `next_difficulty` with FSRS-6's constants
+
+Checked against `py-fsrs/scheduler.py`, `fsrs-rs/model.rs`, fsrs4anki v4.7.2 and the Anki manual.
+FSRS-4/4.5's own `next_difficulty` has NO damping term; FSRS-5 introduced the linear damping and moved the
+reversion target from `D0(3)` to `D0(4)`; FSRS-6 kept that SHAPE and recalibrated `w6`/`w7`/its own `D0`
+sub-formula, which went exponential where v5's was linear. The form:
+
+    ΔD  = -w6 · (G - 3)
+    D'  = D + ΔD · (10 - D) / 9        (linear damping toward the ceiling)
+    D'' = w7 · target + (1 - w7) · D'  (mean reversion)                then clamp to [1, 10]
+
+**Four adaptations, so the implementation can be checked against that form:**
+
+1. **The discrete rating `G ∈ {1,2,3,4}` becomes a continuous derived grade** restricted to the success
+   range, `g = 2 + 2·retrievability ∈ [2, 4]` — exact at both ends (`r=0 → g=2` "Hard", `r=1 → g=4`
+   "Easy"), with `g=3` ("Good", FSRS's own no-change reference) landing at `r = 0.5`, this library's OWN
+   half-life anchor rather than an arbitrary point.
+   <br>**The FLOOR is a constraint, not a tuning choice: the mapping may never reach `g=1`** — `Again`, a
+   LAPSE, the one rating a purely-successful recall must never emit. A linear `1 + 3r` would emit it at
+   `r=0` while growing stability maximally in the same call.
+2. `w6` is `DsrOptions.DifficultyChangeWeight`, `w7` is `DifficultyReversionWeight`, and the target is
+   `DifficultyReversionTarget` — all three adopt FSRS-6's OWN published defaults, not invented numbers.
+3. The linear damping term is kept verbatim.
+4. **The reversion target is a directly-settable NUMBER** rather than FSRS's per-grade `D0` sub-formula:
+   this library has no `w4`/`w5` pair to compute one from, and the target is a plain constant once
+   `w4`/`w5` and the grade (always `4`, Easy) are fixed. Exposing the result changes where one
+   sub-computation's output comes from, and nothing about the SHAPE of the law.
+   <br>**Reversion is not optional**: linear damping's own factor is identically zero at `D = 10`, so
+   dropping it leaves that ceiling ABSORBING.
+
+### The salience × spacing interaction — measured, shipped, and deliberately left
+
+`ModulatedRetrievability` calls `Reinforce` with the RAW stored state, because `Reinforce`'s return is what
+gets STORED and compounding a modulated figure would bake the modulation in permanently. The consequence is
+not neutral: a modulated (for instance salient) entry has a raised effective retrievability the curve never
+sees, so `r` reads LOW, the spacing term `e^(spacing·(1−r)) − 1` reads HIGH, and the entry gains more
+stability per recall than an equally-aged unmodulated one. **The same signal both slows decay and speeds
+growth.**
+
+Measured at the defaults, on the increase term, with a stored stability of 100:
+
+| age/S | salience 1.5 | salience 2.5 | salience 4.0 |
+|---|---|---|---|
+| 0.5 | 1.33× | 1.99× | 2.98× |
+| 1 | 1.26× | 1.77× | 2.53× |
+| 5 | 1.12× | 1.35× | 1.66× |
+
+`SalienceRetentionPolicy` is registered for every graph engine, so a consumer who never mentions salience
+still gets this; `4.0` is `SalienceOptions.MaxSalience`'s own default, so the right-hand column is the most
+a shipped policy can report rather than a corner case. The inflation is LARGEST for the FRESHEST recalls —
+the opposite of the intuition that a retention signal matters most on rarely-touched entries — and it
+COMPOUNDS, because each inflated gain raises the base of the next.
+
+**Left in place, and the alternatives are why.** Removing it means either compounding the modulated figure
+into stored stability — exactly what `ModulatedRetrievability` refuses to do, since that bakes a signal's
+effect in where no later change to the signal could undo it — or giving that wrapper a second,
+modulation-aware seam only one shipped curve would use. Both are changes to the modulation CONTRACT rather
+than fixes to the curve, and the direction is safe (more stability → a wider `CandidateCutoff` → fewer
+deletions).
+
+**It does confound a curve-vs-curve measurement**, so any such comparison must register no retention
+policies or control for salience explicitly (`docs/task-archive.md` Part 54).
+
+## D80 — the rest of the relational row types follow D77, because nine more copies is nine more silent nulls (2026-08-16)
+
+**The decision.** `CuratedMemoryRow`, `PromptVersionRow`, `ScoreResultRow`, `ScoreAggregateRow`,
+`ScoreExportEntryRow`, `TraceSessionRow`, `TraceStepRow`, `UsageTotalsRow` and
+`MemoryEvictionCandidateRow` move to `Lyntai.Core/Storage/StorageRows.cs`, with their projections. Both
+relational backends consume them. Purely additive: the API baseline gained 75 lines and lost none.
+
+**Why this is D77 again rather than a new judgement.** D77 hoisted the memory-graph store's materialization
+on one argument — *a column↔property mismatch is a SILENT null rather than an error, so two copies is two
+places for that silence to appear and no gate can see either*. That argument was never specific to the
+graph store. Measured across the tier afterwards: **nine more row-type pairs, all byte-identical**, in six
+more store pairs. Fixing one instance of a defect and leaving nine is how a rule becomes folklore.
+
+**What the measurement also settled, which is why this is not a blanket rule.** The tenth pair —
+`SqliteVectorStore.Row` / `PostgresVectorStore.Row` — is genuinely different: SQLite materializes the
+stored vector, Postgres a computed score. They share a NAME and nothing else, and both keep their own.
+That is the same line D77 drew for `verified`: hoist what does not differ, and leave what does rather than
+inventing a portability the storage engines lack.
+
+**One name had to change on the way in.** The score store's private `ExportRow` projects into
+`Lyntai.Cortex.ScoreExportRow`, so hoisting it under its obvious name would have shadowed the contract type
+it exists to build — the compiler caught it immediately, in `ScoringService`. It is `ScoreExportEntryRow`,
+which also matches how its siblings read (`ScoreResultRow` → `ScoredResult`, `ScoreAggregateRow` →
+`ScorerAggregate`).
+
+**Measured.** Distinct identical code lines across the six affected pairs: 405 → 304. Private row types in
+the two backends: 23 → 5, and every survivor is one of the three cases above (the two `ReviewRow`
+subclasses D77 left deliberately, the two vector rows, and one Postgres-only row with no twin).
+
+## D81 — two store domains share their SQL, and the measurement is what says only two (2026-08-16)
+
+**The decision.** `ConversationStoreSql` and `TraceStoreSql` join `JobStoreSql` and `MemoryGraphSql` in
+`Lyntai.Core/Storage`. Both relational backends consume them. Additive: the API baseline gained 16 lines
+and lost none.
+
+**Why exactly two, and why that is a result rather than a stopping point.** Every SQL statement in every
+relational store was compared against its twin. Conversation is **9 of 9** identical and trace **4 of 5** —
+the entire surface, so one copy removes a real drift channel and nothing dialect-specific is left to
+justify a second. Every other store shares only one-line `DELETE`s and `SELECT`s: two in the key-value
+store, three in the response cache, one in the usage tracker. Hoisting
+`DELETE FROM lyntai_kv WHERE key = @key` into a shared constant buys indirection, not safety.
+
+**This is a WEAKER case than D77/D80, and conflating them would be the mistake.** A column↔property
+mismatch in a row type is a SILENT null — nothing can see it. A column list that drifts between two INSERT
+statements fails loudly at the database. These are shared because they are word-for-word identical with no
+dialect left in them, not because a drift would go unnoticed. The bar for hoisting SQL is therefore higher
+than for a mapping, and it is met here only by the two domains whose whole surface qualifies.
+
+**The keyset-paging pair moved with them, which is the part worth having.** Both stores built their page
+query by interpolating a local `cols` constant, and the ordering in the cursor comparison has to match the
+ordering in the unpaged list EXACTLY or a same-tick thread is skipped or duplicated across pages. That
+invariant now lives in two constants next to each other rather than in four interpolations in two files.
+
+**Measured.** Conversation 49 → 37 distinct identical code lines, trace 50 → 43.
+
+## D82 — RRF ranks by COMPETITION, so an uninformative signal contributes nothing (2026-08-16)
+
+`ReciprocalRankFusionPolicy` assigns competition ranks (`1, 1, 3`) rather than distinct array positions
+broken by `Node.Id`. Recorded because the alternative is the one that sounds safer, so it will be proposed
+again.
+
+**Why the obvious alternative is wrong.** Cormack, Clarke & Buettcher's original RRF fuses independent
+ranked LISTS, where a tie cannot occur — each list is already a total order. This policy fuses SIGNALS, and
+a signal absolutely can tie: `MemorySignals.Salience` reports the identical neutral value for every
+candidate when nothing has judged any of them (no embedder and no vector store — the library's own default
+deployment), and every direct hit shares hop 0 on a fresh graph.
+
+Assigning ranks by array position with an id tiebreak gives "stable, distinct ranks" and is not safer. Fed
+a signal on which EVERY candidate ties, position ranking still hands out `1..n` in full, so a signal
+carrying ZERO discriminating information contributes FULL WEIGHT — entirely as a proxy for `Node.Id`
+ordering. **Measured at the shipped defaults: a uniformly-tied salience signal alone handed 25% of the total
+fused weight to whichever candidate merely had the highest id**, regardless of how it scored on relevance,
+retrievability or hop.
+
+Competition ranking is what actually expresses "this signal is uninformative here": every candidate takes
+the same rank, contributes the same constant term, and cannot move the ordering — equivalent to setting that
+signal's weight to `0`, without a consumer having to notice the discriminating power vanished and disable it
+by hand. A PARTIALLY tied signal degrades proportionally rather than totally.
+
+**Why it is a decision and not a comment.** It was written only as a rejected-alternative argument inside
+the policy's own remarks, which is where `.claude/rules/code-commentary.md` says such an argument must not
+live — and the 2026-08-16 comment paydown deleted it correctly, at which point the reasoning had no home and
+the measured 25% would have been lost. The tell that it belonged here rather than in the comment: it names a
+real alternative, states what that alternative costs, and constrains anyone who later "fixes" the duplicate
+ranks.

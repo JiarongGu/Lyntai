@@ -143,6 +143,9 @@ public class SqliteGovernanceStoreTests : IDisposable
     [Fact] public Task Contract_delete_one() => VectorStoreContract.Delete_removes_one_entry_and_leaves_the_others(new SqliteVectorStore(_db.Factory), "vc5");
     [Fact] public Task Contract_remove_collection() => VectorStoreContract.Removing_a_collection_clears_it_and_absent_deletes_are_no_ops(new SqliteVectorStore(_db.Factory), "vc6");
     [Fact] public Task Contract_isolated() => VectorStoreContract.Collections_are_isolated(new SqliteVectorStore(_db.Factory), "vc7");
+    [Fact] public Task Contract_tie_by_id() => VectorStoreContract.Equal_scores_are_ordered_by_id(new SqliteVectorStore(_db.Factory), "vc8");
+    [Fact] public Task Contract_tie_at_k() => VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries(new SqliteVectorStore(_db.Factory), "vc9");
+    [Fact] public Task Contract_tie_loses_to_score() => VectorStoreContract.The_tiebreak_never_outranks_the_score(new SqliteVectorStore(_db.Factory), "vc10");
 
     [Fact]
     public async Task VectorStore_ranks_by_cosine_and_persists()

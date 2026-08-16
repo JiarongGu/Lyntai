@@ -34,14 +34,14 @@ public sealed class PostgresUsageTracker(IDbConnectionFactory factory) : IUsageT
         // Per-consumer: SUM + lower() — rows keep their exact casing (the TEXT PK), but consumer identity
         // is case-insensitive library-wide, so the total AGGREGATES across casings.
         var row = consumer is null
-            ? await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition("""
+            ? await conn.QuerySingleOrDefaultAsync<UsageTotalsRow>(new CommandDefinition("""
                 SELECT COALESCE(SUM(input_tokens),0)::bigint AS input_tokens,
                        COALESCE(SUM(output_tokens),0)::bigint AS output_tokens,
                        COALESCE(SUM(cost_usd),0)::double precision AS cost_usd,
                        COALESCE(SUM(calls),0)::bigint AS calls
                 FROM lyntai_usage
                 """, cancellationToken: ct)).ConfigureAwait(false)
-            : await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition("""
+            : await conn.QuerySingleOrDefaultAsync<UsageTotalsRow>(new CommandDefinition("""
                 SELECT COALESCE(SUM(input_tokens),0)::bigint AS input_tokens,
                        COALESCE(SUM(output_tokens),0)::bigint AS output_tokens,
                        COALESCE(SUM(cost_usd),0)::double precision AS cost_usd,
@@ -63,11 +63,4 @@ public sealed class PostgresUsageTracker(IDbConnectionFactory factory) : IUsageT
                 new { consumer }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    private sealed class Row
-    {
-        public long InputTokens { get; set; }
-        public long OutputTokens { get; set; }
-        public double CostUsd { get; set; }
-        public long Calls { get; set; }
-    }
 }

@@ -10,10 +10,9 @@ namespace Lyntai.Memory.Salience;
 /// yields the opposite. Registering this policy is unambiguous.</para>
 ///
 /// <para><b>Measured cost of not having it.</b> A study comparing salience ON against OFF built its control
-/// by passing an empty collection, so the control was a second copy of the treatment. It was caught only
-/// because the control also asserted it had judged nothing salient and got <b>255</b> — an assertion added
-/// for a different reason. A control silently identical to its treatment reports agreement, which reads
-/// exactly like a null result (<c>TASKS.md</c> Part 69).</para>
+/// by passing an empty collection, so the control was a second copy of the treatment — caught only by an
+/// assertion added for a different reason. A control silently identical to its treatment reports agreement,
+/// which reads exactly like a null result (<c>TASKS.md</c> Part 69).</para>
 ///
 /// <para><b>What switching salience off actually costs</b>, so the choice is informed: decay resistance and
 /// store-admission priority, both default-on (<b>D45</b>). Measured on this library's corpus, salience

@@ -281,17 +281,17 @@ public class GraphMemoryEngineTests
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry"));
         await Crowd(engine, 40);
 
-        var reaped = await engine.PruneAsync("t", "s");
+        var removed = await engine.PruneAsync("t", "s");
 
-        Assert.True(reaped >= 1, $"the configured floor must reap the faded entry; reaped {reaped}");
+        Assert.True(removed >= 1, $"the configured floor must remove the faded entry; removed {removed}");
         Assert.Empty((await engine.RecallAsync(new MemoryQuery("t", "s", "faint"))).Items);
     }
 
     [Fact]
-    public async Task A_zero_MinRetrievability_reaps_nothing_which_is_the_opt_out()
+    public async Task A_zero_MinRetrievability_removes_nothing_which_is_the_opt_out()
     {
         // The escape hatch, asserted rather than assumed: retrievability is never below zero, so a floor of 0
-        // means "never reap on this criterion" and restores the pre-fix behaviour for a deployment that wants
+        // means "never remove on this criterion" and restores the pre-fix behaviour for a deployment that wants
         // deletion to happen only when a caller names a floor explicitly.
         var engine = Engine(new GraphMemoryOptions { MinRetrievability = 0 });
         await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry"));
@@ -302,9 +302,9 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
-    public async Task Prune_never_reaps_an_authoritative_fact_however_low_the_floor()
+    public async Task Prune_never_removes_an_authoritative_fact_however_low_the_floor()
     {
-        // Objective (1) again: an exact fact is not eligible for reaping at any floor. Guarded here because
+        // Objective (1) again: an exact fact is not eligible for removing at any floor. Guarded here because
         // wiring the option turned PruneAsync from a no-op into something that actually deletes.
         var engine = Engine(new GraphMemoryOptions { MinRetrievability = 0.99 });
         await engine.RememberAsync(new MemoryWrite("t", "s", "the exact fact", Grade: MemoryGrade.Authoritative));
@@ -450,14 +450,14 @@ public class GraphMemoryEngineTests
         Assert.Equal(MemoryGrades.Associative | MemoryGrades.Authoritative, Engine().Supported);
 
     [Fact]
-    public async Task Pruning_reaps_only_the_forgotten()
+    public async Task Pruning_removes_only_the_forgotten()
     {
         var engine = Engine();
         await engine.RememberAsync(new MemoryWrite("t", "s", "faded"));
         await engine.RememberAsync(new MemoryWrite("t", "s", "exact", Grade: MemoryGrade.Authoritative));
 
-        // Pruning reaps by the policy's CANDIDATE CUTOFF, which is a conservative SUPERSET — widened by the
-        // connection-boost ceiling. So prune UNDER-reaps rather than over-reaps: an entry can be below the
+        // Pruning removes by the policy's CANDIDATE CUTOFF, which is a conservative SUPERSET — widened by the
+        // connection-boost ceiling. So prune UNDER-removes rather than over-removes: an entry can be below the
         // recall floor and still not be deleted. That is the right direction for a destructive operation,
         // and it is why this needs far more crowding than the recall floor does.
         //
@@ -480,7 +480,7 @@ public class GraphMemoryEngineTests
     /// growing large fast), then a SECOND engine instance over the SAME store, reconfigured to
     /// <see cref="PerWriteAgePolicy"/> alone (resolved age = ordinal WRITE count, small). Before this fix,
     /// <see cref="GraphMemoryEngine.PruneAsync"/> always delegated to the store's cheap, accumulator-based
-    /// cutoff — which still held the STALE, chars-based residue from before the swap — and would reap an
+    /// cutoff — which still held the STALE, chars-based residue from before the swap — and would remove an
     /// entry the swapped engine's own <c>RecallAsync</c> correctly rates well within its retention window.
     /// No recall runs on either engine before the assertion, so nothing is reinforced/touched first — the
     /// accumulator is exactly what the ContentSize-governed writes above left it at.
@@ -498,7 +498,7 @@ public class GraphMemoryEngineTests
     /// collapsed to 1x under the bogus, enormous <c>StrengthAge</c> (exactly as if it had no edge at all), is
     /// what actually discriminates the fix: see the mutation-check note below.</para></summary>
     [Fact]
-    public async Task Prune_agrees_with_recall_after_a_policy_swap_rather_than_reaping_the_stale_accumulator()
+    public async Task Prune_agrees_with_recall_after_a_policy_swap_rather_than_removing_the_stale_accumulator()
     {
         var store = new InMemoryMemoryGraphStore();
         var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
@@ -522,7 +522,7 @@ public class GraphMemoryEngineTests
         // 50 ordinal writes at InitialStability 20 clears a modest floor easily (2^(-50/20) ~ 0.177). The
         // SAME fact under the STALE chars-based accumulator (~50*200=10000 over the same stability) reads
         // 2^(-500) — indistinguishable from zero — which is exactly the divergence round 1's fix closes: the
-        // pre-round-1 code would have reaped it.
+        // pre-round-1 code would have removed it.
         var removed = await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.05);
         Assert.Equal(0, removed);
 
@@ -530,7 +530,7 @@ public class GraphMemoryEngineTests
         Assert.Single(recalled.Items);
 
         // fix round 2, I-1's own assertion: a stricter floor. Plenty of OLD, UNCONNECTED filler genuinely
-        // fails 0.3 and is correctly reaped (unrelated to this fix — nothing protects an unconnected entry
+        // fails 0.3 and is correctly removed (unrelated to this fix — nothing protects an unconnected entry
         // beyond round 1's own age re-derivation), so this does NOT assert `removed == 0` overall. What it
         // asserts is narrower and load-bearing: "the linked fact" specifically survives.
         //
@@ -539,7 +539,7 @@ public class GraphMemoryEngineTests
         // the entry keeps its rightful connection boost and reads r ~ 0.486 — clear of 0.3. Reading the raw
         // chars-unit residue instead collapses the boost to 1x and gives ~0.340, which also clears 0.3, so
         // this assertion no longer discriminates between the two on its own; that is exactly what
-        // Prune_reaps_a_connected_entry_on_its_re_derived_strength_age_instead_of_refusing_outright's
+        // Prune_removes_a_connected_entry_on_its_re_derived_strength_age_instead_of_refusing_outright's
         // two-sided 0.40/0.60 pair exists to do.
         await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.3);
         var stillLinked = await underPerWrite.RecallAsync(new MemoryQuery("t", "s", "linked"));
@@ -554,10 +554,10 @@ public class GraphMemoryEngineTests
     /// last strengthened, while <c>Age</c> re-derived from the swap-safe primitives — so the derivable prune
     /// path could not trust the connection boost and refused to delete ANY connected entry on the
     /// retrievability criterion. That is safe but wrong: a genuinely unretrievable connected entry was
-    /// unreapable forever.</para>
+    /// unremovable forever.</para>
     /// <para><b>Both halves are load-bearing, and they fail in OPPOSITE directions</b> — which is what makes
     /// this discriminate the real fix from either mistake. The scenario is the swap
-    /// <see cref="Prune_agrees_with_recall_after_a_policy_swap_rather_than_reaping_the_stale_accumulator"/>
+    /// <see cref="Prune_agrees_with_recall_after_a_policy_swap_rather_than_removing_the_stale_accumulator"/>
     /// already establishes: writes governed by <see cref="ContentSizeAgePolicy"/> (position counts CHARS,
     /// reaching ~10,150 by the end), then a second engine over the same store governed by
     /// <see cref="PerWriteAgePolicy"/> alone (resolved age counts WRITES, 51).
@@ -567,17 +567,17 @@ public class GraphMemoryEngineTests
     /// <c>1 + 0.5·ln(15.14) = 2.36</c> and the effective stability <c>20·2.36 = 47.2</c> —
     /// <c>r = (1 + 3·51/47.2)^-0.5 = 0.486</c>, comfortably clear. An implementation that kept reading the
     /// RAW, chars-unit <c>StrengthAge</c> (~10,150) collapses the boost to <c>1×</c>, giving
-    /// <c>r = (1 + 3·51/20)^-0.5 = 0.340</c> — below the floor, so the entry is wrongly reaped and this half
+    /// <c>r = (1 + 3·51/20)^-0.5 = 0.340</c> — below the floor, so the entry is wrongly removed and this half
     /// reddens.</item>
-    /// <item><b>Floor 0.60 — the same entry must be REAPED.</b> Its true <c>r</c> is 0.486, genuinely below
+    /// <item><b>Floor 0.60 — the same entry must be REMOVED.</b> Its true <c>r</c> is 0.486, genuinely below
     /// 0.60. The old blanket guard (<c>never delete an entry with Strength &gt; 0 &amp;&amp; StrengthAge &gt;
     /// 0</c>) retains it unconditionally, so this half is what reddens against the pre-fix code.</item>
     /// </list>
-    /// Ordered survive-then-reap on ONE store deliberately: the 0.40 prune leaves both endpoints (and so the
+    /// Ordered survive-then-remove on ONE store deliberately: the 0.40 prune leaves both endpoints (and so the
     /// edge) intact, which is what makes the 0.60 prune a test of the same connected state rather than of an
     /// entry that quietly lost its link.</para></summary>
     [Fact]
-    public async Task Prune_reaps_a_connected_entry_on_its_re_derived_strength_age_instead_of_refusing_outright()
+    public async Task Prune_removes_a_connected_entry_on_its_re_derived_strength_age_instead_of_refusing_outright()
     {
         var store = new InMemoryMemoryGraphStore();
         var underContentSize = new GraphMemoryEngine("e", store, agePolicies: [new ContentSizeAgePolicy(perUnit: 1)]);
@@ -597,7 +597,7 @@ public class GraphMemoryEngineTests
         await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.40);
         Assert.NotNull(await store.GetAsync("e", id));
 
-        // ...and it is genuinely below 0.60, so it is now reapable rather than guarded forever
+        // ...and it is genuinely below 0.60, so it is now removable rather than guarded forever
         await underPerWrite.PruneAsync("t", "s", minRetrievability: 0.60);
         Assert.Null(await store.GetAsync("e", id));
     }

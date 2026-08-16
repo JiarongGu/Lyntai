@@ -6,6 +6,7 @@
 //   node devtools/dev.mjs check-docs       - FAIL if a doc uses vocabulary a decision retired (the PROSE)
 //   node devtools/dev.mjs check-encoding   - FAIL if a tracked text file contains MOJIBAKE (mangled UTF-8)
 //   node devtools/dev.mjs check-counts     - FAIL if a COUNT written in prose disagrees with the tree
+//   node devtools/dev.mjs check-comments   - FAIL if a comment block outgrows what it explains
 //   node devtools/dev.mjs check-api-vocabulary
 //                                          - FAIL if a committed API baseline still spells a retired name
 //   node devtools/dev.mjs check-samples [--list]
@@ -480,6 +481,15 @@ switch (cmd) {
     break;
   }
 
+  // The prose gates ask whether a document still SAYS, POINTS AT and COUNTS what is true; this one asks
+  // whether a comment is still doing a comment's JOB. Registry: `commentBlockAllowances` in
+  // project.config.mjs, a RATCHET (an allowance looser than the file needs fails). Rule:
+  // .claude/rules/code-commentary.md. Line escape: `comment-ok`, deliberately not `drift-ok`.
+  case 'check-comments': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-comments.mjs'), ...args]);
+    break;
+  }
+
   // FAIL when a tracked text file contains mojibake — UTF-8 decoded as another codepage and written back.
   //
   // A gate rather than a rule because the rule already existed and was still broken THREE TIMES in one
@@ -559,7 +569,7 @@ switch (cmd) {
     // file and while the edit that caused it is still the last thing that happened.
     const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
-      ['check-counts', []], ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
+      ['check-counts', []], ['check-comments', []], ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {

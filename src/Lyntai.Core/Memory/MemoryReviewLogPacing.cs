@@ -2,8 +2,7 @@ namespace Lyntai.Memory;
 
 /// <summary>
 /// Shared pacing for every <see cref="IMemoryGraphStore.RecordReviewsAsync"/> implementation, so bounded
-/// eviction is a per-write <c>DELETE</c> on NONE of them (design spec §3, 2026-08-11 fsrs-properly plan
-/// Task 3) — the write-amplification the cap itself exists to prevent, arriving through the mechanism meant
+/// eviction is a per-write <c>DELETE</c> on NONE of them (design spec §3) — the write-amplification the cap itself exists to prevent, arriving through the mechanism meant
 /// to enforce it.
 /// <para><b>The strategy.</b> Each store keeps an in-process, per-engine counter of how many review rows it
 /// has written since the process started (never persisted — see the trade-off below) and issues the trim

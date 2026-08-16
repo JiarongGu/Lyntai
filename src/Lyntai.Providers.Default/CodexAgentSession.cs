@@ -11,34 +11,25 @@ namespace Lyntai.Providers.CodexCli;
 /// <summary>
 /// Spawns the authenticated OpenAI <c>codex</c> CLI in self-driving (agentic) mode and maps its
 /// <c>exec --json</c> JSONL to <see cref="AgentStreamEvent"/>s — the codex counterpart of
-/// <see cref="Providers.ClaudeCli.ClaudeAgentSession"/>, so a chat UI that shows tool activity can drive
-/// either backend through one <see cref="IAgentSession"/> instead of hand-parsing codex's JSONL.
-/// Unlike <see cref="CodexCliProvider"/> (which always uses a neutral working directory), the session
-/// DELIBERATELY runs in the caller's <see cref="AgentSessionOptions.WorkingDirectory"/> — the agent is
-/// driving the caller's project. <c>--skip-git-repo-check</c> is still passed: the caller's directory is a
-/// git repository on a developer's machine and frequently is not one in a shipped app.
-/// The command resolves from (in order): the ctor override, <c>LYNTAI_PROVIDER_CMD</c>, <c>CODEX_CMD</c>,
-/// then a plain <c>codex</c> from PATH — same env seams as the provider so tests/e2e can stub it.
+/// <see cref="Providers.ClaudeCli.ClaudeAgentSession"/>, so one <see cref="IAgentSession"/> drives either.
+/// Unlike <see cref="CodexCliProvider"/> (always a neutral working directory), the session DELIBERATELY runs
+/// in the caller's <see cref="AgentSessionOptions.WorkingDirectory"/> — the agent is driving the caller's
+/// project. <c>--skip-git-repo-check</c> is still passed: that directory is a git repository on a
+/// developer's machine and frequently is not one in a shipped app.
+/// The command resolves from the ctor override, <c>LYNTAI_PROVIDER_CMD</c>, <c>CODEX_CMD</c>, then
+/// <c>codex</c> on PATH — same env seams as the provider, so tests can stub it.
 /// </summary>
 /// <remarks>
 /// <para><b>Half of this backend's event mapping is inferred — know which half before you rely on it.</b>
-/// The codex capture behind it ran NO TOOLS, so the session id, the assistant text, the final usage and the
-/// terminal are MEASURED, while every TOOL STEP is INFERRED. The inference is bounded, not eliminated: codex's
-/// item object is passed through verbatim, so <b>no payload is ever invented or dropped</b>, and every
-/// uncertainty is confined to the tool-step half. It does NOT guarantee the right KIND of event — an item
-/// whose type is not one of the three recognised message-ish names (<c>agent_message</c>, <c>reasoning</c>,
-/// <c>error</c>) is reported as a tool step by elimination, so a renamed <c>reasoning</c> or a
-/// <c>todo_list</c>-style plan update would arrive as a fabricated <see cref="ToolCall"/>. Treat a tool
-/// step's KIND as provisional and its PAYLOAD as reliable, and switch on <see cref="ToolCall.Name"/> (which
-/// is codex's own item type) rather than assuming every one is a tool. The README's codex subsection and
-/// task CLI12 in <c>TASKS.md</c> carry the full list of what is still to confirm.</para>
-/// <para><b>Two neutral options codex cannot honour</b>, each handled explicitly rather than silently:
-/// <see cref="AgentSessionOptions.DisallowedTools"/> is logged as unhonoured — codex's tool gate is the
-/// sandbox, not a per-tool deny list; and <see cref="AgentSessionOptions.SystemPrompt"/> travels as a
-/// leading block of the prompt, since <c>codex exec</c> has no measured flag for one.
-/// <see cref="AgentSessionOptions.ResumeToken"/> used to be a third — it is HONOURED as of 2026-08-05, when
-/// <c>codex exec resume</c> was measured; see <see cref="StreamAsync"/> for the one token shape it still
-/// refuses.</para>
+/// Treat a tool step's KIND as provisional and its PAYLOAD as reliable; switch on
+/// <see cref="ToolCall.Name"/>. <c>CodexAgentReader</c>'s own summary states what is MEASURED, what is
+/// INFERRED, and how far the inference is bounded.</para>
+/// <para><b>Two neutral options codex cannot honour</b>, each handled explicitly:
+/// <see cref="AgentSessionOptions.DisallowedTools"/> is logged as unhonoured (codex's tool gate is the
+/// sandbox, not a deny list), and <see cref="AgentSessionOptions.SystemPrompt"/> travels as a leading block
+/// of the prompt, since <c>codex exec</c> has no measured flag for one.
+/// <see cref="AgentSessionOptions.ResumeToken"/> IS honoured — see <see cref="StreamAsync"/> for the one
+/// token shape it refuses.</para>
 /// </remarks>
 public sealed class CodexAgentSession : IAgentSession
 {
@@ -71,9 +62,9 @@ public sealed class CodexAgentSession : IAgentSession
 
     /// <summary>Run one codex turn and stream what the agent does.</summary>
     /// <param name="options">The turn. A non-null <see cref="AgentSessionOptions.ResumeToken"/> CONTINUES the
-    /// thread it names: the argv becomes <c>codex exec resume … &lt;SESSION_ID&gt; -</c>, measured against
-    /// codex-cli 0.146.0 on 2026-08-05 (<c>resume</c> is a real subcommand of <c>exec</c>, the id is its first
-    /// POSITIONAL, and the <c>-</c> stdin marker takes the PROMPT position after it — see
+    /// thread it names: the argv becomes <c>codex exec resume … &lt;SESSION_ID&gt; -</c> (<c>resume</c> is a
+    /// real subcommand of <c>exec</c>, the id is its first POSITIONAL, and the <c>-</c> stdin marker takes
+    /// the PROMPT position after it — see
     /// <see cref="CodexExecArgs.TryBuildResume"/>). The one token shape still REFUSED without spawning — a
     /// single <see cref="SessionEnded"/> with <see cref="LlmVerdict.Unsupported"/> — is one the CLI would read
     /// as an OPTION rather than as an id (blank, or starting with <c>-</c> such as its own <c>--last</c>),

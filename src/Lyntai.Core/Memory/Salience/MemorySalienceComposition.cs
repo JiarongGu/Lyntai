@@ -4,16 +4,13 @@ namespace Lyntai.Memory.Salience;
 /// Owns how several coexisting <see cref="IMemorySaliencePolicy"/>s' judgements combine into the ONE
 /// <see cref="MemorySignals"/> bag a write stores — the plural counterpart of
 /// <see cref="Lyntai.Memory.Interference.IMemoryAgeCompositionPolicy"/> and
-/// <see cref="Lyntai.Memory.Modulation.IMemoryRetentionCompositionPolicy"/> (2026-08-10 memory-policy-seams
-/// plan, Task 3). Salience became plural because structural novelty, semantic weight and explicit marking are
-/// different ASPECTS of "how strongly was this encoded" — an application may want a model-free structural
-/// judgment AND its own semantic one running together, each contributing signals the other has no opinion on.
+/// <see cref="Lyntai.Memory.Modulation.IMemoryRetentionCompositionPolicy"/>.
 /// <para><b>The engine composes nothing itself.</b> <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> calls
 /// every registered policy (isolating a throwing one to <see cref="MemorySignals.Empty"/>, never failing
 /// the write) and hands this seam the resulting bags — never merging them inline.</para>
 /// <para><b>A single registered policy makes this the identity</b> — every shipped implementation reduces a
-/// one-element list to that element's own bag, unchanged, which is what keeps the engine's default (one
-/// <see cref="StructuralSaliencePolicy"/>) byte-for-byte identical to the pre-Task-3 behaviour.</para>
+/// one-element list to that element's own bag, unchanged, so the engine's default (one
+/// <see cref="StructuralSaliencePolicy"/>) is unaffected by it.</para>
 /// </summary>
 public interface IMemorySalienceCompositionPolicy
 {

@@ -67,7 +67,7 @@ public static class MemoryProvenance
 
     /// <summary>Validates the two facts a <c>[Flags] : long</c> enum's own compiler never checks — a single,
     /// non-zero bit per policy, unique among DIFFERENT policy TYPES — against whatever is actually
-    /// REGISTERED, not a hand-listed test array a third policy could join unnoticed (fix round 2, cheap
+    /// REGISTERED, not a hand-listed test array a third policy could join unnoticed (cheap
     /// minor). <c>HalfLife = 0x1, Dsr = 0x1</c> compiles silently, and so does <c>HalfLife = 0x3</c> (two
     /// bits); either would make <see cref="Fits"/> wrong with nothing reporting it.
     /// <para>Called where policies are actually resolved — a plural seam's whole registered collection at

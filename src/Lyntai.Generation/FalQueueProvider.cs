@@ -79,7 +79,7 @@ public sealed class FalQueueOptions
     /// <summary>Ceiling for ONE HTTP call to the queue — a submit, a status read, a result fetch, a cancel.
     ///
     /// <para><b>It does not bound the render.</b> The queue is asynchronous by design: a video render outlives
-    /// every individual call, and <c>GenerationRenderJobHandler</c> polls it across job re-dispatches and
+    /// every individual call, and <see cref="Jobs.GenerationRenderJobHandler"/> polls it across job re-dispatches and
     /// process restarts — so poll and fetch arrive with no memory of when the submit happened and no request in
     /// hand. A whole-operation deadline could only live where the operation does, in the job's own retry
     /// budget. What this bounds is the thing that was genuinely unbounded: a queue that accepts a connection
@@ -104,11 +104,10 @@ public sealed class FalQueueOptions
 /// completion across restarts. That is the combination that stops a crash from paying for a render twice.
 /// </summary>
 /// <remarks>
-/// <para><b>UNVERIFIED SURFACE.</b> Written from documented shapes without an API key to call, exactly as the
-/// ComfyUI backend was. Paths and field names are therefore options, response parsing is tolerant (an
-/// unrecognised payload reports "no artifacts" rather than inventing one), and this should be confirmed against
-/// a live account before being relied on. Do not let its tests reassure you about the vendor's wire format —
-/// they pin OUR behaviour given a shape, not that the shape is right.</para>
+/// <para><b>UNVERIFIED SURFACE.</b> Written from documented shapes without an API key to call. Paths and
+/// field names are therefore options, response parsing is tolerant (an unrecognised payload reports "no
+/// artifacts" rather than inventing one), and this wants confirming against a live account. Its tests pin
+/// OUR behaviour given a shape, never that the shape is right.</para>
 /// <para><b>The operation id carries its model</b> (<c>"{model}#{requestId}"</c>). The queue's status and result
 /// URLs both need the model id, but a resumed job only hands back an operation id — so the model travels inside
 /// it rather than forcing every caller to persist a second field. Documented because it is visible in

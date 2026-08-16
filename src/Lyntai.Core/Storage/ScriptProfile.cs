@@ -5,32 +5,19 @@ namespace Lyntai.Storage;
 /// decision in <see cref="SearchTerms"/> goes through, so there is exactly one place to look and exactly one
 /// place to change.</b>
 ///
-/// <para><b>Why this exists rather than a boolean.</b> The first version of this logic asked one question,
-/// "is this a script written without spaces", and answered everything from it. Measurement showed that is
-/// two questions wearing one coat (<c>docs/DECISIONS.md</c> D55):</para>
-/// <list type="number">
-///   <item><description><b>Does whitespace already separate this script's words?</b> If it does, a whole
-///     word is the better term — <c>"cat"</c> should not match <c>"concatenate"</c>. Chinese and Japanese
-///     say no. English says yes. <b>Korean says yes and is still n-grammed</b>, because it is agglutinative:
-///     배우자는 / 배우자의 / 배우자에게 are one stem with three endings, and whole-token matching misses the
-///     stem whenever the ending differs. So this question does not decide n-gramming on its own.</description></item>
-///   <item><description><b>How long must an n-gram be before it is SELECTIVE in this script?</b> This is the
-///     one the old boolean could not express at all, and the one that was measurably wrong: three Han
-///     characters identify a phrase, three hiragana frequently do not. Japanese measured worse than English
-///     on all seven corpus shapes (+0.16 to +0.50 MissRate) while ALSO polluting more — the signature of a
-///     term that matches too much, not of a recall that finds too little.</description></item>
-/// </list>
+/// <para><b>A profile rather than a boolean, because two questions are involved</b>
+/// (<c>docs/DECISIONS.md</c> D55): whether whitespace already separates this script's words, and how long an
+/// n-gram must be before it is SELECTIVE here. Neither answers the other, which is why Hangul writes spaces
+/// and is expanded anyway.</para>
 ///
 /// <para><b>Changing a gram length needs NO migration, which is what makes this seam worth having.</b> The
-/// FTS5 <c>trigram</c> tokenizer indexes three-character sequences, but a QUERY may be a longer phrase — it
-/// is matched as consecutive trigrams. So a script whose 3-grams collide can be queried with 4-grams against
-/// the same index, and nothing stored has to move. The index's floor is a floor on the INDEX, never a
-/// ceiling on the query.</para>
+/// FTS5 <c>trigram</c> tokenizer indexes three-character sequences, but a QUERY may be longer and is matched
+/// as consecutive trigrams — so a script whose 3-grams collide can be queried with 4-grams against the same
+/// index. The index's floor is a floor on the INDEX, never a ceiling on the query.</para>
 ///
-/// <para><b>What this is not.</b> It is not a language detector and not a segmenter. It answers "what shape
-/// of term does this script need", which is a property of the writing system and stable; it does not try to
-/// find word boundaries, which for Japanese needs a morphological analyser and a model. If that is ever
-/// added, it plugs in beside this rather than replacing it.</para>
+/// <para><b>What this is not:</b> not a language detector and not a segmenter. It answers "what shape of
+/// term does this script need", a stable property of the writing system; finding word boundaries needs a
+/// morphological analyser, which would plug in beside this rather than replace it.</para>
 /// </summary>
 /// <param name="Name">Human-readable, for diagnostics and for <see cref="SearchTerms.Profiles"/>.</param>
 /// <param name="ExpandsIntoGrams">Whether tokens of this script are expanded into character n-grams instead
@@ -84,20 +71,13 @@ public sealed record ScriptProfile(
 
     /// <summary>Thai. Spaceless like Han, no case, and its words are frequently two or three characters, so
     /// it takes the same shape.
-    /// <para><b>Added 2026-08-13 because it was MISSING</b>, not because it was measured: Thai sat outside
-    /// every range here, so a Thai sentence was handed back as one whitespace token and could only match an
-    /// entry containing that exact substring — precisely the defect D55 fixed for CJK, still live for a
-    /// script nobody had looked at.</para>
-    /// <para><b>Unmeasured, and that is said rather than glossed.</b> Japanese is the standing warning that
-    /// adding a range without measuring it proves nothing: its numbers were half a metric wrong while being
-    /// asserted to behave like Chinese. There is no Thai corpus, so this claims only that Thai tokenizes
-    /// like a spaceless script instead of like one long word — a strict improvement over matching nothing,
-    /// and no more than that.</para></summary>
+    /// <para><b>Unmeasured, and that is said rather than glossed.</b> There is no Thai corpus, so this
+    /// claims only that Thai tokenizes like a spaceless script instead of like one long word — a strict
+    /// improvement over matching nothing, and no more than that.</para></summary>
     public static ScriptProfile Thai { get; } = new("thai", true, 3, 2);
 
-    /// <summary>Hangul. Korean WRITES SPACES, so question (1) above says "whole words" — and it is expanded
-    /// anyway, because question (2) is about morphology: particles attach to the stem, so whole-token
-    /// matching misses 배우자 whenever it appears as 배우자는. Measured at parity with English, so the
-    /// expansion is earning its keep here rather than merely being applied.</summary>
+    /// <summary>Hangul. Korean WRITES SPACES and is expanded anyway, because the deciding
+    /// question here is morphological: particles attach to the stem, so whole-token
+    /// matching misses 배우자 whenever it appears as 배우자는.</summary>
     public static ScriptProfile Hangul { get; } = new("hangul", true, 3, 2);
 }

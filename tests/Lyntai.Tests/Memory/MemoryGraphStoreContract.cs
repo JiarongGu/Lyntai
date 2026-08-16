@@ -243,13 +243,6 @@ public static class MemoryGraphStoreContract
         Assert.True(hits.First(h => h.Content.Contains("long time", StringComparison.Ordinal)).Age > 4000);
     }
 
-    /// <summary>The guarantee <see cref="IMemoryGraphStore.SeedAsync"/> states in prose: authoritative
-    /// material is admitted whatever the query matched.
-    /// <para>Untested until now on the QUERY path — <see cref="Seeding_never_excludes_a_faint_entry"/>
-    /// passes <c>query: null</c>, which takes the no-query branch on every backend and so never exercised
-    /// the carve-out. SQLite's FTS branch filtered on engine/task/scope only and returned early on any hit,
-    /// so an exact fact sharing no trigram with the query was silently not seeded — ask about "restaurant"
-    /// and the dietary constraint never reaches the prompt.</para></summary>
     /// <summary><b>A word only in the HEADLINE is found, on every backend.</b> Found 2026-08-15:
     /// <c>lyntai_memory_node_fts</c> declares <c>headline, content</c> so SQLite matched one, while
     /// Postgres's trigram index and the in-process store read content alone — the same call answering
@@ -290,6 +283,13 @@ public static class MemoryGraphStoreContract
         Assert.Contains(seeded, n => n.Content.Contains("reverse proxy", StringComparison.Ordinal));
     }
 
+    /// <summary>The guarantee <see cref="IMemoryGraphStore.SeedAsync"/> states in prose: authoritative
+    /// material is admitted whatever the query matched.
+    /// <para>The QUERY path specifically — <see cref="Seeding_never_excludes_a_faint_entry"/> passes
+    /// <c>query: null</c>, which takes the no-query branch on every backend and so cannot exercise the
+    /// carve-out. The defect this guards: SQLite's FTS branch filtered on engine/task/scope only and
+    /// returned early on any hit, so an exact fact sharing no trigram with the query was silently not
+    /// seeded — ask about "restaurant" and the dietary constraint never reaches the prompt.</para></summary>
     public static async Task Seeding_admits_authoritative_material_the_query_does_not_match(
         IMemoryGraphStore store, string key)
     {
@@ -1367,5 +1367,35 @@ public static class MemoryGraphStoreContract
         Assert.Equal(cap, rows.Count);
         // oldest-first, and the newest `cap` writes (PreAge 7, 8, 9) are exactly the ones that survived
         Assert.Equal([7, 8, 9], rows.Select(r => (int)r.PreAge));
+    }
+
+    /// <summary>A stability UNDER the divide-by-zero floor is FLOORED, never substituted — on every backend.
+    ///
+    /// <para>The distinction is invisible at stability <c>0</c>, where both spellings give the same answer,
+    /// and that is why it survived: <c>MAX(stability, 1e-6)</c> and <c>stability > 0 ? stability : 1e-6</c>
+    /// agree on the value the guard was written for and disagree on every value strictly between zero and the
+    /// floor. The relational backends floored; the in-process one substituted.</para>
+    ///
+    /// <para>Set up so the two answers differ in the OUTCOME rather than in a ratio nobody sees: stability
+    /// <c>1e-7</c> at age 1 floors to <c>1/1e-6 = 1e6</c> (under the cutoff, kept) and substitutes to
+    /// <c>1/1e-7 = 1e7</c> (over it, deleted). One <c>PruneAsync</c> call, same arguments, same data — and
+    /// before this fact, the in-process store destroyed the entry the other two kept.</para>
+    ///
+    /// <para>A prune is a DELETE, so the two behaviours are not merely different: one of them loses a memory
+    /// that no later call can bring back.</para></summary>
+    public static async Task A_stability_under_the_floor_is_floored_not_substituted(
+        IMemoryGraphStore store, string key)
+    {
+        const string engine = "floor";
+        // stability far below the 1e-6 guard, then ONE unrelated write so the node's age is exactly 1
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "faint", "faint",
+            MemoryGrade.Associative, InitialStability: 1e-7, Advance: 1, Metadata: null));
+        await Crowd(store, engine, key, 1);
+
+        // 1e6 (floored) is under this cutoff; 1e7 (substituted) is over it
+        var removed = await store.PruneAsync(engine, key, scope: null, maxAgeOverStability: 5e6,
+            olderThan: null);
+
+        Assert.Equal(0, removed);
     }
 }

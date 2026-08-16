@@ -52,49 +52,28 @@ public static class GenerationVerdictClassifier
 
     /// <summary>Map the shared taxonomy onto media's — one arm per <see cref="LlmVerdict"/> member, with no
     /// group left to the catch-all.
-    /// <para>Every verdict both domains carry keeps its meaning, and the two BLAMELESS ones matter most:
-    /// <see cref="LlmVerdict.NotConfigured"/> (never set up) and <see cref="LlmVerdict.Unsupported"/> (this
-    /// backend cannot do THIS request). Flattening either to <see cref="GenerationVerdict.Failed"/> converts
-    /// the policy's <see cref="Routing.GenerationFallbackAction.Advance"/> into
-    /// <see cref="Routing.GenerationFallbackAction.PenalizeAndAdvance"/> on the way across the boundary, so
-    /// repeated capability gaps bench a perfectly healthy backend. Both are REACHABLE, not theoretical: a
-    /// consumer-registered matcher on the shared classifier can return either, and an exception classified
-    /// through <see cref="FromException"/> can land on either.</para>
-    /// <para><b>A shared MEANING is not a shared ACTION, and the translation quietly changes the second one.</b>
-    /// <see cref="LlmVerdict.Unsupported"/> and <see cref="GenerationVerdict.Unsupported"/> describe the same
-    /// situation, but their domains answer it differently on purpose: the LLM policy maps it to
-    /// <see cref="Llm.Routing.FallbackAction.Surface"/> (another chat candidate has the same limitation, so
-    /// advancing just churns), while the media policy maps it to
-    /// <see cref="Routing.GenerationFallbackAction.Advance"/> (media backends differ widely in what they
-    /// accept, so the next one may well take it). So a verdict crossing this boundary keeps its meaning and
-    /// CHANGES its fallback semantics. That is intended — each policy is right for its own domain — but it is
-    /// invisible at the call site, so do not read a translated verdict as "the same thing will happen".</para>
+    /// <para>Every verdict both domains carry keeps its meaning, and the two BLAMELESS ones matter most.
+    /// Flattening <see cref="LlmVerdict.NotConfigured"/> or <see cref="LlmVerdict.Unsupported"/> to
+    /// <see cref="GenerationVerdict.Failed"/> converts the policy's
+    /// <see cref="Routing.GenerationFallbackAction.Advance"/> into
+    /// <see cref="Routing.GenerationFallbackAction.PenalizeAndAdvance"/>, so repeated capability gaps bench a
+    /// perfectly healthy backend. Both are REACHABLE: a consumer-registered matcher on the shared classifier
+    /// can return either, and so can <see cref="FromException"/>.</para>
+    /// <para><b>A translated verdict keeps its MEANING and CHANGES its fallback semantics</b> — the two
+    /// domains answer <see cref="LlmVerdict.Unsupported"/> differently on purpose, each policy being right
+    /// for its own domain. The change is invisible at the call site, so never read a translated verdict as
+    /// "the same thing will happen".</para>
     /// <para><see cref="LlmVerdict.ContextWindowExceeded"/> is the only member with no media counterpart, and
-    /// it maps to <see cref="GenerationVerdict.Unsupported"/>: "this prompt is too big for THIS backend" is a
-    /// capability gap, not ill health, so it must ADVANCE without counting toward the dead-host threshold —
-    /// the same harm the <see cref="LlmVerdict.Unsupported"/> arm above prevents, one member along. Both
-    /// domains now answer it the same way (<see cref="Llm.Routing.FallbackAction.Advance"/> there,
-    /// <see cref="Routing.GenerationFallbackAction.Advance"/> here).</para>
-    /// <para><b>It collapsed to <see cref="GenerationVerdict.Failed"/> until 2026-08-05, and only a ROUTER
-    /// change made this arm safe — so do not undo half of it</b> (<c>docs/DECISIONS.md</c> D36 filed the
-    /// trade; <c>TASKS.md</c> Part 40 closed it). <see cref="Routing.GenerationRouter"/> still never reports a
-    /// blameless verdict OVER a real failure, but it used to not report one at ALL — so a blameless mapping
-    /// swallowed "your prompt is too long", the one thing the caller can act on, exactly when it was the only
-    /// thing that went wrong. The router now keeps a second slot for the first blameless result that explained
-    /// itself and reports it when nothing substantive failed, which is what lets a verdict be blameless AND
-    /// reportable. Moving an arm into the blameless pair before that rule exists just swaps one cost for the
-    /// other.</para>
+    /// it maps to <see cref="GenerationVerdict.Unsupported"/>: too big for THIS backend is a capability gap,
+    /// not ill health, so it must ADVANCE without counting toward the dead-host threshold.</para>
+    /// <para><b>A blameless mapping is only safe because the ROUTER keeps a second reporting slot — do not
+    /// undo half of it</b> (<c>docs/DECISIONS.md</c> D36; <see cref="Routing.GenerationRouter"/> states it).</para>
     /// <para><b>The discard covers undefined numeric values only, and returns <c>null</c> so a missing arm is
-    /// detectable.</b> C# cannot make a switch over an enum exhaustive (<c>(LlmVerdict)99</c> is a legal
-    /// value), so a discard is mandatory and the compiler can never be the growth gate: dropping it buys
-    /// CS8509 on the code as it stands — a warning, which <c>check-warnings</c> turns into a gate failure
-    /// (<c>TreatWarningsAsErrors</c> is false here) — rather than an error on the next added member. The gate
-    /// is therefore a TEST,
+    /// detectable.</b> C# cannot make a switch over an enum exhaustive (<c>(LlmVerdict)99</c> is legal), so
+    /// the compiler can never be the growth gate. The gate is a TEST,
     /// <c>GenerationVerdictClassifierTests.Every_llm_verdict_states_its_media_translation</c>, which fails
-    /// until a newly added member is given BOTH a row in its table and an arm here. Returning null rather than
-    /// <see cref="GenerationVerdict.Failed"/> from the discard is what lets it tell those apart. Same
-    /// obligation <c>LlmVerdictExtensionsTests.Every_verdict_states_whether_it_is_transient</c> places on the
-    /// call-site helpers and D31 places on the routing policy.</para></summary>
+    /// until a new member has BOTH a row in its table and an arm here — and returning null rather than
+    /// <see cref="GenerationVerdict.Failed"/> is what lets it tell a missing arm from a deliberate one.</para></summary>
     private static GenerationVerdict Translate(LlmVerdict verdict) =>
         // an undefined numeric value is still classified conservatively; only the GATE sees the difference
         TryTranslate(verdict) ?? GenerationVerdict.Failed;

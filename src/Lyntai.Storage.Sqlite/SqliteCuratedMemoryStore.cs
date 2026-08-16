@@ -71,7 +71,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         // read the current row inside the transaction to resolve the RESULTING dedup identity
-        var cur = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
+        var cur = await conn.QuerySingleOrDefaultAsync<CuratedMemoryRow>(new CommandDefinition(
             $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id", new { id },
             transaction: tx, cancellationToken: ct)).ConfigureAwait(false);
         if (cur is null) return false;                             // no such row (the tx rolls back on dispose)
@@ -131,7 +131,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
     public async Task<CuratedMemory?> GetAsync(long id, CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var row = await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition(
+        var row = await conn.QuerySingleOrDefaultAsync<CuratedMemoryRow>(new CommandDefinition(
             $"SELECT {Cols} FROM lyntai_curated_memory WHERE id = @id", new { id }, cancellationToken: ct)).ConfigureAwait(false);
         return row?.ToRecord();
     }
@@ -143,7 +143,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         var p = new DynamicParameters(new { kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
         var meta = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", p);
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
+        var rows = await conn.QueryAsync<CuratedMemoryRow>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (@kind IS NULL OR kind = @kind) AND (@task IS NULL OR task = @task)
               AND (@scope IS NULL OR scope = @scope) AND (@enabledOnly = 0 OR enabled = 1){meta}
@@ -169,7 +169,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
                 {
                     var pf = new DynamicParameters(new { match, kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
                     var mf = BuildMetaClause(metadataMatch, "m.id", pf);
-                    var hits = (await conn.QueryAsync<Row>(new CommandDefinition($"""
+                    var hits = (await conn.QueryAsync<CuratedMemoryRow>(new CommandDefinition($"""
                         SELECT {ColsM}
                         FROM lyntai_curated_fts JOIN lyntai_curated_memory m ON m.id = lyntai_curated_fts.rowid
                         WHERE lyntai_curated_fts MATCH @match
@@ -192,7 +192,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
             var pl = new DynamicParameters(new { kind, task = taskKey, scope, enabledOnly, limit = limit ?? -1 });
             foreach (var (name, value) in kw.Parameters) pl.Add(name, value);
             var ml = BuildMetaClause(metadataMatch, "lyntai_curated_memory.id", pl);
-            var likeHits = await conn.QueryAsync<Row>(new CommandDefinition($"""
+            var likeHits = await conn.QueryAsync<CuratedMemoryRow>(new CommandDefinition($"""
                 SELECT {Cols} FROM lyntai_curated_memory
                 WHERE {kw.Predicate}
                   AND (@kind IS NULL OR kind = @kind) AND (@task IS NULL OR task = @task)
@@ -217,7 +217,7 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         // or one of the requested scopes. task-key-null rows apply to every task.
         var scopeClause = scopeList.Count == 0 ? "" : " AND (scope IS NULL OR scope = '' OR scope IN @scopes)";
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<Row>(new CommandDefinition($"""
+        var rows = await conn.QueryAsync<CuratedMemoryRow>(new CommandDefinition($"""
             SELECT {Cols} FROM lyntai_curated_memory
             WHERE (@enabledOnly = 0 OR enabled = 1) AND (task IS NULL OR task = @task){scopeClause}
             ORDER BY kind, created_at, id
@@ -255,21 +255,4 @@ public sealed class SqliteCuratedMemoryStore(IDbConnectionFactory factory,
         return sb.ToString();
     }
 
-    // SQLite stores bool as INTEGER; Dapper won't bind INTEGER→bool through the positional record
-    // constructor, so materialize into a settable-property Row (which it does convert) then project.
-    private sealed class Row
-    {
-        public long Id { get; set; }
-        public string Kind { get; set; } = "";
-        public string Content { get; set; } = "";
-        public bool Enabled { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset UpdatedAt { get; set; }
-        public string? TaskKey { get; set; }
-        public string? Scope { get; set; }
-        public string? Metadata { get; set; }
-
-        public CuratedMemory ToRecord() => new(Id, Kind, Content, Enabled, CreatedAt, UpdatedAt,
-            TaskKey, Scope, CuratedMetadataJson.Deserialize(Metadata));
-    }
 }

@@ -132,6 +132,9 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     [SkippableFact] public Task Contract_delete_one() => VecPg(VectorStoreContract.Delete_removes_one_entry_and_leaves_the_others);
     [SkippableFact] public Task Contract_remove_collection() => VecPg(VectorStoreContract.Removing_a_collection_clears_it_and_absent_deletes_are_no_ops);
     [SkippableFact] public Task Contract_isolated() => VecPg(VectorStoreContract.Collections_are_isolated);
+    [SkippableFact] public Task Contract_tie_by_id() => VecPg(VectorStoreContract.Equal_scores_are_ordered_by_id);
+    [SkippableFact] public Task Contract_tie_at_k() => VecPg(VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries);
+    [SkippableFact] public Task Contract_tie_loses_to_score() => VecPg(VectorStoreContract.The_tiebreak_never_outranks_the_score);
 
     [SkippableFact]
     public async Task VectorStore_pgvector_ranks_by_cosine_dedups_and_removes()

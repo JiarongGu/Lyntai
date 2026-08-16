@@ -3,7 +3,7 @@ namespace Lyntai.Memory;
 /// <summary>Which kind of removal a blend is considering. Asked separately because the two are different
 /// acts with different owners: a FORGET is a user's withdrawal of their own data, a PRUNE is an operator's
 /// or a scheduler's bounding of an ever-growing store.</summary>
-public enum MemoryReapKind
+public enum MemoryRemovalKind
 {
     /// <summary>An unconditional removal of a (task, scope) — what an application calls when a user
     /// withdraws consent or a task ends.</summary>
@@ -13,7 +13,7 @@ public enum MemoryReapKind
     Prune,
 }
 
-/// <summary>Decides which members of a blend a reap actually visits.
+/// <summary>Decides which members of a blend a removal actually visits.
 ///
 /// <para><b>Eligibility is a DEPLOYMENT question, which is why it is a policy and not a property of an
 /// engine.</b> Whether a curated section holds material a user may withdraw is not something this library
@@ -31,15 +31,15 @@ public enum MemoryReapKind
 /// <para>Asked per KIND as well as per member, because a host can legitimately want a section excluded from
 /// an automatic prune and included in an explicit consent withdrawal — or the reverse. A single boolean
 /// could not say either.</para></summary>
-public interface IMemoryReapPolicy
+public interface IMemoryRemovalPolicy
 {
-    /// <summary>Whether <paramref name="member"/> is in scope for a <paramref name="kind"/> reap. A member
+    /// <summary>Whether <paramref name="member"/> is in scope for a <paramref name="kind"/> remove. A member
     /// answered false is SKIPPED — never a reason to refuse the whole verb.</summary>
-    bool Includes(IMemoryEngine member, MemoryReapKind kind);
+    bool Includes(IMemoryEngine member, MemoryRemovalKind kind);
 }
 
 /// <summary>The shipped default: a member that can hold ONLY authoritative material is out of scope for
-/// both kinds of reap; everything else is in scope.
+/// both kinds of remove; everything else is in scope.
 ///
 /// <para><b>Why that test rather than the engine's type.</b> <see cref="MemoryGrades"/> is a property an
 /// engine already declares, and the grade split exists precisely to separate operator-maintained exact facts
@@ -49,13 +49,13 @@ public interface IMemoryReapPolicy
 ///
 /// <para><b>Stated as what it is: a heuristic, appropriate BECAUSE it is a default.</b> It reproduces the
 /// conventional roles of the shipped engines — curated out, graph/lexical/semantic in — and a deployment
-/// whose arrangement differs registers its own <see cref="IMemoryReapPolicy"/>. That is the one line a host
+/// whose arrangement differs registers its own <see cref="IMemoryRemovalPolicy"/>. That is the one line a host
 /// writes when the guess is wrong, which is what makes a guess acceptable here and not in the engine
 /// itself.</para></summary>
-public sealed class DefaultMemoryReapPolicy : IMemoryReapPolicy
+public sealed class DefaultMemoryRemovalPolicy : IMemoryRemovalPolicy
 {
     /// <inheritdoc />
-    public bool Includes(IMemoryEngine member, MemoryReapKind kind)
+    public bool Includes(IMemoryEngine member, MemoryRemovalKind kind)
     {
         ArgumentNullException.ThrowIfNull(member);
         return member.Supported != MemoryGrades.Authoritative;

@@ -32,7 +32,7 @@ public class MemoryLifecycleTests : IDisposable
     }
 
     [Fact]
-    public async Task Prune_reaps_expired_entries_and_reports_the_count()
+    public async Task Prune_removes_expired_entries_and_reports_the_count()
     {
         await _store.RememberAsync("task", "scope", "gone soon", ttl: TimeSpan.FromMinutes(5));
         await _store.RememberAsync("task", "scope", "permanent");

@@ -47,7 +47,7 @@ public class MemoryPruneJobTests
     }
 
     [Fact]
-    public async Task Handler_empty_or_malformed_payload_reaps_only_expired()
+    public async Task Handler_empty_or_malformed_payload_removes_only_expired()
     {
         var mem = new FakeMemory();
         var handler = new MemoryPruneJobHandler(mem);
@@ -56,7 +56,7 @@ public class MemoryPruneJobTests
         await handler.HandleAsync(Ctx("not json")); // malformed payload
 
         Assert.Equal(2, mem.PruneCalls);
-        Assert.Equal((null, (TimeSpan?)null), mem.LastPrune); // taskKey null + olderThan null → reap only expired
+        Assert.Equal((null, (TimeSpan?)null), mem.LastPrune); // taskKey null + olderThan null → remove only expired
     }
 
     [Fact]

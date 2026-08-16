@@ -37,24 +37,23 @@ public sealed class LlmAnnotationOptions
 /// <see cref="IMemoryAnnotationPolicy"/>.
 ///
 /// <para><b>Why a model rather than anything cheaper.</b> The facts that need connecting share no
-/// distinguishing word: "my spouse is Alice", "she works as an anaesthetist", "we met in Kyoto" have only
-/// pronouns in common, in any language. No tokenizer, ranking policy or n-gram change reaches that — it is a
-/// semantic judgement. Being the SAME judgement in every language is also what makes this route around the
-/// CJK tokenization problem rather than adding to it.</para>
+/// distinguishing word — "my spouse is Alice", "she works as an anaesthetist", "we met in Kyoto" have only
+/// pronouns in common, in any language. That is a semantic judgement no tokenizer or ranking change reaches,
+/// and being the SAME judgement in every language is what routes it around CJK tokenization rather than
+/// adding to it.</para>
 ///
 /// <para><b>The prompt names no language and gives no examples in one.</b> An English-shaped instruction
-/// ("reply with a short English noun") would quietly reintroduce the exact bias this subsystem spent a
-/// release removing — a Chinese fact would get an English subject, a later Chinese fact might get a Chinese
-/// one, and the two would not link. Subjects are asked for IN THE LANGUAGE OF THE FACT, so the same entity
-/// yields the same handle whatever the content's language.</para>
+/// would reintroduce the bias this subsystem spent a release removing: a Chinese fact would get an English
+/// subject, a later one a Chinese subject, and the two would not link. Subjects are asked for IN THE
+/// LANGUAGE OF THE FACT, so the same entity yields the same handle whatever the content's language.</para>
 ///
-/// <para><b>Stability across writes is the property the whole mechanism rests on</b>, so the prompt asks for
-/// short, reusable handles rather than descriptions — two facts link because their subjects MATCH, and a
-/// model that phrases the same entity differently each time links nothing while looking like it worked.</para>
+/// <para><b>Stability across writes is what the mechanism rests on</b>, so the prompt asks for short,
+/// reusable handles rather than descriptions: two facts link because their subjects MATCH, and a model that
+/// phrases the same entity differently each time links nothing while looking like it worked.</para>
 ///
-/// <para><b>Fail-open, always.</b> Any failure — a refusal, a timeout, unparseable output — yields
-/// <see cref="MemoryAnnotation.None"/>, which the engine treats exactly as having no annotator. Memory that
-/// stops accepting facts because a model is down is worse than memory with no model at all.</para>
+/// <para><b>Fail-open, always.</b> Any failure yields <see cref="MemoryAnnotation.None"/>, which the engine
+/// treats exactly as having no annotator — memory that stops accepting facts because a model is down is
+/// worse than memory with no model.</para>
 /// </summary>
 /// <param name="clients">Resolves the configured client by name.</param>
 /// <param name="options">Knobs; null takes the defaults.</param>
@@ -124,6 +123,10 @@ public sealed class LlmMemoryAnnotationPolicy(
                     new LlmMessage("user", Compose(request)),
                 ],
                 Model = _options.Model,
+                // Tagged so memory's spend is separable in the ledger. It was the library's only untagged
+                // internal caller besides the verifier — scoring and chat both tag — so memory billed to
+                // "default" and could not be capped or observed apart from the app's own traffic.
+                Consumer = LlmConsumers.Memory,
                 // Same reasoning, and the same measured stakes, as LlmMemoryVerificationPolicy's own
                 // Suppress: this call's value is a short structured label, and it sits in the latency path
                 // of every WRITE — the higher-traffic seam of the two, since a store takes many more writes

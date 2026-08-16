@@ -29,16 +29,10 @@ public sealed record MultiplicativeRankingOptions
     public double HopAttenuation
     {
         get => _hopAttenuation;
-        init
-        {
-            if (!double.IsFinite(value) || value <= 0 || value > 1)
-                throw new ArgumentOutOfRangeException(nameof(value), value,
-                    "MultiplicativeRankingOptions.HopAttenuation must be a finite number in (0, 1] — see " +
-                    "the property's XML doc for why zero eliminates every candidate beyond the seed, why a " +
-                    "value above 1 makes a farther candidate outrank a direct hit, and why a negative value " +
-                    "flips the sign of the result by hop parity rather than merely weakening it.");
-            _hopAttenuation = value;
-        }
+        init => _hopAttenuation = MemoryOption.Require(value, MemoryOptionRange.ToInclusive(0, 1), nameof(MultiplicativeRankingOptions),
+            "see the property's XML doc for why zero eliminates every candidate beyond the seed, why a "
+            + "value above 1 makes a farther candidate outrank a direct hit, and why a negative value flips "
+            + "the sign of the result by hop parity rather than merely weakening it.");
     }
 
     /// <summary>How far below the STRONGEST candidate's score an entry may fall before this policy drops
@@ -57,20 +51,14 @@ public sealed record MultiplicativeRankingOptions
     public double RelativeFloor
     {
         get => _relativeFloor;
-        init
-        {
-            if (!double.IsFinite(value) || value < 0 || value >= 1)
-                throw new ArgumentOutOfRangeException(nameof(value), value,
-                    "MultiplicativeRankingOptions.RelativeFloor must be a finite number in [0, 1) — see the " +
-                    "property's XML doc for why 1 or above collapses the floor into \"keep almost nothing\" " +
-                    "with no signal anywhere, and why a negative value is refused rather than silently " +
-                    "clamped forever.");
-            _relativeFloor = value;
-        }
+        init => _relativeFloor = MemoryOption.Require(value, MemoryOptionRange.FromInclusive(0, 1), nameof(MultiplicativeRankingOptions),
+            "see the property's XML doc for why 1 or above collapses the floor into \"keep almost "
+            + "nothing\" with no signal anywhere, and why a negative value is refused rather than silently "
+            + "clamped forever.");
     }
 
     /// <summary>How steeply salience lifts a candidate's score, as <c>1 + weight × ln(salience)</c>. See
-    /// <c>docs/DECISIONS.md</c> D45/D45 for the full reasoning: <c>0</c> by default because salience means
+    /// <c>docs/DECISIONS.md</c> D45 for the full reasoning: <c>0</c> by default because salience means
     /// "does not fade away", not "first priority", so ranking stays untouched unless a consumer opts in.
     /// <para><b>Must be FINITE and <c>&gt;= 0</c>.</b> Salience is coerced to <c>&gt;= 1</c> before this
     /// formula ever sees it (<see cref="MemorySignals.Salience"/>), so <c>ln(salience) &gt;= 0</c> always —
@@ -93,15 +81,9 @@ public sealed record MultiplicativeRankingOptions
     public double SalienceRankWeight
     {
         get => _salienceRankWeight;
-        init
-        {
-            if (!double.IsFinite(value) || value < 0)
-                throw new ArgumentOutOfRangeException(nameof(value), value,
-                    "MultiplicativeRankingOptions.SalienceRankWeight must be a finite non-negative number " +
-                    "— see the property's XML doc for why a negative value inverts the salience boost " +
-                    "(a more salient entry ranking BELOW a neutral one) rather than merely weakening it.");
-            _salienceRankWeight = value;
-        }
+        init => _salienceRankWeight = MemoryOption.Require(value, MemoryOptionRange.NonNegative, nameof(MultiplicativeRankingOptions),
+            "see the property's XML doc for why a negative value inverts the salience boost (a more "
+            + "salient entry ranking BELOW a neutral one) rather than merely weakening it.");
     }
 }
 
@@ -110,51 +92,24 @@ public sealed record MultiplicativeRankingOptions
 /// Relevance × Retrievability × boost × HopAttenuation^Hop</c>, where <c>boost</c> is <c>1</c> unless
 /// <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/> is opted above its shipped 0, then floored
 /// against its own best score.
-/// <para><b>No longer the registered default as of 3.0</b> (owner ruling, 2026-08-11) —
-/// <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> is, after this library's own measurement
-/// found it beating this policy on the corpus's `topical` class in every shape tested (see that class's own
-/// remarks, and <c>MemoryEngineRegistration.AddMemoryEngine</c>, for the full reasoning). <b>This is not the
-/// same kind of finding that retired <c>HalfLifeRetrievability</c></b>: this formula is not unmeasured or
-/// wrong, it lost one measured comparison on a scale where reciprocal rank fusion's rank-position fusion
-/// happens not to share its bias toward raw reinforcement magnitude — on a scale where magnitude IS
-/// meaningful, this policy remains the better choice. It ships unchanged and stays registerable in one line:
+/// <para><b>No longer the registered default as of 3.0</b> —
+/// <see cref="Lyntai.Memory.Ranking.ReciprocalRankFusionPolicy"/> is (<c>docs/DECISIONS.md</c> D49). It ships
+/// unchanged and is one line to restore:
 /// <c>services.AddSingleton&lt;IMemoryRankingPolicy&gt;(new MultiplicativeRankingPolicy())</c>, before or
-/// after <c>AddLyntai</c> — either direction wins over the new default, the same `TryAdd` ordering every
-/// other seam in this domain already establishes.</para>
-/// <para>Ported verbatim in BEHAVIOUR from <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/>'s own
-/// hardcoded rank projection — this class changes nothing about what score a candidate receives, only where
-/// that computation lives and whether it can be replaced.</para>
-/// <para><b>Owns the floor, not the grade exemption.</b> This policy drops whatever falls below its own
-/// floor without regard for <see cref="MemoryGrade"/> — trust that an authoritative fact is never buried
-/// must hold against a policy that DROPS one, including a third-party one that has never heard of grades, so
-/// that guarantee is the CALLER's job (<see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> re-admits any
-/// dropped authoritative candidate itself, by id — see <see cref="IMemoryRankingPolicy"/>'s own remarks on
-/// why that is a guarantee against a DROPPING policy specifically, not a fabricating one), never this
-/// class's.</para>
-/// <para><b>One deliberate correctness fix beyond "ported verbatim":</b> a candidate whose own
-/// <see cref="GraphNode.Relevance"/> or <see cref="MemoryCandidate.Retrievability"/> is <c>+Infinity</c> (a
-/// possible value from a BYO <see cref="Lyntai.Memory.IMemoryGraphStore"/> or
-/// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy"/> — this contract never promised either is
-/// finite) is excluded before scoring, the same guard
-/// <see cref="ReciprocalRankFusionPolicy"/> already applies. The hardcoded formula this class replaced never
-/// had this guard, and the gap was live: <c>Infinity</c> propagates through the product to a
-/// <c>+Infinity</c> SCORE — unlike <c>NaN</c>, which fails every comparison including against itself and so
-/// reliably sorts to the bottom — so the poisoned candidate becomes <c>best</c>, <c>floor</c> becomes
-/// <c>+Infinity</c> too, and <c>Score &gt;= floor</c> is true ONLY for that one candidate: recall silently
-/// collapses to the corrupted entry alone rather than merely losing it. <c>NaN</c> relevance/retrievability
-/// remains excluded the OLD way too (its product poisons the score to <c>NaN</c>, which then fails its own
-/// floor check) — the explicit filter only closes the <c>+Infinity</c> gap that mechanism never covered.</para>
-/// <para><b>…and that input filter alone was NOT enough, which is worth stating because the paragraph above
-/// read for a while as though it had closed the class.</b> It closes the poisoned-INPUT class only. A score
-/// can overflow to <c>+Infinity</c> from inputs that are every one of them FINITE — <c>Relevance = 1e308</c>
-/// times <c>Retrievability = 1e308</c> is the two-line reproduction, and
-/// <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/> is a second route that does not come from a
-/// candidate at all — and the consequence is the identical collapse. So the guarantee is enforced a second
-/// time on the SCORE, after it is computed: a non-finite score drops its own candidate and nobody else's.
-/// Not reachable from anything this library ships (every shipped <see cref="Lyntai.Memory.IMemoryGraphStore"/>
-/// reports <see cref="GraphNode.Relevance"/> in <c>(0,1]</c> and every shipped
-/// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy"/> clamps to <c>[0,1]</c>), so this is
-/// BYO-only exposure — the same standing the input filter was accepted on.</para>
+/// after <c>AddLyntai</c> — either direction wins.</para>
+/// <para><b>Owns the floor, not the grade exemption.</b> This policy drops whatever falls below its own floor
+/// without regard for <see cref="MemoryGrade"/>; re-admitting a dropped authoritative candidate is the
+/// CALLER's job (<see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/>, by id) — see
+/// <see cref="IMemoryRankingPolicy"/>'s own remarks.</para>
+/// <para><b>Non-finiteness is filtered TWICE — on the inputs and again on the SCORE — and neither alone is
+/// enough.</b> <c>+Infinity</c> is the dangerous value, not <c>NaN</c>: <c>NaN</c> sorts to the bottom, while
+/// <c>+Infinity</c> becomes <c>best</c>, makes <c>floor</c> infinite too, and leaves <c>Score &gt;= floor</c>
+/// true for that candidate ALONE — recall collapses to the corrupted entry rather than merely losing it. The
+/// input filter closes only the poisoned-INPUT class: a score overflows from wholly FINITE inputs too
+/// (<c>1e308 × 1e308</c>, or an unbounded <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/>, which
+/// comes from no candidate at all), so a non-finite SCORE drops its own candidate and nobody else's. BYO-only
+/// exposure: every shipped store reports <see cref="GraphNode.Relevance"/> in <c>(0,1]</c> and every shipped
+/// policy clamps to <c>[0,1]</c>.</para>
 /// </summary>
 /// <param name="options">Constants; null takes the defaults.</param>
 public sealed class MultiplicativeRankingPolicy(MultiplicativeRankingOptions? options = null) : IMemoryRankingPolicy

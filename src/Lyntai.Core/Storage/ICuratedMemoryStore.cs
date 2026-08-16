@@ -56,12 +56,10 @@ public interface ICuratedMemoryStore
     /// re-categorises (same id, same <c>created_at</c>) — so retargeting an entry at another consumer or variant
     /// is an edit, not delete+re-add. Null = leave unchanged, as everywhere else here; the EMPTY STRING is the
     /// CLEAR sentinel, resetting the field to null ("applies everywhere" — see <see cref="ForCompositionAsync"/>),
-    /// because a plain null is already spoken for. That is this interface's established convention for a
-    /// nullable-string field (the retired <c>source</c>/<c>title</c> params cleared on <c>""</c> too) and it
-    /// mirrors the empty <paramref name="metadata"/> map; it destroys no legitimate value either, since an
-    /// empty scope ALREADY reads as "every scope" in composition and an entry keyed to a task literally named
-    /// <c>""</c> could never be composed. The sentinel is UPDATE-only — <see cref="AddAsync"/> stores what it
-    /// is given, since there a plain null already means "everywhere".</para>
+    /// because a plain null is already spoken for. It destroys no legitimate value: an empty scope ALREADY
+    /// reads as "every scope" in composition, and an entry keyed to a task literally named <c>""</c> could
+    /// never be composed. The sentinel is UPDATE-only — <see cref="AddAsync"/> stores what it is given, since
+    /// there a plain null already means "everywhere".</para>
     /// <para>An identity-mutating update REFUSES a collision rather than creating one.
     /// <c>(kind, content, taskKey, scope)</c> is the dedup identity of <see cref="AddAsync"/>, so moving an entry
     /// onto an identity a DIFFERENT entry already holds would mint exactly the duplicate <c>dedup: true</c>

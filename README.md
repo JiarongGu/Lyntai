@@ -278,7 +278,7 @@ catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { S
   `ConfigureMemory(p => …)` — count cap, default TTL, per-scope character budget, FIFO or LRU eviction — or
   the `LYNTAI_MEMORY_*` env family; `MemoryEvictionPolicy.Manual` hands size back to your app. On-write
   eviction never revisits a cold `(task, scope)`, so `AddMemoryPruneJob(cron, …)` is the scheduled form —
-  a recurring durable job that reaps expired and aged-out entries (your app owns the pump).
+  a recurring durable job that removes expired and aged-out entries (your app owns the pump).
 - **Curated memory catalog** (`ICuratedMemoryStore`) sits beside the recall log for hand-managed context:
   entries grouped by `Kind`, each individually enable/disable-able and editable (`UpdateAsync`, incl.
   re-categorising `kind` in place), with an arbitrary app-owned `string→string` `Metadata` map (title,

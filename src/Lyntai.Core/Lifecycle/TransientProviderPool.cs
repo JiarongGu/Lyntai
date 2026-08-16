@@ -11,7 +11,22 @@ namespace Lyntai.Lifecycle;
 ///
 /// <para>It still records each instance's key, so dead-host cooldown and admission control remain keyed on
 /// the CONFIGURATION. That is what makes the trade honest: a consumer can rebuild a provider every call and
-/// still accumulate bench state correctly, which is exactly what rebuilding by hand fails to do.</para></summary>
+/// still accumulate bench state correctly, which is exactly what rebuilding by hand fails to do.</para>
+///
+/// <para><b>Not for a provider that owns anything expensive or exclusive.</b> This pool never disposes what
+/// it builds — deliberately, for the reason <see cref="IProviderPool{TProvider}.Retire"/> gives: without
+/// leases nothing knows when a caller has finished. Combined with "fresh instance per call" that means an
+/// <see cref="IDisposable"/> provider is constructed on every call and released by nobody.</para>
+///
+/// <para>Two things break, and the second is the one that surprises. Anything a provider serializes with
+/// its OWN field stops serializing, because each call gets a new field —
+/// <c>LocalProvider</c>'s one-generation-at-a-time gate is exactly this shape. And anything it loads LAZILY
+/// under that field is reloaded per call: for a local GGUF backend that is multiple gigabytes of native
+/// weights, loaded concurrently and never freed.</para>
+///
+/// <para>Use <see cref="BoundedProviderPool{TProvider}"/> for those, or implement a lease-based pool. The
+/// providers this one suits are the stateless ones — an HTTP client over an API key, where "fresh" costs an
+/// allocation.</para></summary>
 /// <typeparam name="TProvider">The provider seam being pooled.</typeparam>
 public sealed class TransientProviderPool<TProvider> : IProviderPool<TProvider>
     where TProvider : class, IProviderIdentity

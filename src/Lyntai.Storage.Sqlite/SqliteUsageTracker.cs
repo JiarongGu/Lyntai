@@ -34,12 +34,12 @@ public sealed class SqliteUsageTracker(IDbConnectionFactory factory) : IUsageTra
         // Per-consumer: SUM + COLLATE NOCASE — rows keep their exact casing (the TEXT PK), but consumer
         // identity is case-insensitive library-wide, so the total AGGREGATES across casings.
         var row = consumer is null
-            ? await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition("""
+            ? await conn.QuerySingleOrDefaultAsync<UsageTotalsRow>(new CommandDefinition("""
                 SELECT COALESCE(SUM(input_tokens),0) AS input_tokens, COALESCE(SUM(output_tokens),0) AS output_tokens,
                        CAST(COALESCE(SUM(cost_usd),0) AS REAL) AS cost_usd, COALESCE(SUM(calls),0) AS calls
                 FROM lyntai_usage
                 """, cancellationToken: ct)).ConfigureAwait(false)
-            : await conn.QuerySingleOrDefaultAsync<Row>(new CommandDefinition("""
+            : await conn.QuerySingleOrDefaultAsync<UsageTotalsRow>(new CommandDefinition("""
                 SELECT COALESCE(SUM(input_tokens),0) AS input_tokens, COALESCE(SUM(output_tokens),0) AS output_tokens,
                        CAST(COALESCE(SUM(cost_usd),0) AS REAL) AS cost_usd, COALESCE(SUM(calls),0) AS calls
                 FROM lyntai_usage WHERE consumer = @consumer COLLATE NOCASE
@@ -59,11 +59,4 @@ public sealed class SqliteUsageTracker(IDbConnectionFactory factory) : IUsageTra
                 new { consumer }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
-    private sealed class Row
-    {
-        public long InputTokens { get; set; }
-        public long OutputTokens { get; set; }
-        public double CostUsd { get; set; }
-        public long Calls { get; set; }
-    }
 }

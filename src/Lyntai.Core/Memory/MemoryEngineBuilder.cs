@@ -34,10 +34,20 @@ public sealed class MemoryEngineBuilder
     /// hierarchical name.</param>
     public MemoryEngineBuilder UseLexical(string label = "lexical")
     {
-        _members.Add(new MemberSpec(label, (sp, full) => new LexicalMemoryEngine(
-            full, Required<IMemoryStore>(sp), sp.GetService<ILogger<LexicalMemoryEngine>>())));
+        _members.Add(new MemberSpec(label, (sp, full) => BuildLexical(sp, full)));
         return this;
     }
+
+    /// <summary>The ONE place a <see cref="LexicalMemoryEngine"/> is constructed, for the reason
+    /// <see cref="BuildGraph"/> exists: <see cref="UseLexical"/> and <see cref="UseBestAvailable"/>'s
+    /// fallback arm both build one, and two construction sites for one engine is how a parameter added to
+    /// the engine reaches only one path.
+    /// <para>That is not hypothetical here — <see cref="UseBestAvailable"/>'s own remarks record the GRAPH
+    /// engine doing exactly this, silently falling two parameters behind until <see cref="BuildGraph"/> was
+    /// extracted. The lexical pair had the identical shape and had simply not drifted yet, which is a
+    /// statement about its parameter count rather than about the wiring.</para></summary>
+    private static LexicalMemoryEngine BuildLexical(IServiceProvider sp, string full) =>
+        new(full, Required<IMemoryStore>(sp), sp.GetService<ILogger<LexicalMemoryEngine>>());
 
     /// <summary>Draw on meaning-based <see cref="ISemanticMemory"/>. Associative. Needs an embedder — see
     /// <c>AddSemanticMemory</c>.</summary>
@@ -156,7 +166,7 @@ public sealed class MemoryEngineBuilder
             // the retention collection is a DI collection: adding a retention dimension is a registration,
             // never an edit here
             //
-            // No `?? new …()` fallback here (2026-08-10, fsrs-properly plan Task 1, deleting
+            // No `?? new …()` fallback here (deleting
             // HalfLifeRetrievability): AddMemoryEngine's own TryAddSingleton<IMemoryRetrievabilityPolicy>
             // always runs before configure(engineBuilder) ever reaches this lambda, so GetRequiredService
             // cannot actually throw here — it documents that guarantee instead of restating a second,
@@ -173,7 +183,7 @@ public sealed class MemoryEngineBuilder
                 retrievability ?? sp.GetRequiredService<IMemoryRetrievabilityPolicy>(),
                 sp.GetServices<IMemoryRetentionPolicy>(),
                 sp.GetService<IMemoryRetentionCompositionPolicy>()),
-            // age is a DI collection too (2026-08-10 memory-policy-seams plan, Task 3): registering an
+            // age is a DI collection too: registering an
             // IMemoryAgePolicy adds a coexisting age dimension, never replaces the engine's own default
             // (a burst-damped per-write age policy) — GetServices returns empty when nothing is registered, and
             // the engine's own normalization falls back to that default exactly as GetService's null used to
@@ -186,7 +196,7 @@ public sealed class MemoryEngineBuilder
             // salience is a DI collection too, same reasoning as agePolicies above
             saliencePolicies: sp.GetServices<IMemorySaliencePolicy>(),
             salienceComposition: sp.GetService<IMemorySalienceCompositionPolicy>(),
-            // PER-ENGINE selection (2026-08-10 memory-policy-seams plan, Task 6): an explicit `ranking`
+            // PER-ENGINE selection: an explicit `ranking`
             // argument here is THIS engine's own choice and wins outright; null falls back to the container
             // registration exactly as before this parameter existed — "container registration stays the
             // default for engines that name nothing".
@@ -213,8 +223,7 @@ public sealed class MemoryEngineBuilder
         _members.Add(new MemberSpec("memory", (sp, full) =>
             sp.GetService<IMemoryGraphStore>() is { } graph
                 ? BuildGraph(sp, full, graph)
-                : new LexicalMemoryEngine(full, Required<IMemoryStore>(sp),
-                    sp.GetService<ILogger<LexicalMemoryEngine>>())));
+                : BuildLexical(sp, full)));
         return this;
     }
 
@@ -259,14 +268,14 @@ public sealed class MemoryEngineBuilder
     /// <para>ALWAYS a composite, even for one member: returning the bare member would name the engine after
     /// the member ("chat/lexical" rather than "chat") and make it unreachable by the name it was
     /// registered under. One indirection buys uniform naming, routing and <c>Supported</c>.</para></summary>
-    /// <remarks>The reap policy is resolved from DI when the host registered one, so
-    /// <c>services.AddSingleton&lt;IMemoryReapPolicy, MyPolicy&gt;()</c> is the whole opt-in. Unregistered, the
-    /// composite falls back to <see cref="DefaultMemoryReapPolicy"/> — eligibility is a DEPLOYMENT question
-    /// (see <see cref="IMemoryReapPolicy"/>), so it has to be reachable without editing an engine.</remarks>
+    /// <remarks>The remove policy is resolved from DI when the host registered one, so
+    /// <c>services.AddSingleton&lt;IMemoryRemovalPolicy, MyPolicy&gt;()</c> is the whole opt-in. Unregistered, the
+    /// composite falls back to <see cref="DefaultMemoryRemovalPolicy"/> — eligibility is a DEPLOYMENT question
+    /// (see <see cref="IMemoryRemovalPolicy"/>), so it has to be reachable without editing an engine.</remarks>
     internal IMemoryEngine Build(IServiceProvider sp) =>
         new CompositeMemoryEngine(Name, [.. _members.Select(m => m.Build(sp, $"{Name}/{m.Label}"))],
             sp.GetService<ILogger<CompositeMemoryEngine>>(),
-            sp.GetService<IMemoryReapPolicy>());
+            sp.GetService<IMemoryRemovalPolicy>());
 
     private static T Required<T>(IServiceProvider sp) where T : class =>
         sp.GetService<T>() ?? throw new InvalidOperationException(

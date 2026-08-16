@@ -77,13 +77,13 @@ public sealed class LexicalMemoryEngine(
         store.ForgetAsync(taskKey, scope, ct);
 
     /// <inheritdoc />
-    /// <remarks><b>Two criteria this store cannot EXPRESS, and both make it reap nothing rather than reap
+    /// <remarks><b>Two criteria this store cannot EXPRESS, and both make it remove nothing rather than remove
     /// wrongly.</b> <see cref="IMemoryStore.PruneAsync"/> filters on task and age only: it takes no scope,
     /// and the keyword store has no retrievability model to compare against. Ignoring either and pruning on
     /// what is left would delete entries outside the scope asked for, or entries the caller wanted kept
-    /// because they are still retrievable — over-deletion, the one direction a reap must never err in.
+    /// because they are still retrievable — over-deletion, the one direction a removal must never err in.
     /// <para>Returning 0 is honest here in a way it would not be for <see cref="ForgetAsync"/>: a prune is
-    /// best-effort capacity management, and reaping less than hoped defers a cost rather than breaking a
+    /// best-effort capacity management, and removing less than hoped defers a cost rather than breaking a
     /// promise. The skip is logged so an operator whose prune returns 0 can find out why.</para></remarks>
     public Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
         TimeSpan? olderThan = null, CancellationToken ct = default)
@@ -91,7 +91,7 @@ public sealed class LexicalMemoryEngine(
         if (scope is not null || minRetrievability is not null)
         {
             _logger.LogInformation(
-                "lexical prune on {Engine}/{Task} reaped nothing: the keyword store filters on task and age " +
+                "lexical prune on {Engine}/{Task} removed nothing: the keyword store filters on task and age " +
                 "only, and honouring neither {Criteria} would delete more than was asked for",
                 Name, taskKey, scope is not null && minRetrievability is not null
                     ? "scope nor minRetrievability" : scope is not null ? "scope" : "minRetrievability");

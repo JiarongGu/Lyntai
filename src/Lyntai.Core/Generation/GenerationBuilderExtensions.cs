@@ -151,7 +151,7 @@ public static class GenerationBuilderExtensions
     /// (discover what is available), <c>generate</c> (inline), and <c>generate_submit</c> /
     /// <c>generate_status</c> / <c>generate_fetch</c> (the asynchronous path a video render needs).
     ///
-    /// This is the whole coupling between the two domains: the LLM side already knows <c>ITool</c>, so these
+    /// This is the whole coupling between the two domains: the LLM side already knows <see cref="Lyntai.Agents.ITool"/>, so these
     /// work in the in-process tool loop and — with <c>AddMcpToolHost(...)</c> from
     /// <c>Lyntai.Tools.Mcp.Hosting</c> — for a CLI agent that runs its own loop over MCP. Neither domain
     /// references the other's concrete types (<c>docs/DECISIONS.md</c> D24).</summary>
@@ -173,7 +173,8 @@ public static class GenerationBuilderExtensions
             sp.GetServices<IGenerationProvider>()));
         builder.Services.AddSingleton<Lyntai.Agents.ITool>(sp => new Lyntai.Generation.Tools.GenerationFetchTool(
             sp.GetServices<IGenerationProvider>(),
-            sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>()));
+            sp.GetService<Lyntai.Generation.Jobs.IGenerationArtifactSink>(),
+            sp.GetService<Lyntai.Llm.Budgeting.IUsageTracker>()));
         return builder;
     }
 

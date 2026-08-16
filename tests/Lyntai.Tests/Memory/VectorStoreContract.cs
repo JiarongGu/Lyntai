@@ -108,6 +108,63 @@ public static class VectorStoreContract
         Assert.Empty(await store.SearchAsync(c, [1f, 0f, 0f], k: 10));
     }
 
+    // ONE vector for every tied entry: each scores bit-identically, so nothing but the tiebreak can order
+    // them. Ids are zero-padded, so ordinal string order == numeric order.
+    private static readonly float[] Tied = [1f, 0f, 0f];
+    private static string TiedId(int i) => $"id-{i:00}";
+
+    private static async Task SeedTiedAsync(IVectorStore store, string c, int n)
+    {
+        // inserted in DESCENDING id order, so "whatever arrived first" is not the expected answer either
+        for (var i = n; i >= 1; i--) await store.UpsertAsync(c, TiedId(i), Tied, $"payload-{i}");
+    }
+
+    /// <summary>Equal scores come back in a total, repeatable order — by id, ascending ordinal.
+    /// <para><b>Load-bearing, not tidiness</b>, and it belongs to the CONTRACT rather than to one backend:
+    /// every implementation ranks out of a container whose natural order it does not control — a
+    /// <c>ConcurrentDictionary</c>'s per-process-randomized hash buckets in process, an unordered scan on
+    /// SQLite, a plan that may go parallel on Postgres. The same defect <c>storage.md</c> records for an
+    /// <c>ORDER BY</c> on a non-unique column.</para>
+    /// <para>Ties are not hypothetical: <c>VectorMath.Cosine</c> returns exactly <c>0</c> for a zero vector
+    /// or a dimension mismatch, and identical embeddings score exactly equal.</para></summary>
+    public static async Task Equal_scores_are_ordered_by_id(IVectorStore store, string c)
+    {
+        // 16 tied entries: an untiebroken order coincides with id order about once in 16!, so this pins the
+        // tiebreak rather than recording today's luck.
+        await SeedTiedAsync(store, c, 16);
+
+        var hits = await store.SearchAsync(c, Tied, k: 16);
+
+        Assert.Equal(Enumerable.Range(1, 16).Select(TiedId), hits.Select(h => h.Id));
+        Assert.All(hits, h => Assert.Equal(hits[0].Score, h.Score)); // …and they genuinely were all tied
+    }
+
+    /// <summary>The sharp half: with more ties than <c>k</c>, an untiebroken top-k drops an ARBITRARY member
+    /// of the tie, so the same query over the same data returns different entries run to run — and on the
+    /// memory path those top-k hits become similarity EDGES and a novelty score, so the arbitrariness is
+    /// written down permanently rather than merely displayed.</summary>
+    public static async Task The_k_boundary_keeps_the_same_tied_entries(IVectorStore store, string c)
+    {
+        await SeedTiedAsync(store, c, 16);
+
+        var hits = await store.SearchAsync(c, Tied, k: 3);
+
+        Assert.Equal(new[] { TiedId(1), TiedId(2), TiedId(3) }, hits.Select(h => h.Id));
+    }
+
+    /// <summary>Guard against "fixing" the tie by sorting on id first: a closer match wins even when its id
+    /// sorts last. Only EQUAL scores may be reordered.</summary>
+    public static async Task The_tiebreak_never_outranks_the_score(IVectorStore store, string c)
+    {
+        await store.UpsertAsync(c, "aaa-far", [0f, 1f, 0f], "far");
+        await store.UpsertAsync(c, "zzz-near", [1f, 0f, 0f], "near");
+
+        var hits = await store.SearchAsync(c, [1f, 0f, 0f], k: 2);
+
+        Assert.Equal("zzz-near", hits[0].Id);
+        Assert.True(hits[0].Score > hits[1].Score);
+    }
+
     /// <summary>Collections are isolated: a search never reaches another collection's vectors. Semantic
     /// memory uses one collection per task+scope, so a leak here is a cross-task memory leak.</summary>
     public static async Task Collections_are_isolated(IVectorStore store, string c)

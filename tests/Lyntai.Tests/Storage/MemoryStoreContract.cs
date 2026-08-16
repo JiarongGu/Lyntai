@@ -94,7 +94,7 @@ public static class MemoryStoreContract
         Assert.Equal("durable", live[0].Content);       // expired dropped from recall
         Assert.DoesNotContain(live, m => m.Content == "ephemeral");
 
-        Assert.True(await store.PruneAsync() >= 1);       // reaped by prune
+        Assert.True(await store.PruneAsync() >= 1);       // removed by prune
     }
 
     /// <summary>T9 (promoted from the SQLite-only lifecycle tests): re-remembering an identical fact
@@ -124,7 +124,7 @@ public static class MemoryStoreContract
     }
 
     /// <summary>T9: <c>PruneAsync(olderThan:)</c> removes by AGE regardless of TTL. Task-scoped so it is
-    /// safe on the shared Postgres container (an unscoped age prune would reap other tests' rows).</summary>
+    /// safe on the shared Postgres container (an unscoped age prune would remove other tests' rows).</summary>
     public static async Task Prune_older_than_removes_by_age_within_a_task(IMemoryStore store, string key, Action<TimeSpan> advance)
     {
         await store.RememberAsync(key, "s", "old fact"); // no TTL, at t=0
@@ -139,7 +139,7 @@ public static class MemoryStoreContract
         Assert.Equal("new fact", hits[0].Content);
     }
 
-    /// <summary>T9: a task-scoped prune reaps only that task — the sibling task's expired row survives
+    /// <summary>T9: a task-scoped prune removes only that task — the sibling task's expired row survives
     /// (proved by its own scoped prune still finding it, so no cross-backend table peeking).</summary>
     public static async Task Prune_scoped_to_one_task_leaves_the_sibling(IMemoryStore store, string key, Action<TimeSpan> advance)
     {

@@ -8,10 +8,8 @@ namespace Lyntai.Storage.Sqlite.Migrations;
 /// <para><b>Why this is a squash and not six migrations.</b> Every one of the six it replaces landed AFTER
 /// <c>v2.5.0</c> was cut, so no released version ever carried them and no consumer database has ever applied
 /// one. That is exactly the condition <c>docs/DECISIONS.md</c> <b>D9</b> names: a pre-release migration folds
-/// into its owner, and only a RELEASED table needs a new one. The same reasoning already applied WITHIN one of
-/// those six — <c>MemoryDifficulty</c> corrected its own <c>DEFAULT</c> from <c>1</c> to <c>5</c> by editing
-/// itself rather than adding a migration — and the 1.0 release did this at larger scale, collapsing the
-/// accreted 0.x set into the nine per-domain baselines this schema still starts from.</para>
+/// into its owner, and only a RELEASED table needs a new one. The 1.0 release did the same at larger scale,
+/// collapsing the accreted 0.x set into the nine per-domain baselines this schema still starts from.</para>
 ///
 /// <para><b>What is deliberately NOT folded in.</b> <c>M202608081215_MemoryGraph</c> shipped in 2.5.0, so the
 /// tables below are RELEASED and every change here stays an <c>ALTER</c>. Folding these columns into that

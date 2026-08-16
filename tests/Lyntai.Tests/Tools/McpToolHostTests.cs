@@ -1,6 +1,7 @@
 using Lyntai.Agents;
 using Lyntai.Tools.Mcp;
 using Lyntai.Tools.Mcp.Hosting;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 
 namespace Lyntai.Tests.Tools;
@@ -77,6 +78,50 @@ public class McpToolHostTests
         Assert.False(ran);                              // the tool did not execute at all
         Assert.DoesNotContain("hunter2", result);       // and the model never saw the payload
         Assert.Contains("blocked", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task A_hosted_block_is_LOGGED_the_way_the_tool_loop_logs_its_own()
+    {
+        // The signal half of the two-doors problem. Both doors always emitted the guard-decision COUNTER —
+        // IGuardRail records it, so a block was never invisible in telemetry — but ToolLoop logged both of
+        // its block paths at Information while this one had no logger at all. An operator reading logs saw a
+        // refusal from one door and silence from the other, purely because one class had been given a logger
+        // and the other had not. The difference in FORCE between the doors is deliberate (ToolFunction's own
+        // remarks say why); this difference in SIGNAL was an accident. `docs/DECISIONS.md` D75.
+        var logs = new List<string>();
+        ITool secret = new FunctionTool("read_secret",
+            (_, _) => Task.FromResult("SECRET_KEY=hunter2"), "reads a secret",
+            """{"type":"object","properties":{}}""");
+
+        const string token = "test-bearer-token";
+        await using var host = await McpToolHost.StartAsync(
+            [secret], token, guards: new BlockingRail(), logger: new CapturingLogger(logs));
+
+        var transport = new HttpClientTransport(new HttpClientTransportOptions
+        {
+            Endpoint = new Uri(host.Url),
+            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = $"Bearer {token}" },
+        });
+        await using var client = await McpClient.CreateAsync(transport);
+        var tool = Assert.Single(await McpToolset.FromClientAsync(client));
+
+        await tool.InvokeAsync("""{}""");
+
+        var line = Assert.Single(logs);
+        Assert.Contains("guard blocked", line, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("read_secret", line, StringComparison.Ordinal);   // WHICH tool, or the line is unactionable
+    }
+
+    private sealed class CapturingLogger(List<string> sink) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex,
+            Func<TState, Exception?, string> fmt)
+        {
+            lock (sink) sink.Add(fmt(state, ex));
+        }
     }
 
     [Fact]

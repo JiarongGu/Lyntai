@@ -228,7 +228,7 @@ public class DsrRetrievabilityTests
         // see. MAGNITUDE only becomes visible after F = 0.5^(1/decay) - 1 is derived, and BOTH extremes
         // reproduce exactly the catastrophes that guard exists to prevent — from values it accepts:
         //   -0.0005 -> 1/decay = -2000 -> 0.5^-2000 overflows -> F = +Infinity -> r = 0 for EVERY age > 0,
-        //              so recall returns nothing and PruneAsync reaps the corpus;
+        //              so recall returns nothing and PruneAsync removes the corpus;
         //   -1e16   -> 1/decay = -1e-16 -> 0.5^-1e-16 rounds to exactly 1.0 in a double -> F = 0, the
         //              curve's base collapses to 1 and r == 1 forever, so nothing is ever forgotten.
         // Both are the OPPOSITE of what Decay's own doc promises a consumer ("a less negative value is a

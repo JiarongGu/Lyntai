@@ -50,54 +50,35 @@ public readonly record struct MemorySignals
     {
         /// <summary>How strongly this entry was encoded, written by an <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy"/>.
         /// <b>Means "this memory does not fade away" — decay resistance AND store admission priority — NOT
-        /// "first priority"</b> (2026-08-09 — <c>docs/DECISIONS.md</c> D45, corrected same day by D45): it
-        /// lengthens a half-life and orders admission in the store when a candidate set overflows its
-        /// budget, both on by default. It can ALSO lift rank in
-        /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> — bounded
-        /// logarithmically (<see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight"/>) so it lifts without
-        /// dominating — but that is a stronger, separate claim (a salient entry outranking a better textual
-        /// match) the owner declined to make the default; a consumer opts in explicitly.</summary>
+        /// "first priority"</b> (<c>docs/DECISIONS.md</c> D45): it lengthens a half-life and orders admission
+        /// in the store when a candidate set overflows its budget, both on by default. It can ALSO lift rank
+        /// in <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> — bounded logarithmically
+        /// (<see cref="Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight"/>) so it lifts
+        /// without dominating — but that is a stronger, separate claim (a salient entry outranking a better
+        /// textual match) and is NOT the default; a consumer opts in explicitly.</summary>
         public const string Salience = "salience";
 
         /// <summary>How hard this material is to retain, on FSRS's 1–10 scale where 1 is EASIEST and 10 is
-        /// hardest. <b>The neutral value is 5 (the mid-point), NOT 1 — corrected 2026-08-11</b>: absent means
-        /// AVERAGE difficulty, not "easiest possible" — see
-        /// <see cref="Lyntai.Memory.Forgetting.DsrOptions.NeutralDifficulty"/>'s own remarks for why starting
-        /// every unjudged entry at the floor made the axis structurally unable to move, and why 5 is a
-        /// stated choice rather than a derivation. (Unlike this signal, <see cref="Salience"/>'s own neutral
-        /// genuinely IS its scale's floor — the two conventions differ because a lower salience is never
-        /// worse than an unjudged one, while "no information about difficulty" is not the same claim as
-        /// "known to be trivial".)
-        /// <para><b>Read by the STORE, not by <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>
-        /// (2026-08-10, fsrs-properly plan Task 2 — before this, <c>Reinforce</c> read this signal directly on
-        /// every call, and never wrote anything back).</b> Difficulty is now LIVE state
-        /// (<see cref="MemoryDecayState.Difficulty"/>), maintained by the retrievability policy itself across
-        /// every reinforcement — exactly the same promotion <c>salience</c> already has, and for the same
-        /// reason: a store must materialize this signal into its own column so it can seed and refresh a value
-        /// the policy owns going forward, the moment a write actually supplies one.</para>
-        /// <para><b>Precedence, stated once so a second reader is never free to invent a second rule</b> (see
-        /// <see cref="MemoryDecayState.Difficulty"/>'s own remarks for the full reasoning): a NON-EMPTY
-        /// incoming bag on ANY write — a fresh node, or a re-remember — overwrites the live value, so an
-        /// application's explicit judgement always wins; an EMPTY incoming bag (a salience policy declining) never
-        /// touches it, so the policy's own accumulated tracking survives an unrelated re-remember untouched.
-        /// </para>
-        /// <para><b>A value outside <c>[1, 10]</c> is CLAMPED into range, never rejected</b> — a writer's own
-        /// EXPLICIT value is coerced, not validated: <c>0</c> reads as the floor <c>1</c> (still an explicit
-        /// judgement of "trivial", clamped into domain), <c>50</c> reads as <c>10</c> (hardest). A
-        /// non-finite value is a DIFFERENT case — it means no real judgement was supplied at all, so it reads
-        /// as the neutral <c>5</c>, not the floor (corrected 2026-08-11 alongside
-        /// <see cref="Lyntai.Memory.Forgetting.DsrOptions.NeutralDifficulty"/> — the two must agree on what
-        /// "no information" means). That rule is <see cref="MemorySignals.Difficulty"/>, and every reader
-        /// calls it rather than restating it.</para>
-        /// <para><b>Nothing judges this yet.</b> An application that can judge difficulty writes it; the
-        /// library ships no policy for it, because judging difficulty is a separate problem from judging
-        /// salience and deserves its own design rather than an afterthought.</para>
-        /// <para><b>And "writes it" means through <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy"/>,
-        /// which is the ONLY route there is</b> for the INITIAL judgement — <see cref="MemoryWrite"/> carries
-        /// no signals, so an application that wants to seed or correct difficulty registers a salience policy and
-        /// returns the difficulty signal from it (alongside salience, or instead of it). From then on, the
-        /// retrievability policy's own per-review updates are the other route, per the precedence
-        /// above.</para></summary>
+        /// hardest. <b>The neutral value is 5 (the mid-point), NOT 1</b>: absent means AVERAGE difficulty, not
+        /// "easiest possible" — see <see cref="Lyntai.Memory.Forgetting.DsrOptions.NeutralDifficulty"/>'s own
+        /// remarks.
+        /// <para><b>Read by the STORE, not by <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>.</b>
+        /// Difficulty is LIVE state (<see cref="MemoryDecayState.Difficulty"/>) maintained by the
+        /// retrievability policy across every reinforcement, so a store materializes this signal into its own
+        /// column to seed and refresh a value the policy then owns.</para>
+        /// <para><b>Precedence</b> (full reasoning: <see cref="MemoryDecayState.Difficulty"/>): a NON-EMPTY
+        /// incoming bag on ANY write overwrites the live value, so an application's explicit judgement wins;
+        /// an EMPTY bag never touches it, so the policy's accumulated tracking survives an unrelated
+        /// re-remember.</para>
+        /// <para><b>A value outside <c>[1, 10]</c> is CLAMPED into range, never rejected</b> — <c>0</c> reads
+        /// as the floor <c>1</c>, <c>50</c> as the hardest <c>10</c>. A NON-FINITE value is a DIFFERENT case:
+        /// it means no real judgement was supplied at all, so it reads as the neutral <c>5</c>, not the floor.
+        /// That rule is <see cref="MemorySignals.Difficulty"/>, and every reader calls it rather than
+        /// restating it.</para>
+        /// <para>An application that can judge difficulty writes it through
+        /// <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy"/> — <b>the only route there is</b> for the
+        /// INITIAL value, since <see cref="MemoryWrite"/> carries no signals. After that, the retrievability
+        /// policy's per-review updates are the other route, per the precedence above.</para></summary>
         public const string Difficulty = "difficulty";
     }
 
@@ -143,7 +124,7 @@ public readonly record struct MemorySignals
     /// worse still: <c>Microsoft.Data.Sqlite</c> refuses to bind it and the whole write fails.</para>
     /// <para>Both values are reachable through the public <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy"/> seam, so neither
     /// is hypothetical. <b>Every read site calls this</b> — the two SQL stores' promoted <c>salience</c>
-    /// column, the in-process store's admission ordering, and <c>GraphMemoryEngine</c>'s rank boost. They
+    /// column, the in-process store's admission ordering, and <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/>'s rank boost. They
     /// once normalized the same value three different ways, which made identical data admit differently on
     /// different backends.</para></summary>
     /// <param name="signals">The bag; an empty one reports the neutral 1.</param>
@@ -159,21 +140,21 @@ public readonly record struct MemorySignals
     /// holding a private copy of it is free to drift from what the signal's own doc promises.
     /// <para><b>Coerced, never rejected.</b> Outside <c>[1, 10]</c> is CLAMPED — <c>0</c> reads as the floor
     /// <c>1</c> (an explicit judgement, clamped into domain), <c>50</c> reads as the hardest <c>10</c> — and
-    /// an ABSENT signal or a non-finite value reads as the neutral <c>5</c> instead (corrected 2026-08-11;
-    /// was the floor <c>1</c> — see <see cref="Lyntai.Memory.Forgetting.DsrOptions.NeutralDifficulty"/>'s own
-    /// remarks for why "no information" and "known to be trivial" must not share a value). <b>The
+    /// an ABSENT signal or a non-finite value reads as the neutral <c>5</c> instead — see
+    /// <see cref="Lyntai.Memory.Forgetting.DsrOptions.NeutralDifficulty"/>'s own remarks for why "no
+    /// information" and "known to be trivial" must not share a value. <b>The
     /// finiteness check has to come FIRST</b>, because <see cref="Math.Clamp(double,double,double)"/>
     /// PROPAGATES <see cref="double.NaN"/> per IEEE 754: a clamp is not a finiteness guard, and the
     /// difference is not cosmetic here. Difficulty scales a stability increase that
-    /// <c>GraphMemoryEngine</c> writes straight back to the store, so a <c>NaN</c> would be persisted
+    /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> writes straight back to the store, so a <c>NaN</c> would be persisted
     /// PERMANENTLY — and a <c>NaN</c> stability compares false against every threshold, so the entry then
     /// neither ranks, prunes, nor reports as broken.</para>
     /// <para>Read today by each graph store's <c>UpsertAsync</c>, which materializes it into the promoted
     /// <c>difficulty</c> column exactly the way <see cref="Salience"/> already materializes into
     /// <c>salience</c> — <see cref="Lyntai.Memory.Forgetting.DsrRetrievability.Reinforce"/> itself no longer
-    /// calls this: it reads and writes the LIVE <see cref="MemoryDecayState.Difficulty"/> field instead
-    /// (2026-08-10, fsrs-properly plan Task 2). This exists so the store's promotion cannot invent a second
-    /// coercion rule, not because two already disagree.</para></summary>
+    /// calls this: it reads and writes the LIVE <see cref="MemoryDecayState.Difficulty"/> field instead. This
+    /// exists so the store's promotion cannot invent a second coercion rule, not because two already
+    /// disagree.</para></summary>
     /// <param name="signals">The bag; an empty one reports the neutral 5.</param>
     public static double Difficulty(in MemorySignals signals)
     {

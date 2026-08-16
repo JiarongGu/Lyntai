@@ -22,7 +22,9 @@ the mechanism.
 > `add-scorer`, `add-storage-backend`, `archive-task`) and the six local knowledge documents
 > (`extending-lyntai`, `generic-library`, `input-is-thinking-not-doctrine`, `llm-and-router`, `pitfalls`,
 > `storage`) carry no provenance header and no `daoris.lock` entry — the same exposure as this file
-> (measured for the rules tier; inferred for the other two).
+> (measured for the rules tier; inferred for the other two). **`code-commentary.md` joined that list on
+> 2026-08-16** and is the only local rule besides this one that states a convention rather than a mechanism,
+> so losing it loses the convention itself rather than a pointer to one.
 
 ## Sensitive info — the guard that enforces it
 

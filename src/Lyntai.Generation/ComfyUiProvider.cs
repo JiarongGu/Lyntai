@@ -82,19 +82,17 @@ public sealed class ComfyUiOptions
 
 /// <summary>
 /// An <see cref="IGenerationProvider"/> + <see cref="IGenerationJobProvider"/> over a locally-run **ComfyUI**.
-/// Three things make it unlike the other HTTP backends, and all three were reasons to build it:
+/// Three things make it unlike the other HTTP backends:
 ///
 /// <list type="number">
-/// <item><b>Graph-shaped.</b> ComfyUI runs a WORKFLOW, not a prompt — so the caller supplies the graph
-///   (<c>Options["workflow"]</c>) and, optionally, where the prompt text belongs inside it
-///   (<c>Options["prompt-path"]</c>, e.g. <c>"6.inputs.text"</c>). <see cref="GenerationRequest.Prompt"/> may
-///   be null. No default graph is invented: guessing one would silently produce something nobody asked for.</item>
-/// <item><b>Asynchronous, locally.</b> Submit returns a prompt id, the run lands in history later, and the
-///   files are then served by the view endpoint — so this is <see cref="GenerationDelivery.Job"/> delivery on
-///   a machine you own, and it composes with <c>Lyntai.Jobs</c> exactly like a hosted render.</item>
-/// <item><b>No content policy in the path.</b> The server is the host's, which is what makes it the candidate
-///   to place after a hosted backend when a refusal should be picked up locally
-///   (<see cref="Routing.GenerationRoutingPolicy"/>).</item>
+/// <item><b>Graph-shaped.</b> ComfyUI runs a WORKFLOW, not a prompt, so the caller supplies the graph
+///   (<c>Options["workflow"]</c>) and optionally where the prompt belongs in it
+///   (<c>Options["prompt-path"]</c>). <see cref="GenerationRequest.Prompt"/> may be null, and no default
+///   graph is invented — guessing one would silently produce something nobody asked for.</item>
+/// <item><b>Asynchronous, locally.</b> <see cref="GenerationDelivery.Job"/> delivery on a machine you own,
+///   composing with <c>Lyntai.Jobs</c> exactly like a hosted render.</item>
+/// <item><b>No content policy in the path</b>, which makes it the candidate to place after a hosted backend
+///   when a refusal should be picked up locally (<see cref="Routing.GenerationRoutingPolicy"/>).</item>
 /// </list>
 /// </summary>
 /// <remarks>

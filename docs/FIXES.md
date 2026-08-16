@@ -7,6 +7,124 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-16 — a configured generation budget could never fire, because the second door never billed
+
+**Symptom.** None visible. `IUsageTracker.TotalAsync()` under-reported by the full cost of every
+tool-driven async render, and a `Budget.PerConsumer` cap on those renders never triggered — so the
+observable behaviour was "the cap is generous", which looks like working software.
+
+**Root cause.** `GenerationFetchTool.InvokeAsync` called `backend.FetchAsync` directly — correct in itself,
+since nothing remains to route once an operation id exists — and passed `result.Usage` to the artifact sink
+without recording it. `GenerationRenderJobHandler`, the OTHER consumer of the same fetch, bills it. A queue
+backend prices at fetch because that is the only point the total is known, so the unbilled path was the one
+carrying the money.
+
+The compounding half: `GenerationSubmitTool` re-checks the cap on every submit, against a total the fetch
+never grew. So an agent looping submit → status → fetch spent without bound underneath a cap that was
+configured, enforced on paper, and read a number that could not move. Within ONE `AddGenerationTools()`
+registration, the inline `generate` tool billed correctly and the async pair did not.
+
+**Why nothing caught it.** `GenerationToolsTests` already exercised submit → status → fetch end to end and
+asserted nothing about usage — the path was covered, the accounting was not. `BudgetedGenerationRouter`
+names the job handler as *the* recorder for the submit path and never mentions that `AddGenerationTools`
+ships a second fetch door. Textbook `pitfalls.md` §"Second doors".
+
+**Fix.** `GenerationFetchTool` takes an optional `IUsageTracker` and a `consumer` (defaulting to the
+`"agent"` tag its sibling tools already use) and records before delivery, matching the job handler's own
+documented ordering — the money is spent either way, and a sink that throws would lose the record.
+
+**Verification.** A new test configures `AddGenerationUsageBudget` and drives submit → fetch against a
+backend that prices the render at $0.50. It failed with `Expected: 0.5, Actual: 0` before the fix.
+
+**Introduced by.** The commit that added `AddGenerationTools`; the asymmetry has existed for as long as both
+doors have.
+
+---
+
+## 2026-08-16 — three storage invariants were written down for ONE backend and held by no contract
+
+**Symptom.** None observable, and two of the three could not be observed by any test in the suite. The
+third was observable only as "the same call destroyed a memory on one backend and kept it on the other two".
+
+**Root cause.** One shape, three times: an invariant was DOCUMENTED, in prose, on the backend that first
+needed it — and never promoted to the cross-backend contract, so the other implementations were free to
+disagree and nothing asked them.
+
+1. **Vector top-k had no tiebreaker on either persistent backend.** `InMemoryVectorStore` carries
+   `.ThenBy(m => m.Id, StringComparer.Ordinal)` and a doc calling that tiebreak *"load-bearing, not
+   tidiness … the same defect `storage.md` records for an `ORDER BY` on a non-unique column"* — and it was
+   the only backend that had one. Its test lived in `InMemoryVectorStoreTiebreakTests`, a single-backend
+   file, rather than in `VectorStoreContract` beside the seven facts all three backends run. Ties are not
+   hypothetical: `VectorMath.Cosine` returns exactly `0` for a zero vector or a dimension mismatch, and
+   identical embeddings score exactly equal. The blast radius is permanent rather than cosmetic — those
+   top-k hits become similarity EDGES and a novelty→salience score, so an arbitrary tie-break is written
+   into the graph rather than merely displayed.
+2. **The zero-stability floor had a third copy with different SEMANTICS.** `MemoryGraphSql.MinimumStability`
+   was hoisted for exactly this reason, its own doc saying *"a floor that differed between them would make
+   the same corpus prune differently on each, and two literals is how that happens"* — and
+   `InMemoryMemoryGraphStore` was the second literal, spelling `stability > 0 ? stability : 1e-6`
+   (SUBSTITUTE) where SQL spells `MAX`/`GREATEST` (FLOOR). Identical at stability `0`, which is the value
+   the guard was written for, and different for every value strictly between zero and the floor — on the
+   DELETE path. Stability `1e-7`, age 1, cutoff `5e6`: kept on both relational backends, deleted in process.
+3. **`Math.Max(0, x)` was standing in for a finiteness guard on the WRITE path.** `Math.Max` PROPAGATES
+   `NaN` per IEEE 754. `IMemoryAgePolicy.Age` documents at length that a non-finite return cannot corrupt
+   the store because *"everything downstream that would otherwise persist the poison"* is defended — true
+   of `Age`, which is never persisted, and false of `Advance`, whose result IS. A BYO policy returning
+   `NaN` poisoned the Postgres position column permanently (every later entry then reports a non-finite
+   age, so nothing ranks and nothing prunes) while SQLite refused the bind and failed loudly — the two
+   backends disagreeing about a poisoned write, which is worse than either answer alone.
+
+**Fix.** Promote the invariant to the contract in each case, rather than patch the backend that lacked it.
+The three tiebreak facts moved into `VectorStoreContract` (and the single-backend file was deleted, not
+left as a second door); `MemoryGraphSql.MinimumStabilityValue` derives the number from the one literal and
+the in-process store floors through it; `GraphMemoryEngine.Ordinary` coerces a non-finite tick component to
+`1`, which `MemoryTick.One` already defines as an ordinary write rather than being a value invented here.
+
+**Verification.** The tiebreak facts fail on Postgres before the fix (`["id-15","id-14","id-16"]` for a
+query whose answer must be `["id-01","id-02","id-03"]`) and pass on all three after. SQLite PASSED the
+tiebreak facts before the fix — worth recording, because it passes for a reason nobody chose: `PRIMARY KEY
+(collection, vec_id)` gives it an autoindex the plan happens to walk in `vec_id` order, which a rewrite,
+an `ANALYZE` or a different plan changes silently. A new contract fact,
+`A_stability_under_the_floor_is_floored_not_substituted`, was confirmed to fail on the in-process backend
+with the fix reverted and to pass on all three with it restored; because `MemoryGraphStoreCoverageTests`
+makes contract coverage structural, it enrolled on all three backends without being wired anywhere.
+
+**Introduced by.** Each at the commit that added its backend; none is a regression from a working state.
+
+---
+
+## 2026-08-16 — a comment sweep stranded punctuation inside XML docs that ship to consumers
+
+**Symptom.** Two public members' IntelliSense read *"…reads as the neutral 5 instead ( was the floor 1 —
+see…)"* and *"…field instead . This exists so…"*. Confirmed present in the generated
+`Lyntai.Core.xml`, so it reached consumers rather than stopping at the source.
+
+**Root cause.** A sweep deleted work-log parentheticals — `corrected 2026-08-11;` from inside a `(`, and
+`(2026-08-10, plan Task 2)` — and left their surrounding punctuation behind. The deletions were correct;
+the edits were not complete.
+
+**Why nothing caught it.** Every gate was green and none of them could have been otherwise:
+`check-comments` measures block LENGTH, `check-docs` scans prose files and deliberately excludes `src/`,
+`check-encoding` looks for mojibake, and the compiler has no opinion about a sentence. A person reading the
+diff found them. That is the same shape as `check-encoding`'s own origin — a rule that is written down and
+still violated is a missing gate, not a knowledge problem.
+
+**Fix.** Repaired both sentences, and added a stranded-punctuation rule to `check-comments`.
+
+**Verification.** Both rules are pinned by the ACTUAL shipped text as fixtures, and mutation-checked
+against the repaired version so they match the defect rather than its neighbourhood. The narrow forms were
+chosen by measurement: across `src`, `tests`, `devtools` and `bench` the obvious broad rules ("a comment
+line starting with punctuation", "a line ending in `(`") give 5 hits and 0 defects — a `.cmd` extension, a
+wrapped `: 1e-6</c>)`, a wrapped `services.AddHttpClient(`, two ellipsis continuations — while the shipped
+rules give 0 hits and still fire on both real defects. The distinguishing feature is the SPACE: a deleted
+parenthetical leaves `instead (`, a wrapped call leaves `AddHttpClient(`. There is deliberately no escape
+token, because nothing in the tree legitimately matches and an allowance would be a hole opened for a case
+that does not exist.
+
+**Introduced by.** `0c1e703`, the comment/cref sweep, this session.
+
+---
+
 ## 2026-08-16 — the release notes could not see a breaking change, on the eve of a major release
 
 **Symptom.** None observable, which is the point: the generator ran green every release and published a
@@ -135,7 +253,7 @@ in-process store reads both, and SQLite's expression is unconfined again. The co
 still runs on all three backends. **The lesson is about the reading, not the code: a floor and a ceiling look
 identical in a sentence that starts "is found".**
 
-**4. The composite reaped SOME members and reported success.** `PruneAsync`/`ForgetAsync` fanned out to
+**4. The composite removed SOME members and reported success.** `PruneAsync`/`ForgetAsync` fanned out to
 whichever members implemented `IForgettableMemory` and silently skipped the rest — the exact outcome the
 fan-out exists to prevent, written one paragraph above it. Only `GraphMemoryEngine` implements it, so
 `UseCurated("glossary").UseGraph()` — a blend from this library's own README — cleared the graph half, kept
@@ -143,15 +261,15 @@ the AUTHORITATIVE half, and returned normally. For the call an application makes
 consent, that is the worst available answer.
 
 **And round 1's own test pinned it**: it put a non-forgettable member in the blend and asserted success. The
-composite now refuses unless every member can reap, **checked before anything is removed** — a mid-fan-out
-refusal would be a partial reap AND an exception. This takes nothing away: through 2.5.x the interface was
+composite now refuses unless every member can remove, **checked before anything is removed** — a mid-fan-out
+refusal would be a partial remove AND an exception. This takes nothing away: through 2.5.x the interface was
 unreachable through a composite at all.
 
 ---
 
 **Verification.** Nine new tests across the four, each pinning the regime the original fixture missed: four
 retryable fal statuses; both directions of the submit-throw distinction; the headline fact inverted on three
-backends; and two composite facts asserting that the capable member is NOT reaped when a sibling cannot be.
+backends; and two composite facts asserting that the capable member is NOT removed when a sibling cannot be.
 `verify` green at 14/14, 2,930 passed / 2,952, e2e 3/3. The Postgres schema golden was regenerated and its
 diff reviewed line by line: exactly one index added.
 

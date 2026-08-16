@@ -83,8 +83,8 @@ internal static class MemoryRankingContract
             return byScore != 0 ? byScore : b.Candidate.Node.Id.CompareTo(a.Candidate.Node.Id);
         });
 
-        // `best` is finite because AddIfFinite dropped anything that was not — NOT "by construction", which
-        // is what two of these policies' own comments used to claim before an unbounded weight falsified it.
+        // `best` is finite because AddIfFinite dropped anything that was not — never "by construction",
+        // which an unbounded weight falsifies.
         var floor = scored[0].Score * Math.Max(0, relativeFloor);
         return scored.Where(x => x.Score >= floor).ToList();
     }

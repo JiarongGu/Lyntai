@@ -28,22 +28,22 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
     public async Task<IReadOnlyList<ScorerAggregate>> AggregateAsync(CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<AggRow>(new CommandDefinition("""
+        var rows = await conn.QueryAsync<ScoreAggregateRow>(new CommandDefinition("""
             SELECT scorer_id AS ScorerId, MAX(scorer_name) AS ScorerName,
                    AVG(score) AS AverageScore, COUNT(*) AS Count
             FROM lyntai_score_result GROUP BY scorer_id ORDER BY scorer_id
             """, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows.Select(r => new ScorerAggregate(r.ScorerId, r.ScorerName, r.AverageScore, (int)r.Count))];
+        return [.. rows.Select(r => r.ToRecord())];
     }
 
     public async Task<IReadOnlyList<ScoreExportRow>> ExportAsync(CancellationToken ct = default)
     {
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
-        var rows = await conn.QueryAsync<ExportRow>(new CommandDefinition("""
+        var rows = await conn.QueryAsync<ScoreExportEntryRow>(new CommandDefinition("""
             SELECT session_id AS SessionId, scorer_id AS ScorerId, score AS Score
             FROM lyntai_score_result ORDER BY session_id, scorer_id
             """, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows.Select(r => new ScoreExportRow(r.SessionId, r.ScorerId, r.Score))];
+        return [.. rows.Select(r => r.ToRecord())];
     }
 
     public async Task<IReadOnlyList<ScoredResult>> GetAsync(string sessionId, CancellationToken ct = default)
@@ -51,36 +51,14 @@ public sealed class PostgresScoreStore(IDbConnectionFactory factory) : IScoreSto
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // Postgres double precision needs no CAST (unlike SQLite's affinity trap); is_llm is a real
         // boolean. A property-mapped row still sidesteps Dapper's record-ctor exact-type matching.
-        var rows = await conn.QueryAsync<ScoreRow>(new CommandDefinition("""
+        var rows = await conn.QueryAsync<ScoreResultRow>(new CommandDefinition("""
             SELECT scorer_id AS ScorerId, scorer_name AS ScorerName, score_group AS ScoreGroup,
                    is_llm AS IsLlm, score AS Score, reason AS Reason
             FROM lyntai_score_result WHERE session_id = @sessionId ORDER BY id
             """, new { sessionId }, cancellationToken: ct)).ConfigureAwait(false);
-        return [.. rows.Select(r => new ScoredResult(r.ScorerId, r.ScorerName, r.ScoreGroup, r.IsLlm, r.Score, r.Reason))];
+        return [.. rows.Select(r => r.ToRecord())];
     }
 
-    private sealed class ScoreRow
-    {
-        public string ScorerId { get; set; } = "";
-        public string ScorerName { get; set; } = "";
-        public string ScoreGroup { get; set; } = "";
-        public bool IsLlm { get; set; }
-        public double Score { get; set; }
-        public string? Reason { get; set; }
-    }
 
-    private sealed class AggRow
-    {
-        public string ScorerId { get; set; } = "";
-        public string ScorerName { get; set; } = "";
-        public double AverageScore { get; set; }
-        public long Count { get; set; }
-    }
 
-    private sealed class ExportRow
-    {
-        public string SessionId { get; set; } = "";
-        public string ScorerId { get; set; } = "";
-        public double Score { get; set; }
-    }
 }

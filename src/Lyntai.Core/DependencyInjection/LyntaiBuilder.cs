@@ -212,7 +212,7 @@ public sealed class LyntaiBuilder
     }
 
     /// <summary>Opt-in background GC for memory: register a recurring <b>memory-prune</b> job on a
-    /// <paramref name="cron"/> schedule that reaps expired (and, when <paramref name="olderThan"/> is set,
+    /// <paramref name="cron"/> schedule that removes expired (and, when <paramref name="olderThan"/> is set,
     /// aged-out) entries via <c>IMemoryStore.PruneAsync</c> — reclaiming storage from cold/expired
     /// <c>(taskKey, scope)</c>s that on-write eviction never revisits. Lyntai owns the prune WORK; the APP
     /// owns the pump (drive <c>IJobScheduler.RunAsync</c>/<c>TickAsync</c> + <c>IJobRunner</c>). Needs a

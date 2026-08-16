@@ -17,24 +17,20 @@ namespace Lyntai.Llm.Cli;
 /// <item>spawn hygiene: no shell, <c>ArgumentList</c> only, a neutral working directory, prompt over stdin
 ///   (or a trailing argument) — Windows launcher-shim handling included, via
 ///   <see cref="ProcessRunner"/>,</item>
-/// <item>timeouts as an INACTIVITY clock, never one wall clock over a whole call — plus an absolute
-///   <see cref="LyntaiOptions.MaxProviderTimeout"/> backstop on BOTH completion paths, so a child that
-///   never stalls and never finishes is bounded either way (a long-running AGENT turn is a different seam:
-///   it drives <see cref="IProcessRunner"/> directly and deliberately has no ceiling),</item>
+/// <item>timeouts as an INACTIVITY clock, never one wall clock over a whole call, plus an absolute
+///   <see cref="LyntaiOptions.MaxProviderTimeout"/> backstop on BOTH completion paths (a long-running AGENT
+///   turn is a different seam: it drives <see cref="IProcessRunner"/> directly and has no ceiling),</item>
 /// <item>verdict classification through <see cref="LlmVerdictClassifier"/> — no per-provider heuristics,</item>
 /// <item>empty output is a <see cref="LlmVerdict.Failed"/>, never an empty Ok, so the router can fall over,</item>
 /// <item>streaming order: content chunks, then exactly one terminal <c>Final</c> or <c>Error</c> — where
 ///   "content" is the router's gate, <c>Kind == Content &amp;&amp; Text.Length &gt; 0</c>, so an EMPTY event
 ///   neither reaches the caller nor commits the stream,</item>
-/// <item>self-maintenance as probe → run → re-probe, so "did anything change?" is a version comparison
-///   rather than a parse of the backend's prose,</item>
+/// <item>self-maintenance as probe → run → re-probe, so "did anything change?" is a version comparison,</item>
 /// <item>fail-safe on every maintenance path (a value, never a throw) except caller cancellation.</item>
 /// </list>
 ///
-/// A provider package therefore contains a dialect plus a thin <see cref="ILlmProvider"/> that forwards to
-/// this engine and declares which OPTIONAL capability interfaces its backend actually has
-/// (<see cref="IProviderProbe"/>, <see cref="IProviderUpdater"/>,
-/// <see cref="IProviderVersionInstaller"/>, <see cref="IProviderAuth"/>).
+/// A provider package therefore contains a dialect plus a thin <see cref="ILlmProvider"/> forwarding to this
+/// engine, declaring which OPTIONAL capability interfaces its backend actually has.
 /// </summary>
 /// <param name="dialect">The backend-specific vocabulary.</param>
 /// <param name="runner">Process execution — BYO to sandbox, audit or remote the spawn.</param>

@@ -198,6 +198,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task Conversation_list_newest_first() => Pg(() => ConversationStoreContract.List_threads_returns_newest_first(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_count() => Pg(() => ConversationStoreContract.Count_reflects_inserted_and_deleted_threads(new PostgresConversationStore(pg.Factory), Uid()));
     [SkippableFact] public Task Conversation_paged() => Pg(() => ConversationStoreContract.Paged_cursor_walks_every_thread_exactly_once(new PostgresConversationStore(pg.Factory), Uid()));
+    [SkippableFact] public Task Conversation_paged_tiebreak() => Pg(() => ConversationStoreContract.A_cursor_at_the_same_instant_falls_back_to_the_id(new PostgresConversationStore(pg.Factory), Uid()));
 
     [SkippableFact] public Task Trace_save_load() => Pg(() => TraceStoreContract.Save_and_load_with_steps_totals_and_trace_id(new PostgresTraceStore(pg.Factory), Uid()));
     [SkippableFact] public Task Trace_resave_replaces() => Pg(() => TraceStoreContract.Saving_the_same_session_replaces_the_trace(new PostgresTraceStore(pg.Factory), Uid()));
@@ -439,6 +440,12 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
         await CuratedMemoryStoreContract.Update_can_recategorise_kind_in_place(store, Uid() + "-from", Uid() + "-to");
         await CuratedMemoryStoreContract.List_filters_by_kind_and_enabled(store, Uid() + "-a", Uid() + "-b");
         await CuratedMemoryStoreContract.Remove_deletes(store);
+        // These two ran on InMemory and SQLite only until PostgresContractCoverageTests said so. Both drive
+        // the UPDATE path that moves a row's identity, which is exactly where a dialect can differ.
+        await CuratedMemoryStoreContract.Update_can_rescope_task_and_scope_in_place(
+            store, Uid() + "-rs-from", Uid() + "-rs-to");
+        await CuratedMemoryStoreContract.Update_refuses_an_identity_collision(
+            store, Uid() + "-collide", Uid() + "-k1", Uid() + "-k2");
     }
 
     [SkippableFact]

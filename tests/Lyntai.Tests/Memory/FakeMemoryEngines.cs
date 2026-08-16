@@ -169,9 +169,9 @@ internal sealed class ForgetOnlyEngine(string name) : IMemoryEngine, IForgettabl
     }
 }
 
-/// <summary>An engine that implements the optional REAPING capability — the twin of
+/// <summary>An engine that implements the optional REMOVAL capability — the twin of
 /// <see cref="ExpandableEngine"/>, and the capability a composite hid behind itself until 3.0. Records what
-/// it was asked to reap so a forwarding test can assert the member was actually reached, not merely that the
+/// it was asked to remove so a forwarding test can assert the member was actually reached, not merely that the
 /// call returned.</summary>
 internal sealed class ForgettableEngine(string name, int pruneCount = 0)
     : IMemoryEngine, IForgettableMemory, IPrunableMemory

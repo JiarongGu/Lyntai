@@ -4,20 +4,17 @@ namespace Lyntai.Storage;
 /// Splits raw user text into the terms a keyword search matches on — the ONE tokenization every backend
 /// shares, so that "does this recall find the entry" has the same answer on SQLite, Postgres and InMemory.
 ///
-/// <para><b>Why this exists (2026-08-12).</b> Only SQLite's FTS path ever split a query: it OR-ed the
-/// words, so <c>"deploy pipeline"</c> matched an entry containing either. Every other path —
-/// both LIKE fallbacks, all three Postgres queries, both InMemory stores — matched the WHOLE query as one
-/// contiguous substring, so the same recall found nothing unless the entry contained that exact phrase.
-/// The same <see cref="Lyntai.Memory.IMemoryGraphStore"/> contract therefore had near-zero keyword seeding on one backend
-/// and working seeding on another, which is not a "backend-specific ordering" difference; it is a different
-/// answer to whether the fact is found at all.</para>
+/// <para><b>Why this exists.</b> Only SQLite's FTS path ever split a query; every other path — both LIKE
+/// fallbacks, all three Postgres queries, both InMemory stores — matched the WHOLE query as one contiguous
+/// substring, so the same recall found nothing unless the entry held that exact phrase. One
+/// <see cref="Lyntai.Memory.IMemoryGraphStore"/> contract therefore gave a different answer to whether a
+/// fact is found at all, which is not a "backend-specific ordering" difference.</para>
 ///
 /// <para><b>How a token is analysed is decided by its SCRIPT, through <see cref="ScriptProfile"/>.</b> A run
 /// in a script that writes no spaces becomes character n-grams, because splitting on whitespace hands back
-/// the entire sentence as one token and a whole-sentence term matches almost nothing. N-grams are the right
-/// unit because they are what SQLite's index already stores (<c>tokenize='trigram'</c>) and what Postgres's
-/// <c>pg_trgm</c> GIN index already accelerates: both backends were built on them, and only the QUERY side
-/// was English-shaped. No configuration, no per-language setup, no consumer needing to know.</para>
+/// the whole sentence as one token. N-grams are the right unit because they are what both indexes already
+/// store (<c>tokenize='trigram'</c>, <c>pg_trgm</c>) — only the QUERY side was English-shaped. No
+/// configuration and no per-language setup.</para>
 ///
 /// <para><b>An ASCII word is NOT expanded</b>, deliberately: a whole word is more precise (<c>"cat"</c>
 /// would otherwise match <c>"concatenate"</c>), and whitespace already separated it.</para>
@@ -138,28 +135,19 @@ public static class SearchTerms
     /// stores, every Postgres query, both SQLite fallbacks) uses THIS one; only the FTS query builder uses
     /// <see cref="Extract"/>.</para></summary>
     /// <remarks><b>The two sources are UNIONED unconditionally — never short-circuited on
-    /// <see cref="Extract"/> being empty.</b> That short-circuit shipped through 3.0 and silently deleted
-    /// every term for a query whose tokens are ALL below the index floor: <c>"配偶 客户"</c>, two ordinary
-    /// two-character Chinese words, yielded NOTHING, so every substring backend fell back to matching the
-    /// whole trimmed query as one literal (<see cref="LikeClause(string, string, string, string, bool)"/>'s own empty-terms fallback) — i.e.
-    /// <c>%配偶 客户%</c>, which demands that exact phrase INCLUDING the space and matches no ordinary prose.
-    /// <para><b>The tell was the asymmetry, not the empty list</b>: the identical token survived when a
-    /// LONGER word accompanied it (<c>"配偶 叫什么名字"</c>), because that neighbour made <c>Extract</c>
-    /// non-empty and the short grams were appended after all. A word kept or dropped according to its
-    /// neighbours is no design.</para>
-    /// <para>It also defeated the very rescue built for this case: Postgres runs a narrow pass, then checks
-    /// <see cref="HasShortSpacelessTerms"/> — which reports <c>true</c> here, because it calls
-    /// <see cref="ShortGrams"/> directly — and pays a second round trip to widen, which then returned the
-    /// same empty list. The widening pass rescued nothing while costing the scan it was budgeted for.</para>
-    /// <para>The SINGLE-token case (<c>"配偶"</c> alone) was never broken, and that coincidence is why this
-    /// survived: one token yields no terms and falls through to a whole-query scan for <c>%配偶%</c>, which
-    /// is exactly what the term-based clause now produces. Behaviour there is unchanged.</para>
-    /// <para>De-duplicated across the union rather than only within each source. With every shipped
+    /// <see cref="Extract"/> being empty.</b> Short-circuiting deletes every term for a query whose tokens
+    /// are ALL below the index floor: <c>"配偶 客户"</c>, two ordinary two-character Chinese words, yields
+    /// nothing, so a substring backend falls back to matching the whole trimmed query as one literal
+    /// (<see cref="LikeClause(string, string, string, string, bool)"/>'s empty-terms fallback) — <c>%配偶
+    /// 客户%</c>, which demands that phrase INCLUDING the space and matches no ordinary prose. The tell is
+    /// the ASYMMETRY rather than the empty list: the same token survives when a longer word accompanies it,
+    /// because that neighbour makes <see cref="Extract"/> non-empty. A word kept or dropped according to its
+    /// neighbours is no design.
+    /// <para>De-duplicated across the union, not only within each source. With every shipped
     /// <see cref="ScriptProfile"/> the two lengths differ (index 3, substring 2) so no gram can repeat — but
-    /// <see cref="ScriptProfile"/> is a public, consumer-constructible type, and a profile declaring the two
-    /// lengths equal would otherwise emit each gram twice and double-count it in
-    /// <see cref="LikeTermClause.MatchCount"/>, quietly distorting the ordering that expression exists to
-    /// provide.</para></remarks>
+    /// <see cref="ScriptProfile"/> is consumer-constructible, and a profile declaring them equal would emit
+    /// each gram twice and double-count it in <see cref="LikeTermClause.MatchCount"/>, distorting the
+    /// ordering that expression exists to provide.</para></remarks>
     public static IReadOnlyList<string> SubstringTerms(string? raw)
     {
         var terms = Extract(raw);
@@ -190,15 +178,14 @@ public static class SearchTerms
     /// nothing, and the fallback then re-tries the entire query, which fails too.</para>
     ///
     /// <para><b>Why only here.</b> <c>LIKE</c>/<c>ILIKE</c> matches a substring with no index-imposed
-    /// minimum, so it can carry terms the FTS tokenizer cannot. Emitted ALONGSIDE the longer grams rather
-    /// than instead of them: the longer ones are more selective, and the matched-term count these backends
-    /// order by still rewards a row matching more of them.</para>
+    /// minimum, so it carries terms the FTS tokenizer cannot. Emitted ALONGSIDE the longer grams, not
+    /// instead: the longer ones are more selective, and the matched-term count these backends order by still
+    /// rewards a row matching more of them.</para>
     ///
-    /// <para><b>Why not ASCII.</b> A two-letter English fragment ("is", "of", "de") matches almost every
-    /// row, which would destroy the precision the whole-word rule exists to protect. A two-character CJK
-    /// word is a real word and reasonably selective — the asymmetry is in the writing systems, not a
-    /// special case, and it lives in <see cref="ScriptProfile.SubstringGramLength"/> rather than in an
-    /// <c>if</c> here.</para>
+    /// <para><b>Why not ASCII.</b> A two-letter English fragment ("is", "of") matches almost every row and
+    /// would destroy the precision the whole-word rule protects, while a two-character CJK word is a real
+    /// word and reasonably selective. The asymmetry is in the writing systems, and it lives in
+    /// <see cref="ScriptProfile.SubstringGramLength"/> rather than in an <c>if</c> here.</para>
     ///
     /// <para><b>The cost, stated:</b> <c>pg_trgm</c> cannot accelerate a two-character pattern, so on
     /// Postgres these terms are matched by a sequential scan. Measured before adoption — see

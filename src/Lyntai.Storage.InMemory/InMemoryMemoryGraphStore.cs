@@ -15,12 +15,9 @@ namespace Lyntai.Storage.InMemory;
 /// before the engine ranked anything. What stays backend-specific is the RANKING among matches — this store
 /// has none to give, where SQLite has bm25.</para>
 /// <para>This store has no relevance SCORE to normalize, so it reports <see cref="GraphNode.Relevance"/>
-/// <c>1</c> for anything the query matched — and <c>0</c> for a node admitted by the grade carve-out that
-/// the query did NOT match, which is the cross-backend contract every backend keeps as of 3.0 (see
-/// <see cref="IMemoryGraphStore.SeedAsync"/>, which makes only the ORDERING backend-specific). It is "a flat
-/// 1" only for a query-less enumeration, where everything matches by definition; stated unconditionally —
-/// as it was until the 3.0 pre-freeze review — it contradicts both this store's own <c>SeedAsync</c> and
-/// that contract.</para></summary>
+/// <c>1</c> for anything the query matched and <c>0</c> for a node admitted by the grade carve-out that the
+/// query did NOT match (see <see cref="IMemoryGraphStore.SeedAsync"/>). A flat <c>1</c> is what a query-less
+/// enumeration reports, where everything matches by definition — never the unconditional answer.</para></summary>
 /// <param name="clock">Time source for the audit timestamps; null takes the system clock.</param>
 public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null) : IMemoryGraphStore
 {
@@ -53,7 +50,7 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
     /// Neither is touched by a plain re-remember of identical content — the first mirrors
     /// <c>Stability</c> itself (only set at first write, then only by <see cref="TouchAsync"/>); the second
     /// mirrors <c>Signals</c>' own "empty incoming keeps what's stored" rule.</para>
-    /// <para><c>Difficulty</c> (2026-08-10, fsrs-properly plan Task 2) is LIVE state a retrievability policy
+    /// <para><c>Difficulty</c> is LIVE state a retrievability policy
     /// both reads and writes, the same way <c>Stability</c> is — seeded/refreshed from the incoming signals
     /// bag on any NON-EMPTY write (mirroring how the SQL backends promote <c>salience</c>), and otherwise
     /// updated only by <see cref="TouchAsync"/>. See <see cref="MemoryDecayState.Difficulty"/>'s own remarks
@@ -118,14 +115,8 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                     LastRecalledPosition = totals.Position,
                     Grade = write.Grade,
                     Headline = write.Headline,
-                    // an EMPTY incoming bag keeps whatever is already stored rather than blanking it. An
-                    // salience policy may decline to judge a write for any reason (too few comparables, a novelty
-                    // probe that found nothing to compare against, a caught failure) and reports that as
-                    // MemorySignals.Empty — which must never be read as "this entry is no longer salient".
-                    // Without this, the very re-remember that is supposed to REINFORCE an entry (its second
-                    // write sees its own prior vector as the nearest match, scores minimal novelty, and gets
-                    // judged at the neutral value) would instead erase an earlier judgement — losing
-                    // salience on exactly the write meant to strengthen it.
+                    // an EMPTY incoming bag keeps what is stored — see GraphNodeWrite.Signals for why
+                    // blanking here would erase a judgement on the very write meant to reinforce it
                     Signals = write.Signals.Count == 0 ? existing.Signals : write.Signals,
                     // provenance_salience follows Signals' own rule exactly: an empty incoming bag means no
                     // policy produced anything THIS time, so the existing attribution is left alone rather
@@ -134,12 +125,10 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                     ProvenanceSalience = write.Signals.Count == 0
                         ? existing.ProvenanceSalience
                         : write.ProvenanceSalience,
-                    // Difficulty does NOT follow Signals'/ProvenanceSalience's "bag is non-empty" rule (fix
-                    // round 1, C1: an earlier draft did, so a write that judged salience alone silently
-                    // reset whatever Reinforce had tracked). Difficulty has a SECOND writer salience does
-                    // not — the retrievability policy, via TouchAsync — so it overwrites only when THIS
-                    // bag actually names a difficulty signal; otherwise it is left exactly as Reinforce last
-                    // set it. See MemoryDecayState.Difficulty's own remarks for the full rule.
+                    // Difficulty does NOT follow Signals'/ProvenanceSalience's "bag is non-empty" rule: it
+                    // has a SECOND writer salience does not — the retrievability policy, via TouchAsync — so
+                    // it overwrites only when THIS bag actually names a difficulty signal, and is otherwise
+                    // left exactly as Reinforce last set it. See MemoryDecayState.Difficulty's own remarks.
                     Difficulty = write.Signals.Values.ContainsKey(MemorySignals.WellKnown.Difficulty)
                         ? MemorySignals.Difficulty(write.Signals)
                         : existing.Difficulty,
@@ -178,7 +167,7 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                 // exact facts first: a long-quiet one has the lowest position and a plain recency order
                 // would let the limit cut it before the engine ever ranks it. Salience is next: a salient
                 // ASSOCIATIVE entry has no grade carve-out to lean on and needs the same protection from the
-                // limit — decay resistance AND admission priority (2026-08-09 reversal).
+                // limit — decay resistance AND admission priority.
                 // Through MemorySignals.Salience, not the raw bag: this store holds the bag VERBATIM where
                 // the SQL backends coerce it into their promoted column, so reading it raw here would order
                 // the same data differently on different backends — a bag holding 0.5 below every
@@ -188,10 +177,9 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                 .ThenByDescending(n => n.LastRecalledPosition)
                 .ThenByDescending(n => n.Id) // unique tiebreaker: ties must not wobble
                 .Take(limit)
-                // Relevance is "how well it matched the QUERY". A node admitted by GRADE that the query never
-                // matched did not match it at all, so it reports 0 on every backend — see
-                // IMemoryGraphStore.SeedAsync. With no query, Matches is true for everything and this store's
-                // documented flat 1 is unchanged.
+                // Relevance is "how well it matched the QUERY", so a node admitted by GRADE that the query
+                // never matched reports 0 — see IMemoryGraphStore.SeedAsync. With no query, Matches is true
+                // for everything and this store's flat 1 is unchanged.
                 .Select(n => ToNode(n, totals) with { Relevance = Matches(n, query, terms) ? 1 : 0 })
                 .ToList();
             return Task.FromResult<IReadOnlyList<GraphNode>>(hits);
@@ -201,9 +189,8 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
         // one (a two-character CJK word, "ab"), and then the whole query is matched as a substring — the
         // same fallback the SQL backends take, and the behaviour a short query always had.
         // HEADLINE as well as content: an authored headline is a summary the caller wrote so the entry could
-        // be found by it, and SQLite's FTS mirror has indexed both since the graph store shipped. Matching
-        // content alone here was one side of a three-way divergence — the same call answering differently
-        // depending on which backend was wired.
+        // be found by it, and every backend matches both — SQLite through its FTS mirror, Postgres through
+        // the headline trigram index.
         static bool Matches(Row node, string? query, IReadOnlyList<string> terms) =>
             string.IsNullOrWhiteSpace(query) ||
             (terms.Count == 0
@@ -326,7 +313,8 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                 .Where(n => n.Grade != MemoryGrade.Authoritative)
                 .Where(n =>
                     (maxAgeOverStability is double c &&
-                     (position - n.LastRecalledPosition) / (n.Stability > 0 ? n.Stability : 0.000001) > c) ||
+                     (position - n.LastRecalledPosition) /
+                        Math.Max(n.Stability, Lyntai.Storage.MemoryGraphSql.MinimumStabilityValue) > c) ||
                     (createdBefore is DateTimeOffset before && n.CreatedAt < before))
                 .Select(n => n.Id)
                 .ToList();

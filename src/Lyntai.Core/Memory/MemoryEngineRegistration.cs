@@ -82,38 +82,17 @@ public static class MemoryEngineRegistration
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IMemoryRetentionPolicy, SalienceRetentionPolicy>());
 
-        // ReciprocalRankFusionPolicy is the REGISTERED default ranking policy as of 3.0 (owner ruling,
-        // 2026-08-11 — see docs/DECISIONS.md) — not because rank fusion is universally better, but because
-        // this library's own measurement (local/superpowers/records/2026-08-09-memory-policy-measurement.md, fsrs-properly plan
-        // Task 4) found RRF beating MultiplicativeRankingPolicy on the corpus's `topical` class in ALL SIX
-        // measured shapes, reproduced across two independent runs (+0.238..+0.719 pre-fix, +0.431..+0.746
-        // post the difficulty-neutral fix — same direction, same shapes, both clearing the ±0.10 action
-        // threshold). That result agrees with the mechanism the same measurement pinned earlier:
-        // Multiplicative's product-of-factors formula rewards RAW REINFORCEMENT MAGNITUDE, which is exactly
-        // what let an unmeasured flat multiplier out-rank a curve (DsrRetrievability) that correctly declined
-        // to over-strengthen — RRF's rank-position fusion does not carry that bias. Multiplicative is NOT
-        // the HalfLifeRetrievability case: its formula is not unmeasured-and-wrong, it simply lost a
-        // measured comparison on this one dimension, and it remains the better choice on a scale where raw
-        // magnitude is meaningful — it stays shipped, registerable in one line
-        // (`services.AddSingleton<IMemoryRankingPolicy>(new MultiplicativeRankingPolicy())` before
-        // `AddLyntai`, or after — either direction wins, the same TryAdd ordering below already establishes).
+        // ReciprocalRankFusionPolicy is the REGISTERED default ranking policy as of 3.0 — not because rank
+        // fusion is universally better, but because this library's own measurement found RRF beating
+        // MultiplicativeRankingPolicy on the corpus's `topical` class in all six shapes. Multiplicative is
+        // NOT the HalfLifeRetrievability case: it lost one measured comparison and remains the better choice
+        // on a scale where raw magnitude is meaningful, so it stays shipped and is one line to restore. Full
+        // reasoning, the numbers, and the disclosed floor gap (RRF ships at its own default 0, measured
+        // empirically identical to the 0.02 both arms were equalized at): docs/DECISIONS.md D49.
         //
-        // The floor ships at RRF's OWN default (0), not the 0.02 the measurement's own confound control
-        // equalized both ranking arms at. That is a disclosed gap between what was measured and what ships —
-        // stated, not papered over — but it does not weaken the result: a direct instrumentation check
-        // (2026-08-11, replaying every corpus shape under RelativeFloor=0.02) found the floor cut ZERO
-        // candidates anywhere (995 Rank() calls, 48,120 candidate evaluations, tightest worst/best score
-        // ratio observed 0.702 — nowhere near the 0.02 needed to bite). RRF's own compressed score range
-        // (forty candidates fused at the default K=60 span only a 100/61 ≈ 1.639× ratio top to bottom) makes
-        // a 2% relative floor structurally unable to cut anything at any candidate-set size this library
-        // ships with, so 0.02 and 0 are EMPIRICALLY identical on the measured corpus, confirmed rather than
-        // assumed — see ReciprocalRankFusionOptions.RelativeFloor's own remarks for what value would actually
-        // bite on this policy's range, for a consumer who wants floor-based burial under RRF specifically.
-        //
-        // Same TryAdd reasoning as the salience policy above: exactly one ranking policy is ever consulted (it is
-        // resolved with GetService, not GetServices), so a consumer's own AddSingleton<IMemoryRankingPolicy>
-        // — called before OR after this — wins over this default, whether it replaces the whole policy or
-        // just registers its own ReciprocalRankFusionOptions for this one to read.
+        // Same TryAdd reasoning as the salience policy above: exactly one ranking policy is ever consulted
+        // (resolved with GetService, not GetServices), so a consumer's own AddSingleton<IMemoryRankingPolicy>
+        // — before OR after this — wins, whether it replaces the policy or just registers its own options.
         builder.Services.TryAddSingleton<IMemoryRankingPolicy>(sp =>
             new ReciprocalRankFusionPolicy(sp.GetService<ReciprocalRankFusionOptions>()));
 

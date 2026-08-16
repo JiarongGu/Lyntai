@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Lyntai.Jobs;
 
 /// <summary>Payload for the memory-prune job: which task to prune (null = all tasks) and the age cutoff
-/// (null = reap only expired entries). JSON build/parse is manual (JsonDocument / Utf8JsonWriter) so Core
+/// (null = remove only expired entries). JSON build/parse is manual (JsonDocument / Utf8JsonWriter) so Core
 /// stays AOT/trim-clean — no reflection serializer.</summary>
 internal sealed record MemoryPruneRequest(string? TaskKey = null, double? OlderThanSeconds = null)
 {
@@ -43,7 +43,7 @@ internal sealed record MemoryPruneRequest(string? TaskKey = null, double? OlderT
     }
 }
 
-/// <summary>Durable-job handler that reaps expired (and, when a cutoff is given, aged-out) memory via
+/// <summary>Durable-job handler that removes expired (and, when a cutoff is given, aged-out) memory via
 /// <see cref="IMemoryStore.PruneAsync"/> — the opt-in background GC for cold/expired entries that on-write
 /// eviction can't reach (a cold <c>(taskKey, scope)</c> is never re-evicted). Registered by
 /// <c>AddMemoryPruneJob</c>; the app owns the pump. Idempotent (deleting already-gone rows is a no-op), so
@@ -64,7 +64,7 @@ internal sealed class MemoryPruneJobHandler(IMemoryStore memory, ILogger<MemoryP
         var olderThan = req.OlderThanSeconds is > 0 ? TimeSpan.FromSeconds(req.OlderThanSeconds.Value) : (TimeSpan?)null;
 
         var removed = await memory.PruneAsync(taskKey, olderThan, ct).ConfigureAwait(false);
-        _logger.LogInformation("memory-prune reaped {Count} entries (taskKey={TaskKey}, olderThan={OlderThan})",
+        _logger.LogInformation("memory-prune removed {Count} entries (taskKey={TaskKey}, olderThan={OlderThan})",
             removed, taskKey ?? "*", olderThan);
         return JobOutcome.Complete;
     }

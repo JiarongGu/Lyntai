@@ -9,50 +9,26 @@ namespace Lyntai.Providers.CodexCli;
 /// and it yields 0..N <see cref="AgentStreamEvent"/>s. Tolerant — an unknown or malformed line yields
 /// nothing, never throws. Line-translation ONLY: it has no stderr knowledge, so the session runner fills
 /// <see cref="SessionEnded.Diagnostic"/> for process-level faults.
-///
-/// <para><b>What is measured and what is not.</b> The envelope this reads was captured from codex-cli
-/// 0.146.0 on 2026-08-04 (see <see cref="CodexJsonlParser"/> for the capture), but that run used NO TOOLS —
-/// so the half of this mapping that carries tool steps, which is the whole reason the agent-session shape
-/// exists, is INFERRED. Each member of <see cref="CodexEnvelope"/> says which it is.</para>
-///
+/// <para><b>What is measured and what is not.</b> The capture behind this envelope (see
+/// <see cref="CodexJsonlParser"/>) used NO TOOLS, so session id, assistant text, usage and terminal are
+/// MEASURED while every TOOL STEP is INFERRED. Each member of <see cref="CodexEnvelope"/> says which.</para>
 /// <para><b>How the inference is bounded.</b> The tool mapping is SHAPE-driven, not name-driven: any item
 /// whose type is not one of the three recognised message-ish names (<c>agent_message</c>, <c>reasoning</c>,
-/// <c>error</c>) is surfaced as a tool step under codex's OWN item-type name, with codex's OWN item object as
-/// the payload. Nothing is renamed, normalised or invented, so a codex release that adds or renames a TOOL
-/// item still flows through. Two consequences a consumer should know:</para>
-/// <list type="bullet">
-/// <item><see cref="ToolCall.ArgumentsJson"/> and <see cref="ToolResult.Content"/> are the raw codex item
-///   object, not a normalised argument schema. Read the fields you care about from it. There is deliberately
-///   no <c>CodexToolCalls</c> helper (the claude twin of which parses measured argument names) — inventing
-///   one would mean guessing codex's per-item field names.</item>
-/// <item>Where codex emits no <c>item.started</c> for a tool item, the <see cref="ToolCall"/> is SYNTHESISED
-///   from the completion so the step is still visible in a UI, correlated to its
-///   <see cref="ToolResult"/> by the item id. It is never emitted twice for the same id.</item>
-/// </list>
-///
-/// <para><b>The limit of that guarantee — read this before trusting a tool step.</b> What the shape-driven
-/// mapping actually guarantees is narrow: <b>no payload is ever invented or dropped</b> (codex's item object
-/// is passed through verbatim), and every uncertainty is <b>confined to the tool-step half</b> — the session
-/// id, the terminal and the usage counts are measured and unaffected. It does NOT guarantee that every event
-/// is the RIGHT KIND of event, because the default arm is reached by ELIMINATION against three guessed-or-
-/// measured names. A non-tool item whose name is not one of those three <b>will appear as a tool step</b>,
-/// which contradicts <see cref="ToolCall"/>'s own contract ("the agent invoked a tool"). Three ways that
-/// happens, all consistent with what is known today:</para>
-/// <list type="bullet">
-/// <item><c>reasoning</c> is itself INFERRED. If codex names it <c>agent_reasoning</c> (its historical name)
-///   the model's reasoning arrives as a fabricated <see cref="ToolCall"/> whose arguments are the thought.</item>
-/// <item>An item that is neither a message nor a tool — a plan/<c>todo_list</c> update, say — surfaces as a
-///   tool step for the same reason.</item>
-/// <item>Worst case, a rename of <c>agent_message</c> would cost the <see cref="TextDelta"/> AND
-///   <see cref="SessionEnded.FinalText"/> and emit the answer itself as a tool step.</item>
-/// </list>
-/// <para>So: treat a tool step's KIND as provisional and its PAYLOAD as reliable, and prefer switching on
-/// <see cref="ToolCall.Name"/> (codex's own item type) over assuming every one is a tool. Confirming the four
-/// names this turns on is the first item of task CLI12 in <c>TASKS.md</c>.</para>
-///
+/// <c>error</c>) is surfaced as a tool step under codex's OWN item-type name, carrying codex's OWN item
+/// object — nothing renamed, normalised or invented, so a codex release that adds or renames a TOOL item
+/// still flows through. Two consequences: <see cref="ToolCall.ArgumentsJson"/> and
+/// <see cref="ToolResult.Content"/> carry that raw item object rather than a normalised schema; and where
+/// codex emits no <c>item.started</c>, the <see cref="ToolCall"/> is SYNTHESISED from the completion,
+/// correlated by item id and never emitted twice, so the step stays visible in a UI.</para>
+/// <para><b>The limit of that guarantee.</b> It guarantees only that <b>no payload is invented or
+/// dropped</b> and that every uncertainty is <b>confined to the tool-step half</b>. It does NOT guarantee
+/// the right KIND: the default arm is reached by ELIMINATION, so a non-tool item outside those three names
+/// <b>appears as a tool step</b>, contradicting <see cref="ToolCall"/>'s own contract. Treat a tool step's
+/// KIND as provisional and its PAYLOAD as reliable, and switch on <see cref="ToolCall.Name"/> — codex's own
+/// item type.</para>
 /// <para><b>The rule that is measured and load-bearing:</b> only <c>turn.failed</c> is terminal. A bare
-/// <c>error</c> line and an <c>error</c> ITEM both appeared in the run that went on to SUCCEED, and failing
-/// on either is the exact defect a consuming app's hand-rolled parser shipped.</para></summary>
+/// <c>error</c> line and an <c>error</c> ITEM both appeared in a run that went on to SUCCEED, so failing on
+/// either is wrong.</para></summary>
 internal sealed class CodexAgentReader
 {
     private readonly HashSet<string> _startedItems = new(StringComparer.Ordinal);
@@ -177,11 +153,8 @@ internal sealed class CodexAgentReader
                 break;
 
             // INFERRED, and reached by ELIMINATION rather than recognition: everything that is not one of the
-            // three names above is ASSUMED to be a step the agent took. codex's own item type is the tool name
-            // and codex's own item object is the payload — nothing is renamed or normalised, so no payload is
-            // ever invented. But the KIND is a guess: a non-tool item whose name we don't recognise (a renamed
-            // `reasoning`, a `todo_list` plan update) arrives here and is reported as a tool invocation, which
-            // ToolCall's own contract says it is not. See the class docblock's "limit of that guarantee".
+            // three names above is ASSUMED to be a step the agent took, under codex's own item type and
+            // carrying codex's own item object. See the class docblock's "limit of that guarantee".
             default:
                 var payload = item.GetRawText();
                 if (started)
@@ -206,8 +179,8 @@ internal sealed class CodexAgentReader
     /// success on <see cref="ToolResult.IsError"/> — so a failure signal that is NESTED or differently named
     /// is reported as a successful step, and a UI that highlights failures would show none. That direction was
     /// chosen because the opposite (defaulting to <c>IsError: true</c>) would mark every successful step of an
-    /// unmeasured item shape as failed, which is both wrong more often and louder. Confirming the real signal
-    /// is part of task CLI12; the raw item is in <see cref="ToolResult.Content"/> either way.</para></summary>
+    /// unmeasured item shape as failed, which is both wrong more often and louder. The raw item is in
+    /// <see cref="ToolResult.Content"/> either way.</para></summary>
     private static bool IsFailedItem(JsonElement item)
     {
         if (CodexEnvelope.StringField(item, "status") is { } status &&

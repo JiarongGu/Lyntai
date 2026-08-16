@@ -172,4 +172,41 @@ public static class ConversationStoreContract
         Assert.Equal(ids.Count, found.Count);              // every inserted thread surfaced
         Assert.Equal(ids.Count, found.Distinct().Count()); // exactly once — no cursor overlap/skip
     }
+
+    /// <summary>The keyset cursor's id tiebreak, exercised DETERMINISTICALLY.
+    ///
+    /// <para><see cref="Paged_cursor_walks_every_thread_exactly_once"/> inserts without a delay and its
+    /// comment says that "deliberately" lets threads share a <c>created_at</c> tick — but nothing makes them.
+    /// The timestamp comes from the store's own <c>UtcNow</c> and there is no injectable clock, so on a
+    /// fine-resolution clock every row gets a distinct tick, the <c>id</c> branch never executes, and the
+    /// test passes anyway. That is a test which cannot fail for the reason it exists.</para>
+    ///
+    /// <para>This one needs no two rows to collide: it makes the CURSOR share a timestamp with a real row,
+    /// which is entirely under the test's control because <see cref="ChatThread"/> is a public record. A
+    /// cursor at the same instant with a HIGHER id must still yield the row; the same cursor with a LOWER id
+    /// must not. Those are the two sides of <c>created_at = @after AND id &lt; @afterId</c>, and a
+    /// <c>created_at</c>-only cursor fails both.</para>
+    ///
+    /// <para>Ids differ only in a DIGIT on purpose. The comparison is ordinal in process and a collated
+    /// string comparison in SQL, and those disagree about letter case on some collations — a real question,
+    /// but a different one from whether the branch works. Digits order identically under every collation
+    /// these backends ship with, so a failure here is the tiebreak and never the collation.</para></summary>
+    public static async Task A_cursor_at_the_same_instant_falls_back_to_the_id(IConversationStore store, string key)
+    {
+        var created = await store.CreateThreadAsync($"{key}-5");
+
+        // same instant, HIGHER id — the row sorts after the cursor on the tiebreak, so it must come back
+        var lower = await store.ListThreadsPageAsync(limit: 50,
+            after: new ChatThread($"{key}-9", null, created.CreatedAt));
+        Assert.Contains($"{key}-5", lower.Select(t => t.Id));
+
+        // same instant, LOWER id — the row sorts at or before the cursor, so it must NOT come back
+        var higher = await store.ListThreadsPageAsync(limit: 50,
+            after: new ChatThread($"{key}-1", null, created.CreatedAt));
+        Assert.DoesNotContain($"{key}-5", higher.Select(t => t.Id));
+
+        // and the row is never its OWN successor — the boundary a `<=` would get wrong
+        var itself = await store.ListThreadsPageAsync(limit: 50, after: created);
+        Assert.DoesNotContain($"{key}-5", itself.Select(t => t.Id));
+    }
 }

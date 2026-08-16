@@ -150,7 +150,7 @@ public class LocalDiffusionProviderTests
     [Fact]
     public void A_host_can_rename_one_flag_without_restating_the_others()
     {
-        var provider = Configured(o => o.Flags["cfg-scale"] = "--cfg");
+        var provider = Configured(o => o.ArgvFlags["cfg-scale"] = "--cfg");
 
         var args = provider.BuildArgs("model.gguf", "a cat", "out.png", 512, 512, initPath: null);
 
@@ -167,8 +167,8 @@ public class LocalDiffusionProviderTests
     {
         var provider = Configured(o =>
         {
-            o.Flags["init"] = "--init-img";
-            o.Flags["mode"] = "--mode";
+            o.ArgvFlags["init"] = "--init-img";
+            o.ArgvFlags["mode"] = "--mode";
             o.Img2ImgMode = "i2i";
         });
 

@@ -289,7 +289,7 @@ internal static class MemoryReinforcementSweep
 /// direction for the conclusion "freezing r recovers the benefit".</para>
 ///
 /// <para><b>Decay is untouched</b>: <see cref="Retrievability"/> and <see cref="CandidateCutoff"/> forward
-/// verbatim, so the arms differ in reinforcement alone and not in how anything is ranked or reaped.</para></summary>
+/// verbatim, so the arms differ in reinforcement alone and not in how anything is ranked or removed.</para></summary>
 internal sealed class FrozenSpacingRetrievability(DsrRetrievability inner) : IMemoryRetrievabilityPolicy
 {
     private int _grew;

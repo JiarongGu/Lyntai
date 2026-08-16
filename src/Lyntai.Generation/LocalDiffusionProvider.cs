@@ -63,18 +63,18 @@ public sealed class LocalDiffusionOptions
     public int? MaxDimension { get; set; }
 
     /// <summary>The argv flag tokens, keyed by what each one MEANS rather than by its spelling. A key absent
-    /// here falls back to <see cref="DefaultFlags"/>, so a host overrides one flag without restating ten.</summary>
+    /// here falls back to <see cref="DefaultArgvFlags"/>, so a host overrides one flag without restating ten.</summary>
     /// <remarks><b>Settable because this argv is ported, not measured</b> — the same reason the ComfyUI and
     /// fal backends make their paths and field names options. The engine is a third-party binary whose flags
     /// can be renamed upstream between releases, and a host that hits that should edit configuration rather
     /// than wait for a Lyntai release. Recognised keys: <c>model</c>, <c>prompt</c>, <c>output</c>,
     /// <c>width</c>, <c>height</c>, <c>steps</c>, <c>cfg-scale</c>, <c>mode</c>, <c>init</c>,
     /// <c>strength</c>.</remarks>
-    public IDictionary<string, string> Flags { get; set; } =
+    public IDictionary<string, string> ArgvFlags { get; set; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The ported argv spellings, used for any key <see cref="Flags"/> does not override.</summary>
-    internal static readonly IReadOnlyDictionary<string, string> DefaultFlags =
+    /// <summary>The ported argv spellings, used for any key <see cref="ArgvFlags"/> does not override.</summary>
+    internal static readonly IReadOnlyDictionary<string, string> DefaultArgvFlags =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["model"] = "-m",
@@ -132,14 +132,12 @@ public enum DiffusionAccelerator
 /// (the engine isn't installed on the machine where this was written). They are production-proven, and pinned by
 /// exact-argv tests so a later edit can't drift from the shape a real <c>sd-cli</c> accepts. Confirm against a
 /// live engine before relying on them in anger.</para>
-/// <para>Two details that look incidental and are not. The spawn's working directory is the BINARY's directory,
-/// because the engine loads <c>ggml*.dll</c> from beside itself and fails at load time otherwise — no longer a
-/// ported guess: a consuming app confirmed it against a real release, whose zip ships those libraries next to
-/// the executable. And sizes are rounded to multiples of 64 and floored at 256 because the engine requires
-/// it, then fitted to <see cref="LocalDiffusionOptions.MaxDimension"/> — 768 on the default CPU profile,
-/// where a larger render is minutes of pointless waiting, and unbounded on <c>Gpu</c>, where that premise
-/// does not hold. The 768 is measured (a consuming app's own clamp); the argv around it is still ported,
-/// not measured.</para>
+/// <para>Two details that look incidental and are not. The spawn's working directory is the BINARY's
+/// directory, because the engine loads <c>ggml*.dll</c> from beside itself and fails at load time otherwise
+/// — CONFIRMED against a real release. And sizes round to multiples of 64 and floor at 256 because the
+/// engine requires it, then fit <see cref="LocalDiffusionOptions.MaxDimension"/> — 768 on the default CPU
+/// profile, where a larger render is minutes of pointless waiting, and unbounded on <c>Gpu</c>. The 768 is
+/// measured; the argv around it is still ported.</para>
 /// <para>The executable is supplied by the host as a full path — deliberately no PATH probe and no name
 /// matching, because a real release ships <c>sd-cli.exe</c> AND <c>sd-server.exe</c> side by side, and a loose
 /// <c>sd</c>-prefix match would launch the server, which starts and then waits forever: a hang, not an
@@ -285,16 +283,16 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
 
     /// <summary>The engine's argument list. PORTED verbatim in shape from a working implementation — txt2img by
     /// default, switching to img2img when a source image is staged.</summary>
-    /// <remarks>Every FLAG is looked up in <see cref="LocalDiffusionOptions.Flags"/> rather than written here,
+    /// <remarks>Every FLAG is looked up in <see cref="LocalDiffusionOptions.ArgvFlags"/> rather than written here,
     /// for the reason the class header gives: this argv is ported, not measured. An upstream rename is a
     /// configuration edit, not a Lyntai release. The ORDER and the pairing stay this backend's — only the
     /// tokens are the host's — because which flags may legally sit where is the engine's grammar
     /// (`docs/DECISIONS.md` D65 records what happens when a caller places argv it does not own).</remarks>
     internal List<string> BuildArgs(string model, string prompt, string output, int width, int height, string? initPath)
     {
-        var flag = (string name) => options.Flags.TryGetValue(name, out var f)
+        var flag = (string name) => options.ArgvFlags.TryGetValue(name, out var f)
             ? f
-            : LocalDiffusionOptions.DefaultFlags[name];
+            : LocalDiffusionOptions.DefaultArgvFlags[name];
 
         List<string> args =
         [

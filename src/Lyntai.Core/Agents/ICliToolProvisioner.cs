@@ -5,7 +5,7 @@ namespace Lyntai.Agents;
 /// runs its OWN agent loop (e.g. the <c>claude</c> CLI, which can't hand tool calls back to the caller
 /// and reaches custom tools only over MCP). An implementation stands up whatever the CLI needs — for the
 /// claude CLI, an in-process HTTP MCP server exposing the tools plus a temp <c>--mcp-config</c> — and
-/// returns the extra process args to pass, with a session that tears it all down afterward.
+/// returns the extra process args, with a session that tears it all down afterward.
 ///
 /// Registered as an OPTIONAL DI service (via an add-on package); when absent, CLI providers behave
 /// exactly as before (no tools). This seam keeps host/transport dependencies out of the base provider.
@@ -17,9 +17,15 @@ public interface ICliToolProvisioner
     Task<CliToolSession> ProvisionAsync(CancellationToken ct = default);
 }
 
-/// <summary>The result of <see cref="ICliToolProvisioner.ProvisionAsync"/>: the extra CLI args to append
-/// to the spawn (e.g. <c>--mcp-config &lt;file&gt;</c>), and an async-disposable that tears the host and
-/// temp files down. <paramref name="dispose"/> runs on <see cref="DisposeAsync"/>.</summary>
+/// <summary>The result of <see cref="ICliToolProvisioner.ProvisionAsync"/>: the extra CLI args the spawn
+/// needs (e.g. <c>--mcp-config &lt;file&gt;</c>), and an async-disposable that tears the host and temp
+/// files down. <paramref name="dispose"/> runs on <see cref="DisposeAsync"/>.
+/// <para><b>These are HANDED TO THE DIALECT, never appended to its argv</b> — they reach
+/// <see cref="Lyntai.Llm.Cli.ICliProviderDialect.BuildCompletionArgs(Lyntai.Llm.LlmRequest, IReadOnlyList{string})"/>
+/// and the dialect decides where they may legally go (<c>docs/DECISIONS.md</c> D65). Only the backend knows
+/// its own argv grammar: claude's ends in options, so appending is right there, while codex's ends in the
+/// <c>-</c> stdin positional, where anything after it is read as PROMPT TEXT — and on that CLI a swallowed
+/// flag is a SPENT TURN rather than an error.</para></summary>
 public sealed class CliToolSession(IReadOnlyList<string> extraArgs, Func<ValueTask>? dispose = null) : IAsyncDisposable
 {
     public IReadOnlyList<string> ExtraArgs => extraArgs;

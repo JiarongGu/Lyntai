@@ -112,8 +112,21 @@ public sealed record SalienceOptions
         }
     }
 
-    /// <summary>How steeply novelty raises salience, as <c>1 + factor × novelty</c>. <b>Unmeasured</b>.</summary>
-    public double NoveltyWeight { get; init; } = 1.5;
+    /// <summary>How steeply novelty raises salience, as <c>1 + factor × novelty</c>. <b>Unmeasured</b>.
+    /// <para>Finiteness only — a negative weight legitimately inverts the effect, so the guard rejects just
+    /// <see cref="double.NaN"/> and the infinities. It was the ONE unguarded field of this record while both
+    /// its siblings validated: <c>StructuralSaliencePolicy</c> feeds it to
+    /// <see cref="Math.Clamp(double,double,double)"/>, which PROPAGATES <c>NaN</c> rather than clamping it,
+    /// so a non-finite weight put a <c>NaN</c> salience into the signals bag. Three downstream readers
+    /// happened to coerce it back, which is the shape <c>pitfalls.md</c> warns about — the guard belongs to
+    /// the VALUE, not to whoever reads it last.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set to a non-finite value.</exception>
+    public double NoveltyWeight
+    {
+        get;
+        init => field = MemoryOption.Require(value, MemoryOptionRange.Finite, nameof(SalienceOptions),
+            "novelty scales salience multiplicatively, and a non-finite scale reaches the stored signal");
+    } = 1.5;
 
     /// <summary>How many comparable entries must exist before novelty means anything. Below this the
     /// default policy reports nothing, because in a nearly-empty engine everything looks novel and scoring it

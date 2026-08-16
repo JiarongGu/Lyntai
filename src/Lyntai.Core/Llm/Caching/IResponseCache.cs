@@ -41,7 +41,16 @@ public static class ResponseCacheKey
     /// use, e.g. <c>options.ResolveModel(req.Consumer, req.Model)</c>) so two consumers whose per-consumer
     /// DEFAULT models differ don't collide on a null <see cref="LlmRequest.Model"/> — the effective model is
     /// an output determinant, the raw one isn't. Consumer itself stays OUT (two consumers resolving to the
-    /// same model still share a hit). Falls back to <see cref="LlmRequest.Model"/> when not supplied.</summary>
+    /// same model still share a hit). Falls back to <see cref="LlmRequest.Model"/> when not supplied.
+    /// <para><b>The CLIENT NAME and the resolved BACKEND are deliberately out too</b>, which reads like an
+    /// oversight and is not. Every named client shares one cache instance by design — see
+    /// <see cref="Lyntai.Llm.ILlmClientFactory"/>: a name selects backends, never permissions, so it is not a
+    /// tenancy boundary and cross-serving between names is not a leak. The backend cannot be in the key at
+    /// all: this cache sits IN FRONT of the router, which is free to pick any candidate and to fall back
+    /// across them mid-request, so there is no backend to key on when the lookup happens.</para>
+    /// <para>If you need entries isolated per tenant, the isolating field is
+    /// <see cref="LlmRequest.Consumer"/> and the seam is your own <see cref="IResponseCache"/> — not this
+    /// key.</para></summary>
     public static string For(LlmRequest req, string? effectiveModel = null)
     {
         using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);

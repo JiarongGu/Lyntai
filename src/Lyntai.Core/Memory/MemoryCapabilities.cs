@@ -34,10 +34,10 @@ public interface ILinkableMemory
         bool symmetric = false, CancellationToken ct = default);
 }
 
-/// <summary>An engine that can reap entries. Reaping is always EXPLICIT — nothing in this library deletes
+/// <summary>An engine that can remove entries. Removal is always EXPLICIT — nothing in this library deletes
 /// remembered material as a side effect of decay, which only ever affects ranking.
 ///
-/// <para><b>Both reaping verbs live here, and that is what makes them reachable.</b> Through 2.5.x
+/// <para><b>Both removing verbs live here, and that is what makes them reachable.</b> Through 2.5.x
 /// <c>ForgetAsync</c> was a bare public method on <c>GraphMemoryEngine</c> and on no interface at all, while
 /// <c>CompositeMemoryEngine</c> — which <c>MemoryEngineBuilder.Build</c> produces for EVERY registration,
 /// even a single-member one — did not implement this interface. So a consumer holding the
@@ -61,29 +61,29 @@ public interface IForgettableMemory
     Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default);
 }
 
-/// <summary>OPTIONAL capability: an engine that can reap a qualifying SUBSET, for capacity management.
+/// <summary>OPTIONAL capability: an engine that can remove a qualifying SUBSET, for capacity management.
 ///
 /// <para><b>Split from <see cref="IForgettableMemory"/> in 3.0, because the two answer different
 /// questions.</b> Forgetting is a targeted withdrawal of one user's data — it must be complete, and a
 /// partial one is a broken promise. Pruning bounds an ever-growing store — it is best-effort by nature, an
-/// operator's or a scheduler's act rather than a user's, and reaping fewer entries than hoped is a
+/// operator's or a scheduler's act rather than a user's, and removing fewer entries than hoped is a
 /// deferred cost rather than a defect.</para>
 ///
 /// <para>They were one interface, and that forced an engine to claim both or neither. A vector store with no
 /// age column can forget a scope exactly and cannot prune by age at all; under the old shape it had to either
 /// lie about pruning or give up forgetting. Worse, a composite could only pre-check that members implemented
 /// the interface — so a member that implemented it and threw from one of the two methods produced the exact
-/// outcome the pre-check exists to prevent: some members reaped, then an exception.</para></summary>
+/// outcome the pre-check exists to prevent: some members removed, then an exception.</para></summary>
 public interface IPrunableMemory
 {
-    /// <summary>Reap entries matching the criteria, returning how many were removed.</summary>
-    /// <param name="taskKey">The task to reap within.</param>
-    /// <param name="scope">Optional scope filter; null reaps across the task's scopes.</param>
-    /// <param name="minRetrievability">Reap entries below this retrievability; null ignores it.</param>
-    /// <param name="olderThan">Reap entries older than this; null ignores it.</param>
+    /// <summary>Remove entries matching the criteria, returning how many were removed.</summary>
+    /// <param name="taskKey">The task to remove within.</param>
+    /// <param name="scope">Optional scope filter; null removes across the task's scopes.</param>
+    /// <param name="minRetrievability">Remove entries below this retrievability; null ignores it.</param>
+    /// <param name="olderThan">Remove entries older than this; null ignores it.</param>
     /// <param name="ct">Cancellation, which is never swallowed.</param>
-    /// <remarks><b>A criterion an engine cannot EXPRESS must reap nothing rather than be ignored.</b>
-    /// Ignoring <paramref name="scope"/> or <paramref name="minRetrievability"/> and reaping on what is left
+    /// <remarks><b>A criterion an engine cannot EXPRESS must remove nothing rather than be ignored.</b>
+    /// Ignoring <paramref name="scope"/> or <paramref name="minRetrievability"/> and removing on what is left
     /// deletes MORE than was asked for — the one direction a deletion must never err in.</remarks>
     Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
         TimeSpan? olderThan = null, CancellationToken ct = default);

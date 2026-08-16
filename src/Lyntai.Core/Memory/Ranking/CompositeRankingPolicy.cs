@@ -27,16 +27,10 @@ public sealed record CompositeRankingOptions
     public double K
     {
         get => _k;
-        init
-        {
-            if (!double.IsFinite(value) || value <= 0)
-                throw new ArgumentOutOfRangeException(nameof(value), value,
-                    "CompositeRankingOptions.K must be a finite positive number — zero abandons the " +
-                    "deliberate flattening the constant exists for, and a negative value makes a candidate " +
-                    "ranked farther down a member score HIGHER on it than one ranked near the top once rank " +
-                    "exceeds -K.");
-            _k = value;
-        }
+        init => _k = MemoryOption.Require(value, MemoryOptionRange.Positive, nameof(CompositeRankingOptions),
+            "zero abandons the deliberate flattening the constant exists for, and a negative value makes "
+            + "a candidate ranked farther down a member score HIGHER on it than one ranked near the top "
+            + "once rank exceeds -K.");
     }
 
     /// <summary>The PRIMARY member's contribution to the fused score — the numerator of its own <c>w / (K +
@@ -52,7 +46,8 @@ public sealed record CompositeRankingOptions
     public double PrimaryWeight
     {
         get => _primaryWeight;
-        init => _primaryWeight = GuardWeight(value, nameof(PrimaryWeight));
+        init => _primaryWeight = MemoryOption.Require(value, MemoryOptionRange.NonNegative,
+            nameof(CompositeRankingOptions), Inverts);
     }
 
     /// <summary>The SECONDARY member's contribution to the fused score — identical domain and failure mode to
@@ -62,7 +57,8 @@ public sealed record CompositeRankingOptions
     public double SecondaryWeight
     {
         get => _secondaryWeight;
-        init => _secondaryWeight = GuardWeight(value, nameof(SecondaryWeight));
+        init => _secondaryWeight = MemoryOption.Require(value, MemoryOptionRange.NonNegative,
+            nameof(CompositeRankingOptions), Inverts);
     }
 
     /// <summary>How far below the fused set's own STRONGEST score an entry may fall before this policy drops
@@ -81,57 +77,38 @@ public sealed record CompositeRankingOptions
     public double RelativeFloor
     {
         get => _relativeFloor;
-        init
-        {
-            if (!double.IsFinite(value) || value < 0 || value >= 1)
-                throw new ArgumentOutOfRangeException(nameof(value), value,
-                    "CompositeRankingOptions.RelativeFloor must be a finite number in [0, 1) — a value of 1 " +
-                    "or above collapses the floor into \"keep almost nothing\" with no signal anywhere, and " +
-                    "this policy's own compressed score range (see the property's own doc) makes even a " +
-                    "small nonzero floor bite far harder than the same number would under " +
-                    "MultiplicativeRankingOptions.");
-            _relativeFloor = value;
-        }
+        init => _relativeFloor = MemoryOption.Require(value, MemoryOptionRange.FromInclusive(0, 1), nameof(CompositeRankingOptions),
+            "a value of 1 or above collapses the floor into \"keep almost nothing\" with no signal "
+            + "anywhere, and this policy's own compressed score range (see the property's own doc) makes "
+            + "even a small nonzero floor bite far harder than the same number would under "
+            + "MultiplicativeRankingOptions.");
     }
 
-    private static double GuardWeight(double value, string propertyName)
-    {
-        if (!double.IsFinite(value) || value < 0)
-            throw new ArgumentOutOfRangeException(propertyName, value,
-                $"CompositeRankingOptions.{propertyName} must be a finite non-negative number — a negative " +
-                "weight would invert this member's pull (a candidate ranking BETTER under it scoring LOWER " +
-                "overall) rather than merely weakening it.");
-        return value;
-    }
+    // The two weights share one reason because they have one failure mode; the guard itself is shared with
+    // every other memory options record through MemoryOption.
+    private const string Inverts =
+        "a negative weight would invert this member's pull (a candidate ranking BETTER under it scoring "
+        + "LOWER overall) rather than merely weakening it.";
 }
 
 /// <summary>
-/// Fuses two OTHER ranking policies into one order — the seam's first genuine composite, requested so a
-/// consumer can blend two different notions of "best" (say, <see cref="MultiplicativeRankingPolicy"/>'s
-/// product-of-signals against <see cref="ReciprocalRankFusionPolicy"/>'s rank-fusion) without either policy
-/// knowing the other exists.
+/// Fuses two OTHER ranking policies into one order, so a consumer can blend two notions of "best" without
+/// either policy knowing the other exists.
 /// <para><b>Fuses by RANK POSITION, never raw score — the only sound way to combine two policies' output.</b>
-/// <see cref="IMemoryRankingPolicy.Rank"/>'s own contract already says a score means nothing outside the
-/// policy that produced it: <see cref="MultiplicativeRankingPolicy"/> reports a bounded product roughly in
-/// <c>[0,1]</c>, <see cref="ReciprocalRankFusionPolicy"/> reports a sum of reciprocal ranks that lands around
-/// <c>0.06</c> at its own shipped defaults. Averaging (or otherwise arithmetically combining) those two
-/// numbers directly would be a plausible-looking computation over quantities that share no scale — this class
-/// instead re-derives each member's own COMPETITION rank position over the candidate set (see
-/// <see cref="CompetitionRanks"/>) and fuses THOSE the same way <see cref="ReciprocalRankFusionPolicy"/> fuses
-/// its own four raw signals: <c>score = wₚ / (K + rankₚ) + wₛ / (K + rankₛ)</c>.</para>
-/// <para><b>A candidate either member's own floor drops is not excluded — it is ranked WORST for that
-/// member.</b> A member's <see cref="IMemoryRankingPolicy.Rank"/> may return fewer candidates than it was
-/// given; for a candidate missing from a member's own output, that member's contribution uses one past its
-/// worst returned rank (<c>member.Count + 1</c>) — tied with any other candidate that member also dropped,
-/// never fabricated as better or worse than that. A member that drops EVERY candidate (nothing to compare
-/// against at all) contributes the SAME rank, 1, to everyone — a signal with no information should not move
-/// the ordering, exactly the reasoning <see cref="ReciprocalRankFusionPolicy"/>'s own competition ranking
-/// already applies to a uniformly tied real signal.</para>
-/// <para><b>A candidate whose OWN <see cref="GraphNode.Relevance"/> or <see cref="MemoryCandidate.Retrievability"/>
-/// is non-finite is excluded before either member ever sees it</b> — the same guard both shipped members
-/// already apply on their own, kept here too because this class never reads either raw field itself and so
-/// cannot rely on catching a poisoned candidate through arithmetic the way
-/// <see cref="MultiplicativeRankingPolicy"/> incidentally does.</para>
+/// <see cref="IMemoryRankingPolicy.Rank"/>'s contract already says a score means nothing outside the policy
+/// that produced it: <see cref="MultiplicativeRankingPolicy"/> reports a bounded product roughly in
+/// <c>[0,1]</c>, <see cref="ReciprocalRankFusionPolicy"/> a sum of reciprocal ranks around <c>0.06</c> at its
+/// defaults. Combining those arithmetically would be a plausible-looking computation over quantities sharing
+/// no scale, so this class re-derives each member's own COMPETITION rank position (see
+/// <see cref="CompetitionRanks"/>) and fuses THOSE: <c>score = wₚ / (K + rankₚ) + wₛ / (K + rankₛ)</c>.</para>
+/// <para><b>A candidate either member's floor drops is not excluded — it is ranked WORST for that
+/// member</b>, contributing one past that member's worst returned rank (<c>member.Count + 1</c>), tied with
+/// anything else that member dropped and never fabricated as better. A member dropping EVERY candidate
+/// contributes rank 1 to everyone: a signal with no information must not move the ordering.</para>
+/// <para><b>A candidate whose OWN <see cref="GraphNode.Relevance"/> or
+/// <see cref="MemoryCandidate.Retrievability"/> is non-finite is excluded before either member sees it</b> —
+/// kept here as well as in both members because this class never reads either raw field, so it cannot catch
+/// a poisoned candidate through arithmetic the way <see cref="MultiplicativeRankingPolicy"/> does.</para>
 /// <para><b>Owns the floor, not the grade exemption</b> — the same division of responsibility every ranking
 /// policy in this domain documents: an authoritative candidate this policy drops is
 /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/>'s job to re-admit, never this class's.</para>

@@ -17,4 +17,7 @@ public class InMemoryVectorStoreContractTests
     [Fact] public Task Delete_one() => VectorStoreContract.Delete_removes_one_entry_and_leaves_the_others(New(), "c5");
     [Fact] public Task Remove_collection() => VectorStoreContract.Removing_a_collection_clears_it_and_absent_deletes_are_no_ops(New(), "c6");
     [Fact] public Task Isolated() => VectorStoreContract.Collections_are_isolated(New(), "c7");
+    [Fact] public Task Tie_by_id() => VectorStoreContract.Equal_scores_are_ordered_by_id(New(), "c8");
+    [Fact] public Task Tie_at_k() => VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries(New(), "c9");
+    [Fact] public Task Tie_loses_to_score() => VectorStoreContract.The_tiebreak_never_outranks_the_score(New(), "c10");
 }

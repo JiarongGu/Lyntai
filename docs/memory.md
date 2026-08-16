@@ -533,7 +533,7 @@ foreach (var item in recall.Items)
 
 ### Keep a fact exactly, forever
 
-An `Authoritative` entry never decays, is never truncated, is never reaped by `PruneAsync` at any floor, and
+An `Authoritative` entry never decays, is never truncated, is never removed by `PruneAsync` at any floor, and
 takes a reserved slot inside a recall's limit. Use it for things that would be wrong to forget — identifiers,
 rules, stable preferences.
 
@@ -616,14 +616,14 @@ Decay never deletes; it only buries. Removal is always an explicit call.
 
 <!-- compile-given: GraphMemoryEngine graph = null!; -->
 ```csharp
-// reap entries that have faded past the configured MinRetrievability
-var reaped = await graph.PruneAsync("project", "backend");
+// remove entries that have faded past the configured MinRetrievability
+var removed = await graph.PruneAsync("project", "backend");
 
 // erase a whole scope — the user-facing "forget this"
 await graph.ForgetAsync("project", "backend");
 ```
 
-`PruneAsync` never removes authoritative material at any floor. Set `MinRetrievability = 0` to make it reap
+`PruneAsync` never removes authoritative material at any floor. Set `MinRetrievability = 0` to make it remove
 nothing on that criterion.
 
 ### Replace a policy with your own

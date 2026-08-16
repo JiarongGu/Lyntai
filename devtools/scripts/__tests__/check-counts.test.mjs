@@ -8,15 +8,16 @@
 // A guard whose failure mode is a false PASS cannot be validated by running it, so the negative cases below
 // matter as much as the positive ones.
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  COUNTED_CLAIMS, checkCounts, countGuardTests, countLanguageArms, countLocalKnowledge,
-  countLocalSkills, countMemoryDomains, countMigrations, countPackages, countVerifyGates, parseCount,
+  COUNTED_CLAIMS, checkCounts, countDecisions, countGuardTests, countLanguageArms, countLocalKnowledge,
+  countLocalSkills, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates,
+  parseCount,
 } from '../check-counts.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
 
@@ -178,6 +179,54 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     assert.equal(countLocalKnowledge(repo), 6);
     assert.ok(countLocalSkills(repo) < skills, `the tier holds ${skills}; only the local ones count`);
     assert.ok(countLocalKnowledge(repo) < knowledge, `the tier holds ${knowledge}; only the local ones count`);
+  });
+
+  it('the option-guard counter counts CALL SITES, and matches the files D78 names', () => {
+    const n = countOptionGuards(repo);
+    assert.ok(n > 0, 'must find MemoryOption.Require call sites');
+
+    // Pinned against an independent walk of the tree rather than against a literal, for the reason the
+    // verify-gate counter earned: a counter and a hard-coded number agree until the counter is wrong, and
+    // then they agree anyway. This one re-derives from `git ls-files` instead of a manual directory walk.
+    const tracked = execFileSync('git', ['ls-files', '-z', 'src/Lyntai.Core/Memory'], { cwd: repo, encoding: 'utf8' })
+      .split('\0').filter((f) => f.endsWith('.cs'));
+    const independent = tracked.reduce(
+      (t, f) => t + (fs.readFileSync(path.join(repo, f), 'utf8').match(/MemoryOption\.Require\b/g) ?? []).length, 0);
+    assert.equal(n, independent, 'the counter must agree with an independent walk of the same tree');
+
+    // The claim is per-FILE as well as per-site, and D78's prose names six files. A counter that only
+    // checked the total would pass while the "across six files" half rotted — which is exactly how the
+    // original pair (23 / four files) went wrong: BOTH numbers were stale, and only one was ever quoted twice.
+    const files = tracked.filter((f) => /MemoryOption\.Require\b/.test(fs.readFileSync(path.join(repo, f), 'utf8')));
+    assert.equal(files.length, 6, `D78 says six files; the tree has ${files.length}`);
+
+    // The pattern must read the LIVE count and ignore the historical one sitting in the same paragraph —
+    // the distinction that keeps this gate from failing every time a new option is guarded.
+    const { pattern } = COUNTED_CLAIMS.find((c) => c.what === 'memory option-domain guard sites');
+    const matches = (s) => [...s.matchAll(new RegExp(pattern.source, pattern.flags))].map((m) => m[1]);
+    assert.deepEqual(matches('the sole guard at all 32 sites across six files'), ['32']);
+    assert.deepEqual(matches('It replaced 31 hand-rolled copies across five when it landed'), []);
+  });
+
+  it('the decision log range is the log MAXIMUM, and the log has no gaps', () => {
+    const n = countDecisions(repo);
+    assert.ok(n > 0, 'must find decision headings');
+
+    const ns = [...fs.readFileSync(path.join(repo, 'docs', 'DECISIONS.md'), 'utf8')
+      .matchAll(/^## D(\d+)\b/gm)].map((m) => Number(m[1])).sort((a, b) => a - b);
+    // The SET, not the total — the lesson from the verify-gate counter one level up. A tally and a maximum
+    // agree on a contiguous log and on nothing else, so asserting contiguity is what makes `D1–Dn` a true
+    // description of the log rather than a number that happens to match.
+    assert.deepEqual(ns, Array.from({ length: n }, (_, i) => i + 1),
+      'DECISIONS.md must stay contiguous D1..Dn — see its own header');
+
+    // The pattern must reject a bare decision reference, or the gate would fire on every sentence naming
+    // one and get switched off. `D39–D41` is a real range in CLAUDE.md and is NOT a claim about the log.
+    const { pattern } = COUNTED_CLAIMS.find((c) => c.what === 'the decision log range');
+    const matches = (s) => [...s.matchAll(new RegExp(pattern.source, pattern.flags))].map((m) => m[1]);
+    assert.deepEqual(matches('see D30, and **D39–D41**, and D42–D44'), []);
+    assert.deepEqual(matches('docs/DECISIONS.md (D1–D76 — the memory subsystem'), ['76']);
+    assert.deepEqual(matches('the log runs D1-D76 today'), ['76']);
   });
 
   it('every registered claim has a counter that computes SOMETHING on this tree', () => {

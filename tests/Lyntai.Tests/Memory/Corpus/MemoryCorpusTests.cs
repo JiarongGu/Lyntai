@@ -41,9 +41,6 @@ public class MemoryCorpusTests
 
     // ---- AttributeCount: the subject-cued attribute cluster (2026-08-12) ----
 
-    /// <summary>Both generated languages. <b>Every fact in this section runs in both</b>, because a corpus
-    /// variant whose own guarantees go unchecked is worse than not having the variant: a measurement would
-    /// still be taken over it and still be reported.</summary>
     /// <summary>Every language, ENUMERATED rather than listed — so adding one automatically inherits every
     /// invariant below instead of silently shipping unguarded. A hardcoded list is how a new arm gets
     /// measured without ever being checked, which is the failure this whole file exists to prevent.</summary>
@@ -93,6 +90,65 @@ public class MemoryCorpusTests
 
         foreach (var term in distinctive)
             Assert.DoesNotContain(facts, f => f.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The headline-only class really does hide its marker from its own CONTENT — which is the
+    /// entire instrument. Every other class lets the engine DERIVE a headline from content, so headline
+    /// words are a subset of content words and a query matching one matches the other; a marker that leaked
+    /// into content would turn this into an ordinary content recall and report headline search as working
+    /// when it was never exercised. The same failure mode
+    /// <see cref="The_authoritative_probe_shares_no_distinctive_term_with_the_facts_it_must_return"/>
+    /// guards for the grade carve-out.</summary>
+    [Theory]
+    [MemberData(nameof(Languages))]
+    public void A_headline_only_entry_hides_its_marker_from_its_own_content(CorpusLanguage language)
+    {
+        var lex = CorpusLexicon.For(language);
+        var corpus = MemoryCorpus.Generate(
+            CorpusShape.Default with { HeadlineOnlyCount = 2, Language = language }, seed: 909);
+
+        var entries = corpus.Steps.OfType<CorpusWrite>()
+            .Where(w => w.Write.Headline is not null)
+            .ToList();
+        Assert.Equal(2, entries.Count);
+
+        foreach (var entry in entries)
+        {
+            Assert.Contains(lex.HeadlineMarker, entry.Write.Headline!, StringComparison.Ordinal);
+            // THE INVARIANT: nowhere in the content, so only a headline search can answer the probe.
+            Assert.DoesNotContain(lex.HeadlineMarker, entry.Write.Content, StringComparison.Ordinal);
+        }
+
+        // …and in no OTHER entry's content either, or an unrelated write would answer the probe.
+        Assert.DoesNotContain(corpus.Steps.OfType<CorpusWrite>(),
+            w => w.Write.Content.Contains(lex.HeadlineMarker, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [MemberData(nameof(Languages))]
+    public void The_headline_probe_is_emitted_and_names_exactly_the_headline_only_entries(
+        CorpusLanguage language)
+    {
+        var lex = CorpusLexicon.For(language);
+        var corpus = MemoryCorpus.Generate(
+            CorpusShape.Default with { HeadlineOnlyCount = 3, Language = language }, seed: 909);
+
+        var probe = Assert.Single(corpus.Steps.OfType<CorpusQuery>(), q => q.Text == lex.HeadlineMarker);
+
+        Assert.Equal(["headline0", "headline1", "headline2"], probe.RelevantIds);
+        // LAST, so the gap between the writes and the probe is the whole rest of the corpus — a hit is
+        // retrieval rather than freshness, the same reason critical-rare's probe is emitted at the end.
+        Assert.Same(probe, corpus.Steps.OfType<CorpusQuery>().Last());
+    }
+
+    [Fact]
+    public void The_headline_axis_is_OPT_IN_so_an_unset_shape_authors_no_headline_at_all()
+    {
+        // Byte-identity with every existing measurement is what makes this safe to add, and it is the same
+        // guarantee AuthoritativeCount carries. The goldens prove the corpus is unchanged; this states WHY.
+        var corpus = MemoryCorpus.Generate(CorpusShape.Default, seed: 909);
+
+        Assert.DoesNotContain(corpus.Steps.OfType<CorpusWrite>(), w => w.Write.Headline is not null);
     }
 
     /// <summary>Authoritative entries really are written at the GRADE — the corpus held zero

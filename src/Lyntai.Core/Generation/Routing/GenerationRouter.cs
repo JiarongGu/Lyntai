@@ -9,55 +9,30 @@ namespace Lyntai.Generation.Routing;
 /// <summary>The default <see cref="IGenerationRouter"/>: capability pre-filter, then verdict-driven fallback
 /// with dead-host cooldown, plus a span and metrics per attempt.
 ///
-/// Fallback semantics come from <see cref="GenerationRoutingPolicy"/>, whose defaults follow the SHAPE of the
-/// LLM router's (design §6) — a content refusal surfaces, a rate limit or a rejected key benches, a fault
-/// penalizes — and deliberately differ on <see cref="GenerationVerdict.Unsupported"/>, which advances here and
-/// surfaces there (<see cref="GenerationVerdictClassifier"/> states why: chat candidates share a capability
-/// gap, media backends do not):
-/// <list type="bullet">
-/// <item><see cref="GenerationVerdict.Refused"/> SURFACES — a content refusal is not a transport fault, and
-///   quietly re-submitting a refused prompt to another vendor is not a library's decision. A host that
-///   deliberately pairs a hosted backend with a permissive local one can override exactly that.</item>
-/// <item><see cref="GenerationVerdict.NotConfigured"/> and <see cref="GenerationVerdict.Unsupported"/> ADVANCE without
-///   blame — the backend isn't broken, it just isn't the one for this request.</item>
-/// <item><see cref="GenerationVerdict.RateLimited"/> / <see cref="GenerationVerdict.AuthFailed"/> BENCH the backend for
-///   the cooldown window; a timeout or an outright failure counts toward the threshold.</item>
-/// <item>everything else advances, keeping the FIRST substantive failure as the reported reason: the first
-///   backend's error explains the run better than the last one's.</item>
-/// </list>
+/// <para>Per-verdict fallback semantics are <see cref="GenerationRoutingPolicy"/>'s, including where they
+/// deliberately diverge from the LLM router's on <see cref="GenerationVerdict.Unsupported"/>.</para>
 ///
 /// <para><b>Reporting keeps TWO slots, and a blameless one never outranks a real failure.</b> The first
-/// substantive failure is what the caller is told; the first BLAMELESS result that actually explained itself
-/// is remembered apart and reported only when nothing substantive failed at all. Without the first half,
-/// <c>[downHost → Failed, neverConfigured → NotConfigured]</c> would send a caller off to set up a key while
-/// the backend they HAD configured is the one that is down (<c>docs/DECISIONS.md</c> D31). Without the second,
-/// a run in which every candidate said "your prompt is too long for me" was answered with a synthetic "every
-/// capable backend reported it is not configured" — neither true nor actionable, and what forced
-/// <c>ContextWindowExceeded</c> to translate to a BLAMING verdict to stay reportable at all
-/// (<c>TASKS.md</c> Part 40). <c>LlmRouter.CompleteAsync</c> holds the same two slots — one answer per
-/// situation across both domains, so change one and check the other.</para>
+/// substantive failure is what the caller is told; the first BLAMELESS result that explained itself is kept
+/// apart and reported only when nothing substantive failed (<c>docs/DECISIONS.md</c> D31).
+/// <c>LlmRouter.CompleteAsync</c> holds the same two slots, so change one and check the other.</para>
 ///
 /// <para><b>Submission has one rule of its own:</b> a failed submission marked
-/// <see cref="GenerationOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that never
-/// answered may already hold a billable render and the next candidate would buy the same generation
-/// twice.</para>
+/// <see cref="GenerationOperation.Inconclusive"/> SURFACES rather than advancing, because a backend that
+/// never answered may already hold a billable render and the next candidate would buy it twice.</para>
 ///
-/// <para><b>The policy governs submission too, at one remove.</b> A submission comes back carrying a
-/// <see cref="GenerationOperationStatus"/>, not a verdict, so a rejected one is classified from the backend's
-/// own <see cref="GenerationOperation.Detail"/> through <see cref="GenerationVerdictClassifier"/> and then
-/// answered by the same table — a rate limit benches, an unconfigured backend advances blamelessly, an
-/// unclassifiable rejection counts toward the threshold as it always did. Two things stay true regardless of
-/// what the text says: the Inconclusive case above is decided BEFORE the verdict is, and a submission the
-/// router does not accept reports an EMPTY <see cref="GenerationSubmission.ProviderId"/> — which
-/// <see cref="IGenerationRouter"/> defines as "no candidate accepted" — with the first rejection's backend and
-/// reason folded into the detail instead. Which rejection that is follows the two-slot rule above: the first
-/// SUBSTANTIVE one, or a blameless one that still gave a reason when there was no substantive one.</para>
+/// <para><b>The policy governs submission too, at one remove.</b> A submission carries a
+/// <see cref="GenerationOperationStatus"/>, not a verdict, so a rejection is classified from the backend's
+/// own <see cref="GenerationOperation.Detail"/> and answered by the same table. Two things hold whatever the
+/// text says: Inconclusive is decided BEFORE the verdict, and a submission the router does not accept
+/// reports an EMPTY <see cref="GenerationSubmission.ProviderId"/> — <see cref="IGenerationRouter"/>'s "no
+/// candidate accepted" — with the first rejection folded into the detail by the two-slot rule above.</para>
 ///
-/// <para><b>The candidate list is deduped on the RESOLVED (backend, model) pair</b> before anything is
-/// attempted, so a repeated spec is one candidate — and, the sharper half, two entries naming one backend no
-/// longer inflate the count <see cref="GenerationRoutingPolicy.ExemptSoleCandidate"/> reads.</para></summary>
+/// <para><b>The candidate list is deduped on the RESOLVED (backend, model) pair</b>, so two entries naming
+/// one backend cannot inflate the count <see cref="GenerationRoutingPolicy.ExemptSoleCandidate"/> reads.</para></summary>
 /// <param name="providers">The registered backends.</param>
-/// <param name="policy">Per-verdict fallback behaviour; null = the defaults above.</param>
+/// <param name="policy">Per-verdict fallback behaviour; null = <see cref="GenerationRoutingPolicy"/>'s
+/// defaults.</param>
 /// <param name="deadHosts">Cooldown bookkeeping — the SAME <see cref="DeadHostTracker"/> the LLM router uses,
 /// deliberately: "this host keeps failing, stop asking" is transport bookkeeping keyed by a string, not an LLM
 /// concept, and a second copy would be a second set of bugs (and a second threshold to configure). A media key
@@ -82,7 +57,14 @@ namespace Lyntai.Generation.Routing;
 /// simultaneous renders contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by
 /// wrapping a provider, because a wrapper implementing only <see cref="IGenerationProvider"/> erases the
 /// optional capability interfaces (<see cref="IGenerationJobProvider"/>) this router type-tests, which
-/// would silently stop every queued render from routing.</param>
+/// would silently stop every queued render from routing.
+///
+/// <para><b><see cref="GenerateAsync"/> and <see cref="SubmitAsync"/> only —
+/// <see cref="StreamAsync"/> is deliberately NOT gated</b>, the same carve-out
+/// <c>LlmRouter</c> states for its own streaming path and for the same reason: a stream holds its permit
+/// for the whole response, so a consumer that simply stops enumerating would pin it until the enumerator is
+/// finally disposed. Bounding a long-lived stream needs a lease the consumer cannot forget, which this is
+/// not.</para></param>
 public sealed class GenerationRouter(
     IEnumerable<IGenerationProvider> providers,
     GenerationRoutingPolicy? policy = null,
@@ -203,18 +185,13 @@ public sealed class GenerationRouter(
                 }
                 catch (Exception ex) when (!NeverReachedTheBackend(ex))
                 {
-                    // A throw during SUBMIT that MAY have been delivered is INCONCLUSIVE, and that is the one
-                    // place this path deliberately differs from the inline one above. Submitting is what
-                    // commits the money: the backend may already hold a billable render, so advancing to the
-                    // next candidate would buy the same generation twice — the duplicate-payment case the
-                    // Inconclusive arm below exists to prevent.
+                    // A throw during SUBMIT that MAY have been delivered is INCONCLUSIVE — the backend may
+                    // already hold a billable render, so advancing to the next candidate would buy the same
+                    // generation twice.
                     //
                     // A throw that provably never left this process is NOT caught here (see the filter): it
-                    // committed nothing, so it propagates and the durable-job runner retries it exactly as it
-                    // did before this router had any catch at all. Round 2 of the 3.0 review caught the first
-                    // version swallowing those too, which turned a connection-refused blip during a deploy
-                    // into a permanently dead-lettered job — a regression, and on the same distinction this
-                    // round taught FalQueueProvider one file over.
+                    // committed nothing, so it propagates and the durable-job runner applies its ordinary
+                    // retry.
                     operation = new GenerationOperation("", GenerationOperationStatus.Failed,
                         Detail: $"{provider.Id}: {ex.Message}") { Inconclusive = true };
                 }
@@ -414,12 +391,10 @@ public sealed class GenerationRouter(
     /// configured" and sends them to set up a key, while the backend they HAD configured is the one that
     /// declined.</para>
     ///
-    /// <para><b>Deliberately the same two verdicts as <c>LlmRouter.IsBlameless</c></b>, which is the point:
-    /// one answer per situation across both domains. It cannot be one shared function — the two domains have
-    /// separate verdict enums — so it is the same NAMED predicate on each side instead, and this sentence is
-    /// what connects them. It was inlined at both call sites here until the 3.0 pre-freeze review: the LLM
-    /// side had the rule named and documented while this side had two unnamed copies of the pattern, so the
-    /// parity the other side's docblock ASSERTS was anchored to nothing a reader or a rename could
+    /// <para><b>Deliberately the same two verdicts as <c>LlmRouter.IsBlameless</c></b> — one answer per
+    /// situation across both domains. It cannot be one shared function, because the two domains have
+    /// separate verdict enums, so it is the same NAMED predicate on each side instead. Keep it named on
+    /// both: inlined at the call sites, the parity is anchored to nothing a reader or a rename can
     /// follow.</para>
     ///
     /// <para>Note this is about ELIGIBILITY only, never about which failure wins: this router keeps the FIRST

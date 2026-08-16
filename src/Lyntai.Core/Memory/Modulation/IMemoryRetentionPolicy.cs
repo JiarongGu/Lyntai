@@ -12,7 +12,7 @@ namespace Lyntai.Memory.Modulation;
 /// maximum. <b>What an under-wide cutoff costs is DELETION, not a short recall</b>: seeding applies no
 /// faintness bound at all, so the cutoff's one consumer is
 /// <see cref="IMemoryGraphStore.PruneAsync"/> — an unbounded policy would make no finite cutoff correct,
-/// and entries the modulated curve still rates perfectly retrievable would be permanently reaped. Same
+/// and entries the modulated curve still rates perfectly retrievable would be permanently removed. Same
 /// defect, same reason, as <see cref="Lyntai.Memory.Forgetting.DsrOptions.MaxConnectionBoost"/>. The declared bound is CLAMPED
 /// rather than trusted: soundness must not depend on an implementation being honest about itself.</para>
 /// </summary>

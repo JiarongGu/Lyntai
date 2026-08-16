@@ -152,29 +152,14 @@ public static class PostgresStorageBuilderExtensions
     // service collection and verifies whatever the other side already recorded. Nothing ever resolves these
     // sentinels.
     //
-    // Scoped to the pair on purpose, because it does not generalise. Two Use*Storage calls are not a pair to
-    // be commuted, they are competing SELECTIONS, and the LAST one wins — so order is load-bearing there by
-    // design, in both directions: see Selection() for a narrow selection rejecting a helper that the final
-    // selection would have allowed, and the CONSEQUENCE note below for a BYO factory standing the guard down.
-    // KEPT PARALLEL to the SQLite twin on purpose (see .claude/knowledge/storage.md) — the two backends'
-    // builder extensions are deliberately not deduplicated.
+    // Scoped to that pair on purpose; two Use*Storage calls are competing SELECTIONS and the LAST wins.
+    // KEPT PARALLEL to the SQLite twin, whose comment carries the full rule — the two backends' builder
+    // extensions are deliberately not deduplicated (.claude/knowledge/storage.md).
     //
-    // It applies ONLY where Lyntai owns the schema, which is why the selection carries LyntaiMigrates. Under
-    // SchemaMigration.None or an app-supplied IDbConnectionFactory, Lyntai runs no migrations at all: the
-    // feature set no longer decides which tables exist, the app's own DDL does. Firing there would reject a
-    // wiring that has always worked, and the remedy the message offers — add StorageFeature.Governance —
-    // would create no table anyway.
-    //
-    // CONSEQUENCE WORTH KNOWING: a BYO-factory call made LAST disables the guard for the whole wiring.
-    //   UsePostgresStorage(connectionString, Memory, SchemaMigration.OnStartup)  // Lyntai migrates; guard live
-    //   UsePostgresStorage(factory, Memory)                                      // app owns schema; stands down
-    //   UsePostgresResponseCache()                                               // no longer rejected
-    // That is defensible — the app supplied the factory, and it supplied it LAST, so the app owns the schema
-    // and there is no migration left for the guard to speak about. It is nonetheless an interaction a host can
-    // trip by REORDERING two lines it thought were independent, so it is written down rather than discovered.
-    // The rule to hold on to: the guard follows the SELECTION, and a BYO factory is a selection that says
-    // "not Lyntai's schema". If both overloads are called, the last one decides — for the guard exactly as for
-    // the connection factory itself.
+    // It applies ONLY where Lyntai owns the schema (the selection carries LyntaiMigrates); under
+    // SchemaMigration.None or a BYO IDbConnectionFactory the app's own DDL decides which tables exist.
+    // CONSEQUENCE: a BYO-factory call made LAST stands the guard down for the whole wiring, so the guard
+    // follows the SELECTION and the last overload called decides.
 
     private sealed record PostgresFeatureSelection(StorageFeature Features, bool LyntaiMigrates);
 

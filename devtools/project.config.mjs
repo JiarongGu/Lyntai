@@ -140,6 +140,26 @@ export default {
 
   retiredApiNames: [
     {
+      // D76's naming sweep of the surface D67-D76 added. 'Flags' on an options object reads as boolean
+      // feature flags or a [Flags] enum in .NET, not as 'the argv token for each argument' - so it is a
+      // name that MISLEADS, which is the only kind D66 spends a rename on. Whole-identifier, so the
+      // ordinary [Flags] attribute and any genuine flag set elsewhere are untouched.
+      names: ['Flags'],
+      use: '`LocalDiffusionOptions.ArgvFlags`',
+      why: 'it maps a MEANING to an argv token; Flags in .NET connotes booleans or a [Flags] enum (D76)',
+    },
+    {
+      // D76. The prose half is in `retiredTerms`; this is the SURFACE half, and it is the one that mattered
+      // most — `reap` had reached the frozen 3.0 API as three type names and a parameter, where prose can be
+      // reworded and a shipped type name cannot. Whole-identifier equality, so `ObserveStdinAndReapAsync`
+      // (the POSIX child-process sense, and correct) is untouched without needing an allowance.
+      names: ['IMemoryReapPolicy', 'MemoryReapKind', 'DefaultMemoryReapPolicy', 'reapPolicy'],
+      use: '`IMemoryRemovalPolicy` / `MemoryRemovalKind` / `DefaultMemoryRemovalPolicy` / `removalPolicy`',
+      why: 'to reap means to HARVEST in ordinary English — the opposite of removing data — so a reader could '
+        + 'take IMemoryReapPolicy for something governing recall. Caught on the eve of the freeze, which is '
+        + 'the last moment it was free to change (D76)',
+    },
+    {
       // The three parameter names the 2026-08-11 whole-branch review caught, plus the 2.5 name the first of
       // them replaced. All four are GONE — these entries exist so nothing REINTRODUCES them, which is the
       // same reasoning `retiredTerms` records for its own zero-hit entries. `memoryClock` is included
@@ -333,6 +353,25 @@ export default {
    * NAMES the retired thing — an amendment explaining what changed, or a rule quoting the word it bans.
    */
   retiredTerms: [
+    // D76 (2026-08-16). "Reap" was the memory subsystem's umbrella verb for forget-or-prune, and it MISLEADS
+    // rather than merely differing: in ordinary English to reap is to HARVEST — "reap what you sow", "reap
+    // the rewards" — which is close to the opposite of removing data. A reader meeting `IMemoryReapPolicy`
+    // cold could reasonably think it governs recall.
+    //
+    // The pattern is deliberately narrow and does NOT ban the word outright, because two live uses are
+    // correct and unrelated: `ProcessRunner.ObserveStdinAndReapAsync` (the POSIX sense — reaping a child
+    // process — which IS the established term for that) and one idiomatic "nothing to reap it" in
+    // PairwiseComparer. What is retired is the word applied to MEMORY.
+    {
+      term: '\\b[Rr]eap(s|ed|ing|able)?\\b(?![^\\n]*\\b(process|child|stdin|zombie)\\b)'
+        + '(?=[^\\n]*\\b(memory|entr(y|ies)|engine|blend|member|prune|forget|scope|taskKey)\\b)'
+        + '|\\bIMemoryReapPolicy\\b|\\bMemoryReapKind\\b|\\bDefaultMemoryReapPolicy\\b',
+      use: 'say REMOVE / REMOVAL — `IMemoryRemovalPolicy`, `MemoryRemovalKind`, "a removal", "removes"',
+      why: 'to reap means to HARVEST in ordinary English, which is the opposite of removing data; D66\'s own '
+        + 'rule spends a name that misleads. Retention and Deletion were both unavailable — '
+        + 'IMemoryRetentionPolicy already exists (D47) and D41 makes "deletion" the thing the graph '
+        + 'deliberately does NOT do (burial). The POSIX process sense is untouched (D76)',
+    },
     // D70 (2026-08-16) withdrew the `Lyntai.Generation` SemVer exemption. This is registered because the
     // claim was stated in NINE maintained documents plus two code comments — a caveat that widely copied is
     // exactly the kind that grows back, and every one of those copies read as current fact. Historical
@@ -637,4 +676,73 @@ export default {
         + 'for such a scale is not.',
     },
   ],
+
+  /**
+   * COMMENT-BLOCK DEBT — one entry per file whose worst contiguous comment block still exceeds
+   * `check-comments`' own MAX_BLOCK, recorded at its CURRENT worst so the number can only come down.
+   *
+   * WHY A RATCHET AND NOT A THRESHOLD. 49 files were already over the limit when the gate landed (1879
+   * lines of block), so a plain threshold would have had to be switched off on day one. An allowance here
+   * is a DEBT, not a permission: `check-comments` FAILS an allowance that is looser than the file actually
+   * needs, so improving a file forces its number down and a later regression back to the old size is
+   * caught. Same discipline as `retiredApiNames`' "an allowance that matches nothing FAILS", expressed as
+   * a budget.
+   *
+   * TO PAY ONE DOWN: move the design argument to the record that owns it (`docs/DECISIONS.md` for a
+   * choice, `.claude/knowledge/pitfalls.md` for a trap, the design contract for semantics), keep the RULE
+   * plus a pointer in the code, then lower or delete the entry. The rule is
+   * `.claude/rules/code-commentary.md`. Deleting an entry outright is the goal, not an edge case.
+   */
+  // One entry per FILE, holding EVERY over-limit block in it, worst first — see `check-comments.mjs`
+  // `asAllowanceList` for why a single number per file was not a ratchet.
+  //
+  // 2026-08-16: the paydown took this from 28 blocks / 893 lines across 19 files to ONE block / 31 lines.
+  // The survivor is `IMemoryGraphStore.SeedAsync`, and it is the only entry here that has ever been argued
+  // irreducible rather than merely unpaid: it states SEVEN distinct guarantees a BYO store must honour, at
+  // 2–11 lines each. The one paragraph that was NOT a guarantee — six lines defending the admission rule
+  // against a misreading it had already stated — is what came out.
+  // One entry per FILE, holding EVERY over-limit block in it, worst first — see `check-comments.mjs`
+  // `asAllowanceList` for why a single number per file was not a ratchet.
+  //
+  // SCOPE WIDENED 2026-08-16 to `tests/`, `devtools/` and `bench/`. `src/` had been paid down to one block
+  // and the other three tiers were never scanned at all — while holding LONGER blocks than anything left in
+  // `src/` (worst 88 against 31). The gate's own header had argued the scope was deliberate, on the grounds
+  // that a test explaining its fixture and a guard header explaining its own false PASS are doing the job
+  // the rule asks. Sampling says that is HALF true: the worst block in `tests/` states a real constraint on
+  // what any number measured from that corpus may claim, and also carries a dated heading plus a long
+  // narration of what an earlier version did wrong. Same defect, lower density.
+  //
+  // So they are RATCHETED rather than paid down: nothing here has to shrink today, and nothing can grow.
+  // That is exactly how `src/` started — 49 files on allowances — and it removes "unscanned" as a category.
+  commentBlockAllowances: {
+    "bench/Lyntai.Benchmarks/MemoryBoundedGrowthSweep.cs": [36],
+    "bench/Lyntai.Benchmarks/MemoryEnrichmentSweep.cs": [32],
+    "bench/Lyntai.Benchmarks/MemoryLanguageSweep.cs": [41],
+    "bench/Lyntai.Benchmarks/MemoryPolicySweep.cs": [79],
+    "bench/Lyntai.Benchmarks/MemoryReinforcementSweep.cs": [33],
+    "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [35],
+    "bench/Lyntai.Benchmarks/MemorySpacingSweep.cs": [38],
+    "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
+    "devtools/dev.mjs": [31],
+    "devtools/nuget-unlist.mjs": [28],
+    "devtools/scripts/check-api-vocabulary.mjs": [34],
+    "devtools/scripts/check-comments.mjs": [41],
+    "devtools/scripts/check-samples.mjs": [55],
+    "devtools/scripts/check-version-bump.mjs": [30],
+    "src/Lyntai.Core/Memory/IMemoryGraphStore.cs": [31],
+    "tests/Lyntai.Tests/Memory/Corpus/MemoryCorpus.cs": [88, 35, 27],
+    "tests/Lyntai.Tests/Memory/Corpus/RecallQuality.cs": [42],
+    "tests/Lyntai.Tests/Memory/DsrPathologyTests.cs": [41],
+    "tests/Lyntai.Tests/Memory/GraphMemoryEngineTests.cs": [30, 26],
+    "tests/Lyntai.Tests/Memory/GraphMemoryRankingGoldenTests.cs": [63],
+    "tests/Lyntai.Tests/Memory/GraphMemoryReviewLogTests.cs": [27],
+    "tests/Lyntai.Tests/Memory/GraphMemoryWiringTests.cs": [46],
+    "tests/Lyntai.Tests/Memory/LlmSemanticRecallLiveTests.cs": [34],
+    "tests/Lyntai.Tests/Memory/LlmVerificationLiveTests.cs": [33, 28],
+    "tests/Lyntai.Tests/Memory/MemoryAgePrimitiveIdentityTests.cs": [26],
+    "tests/Lyntai.Tests/Memory/MemoryCjkRecallTests.cs": [38],
+    "tests/Lyntai.Tests/Memory/MemoryClusterEdgeFormationTests.cs": [26],
+    "tests/Lyntai.Tests/Memory/MemoryDefaultRecallQualityTests.cs": [76, 47],
+    "tests/Lyntai.Tests/Memory/MemorySalienceInversionTests.cs": [31],
+  },
 };

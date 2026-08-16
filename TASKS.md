@@ -21,8 +21,9 @@ agent session, app-owned MCP servers, the long-term memory subsystem and the mul
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**Part 75 IS startable today; Parts 33, 41, 65 and 56 are not.** That split is the point of the list, so it
-is stated first rather than buried.
+**Nothing here is startable in a session — every item needs something this repository does not have.** That
+is stated first rather than buried, because it is the answer to the question the file exists to answer. It
+became true again on 2026-08-16 when the last of Part 75 closed.
 
 **A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
 blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
@@ -34,9 +35,12 @@ this list exists to prevent. When labelling something blocked, name what the blo
 
 The four older parts are each blocked on something this repository does not have — a key, a model download,
 a CLI install, or a deployment's own data. That was briefly true of the WHOLE file (2026-08-15, when Parts
-70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**, whose six items
-are all startable in a session and each of which was found, verified and deliberately deferred with its
-reason recorded. If you are looking for work, start there.
+70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**. Its items
+were all startable in a session, each found, verified and deliberately deferred with its reason recorded —
+and they have all now closed (archive Parts 76, 78, 79, 80 and 81) except two: one needing real aggregators
+to measure, and one waiting on a `daoris` run the owner deferred. **Nothing in this file is startable in a
+session any more** — every remaining item, old Part or new, needs a key, a model download, a CLI install, a
+vendor pick, a measurement budget, a deployment's own data, or a tool run outside this repository.
 
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
@@ -340,37 +344,12 @@ _Opened by `docs/task-archive.md` **Part 74**. Each of these was found, verified
 in that pass — every one is startable today, unlike the four parts above, so the banner's "nothing here is
 startable" no longer holds and has been amended._
 
-- [ ] **Make the remaining memory engines forgettable.** `CompositeMemoryEngine` now REFUSES to reap unless
-  every member can (**D63**), because reaping some and reporting success is the worse answer. Only
-  `GraphMemoryEngine` implements `IForgettableMemory`, so the common `UseCurated("glossary").UseGraph()`
-  blend cannot reap at all. The three remaining engines are each backed by a store that can:
-  `IMemoryStore.ForgetAsync` (lexical), `ISemanticMemory.ForgetAsync` (semantic),
-  `ICuratedMemoryStore.RemoveAsync` over `ListAsync(taskKey:, scope:)` (curated).
-  <br>**Two real design questions, which is why it was not done blind.** `ISemanticMemory.ForgetAsync`
-  requires a non-null scope, so a null-scope forget has no expression there. And curated material is
-  operator-authored — a glossary is arguably not the user's data to withdraw — so "forget this task+scope"
-  may legitimately mean something different for it. Answer both before implementing, or the fan-out inherits
-  an unstated premise, which is the shape `pitfalls.md` §"Copying a rule copies its assumptions" records.
-
 - [ ] **Decide what an aggregator's in-band `code` means.** `OpenAiHttp.InBandError` deliberately reports
   only THAT an `error` member is present and what it says; it does not read a numeric `code` as an HTTP
   status, because that mapping is not measured across the gateways this provider serves. A 200 carrying
   `{"error":{"code":429}}` therefore classifies from the message text alone. Measuring two or three real
   aggregators would let the code lead, which is strictly better than text matching — but reading it
   unmeasured is the documented-not-measured trap GEN-VERIFY exists to correct.
-
-- [ ] **A guard `Block` is TERMINAL in the tool loop and ADVISORY over the hosted MCP endpoint.**
-  `ToolLoop` ends the turn with `LlmVerdict.Refused`; `ToolFunction` returns a refusal string, so the model
-  may retry with perturbed arguments, unbounded, and the host gets no signal (that path has no logger). The
-  gap this closed was "not enforced at all" and it is closed; what remains is that the two doors enforce the
-  same rule with different force. Needs a decision about what a hosted refusal should DO — count attempts,
-  tear down the session, or report to the host — rather than more code.
-
-- [ ] **Widen the memory corpus to author headlines disjoint from content.** The 3.0 review changed headline
-  search twice (narrowed, then widened back — `docs/FIXES.md`) and `memory-sweep` could not observe either
-  direction, because no corpus entry has a headline whose words are absent from its content. That is the
-  `pitfalls.md` "a measurement that cannot observe a change reports nothing moved" shape, live: the
-  instrument is blind to a dimension the library now has a decision about.
 
 - [ ] **`.claude/rules/RULES_INDEX.md` is stale and needs a `daoris` run.** Seven rows read
   `⚠ needs frontmatter` for files that have it, and `input-is-thinking-not-doctrine.md` appears in no row at
@@ -385,6 +364,12 @@ startable" no longer holds and has been amended._
   staleness is entirely in the generated table, and the fix is a regeneration and nothing else; do not go
   looking for missing frontmatter to add. Deferred deliberately (owner's call, 2026-08-16) — it degrades
   session routing only, and no shipped surface depends on it.
+  <br>**The cost grew on 2026-08-16 (archive Part 82).** `.claude/rules/code-commentary.md` is a NEW local
+  rule and is in no row at all, so it is unroutable by `doc-loader` and `skills-workflow` until the tool
+  runs — and unlike the stale rows, which name documents a session may already know, this one is a
+  convention nothing else states. Its summary is duplicated into `CLAUDE.md` §Rules precisely so the
+  deferral costs less; that duplication is the workaround, not the fix, and should come back out once the
+  index is regenerated.
 
 ## How to work a task (evergreen)
 

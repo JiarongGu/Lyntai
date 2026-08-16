@@ -21,22 +21,17 @@ public interface IMemoryRankingPolicy
 {
     /// <summary>
     /// Score and order <paramref name="candidates"/>, best first.
-    /// <para><b>May floor, never invent.</b> A policy is free to drop candidates it judges too weak to
-    /// surface, against its own best score — but every returned <see cref="RankedMemory"/> must wrap a
-    /// candidate that was actually passed in, and none may repeat. The floor is the policy's own business,
-    /// because floor semantics only mean something alongside the score scale that produced them — what the
-    /// floor does NOT own is any EXEMPTION from it. A caller that must never lose a specific candidate (an
-    /// authoritative fact, say) re-admits it itself, afterwards; trust in that guarantee has to hold against
-    /// a policy that DROPS a candidate outright, including a third-party one that has never heard of the
-    /// concept, so it cannot live here. See <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/>'s own
-    /// recall for where that re-admission happens — and for why it can only ever check by identity: the
-    /// re-admission there is keyed on <c>Node.Id</c> alone, which is what makes "never invent" above load-
-    /// bearing rather than a nicety. A policy that returned a FABRICATED <see cref="RankedMemory"/> under an
-    /// authoritative candidate's own id (rather than dropping it) would already violate "never invent" — but
-    /// nothing downstream independently verifies that clause, so such a policy would ALSO silently defeat the
-    /// re-admission promise above: the caller sees the id as "already returned" and never re-admits the real
-    /// entry. The re-admission guarantee is therefore trustworthy against a merely forgetful or hostile-by-
-    /// omission policy, never against one that actively fabricates.</para>
+    /// <para><b>May floor, never invent.</b> A policy may drop candidates it judges too weak, against its
+    /// own best score — but every returned <see cref="RankedMemory"/> must wrap a candidate that was passed
+    /// in, and none may repeat. The floor is the policy's own business, because floor semantics only mean
+    /// something alongside the score scale that produced them. What the floor does NOT own is any EXEMPTION
+    /// from it: a caller that must never lose a specific candidate re-admits it itself, afterwards (see
+    /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/>'s own recall).</para>
+    /// <para><b>"Never invent" is what makes that re-admission trustworthy</b>, so it is load-bearing rather
+    /// than a nicety: the re-admission is keyed on <c>Node.Id</c> alone, so a policy FABRICATING a
+    /// <see cref="RankedMemory"/> under an authoritative candidate's id leaves the caller seeing that id as
+    /// already returned and never re-admitting the real entry. Nothing downstream verifies the clause
+    /// independently — the guarantee holds against a forgetful policy, never against a fabricating one.</para>
     /// <para><b>Deterministic.</b> Two candidates a policy scores identically still need a stable order —
     /// <c>List.Sort</c> is unstable, so a tiebreak is mandatory, not decorative — or the same query returns
     /// a different page on successive calls. An empty input ranks to an empty result. No returned score may

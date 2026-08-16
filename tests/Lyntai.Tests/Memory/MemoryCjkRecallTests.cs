@@ -113,8 +113,6 @@ public class MemoryCjkRecallTests
             "the monitoring alert threshold went up a little", "the docs site changed search backend",
         ]);
 
-    /// <summary>Keyed by NAME rather than by the record itself: xUnit serializes theory data to identify a
-    /// case, and a complex type would either warn or produce unreadable case names in the runner output.</summary>
     /// <summary>"my spouse is Alice" in Japanese — kanji, hiragana and katakana inside one spaceless run,
     /// which is what normal Japanese looks like and what no other scenario here produces.</summary>
     private static readonly Scenario Japanese = new(
@@ -170,6 +168,8 @@ public class MemoryCjkRecallTests
             "모니터링 경보 임계값을 조금 올렸다", "문서 사이트의 검색 엔진을 교체했다",
         ]);
 
+    /// <summary>Keyed by NAME rather than by the record itself: xUnit serializes theory data to identify a
+    /// case, and a complex type would either warn or produce unreadable case names in the runner output.</summary>
     public static TheoryData<string> Scenarios() =>
         new() { "chinese", "japanese", "korean", "english" };
 

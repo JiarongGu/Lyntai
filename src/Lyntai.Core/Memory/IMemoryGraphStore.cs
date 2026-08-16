@@ -15,28 +15,25 @@ namespace Lyntai.Memory;
 /// it.</param>
 /// <param name="RecallCount">How many times recalled.</param>
 /// <param name="Stability">Half-life, in the engine's units (see <see cref="Lyntai.Memory.Interference.IMemoryAgePolicy"/>).</param>
-/// <param name="Age">How far the engine's position has moved since this entry was last used. A plain
-/// subtraction the store computes; the policy turns it into a probability.
-/// <para><b>This is the store's own, single, `Advance`-driven view — unchanged since before the primitives
-/// below existed, and still what an <see cref="Lyntai.Memory.Interference.IMemoryAgePolicy"/> that needs the
-/// exact write-time judgment (<see cref="Lyntai.Memory.Interference.BurstDampenedAgePolicy"/>) is measured
-/// against.</b> <see cref="OrdinalAge"/>, <see cref="VolumeAge"/> and <see cref="ElapsedAge"/> are a SEPARATE,
-/// policy-independent set a store now ALSO tracks unconditionally — see their own remarks.</para></param>
-/// <param name="OrdinalAge">How many writes have happened to the engine since this entry was last used —
-/// the policy-independent primitive <see cref="Lyntai.Memory.Interference.PerWriteAgePolicy"/> projects its
-/// own <see cref="Lyntai.Memory.Interference.IMemoryAgePolicy.Age"/> from. Advances by exactly one on every
-/// write, whatever <see cref="Lyntai.Memory.Interference.IMemoryAgePolicy"/> the engine has installed — never
-/// reinterpreted by swapping it.</param>
-/// <param name="VolumeAge">How many characters have been written to the engine since this entry was last
-/// used — what <see cref="Lyntai.Memory.Interference.ContentSizeAgePolicy"/> projects its own age from.
-/// Advances by each write's content length, unconditionally.</param>
-/// <param name="ElapsedAge">How much real time has passed, in days, since this entry was last used — what
-/// <see cref="Lyntai.Memory.Interference.ElapsedAgePolicy"/> projects its own age from. Frozen between
-/// writes, exactly like <see cref="Age"/>: a recall does not advance it, so it reflects "as of the most
-/// recent write", not wall-clock now.</param>
+/// <param name="Age">How far the engine's position has moved since this entry was last used — a plain
+/// subtraction the store computes; the policy turns it into a probability. This is the store's single
+/// <c>Advance</c>-driven view, and what a policy needing the exact write-time judgment
+/// (<see cref="Lyntai.Memory.Interference.BurstDampenedAgePolicy"/>) is measured against.
+/// <see cref="OrdinalAge"/>/<see cref="VolumeAge"/>/<see cref="ElapsedAge"/> are a SEPARATE,
+/// policy-independent set tracked unconditionally alongside it.</param>
+/// <param name="OrdinalAge">Writes to the engine since this entry was last used — what
+/// <see cref="Lyntai.Memory.Interference.PerWriteAgePolicy"/> projects from. Advances by one per write
+/// whatever policy is installed, so swapping one never reinterprets it.</param>
+/// <param name="VolumeAge">Characters written to the engine since this entry was last used — what
+/// <see cref="Lyntai.Memory.Interference.ContentSizeAgePolicy"/> projects from, advancing unconditionally by
+/// each write's length.</param>
+/// <param name="ElapsedAge">Real days since this entry was last used — what
+/// <see cref="Lyntai.Memory.Interference.ElapsedAgePolicy"/> projects from. Frozen between writes like
+/// <see cref="Age"/>: a recall does not advance it, so it is "as of the most recent write".</param>
 /// <param name="Relevance">How well it matched the seeding query, 0..1 — a backend's own normalized rank
 /// POSITION within one seed, not a portable score. SQLite normalizes its bm25 order; Postgres normalizes the
-/// order its single query returned; the in-process store reports a flat 1. Only the range and the direction
+/// order its single query returned; the in-process store has no rank order and reports <c>1</c> for a match
+/// and <c>0</c> for a grade-admitted non-match. Only the range and the direction
 /// (higher is better, within one seed, from one backend) are contractual — see
 /// <see cref="IMemoryGraphStore.SeedAsync"/> on where an admitted-but-non-matching authoritative node
 /// lands.</param>
@@ -44,29 +41,23 @@ namespace Lyntai.Memory;
 /// <param name="Metadata">App-owned extra data, or null.</param>
 /// <param name="Strength">The summed RAW weight of its edges — how embedded in the graph it is. A store
 /// computes this as a plain <c>SUM</c>, never applying the decay curve.</param>
-/// <param name="StrengthAge">How far the position has moved since any of those edges was last
-/// strengthened — a plain <c>MAX</c> subtracted from the current position.
-/// <para><b>This is the store's own <c>Advance</c>-driven view, exactly as <see cref="Age"/> is</b>, and it
-/// carries the same caveat: it speaks whatever unit was in force when the edge was last strengthened.
-/// <see cref="StrengthOrdinalAge"/>/<see cref="StrengthVolumeAge"/>/<see cref="StrengthElapsedAge"/> are the
-/// policy-independent counterparts a store now ALSO tracks unconditionally, so a
-/// <see cref="Lyntai.Memory.Interference.MemoryAgeKind.Derivable"/> policy can project its own strength age
-/// rather than reading a residue in a foreign unit.</para></param>
-/// <param name="StrengthOrdinalAge">How many writes have happened to the engine since any of those edges was
-/// last strengthened — the strength-side counterpart of <see cref="OrdinalAge"/>, advancing by exactly one
-/// per write whatever <see cref="Lyntai.Memory.Interference.IMemoryAgePolicy"/> is installed.</param>
-/// <param name="StrengthVolumeAge">How many characters have been written to the engine since any of those
-/// edges was last strengthened — the strength-side counterpart of <see cref="VolumeAge"/>.</param>
-/// <param name="StrengthElapsedAge">How much real time has passed, in days, since any of those edges was last
-/// strengthened — the strength-side counterpart of <see cref="ElapsedAge"/>, and frozen between writes for the
-/// same reason.</param>
+/// <param name="StrengthAge">How far the position has moved since any of those edges was last strengthened
+/// — a plain <c>MAX</c> subtracted from the current position. The store's <c>Advance</c>-driven view, with
+/// <see cref="Age"/>'s caveat: it speaks whatever unit was in force when the edge was strengthened. The
+/// three <c>Strength*Age</c> members below are the policy-independent counterparts, so a
+/// <see cref="Lyntai.Memory.Interference.MemoryAgeKind.Derivable"/> policy projects its own rather than
+/// reading a residue in a foreign unit.</param>
+/// <param name="StrengthOrdinalAge">Strength-side counterpart of <see cref="OrdinalAge"/>.</param>
+/// <param name="StrengthVolumeAge">Strength-side counterpart of <see cref="VolumeAge"/>.</param>
+/// <param name="StrengthElapsedAge">Strength-side counterpart of <see cref="ElapsedAge"/>, frozen between
+/// writes for the same reason.</param>
 /// <param name="Signals">Open retention signals recorded with the entry, replayed into
 /// <see cref="MemoryDecayState.Signals"/> on read. Empty for anything written before signals existed, which
 /// is why a retention policy must treat an empty bag as neutral.</param>
 /// <param name="Difficulty">How hard this entry is to retain, replayed into
 /// <see cref="MemoryDecayState.Difficulty"/> on read — see that field's own remarks for the full precedence
 /// rule between an explicit <see cref="MemorySignals.WellKnown.Difficulty"/> signal and this LIVE value.
-/// Neutral (<c>5</c>, the mid-point — corrected 2026-08-11 from the floor <c>1</c>, see
+/// Neutral (<c>5</c>, the mid-point, NOT the floor <c>1</c> — see
 /// <see cref="Lyntai.Memory.Forgetting.DsrOptions.NeutralDifficulty"/>'s own remarks) for anything written
 /// before this column existed, the same shape <paramref name="Signals"/> itself already has for a
 /// pre-signals row — though a row written under the OLD neutral still reads back <c>1</c>, a historical
@@ -75,20 +66,15 @@ namespace Lyntai.Memory;
 /// whose incoming bag is NON-EMPTY (mirroring <c>salience</c>'s own promoted-column rule exactly), and
 /// otherwise updated only by <see cref="IMemoryGraphStore.TouchAsync"/>.</param>
 /// <param name="ProvenanceRetrievability">Which retrievability policy computed <paramref name="Stability"/>
-/// and <paramref name="Difficulty"/> —
-/// a <see cref="Lyntai.Memory.Forgetting.MemoryRetrievabilityProvenance"/> value, read and written only
-/// through <see cref="Lyntai.Memory.MemoryProvenance"/> (design doc §5.7). Set once at the entry's first
-/// write and updated on every <see cref="IMemoryGraphStore.TouchAsync"/>, the same two moments that set
-/// <paramref name="Stability"/> itself — never touched by a plain re-remember of identical content, exactly
-/// like <paramref name="Stability"/> is not. Zero (<c>None</c>) for anything written before this domain
-/// existed.</param>
-/// <param name="ProvenanceSalience">Which salience polic(ies) PRODUCED <paramref name="Signals"/> — a
-/// <see cref="Lyntai.Memory.Salience.MemorySalienceProvenance"/> value, the OR of every registered
-/// policy that returned a non-empty result for this write (a policy that declined contributes
-/// nothing). Follows exactly the same "keep what's stored" rule an empty incoming bag already gives
-/// <paramref name="Signals"/> itself: a re-remember whose salience policies all decline leaves this unchanged
-/// rather than blanking it. Zero (<c>None</c>) for anything written before this domain existed, or for any
-/// write no registered policy judged.</param>
+/// and <paramref name="Difficulty"/> — a
+/// <see cref="Lyntai.Memory.Forgetting.MemoryRetrievabilityProvenance"/> value, read and written only through
+/// <see cref="Lyntai.Memory.MemoryProvenance"/>. Set at first write and on every
+/// <see cref="IMemoryGraphStore.TouchAsync"/>, exactly like <paramref name="Stability"/>, so a plain
+/// re-remember never touches it. Zero (<c>None</c>) for anything predating the domain.</param>
+/// <param name="ProvenanceSalience">Which salience polic(ies) PRODUCED <paramref name="Signals"/> — the OR
+/// of every registered policy that returned a non-empty result. Follows <paramref name="Signals"/>'s own
+/// "empty incoming keeps what's stored" rule, so a re-remember whose policies all decline leaves it
+/// unchanged. Zero for anything predating the domain, or for a write no policy judged.</param>
 public sealed record GraphNode(
     long Id, string Engine, string TaskKey, string Scope, string Headline, string Content,
     MemoryGrade Grade, DateTimeOffset CreatedAt, int RecallCount, double Stability, double Age,
@@ -134,7 +120,11 @@ public sealed record GraphNode(
 /// <param name="Metadata">App-owned extra data, or null.</param>
 /// <param name="Signals">Open retention signals recorded with the entry, replayed into
 /// <see cref="MemoryDecayState.Signals"/> on read. Empty for anything written before signals existed, which
-/// is why a retention policy must treat an empty bag as neutral.</param>
+/// is why a retention policy must treat an empty bag as neutral.
+/// <para><b>A store MUST read an empty incoming bag as "no opinion" and keep what is already stored, never
+/// as "no longer salient".</b> A salience policy may decline to judge a re-remembered write for any reason,
+/// and reports that as <see cref="MemorySignals.Empty"/> — so blanking on empty would let the very
+/// re-remember meant to REINFORCE an entry erase an earlier judgement instead.</para></param>
 /// <param name="ProvenanceRetrievability">The active retrievability policy's own
 /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.Provenance"/>, cast to
 /// <see langword="long"/> — what computed <paramref name="InitialStability"/>. A store persists this only
@@ -158,7 +148,7 @@ public sealed record GraphNodeWrite(
 /// full-<see cref="MemoryDecayState"/> return exists to feed (design doc §5.7, Task 5): a caller extracts
 /// whatever the active policy actually claims from that return and hands it here — <see cref="Difficulty"/>
 /// is the first field besides <see cref="Stability"/> a shipped policy uses it for
-/// (<see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>, 2026-08-10 fsrs-properly plan Task 2).</para></summary>
+/// (<see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/>).</para></summary>
 /// <param name="Id">The node.</param>
 /// <param name="Stability">Its new half-life, from the policy.</param>
 /// <param name="ProvenanceRetrievability">The policy that computed <paramref name="Stability"/> and
@@ -168,7 +158,7 @@ public sealed record GraphNodeWrite(
 /// it overwrites <paramref name="Stability"/> itself.</param>
 /// <param name="Difficulty">Its new difficulty, from the policy — see
 /// <see cref="MemoryDecayState.Difficulty"/>'s own remarks for what "new" means here. Defaults to the
-/// neutral value (<c>5</c>, corrected 2026-08-11 from the floor <c>1</c>) only for a caller that never reads
+/// neutral value (<c>5</c>, the mid-point) only for a caller that never reads
 /// a policy's difficulty at all; a caller that DOES (every shipped engine path, via
 /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.Reinforce"/>'s
 /// return) always supplies the policy's own value explicitly.</param>
@@ -200,7 +190,7 @@ public sealed record GraphNeighbour(GraphNode Node, double EdgeWeight, double Ed
 }
 
 /// <summary>One reinforcement to log — the pre-review state, the derived grade, and the post-review state
-/// (design spec §3, 2026-08-11 fsrs-properly plan Task 3). What FSRS parameter fitting needs and what this
+/// (design spec §3). What FSRS parameter fitting needs and what this
 /// library persisted none of before this task; see <see cref="IMemoryGraphStore.RecordReviewsAsync"/>.
 /// <para><b>Only <see cref="MemoryDecayState.Stability"/> and <see cref="MemoryDecayState.Difficulty"/> get a
 /// POST column.</b> Every other field of the pre-state (<see cref="PreAge"/>/<see cref="PreStrength"/>/
@@ -313,31 +303,18 @@ public interface IMemoryGraphStore
     /// authoritative nodes than <paramref name="limit"/> still loses some, by recency, and which ones is
     /// deliberately unspecified. Unlike the prompt layer, which reports what it omitted, the store drops
     /// silently. Keep authoritative material in a scope small enough that this cannot bite.</para>
-    /// <para><b>How a SALIENT candidate is admitted is backend-specific in the same way, and by the same
-    /// carve-out.</b> Where nothing has already ranked the candidates by match quality — the no-query and
-    /// substring-fallback paths on every backend — salience leads recency, so a salient entry survives the
-    /// <paramref name="limit"/> that recency alone would have cut. On a MATCH-RANKED path (SQLite's FTS
-    /// branch, taken for any query of three characters or more) the match score leads and salience is only a
-    /// tiebreak behind it, because letting salience outrank the score would let a salient POOR match displace
-    /// a strong one. So "a salient entry is found even when it matches the query poorly" is a guarantee of
-    /// the recency-ordered paths, not of every path on every backend. Rank contribution proper is the
-    /// ranking policy's, and it is opt-in — see
-    /// <c>Lyntai.Memory.Ranking.MultiplicativeRankingOptions.SalienceRankWeight</c>.</para>
+    /// <para><b>How a SALIENT candidate is admitted is backend-specific, by the same carve-out.</b> Where
+    /// nothing has already ranked candidates by match quality — the no-query and substring-fallback paths —
+    /// salience leads recency, so a salient entry survives a limit recency alone would have cut. On a
+    /// MATCH-RANKED path (SQLite's FTS branch) the score leads and salience is only a tiebreak, or a salient
+    /// POOR match would displace a strong one. So "a salient entry is found even when it matches poorly" is
+    /// a guarantee of the recency-ordered paths, not of every path. Rank contribution proper belongs to the
+    /// ranking policy and is opt-in.</para>
     /// <para><b>An authoritative node admitted by GRADE that <paramref name="query"/> never matched reports
-    /// <see cref="GraphNode.Relevance"/> exactly <c>0</c>, on every backend</b> (3.0; before that it was
-    /// explicitly backend-specific — one reported such a node at the tail of its gradient, another at the
-    /// head, another a flat 1, and SQLite alone disagreed with ITSELF between its full-text and
-    /// substring-fallback paths). <c>0</c> is simply what "how well it matched the query" honestly says about
-    /// something the query did not match; a node that genuinely matched keeps its match-derived position, and
-    /// with no <paramref name="query"/> at all nothing is grade-admitted so each backend's own gradient is
-    /// unchanged.
-    /// <para><b>This does not weaken the admission guarantee, because relevance was never what carried
-    /// it.</b> An exact fact is admitted by the grade carve-out above, and
-    /// <see cref="Lyntai.Memory.Engines.GraphMemoryEngine"/> separately re-admits any authoritative candidate
-    /// a ranking policy dropped. Reporting a relevance it did not earn would have been a third,
-    /// weaker mechanism competing with those two — and an actively misleading number, since the engine
-    /// multiplies relevance into its rank. Rank authoritative material by its GRADE, as this contract has
-    /// always said.</para></para>
+    /// <see cref="GraphNode.Relevance"/> exactly <c>0</c>, on every backend.</b> <c>0</c> is what "how well
+    /// it matched the query" honestly says about something the query did not match; a node that genuinely
+    /// matched keeps its match-derived position, and with no <paramref name="query"/> nothing is
+    /// grade-admitted so each backend's gradient is unchanged.</para>
     /// <para>Portable guarantee, the same one <see cref="Lyntai.Storage.IMemoryStore.RecallAsync"/> states:
     /// a node whose content contains a single ≥3-character query token as a substring is found on every
     /// backend. Multi-token matching and same-match ordering diverge by design.</para></summary>
@@ -392,13 +369,13 @@ public interface IMemoryGraphStore
     Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
         CancellationToken ct = default);
 
-    /// <summary>Reap nodes, returning how many were removed. AUTHORITATIVE nodes are never eligible for
+    /// <summary>Remove nodes, returning how many were removed. AUTHORITATIVE nodes are never eligible for
     /// <paramref name="maxAgeOverStability"/> — their retrievability is fixed at 1.</summary>
     /// <param name="engine">The owning engine's name.</param>
     /// <param name="taskKey">Consumer/purpose scope.</param>
     /// <param name="scope">Variant scope, or null for every scope of the task.</param>
-    /// <param name="maxAgeOverStability">Reap past this ratio, or null to ignore it.</param>
-    /// <param name="olderThan">Reap entries created longer ago than this in REAL time, or null to ignore
+    /// <param name="maxAgeOverStability">Remove past this ratio, or null to ignore it.</param>
+    /// <param name="olderThan">Remove entries created longer ago than this in REAL time, or null to ignore
     /// it — the one calendar concern left in the model.</param>
     /// <param name="ct">Cancellation.</param>
     Task<int> PruneAsync(string engine, string taskKey, string? scope, double? maxAgeOverStability,
@@ -407,7 +384,7 @@ public interface IMemoryGraphStore
     /// <summary>Remove specific nodes by id, and every edge touching one — returning how many were
     /// removed. The precise counterpart to <see cref="PruneAsync"/>'s own ratio filter, for a caller that
     /// has already decided WHICH nodes to remove rather than asking the store to decide.
-    /// <para><b>Why this exists (2026-08-10 memory-policy-seams plan, Task 3 fix round 1):</b>
+    /// <para><b>Why this exists:</b>
     /// <see cref="PruneAsync"/>'s ratio filter is evaluated entirely by the STORE against its own
     /// <c>Advance</c>-driven position accumulator — cheap, but only correct when that accumulator is what a
     /// caller's retrievability curve actually reads. Once a caller composes age from several coexisting
@@ -429,8 +406,8 @@ public interface IMemoryGraphStore
     /// <param name="ct">Cancellation.</param>
     Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default);
 
-    /// <summary>Log <paramref name="reviews"/> — DATA for a future fitting task (design spec §3/§4, 2026-08-11
-    /// fsrs-properly plan Task 3), never read by anything in this domain's own recall, ranking or prune paths.
+    /// <summary>Log <paramref name="reviews"/> — DATA for a future fitting task (design spec §3/§4),
+    /// never read by anything in this domain's own recall, ranking or prune paths.
     /// Best-effort by the SAME contract as <see cref="TouchAsync"/>: a caller treats a failure here as
     /// "this reinforcement was not logged," never as reinforcement itself failing.
     /// <para><b>Bounded, and NOT by a per-write <c>DELETE</c>.</b> <paramref name="cap"/> is the most recent
@@ -504,13 +481,10 @@ public interface IMemoryGraphStore
     /// The subjects already in use in this task and scope, most-used first — so an annotator can REUSE a
     /// handle instead of inventing one.
     ///
-    /// <para><b>Why this exists, measured rather than reasoned.</b> Run against real models, annotation
-    /// produced a different handle for each fact about one person: llama3.2:3b gave
-    /// <c>Alice / 爱丽丝 / 我</c> and qwen2.5-vl:7b gave <c>我的配偶 / 爱丽丝 / 京都</c> for the same three
-    /// Chinese facts. Every one of those is a DEFENSIBLE answer — the relation, the entity, the location —
-    /// and that is the problem: "what is this about" has several valid answers, so a model alternates and
-    /// nothing links. Showing it the handles already in use is what anchors it, exactly as showing it recent
-    /// facts is what makes a pronoun resolvable.</para>
+    /// <para><b>Why this exists.</b> "What is this about" has several DEFENSIBLE answers for one fact — the
+    /// entity, the relation, the location — so an unanchored annotator alternates between them and nothing
+    /// links. Showing it the handles already in use is what anchors it, exactly as showing it recent facts is
+    /// what makes a pronoun resolvable.</para>
     ///
     /// <para><b>The one member here with a default body</b>, unlike the five required additions this release
     /// makes. It is an accuracy HINT, not a correctness requirement: a store returning nothing gives an

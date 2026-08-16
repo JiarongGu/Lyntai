@@ -3,24 +3,23 @@ namespace Lyntai.Memory.Annotation;
 /// <summary>
 /// What a remembered fact is ABOUT — the seam that lets an entity cluster become connected.
 ///
-/// <para><b>The measured problem this exists for.</b> A graph engine's edges come from vector similarity at
-/// write time or from CO-ACTIVATION during recall, and co-activation links whatever a recall happened to
-/// RETURN together. Nothing in that is about two facts concerning the same entity. Measured over a full
-/// corpus replay (<c>MemoryClusterEdgeFormationTests</c>): 442 edges written in English of which <b>2</b>
-/// joined two of three cluster members, and 366 in Chinese of which <b>0</b> did. Cluster recall therefore
-/// sits at the no-graph floor (<c>miss = 1 - 1/AttributeCount</c>) — identical at recall limit 10 and 50,
-/// which is what proves those entries are never GATHERED and that no ranking policy can reach them.</para>
+/// <para><b>The measured problem this exists for.</b> A graph engine's edges come from write-time vector
+/// similarity or from CO-ACTIVATION during recall, and co-activation links whatever a recall happened to
+/// RETURN together — nothing in that is about two facts concerning the same entity. Over a full corpus
+/// replay (<c>MemoryClusterEdgeFormationTests</c>) almost no edge joined two cluster members, in either
+/// language, so cluster recall sat at the no-graph floor (<c>miss = 1 - 1/AttributeCount</c>) identically at
+/// recall limit 10 and 50 — which proves those entries are never GATHERED and no ranking policy can reach
+/// them.</para>
 ///
 /// <para><b>Why this cannot be solved lexically.</b> "my spouse is Alice", "she works as an anaesthetist",
-/// "we met in Kyoto" share no distinguishing word in any language — only pronouns. A tokenizer improvement
-/// cannot connect them; that is a semantic judgement, and it is the same judgement in every language, which
-/// is why it routes around the CJK tokenization problem entirely rather than adding to it.</para>
+/// "we met in Kyoto" share no distinguishing word in any language — only pronouns. That is a semantic
+/// judgement, and the same one in every language, which routes it around CJK tokenization rather than
+/// adding to it.</para>
 ///
-/// <para><b>The annotator SEES CONTEXT, not just the write, and the contract would be misleading without
-/// it.</b> Given <c>"我的配偶是爱丽丝"</c> alone a model can say the fact concerns a spouse named Alice. Given
-/// <c>"她在一家医院做麻醉师"</c> alone it cannot know who "she" is — so the two facts would receive different
-/// subjects and never link, and the feature would appear to work while connecting nothing. Passing recent
-/// entries is what makes a pronoun resolvable.</para>
+/// <para><b>The annotator SEES CONTEXT, not just the write.</b> Given <c>"她在一家医院做麻醉师"</c> alone a
+/// model cannot know who "she" is, so two facts about one person would get different subjects and never
+/// link — the feature would appear to work while connecting nothing. Passing recent entries is what makes a
+/// pronoun resolvable, so the contract would be misleading without it.</para>
 ///
 /// <para><b>Best-effort, over a model-free floor.</b> Graph memory works today with no annotator and no
 /// model at all. A failing or absent annotator degrades to "no new links" — never to a failed write and

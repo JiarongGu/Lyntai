@@ -53,9 +53,8 @@ public sealed class Automatic1111Options
 /// CFG only, so <see cref="GenerationRequest.Model"/> is NOT honoured — including a candidate's
 /// <c>"a1111:some-checkpoint"</c> pin, which the router applies to the request and this backend then ignores.
 /// The render uses whatever checkpoint the WebUI currently holds (<see cref="ProbeAsync"/> reports which), and a
-/// host that needs a specific one switches it in the WebUI. Each local backend has its own answer to "what
-/// decides the model?": ComfyUI's is the workflow, the local engine's is its model path, and this one's is the
-/// server's own state.
+/// host that needs a specific one switches it in the WebUI. Every local backend answers "what decides the
+/// model?" differently: ComfyUI's is the workflow, the local engine's its model path, this one's the server.
 /// </summary>
 /// <remarks>Wire shapes ported from a sibling app's production implementation. A server that simply isn't
 /// running reports <see cref="GenerationVerdict.NotConfigured"/> rather than a failure — on a fresh machine

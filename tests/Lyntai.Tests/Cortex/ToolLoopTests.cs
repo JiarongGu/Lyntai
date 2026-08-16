@@ -591,7 +591,9 @@ public class ToolLoopTests
 
         var result = await StreamingNativeLoop(client, Echo()).RunAsync(Ask());
 
-        Assert.Equal(15, result.Usage.InputTokens);
+        // null here would mean the terminal chunk's usage was dropped, which is the failure this pins
+        Assert.NotNull(result.Usage);
+        Assert.Equal(15, result.Usage!.InputTokens);
         Assert.Equal(6, result.Usage.OutputTokens);
     }
 }

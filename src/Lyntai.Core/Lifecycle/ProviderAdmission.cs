@@ -12,25 +12,16 @@ namespace Lyntai.Lifecycle;
 /// same self-hosted engine share its capacity, while two tenants on different hosted endpoints never
 /// throttle each other.</para>
 ///
-/// <para><b>Why this is not a field on the provider.</b> A semaphore carried by an instance bounds nothing
-/// once instances are per-call: under <see cref="TransientProviderPool{TProvider}"/> every call builds its
-/// own limiter and every caller is admitted at once, so the engine the limit exists to protect thrashes
-/// exactly as it would with no limit configured. Keyed and shared is the only shape that survives both
-/// pooling strategies.</para>
-///
 /// <para>Distinct from rate limiting: a rate limiter bounds calls per unit TIME, this bounds calls at
 /// once.</para>
 ///
-/// <para><b>A gate exists only while something needs it.</b> Each entry in the internal table tracks a
-/// count of callers currently holding OR waiting on it; the count is incremented before the wait begins
-/// (so a merely-queued caller still keeps its gate alive) and decremented when a handle is disposed, or
-/// when a wait is cancelled before a permit ever arrives — either way, the gate is removed the instant that
-/// count reaches zero. The table's size is therefore bounded by calls in flight right now, never by the
-/// number of configurations ever seen, which matters because this is registered as a process-lifetime
-/// singleton: a store that rotates many tenants' credentials through <see cref="ProviderKey"/> would
-/// otherwise accumulate one permanent <see cref="SemaphoreSlim"/> per configuration ever presented. An idle
-/// process holds no gates at all, so — unlike <see cref="ProviderPoolOptions"/> — there is no cap or
-/// timeout to configure here; there is nothing left to bound.</para></summary>
+/// <para><b>A gate exists only while something needs it.</b> Each table entry counts the callers holding OR
+/// waiting on it — incremented before the wait, so a merely-queued caller keeps its gate alive — and the
+/// gate is removed the instant that count reaches zero. The table is therefore bounded by calls in flight
+/// rather than by configurations ever seen, which matters for a process-lifetime singleton: a host rotating
+/// many tenants' credentials through <see cref="ProviderKey"/> would otherwise accumulate one permanent
+/// <see cref="SemaphoreSlim"/> each. An idle process holds no gates, so — unlike
+/// <see cref="ProviderPoolOptions"/> — there is nothing left to cap or time out.</para></summary>
 /// <param name="options">Limits. Null = unlimited everywhere.</param>
 public sealed class ProviderAdmission(ProviderAdmissionOptions? options = null) : IProviderAdmission
 {

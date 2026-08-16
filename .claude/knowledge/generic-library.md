@@ -56,6 +56,24 @@ When a task says "app X wants Y," run it through this before writing code:
 6. **Pin the generality with tests + baseline.** The contract test (e.g. `CuratedMemoryStoreContract`)
    runs across *all* backends so a new param behaves identically on InMemory/SQLite/Postgres. Update the
    `ApiSurface` baseline deliberately — it's the review gate that makes an app-specific leak visible.
+7. **A value only the DEPLOYMENT can know is a policy or an option — never a property of a type.** Ask of
+   any new member: *could two honest applications answer this differently?* If yes, the library must not
+   answer it. A default is fine — an unconfigurable answer is not.
+   <br>**This is the rule that catches the SELF-INFLICTED case, which is why it is separate from the five
+   above.** Every one of those starts "a consumer asked for X"; this one fires when nobody asked and the
+   shape was invented while designing. Measured 2026-08-16 (`docs/DECISIONS.md` **D75**, amending D72):
+   `IMemoryEngine.HoldsUserContent` was a `bool` on the engine declaring whether its content was the user's
+   to withdraw — and one application's curated glossary is operator boilerplate while another's holds
+   preferences the user typed. The property stated a fact about the HOST inside a type the host did not
+   write. It became `IMemoryRemovalPolicy`, and the seam then expressed something the boolean could not say at
+   all (per-verb eligibility) — which is the usual sign the boolean was the wrong shape rather than merely
+   the inflexible one.
+   <br>**The tell is a DEFAULT you cannot defend for every deployment.** A protocol fact (AES-256 needs a
+   32-byte key) is not this. A tuning fallback a caller can override per call is not this. What is this: a
+   number, flag or classification the library asserts about the host's data, hardware or arrangement, with
+   no way for the host to disagree. Compare `LocalDiffusionOptions.Accelerator` (**D68**) — the library does
+   not probe the hardware; the host declares it, because which build was installed is a fact only the host
+   has.
 
 ### Red flags (stop and re-generalize)
 
@@ -63,12 +81,19 @@ When a task says "app X wants Y," run it through this before writing code:
   domain, or one of its specific tools/files.
 - A Core type gaining a field that only one provider/backend could ever populate (push it to the adapter).
 - A `switch`/`if` over a consumer id, tool name, or app mode to pick behavior (make it a seam/collection).
+- **A type ANSWERING a question about the host** — "is this content the user's?", "does this machine have a
+  GPU?", "how large may a render be here?" — rather than letting the host answer it. Rule 7. The giveaway is
+  that you can imagine a second application answering differently and being equally right.
 - "It's easier to just take the app's shape" — that's the fork forming. The generalization *is* the work.
 - Copying the consumer's whole feature verbatim when the reusable core is a small slice of it.
 
-### Worked examples (the current backlog, all consumer-requested, all generalized)
+### Worked examples — an app-specific shape, and what it became
 
-| Consumer ask (app-specific) | Shipped as (generic) | Where it lives |
+Most arrived as a consumer REQUEST. The last two did not: nothing was asked for, and the app-specific shape
+was invented here while designing — which is the direction rule 7 exists to catch, and the harder one to
+notice, because there is no outside voice to disagree with.
+
+| The app-specific shape | Generalized to | Where it lives |
 |---|---|---|
 | WinForms app hangs in headless `claude -p` because every tool prompts | opt-in `SkipAllPermissions` bypass posture | `ClaudeAgentOptions` (adapter) |
 | App wrapped `ILlmClient` to sum tokens per tool-loop run | `Usage` on the run result | `ToolLoopResult` (Core) |
@@ -76,6 +101,8 @@ When a task says "app X wants Y," run it through this before writing code:
 | App needed a full BYO runner for Windows `.cmd`/CJK | default `ProcessRunner` resolves shims + forces UTF-8 for everyone | Core |
 | Source-study tool re-`List`s to dedup a note | `dedup`/`scope` params, defaulted off | `ICuratedMemoryStore` (Core) |
 | Desktop app drives codex with three `-c mcp_servers.<its-name>.*` overrides per turn | neutral `McpServers` (stdio **or** http), rendered per dialect | `AgentSessionOptions` (Core) + both adapters |
+| **Self-inflicted:** the library itself declaring whether a memory engine's content is the user's to withdraw | `IMemoryRemovalPolicy`, asked per member **and** per verb | Core seam, DI-registered (D75) |
+| **Self-inflicted:** the library itself capping a local render at one size for every machine | host-declared `Accelerator` + `MaxDimension`; GPU derives **no** cap rather than an invented one | `LocalDiffusionOptions` (adapter, D68) |
 
 ## Related
 

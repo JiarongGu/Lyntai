@@ -22,19 +22,16 @@ namespace Lyntai.Llm.Routing;
 /// <param name="modelRouting">Live per-consumer model overrides; null = the configured defaults alone.</param>
 /// <param name="configuration">Which CONFIGURATION a provider is running under, used to key dead-host
 /// cooldown and admission. Null (or a null return) = key cooldown on
-/// <see cref="Lyntai.Lifecycle.IProviderIdentity.Id"/> and apply no admission, which is the historical
-/// behaviour and correct for a single-configuration deployment. Supply one when several configurations of a
-/// backend id are live at once — otherwise one tenant's rate limit benches every other tenant sharing that
-/// backend, and two consumers of one downed self-hosted host fail to share a bench that would have spared
-/// them both. <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source. Composes with
-/// <see cref="CooldownScope.ProviderAndModel"/>: granularity by model is orthogonal to identity by
-/// configuration, so that scope still appends the model.
+/// <see cref="Lyntai.Lifecycle.IProviderIdentity.Id"/> and apply no admission — correct for a
+/// single-configuration deployment. Supply one when several configurations of a backend id are live at once,
+/// or one tenant's rate limit benches every other tenant sharing that backend.
+/// <see cref="IProviderPool{TProvider}.TryGetKey"/> is the intended source; composes with
+/// <see cref="CooldownScope.ProviderAndModel"/>, which still appends the model.
 ///
 /// <para><b>Must return a STABLE key for a given instance.</b> One routing attempt invokes it more than once
-/// — for the candidate's cooldown key, for admission, and for the record that follows — so a delegate whose
-/// answer varies between those calls would record cooldown under a key different from the one checked,
-/// producing a bench that silently never takes effect. Look the key up (as a pool does); never recompute it
-/// from live state.</para></param>
+/// — cooldown key, admission, and the record that follows — so a varying answer records cooldown under a key
+/// different from the one checked, producing a bench that silently never takes effect. Look the key up (as a
+/// pool does); never recompute it from live state.</para></param>
 /// <param name="admission">Bounds concurrent completions per configuration — for a locally-run engine where
 /// simultaneous calls contend for one CPU or GPU. Null = unbounded. Applied HERE rather than by wrapping a
 /// provider, so no optional capability interface a caller type-tests for is erased by a decorator.

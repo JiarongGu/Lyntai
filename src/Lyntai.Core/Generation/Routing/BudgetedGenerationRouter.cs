@@ -101,7 +101,7 @@ public sealed class BudgetedGenerationRouter(
     /// that handler is <c>GenerationRenderJobHandler</c>, in THIS assembly — so the stated reason was
     /// satisfied by <c>internal</c> and the surface was a permanent promise nothing outside had asked for.
     /// Recording generation spend is something the library's own components do on a caller's behalf; if it
-    /// ever becomes a consumer capability it belongs on <c>IUsageTracker</c>, not on a router decorator.</para></summary>
+    /// ever becomes a consumer capability it belongs on <see cref="IUsageTracker"/>, not on a router decorator.</para></summary>
     internal static ValueTask RecordAsync(
         IUsageTracker tracker, string consumer, GenerationUsage? usage, CancellationToken ct = default) =>
         usage?.CostUsd is { } cost && cost > 0

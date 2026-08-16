@@ -43,14 +43,14 @@ worked before/after.
   third member `IJobStore` gained this release, after `PollAgainAsync`.
 
 - **`IForgettableMemory` is SPLIT: `PruneAsync` moves to the new `IPrunableMemory`**, and `IMemoryEngine`
-  gains nothing; which members a reap visits is decided by the new `IMemoryReapPolicy` seam —
+  gains nothing; which members a removal visits is decided by the new `IMemoryRemovalPolicy` seam —
   `docs/DECISIONS.md` **D72**. A custom engine keeps compiling for `ForgetAsync` and must add
   `IPrunableMemory` to its declaration to keep serving prunes; the compiler names every site. The two verbs
   answer different questions — a forget must be COMPLETE, where a partial one is a broken promise, while a
   prune is best-effort capacity management — and one interface forced an engine to claim both or neither,
   which a vector store cannot honestly do. **It also closes a real hole:** a composite could only pre-check
   that a member implemented the interface, so a member that implemented it and threw from one of the two
-  methods produced exactly the partial-reap-then-exception the pre-check exists to prevent.
+  methods produced exactly the partial-remove-then-exception the pre-check exists to prevent.
 
 - **`Lyntai.Generation` is no longer exempt from the SemVer promise** (`docs/DECISIONS.md` **D70**). <!-- drift-ok: the entry ANNOUNCING the withdrawal has to name what was withdrawn -->
   The package shipped EXPERIMENTAL from 2.0.1, and the exemption is **withdrawn**, not merely satisfied — every
@@ -153,12 +153,12 @@ worked before/after.
   `IMemoryEngineFactory` hands back, and `ForgetAsync` was a bare public method on `GraphMemoryEngine`
   declared on no interface at all. A consumer holding an `IMemoryEngine` could reach neither: through 2.5.x
   the shipped memory subsystem had **no supported way to delete anything**.
-  <br>Reaping FANS OUT to every capable member and sums what they removed, where `ExpandAsync`/`LinkAsync`
+  <br>Removal FANS OUT to every capable member and sums what they removed, where `ExpandAsync`/`LinkAsync`
   ROUTE to one owner — the argument is the reason, not taste: a `MemoryRef` names exactly one member, a
-  (task, scope) may be held by all of them. A blend where no member can reap **throws**
+  (task, scope) may be held by all of them. A blend where no member can remove **throws**
   `NotSupportedException` naming the members considered, rather than reporting `0`: `PruneAsync` returns a
-  count and `0` already means "nothing matched", so a caller reaping for a consent withdrawal must not read
-  "nothing here can ever reap" as "done".
+  count and `0` already means "nothing matched", so a caller removing for a consent withdrawal must not read
+  "nothing here can ever remove" as "done".
 
 
 - **Every generation backend registers with a CONFIGURE CALLBACK, like the rest of the library.**
@@ -298,7 +298,7 @@ worked before/after.
   portable SQL expresses.
   <br>**The bug it fixes deletes data.** Before this, prune compared against the raw accumulator while
   recall used the composed age, so after a policy swap the engine rated an entry retrievable and prune
-  reaped it anyway — measured at **49 wrongful deletions** in the swap scenario now pinned by
+  removed it anyway — measured at **49 wrongful deletions** in the swap scenario now pinned by
   `Prune_agrees_with_recall_after_a_policy_swap_rather_than_reaping_the_stale_accumulator`. The engine still
   takes the cheap store-side path when no derivable policy is registered, where it is provably exact.
 - **`MemoryDecayState` gains a sixth member, `Signals` (`MemorySignals`, defaulting to empty).** Every
@@ -903,15 +903,15 @@ worked before/after.
   **A BYO `IJobStore` must implement `TryAcquireSlotAsync`, `ReleaseSlotAsync` and `HeartbeatSlotsAsync`**
   (see Breaking).
 
-- **A `UseCurated(…).UseGraph()` blend can finally reap** (`docs/DECISIONS.md` **D72**). That blend — from
-  this library's own README — could not forget OR prune at ALL, because the curated member cannot reap and
+- **A `UseCurated(…).UseGraph()` blend can finally remove** (`docs/DECISIONS.md` **D72**). That blend — from
+  this library's own README — could not forget OR prune at ALL, because the curated member cannot remove and
   the composite refuses unless every member can. So an application withdrawing a user's consent had nothing
   to call, and an operator bounding disk had nothing either: `PruneAsync` and its durable
   `MemoryPruneJobHandler` already existed and were unreachable through the common blend. `CuratedMemoryEngine`
-  is excluded by the DEFAULT reap policy — operator-authored material is neither the user's to withdraw nor
+  is excluded by the DEFAULT remove policy — operator-authored material is neither the user's to withdraw nor
   what unbounded growth is made of — and the composite SKIPS it (logging the skip) instead of refusing.
-  A member that holds user content and cannot reap still refuses loudly: the distinction between "not yours
-  to reap" and "cannot reap" is what keeps a gap from becoming a silent partial.
+  A member that holds user content and cannot remove still refuses loudly: the distinction between "not yours
+  to remove" and "cannot remove" is what keeps a gap from becoming a silent partial.
   `LexicalMemoryEngine` gained forget + prune and `SemanticMemoryEngine` gained forget, so the engines now do
   what their stores could always do.
 
@@ -944,7 +944,7 @@ worked before/after.
   render is polled forever, and a wrong cost field means the budget decorator spends against a number that
   is not the price. Now settable: `FalQueueOptions.StatusVocabulary` and `.CostFields`;
   `ComfyUiOptions.PromptIdField`, `.OutputsField`, `.StatusField`, `.CompletedField`;
-  `LocalDiffusionOptions.Flags` (the whole `sd-cli` argv, keyed by meaning rather than spelling), `.Img2ImgMode`
+  `LocalDiffusionOptions.ArgvFlags` (the whole `sd-cli` argv, keyed by meaning rather than spelling), `.Img2ImgMode`
   and `.ExtraArgs`. Declarative rather than delegates, deliberately — these are bound from `appsettings.json`,
   which is how they actually get set. Two rules the overrides cannot weaken: an unmapped status is still
   RUNNING and never failed, and an empty `CostFields` reports NO cost rather than a wrong one. Unconfigured
@@ -1400,6 +1400,69 @@ worked before/after.
 
 ### Fixed
 
+- **A tool-driven async render is BILLED.** `GenerationFetchTool` called the backend directly, bypassing the
+  router, and handed `result.Usage` to the artifact sink without ever reaching `IUsageTracker` — while the
+  job-handler path recorded the same fetch correctly. A queue backend prices at FETCH, because that is the
+  only point the total is known, so the entire cost of every tool-driven async render was invisible. That is
+  not merely under-reporting: `generate_submit` re-checks the cap on every submit against a total that never
+  grew, so a configured `Budget.PerConsumer` cap **never fired** and spend was unbounded beneath it — while
+  the same tool set's inline `generate` billed correctly. One registration, two delivery modes, one metered.
+  `GenerationFetchTool` gains optional `usage`/`consumer` parameters (defaulting to the `"agent"` tag its
+  sibling tools already use) and bills before delivery, matching the job handler's own ordering.
+- **The memory subsystem's model calls are tagged `"memory"`** instead of billing to `"default"`. Annotation
+  and verification were the only internal LLM callers that did not tag a consumer — scoring and chat both do
+  — so memory spend could not be capped, routed or reported apart from the application's own traffic, and
+  verification fires on *every* recall. **Behaviour change for a host that set `Budget.PerConsumer["default"]`
+  expecting it to cover memory**: that spend now lands in a `"memory"` bucket. The global total is unchanged.
+  <br>The tags the library sends are now declared once as `LlmConsumers` rather than spelled at each call
+  site — a tag is a KEY a host writes its model map and budget against, so a typo does not fail, it silently
+  opens a second bucket no cap covers.
+- **`IAgentSession` now states that the front door does not bind it.** `AddUsageBudget` and `AddRateLimit`
+  decorate `ILlmClient`, and a session spawns a CLI that runs its own loop, so neither applies. Nothing said
+  so, and "the app has one budget" is the reasonable thing to assume. The doc now names all four layers and
+  what each does: usage is reported rather than priced (deliberately — the app prices from its own table),
+  tools ARE gated over MCP, guards on the agent's own prose are not applied, and caching would be wrong.
+- **Vector search now breaks a tie by id on EVERY backend, so top-k is repeatable** (`docs/FIXES.md`).
+  `InMemoryVectorStore` had the tiebreak and a doc calling it "load-bearing, not tidiness"; SQLite and
+  Postgres had none. Ties are ordinary — `VectorMath.Cosine` returns exactly `0` for a zero vector or a
+  dimension mismatch, and identical embeddings score exactly equal — so at the `k` boundary an arbitrary
+  member of a tie was dropped, and on the memory path those hits become similarity EDGES and a novelty
+  score, writing the arbitrariness into the graph rather than merely displaying it. Postgres tiebreaks
+  `COLLATE "C"` so all three agree on the ORDER and not merely on having one. The three facts moved into
+  `VectorStoreContract`, which every backend runs; the single-backend test file was deleted rather than left
+  as a second door.
+- **A stability below the divide-by-zero floor is FLOORED, not substituted, in the in-process graph store.**
+  `MemoryGraphSql.MinimumStability` was hoisted precisely so the backends could not disagree, and
+  `InMemoryMemoryGraphStore` was a second literal spelling `stability > 0 ? stability : 1e-6` where SQL
+  spells `MAX`/`GREATEST` — identical at `0`, different for everything between `0` and the floor, on the
+  DELETE path. One `PruneAsync` call with stability `1e-7` kept the entry on both relational backends and
+  destroyed it in process. The number is now derived from the one literal
+  (`MemoryGraphSql.MinimumStabilityValue`), and a new contract fact holds all three backends to the
+  SEMANTICS rather than to the value.
+- **A non-finite age tick can no longer be persisted.** `GraphMemoryEngine` wrote
+  `Math.Max(0, tick.Encoding)` and `Math.Max(0, tick.Position)`, and `Math.Max` PROPAGATES `NaN` — so a BYO
+  `IMemoryAgePolicy.Advance` returning `NaN` poisoned the Postgres position column permanently (every later
+  entry then reports a non-finite age, so nothing ranks and nothing prunes) while SQLite refused the bind
+  and threw. `IMemoryAgePolicy.Age` documents at length that a non-finite return cannot corrupt the store;
+  that was true of `Age`, which is never persisted, and false of `Advance` on the next member. A non-finite
+  component now reads as `1`, which `MemoryTick.One` already defines as an ordinary write.
+- **`SalienceOptions.NoveltyWeight` validates its domain**, the last unguarded field of a record whose two
+  other fields both validated. It feeds a `Math.Clamp`, which propagates `NaN` rather than clamping it, so a
+  non-finite weight put a `NaN` salience into the signals bag; three downstream readers happened to coerce
+  it back. Finiteness only — a negative weight legitimately inverts the effect.
+- **Two mangled sentences in shipped XML documentation** on `MemorySignals`, where the 3.0 comment sweep
+  deleted a work-log parenthetical and left its punctuation behind. They reached consumers' IntelliSense as
+  "…the neutral 5 instead ( was the floor 1 …" and "…field instead . This exists so…". `check-comments` now
+  fails both shapes.
+- **A method's `<summary>` attached to the wrong member, three times** — a long block describing member A
+  sitting above member B's own summary, so B carried two and A carried none (in one case a `<param>` list
+  with no summary at all). Well-formed XML, no compiler warning, and it shipped. `check-comments` now fails
+  a doc run carrying more than one `<summary>`.
+- **`docs/DECISIONS.md` D36 asserted a behaviour the code no longer had.** It recorded
+  `ContextWindowExceeded` collapsing to `Failed` as a deliberate trade, closing with "the real remedy is a
+  router change … filed rather than patched here" — that router change landed as D31's second reporting
+  slot and the mapping moved to `Unsupported` with it, but the decision was never amended. Nothing could
+  catch it: `check-docs` gates retired vocabulary, and a decision going stale retires no word.
 - **A streamed turn that produced prose AND a tool call silently DROPPED the call** — no error, no verdict,
   no log; the caller asked for an agent and got a sentence. The old code named it in a comment (*"fall
   through to a benign Final (tool call dropped)"*) while the roadmap carried the missing payload as "low
@@ -1431,9 +1494,9 @@ worked before/after.
   below which `PruneAsync` may REAP an entry") and design §5.7 ("the absolute `MinRetrievability` governs
   `PruneAsync` alone"). The caller's floor now falls back to the configured one.
   <br>**This is a behaviour change with data-loss implications, stated plainly rather than buried:** a
-  deployment calling `PruneAsync` without a floor previously deleted nothing on that criterion and now reaps
+  deployment calling `PruneAsync` without a floor previously deleted nothing on that criterion and now removes
   entries below `MinRetrievability` (default `0.05`). **`MinRetrievability = 0` is the opt-out** — a
-  retrievability is never below zero, so a floor of zero reaps nothing and restores the old behaviour — and
+  retrievability is never below zero, so a floor of zero removes nothing and restores the old behaviour — and
   that escape is asserted by a test rather than assumed. Authoritative material remains ineligible at any
   floor, which is objective (1) and is also now pinned. Found by the 2026-08-14 whole-codebase review.
 
@@ -2018,6 +2081,87 @@ worked before/after.
   absent from every named client, which is what `AddMemoryAnnotation` and `AddMemoryVerification` resolve
   through. Only the ROUTER differs now (the default takes the container's, a name takes one narrowed to its
   provider set), and that difference is the parameter.
+
+- **The two relational memory-graph stores share their MATERIALIZATION** — `MemoryNodeRow`,
+  `MemoryEdgeRow`, `MemoryPositionRow` and `MemoryReviewRow`, plus `MemoryNodeRow.ToNode` and the
+  dialect-free statements in `MemoryGraphSql`, all in `Lyntai.Core/Storage` (`docs/DECISIONS.md` **D77**).
+  Additive to the public surface: the API baseline gained 66 lines and lost none, so nothing a consumer
+  compiled against moved. Listed here rather than under `### Added` because the new types exist to be
+  implemented against by a BYO relational backend, not to be called.
+  <br>The four row types were byte-identical in both files, 25 properties each, and **a column↔property
+  mismatch there is a silent null rather than an error** — the same reasoning `JobStoreSql`/`JobRow` already
+  carried for the job state machine. The QUERIES stay per-backend, because those genuinely are dialect;
+  `verified` stays per-backend too, since SQLite has no boolean.
+
+- **…and the rest of the tier follows it** (`docs/DECISIONS.md` **D80**). Measured after D77: **nine more
+  byte-identical row-type pairs** across six more store pairs. `CuratedMemoryRow`, `PromptVersionRow`,
+  `ScoreResultRow`, `ScoreAggregateRow`, `ScoreExportEntryRow`, `TraceSessionRow`, `TraceStepRow`,
+  `UsageTotalsRow` and `MemoryEvictionCandidateRow` now live once in `Lyntai.Core/Storage/StorageRows.cs`
+  with their projections. Additive again: 75 baseline lines gained, none lost.
+  <br>Private row types in the two backends went 23 → 5, and every survivor is a case that genuinely
+  differs — the two `ReviewRow` subclasses, the two vector rows (SQLite materializes the stored vector,
+  Postgres a computed score), and one Postgres-only row with no twin.
+
+- **`ConversationStoreSql` and `TraceStoreSql`** join `JobStoreSql` and `MemoryGraphSql`
+  (`docs/DECISIONS.md` **D81**). Additive: 16 baseline lines gained, none lost.
+  <br>Only two domains, and that is a measurement rather than a stopping point: comparing every SQL
+  statement against its twin, conversation is **9 of 9** identical and trace **4 of 5** — the whole
+  surface — while every other store shares only one-line `DELETE`s and `SELECT`s, where a shared constant
+  buys indirection rather than safety. **A weaker case than the row types on purpose**: a drifting column
+  list fails loudly at the database, where a drifting row MAPPING is a silent null.
+  <br>The keyset-paging pair moved with them, which is the part worth having — the cursor comparison must
+  use the same ordering as the unpaged list or a same-tick thread is skipped or duplicated across pages,
+  and that invariant now lives in two adjacent constants rather than four interpolations in two files.
+
+- **Every memory options record validates its domain through one guard** (`docs/DECISIONS.md` **D78**). No
+  public surface change and no behaviour change a consumer can detect by type: the same
+  `ArgumentOutOfRangeException` is thrown for the same values. Two things a consumer CAN see improved —
+  `ParamName` now reports the property rather than the literal `"value"` (21 of the 31 sites reported the
+  latter, because that is what `nameof(value)` means inside an `init` accessor), and the
+  message's domain phrase is now derived from the comparison that rejected them, so the two cannot disagree.
+  <br>Each property's own REASON is unchanged and still in its message; only the boilerplate around it
+  moved. 237 lines deleted, 111 added.
+
+- **Work-log provenance is out of the shipped XML documentation.** Comments across `src/` cited this
+  repository's own fix rounds and its UNTRACKED design plans (`local/superpowers/plans/…`) — 30 fix-round
+  lines, 18 plan citations. A consumer reading those in IntelliSense can resolve neither, and
+  `repo-mechanics.md` §D43 is explicit that a design record stops being true once its version ships, so
+  shipped documentation must not lean on one. Every such citation is gone; the sentence it annotated stays,
+  and every reference to a MAINTAINED document (`docs/DECISIONS.md`, `docs/task-archive.md`,
+  `.claude/knowledge/pitfalls.md`, the design contract) is untouched.
+  <br>The 120-line `<remarks>` on `DsrRetrievability.Reinforce` was rewritten rather than trimmed: two
+  invariants were buried inside narrations of rejected drafts and are now stated as rules — **the derived
+  grade may never reach `g=1`** (`Again`, a lapse, which a purely-successful recall must never emit) and
+  **reversion is not optional** (linear damping's own factor is zero at `D = 10`, so dropping it leaves the
+  ceiling absorbing). Nothing else was removed from it.
+  <br>Also: eight type names written as unchecked `<c>Name</c>` in files that cref-link the same type
+  elsewhere are now crefs, so the compiler resolves them.
+
+- **Comments have a written rule and a gate** — `.claude/rules/code-commentary.md` and
+  `node devtools/dev.mjs check-comments`, the fifteenth `verify` gate. Three tiers, three jobs: the XML doc
+  is the CONTRACT a consumer reads, a `//` comment ANNOTATES the code beneath it, and the DESIGN argument
+  belongs in a record. A comment should be smaller than what it explains.
+  <br>Measured cause: **0.86 comment lines per line of real code**, and `src/` carrying 1.6× more prose
+  than `DECISIONS.md` + `pitfalls.md` + the task archive + the design contract combined — in the one place
+  no other gate scans. The gate is a RATCHET, not a threshold: 49 files were already over the 25-line limit
+  (1879 lines), each is recorded at its current worst in `commentBlockAllowances`, and an allowance looser
+  than the file needs FAILS, so the numbers only come down.
+  <br>The debt is worked down to **one block of 31 lines**, from 28 blocks totalling 893 across 19 files.
+  Meta-commentary (prose about a document's own history) and work-log citations are both at zero, and this
+  time that is measured rather than asserted — see below. The largest single paydown moved the FSRS
+  adaptation spec and the measured salience×spacing interaction out of `DsrRetrievability.Reinforce`'s
+  remarks (120 → 38 lines, then to 24) into **D79**.
+  <br>**The one that remains is contract, not fat**: `IMemoryGraphStore.SeedAsync` states SEVEN distinct
+  guarantees a BYO store must honour, at 2–11 lines each. It stays a recorded, ratcheted allowance rather
+  than being silenced with `comment-ok`, so it can never grow and the number stays visible.
+  <br>**Two corrections to the figures this entry carried when the gate landed, both found by re-measuring
+  rather than by a gate.** The ledger recorded one number per FILE — its worst block — so the "19 files /
+  614 lines" it reported was the sum of per-file worsts and not the debt: the tree actually held **28 blocks
+  totalling 893 lines**, one file carrying seven of them, and a budgeted file could grow unboundedly many new
+  long blocks behind its recorded number. An allowance is now the full multiset of a file's over-limit
+  blocks. And "every work-log citation is gone" was **false when written** — eleven survived in `src/`,
+  nine of them in public XML docs — which is what a claim costs when it is asserted from a sweep's intent
+  instead of counted afterwards.
 
 ## 2.5.0 — 2026-08-08
 
@@ -3347,7 +3491,7 @@ confirmed and fixed five regressions the pass had introduced: the chat orchestra
 COMPOSED prompt too (recalled memory can't bypass input guards; the memory-compounding fix stands);
 prompt placeholder keys are unrestricted again (hyphen/dot/CJK keys substitute — the single-pass rewrite
 had narrowed them to ASCII identifiers); the stdin inactivity clock counts a child's active DRAINING as
-liveness (pipe-granular slice writes re-arm it) and an observe/reap kill classifies as Timeout; a THROWN
+liveness (pipe-granular slice writes re-arm it) and an observe/remove kill classifies as Timeout; a THROWN
 transport error can no longer surface as a terminal Refused on a keyword match; and streamed OpenAI usage
 is actually read (the SSE loop runs to `[DONE]` and parses the trailing empty-choices usage chunk).
 Plus: consumer identity is now case-insensitive END-TO-END (usage-tracker totals aggregate across casings

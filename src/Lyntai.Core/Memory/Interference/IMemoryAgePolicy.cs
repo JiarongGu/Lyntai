@@ -13,7 +13,7 @@ public readonly record struct MemoryTick(double Position, double Encoding)
 }
 
 /// <summary>Which primitive a source of age actually recomputes from — the structural counterpart of the
-/// "derivable vs accumulating" distinction (2026-08-10 memory-policy-seams plan, Task 3; see
+/// "derivable vs accumulating" distinction (see
 /// <see cref="IMemoryAgePolicy.Kind"/>). A declared enum member rather than a type check or an <c>is</c> cast,
 /// so a future policy states which it is instead of the engine guessing from its shape.</summary>
 public enum MemoryAgeKind
@@ -80,12 +80,11 @@ public interface IMemoryAgePolicy
     /// alone: replaying the same writes through a store always reproduces the same result, because none of
     /// the three primitives is stored in this policy's own unit. <see cref="BurstDampenedAgePolicy"/> is the
     /// documented exception — see its own override.</para>
-    /// <para><b>RETURN A FINITE, NON-NEGATIVE NUMBER.</b> The obligation is stated here because it was NOT,
-    /// and a <c>NaN</c> got through (2026-08-14 review): every shipped implementation is a projection or a
-    /// division by a construction-guarded constant, so none can produce one, but this is an interface member
-    /// on somebody else's type and there is nowhere to validate it. A non-finite age is not a hypothetical
-    /// for a BYO implementation — a difference of two unbounded counters, or a division by a configured
-    /// scale nobody guarded, reaches it easily.</para>
+    /// <para><b>RETURN A FINITE, NON-NEGATIVE NUMBER.</b> Every shipped implementation is a projection or a
+    /// division by a construction-guarded constant, so none can produce otherwise — but this is an interface
+    /// member on somebody else's type and there is nowhere to validate it. A non-finite age is no
+    /// hypothetical for a BYO implementation: a difference of two unbounded counters, or a division by a
+    /// configured scale nobody guarded, reaches it easily.</para>
     /// <para><b>What the library does if you return one anyway, so the behaviour is defined rather than
     /// merely defended:</b> the age composes and reaches
     /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy"/> unchanged — nothing coerces it, and
@@ -131,7 +130,7 @@ public sealed class ContentSizeAgePolicy : IMemoryAgePolicy
     /// <param name="perUnit">Scales characters into positions — the default treats 200 characters as one
     /// unit, so stability constants stay in the same range as <see cref="PerWriteAgePolicy"/>.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="perUnit"/> is zero, negative, or
-    /// non-finite (<c>NaN</c>, <c>+Infinity</c>, <c>-Infinity</c>) — fix round 1, I2. A silent fallback here
+    /// non-finite (<c>NaN</c>, <c>+Infinity</c>, <c>-Infinity</c>). A silent fallback here
     /// previously let <see cref="Advance"/> and <see cref="Age"/> DISAGREE on what a degenerate
     /// configuration means (one per write vs. the raw, unscaled character count), and once <see cref="Age"/>
     /// feeds real decay the disagreement is a ~200× age jump, not a cosmetic inconsistency — so the invalid
@@ -168,8 +167,8 @@ public sealed class ContentSizeAgePolicy : IMemoryAgePolicy
 /// because almost no time passed. Elapsed time is self-limiting in a way a count is not.</para>
 /// <para>The first write of a process advances by zero — there is no previous write to measure from, and
 /// inventing one would age a fresh memory by however long the process had been up.</para>
-/// <para><b>RESOLVED (2026-08-10 memory-policy-seams plan, Task 3): <see cref="Advance"/> is keyed per the
-/// write's OWNING ENGINE, not per policy instance.</b> Task 2 recorded that
+/// <para><b>RESOLVED: <see cref="Advance"/> is keyed per the write's OWNING ENGINE, not per policy
+/// instance.</b> An earlier review recorded that
 /// <see cref="Advance"/>'s <c>_previous</c> was scoped to the POLICY INSTANCE — sharing one (the ordinary
 /// DI-singleton shape, one <see cref="IMemoryAgePolicy"/> resolved for every engine) tracked the last write
 /// across ALL of them, not per engine, while <see cref="Age"/> reads <see cref="MemoryAgeSample.ElapsedDays"/>,

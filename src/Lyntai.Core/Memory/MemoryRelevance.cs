@@ -4,32 +4,24 @@ namespace Lyntai.Memory;
 /// The ONE rule every <see cref="IMemoryGraphStore"/> reports <see cref="GraphNode.Relevance"/> by, for the
 /// backends that have a rank ORDER to report and no comparable score to normalize.
 ///
-/// <para><b>Why a shared rule and not three private copies.</b> Both SQL backends carried this expression
-/// verbatim — SQLite twice (its single-query path and its two-query merge), Postgres once — and one clause
-/// of it is a CONTRACT fact rather than a backend's own taste: <b>an authoritative entry the query did not
-/// match reports 0</b>. All three backends used to disagree about that, and SQLite disagreed with itself
-/// (the FTS path put such a node at the TAIL of the gradient, the substring path at the HEAD), which is the
-/// divergence 3.0 closed. Three copies is three chances to reopen it, and the reopening would be silent —
-/// the same reasoning <see cref="MemorySignals.Salience"/> and <see cref="MemorySubject"/> already carry for
-/// their own rules.</para>
+/// <para><b>Shared because one clause is a CONTRACT fact rather than a backend's own taste: an
+/// authoritative entry the query did not match reports 0.</b> All three backends once disagreed about that,
+/// and SQLite disagreed with itself. Three copies is three chances to reopen it, silently — the same
+/// reasoning <see cref="MemorySignals.Salience"/> and <see cref="MemorySubject"/> carry for their own
+/// rules.</para>
 ///
 /// <para><b>What this is NOT.</b> It is not a similarity score and not comparable across backends or across
 /// queries — <see cref="IMemoryGraphStore.SeedAsync"/> makes the reported ordering explicitly
 /// backend-specific. It is a monotone transform of ONE query's own result order, which is all the ranking
 /// policies need. <c>InMemoryMemoryGraphStore</c> has no rank order to transform, so it does not use this —
-/// it reports <c>1</c> for a match and <c>0</c> for a grade-admitted non-match directly. (This sentence
-/// said "reports a flat 1" when this type was introduced, repeating a stale claim from that store's own
-/// class doc without checking it against its <c>SeedAsync</c>; the "flat 1" holds only for a query-less
-/// enumeration. Corrected in the 3.0 pre-freeze review — and worth keeping as a note, because copying a
-/// neighbouring doc's wording is exactly how one wrong sentence becomes three.)</para>
+/// it reports <c>1</c> for a match and <c>0</c> for a grade-admitted non-match directly. (A flat <c>1</c>
+/// only for a query-less enumeration.)</para>
 ///
-/// <para><b>The known limit, recorded rather than hidden</b> (<c>.claude/knowledge/pitfalls.md</c>
-/// §Storage): because this is normalized by rank POSITION and not by score MARGIN, the gap between
-/// consecutive positions is CANDIDATE-COUNT DEPENDENT — with two candidates it is exactly 1.0 and 0.5, a
-/// fixed 2× spread however close the underlying scores are; with ten, the same one-place gap is 10%. Any
-/// test for a rank-lifting signal measured against this needs a result set large enough that the gap it
-/// fights is smaller than the boost it is proving. Two candidates is the WORST case, never a
-/// representative one.</para>
+/// <para><b>The known limit</b> (<c>.claude/knowledge/pitfalls.md</c> §Storage): normalized by rank
+/// POSITION, not score MARGIN, so the gap between consecutive positions is CANDIDATE-COUNT DEPENDENT — with
+/// two candidates exactly 1.0 and 0.5, a fixed 2× spread however close the real scores are; with ten, 10%.
+/// A test for any rank-lifting signal needs a result set large enough that the gap it fights is smaller
+/// than the boost it proves. Two candidates is the WORST case, never a representative one.</para>
 /// </summary>
 public static class MemoryRelevance
 {

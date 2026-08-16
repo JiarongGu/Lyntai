@@ -2,6 +2,43 @@ using Lyntai.Memory;
 
 namespace Lyntai.Tests.Memory.Corpus;
 
+/// <summary>How DISCRIMINATIVE a subject-cued attribute query is — whether its tokens reach only the cluster
+/// or also incidental unrelated material.
+/// <para><b>Both are real conditions and neither is the "correct" one.</b> An early draft treated the
+/// overlapping form as a mistake to be fixed away, which was wrong: this store tokenizes FTS as
+/// <c>trigram</c>, chosen so non-Latin text works at all, and under trigram matching almost any two texts
+/// share trigrams. For CJK content there is no stopword to strip and incidental overlap is UNAVOIDABLE — so
+/// the overlapping form is closer to normal usage for a large part of this library's audience, while the
+/// discriminative form is the best case.</para></summary>
+public enum AttributeCueKind
+{
+    /// <summary>The cue's only live search token is the subject, reaching exactly one cluster member. Every
+    /// other member must arrive through the graph, which makes miss = <c>1 - 1/AttributeCount</c> a clean
+    /// no-graph floor and the resulting number interpretable.</summary>
+    Discriminative,
+
+    /// <summary>The cue also carries ordinary words that appear in unrelated entries, so the cluster competes
+    /// against incidental matches. Measures the same question under the retrieval conditions non-Latin
+    /// content faces by construction.</summary>
+    SharesCommonTokens,
+}
+
+/// <summary>How this corpus writes its noise entries.</summary>
+public enum CorpusNoiseKind
+{
+    /// <summary>One fixed skeleton per language, differing only by an id token and one filler word — the
+    /// shape every measurement before 2026-08-13 ran on. Models noise as SEMANTICALLY IRRELEVANT: it is
+    /// never a right answer to any query.</summary>
+    Templated,
+
+    /// <summary>Near-skeletonless junk drawn from <see cref="CorpusLexicon.NoiseVocabulary"/> — models noise
+    /// as TEXTUALLY DIVERSE, which is a different thing and the one a novelty-driven salience policy is
+    /// sensitive to. <c>StructuralSaliencePolicy</c> is monotone in "unlike anything already stored", so
+    /// under <see cref="Templated"/> the second noise entry onward reads as FAMILIAR and the policy's
+    /// suspected failure mode is unreachable by construction.</summary>
+    Diverse,
+}
+
 /// <summary>
 /// The four swept parameters that shape a generated <see cref="MemoryCorpus"/>. Each has a single,
 /// undivided job so that sweeping one changes exactly the thing its name says and nothing else:
@@ -55,48 +92,11 @@ namespace Lyntai.Tests.Memory.Corpus;
 /// <para><b>Defaults to <c>0</c>, and that default is load-bearing.</b> Every corpus generated before this
 /// axis existed must stay byte-identical, or every published measurement moves at once and none of them
 /// would be comparable across the boundary. A study that wants expansions opts in explicitly.</para></param>
-/// <summary>How DISCRIMINATIVE a subject-cued attribute query is — whether its tokens reach only the cluster
-/// or also incidental unrelated material.
-/// <para><b>Both are real conditions and neither is the "correct" one.</b> An early draft treated the
-/// overlapping form as a mistake to be fixed away, which was wrong: this store tokenizes FTS as
-/// <c>trigram</c>, chosen so non-Latin text works at all, and under trigram matching almost any two texts
-/// share trigrams. For CJK content there is no stopword to strip and incidental overlap is UNAVOIDABLE — so
-/// the overlapping form is closer to normal usage for a large part of this library's audience, while the
-/// discriminative form is the best case.</para></summary>
-public enum AttributeCueKind
-{
-    /// <summary>The cue's only live search token is the subject, reaching exactly one cluster member. Every
-    /// other member must arrive through the graph, which makes miss = <c>1 - 1/AttributeCount</c> a clean
-    /// no-graph floor and the resulting number interpretable.</summary>
-    Discriminative,
-
-    /// <summary>The cue also carries ordinary words that appear in unrelated entries, so the cluster competes
-    /// against incidental matches. Measures the same question under the retrieval conditions non-Latin
-    /// content faces by construction.</summary>
-    SharesCommonTokens,
-}
-
-/// <summary>How this corpus writes its noise entries.</summary>
-public enum CorpusNoiseKind
-{
-    /// <summary>One fixed skeleton per language, differing only by an id token and one filler word — the
-    /// shape every measurement before 2026-08-13 ran on. Models noise as SEMANTICALLY IRRELEVANT: it is
-    /// never a right answer to any query.</summary>
-    Templated,
-
-    /// <summary>Near-skeletonless junk drawn from <see cref="CorpusLexicon.NoiseVocabulary"/> — models noise
-    /// as TEXTUALLY DIVERSE, which is a different thing and the one a novelty-driven salience policy is
-    /// sensitive to. <c>StructuralSaliencePolicy</c> is monotone in "unlike anything already stored", so
-    /// under <see cref="Templated"/> the second noise entry onward reads as FAMILIAR and the policy's
-    /// suspected failure mode is unreachable by construction.</summary>
-    Diverse,
-}
-
 public readonly record struct CorpusShape(
     int ReuseRatio, int NoiseDensity, int CriticalRarity, int CandidateCount, int ExpandRatio = 0,
     int AttributeCount = 0, AttributeCueKind AttributeCue = AttributeCueKind.Discriminative,
     CorpusLanguage Language = CorpusLanguage.English, int AuthoritativeCount = 0,
-    CorpusNoiseKind NoiseKind = CorpusNoiseKind.Templated)
+    CorpusNoiseKind NoiseKind = CorpusNoiseKind.Templated, int HeadlineOnlyCount = 0)
 {
     /// <summary>A middling shape: small enough to run in CI, large enough that every class and every
     /// parameter has room to show its effect. <c>ExpandRatio</c> stays <c>0</c> here so the default shape —
@@ -338,6 +338,7 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         var expandRatio = Math.Max(0, shape.ExpandRatio);
         var attributeCount = Math.Clamp(shape.AttributeCount, 0, 3);   // three distinct subjects are defined
         var authoritativeCount = Math.Max(0, shape.AuthoritativeCount);
+        var headlineOnlyCount = Math.Max(0, shape.HeadlineOnlyCount);
         var attributeCue = shape.AttributeCue;
         // every template AND every reader for this corpus's own invariants — see CorpusLexicon. Hoisted out
         // of `shape` like every other dial here, because `shape` is an `in` parameter and cannot be captured.
@@ -347,9 +348,9 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         var candidateCount = Math.Max(0, shape.CandidateCount);
         var criticalCount = Math.Max(1, CriticalBudget / Math.Max(1, shape.CriticalRarity));
 
-        void Write(string content, MemoryGrade grade = MemoryGrade.Inherit)
+        void Write(string content, MemoryGrade grade = MemoryGrade.Inherit, string? headline = null)
         {
-            steps.Add(new CorpusWrite(new MemoryWrite(TaskKey, Scope, content, Grade: grade)));
+            steps.Add(new CorpusWrite(new MemoryWrite(TaskKey, Scope, content, Headline: headline, Grade: grade)));
             writesSoFar++;
         }
 
@@ -449,6 +450,24 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
             var id = $"authoritative{i}";
             authoritativeIds.Add(id);
             Write(lex.Authoritative(id, Filler(lex, rng)), MemoryGrade.Authoritative);
+        }
+
+        // HEADLINE-ONLY: the marker lives in the AUTHORED headline and appears nowhere in the content, so
+        // the probe at the end of this method can only be answered by searching headlines. Every other class
+        // lets the engine derive its headline from the content, which makes headline words a subset of
+        // content words — and therefore makes headline search unobservable. The 3.0 review narrowed it and
+        // widened it back and `memory-sweep` saw neither direction.
+        //
+        // Opt-in and 0 by default, exactly as AuthoritativeCount is, so every existing corpus is
+        // byte-identical and no published measurement moves.
+        var headlineOnlyIds = new List<string>(headlineOnlyCount);
+        for (var i = 0; i < headlineOnlyCount; i++)
+        {
+            var id = $"headline{i}";
+            headlineOnlyIds.Add(id);
+            // Content is PADDING: a real entry that competes for a slot, and whose template shares no term
+            // with the marker. Using a queried class instead would let content matching answer the probe.
+            Write(lex.Padding(id, Filler(lex, rng)), headline: $"{lex.HeadlineMarker} {id}");
         }
 
         // Critical-rare: written once, EARLY. Its ground-truth query is appended at the very end of this
@@ -671,6 +690,12 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
             Query(lex.UnrelatedProbe(), [.. authoritativeIds]);
             Query(lex.UnrelatedProbe(), [.. authoritativeIds]);
         }
+
+        // The headline probe, emitted LAST for the same reason the critical-rare one is: the gap between the
+        // write and the query is the whole rest of the corpus, so a hit is retrieval rather than freshness.
+        // The marker appears in no content anywhere, so the ONLY thing that can answer this is a search that
+        // reads headlines — which is exactly the dimension the instrument was blind to.
+        if (headlineOnlyIds.Count > 0) Query(lex.HeadlineMarker, [.. headlineOnlyIds]);
 
         return new MemoryCorpus(steps);
     }

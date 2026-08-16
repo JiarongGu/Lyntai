@@ -61,7 +61,7 @@ public sealed class PostgresMemoryStore(
 
     private static async Task<IReadOnlyList<MemoryEviction.Row>> FetchScopedAsync(IDbConnection conn, string taskKey, string scope, CancellationToken ct)
     {
-        var rows = await conn.QueryAsync<EvictRow>(new CommandDefinition("""
+        var rows = await conn.QueryAsync<MemoryEvictionCandidateRow>(new CommandDefinition("""
             SELECT id AS Id, created_at AS CreatedAt, COALESCE(last_accessed_at, created_at) AS LastAccessedAt,
                    expires_at AS ExpiresAt, LENGTH(content) AS Length
             FROM lyntai_memory_entry WHERE task_key = @taskKey AND scope = @scope
@@ -189,12 +189,4 @@ public sealed class PostgresMemoryStore(
         public MemoryEntry ToEntity() => new(Id, TaskKey, Scope, Content, CreatedAt);
     }
 
-    private sealed class EvictRow
-    {
-        public long Id { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset LastAccessedAt { get; set; }
-        public DateTimeOffset? ExpiresAt { get; set; }
-        public int Length { get; set; }
-    }
 }

@@ -72,6 +72,7 @@ mechanics. New capabilities last, because they need nothing from you at all.
 | 5 | Age/salience plural; ranking selectable; review log runs | Nobody, unless you want it — or deconstruct `MemoryQuery` | No action needed |
 | 6 | Generation backends register with a configure callback | Anyone calling `AddOpenAiImageProvider` and friends | Mechanical |
 | 7 | Eleven renames, two members made `internal`, three BYO seams grown | Anyone naming one of them, or implementing a CLI dialect / memory engine / job store | Mechanical (one silent case — read it) |
+| 8 | `IGenerationRouter` grew a third door, `StreamAsync` | Anyone with a custom `IGenerationRouter` — not users of the built-in one or its decorators | Mechanical |
 
 ### Step 1 — Rename the TWO seams 2.5 actually had, and one storage type
 
@@ -331,7 +332,7 @@ implement everything below. This step is only for a consumer who rolled their ow
 compiling until all five are added:
 
 - `DeleteAsync(engine, ids, ct)` — removes specific nodes by id. It exists because a bug in the pre-3.0
-  prune path could rate an entry retrievable at recall time and still reap it at prune time after a policy
+  prune path could rate an entry retrievable at recall time and still remove it at prune time after a policy
   swap (measured at 49 wrongful deletions in the scenario that found it) — once an age policy can *derive*
   its age rather than read a stored accumulator, the engine has to evaluate retrievability itself and
   delete precisely what it decided on, which a store-side ratio filter cannot express.
@@ -409,7 +410,7 @@ to decide what to DELETE:
   policy-independent scale. Stamp them on an edge when you strengthen it (the shipped stores add
   `strengthened_ordinal`/`strengthened_chars`/`strengthened_at` beside `strengthened_position`) and report
   the `MAX` across the node's edges. Leaving them at `0` tells the engine every connection was strengthened
-  *just now*, which inflates retrievability and makes `PruneAsync` keep entries it should reap — the
+  *just now*, which inflates retrievability and makes `PruneAsync` keep entries it should remove — the
   recoverable direction, but wrong.
 - **`Relevance` for an authoritative node your query did not match must be `0`** — see Step 5.
 
@@ -901,28 +902,95 @@ spend through `IUsageTracker` directly.
   all; under the old combined interface it had to lie about one or give up the other.
   <br>`ForgetAsync` removes a whole (task, scope) and must be COMPLETE — if your engine cannot express a null
   scope ("every scope of the task"), THROW rather than forgetting one or none, because a consent withdrawal
-  that silently does less than it says is the failure this surface exists to prevent. `PruneAsync` reaps a
-  qualifying subset and is best-effort — but **a criterion you cannot express must reap NOTHING rather than
+  that silently does less than it says is the failure this surface exists to prevent. `PruneAsync` removes a
+  qualifying subset and is best-effort — but **a criterion you cannot express must remove NOTHING rather than
   be ignored**, since pruning on the criteria you have while dropping the ones you do not deletes MORE than
   was asked for.
-  <br>A composite still refuses to reap unless every member holding user content can serve the verb (D63) —
+  <br>A composite still refuses to remove unless every member holding user content can serve the verb (D63) —
   now checked per VERB, so a member that forgets but does not prune no longer half-succeeds and then throws.
-- **Which members a blend-level reap visits is now a policy, `IMemoryReapPolicy`** (D72). **Nothing to do
+- **Which members a blend-level REMOVAL visits is now a policy, `IMemoryRemovalPolicy`** (D72, named per D76). **Nothing to do
   unless you disagree with the default**, which excludes an authoritative-ONLY member — a curated catalogue
   by construction, whoever wrote it — and includes everything else. That reproduces the conventional roles of
   the shipped engines.
-  <br>Register your own when your arrangement differs: `services.AddSingleton<IMemoryReapPolicy, MyPolicy>()`
+  <br>Register your own when your arrangement differs: `services.AddSingleton<IMemoryRemovalPolicy, MyPolicy>()`
   is the whole opt-in. It is asked per member AND per kind, so "keep the glossary out of an automatic prune
   but include it in an explicit consent withdrawal" is expressible.
   <br>**Eligibility is deliberately NOT the same question as the capability interfaces.** A policy decides
   what is IN SCOPE; `IForgettableMemory`/`IPrunableMemory` decide what a store CAN do. A policy that includes
   a member which cannot serve the verb still gets the loud refusal — otherwise one permissive policy could
-  silence a genuine gap, and a partial reap would report success.
+  silence a genuine gap, and a partial remove would report success.
 - **`IJobStore` gains `PollAgainAsync` plus the two slot members** — Step 3b above.
 
 **One behaviour change with no compile-time signal**: `GenerationRouter` no longer lets a backend's
 exception escape. A caller that today catches one out of `GenerateAsync`/`SubmitAsync` will instead receive a
 result carrying a verdict (D64). Your own cancellation still propagates.
+
+### Step 8 — a custom `IGenerationRouter` gains a third door
+
+Skip this unless you **implement `IGenerationRouter` yourself**. Using the built-in one, or decorating it
+with `AddGenerationUsageBudget()` / `AddGenerationRateLimit()`, needs nothing — those ship implemented.
+
+`IGenerationRouter.StreamAsync` is a required member with no default body, so a hand-written router stops
+compiling until it has one. That is deliberate: a default body would have let a BYO router silently keep the
+old behaviour, and the old behaviour is the defect — a backend advertising `GenerationDelivery.Stream` was
+unreachable through the platform, because the capability pre-filter was only ever asked about `Inline` and
+`Job`.
+
+<!-- compile-skip: the member as it appears on the interface — a partial signature, not a standalone unit -->
+```csharp
+IAsyncEnumerable<GenerationChunk> StreamAsync(
+    IReadOnlyList<GenerationCandidate> candidates,
+    GenerationRequest request,
+    CancellationToken ct = default);
+```
+
+**If you do not want to support streaming**, the honest implementation is one terminal chunk — not an
+exception, because a caller writing `await foreach` should learn this the way they learn about any other
+refusal:
+
+<!-- compile-given: using System.Runtime.CompilerServices; using Lyntai.Generation; using Lyntai.Generation.Routing; -->
+```csharp
+public sealed class MyRouter : IGenerationRouter
+{
+    public Task<GenerationResult> GenerateAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        CancellationToken ct = default) => throw new NotImplementedException("your inline door");
+
+    public Task<GenerationSubmission> SubmitAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        CancellationToken ct = default) => throw new NotImplementedException("your submit door");
+
+    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
+        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await Task.CompletedTask;
+        yield return GenerationChunk.Failure(
+            GenerationVerdict.Unsupported, "this router does not serve streaming delivery");
+    }
+}
+```
+
+**If you do**, three rules make a streaming router correct, and two of them are not yours to choose — they
+are the LLM router's measured invariants, transferred because the failure they prevent (splicing two
+responses into one stream) is identical whether the bytes are tokens or audio:
+
+1. **No fallback after commit.** Once you have yielded a chunk carrying real data, the caller holds bytes you
+   cannot take back. Every later chunk passes through and the stream ends; do not try another candidate.
+2. **Only real data commits.** The gate is `Data` being non-empty. A metadata-only opening chunk — a
+   `MediaType` announcement — must NOT commit, or a backend that announces and then dies strands the caller
+   on it. You are the trust boundary; a third-party backend may open that way.
+3. **Emit exactly one terminal chunk, last.** A backend that just stops is not the caller's problem to
+   diagnose: close it yourself with `GenerationChunk.Completed()` if data was produced and
+   `GenerationChunk.Failure(...)` if none was. This is the rule that lets a consumer's `await foreach` end
+   without asking whether the media finished or the process died.
+
+`docs/DECISIONS.md` **D67** has the reasoning, and `GenerationRouterStreamTests` is the executable version of
+all three.
+
+**Decorating rather than replacing?** Apply your policy on all three doors. A decorator that forwards
+`StreamAsync` straight through makes streaming the cheapest way around whatever it enforces — the
+`.claude/knowledge/pitfalls.md` § "Second doors" shape, which this library has now paid for three times.
 
 ## A worked upgrade, before and after
 
@@ -1051,81 +1119,13 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
    keys — so grep your `appsettings` for it, or renders silently use the default.
 13. **Fix a custom `ICliProviderDialect` or memory engine**, if you have one: `BuildCompletionArgs` takes the
    tool-host args; `IForgettableMemory` is forget-only with `PruneAsync` moved to
-   `IPrunableMemory`, and which members a reap visits is now `IMemoryReapPolicy` (Step 7).
+   `IPrunableMemory`, and which members a removal visits is now `IMemoryRemovalPolicy` (Step 7).
 14. **Fix a custom `IGenerationRouter`**, if you have one: it gained a required `StreamAsync` (Step 8). The
    built-in router and its budget/rate-limit decorators ship implemented, so this is only a hand-written one,
    and the compiler names it.
 15. **Run your own test suite.** Storage needs nothing: `MigrateUpAsync` carries every schema change
    automatically, and the `Stability` unit contract means your 2.5.x rows are already correct under the new
    curve.
-
-### Step 8 — a custom `IGenerationRouter` gains a third door
-
-Skip this unless you **implement `IGenerationRouter` yourself**. Using the built-in one, or decorating it
-with `AddGenerationUsageBudget()` / `AddGenerationRateLimit()`, needs nothing — those ship implemented.
-
-`IGenerationRouter.StreamAsync` is a required member with no default body, so a hand-written router stops
-compiling until it has one. That is deliberate: a default body would have let a BYO router silently keep the
-old behaviour, and the old behaviour is the defect — a backend advertising `GenerationDelivery.Stream` was
-unreachable through the platform, because the capability pre-filter was only ever asked about `Inline` and
-`Job`.
-
-<!-- compile-skip: the member as it appears on the interface — a partial signature, not a standalone unit -->
-```csharp
-IAsyncEnumerable<GenerationChunk> StreamAsync(
-    IReadOnlyList<GenerationCandidate> candidates,
-    GenerationRequest request,
-    CancellationToken ct = default);
-```
-
-**If you do not want to support streaming**, the honest implementation is one terminal chunk — not an
-exception, because a caller writing `await foreach` should learn this the way they learn about any other
-refusal:
-
-<!-- compile-given: using System.Runtime.CompilerServices; using Lyntai.Generation; using Lyntai.Generation.Routing; -->
-```csharp
-public sealed class MyRouter : IGenerationRouter
-{
-    public Task<GenerationResult> GenerateAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
-        CancellationToken ct = default) => throw new NotImplementedException("your inline door");
-
-    public Task<GenerationSubmission> SubmitAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
-        CancellationToken ct = default) => throw new NotImplementedException("your submit door");
-
-    public async IAsyncEnumerable<GenerationChunk> StreamAsync(
-        IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request,
-        [EnumeratorCancellation] CancellationToken ct = default)
-    {
-        await Task.CompletedTask;
-        yield return GenerationChunk.Failure(
-            GenerationVerdict.Unsupported, "this router does not serve streaming delivery");
-    }
-}
-```
-
-**If you do**, three rules make a streaming router correct, and two of them are not yours to choose — they
-are the LLM router's measured invariants, transferred because the failure they prevent (splicing two
-responses into one stream) is identical whether the bytes are tokens or audio:
-
-1. **No fallback after commit.** Once you have yielded a chunk carrying real data, the caller holds bytes you
-   cannot take back. Every later chunk passes through and the stream ends; do not try another candidate.
-2. **Only real data commits.** The gate is `Data` being non-empty. A metadata-only opening chunk — a
-   `MediaType` announcement — must NOT commit, or a backend that announces and then dies strands the caller
-   on it. You are the trust boundary; a third-party backend may open that way.
-3. **Emit exactly one terminal chunk, last.** A backend that just stops is not the caller's problem to
-   diagnose: close it yourself with `GenerationChunk.Completed()` if data was produced and
-   `GenerationChunk.Failure(...)` if none was. This is the rule that lets a consumer's `await foreach` end
-   without asking whether the media finished or the process died.
-
-`docs/DECISIONS.md` **D67** has the reasoning, and `GenerationRouterStreamTests` is the executable version of
-all three.
-
-**Decorating rather than replacing?** Apply your policy on all three doors. A decorator that forwards
-`StreamAsync` straight through makes streaming the cheapest way around whatever it enforces — the
-`.claude/knowledge/pitfalls.md` § "Second doors" shape, which this library has now paid for three times.
-
 
 ## What this guide does not cover
 

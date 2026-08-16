@@ -13,11 +13,10 @@ public static class MemoryAnnotationRegistration
     /// Label each remembered fact with what it is ABOUT, using a model, so entries concerning the same
     /// entity become connected.
     ///
-    /// <para><b>What it buys, and why nothing cheaper does.</b> A graph engine's edges otherwise come from
-    /// vector similarity or from co-activation during recall — and co-activation links whatever a recall
-    /// happened to return together, which is not about two facts concerning the same entity. Facts like "my
-    /// spouse is Alice", "she works as an anaesthetist" and "we met in Kyoto" share only pronouns in any
-    /// language, so no tokenizer or ranking change reaches them.</para>
+    /// <para><b>What it buys, and why nothing cheaper does.</b> A graph engine's other edges come from
+    /// vector similarity or co-activation, which links whatever a recall happened to return together — not
+    /// two facts about the same entity. "my spouse is Alice", "she works as an anaesthetist" and "we met in
+    /// Kyoto" share only pronouns in any language, so no tokenizer or ranking change reaches them.</para>
     ///
     /// <para><b>Opt-in, and everything degrades to the model-free floor.</b> Without this call an engine
     /// annotates nothing and behaves exactly as it always has; with it, a failing or unparseable reply

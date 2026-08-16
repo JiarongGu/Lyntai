@@ -29,7 +29,13 @@ public sealed class LocalProvider(
     ILogger<LocalProvider>? logger = null) : ILlmProvider, IDisposable
 {
     private readonly ILogger _logger = logger ?? NullLogger<LocalProvider>.Instance;
-    // one local model, one generation at a time; also single-flights the lazy weight load
+    // One local model, one generation at a time; also single-flights the lazy weight load.
+    //
+    // The gate is per-INSTANCE, so it bounds nothing unless this provider is a singleton — which
+    // `AddLocalProvider` makes it. Build it per call (a transient registration, or `TransientProviderPool`)
+    // and every call gets its own gate, its own weight load, and no serialization at all: gigabytes of
+    // native weights loaded concurrently and never disposed. The guard belongs to the shared instance, not
+    // to the call. See `TransientProviderPool`'s own remarks.
     private readonly SemaphoreSlim _gate = new(1, 1);
     private LLamaWeights? _weights;
     private StatelessExecutor? _executor;

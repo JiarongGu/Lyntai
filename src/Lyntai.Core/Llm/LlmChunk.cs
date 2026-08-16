@@ -45,6 +45,9 @@ public sealed record LlmChunk
     public static LlmChunk Content(string text) => new() { Kind = LlmChunkKind.Content, Text = text };
 
     /// <summary>A requested tool call. Yield one per call, each complete.</summary>
+    /// <remarks><b>Named <c>Tool</c>, not <c>ToolCall</c>, by CONSTRAINT</b>: every sibling factory matches
+    /// its kind, but a type cannot carry a method and a property of the same name, and
+    /// <see cref="ToolCall"/> is the better name for the PAYLOAD.</remarks>
     public static LlmChunk Tool(LlmToolCall call) => new() { Kind = LlmChunkKind.ToolCall, ToolCall = call };
 
     public static LlmChunk Final(LlmUsage? usage = null, string? detail = null) =>

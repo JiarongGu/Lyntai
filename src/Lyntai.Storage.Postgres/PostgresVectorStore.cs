@@ -51,10 +51,16 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         // <=> is cosine DISTANCE (0 = identical); score = 1 - distance = cosine similarity, matching the
         // other IVectorStore impls. ORDER BY distance ASC + LIMIT does the top-k in the DB.
+        //
+        // vec_id breaks ties — `ORDER BY … LIMIT` on a non-unique key is the defect `sql-storage.md` records,
+        // and here it decides WHICH of two equally-scoring rows survives the LIMIT. COLLATE "C" because the
+        // contract is byte order (`StringComparer.Ordinal` in process): under the database's own collation
+        // this would tiebreak, but not in the same ORDER as the other two backends, so a differently-collated
+        // deployment would quietly disagree with them.
         var rows = await conn.QueryAsync<Row>(new CommandDefinition("""
             SELECT vec_id, payload, (1 - (embedding <=> CAST(@query AS vector)))::double precision AS score
             FROM lyntai_vector WHERE collection = @collection
-            ORDER BY embedding <=> CAST(@query AS vector) LIMIT @k
+            ORDER BY embedding <=> CAST(@query AS vector), vec_id COLLATE "C" LIMIT @k
             """, new { collection, query = Literal(query), k }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows.Select(r => new VectorMatch(r.VecId, r.Payload, r.Score))];
     }

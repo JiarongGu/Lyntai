@@ -2,25 +2,18 @@ namespace Lyntai.Llm;
 
 /// <summary>
 /// Resolves LLM clients by name, the way <see cref="Lyntai.Memory.IMemoryEngineFactory"/> resolves memory
-/// engines and <c>IHttpClientFactory</c> resolves HTTP clients — the pattern .NET consumers already know,
-/// and now the same one on both sides of this library.
+/// engines and <c>IHttpClientFactory</c> resolves HTTP clients.
 ///
-/// <para><b>The gap this closes.</b> Providers were addressable (<see cref="ILlmProvider.Id"/>) and there
-/// was exactly ONE composed <see cref="ILlmClient"/> over all of them. So an app could not say "this use
-/// gets the small fast backend, that one gets the best" without hand-building a router and thereby throwing
-/// away the shared dead-host cooldown and admission bookkeeping. Memory has had named engines since 2.5;
-/// this is the missing counterpart.</para>
-///
-/// <para><b>The case it was built for</b> is a subsystem that calls a model on the app's behalf — memory
-/// extraction, reranking, salience judging. Those should not silently run on whatever backend the app
-/// happens to have made default, and a consumer should be able to point them at a cheap one by name rather
-/// than by rewiring.</para>
+/// <para><b>What it is for:</b> a subsystem that calls a model on the app's behalf — memory extraction,
+/// reranking, salience judging — should not silently run on whatever backend happens to be default, and an
+/// app should be able to point it elsewhere by NAME rather than by hand-building a router, which would
+/// throw away the shared dead-host cooldown and admission bookkeeping.</para>
 ///
 /// <para><b>Governance is NOT escapable by naming a client.</b> Every named client carries the same
 /// front-door decorators (response cache, usage budget, rate limit) and the same refusal screening as the
 /// default one. A named client that quietly bypassed the usage budget would be a governance hole that reads
-/// as a feature; per-name governance is a separate, additive decision, and until it exists a name selects
-/// BACKENDS, never permissions.</para>
+/// as a feature: <b>a name selects BACKENDS, never permissions.</b> Per-name governance is a separate,
+/// additive decision.</para>
 ///
 /// <para>Like <see cref="Lyntai.Memory.IMemoryEngineFactory"/> and unlike <c>IHttpClientFactory</c>, the same
 /// instance comes back every time — a client is a stateless composition over shared routing state, so there

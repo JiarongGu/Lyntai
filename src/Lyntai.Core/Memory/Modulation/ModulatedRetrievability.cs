@@ -29,7 +29,7 @@ public sealed class ModulatedRetrievability : IMemoryRetrievabilityPolicy
     /// clamped against could produce a product smaller than the clamp allows — narrowing the cutoff below
     /// what modulation can produce. <b>That narrowing DELETES</b>: the cutoff bounds no seed (seeding applies
     /// no faintness bound at all), so its one consumer is
-    /// <see cref="IMemoryGraphStore.PruneAsync"/>, and an entry it fails to cover is reaped rather than
+    /// <see cref="IMemoryGraphStore.PruneAsync"/>, and an entry it fails to cover is removed rather than
     /// merely missed.</summary>
     private readonly double _maxFactor;
 
@@ -67,7 +67,7 @@ public sealed class ModulatedRetrievability : IMemoryRetrievabilityPolicy
 
     /// <summary>Forwarded to the wrapped policy unchanged, on the SAME raw <paramref name="state"/>
     /// <see cref="Reinforce"/> itself uses — never <see cref="Modulated"/> — for the identical reason
-    /// <see cref="Reinforce"/> already gives (2026-08-11, fsrs-properly plan Task 3): whichever policy
+    /// <see cref="Reinforce"/> already gives: whichever policy
     /// actually computed the grade is the one a review log must credit, on the unmodulated state that
     /// produced it.</summary>
     /// <inheritdoc cref="IMemoryRetrievabilityPolicy.DerivedGrade" />

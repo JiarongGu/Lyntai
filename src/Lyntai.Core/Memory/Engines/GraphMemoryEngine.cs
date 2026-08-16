@@ -77,7 +77,7 @@ namespace Lyntai.Memory.Engines;
 /// <param name="clock">Reads "now" for <see cref="PruneAsync"/>'s <c>olderThan</c> criterion, on the
 /// derivable path only; null takes <see cref="DateTimeOffset.UtcNow"/>. Mirrors the injectable clock every
 /// <see cref="IMemoryGraphStore"/> implementation already takes, so a test that fakes the store's clock can
-/// fake this engine's too — fix round 2's minor: before this parameter existed the two disagreed under a
+/// fake this engine's too — an earlier review's minor: before this parameter existed the two disagreed under a
 /// test clock, because this engine had no seam of its own and read the wall clock directly.</param>
 /// <param name="annotation">Judges what each written fact is ABOUT, so entries concerning the same entity
 /// become connected — the only mechanism that reaches a cluster whose members share no distinguishing word
@@ -135,9 +135,8 @@ public sealed class GraphMemoryEngine(
     private static readonly IReadOnlyDictionary<string, IMemoryRankingPolicy> EmptyNamedRanking =
         new Dictionary<string, IMemoryRankingPolicy>(StringComparer.Ordinal);
 
-    /// <summary>Null or empty takes a single burst-damped per-write age policy — the engine's pre-Task-3
-    /// default, unchanged.
-    /// <para><b>Rejects a second <see cref="MemoryAgeKind.Accumulating"/> policy (fix round 1, C-1).</b> The
+    /// <summary>Null or empty takes a single burst-damped per-write age policy — the engine's default.
+    /// <para><b>Rejects a second <see cref="MemoryAgeKind.Accumulating"/> policy.</b> The
     /// store's position accumulator is ONE number; two path-dependent quantities cannot share it without one
     /// silently overwriting or blending into the other, and a silent sum is exactly the quiet wrongness this
     /// domain refuses everywhere else (see <see cref="RememberAsync"/>'s own remarks on why only an
@@ -159,14 +158,11 @@ public sealed class GraphMemoryEngine(
         return list;
     }
 
-    /// <summary>Null or empty takes a single <see cref="StructuralSaliencePolicy"/> — the engine's pre-Task-3
-    /// default, unchanged.
+    /// <summary>Null or empty takes a single <see cref="StructuralSaliencePolicy"/> — the engine's default.
     /// <para><b>So an empty collection does NOT disable salience</b>, which is the opposite of what
-    /// "register nothing" suggests and has already cost one measurement its control (<c>docs/DECISIONS.md</c>
-    /// <c>TASKS.md</c> Part 69). The supported way off is to register <see cref="NeutralSaliencePolicy"/>, which judges
-    /// nothing. The convention is kept rather than changed because the age seam behaves identically and
-    /// because "no registration means the shipped default" is what every other seam here promises.</para>
-    /// <para><b>Validates provenance across whatever is actually REGISTERED (fix round 2 minor).</b> Salience
+    /// "register nothing" suggests. The supported way off is to register
+    /// <see cref="NeutralSaliencePolicy"/>, which judges nothing.</para>
+    /// <para><b>Validates provenance across whatever is actually REGISTERED.</b> Salience
     /// is the one PLURAL seam whose provenance bits can genuinely collide — several policies coexist, so a
     /// hand-listed test array cannot see a third one a consumer adds that happens to land on an already-
     /// occupied bit. <see cref="ValidatedRetrievability"/> does the same for the single, singular retrievability
@@ -183,7 +179,7 @@ public sealed class GraphMemoryEngine(
 
     /// <summary>Validates a single retrievability policy's own declared provenance bit — real (never
     /// <c>None</c>) and single, the same two facts <see cref="NormalizeSaliencePolicies"/> checks across several
-    /// salience policies, applied here to the one policy this seam ever has (fix round 2 minor).</summary>
+    /// salience policies, applied here to the one policy this seam ever has.</summary>
     private static IMemoryRetrievabilityPolicy ValidatedRetrievability(IMemoryRetrievabilityPolicy policy)
     {
         MemoryProvenance.ValidateProvenanceBits(
@@ -231,7 +227,7 @@ public sealed class GraphMemoryEngine(
 
         var id = await store.UpsertAsync(
             new GraphNodeWrite(Name, write.TaskKey, write.Scope, headline, write.Content, grade,
-                _policy.InitialStability * Math.Max(0, tick.Encoding), Math.Max(0, tick.Position),
+                _policy.InitialStability * Ordinary(tick.Encoding), Ordinary(tick.Position),
                 write.Metadata, signals,
                 ProvenanceRetrievability: (long)_policy.Provenance,
                 ProvenanceSalience: salienceProvenance),
@@ -505,46 +501,25 @@ public sealed class GraphMemoryEngine(
         if (ranked.Count == 0 && candidates.Count == 0) return MemoryRecall.Empty;
 
         // BURIED, NOT CUT — and trust outranks burial. An entry is hidden because something OUTRANKS it,
-        // never because its own retrievability crossed a line. The policy owns the floor because floor
-        // semantics only mean something alongside the score scale that produced them; the ENGINE owns this
-        // exemption, because "authoritative material is never buried" must hold whatever policy is
+        // never because its own retrievability crossed a line. The policy owns the floor; the ENGINE owns
+        // this exemption, because "authoritative material is never buried" must hold whatever policy is
         // installed — including a third-party one that never heard of grades.
         //
-        // THE PRECISE SHAPE OF THAT PROMISE: `returned` below is keyed by `Node.Id`, so this holds against a
-        // policy that DROPS an authoritative candidate outright — a hostile one that drops everything, say —
-        // but NOT against one that SUBSTITUTES a fabricated `RankedMemory` under that same id. A policy that
-        // did the latter would leave `returned.Contains(id)` true, and this loop would skip re-admission
-        // believing the real entry already came back. Nothing in `IMemoryRankingPolicy`'s contract forbids
-        // that (a policy may return any `RankedMemory` it likes, wrapping any `MemoryCandidate` it likes —
-        // see its own remarks on "may floor, never invent", which this loop is what actually enforces
-        // against a merely FORGETFUL policy, not a fabricating one). "Holds whatever policy is installed" is
-        // therefore exactly true against a dropping policy and not a guarantee against a fabricating one.
+        // THE PRECISE SHAPE OF THAT PROMISE: re-admission is keyed by `Node.Id`, so it holds against a policy
+        // that DROPS an authoritative candidate — even one dropping everything — but NOT against one
+        // SUBSTITUTING a fabricated `RankedMemory` under that same id, which would leave the id present and
+        // skip re-admission. "May floor, never invent" is what this loop enforces against a FORGETFUL policy,
+        // not a fabricating one.
         //
-        // RE-ADMITTED AUTHORITATIVE MATERIAL IS RESERVED SLOTS, NOT APPENDED (2026-08-13).
-        //
-        // It used to be appended after the policy's order and then cut by the Take — documented at the time
-        // as the "honest reading" of buried-not-cut, on the argument that surviving the limit "would let one
-        // authoritative entry evict every ordinary hit". The first end-to-end measurement of design §5.7.0's
-        // objective (1) showed what that cost: over a full corpus replay, ALL THREE authoritative facts were
-        // lost in ALL FIVE languages, from a probe that singled out none of them. The implementation was not
-        // buggy — it was doing exactly what its comment said — but §5.7.0 states objective (1) has NO
-        // acceptable failure rate, so the contract and the code disagreed and the code was the one that had
-        // never been measured. `MemoryAuthoritativeSurvivalTests` is that measurement.
-        //
-        // The old argument is answered rather than ignored: an authoritative entry can now displace ordinary
-        // material, because that is what marking a fact authoritative MEANS and it is the caller's explicit
-        // decision — but never silently and never unboundedly. `AuthoritativeReserve` caps how many slots
-        // they may take, so a consumer who wants the old trade can have it, and the promise degrades to
-        // "an exact fact is displaced only by ANOTHER exact fact" rather than to nothing.
+        // RESERVED SLOTS, NOT APPENDED: appended material is cut by the Take below, so an exact fact the
+        // query did not match — Relevance 0, therefore ranked near the bottom — is lost outright. The reserve
+        // covers EVERY authoritative candidate, not only ones a policy dropped (a ranking policy does not
+        // omit them, it RANKS them), and it may DISPLACE ordinary material, which is what marking a fact
+        // authoritative MEANS; `AuthoritativeReserve` bounds how many slots exact facts take.
         //
         // NOT COSMETIC: this order feeds ReinforceAsync's own `nodes.Take(CoActivationCap)` below, so which
-        // entries land inside that window — and so which pairs get a symmetric co-activation edge PERMANENTLY
-        // written to the store — depends on it too, not just on what a reader sees in the returned list.
-        // THE RESERVE COVERS EVERY AUTHORITATIVE CANDIDATE, NOT ONLY THE DROPPED ONES — and that distinction
-        // is the whole defect. The first version of this fix reserved slots for entries the policy had
-        // OMITTED, and changed nothing at all: a ranking policy does not omit them, it RANKS them. An exact
-        // fact the query did not match carries Relevance 0, so it ranks near the bottom and the Take cut it
-        // exactly as before. "Never buried" was true and irrelevant; the loss happened one line later.
+        // pairs get a symmetric co-activation edge PERMANENTLY written to the store depends on it too, not
+        // just on what a reader sees in the returned list.
         var rankedById = ranked.ToDictionary(r => r.Candidate.Node.Id);
         var authoritative = candidates
             .Where(c => c.Node.Grade == MemoryGrade.Authoritative)
@@ -555,12 +530,10 @@ public sealed class GraphMemoryEngine(
 
         // THE LIMIT BOUNDS THE RESERVE, and that outer Math.Min is not belt-and-braces — the two numbers live
         // on different scopes and nothing else reconciles them. `AuthoritativeReserve` is configured per
-        // ENGINE; `limit` arrives per QUERY. So a reserve chosen sensibly against `DefaultLimit` is larger
-        // than any tighter per-call limit, and the `Take(Math.Max(0, limit - reserve))` below floors at zero
-        // while `reserved` is concatenated whole: measured at reserve 5 / Limit 2, the recall returned THREE
-        // items and no ordinary hit at all (2026-08-14 review). Design §5.7, README and docs/memory.md all
-        // promise "within the caller's Limit", so that was a contract break, not an undocumented corner.
-        // The `?? limit` default already carried this cap; only an EXPLICIT value escaped it.
+        // ENGINE; `limit` arrives per QUERY. Without the cap a reserve larger than a tighter per-call limit
+        // returns more items than the caller asked for — the `Take(Math.Max(0, limit - reserve))` below
+        // floors at zero while `reserved` is concatenated whole — and "within the caller's Limit" is a
+        // promise. The `?? limit` default already carried this cap; only an EXPLICIT value escaped it.
         var reserve = Math.Min(limit,
             Math.Min(authoritative.Count, Math.Max(0, _options.AuthoritativeReserve ?? limit)));
         var reserved = authoritative.Take(reserve).ToList();
@@ -568,17 +541,13 @@ public sealed class GraphMemoryEngine(
 
         var ordinary = ranked.Where(r => !reservedIds.Contains(r.Candidate.Node.Id)).ToList();
 
-        // THE CORRECTNESS SIGNAL, APPLIED BEFORE THE CUT — and the position is the whole value of it.
-        //
-        // Measured 2026-08-13 over a full corpus replay: of the relevant entries a recall failed to return,
-        // **100% were reachable candidates that something ranked below the limit** and 0% were unreachable.
-        // So the miss rate is a RANKING failure end to end, not a retrieval or tokenization one. A verifier
-        // consulted AFTER `Take(limit)` can only observe that loss; consulted here it can undo it, which is
-        // the difference between recovering ~0.09 of the miss rate and being able to reach the rest.
+        // THE CORRECTNESS SIGNAL, APPLIED BEFORE THE CUT — and the position is the whole value of it. A
+        // verifier consulted AFTER `Take(limit)` can only observe what the ranking lost below the limit;
+        // consulted here it can undo that loss.
         //
         // Bounded by `VerificationDepth`: a judge sees the top slice of the ranking rather than every
-        // candidate, because "show a model 300 headlines per recall" is not a shippable cost. Depth is the
-        // knob that trades judgement cost against how far down an answer may be rescued from.
+        // candidate, because showing a model every candidate's headline per recall is not a shippable cost.
+        // Depth is the knob that trades judgement cost against how far down an answer may be rescued from.
         var depth = Math.Max(limit,
             _options.VerificationDepth ?? limit * GraphMemoryOptions.DefaultVerificationDepthFactor);
         var verdict = await VerifyAsync(query.Query ?? string.Empty,
@@ -758,48 +727,35 @@ public sealed class GraphMemoryEngine(
     /// <inheritdoc />
     /// <remarks>
     /// <para><b>Two paths, chosen by whether the store's raw accumulator is provably what
-    /// <see cref="Retrievability"/> reads (fix round 1, I-1).</b> With every registered
+    /// <see cref="Retrievability"/> reads.</b> With every registered
     /// <see cref="IMemoryAgePolicy"/> <see cref="MemoryAgeKind.Accumulating"/> (at most one, per
     /// <c>NormalizeAgePolicies</c>) — including the engine's shipped default — <see cref="ResolvedAge"/> reads
-    /// <see cref="GraphNode.Age"/> directly, unchanged from every retrievability computation before this
-    /// domain existed, so the store's own cheap, SQL-side <see cref="IMemoryGraphStore.PruneAsync"/> stays
-    /// EXACT and is used as before.</para>
+    /// <see cref="GraphNode.Age"/> directly, so the store's own cheap, SQL-side
+    /// <see cref="IMemoryGraphStore.PruneAsync"/> stays EXACT and is what runs.</para>
     /// <para>With ANY <see cref="MemoryAgeKind.Derivable"/> policy registered, the accumulator can diverge
     /// from <see cref="ResolvedAge"/> — most sharply after a policy SWAP over pre-existing data, where the
     /// accumulator still carries residue built up under whichever policy governed each historical write,
-    /// while a Derivable policy's own projection re-derives fresh from the swap-safe primitives every time
-    /// (<c>MemoryAgeCompositionTests</c>/<c>MemoryGraphStoreContract</c> pin this exact scenario). The store
-    /// never evaluates a curve, so this method does what <see cref="RecallAsync"/> already does — fetch
-    /// candidates via <see cref="IMemoryGraphStore.SeedAsync"/>, evaluate <see cref="Retrievability"/> for
-    /// each — and removes precisely the ones that fail, through the new
+    /// while a Derivable policy's own projection re-derives fresh from the swap-safe primitives every time.
+    /// The store never evaluates a curve, so this method does what <see cref="RecallAsync"/> already does —
+    /// fetch candidates via <see cref="IMemoryGraphStore.SeedAsync"/>, evaluate <see cref="Retrievability"/>
+    /// for each — and removes precisely the ones that fail, through
     /// <see cref="IMemoryGraphStore.DeleteAsync"/>. <see cref="IMemoryGraphStore.SeedAsync"/> applies no
     /// faintness bound of its own, so a sufficiently large <c>limit</c> is a full scope scan, oldest entries
     /// included.</para>
-    /// <para><b>This path is EXACT for the WHOLE evaluation as of 3.0 — both age axes, not just one.</b>
-    /// Through 2.5.x <see cref="MemoryDecayState.StrengthAge"/> came from the store's raw accumulator in
-    /// whatever unit was in force when an edge was last strengthened, while <c>Age</c> re-derived from the
-    /// swap-safe primitives; after a policy swap a connected entry's strength age could be stale by orders of
-    /// magnitude, collapsing <see cref="DsrRetrievability"/>'s connection boost to a bare <c>1×</c> regardless
-    /// of how recently the edge actually strengthened in the NEW unit. Because deleting a retrievable entry is
-    /// unrecoverable while retaining a prunable one is not, this path then refused to delete ANY connected
-    /// entry (<c>Strength &gt; 0 &amp;&amp; StrengthAge &gt; 0</c>) on the retrievability criterion — safe,
-    /// but it also left a genuinely unretrievable connected entry unreapable forever. A store now tracks the
-    /// per-edge primitives too (<see cref="GraphNode.StrengthAgeSample"/>), so
-    /// <see cref="ResolvedStrengthAge"/> projects that axis in the installed policy's own unit and the guard
-    /// is gone. Still deliberately more expensive than the cheap path: pruning is periodic maintenance, not a
-    /// hot path.</para>
+    /// <para><b>That path is EXACT on BOTH age axes, not just one.</b> A store tracks the per-edge age
+    /// primitives too (<see cref="GraphNode.StrengthAgeSample"/>), so <see cref="ResolvedStrengthAge"/>
+    /// projects the connection axis in the installed policy's own unit and no connected entry is exempt from
+    /// deletion. Still deliberately more expensive than the cheap path: pruning is periodic maintenance, not
+    /// a hot path.</para>
     /// </remarks>
     public async Task<int> PruneAsync(string taskKey, string? scope = null, double? minRetrievability = null,
         TimeSpan? olderThan = null, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        // The caller's floor, else the engine's CONFIGURED one — which is what GraphMemoryOptions.
-        // MinRetrievability has always documented ("the retrievability below which PruneAsync may REAP an
-        // entry") and design §5.7 restates ("the absolute MinRetrievability governs PruneAsync alone").
-        // Neither was true: the option was read NOWHERE, so with no explicit floor and no olderThan this
-        // method matched nothing and deleted nothing — the documented call was a silent no-op.
-        // A floor of 0 is the opt-out and is asserted as such: retrievability is never below zero.
+        // The caller's floor, else the engine's CONFIGURED one — `GraphMemoryOptions.MinRetrievability` is
+        // "the retrievability below which PruneAsync may REMOVE an entry", and design §5.7 gives it to this
+        // method alone. A floor of 0 is the opt-out: retrievability is never below zero.
         var floorValue = minRetrievability ?? _options.MinRetrievability;
 
         if (!_agePolicies.Any(c => c.Kind == MemoryAgeKind.Derivable))
@@ -833,11 +789,27 @@ public sealed class GraphMemoryEngine(
     public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
         store.ForgetAsync(Name, taskKey, scope, ct);
 
+    /// <summary>Clamp one component of a composed <see cref="MemoryTick"/> to something a store may keep.
+    /// <para><b><see cref="Math.Max(double,double)"/> is not a finiteness guard</b> — it PROPAGATES
+    /// <see cref="double.NaN"/> per IEEE 754, the same trap <see cref="MemorySignals.Difficulty"/> records for
+    /// <see cref="Math.Clamp(double,double,double)"/>. Both components are PERSISTED, so a bare <c>Max</c> was
+    /// the one place a BYO <see cref="IMemoryAgePolicy.Advance"/> could poison the store permanently: on
+    /// Postgres a <c>NaN</c> position adds into the engine's running total and every LATER entry then reports
+    /// a non-finite age, while SQLite refuses the bind and fails loudly — so the two backends disagreed about
+    /// a poisoned write, which is worse than either answer alone.</para>
+    /// <para>A non-finite component becomes <c>1</c> rather than <c>0</c> because <see cref="MemoryTick.One"/>
+    /// already defines that as an ordinary write ("crowds by one and is fully encoded"). <c>0</c> would be a
+    /// second, invented meaning — and on the encoding side it multiplies
+    /// <see cref="IMemoryRetrievabilityPolicy.InitialStability"/> to zero, storing an entry that is
+    /// unretrievable the moment it is written.</para>
+    /// <para>This defends the WRITE only. <see cref="IMemoryAgePolicy.Age"/> is deliberately left uncoerced
+    /// by its own contract, which is consistent rather than in tension: nothing persists an age.</para>
+    /// </summary>
+    private static double Ordinary(double component) =>
+        double.IsFinite(component) ? Math.Max(0, component) : 1;
+
     /// <summary>The ONE tick <see cref="RememberAsync"/> hands the store — <see cref="ResolvedAge"/>'s
-    /// write-time counterpart, and the fix for fix round 1's C-1 (a double count the review measured
-    /// exactly: a Burst+Elapsed configuration read a composed age of 42 where the correct value is 22 —
-    /// the 20 elapsed days counted once inside the inflated accumulator and once again through Elapsed's own
-    /// projection).
+    /// write-time counterpart.
     /// <para><b>Encoding composes across EVERY registered policy, always</b> — it is multiplied once into
     /// this write's <c>InitialStability</c> and never re-derived anywhere else, so composing every policy's
     /// own judgment can never double-count, unlike Position.</para>
@@ -846,9 +818,8 @@ public sealed class GraphMemoryEngine(
     /// unconditionally, in the three primitives (<see cref="GraphNode.AgeSample"/>) — writing its tick into
     /// the accumulator TOO is precisely the double count <see cref="ResolvedAge"/> would then read a second
     /// time. With no Accumulating policy registered (an all-Derivable configuration), Position composes
-    /// across every registered tick exactly as before this fix — <see cref="ResolvedAge"/> never reads
-    /// <see cref="GraphNode.Age"/> in that configuration at all, so there is nothing to double-count against.
-    /// </para>
+    /// across every registered tick — <see cref="ResolvedAge"/> never reads <see cref="GraphNode.Age"/> in
+    /// that configuration at all, so there is nothing to double-count against.</para>
     /// <para>Every registered policy's <see cref="IMemoryAgePolicy.Advance"/> is still called, unconditionally
     /// — a STATEFUL policy (burst detection, "since this engine's own last write") needs its own per-engine
     /// bookkeeping kept current regardless of whether its tick feeds the accumulator.</para></summary>
@@ -895,11 +866,10 @@ public sealed class GraphMemoryEngine(
     /// <see cref="GraphNode.AgeSample"/> and <see cref="MemoryDecayState.StrengthAge"/> from
     /// <see cref="GraphNode.StrengthAgeSample"/>. Everything else
     /// (<c>Stability</c>/<c>Strength</c>/<c>Signals</c>/<c>Difficulty</c>) is untouched.
-    /// <para><b>Both axes must be resolved, not just the first</b> (3.0 pre-freeze). They are consumed
-    /// together — <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/> divides <c>Age</c> by an effective
-    /// stability that <c>StrengthAge</c> itself lengthens — so resolving one and leaving the other as the
-    /// store's raw accumulator mixes two units inside a single expression. That was the state through 2.5.x
-    /// and it is why <see cref="PruneAsync"/> had to refuse to delete any connected entry at all.</para></summary>
+    /// <para><b>Both axes must be resolved, not just the first.</b> They are consumed together —
+    /// <see cref="Lyntai.Memory.Forgetting.DsrRetrievability"/> divides <c>Age</c> by an effective stability
+    /// that <c>StrengthAge</c> itself lengthens — so resolving one and leaving the other as the store's raw
+    /// accumulator mixes two units inside a single expression.</para></summary>
     private MemoryDecayState ResolvedState(GraphNode node) =>
         node.DecayState with { Age = ResolvedAge(node), StrengthAge = ResolvedStrengthAge(node) };
 
@@ -909,9 +879,8 @@ public sealed class GraphMemoryEngine(
     /// projects from <see cref="GraphNode.StrengthAgeSample"/>, an <see cref="MemoryAgeKind.Accumulating"/>
     /// one reads the store's own <see cref="GraphNode.StrengthAge"/> accumulator.
     /// <para><b>The engine's shipped default (one <see cref="BurstDampenedAgePolicy"/>, Accumulating)
-    /// therefore composes exactly <see cref="GraphNode.StrengthAge"/> — identical to the pre-3.0 behaviour,
-    /// byte for byte</b>, which is the same guarantee <see cref="ResolvedAge"/> makes for the other
-    /// axis.</para></summary>
+    /// therefore composes exactly <see cref="GraphNode.StrengthAge"/>, the store's own accumulator</b> —
+    /// the same guarantee <see cref="ResolvedAge"/> makes for the other axis.</para></summary>
     private double ResolvedStrengthAge(GraphNode node) =>
         _ageComposition.Age([.. _agePolicies.Select(c =>
             c.Kind == MemoryAgeKind.Derivable ? c.Age(node.StrengthAgeSample) : node.StrengthAge)]);
@@ -925,12 +894,12 @@ public sealed class GraphMemoryEngine(
     /// <see cref="IMemoryAgePolicy.Advance"/>-replay would have produced.</item>
     /// <item><see cref="MemoryAgeKind.Accumulating"/> reads <see cref="GraphNode.Age"/>, the store's own
     /// <c>Advance</c>-driven accumulator — genuinely non-recomputable from the primitives (see
-    /// <see cref="BurstDampenedAgePolicy.Age"/>'s own remarks), so this is unchanged from what every
-    /// retrievability computation read before this task.</item>
+    /// <see cref="BurstDampenedAgePolicy.Age"/>'s own remarks), so the stored value is read as it
+    /// stands.</item>
     /// </list>
     /// <b>The engine's shipped default (one <see cref="BurstDampenedAgePolicy"/>, Accumulating) therefore
-    /// composes a one-element list containing exactly <see cref="GraphNode.Age"/> — identical to the
-    /// pre-Task-3 behaviour, byte for byte.</b></summary>
+    /// composes a one-element list containing exactly <see cref="GraphNode.Age"/> — the store's own
+    /// accumulator, unchanged.</b></summary>
     private double ResolvedAge(GraphNode node) =>
         _ageComposition.Age([.. _agePolicies.Select(c =>
             c.Kind == MemoryAgeKind.Derivable ? c.Age(node.AgeSample) : node.Age)]);
@@ -938,14 +907,11 @@ public sealed class GraphMemoryEngine(
     /// <summary>An edge's weight after decay. The store orders by the RAW value as a cheap pre-sort and the
     /// curve is applied here, so a heavy but stale link falls below a lighter fresh one — which is what
     /// stops a graph that only ever gained edges from saturating until everything reaches everything.
-    /// <para><b>The age is projected through the installed policies, like the other two axes</b> (3.0). This
-    /// is the THIRD and last age axis to stop reading the raw accumulator; unlike <c>Age</c> and
-    /// <c>StrengthAge</c> it never fed a deletion decision, only this ordering, so it was a coherence gap
-    /// rather than a data-loss bug — but leaving it would have meant one axis in this subsystem silently
-    /// keeping its own clock, which is exactly what the <see cref="IMemoryAgePolicy"/> seam exists to
+    /// <para><b>The age is projected through the installed policies, like the other two axes</b> — no axis
+    /// in this subsystem keeps its own clock, which is what the <see cref="IMemoryAgePolicy"/> seam exists to
     /// prevent. <see cref="GraphMemoryOptions.EdgeHalfLife"/> is therefore denominated in whatever the
-    /// installed policies count — and with the shipped <see cref="MemoryAgeKind.Accumulating"/> default that
-    /// is the position accumulator it always was, unchanged.</para></summary>
+    /// installed policies count — with the shipped <see cref="MemoryAgeKind.Accumulating"/> default, the
+    /// position accumulator.</para></summary>
     private double EffectiveEdgeWeight(GraphNeighbour neighbour)
     {
         var halfLife = _options.EdgeHalfLife;
@@ -1051,42 +1017,6 @@ public sealed class GraphMemoryEngine(
         return found;
     }
 
-    /// <summary>Record reinforcement and co-activation for what a recall actually returned.
-    /// <para>BEST-EFFORT by design: a failure logs and the caller keeps its hits, so a read-only database
-    /// degrades to "no learning" rather than to "no memory". Co-activation is capped, or a ten-item recall
-    /// would write forty-five edges every turn.</para>
-    /// <para>None of this advances the engine's position — a recall is not new material, so it must not
-    /// age anything.</para>
-    /// <para><b><see cref="MemoryDecayState.Stability"/> AND <see cref="MemoryDecayState.Difficulty"/> reach
-    /// <see cref="GraphTouch"/> (2026-08-10, fsrs-properly plan Task 2 — before this, only <c>Stability</c>
-    /// did, because no shipped curve claimed anything else).</b> <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>
-    /// returns the FULL state, and its own contract requires every field a policy does not own to come back
-    /// unchanged from what <see cref="ResolvedState"/> handed it — so extracting exactly these two fields
-    /// here is exactly as complete as persisting the whole thing, for every policy this library ships today.
-    /// A future policy that owns a THIRD field needs <see cref="GraphTouch"/> widened again before this line
-    /// can reach it; it is not a defect in this line alone.</para>
-    /// <para><b>The review log (2026-08-11, fsrs-properly plan Task 3) records what THIS reinforcement did —
-    /// nothing more.</b> It is DATA, never a decision: no line in this class reads
-    /// <see cref="IMemoryGraphStore.ReviewsAsync"/>, so nothing logged here can feed back into retrievability,
-    /// ranking or pruning — the exact drift design spec §1 already warns against, with an extra step (a
-    /// stored log a future policy could quietly start trusting) this proof forecloses. <see cref="MemoryReviewWrite.Grade"/>
-    /// is <see cref="IMemoryRetrievabilityPolicy.DerivedGrade"/>'s own return on the SAME <c>pre</c> state
-    /// handed to <see cref="IMemoryRetrievabilityPolicy.Reinforce"/> just above it, not a value re-derived
-    /// from whichever state happens to be at hand afterward — see that member's own remarks on why that
-    /// distinction matters (design spec §1's drift guard).</para>
-    /// <para><b>One <see cref="Guid"/> per call, shared across every node this call touches.</b> A single
-    /// <see cref="RecallAsync"/> (or <see cref="ExpandAsync"/>) can reinforce several nodes at once — every
-    /// candidate <see cref="RecallAsync"/> actually returned, up to <see cref="GraphMemoryOptions.CoActivationCap"/>
-    /// on the co-activation side — and a fitter may care that a group of rows came from the SAME recall
-    /// (they were reinforced together, potentially competing candidates from one query), even though each
-    /// row already stands as one independent <c>(state, grade, outcome)</c> observation without it.</para>
-    /// <para><b>Logging gets its OWN try/catch, nested inside the one below.</b> The outer catch is this
-    /// method's pre-existing best-effort promise (a failure here must not cost the caller its hits); the
-    /// inner one makes logging best-effort at a STRICTER grain — a log write failing must not even cost the
-    /// touches that already succeeded just above it. Reinforcement (the "learning" half of the class doc's
-    /// own best-effort promise) is a strictly more important effect than logging it, so a broken log must
-    /// degrade only itself, never anything upstream of it.</para>
-    /// </summary>
     /// <summary>Asks the verifier which of these actually answered the query, fail-open in every direction.
     /// <para><b>Any failure yields <see cref="Lyntai.Memory.Verification.MemoryVerification.NoOpinion"/>,
     /// never "nothing was relevant".</b> Those two are opposite instructions to the caller above: no opinion
@@ -1118,6 +1048,27 @@ public sealed class GraphMemoryEngine(
         }
     }
 
+    /// <summary>Record reinforcement and co-activation for what a recall actually returned.
+    /// <para>BEST-EFFORT by design: a failure logs and the caller keeps its hits, so a read-only database
+    /// degrades to "no learning" rather than to "no memory". Co-activation is capped, or a ten-item recall
+    /// would write forty-five edges every turn.</para>
+    /// <para>None of this advances the engine's position — a recall is not new material, so it must not age
+    /// anything.</para>
+    /// <para>Both <see cref="MemoryDecayState.Stability"/> and <see cref="MemoryDecayState.Difficulty"/> reach
+    /// <see cref="GraphTouch"/>. <see cref="IMemoryRetrievabilityPolicy.Reinforce"/> returns the FULL state and
+    /// requires every field a policy does not own to come back unchanged, so extracting these two is as
+    /// complete as persisting the whole thing for every shipped policy — a future policy owning a THIRD field
+    /// needs <see cref="GraphTouch"/> widened before this line can reach it.</para>
+    /// <para><b>The review log is DATA, never a decision.</b> No line in this class reads
+    /// <see cref="IMemoryGraphStore.ReviewsAsync"/>, so nothing logged can feed back into retrievability,
+    /// ranking or pruning. <see cref="MemoryReviewWrite.Grade"/> is
+    /// <see cref="IMemoryRetrievabilityPolicy.DerivedGrade"/>'s return on the SAME <c>pre</c> state handed to
+    /// <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>, never re-derived afterward.</para>
+    /// <para>One <see cref="Guid"/> per call, shared across every node it touches, so a fitter can tell a
+    /// group of rows came from the SAME recall.</para>
+    /// <para><b>Logging gets its OWN try/catch, nested inside the one below</b> — the outer is this method's
+    /// best-effort promise, the inner makes logging best-effort at a stricter grain, so a failed log write
+    /// does not cost the touches that already succeeded.</para></summary>
     /// <param name="nodes">What gets REINFORCED — touched and co-activated.</param>
     /// <param name="act">Which call this is, for <see cref="GraphMemoryOptions.ReinforceOn"/>.</param>
     /// <param name="ct">Cancellation.</param>

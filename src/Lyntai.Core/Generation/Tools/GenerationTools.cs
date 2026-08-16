@@ -399,11 +399,33 @@ public sealed class GenerationStatusTool(IEnumerable<IGenerationProvider> provid
     }
 }
 
-/// <summary>Collects a finished generation's artifacts.</summary>
+/// <summary>Collects a finished generation's artifacts, and BILLS what they cost.
+/// <para>This tool reaches the backend directly rather than through
+/// <see cref="Lyntai.Generation.Routing.IGenerationRouter"/> — there is nothing left to route once an
+/// operation id exists — so it must record usage itself. A queue backend prices at FETCH, because that is
+/// the only point the total is known, which makes this the one place a submitted render's cost can be
+/// observed at all.</para>
+/// <para>Skipping it did not merely under-report: <see cref="GenerationSubmitTool"/> re-checks the cap on
+/// every submit against a total that never grew, so a configured
+/// <c>Budget.PerConsumer</c> cap never fired and spend was unbounded beneath it — while the same tool set's
+/// inline <see cref="GenerationInlineTool"/> billed correctly. One registration, two delivery modes, one of
+/// them metered.</para></summary>
+/// <param name="providers">The registered backends; the tool resolves the one named in its arguments.</param>
+/// <param name="sink">Where artifacts are delivered, if the app registered one.</param>
+/// <param name="usage">Usage ledger (<see cref="Lyntai.Llm.Budgeting.IUsageTracker"/>). Null means no budget
+/// is configured and nothing is recorded — the same optionality the router's own budgeting has.</param>
+/// <param name="consumer">Whose spend this is, defaulting to the same <c>"agent"</c> tag its sibling tools
+/// use, so one <c>Budget.PerConsumer["agent"]</c> entry binds every agent-driven render regardless of which
+/// delivery mode produced it.</param>
 public sealed class GenerationFetchTool(
     IEnumerable<IGenerationProvider> providers,
-    IGenerationArtifactSink? sink = null) : ITool
+    IGenerationArtifactSink? sink = null,
+    Lyntai.Llm.Budgeting.IUsageTracker? usage = null,
+    string consumer = "agent") : ITool
 {
+    /// <summary>Whose spend a fetched render is billed to.</summary>
+    public string Consumer { get; } = consumer;
+
     /// <inheritdoc/>
     public string Name => "generate_fetch";
 
@@ -425,6 +447,12 @@ public sealed class GenerationFetchTool(
 
         var result = await backend.FetchAsync(operationId, ct).ConfigureAwait(false);
         if (!result.IsOk) return GenerationToolJson.Error($"{result.Verdict}: {result.Detail}");
+
+        // Bill BEFORE delivery, for the reason GenerationRenderJobHandler states on its own fetch: the money
+        // is spent either way, and a sink that throws would lose the record.
+        if (usage is not null)
+            await Lyntai.Generation.Routing.BudgetedGenerationRouter
+                .RecordAsync(usage, Consumer, result.Usage, ct).ConfigureAwait(false);
 
         var delivered = false;
         if (sink is not null)
