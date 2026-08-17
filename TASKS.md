@@ -26,9 +26,10 @@ task, with why and how; this file does not summarize it._
 
 **NOTHING here is startable in a session; every remaining item needs something this repository does not
 have.** That is stated first rather than buried, because it is the answer to the question the file exists to
-answer. Three items briefly were startable — two found by the 2026-08-17 subsystem sweep (archive Part 85)
-and one by the pre-release sweep the same day (Part 86) — and all three closed the same day in **Part 87**,
-which is also where the three defects they uncovered are recorded.
+answer. Startable work has kept arriving in bursts and closing the same day: three items via Parts 85/86
+closed in **Part 87**, and the 2026-08-17 whole-repo review (nine subsystem reviewers + per-finding
+adversarial verification) opened twelve verified findings that all closed the same day in **Part 88** —
+which is also where the two finding-halves that measurement refuted are recorded.
 
 **A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
 blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in

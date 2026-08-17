@@ -518,10 +518,13 @@ public sealed class PostgresMemoryGraphStore(
         if (limit <= 0) return [];
 
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // COLLATE "C" on the tie-break for the same reason the vector and curated stores carry it: the
+        // contract is byte order (SQLite's BINARY, StringComparer.Ordinal in process), and under the
+        // database's own locale a tied set would TRUNCATE differently here than on the other two backends.
         var rows = await conn.QueryAsync<string>(new CommandDefinition("""
             SELECT subject FROM lyntai_memory_subject
             WHERE engine = @engine AND task_key = @taskKey AND (@scope::text IS NULL OR scope = @scope)
-            GROUP BY subject ORDER BY COUNT(*) DESC, subject LIMIT @limit
+            GROUP BY subject ORDER BY COUNT(*) DESC, subject COLLATE "C" LIMIT @limit
             """, new { engine, taskKey, scope, limit }, cancellationToken: ct)).ConfigureAwait(false);
         return [.. rows];
     }

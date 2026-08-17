@@ -68,48 +68,74 @@ public sealed class JobRunner(
         var globalCap = Opts.GlobalMaxConcurrency; // 0 = unbounded, and then no slot round-trip at all
         var remaining = admitted.ToDictionary(l => l, Opts.LimitFor, StringComparer.Ordinal);
         var claimed = new List<(JobRecord Job, int? Slot)>();
-        bool progressed;
-        do
+        try
         {
-            progressed = false;
-            foreach (var lane in admitted)
+            bool progressed;
+            do
             {
-                if (cap > 0 && claimed.Count >= cap) break;
-                if (remaining[lane] <= 0) continue;
-
-                // THE SLOT COMES FIRST, and the order is the whole design. Claiming then discovering there
-                // is no headroom would mean handing a claimed job back to Pending — a churn that burns an
-                // attempt and briefly hides the job from every other worker. Taking the slot first costs at
-                // most one wasted acquire when a lane turns out to be empty, which is released immediately
-                // below.
-                int? slot = null;
-                if (globalCap > 0)
+                progressed = false;
+                foreach (var lane in admitted)
                 {
-                    slot = await _store.TryAcquireSlotAsync(globalCap, _workerId, Opts.SlotLease, ct)
-                        .ConfigureAwait(false);
-                    if (slot is null)
+                    if (cap > 0 && claimed.Count >= cap) break;
+                    if (remaining[lane] <= 0) continue;
+
+                    // THE SLOT COMES FIRST, and the order is the whole design. Claiming then discovering there
+                    // is no headroom would mean handing a claimed job back to Pending — a churn that burns an
+                    // attempt and briefly hides the job from every other worker. Taking the slot first costs at
+                    // most one wasted acquire when a lane turns out to be empty, which is released immediately
+                    // below.
+                    int? slot = null;
+                    if (globalCap > 0)
                     {
-                        _logger.LogDebug(
-                            "global concurrency cap {Cap} reached across all workers — no slot this pass", globalCap);
-                        progressed = false;
-                        break;
+                        slot = await _store.TryAcquireSlotAsync(globalCap, _workerId, Opts.SlotLease, ct)
+                            .ConfigureAwait(false);
+                        if (slot is null)
+                        {
+                            _logger.LogDebug(
+                                "global concurrency cap {Cap} reached across all workers — no slot this pass", globalCap);
+                            progressed = false;
+                            break;
+                        }
                     }
-                }
 
-                var job = await _store.ClaimNextAsync(lane, _workerId, Opts.Lease, ct).ConfigureAwait(false);
-                if (job is null)
-                {
-                    if (slot is { } unused)
-                        await _store.ReleaseSlotAsync(unused, _workerId, ct).ConfigureAwait(false);
-                    remaining[lane] = 0; // this lane is drained for now
-                    continue;
+                    JobRecord? job;
+                    try
+                    {
+                        job = await _store.ClaimNextAsync(lane, _workerId, Opts.Lease, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception) when (slot is not null)
+                    {
+                        // The acquire→claim window: the outer catch hands back the slots in `claimed`, and
+                        // this one owns the slot no list holds yet.
+                        await ReleaseSlotQuietlyAsync(slot.Value).ConfigureAwait(false);
+                        throw;
+                    }
+                    if (job is null)
+                    {
+                        if (slot is { } unused)
+                            await _store.ReleaseSlotAsync(unused, _workerId, ct).ConfigureAwait(false);
+                        remaining[lane] = 0; // this lane is drained for now
+                        continue;
+                    }
+                    claimed.Add((job, slot));
+                    remaining[lane]--;
+                    progressed = true;
                 }
-                claimed.Add((job, slot));
-                remaining[lane]--;
-                progressed = true;
             }
+            while (progressed && (cap <= 0 || claimed.Count < cap));
         }
-        while (progressed && (cap <= 0 || claimed.Count < cap));
+        catch
+        {
+            // A throw mid-pass must still hand back every slot acquired and not yet running. The lease
+            // cannot be trusted to do it: HeartbeatSlotsAsync renews EVERY slot this worker holds, so a
+            // leaked slot survives for the life of the process and the deployment's effective global cap
+            // shrinks by one, permanently. The abandoned CLAIMS need no such help — a claim's own lease
+            // expires unrenewed and the job is re-claimable.
+            foreach (var (_, slot) in claimed)
+                if (slot is { } held)
+                    await ReleaseSlotQuietlyAsync(held).ConfigureAwait(false);
+            throw;
+        }
 
         if (claimed.Count == 0) return 0;
 
@@ -165,14 +191,18 @@ public sealed class JobRunner(
         }
         finally
         {
-            if (slot is { } held)
-            {
-                // Never cancelled: a cancelled pass must still hand its slot back, or a graceful shutdown
-                // would leave the deployment throttled until the lease expired.
-                try { await _store.ReleaseSlotAsync(held, _workerId, CancellationToken.None).ConfigureAwait(false); }
-                catch (Exception ex) { _logger.LogWarning(ex, "releasing job slot {Slot} failed; it expires with the lease", held); }
-            }
+            if (slot is { } held) await ReleaseSlotQuietlyAsync(held).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>Hand a slot back on a path that must not fail and must not be cancellable: a cancelled pass
+    /// must still release, or a graceful shutdown leaves the deployment throttled until the lease expires —
+    /// and on the claim loop's throw paths, until the process exits, because the heartbeat renews every slot
+    /// this worker holds.</summary>
+    private async Task ReleaseSlotQuietlyAsync(int slot)
+    {
+        try { await _store.ReleaseSlotAsync(slot, _workerId, CancellationToken.None).ConfigureAwait(false); }
+        catch (Exception ex) { _logger.LogWarning(ex, "releasing job slot {Slot} failed; it expires with the lease", slot); }
     }
 
     public async Task RunAsync(CancellationToken ct = default)

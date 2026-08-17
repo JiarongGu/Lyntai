@@ -17,6 +17,7 @@ public abstract class PromptVersionStoreContractFacts
     [Fact] public Task Rollback() => PromptVersionStoreContract.Rollback_reactivates_an_earlier_revision_without_rewriting_history(NewStore(), "k");
     [Fact] public Task Rollback_missing() => PromptVersionStoreContract.Rollback_to_a_missing_version_returns_null_and_changes_nothing(NewStore(), "k");
     [Fact] public Task Isolation() => PromptVersionStoreContract.Names_are_isolated(NewStore(), "k");
+    [Fact] public Task Raced() => PromptVersionStoreContract.Concurrent_saves_of_one_name_get_distinct_consecutive_versions(NewStore(), "k");
 }
 
 /// <summary>The <see cref="PromptVersionStoreContract"/> against the InMemory backend.</summary>

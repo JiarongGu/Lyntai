@@ -233,8 +233,11 @@ public sealed class OpenAiCompatibleProvider(
 
         // A stream that said it stopped FOR tool calls and assembled none is a real failure rather than an
         // empty answer — the model asked for something this build could not read, and saying so beats the
-        // synthetic "no output produced" below.
-        if (finishReason == "tool_calls" && !sawContent)
+        // synthetic "no output produced" below. Content having ALSO streamed does not soften it: the prose
+        // was never the answer (the model stopped for tools), and a benign Final here is the silent
+        // tool-call discard D71 exists to eliminate. The prose already streamed and stays; the Error is the
+        // terminal chunk, which the router passes through unchanged post-commit.
+        if (finishReason == "tool_calls")
         {
             yield return LlmChunk.Error(LlmVerdict.Failed,
                 $"{id}: the stream finished for tool calls but none could be assembled from its deltas");

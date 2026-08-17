@@ -299,8 +299,11 @@ public sealed class GenerationRouter(
                 {
                     throw;   // the CALLER cancelled — never a backend fault, and never something to fall over
                 }
-                catch (Exception ex) when (!NeverReachedTheBackend(ex))
+                catch (Exception ex)
                 {
+                    // Unconditional on purpose — NeverReachedTheBackend is the SUBMIT door's billing rule.
+                    // Here nothing is charged by the act of asking, so a refused connection before the first
+                    // byte is the ordinary pre-commit failure the contract says advances.
                     failure = GenerationChunk.Failure(ClassifyThrown(ex), $"{provider.Id}: {ex.Message}");
                     break;
                 }

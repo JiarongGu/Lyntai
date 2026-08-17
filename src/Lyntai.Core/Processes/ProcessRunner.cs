@@ -316,9 +316,13 @@ public sealed class ProcessRunner : IProcessRunner
         return File.Exists(resolved) || (OperatingSystem.IsWindows() && SpawnableSibling(resolved) is not null);
     }
 
-    private static string? Locate(string command)
+    private static string? Locate(string command) =>
+        RunLocator(OperatingSystem.IsWindows() ? "where.exe" : "which", command);
+
+    /// <summary>Run <paramref name="locator"/> against one name and pick the spawnable hit. Internal for
+    /// the tests: the hang bound is only provable against a locator that actually hangs.</summary>
+    internal static string? RunLocator(string locator, string command)
     {
-        var locator = OperatingSystem.IsWindows() ? "where.exe" : "which";
         var psi = new ProcessStartInfo(locator)
         {
             UseShellExecute = false,
@@ -331,16 +335,27 @@ public sealed class ProcessRunner : IProcessRunner
         {
             using var p = System.Diagnostics.Process.Start(psi);
             if (p is null) return null;
-            // stderr is redirected, so it must be DRAINED — an unread pipe that fills blocks the child, and the
-            // only bound here (WaitForExit) sits BEHIND the unbounded stdout read. (Not un-redirected: an
-            // inherited handle would print the locator's miss line into the consuming app's own console.)
+            // BOTH pipes are drained asynchronously so WaitForExit(5000) bounds the whole call. Reading
+            // stdout synchronously put the only bound BEHIND an unbounded read: a locator hung by a dead
+            // network drive on PATH (or an AV hook) froze the first CLI-provider call forever, ahead of
+            // every inactivity clock RunAsync arms and with no token in this chain to break out. (Still
+            // redirected rather than inherited: an inherited handle would print the locator's miss line
+            // into the consuming app's own console.)
+            var outTask = p.StandardOutput.ReadToEndAsync(CancellationToken.None);
             var errTask = p.StandardError.ReadToEndAsync(CancellationToken.None);
-            var output = p.StandardOutput.ReadToEnd();
             var exited = p.WaitForExit(5000);
             if (!exited) KillTree(p);
-            // the tail is diagnostic only; the kill above breaks the pipe, so a fault says nothing worth surfacing
-            try { errTask.GetAwaiter().GetResult(); } catch { /* child gone / pipe broken */ }
-            if (!exited) return null;
+            // Bounded observe of both drains: after a clean exit they complete at EOF, after the kill the
+            // broken pipes complete them — and a grandchild keeping a pipe open must not re-open the hang
+            // this bound exists to close. stderr is diagnostic only either way.
+            string? output = null;
+            try
+            {
+                if (Task.WaitAll([outTask, errTask], TimeSpan.FromSeconds(2)))
+                    output = outTask.GetAwaiter().GetResult();
+            }
+            catch { /* child gone / pipe broken */ }
+            if (!exited || output is null) return null;
             var hits = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (hits.Length == 0) return null;
             return hits.FirstOrDefault(h => h.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase))

@@ -203,6 +203,10 @@ order; the surface changes are:
 - **Three cross-backend memory rules now have ONE definition each** — `MemoryRelevance`, `MemorySignals`,
   `MemorySubject` — plus `Lyntai.Storage.ScriptProfile`, the single home for every language-dependent
   tokenization decision (**D55**).
+- **`Lyntai.Storage.KeyedLock<TKey>`** — an async lock per key with a table bounded by keys in flight. Both
+  relational job stores hold one by job id around the step-log read-modify-write, so step reporting
+  serializes per JOB rather than per store (one store-wide gate used to hold every concurrent job's
+  reporting behind two database round-trips). Reusable by a BYO relational backend the way `JobStoreSql` is.
 
 ### Changed
 
@@ -257,6 +261,40 @@ order; the surface changes are:
   unreachable through the documented path.
 - **`AddMemory()` silently ignored a registered annotation or verification policy** — the one-line path was
   the only one that did.
+- **A connection refused BEFORE the first byte escaped `IGenerationRouter.StreamAsync` raw** instead of
+  advancing to the next candidate — the submit door's never-reached-the-backend filter (whose own doc says
+  it is submit-only) was on the stream door's catch, so the one failure class fallback most exists for was
+  the one that skipped it, recorded no cooldown, and handed the caller an exception instead of a chunk.
+- **A `MaxDimension` that is not a multiple of 64 was passed to `sd-cli` verbatim** — the clamp's ceiling
+  outranked the engine's own multiple-of-64 requirement (`1000` went into the argv, 1000 % 64 = 40). The
+  cap is now floored to a multiple of 64 before it can win.
+- **`LocalDiffusionProvider.Capabilities` was captured once at construction** while enforcement reads the
+  options live — so the late-provisioning pattern the registration docs advertise (flip `Accelerator` after
+  a probe) moved the real ceiling and left the advertised one stale forever. Derived per access now.
+- **A stream that carried prose AND finished for tool calls it could not assemble reported a clean `Ok`** —
+  the "none could be assembled" failure fired only when no content had streamed, so the exact silent
+  tool-call discard 3.0 fixed survived in its one remaining branch (content + a delta whose
+  `function.name` never arrives).
+- **`IMemoryEngineFactory.Get()`'s "only one registered" fallback was unreachable** through the standard
+  registration path: the count included a composite's members, so the one engine a consumer registered
+  under a non-`"default"` name threw "2 are registered". The fallback now counts engines, not index
+  entries.
+- **Two concurrent prompt-version saves on Postgres could surface a raw unique-violation** — the same
+  `MAX(…)+1` race the conversation store already retries, unguarded in `SaveAsync`. Bounded retry now;
+  SQLite needed none (its immediate transaction serializes writers), and a contract fact pins the guarantee
+  on all three backends.
+- **A tied subject list truncated differently on Postgres than on SQLite/InMemory** —
+  `KnownSubjectsAsync`'s tie-break was the one text ordering in the graph-store family without
+  `COLLATE "C"`, so WHICH handles survived the annotator's bounded reuse list depended on the database's
+  locale (worst for CJK). Pinned by a contract fact that orders a tie the locale would reverse.
+- **A slot acquired for the global job cap leaked forever if the claim that followed it threw** — a
+  shutdown cancellation or one transient store fault in that window, and the per-worker heartbeat then
+  renewed the orphan for the life of the process, silently shrinking `GlobalMaxConcurrency` by one each
+  time. Every slot acquired by a pass is now handed back on its throw paths too.
+- **A hung `where.exe`/`which` froze the first CLI call forever** — the locator's stdout was read
+  synchronously and unbounded BEFORE its five-second exit bound, ahead of every inactivity clock
+  `ProcessRunner.RunAsync` arms (a dead network drive on PATH is enough). Both pipes now drain
+  asynchronously under the bound, and a locator that hangs is killed rather than waited on.
 
 **Security and spend:**
 
@@ -294,6 +332,12 @@ references to documents that no longer exist, and the migration guide's missing 
 - **New measurement sweeps**: `memory-enrichment` (why an embedder costs recall quality — the only sweep
   that calls a real model), `memory-verification`, `memory-annotation`, `memory-fan`, `memory-salience`,
   `memory-bounded`, `memory-reinforcement`.
+- **A broken Postgres migration now FAILS the test suite instead of skipping it** — the fixture's catch
+  covered container startup AND the migration, so a migration defect reported as "Docker unavailable" and
+  the whole Postgres leg skipped, with a skip count identical to the Docker-down case the count heuristic
+  watches for. The catch now covers container startup only.
+- **`StorageFeature.None`'s doc no longer promises a version table nothing creates** — zero tag passes
+  means the migration runner never executes for it, which is now what the doc (and a pin test) says.
 
 
 ## 2.5.0 — 2026-08-08

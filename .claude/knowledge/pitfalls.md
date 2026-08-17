@@ -719,6 +719,11 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   <br>**The fourth is the same shape aimed inward**: the same round taught `FalQueueProvider` to distinguish
   "never reached the backend" from "may have been delivered", and then wrote a `catch` in another file that
   treated every throw as ambiguous — turning a connection-refused blip into a dead-lettered job.
+  <br>**Fifth instance, 2026-08-17, found by review rather than by a consumer:** `GenerationRouter.StreamAsync`
+  carried the SUBMIT door's `NeverReachedTheBackend` filter on its catch — a filter whose premise is "the
+  act of asking may have been billed", true of a queue submission and false of a stream open — so the one
+  failure class fallback most exists for (a refused connection before the first byte) was the one that
+  skipped fallback and escaped raw. The filter's own doc said "used ONLY on the submit path" the whole time.
   <br>**What to actually do**, since "review harder" is not a technique: when you reuse a rule, write down
   the premise that makes it true THERE and check it holds HERE. If you cannot name the premise, you are
   copying a conclusion rather than reasoning. And when a rule you just wrote is about a distinction (this
@@ -997,6 +1002,22 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   a variant with (a) goldens on the ORIGINAL captured before the axis exists, (b) an assertion that the
   variant genuinely DIFFERS, and (c) an assertion that the property the instrument depends on still holds in
   the variant — all three, because each catches a different way of quietly measuring nothing.
+- **Microsoft.Data.Sqlite completes its "async" methods SYNCHRONOUSLY, so two awaited store calls issued
+  from one thread are sequential by construction — and a concurrency test over them measures nothing.**
+  Measured 2026-08-17: an overlap test called `Task.WhenAll(store.ReportStepAsync(a…), store.ReportStepAsync(b…))`
+  and failed even AFTER the per-job locking it was written for landed, because the first call ran to
+  completion on the test thread (blocking inside the instrumented clock) before the second expression was
+  even evaluated — the store's gate never entered into it. Wrap each call in `Task.Run` when the subject is
+  concurrency and the backend is SQLite (or anything whose async is sync), and treat "still red after the
+  fix" as a cue to ask WHERE the serialization actually is before touching the fix.
+- **An orphaned child process inherits the test host's console handles, so a test that STRANDS one wedges
+  the whole runner — past its own failure, past every later test.** Measured 2026-08-17 by the RED run of
+  the hanging-locator test: the test itself failed correctly at its 30s bound, and `dotnet test` then hung
+  indefinitely anyway, because the stranded node child held the inherited stdout the harness reads to EOF;
+  it unblocked the moment the child was killed by hand. A bounded in-test wait is NOT enough when the
+  failure mode leaves a child alive — give the fixture child a self-exit (`setTimeout(() => process.exit(0), …)`)
+  so a regression costs one slow red run rather than a wedged pipeline. Same family as `windows-machine.md`
+  §Processes (kill your own tree), from the harness's side.
 - Provider/e2e tests must not hit a live endpoint or spend real tokens — HTTP providers get a stubbed
   `HttpMessageHandler`; CLI providers and the Playground get `provider-stub.mjs` via
   `LYNTAI_PROVIDER_CMD`. Extend the stub's prompt-marker behavior when a test needs a new deterministic

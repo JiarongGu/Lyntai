@@ -7,7 +7,8 @@ namespace Lyntai.Storage;
 [Flags]
 public enum StorageFeature
 {
-    /// <summary>No storage domains (only the migration version table is created).</summary>
+    /// <summary>No storage domains. NO migration pass runs at all, so nothing is created — not even the
+    /// migration version table (<see cref="StorageFeatures.TagPasses"/> yields zero passes for it).</summary>
     None = 0,
 
     /// <summary>Key-value store (<c>lyntai_kv</c>) — prompt/model overrides, scheduler next-run, secret vault.</summary>

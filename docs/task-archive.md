@@ -6080,3 +6080,66 @@ deadline that does not bind makes that test HANG, not run slowly, which the runn
 than any elapsed bound would. Confirmed over six consecutive runs.
 
 `verify` 15/15.
+
+---
+
+## Part 88 — the whole-repo review's twelve verified findings, fixed (2026-08-17)
+
+_Opened and closed the same day. The review: nine parallel subsystem reviewers over every `src/` file plus
+devtools and the test infrastructure, 13 candidates raised, one retracted by its own finder, and each
+survivor independently re-verified against the code with a confidence score (85–55). All twelve fixed
+TDD-first — every behavioural fix watched its test fail for the recorded reason before the change landed.
+The per-incident records are `docs/FIXES.md` (nine entries dated 2026-08-17); the consumer-facing lines are
+`CHANGELOG.md` `## Unreleased`._
+
+**The defects, by where they bit:**
+
+1. **REV-STREAM (85)** — `GenerationRouter.StreamAsync` carried the submit door's
+   `NeverReachedTheBackend` filter, so a refused connection before the first byte escaped raw instead of
+   falling over. Unconditional catch now; recorded as the FIFTH instance under `pitfalls.md` §"Copying a
+   rule copies its assumptions".
+2. **REV-ROUND64 (85) + REV-CAPLIMITS (75)** — two corners of the D68 configurability pass:
+   a non-64-multiple `MaxDimension` went into `sd-cli`'s argv verbatim (the cap is now floored to a
+   multiple of 64 before it may win), and `Capabilities` was captured at construction while enforcement
+   read the options live (derived per access now).
+3. **REV-SLOT (75)** — `JobRunner` leaked a global slot when the claim after the acquire threw, and the
+   per-worker heartbeat renewed the orphan for the life of the process. Every slot a pass acquires is now
+   handed back on its throw paths, through the same never-cancelled quiet release `RunAndReleaseAsync` uses.
+4. **REV-LOCATE (75)** — `ProcessRunner`'s locator read stdout synchronously and unbounded BEFORE its 5s
+   exit bound; a hung `where.exe` froze the first CLI call forever. Both pipes drain async under the bound.
+5. **REV-TOOLDROP (75)** — the D71 "assembled none is a failure" guard fired only with no content, so
+   prose + an unassemblable call still reported a clean `Ok`. The guard now fires regardless of content.
+6. **REV-ENGINEGET (75)** — `MemoryEngineFactory.Get()`'s only-one-registered fallback counted index
+   entries (which include composite members), so it was unreachable through the standard path. It counts
+   top-level engines now.
+7. **REV-PGFIXTURE (75)** — the Postgres test fixture's catch covered container startup AND the migration,
+   folding a real migration defect into the Docker-down skip. Narrowed to container startup.
+8. **REV-PROMPTRACE (75)** — concurrent prompt-version saves raced `MAX(version)+1` with no 23505 retry on
+   Postgres; the conversation store's bounded-retry precedent now applies there too.
+9. **REV-SUBJCOLLATE (72)** — `KnownSubjectsAsync`'s tie-break was the one text ordering in the graph-store
+   family without `COLLATE "C"`; a tied reuse list truncated differently per backend.
+10. **REV-STEPLOCK (68)** — one store-wide gate serialized every job's step reporting across two DB
+    round-trips. `Lyntai.Storage.KeyedLock<TKey>` (new, public beside `JobStoreSql`, table bounded by keys
+    in flight) keys it by job id on both relational stores; mutation-checked.
+11. **REV-FEATNONE (55)** — `StorageFeature.None`'s doc promised a version table nothing creates; the doc
+    and the runners' comments now say what the code does, pinned by a test.
+
+**Two finding HALVES were false positives, and both were settled by measurement rather than argument** —
+worth recording because the reviewers' claims were plausible and specific. The SQLite half of REV-PROMPTRACE
+is not a race: `BeginTransaction()` issues an immediate transaction, so SQLite serializes the whole save —
+exactly the pair divergence `storage.md`'s table already records for the conversation store, and the new
+contract fact was green there before the fix while red on Postgres. And REV-SLOT's two finders disagreed
+about persistence (lease-expiry self-heal versus heartbeat renewal); reading `HeartbeatSlots`' SQL settled
+it as renewal-forever, which is what put the fix at the top of the queue.
+
+**Process notes, each already persisted where it belongs:** the mutation check for REV-STEPLOCK was
+performed with `git checkout --` to remove the mutation, which also removed the FIX — the
+`windows-machine.md` revert trap, hit live, recovered by re-applying. The overlap test failed AFTER the fix
+until its calls were wrapped in `Task.Run`, because Microsoft.Data.Sqlite completes its async methods
+synchronously (new `pitfalls.md` §Testing entry). And the hanging-locator RED run wedged `dotnet test`
+itself past the test's own bounded failure — an orphaned child inherits the harness's console handles — so
+the fixture self-exits and the trap is recorded (second new §Testing entry).
+
+`verify` 15/15 — suite 3169/3190 (21 skipped, the live-backend set, with the Postgres leg exercised for
+real), e2e 3/3. Twenty tests net new; `KeyedLock<TKey>` is the one public-surface addition, accepted into
+the Core API baseline deliberately.

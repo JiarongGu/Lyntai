@@ -2701,6 +2701,9 @@ static class Lyntai.Storage.JobStoreSql
     SetProgress : String const
     SetStepLog : String const
     SetSucceeded : String const
+sealed class Lyntai.Storage.KeyedLock`1
+    .ctor()
+    AcquireAsync(TKey key, CancellationToken ct = default) : ValueTask<IDisposable>
 sealed class Lyntai.Storage.LazyMigratingConnectionFactory
     .ctor(IDbConnectionFactory inner, Action migrateOnce)
     Open() : DbConnection

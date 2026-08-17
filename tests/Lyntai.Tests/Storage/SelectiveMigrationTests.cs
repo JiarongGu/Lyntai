@@ -27,6 +27,21 @@ public sealed class SelectiveMigrationTests : IDisposable
         Assert.False(TableExists(factory, "lyntai_memory_entry"));  // Memory NOT selected → no table
     }
 
+    [Fact]
+    public void None_runs_no_pass_at_all_and_creates_nothing()
+    {
+        // Pins what StorageFeature.None's doc now says: zero tag passes, so FluentMigrator never runs and
+        // nothing lands — not even the version table. (The doc used to promise the version table, which no
+        // code ever created for None; the doc was corrected rather than the behaviour, since None wires no
+        // stores and a lone version table would serve nobody.)
+        Assert.Empty(StorageFeatures.TagPasses(StorageFeature.None));
+
+        MigrationRunnerService.MigrateUp(_db.Path, StorageFeature.None);
+        var factory = new SqliteConnectionFactory(_db.Path);
+
+        Assert.False(TableExists(factory, "lyntai_version_info"));
+    }
+
     private static bool TableExists(SqliteConnectionFactory factory, string table)
     {
         using var conn = factory.Open();

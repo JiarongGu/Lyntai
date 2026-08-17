@@ -187,6 +187,24 @@ public static class MemoryGraphStoreContract
         Assert.DoesNotContain("owner", await store.KnownSubjectsAsync("e", key, "s", 50));
     }
 
+    /// <summary><b>Tied subjects order — and therefore truncate — byte-ordinally on every backend.</b> The
+    /// reuse list the annotator consumes is <c>COUNT(*)</c>-ordered with the subject itself as the
+    /// tie-break, so WHICH handles survive a bounded list must not depend on the database's locale.
+    /// <see cref="Lyntai.Storage.Postgres"/>'s sibling stores (vector, curated) already carry
+    /// <c>COLLATE "C"</c> for exactly this, with comments saying it exists to match SQLite's BINARY order;
+    /// this fact holds the one text ordering in the graph-store family to the same rule.
+    /// <para>The pair below is chosen to catch a locale collation red-handed: byte order puts <c>zeta</c>
+    /// (0x7A) before <c>état</c> (0xC3…), while any linguistic collation files é with e and reverses
+    /// them.</para></summary>
+    public static async Task Tied_subjects_order_and_truncate_byte_ordinally(IMemoryGraphStore store, string key)
+    {
+        var id = await store.UpsertAsync(Write("e", key, "a fact with two handles"));
+        await store.RecordSubjectsAsync("e", id, ["zeta", "état"]);
+
+        Assert.Equal(["zeta", "état"], await store.KnownSubjectsAsync("e", key, "s", 10));
+        Assert.Equal(["zeta"], await store.KnownSubjectsAsync("e", key, "s", 1)); // truncation follows the order
+    }
+
     public static async Task Upserting_identical_content_refreshes_rather_than_duplicating(
         IMemoryGraphStore store, string key)
     {

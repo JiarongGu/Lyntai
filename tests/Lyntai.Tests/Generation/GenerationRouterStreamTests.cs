@@ -141,6 +141,32 @@ public class GenerationRouterStreamTests
         Assert.Equal(0, healthy.StreamCalls);
     }
 
+    [Fact]
+    public async Task A_connection_class_THROW_before_any_data_falls_over_like_any_other_pre_commit_failure()
+    {
+        // The submit door's NeverReachedTheBackend filter exists for billing ambiguity and is documented as
+        // submit-only; on this door a refused connection before the first byte is the ordinary pre-commit
+        // failure the contract says advances. Letting it propagate raw skips the healthy candidate entirely.
+        var unreachable = new ScriptedStreamProvider
+        {
+            Id = "unreachable",
+            Script = [],
+            Throws = new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.ConnectionRefused),
+        };
+        var healthy = new ScriptedStreamProvider
+        {
+            Id = "healthy",
+            Script = [GenerationChunk.Content([9]), GenerationChunk.Completed()],
+        };
+
+        var chunks = await Collect(Router(unreachable, healthy).StreamAsync(
+            Candidates(unreachable, healthy), Speech()));
+
+        Assert.True(AssertOneTerminal(chunks).Final);
+        Assert.Equal(1, healthy.StreamCalls);
+        Assert.Equal([9], chunks.Where(c => c.Data is not null).SelectMany(c => c.Data!).ToArray());
+    }
+
     // ---- invariant 2: only real data commits ---------------------------------------------------------
 
     [Fact]

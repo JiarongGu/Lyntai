@@ -19,9 +19,10 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.UtcNow);
     // ReportStepAsync is a read-modify-write on step_log (no single-statement atomic append with the cap),
-    // so serialize concurrent step reports for this store — matching InMemoryJobStore, whose append is under
-    // its lock. (A single running job is owned by one worker via fencing, so per-store serialization suffices.)
-    private readonly SemaphoreSlim _stepLock = new(1, 1);
+    // so concurrent reports for the SAME job are serialized. Per JOB, not per store: the fenced write
+    // already makes cross-process interleaving safe, and a store-wide gate held across two network
+    // round-trips serialized every concurrent job's reporting behind whichever got there first.
+    private readonly KeyedLock<Guid> _stepLocks = new();
 
     public async Task<Guid> EnqueueAsync(JobSpec spec, CancellationToken ct = default)
     {
@@ -116,17 +117,13 @@ public sealed class PostgresJobStore(IDbConnectionFactory factory, Func<DateTime
 
     public async Task<bool> ReportStepAsync(Guid id, string workerId, string message, CancellationToken ct = default)
     {
-        // read-modify-write the capped JSON step log under _stepLock so concurrent reports don't clobber each
-        // other; the fenced write drops it if the lease was lost
-        await _stepLock.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            var current = await GetAsync(id, ct).ConfigureAwait(false);
-            if (current is null || current.Status != JobStatus.Running || current.ClaimedBy != workerId) return false;
-            var stepLog = JobStepLog.Append(current.StepLog, message, _clock(), stepLogCap);
-            return await Fenced(JobStoreSql.SetStepLog, id, workerId, ct, new { stepLog }).ConfigureAwait(false);
-        }
-        finally { _stepLock.Release(); }
+        // read-modify-write the capped JSON step log under the job's own gate so concurrent reports don't
+        // clobber each other; the fenced write drops it if the lease was lost
+        using var held = await _stepLocks.AcquireAsync(id, ct).ConfigureAwait(false);
+        var current = await GetAsync(id, ct).ConfigureAwait(false);
+        if (current is null || current.Status != JobStatus.Running || current.ClaimedBy != workerId) return false;
+        var stepLog = JobStepLog.Append(current.StepLog, message, _clock(), stepLogCap);
+        return await Fenced(JobStoreSql.SetStepLog, id, workerId, ct, new { stepLog }).ConfigureAwait(false);
     }
 
     public Task<bool> CompleteAsync(Guid id, string workerId, CancellationToken ct = default) =>

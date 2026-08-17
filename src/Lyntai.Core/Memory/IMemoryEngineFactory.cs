@@ -36,6 +36,10 @@ public interface IMemoryEngineFactory
 public sealed class MemoryEngineFactory : IMemoryEngineFactory
 {
     private readonly Dictionary<string, IMemoryEngine> _byName;
+    // Top-level registrations, apart from the index: the parameterless Get()'s "only one registered"
+    // fallback must count ENGINES, and the index also holds every composite's members — one engine with one
+    // member is two entries, which made that fallback unreachable through the standard registration path.
+    private readonly List<IMemoryEngine> _engines;
 
     /// <summary>Index <paramref name="engines"/> and their members by name.</summary>
     /// <param name="engines">The registered engines.</param>
@@ -45,7 +49,8 @@ public sealed class MemoryEngineFactory : IMemoryEngineFactory
     {
         ArgumentNullException.ThrowIfNull(engines);
         _byName = new Dictionary<string, IMemoryEngine>(StringComparer.Ordinal);
-        foreach (var engine in engines) Index(engine);
+        _engines = [.. engines];
+        foreach (var engine in _engines) Index(engine);
     }
 
     private void Index(IMemoryEngine engine)
@@ -72,11 +77,11 @@ public sealed class MemoryEngineFactory : IMemoryEngineFactory
     /// <inheritdoc />
     public IMemoryEngine Get() =>
         _byName.TryGetValue("default", out var byDefault) ? byDefault
-        : _byName.Count == 1 ? _byName.Values.First()
+        : _engines.Count == 1 ? _engines[0]
         : throw new KeyNotFoundException(
-            _byName.Count == 0
+            _engines.Count == 0
                 ? "No memory engine is registered. Call AddMemory() or AddMemoryEngine(name, …)."
-                : $"No engine named 'default', and {_byName.Count} are registered — ask for one by name. " +
+                : $"No engine named 'default', and {_engines.Count} are registered — ask for one by name. " +
                   $"Registered: {string.Join(", ", _byName.Keys)}.");
 
     /// <inheritdoc />

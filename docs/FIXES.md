@@ -7,6 +7,220 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-17 — a pre-commit connection failure escaped the generation stream door raw
+
+**Symptom.** With two stream candidates where the first is unreachable, `IGenerationRouter.StreamAsync`
+threw a raw `SocketException` out of the enumerable instead of falling over: the healthy candidate was
+never tried, no cooldown was recorded, and the caller got an exception where the contract promises exactly
+one terminal chunk.
+
+**Root cause.** The per-chunk catch carried `when (!NeverReachedTheBackend(ex))` — the SUBMIT door's
+billing-ambiguity filter, whose own XML doc says it is used only on the submit path. On the stream door
+nothing is charged by the act of asking, so the filter's one job (let a provably-undelivered submit
+propagate to the durable-job retry) inverted into "let a provably-undelivered stream skip fallback". The
+same round that articulated the never-reached-the-backend distinction copied it onto the door it does not
+belong to — `pitfalls.md` §"Copying a rule copies its assumptions", fourth instance.
+
+**Fix.** The stream door's catch is unconditional, with a comment saying why the submit door's filter must
+not come back.
+
+**Verification.**
+`GenerationRouterStreamTests.A_connection_class_THROW_before_any_data_falls_over_like_any_other_pre_commit_failure`
+— red with the raw `SocketException` before the fix. The existing post-commit throw fact still holds (a
+throw after data stays final).
+
+**Introduced by.** The commit that opened the stream door (D67); the filter arrived with the door.
+
+---
+
+## 2026-08-17 — the local diffusion ceiling could violate the engine's own multiple-of-64 rule, and the advertised ceiling went stale
+
+**Symptom.** Two corners of the same D68 configurability pass. `MaxDimension = 1000` with a large request
+put `1000` into `sd-cli`'s argv — 1000 % 64 = 40, against a requirement the class documents as the
+engine's own. And a host following the registration doc's late-provisioning pattern (flip `Accelerator`
+after a runtime probe) moved the ENFORCED ceiling while `Capabilities.Limits` kept advertising the old one
+forever.
+
+**Root cause.** `Round64` clamped to the host's cap verbatim — nothing validates the cap, so the clamp
+outranked the rounding for any non-64-multiple value; every shipped and tested value happened to be a
+multiple of 64. `Capabilities` was a `{ get; }` property initialized once at construction while
+`GenerateAsync` reads `options.EffectiveMaxDimension` live — the D68 stale-advertisement class
+reintroduced through the mutable-options path its own entry warns about.
+
+**Fix.** The cap is floored to a multiple of 64 before it can win (never below the 256 floor), and
+`Capabilities` is derived per access.
+
+**Verification.** `LocalDiffusionProviderTests.A_cap_that_is_not_a_multiple_of_64_cannot_defeat_the_engines_rounding`
+and `The_ADVERTISED_ceiling_follows_a_LATE_provisioned_option_change` — both red before.
+
+**Introduced by.** The D68 commit that made the ceiling configurable; both corners shipped with it.
+
+---
+
+## 2026-08-17 — a global job slot leaked forever when the claim that followed it threw
+
+**Symptom.** With `GlobalMaxConcurrency` configured, a shutdown cancellation or one transient store fault
+landing between `TryAcquireSlotAsync` and `ClaimNextAsync` shrank the deployment's effective cap by one —
+permanently, because `HeartbeatSlotsAsync` renews EVERY slot its worker id holds, so the orphan was renewed
+for the life of the process and lease expiry never reclaimed it.
+
+**Root cause.** No `try`/`finally` covered the acquire→claim window (or the previously-claimed slots in the
+same pass): `ReleaseSlotAsync` was reached only on the clean `job is null` branch. `RunAndReleaseAsync`,
+four lines below, already guaranteed release on every path — the guarantee was owed one window earlier and
+not written there. D73 records the acquire-then-claim ordering and covers only the clean branch.
+
+**Fix.** The claim loop hands back the in-flight slot when the claim throws and every already-claimed slot
+on the pass's throw paths, through the same never-cancelled quiet release `RunAndReleaseAsync` uses. The
+abandoned claims need no help — a claim's own lease expires unrenewed.
+
+**Verification.** `JobRunnerTests.A_slot_is_released_when_the_claim_that_followed_it_THROWS` — red before
+(the follow-up pass could never acquire the leaked slot).
+
+**Introduced by.** The D73 commit that added the cross-process cap.
+
+---
+
+## 2026-08-17 — a hung locator froze the first CLI call forever
+
+**Symptom.** The first `ProcessRunner` call for a bare command name (any CLI provider's first completion or
+`IsAvailable` probe) could hang indefinitely when `where.exe`/`which` hangs — a dead network drive on PATH
+or an AV hook is enough — ahead of every inactivity clock `RunAsync` arms, with no token in the chain to
+break out.
+
+**Root cause.** `Locate` read the locator's stdout synchronously and unbounded BEFORE its
+`WaitForExit(5000)`, so the only bound sat behind the unbounded read — and the code's own comment already
+said so while explaining a different problem (stderr drain).
+
+**Fix.** Both pipes drain asynchronously; `WaitForExit(5000)` bounds the whole call, the tree is killed on
+expiry, and both drains are observed under a short bound so a grandchild holding a pipe open cannot re-open
+the hang.
+
+**Verification.** `ProcessRunnerTests.A_locator_that_hangs_is_killed_at_the_bound_rather_than_hanging_the_caller`,
+against a real hanging child — red before (30s bound hit). The RED run also demonstrated a second trap: the
+orphaned child inherited the test host's console handles and wedged `dotnet test` itself past the failure,
+which is why the fixture self-exits at 60s.
+
+**Introduced by.** The commit that added the resolved-path cache; the ordering was original.
+
+---
+
+## 2026-08-17 — prose + an unassemblable tool call still reported a clean `Ok`
+
+**Symptom.** An OpenAI-compatible stream carrying content deltas AND `finish_reason: "tool_calls"` whose
+tool-call deltas never produced an assemblable call (a `function.name` that never arrives) ended in a
+benign `Final` — the model asked for a tool and the caller was handed the prose as the answer. The exact
+silent discard D71 was written to eliminate, surviving in one branch.
+
+**Root cause.** The D71 guard ("finished for tool calls and assembled none is a real failure") was gated
+`&& !sawContent`, closing only the no-content cell of the 2×2. The adjacent comment's own reasoning holds
+regardless of content; the tests covered content+well-formed and no-content+unassemblable, and the fourth
+cell was the untested one.
+
+**Fix.** The guard fires whenever the stream stopped FOR tool calls and none could be assembled; the prose
+already streamed and stays, and the `Error` is the terminal chunk (which the router passes through
+unchanged post-commit).
+
+**Verification.** `OpenAiCompatibleProviderTests.Content_AND_a_finish_for_tool_calls_that_assembles_NONE_is_still_a_failure`
+— red before (clean `Final`).
+
+**Introduced by.** The D71 fix commit — it repaired the no-content branch and left this one.
+
+---
+
+## 2026-08-17 — the engine factory's "only one registered" fallback was unreachable
+
+**Symptom.** `services.AddLyntai(b => b.AddMemoryEngine("project", e => e.UseLexical()))` — exactly one
+engine — then `factory.Get()` threw `KeyNotFoundException` "No engine named 'default', and 2 are
+registered", against the interface doc "the one named 'default', or the only one when exactly one is
+registered".
+
+**Root cause.** The fallback checked `_byName.Count == 1`, and the index deliberately holds a composite's
+MEMBERS alongside it (so `"project"` and `"project/lexical"` are two entries for one engine). Every
+standard registration wraps in a composite with at least one member, so the only way to reach the fallback
+was to name the sole engine `"default"` — where the first branch already answers.
+
+**Fix.** The factory tracks top-level registrations apart from the index; the fallback (and the refusal's
+count) reads engines, not index entries.
+
+**Verification.** `MemoryEngineRegistrationTests.A_single_engine_under_any_name_is_the_default_the_parameterless_Get_returns`
+(red with exactly the reported message) and `Two_engines_and_no_default_still_refuse_the_parameterless_Get_by_the_TOP_LEVEL_count`.
+
+**Introduced by.** The 2.5.0 commit that added named engines; member indexing and the fallback arrived
+together, never able to coexist.
+
+---
+
+## 2026-08-17 — concurrent prompt-version saves raced `MAX(version)+1` on Postgres
+
+**Symptom.** Two concurrent `SaveAsync` for one prompt name could both compute the same next version; the
+loser threw a raw `PostgresException` 23505 at the caller.
+
+**Root cause.** Under READ COMMITTED, two transactions can read the same `MAX(version)` before either
+commits; `UNIQUE(name, version)` then rejects the loser, and nothing retried. The identical race shape is
+retried three files away (`PostgresConversationStore.AppendMessageAsync`, bounded 23505 retry) — the
+precedent existed and was not applied here. The SQLite half of the reviewed finding was a FALSE POSITIVE,
+measured: `BeginTransaction()` issues an immediate transaction, so SQLite serializes the whole save —
+which is precisely the pair divergence `storage.md`'s table records for the conversation store.
+
+**Fix.** `PostgresPromptVersionStore.SaveAsync` retries a 23505 in a fresh transaction, bounded, recomputing
+against what the winner committed — mirroring the conversation store. SQLite unchanged.
+
+**Verification.** `PromptVersionStoreContract.Concurrent_saves_of_one_name_get_distinct_consecutive_versions`,
+wired on all three backends — red on Postgres only (raw 23505), green on SQLite/InMemory before AND after,
+which is what measured the false-positive half.
+
+**Introduced by.** The commit that added the prompt version store; the conversation-store retry postdates it
+and was never back-ported.
+
+---
+
+## 2026-08-17 — a tied subject list truncated differently on Postgres
+
+**Symptom.** `KnownSubjectsAsync` — the reuse list the annotation model consumes — orders by `COUNT(*)`
+with the subject as tie-break. On a locale-collated Postgres (the Docker default), ties sorted under the
+locale while SQLite (BINARY) and InMemory (`StringComparer.Ordinal`) sort byte-wise — so with more tied
+subjects than the limit, WHICH handles survived differed by backend, silently, worst for CJK.
+
+**Root cause.** The tie-break lacked `COLLATE "C"` — the one text ordering in the graph-store family
+without it. The sibling stores (`PostgresVectorStore`, `PostgresCuratedMemoryStore`) carry it with comments
+stating the rule; the existing subject test asserted only survivor COUNT, so the divergence was
+unobservable.
+
+**Fix.** `COLLATE "C"` on the tie-break, with the family's standard comment.
+
+**Verification.** `MemoryGraphStoreContract.Tied_subjects_order_and_truncate_byte_ordinally`, driven on all
+three backends with a pair a locale reverses (`zeta` / `état`) — red on Postgres only.
+
+**Introduced by.** The commit that added the subject pair; the sibling precedent predates it.
+
+---
+
+## 2026-08-17 — one store-wide gate serialized every job's step reporting
+
+**Symptom.** Not a crash: `ReportStepAsync` on both relational job stores held a single `SemaphoreSlim`
+across two database round-trips, so concurrent jobs' step reports queued behind whichever got there first —
+real contention on Postgres under parallel agentic handlers, against `JobRunner`'s own promise that
+parallel lanes truly run in parallel.
+
+**Root cause.** The read-modify-write on the capped step log needs serialization per JOB (cross-process
+interleaving is already safe via the fenced write); the gate was per store because that was the smallest
+thing that was correct, and nothing measured the collateral serialization.
+
+**Fix.** `Lyntai.Storage.KeyedLock<TKey>` (new, beside `JobStoreSql`, reusable by BYO relational backends
+the same way): an async lock per key with the table bounded by keys in flight — the same shape
+`ProviderAdmission`'s gate table carries. Both stores key it by job id.
+
+**Verification.** `KeyedLockTests` (peak-overlap property for same-key, deterministic overlap for
+different-key, bounded table, cancelled-wait hygiene) and
+`SqliteJobStoreTests.Step_reports_for_DIFFERENT_jobs_do_not_serialize_behind_one_gate`, whose clock is
+called inside the gate so overlap is observable — red before, and mutation-checked (pinning the key back to
+a single value re-reddens it). The mutation check itself tripped the `windows-machine.md` revert trap: the
+`git checkout --` that removed the mutation also removed the fix, which had to be re-applied.
+
+**Introduced by.** The commit that added `ReportStepAsync`.
+
+---
+
 ## 2026-08-17 — both job backends reported a rejected credential as a failed RENDER
 
 **Symptom.** A host running ComfyUI or fal behind an authenticating proxy, or with a bad key, was told the

@@ -396,6 +396,33 @@ public class JobRunnerTests
     }
 
     [Fact]
+    public async Task A_slot_is_released_when_the_claim_that_followed_it_THROWS()
+    {
+        // The acquire→claim window. A transient store fault (or a shutdown cancellation) landing exactly
+        // there must still hand the slot back: HeartbeatSlotsAsync renews EVERY slot this worker holds, so a
+        // leaked slot is renewed for as long as the worker lives and the deployment's effective global cap
+        // shrinks by one forever — RunAndReleaseAsync's own guarantee, owed one window earlier.
+        var handler = new FakeJobHandler("t", _ => Task.FromResult(JobOutcome.Complete));
+        var clock = new MutableClock();
+        var inner = new InMemoryJobStore(clock.Get);
+        var store = new ClaimThrowingJobStore(inner);
+        var options = new LyntaiOptions();
+        options.Jobs.Lease = Lease;
+        options.Jobs.DefaultLaneConcurrency = 10;
+        options.Jobs.GlobalMaxConcurrency = 1;
+        var runner = new JobRunner(store, new JobHandlerRegistry([handler]), options, clock: clock.Get);
+        var queue = new JobQueue(inner, options);
+        await queue.EnqueueAsync("x", "t", "{}");
+
+        store.ThrowOnClaim = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync());
+
+        // With a global cap of 1, a healthy next pass can only claim if the failed pass's slot came back.
+        store.ThrowOnClaim = false;
+        Assert.Equal(1, await runner.RunOnceAsync());
+    }
+
+    [Fact]
     public async Task Zero_means_unbounded_and_costs_no_slot_round_trip()
     {
         // The default, and the pre-3.0 behaviour: two workers with no global cap run everything their own

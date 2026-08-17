@@ -497,6 +497,34 @@ public class OpenAiCompatibleProviderTests
     }
 
     [Fact]
+    public async Task Content_AND_a_finish_for_tool_calls_that_assembles_NONE_is_still_a_failure()
+    {
+        // The fourth cell of the 2×2, and the one the D71 fix left open: the "none could be assembled"
+        // failure fired only when NO content had streamed, so prose + an unassemblable call (a delta whose
+        // function.name never arrives) fell through to a benign Final — the model asked for a tool and the
+        // caller was handed prose as the final answer, the exact silent discard D71 exists to eliminate.
+        // The prose itself already streamed and stays; the terminal chunk is where the truth goes.
+        const string sse = """
+            data: {"choices":[{"delta":{"content":"let me check"}}]}
+
+            data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"x"}]}}]}
+
+            data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}]}
+
+            data: [DONE]
+
+            """;
+        var handler = new StubHttpHandler().Enqueue(HttpStatusCode.OK, sse, "text/event-stream");
+
+        var chunks = new List<LlmChunk>();
+        await foreach (var c in Provider(handler).StreamAsync(Req)) chunks.Add(c);
+
+        Assert.Equal(["let me check"], chunks.Where(c => c.Kind == LlmChunkKind.Content).Select(c => c.Text));
+        Assert.Equal(LlmChunkKind.Error, chunks[^1].Kind);
+        Assert.Contains("none could be assembled", chunks[^1].Detail);
+    }
+
+    [Fact]
     public async Task Ollama_ndjson_stream_parses_and_final_carries_usage()
     {
         const string ndjson = """

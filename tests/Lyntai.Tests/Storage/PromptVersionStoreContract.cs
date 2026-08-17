@@ -74,6 +74,26 @@ public static class PromptVersionStoreContract
         Assert.Equal(1, (await store.GetActiveAsync(name))!.Version); // untouched
     }
 
+    public static async Task Concurrent_saves_of_one_name_get_distinct_consecutive_versions(IPromptVersionStore store, string key)
+    {
+        // Two writers racing the MAX(version)+1 read must never surface a raw unique-violation: the loser
+        // recomputes (Postgres — the same bounded 23505 retry the conversation store's append carries) or
+        // is serialized outright (SQLite's immediate transaction, InMemory's lock). Four writers through
+        // one gate keep the worst-case loser inside the bounded retry while making the overlap real.
+        var name = key + "-raced";
+        var gate = new TaskCompletionSource();
+        var saves = Enumerable.Range(0, 4).Select(async _ =>
+        {
+            await gate.Task;
+            return await store.SaveAsync(name, "raced template");
+        }).ToArray();
+        gate.SetResult();
+
+        var versions = (await Task.WhenAll(saves)).Select(s => s.Version).Order().ToArray();
+        Assert.Equal([1, 2, 3, 4], versions);
+        Assert.Equal(4, (await store.HistoryAsync(name)).Count);
+    }
+
     public static async Task Names_are_isolated(IPromptVersionStore store, string key)
     {
         var a = key + "-a";

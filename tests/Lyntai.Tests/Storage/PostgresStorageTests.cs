@@ -211,6 +211,7 @@ public sealed class PostgresStorageTests(PostgresFixture pg)
     [SkippableFact] public Task PromptVersion_rollback() => Pg(() => PromptVersionStoreContract.Rollback_reactivates_an_earlier_revision_without_rewriting_history(new PostgresPromptVersionStore(pg.Factory), Uid()));
     [SkippableFact] public Task PromptVersion_rollback_missing() => Pg(() => PromptVersionStoreContract.Rollback_to_a_missing_version_returns_null_and_changes_nothing(new PostgresPromptVersionStore(pg.Factory), Uid()));
     [SkippableFact] public Task PromptVersion_isolation() => Pg(() => PromptVersionStoreContract.Names_are_isolated(new PostgresPromptVersionStore(pg.Factory), Uid()));
+    [SkippableFact] public Task PromptVersion_raced() => Pg(() => PromptVersionStoreContract.Concurrent_saves_of_one_name_get_distinct_consecutive_versions(new PostgresPromptVersionStore(pg.Factory), Uid()));
 
     // ScoreStoreContract: only the session-scoped Rescore is table-safe on the shared container (Aggregate
     // and Export are table-wide → InMemory + SQLite only, as noted above).

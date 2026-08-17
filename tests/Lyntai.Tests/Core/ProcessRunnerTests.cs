@@ -31,6 +31,34 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public async Task A_locator_that_hangs_is_killed_at_the_bound_rather_than_hanging_the_caller()
+    {
+        // A dead network drive on PATH (or an AV hook) can hang where.exe with nothing on stdout. The old
+        // shape read stdout synchronously BEFORE WaitForExit(5000), so the only bound sat behind an
+        // unbounded read and the FIRST CLI-provider call froze forever — ahead of every inactivity clock
+        // RunAsync arms, with no CancellationToken anywhere in the chain to break out.
+        // Prints nothing and hangs — but self-exits at 60s, because an ORPHANED child inherits the test
+        // host's console handles and wedges the whole runner past the test's own failure (measured: the
+        // RED run of this very test hung `dotnet test` until the stray node was killed by hand).
+        var script = Path.Combine(Path.GetTempPath(), $"lyntai-hanging-locator-{Guid.NewGuid():N}.js");
+        await File.WriteAllTextAsync(script, "setTimeout(() => process.exit(0), 60000);");
+        try
+        {
+            var run = Task.Run(() => ProcessRunner.RunLocator("node", script));
+
+            // Bounded wait so a regression FAILS here instead of hanging the suite (pitfalls.md §Testing).
+            var done = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(30)));
+
+            Assert.Same(run, done);   // the 5s locator bound fired; the call came back
+            Assert.Null(await run);   // and a locator that answered nothing resolves to null
+        }
+        finally
+        {
+            File.Delete(script);
+        }
+    }
+
+    [Fact]
     public async Task Stdin_passes_through_including_utf8_cjk()
     {
         // BOM-less UTF-8 both directions: CJK must round-trip byte-exact through stdin → stdout.

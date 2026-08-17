@@ -98,7 +98,9 @@ public static class MigrationRunnerService
                 .AddSQLite()
                 .WithGlobalConnectionString(connectionString)
                 .ScanIn(typeof(MigrationRunnerService).Assembly).For.All()); // migrations + the lyntai_ version table
-        // every pass is tag-filtered: TagPasses always yields a non-empty tag set (AllTag, or one feature tag)
+        // every pass is tag-filtered: a yielded pass always carries a tag (AllTag, or one feature tag) —
+        // and StorageFeature.None yields NO passes, so this runner never executes for it (no tables, no
+        // version table)
         services.Configure<RunnerOptions>(opt => opt.Tags = tags);
 
         using var provider = services.BuildServiceProvider(validateScopes: false);

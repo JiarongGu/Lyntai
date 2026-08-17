@@ -46,6 +46,35 @@ public class MemoryEngineRegistrationTests
     }
 
     [Fact]
+    public void A_single_engine_under_any_name_is_the_default_the_parameterless_Get_returns()
+    {
+        // The interface doc: "the one named 'default', or the ONLY one when exactly one is registered."
+        // The only-one fallback counted index ENTRIES, which include a composite's members — so the one
+        // path that reaches it through the public API (a sole engine not named "default", whose lexical
+        // member makes the index 2) threw "2 are registered" at the consumer who registered exactly one.
+        using var sp = Build(cfg => cfg.AddMemoryEngine("project", e => e.UseLexical()));
+
+        var engine = sp.GetRequiredService<IMemoryEngineFactory>().Get();
+
+        Assert.Equal("project", engine.Name);
+    }
+
+    [Fact]
+    public void Two_engines_and_no_default_still_refuse_the_parameterless_Get_by_the_TOP_LEVEL_count()
+    {
+        // The refusal must count ENGINES, not index entries: two engines carry four index entries, and a
+        // message saying "4 are registered" sends the consumer hunting for engines that do not exist.
+        using var sp = Build(cfg => cfg
+            .AddMemoryEngine("chat", e => e.UseLexical())
+            .AddMemoryEngine("project", e => e.UseLexical()));
+
+        var ex = Assert.Throws<KeyNotFoundException>(() =>
+            sp.GetRequiredService<IMemoryEngineFactory>().Get());
+
+        Assert.Contains("2 are registered", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Members_are_addressable_by_their_hierarchical_name()
     {
         using var sp = Build(cfg => cfg.AddMemoryEngine("project", e => e.UseLexical()));

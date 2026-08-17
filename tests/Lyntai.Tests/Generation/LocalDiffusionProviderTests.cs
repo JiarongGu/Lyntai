@@ -232,6 +232,19 @@ public class LocalDiffusionProviderTests
         Assert.Equal((256, 256), LocalDiffusionProvider.ClampSize("512x512", 64));
     }
 
+    [Fact]
+    public void A_cap_that_is_not_a_multiple_of_64_cannot_defeat_the_engines_rounding()
+    {
+        // The multiple-of-64 rule is the ENGINE's; the cap is the host's policy, and nothing validates it.
+        // A bare clamp against a 1000 cap returns 1000 (1000 % 64 = 40) straight into sd-cli's argv — so the
+        // cap itself is floored to a multiple of 64 before it may win.
+        Assert.Equal((960, 960), LocalDiffusionProvider.ClampSize("4096x4096", 1000));
+        Assert.Equal((256, 256), LocalDiffusionProvider.ClampSize("512x512", 300));
+
+        // ...and a cap that already honours the rule is untouched by the flooring.
+        Assert.Equal((960, 960), LocalDiffusionProvider.ClampSize("4096x4096", 960));
+    }
+
     [Theory]
     [InlineData(DiffusionAccelerator.Cpu, 768)]
     [InlineData(DiffusionAccelerator.Gpu, null)]
@@ -281,6 +294,25 @@ public class LocalDiffusionProviderTests
         // The engine's own requirement holds on every profile — it is not a policy.
         foreach (var provider in new[] { cpu, gpu, explicitCap })
             Assert.Equal("64", provider.Capabilities.Limits["size-multiple-of"]);
+    }
+
+    [Fact]
+    public void The_ADVERTISED_ceiling_follows_a_LATE_provisioned_option_change()
+    {
+        // The registration doc advertises late provisioning — "the next render reads the current values" —
+        // and enforcement (ClampSize) does read the options live. An advertisement captured once at
+        // construction is the D68 stale-limit defect reintroduced through the mutable-options path: the
+        // enforced ceiling moves and Capabilities.Limits keeps reporting the old one forever.
+        var options = new LocalDiffusionOptions { BinaryPath = "sd", ModelPath = "m" };
+        var provider = new LocalDiffusionProvider(options, new FakeProcessRunner());
+
+        Assert.Equal("768", provider.Capabilities.Limits["max-width"]);
+
+        options.Accelerator = DiffusionAccelerator.Gpu;
+        Assert.False(provider.Capabilities.Limits.ContainsKey("max-width"));
+
+        options.MaxDimension = 1536;
+        Assert.Equal("1536", provider.Capabilities.Limits["max-height"]);
     }
 
     [Fact]

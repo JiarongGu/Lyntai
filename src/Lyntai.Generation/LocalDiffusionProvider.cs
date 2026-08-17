@@ -160,8 +160,11 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     /// (<see cref="LocalDiffusionOptions.Accelerator"/>) this would have gone on telling callers 768 while
     /// the backend accepted whatever a GPU host asked for — a limit a consumer reads and plans against, and
     /// the third site the cap had to reach. <see cref="GenerationCapabilities.Limits"/> is informational, so
-    /// nothing would have failed; it would simply have been false.</remarks>
-    public GenerationCapabilities Capabilities { get; } = new()
+    /// nothing would have failed; it would simply have been false.
+    /// <para>Derived PER ACCESS, never captured at construction: the registration doc advertises late
+    /// provisioning ("the next render reads the current values") and enforcement reads the options live, so
+    /// a captured advertisement is the same stale-limit defect one mutation later.</para></remarks>
+    public GenerationCapabilities Capabilities => new()
     {
         Kinds = [GenerationKinds.Image],
         Deliveries = [GenerationDelivery.Inline],
@@ -371,9 +374,11 @@ public sealed class LocalDiffusionProvider(LocalDiffusionOptions options, IProce
     private static int Round64(int value, int? maxDimension)
     {
         var rounded = (int)Math.Round(value / 64.0) * 64;
-        // A cap below the floor is a host asking for something the engine cannot do; the floor wins, because
-        // returning a size the engine rejects turns a policy into a failed render.
-        var ceiling = maxDimension is { } cap ? Math.Max(cap, MinDimension) : int.MaxValue;
+        // The cap is floored to a multiple of 64 before it may win: nothing validates the host's number, and
+        // a bare clamp against a 1000 cap returns 1000 into an argv the engine rejects. A cap below the floor
+        // is a host asking for something the engine cannot do; the floor wins, because returning a size the
+        // engine rejects turns a policy into a failed render.
+        var ceiling = maxDimension is { } cap ? Math.Max(cap / 64 * 64, MinDimension) : int.MaxValue;
         return Math.Clamp(rounded, MinDimension, ceiling);
     }
 
