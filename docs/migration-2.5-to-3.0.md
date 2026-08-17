@@ -9,7 +9,7 @@ The owner's ruling that governs every breaking change below: **3.0 is allowed to
 allowed to do is break silently or without a path.** *("3.0 can be a break change we just need to provide
 proper migration step/logic.")* Every entry here earns its place under that rule — this guide is the path.
 
-`CHANGELOG.md`'s `## Unreleased` section is the per-change record, with the full reasoning behind each one;
+`CHANGELOG.md`'s `## 3.0.0` section is the per-change record, with the full reasoning behind each one;
 `docs/DECISIONS.md` has the load-bearing calls (D46–D49 cover this window). This guide does not repeat
 that detail — it orders it, and shows the diff a consumer actually types.
 

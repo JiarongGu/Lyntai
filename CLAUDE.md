@@ -17,9 +17,9 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Released: v2.5.0.** Twelve packages; public API frozen under SemVer 2.0 since 1.0, **with no carve-out** —
-the one that existed (the `Lyntai.Generation` PACKAGE, from 2.0.1) was withdrawn in 3.0, `docs/DECISIONS.md`
-**D70**.
+**Released: v3.0.0 (2026-08-17).** Twelve packages; public API frozen under SemVer 2.0 since 1.0, **with no
+carve-out** — the one that existed (the `Lyntai.Generation` PACKAGE, from 2.0.1) was withdrawn in 3.0,
+`docs/DECISIONS.md` **D70**.
 
 The whole pre-1.0 line shipped (routing depth, LLM-ops, three storage backends, BYO
 resource seams, local GGUF, agentic tool-calling native + prompt, MCP both directions, durable jobs, the §9
@@ -30,7 +30,9 @@ made the generation backends registerable in one line each, **2.2.0** shipped th
 (`Lyntai.Lifecycle`; D30) with `LlmVerdict.NotConfigured` (D31), `AddSemanticMemory` (D34), honest
 `MigrateUpAsync` twins (D33) and `CodexAgentSession` (D35), **2.3.0** carried the pre-release whole-library
 review that 2.2.0 shipped without (D18, D37), **2.4.0** gave an agent session the host's own MCP servers on
-either CLI backend (D38), and **2.5.0** shipped the **long-term memory subsystem**. Per-release detail is
+either CLI backend (D38), **2.5.0** shipped the **long-term memory subsystem**, and **3.0.0** (2026-08-17)
+reshaped that subsystem into the retention model below, opened the generation stream door, added the
+cross-process job cap, and withdrew the generation SemVer exemption. Per-release detail is
 `CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D82 — the memory subsystem is **D39–D41**,
 **D45–D62**, **D63**, **D72** and **D76–D79**; D42–D44 are the doc and packaging decisions that landed
 beside it, not memory ones). **D67–D82 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
@@ -48,8 +50,8 @@ following D77 into Core (**D80**), and the two store domains whose whole SQL sur
 sharing it (**D81**), and RRF ranking by COMPETITION, so an uninformative signal contributes nothing
 (**D82**). The pass that produced D77–D81 is archive **Part 82**.
 
-**Long-term memory (2.5.0) is the newest subsystem** and the one a session is most likely to reason about
-wrongly, because it is not the three older memory surfaces: named engines resolved by name like
+**Long-term memory (2.5.0, reshaped in 3.0.0) is the newest subsystem** and the one a session is most
+likely to reason about wrongly, because it is not the three older memory surfaces: named engines resolved by name like
 `IHttpClientFactory` (`IMemoryEngine` / `IMemoryEngineFactory` / `AddMemoryEngine`; **D39**), a graph engine
 whose entries decay, connect and open as a cheap index (`UseGraph()`), decay measured in **interference
 rather than elapsed time** with the age policy as a seam (**D40**), **burial rather than deletion** (**D41**),
@@ -57,9 +59,9 @@ InMemory + SQLite + Postgres backends under one contract, and `AddMemoryTools` e
 model. It was purely additive — `IMemoryStore`, `ISemanticMemory` and `ICuratedMemoryStore` are unchanged and
 co-exist with it. The contract is design §5.7.
 
-**`## Unreleased` is NOT empty, and the memory subsystem has been RESHAPED in it — read `### Breaking`
-before assuming any memory behaviour.** The eleven facts a fresh session most needs — seven from the
-reshape itself, then four from the pre-freeze sweep below:
+**3.0.0 RESHAPED the memory subsystem — a session whose priors come from 2.5-era text must read
+`CHANGELOG.md` `## 3.0.0` `### Breaking` before assuming any memory behaviour.** The eleven facts a fresh
+session most needs — seven from the reshape itself, then four from the pre-freeze sweep below:
 
 1. **Every seam was renamed to one shape, `IMemory<Domain>Policy`** (**D47**). `IMemoryClock` →
    `IMemoryAgePolicy` (there was never a clock — age is *interference*), `IRetrievabilityPolicy` →
@@ -138,8 +140,8 @@ is NOT required is `KnownSubjectsAsync`, which defaults to an empty list.
     LOST without the grade.
 
 **A 2.5 consumer's ordered upgrade path is `docs/migration-2.5-to-3.0.md`** — point them there rather than
-reconstructing it from `CHANGELOG.md`, whose `## Unreleased` records each change as it landed and therefore
-contains entries later ones supersede.
+reconstructing it from `CHANGELOG.md`, whose `## 3.0.0` section is the net-effect INVENTORY rather than the
+ordered path.
 
 **The packaging rules are now gated, not remembered** — `verify` runs fifteen checks, four of them added at
 2.0.1 and `check-docs` added with the memory work (a doc that uses vocabulary a decision retired fails the

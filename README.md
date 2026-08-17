@@ -36,13 +36,24 @@ package boundaries, a starting bundle, and four build gates that keep the packag
 ownership brought in line with the LLM side · **2.2.0** the provider-lifetime pool for keys owned outside the
 deployment, plus a second agent-session backend · **2.3.0** the pre-release whole-library review, with two
 documented compile-time breaks · **2.4.0** an agent session that can be given the host's own MCP servers on
-either CLI backend · **2.5.0** long-term memory.
+either CLI backend · **2.5.0** long-term memory · **3.0.0** the memory retention model, streaming
+generation through the router, and the cross-process job cap.
 
 **2.5.0 — long-term memory.** Several memory systems coexist in one app and resolve by name the way
 `IHttpClientFactory` resolves clients; entries decay, link to what they were recalled with, and open as a
 cheap index you pay to expand. Decay is measured in what has happened in a memory rather than in elapsed
 time, and a decayed entry is buried rather than deleted. Purely additive — the three existing memory
 surfaces are unchanged, and an app that never calls `AddMemory`/`AddMemoryEngine` sees no difference.
+
+**3.0.0 — the memory retention model, and the platform work around it.** The 2.5 memory subsystem reshaped:
+one `IMemory<Domain>Policy` naming shape for every policy seam, FSRS's power-law forgetting curve as the
+only shipped default (difficulty axis live, reviews logged for later fitting), rank fusion as the
+registered ranking default, model-in-the-loop annotation and verification seams, and authoritative facts
+that survive any recall limit. Around it: streaming generation reachable through the router, tool calls on
+the LLM streaming contract, a cross-process job concurrency cap, and the withdrawal of the generation
+SemVer exemption, so every package carries the full promise. **Breaking, deliberately and with a path** —
+a 2.5 consumer starts at `docs/migration-2.5-to-3.0.md`, the ordered upgrade with a worked before/after;
+stored data needs nothing (schema changes run automatically).
 `CHANGELOG.md` has the per-release detail; `docs/DECISIONS.md` has the reasoning behind the load-bearing calls.
 **This file documents the working tree, not only the newest package**: anything that has not shipped yet is
 listed under `## Unreleased` in `CHANGELOG.md`, so check there before assuming a member below is in the

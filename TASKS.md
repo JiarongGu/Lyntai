@@ -15,10 +15,10 @@ LLM-ops layer (prompt registry, scoring, traces, memory). `AddLyntai(...)` and g
 
 ## Active backlog
 
-_**v2.5.0 is released (2026-08-08); `CHANGELOG.md`'s `## Unreleased` carries the whole of 3.0** — the memory
-retention model AND the pre-freeze sweep that followed it (the generation stream door, the cross-process job
-cap, the forget/prune split, the SemVer-exemption withdrawal). Reading it as "the memory work" is how a
-session misses that `IJobStore` and `IGenerationRouter` gained required members too.
+_**v3.0.0 is released (2026-08-17); `CHANGELOG.md`'s `## 3.0.0` section carries the whole of it** — the
+memory retention model AND the pre-freeze sweep that followed it (the generation stream door, the
+cross-process job cap, the forget/prune split, the SemVer-exemption withdrawal). Reading it as "the memory
+work" is how a session misses that `IJobStore` and `IGenerationRouter` gained required members too.
 Everything through the generation platform, the package restructure, the provider-lifetime seam, the codex
 agent session, app-owned MCP servers, the long-term memory subsystem and the multilingual measurement has
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
