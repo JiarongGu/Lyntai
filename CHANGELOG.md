@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased — the memory retention model, and the 3.0 pre-freeze review
+## 3.0.0 — the memory retention model, and the 3.0 pre-freeze review (2026-08-17)
 
 **Upgrading from 2.5? Start at `docs/migration-2.5-to-3.0.md`.** It is the ordered path with a worked
 before/after; this section is the inventory. Entries below cite that guide's **§Checklist**, whose sixteen
