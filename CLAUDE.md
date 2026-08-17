@@ -150,7 +150,7 @@ grow without a decision), plus `consumer-smoke` outside `verify` (pack, then res
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3169 passed / 3190 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 379/379, doc samples 76/76.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 380/380, doc samples 76/76.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above

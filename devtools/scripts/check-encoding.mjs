@@ -82,12 +82,17 @@ export function checkEncoding(repo, log = console.log, files = null) {
   }
 
   const hits = [];
+  const unreadable = [];
   for (const file of candidates) {
     let text;
     try {
       text = fs.readFileSync(path.join(repo, file), 'utf8');
-    } catch {
-      continue;   // unreadable or deleted between listing and read; not this guard's business
+    } catch (e) {
+      // ENOENT is a pending deletion — nothing left to certify. Anything ELSE is a file this guard cannot
+      // prove clean, and a silent skip there is a false PASS (check-sensitive's rule, owed here too).
+      if (e?.code === 'ENOENT') continue;
+      unreadable.push(`${file}: ${e.message}`);
+      continue;
     }
 
     const lines = text.split('\n');
@@ -98,7 +103,13 @@ export function checkEncoding(repo, log = console.log, files = null) {
     }
   }
 
+  if (unreadable.length > 0) {
+    log(`check-encoding: ✗ ${unreadable.length} tracked text file(s) could not be READ, so this gate cannot certify them`);
+    for (const u of unreadable) log(`  ${u}`);
+  }
+
   if (hits.length === 0) {
+    if (unreadable.length > 0) return 1;
     log(`check-encoding: ${candidates.length} tracked text file(s) free of mojibake ✓`);
     return 0;
   }

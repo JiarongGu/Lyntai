@@ -6140,6 +6140,12 @@ synchronously (new `pitfalls.md` §Testing entry). And the hanging-locator RED r
 itself past the test's own bounded failure — an orphaned child inherits the harness's console handles — so
 the fixture self-exits and the trap is recorded (second new §Testing entry).
 
+**The retracted thirteenth candidate was closed as a follow-up anyway.** The finder withdrew
+"`check-encoding` swallows every read error" as unverified — but the half of it that IS the repository's
+own doctrine (an unscannable file must never be silently passed; `check-sensitive` distinguishes a pending
+deletion from a read failure for exactly this reason) held on inspection, so the gate now fails a tracked
+file it cannot read, TDD-first through the guard's own suite (380/380).
+
 `verify` 15/15 — suite 3169/3190 (21 skipped, the live-backend set, with the Postgres leg exercised for
 real), e2e 3/3. Twenty tests net new; `KeyedLock<TKey>` is the one public-surface addition, accepted into
 the Core API baseline deliberately.

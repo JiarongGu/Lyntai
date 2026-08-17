@@ -336,6 +336,9 @@ references to documents that no longer exist, and the migration guide's missing 
   covered container startup AND the migration, so a migration defect reported as "Docker unavailable" and
   the whole Postgres leg skipped, with a skip count identical to the Docker-down case the count heuristic
   watches for. The catch now covers container startup only.
+- **`check-encoding` fails a tracked file it cannot READ instead of silently passing it** — a missing file
+  (a pending deletion) still skips, but any other read failure is a file the gate cannot certify clean,
+  the same split `check-sensitive` already carries.
 - **`StorageFeature.None`'s doc no longer promises a version table nothing creates** — zero tag passes
   means the migration runner never executes for it, which is now what the doc (and a pin test) says.
 

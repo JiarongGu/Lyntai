@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
 
 import { MOJIBAKE, SCANNED, checkEncoding } from '../check-encoding.mjs';
@@ -96,6 +98,20 @@ test('SCANNED covers the file kinds this repository actually authors', () => {
 test('a missing file is skipped rather than crashing the run', () => {
   withRepo({}, (repo) => {
     assert.equal(checkEncoding(repo, () => {}, ['src/gone.cs']), 0);
+  });
+});
+
+test('an EXISTING file that cannot be read FAILS rather than being silently passed', () => {
+  // check-sensitive's rule, owed here too: ENOENT is a pending deletion with no content left to certify,
+  // but any OTHER read failure is a file this guard cannot prove clean — and a bare catch turned that into
+  // a silent pass, the same quiet ending the C-quoted-path bug had in check-docs.
+  withRepo({}, (repo) => {
+    fs.mkdirSync(path.join(repo, 'src', 'weird.cs'), { recursive: true }); // reads as EISDIR, not ENOENT
+    const lines = [];
+    const code = checkEncoding(repo, (m) => lines.push(m), ['src/weird.cs']);
+
+    assert.equal(code, 1);
+    assert.ok(lines.join('\n').includes('src/weird.cs'), 'must name the unreadable file');
   });
 });
 
