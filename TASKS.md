@@ -55,6 +55,12 @@ measure. It was briefly untrue again when Parts 89 and 90 arrived from adopters 
 is the pattern worth expecting: **the next startable item will arrive from a consumer, not from this
 list.**
 
+**Every blocker below was re-checked against the tree on 2026-08-21** — because a "blocked" label is a claim
+development can overtake, and this file has been wrong that way before. Six held (`codex` is still absent
+from PATH; `GenerationKinds.Model3d` still has no provider; twelve unverified-surface markers still sit in
+the generation backends; `OpenAiHttp.InBandError` is unchanged). **One was stated wrongly** — see Part 65,
+where the named obstacle was a missing instrument and the real one is a missing model.
+
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
 - **Part 33 / GEN6 (streaming TTS)** — a vendor pick and a key. Shipping it unmeasured is the exact mistake
@@ -65,11 +71,15 @@ Blocked, and on what:
   owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
   PATH, not in the npm global root, not in any usual location. The 2026-08-04 capture (0.146.0) came from an
   install that is gone. So this needs a REINSTALL plus a turn, not just a go-ahead.
-- **Part 65** — a measurement budget for the drift item (a RATE across models is not an anecdote). The
-  `many-candidates` item's blocker changed on 2026-08-15: the paired sweep it waited on now exists
-  (`memory-enrichment`, real model) and puts that shape worst at **+0.2622**, so what is blocked is no
-  longer the evidence but the RULE — which needs a sweep that varies the admission BOUND, not enrichment.
-  Designing it off what exists would be the over-fitting D49 refused.
+- **Part 65 holds TWO items with DIFFERENT blockers, and listing one of them here is how the other read as
+  startable** (corrected 2026-08-21 — the caveat above, applied to this file's own banner).
+  - *subject drift* — a measurement budget: a RATE across models, not an anecdote.
+  - *`many-candidates`* — **a real embedding model.** Salience reads NOVELTY, novelty needs an embedder, and
+    without one `StructuralSaliencePolicy` declines on every write — so any sweep of a salience bound is
+    flat by construction, and `FakeEmbedder` cannot stand in (Part 69 withdrew the numbers taken through it).
+    Same dependency `memory-enrichment` carries, and the same reason it exits rather than faking one. The
+    earlier wording ("needs a sweep that varies the admission BOUND, which does not exist") named a missing
+    instrument rather than the missing input, and a missing instrument is something this repository builds.
 - **Part 56 / FSRS-B** — a deployment's own logged reviews. The observable now exists; the data does not,
   and this repository cannot invent it without repeating the mistake D49 refused.
 - **Part 75** — two or three real aggregators to measure an in-band `code` against. Reading it unmeasured is
@@ -294,6 +304,22 @@ single-seed replay would be the over-fitting D49 refused; it needs the paired sw
   <br>**What is still open is unchanged, and it is the RULE.** A sweep that varies enrichment says where the
   cost lands; designing a bounded-admission rule needs a sweep that varies the BOUND, which does not exist.
   Full output: `local/superpowers/records/2026-08-15-enrichment-attribution.txt`.
+  <br>**CORRECTED 2026-08-21 — the blocker above is real but was stated WRONGLY, and the wrong statement made
+  this look startable.** "A sweep that varies the BOUND does not exist" reads as *nobody has built the
+  instrument*, which in this repository is an invitation. It is not the obstacle. A bound on salience's
+  ranking contribution ALREADY exists and always has —
+  `ReciprocalRankFusionOptions.SalienceWeight`, a continuous knob defaulting to 1 — and sweeping it on the
+  model-free corpus is **guaranteed flat for reasons that have nothing to do with the knob**:
+  `GraphMemoryEngine.Probe` returns novelty 0 with zero comparables when no vector search runs, so without an
+  embedder `StructuralSaliencePolicy` declines on every write; and RRF ranks by COMPETITION (**D82**), so a
+  uniformly-tied signal contributes a constant and cannot move the ordering at any weight. The `0` arm and
+  the `4` arm are the same engine.
+  <br>**So the real blocker is the one `memory-enrichment` already carries: a REAL embedding model.** Novelty
+  is what salience reads, novelty needs an embedder, and `FakeEmbedder`'s "similarity" is word overlap — which
+  is why Part 69 withdrew the numbers taken through it and why `memory-enrichment` EXITS rather than
+  substituting a double. That is an environment dependency, which is what the blocked list is for. The trap
+  itself is recorded in `.claude/knowledge/pitfalls.md`, because the flat curve would have read as a clean
+  exoneration with every existing control green.
 
 ---
 

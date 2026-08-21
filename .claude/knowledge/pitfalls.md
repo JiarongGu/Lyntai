@@ -634,6 +634,22 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   (`DECISIONS.md` D56). **A documented blind spot is still blind.** If the instrument cannot express the
   promise, the fix is the instrument, and the cost of not fixing it is bounded only by how important the
   unmeasured promise happens to be.
+  <br>**Sequel, 2026-08-21, and it is the trap on the OTHER side of that advice.** "Build the instrument" was
+  about to be applied to `TASKS.md` Part 65's `many-candidates` item by sweeping
+  `ReciprocalRankFusionOptions.SalienceWeight` — a knob that already exists, over a corpus that already
+  exists, mirroring `MemorySpacingSweep` almost line for line. It would have returned a **perfectly flat
+  curve**, and the flatness would have been an artifact end to end. Two facts compose, and neither is visible
+  from the sweep: `GraphMemoryEngine.Probe` returns `(Novelty 0, Comparables 0)` when there is no vector
+  search, so **without an embedder `StructuralSaliencePolicy` declines on every single write** and salience is
+  uniformly absent; and `ReciprocalRankFusionPolicy` ranks by COMPETITION (**D82**), so a signal on which
+  every candidate ties contributes the same constant term and **cannot move the ordering at any weight**. Arm
+  0 and arm 4 are then the same engine.
+  <br>The output would have read as a clean exoneration — flat, tight CIs, every control green, because every
+  control that exists checks that the arms carry their own *weights*, which they would have. **Ask not "does
+  each arm carry a different knob value?" but "does the SIGNAL that knob scales actually VARY on this
+  corpus?"** — and assert the second one in the study, as a distinct-value count, the same way
+  `MemoryCorpusGoldenTests` pins that a language arm genuinely differs. A knob that scales a constant is
+  unmeasurable, and nothing about the shape of the experiment says so.
 - **The guard that stops a contract fact being wired to one backend only counts the CONTRACT's declarations,
   not what each backend CALLS — so it is blind in exactly one direction.** Measured 2026-08-14: all 68
   `MemoryGraphStoreContract` facts are wired on all three backends today (68/68/68), so this is latent, not
