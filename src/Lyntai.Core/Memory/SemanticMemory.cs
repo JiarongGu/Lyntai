@@ -19,6 +19,8 @@ public sealed class SemanticMemory(
 
     private readonly ILogger _logger = logger ?? NullLogger<SemanticMemory>.Instance;
 
+    private int _warnedUnlistable;
+
     private IEmbedder Embedder => embedder ?? throw new InvalidOperationException(
         "Semantic memory requires an IEmbedder — register one with builder.AddEmbeddings(...).");
 
@@ -34,13 +36,14 @@ public sealed class SemanticMemory(
         _logger.LogDebug("semantic memory: remembered {Chars} chars in {Task}/{Scope}", content.Length, taskKey, scope);
     }
 
-    public async Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string scope, string query,
+    public async Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string? scope, string query,
         int k = 5, double minScore = 0, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(query) || k <= 0) return [];
         try
         {
             var qv = await Embedder.EmbedAsync(query, ct).ConfigureAwait(false);
+            if (scope is null) return await AcrossScopesAsync(taskKey, qv, k, minScore, ct).ConfigureAwait(false);
             var matches = await vectors.SearchAsync(Collection(taskKey, scope), qv, k, ct).ConfigureAwait(false);
             return [.. matches.Where(m => m.Score >= minScore).Select(m => new SemanticHit(m.Payload, m.Score))];
         }
@@ -53,6 +56,49 @@ public sealed class SemanticMemory(
             _logger.LogWarning(ex, "semantic recall failed for {Task}/{Scope} — returning empty (reindex after a model change)", taskKey, scope);
             return [];
         }
+    }
+
+    /// <summary>Search every collection under the task and merge — one search per scope, each already bounded
+    /// by <paramref name="k"/>, so the global top-k is a subset of the per-scope top-k's and nothing is
+    /// missed by merging afterwards.</summary>
+    /// <remarks>Ties break by scope then content, ordinally. Without that, two equally-scoring entries in
+    /// different scopes swap places between runs and, at the k boundary, one silently drops out — the defect
+    /// <c>VectorStoreContract.Equal_scores_are_ordered_by_id</c> pins one layer down, reintroduced here by
+    /// the merge.</remarks>
+    private async Task<IReadOnlyList<SemanticHit>> AcrossScopesAsync(string taskKey, float[] qv, int k,
+        double minScore, CancellationToken ct)
+    {
+        if (vectors is not IListableVectorStore listable)
+        {
+            // once per store: it is a wiring fact, not a per-call event, and a scope-less recall is on the
+            // hot path of every prompt an application composes
+            if (Interlocked.Exchange(ref _warnedUnlistable, 1) == 0)
+                _logger.LogWarning(
+                    "semantic memory: a recall with no scope searches every scope of the task, which needs " +
+                    "IListableVectorStore; {Store} cannot enumerate its collections, so nothing was searched",
+                    vectors.GetType().Name);
+            return [];
+        }
+
+        var prefix = $"{taskKey}{CollectionSeparator}";
+        var collections = await listable.ListCollectionsAsync(prefix, ct).ConfigureAwait(false);
+
+        var merged = new List<SemanticHit>();
+        foreach (var collection in collections)
+        {
+            ct.ThrowIfCancellationRequested();
+            var matches = await vectors.SearchAsync(collection, qv, k, ct).ConfigureAwait(false);
+            var scope = collection[prefix.Length..];
+            merged.AddRange(matches
+                .Where(m => m.Score >= minScore)
+                .Select(m => new SemanticHit(m.Payload, m.Score) { Scope = scope }));
+        }
+
+        return [.. merged
+            .OrderByDescending(h => h.Score)
+            .ThenBy(h => h.Scope, StringComparer.Ordinal)
+            .ThenBy(h => h.Content, StringComparer.Ordinal)
+            .Take(k)];
     }
 
     public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) =>

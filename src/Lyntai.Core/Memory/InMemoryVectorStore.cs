@@ -9,7 +9,7 @@ namespace Lyntai.Memory;
 /// register a real vector backend (pgvector, sqlite-vec, …) instead. Thread-safe, and its top-k is
 /// DETERMINISTIC: equal scores are broken by id (see <see cref="SearchAsync"/>).
 /// </summary>
-public sealed class InMemoryVectorStore : IVectorStore
+public sealed class InMemoryVectorStore : IListableVectorStore
 {
     private readonly record struct Item(float[] Vector, string Payload);
 
@@ -56,5 +56,17 @@ public sealed class InMemoryVectorStore : IVectorStore
     {
         _collections.TryRemove(collection, out _);
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>An EMPTY collection is not listed: the dictionary keeps a bucket after its last entry is
+    /// deleted, and reporting it would tell a caller a scope exists that holds nothing — which the persistent
+    /// backends, where a row-less collection has no rows at all, could not agree with.</remarks>
+    public Task<IReadOnlyList<string>> ListCollectionsAsync(string prefix, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(prefix);
+        return Task.FromResult<IReadOnlyList<string>>(
+            [.. _collections.Where(kv => !kv.Value.IsEmpty && kv.Key.StartsWith(prefix, StringComparison.Ordinal))
+                .Select(kv => kv.Key)]);
     }
 }

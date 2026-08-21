@@ -16,7 +16,7 @@ namespace Lyntai.Storage.Postgres;
 /// search is exact (a sequential scan with pgvector's operator). An ANN index (hnsw/ivfflat, needs a fixed
 /// dimension) is a future enhancement.</para>
 /// </summary>
-public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorStore
+public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IListableVectorStore
 {
     private readonly object _lock = new();
     private Task? _schema;
@@ -86,6 +86,26 @@ public sealed class PostgresVectorStore(IDbConnectionFactory factory) : IVectorS
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM lyntai_vector WHERE collection = @collection", new { collection }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks><c>substr(...) = @prefix</c> rather than <c>LIKE</c>, so a <c>%</c> or <c>_</c> inside a
+    /// caller's prefix stays data — the contract says the prefix is never a pattern. <c>COLLATE "C"</c> makes
+    /// the comparison byte-exact, which is the ORDINAL rule the contract promises and the same reasoning
+    /// <see cref="SearchAsync"/>'s tiebreak carries: a differently-collated deployment would otherwise
+    /// disagree with the other two backends.</remarks>
+    public async Task<IReadOnlyList<string>> ListCollectionsAsync(string prefix, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(prefix);
+        await EnsureSchemaAsync().ConfigureAwait(false);
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var rows = await conn.QueryAsync<string>(new CommandDefinition(
+            """
+            SELECT DISTINCT collection FROM lyntai_vector
+            WHERE substr(collection, 1, @len) COLLATE "C" = @prefix
+            """,
+            new { len = prefix.Length, prefix }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows];
     }
 
     // create the extension + table once (idempotent). If the first attempt FAULTED (a transient blip —

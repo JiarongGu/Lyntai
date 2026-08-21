@@ -5,9 +5,10 @@ namespace Lyntai.Memory.Engines;
 
 /// <summary>Adapts meaning-based <see cref="ISemanticMemory"/> to <see cref="IMemoryEngine"/>. Associative
 /// only, so an authoritative write is REFUSED rather than downgraded.
-/// <para><see cref="ISemanticMemory"/> needs a concrete scope (a vector collection is per task+scope) and a
-/// non-empty query to embed, so a recall missing either yields nothing rather than throwing — the same
-/// fail-open posture the rest of this seam takes.</para></summary>
+/// <para>A recall with no query to embed yields nothing rather than throwing — the same fail-open posture
+/// the rest of this seam takes. A recall with no SCOPE searches every scope of the task, which is what a
+/// consumer treating scope as an optional filter means by it; that needs an
+/// <see cref="IListableVectorStore"/> underneath and yields nothing without one.</para></summary>
 /// <param name="name">This engine's name, hierarchical when it is a member of a composite.</param>
 /// <param name="semantic">The semantic memory to draw on.</param>
 /// <param name="defaultK">How many hits to ask for when the query carries no limit.</param>
@@ -44,9 +45,9 @@ public sealed class SemanticMemoryEngine(
     public async Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        // BEFORE the early returns below, or a cancelled token would be swallowed by a missing scope
+        // BEFORE the early return below, or a cancelled token would be swallowed by an empty query
         ct.ThrowIfCancellationRequested();
-        if (query.Scope is null || string.IsNullOrWhiteSpace(query.Query)) return MemoryRecall.Empty;
+        if (string.IsNullOrWhiteSpace(query.Query)) return MemoryRecall.Empty;
 
         try
         {
@@ -57,10 +58,15 @@ public sealed class SemanticMemoryEngine(
 
             var items = new List<MemoryItem>(hits.Count);
             foreach (var hit in hits)
+            {
+                // the hit's own scope on a cross-scope recall, the caller's otherwise — the id must be the
+                // one RememberAsync minted for this (task, scope, content), or the ref addresses nothing
+                var scope = hit.Scope ?? query.Scope ?? string.Empty;
                 items.Add(new MemoryItem(
-                    new MemoryRef(Name, MemoryContentId.For(query.TaskKey, query.Scope, hit.Content)),
+                    new MemoryRef(Name, MemoryContentId.For(query.TaskKey, scope, hit.Content)),
                     hit.Content, hit.Content, MemoryGrade.Associative,
                     Math.Clamp(hit.Score, 0, 1), 1, 0));
+            }
 
             return new MemoryRecall(items, MemorySources.Semantic);
         }

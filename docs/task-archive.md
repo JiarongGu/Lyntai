@@ -6149,3 +6149,216 @@ file it cannot read, TDD-first through the guard's own suite (380/380).
 `verify` 15/15 — suite 3169/3190 (21 skipped, the live-backend set, with the Postgres leg exercised for
 real), e2e 3/3. Twenty tests net new; `KeyedLock<TKey>` is the one public-surface addition, accepted into
 the Core API baseline deliberately.
+
+---
+
+## Part 89 — FROM AN ADOPTER: two seams that forced a bespoke `IMemoryEngine` (2026-08-20)
+
+_Aurelia adopted 3.0.0 the day it was read (eight refs; the only compile break was `IProviderInstallation`
+→ `IProviderProbe`, one cast and one assertion). It then took **`MemoryComposition`** — the 2.5.0
+authoritative-fact budget — because its hand-rolled prompt block had **no character budget at all**. That
+worked, and found a real defect in the consumer rather than here. But reaching it required implementing
+`IMemoryEngine` by hand, and the two reasons why are both general. **Startable**: neither needs anything
+this repository lacks._
+
+**A. `ComposeAsync` is reachable only THROUGH `RecallAsync`, so a consumer with its own retrieval cannot
+use the composition.** `MemoryComposition.ComposeAsync` is an extension on `IMemoryEngine`: it awaits
+`engine.RecallAsync(query)` and then does pure formatting — the split by `Grade`, the reserve, the verbatim
+fill, the `… N further authoritative facts omitted (budget)` line. That second half is the valuable,
+hard-to-get-right part, and it is the half that depends on nothing.
+
+The adopter fuses **semantic** hits (cosine over a vector mirror of the same SQLite file) ahead of BM25 in
+its own store. `CuratedMemoryEngine` recalls through the curated store's own search, so adopting it would
+have *lost* that. What shipped instead is an `IMemoryEngine` whose `RecallAsync` largely ignores the
+`MemoryQuery` and returns material the caller already selected — an engine that is not really an engine,
+written only to reach a formatter.
+
+- **Ask:** a door onto the formatting half — an overload taking an already-materialised `MemoryRecall`, or
+  a public `MemoryComposition.Render(items, options)` that `ComposeAsync` then calls. The seam already
+  exists inside the method; this is where to cut it, not new behaviour.
+- **Acceptance (two-sided):** either that door exists, or a decision records that composition is
+  deliberately engine-only and a consumer with its own retrieval is expected to copy ~40 lines — which is a
+  fine answer, and settles it instead of leaving each consumer to guess.
+
+**B. A curated catalog that mixes PROVENANCE cannot express the grade split.** `CuratedMemoryEngine` is
+authoritative-by-construction (`Supported => Authoritative`, and it throws on an associative write) because
+`ICuratedMemoryStore` has no grade column — the reasoning in the type's own docs is sound. But a real
+curated catalog mixes: the **owner** types facts, and the **assistant** saves what it learned while
+working. That distinction is the whole reason to grade — presenting an assistant's inference as exact is
+precisely the confusion the split exists to prevent — and it is invisible to the current model.
+
+- **Rejected workaround, in your terms:** two engines under a composite, one per provenance. Impossible —
+  both would be `CuratedMemoryEngine` and therefore both authoritative, and the `kind` axis is already
+  spent on the catalog's own sections (this adopter uses four: brand / product / preference / fact).
+- **Ask:** let a curated engine derive the grade PER ENTRY — a classifier delegate, or a reserved metadata
+  key. `CuratedMemory.Metadata` already exists and is app-owned; this adopter keeps `title` and `source`
+  there today, so the information is present and only the seam is missing.
+- **Adjacent, smaller:** `CuratedMemoryEngine` binds ONE `kind`, so a catalog with several sections has no
+  single-engine read and needs a composite of N. Deliberate (the docs record fixing an unbounded
+  whole-catalog read), but a `kind: null` meaning "every section, still bounded by `limit`" would remove
+  the N.
+
+**C. Verification — "the single largest recall-quality lever the subsystem has", by its own registration
+doc — is reachable ONLY from `GraphMemoryEngine`.** `IMemoryVerificationPolicy` is a clean standalone
+contract (`VerifyAsync(request, ct)`, never null, fails to `NoOpinion`), but the only consumer is
+`GraphMemoryEngine`'s optional ctor parameter. A consumer on `CuratedMemoryEngine`, on a composite of
+curated members, or on its own retrieval cannot use it at all — and would get **no signal that it is
+absent**, because the absence renders as `Answered = null`, which is indistinguishable from "a judge looked
+and had no opinion".
+
+**You have already fixed one instance of exactly this**, one layer in: `MemoryEngineBuilder`'s doc records
+that `AddMemory().AddMemoryVerification()` produced *"a registered policy that never ran — silently, with no
+throw and no missing result, only worse recall"* while the same registration behind `UseGraph()` worked.
+This is that defect a layer out, and the same argument applies verbatim.
+
+- **Ask:** either let a non-graph engine consult a registered policy, or refuse the registration loudly when
+  nothing will consult it. The second is a perfectly good answer and cheaper — a startup throw naming the
+  engine is strictly better than a lever that silently is not there.
+- **Why this adopter did NOT build it themselves instead**, since the interface is callable: the shipped
+  `LlmMemoryVerificationPolicy` needs an `ILlmClientFactory`, and this app only builds a Lyntai LLM
+  container for **api**-kind endpoints. Its seeded default endpoint is a local **console CLI**, so on a
+  default install there is no factory and no judge — wiring it would ship a feature that silently does
+  nothing for most owners, which is the same failure being reported. Routing the judge through the CLI
+  provider instead would work but spends a billed agent turn per conversation start, which is an owner's
+  decision rather than an adopter's.
+
+**What the adopter found in ITSELF, recorded because it is the evidence the feature earns its keep:** its
+selection returned only the top ranked matches on a large catalog, so a standing business rule that shared
+no words with the question was **absent from the prompt** — and a reserved budget cannot rescue what
+selection already dropped. Fixed there (authoritative material is now offered to the composer in full, and
+the composer bounds it), sabotage-verified, and worth stating here because the reserve invites a consumer
+to assume selection is handled. A sentence in the composition docs — *the reserve protects exact material
+from the BUDGET, not from your retrieval* — would have saved finding it by test.
+
+✅ done 2026-08-21 — **Outcome: all three asks answered with the FIRST branch of their two-sided acceptance,
+additively.** (A) `MemoryComposition.Render(basePrompt, items, options)` is public and `ComposeAsync` now
+calls it, so the two cannot diverge; it takes `IReadOnlyList<MemoryItem>` because composition reads nothing
+else off a recall, and the missing sentence about the reserve is on
+`MemoryCompositionOptions.AuthoritativeCharacters` (**D83**). (B) `CuratedMemoryEngine.Grade` is an optional
+read-path `Func<CuratedMemory, MemoryGrade>` — a delegate rather than a reserved metadata key, because which
+key carries provenance is the deployment's convention — and `Supported` deliberately does NOT widen, since
+widening would route associative writes to a store with no grade column to mark them with; the adjacent
+`kind: null` whole-catalog read shipped with it, read-only and loud about why (**D84**). (C) answered by a
+wiring check rather than by teaching a second engine to judge: `MemoryWiring` reports an
+`IMemoryVerificationPolicy` (or `IMemoryAnnotationPolicy`) registered where no engine can consult one, at
+Warning by default and as a startup failure under `MemoryEngineBuilder.StrictWiring()` (**D85**).
+<br>**Refused by design, and worth stating:** a throw-by-default on `AddMemoryVerification()`. It is
+unambiguous only for the container it is wrong in — an application with a graph engine AND a curated one has
+a legitimately-consulted policy — so the check is container-wide and the escalation is the host's to declare.
+The check also stays silent the moment any member is an engine this library does not recognise, since a BYO
+engine may well consult those seams; a check that fires on correct wiring is the gate-that-lies failure this
+repository has already paid for.
+<br>Surface: `MemoryComposition.Render`, `CuratedMemoryEngine.Grade`, `MemoryEngineBuilder.UseCurated(kind,
+grade, label)` (a separate OVERLOAD, not a third optional parameter) and `StrictWiring()`. Core API baseline
+updated; every line is an addition.
+Tests: `CuratedMemoryEngineTests` (new, 11 facts), `MemoryWiringDiagnosticsTests` (new, 10),
+`MemoryCompositionTests` +4.
+
+**The first pass got the SemVer reasoning wrong in the STRICT direction, and the correction is the part
+worth keeping.** It read D50's "after the freeze that costs a whole major" as binding — but D50 says that
+about the strict rule, and **D18** is the live carve-out: while every consumer is first-party, a *documented*
+break may ship in a minor, and both reporters here are first-party. The break was therefore permitted, and
+an overload plus two `init` properties was still the better shape, because it costs nothing and needs no
+disclosure at all. The general lesson: **a decision records what was true when it was written, and a later
+one may have relaxed it — read the neighbours before treating a single entry as a constraint.**
+
+---
+
+## Part 90 — FROM AN ADOPTER: semantic memory is unreachable on a scope-OPTIONAL recall, and a composite hides it both ways (2026-08-21)
+
+_Gatherlight (the family planner) wired optional semantic recall over its fact store on 3.0.0 —
+`AddOpenAiCompatibleEmbedder` → a local Ollama, `UseSqliteVectorStore`, `AddSemanticMemory`, and
+`AddMemoryEngine("facts", e => e.UseGraph().UseSemantic())`. It embedded every fact, reported healthy, and
+changed nothing on the path that matters. Both reasons are general, and neither needs anything this
+repository lacks. **Startable.**_
+
+**A. `ISemanticMemory` is keyed by (task, scope) with no cross-scope recall, so a consumer whose scope is
+a FILTER gets nothing on the unfiltered path.**
+
+`SemanticMemoryEngine` says it plainly — "needs a concrete scope … a recall missing either yields nothing
+rather than throwing" — and in isolation that is right. But a large class of consumers treats scope as an
+OPTIONAL filter. This adopter scopes each fact by its `kind` precisely so that a kind-filtered recall *is*
+a scoped recall (your own phrasing, adopted deliberately); the ordinary call passes no kind at all. There,
+`Scope: null` does not mean "a recall missing a scope" — it means "search everything" — and the semantic
+member contributes exactly zero.
+
+Measured on one 25-fact corpus, `nomic-embed-text`, limit 3. The query shares **no content word** with the
+target fact (*"The children go to sleep at 8pm on school nights"*):
+
+```
+query "evening routine for the little ones"                  → Uniform, Insurance, Plumber   (target missed)
+query "evening routine for the little ones", kind=preference → Coffee, Bedtime               (target found)
+```
+
+The retrieval is *excellent* where it is reachable. The default path cannot reach it.
+
+- **Compounding:** `CompositeMemoryEngine` passes ONE `MemoryQuery` — therefore one `Scope` — to every
+  member, so "graph scoped by kind" and "semantic across everything" cannot coexist in one engine. The
+  consumer cannot work around it at the query level.
+- **This is a design choice, not a WHERE clause.** `SemanticMemory.Collection(task, scope)` is
+  `$"{task}" + U+001F + "{scope}"` and `IVectorStore.SearchAsync` takes ONE collection, so a null scope has no
+  cheap meaning today. Three honest shapes, with the trade-off that decides it:
+  1. **One collection per TASK, scope in the payload** — one search, partition on read. Simplest query
+     path; costs a reindex (which the model-change story already normalises) and turns the currently free
+     `ForgetAsync(task, scope)` = `RemoveCollectionAsync` into a filtered delete.
+  2. **Multi-collection / prefix search on `IVectorStore`** — keeps the layout and the cheap forget, but
+     adds a required member to a public interface every BYO store implements (SemVer + `ApiSurface`).
+  3. **`SemanticMemory` fans out over the task's scopes and merges** — no interface change, but nothing can
+     enumerate a task's scopes (`IVectorStore` has no list), so the scope list would have to come from the
+     caller, which hands the problem back to the consumer that could not solve it.
+- **Acceptance (two-sided):** either `scope: null` gains a defined "every scope under this task" meaning
+  (bounded by `k`) with `SemanticMemoryEngine` passing a null `query.Scope` through, **or** a decision
+  records that semantic memory is scope-MANDATORY by design — in which case `UseSemantic()` should refuse,
+  or warn at wiring time, when it joins a composite whose other members accept a null scope. Today the
+  failure is silent, and silence is the part that is not acceptable either way.
+
+**B. The other half: a composite of graph + semantic never populates the vector store at all.**
+
+`CompositeMemoryEngine.RememberAsync` routes to `_members.FirstOrDefault(m => m.Supported.HasFlag(wanted))`
+— one member, by design and documented. With `UseGraph().UseSemantic()` the graph supports both grades, so
+it takes **every** write and the semantic member's store stays permanently empty. Reversing the order is
+worse: semantic takes the associative writes and the graph — the decay, the linking, the whole retention
+model — receives none.
+
+So `UseSemantic()` on a composite is, by itself, inert in BOTH directions: nothing is written to it, and
+(per A) nothing would be read from it. It compiles, it registers, `Supported` widens, and the only way to
+discover it is to measure recall quality. This adopter now writes to `ISemanticMemory` directly alongside
+the engine write — which works, and means the builder no longer tells the whole story to the next reader.
+
+- **Ask:** either an opt-in fan-out write for every member supporting the grade (duplicating writes is a
+  real cost, so opt-in), or — cheaper and probably better — a **wiring-time diagnostic**: a composite
+  member that can never receive a write under the current routing is almost certainly a mistake, and
+  saying so at `AddMemoryEngine` time costs nothing at runtime.
+- **Acceptance (two-sided):** the no-op becomes either impossible or loud. This is the same class as
+  Part 89C — a seam that is registered, never runs, and reports nothing — and it deserves the same answer.
+
+✅ done 2026-08-21 — **Outcome: both halves closed, and B got BOTH of its asks because neither alone is
+enough.** (A) `ISemanticMemory.RecallAsync`'s `scope` is `string?` and null means "every scope of this task",
+bounded by `k`, with `SemanticHit.Scope` naming where each hit came from; `SemanticMemoryEngine` passes a
+null `MemoryQuery.Scope` through. Shape 2 from the item's own list, made ADDITIVE by putting the enumeration
+on its own optional interface — `IListableVectorStore : IVectorStore`, implemented by all three shipped
+stores — so no BYO store gains a required member and one that does not implement it yields nothing, exactly
+as before. A default interface implementation was refused: it would have made a store that CANNOT enumerate
+indistinguishable from one that holds nothing, which is the silent shape this whole part is about (**D86**).
+Forgetting stays scope-mandatory, because an enumeration that misses a scope costs a recall some hits and
+costs a consent withdrawal its whole promise.
+<br>(B) `MemoryEngineBuilder.FanOutWrites()` makes the no-op IMPOSSIBLE where a consumer wants it, and the
+`MemoryWiring` check from Part 89C makes it LOUD by default — it reports a member whose every supported grade
+an earlier member already claims. The two are needed together because fan-out is opt-in and the default
+therefore stays silent otherwise. The shadowed-member rule is deliberately narrow: it fires only when EVERY
+grade a member supports is already claimed, which is why the README's documented
+`UseCurated("glossary").UseGraph()` reports nothing while the reversed order does.
+<br>**Found while writing it: this library's own README carried an instance of the reported defect** —
+`AddMemoryEngine("chat", e => e.UseLexical().UseSemantic())`, where the lexical member takes every write and
+the semantic store stays empty. Fixed there with `FanOutWrites()` and a paragraph saying when to reach for it.
+<br>**The SQL detail worth carrying:** both backends spell the prefix match `substr(collection, 1, @len) =
+@prefix`, never `LIKE`. SQLite's `LIKE` is ASCII case-INSENSITIVE by default, so a prefix match through it
+would reach a different task whose key differs only in case, and `%`/`_` inside a task key would be read as
+wildcards on both; Postgres adds `COLLATE "C"` so the comparison is byte-exact. Pinned by two new
+`VectorStoreContract` facts wired to all three backends.
+<br>Surface: `IListableVectorStore`, `SemanticHit.Scope`, `MemoryWriteRouting`,
+`CompositeMemoryEngine.WriteRouting`, `MemoryEngineBuilder.FanOutWrites()`; `ISemanticMemory.RecallAsync`'s
+`scope` re-annotated `string?` (an annotation, not a signature — a BYO implementation sees CS8767 until it
+matches). Core/Sqlite/Postgres API baselines updated; every line is an addition. Tests:
+`VectorStoreContract` +4 facts × 3 backends, `SemanticMemoryTests` +6,
+`CompositeMemoryEngineTests` +4.

@@ -30,6 +30,31 @@ public interface IVectorStore
     Task RemoveCollectionAsync(string collection, CancellationToken ct = default);
 }
 
+/// <summary>
+/// The OPTIONAL half of <see cref="IVectorStore"/>: enumerating the collections a store holds.
+///
+/// <para><b>What it unlocks.</b> Semantic memory addresses one collection per (task, scope), so
+/// <c>ISemanticMemory.RecallAsync</c> with a null scope — "search every scope of this task" — has nothing to
+/// search without a way to ask which scopes exist. All three shipped stores implement this; a BYO store that
+/// does not simply leaves the cross-scope recall yielding nothing, which is what it did before this
+/// interface existed.</para>
+///
+/// <para><b>Separate rather than a member of <see cref="IVectorStore"/></b>: adding a required member to an
+/// interface consumers implement is a major bump, and a default body would have made a store that cannot
+/// enumerate indistinguishable from one that holds nothing — the silent shape this seam exists to end. It is
+/// the same optional-capability pattern <c>IExpandableMemory</c> and <c>IPrunableMemory</c> use.</para>
+/// </summary>
+public interface IListableVectorStore : IVectorStore
+{
+    /// <summary>Every collection name beginning with <paramref name="prefix"/>, compared ORDINALLY (byte
+    /// order, case-sensitive) — an empty prefix lists them all. Order is UNSPECIFIED; a caller needing a
+    /// stable order sorts. Returns an empty list rather than throwing when nothing matches.</summary>
+    /// <param name="prefix">The literal prefix to match. It is data, never a pattern: no wildcard, escape or
+    /// case-folding rule applies to it.</param>
+    /// <param name="ct">Cancellation.</param>
+    Task<IReadOnlyList<string>> ListCollectionsAsync(string prefix, CancellationToken ct = default);
+}
+
 /// <summary>A search result: the stored <paramref name="Payload"/> and its cosine <paramref name="Score"/>
 /// (in [-1, 1]; higher is more similar).</summary>
 public sealed record VectorMatch(string Id, string Payload, double Score);

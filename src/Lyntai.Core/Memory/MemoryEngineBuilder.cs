@@ -27,6 +27,10 @@ public sealed class MemoryEngineBuilder
 
     internal bool HasMembers => _members.Count > 0;
 
+    internal MemoryWriteRouting Routing { get; private set; } = MemoryWriteRouting.FirstCapable;
+
+    internal bool Strict { get; private set; }
+
     private sealed record MemberSpec(string Label, Func<IServiceProvider, string, IMemoryEngine> Build);
 
     /// <summary>Draw on the keyword <see cref="IMemoryStore"/>. Associative.</summary>
@@ -65,12 +69,34 @@ public sealed class MemoryEngineBuilder
     /// sections is the ordinary case: <c>UseCurated("glossary").UseCurated("style")</c> yields
     /// <c>engine/glossary</c> and <c>engine/style</c> with nothing further to say. A fixed default would
     /// make those two collide and force a label on the common path.</para></summary>
-    /// <param name="kind">The catalog section to read and write.</param>
+    /// <param name="kind">The catalog section to read and write; null reads EVERY section through one
+    /// member — still bounded by the query's limit — and makes that member read-only. That is the whole of
+    /// what a composite of N curated members bought, for a catalog whose sections need no separate
+    /// budgets.</param>
     /// <param name="label">Overrides the member's name; defaults to <paramref name="kind"/>.</param>
-    public MemoryEngineBuilder UseCurated(string kind = "memory", string? label = null)
+    public MemoryEngineBuilder UseCurated(string? kind = "memory", string? label = null) =>
+        UseCurated(kind, grade: null, label);
+
+    /// <summary>Draw on the operator-curated catalog, grading each entry from the entry itself — so one
+    /// catalog can mix the owner's typed facts with what an assistant inferred while working.
+    /// <para>A SEPARATE overload rather than a third optional parameter on the one above: appending a
+    /// parameter is source-compatible and NOT binary-compatible, so it breaks a pre-compiled caller of the
+    /// old signature while an overload breaks nobody. That is also why <paramref name="grade"/> comes
+    /// second — it is the argument this overload exists for, and it is what distinguishes the two.</para></summary>
+    /// <param name="kind">The catalog section, or null to read every one (read-only; see the overload
+    /// above).</param>
+    /// <param name="grade">Grades each entry. See <see cref="CuratedMemoryEngine.Grade"/> for why a
+    /// delegate rather than a reserved metadata key, and why the member's
+    /// <see cref="IMemoryEngine.Supported"/> does not widen.</param>
+    /// <param name="label">Overrides the member's name; defaults to <paramref name="kind"/>.</param>
+    public MemoryEngineBuilder UseCurated(string? kind, Func<CuratedMemory, MemoryGrade>? grade,
+        string? label = null)
     {
-        _members.Add(new MemberSpec(label ?? kind, (sp, full) => new CuratedMemoryEngine(
-            full, Required<ICuratedMemoryStore>(sp), kind, sp.GetService<ILogger<CuratedMemoryEngine>>())));
+        _members.Add(new MemberSpec(label ?? kind ?? "curated", (sp, full) => new CuratedMemoryEngine(
+            full, Required<ICuratedMemoryStore>(sp), kind, sp.GetService<ILogger<CuratedMemoryEngine>>())
+        {
+            Grade = grade,
+        }));
         return this;
     }
 
@@ -250,6 +276,33 @@ public sealed class MemoryEngineBuilder
         return this;
     }
 
+    /// <summary>Send every write to EVERY member that can hold its grade, rather than to the first one.
+    /// <para>What it is for: a blend whose members index the same material differently — <c>UseGraph()</c> for
+    /// decay and links beside <c>UseSemantic()</c> for meaning. Routing to the first capable member leaves the
+    /// second one's store permanently empty, and nothing but a recall-quality measurement can find that.</para>
+    /// <para>Costs one write per member (N stores, and an embedding per semantic member), which is why it is
+    /// opt-in — and read <see cref="MemoryWriteRouting.EveryCapable"/> before turning it on in a blend that
+    /// mixes an authoritative member with an associative one.</para></summary>
+    public MemoryEngineBuilder FanOutWrites()
+    {
+        Routing = MemoryWriteRouting.EveryCapable;
+        return this;
+    }
+
+    /// <summary>Turn this engine's wiring warnings into a startup failure.
+    /// <para>The checks run either way and are logged at Warning; this makes them impossible to miss on a
+    /// deployment that has no log to read, or where a seam silently not running is not survivable. It is
+    /// per-engine to declare, and container-wide in effect: one strict engine fails the build of the memory
+    /// engine factory, so a registered policy nothing consults is reported once rather than per engine.</para>
+    /// <para>Off by default: a blend that never receives a write through the engine is a legitimate shape (an
+    /// operator-curated catalog is filled through its own store), and this library will not fail an
+    /// application's startup over a configuration it cannot be sure is wrong.</para></summary>
+    public MemoryEngineBuilder StrictWiring()
+    {
+        Strict = true;
+        return this;
+    }
+
     /// <summary>Fail on two members that would share a hierarchical name. Called at CONFIGURE time, so the
     /// mistake surfaces where it was made rather than at the first recall.</summary>
     internal void Validate()
@@ -275,7 +328,10 @@ public sealed class MemoryEngineBuilder
     internal IMemoryEngine Build(IServiceProvider sp) =>
         new CompositeMemoryEngine(Name, [.. _members.Select(m => m.Build(sp, $"{Name}/{m.Label}"))],
             sp.GetService<ILogger<CompositeMemoryEngine>>(),
-            sp.GetService<IMemoryRemovalPolicy>());
+            sp.GetService<IMemoryRemovalPolicy>())
+        {
+            WriteRouting = Routing,
+        };
 
     private static T Required<T>(IServiceProvider sp) where T : class =>
         sp.GetService<T>() ?? throw new InvalidOperationException(

@@ -152,8 +152,12 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D80](#d80--merged-into-d77-2026-08-16-folded-2026-08-17) | — | MERGED INTO D77 (2026-08-16, folded 2026-08-17) |
 | [D81](#d81--shared-sql-has-a-higher-bar-than-a-shared-mapping-because-sql-drift-fails-loudly-2026-08-16) | 2026-08-16 | shared SQL has a HIGHER bar than a shared mapping, because SQL drift fails loudly |
 | [D82](#d82--rrf-ranks-by-competition-so-an-uninformative-signal-contributes-nothing-2026-08-16) | 2026-08-16 | RRF ranks by COMPETITION, so an uninformative signal contributes nothing |
+| [D83](#d83--compositions-renderer-is-reachable-without-an-engine-2026-08-21) | 2026-08-21 | composition's RENDERER is reachable without an engine |
+| [D84](#d84--a-curated-engine-grades-per-entry-and-supported-deliberately-does-not-widen-2026-08-21) | 2026-08-21 | a curated engine grades per ENTRY, and `Supported` deliberately does not widen |
+| [D85](#d85--a-blend-can-fan-a-write-out-and-a-seam-that-can-never-run-is-reported-at-wiring-time-2026-08-21) | 2026-08-21 | a blend can fan a write OUT, and a seam that can never run is reported at wiring time |
+| [D86](#d86--a-null-scope-means-every-scope-of-the-task-through-an-optional-store-capability-2026-08-21) | 2026-08-21 | a null scope means EVERY scope of the task, through an OPTIONAL store capability |
 
-_All 82 entries are live decisions._
+_All 86 entries are live decisions._
 
 <!-- index:end -->
 
@@ -911,8 +915,15 @@ nothing else about the engine.
 
 **It is a BINARY break on a frozen API, and that is why it was taken inside the 3.0 window.** An appended
 optional parameter is *source*-compatible — existing code compiles untouched — but not binary-compatible,
-because the method signature changes and a pre-compiled caller does not re-bind. After the freeze the same
-change costs a whole major version, so the window is the only cheap moment.
+because the method signature changes and a pre-compiled caller does not re-bind. Under STRICT SemVer the
+same change costs a whole major version afterwards, so the window is the cheap moment.
+
+**Amended 2026-08-21 — that last sentence was read as a prohibition, and it is not one.** **D18** defers
+SemVer strictness while every consumer is first-party: a *documented* break may ship in a minor. So the
+right question after the window closes is not "may I?" but "do I need to?" — and usually not, because a new
+overload or an `init` property adds the same capability, breaks nobody and needs no disclosure at all. That
+is the shape D83–D86 took for exactly this reason, after first talking themselves out of it by citing the
+sentence above without its neighbour.
 
 **Symmetry is the argument**: `ranking` was already per-engine and the curve was not, yet under D48 the two
 are the SAME class of seam — singular, one installed at a time. Leaving one selectable and the other not
@@ -2067,3 +2078,136 @@ live — and the 2026-08-16 comment paydown deleted it correctly, at which point
 the measured 25% would have been lost. The tell that it belonged here rather than in the comment: it names a
 real alternative, states what that alternative costs, and constrains anyone who later "fixes" the duplicate
 ranks.
+
+## D83 — composition's RENDERER is reachable without an engine (2026-08-21)
+
+`MemoryComposition.Render(basePrompt, items, options)` is public, and `ComposeAsync` is now "recall, then
+call it". The split point is where the method already divided: recall above, pure formatting below.
+
+**The alternative was to leave it engine-only**, which is what shipped through 3.0 — and an adopter took the
+composition anyway, by implementing `IMemoryEngine` whose `RecallAsync` largely ignored the `MemoryQuery` and
+returned material the caller had already selected. An engine written only to reach a formatter is a strong
+signal about where the seam belongs, and the alternative it was avoiding — copying ~40 lines of the split by
+grade, the reserve, the verbatim fill and the omission line — is duplication of the half that is easy to get
+subtly wrong and impossible to notice: a truncated authoritative fact reads exactly like a short one.
+
+**It takes `IReadOnlyList<MemoryItem>`, not a `MemoryRecall`.** Composition reads nothing else off a recall —
+not `Ran`, not `Answered` — so requiring one would make a caller with its own retrieval construct a wrapper
+to satisfy a signature. The grade comes off each item, which is the only thing the renderer needs.
+
+**What it deliberately does NOT do**, and this is the half the adopter had to find by test: the
+authoritative reserve protects exact material from the BUDGET, never from the caller's own retrieval. A fact
+the caller's selection already dropped cannot be rescued here, and the section still looks full. That
+sentence is now on `MemoryCompositionOptions.AuthoritativeCharacters`.
+
+## D84 — a curated engine grades per ENTRY, and `Supported` deliberately does not widen (2026-08-21)
+
+`CuratedMemoryEngine.Grade` is an optional `Func<CuratedMemory, MemoryGrade>` consulted on the READ path.
+Null keeps every entry authoritative, which is what the engine did before it existed.
+
+**Why it is needed at all.** `CuratedMemoryEngine` was authoritative by construction, and the type's own
+reasoning was sound: `ICuratedMemoryStore` has no grade column. But a real curated catalog MIXES provenance —
+the owner types facts, and the assistant saves what it inferred while working — and presenting an inference
+as exact is precisely the confusion the grade split exists to prevent. The workaround that suggests itself,
+two engines under a composite, is impossible: both would be `CuratedMemoryEngine` and therefore both
+authoritative, and the `kind` axis is already spent on the catalog's own sections.
+
+**A delegate, not a reserved metadata key.** `CuratedMemory.Metadata` is app-owned. Which key carries
+provenance, and which of its values mean "exact", is a convention only the deployment has — the same rule
+that made `IMemoryRemovalPolicy` a seam rather than a boolean (D75).
+
+**`Supported` stays `Authoritative`, and that is the load-bearing half.** Widening it would make a composite
+route associative writes to the CATALOG instead of to the engine that can decay them, and the store still
+has no grade column to mark them with — so they would come back exact on the next read by any consumer
+without the delegate installed. The engine can READ a grade the deployment encoded; it cannot WRITE one.
+An explicit associative write is therefore still refused, and the message names the supported route: write
+with `Grade.Inherit` carrying provenance in `Metadata`, and set `Grade` to read it back.
+
+**A throwing delegate fails the recall open** (logged, empty) rather than guessing. There is no safe
+direction to guess in: an inferred fact shown as exact is the confusion above, and an exact fact shown as
+inferred loses the protection design §5.7.0's objective (1) gives it.
+
+**`kind: null` reads every section**, still bounded by the query's limit, and makes that member read-only —
+a write has no section to go in, and choosing one would be the engine inventing the catalog's shape. It
+removes the composite-of-N a multi-section catalog needed for a single bounded read.
+
+## D85 — a blend can fan a write OUT, and a seam that can never run is reported at wiring time (2026-08-21)
+
+Two mechanisms, one decision: a registration that silently does nothing becomes either **impossible** or
+**loud**. Both shapes were reported by adopters on 3.0.0, and both are invisible by construction — nothing
+throws, no result is missing, and the only symptom is recall quality, which a consumer enabling a feature for
+the first time has no baseline for.
+
+**Fan-out.** `CompositeMemoryEngine.WriteRouting` = `MemoryWriteRouting.EveryCapable`
+(`MemoryEngineBuilder.FanOutWrites()`) sends a write to every member that can hold its grade instead of to
+the first. Without it, `UseGraph().UseSemantic()` — a blend whose whole point is that its members index the
+same material differently — leaves the semantic member's store permanently empty, because the graph supports
+both grades and takes every write. This library's own README carried an instance of the same shape
+(`UseLexical().UseSemantic()`).
+
+Opt-in, because duplicating a write is a real cost (N stores, an embedding per semantic member) and because
+of the `Inherit` rule: an unresolved grade is stored by each member at its OWN role, so a blend mixing an
+authoritative member with an associative one lands the same fact at both grades. Naming that cost is what
+makes the option honest; hiding it behind a default would not.
+
+**The wiring check** (`MemoryWiring`, internal, run when the engine factory is built) reports three things: a
+member whose every supported grade an earlier member already claims, and an `IMemoryVerificationPolicy` or
+`IMemoryAnnotationPolicy` registered where no engine can consult one. Logged at Warning by default;
+`MemoryEngineBuilder.StrictWiring()` makes it a startup failure.
+
+**The rejected alternative is the one that sounds better: throw by default.** An `AddMemoryVerification()`
+nobody consults is unambiguous, and a startup throw is strictly better than a lever that silently is not
+there — but only for the container it is wrong in. An application with a graph engine AND a curated one has a
+legitimately-consulted policy, and a per-registration throw would break it. So the check is container-wide in
+effect and the escalation is the host's to declare.
+
+**It reports only what is CERTAIN, and that constraint decided its shape twice.** The policy findings go
+silent the moment any member is an engine this library does not recognise, because a BYO engine may well
+consult those seams. And the shadowed-member rule fires only when EVERY grade a member supports is already
+claimed — which is why the README's documented `UseCurated("glossary").UseGraph()` reports nothing while the
+reversed order does. A check that fires on correct wiring trains a reader to ignore the channel it arrives
+on, which is worse than having no check; this repository has already paid for a gate that lied
+(`.claude/knowledge/pitfalls.md`, the `check-warnings` ENOBUFS entry).
+
+**Registration is asked with `IServiceProviderIsService`, never by resolving the service.** The shipped
+verification policy resolves an `ILlmClientFactory` with `GetRequiredService`, so asking for the instance
+would turn a diagnostic into the startup failure it exists to describe. A container that does not offer that
+service leaves both policy checks silent rather than guessing.
+
+## D86 — a null scope means EVERY scope of the task, through an OPTIONAL store capability (2026-08-21)
+
+`ISemanticMemory.RecallAsync`'s `scope` is nullable and means "search every scope under this task", bounded
+by `k`, with `SemanticHit.Scope` naming where each hit came from. `SemanticMemoryEngine` passes a null
+`MemoryQuery.Scope` straight through instead of returning empty.
+
+**The defect it closes.** `SemanticMemoryEngine` documented that it "needs a concrete scope … a recall
+missing either yields nothing rather than throwing", and in isolation that was right. But a large class of
+consumers treats scope as an optional FILTER and passes none on the ordinary path — and there `Scope: null`
+does not mean "a recall missing a scope", it means "search everything". Compounding it,
+`CompositeMemoryEngine` passes ONE `MemoryQuery` to every member, so "graph scoped by kind" and "semantic
+across everything" could not coexist and the consumer could not work around it at the query level. An adopter
+measured the retrieval as excellent where reachable and contributing exactly zero on the default path.
+
+**Three shapes were available, and the trade-off decided it.** (1) One collection per task with the scope in
+the payload — simplest query path, but it costs a reindex and turns the currently free `ForgetAsync` =
+`RemoveCollectionAsync` into a filtered delete. (2) Enumeration on `IVectorStore` — keeps the layout and the
+cheap forget, but a required member on a public interface every BYO store implements is a major bump. (3)
+Fan out over the task's scopes — no interface change, but nothing can enumerate a task's scopes, so the list
+would have to come from the caller, which hands the problem back to the consumer that could not solve it.
+
+**Shipped: (2), made ADDITIVE by putting it on its own interface.** `IListableVectorStore : IVectorStore`
+adds `ListCollectionsAsync(prefix)`; all three shipped stores implement it, and a BYO store that does not
+yields nothing on the cross-scope path — exactly what that path did before. A default interface
+implementation was refused for the reason `pitfalls.md` records under "Second doors": it would have made a
+store that CANNOT enumerate indistinguishable from one that holds nothing, which is the silent shape this
+whole decision is about.
+
+**Forgetting stays scope-MANDATORY.** Deleting is not symmetric with reading: an enumeration that misses a
+scope costs a recall some hits, while the same miss on a consent withdrawal reports success over embeddings
+that are still there.
+
+**The prefix is DATA, never a pattern**, and both SQL backends spell it `substr(collection, 1, @len) =
+@prefix` rather than `LIKE`. SQLite's `LIKE` is ASCII case-INSENSITIVE by default, so a prefix match through
+it would reach a different task whose key differs only in case; and `%`/`_` inside a caller's task key would
+be read as wildcards on both. Postgres adds `COLLATE "C"` so the comparison is byte-exact, the same reasoning
+its `SearchAsync` tiebreak already carries.

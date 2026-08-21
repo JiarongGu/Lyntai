@@ -841,6 +841,27 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   (`docs/DECISIONS.md` **D65**). **When a shared engine composes something whose correctness depends on a
   backend's own grammar, the backend places it** — the engine may supply the pieces, not choose the order.
 
+- **A member of a variation-point collection that the ROUTING RULE can never select is inert, and the
+  registration is what makes it look wired.** Measured 2026-08-21, reported by two adopters on 3.0.0
+  (`docs/task-archive.md` Parts 89 and 90; the answers are `docs/DECISIONS.md` **D85**).
+  `CompositeMemoryEngine.RememberAsync` routed a write to the FIRST member supporting its grade, which is
+  correct and documented — but in `UseGraph().UseSemantic()` the graph supports both grades, so it took every
+  write and the semantic member's store stayed permanently empty. Nothing threw, `Supported` widened, the
+  builder read as if both were live, and the only symptom was recall quality. The same shape one layer out:
+  `AddMemoryVerification()` registers a policy only a graph member consults, and its absence renders as
+  `Answered = null` — indistinguishable from a judge that ran and abstained.
+  <br>**This repository's own README carried an instance of the reported defect**
+  (`e.UseLexical().UseSemantic()`), which is the part worth carrying: the documentation is written by whoever
+  understands the routing best, and it is exactly as blind to this as a consumer is, because *adding* the
+  member is the whole visible act.
+  <br>**The question that finds it is not "is this registered?" but "which member does the selection rule
+  actually PICK, and what happens to the others?"** — asked of any DI collection whose consumer picks ONE
+  (a first-match write route, a keyed lookup, a type-test) rather than iterating. And when you add the check:
+  **a rule that also fires on correct wiring is worse than no rule.** The narrow version here reports a member
+  only when EVERY grade it supports is already claimed, which keeps the documented
+  `UseCurated("glossary").UseGraph()` blend silent; the naive "shares a grade with an earlier member" version
+  fires on it, and a warning people learn to skip is the `check-warnings` ENOBUFS failure in a different hat.
+
 ## Refactoring & namespace moves
 
 - **A compiler error list is not the authoritative site-list for a rename or move — it misses silently in

@@ -135,6 +135,16 @@ public sealed class PostgresGovernanceStoreTests(PostgresFixture pg)
     [SkippableFact] public Task Contract_tie_by_id() => VecPg(VectorStoreContract.Equal_scores_are_ordered_by_id);
     [SkippableFact] public Task Contract_tie_at_k() => VecPg(VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries);
     [SkippableFact] public Task Contract_tie_loses_to_score() => VecPg(VectorStoreContract.The_tiebreak_never_outranks_the_score);
+    [SkippableFact] public Task Contract_list_prefix() => VecPg(VectorStoreContract.Listing_matches_a_prefix_ordinally);
+    [SkippableFact] public Task Contract_list_literal() => VecPg(VectorStoreContract.A_listing_prefix_is_never_read_as_a_pattern);
+    [SkippableFact] public Task Contract_list_empty() => VecPg(VectorStoreContract.Listing_omits_emptied_collections_and_never_throws);
+
+    [SkippableFact]
+    public void Contract_can_list()
+    {
+        Skip.IfNot(pg.Available, pg.InitError ?? "Postgres/Docker unavailable");
+        VectorStoreContract.Every_shipped_store_can_list_its_collections(new PostgresVectorStore(pg.Factory));
+    }
 
     [SkippableFact]
     public async Task VectorStore_pgvector_ranks_by_cosine_dedups_and_removes()

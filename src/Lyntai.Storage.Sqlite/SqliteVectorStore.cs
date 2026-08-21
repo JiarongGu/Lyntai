@@ -10,7 +10,7 @@ namespace Lyntai.Storage.Sqlite;
 /// some thousands of vectors per collection; for larger corpora use a dedicated vector backend (pgvector).
 /// Vectors are stored as a JSON float array. Register with <c>UseSqliteVectorStore()</c>.
 /// </summary>
-public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IVectorStore
+public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IListableVectorStore
 {
     public async Task UpsertAsync(string collection, string id, float[] vector, string payload, CancellationToken ct = default)
     {
@@ -56,6 +56,22 @@ public sealed class SqliteVectorStore(IDbConnectionFactory factory) : IVectorSto
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM lyntai_vector WHERE collection = @collection", new { collection }, cancellationToken: ct)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks><c>substr(...) = @prefix</c>, never <c>LIKE</c>: SQLite's <c>LIKE</c> is ASCII
+    /// case-INSENSITIVE by default, so a prefix match through it would reach a different task whose key
+    /// differs only in case — and <c>%</c>/<c>_</c> inside a caller's prefix would be read as
+    /// wildcards. <c>substr</c> compares under the column's BINARY collation, which is the ordinal
+    /// comparison the contract promises, and treats the prefix as data.</remarks>
+    public async Task<IReadOnlyList<string>> ListCollectionsAsync(string prefix, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(prefix);
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var rows = await conn.QueryAsync<string>(new CommandDefinition(
+            "SELECT DISTINCT collection FROM lyntai_vector WHERE substr(collection, 1, @len) = @prefix",
+            new { len = prefix.Length, prefix }, cancellationToken: ct)).ConfigureAwait(false);
+        return [.. rows];
     }
 
     private sealed class Row

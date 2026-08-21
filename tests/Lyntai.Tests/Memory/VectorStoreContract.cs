@@ -177,4 +177,58 @@ public static class VectorStoreContract
         Assert.Single(hits);
         Assert.Equal("MINE", hits[0].Payload);
     }
+
+    /// <summary>Every SHIPPED store enumerates its collections. The capability is optional for a BYO store —
+    /// that is why it is a separate interface — but a store this library ships that could not list would make
+    /// <c>ISemanticMemory</c>'s cross-scope recall silently empty on that backend alone, which is exactly the
+    /// per-backend divergence a contract exists to stop.</summary>
+    public static void Every_shipped_store_can_list_its_collections(IVectorStore store) =>
+        Assert.IsAssignableFrom<IListableVectorStore>(store);
+
+    /// <summary>Listing matches a prefix ORDINALLY and returns only the collections that match — the
+    /// operation semantic memory partitions a task's scopes with.
+    /// <para>The fixtures are chosen so a case-INSENSITIVE match fails: SQLite's <c>LIKE</c> is ASCII
+    /// case-insensitive by default, so a prefix implemented through it would reach <c>{c}-OTHER</c> and hand a
+    /// caller another task's scopes.</para></summary>
+    public static async Task Listing_matches_a_prefix_ordinally(IVectorStore store, string c)
+    {
+        await store.UpsertAsync($"{c}-mine-a", "1", [1f, 0f, 0f], "A");
+        await store.UpsertAsync($"{c}-mine-b", "1", [1f, 0f, 0f], "B");
+        await store.UpsertAsync($"{c}-MINE-c", "1", [1f, 0f, 0f], "C");   // differs only in case
+        await store.UpsertAsync($"{c}-other", "1", [1f, 0f, 0f], "D");
+
+        var listed = await ((IListableVectorStore)store).ListCollectionsAsync($"{c}-mine-");
+
+        Assert.Equal(new[] { $"{c}-mine-a", $"{c}-mine-b" },
+            listed.OrderBy(x => x, StringComparer.Ordinal));
+    }
+
+    /// <summary>A prefix is DATA, not a pattern: <c>%</c> and <c>_</c> are LIKE wildcards on both SQL
+    /// backends, so a store that reached for LIKE would match collections a caller never asked for.</summary>
+    public static async Task A_listing_prefix_is_never_read_as_a_pattern(IVectorStore store, string c)
+    {
+        await store.UpsertAsync($"{c}-a%b-one", "1", [1f, 0f, 0f], "LITERAL");
+        await store.UpsertAsync($"{c}-axxb-two", "1", [1f, 0f, 0f], "WILDCARD-WOULD-MATCH");
+
+        var listed = await ((IListableVectorStore)store).ListCollectionsAsync($"{c}-a%b-");
+
+        Assert.Equal(new[] { $"{c}-a%b-one" }, listed);
+    }
+
+    /// <summary>A collection whose last entry was deleted is not listed, and a prefix nothing matches yields
+    /// an empty list rather than a throw — so "this task has no scopes yet" is an ordinary answer.
+    /// <para>Deleting the last ENTRY rather than the collection is the discriminating case: a row-based
+    /// backend has nothing left to find, while the in-process store keeps the emptied bucket, and listing it
+    /// would tell a caller a scope exists that holds nothing.</para></summary>
+    public static async Task Listing_omits_emptied_collections_and_never_throws(IVectorStore store, string c)
+    {
+        var lister = (IListableVectorStore)store;
+        await store.UpsertAsync($"{c}-gone", "1", [1f, 0f, 0f], "X");
+        Assert.Single(await lister.ListCollectionsAsync($"{c}-gone"));
+
+        await store.DeleteAsync($"{c}-gone", "1");
+
+        Assert.Empty(await lister.ListCollectionsAsync($"{c}-gone"));
+        Assert.Empty(await lister.ListCollectionsAsync($"{c}-never-written"));
+    }
 }

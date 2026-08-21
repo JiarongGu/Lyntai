@@ -365,7 +365,7 @@ That is the whole of the common case. For more than one, or for a blend, declare
 ```csharp
 services.AddLyntai(cfg => cfg
     .UseSqliteStorage("app.db")
-    .AddMemoryEngine("chat",    e => e.UseLexical().UseSemantic().Budget(1500))
+    .AddMemoryEngine("chat",    e => e.UseLexical().UseSemantic().FanOutWrites().Budget(1500))
     .AddMemoryEngine("project", e => e
         .UseCurated("glossary").ReserveCharacters(1200)   // authoritative — exact, never decays
         .UseLexical()                           // associative — recalled context
@@ -380,6 +380,13 @@ var recall = await memory.Get("project").RecallAsync(new MemoryQuery("proj", "co
 
 A blend **is** an engine, so members are addressable too (`Get("project/glossary")`) and adding a fourth
 kind of memory is a class plus a registration rather than an edit to anything existing.
+
+**`FanOutWrites()` is there because a write goes to ONE member by default** — the first that can hold its
+grade. That is right for `project` above (curated takes the exact facts, lexical takes the rest) and wrong
+for `chat`, where both members hold associative material and index it differently: without it the lexical
+member takes every write and the semantic store stays empty, silently. Two members that share a grade is the
+signal to reach for it; the cost is one write per member. A member no write can reach is reported at startup
+(`MemoryEngineBuilder.StrictWiring()` makes that a failure rather than a log line).
 
 **Grades are what keep it accurate.** Curated members are *authoritative*: their content never decays, is
 never shortened, holds a **reserved** slice of the character budget ahead of associative material, and

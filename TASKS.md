@@ -24,12 +24,19 @@ agent session, app-owned MCP servers, the long-term memory subsystem and the mul
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**NOTHING here is startable in a session; every remaining item needs something this repository does not
-have.** That is stated first rather than buried, because it is the answer to the question the file exists to
-answer. Startable work has kept arriving in bursts and closing the same day: three items via Parts 85/86
-closed in **Part 87**, and the 2026-08-17 whole-repo review (nine subsystem reviewers + per-finding
+**Nothing here is startable right now — every remaining item needs something this repository does not
+have** (a key, a model download, a CLI install, a vendor pick, a measurement budget, or a deployment's own
+data). That is stated first rather than buried, because it is the answer to the question the file exists to
+answer. **Read the caveat two paragraphs down before trusting it**: a banner that over-claims blockage hides
+startable work inside, and this one has been wrong that way before.
+
+Startable work has kept arriving in bursts and closing the same day: three items via Parts 85/86
+closed in **Part 87**, the 2026-08-17 whole-repo review (nine subsystem reviewers + per-finding
 adversarial verification) opened twelve verified findings that all closed the same day in **Part 88** —
-which is also where the two finding-halves that measurement refuted are recorded.
+which is also where the two finding-halves that measurement refuted are recorded — and the two
+adopter-reported Parts that arrived on 3.0.0 closed in **`docs/task-archive.md` Parts 89 and 90**
+(the composition renderer, per-entry curated grades, fan-out writes, the wiring check, and cross-scope
+semantic recall; `docs/DECISIONS.md` **D83–D86**).
 
 **A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
 blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
@@ -44,8 +51,9 @@ a CLI install, or a deployment's own data. That was briefly true of the WHOLE fi
 70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**. Its items
 were all startable in a session, each found, verified and deliberately deferred with its reason recorded —
 and they have all now closed (archive Parts 76, 78–81 and 84) except one, which needs real aggregators to
-measure. **Every remaining item, old Part or new, needs a key, a model download, a CLI install, a vendor
-pick, a measurement budget, or a deployment's own data.**
+measure. It was briefly untrue again when Parts 89 and 90 arrived from adopters (closed 2026-08-21), which
+is the pattern worth expecting: **the next startable item will arrive from a consumer, not from this
+list.**
 
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
@@ -64,6 +72,10 @@ Blocked, and on what:
   Designing it off what exists would be the over-fitting D49 refused.
 - **Part 56 / FSRS-B** — a deployment's own logged reviews. The observable now exists; the data does not,
   and this repository cannot invent it without repeating the mistake D49 refused.
+- **Part 75** — two or three real aggregators to measure an in-band `code` against. Reading it unmeasured is
+  the documented-not-measured trap GEN-VERIFY exists to correct. (The rest of Part 75 has closed; this line
+  exists because a Part whose blocker is unlisted reads as startable, which is how Part 33 hid two
+  startable items — see the caveat above.)
 
 ## Part 33 — generation platform: remaining backends + composition
 
@@ -340,14 +352,12 @@ knowingly is where the gap shows up measurably, not a reason to avoid shipping t
 
 ---
 
-
----
-
 ## Part 75 — what the pre-3.0 review deferred, and why (2026-08-15)
 
 _Opened by `docs/task-archive.md` **Part 74**. Each of these was found, verified and deliberately NOT fixed
-in that pass — every one is startable today, unlike the four parts above, so the banner's "nothing here is
-startable" no longer holds and has been amended._
+in that pass — and every one was startable, which is why the banner stopped claiming otherwise while they
+were open. All have now closed (archive Parts 76, 78–81 and 84) except the one below, whose blocker is not
+a design question: it needs two or three real aggregators to measure against._
 
 - [ ] **Decide what an aggregator's in-band `code` means.** `OpenAiHttp.InBandError` deliberately reports
   only THAT an `error` member is present and what it says; it does not read a numeric `code` as an HTTP

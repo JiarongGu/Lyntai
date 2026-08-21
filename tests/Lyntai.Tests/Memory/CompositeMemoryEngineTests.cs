@@ -76,6 +76,77 @@ public class CompositeMemoryEngineTests
         Assert.Single(glossary.Writes);
     }
 
+    /// <summary>The reported defect, pinned as the DEFAULT so the fix below is measurable against it:
+    /// <c>UseGraph().UseSemantic()</c> — the graph supports both grades, takes every write, and the semantic
+    /// member's store stays permanently empty. Nothing throws, <c>Supported</c> widens, and only a
+    /// recall-quality measurement can find it.</summary>
+    [Fact]
+    public async Task Routing_leaves_a_second_capable_member_with_nothing_written_to_it()
+    {
+        var graph = new RecordingEngine("project/graph", MemoryGrades.Associative | MemoryGrades.Authoritative);
+        var semantic = new RecordingEngine("project/semantic", MemoryGrades.Associative);
+
+        await Composite(graph, semantic).RememberAsync(new MemoryWrite("t", "s", "a fact"));
+
+        Assert.Single(graph.Writes);
+        Assert.Empty(semantic.Writes);
+    }
+
+    [Fact]
+    public async Task Fanning_out_writes_to_every_member_that_can_hold_the_grade()
+    {
+        var graph = new RecordingEngine("project/graph", MemoryGrades.Associative | MemoryGrades.Authoritative);
+        var semantic = new RecordingEngine("project/semantic", MemoryGrades.Associative);
+        var composite = new CompositeMemoryEngine("project", [graph, semantic])
+        {
+            WriteRouting = MemoryWriteRouting.EveryCapable,
+        };
+
+        var reference = await composite.RememberAsync(
+            new MemoryWrite("t", "s", "a fact", Grade: MemoryGrade.Associative));
+
+        Assert.Single(graph.Writes);
+        Assert.Single(semantic.Writes);
+        Assert.Equal("project/graph", reference.Engine);   // the FIRST written member's reference
+    }
+
+    /// <summary>Fanning out never widens the grade: a member that cannot hold the write is still skipped, so
+    /// an authoritative fact is not quietly duplicated into an associative store that would decay it.</summary>
+    [Fact]
+    public async Task Fanning_out_still_skips_a_member_that_cannot_hold_the_grade()
+    {
+        var lexical = new RecordingEngine("project/lexical", MemoryGrades.Associative);
+        var glossary = new RecordingEngine("project/glossary", MemoryGrades.Authoritative);
+        var composite = new CompositeMemoryEngine("project", [lexical, glossary])
+        {
+            WriteRouting = MemoryWriteRouting.EveryCapable,
+        };
+
+        await composite.RememberAsync(new MemoryWrite("t", "s", "exact", Grade: MemoryGrade.Authoritative));
+
+        Assert.Empty(lexical.Writes);
+        Assert.Single(glossary.Writes);
+    }
+
+    /// <summary>An <see cref="MemoryGrade.Inherit"/> write is every member's business under fan-out — each
+    /// resolves it at its own role. That is also why fan-out is opt-in: in a blend mixing roles the same fact
+    /// lands at BOTH grades, which is a cost a caller has to choose.</summary>
+    [Fact]
+    public async Task Fanning_out_sends_an_inherit_write_to_every_member()
+    {
+        var lexical = new RecordingEngine("project/lexical", MemoryGrades.Associative);
+        var glossary = new RecordingEngine("project/glossary", MemoryGrades.Authoritative);
+        var composite = new CompositeMemoryEngine("project", [lexical, glossary])
+        {
+            WriteRouting = MemoryWriteRouting.EveryCapable,
+        };
+
+        await composite.RememberAsync(new MemoryWrite("t", "s", "unresolved"));
+
+        Assert.Single(lexical.Writes);
+        Assert.Single(glossary.Writes);
+    }
+
     [Fact]
     public async Task An_unroutable_write_throws_and_names_what_was_considered()
     {

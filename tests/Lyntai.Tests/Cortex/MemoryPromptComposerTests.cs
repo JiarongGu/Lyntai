@@ -54,7 +54,7 @@ public class MemoryPromptComposerTests
     {
         public Task RememberAsync(string taskKey, string scope, string content, CancellationToken ct = default) =>
             Task.CompletedTask;
-        public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string scope, string query,
+        public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string? scope, string query,
             int k = 5, double minScore = 0, CancellationToken ct = default) => throw new InvalidOperationException("embedder down");
         public Task ForgetAsync(string taskKey, string scope, CancellationToken ct = default) => Task.CompletedTask;
     }

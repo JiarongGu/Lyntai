@@ -114,4 +114,64 @@ public class MemoryCompositionTests
             EngineWith(Item("anything", MemoryGrade.Associative))
                 .ComposeAsync("BASE", new MemoryQuery("t", "s", "q"), ct: cts.Token));
     }
+
+    // ---- Render: the formatting half, reachable without an engine -------------------------------------
+
+    /// <summary>The door an adopter with its OWN retrieval needs. Reported on 3.0.0: reaching this rendering
+    /// meant implementing <see cref="IMemoryEngine"/> whose recall returned material the caller had already
+    /// chosen — an engine written only to reach a formatter.</summary>
+    [Fact]
+    public void Render_composes_material_a_caller_selected_itself_with_no_engine_involved()
+    {
+        var composed = MemoryComposition.Render("BASE",
+        [
+            Item("the build gate is dev.mjs verify", MemoryGrade.Authoritative),
+            Item("user prefers terse commit messages", MemoryGrade.Associative),
+        ]);
+
+        Assert.Contains("## Known facts (authoritative)", composed, StringComparison.Ordinal);
+        Assert.Contains("the build gate is dev.mjs verify", composed, StringComparison.Ordinal);
+        Assert.Contains("## Recalled context (associative", composed, StringComparison.Ordinal);
+    }
+
+    /// <summary>The two doors must not diverge: whatever <c>ComposeAsync</c> produces for a recall is what
+    /// <c>Render</c> produces for the same items. Diverging would make the split a second implementation
+    /// rather than a seam.</summary>
+    [Fact]
+    public async Task Render_and_ComposeAsync_agree_on_the_same_items()
+    {
+        MemoryItem[] items =
+        [
+            Item("exact fact", MemoryGrade.Authoritative),
+            Item("recalled note", MemoryGrade.Associative),
+        ];
+        var options = new MemoryCompositionOptions { Budget = 500, AuthoritativeCharacters = 120 };
+
+        var viaEngine = await EngineWith(items).ComposeAsync("BASE", new MemoryQuery("t", "s", "q"), options);
+
+        Assert.Equal(viaEngine, MemoryComposition.Render("BASE", items, options));
+    }
+
+    [Fact]
+    public void Render_returns_the_base_prompt_for_nothing_to_render()
+    {
+        Assert.Equal("BASE", MemoryComposition.Render("BASE", []));
+        Assert.Throws<ArgumentNullException>(() => MemoryComposition.Render("BASE", null!));
+    }
+
+    /// <summary>The reserve still bounds exact material when a caller supplies its own — and it is the
+    /// BUDGET it protects against, never the caller's selection. That distinction is what the adopter had to
+    /// find by test.</summary>
+    [Fact]
+    public void Render_reserves_for_exact_material_out_of_the_callers_own_selection()
+    {
+        List<MemoryItem> items = [Item("the build gate is dev.mjs verify", MemoryGrade.Authoritative)];
+        for (var i = 0; i < 50; i++)
+            items.Add(Item($"noise item number {i} which is quite wordy indeed", MemoryGrade.Associative));
+
+        var composed = MemoryComposition.Render("BASE", items,
+            new MemoryCompositionOptions { Budget = 300, AuthoritativeCharacters = 100 });
+
+        Assert.Contains("the build gate is dev.mjs verify", composed, StringComparison.Ordinal);
+    }
 }

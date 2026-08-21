@@ -131,6 +131,7 @@ sealed class Lyntai.Storage.Sqlite.SqliteUsageTracker
 sealed class Lyntai.Storage.Sqlite.SqliteVectorStore
     .ctor(IDbConnectionFactory factory)
     DeleteAsync(String collection, String id, CancellationToken ct = default) : Task
+    ListCollectionsAsync(String prefix, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     RemoveCollectionAsync(String collection, CancellationToken ct = default) : Task
     SearchAsync(String collection, Single[] query, Int32 k, CancellationToken ct = default) : Task<IReadOnlyList<VectorMatch>>
     UpsertAsync(String collection, String id, Single[] vector, String payload, CancellationToken ct = default) : Task

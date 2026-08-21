@@ -3,6 +3,26 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Lyntai.Memory;
 
+/// <summary>How a blend routes one write across its members.</summary>
+public enum MemoryWriteRouting
+{
+    /// <summary>The FIRST member that can hold the write's grade takes it, and no other member is asked.
+    /// The default, and what a blend did before this enum existed.</summary>
+    FirstCapable = 0,
+
+    /// <summary>EVERY member that can hold the write's grade takes it, in member order.
+    /// <para>What it is for: a blend whose members index the same material DIFFERENTLY — a graph engine for
+    /// decay and links beside a semantic one for meaning. Under <see cref="FirstCapable"/> the graph supports
+    /// both grades, so it takes every write and the semantic member's store stays permanently empty; the
+    /// member is registered, `Supported` widens, and only a recall-quality measurement can find it.</para>
+    /// <para>Opt-in because duplicating a write is a real cost — N stores, N embeddings — and because of the
+    /// <see cref="MemoryGrade.Inherit"/> rule: an unresolved grade is stored by each member at its OWN role,
+    /// so a blend mixing an authoritative member with an associative one lands the same fact at BOTH grades.
+    /// Pass an explicit <see cref="MemoryGrade"/>, or do not fan out, if that is not what you
+    /// want.</para></summary>
+    EveryCapable = 1,
+}
+
 /// <summary>
 /// A blend of member engines, which is itself an engine — so naming, blending, remembering and expanding
 /// stay ONE concept rather than four. Members carry hierarchical names ("project/graph"), and every
@@ -24,6 +44,8 @@ namespace Lyntai.Memory;
 /// one owning member, while removing takes a (task, scope) that every member may hold material under. Removal
 /// one member and reporting success would leave the rest of the blend holding the very data the caller asked
 /// to remove.</para>
+/// <para><b>A WRITE does either, and the caller chooses</b> — <see cref="MemoryWriteRouting"/>. It routes by
+/// default; fanning out is what fills a blend whose members index the same material differently.</para>
 /// </summary>
 public sealed class CompositeMemoryEngine
     : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory, IPrunableMemory
@@ -70,10 +92,24 @@ public sealed class CompositeMemoryEngine
     /// would mint a second instance over the same store.</summary>
     public IReadOnlyList<IMemoryEngine> Members => _members;
 
+    /// <summary>Whether a write goes to the first capable member or to every one of them. Also read by the
+    /// wiring check, which cannot tell an inert member from a deliberately duplicated write without it.
+    /// <para>An <c>init</c> property rather than a constructor parameter: appending an optional parameter is
+    /// source-compatible and NOT binary-compatible, so a pre-compiled caller of the old signature breaks.
+    /// A new member costs nothing and breaks nobody. Set it in an object initializer.</para></summary>
+    public MemoryWriteRouting WriteRouting { get; init; } = MemoryWriteRouting.FirstCapable;
+
     /// <inheritdoc />
     public MemoryGrades Supported => _members.Aggregate(MemoryGrades.None, (acc, m) => acc | m.Supported);
 
     /// <inheritdoc />
+    /// <remarks>Returns the FIRST written member's reference. Under
+    /// <see cref="MemoryWriteRouting.EveryCapable"/> the others hold their own copies under their own ids;
+    /// address one of those through its member engine, which <c>IMemoryEngineFactory</c> indexes by
+    /// hierarchical name.
+    /// <para>Members are written in order and a failure PROPAGATES, leaving the earlier members written: a
+    /// write that faults is the one thing this seam refuses to lose silently
+    /// (<see cref="ISemanticMemory.RememberAsync"/> takes the same position).</para></remarks>
     public async Task<MemoryRef> RememberAsync(MemoryWrite write, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(write);
@@ -85,19 +121,30 @@ public sealed class CompositeMemoryEngine
             _ => MemoryGrades.None,
         };
 
-        // Inherit takes the first member; an explicit grade is ROUTED to a member that can hold it.
-        // Never downgraded — accepting an authoritative write and storing it as associative is precisely
-        // the failure the grade split exists to prevent, and it would be undetectable afterwards.
-        var target = wanted == MemoryGrades.None
-            ? _members.FirstOrDefault()
-            : _members.FirstOrDefault(m => m.Supported.HasFlag(wanted));
+        // Inherit is every member's business — the grade is unresolved, so each one stores it at its own
+        // role. An explicit grade is ROUTED to the members that can hold it, and never downgraded: accepting
+        // an authoritative write and storing it as associative is precisely the failure the grade split
+        // exists to prevent, and it would be undetectable afterwards.
+        IReadOnlyList<IMemoryEngine> capable = wanted == MemoryGrades.None
+            ? _members
+            : [.. _members.Where(m => m.Supported.HasFlag(wanted))];
 
-        if (target is null)
+        IReadOnlyList<IMemoryEngine> targets = WriteRouting == MemoryWriteRouting.EveryCapable
+            ? capable
+            : [.. capable.Take(1)];
+
+        if (targets.Count == 0)
             throw new NotSupportedException(
                 $"Memory engine '{Name}' has no member that can store {write.Grade} material. " +
                 $"Members considered: {string.Join(", ", _members.Select(m => m.Name))}.");
 
-        return await target.RememberAsync(write, ct).ConfigureAwait(false);
+        var primary = await targets[0].RememberAsync(write, ct).ConfigureAwait(false);
+        for (var i = 1; i < targets.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            await targets[i].RememberAsync(write, ct).ConfigureAwait(false);
+        }
+        return primary;
     }
 
     /// <inheritdoc />

@@ -122,15 +122,23 @@ public static class MemoryEngineRegistration
         if (!engineBuilder.HasMembers) engineBuilder.UseLexical();
         engineBuilder.Validate();
 
-        builder.Services.AddSingleton(new MemoryEngineComposition(name, engineBuilder.Composition));
+        builder.Services.AddSingleton(
+            new MemoryEngineComposition(name, engineBuilder.Composition, engineBuilder.Strict));
 
         // NOT TryAdd. A TryAddSingleton reached during configure(builder) BEATS AddLyntai's own later
         // registration, which once silently swapped a configured DeadHostTracker for parameterless
         // defaults and was missed by 1427 tests. A plain AddSingleton into the collection, read back by
         // the factory, has no such ordering hazard.
         builder.Services.AddSingleton<IMemoryEngine>(sp => engineBuilder.Build(sp));
+
+        // The wiring check runs HERE rather than in Build, because two of its three findings are about the
+        // CONTAINER — a policy registered and consulted by no engine — and only this lambda sees them all.
         builder.Services.AddSingleton<IMemoryEngineFactory>(sp =>
-            new MemoryEngineFactory(sp.GetServices<IMemoryEngine>()));
+        {
+            var engines = sp.GetServices<IMemoryEngine>().ToList();
+            MemoryWiring.Report(engines, sp, sp.GetServices<MemoryEngineComposition>().Any(c => c.Strict));
+            return new MemoryEngineFactory(engines);
+        });
 
         return builder;
     }
@@ -196,4 +204,6 @@ public static class MemoryEngineRegistration
 /// time.</summary>
 /// <param name="Name">The engine's name.</param>
 /// <param name="Options">Its composition options.</param>
-internal sealed record MemoryEngineComposition(string Name, MemoryCompositionOptions Options);
+/// <param name="Strict">Whether this engine asked for wiring warnings to fail startup.</param>
+internal sealed record MemoryEngineComposition(string Name, MemoryCompositionOptions Options,
+    bool Strict = false);

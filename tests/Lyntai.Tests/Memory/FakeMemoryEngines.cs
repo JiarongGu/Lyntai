@@ -336,15 +336,17 @@ internal sealed class FakeSemanticMemory : ISemanticMemory
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string scope, string query,
+    /// <summary>A null scope searches every scope of the task and stamps each hit with the scope it came
+    /// from — the contract's cross-scope recall, so an engine test can reach it without a vector store.</summary>
+    public Task<IReadOnlyList<SemanticHit>> RecallAsync(string taskKey, string? scope, string query,
         int k = 5, double minScore = 0, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var hits = _entries
-            .Where(e => e.Task == taskKey && e.Scope == scope &&
+            .Where(e => e.Task == taskKey && (scope is null || e.Scope == scope) &&
                         e.Content.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Take(k)
-            .Select(e => new SemanticHit(e.Content, 0.9))
+            .Select(e => new SemanticHit(e.Content, 0.9) { Scope = scope is null ? e.Scope : null })
             .ToList();
         return Task.FromResult<IReadOnlyList<SemanticHit>>(hits);
     }

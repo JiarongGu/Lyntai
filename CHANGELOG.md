@@ -10,6 +10,55 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased — the memory seams two adopters had to work around
+
+Five reports from applications that adopted 3.0.0, all in the memory subsystem, all the same class of defect:
+a registration that compiles, resolves, and can never run. **Additive only** — every change is a new member,
+a new type or a new overload, and the shipped defaults are unchanged. Reasoning: `docs/DECISIONS.md`
+**D83–D86**.
+
+### Added
+
+- **`MemoryComposition.Render(basePrompt, items, options)`** — the formatting half of `ComposeAsync` with the
+  engine taken out, for a consumer that does its own retrieval (**D83**). `ComposeAsync` now calls it, so the
+  two cannot diverge. It takes `IReadOnlyList<MemoryItem>` because composition reads nothing else off a
+  recall.
+- **`CuratedMemoryEngine.Grade`** — an optional `Func<CuratedMemory, MemoryGrade>` consulted on the read
+  path, so ONE catalog can mix the owner's typed facts with what an assistant inferred (**D84**). Null keeps
+  every entry authoritative, exactly as before. Reachable from the builder as
+  `UseCurated(kind, grade, label)`, a separate overload rather than a third optional parameter — appending
+  one is source-compatible and not binary-compatible, and an overload costs nothing. (**D18** would have
+  permitted the break as a documented one; it simply was not needed.)
+  <br>`Supported` deliberately stays `Authoritative`: the store has no grade column, so the engine can READ a
+  grade the deployment encoded in `Metadata` but cannot WRITE one, and widening would route associative
+  writes to the catalog instead of to the engine that can decay them.
+- **`CuratedMemoryEngine` accepts `kind: null`** — read every section of the catalog through one member,
+  still bounded by the query's limit; that member is read-only, and says so, because a write has no section
+  to go in.
+- **`MemoryWriteRouting` + `MemoryEngineBuilder.FanOutWrites()`** — send a write to every member that can
+  hold its grade instead of only the first (**D85**). Without it, `UseGraph().UseSemantic()` leaves the
+  semantic member's store permanently empty. Opt-in: N stores means N writes, and an `Inherit` write is
+  stored by each member at its own role.
+- **A wiring check, logged at Warning when the engine factory is built**, plus
+  `MemoryEngineBuilder.StrictWiring()` to make it a startup failure (**D85**). It reports a member no write
+  can reach, and an `IMemoryVerificationPolicy` / `IMemoryAnnotationPolicy` registered where no engine can
+  consult one — the case an adopter hit with `AddMemoryVerification()` on a blend with no graph member.
+- **`IListableVectorStore`** — an optional capability over `IVectorStore` (`ListCollectionsAsync(prefix)`),
+  implemented by all three shipped stores (**D86**).
+- **`SemanticHit.Scope`** — which scope a hit came from, populated on a cross-scope recall.
+
+### Changed
+
+- **`ISemanticMemory.RecallAsync`'s `scope` is now `string?`, and null means "every scope of this task"**,
+  bounded by `k` (**D86**). Through 3.0.0 a null scope searched a collection that never exists, so a consumer
+  treating scope as an optional filter got nothing on its ordinary path — silently, because an absent
+  collection and one holding no match are the same empty list. `SemanticMemoryEngine` passes a null
+  `MemoryQuery.Scope` through instead of returning empty.
+  <br>**Not a signature change** (nullability annotations only), so nothing rebinds — but a BYO
+  `ISemanticMemory` declaring `string scope` will see **CS8767**, a warning, until the parameter is
+  annotated. `ForgetAsync` stays scope-mandatory on purpose.
+- `UseCurated`'s `kind` is annotated `string?`. Same: an annotation, not a signature.
+
 ## 3.0.0 — the memory retention model, and the 3.0 pre-freeze review (2026-08-17)
 
 **Upgrading from 2.5? Start at `docs/migration-2.5-to-3.0.md`.** It is the ordered path with a worked

@@ -487,10 +487,26 @@ public interface IMemoryEngine {
   neither — which a vector store cannot honestly do, since it can forget a (task, scope) exactly and cannot
   prune by age at all. A blend where NO member can remove throws rather than reporting `0`, because `0`
   already means "nothing matched".
+  <br>**A WRITE does either, and the caller chooses** (**D85**, post-3.0). It routes to the first member that
+  can hold the write's grade by default; `MemoryWriteRouting.EveryCapable` sends it to all of them, which is
+  what makes a blend whose members index the same material differently — a graph member beside a semantic one
+  — actually fill both. Opt-in, because N stores is N writes and because an `Inherit` write is stored by each
+  member at its OWN role. A member no write can reach under the current routing, and a model-backed policy
+  registered where no member consults one, are both reported when the engine is built: a registration that
+  resolves and can never run is the failure this whole seam keeps producing.
 - **Grades are what let this beat a human memory rather than imitate one.** `MemoryGrade.Authoritative`
   material is allocated from a reserved character budget *before* any associative content is admitted, is
   never truncated to a headline, and renders in its own labelled section. Associative recall must never crowd
   out a fact the application stated as true.
+  <br>**The reserve protects exact material from the BUDGET, never from the caller's own retrieval**
+  (**D83**): only what reached the composer can be reserved. That is why the rendering half is reachable
+  without an engine — `MemoryComposition.Render(basePrompt, items, options)` — so a consumer with its own
+  selection offers exact material IN FULL and lets the reserve do the bounding, instead of implementing an
+  `IMemoryEngine` whose recall returns material it already chose.
+  <br>**A curated engine may derive a grade PER ENTRY** (**D84**) — one catalog mixes the owner's typed facts
+  with what an assistant inferred, and the store has no grade column to tell them apart. It is a read-path
+  delegate over the entry's app-owned metadata, and it deliberately does not widen the engine's `Supported`:
+  reading a grade the deployment encoded is not the same capability as writing one.
 - **Decay is measured in interference, not elapsed time** (**D40**). An entry's age is how far its engine's
   monotone position has moved since the entry was last used — a subtraction, not a duration — so a
   rarely-used engine does not forget merely because time passed. What advances the position is an

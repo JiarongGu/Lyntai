@@ -546,6 +546,17 @@ Each of these cost a real measurement to find.
 - **A small-limit recall can return fewer ordinary hits than you expect.** Authoritative facts take slots
   *within* the limit. That is objective (1) working, not a bug (**D56**).
 - **Registering an empty policy collection does not disable a seam** — it takes the shipped default.
+- **A write goes to ONE member of a blend** — the first that can hold its grade. So `UseGraph().UseSemantic()`
+  leaves the semantic store permanently empty, because the graph supports both grades and takes everything.
+  `FanOutWrites()` sends the write to every capable member; a member no write can reach is reported at
+  startup, and `StrictWiring()` makes that a failure rather than a log line (**D85**).
+- **`IMemoryVerificationPolicy` and `IMemoryAnnotationPolicy` are consulted by a GRAPH member only.**
+  Registered onto a blend with none, they never run — and a recall then reports `Answered = null`, which is
+  exactly what it reports with nothing registered at all. That is the second thing the wiring check reports.
+- **A recall with no scope searches every scope of the task** (**D86**), for semantic memory as much as for
+  the rest. Before 3.1 the semantic member returned nothing there, so a consumer treating scope as an
+  optional filter got no semantic recall on its ordinary path. It needs an `IListableVectorStore` underneath;
+  all three shipped stores are one.
 - **The review log records every returned entry, not every reinforced one.** A judge-rejected entry is
   logged with `Verified = false` and never touched, which is what lets the log contain failures at all.
   `null` (no verifier ran) and `false` (judged irrelevant) are **not** interchangeable.
@@ -693,6 +704,42 @@ await graph.ForgetAsync("project", "backend");
 `PruneAsync` never removes authoritative material at any floor. Set `MinRetrievability = 0` to make it remove
 nothing on that criterion.
 
+### Blend two members that index the same material
+
+A graph member for decay and links, a semantic member for meaning — over the same facts. Both hold
+associative material, so by default the graph takes every write and the semantic store stays empty.
+
+<!-- compile-given: class MyEmbedder : Lyntai.Embeddings.IEmbedder { public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<float[]>>([]); } -->
+```csharp
+services.AddLyntai(cfg => cfg
+    .UseSqliteStorage("Data Source=app.db")
+    .UseSqliteVectorStore()
+    .AddSemanticMemory(new MyEmbedder())
+    .AddMemoryEngine("project", e => e.UseGraph().UseSemantic().FanOutWrites()));
+```
+
+Two members sharing a grade is the signal to reach for `FanOutWrites()`; the cost is one write (and one
+embedding) per member. Leave it off when the members hold DIFFERENT grades — a curated catalog beside a
+graph — because there the routing is already right and fanning out would store one fact at two grades.
+
+### Compose a prompt from your own retrieval
+
+`ComposeAsync` recalls and renders. If your application already selects its own material — a fused semantic
+and keyword search of your own — `Render` is the second half on its own, with no engine involved.
+
+<!-- compile-given: string basePrompt = ""; IReadOnlyList<MemoryItem> myItems = []; -->
+```csharp
+var prompt = MemoryComposition.Render(basePrompt, myItems, new MemoryCompositionOptions
+{
+    Budget = 4000,
+    AuthoritativeCharacters = 1200,
+});
+```
+
+Grades come off the items, so set `MemoryItem.Grade` yourself: authoritative material renders first, in its
+own section, verbatim. **The reserve protects exact material from the BUDGET, not from your retrieval** — a
+fact your own selection dropped cannot be rescued here, and the section still looks full.
+
 ### Replace a policy with your own
 
 Every seam is an interface plus a registration. Nothing here is a mode or a flag.
@@ -710,7 +757,7 @@ passed to `UseGraph(...)` wins over both, for that engine only.
 | you want | read |
 |---|---|
 | the contract — interfaces, semantics, objectives | `docs/2026-07-17-lyntai-design.md` §5.7 |
-| why a choice was made | `docs/DECISIONS.md` D39–D62 (and D13 for the *keyword* store's eviction bound, which is a different surface) |
+| why a choice was made | `docs/DECISIONS.md` D39–D62 and D83–D86 (and D13 for the *keyword* store's eviction bound, which is a different surface) |
 | upgrading from 2.5 | `docs/migration-2.5-to-3.0.md` |
 | the consuming story | `README.md` |
 | traps that pass the build while being wrong | `.claude/knowledge/pitfalls.md` |

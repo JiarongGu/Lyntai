@@ -146,6 +146,10 @@ public class SqliteGovernanceStoreTests : IDisposable
     [Fact] public Task Contract_tie_by_id() => VectorStoreContract.Equal_scores_are_ordered_by_id(new SqliteVectorStore(_db.Factory), "vc8");
     [Fact] public Task Contract_tie_at_k() => VectorStoreContract.The_k_boundary_keeps_the_same_tied_entries(new SqliteVectorStore(_db.Factory), "vc9");
     [Fact] public Task Contract_tie_loses_to_score() => VectorStoreContract.The_tiebreak_never_outranks_the_score(new SqliteVectorStore(_db.Factory), "vc10");
+    [Fact] public void Contract_can_list() => VectorStoreContract.Every_shipped_store_can_list_its_collections(new SqliteVectorStore(_db.Factory));
+    [Fact] public Task Contract_list_prefix() => VectorStoreContract.Listing_matches_a_prefix_ordinally(new SqliteVectorStore(_db.Factory), "vc11");
+    [Fact] public Task Contract_list_literal() => VectorStoreContract.A_listing_prefix_is_never_read_as_a_pattern(new SqliteVectorStore(_db.Factory), "vc12");
+    [Fact] public Task Contract_list_empty() => VectorStoreContract.Listing_omits_emptied_collections_and_never_throws(new SqliteVectorStore(_db.Factory), "vc13");
 
     [Fact]
     public async Task VectorStore_ranks_by_cosine_and_persists()
