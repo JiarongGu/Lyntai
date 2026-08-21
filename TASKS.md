@@ -24,11 +24,11 @@ agent session, app-owned MCP servers, the long-term memory subsystem and the mul
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**One Part is startable — 92, from an adopter; every OLDER item needs something this repository does not
+**Nothing here is startable right now — every remaining item needs something this repository does not
 have** (a key, a model download, a CLI install, a vendor pick, a measurement budget, or a deployment's own
-data). That split is stated first rather than buried, because it is the answer to the question the file
-exists to answer. **Read the caveat two paragraphs down before trusting it**: a banner that over-claims
-blockage hides startable work inside, and this one has been wrong that way before.
+data). That is stated first rather than buried, because it is the answer to the question the file exists to
+answer. **Read the caveat two paragraphs down before trusting it**: a banner that over-claims blockage hides
+startable work inside, and this one has been wrong that way before.
 
 Startable work has kept arriving in bursts and closing the same day: three items via Parts 85/86
 closed in **Part 87**, the 2026-08-17 whole-repo review (nine subsystem reviewers + per-finding
@@ -36,8 +36,10 @@ adversarial verification) opened twelve verified findings that all closed the sa
 which is also where the two finding-halves that measurement refuted are recorded — and the two
 adopter-reported Parts that arrived on 3.0.0 closed in **`docs/task-archive.md` Parts 89 and 90**
 (the composition renderer, per-entry curated grades, fan-out writes, the wiring check, and cross-scope
-semantic recall; `docs/DECISIONS.md` **D83–D86**), with **Part 91** confirming those fixes the day 3.0.1
-shipped and closing one small thing they left behind.
+semantic recall; `docs/DECISIONS.md` **D83–D86**), with **Parts 91 and 92** arriving the day 3.0.1 shipped
+and closing the same day — 91 confirming those fixes and one small thing they left behind, 92 finding the
+SECOND place D86's defect lived plus a fourth wiring finding. **Four adopter Parts in two days, all one
+shape:** a registration that resolves and can never run.
 
 **A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
 blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
@@ -376,46 +378,6 @@ knowingly is where the gap shows up measurably, not a reason to avoid shipping t
   environment (nothing here needs a vendor key or a download), and no longer a design decision or a missing
   observable — those were both closed on 2026-08-13. It is blocked on **a deployment's own logged reviews**,
   which only a consumer can produce.
-
----
-
-## Part 92 — FROM AN ADOPTER: an embedder is registered, every write pays for it, and no recall reads it (2026-08-21)
-
-_**Renumbered from 91 on 2026-08-21.** `docs/task-archive.md` **Part 91** is the Aurelia report that closed
-the same day, so "Part 91" named a completed archive entry and an open backlog part at once and every
-cross-reference to it was ambiguous — the same collision that renumbered 39→41. The archive keeps 91; it is
-history, and history does not get renumbered._
-
-_Filed from Gatherlight's 3.0.1 adoption, in the same spirit as archive Part 90 — a wiring that compiles,
-registers, resolves, and can never run. Part 90's own `MemoryWiring` doc says these findings exist because
-"the only symptom is recall quality, which a consumer enabling a feature for the first time has no baseline
-for", and this is exactly that shape: it cost most of a session to find, with every check green._
-
-- [ ] **Report a graph member that embeds on write but seeds no recall.** `GraphMemoryOptions.SemanticSeedK`
-  ships at `0` ("considers none, which is what every version before this did"), which is the right default
-  for a consumer who has no embedder. But once an `IEmbedder` **and** an `IVectorStore` are registered,
-  `GraphMemoryEngine.Enriches` turns true and every write is embedded — for novelty and linking — while a
-  recall consults none of it. The consumer pays an embedding per write, gets vectors on disk, and sees no
-  change in what recall returns. Measured on the adopter's fixture: 8 facts, 8 vectors, and paraphrase
-  queries answering nothing until `SemanticSeedK` was set.
-
-  Suggested finding (same voice as the existing three, and derivable at factory-build time from the
-  container plus the member's own options): _"a graph member is wired with an embedder and a vector store
-  but `SemanticSeedK` is 0 — every write is embedded and no recall considers those neighbours. Set
-  `GraphMemoryOptions.SemanticSeedK`, or drop the embedder registration."_ Note this one is CERTAIN in the
-  `MemoryWiring.Inspect` sense: it reads two registrations and one options value, with no BYO-engine
-  ambiguity of the kind that keeps the policy findings silent.
-
-- [ ] **Consider whether a scope-keyed vector collection is the right default for a scope-OPTIONAL recall.**
-  Archive Part 90 fixed this for `ISemanticMemory`/`SemanticMemoryEngine` (null scope = every scope, via
-  `IListableVectorStore`). The graph's own seeding still builds a literal collection name
-  `{Name}|{TaskKey}|{Scope}`, so a null-scope recall searches `"engine|task|"` and finds nothing — while its
-  LEXICAL half spans scopes normally. That asymmetry is what made the adopter's unscoped recall (the common
-  case) silently unimproved: the same query answered when a scope was named and returned nothing when it was
-  not. The adopter's fix was to stop putting a partition key in `scope` at all, which is probably the right
-  advice — but if so, the scope parameter's doc should say that a scope you may want to OMIT at recall time
-  is not a scope, and `SemanticScoresAsync` should either span collections on null (as Part 90 did) or say
-  it cannot.
 
 ---
 

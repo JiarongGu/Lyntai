@@ -48,6 +48,17 @@ internal static class MemoryWiring
         foreach (var engine in engines.OfType<CompositeMemoryEngine>())
             findings.AddRange(Unwritable(engine));
 
+        // Derived from two registrations and one options value on the engine itself — no BYO ambiguity of the
+        // kind that keeps the policy findings below silent, so this one always speaks.
+        foreach (var member in engines.SelectMany(Flatten).OfType<GraphMemoryEngine>())
+            if (member.EmbedsWithoutSeeding)
+                findings.Add(
+                    $"graph member '{member.Name}' is wired with an embedder and a vector store but " +
+                    "GraphMemoryOptions.SemanticSeedK is 0 — every write is embedded, for novelty and " +
+                    "similarity linking, and no recall considers those neighbours. Set SemanticSeedK, or " +
+                    "drop the embedder registration; as wired you pay an embedding per write for nothing a " +
+                    "recall reads.");
+
         if (verification && CertainlyUnconsulted(engines))
             findings.Add(
                 "an IMemoryVerificationPolicy is registered and no engine consults one — only a graph member " +

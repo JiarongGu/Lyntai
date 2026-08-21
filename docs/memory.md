@@ -556,7 +556,13 @@ Each of these cost a real measurement to find.
 - **A recall with no scope searches every scope of the task** (**D86**), for semantic memory as much as for
   the rest. Through 3.0.0 the semantic member returned nothing there, so a consumer treating scope as an
   optional filter got no semantic recall on its ordinary path. It needs an `IListableVectorStore` underneath;
-  all three shipped stores are one.
+  all three shipped stores are one. The graph engine's own semantic SEEDING had the identical defect one
+  layer down and was fixed after an adopter measured it — one engine had held two answers to "unscoped",
+  because its lexical half spanned scopes and its semantic half did not.
+- **Registering an embedder does not switch semantic RECALL on.** It switches semantic WRITES on: novelty and
+  similarity linking run, every write is embedded, and `SemanticSeedK` still defaults to `0`, so no recall
+  reads any of it. That gap is now reported at wiring time (**D85**) — but the shape is worth knowing, since
+  the bill arrives per write and the benefit does not arrive at all until you set the knob.
 - **The review log records every returned entry, not every reinforced one.** A judge-rejected entry is
   logged with `Verified = false` and never touched, which is what lets the log contain failures at all.
   `null` (no verifier ran) and `false` (judged irrelevant) are **not** interchangeable.

@@ -3,6 +3,7 @@ using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Verification;
 using Lyntai.Storage;
+using Lyntai.Storage.InMemory;
 using Lyntai.Tests.Fakes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -95,6 +96,46 @@ public class MemoryWiringDiagnosticsTests
 
         Assert.DoesNotContain(MemoryWiring.Inspect([blend], verification: true, annotation: true),
             f => f.Contains("IMemory", StringComparison.Ordinal));
+    }
+
+    /// <summary>Part 92: an embedder plus a vector store turns enrichment on, so every write is embedded for
+    /// novelty and similarity linking — while <c>SemanticSeedK</c> defaults to 0, so no recall reads any of
+    /// it. The consumer pays an embedding per write, gets vectors on disk, and sees no change in what recall
+    /// returns; it cost an adopter most of a session to find, with every check green.</summary>
+    [Fact]
+    public void A_graph_member_that_embeds_every_write_and_seeds_no_recall_is_reported()
+    {
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore());
+
+        var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
+            verification: false, annotation: false));
+
+        Assert.Contains("SemanticSeedK", found, StringComparison.Ordinal);
+    }
+
+    /// <summary>Setting the knob closes it — the finding is about the GAP between the two paths, not about
+    /// having an embedder.</summary>
+    [Fact]
+    public void The_same_member_with_seeding_configured_reports_nothing()
+    {
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            options: new GraphMemoryOptions { SemanticSeedK = 3 },
+            embedder: new FakeEmbedder(), vectors: new InMemoryVectorStore());
+
+        Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
+            verification: false, annotation: false));
+    }
+
+    /// <summary>…and so does having no embedder at all, which is the shipped default. A finding that fired
+    /// on the zero-configuration path would fire on almost every consumer.</summary>
+    [Fact]
+    public void A_graph_member_with_no_embedder_reports_nothing()
+    {
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore());
+
+        Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
+            verification: false, annotation: false));
     }
 
     // ---- through a real container --------------------------------------------------------------------

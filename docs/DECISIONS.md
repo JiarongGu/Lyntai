@@ -2174,6 +2174,17 @@ verification policy resolves an `ILlmClientFactory` with `GetRequiredService`, s
 would turn a diagnostic into the startup failure it exists to describe. A container that does not offer that
 service leaves both policy checks silent rather than guessing.
 
+**Amended 2026-08-21 — a FOURTH finding, and it is the one with no ambiguity at all.** A graph member wired
+with an embedder AND a vector store embeds every write (novelty, similarity linking) while
+`GraphMemoryOptions.SemanticSeedK` defaults to `0`, so no recall reads any of it: the consumer pays an
+embedding per write, gets vectors on disk, and sees no change in what recall returns. An adopter spent most
+of a session finding that with every check green.
+<br>Unlike the policy findings it needs no "is this engine one we recognise?" hedge — it reads two
+registrations and one options value **off the engine itself**, through an internal
+`GraphMemoryEngine.EmbedsWithoutSeeding`. A property rather than reflection, deliberately: `pitfalls.md`
+records that a name reached by reflection is a rename site the compiler cannot see, and this one lives in
+`src` rather than in a bench nobody runs on a schedule.
+
 ## D86 — a null scope means EVERY scope of the task, through an OPTIONAL store capability (2026-08-21)
 
 `ISemanticMemory.RecallAsync`'s `scope` is nullable and means "search every scope under this task", bounded
@@ -2211,3 +2222,16 @@ that are still there.
 it would reach a different task whose key differs only in case; and `%`/`_` inside a caller's task key would
 be read as wildcards on both. Postgres adds `COLLATE "C"` so the comparison is byte-exact, the same reasoning
 its `SearchAsync` tiebreak already carries.
+
+**Amended 2026-08-21 — the SECOND place the same defect lived, found by an adopter after the first was
+fixed.** `GraphMemoryEngine`'s own semantic seeding builds the literal collection `{Name}|{task}|{scope}`, so
+a null scope searched `{Name}|{task}|` — a name no write can create, since `MemoryWrite.Scope` is not
+nullable. The graph's LEXICAL half meanwhile spans scopes normally (`@scope IS NULL OR n.scope = @scope`), so
+one engine held two different answers to "what does an unscoped recall mean", and the unscoped path — the
+common case — was silently unimproved while the same query answered when a scope was named.
+<br>It now spans through the same `IListableVectorStore`, merged and bounded by `SemanticSeedK`, with ties
+broken by id: those scores become RANKING input, so an untiebroken merge would write run-to-run
+arbitrariness into what a recall returns.
+<br>**The generalisation, since fixing this seam once did not fix it:** when a null argument gains a meaning,
+grep for every place that argument is INTERPOLATED into a key, not just the seam that was reported. Both
+sites here read `query.Scope` and only one of them was in the first fix's diff.

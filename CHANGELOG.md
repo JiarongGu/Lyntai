@@ -12,7 +12,23 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ## Unreleased
 
+### Added
+
+- **A fourth wiring finding: a graph member that embeds every write and seeds no recall.** An `IEmbedder`
+  plus an `IVectorStore` turns enrichment on, so every write is embedded for novelty and similarity linking —
+  while `GraphMemoryOptions.SemanticSeedK` defaults to `0`, so no recall reads any of it. You pay an
+  embedding per write for nothing a recall consults, and the only symptom is recall quality. Reported by an
+  adopter who spent most of a session finding it with every check green (**D85**, amended).
+
 ### Fixed
+
+- **A graph recall with no scope now searches every scope of the task semantically**, as its lexical half
+  already did (**D86**, amended). `GraphMemoryEngine`'s seeding built the literal collection
+  `{Name}|{task}|{scope}`, so a null scope searched `{Name}|{task}|` — a name no write can create, since
+  `MemoryWrite.Scope` is not nullable. One engine therefore held two different answers to "what does an
+  unscoped recall mean", and the unscoped path was silently unimproved while the same query answered when a
+  scope was named. Spanning needs `IListableVectorStore`; a store without it yields nothing there, exactly as
+  before.
 
 - **`MemoryComposition.Render` no longer leads with the separator when `basePrompt` is empty.** Both heading
   sites appended the blank line unconditionally and the return only `TrimEnd`s, so a consumer building a

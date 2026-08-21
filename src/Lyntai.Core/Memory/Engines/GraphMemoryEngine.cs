@@ -189,6 +189,14 @@ public sealed class GraphMemoryEngine(
 
     private bool Enriches => embedder is not null && vectors is not null;
 
+    /// <summary>This engine embeds every write and no recall reads those vectors — an embedder and a vector
+    /// store are wired, so novelty and similarity linking run on the WRITE path, while
+    /// <see cref="GraphMemoryOptions.SemanticSeedK"/> is 0 so the READ path consults none of it.
+    /// <para>Internal, and read only by <see cref="MemoryWiring"/>: it is a wiring diagnostic, not something
+    /// a consumer branches on. Exposed as a property rather than reflected over, so a rename is a compile
+    /// error instead of a sweep that throws the next time somebody runs it.</para></summary>
+    internal bool EmbedsWithoutSeeding => Enriches && _options.SemanticSeedK <= 0;
+
     /// <inheritdoc />
     public string Name { get; } = name;
 
@@ -930,7 +938,13 @@ public sealed class GraphMemoryEngine(
             c.Kind == MemoryAgeKind.Derivable ? c.Age(neighbour.EdgeAgeSample) : neighbour.EdgeAge)]);
 
     /// <summary>Cosine similarity of the query against the vector store, per node id. Empty unless an
-    /// embedder, a vector store and <see cref="GraphMemoryOptions.SemanticSeedK"/> are all present.</summary>
+    /// embedder, a vector store and <see cref="GraphMemoryOptions.SemanticSeedK"/> are all present.
+    /// <para><b>A null <see cref="MemoryQuery.Scope"/> spans the task's scopes</b>, so this half agrees with
+    /// the LEXICAL half about what an unscoped recall means. It did not until an adopter measured it: a write
+    /// always names a scope, so the literal collection <c>{Name}|{task}|</c> a null scope produced could
+    /// never exist, and an unscoped recall — the common case — was silently unimproved while the same query
+    /// answered when a scope was named. Spanning needs <see cref="IListableVectorStore"/>; a store without it
+    /// yields nothing here, exactly as before.</para></summary>
     private async Task<Dictionary<long, double>> SemanticScoresAsync(MemoryQuery query, CancellationToken ct)
     {
         if (!Enriches || _options.SemanticSeedK <= 0 || string.IsNullOrWhiteSpace(query.Query)) return [];
@@ -946,9 +960,11 @@ public sealed class GraphMemoryEngine(
         try
         {
             var vector = await embedder!.EmbedAsync(query.Query, ct).ConfigureAwait(false);
-            near = await vectors!
-                .SearchAsync($"{Name}|{query.TaskKey}|{query.Scope}", vector, _options.SemanticSeedK, ct)
-                .ConfigureAwait(false);
+            near = query.Scope is null
+                ? await AcrossScopesAsync(vector, query.TaskKey, ct).ConfigureAwait(false)
+                : await vectors!
+                    .SearchAsync($"{Name}|{query.TaskKey}|{query.Scope}", vector, _options.SemanticSeedK, ct)
+                    .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -962,6 +978,32 @@ public sealed class GraphMemoryEngine(
             if (long.TryParse(match.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
                 scores[id] = Math.Clamp(match.Score, 0, 1);
         return scores;
+    }
+
+    /// <summary>Search every scope this engine holds under <paramref name="taskKey"/> and merge — one search
+    /// per scope, each already bounded by <c>SemanticSeedK</c>, so the global top-k is a subset of the
+    /// per-scope top-k's and merging afterwards misses nothing.</summary>
+    /// <remarks>Ties break by id, ordinally. Without it two equally-scoring nodes in different scopes swap
+    /// places between runs and one silently drops out at the k boundary — and here those scores become
+    /// RANKING input, so the arbitrariness would land in what a recall returns.</remarks>
+    private async Task<IReadOnlyList<VectorMatch>> AcrossScopesAsync(float[] vector, string taskKey,
+        CancellationToken ct)
+    {
+        if (vectors is not IListableVectorStore listable) return [];
+
+        var prefix = $"{Name}|{taskKey}|";
+        var merged = new List<VectorMatch>();
+        foreach (var collection in await listable.ListCollectionsAsync(prefix, ct).ConfigureAwait(false))
+        {
+            ct.ThrowIfCancellationRequested();
+            merged.AddRange(await vectors!
+                .SearchAsync(collection, vector, _options.SemanticSeedK, ct).ConfigureAwait(false));
+        }
+
+        return [.. merged
+            .OrderByDescending(m => m.Score)
+            .ThenBy(m => m.Id, StringComparer.Ordinal)
+            .Take(_options.SemanticSeedK)];
     }
 
     private async Task<List<(GraphNode Node, int Hop)>> GatherAsync(MemoryQuery query, int limit,
