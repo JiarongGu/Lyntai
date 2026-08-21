@@ -31,6 +31,7 @@ per-version design record, where one exists, is indexed in `docs/superpowers/IND
 | v2.4.0 (2026-08-05) | app-owned MCP servers on either CLI agent session (D38) |
 | **v2.5.0** (2026-08-08) | **long-term memory** — named engines, decay measured in interference, burial rather than deletion (D39–D41) |
 | **v3.0.0** (2026-08-17) | **the memory retention model, then the pre-freeze sweep that followed it.** Memory (D45–D66): seven `IMemory*Policy` domains, FSRS as the only shipped curve, RRF the ranking default, a recall that no longer lengthens a half-life, an authoritative fact that takes a slot within the limit, six pre-release migrations folded into one. Everything else (D67–D82): the generation stream door, streaming tool calls, the cross-process job cap, the forget/prune split, the generation router as a trust boundary, every generation backend registered by configure callback, the naming sweep — and `Lyntai.Generation`'s SemVer exemption **withdrawn**, so no package is exempt |
+| v3.0.1 (2026-08-21) | **five memory seams two adopting applications had to work around**, all one shape — a registration that resolves and can never run (D83–D86): the composition renderer reachable without an engine, per-entry grades for a curated catalog that mixes provenance, fan-out writes so a blend's second member is not silently empty, a wiring check for a member or policy nothing can reach, and a scope-optional semantic recall. Additive throughout; the numbering is a patch carrying additive surface, so the next additive release is **3.1.0** |
 
 ## Planned
 
