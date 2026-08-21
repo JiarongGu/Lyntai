@@ -554,7 +554,7 @@ Each of these cost a real measurement to find.
   Registered onto a blend with none, they never run — and a recall then reports `Answered = null`, which is
   exactly what it reports with nothing registered at all. That is the second thing the wiring check reports.
 - **A recall with no scope searches every scope of the task** (**D86**), for semantic memory as much as for
-  the rest. Before 3.1 the semantic member returned nothing there, so a consumer treating scope as an
+  the rest. Through 3.0.0 the semantic member returned nothing there, so a consumer treating scope as an
   optional filter got no semantic recall on its ordinary path. It needs an `IListableVectorStore` underneath;
   all three shipped stores are one.
 - **The review log records every returned entry, not every reinforced one.** A judge-rejected entry is

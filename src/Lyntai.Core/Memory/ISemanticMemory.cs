@@ -27,9 +27,9 @@ public interface ISemanticMemory
     /// <para><b>A null <paramref name="scope"/> means EVERY scope under the task</b>, still bounded by
     /// <paramref name="k"/> across the union and with <see cref="SemanticHit.Scope"/> naming where each hit
     /// came from. It is a defined recall, not a missing argument: a large class of consumers treats scope as
-    /// an optional FILTER and passes none on the ordinary path, and until 3.1 that path returned nothing at
-    /// all here — silently, because a collection that does not exist and one that holds no match are the same
-    /// empty list.</para>
+    /// an optional FILTER and passes none on the ordinary path, and through 3.0.0 that path returned nothing
+    /// at all here — silently, because a collection that does not exist and one that holds no match are the
+    /// same empty list.</para>
     /// <para>It needs the store to enumerate its collections (<see cref="IListableVectorStore"/>); a BYO
     /// store without that capability yields nothing, exactly as before. Fail-open like the rest of this
     /// method.</para></summary>
