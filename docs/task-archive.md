@@ -6362,3 +6362,61 @@ wildcards on both; Postgres adds `COLLATE "C"` so the comparison is byte-exact. 
 matches). Core/Sqlite/Postgres API baselines updated; every line is an addition. Tests:
 `VectorStoreContract` +4 facts × 3 backends, `SemanticMemoryTests` +6,
 `CompositeMemoryEngineTests` +4.
+
+---
+
+## Part 91 — FROM AN ADOPTER: 3.0.1 confirmed, and one small thing (2026-08-21)
+
+_Aurelia — the consumer behind Part 89 — took 3.0.1 the day it shipped. **All three findings are closed and
+the fixes work.** Reported back because "your fix worked" is worth more than the finding was, and because
+what it DELETED is the measurable part. Startable: the one item below is a paragraph or three lines._
+
+**`Render` (D83) removed the workaround outright.** `MemoryStore.ContextBlock` now calls
+`MemoryComposition.Render` directly, and the sham `IMemoryEngine` this consumer had written — the one whose
+`RecallAsync` ignored its own query and returned what the caller had already selected — is **deleted**.
+Because `Render` is pure and synchronous, the sync-over-async bridge went with it. Net −16 lines in a release
+that was additive-only.
+
+**The check that says the seam is right: the tests needed no edit.** Swapping the entire composition
+mechanism changed no assertion, because they were written against behaviour ("an owner's rule survives a
+flood of agent notes") rather than against the adapter. A seam a consumer can swap without touching its own
+tests is the version of "additive" that actually holds.
+
+**D85 answered finding C the second way, and it is the better one.** The ask offered two: make
+`IMemoryVerificationPolicy` consultable outside `GraphMemoryEngine`, *or* refuse a registration nothing can
+consult. The wiring check turns a silent no-op into a warning naming the member, which is what the finding
+was actually about — this consumer still cannot use `AddMemoryVerification` (no graph member, and
+`ILlmClientFactory` exists only for api-kind endpoints while its default is a console CLI), but it would now
+be TOLD rather than left guessing. D84's per-entry `Grade` is unused here for a good reason — this consumer
+grades by `source` in its own mapping — but it is the seam if recall ever moves onto the engine, and
+`kind: null` closes the "a catalog with several sections has no single-engine read" note filed beside it.
+
+**The one small thing: `Render` with an EMPTY `basePrompt` leads with the separator.** Both heading sites
+`Append("\n\n")` unconditionally, and the return `TrimEnd()`s but does not `TrimStart()` — so a consumer
+building a standalone BLOCK rather than appending to a prompt gets two leading newlines and has to trim them
+itself. (Read in `MemoryComposition.Render`, not inferred from behaviour.) Harmless, but it is the kind of
+thing every such consumer will rediscover.
+
+- **Ask:** skip the separator when `basePrompt` is empty, or say in the doc comment that a non-empty prompt
+  is expected. Either closes it; the second costs nothing.
+- Worth noting the shape, since `Render` was created *for* callers doing their own retrieval: "append to a
+  prompt" and "produce a block I will place myself" are both natural uses of a formatting-only entry point,
+  and only the first is currently frictionless.
+
+✅ done 2026-08-21 — **Outcome: took the FIRST branch, not the cheap one.** The ask offered "skip the
+separator" or "document that a non-empty prompt is expected", and the second costs nothing — but
+`Render` exists *for* callers doing their own retrieval, so documenting the friction would have shipped the
+consumer's workaround as the contract. The blank line is a SEPARATOR; with no prompt there is nothing to
+separate from, so it is not emitted. Both uses are now stated as first-class on the method's own doc.
+<br>**Both heading sites go through one local `Separate()`**, because a fix applied to the authoritative site
+alone leaves the associative-only recall — the COMMON case — still leading with the separator. That is pinned
+as its own fact rather than folded into the first: two call sites is two chances to fix one of them.
+<br>A base prompt is still passed through verbatim, whitespace included. Trimming it would have made this
+path disagree with the no-items early return about the same input, which is the kind of inconsistency that
+costs more than the whitespace does; pinned by a fact asserting both paths agree.
+<br>TDD, failing-test-first: the two reported cases went red, the two regression guards passed before the fix
+(which is what makes them guards rather than restatements). `CHANGELOG.md` under `## Unreleased`,
+`docs/memory.md`'s "compose from your own retrieval" recipe. No API change; no baseline change.
+<br>**The rest of Part 91 needed no work** — it is confirmation that Parts 89/90 landed, kept because a
+consumer reporting a deleted workaround (−16 lines, no test edits) is the strongest evidence a seam was cut
+in the right place, and that evidence had nowhere else to live.

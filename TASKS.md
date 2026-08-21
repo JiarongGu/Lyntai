@@ -24,11 +24,11 @@ agent session, app-owned MCP servers, the long-term memory subsystem and the mul
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**Nothing here is startable right now — every remaining item needs something this repository does not
+**One Part is startable — 92, from an adopter; every OLDER item needs something this repository does not
 have** (a key, a model download, a CLI install, a vendor pick, a measurement budget, or a deployment's own
-data). That is stated first rather than buried, because it is the answer to the question the file exists to
-answer. **Read the caveat two paragraphs down before trusting it**: a banner that over-claims blockage hides
-startable work inside, and this one has been wrong that way before.
+data). That split is stated first rather than buried, because it is the answer to the question the file
+exists to answer. **Read the caveat two paragraphs down before trusting it**: a banner that over-claims
+blockage hides startable work inside, and this one has been wrong that way before.
 
 Startable work has kept arriving in bursts and closing the same day: three items via Parts 85/86
 closed in **Part 87**, the 2026-08-17 whole-repo review (nine subsystem reviewers + per-finding
@@ -36,7 +36,8 @@ adversarial verification) opened twelve verified findings that all closed the sa
 which is also where the two finding-halves that measurement refuted are recorded — and the two
 adopter-reported Parts that arrived on 3.0.0 closed in **`docs/task-archive.md` Parts 89 and 90**
 (the composition renderer, per-entry curated grades, fan-out writes, the wiring check, and cross-scope
-semantic recall; `docs/DECISIONS.md` **D83–D86**).
+semantic recall; `docs/DECISIONS.md` **D83–D86**), with **Part 91** confirming those fixes the day 3.0.1
+shipped and closing one small thing they left behind.
 
 **A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
 blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
@@ -86,44 +87,6 @@ Blocked, and on what:
   the documented-not-measured trap GEN-VERIFY exists to correct. (The rest of Part 75 has closed; this line
   exists because a Part whose blocker is unlisted reads as startable, which is how Part 33 hid two
   startable items — see the caveat above.)
-
-## Part 91 — FROM AN ADOPTER: 3.0.1 confirmed, and one small thing (2026-08-21)
-
-_Aurelia — the consumer behind Part 89 — took 3.0.1 the day it shipped. **All three findings are closed and
-the fixes work.** Reported back because "your fix worked" is worth more than the finding was, and because
-what it DELETED is the measurable part. Startable: the one item below is a paragraph or three lines._
-
-**`Render` (D83) removed the workaround outright.** `MemoryStore.ContextBlock` now calls
-`MemoryComposition.Render` directly, and the sham `IMemoryEngine` this consumer had written — the one whose
-`RecallAsync` ignored its own query and returned what the caller had already selected — is **deleted**.
-Because `Render` is pure and synchronous, the sync-over-async bridge went with it. Net −16 lines in a release
-that was additive-only.
-
-**The check that says the seam is right: the tests needed no edit.** Swapping the entire composition
-mechanism changed no assertion, because they were written against behaviour ("an owner's rule survives a
-flood of agent notes") rather than against the adapter. A seam a consumer can swap without touching its own
-tests is the version of "additive" that actually holds.
-
-**D85 answered finding C the second way, and it is the better one.** The ask offered two: make
-`IMemoryVerificationPolicy` consultable outside `GraphMemoryEngine`, *or* refuse a registration nothing can
-consult. The wiring check turns a silent no-op into a warning naming the member, which is what the finding
-was actually about — this consumer still cannot use `AddMemoryVerification` (no graph member, and
-`ILlmClientFactory` exists only for api-kind endpoints while its default is a console CLI), but it would now
-be TOLD rather than left guessing. D84's per-entry `Grade` is unused here for a good reason — this consumer
-grades by `source` in its own mapping — but it is the seam if recall ever moves onto the engine, and
-`kind: null` closes the "a catalog with several sections has no single-engine read" note filed beside it.
-
-**The one small thing: `Render` with an EMPTY `basePrompt` leads with the separator.** Both heading sites
-`Append("\n\n")` unconditionally, and the return `TrimEnd()`s but does not `TrimStart()` — so a consumer
-building a standalone BLOCK rather than appending to a prompt gets two leading newlines and has to trim them
-itself. (Read in `MemoryComposition.Render`, not inferred from behaviour.) Harmless, but it is the kind of
-thing every such consumer will rediscover.
-
-- **Ask:** skip the separator when `basePrompt` is empty, or say in the doc comment that a non-empty prompt
-  is expected. Either closes it; the second costs nothing.
-- Worth noting the shape, since `Render` was created *for* callers doing their own retrieval: "append to a
-  prompt" and "produce a block I will place myself" are both natural uses of a formatting-only entry point,
-  and only the first is currently frictionless.
 
 ## Part 33 — generation platform: remaining backends + composition
 
@@ -416,7 +379,12 @@ knowingly is where the gap shows up measurably, not a reason to avoid shipping t
 
 ---
 
-## Part 91 — FROM AN ADOPTER: an embedder is registered, every write pays for it, and no recall reads it (2026-08-21)
+## Part 92 — FROM AN ADOPTER: an embedder is registered, every write pays for it, and no recall reads it (2026-08-21)
+
+_**Renumbered from 91 on 2026-08-21.** `docs/task-archive.md` **Part 91** is the Aurelia report that closed
+the same day, so "Part 91" named a completed archive entry and an open backlog part at once and every
+cross-reference to it was ambiguous — the same collision that renumbered 39→41. The archive keeps 91; it is
+history, and history does not get renumbered._
 
 _Filed from Gatherlight's 3.0.1 adoption, in the same spirit as archive Part 90 — a wiring that compiles,
 registers, resolves, and can never run. Part 90's own `MemoryWiring` doc says these findings exist because

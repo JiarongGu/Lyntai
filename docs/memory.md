@@ -740,6 +740,11 @@ Grades come off the items, so set `MemoryItem.Grade` yourself: authoritative mat
 own section, verbatim. **The reserve protects exact material from the BUDGET, not from your retrieval** — a
 fact your own selection dropped cannot be rescued here, and the section still looks full.
 
+**Pass `""` to get a standalone block** rather than an appended one — the blank line between prompt and
+sections is a separator, so with no prompt it is not emitted and there is nothing to trim. Both uses are
+first-class; a formatting-only entry point is as often used to build a block you place yourself as to append
+to a prompt.
+
 ### Replace a policy with your own
 
 Every seam is an interface plus a registration. Nothing here is a mode or a flag.

@@ -159,6 +159,51 @@ public class MemoryCompositionTests
         Assert.Throws<ArgumentNullException>(() => MemoryComposition.Render("BASE", null!));
     }
 
+    /// <summary>"Append to a prompt" and "produce a block I will place myself" are both natural uses of a
+    /// formatting-only entry point, and <c>Render</c> exists FOR callers doing their own retrieval — so an
+    /// empty base prompt must not lead with the separator. Reported against 3.0.1: both heading sites
+    /// appended <c>"\n\n"</c> unconditionally and the return only <c>TrimEnd</c>s, so a standalone block
+    /// arrived with two leading newlines the caller had to strip.</summary>
+    [Fact]
+    public void Render_with_no_base_prompt_yields_a_standalone_block_with_no_leading_separator()
+    {
+        var composed = MemoryComposition.Render("", [Item("exact fact", MemoryGrade.Authoritative)]);
+
+        Assert.StartsWith("## Known facts", composed, StringComparison.Ordinal);
+    }
+
+    /// <summary>The SECOND heading site, which is a separate <c>Append("\n\n")</c> — a fix applied to only
+    /// one of them leaves the associative-only recall (the common case) still leading with the separator.</summary>
+    [Fact]
+    public void The_associative_heading_is_the_second_separator_site_and_needs_the_same_fix()
+    {
+        var composed = MemoryComposition.Render("", [Item("recalled note", MemoryGrade.Associative)]);
+
+        Assert.StartsWith("## Recalled context", composed, StringComparison.Ordinal);
+    }
+
+    /// <summary>The regression half: a non-empty base prompt keeps its blank-line separator exactly as
+    /// before. The fix is "nothing to separate FROM", never "drop the separator".</summary>
+    [Fact]
+    public void A_non_empty_base_prompt_keeps_its_separator()
+    {
+        var composed = MemoryComposition.Render("BASE", [Item("exact fact", MemoryGrade.Authoritative)]);
+
+        Assert.StartsWith("BASE\n\n## Known facts", composed, StringComparison.Ordinal);
+    }
+
+    /// <summary>A base prompt is passed through VERBATIM, whitespace included — every other path in this
+    /// method returns it unchanged (the no-items early return does), so trimming it here would make the two
+    /// disagree about the same input.</summary>
+    [Fact]
+    public void A_whitespace_base_prompt_is_preserved_rather_than_trimmed_away()
+    {
+        Assert.StartsWith("  \n\n## Known facts",
+            MemoryComposition.Render("  ", [Item("exact fact", MemoryGrade.Authoritative)]),
+            StringComparison.Ordinal);
+        Assert.Equal("  ", MemoryComposition.Render("  ", []));   // the no-items path, for the same input
+    }
+
     /// <summary>The reserve still bounds exact material when a caller supplies its own — and it is the
     /// BUDGET it protects against, never the caller's selection. That distinction is what the adopter had to
     /// find by test.</summary>

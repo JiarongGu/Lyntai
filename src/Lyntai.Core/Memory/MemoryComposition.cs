@@ -80,8 +80,13 @@ public static class MemoryComposition
     /// <see cref="MemoryItem.Grade"/>: everything not <see cref="MemoryGrade.Authoritative"/> renders as
     /// associative and MAY be truncated to its headline. Authoritative content is never truncated.</para>
     /// <para>Pure and total: it performs no I/O, throws only on a null argument, and returns
-    /// <paramref name="basePrompt"/> unchanged when nothing fits.</para></summary>
-    /// <param name="basePrompt">The prompt to append to.</param>
+    /// <paramref name="basePrompt"/> unchanged when nothing fits.</para>
+    /// <para><b>Both uses are first-class</b>, which is why an empty <paramref name="basePrompt"/> is not a
+    /// degenerate case: pass a prompt to APPEND to it, or pass <c>""</c> to get the sections as a standalone
+    /// BLOCK you place yourself. The blank line between prompt and sections is a separator, so with nothing
+    /// to separate from it is not emitted — a block never arrives with leading newlines to strip.</para></summary>
+    /// <param name="basePrompt">The prompt to append to, or <c>""</c> for a standalone block. Passed through
+    /// verbatim, whitespace included, exactly as the no-content return does.</param>
     /// <param name="items">What to render, in the order they should appear within their section.</param>
     /// <param name="options">Budget and headings; null takes the defaults.</param>
     public static string Render(string basePrompt, IReadOnlyList<MemoryItem> items,
@@ -101,14 +106,28 @@ public static class MemoryComposition
         if (exactText.Length == 0 && recalledText.Length == 0) return basePrompt;
 
         var sb = new StringBuilder(basePrompt);
+
+        // The blank line SEPARATES the sections from the prompt above them, so with no prompt there is
+        // nothing to separate from and a standalone block would arrive with two newlines the caller has to
+        // strip. Both heading sites go through this: fixing one leaves the associative-only recall — the
+        // common case — still leading with the separator.
+        void Separate()
+        {
+            if (sb.Length > 0) sb.Append("\n\n");
+        }
+
         if (exactText.Length > 0)
         {
-            sb.Append("\n\n").Append(opts.AuthoritativeHeading).Append('\n').Append(exactText);
+            Separate();
+            sb.Append(opts.AuthoritativeHeading).Append('\n').Append(exactText);
             if (omitted > 0)
                 sb.Append("… ").Append(omitted).Append(" further authoritative facts omitted (budget)\n");
         }
         if (recalledText.Length > 0)
-            sb.Append("\n\n").Append(opts.AssociativeHeading).Append('\n').Append(recalledText);
+        {
+            Separate();
+            sb.Append(opts.AssociativeHeading).Append('\n').Append(recalledText);
+        }
 
         return sb.ToString().TrimEnd();
 

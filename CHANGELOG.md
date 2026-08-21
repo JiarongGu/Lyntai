@@ -10,6 +10,18 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+### Fixed
+
+- **`MemoryComposition.Render` no longer leads with the separator when `basePrompt` is empty.** Both heading
+  sites appended the blank line unconditionally and the return only `TrimEnd`s, so a consumer building a
+  standalone BLOCK — rather than appending to a prompt — got two leading newlines to strip. The blank line
+  separates the sections from the prompt above them, so with nothing to separate from it is not emitted.
+  A non-empty prompt is unchanged, and a base prompt is still passed through verbatim, whitespace included.
+  <br>Reported against 3.0.1 by an adopter that had taken `Render` (**D83**) the day it shipped. Both uses
+  are now stated as first-class on the method's own doc: pass a prompt to append to it, pass `""` for a block.
+
 ## 3.0.1 — the memory seams two adopters had to work around (2026-08-21)
 
 Five reports from applications that adopted 3.0.0, all in the memory subsystem, all the same class of defect:
