@@ -87,6 +87,44 @@ Blocked, and on what:
   exists because a Part whose blocker is unlisted reads as startable, which is how Part 33 hid two
   startable items — see the caveat above.)
 
+## Part 91 — FROM AN ADOPTER: 3.0.1 confirmed, and one small thing (2026-08-21)
+
+_Aurelia — the consumer behind Part 89 — took 3.0.1 the day it shipped. **All three findings are closed and
+the fixes work.** Reported back because "your fix worked" is worth more than the finding was, and because
+what it DELETED is the measurable part. Startable: the one item below is a paragraph or three lines._
+
+**`Render` (D83) removed the workaround outright.** `MemoryStore.ContextBlock` now calls
+`MemoryComposition.Render` directly, and the sham `IMemoryEngine` this consumer had written — the one whose
+`RecallAsync` ignored its own query and returned what the caller had already selected — is **deleted**.
+Because `Render` is pure and synchronous, the sync-over-async bridge went with it. Net −16 lines in a release
+that was additive-only.
+
+**The check that says the seam is right: the tests needed no edit.** Swapping the entire composition
+mechanism changed no assertion, because they were written against behaviour ("an owner's rule survives a
+flood of agent notes") rather than against the adapter. A seam a consumer can swap without touching its own
+tests is the version of "additive" that actually holds.
+
+**D85 answered finding C the second way, and it is the better one.** The ask offered two: make
+`IMemoryVerificationPolicy` consultable outside `GraphMemoryEngine`, *or* refuse a registration nothing can
+consult. The wiring check turns a silent no-op into a warning naming the member, which is what the finding
+was actually about — this consumer still cannot use `AddMemoryVerification` (no graph member, and
+`ILlmClientFactory` exists only for api-kind endpoints while its default is a console CLI), but it would now
+be TOLD rather than left guessing. D84's per-entry `Grade` is unused here for a good reason — this consumer
+grades by `source` in its own mapping — but it is the seam if recall ever moves onto the engine, and
+`kind: null` closes the "a catalog with several sections has no single-engine read" note filed beside it.
+
+**The one small thing: `Render` with an EMPTY `basePrompt` leads with the separator.** Both heading sites
+`Append("\n\n")` unconditionally, and the return `TrimEnd()`s but does not `TrimStart()` — so a consumer
+building a standalone BLOCK rather than appending to a prompt gets two leading newlines and has to trim them
+itself. (Read in `MemoryComposition.Render`, not inferred from behaviour.) Harmless, but it is the kind of
+thing every such consumer will rediscover.
+
+- **Ask:** skip the separator when `basePrompt` is empty, or say in the doc comment that a non-empty prompt
+  is expected. Either closes it; the second costs nothing.
+- Worth noting the shape, since `Render` was created *for* callers doing their own retrieval: "append to a
+  prompt" and "produce a block I will place myself" are both natural uses of a formatting-only entry point,
+  and only the first is currently frictionless.
+
 ## Part 33 — generation platform: remaining backends + composition
 
 _Part 32 (MED1: the generation platform + the 2.0.1 package restructure) landed 2026-08-04 — see

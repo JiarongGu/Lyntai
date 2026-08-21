@@ -68,15 +68,14 @@ the tests) while being wrong. Skim before touching the relevant area.
   the package** — no clone, no `local/`, no git history — and read every `<Description>` against the
   decisions since the last release. Both are cheap; neither is automatic.
   <br>**A third member of that family, measured 2026-08-21: a FORWARD version reference in an XML doc is a
-  prediction, and it ships.** Writing up the adopter seams, two sentences said the fixed behaviour arrives in
-  "3.1" — reasonable, since the change was additive public surface and SemVer 2.0 makes that a minor. The
-  owner released it as **3.0.1**, so the shipped package's IntelliSense now names a version that does not
-  exist. Nothing could have caught it: `check-docs` gates retired VOCABULARY, `check-counts` gates counted
-  CLAIMS, and neither a version number nor the release the author assumed is either one.
-  <br>**Write what SHIPPED, never what WILL ship** — "through 3.0.0 this returned nothing" is a fact about a
-  released artifact and stays true whatever comes next, while "until 3.1" is a guess about somebody else's
-  decision. The `CHANGELOG` already uses the first form; the reflex to carry it into a doc comment is what
-  failed here.
+  prediction, and it ships.** Two sentences said a fix arrives in "3.1" — reasonable, since the change was
+  additive public surface; the release was cut as **3.0.1**, so the published package's IntelliSense named a
+  version that does not exist. **The interesting half is that no gate can see it**: `check-docs` gates retired
+  VOCABULARY, `check-counts` gates counted CLAIMS, and a version number is neither — nor can a corpus scan
+  become one, because `net10.0`, `llama3.1` and every historical `## 3.0.0` heading are the same token shape.
+  The rule is `repo-mechanics.md` §"never NAME a version that has not shipped"; what belongs *here* is that
+  the correction repeated the mistake in a different costume an hour later, in the ROADMAP row recording the
+  release — so treat "is this number a record or a prediction?" as a review question, not a thing you fix once.
 - **"Historical record" can be true of part of a file and false of the rest. `## Unreleased` is not
   history.** `check-docs` exempted `CHANGELOG.md` wholesale on the rationale that a record is accurate by
   using the vocabulary of its day — true of a RELEASED section, false of `## Unreleased`, which describes

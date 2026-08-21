@@ -92,6 +92,37 @@ This happened in a sibling repository; see `docs/DECISIONS.md` D19.
 - `node devtools/dev.mjs doctor` fails when `VersionPrefix` no longer matches the newest `v*` tag.
 - Releasing, or repairing a botched release, sets `LYNTAI_RELEASE=1`.
 
+### …and never NAME a version that has not shipped
+
+**No document, doc comment, changelog entry or commit message promises a future version number.** The
+pipeline decides what the next release is called, and it decides at release time — so any number written
+before that is a guess about somebody else's decision, and writing it down turns a guess into a promise a
+consumer can hold the library to.
+
+The rule is a single substitution, and it costs nothing:
+
+| don't write | write |
+|---|---|
+| "fixed in 3.1" | "fixed in the next release", or just describe the fix |
+| "through 3.0.0 this returned nothing" | *(keep — a fact about a RELEASED artifact)* |
+| "the next additive release is 3.1.0" | *(nothing — it is not yours to say)* |
+
+**Say what SHIPPED, never what WILL.** "Through 3.0.0 this returned nothing" stays true whatever comes
+next; "until 3.1" was false the moment the release was cut as 3.0.1.
+
+**Measured twice on 2026-08-21, in the same day's work.** Additive public surface was written up as arriving
+in "3.1" on the reasonable assumption that SemVer makes additions a minor — and one of those sentences was
+inside an XML doc, so it **shipped**, and the published package's IntelliSense named a version that does not
+exist. The correction then repeated the mistake in a different costume: the ROADMAP row recording the
+release closed with "the next additive release is **3.1.0**", which is the same promise with more confidence.
+
+**Deliberately not gated, and the reason is worth keeping** so nobody builds it and finds out: a scan for
+version-shaped tokens above the current `VersionPrefix` drowns in legitimate ones — `net10.0`, a model tag
+like `llama3.1`, a vendor's `0.3.40`, every historical `## 3.0.0` heading. That is the shape
+`pitfalls.md` records as untightenable ("a gate whose false positives are legitimate authorial choices can
+only be given an exclusion list"). This stays a rule, and the review question is: *is this number a record or
+a prediction?*
+
 ### 2.0.0 is BURNED on nuget.org; never cut it
 
 2.0.0 is permanently taken — published then unlisted on 10 of the 12 package ids, and an unlisted
