@@ -10,7 +10,7 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
-## Unreleased — the memory seams two adopters had to work around
+## 3.0.1 — the memory seams two adopters had to work around (2026-08-21)
 
 Five reports from applications that adopted 3.0.0, all in the memory subsystem, all the same class of defect:
 a registration that compiles, resolves, and can never run. **Additive only** — every change is a new member,
