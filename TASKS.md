@@ -416,6 +416,41 @@ knowingly is where the gap shows up measurably, not a reason to avoid shipping t
 
 ---
 
+## Part 91 — FROM AN ADOPTER: an embedder is registered, every write pays for it, and no recall reads it (2026-08-21)
+
+_Filed from Gatherlight's 3.0.1 adoption, in the same spirit as archive Part 90 — a wiring that compiles,
+registers, resolves, and can never run. Part 90's own `MemoryWiring` doc says these findings exist because
+"the only symptom is recall quality, which a consumer enabling a feature for the first time has no baseline
+for", and this is exactly that shape: it cost most of a session to find, with every check green._
+
+- [ ] **Report a graph member that embeds on write but seeds no recall.** `GraphMemoryOptions.SemanticSeedK`
+  ships at `0` ("considers none, which is what every version before this did"), which is the right default
+  for a consumer who has no embedder. But once an `IEmbedder` **and** an `IVectorStore` are registered,
+  `GraphMemoryEngine.Enriches` turns true and every write is embedded — for novelty and linking — while a
+  recall consults none of it. The consumer pays an embedding per write, gets vectors on disk, and sees no
+  change in what recall returns. Measured on the adopter's fixture: 8 facts, 8 vectors, and paraphrase
+  queries answering nothing until `SemanticSeedK` was set.
+
+  Suggested finding (same voice as the existing three, and derivable at factory-build time from the
+  container plus the member's own options): _"a graph member is wired with an embedder and a vector store
+  but `SemanticSeedK` is 0 — every write is embedded and no recall considers those neighbours. Set
+  `GraphMemoryOptions.SemanticSeedK`, or drop the embedder registration."_ Note this one is CERTAIN in the
+  `MemoryWiring.Inspect` sense: it reads two registrations and one options value, with no BYO-engine
+  ambiguity of the kind that keeps the policy findings silent.
+
+- [ ] **Consider whether a scope-keyed vector collection is the right default for a scope-OPTIONAL recall.**
+  Archive Part 90 fixed this for `ISemanticMemory`/`SemanticMemoryEngine` (null scope = every scope, via
+  `IListableVectorStore`). The graph's own seeding still builds a literal collection name
+  `{Name}|{TaskKey}|{Scope}`, so a null-scope recall searches `"engine|task|"` and finds nothing — while its
+  LEXICAL half spans scopes normally. That asymmetry is what made the adopter's unscoped recall (the common
+  case) silently unimproved: the same query answered when a scope was named and returned nothing when it was
+  not. The adopter's fix was to stop putting a partition key in `scope` at all, which is probably the right
+  advice — but if so, the scope parameter's doc should say that a scope you may want to OMIT at recall time
+  is not a scope, and `SemanticScoresAsync` should either span collections on null (as Part 90 did) or say
+  it cannot.
+
+---
+
 ## Part 75 — what the pre-3.0 review deferred, and why (2026-08-15)
 
 _Opened by `docs/task-archive.md` **Part 74**. Each of these was found, verified and deliberately NOT fixed
