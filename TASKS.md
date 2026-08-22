@@ -24,48 +24,34 @@ agent session, app-owned MCP servers, the long-term memory subsystem and the mul
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**Nothing here is startable right now — every remaining item needs something this repository does not
-have** (a key, a model download, a CLI install, a vendor pick, a measurement budget, or a deployment's own
-data). That is stated first rather than buried, because it is the answer to the question the file exists to
-answer. **Read the caveat two paragraphs down before trusting it**: a banner that over-claims blockage hides
-startable work inside, and this one has been wrong that way before.
+**One item is startable and the rest are not.** Startable: **Part 65 / `many-candidates`**, whose environment
+blocker cleared on 2026-08-23 — the embedding model it waited on is on this machine — leaving a measurement
+budget rather than a missing dependency. Everything else needs something this repository does not have (a
+key, a model download, a CLI install, a vendor pick, or a deployment's own data). That is stated first
+rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat two
+paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
+startable work inside, and this one has been wrong that way twice.
 
-Startable work has kept arriving in bursts and closing the same day: three items via Parts 85/86
-closed in **Part 87**, the 2026-08-17 whole-repo review (nine subsystem reviewers + per-finding
-adversarial verification) opened twelve verified findings that all closed the same day in **Part 88** —
-which is also where the two finding-halves that measurement refuted are recorded — and the two
-adopter-reported Parts that arrived on 3.0.0 closed in **`docs/task-archive.md` Parts 89 and 90**
-(the composition renderer, per-entry curated grades, fan-out writes, the wiring check, and cross-scope
-semantic recall; `docs/DECISIONS.md` **D83–D86**), with **Parts 91 and 92** arriving the day 3.0.1 shipped
-and closing the same day — 91 confirming those fixes and one small thing they left behind, 92 finding the
-SECOND place D86's defect lived plus a fourth wiring finding. Then **Parts 93, 94 and 95** on 3.0.2, closed
-2026-08-23 (`docs/DECISIONS.md` **D87–D88**): a named LLM client that could not route, subject handles no
-recall could read, and a verdict whose effect was undocumented in both directions.
-**Seven adopter Parts, and six of the seven are one shape:** a registration that resolves and can never run.
-The seventh is that shape's twin in prose — a description that made a working feature look inert.
+**The pattern to expect: the next startable item arrives from a CONSUMER, not from this list.** Every
+same-day burst of work since 3.0 came in that way, and the archive has each one. This banner does not
+enumerate them — a running tally of closed Parts is the accumulation the lifecycle rule exists to prevent,
+and it was allowed to grow here twice.
 
-**A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
-blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
-GEN-VERIFY's notes (the max-dimension question, closed as **D68**) and a platform gap the seam's own remarks
-described without ever being filed as work (the unreachable stream door, closed as **D67**). Neither needed
-the key the Part is blocked on. **A Part is blocked when its DELIVERABLE is; that does not make every
-sentence in it blocked**, and a startable sub-item buried in a blocked Part is invisible in exactly the way
-this list exists to prevent. When labelling something blocked, name what the blocker actually gates.
+**Two rules for reading a "blocked" label here**, both earned by this file being wrong:
 
-The four older parts are each blocked on something this repository does not have — a key, a model download,
-a CLI install, or a deployment's own data. That was briefly true of the WHOLE file (2026-08-15, when Parts
-70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**. Its items
-were all startable in a session, each found, verified and deliberately deferred with its reason recorded —
-and they have all now closed (archive Parts 76, 78–81 and 84) except one, which needs real aggregators to
-measure. It was briefly untrue again when Parts 89 and 90 arrived from adopters (closed 2026-08-21), and
-again when 93–95 did (closed 2026-08-23), which is the pattern worth expecting rather than an exception to
-it: **the next startable item will arrive from a consumer, not from this list.**
+- **A Part is blocked when its DELIVERABLE is; that does not make every sentence in it blocked.** Part 33 was
+  marked blocked in full while two startable pieces sat inside it (closed as **D67** and **D68**), neither
+  needing the key the Part waits on. When labelling something blocked, name what the blocker actually gates.
+- **An ENVIRONMENT blocker has to be re-checked against the environment, not against the tree.** The
+  2026-08-21 re-check read the tree and never asked the machine, so Part 65's `many-candidates` stayed
+  labelled blocked on "a real embedding model" while one sat pulled on this machine.
 
-**Every blocker below was re-checked against the tree on 2026-08-21** — because a "blocked" label is a claim
-development can overtake, and this file has been wrong that way before. Six held (`codex` is still absent
-from PATH; `GenerationKinds.Model3d` still has no provider; twelve unverified-surface markers still sit in
-the generation backends; `OpenAiHttp.InBandError` is unchanged). **One was stated wrongly** — see Part 65,
-where the named obstacle was a missing instrument and the real one is a missing model.
+**Every blocker below was re-checked on 2026-08-23.** Five held against the tree: `codex` is still absent
+from PATH; `GenerationKinds.Model3d` still has no provider; the twelve unverified-surface markers are still
+in the generation backends (3 `unverified`, 6 `not measured`, 3 `documented-not-measured` — which is where
+that count comes from, and why one grep never finds it); `OpenAiHttp.InBandError` is unchanged. One did NOT
+hold: Ollama is installed here with **`embeddinggemma`** pulled, so `many-candidates` needs a measurement
+budget rather than a dependency.
 
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
@@ -80,12 +66,14 @@ Blocked, and on what:
 - **Part 65 holds TWO items with DIFFERENT blockers, and listing one of them here is how the other read as
   startable** (corrected 2026-08-21 — the caveat above, applied to this file's own banner).
   - *subject drift* — a measurement budget: a RATE across models, not an anecdote.
-  - *`many-candidates`* — **a real embedding model.** Salience reads NOVELTY, novelty needs an embedder, and
-    without one `StructuralSaliencePolicy` declines on every write — so any sweep of a salience bound is
-    flat by construction, and `FakeEmbedder` cannot stand in (Part 69 withdrew the numbers taken through it).
-    Same dependency `memory-enrichment` carries, and the same reason it exits rather than faking one. The
-    earlier wording ("needs a sweep that varies the admission BOUND, which does not exist") named a missing
-    instrument rather than the missing input, and a missing instrument is something this repository builds.
+  - *`many-candidates`* — **NO LONGER BLOCKED (2026-08-23); it needs a measurement budget, not an
+    environment.** It was blocked on a real embedding model, because salience reads NOVELTY, novelty needs an
+    embedder, and without one `StructuralSaliencePolicy` declines on every write — so any sweep of a salience
+    bound is flat by construction, and `FakeEmbedder` cannot stand in (Part 69 withdrew the numbers taken
+    through it). **`embeddinggemma` is pulled on this machine**, so that dependency — the same one
+    `memory-enrichment` carries, and the same reason it exits rather than faking one — is satisfied. The item
+    stays open because the WORK is open: designing the bounded-admission rule off a single-seed replay would
+    be the over-fitting D49 refused, so it needs the paired sweep, which is tens of minutes per arm.
 - **Part 56 / FSRS-B** — a deployment's own logged reviews. The observable now exists; the data does not,
   and this repository cannot invent it without repeating the mistake D49 refused.
 - **Part 75** — two or three real aggregators to measure an in-band `code` against. Reading it unmeasured is
