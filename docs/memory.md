@@ -115,6 +115,7 @@ Objective (1) is why `MemoryGrade.Authoritative` exists, and why it behaves the 
 ```
 query
   ↓  SeedAsync            lexical candidates from the store (FTS/trigram/substring)
+  ↓  subject seeding      entries indexed under a SUBJECT the query names (needs an annotator)
   ↓  traversal            walk edges up to `Hops`, gathering neighbours
   ↓  IMemoryRankingPolicy score and order the candidates
   ↓  verification         (opt-in) a model promotes what actually ANSWERED
@@ -143,6 +144,13 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
   material clustered or isolated?"** If the facts that matter most are the ones nothing else resembles, the
   linking half is working against you, and `MinSimilarity` is the knob — it is the link floor, and a value
   above `1` keeps novelty and indexing while writing no similarity edge at all.
+- **A SUBJECT is readable, not just writable.** `AddMemoryAnnotation` records what each fact is *about*;
+  a recall matches its query against the handles in use and seeds the entries recorded under whichever ones
+  it names, so a query for `配偶` reaches the fact whose text says `太太`. **On by default** (`SubjectSeedK`),
+  unlike `SemanticSeedK` — a subject exists only because an annotator was registered and paid for, so
+  reading it back needs no second opt-in. Matching is per-script: a handle in a space-writing script needs a
+  word boundary (`pairbond` must not match `repairbonded`), one in a spaceless script matches as a
+  substring. Seeded entries are ordinary candidates — ranked, limited, and not appended past the page.
 - **Reinforcement follows the verdict, the review log follows the recall.** What gets touched and what gets
   logged are deliberately different sets — see §7.
 
@@ -352,6 +360,8 @@ spaceless scripts expanded into character n-grams. Thai, Lao, Khmer, Burmese and
 | `CandidateMultiplier` | 4 | candidates fetched per returned slot |
 | `AuthoritativeReserve` | `null` (unbounded) | slots exact facts may take **within** the limit |
 | `SemanticSeedK` | `0` (off) | entries the query's embedding pulls into the candidate set |
+| `SubjectSeedK` | 5 | entries each SUBJECT the query names pulls into the candidate set |
+| `SubjectSeedScan` | 256 | handles a recall matches its query against |
 
 ### Learning
 
@@ -566,6 +576,20 @@ Each of these cost a real measurement to find.
 - **The review log records every returned entry, not every reinforced one.** A judge-rejected entry is
   logged with `Verified = false` and never touched, which is what lets the log contain failures at all.
   `null` (no verifier ran) and `false` (judged irrelevant) are **not** interchangeable.
+- **`VerificationFilters: false` does NOT mean the verdict leaves the results alone.** Off — the default,
+  and what the option's own docs recommend — a verdict still **promotes** every endorsed candidate to the
+  front, before the caller's limit is applied and over a candidate set `VerificationDepth` deep, so it
+  reorders the page and can pull onto it an answer that never fitted. `VerificationFilters` adds
+  *removal*; it is not the switch that makes a judge visible.
+  <br>Corollary, because an adopter reached the opposite conclusion from a real measurement: **a judge that
+  changes nothing is a fact about your corpus, not about the wiring.** Endorsing the entries that already
+  lead *is* agreement with the ranker, and the page is then identical. Both wrong readings — "a verdict
+  never reaches the ranking" and "verification always reorders" — are reachable from the code, so all three
+  behaviours are pinned in `MemoryVerificationOrderingTests`.
+- **A recall MUTATES, so an A/B over it must be paired and counterbalanced.** It reinforces what it returns
+  and links those entries together; run one arm to completion and then the other and you have compared a
+  cold graph against one the first arm warmed. Ask each query under both arms back to back with the order
+  alternating. The bias is silent and lands on whichever arm ran second.
 - **An embedder alone does not give you semantic recall**, and **`SemanticSeedK` alone does not either.**
   It is what consults the vector store at query time, and it is off by default. Switched on, it makes a
   paraphrase *reachable* — but **no shipped ranking configuration will spend a slot on it**: measured

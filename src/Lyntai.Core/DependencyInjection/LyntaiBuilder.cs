@@ -40,10 +40,11 @@ public sealed class LyntaiBuilder
     /// one another.</summary>
     internal List<(int Order, Func<IServiceProvider, ILlmClient, ILlmClient> Decorate)> FrontDoorDecorators { get; } = [];
 
-    /// <summary>Named LLM clients (<c>AddLlmClient</c>) → the backend ids each routes over, empty meaning
-    /// "every registered provider". Composed by <c>AddLyntai</c> into <see cref="Lyntai.Llm.ILlmClientFactory"/>
-    /// — the chat counterpart of the memory engine registry.</summary>
-    internal Dictionary<string, List<string>> NamedLlmClients { get; } = new(StringComparer.Ordinal);
+    /// <summary>Named LLM clients (<c>AddLlmClient</c>) → what each was configured with: the backend ids it
+    /// routes over (empty meaning "every registered provider") and any candidate list it stated outright.
+    /// Composed by <c>AddLyntai</c> into <see cref="Lyntai.Llm.ILlmClientFactory"/> — the chat counterpart of
+    /// the memory engine registry.</summary>
+    internal Dictionary<string, LlmClientBuilder> NamedLlmClients { get; } = new(StringComparer.Ordinal);
 
     // Fold order (higher = outer). The cache is OUTERMOST so a hit returns without touching inner
     // decorators — in particular a cached hit is free and must NOT count toward the usage budget or spend a

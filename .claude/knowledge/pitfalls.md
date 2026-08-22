@@ -756,6 +756,32 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   articulates a rule is the round most likely to violate it elsewhere, because attention is on the sentence
   rather than on the code.
 
+- **A doc that enumerates what a feature does NOT do, without ever stating what it DOES, is read as
+  "nothing" — and the reader who reaches that conclusion turns the feature off.** Measured 2026-08-22/23,
+  twice over the same sentence. `IMemoryVerificationPolicy`'s summary said a verifier *"only narrows what a
+  recall already found; it cannot add an entry, and by default removes none from the caller's answer
+  either"*. Every clause was true. What it never said is that with filtering OFF a verdict **promotes** every
+  endorsed candidate to the front, before the caller's limit is applied and over a candidate set
+  `VerificationDepth` deep — the effect the whole seam exists for. An adopter read the source, concluded a
+  verdict cannot reach the ranking at all, built an app-side promotion step on that belief, and reverted it
+  when four successive fixtures passed with the promotion disabled.
+  <br>**The second half is the part worth carrying.** Their CORRECTION was also wrong, in a way that looks
+  much more careful: it kept "no re-sort is written anywhere" and explained the movement it had now observed
+  as retention state updating underneath the ordering. There is an explicit promotion, ten lines above the
+  filter, in every release since 3.0.0 — and the retention story cannot be right for the same call, because
+  the ranking reads state gathered before `ReinforceAsync` runs. **A plausible mechanism invented to explain
+  a real observation is harder to dislodge than the original error**, because it arrives labelled as a
+  correction.
+  <br>What actually settled it was three deterministic facts, not a closer reading:
+  `MemoryVerificationOrderingTests` pins that an endorsed candidate leads the page, that one below the limit
+  is RESCUED onto it, and — the control that keeps the other two honest — that a judge endorsing what already
+  leads returns a byte-identical page. That last one is the adopter's own null result, and it is a fact about
+  the CORPUS rather than about the wiring.
+  <br>Two rules. **When you document a default posture, say what it DOES first and what it withholds second**
+  — "removes none" after "promotes" is a qualifier, before it is a denial. And **before writing a paragraph
+  about behaviour, write the fixture that would tell the two readings apart**; both readings here were
+  reachable from the source, so no amount of re-reading could have chosen between them.
+
 ## Second doors
 
 - **Inserting a member ABOVE an existing one strands that one's doc onto your new member.** Measured FOUR

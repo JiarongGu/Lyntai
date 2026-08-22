@@ -33,11 +33,11 @@ review that 2.2.0 shipped without (D18, D37), **2.4.0** gave an agent session th
 either CLI backend (D38), **2.5.0** shipped the **long-term memory subsystem**, and **3.0.0** (2026-08-17)
 reshaped that subsystem into the retention model below, opened the generation stream door, added the
 cross-process job cap, and withdrew the generation SemVer exemption. Per-release detail is
-`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D86 — the memory subsystem is **D39–D41**,
-**D45–D62**, **D63**, **D72**, **D76–D79** and **D83–D86**; D42–D44 are the doc and packaging decisions that
-landed beside it, not memory ones). **D83–D86 are POST-3.0 work**, additive, from five seams two adopting
-applications had to work around — read them before assuming a memory registration that resolves is a memory
-registration that runs. **D67–D82 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
+`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D88 — the memory subsystem is **D39–D41**,
+**D45–D62**, **D63**, **D72**, **D76–D79**, **D83–D86** and **D88**; D42–D44 are the doc and packaging
+decisions that landed beside it, not memory ones). **D83–D88 are POST-3.0 work**, additive, from seven seams
+adopting applications had to work around — read them before assuming a memory registration that resolves is a
+memory registration that runs, or that a NAMED `ILlmClient` can reach the backends it names (**D87**). **D67–D82 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
 is most likely to have stale assumptions about: the generation stream door (**D67**), the accelerator-derived
 diffusion ceiling (**D68**), every unmeasured generation mapping becoming a host OPTION (**D69**), the
 withdrawal of the generation SemVer exemption (**D70**), tool calls on the streaming contract (**D71**), and
@@ -60,6 +60,11 @@ rather than elapsed time** with the age policy as a seam (**D40**), **burial rat
 InMemory + SQLite + Postgres backends under one contract, and `AddMemoryTools` exposing recall/expand to the
 model. It was purely additive — `IMemoryStore`, `ISemanticMemory` and `ICuratedMemoryStore` are unchanged and
 co-exist with it. The contract is design §5.7.
+<br>**Post-3.0.2, a SUBJECT handle is readable** (`GraphMemoryOptions.SubjectSeedK`, **D88**): a recall
+matches its query against the handles in use and seeds the entries recorded under whichever ones it names.
+Unlike `SemanticSeedK` it is **ON by default**, because a handle exists only where an annotator was
+registered and paid for. Older text saying subjects "steer LINKING, never recall" describes the 2.5–3.0.2
+behaviour.
 
 **3.0.0 RESHAPED the memory subsystem — a session whose priors come from 2.5-era text must read
 `CHANGELOG.md` `## 3.0.0` `### Breaking` before assuming any memory behaviour.** The eleven facts a fresh
@@ -153,7 +158,7 @@ FALSE trim promise), `check-packages` (a package must be registered in all nine 
 grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3217 passed / 3238 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3266 passed / 3287 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 380/380, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,

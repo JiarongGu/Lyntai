@@ -10,6 +10,74 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+Three more reports from applications on 3.0.x. Two are the same class as 3.0.1's and 3.0.2's — a wiring that
+compiles, resolves, and can never run — and the third is a description that made a working feature look
+inert. Reasoning: `docs/DECISIONS.md` **D87** and **D88**.
+
+### Added
+
+- **`LlmClientBuilder.UseCandidates(params LlmCandidate[])`** — a named client can state its fallback list
+  outright, for the one thing deriving it from `UseProviders` cannot express: two MODELS of one backend,
+  which is precisely the split naming a client exists for. A candidate outside the client's own pool throws
+  at composition, since the router can never select it. `LlmClient` gains the matching constructor overload.
+
+- **`GraphMemoryOptions.SubjectSeedK` (default `5`) and `SubjectSeedScan` (default `256`) — a recall can now
+  reach an entry through the SUBJECT it was indexed under.** `AddMemoryAnnotation` records what each fact is
+  about at a model call per write, and through 3.0.2 the only readers were the write path's own linking and
+  the annotator's reuse list — so the handle `配偶` recorded against a fact whose text says `太太` was an
+  index nothing could query. Matching is per script: a handle in a space-writing script needs a word boundary
+  (`pairbond` must not match `repairbonded`), a spaceless one matches as a substring. Seeded entries are
+  ordinary candidates — ranked, bounded by the caller's limit, never appended past it (**D88**).
+  <br>**On by default, unlike `SemanticSeedK`**: a subject exists only because an annotator was registered
+  and paid for. `SubjectSeedK = 0` restores the previous behaviour in one line.
+  <br>**If you shipped an app-side subject lookup to work around this, DELETE it.** Engine-side matches
+  arrive as ordinary ranked hits carrying real retrievability and degree, which an app-side append cannot
+  have, and a dedup-by-reference workaround will simply skip them — leaving two implementations of one
+  feature in one call path.
+
+- **`MemorySubject.Matches(query, subject)`** — the read-side rule above, public for the same reason the rest
+  of that type is: a BYO engine seeding from subjects has to ask the question the shipped one asks.
+
+- **A fifth wiring finding: a graph member that records subjects and seeds no recall** — an annotator wired
+  with `SubjectSeedK` (or `SubjectSeedScan`) at `0`. The same defect as the fourth finding, on the other
+  index.
+
+### Fixed
+
+- **A named LLM client narrowed to backends outside the global candidate list can now route at all.**
+  `AddLlmClient(name, c => c.UseProviders("ollama-chat"))` on a host whose `UseDefaultCandidates` names
+  `claude-cli` resolved cleanly and failed every call — the router's PROVIDER set was narrowed while its
+  candidate list still came from `LyntaiOptions`, so every candidate it tried was absent from its own pool.
+  A name now narrows both together: the ids `UseProviders` declares become the fallback list, in the order
+  given, inheriting any model the global list already pinned for that id. Naming no provider is unchanged
+  (**D87**).
+  <br>Reported by an adopter moving a memory judge onto a local Ollama; because both memory policies are
+  fail-open, the visible symptom was **zero model calls and no error**.
+  <br>**If you widened your GLOBAL candidate list to work around this, narrow it again.** The wider list
+  stays valid, so nothing will fail and nobody will notice — which is the point: the widening exists only
+  because of this defect, and left in place it keeps your DEFAULT client able to reach a backend it was never
+  meant to.
+
+### Documentation
+
+- **What a verdict does when `VerificationFilters` is `false`** — the default, and what that option's own
+  docs recommend — is now stated on both `IMemoryVerificationPolicy` and the option. With filtering off a
+  verdict still **promotes** every endorsed candidate to the front, before the caller's limit is applied and
+  over a candidate set `VerificationDepth` deep, so it reorders the page and can pull onto it an answer that
+  never fitted. Filtering adds *removal*; it is not the switch that makes a judge visible. **No behaviour
+  changed** — the promotion has shipped since 3.0.0. The old wording enumerated only what a verdict does NOT
+  do, and an adopter reasonably read that as "nothing", benchmarked a judge, saw an identical page, and
+  concluded the seam was inert. Three deterministic facts now pin all of it, including the control: a judge
+  endorsing what already leads returns a byte-identical page, which is a result about the corpus rather than
+  about the wiring.
+
+- **A recall MUTATES, so an A/B over `RecallAsync` must be paired and counterbalanced** — stated on
+  `IMemoryEngine.RecallAsync` and in `docs/memory.md`. It reinforces what it returns and links those entries
+  together, so running one arm to completion and then the other compares a cold graph against one the first
+  arm warmed. The bias is silent and lands on whichever arm ran second.
+
 ## 3.0.2 — 2026-08-21
 
 ### Added

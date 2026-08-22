@@ -51,6 +51,7 @@ internal static class MemoryWiring
         // Derived from two registrations and one options value on the engine itself — no BYO ambiguity of the
         // kind that keeps the policy findings below silent, so this one always speaks.
         foreach (var member in engines.SelectMany(Flatten).OfType<GraphMemoryEngine>())
+        {
             if (member.EmbedsWithoutSeeding)
                 findings.Add(
                     $"graph member '{member.Name}' is wired with an embedder and a vector store but " +
@@ -58,6 +59,17 @@ internal static class MemoryWiring
                     "similarity linking, and no recall considers those neighbours. Set SemanticSeedK, or " +
                     "drop the embedder registration; as wired you pay an embedding per write for nothing a " +
                     "recall reads.");
+
+            // The same defect on the other index, and it was live for the whole life of the annotation seam:
+            // handles were recorded, paid for per write, and readable by nothing but the writer.
+            if (member.RecordsSubjectsWithoutSeeding)
+                findings.Add(
+                    $"graph member '{member.Name}' is wired with an annotator but GraphMemoryOptions." +
+                    "SubjectSeedK (or SubjectSeedScan) is 0 — every write pays a model call to record what " +
+                    "the fact is about, and no recall can reach an entry through a subject. Set both, or " +
+                    "drop the annotator; as wired the handles are readable only by the write path's own " +
+                    "linking.");
+        }
 
         if (verification && CertainlyUnconsulted(engines))
             findings.Add(

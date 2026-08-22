@@ -156,8 +156,10 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D84](#d84--a-curated-engine-grades-per-entry-and-supported-deliberately-does-not-widen-2026-08-21) | 2026-08-21 | a curated engine grades per ENTRY, and `Supported` deliberately does not widen |
 | [D85](#d85--a-blend-can-fan-a-write-out-and-a-seam-that-can-never-run-is-reported-at-wiring-time-2026-08-21) | 2026-08-21 | a blend can fan a write OUT, and a seam that can never run is reported at wiring time |
 | [D86](#d86--a-null-scope-means-every-scope-of-the-task-through-an-optional-store-capability-2026-08-21) | 2026-08-21 | a null scope means EVERY scope of the task, through an OPTIONAL store capability |
+| [D87](#d87--a-named-llm-clients-candidates-are-derived-from-its-own-pool-not-from-the-global-list-2026-08-23) | 2026-08-23 | a named LLM client's CANDIDATES are derived from its own pool, not from the global list |
+| [D88](#d88--a-subject-handle-is-readable-and-the-seed-is-on-by-default-2026-08-23) | 2026-08-23 | a subject handle is READABLE, and the seed is ON by default |
 
-_All 86 entries are live decisions._
+_All 88 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2235,3 +2237,83 @@ arbitrariness into what a recall returns.
 <br>**The generalisation, since fixing this seam once did not fix it:** when a null argument gains a meaning,
 grep for every place that argument is INTERPOLATED into a key, not just the seam that was reported. Both
 sites here read `query.Scope` and only one of them was in the first fix's diff.
+
+## D87 — a named LLM client's CANDIDATES are derived from its own pool, not from the global list (2026-08-23)
+
+`AddLlmClient(name, c => c.UseProviders(…))` narrowed the router's PROVIDER set and left its candidate list
+as `LyntaiOptions.DefaultCandidates`. So a client pooled over `["ollama-chat"]` on a host whose defaults name
+`claude-cli` resolved cleanly, logged `router: skipping claude-cli — no provider with this id registered` on
+every call, and could never route. That is the wiring `LlmClientBuilder.UseProviders` documents — its own doc
+has said "in the order given — **which is also the fallback order**" since it shipped — and it could not work
+as written. Reported by an adopter moving a memory judge onto a local Ollama; because both memory policies are
+fail-open, the visible symptom was **zero model calls and no error**.
+
+**The rule: a name narrows the provider set and the candidate list TOGETHER.** `ClientCandidates.Resolve`
+walks the ids `UseProviders` declared, in that order, and takes each id's entries from `DefaultCandidates`
+where it appears there — so a model pinned once globally is kept — or a bare candidate where it does not.
+Naming no provider still takes the global list unchanged: the pool is then every registered provider, which
+is the DEFAULT client's own pool, so there is nothing to narrow and nothing to derive.
+
+**Three alternatives, and why this one.** The adopter proposed deriving only when the pool and the defaults
+are DISJOINT, which fixes the reported case and leaves the quieter one: with defaults `[a, b]` and a pool
+`[b, c]` the client routes, so nothing looks broken, and `c` is unreachable. Failing at composition is a
+better diagnostic than a per-call skip but answers a question the wiring already answers correctly. Requiring
+the list to be stated outright makes every named client carry boilerplate to say what its own ids already
+said.
+
+**`LlmClientBuilder.UseCandidates` exists anyway, for the one thing derivation cannot express**: two MODELS
+of one backend. A derived list carries one entry per pooled id, so "the big model for chat, the small one for
+extraction" is unsayable when both live behind a single id — which is precisely the split naming a client
+exists for. A stated candidate outside the client's own pool throws at composition, because the router can
+never select it.
+
+**What it costs an adopter running the workaround.** The documented workaround is to append the named backend
+to the GLOBAL candidate list. That stays valid — a wider list is still a list — so nothing fails and nobody
+notices, which is the problem: the widening exists only because of this defect, and left in place it keeps
+the default client able to reach a backend it was never meant to. The release note has to say so plainly;
+nothing in the library can detect it.
+
+## D88 — a subject handle is READABLE, and the seed is ON by default (2026-08-23)
+
+`IMemoryAnnotationPolicy` produces subject handles at a model call per write, `RecordSubjectsAsync` stores
+them, and through 3.0.2 exactly two things ever read one — the write path's own linking and the annotator's
+reuse list, **both at write time**. So the handle `配偶` recorded against a fact whose text says `太太` was an
+index only its writer could use. Reported by an adopter who had paid for it and closed it app-side.
+
+`GraphMemoryOptions.SubjectSeedK` puts the entries recorded under whichever subjects a query NAMES into the
+candidate set at hop 0, ranked by the same policy as everything else. `SubjectSeedScan` bounds how many of a
+task's handles the query is matched against.
+
+**The decision is the DEFAULT, and it is deliberately unlike `SemanticSeedK`'s.** That one is `0` because an
+embedder is registered for reasons of its own, so seeding recall from it would change engines that never
+asked. A subject exists ONLY because an annotator was registered and paid for; reading back what a deployment
+already bought should not need a second opt-in, and shipping this at `0` would have repeated the defect it
+fixes exactly — a feature that arrives disabled and needs a later wiring finding to be noticed
+(**D85**'s fourth amendment). `0` restores the old behaviour in one line.
+
+**Seeds, never an appended tail.** The adopter's app-side version appended subject matches after the ranked
+page so nothing already found could be displaced, which is right for code that cannot measure retrievability
+and wrong in the engine: appended material overruns the caller's limit, and the engine CAN rank these
+properly. `MemoryGrade.Authoritative` remains the only thing that takes a reserved slot.
+
+**No fabricated relevance.** A seeded entry keeps whatever the store reports. `Relevance` in this store means
+"how well did the entry's own TEXT match", and a subject match says something different — that the entry is
+*about* what was asked. Handing it a score on the text axis would let it displace entries that genuinely
+matched; entering as a candidate lets it compete on retrievability and degree, which is what it actually has.
+
+**Matching is per SCRIPT, read from `ScriptProfile.ExpandsIntoGrams` rather than restated.**
+`MemorySubject.Matches` requires a word BOUNDARY for a handle in a space-writing script — `pairbond` sits
+inside `repairbonded` — and matches a spaceless one as a plain SUBSTRING, because Chinese writes `配偶`
+straight against its neighbours and there is no boundary to demand. The adopter stated the rule as
+"non-ASCII versus ASCII", which is the same answer for their corpus and the wrong one for Cyrillic (spaced,
+non-ASCII) and Thai (spaceless, non-ASCII) in opposite directions. Reading the existing seam is what makes it
+right for both.
+
+**`KnownSubjectsAsync` is the one member of `IMemoryGraphStore` with a default body**, so a BYO store that
+does not implement it seeds nothing here and behaves exactly as before. That was already its documented
+posture as an accuracy hint; it is now also a recall path, which is worth knowing before writing one.
+
+**An adopter running the app-side workaround should DELETE it**, not leave it: engine-side matches arrive as
+ordinary ranked hits carrying real retrievability and degree, which the app-side ones never had, and a
+dedup-by-ref workaround will simply skip them — two implementations of one feature in one call path, each
+looking necessary to whoever reads only one.

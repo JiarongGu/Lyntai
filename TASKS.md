@@ -38,8 +38,11 @@ adopter-reported Parts that arrived on 3.0.0 closed in **`docs/task-archive.md` 
 (the composition renderer, per-entry curated grades, fan-out writes, the wiring check, and cross-scope
 semantic recall; `docs/DECISIONS.md` **D83–D86**), with **Parts 91 and 92** arriving the day 3.0.1 shipped
 and closing the same day — 91 confirming those fixes and one small thing they left behind, 92 finding the
-SECOND place D86's defect lived plus a fourth wiring finding. **Four adopter Parts in two days, all one
-shape:** a registration that resolves and can never run.
+SECOND place D86's defect lived plus a fourth wiring finding. Then **Parts 93, 94 and 95** on 3.0.2, closed
+2026-08-23 (`docs/DECISIONS.md` **D87–D88**): a named LLM client that could not route, subject handles no
+recall could read, and a verdict whose effect was undocumented in both directions.
+**Seven adopter Parts, and six of the seven are one shape:** a registration that resolves and can never run.
+The seventh is that shape's twin in prose — a description that made a working feature look inert.
 
 **A caveat this banner earned on 2026-08-16, and it applies to any "blocked" label here.** Part 33 was marked
 blocked in full while two startable pieces sat INSIDE it — a settled-by-writing-it-down decision buried in
@@ -54,9 +57,9 @@ a CLI install, or a deployment's own data. That was briefly true of the WHOLE fi
 70, 72 and 69 closed), and this banner said so; the pre-3.0 review then opened **Part 75**. Its items
 were all startable in a session, each found, verified and deliberately deferred with its reason recorded —
 and they have all now closed (archive Parts 76, 78–81 and 84) except one, which needs real aggregators to
-measure. It was briefly untrue again when Parts 89 and 90 arrived from adopters (closed 2026-08-21), which
-is the pattern worth expecting: **the next startable item will arrive from a consumer, not from this
-list.**
+measure. It was briefly untrue again when Parts 89 and 90 arrived from adopters (closed 2026-08-21), and
+again when 93–95 did (closed 2026-08-23), which is the pattern worth expecting rather than an exception to
+it: **the next startable item will arrive from a consumer, not from this list.**
 
 **Every blocker below was re-checked against the tree on 2026-08-21** — because a "blocked" label is a claim
 development can overtake, and this file has been wrong that way before. Six held (`codex` is still absent

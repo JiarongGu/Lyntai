@@ -153,15 +153,38 @@ public static class LyntaiServiceCollectionExtensions
         // front-door decorators in the same order, the same outermost refusal screening. Sharing the fold
         // rather than re-deriving it is what keeps a name from silently meaning "fewer rules"; see
         // ILlmClientFactory on why a name selects backends and never permissions.
+        //
+        // A name narrows the PROVIDER set and its CANDIDATE list together. Narrowing only the first is what
+        // made a client pooled outside the global candidate list resolve and then fail every call —
+        // ClientCandidates.Resolve is where that pairing lives.
         services.TryAddSingleton<ILlmClientFactory>(sp =>
         {
             var named = builder.NamedLlmClients.ToDictionary(
                 entry => entry.Key,
-                entry => Compose(sp, sp.GetRequiredService<ILlmRouterFactory>()
-                    .For(ProvidersFor(sp, entry.Key, entry.Value))),
+                entry => ComposeNamed(sp, entry.Key, entry.Value),
                 StringComparer.Ordinal);
             return new LlmClientFactory(named, sp.GetRequiredService<ILlmClient>());
         });
+
+        ILlmClient ComposeNamed(IServiceProvider sp, string name, LlmClientBuilder client)
+        {
+            // Checked against the RESOLVED pool, never against the declared ids: naming no provider pools
+            // every registered one, so a stated candidate is outside it exactly when nothing registered
+            // answers to that id — the same hole one layer along from the one UseProviders already closes.
+            var providers = ProvidersFor(sp, name, client.ProviderIds);
+            var outside = ClientCandidates.OutsideThePool([.. providers.Select(p => p.Id)], client.Candidates);
+            if (outside.Count > 0)
+                throw new InvalidOperationException(
+                    $"LLM client '{name}' states candidate(s) {string.Join(", ", outside)}, which name no " +
+                    "backend it is pooled over " +
+                    $"({(providers.Count == 0 ? "(none)" : string.Join(", ", providers.Select(p => p.Id)))}). " +
+                    "A candidate the router cannot select fails every call; add it to UseProviders, register " +
+                    "it, or drop it.");
+
+            var router = sp.GetRequiredService<ILlmRouterFactory>().For(providers);
+            return Compose(sp, router,
+                ClientCandidates.Resolve(client.ProviderIds, client.Candidates, options.DefaultCandidates));
+        }
 
         // THE FRONT DOOR, built ONCE for every client this container hands out. Only the ROUTER differs
         // between the default client and a named one — the default takes the container's own ILlmRouter,
@@ -175,9 +198,12 @@ public static class LyntaiServiceCollectionExtensions
         // AddMemoryAnnotation and AddMemoryVerification resolve through. Same shape as MemoryEngineBuilder's
         // two construction sites (docs/FIXES.md), where an optional argument added to one path and not the
         // other left a documented knob unwired and the compiler could not see it.
-        ILlmClient Compose(IServiceProvider sp, ILlmRouter router)
+        ILlmClient Compose(IServiceProvider sp, ILlmRouter router,
+            IReadOnlyList<LlmCandidate>? candidates = null)
         {
-            ILlmClient client = new LlmClient(router, options);
+            ILlmClient client = candidates is null
+                ? new LlmClient(router, options)
+                : new LlmClient(router, options, candidates);
             foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
                 client = decorate(sp, client);
             // refusal screening (per-request LlmRequest.RefusalPattern + any registered IRefusalMatcher) is

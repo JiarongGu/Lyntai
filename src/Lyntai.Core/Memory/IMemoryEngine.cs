@@ -32,7 +32,14 @@ public interface IMemoryEngine
     /// <summary>Recall relevant facts.
     /// <para><b>Fails open</b> — a storage outage yields an empty result carrying
     /// <see cref="MemorySources.None"/>, never a throw. Only <see cref="OperationCanceledException"/>
-    /// propagates, because cancellation belongs to the caller.</para></summary>
+    /// propagates, because cancellation belongs to the caller.</para>
+    /// <para><b>A recall MUTATES.</b> An engine may reinforce what it returned and link those entries to one
+    /// another, so asking the same question twice is not asking it twice under the same conditions. The
+    /// consequence for anyone MEASURING: an A/B over this method has to be paired and counterbalanced — each
+    /// query asked under both arms back to back with the order alternating — because running one arm to
+    /// completion and then the other compares a cold graph against one the first arm warmed, and the bias
+    /// lands silently on whichever arm ran second. Reported by an adopter whose first numbers were
+    /// untrustworthy for exactly this reason.</para></summary>
     Task<MemoryRecall> RecallAsync(MemoryQuery query, CancellationToken ct = default);
 }
 

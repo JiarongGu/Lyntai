@@ -6483,3 +6483,253 @@ naming the scope already worked (so the null case is the only change), seeding O
 hits are semantic), and a store that cannot list leaves the unscoped path empty while the scoped path keeps
 working. Both fixes mutation-checked: disabling each fails exactly its own fact and no control.
 <br>No public API change; no baseline change. `CHANGELOG.md` under `## Unreleased`, `docs/memory.md` §7.
+
+## Part 93 — FROM AN ADOPTER: a named client cannot route when `DefaultCandidates` names a backend outside its own pool (2026-08-21)
+
+_Filed from Gatherlight moving its memory judge to a local Ollama, which is the exact scenario
+`LlmClientBuilder.UseProviders` documents ("A memory subsystem pointed at 'ollama' on a host where Ollama was
+never registered must fail loudly"). The wiring is the one the docs recommend and it cannot work as written._
+
+- [x] **`AddLlmClient(name, c => c.UseProviders("x"))` is unusable whenever `UseDefaultCandidates` pins ids
+  that are not in `x`.** `LlmRouterFactory.For(providers)` narrows the provider POOL but passes the same
+  `LyntaiOptions` through, so the named client's router still resolves candidates from
+  `Options.DefaultCandidates`. With `UseDefaultCandidates("claude-cli")` and a client pooled over
+  `["ollama-chat"]`, every call logs `router: skipping claude-cli — no provider with this id registered` and
+  fails. Because both memory policies are fail-open, the adopter-visible symptom was **zero model calls and
+  no error** — annotation and verification silently stopped happening, which is the same class of silent
+  seam Parts 90–92 were about.
+
+  Reproduce: register two providers, `UseDefaultCandidates(a)`, `AddLlmClient("n", c => c.UseProviders(b))`,
+  resolve `"n"` and send anything.
+
+  The adopter's workaround is to append the named backend to the GLOBAL candidate list
+  (`UseDefaultCandidates("claude-cli", "ollama-chat")`, CLI first so it stays a fallback), which works but
+  widens what the DEFAULT client may reach in order to fix a client that was created to be narrow — the
+  opposite of the intent.
+
+  Suggested fix, in preference order: (1) when a named client's pool contains none of the default
+  candidates, derive its candidates from its own provider ids — the reading that makes `UseProviders` mean
+  what its docs say; or (2) let `LlmClientBuilder` set candidates explicitly; or (3) fail at composition
+  with a message naming both lists, since a wiring that can never route should not resolve silently. Note
+  (3) alone would have turned this from a day's debugging into a startup error, and it composes with the
+  wiring check added in 3.0.2.
+
+  **THE ADOPTER IS RUNNING THE WORKAROUND, so this needs a release note when it lands.** Gatherlight ships
+  the widened global list today (`IMemorySource.CandidateProviderIds`, spread into `UseDefaultCandidates`
+  after `claude-cli`). Fixing this at the source does not break it — a wider candidate list stays valid —
+  so nothing will fail and nobody will notice. That is the problem: the widening exists ONLY because of
+  this bug, and left in place it quietly keeps the default client able to reach a backend it was never
+  meant to. Say plainly that adopters who widened their global candidates to work around this should
+  narrow them again.
+
+✅ done 2026-08-23 — **Outcome: the adopter's option (1) taken, but on a wider rule than they proposed, plus
+their option (2) for the case no rule can derive** (`docs/DECISIONS.md` **D87**).
+
+**The rule shipped is "a name narrows the provider set and the candidate list TOGETHER"**, not "derive only
+when the two sets are disjoint". `ClientCandidates.Resolve` walks the ids `UseProviders` declared, in that
+order, and takes each id's entries from `DefaultCandidates` where it appears there — so a model pinned once
+globally survives — or a bare candidate where it does not. The disjoint-only version fixes the reported case
+and leaves the quieter one alive: with defaults `[a, b]` and a pool `[b, c]` the client ROUTES, so nothing
+looks broken, and `c` is unreachable forever. That partial-overlap shape is now a fact
+(`A_pooled_backend_absent_from_the_default_list_is_still_reachable`).
+
+**It also finally makes `UseProviders`' own doc true.** That doc has said "in the order given — **which is
+also the fallback order**" since it shipped; the order actually used was `DefaultCandidates`'. Pinned by
+`A_named_clients_fallback_order_is_the_order_it_declared`, whose first candidate FAILS so the assertion is
+about which backend is TRIED first rather than which one answers.
+
+**Option (3) — fail at composition — was not needed for the reported case and would have answered a question
+the wiring now answers correctly.** It survives in the one place it is still the right answer: a candidate
+stated through the new `UseCandidates` that names a backend outside the client's own pool throws, because the
+router can never select it.
+
+**`UseCandidates` earns its keep on the one thing derivation cannot express**: two MODELS of one backend. A
+derived list carries one entry per pooled id, so "the big model for chat, the small one for extraction" is
+unsayable when both live behind a single id — which is precisely the split `AddLlmClient` exists for.
+
+**Nine facts, and the mutations that prove they discriminate:** forcing `Resolve` to return the defaults
+kills four; emptying the pool guard kills the fifth. A stale comment in the existing suite said the old
+behaviour was intended ("a name narrows the PROVIDER set, while the candidates a call actually tries still
+come from options") and is gone.
+<br>**A ninth fact came from mutation-checking the eighth, and it found a real hole in the guard shipped an
+hour earlier.** The pool check read the ids `UseProviders` DECLARED, so a client that named no provider — its
+pool is then every registered backend — could state a candidate naming nothing registered, resolve, and fail
+every call: the defect this Part is about, reintroduced one layer along by its own fix. It now reads the
+RESOLVED pool. The two facts discriminate only as a PAIR, and that is worth knowing before either is
+"simplified": both declare no provider, one must throw and one must not, and checking the declared ids passes
+whichever of them the empty-list short-circuit happens to favour.
+
+**The release note is load-bearing and is in `CHANGELOG.md`.** The adopter ships the widened global candidate
+list today; a wider list stays valid, so nothing will fail and nobody will notice — which is exactly why the
+note has to say plainly that a global list widened for this reason should be narrowed again. Nothing in the
+library can detect it.
+
+API: `LlmClientBuilder.UseCandidates`, `LlmClient`'s third-argument constructor overload — an OVERLOAD rather
+than an optional parameter, which would have been a binary break for every pre-compiled caller of the
+two-argument form (`pitfalls.md` §Provider lifetime). Baseline updated by hand so the diff is reviewable.
+
+## Part 94 — FROM AN ADOPTER: subject handles are WRITE-ONLY — recorded, paid for, and reachable by no recall (2026-08-22)
+
+_Filed from Gatherlight, which runs `AddMemoryAnnotation` and pays a model call per write for it._
+
+- [x] **Nothing in the engine ever searches a subject.** `LlmMemoryAnnotationPolicy` produces
+  `MemoryAnnotation.Subjects` — explicitly "stable handles a later fact about the same entity would produce
+  again" — and `GraphMemoryEngine.LinkBySubjectAsync` stores them via `RecordSubjectsAsync`. They are then
+  read by exactly two things, **both at write time**: `NodesBySubjectAsync`, to link a new entry to existing
+  ones, and `KnownSubjectsAsync`, to give the annotator reuse candidates. `RecallAsync` never consults them.
+
+  So the handle "配偶" is recorded against a fact whose text says 太太, and a recall for "配偶" cannot reach
+  it. The adopter has paid a model call to build a searchable index of what each fact is ABOUT, and the only
+  thing able to read it is the writer. Same shape as `SemanticSeedK: 0` in Part 90 — bought on every write,
+  consulted on no recall, invisible from every API response.
+
+  Gatherlight closed it app-side (`FactIndex.AppendBySubjectAsync`): match the query against
+  `KnownSubjectsAsync`, resolve through `NodesBySubjectAsync`, and APPEND the results after the ranked page
+  so nothing already found can be displaced. It needs no tuning knob precisely because it is additive. Two
+  details were load-bearing and would be the same in-engine: handles must be normalized by CALLING
+  `MemorySubject.Normalize` (a private `ToLower()` folds `"I"` differently under a Turkish culture), and a
+  non-ASCII handle has to match as a SUBSTRING while an ASCII one needs a word boundary — `pairbond` sits
+  inside `repairbonded`, and Chinese has no spaces to anchor to.
+
+  Suggested fix: a `GraphMemoryOptions` seed analogous to `SemanticSeedK`, so subject matches enter the
+  candidate set and are ranked by the same decay/degree policy as anything else. Defaulting it to 0 would
+  repeat Part 90 exactly — a feature that ships disabled and needs a wiring finding later to be noticed. At
+  minimum the wiring check should fire when handles are being recorded and no recall path can read them.
+
+  **THE ADOPTER ALREADY SHIPPED A WORKAROUND, so read this before implementing.** Gatherlight is running
+  `FactIndex.AppendBySubjectAsync` in production today. Landing an engine-side seed does NOT break it and
+  does not double any rows: the app dedups by graph ref, so subject matches arriving as ordinary ranked hits
+  are skipped by its append. What changes is that those hits gain real retrievability and degree (an
+  improvement — the app-side ones carry neither, because it never measured them) and lose the app's
+  `matched:"subject"` marker. The app-side code then becomes two redundant store queries per recall and
+  should be DELETED, not left running.
+
+  So: if this lands, say so in the release notes explicitly enough that an adopter knows to remove theirs.
+  A silent engine-side fix for a gap adopters have papered over is how two implementations of one feature
+  end up in the same call path, each looking necessary to whoever reads only one of them.
+
+✅ done 2026-08-23 — **Outcome: taken as filed, including the part the report was most careful about — the
+default is NOT 0** (`docs/DECISIONS.md` **D88**).
+
+`GraphMemoryOptions.SubjectSeedK` (default `5`) puts the entries recorded under whichever subjects a query
+NAMES into the candidate set at hop 0; `SubjectSeedScan` (default `256`) bounds how many of a task's handles
+the query is matched against. Two options rather than one, and reusing `AnnotationKnownSubjects` was
+considered and refused: that number bounds what an ANNOTATOR is shown, where a short list is a feature, and
+sharing it would mean tuning a prompt changed which facts a query can reach.
+
+**The default is the decision.** `SemanticSeedK` ships at `0` because an embedder is registered for reasons
+of its own; a subject exists ONLY because an annotator was registered and paid for, so reading it back needs
+no second opt-in. Shipping this at `0` would have repeated **D85**'s fourth amendment exactly — a feature
+that arrives disabled and needs a later wiring finding to be noticed. `0` restores the old behaviour in one
+line, and the fifth wiring finding fires when an annotator is wired against it.
+
+**Seeded, not appended, and given no fabricated relevance.** The adopter's app-side version appends after the
+ranked page so nothing already found is displaced — right for code that cannot measure retrievability, wrong
+in the engine, where appended material overruns the caller's limit
+(`Subject_matches_stay_within_the_callers_limit`). And a seeded entry keeps whatever the store reports:
+`Relevance` here means "how well did the entry's own TEXT match", while a subject match says the entry is
+*about* what was asked. Scoring it on the text axis would let it displace entries that genuinely matched.
+
+**The per-script rule was GENERALIZED rather than transcribed.** The report states it as non-ASCII versus
+ASCII, which is the right answer for its corpus and wrong in opposite directions for Cyrillic (spaced,
+non-ASCII) and Thai (spaceless, non-ASCII). `MemorySubject.Matches` reads
+`ScriptProfile.ExpandsIntoGrams` — the seam that already answers "does this script write word spaces" — so a
+spaced handle needs a word BOUNDARY and a spaceless one matches as a SUBSTRING. The report's other
+load-bearing detail was already the house rule and is honoured by CALLING `MemorySubject.Normalize` on both
+sides rather than restating it.
+
+**One control was contaminated on its first run and the test caught it**, which is the reason to write
+controls as pairs: `"espouse the idea"` reaches the English fixture LEXICALLY, because `"the"` is a substring
+of `"anaesthetist"`, so the boundary rule was never what the assertion measured. It is now
+`"espouse a plan"`, and the note is in the fixture.
+
+Facts: `MemorySubjectRecallTests` (the reported 配偶/太太 case in its own words, its `SubjectSeedK = 0`
+control, the spaced twin and its boundary control, the limit, scope isolation, and a query-less recall) plus
+`MemorySubject.Matches` unit facts across Han, Hangul and Latin. `MemoryWiringDiagnosticsTests` gains the
+fifth finding and both its silence controls. All 1,446 memory tests green.
+
+**The release note is load-bearing and is in `CHANGELOG.md`:** an adopter running the app-side lookup should
+DELETE it rather than leave it — engine-side matches arrive as ordinary ranked hits carrying real
+retrievability and degree, which the app-side ones never had, and a dedup-by-reference workaround will simply
+skip them.
+
+API: `GraphMemoryOptions.SubjectSeedK` / `SubjectSeedScan`, `MemorySubject.Matches`. Additive.
+
+## Part 95 — FROM AN ADOPTER: with `VerificationFilters` off, what a verdict DOES to the ranking is undocumented and easy to get backwards (2026-08-22, corrected 2026-08-23)
+
+_Filed from Gatherlight after benchmarking its own corpus and finding the judge changed nothing. The code is
+behaving as designed; the DESCRIPTION is what misleads — and it misled us into telling households the judge
+clearly improves recall quality._
+
+- [x] **Say what a verdict does when `VerificationFilters` is false**, which is both the default and the
+  setting the option's own docs recommend. In that configuration `RecallAsync` neither filters nor re-sorts
+  `scored`: it sets `Answered` and narrows `reinforce` to the relevant ids.
+
+  **This Part originally concluded from that reading that a verdict never reaches the ranking. That was
+  wrong, and it is corrected here rather than quietly edited**, because the wrong version is the more
+  natural reading of the code and the next person will make it too. Reinforcing ONLY the endorsed facts
+  raises their standing within the SAME call: measured against a no-verdict baseline of
+  `[A, B, C, D]`, endorsing `C` alone returns `[C, A, B, D]`. No re-sort is written anywhere; the ordering
+  moves because the retention state it reads has been updated underneath it.
+
+  The separate measurement that started this stands and is not evidence for the wrong conclusion: paired
+  and counterbalanced over 16 queries, judge on vs off came out **byte-identical** (top-1 10/16, found
+  11/16, MRR 0.646 both ways) at **78 ms against 8,936 ms** per query. That is what happens when the judge
+  endorses the facts that already rank top — which is what a good judge does on a small lexical corpus. It
+  is not evidence that a verdict cannot move a result.
+
+  Suggested: state the causal chain on `VerificationFilters` and `IMemoryVerificationPolicy`, because both
+  wrong readings are reachable from the code alone — *with filtering off a verdict does not re-sort, but by
+  narrowing reinforcement it changes the retention state the ordering reads, so an endorsed candidate can
+  and does move up within the same call.* One sentence there would have prevented this Part being filed
+  backwards, and would prevent an adopter benchmarking one recall, seeing no change, and switching the
+  judge off.
+
+  **This one is DOCUMENTATION and should stay that way — the behaviour is fine, the description is what
+  is missing.** For the record of what the wrong reading cost: an app-side workaround was built on it (an
+  `AsyncLocal` verdict capture plus a promotion step in the adopter's own recall path) and then reverted,
+  because four successive fixtures all passed with the promotion disabled. Four vacuous tests in a row is
+  the engine saying it already does the job. Gatherlight's panel copy now states both halves — the judge
+  can move a result, and on that corpus it moved none because it endorsed what already ranked top.
+
+- [x] **A benchmarking note worth shipping, because recall MUTATES.** Any A/B over `RecallAsync` has to be
+  paired and counterbalanced: recall reinforces what it returns and links what it returns together, so
+  running one arm to completion and then the other compares a cold graph against one the first arm warmed.
+  We had this wrong first, and the numbers were untrustworthy until each query was asked under both arms
+  back to back with the order alternating. Worth a paragraph wherever memory benchmarking is described — it
+  is not obvious, and it silently biases whichever arm runs second.
+
+✅ done 2026-08-23 — **Outcome: both items documented — and the CORRECTED report was still wrong about the
+mechanism, which is the finding worth keeping.**
+
+The report's first version concluded a verdict never reaches the ranking. Its correction kept "no re-sort is
+written anywhere" and explained the movement it had observed as retention state updating underneath the
+ordering. Neither is what the code does. `GraphMemoryEngine.RecallAsync` carries an explicit promotion — a
+judged-relevant candidate moves to the front of the ordinary set, ten lines above the `VerificationFilters`
+branch, in every release since 3.0.0 and present in the v3.0.2 tag the adopter measured. And the retention
+story cannot be right for the SAME call, because the ranking reads state gathered before `ReinforceAsync`
+runs; that effect belongs to the NEXT recall.
+
+**Settled by measurement rather than by a closer reading**, because both readings were reachable from the
+source and no amount of re-reading could choose between them. `MemoryVerificationOrderingTests` pins three
+things on SQLite, each arm on its own database so the first does not warm the second: an endorsed candidate
+LEADS the page with filtering off; one ranked below the limit is RESCUED onto it (the promotion runs before
+`Take`, over a candidate set `VerificationDepth` deep, which is the effect the seam exists for); and — the
+control that keeps the other two honest — a judge endorsing what already leads returns a byte-identical page.
+That last one is the adopter's own null result, reproduced, and it is a fact about the CORPUS rather than
+about the wiring.
+
+**No behaviour changed.** Documentation only, as the report asked: the causal chain now sits on
+`IMemoryVerificationPolicy` and on `GraphMemoryOptions.VerificationFilters`, and `docs/memory.md` §7 carries
+both halves.
+
+**Item 2 landed as a CONTRACT fact rather than a benchmarking note.** "A recall MUTATES" belongs on
+`IMemoryEngine.RecallAsync`, where every consumer meets it, with the paired-and-counterbalanced consequence
+following from it; `docs/memory.md` §7 repeats it for anyone measuring.
+
+**The reusable half is in `.claude/knowledge/pitfalls.md`:** the doc that produced both wrong readings
+enumerated what a verifier does NOT do — "only narrows", "removes none by default" — and never said what it
+DOES, so "nothing" was the reasonable inference. Say what a default posture DOES first and what it withholds
+second; and before writing a paragraph about behaviour, write the fixture that would tell the competing
+readings apart. A plausible mechanism invented to explain a real observation is harder to dislodge than the
+original error, because it arrives labelled as a correction.

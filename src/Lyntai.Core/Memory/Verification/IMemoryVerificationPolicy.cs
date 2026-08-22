@@ -14,9 +14,14 @@ namespace Lyntai.Memory.Verification;
 /// never no memory. A memory that stops answering because a judge is down is worse than one with no
 /// judge.</para>
 ///
-/// <para><b>It never invents results.</b> A verifier only narrows what a recall already found; it cannot
-/// add an entry, and by default removes none from the caller's answer either (see
-/// <see cref="GraphMemoryOptions.VerificationFilters"/>).</para>
+/// <para><b>It never invents results</b> — a verifier ranks and narrows what a recall already found.
+/// <b>With <see cref="GraphMemoryOptions.VerificationFilters"/> OFF (the default) it still PROMOTES</b>
+/// every endorsed candidate to the front of the ordinary results, keeping the policy's relative order within
+/// the promoted group and within the rest, BEFORE the caller's limit is applied and over a candidate set
+/// <see cref="GraphMemoryOptions.VerificationDepth"/> deep — so a buried answer can be pulled onto the page.
+/// Nothing is removed; the option adds removal, it is not what makes a verdict visible. A judge that endorses
+/// what already leads therefore returns an identical page, which is a result about the corpus rather than a
+/// wiring problem. Facts: <c>MemoryVerificationOrderingTests</c>; <c>docs/memory.md</c> §7.</para>
 /// </summary>
 public interface IMemoryVerificationPolicy
 {

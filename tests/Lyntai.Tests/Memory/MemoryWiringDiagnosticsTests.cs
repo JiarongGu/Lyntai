@@ -138,6 +138,52 @@ public class MemoryWiringDiagnosticsTests
             verification: false, annotation: false));
     }
 
+    /// <summary>Part 94, the same defect on the other index: an annotator pays a model call per write to
+    /// record what a fact is ABOUT, and with the subject seed switched off nothing but the write path can
+    /// read a handle. Reported by an adopter who had built the index and could not query it.</summary>
+    [Fact]
+    public void A_graph_member_that_records_subjects_and_seeds_no_recall_is_reported()
+    {
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            options: new GraphMemoryOptions { SubjectSeedK = 0 },
+            annotation: new FakeAnnotator());
+
+        var found = Assert.Single(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
+            verification: false, annotation: false));
+
+        Assert.Contains("SubjectSeedK", found, StringComparison.Ordinal);
+    }
+
+    /// <summary>The shipped default seeds, so the ordinary annotated wiring is clean — the finding is about
+    /// the GAP between write and read, not about having an annotator.</summary>
+    [Fact]
+    public void An_annotated_member_on_the_default_options_reports_nothing()
+    {
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            annotation: new FakeAnnotator());
+
+        Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
+            verification: false, annotation: false));
+    }
+
+    /// <summary>…and a member with no annotator never records a handle, so switching the seed off is not a
+    /// gap. Without this half the finding would fire on the zero-configuration path.</summary>
+    [Fact]
+    public void A_member_with_no_annotator_and_no_subject_seed_reports_nothing()
+    {
+        var graph = new GraphMemoryEngine("project/graph", new InMemoryMemoryGraphStore(),
+            options: new GraphMemoryOptions { SubjectSeedK = 0 });
+
+        Assert.Empty(MemoryWiring.Inspect([Blend(MemoryWriteRouting.FirstCapable, graph)],
+            verification: false, annotation: false));
+    }
+
+    private sealed class FakeAnnotator : IMemoryAnnotationPolicy
+    {
+        public Task<MemoryAnnotation> AnnotateAsync(MemoryAnnotationRequest request,
+            CancellationToken ct = default) => Task.FromResult(MemoryAnnotation.None);
+    }
+
     // ---- through a real container --------------------------------------------------------------------
 
     /// <summary>The end-to-end shape an adopter hit: <c>AddMemoryVerification()</c> on an engine with no

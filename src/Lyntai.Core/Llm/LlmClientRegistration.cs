@@ -14,6 +14,8 @@ public sealed class LlmClientBuilder
 
     internal List<string> ProviderIds { get; } = [];
 
+    internal List<LlmCandidate> Candidates { get; } = [];
+
     /// <summary>
     /// Route this client over the named backends ONLY, in the order given — which is also the fallback
     /// order, exactly as it is for the default client.
@@ -28,15 +30,44 @@ public sealed class LlmClientBuilder
     /// was never registered must fail loudly; degrading to the app's expensive default is precisely the
     /// outcome naming a client was meant to prevent.</para>
     ///
+    /// <para><b>These ids become the client's candidate list</b>, so narrowing a client's backends narrows
+    /// what it TRIES — <c>UseDefaultCandidates</c> governs the default client, not this one. An id the
+    /// global list already pins to a model keeps that model; the rest get the backend's own default. State
+    /// the list outright with <see cref="UseCandidates"/> when that is not what you want.</para>
+    ///
     /// <para>Naming none leaves the client over EVERY registered provider — the default client's own
     /// behaviour, which is the right meaning for a name that exists only to carry different governance
-    /// later.</para>
+    /// later — and it then routes over the default candidate list, there being nothing to narrow.</para>
     /// </summary>
     /// <param name="providerIds">Backend ids, in fallback order.</param>
     public LlmClientBuilder UseProviders(params string[] providerIds)
     {
         ArgumentNullException.ThrowIfNull(providerIds);
         ProviderIds.AddRange(providerIds);
+        return this;
+    }
+
+    /// <summary>
+    /// State this client's fallback list outright, instead of letting it be derived from
+    /// <see cref="UseProviders"/>.
+    ///
+    /// <para>Needed for the one split derivation cannot express: TWO models of the SAME backend. A derived
+    /// list carries one entry per pooled id, so "the big model for chat, the small one for extraction" is
+    /// unsayable whenever both live behind a single id — which is the split naming a client exists for.</para>
+    ///
+    /// <para><b>Every candidate must name a backend this client is pooled over</b>, or composition throws:
+    /// a candidate the router can never select is a call that fails on every attempt, and that failure is
+    /// worth having at startup rather than per request.</para>
+    ///
+    /// <para>SETS (clears + replaces), matching <c>UseDefaultCandidates</c> — the last call wins; it does not
+    /// append.</para>
+    /// </summary>
+    /// <param name="candidates">The fallback list, in order.</param>
+    public LlmClientBuilder UseCandidates(params LlmCandidate[] candidates)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        Candidates.Clear();
+        Candidates.AddRange(candidates);
         return this;
     }
 }
@@ -73,7 +104,7 @@ public static class LlmClientRegistration
         var client = new LlmClientBuilder(name);
         configure?.Invoke(client);
 
-        if (!builder.NamedLlmClients.TryAdd(name, client.ProviderIds))
+        if (!builder.NamedLlmClients.TryAdd(name, client))
             throw new ArgumentException(
                 $"An LLM client named '{name}' is already registered; one of the two would be unreachable.",
                 nameof(name));

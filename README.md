@@ -265,6 +265,10 @@ catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { S
   them — `"my spouse"` finds "she works as an anaesthetist". Nothing lexical can do that: those sentences
   share only pronouns, in any language. Costs one model call per write; point it at a cheap backend with
   `AddLlmClient("memory-fast", …)` and `ClientName`. Absent, memory behaves exactly as it always has.
+  <br>Those subjects are **searchable, not just linkable**: a recall matches its query against the handles in
+  use and seeds the entries recorded under whichever ones it names, so `"配偶"` reaches the fact whose text
+  says `"太太"`. On by default (`GraphMemoryOptions.SubjectSeedK`) once an annotator is wired — a handle
+  exists only because you paid for it, so reading it back needs no second opt-in.
 - **A model can judge which recalled entries actually ANSWERED the query** (opt-in, and the largest
   recall-quality lever here). `AddMemoryVerification()` shows a judge the query and the candidate headlines
   before the limit is applied, so an answer the ranking buried gets promoted — and reinforcement then follows
@@ -283,7 +287,9 @@ catch (LlmVerdictException ex) when (ex.Verdict == LlmVerdict.NotConfigured) { S
 - **Name an LLM client per use.** `AddLlmClient("memory-fast", c => c.UseProviders("ollama", "openai"))`,
   resolved through `ILlmClientFactory` — the counterpart of named memory engines. A name selects backends,
   never permissions: every named client carries the same cache, budget, rate limit and refusal screening as
-  the default one.
+  the default one. The ids you name are also its **fallback order**, so a client narrowed onto a local
+  backend routes there whatever `UseDefaultCandidates` says globally; `UseCandidates(…)` states the list
+  outright when you need two models of one backend.
 - **The memory store is bounded out of the box:** the default `MemoryEvictionPolicy` keeps a **500-entry
   per-scope FIFO cap**, so the store does not grow without limit unless you ask it to. Change it with
   `ConfigureMemory(p => …)` — count cap, default TTL, per-scope character budget, FIFO or LRU eviction — or

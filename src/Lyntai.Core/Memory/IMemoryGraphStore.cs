@@ -446,9 +446,11 @@ public interface IMemoryGraphStore
     /// (<c>MemorySubjectLinkingTests.A_shared_subject_that_no_entry_names_links_nothing</c>).</para>
     ///
     /// <para><b>Kept out of the content index deliberately.</b> Appending subjects to the searchable text
-    /// would make the existing seed path find them with no new method at all — and would silently change
-    /// what every ordinary recall matches, which is a far larger blast radius than linking needs. Subjects
-    /// steer LINKING; content steers RECALL.</para>
+    /// would make the existing seed path find them with no new method at all — and would silently change what
+    /// every ordinary recall matches, which is a far larger blast radius than an index needs. A subject
+    /// steers linking AND seeds recall (<see cref="GraphMemoryOptions.SubjectSeedK"/>), but through
+    /// <see cref="NodesBySubjectAsync"/> on an exact handle — never by widening what content matching
+    /// finds.</para>
     ///
     /// <para>Replaces rather than accumulates, so re-remembering a fact whose annotation changed does not
     /// leave the old subjects behind — a stale subject links future facts to the wrong cluster forever, and

@@ -60,4 +60,38 @@ public class MemorySubjectTests
 
     [Fact]
     public void Canonicalize_of_null_is_empty() => Assert.Empty(MemorySubject.Canonicalize(null));
+
+    /// <summary><b>A handle in a space-writing script needs a word BOUNDARY.</b> <c>pairbond</c> sits inside
+    /// <c>repairbonded</c>, and a bare substring test would seed a whole entity cluster off a query that
+    /// mentions neither the entity nor anything like it — the one failure mode that cannot be undone by
+    /// ranking, because the entries are genuinely about something else.</summary>
+    [Theory]
+    [InlineData("what does my spouse do", "spouse", true)]
+    [InlineData("SPOUSE?", "spouse", true)]                   // both sides fold through Normalize
+    [InlineData("spouse", "  Spouse  ", true)]                // …including the handle's own padding
+    [InlineData("the repairbonded seam", "pairbond", false)]  // inside a longer word
+    [InlineData("espouse the idea", "spouse", false)]         // …and at the front of one
+    [InlineData("ask northern logistics", "northern logistics", true)]  // a multi-word handle
+    public void A_spaced_handle_matches_only_on_a_word_boundary(string query, string subject, bool expected) =>
+        Assert.Equal(expected, MemorySubject.Matches(query, subject));
+
+    /// <summary><b>A handle in a spaceless script matches as a plain SUBSTRING</b>, because there is no
+    /// boundary to anchor to: Chinese writes 配偶 straight against whatever precedes and follows it, so
+    /// demanding a boundary would reject every real query. Read from
+    /// <c>ScriptProfile.ExpandsIntoGrams</c> rather than from an is-this-ASCII test, so Thai and Khmer get
+    /// the same treatment and Cyrillic — which writes spaces — does not.</summary>
+    [Theory]
+    [InlineData("配偶是谁", "配偶", true)]
+    [InlineData("我的太太", "配偶", false)]                   // a real miss is still a miss
+    [InlineData("배우자는 어디", "배우자", true)]              // Hangul writes spaces and is expanded anyway
+    public void A_spaceless_handle_matches_as_a_substring(string query, string subject, bool expected) =>
+        Assert.Equal(expected, MemorySubject.Matches(query, subject));
+
+    [Theory]
+    [InlineData(null, "spouse")]
+    [InlineData("   ", "spouse")]
+    [InlineData("what does my spouse do", null)]
+    [InlineData("what does my spouse do", "  ")]
+    public void Nothing_matches_an_empty_query_or_an_unusable_handle(string? query, string? subject) =>
+        Assert.False(MemorySubject.Matches(query, subject));
 }

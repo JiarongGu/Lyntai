@@ -49,4 +49,49 @@ public static class MemorySubject
         subjects is null
             ? []
             : [.. subjects.Where(IsUsable).Select(s => Normalize(s)).Distinct(StringComparer.Ordinal)];
+
+    /// <summary>
+    /// Whether <paramref name="query"/> names <paramref name="subject"/> — the read-side counterpart of
+    /// <see cref="Canonicalize"/>, and what lets a recall reach an entry through the handle it was indexed
+    /// under rather than only through its own words.
+    ///
+    /// <para><b>Both sides are folded by <see cref="Normalize"/></b>, so the comparison below is ordinal and
+    /// exact rather than approximately case-insensitive. One rule, applied twice.</para>
+    ///
+    /// <para><b>How closely it must match depends on the SCRIPT, through
+    /// <see cref="Lyntai.Storage.ScriptProfile.ExpandsIntoGrams"/>.</b> A handle in a script that writes word
+    /// spaces matches only on a word BOUNDARY — <c>pairbond</c> sits inside <c>repairbonded</c>, and matching
+    /// it there would link a fact to a query that never mentioned it. A handle in a spaceless script matches
+    /// as a plain SUBSTRING, because there is no boundary to anchor to: Chinese writes <c>配偶</c> straight
+    /// against whatever precedes and follows it, so demanding one would reject every real query. That is the
+    /// same asymmetry <see cref="Lyntai.Storage.SearchTerms"/> already draws for search terms, read from the
+    /// same seam rather than restated as an is-this-ASCII test — which would get Cyrillic and Thai backwards
+    /// in opposite directions.</para>
+    ///
+    /// <para>Public for the same reason the rest of this type is: a BYO engine that seeds recall from
+    /// subjects has to ask the question the shipped one asks.</para>
+    /// </summary>
+    /// <param name="query">The recall's query text.</param>
+    /// <param name="subject">The handle, as stored or as an annotator produced it.</param>
+    /// <returns>False for an unusable handle or an empty query — neither can match anything.</returns>
+    public static bool Matches(string? query, string? subject)
+    {
+        var handle = Normalize(subject);
+        var text = Normalize(query);
+        if (handle.Length == 0 || text.Length == 0) return false;
+
+        if (Lyntai.Storage.SearchTerms.ProfileOf(handle).ExpandsIntoGrams)
+            return text.Contains(handle, StringComparison.Ordinal);
+
+        for (var i = text.IndexOf(handle, StringComparison.Ordinal); i >= 0;
+             i = text.IndexOf(handle, i + 1, StringComparison.Ordinal))
+        {
+            var end = i + handle.Length;
+            if ((i == 0 || !char.IsLetterOrDigit(text[i - 1])) &&
+                (end == text.Length || !char.IsLetterOrDigit(text[end])))
+                return true;
+        }
+
+        return false;
+    }
 }

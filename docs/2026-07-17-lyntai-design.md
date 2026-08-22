@@ -682,8 +682,9 @@ public interface IMemoryEngine {
   measured defect said to. A domain earns a seam when a plausible alternative algorithm
   genuinely exists, not merely because it is a rule.
   <br>**`.Annotation` and `.Verification` are the two that read like exceptions and are not.** Both are
-  MODEL-IN-THE-LOOP seams — the annotator links entries about the same subject on write, the verifier judges
-  a recall's candidates — and both are **singular** rather than plural (D48) and default to **none**, so the
+  MODEL-IN-THE-LOOP seams — the annotator records what a fact is ABOUT, which links entries on write and
+  seeds recall from a subject the query names (D88); the verifier judges a recall's candidates — and both are
+  **singular** rather than plural (D48) and default to **none**, so the
   whole library runs model-free unless a consumer registers one. That default is why this list said "five"
   until 2026-08-15 while the tree held seven: a domain nothing constructs by default is invisible to
   everything except the namespace map. They are domains by the same test as the other five — one seam, its

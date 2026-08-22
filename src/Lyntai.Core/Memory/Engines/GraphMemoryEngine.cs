@@ -197,6 +197,15 @@ public sealed class GraphMemoryEngine(
     /// error instead of a sweep that throws the next time somebody runs it.</para></summary>
     internal bool EmbedsWithoutSeeding => Enriches && _options.SemanticSeedK <= 0;
 
+    /// <summary>This engine records subject handles and no recall can reach one — an annotator is wired, so
+    /// every write pays a model call to say what the fact is ABOUT, while
+    /// <see cref="GraphMemoryOptions.SubjectSeedK"/> (or its scan) is 0 so the only readers left are the
+    /// write path's own linking and the annotator's reuse list.
+    /// <para>Internal and read only by <see cref="MemoryWiring"/>, exactly like
+    /// <see cref="EmbedsWithoutSeeding"/> — the same defect on the other index.</para></summary>
+    internal bool RecordsSubjectsWithoutSeeding =>
+        annotation is not null && (_options.SubjectSeedK <= 0 || _options.SubjectSeedScan <= 0);
+
     /// <inheritdoc />
     public string Name { get; } = name;
 
@@ -1034,6 +1043,17 @@ public sealed class GraphMemoryEngine(
             }
         }
 
+        foreach (var id in await SubjectSeedsAsync(query, ct).ConfigureAwait(false))
+        {
+            if (!seen.Add(id)) continue;   // already a lexical or semantic hit — nothing to add
+            var node = await store.GetAsync(Name, id, ct).ConfigureAwait(false);
+            // No fabricated Relevance: the store reports how well the entry's own TEXT matched, and a subject
+            // match says something different — that the entry is ABOUT what was asked. Handing it a score on
+            // the text axis would let it displace entries that genuinely matched; entering as a candidate lets
+            // it compete on retrievability and degree, which is what it actually has.
+            if (node is not null) found.Add((node, 0));
+        }
+
         var frontier = seen.ToList();
 
         for (var hop = 1; hop <= _options.Hops && frontier.Count > 0; hop++)
@@ -1057,6 +1077,51 @@ public sealed class GraphMemoryEngine(
         }
 
         return found;
+    }
+
+    /// <summary>The entries recorded under whichever SUBJECTS this query names, newest first per subject.
+    ///
+    /// <para><b>Why the query is matched against the handle list rather than the handles searched for.</b>
+    /// A handle is stored as an index, not as text, so there is nothing to search; the only lookup the store
+    /// offers is by an exact normalized handle
+    /// (<see cref="IMemoryGraphStore.NodesBySubjectAsync"/>). Reading the handles in use and asking which
+    /// ones the query names is what turns that exact lookup into something a free-text recall can use, and
+    /// <see cref="MemorySubject.Matches"/> owns the per-script rule for "names".</para>
+    ///
+    /// <para>BEST-EFFORT, like the semantic seed beside it and for the same reason: this runs after the
+    /// lexical seeds exist, so letting a fault propagate would discard them and report a storage problem as
+    /// "nothing matched". Cancellation is never swallowed.</para></summary>
+    private async Task<IReadOnlyList<long>> SubjectSeedsAsync(MemoryQuery query, CancellationToken ct)
+    {
+        if (_options.SubjectSeedK <= 0 || _options.SubjectSeedScan <= 0 ||
+            string.IsNullOrWhiteSpace(query.Query))
+            return [];
+
+        try
+        {
+            var known = await store
+                .KnownSubjectsAsync(Name, query.TaskKey, query.Scope, _options.SubjectSeedScan, ct)
+                .ConfigureAwait(false);
+
+            var ids = new List<long>();
+            var seen = new HashSet<long>();
+            foreach (var subject in known)
+            {
+                if (!MemorySubject.Matches(query.Query, subject)) continue;
+                var found = await store.NodesBySubjectAsync(Name, query.TaskKey, query.Scope,
+                    MemorySubject.Normalize(subject), _options.SubjectSeedK, ct).ConfigureAwait(false);
+                foreach (var id in found)
+                    if (seen.Add(id)) ids.Add(id);
+            }
+
+            return ids;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "subject seeding failed for {Engine}; recalling on the other seeds", Name);
+            return [];
+        }
     }
 
     /// <summary>Asks the verifier which of these actually answered the query, fail-open in every direction.

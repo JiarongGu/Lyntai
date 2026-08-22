@@ -1523,6 +1523,7 @@ sealed class Lyntai.Llm.Routing.KeyValueModelRoutingStore
     KeyPrefix : String
 sealed class Lyntai.Llm.Routing.LlmClient
     .ctor(ILlmRouter router, LyntaiOptions options)
+    .ctor(ILlmRouter router, LyntaiOptions options, IReadOnlyList<LlmCandidate> candidates)
     CompleteAsync(LlmRequest req, CancellationToken ct = default) : Task<LlmReply>
     StreamAsync(LlmRequest req, CancellationToken ct = default) : IAsyncEnumerable<LlmChunk>
     SupportsStreamingToolCalls(LlmRequest req) : Boolean
@@ -1554,6 +1555,7 @@ sealed class Lyntai.Llm.Streaming.InactivityClock
     Stop() : Void
 sealed class Lyntai.LlmClientBuilder
     Name : String
+    UseCandidates(LlmCandidate[] candidates) : LlmClientBuilder
     UseProviders(String[] providerIds) : LlmClientBuilder
 static class Lyntai.LlmClientRegistration
     static AddLlmClient(LyntaiBuilder builder, String name, Action<LlmClientBuilder> configure = null) : LyntaiBuilder
@@ -1774,6 +1776,8 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     ReviewLogCap : Int32
     SemanticSeedK : Int32
     SimilarityK : Int32
+    SubjectSeedK : Int32
+    SubjectSeedScan : Int32
     ToString() : String
     VerificationDepth : Nullable<Int32>
     VerificationFilters : Boolean
@@ -2165,6 +2169,7 @@ enum Lyntai.Memory.MemorySources
 static class Lyntai.Memory.MemorySubject
     static Canonicalize(IEnumerable<String> subjects) : IReadOnlyList<String>
     static IsUsable(String subject) : Boolean
+    static Matches(String query, String subject) : Boolean
     static Normalize(String subject) : String
 static class Lyntai.Memory.MemoryToolScope
     static Use(String taskKey, String scope = null) : IDisposable
