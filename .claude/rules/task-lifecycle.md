@@ -30,3 +30,28 @@ item was closed — that a checked-off line never carried anyway.
 - **Keep the summary honest.** If the top of the backlog claims everything is done, that must be true.
   Never leave a stale "all done" banner over open items, nor open items under a "done" banner.
 - Picking up work you cannot finish now? Leave it open in the backlog. That is exactly what it is for.
+- **Never let the backlog SUMMARIZE the archive.** A running tally of what closed is the same accumulation
+  as ticking items in place, one level up: it grows without bound, it answers a question the archive already
+  answers, and it pushes the open items further down the file. Keep only what a reader needs to judge what
+  is LEFT.
+
+## A blocked item names its blocker's KIND, and is re-checked against that kind
+
+**"Blocked" is a claim with an expiry date, and the check that refutes it is not always the one you ran
+last time.** A blocker is usually one of: the TREE (a member that does not exist yet, a provider nobody
+wrote), the ENVIRONMENT (a key, an installed tool, a model on disk, a running service), a DECISION nobody
+has taken, or DATA only a deployment can produce. Record which, because each is refuted by looking
+somewhere different.
+
+Measured 2026-08-23. A backlog item sat labelled blocked on "a real embedding model" while one was pulled
+on the machine the whole time. The previous re-check had been careful and thorough — and it read the
+**tree**, because that is what the other five blockers needed, and never asked the **machine**. The
+sweep was honest about what it checked and still wrong about the conclusion, which is why the fix is
+procedural rather than "look harder".
+
+- **Say what would unblock it, concretely enough to test.** "Needs a real embedding model" is testable;
+  "needs more work" is not, and neither is a missing instrument this repository could simply build.
+- **Re-check against the blocker's own kind.** An environment blocker needs the environment queried, not a
+  `grep`. A tree blocker needs the tree.
+- **A cleared blocker does not always mean a finished item** — here what remained was a measurement budget.
+  Say which of the two moved, or the next reader assumes both did.

@@ -19,7 +19,7 @@ to — add a row when you add one, and keep the wording in step with the file's 
 | [repo-mechanics](repo-mechanics.md) | applying a general rule in this repository — package names, version authorship, the dev loop, guard scripts, or scratch paths | contract in Lyntai.Core with adapters, never adapter-to-adapter; zero Dto identifiers; never hand-edit VersionPrefix or the Unreleased heading, and never NAME a version that has not shipped; scratch under `devtools/_*` |
 | [sensitive-info](sensitive-info.md) | writing any tracked file or commit message, or rewriting history | no machine paths, no private repo names, no credentials; a committed leak is a history problem |
 | [skills-workflow](skills-workflow.md) | starting any non-trivial task, and whenever a follow-up changes its scope | run the discovery skills before exploring code, actually read what they route you to, and re-run them when the scope moves |
-| [task-lifecycle](task-lifecycle.md) | adding or finishing a task, or editing the backlog | the backlog holds OPEN work only; a finished task MOVES to the archive; three records, three jobs |
+| [task-lifecycle](task-lifecycle.md) | adding or finishing a task, editing the backlog, or labelling something blocked | the backlog holds OPEN work only and never summarizes the archive; a finished task MOVES to it; a blocked item names its blocker's KIND and is re-checked against that kind |
 | [windows-machine](windows-machine.md) | running any shell command, script, or file write on a Windows development machine | never round-trip text through PowerShell 5; BOM and encoding traps; exit codes that lie; never kill a shared runtime by name |
 
 ## Knowledge (read on demand)
