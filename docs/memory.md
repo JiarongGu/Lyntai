@@ -311,6 +311,37 @@ store. The honest statement is that the seam's SHAPE — score pairs, reorder, n
 rerankers exist for, and the LLM judge is a general tool doing a specialised job. See
 `local/superpowers/records/2026-08-15-memory-research-review.md`.
 
+### Salience's RANKING voice is a net cost — measured 2026-08-23
+
+`node devtools/dev.mjs memory-salience-weight`, 10 seeds × 5 shapes × 4 arms of
+`ReciprocalRankFusionOptions.SalienceWeight`, against a real embedding model. Retention and store admission
+are held identical in every arm, so this prices the ranking contribution **alone**.
+
+| `SalienceWeight` | `many-candidates` miss | other shapes miss | pollution (regression / other) |
+|---|---|---|---|
+| **0** | **−0.0962** | **−0.0570** | +0.0487 / +0.0277 |
+| 0.5 | −0.0326 | −0.0264 | +0.0630 / +0.0079 |
+| **1.0 (shipped)** | — | — | — |
+| 2.0 | +0.0616 | +0.0322 | +0.0062 / +0.0034 |
+
+**Lower is better, monotonically, on every shape.** Under §5.7.0 that trade is accepted: miss is objective
+(2) and pollution (3) is explicitly not co-equal, so a large miss reduction for a small pollution rise is the
+correct direction.
+
+This says nothing bad about salience — it says salience is not a *ranking* signal. **D45** reached the same
+conclusion by argument, which is why `MultiplicativeRankingPolicy`'s rank boost defaults OFF: salience means
+"does not fade away", and store admission already delivers that. RRF's own `SalienceWeight` shipping at `1.0`
+is the inconsistency.
+
+**The default has NOT moved**, because a ranking constant changes on a measurement and this is one run, one
+corpus, one embedder, four coarse arms, with relevance defined lexically (D49, D54). Set it to `0` yourself
+if this matches your corpus.
+
+**The control worth copying if you build a sweep of your own:** the study reports *distinct salience values*
+(352), not how often salience fired (98.9%). Firing is presence; only distinct values are discrimination, and
+RRF ranks by competition (**D82**) — so a signal every candidate ties on contributes the same constant at
+every weight, and the curve would be flat as an artifact with every ordinary control green.
+
 ### Reinforcement: the signal, not the quantity
 
 Reinforcement does two separable things — resets the entry's **age**, and grows its **stability** — and they

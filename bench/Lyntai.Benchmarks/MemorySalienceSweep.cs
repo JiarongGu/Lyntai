@@ -109,7 +109,7 @@ internal static class MemorySalienceSweep
             var embedder = new FakeEmbedder();
             var vectors = new InMemoryVectorStore();
 
-            var counting = on ? new CountingSaliencePolicy() : null;
+            var counting = on ? new SweepDoubles.CountingSaliencePolicy() : null;
             IReadOnlyList<IMemoryRetentionPolicy> retention =
                 on ? [new SalienceRetentionPolicy()] : [];
 
@@ -162,26 +162,6 @@ internal static class MemorySalienceSweep
         return 0;
     }
 
-    /// <summary>Wraps the shipped policy purely to COUNT how often it judged anything salient. Without this
-    /// the ON arm could be silently identical to OFF — a nearly-empty engine reports the neutral 1 until it
-    /// holds <c>SalienceOptions.MinimumComparables</c> entries — and the study would read as "salience does
-    /// nothing" when the truth was "salience never ran".</summary>
-    private sealed class CountingSaliencePolicy : IMemorySaliencePolicy
-    {
-        private readonly StructuralSaliencePolicy _inner = new();
-        private int _salient;
-
-        public int Salient => Volatile.Read(ref _salient);
-
-        public MemorySalienceProvenance Provenance => _inner.Provenance;
-
-        public MemorySignals Signals(MemoryWrite write, in SalienceContext context)
-        {
-            var signals = _inner.Signals(write, in context);
-            if (signals.Count > 0) Interlocked.Increment(ref _salient);
-            return signals;
-        }
-    }
 
     private static void PrintPreamble(IReadOnlyList<Shape> shapes, IReadOnlyList<string> arms)
     {

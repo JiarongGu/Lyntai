@@ -61,6 +61,14 @@ if (args.Contains("--fan"))
 if (args.Contains("--enrichment"))
     return await MemoryEnrichmentSweep.RunAsync();
 
+// `node devtools/dev.mjs memory-salience-weight` → --salience-weight. Whether the `many-candidates`
+// regression salience ships with is recoverable by BOUNDING its ranking voice. The second sweep here that
+// needs a REAL model, and for a sharper reason than cost: without an embedder salience declines on every
+// write, and RRF ranks by competition (D82), so a uniformly-absent signal contributes the same constant at
+// every weight — the curve would be flat as an ARTIFACT with every control green.
+if (args.Contains("--salience-weight"))
+    return await MemorySalienceWeightSweep.RunAsync();
+
 // A `--evidence` study lived here on 2026-08-12 and was removed with the `GraphMemoryOptions.ReinforceOn`
 // seam it drove — see that option's own reverted-here note. Its FINDING survives in TASKS.md Part 64: the
 // engine's reinforcement conflates an age RESET with a stability GROWTH, and those pull in opposite

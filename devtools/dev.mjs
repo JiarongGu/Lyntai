@@ -273,6 +273,18 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--enrichment', ...args]);
     break;
 
+  // memory-salience-weight — whether the `many-candidates` regression salience ships with is recoverable by
+  // BOUNDING its ranking voice (ReciprocalRankFusionOptions.SalienceWeight), which is the open half of
+  // TASKS.md Part 65. Needs a REAL embedder, and for a sharper reason than the enrichment sweep's: without
+  // one, salience declines on every write and RRF ranks by COMPETITION (D82), so a uniformly-absent signal
+  // contributes the same constant at every weight — arm 0 and arm 2 are the same engine and the flat curve
+  // reads as an exoneration. Every cell therefore reports salient-vs-judged writes, and the verdict refuses
+  // to interpret the table unless that ratio is strictly between 0 and 1.
+  case 'memory-salience-weight':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--salience-weight', ...args]);
+    break;
+
 
   case 'install-hooks':
     run('git', ['config', 'core.hooksPath', 'devtools/hooks']);

@@ -490,13 +490,14 @@ owned outside the deployment; `DECISIONS.md` D30) /
   own prediction, and the log can only ever contain successes) — `DECISIONS.md` **D51**'s 2026-08-12
   amendment. A sensitivity curve makes no claim about the true value, so neither objection touches it. Tens of
   minutes, so out of `verify` for the same reason.
-- **Seven more one-factor sweeps on that same harness**, all out of `verify` for the same cost reason, and
-  all listed here because a roster naming a SUBSET is how a reader learns the roster is not one (the same
-  drift `dev.mjs`'s own usage line had, fixed in 208a7ca — on `backup/pre-squash-2026-08-14`, D61). **The
-  authoritative list is `node devtools/dev.mjs` with no argument**, which derives it; every `memory-*`
-  command there is a sweep, and exactly one of them (`memory-sweep`, the 2×2) is not one-factor. This
-  paragraph said "six more … three of nine" while enumerating seven of ten, which is the drift it is
-  about — so the count is stated as a relation rather than a number:
+- **Every OTHER `memory-*` command is a one-factor sweep on that same harness**, all out of `verify` for the
+  same cost reason, and all listed here because a roster naming a SUBSET is how a reader learns the roster is
+  not one (the same drift `dev.mjs`'s own usage line had, fixed in 208a7ca — on
+  `backup/pre-squash-2026-08-14`, D61). **The authoritative list is `node devtools/dev.mjs` with no
+  argument**, which derives it; every `memory-*` command there is a sweep, and exactly one of them
+  (`memory-sweep`, the 2×2) is not one-factor. This paragraph said "six more … three of nine" while
+  enumerating seven of ten, then led with "Seven more" while enumerating eight — twice the same drift, which
+  is why it now names no number at all:
   `memory-reinforcement` isolates law 3's
   `r`-dependence from reinforcement MAGNITUDE, which `memory-spacing`'s knob provably cannot separate;
   `memory-bounded` varies the FORM of the growth rule rather than its constants, and is what decided
@@ -507,7 +508,7 @@ owned outside the deployment; `DECISIONS.md` D30) /
   the FIRST measurement of what a model in the loop is worth — every other figure here is model-free — and
   **`memory-fan`** is the axis that measured ACT-R's fan effect and REFUSED it (**D62**).
   **`memory-enrichment`** (2026-08-15) answered the oldest open question in that backlog — WHY registering an
-  embedder costs recall quality — and is the **only sweep that calls a REAL model**, EXITING rather than
+  embedder costs recall quality — and was the **first sweep to call a REAL model**, EXITING rather than
   substituting a double, because the arm it replaces was measured through a bag-of-words fake in which
   "semantic similarity" IS word overlap. Its answer is that the two write-time mechanisms have different
   SHAPES, which is why one number never explained it: **similarity linking is a REDISTRIBUTION** (`topical`
@@ -515,6 +516,13 @@ owned outside the deployment; `DECISIONS.md` D30) /
   cancel, while **novelty→salience is a broad shallow cost** that turns beneficial only under high noise.
   It needed no new API — `MinSimilarity` above 1 keeps the embed and writes no edge; a neutral salience
   policy keeps the edges and drops novelty.
+  <br>**`memory-salience-weight`** (2026-08-23) is the SECOND real-model sweep, and it needs one for a
+  sharper reason than cost: without an embedder salience declines on every write, and RRF ranks by
+  COMPETITION (**D82**), so a uniformly-tied signal contributes the same constant at every weight — the curve
+  would be flat as an ARTIFACT with every ordinary control green. It therefore reports **distinct salience
+  values**, not how often salience fired, and refuses to interpret its own table when that count is 1.
+  Its finding: `SalienceWeight = 0` beats the shipped `1.0` on every shape, so salience's RANKING voice is a
+  net cost and **D45's argument was right without a measurement**. The default did NOT move on one run.
   `node devtools/dev.mjs` with no argument is the authoritative list; this section is
   a curated one and says why each entry earns its place.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.

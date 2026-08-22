@@ -314,6 +314,23 @@ single-seed replay would be the over-fitting D49 refused; it needs the paired sw
   substituting a double. That is an environment dependency, which is what the blocked list is for. The trap
   itself is recorded in `.claude/knowledge/pitfalls.md`, because the flat curve would have read as a clean
   exoneration with every existing control green.
+  <br>**MEASURED 2026-08-23, and the result refutes this item's PREMISE rather than answering its question.**
+  The instrument now exists — `node devtools/dev.mjs memory-salience-weight`, 10 seeds × 5 shapes × 4 arms
+  against `embeddinggemma:300m`, with **352 distinct salience values** proving the swept signal discriminates.
+  Retention and store admission are identical in every arm, so it prices the RANKING voice alone.
+  <br>**`SalienceWeight = 0` beats the shipped `1.0` on EVERY shape**, monotonically across the ladder:
+  `many-candidates` miss **−0.0962**, the other four **−0.0570**, for pollution **+0.0487** and **+0.0277**.
+  Under §5.7.0 that trade is *accepted* — miss is objective (2), pollution (3) is explicitly not co-equal.
+  <br>So there are **no gains elsewhere for a bound to protect.** This item was opened to find a rule
+  recovering `many-candidates` while keeping salience's ranking benefit on the other shapes; that benefit does
+  not exist, and `many-candidates` is the worst case rather than a special one. **D45 reasoned this without a
+  measurement** — *salience means "does not fade away", not "first priority"; store admission already delivers
+  the former* — which is why the Multiplicative rank boost defaults OFF. RRF's `SalienceWeight` defaulting to
+  `1.0` is the inconsistent one.
+  <br>**What is now open is a DEFAULT, not a rule**, and it deliberately did not move on this run: D49/D54 say
+  a ranking constant changes on a measurement, and this is ONE run, one corpus, one embedder, four coarse
+  arms, with relevance defined lexically. A second run — a different embedder, or the language arms — is what
+  it needs. Full output: `local/superpowers/records/2026-08-23-salience-weight-sweep.txt`.
 
 ---
 
