@@ -6564,9 +6564,14 @@ list today; a wider list stays valid, so nothing will fail and nobody will notic
 note has to say plainly that a global list widened for this reason should be narrowed again. Nothing in the
 library can detect it.
 
-API: `LlmClientBuilder.UseCandidates`, `LlmClient`'s third-argument constructor overload — an OVERLOAD rather
-than an optional parameter, which would have been a binary break for every pre-compiled caller of the
-two-argument form (`pitfalls.md` §Provider lifetime). Baseline updated by hand so the diff is reviewable.
+API: `LlmClientBuilder.UseCandidates` and an optional `candidates` parameter on `LlmClient`'s constructor.
+Baseline updated by hand so the diff is reviewable.
+<br>**Shipped first as an OVERLOAD, and corrected the same day.** The overload existed only to avoid a
+binary break for a pre-compiled caller of the two-argument form (`pitfalls.md` §Provider lifetime) — a
+real trap, and not one that applies while every consumer is the owner's own application and rebuilds from
+source. That is the deferred-SemVer-strictness rule this repository already carries, applied to a design
+choice rather than to a version number. One entry point with `null` meaning "read the configured
+defaults" is the smaller surface and says the thing outright.
 
 ## Part 94 — FROM AN ADOPTER: subject handles are WRITE-ONLY — recorded, paid for, and reachable by no recall (2026-08-22)
 

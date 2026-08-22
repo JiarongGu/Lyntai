@@ -56,11 +56,21 @@ export const ESCAPE = 'comment-ok';
 /** The tiers scanned. `src/` ships to consumers; the other three rot the same way and were unscanned. */
 export const TIERS = ['src', 'tests', 'devtools', 'bench'];
 
-export const trackedFiles = (repo) =>
+export const trackedFiles = (repo) => {
   // -z for the reason every scanner here uses it: git C-QUOTES a non-ASCII path, the read then fails, and a
   // silently-skipped file reports exactly like a clean one.
-  execFileSync('git', ['ls-files', '-z', ...TIERS], { cwd: repo, encoding: 'utf8' })
-    .split('\0').filter(Boolean);
+  const list = (args) =>
+    execFileSync('git', ['ls-files', '-z', ...args, ...TIERS], { cwd: repo, encoding: 'utf8' })
+      .split('\0').filter(Boolean);
+
+  // `--others --exclude-standard` adds files that are NEW and not ignored. Without it this gate is blind to
+  // exactly the code most likely to need it: a file written this session and not yet `git add`ed is absent
+  // from the index, so `verify` scans everything EXCEPT the new work and reports clean. Measured 2026-08-23 —
+  // a 36-line block passed two full verify runs and failed the moment its file was committed, unchanged.
+  // Ignored paths stay out on their own (`local/`, `devtools/_*`, bin/obj), which is what made index-only
+  // look sufficient.
+  return [...new Set([...list([]), ...list(['--others', '--exclude-standard'])])];
+};
 
 /**
  * Every comment block in one file, as `{ line, length, escaped }`.

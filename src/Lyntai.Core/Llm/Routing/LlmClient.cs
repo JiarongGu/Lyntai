@@ -7,26 +7,21 @@ public sealed class LlmClient : ILlmClient
     private readonly LyntaiOptions _options;
     private readonly IReadOnlyList<LlmCandidate>? _candidates;
 
-    /// <summary>Route over <see cref="LyntaiOptions.DefaultCandidates"/>, read at each call so an override
-    /// applied after composition still takes.</summary>
-    public LlmClient(ILlmRouter router, LyntaiOptions options)
+    /// <summary>Route over <paramref name="candidates"/>, or over
+    /// <see cref="LyntaiOptions.DefaultCandidates"/> when none are given.</summary>
+    /// <param name="router">The routing engine, already over this client's provider set.</param>
+    /// <param name="options">Platform options (timeouts, model defaults).</param>
+    /// <param name="candidates">The fallback list, in order — what a NAMED client is composed with, so
+    /// narrowing its backends narrows what it TRIES rather than leaving it pointed at a global list none of
+    /// its own backends appear in. Snapshotted, because a composed client's list is settled by its wiring.
+    /// <para><c>null</c> (the default) reads <see cref="LyntaiOptions.DefaultCandidates"/> at each call, so
+    /// an override applied after composition still takes.</para></param>
+    public LlmClient(ILlmRouter router, LyntaiOptions options,
+        IReadOnlyList<LlmCandidate>? candidates = null)
     {
         _router = router;
         _options = options;
-    }
-
-    /// <summary>Route over <paramref name="candidates"/> instead of the configured defaults — what a NAMED
-    /// client is composed with, so narrowing its backends narrows what it tries rather than leaving it
-    /// pointed at a global list none of its own backends appear in.</summary>
-    /// <param name="router">The routing engine, already over this client's provider set.</param>
-    /// <param name="options">Platform options (timeouts, model defaults); its candidate list is unused here.</param>
-    /// <param name="candidates">The fallback list, in order. Snapshotted: a composed client's list is
-    /// settled by its wiring, unlike the mutable global one.</param>
-    public LlmClient(ILlmRouter router, LyntaiOptions options, IReadOnlyList<LlmCandidate> candidates)
-        : this(router, options)
-    {
-        ArgumentNullException.ThrowIfNull(candidates);
-        _candidates = [.. candidates];
+        _candidates = candidates is null ? null : [.. candidates];
     }
 
     private IReadOnlyList<LlmCandidate> Candidates => _candidates ?? _options.DefaultCandidates;

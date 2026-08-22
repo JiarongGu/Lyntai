@@ -19,40 +19,23 @@ namespace Lyntai.Benchmarks;
 /// ranking.
 /// </summary>
 /// <remarks>
-/// <para><b>The question.</b> Salience improves recall on most corpus shapes and makes <c>many-candidates</c>
-/// measurably WORSE: with forty competitors, admitting salient entries displaces relevant ones
-/// (<c>TASKS.md</c> Part 65). That is a real regression on design §5.7.0's line 2 traded for a gain on line 1,
-/// which is the correct direction — and it is the sharpest known cost of a shipped default. What is open is
-/// whether a BOUND recovers it: can salience's ranking voice be turned down enough to stop the displacement
-/// while keeping its gains elsewhere?</para>
-///
-/// <para><b>Why this needed a real embedder, and why running it without one would have been worse than not
-/// running it.</b> Salience reads NOVELTY; the engine derives novelty from a similarity search it performs
-/// only when an embedder and a vector store are both present. Without them
-/// <see cref="StructuralSaliencePolicy"/> declines on EVERY write, so salience is uniformly absent — and RRF
-/// ranks by COMPETITION (<c>docs/DECISIONS.md</c> <b>D82</b>), so a signal every candidate ties on
-/// contributes the same constant at every weight. Arm 0 and arm 2 would be the same engine, the curve would
-/// be perfectly flat, every existing control would be green, and the output would read as a clean
-/// exoneration. That trap is recorded in <c>.claude/knowledge/pitfalls.md</c>; this sweep exists on the other
-/// side of it and refuses to run without a model.</para>
-///
-/// <para><b>The control that makes the flat-curve reading impossible, and it is the point of the file.</b>
-/// A knob that scales a signal is unmeasurable when the signal is CONSTANT across candidates, and constant
-/// has two shapes — nobody salient, and everybody salient. So every cell reports salient writes against
-/// judged writes, and the verdict refuses to interpret a flat curve unless that ratio is strictly between
-/// them. "Each arm carried a different weight" is not the question; "did the thing the weight scales
-/// actually vary" is.</para>
-///
 /// <para><b>Arms differ in EXACTLY the ranking weight.</b> Every arm embeds, links, judges salience and
-/// applies <see cref="SalienceRetentionPolicy"/> identically — so decay resistance and store admission, the
-/// two consumers of salience that are not ranking, are held constant. Whatever moves is the ranking voice.
-/// </para>
+/// applies <see cref="SalienceRetentionPolicy"/> identically, so decay resistance and store admission — the
+/// two consumers of salience that are not ranking — are held constant.</para>
 ///
-/// <para><b>What this cannot settle.</b> Not the best value — four coarse arms show direction and rough
-/// magnitude, and a default moves on a measurement rather than on an argument (D49, D54), but not on one
-/// run. Not the other two consumers of salience. And it inherits every blind spot of the corpus, which
-/// defines relevance LEXICALLY (<c>TASKS.md</c> Part 69) — so a salience gain that is really a semantic one
-/// cannot appear here at all.</para>
+/// <para><b>It refuses to run without a real embedder, for a sharper reason than cost.</b> Salience reads
+/// NOVELTY, which the engine derives from a similarity search it performs only when an embedder and a vector
+/// store are both present; without them <see cref="StructuralSaliencePolicy"/> declines on every write. RRF
+/// then ranks by COMPETITION (<b>D82</b>), so a uniformly-absent signal contributes the same constant at
+/// every weight and every arm is the same engine.</para>
+///
+/// <para><b>The control is DISTINCT VALUES, never the firing count.</b> A knob that scales a signal is
+/// unmeasurable while that signal is tied across candidates, so the verdict refuses to interpret its own
+/// table unless the values genuinely differ. Firing is presence; only distinct values are discrimination.
+/// See <c>.claude/knowledge/pitfalls.md</c> for the measured version of both traps.</para>
+///
+/// <para>The question, the result and what neither settles live in <c>TASKS.md</c> Part 65 and
+/// <c>docs/memory.md</c> §5; <c>PrintNotSwept</c> states the limits at the point of use.</para>
 /// </remarks>
 internal static class MemorySalienceWeightSweep
 {

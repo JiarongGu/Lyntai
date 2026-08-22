@@ -149,6 +149,25 @@ the tests) while being wrong. Skim before touching the relevant area.
   <br>The general shape, and it applies to any "move it out of the way" procedure: **untracking is an
   explicit `git rm --cached`, never a side effect of a path change.** Assert it (`git ls-files <dir>` should
   be empty) rather than inferring it from the ignore rule, because the ignore rule is not what decides.
+- **A gate scoped by `git ls-files` is blind to the code most likely to need it — the file you just wrote —
+  and it reports clean while doing so.** `git ls-files` lists the INDEX, so a file that is neither committed
+  nor `git add`ed does not appear. The ordinary workflow is *write → `verify` → commit*, which means `verify`
+  scans everything EXCEPT the new work. Measured 2026-08-23: a 36-line comment block in a brand-new bench file
+  passed two full `verify` runs and the individual gate twice, then failed the moment its file was committed,
+  **byte-identical**. The first instinct was that the gate was non-deterministic, which is the wrong and much
+  more alarming conclusion.
+  <br>Ignored paths (`local/`, `devtools/_*`, `bin`/`obj`) stay out on their own via
+  `--others --exclude-standard`, which is exactly what makes index-only look sufficient: the reason to scan
+  untracked files is new SOURCE, and the reason not to is scratch — and git already distinguishes them.
+  <br>**The wider finding, and it is the part still open:** SEVEN gates each carry their own private copy of
+  that scope rule (`check-comments`, `check-counts`, `check-docs`, `check-encoding`, `check-links`,
+  `check-samples`, `check-sensitive`), so the blind spot is seven-fold and fixing one fixes one. That is the
+  same "one rule, N copies" shape this document records for `salience` coercion, applied to gate SCOPE —
+  where the divergence is invisible because every copy reports the same green line. Only `check-comments` is
+  fixed; the rest are `TASKS.md` Part 96.
+  <br>**When you write a gate, ask what its file list EXCLUDES and whether that set contains the thing it
+  exists to catch.** Then prove it with an untracked probe rather than by reading the glob — this one was
+  confirmed by dropping a 30-line comment block into an unstaged file and watching the gate fail.
 - **A gate that enumerates a directory must tolerate the directory being absent.** `check-packages` threw a
   raw `ENOENT` stack trace from `readdirSync(Baselines/)` when the last baseline was deleted, instead of
   reporting the per-package "no API baseline" problems it had already collected. It failed CLOSED, so nothing

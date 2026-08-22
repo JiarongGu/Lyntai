@@ -201,9 +201,7 @@ public static class LyntaiServiceCollectionExtensions
         ILlmClient Compose(IServiceProvider sp, ILlmRouter router,
             IReadOnlyList<LlmCandidate>? candidates = null)
         {
-            ILlmClient client = candidates is null
-                ? new LlmClient(router, options)
-                : new LlmClient(router, options, candidates);
+            ILlmClient client = new LlmClient(router, options, candidates);
             foreach (var (_, decorate) in builder.FrontDoorDecorators.OrderBy(d => d.Order))
                 client = decorate(sp, client);
             // refusal screening (per-request LlmRequest.RefusalPattern + any registered IRefusalMatcher) is

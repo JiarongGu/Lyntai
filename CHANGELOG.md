@@ -21,7 +21,8 @@ inert. Reasoning: `docs/DECISIONS.md` **D87** and **D88**.
 - **`LlmClientBuilder.UseCandidates(params LlmCandidate[])`** — a named client can state its fallback list
   outright, for the one thing deriving it from `UseProviders` cannot express: two MODELS of one backend,
   which is precisely the split naming a client exists for. A candidate outside the client's own pool throws
-  at composition, since the router can never select it. `LlmClient` gains the matching constructor overload.
+  at composition, since the router can never select it. `LlmClient`'s constructor gains a matching optional
+  `candidates` parameter, `null` meaning "read the configured defaults at each call".
 
 - **`GraphMemoryOptions.SubjectSeedK` (default `5`) and `SubjectSeedScan` (default `256`) — a recall can now
   reach an entry through the SUBJECT it was indexed under.** `AddMemoryAnnotation` records what each fact is

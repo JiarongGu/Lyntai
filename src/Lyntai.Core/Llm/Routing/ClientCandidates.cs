@@ -2,12 +2,12 @@ namespace Lyntai.Llm.Routing;
 
 /// <summary>Works out the fallback list a NAMED <see cref="ILlmClient"/> routes over.
 ///
-/// <para><b>Why a name needs its own list at all.</b> A named client narrows the router's PROVIDER set;
-/// the candidates a call tries are a separate thing, and through 3.0.2 they always came from
-/// <see cref="LyntaiOptions.DefaultCandidates"/>. So a client pooled over one backend, on a host whose
-/// defaults named a different one, resolved cleanly and then failed every call — every candidate it tried
-/// was absent from its own pool. That is the wiring <see cref="LlmClientBuilder.UseProviders"/> documents,
-/// and it could not work as written.</para>
+/// <para><b>Why a name needs its own list at all.</b> A named client narrows the router's PROVIDER set, and
+/// the candidates a call tries are a separate thing. Take them from
+/// <see cref="LyntaiOptions.DefaultCandidates"/> and a client pooled over one backend, on a host whose
+/// defaults name a different one, resolves cleanly and then fails every call — every candidate it tries is
+/// absent from its own pool. That is the wiring <see cref="LlmClientBuilder.UseProviders"/> documents, so the
+/// two must narrow together.</para>
 ///
 /// <para>Internal: which list a composed client ends up with is a property of the wiring, not a service a
 /// consumer resolves. Tests reach it through <c>InternalsVisibleTo</c>.</para></summary>

@@ -24,13 +24,19 @@ agent session, app-owned MCP servers, the long-term memory subsystem and the mul
 shipped and is archived. **The archive is where closed work lives** — `docs/task-archive.md`, one Part per
 task, with why and how; this file does not summarize it._
 
-**One item is startable and the rest are not.** Startable: **Part 65 / `many-candidates`**, whose environment
-blocker cleared on 2026-08-23 — the embedding model it waited on is on this machine — leaving a measurement
-budget rather than a missing dependency. Everything else needs something this repository does not have (a
-key, a model download, a CLI install, a vendor pick, or a deployment's own data). That is stated first
-rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat two
-paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
-startable work inside, and this one has been wrong that way twice.
+**Two items are startable and the rest are not.**
+
+- **Part 96** — six gates cannot see a file that is not yet committed. Needs nothing external; the mechanism
+  is understood and one of the seven is already fixed and proven.
+- **Part 65 / `many-candidates`** — its environment blocker cleared on 2026-08-23 (the embedding model it
+  waited on is on this machine), and the first sweep is done. What is left is a measurement budget: the
+  result wants a second run before a default moves.
+
+Everything else needs something this repository does not have (a key, a model download, a CLI install, a
+vendor pick, or a deployment's own data). That is stated first rather than buried, because it is the answer
+to the question the file exists to answer. **Read the caveat two paragraphs down before trusting any
+"blocked" label here**: a banner that over-claims blockage hides startable work inside, and this one has been
+wrong that way twice.
 
 **The pattern to expect: the next startable item arrives from a CONSUMER, not from this list.** Every
 same-day burst of work since 3.0 came in that way, and the archive has each one. This banner does not
@@ -386,6 +392,33 @@ knowingly is where the gap shows up measurably, not a reason to avoid shipping t
   environment (nothing here needs a vendor key or a download), and no longer a design decision or a missing
   observable — those were both closed on 2026-08-13. It is blocked on **a deployment's own logged reviews**,
   which only a consumer can produce.
+
+---
+
+## Part 96 — six gates are blind to a file that is not yet committed (2026-08-23)
+
+_Found while `check-comments` failed on a brand-new bench file the moment it was committed, after passing two
+full `verify` runs over the byte-identical content. The mechanism is in `.claude/knowledge/pitfalls.md`;
+`check-comments` is fixed and proven with an untracked probe. This part is the other six._
+
+- [ ] **Give the remaining gates the same file list.** `git ls-files` enumerates the INDEX, so a file that is
+  neither committed nor `git add`ed is invisible. The ordinary workflow is *write → `verify` → commit*, which
+  means `verify` scans everything EXCEPT the work being verified — and reports clean. The fix is one line per
+  gate: union `git ls-files -z <tiers>` with `git ls-files -z --others --exclude-standard <tiers>`. Ignored
+  paths stay out on their own, which is what made index-only look sufficient.
+
+  Affected, each with its OWN private copy of the rule: `check-counts`, `check-docs`, `check-encoding`,
+  `check-links`, `check-samples`, `check-sensitive`. **`check-sensitive` is the one that matters most** — a
+  leak in a file written this session is exactly what it exists to catch, and the pre-commit hook only saves
+  it because that hook runs on STAGED changes.
+
+  **Hoist rather than repeat.** Seven private copies of one scope rule is the shape `pitfalls.md` records for
+  `salience` coercion, and the divergence is invisible because every copy prints the same green line. One
+  exported helper, called by all seven.
+
+  **Expect fixture breakage and treat it as signal.** Each gate has tests over temporary repos; a fixture that
+  creates a file without committing it becomes visible for the first time, so a newly-failing guard test may
+  be the fix working. Check what the fixture intended before adjusting it.
 
 ---
 

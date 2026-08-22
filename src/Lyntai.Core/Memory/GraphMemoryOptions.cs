@@ -86,8 +86,8 @@ public sealed record GraphMemoryOptions
     /// <para><b>Non-zero by default, unlike <see cref="SemanticSeedK"/>, and the difference is real.</b> An
     /// embedder is registered for reasons of its own, so seeding recall from it changes engines that never
     /// asked; a subject exists ONLY because an annotator was registered and paid for. Reading back what a
-    /// deployment already bought should not need a second opt-in. <c>0</c> turns it off, which is what every
-    /// release through 3.0.2 did.</para>
+    /// deployment already bought should not need a second opt-in. <c>0</c> turns the seed off entirely, for a
+    /// deployment that wants handles for linking alone.</para>
     ///
     /// <para><b>Seeds, never a separate result list.</b> A matched entry enters the candidate set at hop 0
     /// and is ranked by the same policy as everything else, so it competes on retrievability and degree
