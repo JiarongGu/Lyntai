@@ -21,142 +21,90 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 carve-out** — the one that existed (the `Lyntai.Generation` PACKAGE, from 2.0.1) was withdrawn in 3.0,
 `docs/DECISIONS.md` **D70**.
 
-The whole pre-1.0 line shipped (routing depth, LLM-ops, three storage backends, BYO
-resource seams, local GGUF, agentic tool-calling native + prompt, MCP both directions, durable jobs, the §9
-platform kit, OTel, governance decorators, semantic + curated memory, the agent-session primitive), then
-**1.0** froze the API, **1.1** generalized CLI tool-hosting, **1.2** added turn-free backend probe/auth +
-pinned self-install, **2.0.1** landed the generation platform and the package graph it needed, **2.1.0**
-made the generation backends registerable in one line each, **2.2.0** shipped the provider-lifetime seam
-(`Lyntai.Lifecycle`; D30) with `LlmVerdict.NotConfigured` (D31), `AddSemanticMemory` (D34), honest
-`MigrateUpAsync` twins (D33) and `CodexAgentSession` (D35), **2.3.0** carried the pre-release whole-library
-review that 2.2.0 shipped without (D18, D37), **2.4.0** gave an agent session the host's own MCP servers on
-either CLI backend (D38), **2.5.0** shipped the **long-term memory subsystem**, and **3.0.0** (2026-08-17)
-reshaped that subsystem into the retention model below, opened the generation stream door, added the
-cross-process job cap, and withdrew the generation SemVer exemption. Per-release detail is
-`CHANGELOG.md`; the reasoning is `docs/DECISIONS.md` (D1–D88 — the memory subsystem is **D39–D41**,
-**D45–D62**, **D63**, **D72**, **D76–D79**, **D83–D86** and **D88**; D42–D44 are the doc and packaging
-decisions that landed beside it, not memory ones). **D83–D88 are POST-3.0 work**, additive, from seven seams
-adopting applications had to work around — read them before assuming a memory registration that resolves is a
-memory registration that runs, or that a NAMED `ILlmClient` can reach the backends it names (**D87**). **D67–D82 are the 3.0 work that came AFTER the pre-freeze review** and are the ones a session
-is most likely to have stale assumptions about: the generation stream door (**D67**), the accelerator-derived
-diffusion ceiling (**D68**), every unmeasured generation mapping becoming a host OPTION (**D69**), the
-withdrawal of the generation SemVer exemption (**D70**), tool calls on the streaming contract (**D71**), and
-the forget/prune capability split with the `IMemoryRemovalPolicy` seam (**D72**), and the cross-process
-job cap as a heartbeated slot table (**D73**), and the retirement of "native tool-calling for
-ClaudeCli/Local" as misframed (**D74**), and the guard-parity split — forced in FORCE, accidental in
-SIGNAL (**D75**), memory's umbrella verb becoming REMOVAL because the old one meant to *harvest*
-(**D76**), the two relational memory-graph stores sharing their materialization (**D77**), and one
-option-domain guard whose message is derived from the check it makes (**D78**), the FSRS adaptation
-spec moving out of a method's remarks into the record (**D79**), the rest of the relational row types
-following D77 into Core (**D80**), and the two store domains whose whole SQL surface is dialect-free
-sharing it (**D81**), and RRF ranking by COMPETITION, so an uninformative signal contributes nothing
-(**D82**). The pass that produced D77–D81 is archive **Part 82**.
+**Everything before 3.0 is HISTORY, not context.** `CHANGELOG.md` logs it and that is the only place it needs
+to exist — nothing is deployed on a pre-3.0 version, so a session never has to reason about what a
+2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
+the current code and the records below.
 
-**Long-term memory (2.5.0, reshaped in 3.0.0) is the newest subsystem** and the one a session is most
-likely to reason about wrongly, because it is not the three older memory surfaces: named engines resolved by name like
-`IHttpClientFactory` (`IMemoryEngine` / `IMemoryEngineFactory` / `AddMemoryEngine`; **D39**), a graph engine
-whose entries decay, connect and open as a cheap index (`UseGraph()`), decay measured in **interference
-rather than elapsed time** with the age policy as a seam (**D40**), **burial rather than deletion** (**D41**),
-InMemory + SQLite + Postgres backends under one contract, and `AddMemoryTools` exposing recall/expand to the
-model. It was purely additive — `IMemoryStore`, `ISemanticMemory` and `ICuratedMemoryStore` are unchanged and
-co-exist with it. The contract is design §5.7.
-<br>**Post-3.0.2, a SUBJECT handle is readable** (`GraphMemoryOptions.SubjectSeedK`, **D88**): a recall
-matches its query against the handles in use and seeds the entries recorded under whichever ones it names.
-Unlike `SemanticSeedK` it is **ON by default**, because a handle exists only where an annotator was
-registered and paid for. Older text saying subjects "steer LINKING, never recall" describes the 2.5–3.0.2
-behaviour.
+The reasoning is `docs/DECISIONS.md`, **D1–D88**. The two groups worth knowing before you touch anything:
+**D83–D88 are post-3.0**, additive, every one from a seam an adopting application had to work around — read
+them before assuming a memory registration that resolves is a memory registration that runs, or that a NAMED
+`ILlmClient` can reach the backends it names (**D87**). **D67–D82** are the ones a session most often holds
+stale assumptions about, because they landed after the pre-freeze review: the generation stream door
+(**D67**), the accelerator-derived diffusion ceiling (**D68**), unmeasured generation mappings becoming host
+OPTIONS (**D69**), the withdrawal of the generation SemVer exemption (**D70**), tool calls on the streaming
+contract (**D71**), the forget/prune split with `IMemoryRemovalPolicy` (**D72**), the cross-process job cap
+as a heartbeated slot table (**D73**), the guard-parity split — forced in FORCE, accidental in SIGNAL
+(**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
+and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
+overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86** and **D88**.
 
-**3.0.0 RESHAPED the memory subsystem — a session whose priors come from 2.5-era text must read
-`CHANGELOG.md` `## 3.0.0` `### Breaking` before assuming any memory behaviour.** The eleven facts a fresh
-session most needs — seven from the reshape itself, then four from the pre-freeze sweep below:
+**Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
+because it is not the three older memory surfaces: named engines resolved by name like `IHttpClientFactory`
+(`IMemoryEngine` / `IMemoryEngineFactory` / `AddMemoryEngine`; **D39**), a graph engine whose entries decay,
+connect and open as a cheap index (`UseGraph()`), decay measured in **interference rather than elapsed time**
+with the age policy as a seam (**D40**), **burial rather than deletion** (**D41**), InMemory + SQLite +
+Postgres backends under one contract, and `AddMemoryTools` exposing recall/expand to the model.
+`IMemoryStore`, `ISemanticMemory` and `ICuratedMemoryStore` co-exist with it. The contract is design §5.7.
+<br>**A SUBJECT handle is readable** (`GraphMemoryOptions.SubjectSeedK`, **D88**): a recall matches its query
+against the handles in use and seeds the entries recorded under whichever ones it names. Unlike
+`SemanticSeedK` it is **ON by default**, because a handle exists only where an annotator was registered and
+paid for.
 
-1. **Every seam was renamed to one shape, `IMemory<Domain>Policy`** (**D47**). `IMemoryClock` →
-   `IMemoryAgePolicy` (there was never a clock — age is *interference*), `IRetrievabilityPolicy` →
-   `IMemoryRetrievabilityPolicy`, `IRetentionModulator` → `IMemoryRetentionPolicy`, `ISalienceAppraiser` →
-   `IMemorySaliencePolicy`.
-2. **A seam is SINGULAR or PLURAL depending on whether its implementations read the same aspect** (**D48**).
-   Age, salience and retention are **plural** — implementations coexist and each plural domain owns a
-   **composition policy** (the engine composes nothing itself). Retrievability and ranking stay **singular**;
-   `CompositeRankingPolicy` is ONE policy built from two, not two running side by side.
-3. **Age is DERIVED, not stored** — nodes carry policy-independent primitives (encoding ordinal, cumulative
+**The memory subsystem's load-bearing invariants**, stated as what they ARE. Each one is a rule a change can
+silently break; the reasoning is in the decision named beside it.
+
+1. **Every seam is `IMemory<Domain>Policy`** (**D47**) — `IMemoryAgePolicy` (age is *interference*, never a
+   clock), `IMemoryRetrievabilityPolicy`, `IMemoryRetentionPolicy`, `IMemorySaliencePolicy`.
+2. **A seam is SINGULAR or PLURAL by whether its implementations read the same aspect** (**D48**). Age,
+   salience and retention are **plural**, and each plural domain owns a **composition policy** — the engine
+   composes nothing itself. Retrievability and ranking are singular; `CompositeRankingPolicy` is ONE policy
+   built from two, not two running side by side.
+3. **Age is DERIVED, not stored.** Nodes carry policy-independent primitives (encoding ordinal, cumulative
    characters, timestamp) and each policy projects its own view. **Except** `BurstDampenedAgePolicy`, which
-   declares `MemoryAgeKind.Accumulating` because its position is path-dependent; it keeps the accumulator.
-   That policy is the shipped default, so the default path is unchanged.
+   declares `MemoryAgeKind.Accumulating` because its position is path-dependent and keeps the accumulator —
+   and which is the shipped default, so the default path reads the accumulator.
 4. **`Stability` has ONE meaning, enforced by a contract fact**: the position delta at which retrievability
-   is `0.5`. FSRS anchors at 90% — adopting that convention would silently reinterpret every stored value,
-   so the fact exists to make it unshippable. `Reinforce` now returns **state**, not a `double`, so a richer
-   model has somewhere to put what it owns.
-5. **Each entry records WHICH policy computed its state** (`provenance_retrievability` / `provenance_salience`,
-   flags in `MemoryProvenance`), so "never computed" is distinguishable from "zero".
-
-6. **BOTH memory defaults changed, and one curve was DELETED** (**D49**, amended twice). `DsrRetrievability`
-   (FSRS's power law) is the only shipped forgetting curve — `HalfLifeRetrievability`/`HalfLifeOptions` are
-   **gone, with no restore path**, because their central `× 1.5` reinforcement was admittedly unmeasured and
-   measured compounding to **2.1×** over a four-touch batch. `ReciprocalRankFusionPolicy` is now the
-   **registered ranking default** (RRF beat `MultiplicativeRankingPolicy` on `topical` in all six shapes);
-   Multiplicative stays shipped and is one line to restore. **No data migration** either way — `Stability`'s
-   unit contract is what made deleting a curve free.
+   is `0.5`. FSRS anchors at 90%, and adopting that convention would silently reinterpret every stored value
+   — the fact exists to make it unshippable. `Reinforce` returns **state**, not a `double`.
+5. **Each entry records WHICH policy computed its state** (`provenance_retrievability` /
+   `provenance_salience`, flags in `MemoryProvenance`), so "never computed" is distinguishable from "zero".
+6. **`DsrRetrievability` (FSRS's power law) is the only shipped forgetting curve**, and
+   `ReciprocalRankFusionPolicy` is the registered ranking default (**D49**). `MultiplicativeRankingPolicy`
+   ships and is one line to restore; its own knobs live on `MultiplicativeRankingOptions`.
 7. **FSRS's difficulty axis is LIVE** — `Reinforce` maintains `MemoryDecayState.Difficulty` per review,
-   deriving a grade from retrievability-at-recall. **Neutral is `5`, not `1`**: `1` is FSRS's floor
-   ("easiest possible"), which pinned the axis at the clamp so it could never vary. Reviews are logged
-   (`GraphMemoryOptions.LogReviews`) so parameters can be fitted later; nothing reads that log at runtime.
-
-Also: `GraphMemoryOptions` lost `HopAttenuation`, `RelativeFloor` and `SalienceRankWeight` to
-`MultiplicativeRankingOptions` (`Lyntai.Memory.Ranking`). And `IMemoryGraphStore` gained **FIVE required
-members, none with a default body** — `DeleteAsync`, `RecordReviewsAsync`, `ReviewsAsync`,
-`RecordSubjectsAsync`, `NodesBySubjectAsync` — so a BYO store must implement all five. The subject pair came
-later than the other three, which is why this line said "three" until 2026-08-14; the only 3.0 addition that
-is NOT required is `KnownSubjectsAsync`, which defaults to an empty list.
-
-**Four more facts landed in the 3.0 pre-freeze sweep (`docs/DECISIONS.md` D52 and D56):**
-
-8. **An EDGE now carries the same three age primitives a node does**, so `StrengthAge` is swap-safe too and
-   `PruneAsync`'s derivable path is EXACT rather than conservative. Before this, `Age` re-derived from the
-   primitives while `StrengthAge` stayed the raw accumulator — two units in one retrievability expression for
-   any `Derivable` age policy (three of the four shipped) — and the engine compensated by refusing to delete
-   ANY connected entry, leaving a genuinely unretrievable one unreapable forever. `GraphNode` gained
-   `StrengthOrdinalAge`/`StrengthVolumeAge`/`StrengthElapsedAge` + `StrengthAgeSample`, and `GraphNeighbour`
-   gained the same three + `EdgeAgeSample` — **all THREE age axes now speak one unit**, so
-   `GraphMemoryOptions.EdgeHalfLife` is denominated in whatever the policies count. **The shipped
-   `Accumulating` default is byte-identical on every axis.**
-9. **3.0 ships ONE memory RETENTION migration**, `M202608121100_MemoryRetentionModel` — the six that landed
-   after `v2.5.0` were folded into it under D9 (none was ever released), so a fresh database applies **12**
-   migrations. `M202608081215_MemoryGraph` is deliberately NOT folded in: it shipped in 2.5.0, and editing a
-   migration a database has already recorded by NUMBER is silently skipped. The schema goldens, captured
-   pre-squash, still match — that is the proof, not an assertion.
-   <br>The twelfth is `M202608161159_JobSlots`, the cross-process concurrency semaphore (**D73**) — a
-   JOBS-feature migration that lands on BOTH backends, so it moves the two counts together and leaves the
-   asymmetry below unchanged.
-   <br>**The count is 12 on SQLite and 13 on POSTGRES**, and the asymmetry is deliberate:
-   `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so recall can match an authored
-   one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
-   `headline, content` since the graph store shipped. Migrations are per-backend projects; forcing the two
-   numbers to match would mean shipping a SQLite migration that does nothing. It is its OWN migration rather
-   than a line in the retention one precisely so that one's goldens keep proving the fold.
-10. **An authoritative fact the query did not match reports `Relevance` 0 on every backend.** All three used
-    to disagree and SQLite disagreed with itself (FTS path: tail; substring path: head). Admission is
-    unaffected — it comes from the grade carve-out and the engine's re-admission, never from relevance.
-11. **An authoritative fact now takes a slot WITHIN a recall's limit and displaces ordinary hits** (**D56**).
-    Through 2.5.x it was appended after the ranked set and cut by `Take(limit)` — documented in four places,
-    and wrong: design §5.7.0 makes "never lose an authoritative fact" objective (1), the ONLY objective with
-    no acceptable failure rate. It had never been measured (the corpus held zero grades); the first
-    measurement lost all three facts in all five languages. `GraphMemoryOptions.AuthoritativeReserve` bounds
-    how many slots exact facts may take (`null` = unbounded = default; `0` restores 2.5 and re-breaks the
-    objective). **Do not "fix" a small-limit recall returning fewer ordinary hits — that is the promise
-    working.** Guarded by `MemoryAuthoritativeSurvivalTests` + a control that requires the same facts to be
+   deriving a grade from retrievability-at-recall. **Neutral is `5`, not `1`**: `1` is FSRS's floor, which
+   pins the axis at the clamp so it can never vary. Reviews are logged (`GraphMemoryOptions.LogReviews`) so
+   parameters can be fitted later; nothing reads that log at runtime.
+8. **`IMemoryGraphStore` has FIVE required members with no default body** — `DeleteAsync`,
+   `RecordReviewsAsync`, `ReviewsAsync`, `RecordSubjectsAsync`, `NodesBySubjectAsync` — so a BYO store must
+   implement all five. `KnownSubjectsAsync` is the one exception and defaults to an empty list, which means a
+   BYO store silently gets no subject seeding (**D88**).
+9. **All THREE age axes speak one unit** (**D52**). An edge carries the same three primitives a node does
+   (`StrengthOrdinalAge`/`StrengthVolumeAge`/`StrengthElapsedAge` + `StrengthAgeSample` on `GraphNode`, and
+   the same plus `EdgeAgeSample` on `GraphNeighbour`), so `StrengthAge` is swap-safe and `PruneAsync`'s
+   derivable path is EXACT. `GraphMemoryOptions.EdgeHalfLife` is denominated in whatever the policies count.
+10. **A fresh database applies 12 migrations on SQLite and 13 on POSTGRES**, and the asymmetry is deliberate:
+    `M202608152310_MemoryHeadlineSearch` adds a trigram index on `headline` so recall can match an authored
+    one without a sequential scan, and SQLite needs no counterpart because its FTS5 mirror has indexed
+    `headline, content` since the graph store shipped. Migrations are per-backend projects; forcing the
+    numbers to match would mean shipping a SQLite migration that does nothing.
+11. **An authoritative fact the query did not match reports `Relevance` 0 on every backend.** Admission comes
+    from the grade carve-out and the engine's re-admission, never from relevance.
+12. **An authoritative fact takes a slot WITHIN a recall's limit and displaces ordinary hits** (**D56**) —
+    design §5.7.0's objective (1), the only one with no acceptable failure rate.
+    `GraphMemoryOptions.AuthoritativeReserve` bounds how many slots exact facts may take (`null` = unbounded
+    = default). **Do not "fix" a small-limit recall returning fewer ordinary hits — that is the promise
+    working.** Guarded by `MemoryAuthoritativeSurvivalTests` plus a control requiring the same facts to be
     LOST without the grade.
 
-**A 2.5 consumer's ordered upgrade path is `docs/migration-2.5-to-3.0.md`** — point them there rather than
-reconstructing it from `CHANGELOG.md`, whose `## 3.0.0` section is the net-effect INVENTORY rather than the
-ordered path.
-
-**The packaging rules are now gated, not remembered** — `verify` runs fifteen checks, four of them added at
-2.0.1 and `check-docs` added with the memory work (a doc that uses vocabulary a decision retired fails the
-build — the prose counterpart to `check-warnings`; **D42**): `check-warnings` (a warning in a published project fails the build, because an unfailed IL2026 is a
-FALSE trim promise), `check-packages` (a package must be registered in all nine registries — a missing
-`ApiSurfaceTests` entry means no API gate at all), `check-bundle` (the bundle's dependency closure cannot
-grow without a decision), plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
-against the PACKAGES). Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
+**The packaging rules are gated, not remembered** — `verify` runs fifteen checks. `check-warnings` (a warning
+in a published project fails the build, because an unfailed IL2026 is a FALSE trim promise), `check-packages`
+(a package must be registered in all nine registries — a missing `ApiSurfaceTests` entry means no API gate at
+all), `check-bundle` (the bundle's dependency closure cannot grow without a decision), `check-docs` (a doc
+using vocabulary a decision retired fails the build — the prose counterpart to `check-warnings`; **D42**),
+plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
+Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3266 passed / 3287 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 380/380, doc samples 78/78.

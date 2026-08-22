@@ -1,5 +1,11 @@
 # Migrating from 2.5 to 3.0
 
+> **HISTORY — not maintained state.** Nothing is deployed on 2.5, so this guide has no readers left and is
+> kept only as the record of what 3.0 broke and how it was paid for. **It is not updated against the current
+> code**, and a claim here describes the library as it was at the 3.0 boundary. Do not reason from it, cite it
+> as current behaviour, or reconstruct an upgrade path out of it — read the code, `CHANGELOG.md` and
+> `docs/DECISIONS.md`. The release notes still link here because that link was correct when they were cut.
+
 A 2.5 consumer upgrading to 3.0 does not experience "the policy-seams plan" and "the DSR-default plan"
 and "the FSRS-properly plan" as three separate things — they experience one wall of compile errors. This
 is the one ordered path through all of it, with a worked before/after and a plain answer to "does my

@@ -123,6 +123,31 @@ like `llama3.1`, a vendor's `0.3.40`, every historical `## 3.0.0` heading. That 
 only be given an exclusion list"). This stays a rule, and the review question is: *is this number a record or
 a prediction?*
 
+### Everything before 3.0 is HISTORY — log it, never analyse it
+
+**Nothing is deployed on a pre-3.0 version.** `CHANGELOG.md` records what those releases did and that is the
+only place it needs to exist. A session must not reason from pre-3.0 material, and in particular must not:
+
+- **justify a design by what an older release preserved.** "`0` restores what every release through 3.0.2
+  did" is archaeology; "`0` turns the seed off, for a deployment that wants handles for linking alone" says
+  the same thing about the code that exists.
+- **pay a real cost for pre-3.0 binary compatibility.** The deferred-SemVer-strictness rule already says a
+  documented break may ship in a minor while every consumer is one of the owner's own applications — which
+  they are. A constructor OVERLOAD added so a pre-compiled caller of the old signature keeps resolving is
+  paying for a caller that does not exist; take the optional parameter and the smaller surface.
+- **maintain a pre-3.0 document as if it were current.** `docs/migration-2.5-to-3.0.md` serves 2.5 consumers,
+  of which there are none. It carries a HISTORY banner and is not kept in step with the code. It stays in
+  `docs/` only because the release pipeline links to it (`devtools/scripts/release-notes.mjs`) and those
+  links were correct when the notes were cut.
+
+**What survives is the FACT, never the diff.** An invariant that still governs the code is stated in the
+present tense with the decision that settled it; the story of what it replaced belongs in `CHANGELOG.md`.
+`CLAUDE.md` carried ~80 lines of per-release narrative and 2.5→3.0 comparison and was cut to the invariants
+themselves — it is auto-loaded into every session, so archaeology there is re-read on every task.
+
+The exception, and it is narrow: **a fact about a RELEASED artifact stays true and stays sayable** — "2.0.0
+is burned on nuget.org" (below) is a fact about the feed, not an analysis of an old release.
+
 ### 2.0.0 is BURNED on nuget.org; never cut it
 
 2.0.0 is permanently taken — published then unlisted on 10 of the 12 package ids, and an unlisted
