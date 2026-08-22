@@ -6738,3 +6738,58 @@ DOES, so "nothing" was the reasonable inference. Say what a default posture DOES
 second; and before writing a paragraph about behaviour, write the fixture that would tell the competing
 readings apart. A plausible mechanism invented to explain a real observation is harder to dislodge than the
 original error, because it arrives labelled as a correction.
+
+## Part 96 — six gates are blind to a file that is not yet committed (2026-08-23)
+
+_Found while `check-comments` failed on a brand-new bench file the moment it was committed, after passing two
+full `verify` runs over the byte-identical content. The mechanism is in `.claude/knowledge/pitfalls.md`;
+`check-comments` is fixed and proven with an untracked probe. This part is the other six._
+
+- [x] **Give the remaining gates the same file list.** `git ls-files` enumerates the INDEX, so a file that is
+  neither committed nor `git add`ed is invisible. The ordinary workflow is *write → `verify` → commit*, which
+  means `verify` scans everything EXCEPT the work being verified — and reports clean. The fix is one line per
+  gate: union `git ls-files -z <tiers>` with `git ls-files -z --others --exclude-standard <tiers>`. Ignored
+  paths stay out on their own, which is what made index-only look sufficient.
+
+  Affected, each with its OWN private copy of the rule: `check-counts`, `check-docs`, `check-encoding`,
+  `check-links`, `check-samples`, `check-sensitive`. **`check-sensitive` is the one that matters most** — a
+  leak in a file written this session is exactly what it exists to catch, and the pre-commit hook only saves
+  it because that hook runs on STAGED changes.
+
+  **Hoist rather than repeat.** Seven private copies of one scope rule is the shape `pitfalls.md` records for
+  `salience` coercion, and the divergence is invisible because every copy prints the same green line. One
+  exported helper, called by all seven.
+
+  **Expect fixture breakage and treat it as signal.** Each gate has tests over temporary repos; a fixture that
+  creates a file without committing it becomes visible for the first time, so a newly-failing guard test may
+  be the fix working. Check what the fixture intended before adjusting it.
+
+✅ done 2026-08-23 — **Outcome: closed by hoisting, and the Part's own inventory was wrong in a way worth
+recording.**
+
+`devtools/scripts/_repo-files.mjs` exports one `repoFiles(repo, tiers)` — tracked files UNIONED with
+`--others --exclude-standard`, so new-but-not-ignored source is scanned and scratch still is not. Every gate
+now delegates to it: `check-comments`, `check-counts`, `check-docs`, `check-encoding`, `check-links`, and
+`check-sensitive`'s `--tree` branch. The underscore keeps it out of the gate roster the way `_fixtures.mjs`
+stays out of test discovery.
+
+**The Part said seven gates each held their own copy; it was five plus one.** `check-samples` imports
+`trackedFiles` from `check-docs`, which it already did for the `IN_SCOPE`/`IS_SCANNED` predicates and for the
+stated reason that two copies of "is this maintained state?" drift silently. So that gate was fixed by fixing
+`check-docs`, and the correct inventory is five whole-repo copies plus `check-sensitive`'s two-mode
+`sources()`. Counting importers as copies is the easy mistake when the symptom is identical.
+
+**`check-sensitive` is the one that mattered and it is proven, not assumed.** An untracked `docs/zz-probe.md`
+carrying a Windows user-home path is now blocked by `--tree`; before the change `git ls-files` could not list
+a `??` file at all, which is git's documented behaviour rather than an inference about this code. Its STAGED
+path is untouched on purpose — a leak reaches history through the index, which is what the pre-commit hook
+reads, and widening that path would have scanned files the commit does not contain.
+
+**No fixture breakage, which the Part expected and is worth reporting as a null result**: 380/380 guard tests
+pass unchanged. The prediction was that a test creating a file without committing it would newly become
+visible; none does, because the guards' fixtures build temporary repos and commit into them.
+
+**What this does NOT fix**, stated so the next reader does not assume it: `check-samples`' own
+`libraryNamespaces` still reads `git ls-files` directly, deliberately. It collects the namespace vocabulary
+rather than scoping a scan, and missing a brand-new namespace makes a sample using it fail to RESOLVE — a
+check-samples failure, which is the safe direction. That file's own comment already says so.

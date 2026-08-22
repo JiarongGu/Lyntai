@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -54,10 +55,7 @@ export const MOJIBAKE = [
   { codes: [0x00E4, 0x00B8, 0x00AD], why: 'CJK read as CP1252' },
 ].map((m) => ({ ...m, pattern: String.fromCodePoint(...m.codes) }));
 
-export const trackedFiles = (repo) =>
-  // -z for the same reason check-docs uses it: git C-quotes any path with a non-ASCII byte, and a quoted
-  // path fails to read and is silently skipped — a file that is never scanned and never reported as such.
-  execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
+export const trackedFiles = (repo) => repoFiles(repo);
 
 export function checkEncoding(repo, log = console.log, files = null) {
   const source = files ?? trackedFiles(repo);

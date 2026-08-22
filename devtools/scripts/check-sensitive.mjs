@@ -18,6 +18,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -91,7 +92,12 @@ const gitBuf = (repoRoot, args) => execFileSync('git', args, { cwd: repoRoot, ma
 export function sources(repoRoot, { tree = false } = {}) {
   if (tree) {
     return {
-      files: git(repoRoot, ['ls-files', '-z']).split('\0').filter(Boolean),
+      // TRACKED *and* new-but-not-ignored. `git ls-files` lists the INDEX, so a file written this session and
+      // not yet `git add`ed is absent from it — and a leak in a file written this session is precisely what a
+      // full-tree scan is for. The staged path below is unaffected: a leak reaches history through the index,
+      // which is what the pre-commit hook reads. Ignored paths (`local/`, `devtools/_*`) stay out on their
+      // own, and `local/sensitive-patterns.txt` living there is exactly why that must remain true.
+      files: repoFiles(repoRoot),
       bytesOf: (f) => readFileSync(path.join(repoRoot, f)),
     };
   }

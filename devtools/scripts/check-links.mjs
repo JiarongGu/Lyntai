@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLineCount } from './check-docs.mjs';
+import { repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -102,8 +103,7 @@ export const declaredParts = (text) => {
  * report every reference to it as dangling. Same root cause as check-sensitive's and check-docs' own,
  * measured 2026-08-11 (TASKS.md Part 60).
  */
-export const trackedFiles = (repo) =>
-  execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
+export const trackedFiles = (repo) => repoFiles(repo);
 
 /**
  * Check every maintained doc's in-repo references resolve.

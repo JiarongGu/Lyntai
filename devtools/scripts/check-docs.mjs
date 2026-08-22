@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -144,8 +145,7 @@ export const IN_SCOPE = (path) =>
  * skips the file — a doc that is never scanned and never reported as unscanned. Same root cause and same
  * fix as check-sensitive's; measured 2026-08-11 (TASKS.md Part 60).
  */
-export const trackedFiles = (repo) =>
-  execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
+export const trackedFiles = (repo) => repoFiles(repo);
 
 /**
  * `files` is the raw candidate list (a `git ls-files` shape); it is filtered here, so a test that injects

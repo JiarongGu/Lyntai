@@ -159,12 +159,13 @@ the tests) while being wrong. Skim before touching the relevant area.
   <br>Ignored paths (`local/`, `devtools/_*`, `bin`/`obj`) stay out on their own via
   `--others --exclude-standard`, which is exactly what makes index-only look sufficient: the reason to scan
   untracked files is new SOURCE, and the reason not to is scratch — and git already distinguishes them.
-  <br>**The wider finding, and it is the part still open:** SEVEN gates each carry their own private copy of
-  that scope rule (`check-comments`, `check-counts`, `check-docs`, `check-encoding`, `check-links`,
-  `check-samples`, `check-sensitive`), so the blind spot is seven-fold and fixing one fixes one. That is the
-  same "one rule, N copies" shape this document records for `salience` coercion, applied to gate SCOPE —
-  where the divergence is invisible because every copy reports the same green line. Only `check-comments` is
-  fixed; the rest are `TASKS.md` Part 96.
+  <br>**The wider finding:** the scope rule was written FIVE times privately (`check-comments`,
+  `check-counts`, `check-docs`, `check-encoding`, `check-links`) plus `check-sensitive`'s own two-mode
+  `sources()`, so the blind spot was six-fold and fixing one fixed one. That is the same "one rule, N copies"
+  shape this document records for `salience` coercion, applied to gate SCOPE — where the divergence is
+  invisible because every copy reports the same green line. Closed by hoisting to one
+  `devtools/scripts/_repo-files.mjs`; see `docs/task-archive.md` Part 96, including the miscount worth
+  knowing (`check-samples` looked like a seventh copy and was an IMPORTER of `check-docs`').
   <br>**When you write a gate, ask what its file list EXCLUDES and whether that set contains the thing it
   exists to catch.** Then prove it with an untracked probe rather than by reading the glob — this one was
   confirmed by dropping a 30-line comment block into an unstaged file and watching the gate fail.

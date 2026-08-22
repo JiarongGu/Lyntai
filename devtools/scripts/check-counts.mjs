@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLineCount } from './check-docs.mjs';
 import { packableProjects } from './check-packages.mjs';
+import { repoFiles } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -282,10 +283,7 @@ export const COUNTED_CLAIMS = [
   },
 ];
 
-export const trackedFiles = (repo) =>
-  // -z for the same reason check-docs uses it: a C-quoted non-ASCII path fails to read and is silently
-  // skipped, which is a document that is never scanned and never reported as unscanned.
-  execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
+export const trackedFiles = (repo) => repoFiles(repo);
 
 /**
  * `count-ok` is the escape, deliberately NOT `drift-ok`.
