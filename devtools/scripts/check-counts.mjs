@@ -131,6 +131,38 @@ export function countGuardTests(repo) {
 }
 
 /**
+ * e2e suites — the `pN.mjs` files the runner discovers.
+ *
+ * Registered 2026-08-23 with the two below, after a session in which EIGHT maintained claims went stale and
+ * the gates caught three. Every one they caught was registered here; every one they missed was not — which
+ * is this gate's documented limit ("it only covers counts somebody REGISTERED") behaving exactly as written.
+ * The response to that limit is to register more, and the cheapest wins are the claims sitting in the SAME
+ * SENTENCE as one that already drifted: `CLAUDE.md`'s test line carries five numbers and only one of them
+ * was gated.
+ */
+export function countE2eSuites(repo) {
+  const dir = path.join(repo, 'devtools', 'scripts', 'e2e');
+  if (!fs.existsSync(dir)) return -1;
+  return fs.readdirSync(dir).filter((f) => /^p\d+\.mjs$/.test(f)).length;
+}
+
+/**
+ * A number this gate deliberately does NOT count, recorded so nobody re-attempts it: `doc samples 78/78`.
+ *
+ * Tried 2026-08-23 by reusing `check-samples`' own `extractBlocks`, and it returned **121** against a claim
+ * of 78 — because 78 is the COMPILED subset (121 blocks, less 19 with a skip reason and 23 in a
+ * wholesale-opted-out document), which is a property of a RUN rather than of the tree. Reproducing it here
+ * means reproducing the gate's whole filtering, and two copies of "what counts as a sample?" would drift the
+ * moment an annotation is added.
+ *
+ * **The rule that follows, and it is the general one: a run-derived number is checked by the GATE THAT
+ * PRODUCES IT, never by a static counter.** `check-samples` already holds `78/78` in hand and already reads
+ * the docs, so it asserts the prose itself. The same reasoning applies to the xUnit totals, which only
+ * `dotnet test` knows — see `CLAUDE.md`'s test line, which now says which of its numbers are gated and by
+ * what.
+ */
+
+/**
  * Arms of the corpus language axis — the members of `CorpusLanguage`.
  *
  * This is the claim that drifted most recently (the roster said four after a fifth was added), and it is
@@ -266,6 +298,13 @@ export const COUNTED_CLAIMS = [
     pattern: /\*\*([\w]+)\s+arms\s+—/gi,
     count: countLanguageArms,
     why: 'the roster said four after a fifth arm was added; the enum is what the sweep actually runs',
+  },
+  {
+    what: 'e2e suites',
+    // Anchored on the `N/N` shape the prose uses (`e2e 3/3`) so it cannot match prose ABOUT e2e.
+    pattern: /\be2e\s+(\d+)\s*\/\s*\d+/gi,
+    count: countE2eSuites,
+    why: 'it sits in the same sentence as the guard-test count that went stale, and nothing gated it',
   },
   {
     what: 'the decision log range',

@@ -109,17 +109,24 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3264 passed / 3285 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 383/383, doc samples 78/78.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 386/386, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
 is worth comparing against). The old form of this line named a specific Docker-down figure; it is now a
 RELATION rather than a number, because Part 70 turned the Postgres contract from one test into 69 theory
 cases and any figure quoted here would be one restructure from wrong — and a wrong number is what teaches a
-reader to stop comparing. **Re-measure these four numbers whenever you change them** — all four had gone
-stale by the 3.0 pre-freeze sweep (2652/2664/12, 225, 58), and a stale baseline is worse than none here: the
-whole point is that a reader can compare, and a count that no longer matches a green run teaches them to stop
-comparing.
+reader to stop comparing.
+
+**WHICH of these numbers a gate holds, because the answer is not "all of them".** `guard-script tests`,
+`e2e` and the migration counts are derivable from the tree and are gated by `check-counts`; `doc samples` is
+derivable only from a RUN, so `check-samples` asserts it directly — a run-derived number is checked by the
+gate that PRODUCES it, never by a static counter that would have to reimplement it. **The xUnit trio
+(`passed / total / skipped`) is gated by NOTHING**: only `dotnet test` knows it, and capturing that output is
+the shape `check-warnings` already hit ENOBUFS on. So those three are the ones to **re-measure by hand after
+`verify`** — do not extrapolate them from a diff, which is exactly how `3266/3287` got written here on
+2026-08-23 against a tree that ran 3264/3285. A stale baseline is worse than none: the whole point is that a
+reader can compare, and a count that no longer matches a green run teaches them to stop comparing.
 
 **The records, and what each is for:**
 - `docs/2026-07-17-lyntai-design.md` — the **contract** (interfaces, fork decisions, semantics —
