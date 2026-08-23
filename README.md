@@ -450,9 +450,12 @@ computed at read time — no sweeper, no background job.
 **What makes an entry durable is a deliberate design choice, and it is not how often we returned it.** A
 recall resets an entry's age — a boost that expires, because the entry then decays again at its own rate.
 Lasting durability comes instead from two properties of the material itself: how **novel** it was when
-written (salience) and how **connected** it is in the graph. Both measured as improving recall quality;
-raising an entry's half-life every time the ranker happened to return it measured as making recall
-*worse*, on every corpus shape, because it banks the ranker's own mistakes permanently. So
+written (salience) and how **connected** it is in the graph. Both measured as improving recall quality
+*through retention* — how slowly an entry decays. Salience deliberately does NOT vote on ranking, where it
+measured as making recall worse (**D89**); "durable" and "ranked higher" are separate promises here, and
+only the first is salience's. Raising an entry's half-life every time the ranker happened to return it
+measured as making recall *worse* too, on every corpus shape, because it banks the ranker's own mistakes
+permanently. So
 `DsrOptions.ReinforceGain` ships at `0` — FSRS's three stability-increase laws are implemented and correct,
 and one line switches them back on (`docs/DECISIONS.md` D54).
 
@@ -547,7 +550,10 @@ did, so `PruneAsync` is markedly less aggressive than it was through 2.5.x.
 turns a set of recall candidates into a scored, best-first order, and the shipped `ReciprocalRankFusionPolicy`
 is the REGISTERED DEFAULT as of 3.0 (owner ruling, 2026-08-11) — `Score = Σₛ wₛ / (K + rankₛ)`, summed over
 relevance, retrievability, salience and hop, each contributing its own 1-based RANK POSITION rather than its
-raw value, `K` defaulting to `60` (Cormack/Clarke/Buettcher's published value). It became the default on the
+raw value, `K` defaulting to `60` (Cormack/Clarke/Buettcher's published value). **`SalienceWeight` ships at
+`0`**, so salience does not vote on ranking unless you ask it to — measured across two embedding models and
+five writing systems (`docs/DECISIONS.md` **D89**), and matching `MultiplicativeRankingPolicy`, whose own
+salience boost has been off since D45. It became the default on the
 strength of this library's own measurement (recorded as `docs/DECISIONS.md` D49 and D82; the raw run is an
 untracked working record, listed in `docs/superpowers/INDEX.md`): it beat `MultiplicativeRankingPolicy` on
 the corpus's `topical` class in all six measured shapes,
