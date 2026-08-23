@@ -103,13 +103,19 @@ public class ReciprocalRankFusionPolicyTests
         //   C (id 3)       0.1           0.5           1     1   |   3     2      3     2
         //
         // (relevance/retrievability/salience rank DESCENDING — bigger is better; hop ranks ASCENDING —
-        // smaller is better.) At the shipped defaults (K=60, every weight=1), candidate B's fused score is
+        // smaller is better.) At K=60 with every weight 1, candidate B's fused score is
         //   1/(60+2) + 1/(60+1) + 1/(60+2) + 1/(60+1) = 2/61 + 2/62 ≈ 0.0650449498
+        //
+        // SalienceWeight is set EXPLICITLY rather than inherited, because it ships at 0 (D89). The subject
+        // here is the FORMULA — a fused score is the weighted sum of reciprocal ranks — so the fixture has to
+        // exercise all four terms; taking the default would silently reduce this to a three-term test still
+        // named for four, which is a weaker claim wearing the same name.
         var a = Candidate(1, relevance: 0.9, retrievability: 0.3, hop: 2, signals: Salience(5));
         var b = Candidate(2, relevance: 0.6, retrievability: 0.9, hop: 0, signals: Salience(3));
         var c = Candidate(3, relevance: 0.1, retrievability: 0.5, hop: 1, signals: Salience(1));
 
-        var ranked = Default().Rank([a, b, c], in Context);
+        var ranked = new ReciprocalRankFusionPolicy(
+            new ReciprocalRankFusionOptions { SalienceWeight = 1 }).Rank([a, b, c], in Context);
 
         var scoreB = ranked.Single(r => r.Candidate.Node.Id == 2).Score;
         Assert.Equal(2.0 / 61 + 2.0 / 62, scoreB, precision: 9);
@@ -271,15 +277,21 @@ public class ReciprocalRankFusionPolicyTests
         Assert.Equal([2L], ranked.Select(r => r.Candidate.Node.Id).ToArray());
     }
 
+    /// <summary>The shipped defaults, and the one that is deliberately NOT a unit weight.
+    /// <para><c>SalienceWeight</c> is 0: salience does not vote on ranking, matching
+    /// <c>MultiplicativeRankingOptions.SalienceRankWeight</c>, which has defaulted off since D45 on the
+    /// argument that salience means "does not fade away" rather than "first priority". D89 measured it
+    /// across two embedding models and five writing systems — a non-zero weight cost recall in every
+    /// cell.</para></summary>
     [Fact]
-    public void The_shipped_defaults_are_K60_and_unit_weights()
+    public void The_shipped_defaults_are_K60_and_unit_weights_except_salience()
     {
         var options = new ReciprocalRankFusionOptions();
 
         Assert.Equal(60, options.K);
         Assert.Equal(1, options.RelevanceWeight);
         Assert.Equal(1, options.RetrievabilityWeight);
-        Assert.Equal(1, options.SalienceWeight);
+        Assert.Equal(0, options.SalienceWeight);
         Assert.Equal(1, options.HopWeight);
         Assert.Equal(0, options.RelativeFloor);
     }

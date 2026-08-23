@@ -323,21 +323,21 @@ single-seed replay would be the over-fitting D49 refused; it needs the paired sw
   not exist, and `many-candidates` is the worst case rather than a special one. **D45 reasoned this without a
   measurement** — *salience means "does not fade away", not "first priority"; store admission already delivers
   the former* — which is why the Multiplicative rank boost defaults OFF.
-  <br>**SECOND RUN, across all five `CorpusLanguage` arms (2026-08-23), and it is why the default did NOT
-  move.** Decisive pair only (`0` vs shipped `1.0`), 500 cells, same real embedder. Judged on the ORDINARY
-  shapes — the ones a bound must not cost anything — **four languages accept and KOREAN REFUSES**: miss
-  −0.0253 against pollution **+0.0474**, which is the reverse trade §5.7.0 explicitly rejects. Korean's whole
-  gain sits in `many-candidates` (−0.1541); spread across the shapes it is a bad deal.
-  <br>**The default stays at `1.0`.** Not on "one run" grounds any more — there are two — but because the
-  evidence is *four of five writing systems*, and a ranking default that is right for English, Chinese,
-  Japanese and mixed CJK while being wrong for Korean is not a default. What would settle it: a second
-  embedder (is Korean's pollution rise a property of the language or of `embeddinggemma`'s vectors for it?),
-  or a per-language reading of why salience suppresses pollution there and nowhere else.
-  <br>**Recorded because it nearly went the other way:** the first language summary counted miss-better
-  shapes only, printed `5/5` for every language, and the default WAS changed on it before the pollution
-  column was read. Reverted; the instrument now splits regression from ordinary and prints both metrics, and
-  the trap is `pitfalls.md` §"Copying a rule copies its assumptions", sixth instance. Full output:
-  `local/superpowers/records/2026-08-23-salience-weight-sweep.txt` and `…-languages.txt`.
+  <br>**CLOSED 2026-08-23 as `docs/DECISIONS.md` D89 — the default moved to `0`, on a THIRD run.** Two
+  embedding models × five `CorpusLanguage` arms × five shapes × 10 seeds: `0` lowers miss in **10/10**
+  language×embedder cells (mean −0.0530 ordinary, −0.09 to −0.19 on `many-candidates`) for a mean pollution
+  rise of **+0.0088** — 6:1, which §5.7.0 accepts outright.
+  <br>**The second embedder is what made it decidable, by REFUTING the reading taken from the first.** On
+  `embeddinggemma` alone, Korean was the single language whose ordinary shapes refused, and the conclusion
+  was "four of five writing systems is not a default". On `nomic-embed-text` **Korean accepts and English
+  refuses** — the refusing row MOVED, so it was never a property of a language, it is the noise floor of the
+  pollution column at ten seeds.
+  <br>**Recorded because it went wrong twice on the way:** the first language summary counted miss-better
+  shapes only, printed `5/5` everywhere, and the default was changed on it before the pollution column was
+  read (reverted); the second averaged the regression shape together with the shapes it was being traded
+  against. The instrument now splits the two classes and prints both metrics, and the trap is
+  `pitfalls.md` §"Copying a rule copies its assumptions", sixth instance. Records:
+  `local/superpowers/records/2026-08-23-salience-weight-{sweep,languages,nomic}.txt`.
 
 ---
 

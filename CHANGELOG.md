@@ -61,6 +61,23 @@ inert. Reasoning: `docs/DECISIONS.md` **D87** and **D88**.
   because of this defect, and left in place it keeps your DEFAULT client able to reach a backend it was never
   meant to.
 
+### Changed
+
+- **Salience no longer votes on ranking: `ReciprocalRankFusionOptions.SalienceWeight` now defaults to `0`**
+  (**D89**). This is a recall-quality change, not a refactor — read it if you use the graph engine.
+  <br>**D45** already ruled `MultiplicativeRankingPolicy`'s rank boost off by argument (salience means "does
+  not fade away", not "first priority"; store admission already delivers the former), while RRF's own weight
+  shipped at `1` — so the two ranking policies disagreed and neither had been measured. Measured now across
+  **two embedding models × five writing systems × five corpus shapes × 10 seeds**: `0` lowers `MissRate` in
+  **every one of the 10 language×embedder cells** (mean −0.0530 on the ordinary shapes, −0.09 to −0.19 on
+  `many-candidates`) for a mean pollution rise of +0.0088 — a 6:1 trade that design §5.7.0 accepts outright,
+  since `MissRate` is objective (2) and `PollutionRate` (3) is explicitly not co-equal.
+  <br>**Salience itself is unchanged.** Its other two consumers — decay resistance and store admission — are
+  untouched, and this only stops it competing for rank position. The measured cost is that the junk share
+  rises slightly on reachable noise, pinned by `MemorySalienceInversionTests` rather than left in a record.
+  <br>**Set `SalienceWeight = 1` to restore the old behaviour** — one line, and the right move for a
+  deployment whose salience signal is known to track relevance.
+
 ### Documentation
 
 - **What a verdict does when `VerificationFilters` is `false`** — the default, and what that option's own

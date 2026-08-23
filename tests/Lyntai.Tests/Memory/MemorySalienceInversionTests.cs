@@ -209,11 +209,28 @@ public sealed class MemorySalienceInversionTests
         Assert.True(dSal.Pollution - dEmb.Pollution <= InversionTolerance,
             $"salience raised the junk share of recalls past tolerance:\n{table}");
 
-        // On TEMPLATED noise — the junk that can actually reach a recall — salience does the opposite of
-        // what the concern predicted: it LOWERS the junk share. Pinned as a floor rather than a point value
-        // so it records the direction without freezing a number this instrument cannot defend to 4 places.
-        Assert.True(tSal.Pollution - tEmb.Pollution <= InversionTolerance,
-            $"salience raised the junk share on reachable junk, which is the concern's own claim:\n{table}");
+        // On TEMPLATED noise — the junk that can actually reach a recall — salience RAISES the junk share,
+        // and the direction here reversed with D89.
+        //
+        // It used to LOWER it, which read as salience refuting the inversion concern outright. That was the
+        // RANKING vote doing the work: with `SalienceWeight` at 1, promoting salient entries also promoted
+        // the relevant ones among them, and the junk share fell as a side effect. D89 measured that vote
+        // across two embedding models and five writing systems, found it costing MISS in every cell, and
+        // shipped it at 0 — so salience now acts through retention and store admission alone, and those two
+        // preserve junk alongside everything else with nothing offsetting them.
+        //
+        // Pinned at the SAME tolerance rather than a looser one on purpose: this is the concern's own claim
+        // reproducing on the channel that remains, and it belongs recorded as a cost of the D89 trade rather
+        // than waved through. §5.7.0 accepts it — miss is objective (2), pollution (3) is explicitly not
+        // co-equal, and the miss column is where D89's gain sits.
+        Assert.True(tSal.Pollution - tEmb.Pollution > InversionTolerance,
+            $"""
+             Salience no longer raises the junk share on reachable junk — the direction D89 introduced has
+             reversed again. That is a real change, not a flaky number: check whether SalienceWeight went
+             back above 0, or whether retention/admission stopped preserving junk.
+
+             {table}
+             """);
     }
 
     /// <summary><b>The finding this study did not go looking for, and the bigger of the two: enabling the

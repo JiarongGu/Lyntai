@@ -158,8 +158,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D86](#d86--a-null-scope-means-every-scope-of-the-task-through-an-optional-store-capability-2026-08-21) | 2026-08-21 | a null scope means EVERY scope of the task, through an OPTIONAL store capability |
 | [D87](#d87--a-named-llm-clients-candidates-are-derived-from-its-own-pool-not-from-the-global-list-2026-08-23) | 2026-08-23 | a named LLM client's CANDIDATES are derived from its own pool, not from the global list |
 | [D88](#d88--a-subject-handle-is-readable-and-the-seed-is-on-by-default-2026-08-23) | 2026-08-23 | a subject handle is READABLE, and the seed is ON by default |
+| [D89](#d89--salience-does-not-vote-on-ranking-reciprocalrankfusionoptionssalienceweight-ships-at-0-2026-08-23) | 2026-08-23 | salience does not vote on RANKING: `ReciprocalRankFusionOptions.SalienceWeight` ships at 0 |
 
-_All 88 entries are live decisions._
+_All 89 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2317,3 +2318,50 @@ posture as an accuracy hint; it is now also a recall path, which is worth knowin
 ordinary ranked hits carrying real retrievability and degree, which the app-side ones never had, and a
 dedup-by-ref workaround will simply skip them — two implementations of one feature in one call path, each
 looking necessary to whoever reads only one.
+
+## D89 — salience does not vote on RANKING: `ReciprocalRankFusionOptions.SalienceWeight` ships at 0 (2026-08-23)
+
+**D45 ruled the multiplicative rank boost OFF by argument** — *salience means "does not fade away", not
+"first priority"; store admission, which is unconditional, already delivers the former.* RRF's own
+`SalienceWeight` shipped at `1` anyway, so the two ranking policies disagreed about the same question and
+neither had been measured. This measures it and makes them agree.
+
+**The instrument** is `node devtools/dev.mjs memory-salience-weight` (`--languages` for the second axis),
+which needs a REAL embedder for a sharper reason than cost: without one `StructuralSaliencePolicy` declines
+on every write, and RRF ranks by COMPETITION (**D82**), so a uniformly-absent signal contributes the same
+constant at every weight — every arm is the same engine and the curve is flat as an ARTIFACT. Retention and
+store admission are held identical across arms, so what is priced is the ranking voice ALONE.
+
+**Measured: `0` lowers MissRate in every cell tested.** Two embedding models (`embeddinggemma:300m`,
+`nomic-embed-text`) × five `CorpusLanguage` arms × five corpus shapes × 10 seeds.
+
+| | ordinary shapes | regression shape (`many-candidates`) |
+|---|---|---|
+| miss | better in **10/10** language×embedder cells, mean **−0.0530** | better in 10/10, **−0.09 to −0.19** |
+| pollution | better in 6/10, mean **+0.0088** | mixed, small |
+
+**§5.7.0 accepts that outright**: `MissRate` is objective (2), `PollutionRate` is (3) and explicitly not
+co-equal — *"a change that trades a large miss reduction for a small pollution rise is accepted."* The
+aggregate ratio is **6:1** in favour of miss.
+
+**The second embedder is what made this decidable, and it refuted a conclusion rather than confirming one.**
+On `embeddinggemma` alone, Korean was the one language whose ordinary shapes REFUSED (miss −0.0253 against
+pollution +0.0474) and the reading was "four of five writing systems is not a default". On
+`nomic-embed-text` **Korean accepts and ENGLISH refuses**. The refusing row MOVED, so it was never a
+property of a language — it is the noise floor of the pollution column at ten seeds. A per-cell
+accept/refuse verdict computed from a quantity whose sign is unstable reads as a judgement and is a
+coin-flip; the verdict belongs on the aggregate.
+
+**What this does NOT say.** Nothing bad about salience: its other two consumers — decay resistance
+(`SalienceRetentionPolicy`) and store admission — are untouched and were held constant throughout. The
+corpus defines relevance LEXICALLY, so a salience gain that is really semantic cannot appear on this
+instrument at all. And the arms are a coarse ladder, not a search: `0` beats `1`, which is not the claim
+that `0` is optimal.
+
+**The measured cost, recorded rather than buried.** Salience's remaining channels preserve junk with nothing
+offsetting them, so on templated noise the junk share now RISES where it used to fall —
+`MemorySalienceInversionTests` pins that reversal at the same tolerance, with the D89 attribution, because a
+cost this decision accepts should be visible in a test rather than only in a record.
+
+**Reverting is one line** (`SalienceWeight = 1`), and is the right move for a deployment whose salience
+signal is known to track relevance.

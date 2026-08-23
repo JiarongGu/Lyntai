@@ -332,26 +332,31 @@ This says nothing bad about salience — it says salience is not a *ranking* sig
 conclusion by argument, which is why `MultiplicativeRankingPolicy`'s rank boost defaults OFF: salience means
 "does not fade away", and store admission already delivers that.
 
-**A second run across all five languages is why the default did NOT move.** Decisive pair only, 500 cells,
-judged on the ORDINARY shapes — the ones a bound must not cost anything:
+**Two more runs across five languages and a SECOND embedding model settled it, and `SalienceWeight` now
+ships at `0`** (**D89**). Ordinary shapes — the ones a change like this must not cost anything:
 
-| language | regression (miss / poll) | ordinary (miss / poll) | §5.7.0 |
-|---|---|---|---|
-| English | −0.0962 / +0.0487 | −0.0570 / +0.0277 | accepted |
-| Chinese | −0.1126 / −0.0115 | −0.0708 / −0.0071 | accepted |
-| Japanese | −0.0927 / +0.0075 | −0.0532 / +0.0034 | accepted |
-| **Korean** | −0.1541 / +0.0329 | **−0.0253 / +0.0474** | **REFUSED** |
-| ChineseMixed | −0.1147 / −0.0111 | −0.0577 / −0.0058 | accepted |
+| language | `embeddinggemma` (miss / poll) | `nomic-embed-text` (miss / poll) |
+|---|---|---|
+| English | −0.0570 / +0.0277 | −0.0350 / +0.0456 |
+| Chinese | −0.0708 / −0.0071 | −0.0605 / −0.0060 |
+| Japanese | −0.0532 / +0.0034 | −0.0306 / −0.0031 |
+| Korean | −0.0253 / +0.0474 | −0.0364 / −0.0036 |
+| ChineseMixed | −0.0577 / −0.0058 | −0.1039 / −0.0109 |
 
-**Korean refuses**: its whole gain sits in `many-candidates`, and spread across the ordinary shapes it trades
-a small miss reduction for a larger pollution rise — the direction §5.7.0 rejects. Four of five writing
-systems is not a default. `SalienceWeight = 0` is one line if your deployment looks like the accepting four.
+**Miss is better in 10/10 cells** (mean −0.0530) for a mean pollution rise of **+0.0088** — 6:1, which
+§5.7.0 accepts outright. `SalienceWeight = 1` restores the old behaviour in one line.
 
-**Two instrument lessons, because both nearly published the wrong answer.** A verdict that reports MISS alone
-cannot evaluate a lexicographic objective — and a summary that averages the regression shape together with
-the shapes it is being traded against destroys the only structure the study has. The first version of this
-sweep did both, printed `5/5 shapes better` for every language, and the shipped default was changed on it
-before anyone read the pollution column.
+**The second embedder mattered because it REFUTED the first run's reading.** On `embeddinggemma` alone,
+Korean's ordinary shapes traded the wrong way and the conclusion was "four of five writing systems is not a
+default". On `nomic-embed-text` Korean accepts and **English** refuses — the refusing row moved, so it was
+never a property of a language; it is the noise floor of the pollution column at ten seeds.
+
+**Three instrument lessons, because each nearly published a wrong answer.** A verdict reporting MISS alone
+cannot evaluate a lexicographic objective. A summary that averages the regression shape together with the
+shapes it is traded against destroys the only structure the study has. And a per-cell `accepted`/`REFUSED`
+computed from a quantity whose sign is unstable reads as a judgement while being a coin-flip — that verdict
+belongs on the aggregate. The first version of this sweep did all three, printed `5/5 shapes better` for
+every language, and the shipped default was changed on it before anyone read the pollution column.
 
 **The control worth copying if you build a sweep of your own:** the study reports *distinct salience values*
 (352), not how often salience fired (98.9%). Firing is presence; only distinct values are discrimination, and

@@ -179,13 +179,18 @@ public class CompositeRankingPolicyTests
     {
         // MultiplicativeRankingPolicy's SalienceRankWeight defaults to 0, so with relevance/retrievability/
         // hop tied it cannot distinguish these two candidates AT ALL — its OWN tiebreak (id DESCENDING)
-        // would rank id 2 first. ReciprocalRankFusionPolicy's SalienceWeight defaults to 1 and DOES read
-        // salience directly, preferring the more salient id 1. The fused order follows THAT preference,
-        // proving the secondary member's signal genuinely reaches the composite rather than the primary
-        // member's own id tiebreak silently deciding everything.
+        // would rank id 2 first. The RRF member is given a salience weight EXPLICITLY so it CAN, and the
+        // fused order follows THAT preference — proving the secondary member's signal genuinely reaches the
+        // composite rather than the primary member's id tiebreak silently deciding everything.
+        //
+        // Explicit because BOTH shipped policies now default salience to 0 in ranking (D89 measured what D45
+        // argued). Inherited, this fact would turn on the id tiebreak alone and prove nothing about
+        // composition — the subject is the WIRING, so the signal it rides on is switched on deliberately.
         var salient = Candidate(1, signals: MemorySignals.Empty.With(MemorySignals.WellKnown.Salience, 10));
         var neutral = Candidate(2);
-        var policy = Default();
+        var policy = new CompositeRankingPolicy(
+            new MultiplicativeRankingPolicy(),
+            new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { SalienceWeight = 1 }));
 
         var ranked = policy.Rank([salient, neutral], in Context);
 

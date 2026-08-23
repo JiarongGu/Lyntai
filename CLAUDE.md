@@ -26,8 +26,10 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D88**. The two groups worth knowing before you touch anything:
-**D83–D88 are post-3.0**, additive, every one from a seam an adopting application had to work around — read
+The reasoning is `docs/DECISIONS.md`, **D1–D89**. The two groups worth knowing before you touch anything:
+**D83–D89 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking) —
+read
 them before assuming a memory registration that resolves is a memory registration that runs, or that a NAMED
 `ILlmClient` can reach the backends it names (**D87**). **D67–D82** are the ones a session most often holds
 stale assumptions about, because they landed after the pre-freeze review: the generation stream door
@@ -37,7 +39,7 @@ contract (**D71**), the forget/prune split with `IMemoryRemovalPolicy` (**D72**)
 as a heartbeated slot table (**D73**), the guard-parity split — forced in FORCE, accidental in SIGNAL
 (**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
-overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86** and **D88**.
+overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88** and **D89**.
 
 **Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
 because it is not the three older memory surfaces: named engines resolved by name like `IHttpClientFactory`

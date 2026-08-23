@@ -12,7 +12,7 @@ public sealed record ReciprocalRankFusionOptions
     private readonly double _k = 60;
     private readonly double _relevanceWeight = 1;
     private readonly double _retrievabilityWeight = 1;
-    private readonly double _salienceWeight = 1;
+    private readonly double _salienceWeight = 0;   // D89 — measured; see the property's own doc
     private readonly double _hopWeight = 1;
     // 0 = off. Unmeasured, so it ships inert — see DiagnosticityWeight's own remarks.
     private readonly double _diagnosticityWeight;
@@ -76,6 +76,15 @@ public sealed record ReciprocalRankFusionOptions
     /// DESCENDING (more salient is better), the same direction
     /// <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/>'s own boost pulls, though the shape here
     /// is rank position rather than a logarithm of the raw value.
+    ///
+    /// <para><b>Defaults to 0 — salience does not vote on ranking</b>, matching
+    /// <see cref="MultiplicativeRankingOptions.SalienceRankWeight"/>, which has defaulted off since
+    /// <b>D45</b> on the argument that salience means "does not fade away" rather than "first priority".
+    /// Measured across two embedding models and five writing systems (<b>D89</b>): a non-zero weight costs
+    /// recall in every cell tested. Set it above 0 for a deployment whose salience signal is known to track
+    /// relevance — the other two consumers of salience, decay resistance and store admission, are
+    /// unaffected either way.</para>
+    ///
     /// <para>Domain and failure mode identical to <see cref="RelevanceWeight"/>'s own doc: FINITE and
     /// <c>&gt;= 0</c>, and a negative value inverts rather than weakens the signal's pull.</para></summary>
     /// <exception cref="ArgumentOutOfRangeException">Set to a negative value or a non-finite value
