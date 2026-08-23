@@ -61,10 +61,11 @@ inert. Reasoning: `docs/DECISIONS.md` **D87** and **D88**.
   because of this defect, and left in place it keeps your DEFAULT client able to reach a backend it was never
   meant to.
 
-### Changed
+### Breaking
 
 - **Salience no longer votes on ranking: `ReciprocalRankFusionOptions.SalienceWeight` now defaults to `0`**
-  (**D89**). This is a recall-quality change, not a refactor — read it if you use the graph engine.
+  (**D89**). No API changed — this is a BEHAVIOUR break, and it is under this heading because a recall
+  returning a different ORDER is what a consumer needs to see here, not in a changed-defaults footnote.
   <br>**D45** already ruled `MultiplicativeRankingPolicy`'s rank boost off by argument (salience means "does
   not fade away", not "first priority"; store admission already delivers the former), while RRF's own weight
   shipped at `1` — so the two ranking policies disagreed and neither had been measured. Measured now across

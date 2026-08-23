@@ -150,19 +150,24 @@ describe('release-notes — previousTag', () => {
 describe('release-notes — rendering', () => {
   const subjects = ['feat(memory)!: a break', 'feat: a feature', 'fix: a bug', 'chore: invisible'];
 
-  it('leads with Breaking and points at the migration guide', () => {
+  it('leads with Breaking and points at the CHANGELOG, not a dated migration guide', () => {
     const md = renderNotes('v3.0.0', subjects);
     const order = ['### Breaking changes', '### New features', '### Fixes'].map((h) => md.indexOf(h));
     assert.ok(order.every((i) => i > 0), 'every section is present');
     assert.deepEqual(order, [...order].sort((a, b) => a - b), 'and Breaking comes first');
-    assert.match(md, /docs\/migration-2\.5-to-3\.0\.md/);
+
+    // NOT a named migration guide. `docs/migration-2.5-to-3.0.md` was correct for exactly one release and
+    // wrong for every one after — it is 2.5-era history — and a hardcoded pointer inside a GENERATED,
+    // published document rots silently, because nobody reads old release notes again.
+    assert.match(md, /\*\*Breaking\*\* section of `CHANGELOG\.md`/);
+    assert.doesNotMatch(md, /migration-2\.5-to-3\.0/);
   });
 
-  it('omits empty sections and the migration line when nothing breaks', () => {
+  it('omits empty sections and the breaking preamble when nothing breaks', () => {
     const md = renderNotes('v2.5.1', ['fix: a bug']);
     assert.doesNotMatch(md, /Breaking changes/);
     assert.doesNotMatch(md, /New features/);
-    assert.doesNotMatch(md, /migration-2\.5-to-3\.0/);
+    assert.doesNotMatch(md, /requires changes to consuming code/);
     assert.match(md, /### Fixes/);
   });
 

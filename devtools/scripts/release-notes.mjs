@@ -133,7 +133,12 @@ export function renderNotes(tag, subjects) {
     lines.push('');
   };
 
-  section('Breaking changes', breaking, 'This release requires changes to consuming code. See `docs/migration-2.5-to-3.0.md` for the ordered upgrade path.');
+  // Points at the CHANGELOG rather than a named migration guide. It used to name
+  // `docs/migration-2.5-to-3.0.md`, which was right for exactly one release and wrong for every one after:
+  // that guide is 2.5-era HISTORY (repo-mechanics.md §"Everything before 3.0 is HISTORY"), so a 3.x consumer
+  // following the link lands on an upgrade path from a version nobody runs. A hardcoded pointer in a
+  // GENERATED document rots silently and ships — the notes are published, and nothing reads them again.
+  section('Breaking changes', breaking, 'This release requires changes to consuming code. See the **Breaking** section of `CHANGELOG.md` for what changed and how to adapt.');
   section('New features', features);
   section('Fixes', fixes);
   section('Other changes', other);
