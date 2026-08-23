@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { NON_USER_FACING, categorize, previousTag, renderNotes, subjectsInRange } from '../release-notes.mjs';
+import { NON_SHIPPING_SCOPES, NON_USER_FACING, categorize, previousTag, renderNotes, subjectsInRange } from '../release-notes.mjs';
 
 describe('release-notes — regression: the BREAKING marker the workflow could not see', () => {
   it('puts a bang-marked commit under Breaking, whatever its kind, and never under Other', () => {
@@ -56,6 +56,44 @@ describe('release-notes — breaking outranks the drop list', () => {
       assert.equal(dropped.length, 1, `${kind}: should be dropped`);
       assert.equal(breaking.length, 1, `${kind}!: must survive as breaking`);
     }
+  });
+
+  /// The kind list cannot catch these: the kind is an honest `feat`/`fix`, and the SCOPE is what makes the
+  /// change not a consumer's business. Measured on this repository's own notes, where three of four bullets
+  /// were internal — a bench sweep under "New features" and two devtools gate repairs under "Fixes".
+  it('drops a shipping-nothing SCOPE whatever the kind, since the kind is honest and the scope is not ours', () => {
+    for (const scope of NON_SHIPPING_SCOPES) {
+      const { features, fixes, dropped } = categorize([
+        `feat(${scope}): a measurement instrument`,
+        `fix(${scope}): a gate repair`,
+      ]);
+      assert.equal(dropped.length, 2, `${scope}: both should be dropped`);
+      assert.equal(features.length, 0, `feat(${scope}) must not reach New features`);
+      assert.equal(fixes.length, 0, `fix(${scope}) must not reach Fixes`);
+    }
+  });
+
+  /// The both-directions half: a scope rule that swallowed a real library change would be far worse than the
+  /// noise it removes, and `memory`/`core` are the scopes this repository actually ships under.
+  it('keeps a shipping scope, so the rule removes noise rather than content', () => {
+    const { features, fixes, dropped } = categorize([
+      'feat(memory): subject seeding',
+      'fix(core): a named client that could not route',
+    ]);
+
+    assert.equal(dropped.length, 0);
+    assert.deepEqual(features, ['subject seeding']);
+    assert.deepEqual(fixes, ['a named client that could not route']);
+  });
+
+  /// A BREAKING marker outranks the scope rule, the same way it outranks the kind list. Nothing under those
+  /// scopes is public surface today, so this is a guard against a future mistake rather than a live case —
+  /// and dropping something that announced itself as breaking is the one error worth refusing outright.
+  it('lets a breaking marker survive a shipping-nothing scope', () => {
+    const { breaking, dropped } = categorize(['feat(devtools)!: a break nobody expected']);
+
+    assert.equal(breaking.length, 1);
+    assert.equal(dropped.length, 0);
   });
 });
 

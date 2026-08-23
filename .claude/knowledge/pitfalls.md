@@ -769,6 +769,20 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   act of asking may have been billed", true of a queue submission and false of a stream open — so the one
   failure class fallback most exists for (a refused connection before the first byte) was the one that
   skipped fallback and escaped raw. The filter's own doc said "used ONLY on the submit path" the whole time.
+  <br>**Sixth instance, 2026-08-23, and it is the one that PROVES the closing advice below rather than
+  merely illustrating it — the violation was in the very same file, minutes later, by the hand that wrote the
+  fix.** `MemorySalienceWeightSweep.PrintVerdict` was corrected to report miss AND pollution, with a comment
+  saying in as many words that "reporting miss alone would have hidden the trade that decides it". The next
+  function added to that file, `PrintLanguageVerdict`, summarised five languages by counting **miss-better
+  shapes and nothing else**. It printed `5/5` for every language, which read as unanimous — and on that
+  reading a SHIPPED ranking default was changed. The pollution column, once looked at, showed Korean's
+  ordinary shapes trading a small miss gain for a larger pollution rise, which is the trade §5.7.0
+  explicitly refuses. The default was reverted.
+  <br>Two things sharpen the advice. **A per-item report and its SUMMARY are two sites, and the summary is
+  the one people act on** — fixing the detail view while the roll-up still hides the same column is worse
+  than fixing neither, because the roll-up now looks endorsed by the corrected detail beneath it. And
+  **"N/N better" is a count on ONE metric wearing the costume of a verdict**; if an objective is
+  lexicographic, the summary has to evaluate the objective, not tally the primary term.
   <br>**What to actually do**, since "review harder" is not a technique: when you reuse a rule, write down
   the premise that makes it true THERE and check it holds HERE. If you cannot name the premise, you are
   copying a conclusion rather than reasoning. And when a rule you just wrote is about a distinction (this

@@ -38,6 +38,26 @@ const here = fileURLToPath(import.meta.url);
  */
 export const NON_USER_FACING = ['chore', 'docs', 'refactor', 'style', 'perf', 'test', 'ci', 'build', 'bench', 'tasks'];
 
+/**
+ * Scopes naming a tier that SHIPS NOTHING, so a change to one is never a consumer release note whatever its
+ * kind. Dropped for the same reason as the kinds above, on a different axis.
+ *
+ * MEASURED 2026-08-23, previewing the notes after this tag's work: of four bullets a consumer would read,
+ * THREE were internal — `feat(bench):` a measurement sweep listed under "New features", and two
+ * `fix(devtools):` gate repairs listed under "Fixes". Only one bullet was about the library. The kind list
+ * could not catch them because the non-shipping part is the SCOPE: the kind is a perfectly honest `feat`
+ * or `fix`, of something that is not in `packableProjects`.
+ *
+ * This is the same blindness `pitfalls.md` records for this script's first defect — a classifier written
+ * from a vocabulary list, missing an axis the vocabulary does not cover — and it fails the same silent way:
+ * every commit still lands somewhere, under a heading a reader would believe.
+ *
+ * A BREAKING marker still outranks this, deliberately. `feat(devtools)!:` is nonsense today (nothing there
+ * is public surface), but if it is ever written, a change announcing itself as breaking should be read by a
+ * human rather than dropped by a scope rule.
+ */
+export const NON_SHIPPING_SCOPES = ['bench', 'devtools', 'tasks', 'docs', 'ci'];
+
 // <kind>[(scope)][!]: <summary>. The kind is [a-z+]+ so a compound prefix (`docs+guards:`) parses as a kind
 // rather than as no prefix at all — it will not match a known kind, so it lands in "Other changes", which
 // is the honest answer for a subject that claims to be two things.
@@ -64,6 +84,10 @@ export function categorize(subjects) {
     // The `!` outranks the kind. A breaking change keeps its scope in the text, because "which package
     // breaks" is the first thing a consumer needs and the summary alone rarely says it.
     if (bang) { breaking.push(scope ? `**${kind}${scope}** ${summary}` : `**${kind}** ${summary}`); continue; }
+
+    // A scope naming a tier that ships nothing is dropped whatever the kind — checked BEFORE kind, because
+    // the kind is honest and the scope is what makes it not a consumer's business.
+    if (scope && NON_SHIPPING_SCOPES.includes(scope.slice(1, -1))) { dropped.push(subject); continue; }
 
     if (kind === 'feat') features.push(summary);
     else if (kind === 'fix') fixes.push(summary);

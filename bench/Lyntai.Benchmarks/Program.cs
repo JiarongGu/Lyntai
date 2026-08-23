@@ -66,8 +66,11 @@ if (args.Contains("--enrichment"))
 // needs a REAL model, and for a sharper reason than cost: without an embedder salience declines on every
 // write, and RRF ranks by competition (D82), so a uniformly-absent signal contributes the same constant at
 // every weight — the curve would be flat as an ARTIFACT with every control green.
+// `--languages` is the SECOND run: the decisive pair (silent vs shipped) across all five CorpusLanguage
+// arms, because run one measured space-separated English — the friendliest tokenization the library
+// supports — and a ranking finding taken only there is a finding about the easy case.
 if (args.Contains("--salience-weight"))
-    return await MemorySalienceWeightSweep.RunAsync();
+    return await MemorySalienceWeightSweep.RunAsync(args.Contains("--languages"));
 
 // A `--evidence` study lived here on 2026-08-12 and was removed with the `GraphMemoryOptions.ReinforceOn`
 // seam it drove — see that option's own reverted-here note. Its FINDING survives in TASKS.md Part 64: the

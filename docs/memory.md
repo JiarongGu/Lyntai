@@ -324,18 +324,34 @@ are held identical in every arm, so this prices the ranking contribution **alone
 | **1.0 (shipped)** | — | — | — |
 | 2.0 | +0.0616 | +0.0322 | +0.0062 / +0.0034 |
 
-**Lower is better, monotonically, on every shape.** Under §5.7.0 that trade is accepted: miss is objective
-(2) and pollution (3) is explicitly not co-equal, so a large miss reduction for a small pollution rise is the
-correct direction.
+**Lower is better, monotonically, on every shape in English.** Under §5.7.0 that trade is accepted: miss is
+objective (2) and pollution (3) is explicitly not co-equal, so a large miss reduction for a small pollution
+rise is the correct direction.
 
 This says nothing bad about salience — it says salience is not a *ranking* signal. **D45** reached the same
 conclusion by argument, which is why `MultiplicativeRankingPolicy`'s rank boost defaults OFF: salience means
-"does not fade away", and store admission already delivers that. RRF's own `SalienceWeight` shipping at `1.0`
-is the inconsistency.
+"does not fade away", and store admission already delivers that.
 
-**The default has NOT moved**, because a ranking constant changes on a measurement and this is one run, one
-corpus, one embedder, four coarse arms, with relevance defined lexically (D49, D54). Set it to `0` yourself
-if this matches your corpus.
+**A second run across all five languages is why the default did NOT move.** Decisive pair only, 500 cells,
+judged on the ORDINARY shapes — the ones a bound must not cost anything:
+
+| language | regression (miss / poll) | ordinary (miss / poll) | §5.7.0 |
+|---|---|---|---|
+| English | −0.0962 / +0.0487 | −0.0570 / +0.0277 | accepted |
+| Chinese | −0.1126 / −0.0115 | −0.0708 / −0.0071 | accepted |
+| Japanese | −0.0927 / +0.0075 | −0.0532 / +0.0034 | accepted |
+| **Korean** | −0.1541 / +0.0329 | **−0.0253 / +0.0474** | **REFUSED** |
+| ChineseMixed | −0.1147 / −0.0111 | −0.0577 / −0.0058 | accepted |
+
+**Korean refuses**: its whole gain sits in `many-candidates`, and spread across the ordinary shapes it trades
+a small miss reduction for a larger pollution rise — the direction §5.7.0 rejects. Four of five writing
+systems is not a default. `SalienceWeight = 0` is one line if your deployment looks like the accepting four.
+
+**Two instrument lessons, because both nearly published the wrong answer.** A verdict that reports MISS alone
+cannot evaluate a lexicographic objective — and a summary that averages the regression shape together with
+the shapes it is being traded against destroys the only structure the study has. The first version of this
+sweep did both, printed `5/5 shapes better` for every language, and the shipped default was changed on it
+before anyone read the pollution column.
 
 **The control worth copying if you build a sweep of your own:** the study reports *distinct salience values*
 (352), not how often salience fired (98.9%). Firing is presence; only distinct values are discrimination, and
