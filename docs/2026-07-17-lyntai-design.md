@@ -313,6 +313,25 @@ line while breaking a higher one is a regression.
    computed at read time. A change that improves (2) by returning more, or by scanning more, has not improved
    anything.
 
+**AMENDED 2026-08-26 (`docs/DECISIONS.md` D90): four INVARIANTS sit above these, and line (1) is now one of
+them.** The list above says what optimization MOVES; it said nothing about what a change may do to evidence,
+to conflicting claims, or to a fact that was true last month — so a temporal or supersession measurement had
+no target to be checked against. The additions are deliberately **not** four more lexicographic lines: that
+ordering presumes lines you TRADE, and each of these is an absolute with no acceptable failure rate.
+
+> **1.** An explicit deletion COMPLETES, reaching every projection and not only the store that owns the row.
+> **2.** No authoritative fact is lost and no canonical evidence is silently lost — decay buries, only an
+> explicit caller act deletes. **3.** Nothing is silently overwritten and no conflict is hidden.
+> **4.** Current and historical facts resolve correctly by time, *for any feature offering a temporal answer
+> at all*.
+
+**Invariants 3 and 4 make no claim about the base engine**, which has no temporal or conflict concept — a
+`MemoryWrite` carries no valid-time and nothing supersedes anything, so they are vacuous here by
+construction and bind whatever is built on that data instead. Saying so is the point: an objective naming
+guarantees the code does not provide misleads everyone who reads it. **Miss and pollution remain the only
+two numbers this subsystem optimises**; the invariants are pass/fail conditions on a change, so no figure,
+sweep or default on record changes meaning.
+
 **Constraints an optimization may not spend.** Stated because each was a real temptation during the 3.0 work:
 
 - **No sweeper, no background job.** Decay is computed when read.

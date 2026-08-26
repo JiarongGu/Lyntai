@@ -159,8 +159,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D87](#d87--a-named-llm-clients-candidates-are-derived-from-its-own-pool-not-from-the-global-list-2026-08-23) | 2026-08-23 | a named LLM client's CANDIDATES are derived from its own pool, not from the global list |
 | [D88](#d88--a-subject-handle-is-readable-and-the-seed-is-on-by-default-2026-08-23) | 2026-08-23 | a subject handle is READABLE, and the seed is ON by default |
 | [D89](#d89--salience-does-not-vote-on-ranking-reciprocalrankfusionoptionssalienceweight-ships-at-0-2026-08-23) | 2026-08-23 | salience does not vote on RANKING: `ReciprocalRankFusionOptions.SalienceWeight` ships at 0 |
+| [D90](#d90--the-memory-objective-gains-four-invariants-above-its-optimization-targets-2026-08-26) | 2026-08-26 | the memory objective gains four INVARIANTS above its optimization targets |
 
-_All 89 entries are live decisions._
+_All 90 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2365,3 +2366,71 @@ cost this decision accepts should be visible in a test rather than only in a rec
 
 **Reverting is one line** (`SalienceWeight = 1`), and is the right move for a deployment whose salience
 signal is known to track relevance.
+
+---
+
+## D90 — the memory objective gains four INVARIANTS above its optimization targets (2026-08-26)
+
+**Design §5.7.0 states a four-line lexicographic objective and it is not enough to judge the work the
+memory proposal asks for.** Its lines are *never lose an authoritative fact*, *minimise `MissRate`*, *do not
+increase `PollutionRate`*, *keep the first load cheap*. Nothing there says what a change may do to
+**evidence**, to **conflicting claims**, or to **a fact that was true last month** — so a temporal or
+supersession measurement produces numbers with no target to check them against, which is precisely the
+failure §5.7.0 was written to end.
+
+**The correction is NOT to extend the lexicographic list to seven lines**, which is how the proposal states
+it. Lexicographic ordering means *a change improving a lower line while breaking a higher one is a
+regression* — it presumes the lines are things you TRADE. The four additions are not: each is an absolute
+with no acceptable failure rate, and "we lost less evidence than we gained in recall" is not a sentence this
+library should be able to form. They are therefore stated as INVARIANTS, in the tier §5.7.0 already reserves
+for the guarantee it had one of.
+
+### The invariants — a change breaking one is rejected whatever its numbers say
+
+1. **An explicit deletion COMPLETES.** `ForgetAsync` is a user withdrawing their own data; it must reach
+   every projection, not only the store that owns the row (**D72**, and the defect that proved it was not
+   free — `docs/FIXES.md` 2026-08-26).
+2. **No authoritative fact is lost, and no canonical evidence is silently lost.** §5.7.0's original line 1,
+   widened: decay may bury anything and remove nothing, and only an explicit caller act deletes.
+3. **Nothing is silently overwritten, and no conflict is hidden.** A second claim about the same thing is
+   evidence, not a correction to be applied quietly.
+4. **Current and historical facts resolve correctly by time** — *for any feature that offers a temporal
+   answer at all*. See the scope note below, which is the load-bearing half of this line.
+
+### The objective — what optimization actually moves, still lexicographic
+
+5. **Minimise `MissRate`.** The primary number, unchanged.
+6. **Do not increase `PollutionRate`**, not co-equal with (5), unchanged.
+7. **Keep the first load cheap** — headlines not content, one bounded query, no background job — and then
+   latency, cost and storage.
+
+### Scope: which of these the shipped engine can be held to TODAY
+
+**Stated because an objective naming guarantees the code does not provide misleads every reader of it, and
+that is a worse failure than having no line at all.**
+
+Invariants 1 and 2 are LIVE and asserted: `MemoryRemovalCompletenessTests`, `MemoryBurialNotDeletionTests`,
+`MemoryAuthoritativeSurvivalTests`.
+
+**Invariants 3 and 4 bind FUTURE work and make no claim about the base engine, which offers no temporal or
+conflict concept at all.** A `MemoryWrite` has no valid-time and the engine has no notion of one claim
+superseding another, so the engine cannot violate them and does not satisfy them — they are vacuous here by
+construction. What they govern is anything built ON that data: a resolver, a supersession feature, an
+application storing validity in `MemoryWrite.Metadata`. The prototype in
+`tests/Lyntai.Tests/Memory/Prototype/` is the first such thing and is held to them.
+
+**The consequence worth naming: these two lines are what make Phase 2 of the proposal measurable, and they
+are also what forbids the cheapest way to pass it.** "Newest wins" resolves every conflict and satisfies no
+line here; a resolver that picks silently has broken invariant 3 however good its accuracy looks.
+
+### What this does not do
+
+It does not add a metric. Miss and pollution remain the only two numbers this subsystem optimises, and the
+four invariants are pass/fail conditions on a change rather than quantities to improve — so no existing
+measurement, sweep or default is revisited by this entry, and none of the recall-quality figures on record
+changes meaning.
+
+**Deliberately unresolved: whether `Metadata`'s write-once behaviour is the right answer.** All three
+backends agree and the facts pin it, and invariant 3 is the reason it is worth re-reading rather than
+assumed — a field that cannot be revised is one way to guarantee no silent overwrite, and it is not
+obviously the intended one.
