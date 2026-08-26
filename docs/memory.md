@@ -696,11 +696,17 @@ Stated so nobody mistakes silence for a result.
   otherwise:** recall QUALITY at scale (that corpus has no ground truth and none of this speaks to miss or
   pollution), concurrency (single-threaded throughout), Postgres, and any model in the loop — an embedder,
   annotator or verifier would dominate every number here and none is wired.
-  <br>**One number the run refused to publish**, which is the honest half: the sweep splits a default
-  recall's latency into the read and the write-back it performs afterwards, and at 100k the `read-only` arm
-  measured *slower* — which it cannot be, since it does strictly less work. One cell per arm carries no
-  variance estimate, so the sweep now says "not readable" there rather than printing an impossible
-  percentage. `--repeat` is what settles it.
+  <br>**What a recall spends on LEARNING, settled with repeats.** The sweep splits a default recall's
+  latency into the read and the write-back (reinforcement + co-activation edges + the review-log row) it
+  performs afterwards. At 5 runs per cell that write-back is **75% of the p50 at 1k and 50% at 10k** — so
+  the read path grows faster than the learning does, and learning's *share* falls as the store grows even
+  though its absolute cost barely moves. A deployment that does not need it can turn it off
+  (`ReinforceOn = None`, `CoActivationCap = 0`, `LogReviews = false`) and recall roughly halves.
+  <br>**The first run could not support that claim and said so**, which is the half worth keeping: at one
+  cell per arm the 100k comparison came out NEGATIVE — `read-only` measured slower, which it cannot be —
+  so the sweep printed "not readable" rather than an impossible percentage. Repeats fixed it. **The same
+  run also showed absolute latencies moving ~2.5× between a busy machine and a quiet one**, which is why
+  the growth factors are the thing to compare and the milliseconds are not.
 - **Salience's admission priority** is inert in every test because no arm creates budget pressure.
 - **Real-world recall quality.** The corpus defines relevance lexically and is synthetic throughout.
 - **Parameter fitting.** Every `DsrOptions` constant is FSRS's published default, fitted against an external
