@@ -19,15 +19,16 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**One item is startable and the rest are not.** **Part 65 / `many-candidates`** — its environment blocker
-cleared on 2026-08-23 (the embedding model it waited on is on this machine) and the first sweep is done, so
-what remains is a measurement budget: the result wants a second run before a default moves.
+**Three items are startable, all in Part 99**, and the rest need something this repository does not have (a
+key, a model download, a CLI install, a vendor pick, or a deployment's own data). That is stated first
+rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
+two paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
+startable work inside, and this one has been wrong that way twice.
 
-Everything else needs something this repository does not have (a key, a model download, a CLI install, a
-vendor pick, or a deployment's own data). That is stated first rather than buried, because it is the answer
-to the question the file exists to answer. **Read the caveat two paragraphs down before trusting any
-"blocked" label here**: a banner that over-claims blockage hides startable work inside, and this one has been
-wrong that way twice.
+_This banner named `Part 65 / many-candidates` as the one startable item until 2026-08-26, and that item had
+said "CLOSED as **D89**" inside itself since 2026-08-23 — so the file's own summary was steering readers at
+work that was finished. It is `docs/task-archive.md` Part 98 now. **A stale banner is worse than a stale
+entry**: the entry is one item, the banner is the answer to the question the file exists for._
 
 **The pattern to expect: the next startable item arrives from a CONSUMER, not from this list.** Every
 same-day burst of work since 3.0 came in that way, and the archive has each one. This banner does not
@@ -277,68 +278,6 @@ bounds are regression guards at the measured values rather than targets.
 other five shapes while capping what it may displace when the candidate set is dense. Designing that off a
 single-seed replay would be the over-fitting D49 refused; it needs the paired sweep._
 
-- [ ] **The `many-candidates` regression is the one measured cost of a shipped default.** Salience makes that
-  shape's combined MissRate WORSE (+0.0169, significant) while improving every other shape, because with 40
-  competitors admitting salient entries displaces relevant ones. Under §5.7.0's priority order this is a real
-  regression on line 2 traded for a gain on line 1, which is the correct direction — but it is the sharpest
-  known cost and the obvious first target for a bounded-admission rule.
-  <br>**The paired sweep this item waits on now EXISTS (2026-08-15)** — `node devtools/dev.mjs
-  memory-enrichment`, 10 seeds × 5 shapes against a REAL embedding model. Its `novelty-only` arm is exactly
-  this question asked cleanly: novelty is what salience reads, and with `MinSimilarity` above 1 no edge is
-  written and `SemanticSeedK` is 0, so nothing but novelty→salience differs from the model-free floor.
-  <br>**It confirms the direction and the mechanism, at a far larger magnitude than the figures above.**
-  `many-candidates` is the WORST of the five shapes at **+0.2622** mean miss delta, and the per-class rows
-  name the displacement outright: `topical` miss goes **0.3406 → 0.9106**. The two figures already recorded
-  (+0.0169 as a 30-seed paired mean, +0.0808 as one draw) are not comparable to it — both were taken through
-  `FakeEmbedder`, whose "novelty" is word overlap — so treat this as the first real-model measurement of the
-  cost rather than as evidence it grew.
-  <br>**What is still open is unchanged, and it is the RULE.** A sweep that varies enrichment says where the
-  cost lands; designing a bounded-admission rule needs a sweep that varies the BOUND, which does not exist.
-  Full output: `local/superpowers/records/2026-08-15-enrichment-attribution.txt`.
-  <br>**CORRECTED 2026-08-21 — the blocker above is real but was stated WRONGLY, and the wrong statement made
-  this look startable.** "A sweep that varies the BOUND does not exist" reads as *nobody has built the
-  instrument*, which in this repository is an invitation. It is not the obstacle. A bound on salience's
-  ranking contribution ALREADY exists and always has —
-  `ReciprocalRankFusionOptions.SalienceWeight`, a continuous knob defaulting to 1 — and sweeping it on the
-  model-free corpus is **guaranteed flat for reasons that have nothing to do with the knob**:
-  `GraphMemoryEngine.Probe` returns novelty 0 with zero comparables when no vector search runs, so without an
-  embedder `StructuralSaliencePolicy` declines on every write; and RRF ranks by COMPETITION (**D82**), so a
-  uniformly-tied signal contributes a constant and cannot move the ordering at any weight. The `0` arm and
-  the `4` arm are the same engine.
-  <br>**So the real blocker is the one `memory-enrichment` already carries: a REAL embedding model.** Novelty
-  is what salience reads, novelty needs an embedder, and `FakeEmbedder`'s "similarity" is word overlap — which
-  is why Part 69 withdrew the numbers taken through it and why `memory-enrichment` EXITS rather than
-  substituting a double. That is an environment dependency, which is what the blocked list is for. The trap
-  itself is recorded in `.claude/knowledge/pitfalls.md`, because the flat curve would have read as a clean
-  exoneration with every existing control green.
-  <br>**MEASURED 2026-08-23, and the result refutes this item's PREMISE rather than answering its question.**
-  The instrument now exists — `node devtools/dev.mjs memory-salience-weight`, 10 seeds × 5 shapes × 4 arms
-  against `embeddinggemma:300m`, with **352 distinct salience values** proving the swept signal discriminates.
-  Retention and store admission are identical in every arm, so it prices the RANKING voice alone.
-  <br>**`SalienceWeight = 0` lowers MISS on every shape**, monotonically across the ladder: `many-candidates`
-  **−0.0962**, the other four **−0.0570**, for pollution **+0.0487** and **+0.0277**. Under §5.7.0 that
-  English trade is accepted — miss is objective (2), pollution (3) is explicitly not co-equal.
-  <br>So there are **no gains elsewhere for a bound to protect.** This item was opened to find a rule
-  recovering `many-candidates` while keeping salience's ranking benefit on the other shapes; that benefit does
-  not exist, and `many-candidates` is the worst case rather than a special one. **D45 reasoned this without a
-  measurement** — *salience means "does not fade away", not "first priority"; store admission already delivers
-  the former* — which is why the Multiplicative rank boost defaults OFF.
-  <br>**CLOSED 2026-08-23 as `docs/DECISIONS.md` D89 — the default moved to `0`, on a THIRD run.** Two
-  embedding models × five `CorpusLanguage` arms × five shapes × 10 seeds: `0` lowers miss in **10/10**
-  language×embedder cells (mean −0.0530 ordinary, −0.09 to −0.19 on `many-candidates`) for a mean pollution
-  rise of **+0.0088** — 6:1, which §5.7.0 accepts outright.
-  <br>**The second embedder is what made it decidable, by REFUTING the reading taken from the first.** On
-  `embeddinggemma` alone, Korean was the single language whose ordinary shapes refused, and the conclusion
-  was "four of five writing systems is not a default". On `nomic-embed-text` **Korean accepts and English
-  refuses** — the refusing row MOVED, so it was never a property of a language, it is the noise floor of the
-  pollution column at ten seeds.
-  <br>**Recorded because it went wrong twice on the way:** the first language summary counted miss-better
-  shapes only, printed `5/5` everywhere, and the default was changed on it before the pollution column was
-  read (reverted); the second averaged the regression shape together with the shapes it was being traded
-  against. The instrument now splits the two classes and prints both metrics, and the trap is
-  `pitfalls.md` §"Copying a rule copies its assumptions", sixth instance. Records:
-  `local/superpowers/records/2026-08-23-salience-weight-{sweep,languages,nomic}.txt`.
-
 ---
 
 ## Part 56 — complete FSRS: `DsrRetrievability` is a PARTIAL, UNFITTED model, and that gap is measured (2026-08-10)
@@ -409,6 +348,67 @@ a design question: it needs two or three real aggregators to measure against._
   `{"error":{"code":429}}` therefore classifies from the message text alone. Measuring two or three real
   aggregators would let the code lead, which is strictly better than text matching — but reading it
   unmeasured is the documented-not-measured trap GEN-VERIFY exists to correct.
+
+## Part 99 — the two Phase-1 gaps the memory pass did NOT close (2026-08-26)
+
+_Opened by `docs/task-archive.md` **Part 97**, which closed every other Phase-1 invariant of the memory
+proposal. These two are named here rather than left implied, because a scorecard that reads as complete is
+how a gap stops being looked for. Both are startable today: no key, no model, no decision._
+
+- [ ] **Cross-tenant leakage has no dedicated surface.** Part 97 asserts `Cross-tenant leakage = 0` only as
+  a CONTROL inside the forget facts — `MemoryRemovalCompletenessTests.Forgetting_one_task_leaves_another_task_s_payloads_alone`
+  proves one removal does not over-reach, and nothing proves the general property that a recall, an
+  expansion, a subject seed or a semantic seed cannot cross a `taskKey`. The scope filters are threaded
+  through every store method and are almost certainly right; **that is exactly the condition under which a
+  property goes untested for years.** A contract fact per read path, wired to all three backends, is the
+  shape — `MemoryGraphStoreContract` already runs reflection-fed on each.
+  <br>Worth doing on the SEED path first: it is the one that takes a `scope` of `null` meaning "every scope
+  of the task", so it is the read where a missing `taskKey` predicate would be least visible.
+
+- [ ] **`Silent overwrite = 0` is settled for METADATA and not for content.** `Metadata` is pinned
+  write-once across a re-remember on all three backends (Part 97, **D90**). What is NOT pinned is what a
+  re-remember does to everything else a caller supplies: `Headline` and `Grade` ARE updated by the SQLite
+  upsert's `DO UPDATE SET`, `Stability` and `provenance_retrievability` deliberately are not, and `Signals`
+  follows its own "empty means no opinion" rule. **Four different update rules on one write path, and one
+  of them is asserted.** A caller re-remembering an unchanged fact with a corrected headline has no
+  documented answer for what happens.
+  <br>Note the asymmetry this would surface rather than create: it is plausible the right answer differs per
+  field and that the current behaviour is correct throughout. The gap is that nothing says so.
+
+- [ ] **`verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted mid-run.** Observed
+  twice in roughly ten `verify` runs on 2026-08-26, and **not once in any standalone `node devtools/dev.mjs
+  test`**, which passed every time including immediately before and after a failing `verify`. A third run
+  ABORTED at 2088/2108 — a crash rather than a failure — and took 6m20s against the usual ~3m.
+  <br>**CAPTURED on the third occurrence, and the names refute the obvious hypothesis.** The guess was
+  Postgres — 9 is a plausible size for one Testcontainers fixture class, and it is the only part of the
+  suite with an external dependency. **Not one of the nine is a Postgres test:**
+
+  ```
+  CortexIntegrationTests.Evaluate_persists_results_to_the_score_store
+  CortexIntegrationTests.Llm_judge_scorer_returns_the_stub_verdict
+  RouterEndToEndTests.Healthy_primary_cli_serves_and_http_is_never_called
+  RouterEndToEndTests.Streaming_never_falls_back_after_the_first_token
+  RouterEndToEndTests.Dead_host_cooldown_skips_then_retries_after_expiry
+  AddClaudeCliProviderTests.Registered_provider_serves_through_the_router_by_id
+  ClaudeCliProviderTests.Explicit_command_makes_the_provider_available
+  CodexCliProviderTests.A_portable_install_is_wired_without_touching_the_process_environment
+  ProcessRunnerTests.Resolve_command_path_finds_node_and_caches
+  ```
+
+  **Every one of them spawns a process or resolves a command on PATH**, and the whole set is explained by
+  the last one failing: the CLI-provider and router-e2e tests all reach the deterministic provider-stub
+  through `LYNTAI_PROVIDER_CMD`, which is `node`. If `ProcessRunner` cannot resolve `node`, all nine fall
+  together — one cause, nine symptoms, and a constant count is exactly what that predicts.
+  <br>**Why only under `verify`** is then the question worth asking, and the shape of an answer is already
+  in `.claude/rules/windows-machine.md`: `verify` runs `test-devtools`, `build` and nine gates before the
+  test step, `check-samples` spawning Roslyn over ~78 samples, so the test step starts after heavy process
+  churn. Look at `ProcessRunner.ResolveLauncher`'s CACHE first — the failing test is named
+  `..._finds_node_and_caches`, and a cache that can memoize a transient failure would produce precisely
+  this: intermittent, all-or-nothing, and invisible to a standalone run that starts clean.
+  <br>**Do not close this by observing a green run.** It was green 11 times out of 14, including twice
+  consecutively while trying to reproduce it on purpose.
+
+---
 
 ## How to work a task (evergreen)
 

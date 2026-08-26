@@ -6793,3 +6793,162 @@ visible; none does, because the guards' fixtures build temporary repos and commi
 `libraryNamespaces` still reads `git ls-files` directly, deliberately. It collects the namespace vocabulary
 rather than scoping a scan, and missing a brand-new namespace makes a sample using it fail to RESOLVE — a
 check-samples failure, which is the safe direction. That file's own comment already says so.
+
+---
+
+## Part 97 — the memory proposal, assessed then executed: Phase 1 closed, Phase 2 measured, three defects found (2026-08-26)
+
+_Opened by an owner-supplied proposal (`local/superpowers/plans/2026-08-26-superhuman-memory-plan.md`) for a
+"superhuman" long-term memory: an evidence ledger, bitemporal facts, visible conflict, rebuildable
+projections, outcome feedback. The assessment that preceded any code is
+`local/superpowers/specs/2026-08-26-superhuman-memory-feasibility.md`. Nine commits; **no public API
+changed**._
+
+- [x] **Assess the proposal against the tree before building anything.** All eight of its stated defaults
+  verified; three corrections found. Its §5.1 guard aims at a job that cannot touch graph memory
+  (`MemoryPruneJobHandler` prunes `IMemoryStore`), so "no automatic destructive prune" was **already** the
+  shipped default. Its §4.4 understates the metadata blocker: both engine read paths drop it, so there is no
+  public read path at all. And its §7.2 repeats the "a verifier is advisory" misreading `pitfalls.md`
+  records — true of removal, false of ordering.
+
+- [x] **A real defect, found by the research rather than by a consumer** (`c458ace`, `docs/FIXES.md`).
+  Enrichment indexes every write with the entry's FULL CONTENT as a vector payload, and neither removal verb
+  touched that store — so `ForgetAsync`, the consent-withdrawal path **D72** requires to be COMPLETE, left
+  the content readable at rest. The identical defect had been fixed for SUBJECT rows twelve days earlier;
+  that sweep could not see this one because vectors live outside `IMemoryGraphStore`, which is
+  `pitfalls.md` §Second doors exactly.
+
+- [x] **…and a second defect inside the fix for the first** (`10b4859`). It ordered the two removal verbs
+  deliberately opposite ways and gave both the same uncaught propagation, so a failing index threw out of
+  `PruneAsync` *after* the nodes were deleted — losing the count. **The ORDER was asymmetric and the ERROR
+  HANDLING was not**, with the doc comment already arguing the asymmetry the code did not implement.
+
+- [x] **Phase 1's invariants, all of them.** `Explicit_forget_removes_payload_edges_subjects_and_vectors`,
+  both `A_partial_*_failure_cannot_lose_the_canonical_write` (the engine's best-effort catches on both
+  write-side projections were untested), `A_never_recalled_rare_fact_remains_expandable`,
+  `Ordinary_evidence_is_buried_but_not_deleted`, and `Projection_rebuild_restores_every_ledger_assertion`.
+  Two gaps remain and are in `TASKS.md` rather than claimed here.
+
+- [x] **`memory-scale`** (`5ce9667`) — the blind spot `docs/memory.md` §8 conceded outright. Write
+  throughput is FLAT across 100× (210–260/s at 1k, 10k and 100k), recall p50 `10.4 → 42.0ms`, ~1 KB/entry.
+  `MemoryRecallBenchmarks` did not already cover it: that runs against the KEYWORD store. **It refuses to
+  publish a number it cannot support** — the arm decomposition came out NEGATIVE at 100k, which is variance
+  and not a cost, so it prints "not readable" rather than "−7% of the p50".
+
+- [x] **The harnesses take any OpenAI-compatible endpoint** (`8570aac`). The library already supported
+  llama.cpp; the harnesses did not, at three chokepoints, each failing as a SKIP — which reads as a pass.
+
+- [x] **`Metadata` pinned, and it is WRITE-ONCE** (`f559c1f`). Asserted by nothing before this: every
+  contract call site passed `Metadata: null`. The fact was first written to assert the OPPOSITE, from
+  reading the SQLite upsert; `metadata` is in the INSERT list and absent from `DO UPDATE SET`. **Whether
+  write-once is right is deliberately unresolved** (**D90**).
+
+- [x] **A bitemporal resolver prototype** (`2d8a13f`, `56c37ef`, `a4ecb46`) — test-only, over the
+  proposal's own metadata keys. Write-once forces `ValidTo` to be DERIVED and a revision to be a new entry,
+  so the store's constraint and the proposal's append-only ledger are **the same thing**.
+  <br>**The generated timeline found a resolver bug on its first run** that all eight hand-written facts had
+  passed: the dispute check ran unconditionally, so a contested pair was "current" at every instant. Seven
+  of twelve seeds failed. A conflict is a property OF an interval, never one that outranks an interval.
+
+- [x] **Where the outcome-signal gap actually is** (`fb522de`). Not where "the log cannot record misses"
+  would put it: `RecordReviewsAsync` is public and neither SQL backend puts a foreign key on the review
+  table's `node_id`, so an application could write that row today. **The SHAPE is the blocker** — `Verified`
+  already means "returned, and a judge said it did not answer", and every candidate discriminator fails. An
+  outcome log must be SEPARATE, which is what the proposal says, now for a measured reason.
+
+- [x] **D90 — four INVARIANTS above the objective** (`1f76a69`). Deliberately NOT the proposal's seven
+  lexicographic lines: that ordering presumes lines you TRADE, and these four are absolutes. Invariants 3
+  and 4 explicitly make **no claim about the base engine**, which has no temporal concept — an objective
+  naming guarantees the code does not provide misleads every reader.
+
+- [x] **Phase 2 as properties, not a sweep** (`56c37ef`) — a metric pinned at 100% with no arm to compare
+  is a test. Twelve generated timelines, ground truth computed BY DEFINITION rather than by re-running the
+  resolver's rule.
+
+- [x] **What a recall BUDGET costs a temporal answer** (`a4ecb46`), **and the hypothesis was wrong.** The
+  guess was that a limit costs HISTORICAL answers first; measured, they score BETTER at every tight budget.
+  What survives is the failure MODE: a CURRENT probe is never empty, so an under-budgeted read returns a
+  superseded version presented as current — a stale answer indistinguishable from a correct one. **The query
+  a memory serves most is the one that lies.**
+
+**Outcome.** Phase 1 closed, Phase 2 measured, three defects found (two of them introduced during this
+work), `verify` 15/15 throughout. The prototypes named their own price: `MemoryItem.Metadata`, a metadata
+predicate on `SeedAsync`, and the vector collection address — all additive, none shipped, because the
+proposal's own PR5 bar is two applications needing the same field and that has not happened.
+
+---
+
+## Part 98 — the `many-candidates` salience regression, closed by moving the shipped default (2026-08-23)
+
+_Moved out of `TASKS.md` on 2026-08-26. It had been marked CLOSED in place since the measurement landed,
+which is the accumulation `.claude/rules/task-lifecycle.md` exists to prevent — and it was the item the
+backlog's own banner still named as the one startable thing, so a stale entry was steering the whole file.
+The decision is `docs/DECISIONS.md` **D89**; the entry below is kept verbatim, including the two readings
+that were wrong on the way, because the reasoning is why the default moved._
+
+- [ ] **The `many-candidates` regression is the one measured cost of a shipped default.** Salience makes that
+  shape's combined MissRate WORSE (+0.0169, significant) while improving every other shape, because with 40
+  competitors admitting salient entries displaces relevant ones. Under §5.7.0's priority order this is a real
+  regression on line 2 traded for a gain on line 1, which is the correct direction — but it is the sharpest
+  known cost and the obvious first target for a bounded-admission rule.
+  <br>**The paired sweep this item waits on now EXISTS (2026-08-15)** — `node devtools/dev.mjs
+  memory-enrichment`, 10 seeds × 5 shapes against a REAL embedding model. Its `novelty-only` arm is exactly
+  this question asked cleanly: novelty is what salience reads, and with `MinSimilarity` above 1 no edge is
+  written and `SemanticSeedK` is 0, so nothing but novelty→salience differs from the model-free floor.
+  <br>**It confirms the direction and the mechanism, at a far larger magnitude than the figures above.**
+  `many-candidates` is the WORST of the five shapes at **+0.2622** mean miss delta, and the per-class rows
+  name the displacement outright: `topical` miss goes **0.3406 → 0.9106**. The two figures already recorded
+  (+0.0169 as a 30-seed paired mean, +0.0808 as one draw) are not comparable to it — both were taken through
+  `FakeEmbedder`, whose "novelty" is word overlap — so treat this as the first real-model measurement of the
+  cost rather than as evidence it grew.
+  <br>**What is still open is unchanged, and it is the RULE.** A sweep that varies enrichment says where the
+  cost lands; designing a bounded-admission rule needs a sweep that varies the BOUND, which does not exist.
+  Full output: `local/superpowers/records/2026-08-15-enrichment-attribution.txt`.
+  <br>**CORRECTED 2026-08-21 — the blocker above is real but was stated WRONGLY, and the wrong statement made
+  this look startable.** "A sweep that varies the BOUND does not exist" reads as *nobody has built the
+  instrument*, which in this repository is an invitation. It is not the obstacle. A bound on salience's
+  ranking contribution ALREADY exists and always has —
+  `ReciprocalRankFusionOptions.SalienceWeight`, a continuous knob defaulting to 1 — and sweeping it on the
+  model-free corpus is **guaranteed flat for reasons that have nothing to do with the knob**:
+  `GraphMemoryEngine.Probe` returns novelty 0 with zero comparables when no vector search runs, so without an
+  embedder `StructuralSaliencePolicy` declines on every write; and RRF ranks by COMPETITION (**D82**), so a
+  uniformly-tied signal contributes a constant and cannot move the ordering at any weight. The `0` arm and
+  the `4` arm are the same engine.
+  <br>**So the real blocker is the one `memory-enrichment` already carries: a REAL embedding model.** Novelty
+  is what salience reads, novelty needs an embedder, and `FakeEmbedder`'s "similarity" is word overlap — which
+  is why Part 69 withdrew the numbers taken through it and why `memory-enrichment` EXITS rather than
+  substituting a double. That is an environment dependency, which is what the blocked list is for. The trap
+  itself is recorded in `.claude/knowledge/pitfalls.md`, because the flat curve would have read as a clean
+  exoneration with every existing control green.
+  <br>**MEASURED 2026-08-23, and the result refutes this item's PREMISE rather than answering its question.**
+  The instrument now exists — `node devtools/dev.mjs memory-salience-weight`, 10 seeds × 5 shapes × 4 arms
+  against `embeddinggemma:300m`, with **352 distinct salience values** proving the swept signal discriminates.
+  Retention and store admission are identical in every arm, so it prices the RANKING voice alone.
+  <br>**`SalienceWeight = 0` lowers MISS on every shape**, monotonically across the ladder: `many-candidates`
+  **−0.0962**, the other four **−0.0570**, for pollution **+0.0487** and **+0.0277**. Under §5.7.0 that
+  English trade is accepted — miss is objective (2), pollution (3) is explicitly not co-equal.
+  <br>So there are **no gains elsewhere for a bound to protect.** This item was opened to find a rule
+  recovering `many-candidates` while keeping salience's ranking benefit on the other shapes; that benefit does
+  not exist, and `many-candidates` is the worst case rather than a special one. **D45 reasoned this without a
+  measurement** — *salience means "does not fade away", not "first priority"; store admission already delivers
+  the former* — which is why the Multiplicative rank boost defaults OFF.
+  <br>**CLOSED 2026-08-23 as `docs/DECISIONS.md` D89 — the default moved to `0`, on a THIRD run.** Two
+  embedding models × five `CorpusLanguage` arms × five shapes × 10 seeds: `0` lowers miss in **10/10**
+  language×embedder cells (mean −0.0530 ordinary, −0.09 to −0.19 on `many-candidates`) for a mean pollution
+  rise of **+0.0088** — 6:1, which §5.7.0 accepts outright.
+  <br>**The second embedder is what made it decidable, by REFUTING the reading taken from the first.** On
+  `embeddinggemma` alone, Korean was the single language whose ordinary shapes refused, and the conclusion
+  was "four of five writing systems is not a default". On `nomic-embed-text` **Korean accepts and English
+  refuses** — the refusing row MOVED, so it was never a property of a language, it is the noise floor of the
+  pollution column at ten seeds.
+  <br>**Recorded because it went wrong twice on the way:** the first language summary counted miss-better
+  shapes only, printed `5/5` everywhere, and the default was changed on it before the pollution column was
+  read (reverted); the second averaged the regression shape together with the shapes it was being traded
+  against. The instrument now splits the two classes and prints both metrics, and the trap is
+  `pitfalls.md` §"Copying a rule copies its assumptions", sixth instance. Records:
+  `local/superpowers/records/2026-08-23-salience-weight-{sweep,languages,nomic}.txt`.
+
+**Outcome (2026-08-23).** `ReciprocalRankFusionOptions.SalienceWeight` ships at `0` — salience does not
+vote on ranking — on a third run across two embedding models × five languages × five shapes × 10 seeds.
+**D45 had reasoned this without a measurement**, and the item is closed not by finding the bounded-admission
+rule it was opened to find but by establishing there was no gain for a bound to protect.

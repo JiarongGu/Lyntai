@@ -28,6 +28,19 @@ hours spent looking somewhere else.
   configuration rather than relying on the default.
 - **A non-UTF-8 console mangles non-ASCII on the way through.** Never build file content by echoing it
   through the shell; write the file directly.
+- **`grep $'\r$'` is an ALWAYS-TRUE line-ending check in Git Bash, so it certifies every file it is pointed
+  at.** The shell strips the carriage return from the pattern argument, leaving the bare anchor `$`, which
+  matches every line — a pure-LF three-line file reports three CRLF lines, and its `-cv` twin reports zero
+  LF-only lines. **It cannot fail**, so it reads as a clean result on files it never examined. Measured
+  2026-08-26, after it was used to certify a dozen files across one session; all of them were LF.
+  **Use `git ls-files --eol`**, which is built for this and names the state outright:
+  `i/lf w/crlf` is the ordinary checked-out file, and `w/mixed` is the defect. For an untracked file, count
+  the bytes (`b.count(b'\r\n')` against `b.count(b'\n')`) — never a shell pattern containing a control
+  character.
+  <br>**And know what the answer means here before repairing anything.** `core.autocrlf` is `true` with no
+  `.gitattributes`, so every blob in the index is LF whatever the working tree looks like: a file that
+  splicing left `w/mixed` is committed clean and re-checks-out uniform. The working-tree state is real but
+  local, which is exactly why a scary-looking mix is worth *diagnosing* before it is worth *fixing*.
 
 ### Scripts and exit codes
 
