@@ -947,6 +947,31 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   `UseCurated("glossary").UseGraph()` blend silent; the naive "shares a grade with an earlier member" version
   fires on it, and a warning people learn to skip is the `check-warnings` ENOBUFS failure in a different hat.
 
+- **A projection the OWNING STORE does not hold is a second door onto every removal verb, and the shared
+  contract that would catch it structurally cannot see it.** Measured 2026-08-26 (`docs/FIXES.md`).
+  `GraphMemoryEngine` indexes each write into an `IVectorStore` collection it addresses itself, with the
+  entry's **full content as the payload** — and neither `ForgetAsync` nor `PruneAsync` touched it, so the
+  path `IForgettableMemory` documents as *"what an application calls when a user withdraws consent"* left
+  the content readable at rest.
+  <br>**The instructive half is that the identical defect had already been caught, twelve days earlier, on
+  the other index.** Orphaned SUBJECT rows after a delete are pinned in `MemoryGraphStoreContract` — a fact
+  every backend runs — because subjects live INSIDE `IMemoryGraphStore`. Vectors live in a different seam,
+  so the contract that exists to make removal complete had no reach over the second projection and reported
+  green. **A cross-backend contract proves a promise about the store it is a contract FOR**, which is
+  precisely as far as it goes, and the further the composition spreads the less of the promise that is.
+  <br>Nothing was missing to notice: `IVectorStore` has had `DeleteAsync` and `RemoveCollectionAsync` all
+  along. And nothing surfaced it, because an orphan cannot appear as a recall ITEM — the gather path drops
+  an id the node store no longer resolves — so the symptoms were data at rest plus a silently wasted seed
+  slot, neither of which any assertion was watching.
+  <br>**Ask of any removal verb: what else did the write touch?** Enumerate the write path's side effects
+  (index rows, vectors, caches, blobs, review logs) and check each has a removal counterpart — the write is
+  where the doors are visible, and the removal path is where they are not. Two more rules the fix turned up,
+  both general. **Order the two deletes by which failure you can live with**: erase the projection first
+  where a residue is the defect (a consent withdrawal), the store first where an orphan is (capacity
+  pruning). And **derive a projection's address from the records being removed rather than matching a
+  prefix** — `{engine}|{task}|{scope}` with a separator either field may contain means a sweep for task
+  `"t"` also matches task `"t|x"`, and over-deleting is the one direction a removal must never err in.
+
 ## Refactoring & namespace moves
 
 - **A compiler error list is not the authoritative site-list for a rename or move — it misses silently in

@@ -786,6 +786,14 @@ await graph.ForgetAsync("project", "backend");
 `PruneAsync` never removes authoritative material at any floor. Set `MinRetrievability = 0` to make it remove
 nothing on that criterion.
 
+**Both verbs also clear the similarity index.** With an embedder and a vector store wired, each write is
+indexed with its **full content as the payload**, so a removal that stopped at the graph store would leave
+that content readable — `ForgetAsync` is the consent-withdrawal path and has to be complete. Nothing extra
+to configure, and it needs no `IListableVectorStore`. Two consequences worth knowing: `ForgetAsync` clears
+the index *before* the nodes, so a vector-store outage fails the call with the nodes intact rather than
+half-forgetting; and pruning through the store's own path pays one extra scope read to learn which ids it
+removed, which a deployment with no vector store does not pay.
+
 ### Blend two members that index the same material
 
 A graph member for decay and links, a semantic member for meaning — over the same facts. Both hold

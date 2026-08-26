@@ -450,7 +450,7 @@ public sealed class GraphMemoryEngine(
     {
         if (search is null) return;
         var (vector, near) = search.Value;
-        var collection = $"{Name}|{write.TaskKey}|{write.Scope}";
+        var collection = VectorCollection(write.TaskKey, write.Scope);
         try
         {
             foreach (var match in near)
@@ -776,9 +776,7 @@ public sealed class GraphMemoryEngine(
         var floorValue = minRetrievability ?? _options.MinRetrievability;
 
         if (!_agePolicies.Any(c => c.Kind == MemoryAgeKind.Derivable))
-            return await store.PruneAsync(Name, taskKey, scope,
-                floorValue > 0 ? _policy.CandidateCutoff(floorValue) : null, olderThan, ct)
-                .ConfigureAwait(false);
+            return await PruneInStoreAsync(taskKey, scope, floorValue, olderThan, ct).ConfigureAwait(false);
 
         var createdBefore = olderThan is null ? (DateTimeOffset?)null : _clock() - olderThan.Value;
         var candidates = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
@@ -792,19 +790,118 @@ public sealed class GraphMemoryEngine(
                 // criterion is exact for it — no connected-entry carve-out remains
                 (floorValue > 0 && Retrievability(n) < floorValue) ||
                 (createdBefore is DateTimeOffset before && n.CreatedAt < before))
-            .Select(n => n.Id)
             .ToList();
 
-        return doomed.Count == 0 ? 0 : await store.DeleteAsync(Name, doomed, ct).ConfigureAwait(false);
+        if (doomed.Count == 0) return 0;
+
+        var count = await store.DeleteAsync(Name, [.. doomed.Select(n => n.Id)], ct).ConfigureAwait(false);
+        await RemoveVectorsAsync(doomed, ct).ConfigureAwait(false);
+        return count;
+    }
+
+    /// <summary>The cheap prune path, plus the census that keeps the similarity index in step with it.
+    /// <para>The store decides alone here and reports only a COUNT, so the ids it removed have to be
+    /// recovered by comparing the scope before and after. Re-deriving its criterion in C# instead would be a
+    /// second copy of one rule, and it would not even agree:
+    /// <see cref="IMemoryRetrievabilityPolicy.CandidateCutoff"/> is deliberately CONSERVATIVE — widened by
+    /// <c>MaxConnectionBoost</c> — so an engine-side evaluation would delete strictly more than this path
+    /// does today.</para>
+    /// <para>The census is paid only when a vector store is wired, and pruning is periodic maintenance
+    /// rather than a hot path — the same trade the derivable path above already makes.</para></summary>
+    private async Task<int> PruneInStoreAsync(string taskKey, string? scope, double floorValue,
+        TimeSpan? olderThan, CancellationToken ct)
+    {
+        double? cutoff = floorValue > 0 ? _policy.CandidateCutoff(floorValue) : null;
+        if (vectors is null)
+            return await store.PruneAsync(Name, taskKey, scope, cutoff, olderThan, ct).ConfigureAwait(false);
+
+        var before = await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
+            .ConfigureAwait(false);
+
+        var count = await store.PruneAsync(Name, taskKey, scope, cutoff, olderThan, ct).ConfigureAwait(false);
+        if (count == 0) return 0;
+
+        var surviving = (await store.SeedAsync(Name, taskKey, scope, query: null, limit: int.MaxValue, ct)
+            .ConfigureAwait(false)).Select(n => n.Id).ToHashSet();
+
+        await RemoveVectorsAsync([.. before.Where(n => !surviving.Contains(n.Id))], ct).ConfigureAwait(false);
+        return count;
     }
 
     /// <summary>Forget everything under (<paramref name="taskKey"/>, <paramref name="scope"/>) — explicit,
-    /// never a side effect of decay, which only ever ranks.</summary>
+    /// never a side effect of decay, which only ever ranks.
+    /// <para><b>The similarity index goes FIRST, and that order is the promise.</b> Enrichment stores each
+    /// entry's full content as a vector payload, so erasing the nodes alone would leave it readable in a
+    /// projection — and this is the path an application calls when a user withdraws consent, which
+    /// <b>D72</b> requires to be COMPLETE. Vectors first means a failure here leaves the nodes intact and the
+    /// call retryable; the reverse order would report success over surviving content. <c>PruneAsync</c>
+    /// deliberately orders the other way, because there the cheap failure is an orphan rather than a
+    /// residue.</para></summary>
     /// <param name="taskKey">The task to clear.</param>
     /// <param name="scope">The scope, or null for every scope of the task.</param>
     /// <param name="ct">Cancellation.</param>
-    public Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default) =>
-        store.ForgetAsync(Name, taskKey, scope, ct);
+    public async Task ForgetAsync(string taskKey, string? scope = null, CancellationToken ct = default)
+    {
+        await ForgetVectorsAsync(taskKey, scope, ct).ConfigureAwait(false);
+        await store.ForgetAsync(Name, taskKey, scope, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Drop the similarity-index collections a <see cref="ForgetAsync"/> is erasing.
+    /// <para><b>Addresses are DERIVED from the nodes, never matched by prefix.</b> A collection name embeds
+    /// the task and the scope with a separator either may legitimately contain, so a prefix sweep for task
+    /// <c>"t"</c> also matches task <c>"t|x"</c>'s collections — and over-deleting is the one direction a
+    /// removal must never err in (<see cref="IPrunableMemory.PruneAsync"/>'s own remarks). Deriving is also
+    /// why this needs no <see cref="IListableVectorStore"/>: that member is optional, and a consent
+    /// withdrawal must not degrade to whatever a BYO index happens to be able to enumerate.</para>
+    /// <para><b>What deriving does NOT cover</b>, since a defence usually reads as covering the whole
+    /// method: a scope whose nodes are ALREADY gone names no collection here, so an orphan left by an
+    /// earlier partial failure survives an unscoped forget. Naming the scope clears it — that path drops the
+    /// whole collection rather than the ids still present.</para></summary>
+    private async Task ForgetVectorsAsync(string taskKey, string? scope, CancellationToken ct)
+    {
+        // `vectors`, not `Enriches`: an engine whose embedder was removed still has to erase what an earlier
+        // configuration indexed.
+        if (vectors is null) return;
+
+        if (scope is not null)
+        {
+            // A named scope is an exact address, so dropping the whole collection also clears any orphan in
+            // it — strictly more complete than deleting the ids that happen to still exist.
+            await vectors.RemoveCollectionAsync(VectorCollection(taskKey, scope), ct).ConfigureAwait(false);
+            return;
+        }
+
+        var nodes = await store.SeedAsync(Name, taskKey, scope: null, query: null, limit: int.MaxValue, ct)
+            .ConfigureAwait(false);
+
+        foreach (var each in nodes.Select(n => n.Scope).Distinct(StringComparer.Ordinal))
+        {
+            ct.ThrowIfCancellationRequested();
+            await vectors.RemoveCollectionAsync(VectorCollection(taskKey, each), ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Delete the vector payloads of nodes a prune removed, keyed on each node's OWN task and scope
+    /// so a scope-spanning call reaches every collection it touched.</summary>
+    private async Task RemoveVectorsAsync(IReadOnlyList<GraphNode> removed, CancellationToken ct)
+    {
+        if (vectors is null || removed.Count == 0) return;
+
+        foreach (var node in removed)
+        {
+            ct.ThrowIfCancellationRequested();
+            await vectors
+                .DeleteAsync(VectorCollection(node.TaskKey, node.Scope),
+                    node.Id.ToString(CultureInfo.InvariantCulture), ct)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>This engine's similarity-index address for one (task, scope).
+    /// <para>Spelled once because four sites read it — enrichment's write, the scoped semantic seed, and both
+    /// removal verbs — and a fifth (<see cref="AcrossScopesAsync"/>) builds a PREFIX over the same shape. Two
+    /// spellings of one address is how a removal quietly misses the collection a write created.</para></summary>
+    private string VectorCollection(string taskKey, string scope) => $"{Name}|{taskKey}|{scope}";
 
     /// <summary>Clamp one component of a composed <see cref="MemoryTick"/> to something a store may keep.
     /// <para><b><see cref="Math.Max(double,double)"/> is not a finiteness guard</b> — it PROPAGATES
@@ -972,7 +1069,7 @@ public sealed class GraphMemoryEngine(
             near = query.Scope is null
                 ? await AcrossScopesAsync(vector, query.TaskKey, ct).ConfigureAwait(false)
                 : await vectors!
-                    .SearchAsync($"{Name}|{query.TaskKey}|{query.Scope}", vector, _options.SemanticSeedK, ct)
+                    .SearchAsync(VectorCollection(query.TaskKey, query.Scope), vector, _options.SemanticSeedK, ct)
                     .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }

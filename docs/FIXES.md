@@ -7,6 +7,60 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-26 — graph memory's removal verbs never reached the similarity index, so `ForgetAsync` left the content readable
+
+**Symptom.** With an `IEmbedder` and an `IVectorStore` wired, `GraphMemoryEngine.ForgetAsync("t", "s")` —
+the path `IForgettableMemory`'s own doc calls *"the deletion path an application uses when a user withdraws
+consent"* — removed the nodes and left each entry's **full content, verbatim**, retrievable from the vector
+store. `PruneAsync` left the same payloads as orphans. Observed directly: the first RED run printed the
+leaked text back (`Collection: ["the recovery key is written on the blue card"]`).
+
+**Root cause.** `EnrichAsync` indexes every write as
+`vectors.UpsertAsync(collection, id, vector, write.Content)` — the payload is the content, not a hash —
+into a collection the engine addresses itself (`{Name}|{taskKey}|{scope}`). Neither removal verb touched
+that store: `ForgetAsync` was a single `store.ForgetAsync(...)` and `PruneAsync` ended at
+`store.PruneAsync`/`store.DeleteAsync`. **The vector store is not `IMemoryGraphStore`**, so no
+`MemoryGraphStoreContract` fact could see it — which is exactly why the identical defect was caught for
+SUBJECT rows (2026-08-14) and missed here: subjects live inside the graph store's own contract, and this
+projection lives outside it. `pitfalls.md` §Second doors, and the tell is shared STATE rather than shared
+code.
+
+Two things kept it invisible. `IVectorStore` has always had `DeleteAsync` and `RemoveCollectionAsync`, so
+nothing was missing to notice; and an orphaned vector cannot surface as a recall ITEM — `GatherAsync` drops
+an id `store.GetAsync` no longer resolves — so the only symptoms were data at rest plus a silently wasted
+`SemanticSeedK` slot.
+
+**Fix.** `src/Lyntai.Core/Memory/Engines/GraphMemoryEngine.cs`.
+
+- `ForgetAsync` drops the collections first, then the nodes. **That order is the promise**: a failure
+  leaves the nodes intact and the call retryable, where the reverse reports success over surviving content.
+- Addresses are **derived from the nodes**, never prefix-matched. A collection name embeds task and scope
+  with a separator either may contain, so a prefix sweep for task `"t"` also matches task `"t|x"` — and
+  over-deleting is the one direction a removal must never err in. Deriving is also why no
+  `IListableVectorStore` is required: that member is optional, and a consent withdrawal must not degrade to
+  what a BYO index can enumerate.
+- `PruneAsync` orders the other way (store, then vectors), because there the cheap failure is an orphan
+  rather than a residue.
+- Prune's **cheap path** reports only a COUNT, so the removed ids are recovered by a before/after census,
+  paid only when a vector store is wired. Re-deriving the store's criterion in C# was rejected: it would be
+  a second copy of one rule, and `CandidateCutoff` is deliberately CONSERVATIVE (widened by
+  `MaxConnectionBoost`), so an engine-side evaluation would delete strictly **more** than that path does
+  today — a behaviour change smuggled inside a residue fix.
+- The collection address is now one private `VectorCollection(taskKey, scope)`; it was spelled inline at
+  three sites, and two spellings of one address is how a removal misses the collection a write created.
+
+**Verification.** `MemoryRemovalCompletenessTests`, eight facts — RED first, with five of the six original
+facts failing and the payload printed. Both later facts were mutation-checked: disabling the census kills
+`Pruning_removes_the_payloads_on_the_store_s_OWN_prune_path_too` and nothing else; making it unconditional
+kills `Pruning_with_no_vector_store_makes_no_extra_store_reads` and nothing else. Full suite with the
+Postgres leg live (Docker up, 21 skipped): **3272 passed / 3293 total**. `verify` 15/15.
+
+**Introduced by.** `e98e44c` (the graph engine, 2026-08-08) wrote the one-line `ForgetAsync`; `6216c22`
+(similarity enrichment, same day) gave it something to leave behind. Neither commit was wrong on its own —
+the second added a projection the first's removal path could not know about, which is the shape.
+
+---
+
 ## 2026-08-17 — a pre-commit connection failure escaped the generation stream door raw
 
 **Symptom.** With two stream candidates where the first is unreachable, `IGenerationRouter.StreamAsync`

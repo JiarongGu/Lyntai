@@ -10,6 +10,28 @@ applications, a **documented** break may ship in a MINOR release. Every break is
 `ApiSurfaceTests` and still called out under a **Breaking** heading here — only the version-number
 consequence is relaxed. Strict SemVer resumes as soon as any third party depends on Lyntai.
 
+## Unreleased
+
+### Fixed
+
+- **Removing graph memory now reaches the SIMILARITY INDEX, not only the graph store.** With an
+  `IEmbedder` and an `IVectorStore` wired, every write is indexed with the entry's **full content as the
+  vector payload** — and neither `ForgetAsync` nor `PruneAsync` touched that store, so a consent withdrawal
+  (`IForgettableMemory`, the path `docs/DECISIONS.md` **D72** requires to be COMPLETE) left the content
+  readable at rest, and pruning left orphans that still cost a `SemanticSeedK` slot on every later recall.
+  Both verbs now clear it.
+  <br>**Only a deployment that registered both an embedder and a vector store was affected** — nothing else
+  ever wrote a payload. An orphan could never surface as a recall item, because the gather path drops an id
+  the node store no longer resolves, which is why the symptoms were data at rest and a quietly wasted seed
+  slot rather than a wrong answer.
+  <br>**No API changed, and no removal now deletes more than it did.** `ForgetAsync` clears the index
+  before the nodes, so a failure leaves the call retryable rather than reporting success over surviving
+  content; `PruneAsync` orders the other way, because there the cheap failure is an orphan. Collection
+  addresses are derived from the records being removed rather than prefix-matched, so a task whose key
+  contains the separator cannot have a sibling task's index swept with it, and no
+  `IListableVectorStore` is required. Pruning through the store's own path pays one extra scope census, and
+  only when a vector store is wired. `docs/FIXES.md` has the mechanism.
+
 ## 3.1.0 — 2026-08-23
 
 Three more reports from applications on 3.0.x. Two are the same class as 3.0.1's and 3.0.2's — a wiring that

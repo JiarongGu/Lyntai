@@ -51,7 +51,13 @@ public interface IForgettableMemory
     /// <para>Returns no count: it removes the scope rather than a qualifying subset, so "how many" is not
     /// the question a caller is asking. It is the deletion path an application uses when a user withdraws
     /// consent or a task ends, which is why it must be reachable through the interface rather than through a
-    /// concrete type.</para></summary>
+    /// concrete type.</para>
+    /// <para><b>Complete means every PROJECTION, not only the primary store.</b> An engine that also
+    /// maintains an index outside the store it reads from — a vector collection, a cache, a derived table —
+    /// must clear that too, or the content survives somewhere a recall no longer reaches and a consent
+    /// withdrawal has silently done less than it says. Clear the projection FIRST: a failure then leaves the
+    /// primary store intact and the call retryable, where the reverse reports success over surviving
+    /// content.</para></summary>
     /// <param name="taskKey">The task to forget within.</param>
     /// <param name="scope">Optional scope filter; null forgets across the task's scopes. An engine whose
     /// store cannot express "every scope" must THROW rather than forget one scope or none — a consent
