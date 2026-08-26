@@ -909,7 +909,7 @@ public static class MemoryGraphStoreContract
         Assert.NotNull(node);
         Assert.Equal(3, node!.StrengthElapsedAge, precision: 6);
 
-        var neighbours = await store.NeighboursAsync("e", [a], 10);
+        var neighbours = await store.NeighboursAsync("e", key, [a], 10);
         Assert.Equal(3, neighbours.Single().EdgeElapsedAge, precision: 6);
     }
 
@@ -999,7 +999,7 @@ public static class MemoryGraphStoreContract
         var b = await store.UpsertAsync(Write("e", key, "beta"));
         await store.LinkAsync("e", a, b, null, 1, symmetric: true);
 
-        var neighbours = await store.NeighboursAsync("e", [a], 10);
+        var neighbours = await store.NeighboursAsync("e", key, [a], 10);
 
         Assert.Single(neighbours);
         Assert.Equal(b, neighbours[0].Node.Id);
@@ -1012,7 +1012,7 @@ public static class MemoryGraphStoreContract
         await store.LinkAsync("e", a, b, null, 1, symmetric: false);
         await store.LinkAsync("e", a, b, null, 1, symmetric: false);
 
-        var neighbours = await store.NeighboursAsync("e", [a], 10);
+        var neighbours = await store.NeighboursAsync("e", key, [a], 10);
 
         Assert.Single(neighbours); // one edge, not two
         Assert.Equal(2, neighbours[0].EdgeWeight, precision: 6);
@@ -1025,7 +1025,7 @@ public static class MemoryGraphStoreContract
         await store.LinkAsync("e", a, b, null, 1, symmetric: true);
         await Crowd(store, "e", key, 12);
 
-        var neighbours = await store.NeighboursAsync("e", [a], 10);
+        var neighbours = await store.NeighboursAsync("e", key, [a], 10);
 
         Assert.Equal(12, neighbours[0].EdgeAge, precision: 6);
     }
@@ -1117,7 +1117,7 @@ public static class MemoryGraphStoreContract
                 MemoryGrade.Associative, Stability, 40, null));
         }
 
-        var neighbour = Assert.Single(await store.NeighboursAsync("e", [hub], 10));
+        var neighbour = Assert.Single(await store.NeighboursAsync("e", key, [hub], 10));
 
         Assert.Equal(120, neighbour.EdgeAge, precision: 6);          // the Advance-driven accumulator
         Assert.Equal(3, neighbour.EdgeOrdinalAge, precision: 6);      // one per write, whatever Advance said

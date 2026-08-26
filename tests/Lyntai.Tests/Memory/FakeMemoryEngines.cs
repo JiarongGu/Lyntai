@@ -222,9 +222,9 @@ internal sealed class TouchHostileGraphStore : IMemoryGraphStore
         string? query, int limit, CancellationToken ct = default) =>
         _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
 
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey, IReadOnlyCollection<long> ids,
         int limit, CancellationToken ct = default) =>
-        _inner.NeighboursAsync(engine, ids, limit, ct);
+        _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
 
     public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
         _inner.GetAsync(engine, id, ct);
@@ -280,9 +280,9 @@ internal sealed class ReviewLogHostileGraphStore : IMemoryGraphStore
         string? query, int limit, CancellationToken ct = default) =>
         _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
 
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey, IReadOnlyCollection<long> ids,
         int limit, CancellationToken ct = default) =>
-        _inner.NeighboursAsync(engine, ids, limit, ct);
+        _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
 
     public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
         _inner.GetAsync(engine, id, ct);
@@ -340,8 +340,8 @@ internal sealed class SubjectHostileGraphStore : IMemoryGraphStore
         string? query, int limit, CancellationToken ct = default) =>
         _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
 
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
-        int limit, CancellationToken ct = default) => _inner.NeighboursAsync(engine, ids, limit, ct);
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey, IReadOnlyCollection<long> ids,
+        int limit, CancellationToken ct = default) => _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
 
     public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
         _inner.GetAsync(engine, id, ct);

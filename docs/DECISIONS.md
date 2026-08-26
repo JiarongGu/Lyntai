@@ -161,8 +161,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D89](#d89--salience-does-not-vote-on-ranking-reciprocalrankfusionoptionssalienceweight-ships-at-0-2026-08-23) | 2026-08-23 | salience does not vote on RANKING: `ReciprocalRankFusionOptions.SalienceWeight` ships at 0 |
 | [D90](#d90--the-memory-objective-gains-four-invariants-above-its-optimization-targets-2026-08-26) | 2026-08-26 | the memory objective gains four INVARIANTS above its optimization targets |
 | [D91](#d91--a-callers-i-did-not-say-must-not-be-written-as-though-they-had-metadata-and-headline-2026-08-26) | 2026-08-26 | a caller's "I did not say" must not be written as though they had: Metadata, and Headline |
+| [D92](#d92--a-taskkey-is-a-real-boundary-traversal-is-scoped-to-it-and-a-cross-task-link-is-refused-2026-08-26) | 2026-08-26 | a `taskKey` is a REAL boundary: traversal is scoped to it, and a cross-task link is refused |
 
-_All 91 entries are live decisions._
+_All 92 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2510,3 +2511,50 @@ retention default are not.
 **Taken on the evidence rather than by ruling**, after the owner had chosen to fix the parallel `Inherit`
 defect and declined three invitations to rule on this one. **Reverting is deleting one `COALESCE` per
 backend**; the contract fact names both directions, so a revert fails loudly rather than drifting.
+
+---
+
+## D92 — a `taskKey` is a REAL boundary: traversal is scoped to it, and a cross-task link is refused (2026-08-26)
+
+**A `taskKey` was the isolation boundary of every read except one.** `IMemoryGraphStore.NeighboursAsync`
+took ids and an engine and followed edges wherever they led, so an edge crossing tasks carried a recall
+across with it. Every other read — seeding with a query, seeding without one, the unscoped-scope reading
+that means "every scope of THIS task", the subject index, both removal verbs — enforced it
+(`MemoryGraphStoreContract.No_read_crosses_a_task_key`). Traversal did not.
+
+**A half-boundary is worse than no boundary**, because consumers reason about it as a whole one. That is the
+whole of the argument: nobody using `taskKey` to separate two users expects "except along edges".
+
+**The engine never created such an edge itself** — co-activation links what one task-scoped recall returned,
+similarity links inside a per-task-and-scope vector collection, subject linking looks up the write's own
+task. Only the public `ILinkableMemory.LinkAsync` could, and it validated nothing.
+
+### Three options, and why the middle one is the worst
+
+- **Scope traversal only.** The edge can be written and can never be walked — *a thing a caller can create
+  that can never work*, which is the exact shape **D83**–**D86** were all written about. Rejected on this
+  library's own precedent.
+- **Refuse the link only.** Correct for new writes and silent about the ones already in a database, since
+  refusing new edges cleans up no old ones.
+- **Both** — taken. The refusal makes the mistake loud *at the call that makes it*; the scoping makes the
+  boundary true of data that already exists.
+
+### What it costs
+
+`NeighboursAsync` gains a `taskKey` parameter — **a breaking change to an interface consumers implement**,
+which the deferred-SemVer rule (**D18**) permits while every consumer is first-party, and which the owner
+confirmed is preferable to keeping the design wrong. A BYO store gets a compile error naming the member,
+which is the cheap gate **D72** describes: a default body would have compiled and silently kept the hole.
+
+`LinkAsync` now reads both nodes before writing the edge — two extra reads on an explicit, infrequent act
+that already surfaces its failures. Its error names **both tasks**, because a caller holding two opaque
+`MemoryRef`s cannot see them.
+
+**The capability genuinely lost** is asserting an association between facts in different tasks. That reads
+as a real loss and is close to incoherent on inspection: two facts that belong together belong in one task,
+and "related but isolated" is not a thing this model can mean. A caller that wants it keeps the association
+in its own data, which is `library-api-design`'s standing answer to an app-specific need.
+
+**Pinned from both sides** — the refusal, and a fact that writes a cross-task edge *through the store*
+(bypassing the engine) to prove the walk still will not follow it. That second one is what would catch a
+future change that relaxed the scoping while leaving the refusal in place.

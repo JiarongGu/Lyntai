@@ -19,7 +19,7 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**Two items are startable, both in Part 99**, and the rest need something this repository does not have (a
+**One item is open in Part 99**, and the rest need something this repository does not have (a
 key, a model download, a CLI install, a vendor pick, or a deployment's own data). That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
 two paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
@@ -358,20 +358,6 @@ being looked for._
 _It opened holding the two Phase-1 gaps. One of those (cross-tenant isolation) closed the same day as
 **Part 100** and left a DECISION behind it; the flake below arrived from watching `verify` rather than from
 the proposal. All three are startable today — no key, no model, no download._
-
-- [ ] **DECIDE whether `LinkAsync` may assert a link ACROSS tasks.** Found while closing the item above and
-  now pinned as behaviour rather than endorsed as design
-  (`MemoryTaskIsolationTests.An_EXPLICIT_cross_task_link_DOES_carry_a_recall_across_and_that_is_the_documented_hole`).
-  `IMemoryGraphStore.NeighboursAsync` applies no `taskKey` predicate — it takes ids and follows edges — and
-  that is safe only because every engine-internal linker is task-scoped by construction. `LinkAsync` is not:
-  it is public, it validates nothing about the two refs, and an application that links across tasks has made
-  those entries reachable from each other's recalls.
-  <br>**Three defensible answers and no basis to pick one here:** refuse the link (a caller that wanted it
-  loses a documented capability — "assert structure the library could not infer"), scope traversal by task
-  (costs a predicate on the hottest read and would silently drop edges an app deliberately made), or keep
-  trusting the caller and say so louder. `docs/memory.md` §7 says so today.
-  <br>The test is written so this cannot change by accident: scope traversal and it fails, forcing the
-  choice into the open.
 
 - [ ] **`verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted mid-run.** Observed
   twice in roughly ten `verify` runs on 2026-08-26, and **not once in any standalone `node devtools/dev.mjs

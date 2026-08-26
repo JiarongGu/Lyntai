@@ -294,7 +294,7 @@ public sealed class PostgresMemoryGraphStore(
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine,
+    public async Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
         IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(ids);
@@ -320,10 +320,12 @@ public sealed class PostgresMemoryGraphStore(
                       WHERE e.from_id = ANY(@idArray) AND e.to_id <> ALL(@idArray)
                       GROUP BY e.to_id) x
                 JOIN lyntai_memory_node n ON n.id = x.id
-                WHERE n.engine = @engine
+                -- the walk stays inside the task: an edge that crosses one must not carry a
+                -- recall across with it, or taskKey is a boundary for every read but this
+                WHERE n.engine = @engine AND n.task_key = @taskKey
                 ORDER BY x.w DESC, n.id DESC
                 LIMIT @limit
-                """, new { idArray, engine, limit, position, ordinal = totals.Ordinal, chars = totals.Chars },
+                """, new { idArray, engine, taskKey, limit, position, ordinal = totals.Ordinal, chars = totals.Chars },
                 cancellationToken: ct),
             (row, edge) => new GraphNeighbour(row.ToNode(totals.EncodedAt), edge.EdgeWeight, edge.EdgeAge,
                 EdgeOrdinalAge: edge.EdgeOrdinalAge, EdgeVolumeAge: edge.EdgeVolumeAge,

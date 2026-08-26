@@ -298,9 +298,9 @@ public class MemoryRemovalCompletenessTests
             return _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
         }
 
-        public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine,
+        public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
             IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
-            _inner.NeighboursAsync(engine, ids, limit, ct);
+            _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
 
         public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
             _inner.GetAsync(engine, id, ct);

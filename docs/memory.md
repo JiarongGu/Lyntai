@@ -680,15 +680,10 @@ Each of these cost a real measurement to find.
   (`MemoryTaskIsolationTests`). The engine never links across tasks by itself either: co-activation links
   what one task-scoped recall returned, similarity links inside a per-task-and-scope vector collection, and
   subject linking looks up the write's own task.
-  <br>**But `ILinkableMemory.LinkAsync` validates nothing about the two entries' tasks, and traversal
-  follows edges wherever they lead** — so an application that explicitly links across tasks has made those
-  entries reachable from each other's recalls. That is the API doing what it says (asserting structure the
-  library could not infer), and it is worth knowing before `taskKey` is used as a tenant boundary.
-
-## 8. What is NOT measured
-
-Stated so nobody mistakes silence for a result.
-
+  <br>**A cross-task link is REFUSED** (**D92**): `ILinkableMemory.LinkAsync` throws rather than writing
+  an edge between two tasks, and traversal is scoped to the task besides — so an edge a pre-D92
+  database already holds is never walked either. If you were relying on cross-task links, keep the
+  association in your own data; two facts that belong together belong in one task.
 - **Scale — MEASURED 2026-08-26, and no longer the blank it was.** `node devtools/dev.mjs memory-scale`
   runs the graph engine at 1k / 10k / 100k entries on SQLite. The headline: **write throughput does not
   degrade** — 210–260 entries/s at every size, unchanged across 100× the store — and **recall grows

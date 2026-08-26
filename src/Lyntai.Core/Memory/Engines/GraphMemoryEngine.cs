@@ -692,7 +692,7 @@ public sealed class GraphMemoryEngine(
         var frontier = new List<long> { id };
         for (var level = 0; level < depth && frontier.Count > 0; level++)
         {
-            var next = await store.NeighboursAsync(Name, frontier, _options.DefaultLimit, ct).ConfigureAwait(false);
+            var next = await store.NeighboursAsync(Name, node.TaskKey, frontier, _options.DefaultLimit, ct).ConfigureAwait(false);
             frontier = [];
             foreach (var neighbour in next.OrderByDescending(EffectiveEdgeWeight).ThenByDescending(n => n.Node.Id))
             {
@@ -741,6 +741,23 @@ public sealed class GraphMemoryEngine(
             !long.TryParse(to.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var b))
             throw new ArgumentException(
                 $"Memory engine '{Name}' addresses nodes by numeric id; got '{from.Id}' and '{to.Id}'.");
+
+        // REFUSED ACROSS TASKS, and refused HERE rather than ignored later. Traversal is task-scoped, so a
+        // cross-task edge could be written and would then never be walked — a thing a caller can create that
+        // can never work, which is the shape D83–D86 are all about and the worst of the three options. The
+        // alternative, letting the walk cross, would make `taskKey` a boundary for every read but one; a
+        // half-boundary is worse than none, because consumers reason about it as a whole one.
+        var left = await store.GetAsync(Name, a, ct).ConfigureAwait(false)
+            ?? throw new ArgumentException($"Memory engine '{Name}' has no entry '{from.Id}'.", nameof(from));
+        var right = await store.GetAsync(Name, b, ct).ConfigureAwait(false)
+            ?? throw new ArgumentException($"Memory engine '{Name}' has no entry '{to.Id}'.", nameof(to));
+
+        if (!string.Equals(left.TaskKey, right.TaskKey, StringComparison.Ordinal))
+            throw new ArgumentException(
+                $"Memory engine '{Name}' cannot link across tasks: '{from.Id}' is in task '{left.TaskKey}' " +
+                $"and '{to.Id}' is in task '{right.TaskKey}'. A task is the isolation boundary of every " +
+                "read, so an edge across one could never be traversed. Put both facts in one task, or keep " +
+                "the association in your own data.", nameof(to));
 
         // an EXPLICIT link is a write, so it surfaces its failure — unlike the co-activation edges recall
         // records opportunistically, which are best-effort
@@ -1181,7 +1198,7 @@ public sealed class GraphMemoryEngine(
         {
             ct.ThrowIfCancellationRequested();
             var neighbours = await store
-                .NeighboursAsync(Name, frontier, candidates, ct).ConfigureAwait(false);
+                .NeighboursAsync(Name, query.TaskKey, frontier, candidates, ct).ConfigureAwait(false);
 
             frontier = [];
             // re-rank by DECAYED edge weight: the store's raw-weight ordering is a pre-sort, and a link

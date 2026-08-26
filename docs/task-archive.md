@@ -7074,3 +7074,45 @@ correctly except `Metadata`, which moved from "never revisited" into the same ce
 <br>Left as written rather than edited, because an archive records what a pass FOUND — and this one
 found a real asymmetry, `Headline` and `Metadata` both plain caller-owned data on one record behaving
 oppositely. That finding is what produced D91; erasing it would hide the reason the decision exists.
+
+---
+
+## Part 103 — a `taskKey` is a real boundary, not a boundary-except-along-edges (2026-08-26)
+
+_Opened in Part 99 as a DECISION and deliberately left there: unlike the three defects fixed the same day,
+this one HONOURED a caller's stated intent, so constraining it removes a documented capability rather than
+repairing a defect. Settled by the owner — who supplied the missing input, which was not a preference
+between the options but the CONSTRAINT the options were being weighed under: two consuming apps, both
+theirs, manual migration acceptable. That turns "what does this break" into "what is right"._
+
+- [x] **DECIDE whether `LinkAsync` may assert a link ACROSS tasks.** Found while closing the item above and
+  now pinned as behaviour rather than endorsed as design
+  (`MemoryTaskIsolationTests.An_EXPLICIT_cross_task_link_DOES_carry_a_recall_across_and_that_is_the_documented_hole`).
+  `IMemoryGraphStore.NeighboursAsync` applies no `taskKey` predicate — it takes ids and follows edges — and
+  that is safe only because every engine-internal linker is task-scoped by construction. `LinkAsync` is not:
+  it is public, it validates nothing about the two refs, and an application that links across tasks has made
+  those entries reachable from each other's recalls.
+  <br>**Three defensible answers and no basis to pick one here:** refuse the link (a caller that wanted it
+  loses a documented capability — "assert structure the library could not infer"), scope traversal by task
+  (costs a predicate on the hottest read and would silently drop edges an app deliberately made), or keep
+  trusting the caller and say so louder. `docs/memory.md` §7 says so today.
+  <br>The test is written so this cannot change by accident: scope traversal and it fails, forcing the
+  choice into the open.
+
+**Resolved as `docs/DECISIONS.md` D92: BOTH halves.** Traversal is scoped to the task, and a cross-task
+link is refused at `LinkAsync`. The reasoning that decided it is this library's own precedent rather than
+an argument from principle — scoping traversal ALONE would let a caller write an edge that can never be
+walked, which is exactly the shape **D83–D86** were all written about, and this repository treats "a thing
+you can register that can never run" as a defect class in its own right.
+
+**What it cost:** a breaking change to an interface consumers implement (`NeighboursAsync` gains a
+`taskKey`), permitted by **D18** while every consumer is first-party. A BYO store gets a compile error
+naming the member — the cheap gate **D72** describes, and a default body would have compiled while
+silently keeping the hole.
+
+**A bug found on the way, worth recording because the tests would not have caught it alone.** The Postgres
+backend binds `idArray` where SQLite binds `idList`, so a scripted edit added the SQL predicate and missed
+the parameter — leaving `@taskKey` unbound. Two contract facts failed on Postgres while passing on the
+other two backends, which is the cross-backend suite doing precisely the job it exists for. **A scripted
+edit across near-identical files is not a safe edit**; the twin that differs in one identifier is where it
+lands.

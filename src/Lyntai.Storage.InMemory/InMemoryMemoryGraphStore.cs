@@ -213,7 +213,7 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine,
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
         IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(ids);
@@ -238,7 +238,10 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                     When: g.Max(e => e.Value.StrengthenedAt)))
                 .OrderByDescending(x => x.Weight)
                 .ThenByDescending(x => x.Id) // unique tiebreaker
-                .Where(x => _nodes.TryGetValue(x.Id, out var n) && n.Engine == engine)
+                // the walk stays inside the task: an edge that crosses one must not carry a recall
+                // across with it, or taskKey is a boundary for every read but this one
+                .Where(x => _nodes.TryGetValue(x.Id, out var n) && n.Engine == engine
+                            && n.TaskKey == taskKey)
                 .Take(limit)
                 .Select(x => new GraphNeighbour(ToNode(_nodes[x.Id], totals), x.Weight, position - x.At,
                     EdgeOrdinalAge: totals.Ordinal - x.Ordinal,

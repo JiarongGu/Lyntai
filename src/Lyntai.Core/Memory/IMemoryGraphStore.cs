@@ -358,11 +358,15 @@ public interface IMemoryGraphStore
     /// <para>That ordering is a cheap pre-sort, not the final one: the engine re-ranks by decayed edge
     /// weight, so a heavy but stale link falls below a lighter fresh one. Over-fetch accordingly.</para></summary>
     /// <param name="engine">The owning engine's name.</param>
+    /// <param name="taskKey">The task the walk stays inside. <b>Traversal is the one read that used
+    /// to escape a <c>taskKey</c></b> — it took ids and followed edges, so an edge that crossed tasks
+    /// carried a recall across with it and the boundary every other read enforces had a hole. A
+    /// half-boundary is worse than none, because consumers reason about it as a whole one.</param>
     /// <param name="ids">The frontier to walk out from.</param>
     /// <param name="limit">Maximum neighbours.</param>
     /// <param name="ct">Cancellation.</param>
-    Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
-        int limit, CancellationToken ct = default);
+    Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
+        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default);
 
     /// <summary>One node by id, or null when there is none under that engine.</summary>
     /// <param name="engine">The owning engine's name.</param>

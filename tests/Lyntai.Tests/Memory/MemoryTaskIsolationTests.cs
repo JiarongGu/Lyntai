@@ -78,7 +78,7 @@ public class MemoryTaskIsolationTests
         var found = 0;
         foreach (var node in mine)
         {
-            var neighbours = await store.NeighboursAsync(Engine, [node.Id], 200);
+            var neighbours = await store.NeighboursAsync(Engine, "mine", [node.Id], 200);
             found += neighbours.Count;
             Assert.All(neighbours, n => Assert.Contains(n.Node.Id, mineIds));
         }
@@ -87,27 +87,54 @@ public class MemoryTaskIsolationTests
     }
 
     [Fact]
-    public async Task An_EXPLICIT_cross_task_link_DOES_carry_a_recall_across_and_that_is_the_documented_hole()
+    public async Task A_cross_task_link_is_REFUSED_at_the_call_that_makes_the_mistake()
     {
-        // THE ONE WAY ACROSS, established rather than assumed. `ILinkableMemory.LinkAsync` is public and
-        // documented as "an application can assert structure the library could not infer" -- it validates
-        // nothing about the two refs' tasks, and IMemoryGraphStore.NeighboursAsync applies no task
-        // predicate, so a link an application asserts across tasks is a link traversal will follow.
+        // THE ONE WAY ACROSS, closed. Until 2026-08-26 `LinkAsync` validated nothing about the two refs'
+        // tasks and `NeighboursAsync` applied no task predicate, so an application that linked across tasks
+        // made those entries reachable from each other's recalls -- `taskKey` was a boundary for every read
+        // except traversal, and a half-boundary is worse than none because consumers reason about it as a
+        // whole one.
         //
-        // Recorded as BEHAVIOUR, not endorsed as a design: whether the engine should refuse such a link, or
-        // scope traversal, or keep trusting the caller, is a decision nobody has taken. What this fact
-        // guarantees is that the answer is written down and that changing it is a deliberate act rather than
-        // an accident -- if traversal is ever scoped, this test fails and forces the choice into the open.
+        // Refused HERE rather than ignored later, and that placement is the decision. Traversal is now
+        // task-scoped, so a cross-task edge could be written and would simply never be walked -- a thing a
+        // caller can create that can never work, which is the shape D83-D86 are all about. The error names
+        // both tasks, because the caller cannot see them from the two opaque MemoryRefs it holds.
         var store = new InMemoryMemoryGraphStore();
         var engine = NewEngine(store, options: new GraphMemoryOptions { Hops = 2 });
 
         var mine = await engine.RememberAsync(new MemoryWrite("mine", "s", "the deploy pipeline needs approval"));
         var theirs = await engine.RememberAsync(new MemoryWrite("theirs", "s", "unrelated tenant material"));
 
-        await engine.LinkAsync(mine, theirs, "asserted", weight: 5, symmetric: true);
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => engine.LinkAsync(mine, theirs, "asserted", weight: 5, symmetric: true));
+
+        Assert.Contains("mine", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("theirs", ex.Message, StringComparison.Ordinal);
+
+        // ...and nothing was written: a refusal that half-applied would be worse than the hole it closes
+        var recall = await engine.RecallAsync(new MemoryQuery("mine", "s", "deploy pipeline", Limit: 20));
+        Assert.DoesNotContain(recall.Items, i => i.Reference.Id == theirs.Id);
+    }
+
+    [Fact]
+    public async Task Traversal_stays_inside_the_task_even_when_an_edge_ALREADY_crosses_one()
+    {
+        // DEFENCE IN DEPTH, and the reason the refusal above is not sufficient on its own: a database
+        // written before this release can already hold cross-task edges, and refusing NEW ones does not
+        // clean up old ones. Scoping the walk is what makes the boundary true of existing data rather than
+        // only of future writes.
+        //
+        // The edge is written through the STORE, bypassing the engine's refusal, precisely because that is
+        // what a pre-existing row looks like.
+        var store = new InMemoryMemoryGraphStore();
+        var engine = NewEngine(store, options: new GraphMemoryOptions { Hops = 2 });
+
+        var mine = await engine.RememberAsync(new MemoryWrite("mine", "s", "the deploy pipeline needs approval"));
+        var theirs = await engine.RememberAsync(new MemoryWrite("theirs", "s", "unrelated tenant material"));
+        await store.LinkAsync(Engine, long.Parse(mine.Id), long.Parse(theirs.Id), "legacy", 5, true);
 
         var recall = await engine.RecallAsync(new MemoryQuery("mine", "s", "deploy pipeline", Limit: 20));
 
-        Assert.Contains(recall.Items, i => i.Reference.Id == theirs.Id);
+        Assert.DoesNotContain(recall.Items, i => i.Reference.Id == theirs.Id);
     }
 }

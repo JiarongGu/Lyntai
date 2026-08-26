@@ -14,6 +14,17 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
+- **`IMemoryGraphStore.NeighboursAsync` gains a `taskKey` parameter, and `ILinkableMemory.LinkAsync` now
+  REFUSES a cross-task link.** A `taskKey` was the isolation boundary of every read except traversal, which
+  followed edges wherever they led — so an application that linked across tasks made those entries reachable
+  from each other's recalls. A half-boundary is worse than none, because consumers reason about it as a whole
+  one. `docs/DECISIONS.md` **D92**.
+  <br>**A BYO `IMemoryGraphStore` gets a compile error** naming the member, deliberately: a default body
+  would have compiled and silently kept the hole. Pass the `taskKey` through to your node predicate.
+  <br>**The capability lost** is asserting an association between facts in DIFFERENT tasks. Keep that in your
+  own data — two facts that belong together belong in one task. Traversal is scoped as well as the link
+  refused, so an edge an existing database already holds is never walked either.
+
 - **`GraphNodeWrite` gains two trailing flags, `bool GradeStated = true` and `bool HeadlineStated = true`**,
   which widen its constructor and its `Deconstruct`. Additive for anyone constructing it by name or positionally (the default reproduces the old
   behaviour exactly), and a **source break only for code that positionally DECONSTRUCTS the record** —
