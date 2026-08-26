@@ -46,6 +46,13 @@ internal static class AssertionResolver
         /// <summary>A later assertion for the same key took over. Still readable, still historical truth.</summary>
         Superseded,
 
+        /// <summary>Not in force YET as of the instant asked about — its validity starts later.
+        /// <para>Distinct from <see cref="Superseded"/> rather than folded into it, because they are
+        /// opposite ends of the same interval and calling a future claim "superseded" is simply false. The
+        /// distinction is not cosmetic: it was collapsed in the first version of this resolver and the
+        /// generated corpus caught the consequence immediately.</para></summary>
+        Pending,
+
         /// <summary>Two or more assertions claim the same key over the same instant, from different sources.
         /// The resolver reports every one of them and picks none.</summary>
         Disputed,
@@ -118,9 +125,16 @@ internal static class AssertionResolver
                 && c.From!.Value == from!.Value
                 && Read(c.Node, Keys.SourceRef) != Read(node, Keys.SourceRef));
 
-            var state = contested ? Status.Disputed
-                : until is not null && asOf >= until.Value ? Status.Superseded
-                : from!.Value > asOf ? Status.Superseded   // not yet in force as of this instant
+            // IN FORCE FIRST, CONTESTED SECOND — and that order is the whole of this expression.
+            // The first version asked `contested` first and unconditionally, so a disputed pair was
+            // reported as the current answer at EVERY instant, including before it had taken effect and
+            // after a later version superseded it. Every hand-written fact probed an instant where the pair
+            // happened to be live, so all of them passed; the generated corpus failed on its first run.
+            // A conflict is a property OF an interval, never a property that outranks one.
+            var inForce = from!.Value <= asOf && (until is null || asOf < until.Value);
+
+            var state = !inForce ? (from.Value > asOf ? Status.Pending : Status.Superseded)
+                : contested ? Status.Disputed
                 : Status.Active;
 
             resolved.Add(new Assertion(node.Id, node.Content, canonicalKey, from!.Value, until,
