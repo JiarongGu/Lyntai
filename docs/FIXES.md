@@ -7,6 +7,47 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-26 — one transient `where.exe` failure made an installed CLI look absent for the life of the process
+
+**Symptom.** Chased from the other end: `verify`'s test step intermittently failed **exactly 9** tests — 3
+occurrences in 14 runs — while a standalone `dotnet test` passed every time, including immediately before
+and after a failing run. The nine were `ProcessRunnerTests.Resolve_command_path_finds_node_and_caches`,
+three `RouterEndToEndTests`, two `CortexIntegrationTests` and three CLI-provider facts. **Every one spawns
+a process or resolves a command on PATH**, and they all reach the deterministic provider-stub through
+`node`.
+
+**Root cause.** `ProcessRunner.ResolveCommandPath` memoized `Locate(cmd) ?? cmd` into a **process-wide
+static** `ConcurrentDictionary` — the fallback included. So a single transient locator failure (a spawn that
+could not start under load, an AV hook, a dead PATH entry; `where.exe` is itself a process spawn) cached the
+**unresolved bare name permanently**. `CommandExists` reads a resolved name with no directory part as NOT
+FOUND, so from that moment every provider's `IsAvailable` reported an installed CLI as absent, for the
+lifetime of the process.
+
+That is why it looked like a test flake and is not one: it is reachable in a shipped application, and the
+first probe of a provider's availability is exactly when a machine is busiest. The failure is silent,
+permanent, and indistinguishable from "the CLI is not installed".
+
+**Fix.** `src/Lyntai.Core/Processes/ProcessRunner.cs` — look the cache up first, resolve on a miss, and
+cache **only a successful** resolution. A genuinely missing command now costs one locator spawn per call,
+which is the right trade: a command that is absent is absent once, while a command wrongly believed absent
+stays wrong until the process restarts.
+
+**Verification.** `ProcessRunnerTests.A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent`,
+mutation-checked — restoring the old one-line body fails it with its own message. It carries a **positive
+control** asserting a SUCCESSFUL lookup is still cached, because otherwise the fact passes on an
+implementation that caches nothing, which would "fix" the bug by deleting the optimization the cache exists
+for. `verify` 15/15.
+
+**Not proven to be the flake's cause.** The mechanism explains every observation — intermittent,
+all-or-nothing, constant count, only under `verify`'s process churn — but the flake was never reproduced on
+demand (11 of 14 runs green, twice consecutively while trying). If it recurs, this was not it; `TASKS.md`
+Part 99 keeps the entry open on those terms.
+
+**Introduced by.** The commit that added the resolved-path cache; the `?? cmd` fallback has been inside the
+`GetOrAdd` factory since.
+
+---
+
 ## 2026-08-26 — a failing similarity index threw out of `PruneAsync` after the nodes were already deleted
 
 **Symptom.** With a vector store that refuses writes, `GraphMemoryEngine.PruneAsync` removed the entries

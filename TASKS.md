@@ -407,6 +407,15 @@ how a gap stops being looked for. Both are startable today: no key, no model, no
   this: intermittent, all-or-nothing, and invisible to a standalone run that starts clean.
   <br>**Do not close this by observing a green run.** It was green 11 times out of 14, including twice
   consecutively while trying to reproduce it on purpose.
+  <br>**A REAL BUG matching every symptom was found and fixed the same day** (`docs/FIXES.md`,
+  `pitfalls.md`): `ProcessRunner.ResolveCommandPath` cached FAILED lookups into a process-wide static, so
+  one transient `where.exe` failure made `node` unresolvable for the rest of the run — which fails exactly
+  these nine at once and explains the constant count, the all-or-nothing shape, and why a standalone run
+  that starts clean never saw it.
+  <br>**This item stays OPEN, on purpose.** The mechanism fits every observation and the flake was never
+  reproduced on demand, so the fix is unconfirmed as the CURE. **If the nine recur, this was not it** — and
+  that is the only evidence that can close this. Watch for it; do not close it by observing green runs,
+  which is what the line above already says and is now doubly true.
 
 ---
 

@@ -31,6 +31,35 @@ public class ProcessRunnerTests
     }
 
     [Fact]
+    public void A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent()
+    {
+        // THE CACHE IS PROCESS-WIDE AND PERMANENT, so what it remembers had better be worth remembering.
+        // `ResolveCommandPath` memoized `Locate(cmd) ?? cmd` — the FALLBACK included. One transient
+        // where.exe failure (a spawn that could not start under load, an AV hook, a dead PATH entry)
+        // therefore cached the unresolved bare name for the lifetime of the process, and `CommandExists`
+        // reads a name with no directory part as NOT FOUND. Every later call then reports the CLI absent,
+        // for a command that is installed and on PATH.
+        //
+        // The failure is silent, permanent and looks exactly like "the CLI is not installed" — and it is
+        // reachable in a shipped app, not only under a test runner: the first probe of a provider's
+        // IsAvailable is precisely when a machine is busiest.
+        var missing = $"lyntai-not-a-real-command-{Guid.NewGuid():N}";
+
+        var resolved = ProcessRunner.ResolveCommandPath(missing);
+
+        Assert.Equal(missing, resolved);                            // unresolved, as it should be
+        Assert.False(ProcessRunner.IsPathCached(missing),
+            "a failed lookup was cached, so a transient locator failure becomes permanent");
+
+        // THE POSITIVE CONTROL. Without it this fact passes on an implementation that caches NOTHING, which
+        // would fix the bug by deleting the optimization — the cache exists because where.exe is a process
+        // spawn per lookup, on the path of every CLI provider call.
+        ProcessRunner.ResolveCommandPath("node");
+        Assert.True(ProcessRunner.IsPathCached("node"),
+            "a SUCCESSFUL lookup was not cached either — the memoization is gone, not fixed");
+    }
+
+    [Fact]
     public async Task A_locator_that_hangs_is_killed_at_the_bound_rather_than_hanging_the_caller()
     {
         // A dead network drive on PATH (or an AV hook) can hang where.exe with nothing on stdout. The old

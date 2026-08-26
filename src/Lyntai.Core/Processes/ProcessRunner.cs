@@ -292,11 +292,30 @@ public sealed class ProcessRunner : IProcessRunner
     /// .cmd, then .exe, then .ps1 (an extensionless npm shim can't be spawned by CreateProcess). Paths with
     /// separators are returned as-is. A resolved (or directly-supplied) <c>.ps1</c> is hosted in PowerShell
     /// at spawn time — see the private launcher resolution.</summary>
+    /// <remarks><b>A FAILED lookup is never cached, and that asymmetry is the whole of this method.</b> The
+    /// cache is a process-wide static, so anything it remembers it remembers forever — and this used to
+    /// memoize <c>Locate(cmd) ?? cmd</c>, fallback included. One transient locator failure (a spawn that
+    /// could not start under load, an AV hook, a dead PATH entry) therefore pinned the unresolved bare name
+    /// for the lifetime of the process, and <see cref="CommandExists"/> reads a name with no directory part
+    /// as NOT FOUND. Every later call then reported an installed CLI as absent, silently and permanently.
+    /// <para>Re-looking-up a genuinely missing command costs one locator spawn per call, which is the right
+    /// trade: a command that is absent is absent once, while a command wrongly believed absent stays wrong
+    /// until the process restarts.</para></remarks>
     public static string ResolveCommandPath(string command)
     {
         if (Path.IsPathRooted(command) || command.Contains('/') || command.Contains('\\')) return command;
-        return PathCache.GetOrAdd(command, static cmd => Locate(cmd) ?? cmd);
+        if (PathCache.TryGetValue(command, out var cached)) return cached;
+
+        var located = Locate(command);
+        if (located is null) return command;
+
+        return PathCache.GetOrAdd(command, located);
     }
+
+    /// <summary>Whether <paramref name="command"/> has a memoized resolution — internal for the test that
+    /// pins the negative-caching rule, because "a failure was not remembered" is a statement about the
+    /// CACHE and cannot be observed from the returned value alone.</summary>
+    internal static bool IsPathCached(string command) => PathCache.ContainsKey(command);
 
     /// <summary>Whether <paramref name="command"/> looks spawnable RIGHT NOW — the presence check behind a
     /// provider's <c>IsAvailable</c>. A bare name must resolve on PATH; a PATH-shaped command (an app's own

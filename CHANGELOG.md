@@ -14,6 +14,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Fixed
 
+- **A transient PATH lookup failure no longer makes an installed CLI look absent for the life of the
+  process.** `ProcessRunner` caches resolved command paths in a process-wide table, and it was caching the
+  FAILURE too — so one `where.exe` spawn that could not start (load, an AV hook, a dead PATH entry) pinned
+  the unresolved name permanently, and every later `IsAvailable` reported a perfectly good `claude` or
+  `codex` install as missing. Silent, permanent, and indistinguishable from the CLI not being installed.
+  <br>Only a successful resolution is cached now. A genuinely missing command costs one extra locator spawn
+  per call, which is the right way round: a command that is absent is absent once, while one wrongly
+  believed absent stays wrong until the process restarts. No API changed.
+
 - **Removing graph memory now reaches the SIMILARITY INDEX, not only the graph store.** With an
   `IEmbedder` and an `IVectorStore` wired, every write is indexed with the entry's **full content as the
   vector payload** — and neither `ForgetAsync` nor `PruneAsync` touched that store, so a consent withdrawal

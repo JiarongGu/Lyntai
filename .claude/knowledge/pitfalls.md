@@ -342,6 +342,25 @@ the tests) while being wrong. Skim before touching the relevant area.
   XML docs — and where a guess would COST something (codex reads an unrecognized subcommand as a prompt and
   spends a turn), refuse instead of guessing, and refuse instead of silently ignoring. A safety claim that
   overreaches is itself a documented-not-measured surface (`docs/DECISIONS.md` D35).
+- **A NEGATIVE result cached in a process-lifetime cache is permanent, and it is the one answer that had no
+  business being remembered.** Measured 2026-08-26 (`docs/FIXES.md`).
+  `ProcessRunner.ResolveCommandPath` memoized `Locate(cmd) ?? cmd` into a static `ConcurrentDictionary` —
+  fallback included — so ONE transient `where.exe` failure pinned the unresolved bare name forever, and
+  `CommandExists` reads a name with no directory part as NOT FOUND. From that moment every provider's
+  `IsAvailable` reported an installed CLI as absent, silently, until the process restarted.
+  <br>**The asymmetry is the rule: a success is a fact, a failure is a MOMENT.** "node is at
+  C:\…\node.exe" stays true; "the locator did not answer just now" says nothing about the next call, and
+  the thing being cached is a process spawn under load — exactly the operation whose failures are
+  transient. Re-looking-up a genuinely missing command costs one spawn per call, which is the cheap side:
+  a command that is absent is absent once, a command wrongly believed absent is wrong until restart.
+  <br>**How it presented, because that is the part worth recognising:** as a TEST FLAKE. `verify`
+  intermittently failed exactly 9 tests while a standalone run never did — a constant count, because one
+  poisoned entry fails everything downstream of it at once. A varying count would have suggested load; a
+  constant one is a single cause. **When a flake's count is stable, look for one shared piece of state, not
+  for a race.**
+  <br>And when you fix a cache, **write the positive control**: a fact asserting the failure is not cached
+  passes on an implementation that caches nothing at all, which fixes the bug by deleting the optimization.
+
 - **Trusting an explicit command without checking it exists.** For a PORTABLE install (an app's own bundled
   CLI copy) `IsAvailable` must verify presence — `ProcessRunner.CommandExists`, which also accepts an
   extensionless launcher with a spawnable sibling. Returning true for a path that isn't there turns a
