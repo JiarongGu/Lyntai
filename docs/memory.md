@@ -656,6 +656,21 @@ Each of these cost a real measurement to find.
   it unshippable.
 - **Two-character CJK words produce no index terms** — below the trigram floor, which is the deliberate
   signal to fall back to a substring scan.
+- **Re-remembering an authoritative fact WITHOUT restating its grade downgrades it.** `MemoryWrite.Grade`
+  defaults to `MemoryGrade.Inherit`, the engine resolves that to `Associative` when no annotator says
+  otherwise, and the store overwrites the stored grade with the resolution. So an application refreshing a
+  fact it had marked authoritative — same text, no grade named — silently loses decay-immunity,
+  prune-immunity, the reserved recall slot and untruncated content.
+  <br>**Restate the grade on every write of a fact you want kept exact.** That is the whole workaround, and
+  it is one argument. The overwrite is also what makes PROMOTION work (re-remember an ordinary fact as
+  authoritative and it is upgraded), so the behaviour is not simply wrong — but "not stated" and "stated as
+  ordinary" are the same value on the wire, which is what makes the default dangerous. All three behaviours
+  are pinned in `MemoryReRememberTests`.
+- **A re-remember applies FOUR different update rules to the fields around the content.** `Headline` and
+  `Grade` are overwritten; `Signals` (and salience) keep what is stored when the incoming bag is empty;
+  `Difficulty` changes only when the bag names one; and `Stability`, `CreatedAt` and **`Metadata`** are never
+  revisited. Metadata being write-once is the one most likely to surprise, because `Headline` sits beside it
+  on the same record and behaves the opposite way.
 - **`taskKey` isolates every READ, and `LinkAsync` is the one way across.** No recall, expansion, subject
   seed, semantic seed, prune or forget crosses a task — pinned on all three backends
   (`MemoryGraphStoreContract.No_read_crosses_a_task_key`, `No_removal_crosses_a_task_key`) and end to end
