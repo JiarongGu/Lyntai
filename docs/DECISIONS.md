@@ -2488,6 +2488,25 @@ silent, every one destroyed the caller's own data, and none was discoverable wit
 shape to check on any future field: **does the engine resolve a caller's null into something, and does the
 store then overwrite with it?**
 
+**The rule was then applied ACROSS the library, and the negative results are the part that bounds it.**
+Every other surface that both resolves a caller's omission and persists the result was checked:
+
+- **`ICuratedMemoryStore.UpdateAsync` already had it right** — explicit COALESCE semantics ("only the
+  non-null arguments change"), *and* a CLEAR sentinel for the one field where a plain null was already
+  spoken for. So the correct pattern was in this repository the whole time, one surface over, and the graph
+  path simply did not follow it. That is a better argument for the fix than any reasoning from first
+  principles.
+- **`IMemoryStore`'s `ttl` resolves and overwrites too, and is NOT this defect.** A null ttl becomes the
+  store's default (or no expiry) and replaces an explicitly-set one — but a TTL is not the caller's *data*,
+  nothing is destroyed, and a deployment's retention default legitimately applies to every write. Pinned by
+  `MemoryStoreContract.Re_remembering_without_a_ttl_replaces_an_explicit_one`, which says in its own
+  summary that it was checked against this decision and found defensible.
+
+**The distinction those two draw is what makes this a rule rather than a reflex:** the test is not "does a
+layer resolve an omission" — that is ordinary and often right. It is **"does the resolved value then
+overwrite something the CALLER authored"**. Grade, headline and metadata were the caller's own; a TTL and a
+retention default are not.
+
 **Taken on the evidence rather than by ruling**, after the owner had chosen to fix the parallel `Inherit`
 defect and declined three invitations to rule on this one. **Reverting is deleting one `COALESCE` per
 backend**; the contract fact names both directions, so a revert fails loudly rather than drifting.

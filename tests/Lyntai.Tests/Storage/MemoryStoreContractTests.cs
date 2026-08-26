@@ -27,6 +27,7 @@ public abstract class MemoryStoreContractFacts
     [Fact] public Task Scope_dedup() => MemoryStoreContract.Different_scopes_are_not_deduped_together(New(), "k");
     [Fact] public Task Ttl() => MemoryStoreContract.Ttl_entries_expire_from_recall_and_are_pruned(New(), "k", Advance);
     [Fact] public Task Ttl_refresh() => MemoryStoreContract.Refreshing_a_fact_extends_its_ttl(New(), "k", Advance);
+    [Fact] public Task Ttl_unstated_replaces() => MemoryStoreContract.Re_remembering_without_a_ttl_replaces_an_explicit_one(New(), "k", Advance);
     [Fact] public Task Recency_refresh() => MemoryStoreContract.Re_remembering_refreshes_recall_recency(New(), "k", Advance);
     [Fact] public Task Prune_by_age() => MemoryStoreContract.Prune_older_than_removes_by_age_within_a_task(New(), "k", Advance);
     [Fact] public Task Prune_scoped() => MemoryStoreContract.Prune_scoped_to_one_task_leaves_the_sibling(New(), "k", Advance);
