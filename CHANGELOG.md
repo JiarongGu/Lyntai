@@ -22,6 +22,16 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Fixed
 
+- **Correcting a fact's `Metadata` on a re-remember now works.** It was WRITE-ONCE — present in every
+  backend's INSERT and absent from the update — so a caller fixing a mistyped `source_ref`, or attaching
+  anything it learned after the first write, was ignored with no error and no way to tell. The only route to
+  a correction was delete-and-rewrite, which discards the entry's id, its edges, its decay state and its
+  subject links.
+  <br>It now follows the rule its sibling `Signals` already had, and which sat one line above it in the same
+  statement: **an absent (null or empty) bag keeps what is stored; a supplied bag REPLACES it.** Replace, not
+  merge — keys you do not restate are gone, because merging would make removing a key impossible. No API
+  changed; the distinction was already on the wire. `docs/DECISIONS.md` **D91**.
+
 - **Re-remembering a fact without restating its grade no longer DEMOTES it.** `MemoryWrite.Grade` defaults
   to `MemoryGrade.Inherit`, which resolved to the engine's role before the store ever saw it — so "the
   caller said nothing" and "the caller said `Associative`" arrived as the same value, and refreshing a fact

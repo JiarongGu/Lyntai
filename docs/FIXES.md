@@ -7,6 +7,44 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-26 — a corrected `Metadata` bag was silently ignored on a re-remember
+
+**Symptom.** Write a fact with `Metadata`, then write the same content again with a corrected bag — a fixed
+`source_ref`, a field learned later — and the store kept the original. No error, no signal. The only route
+to a correction was delete-and-rewrite, which discards the entry's id, its edges, its decay state and its
+subject links.
+
+**Root cause.** `metadata` was in every backend's INSERT column list and absent from `DO UPDATE SET`. Not a
+decision: the neighbours that are *deliberately* absent from that clause (`stability`,
+`provenance_retrievability`) each carry a comment saying so, and this one carried nothing. It was pinned as
+"write-once" earlier the same day (**D90** recorded whether that was right as an open question) precisely
+because the omission was indistinguishable from an intent.
+
+**Fix.** `metadata = COALESCE(@metadata, …)` in both SQL backends and the equivalent in the in-process one —
+**the rule its sibling `Signals` already had, written one line above it in the same statement.** An absent
+(null or empty) bag is "no opinion" and keeps what is stored; a supplied bag replaces it. Replace and not
+merge, exactly as signals does: a supplied bag is the caller's whole opinion, and merging would make
+removing a key impossible, which is this defect's mirror image.
+
+No API changed — `MemoryWrite.Metadata` is nullable and `CuratedMetadataJson.Serialize` returns null for
+null-or-empty, so the distinction was already on the wire. Unlike the grade fix an hour earlier, nothing new
+had to reach the store.
+
+**Verification.** `MemoryGraphStoreContract.Metadata_keeps_the_stored_bag_when_none_is_supplied_and_replaces_it_when_one_is`
+on all three backends, asserting both directions and that an unrestated key is GONE rather than merged, plus
+two engine facts. The contract fact that previously pinned write-once was inverted and is the RED test.
+`verify` 15/15.
+
+**What it invalidated, recorded rather than quietly dropped.** The prototype resolver reported deriving an
+assertion's `ValidTo` as FORCED by write-once — "the store's constraint and an append-only ledger are the
+same thing". That convergence is gone. The derivation stays because it is right on its own terms, and the
+record now says chosen rather than forced.
+
+**Introduced by.** The graph store's first upsert; `metadata` has been absent from the update since the
+column existed. Found by asking what a re-remember overwrites, not by a consumer.
+
+---
+
 ## 2026-08-26 — re-remembering a fact without restating its grade silently demoted it
 
 **Symptom.** `RememberAsync` an entry as `MemoryGrade.Authoritative`, then write the same content again

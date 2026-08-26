@@ -1532,43 +1532,47 @@ public static class MemoryGraphStoreContract
         Assert.Equal("project:phoenix:production-database", seeded.Metadata!["lyntai.canonical_key"]);
     }
 
-    /// <summary><b><see cref="GraphNodeWrite.Metadata"/> is WRITE-ONCE: a re-remember of identical content
-    /// keeps what the first write stored.</b>
+    /// <summary><b><see cref="GraphNodeWrite.Metadata"/> follows <see cref="GraphNodeWrite.Signals"/>' rule:
+    /// an ABSENT bag keeps what is stored, a SUPPLIED bag replaces it.</b>
     ///
-    /// <para><b>Recorded as DISCOVERED behaviour, not as a designed guarantee</b> — which is why this
-    /// paragraph exists rather than a confident one. All three backends agree, so it is a real contract
-    /// rather than one backend's accident; but nothing had asserted it, and the SQL says it by OMISSION:
-    /// <c>metadata</c> is in the INSERT column list and absent from <c>DO UPDATE SET</c>, where the
-    /// neighbouring fields that are deliberately absent (<c>stability</c>,
-    /// <c>provenance_retrievability</c>) each carry a comment saying so and this one does not. Whether
-    /// write-once is RIGHT is an open question; that the three backends answer it the same way is what this
-    /// fact protects.</para>
+    /// <para>The two are the record's only open-ended, caller-owned dictionaries, and they now answer the
+    /// same question the same way — <c>COALESCE(@incoming, stored)</c>, which was already written one line
+    /// above for signals in every backend's upsert.</para>
     ///
-    /// <para><b>The consequence for anything built on this field, stated because it is not obvious:</b> a
-    /// caller cannot revise what it knows about a fact whose TEXT has not changed — closing an assertion's
-    /// validity in place is not available. A revision has to be a new entry, which is append-only by
-    /// construction and happens to be the shape an evidence ledger wants anyway.</para>
+    /// <para><b>Through 3.1.0 metadata was WRITE-ONCE</b>, and by omission rather than by design: it sat in
+    /// the INSERT column list and was absent from <c>DO UPDATE SET</c>, where the neighbours that are
+    /// deliberately absent (<c>stability</c>, <c>provenance_retrievability</c>) each carry a comment saying
+    /// so and this one did not. The cost was silent — a caller correcting a mistyped source, or attaching
+    /// anything it learned later, was ignored with no error and no way to tell, and the only route to a
+    /// correction was delete-and-rewrite, which discards the node's id, its edges, its decay state and its
+    /// subject links. <c>docs/DECISIONS.md</c> <b>D91</b>.</para>
     ///
-    /// <para>Distinct from <see cref="GraphNodeWrite.Signals"/>' rule, which keeps stored values only when
-    /// the incoming bag is EMPTY. Metadata keeps them even when the incoming bag is full. Two open-ended
-    /// dictionaries on one record with different update rules is exactly what a reader assumes is
-    /// uniform.</para></summary>
-    public static async Task Metadata_is_write_once_across_a_re_remember(IMemoryGraphStore store, string key)
+    /// <para><b>REPLACE, not merge</b>, exactly as signals does: a supplied bag is the caller's whole
+    /// opinion, so keys it does not restate are gone. Merging would make removing a key impossible, which is
+    /// the mirror of the defect this fixes.</para></summary>
+    public static async Task Metadata_keeps_the_stored_bag_when_none_is_supplied_and_replaces_it_when_one_is(
+        IMemoryGraphStore store, string key)
     {
         const string engine = "meta";
         const string content = "the production database is db-prod-1";
 
         var first = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", content, content,
             MemoryGrade.Associative, Stability, 1,
-            new Dictionary<string, string> { ["lyntai.valid_to"] = "open" }));
+            new Dictionary<string, string> { ["source"] = "runbook-v1", ["stale"] = "yes" }));
 
+        // ABSENT: no opinion, so the stored bag stands
         var second = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", content, content,
-            MemoryGrade.Associative, Stability, 1,
-            new Dictionary<string, string> { ["lyntai.valid_to"] = "2026-07-31T23:59:59Z" }));
-
+            MemoryGrade.Associative, Stability, 1, null));
         Assert.Equal(first, second);   // the same row — a re-remember, not a second fact
+        Assert.Equal("runbook-v1", (await store.GetAsync(engine, first))!.Metadata!["source"]);
+
+        // SUPPLIED: the caller's whole opinion replaces it, so `stale` is gone rather than merged
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", content, content,
+            MemoryGrade.Associative, Stability, 1,
+            new Dictionary<string, string> { ["source"] = "runbook-v2" }));
 
         var node = await store.GetAsync(engine, first);
-        Assert.Equal("open", node!.Metadata!["lyntai.valid_to"]);
+        Assert.Equal("runbook-v2", node!.Metadata!["source"]);
+        Assert.DoesNotContain("stale", node.Metadata.Keys);
     }
 }

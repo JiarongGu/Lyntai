@@ -19,10 +19,13 @@ namespace Lyntai.Tests.Memory.Prototype;
 /// <c>MemoryItem</c> without it on recall and expansion alike — which is why this reads the STORE, and is
 /// the clearest thing a first-class version would change: one nullable property on <c>MemoryItem</c>.</para>
 ///
-/// <para><b><c>ValidTo</c> is DERIVED, forced rather than chosen.</b> Metadata is write-once across a
-/// re-remember on all three backends, so an assertion cannot be closed off once a successor arrives: an
-/// interval ends where the next assertion for the same <c>canonical_key</c> begins. That constraint and the
-/// append-only ledger turn out to be the same thing, which is this prototype's most useful finding.</para>
+/// <para><b><c>ValidTo</c> is DERIVED, and as of <b>D91</b> that is CHOSEN rather than forced.</b> An
+/// interval ends where the next assertion for the same <c>canonical_key</c> begins. This prototype
+/// originally reported the derivation as forced — metadata was write-once, so an assertion could not be
+/// closed off in place — and D91 made metadata revisable, which removes the constraint and leaves the
+/// design. **Deriving is still right**: a stored <c>ValidTo</c> is a second copy of a fact the successor
+/// already carries, and two copies drift. A design that survives losing its excuse is a better one than a
+/// design that needed it.</para>
 /// </summary>
 internal static class AssertionResolver
 {

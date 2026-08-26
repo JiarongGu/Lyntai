@@ -174,6 +174,11 @@ public sealed class SqliteMemoryGraphStore(
                               -- the grade silently demoted an authoritative fact (GraphNodeWrite.GradeStated)
                               grade = CASE WHEN @gradeStated THEN @grade ELSE lyntai_memory_node.grade END,
                               signals = COALESCE(@signals, lyntai_memory_node.signals),
+                              -- metadata answers the same question as signals and now the same
+                              -- way: an ABSENT bag is "no opinion" and keeps what is stored, a
+                              -- supplied one REPLACES it. Absent from this SET until D91, which
+                              -- silently ignored every correction a caller made.
+                              metadata = COALESCE(@metadata, lyntai_memory_node.metadata),
                               salience = CASE WHEN @signals IS NULL THEN lyntai_memory_node.salience ELSE @salience END,
                               -- difficulty overwrites ONLY when THIS write's bag actually names a difficulty
                               -- signal - unlike salience, "the bag is merely non-empty" is

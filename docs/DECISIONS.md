@@ -160,8 +160,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D88](#d88--a-subject-handle-is-readable-and-the-seed-is-on-by-default-2026-08-23) | 2026-08-23 | a subject handle is READABLE, and the seed is ON by default |
 | [D89](#d89--salience-does-not-vote-on-ranking-reciprocalrankfusionoptionssalienceweight-ships-at-0-2026-08-23) | 2026-08-23 | salience does not vote on RANKING: `ReciprocalRankFusionOptions.SalienceWeight` ships at 0 |
 | [D90](#d90--the-memory-objective-gains-four-invariants-above-its-optimization-targets-2026-08-26) | 2026-08-26 | the memory objective gains four INVARIANTS above its optimization targets |
+| [D91](#d91--metadata-follows-signals-rule-an-absent-bag-keeps-what-is-stored-a-supplied-one-replaces-it-2026-08-26) | 2026-08-26 | `Metadata` follows `Signals`' rule: an absent bag keeps what is stored, a supplied one replaces it |
 
-_All 90 entries are live decisions._
+_All 91 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2434,3 +2435,44 @@ changes meaning.
 backends agree and the facts pin it, and invariant 3 is the reason it is worth re-reading rather than
 assumed — a field that cannot be revised is one way to guarantee no silent overwrite, and it is not
 obviously the intended one.
+
+---
+
+## D91 — `Metadata` follows `Signals`' rule: an absent bag keeps what is stored, a supplied one replaces it (2026-08-26)
+
+**`GraphNodeWrite.Metadata` was WRITE-ONCE, and by omission rather than by design.** It sat in every
+backend's INSERT column list and was absent from `DO UPDATE SET` — where the neighbours that are
+*deliberately* absent (`stability`, `provenance_retrievability`) each carry a comment saying so, and this
+one did not. **D90** recorded whether that was right as an open question. It was not.
+
+**The cost was silent and the workaround was destructive.** A caller correcting a mistyped `source_ref`, or
+attaching anything it learned after the first write, was ignored — no error, no signal, and the only route
+to a correction was delete-and-rewrite, which discards the node's id, its edges, its decay state and its
+subject links. That is the same shape as the `MemoryGrade.Inherit` demotion fixed hours earlier
+(`docs/task-archive.md` Part 101, `docs/FIXES.md`): a caller's explicit intent destroyed between two layers
+that each look correct.
+
+**The rule is now `Signals`', which was already written one line above it in every upsert:**
+`COALESCE(@incoming, stored)`. An ABSENT (null or empty) bag is "no opinion" and keeps what is stored; a
+SUPPLIED bag replaces it. The two are the record's only open-ended, caller-owned dictionaries and they now
+answer the same question the same way.
+
+**REPLACE, not merge**, exactly as signals does. A supplied bag is the caller's whole opinion, so keys it
+does not restate are gone. Merging reads as friendlier and makes REMOVING a key impossible, which is this
+defect's mirror image.
+
+**No API changed.** The distinction was already on the wire — `MemoryWrite.Metadata` is nullable and
+`CuratedMetadataJson.Serialize` returns null for null-or-empty — so unlike the grade fix this needed no new
+member, only the `COALESCE` that was missing.
+
+**What it costs, stated because it was a real finding and is now historical.** The prototype resolver in
+`tests/Lyntai.Tests/Memory/Prototype/` derived an assertion's `ValidTo` from its successor's start and
+reported that as FORCED by write-once — "the store's constraint and an append-only ledger are the same
+thing". That convergence is gone; the derivation stays because it is right on its own terms (a stored
+`ValidTo` is a second copy of a fact the successor already carries, and two copies drift). **A design that
+survives losing its excuse is a better one than a design that needed it** — but the excuse should not be
+quoted any more, and the record says so rather than leaving it to be re-derived.
+
+**Taken on the evidence rather than by ruling**, after the owner had chosen to fix the parallel `Inherit`
+defect and declined three invitations to rule on this one. **Reverting is deleting one `COALESCE` per
+backend**; the contract fact names both directions, so a revert fails loudly rather than drifting.

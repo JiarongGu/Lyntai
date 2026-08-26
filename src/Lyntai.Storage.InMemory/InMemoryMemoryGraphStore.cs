@@ -118,6 +118,12 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                     // an authoritative fact. See GraphNodeWrite.GradeStated.
                     Grade = write.GradeStated ? write.Grade : existing.Grade,
                     Headline = write.Headline,
+                    // metadata answers the same question as Signals and now the same way: an ABSENT bag is
+                    // "no opinion" and keeps what is stored, a supplied one REPLACES it. Left out of this
+                    // update entirely until D91, which silently ignored every correction a caller made.
+                    Metadata = write.Metadata is null || write.Metadata.Count == 0
+                        ? existing.Metadata
+                        : write.Metadata,
                     // an EMPTY incoming bag keeps what is stored — see GraphNodeWrite.Signals for why
                     // blanking here would erase a judgement on the very write meant to reinforce it
                     Signals = write.Signals.Count == 0 ? existing.Signals : write.Signals,

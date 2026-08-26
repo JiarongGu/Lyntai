@@ -102,14 +102,14 @@ public class MemoryReRememberTests
     }
 
     [Fact]
-    public async Task A_re_remember_updates_the_HEADLINE_while_METADATA_stays_write_once()
+    public async Task A_re_remember_updates_BOTH_the_headline_and_the_metadata_a_caller_supplies()
     {
-        // TWO CALLER-SUPPLIED FIELDS ON ONE WRITE, WITH OPPOSITE RULES. A corrected headline sticks; a
-        // corrected metadata bag does not. Both are the caller's own data and neither behaviour is stated
-        // on MemoryWrite, so the only way to learn either is to read the backend's SQL.
+        // TWO CALLER-SUPPLIED FIELDS ON ONE WRITE, and as of D91 they finally agree. Until then a corrected
+        // headline stuck and a corrected metadata bag was silently ignored -- two plain caller-owned fields,
+        // adjacent on the same record, behaving oppositely for no stated reason.
         //
         // Asserted together, in one fact, on purpose: apart they read as two unrelated details, and side by
-        // side they are the asymmetry itself.
+        // side they were the asymmetry. Keeping them together is what makes a future divergence visible.
         var (engine, store) = Build();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Headline: "db is prod-1",
@@ -119,8 +119,24 @@ public class MemoryReRememberTests
             Metadata: new Dictionary<string, string> { ["note"] = "second" }));
 
         var node = await OnlyNodeAsync(store);
-        Assert.Equal("the production DB is db-prod-1", node.Headline);   // overwritten
-        Assert.Equal("first", node.Metadata!["note"]);                    // write-once
+        Assert.Equal("the production DB is db-prod-1", node.Headline);
+        Assert.Equal("second", node.Metadata!["note"]);
+    }
+
+    [Fact]
+    public async Task A_re_remember_that_supplies_NO_metadata_keeps_what_is_stored()
+    {
+        // The other half of D91's rule, and the half that keeps the fix from being a new silent loss: a
+        // write that says nothing about metadata must not blank it. Otherwise every ordinary refresh --
+        // which supplies none -- would erase whatever an earlier annotated write had attached.
+        var (engine, store) = Build();
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", Fact,
+            Metadata: new Dictionary<string, string> { ["note"] = "first" }));
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", Fact));   // no metadata supplied
+
+        Assert.Equal("first", (await OnlyNodeAsync(store)).Metadata!["note"]);
     }
 
     [Fact]

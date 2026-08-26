@@ -7066,3 +7066,11 @@ asymmetry is asserted in a single test for the same reason.
 
 **Still deliberately open elsewhere:** whether `Metadata` write-once is the RIGHT answer (**D90** records
 it as unresolved). This part closes the question of what the rules ARE, not whether each is best.
+
+**CORRECTED the same day.** That paragraph was true for about an hour. **D91** resolved the open
+question: metadata was write-once by OMISSION, not by design, and now follows signals' rule — an absent
+bag keeps what is stored, a supplied one replaces it. Every row of the table above still reads
+correctly except `Metadata`, which moved from "never revisited" into the same cell as `Signals`.
+<br>Left as written rather than edited, because an archive records what a pass FOUND — and this one
+found a real asymmetry, `Headline` and `Metadata` both plain caller-owned data on one record behaving
+oppositely. That finding is what produced D91; erasing it would hide the reason the decision exists.

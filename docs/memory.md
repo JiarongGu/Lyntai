@@ -664,11 +664,15 @@ Each of these cost a real measurement to find.
   authoritative fact lost decay-immunity, prune-immunity, its reserved recall slot and untruncated content.
   If you added a defensive "always restate the grade" to work around it, it is now belt-and-braces rather
   than load-bearing — and harmless to keep.
-- **A re-remember applies FOUR different update rules to the fields around the content.** `Headline` and
-  `Grade` are overwritten; `Signals` (and salience) keep what is stored when the incoming bag is empty;
-  `Difficulty` changes only when the bag names one; and `Stability`, `CreatedAt` and **`Metadata`** are never
-  revisited. Metadata being write-once is the one most likely to surprise, because `Headline` sits beside it
-  on the same record and behaves the opposite way.
+- **A re-remember applies several update rules to the fields around the content**, and they are worth
+  knowing together: `Headline` is overwritten; `Grade` is overwritten only when you NAME one; `Metadata` and
+  `Signals` (and salience) keep what is stored when you supply nothing and REPLACE it wholesale when you do;
+  `Difficulty` changes only when the signals bag names one; and `Stability`, `provenance_retrievability` and
+  `CreatedAt` are never revisited — stability is what the retention policy has learned, and a re-remember is
+  not a review.
+  <br>**Replace, not merge**, for both bags: keys you do not restate are gone. Merging would make removing a
+  key impossible. Through 3.1.0 `Metadata` was write-once instead — a correction was silently ignored
+  (**D91**).
 - **`taskKey` isolates every READ, and `LinkAsync` is the one way across.** No recall, expansion, subject
   seed, semantic seed, prune or forget crosses a task — pinned on all three backends
   (`MemoryGraphStoreContract.No_read_crosses_a_task_key`, `No_removal_crosses_a_task_key`) and end to end
