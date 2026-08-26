@@ -349,21 +349,29 @@ a design question: it needs two or three real aggregators to measure against._
   aggregators would let the code lead, which is strictly better than text matching — but reading it
   unmeasured is the documented-not-measured trap GEN-VERIFY exists to correct.
 
-## Part 99 — the two Phase-1 gaps the memory pass did NOT close (2026-08-26)
+## Part 99 — what the memory pass did NOT close (2026-08-26)
 
 _Opened by `docs/task-archive.md` **Part 97**, which closed every other Phase-1 invariant of the memory
-proposal. These two are named here rather than left implied, because a scorecard that reads as complete is
-how a gap stops being looked for. Both are startable today: no key, no model, no decision._
+proposal. Named here rather than left implied, because a scorecard that reads as complete is how a gap stops
+being looked for._
 
-- [ ] **Cross-tenant leakage has no dedicated surface.** Part 97 asserts `Cross-tenant leakage = 0` only as
-  a CONTROL inside the forget facts — `MemoryRemovalCompletenessTests.Forgetting_one_task_leaves_another_task_s_payloads_alone`
-  proves one removal does not over-reach, and nothing proves the general property that a recall, an
-  expansion, a subject seed or a semantic seed cannot cross a `taskKey`. The scope filters are threaded
-  through every store method and are almost certainly right; **that is exactly the condition under which a
-  property goes untested for years.** A contract fact per read path, wired to all three backends, is the
-  shape — `MemoryGraphStoreContract` already runs reflection-fed on each.
-  <br>Worth doing on the SEED path first: it is the one that takes a `scope` of `null` meaning "every scope
-  of the task", so it is the read where a missing `taskKey` predicate would be least visible.
+_It opened holding the two Phase-1 gaps. One of those (cross-tenant isolation) closed the same day as
+**Part 100** and left a DECISION behind it; the flake below arrived from watching `verify` rather than from
+the proposal. All three are startable today — no key, no model, no download._
+
+- [ ] **DECIDE whether `LinkAsync` may assert a link ACROSS tasks.** Found while closing the item above and
+  now pinned as behaviour rather than endorsed as design
+  (`MemoryTaskIsolationTests.An_EXPLICIT_cross_task_link_DOES_carry_a_recall_across_and_that_is_the_documented_hole`).
+  `IMemoryGraphStore.NeighboursAsync` applies no `taskKey` predicate — it takes ids and follows edges — and
+  that is safe only because every engine-internal linker is task-scoped by construction. `LinkAsync` is not:
+  it is public, it validates nothing about the two refs, and an application that links across tasks has made
+  those entries reachable from each other's recalls.
+  <br>**Three defensible answers and no basis to pick one here:** refuse the link (a caller that wanted it
+  loses a documented capability — "assert structure the library could not infer"), scope traversal by task
+  (costs a predicate on the hottest read and would silently drop edges an app deliberately made), or keep
+  trusting the caller and say so louder. `docs/memory.md` §7 says so today.
+  <br>The test is written so this cannot change by accident: scope traversal and it fails, forcing the
+  choice into the open.
 
 - [ ] **`Silent overwrite = 0` is settled for METADATA and not for content.** `Metadata` is pinned
   write-once across a re-remember on all three backends (Part 97, **D90**). What is NOT pinned is what a

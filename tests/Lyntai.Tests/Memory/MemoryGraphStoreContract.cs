@@ -1417,6 +1417,57 @@ public static class MemoryGraphStoreContract
         Assert.Equal(0, removed);
     }
 
+    /// <summary><b>No read crosses a <c>taskKey</c>.</b> The isolation every other guarantee is stated
+    /// inside — "an authoritative fact is returned for a query it is relevant to" means nothing if the query
+    /// can reach another tenant's scope.
+    /// <para><b>Asserted across every task-scoped reader at once, because they are separate queries with
+    /// separate predicates</b> and a missing one is a silent leak rather than an error. Seeding is checked
+    /// three ways — with a query, with none (the enumeration path), and with a null scope, which is the
+    /// reading that means "every scope of THIS task" and is where a dropped <c>task_key</c> would be least
+    /// visible.</para></summary>
+    public static async Task No_read_crosses_a_task_key(IMemoryGraphStore store, string key)
+    {
+        const string engine = "tenants";
+        var other = key + "-other";
+
+        var mine = await store.UpsertAsync(Write(engine, key, "the deploy pipeline needs approval"));
+        await store.UpsertAsync(Write(engine, other, "the deploy pipeline needs approval"));
+        await store.RecordSubjectsAsync(engine, mine, ["shared-handle"]);
+
+        var matched = await store.SeedAsync(engine, key, "s", "deploy", 50);
+        Assert.Equal([mine], matched.Select(n => n.Id).ToList());
+
+        // no query: the ENUMERATION path, which has no match predicate to hide behind
+        var enumerated = await store.SeedAsync(engine, key, "s", null, 50);
+        Assert.Equal([mine], enumerated.Select(n => n.Id).ToList());
+
+        // null scope means "every scope of THIS task", never "every task"
+        var unscoped = await store.SeedAsync(engine, key, scope: null, query: null, limit: 50);
+        Assert.Equal([mine], unscoped.Select(n => n.Id).ToList());
+
+        // the subject index is a second address space onto the same rows, with its own predicate
+        Assert.Empty(await store.NodesBySubjectAsync(engine, other, "s", "shared-handle", 50));
+        Assert.DoesNotContain("shared-handle", await store.KnownSubjectsAsync(engine, other, "s", 50));
+    }
+
+    /// <summary><b>A removal never reaches another <c>taskKey</c> either</b> — the same isolation asserted on
+    /// the verbs that DESTROY, where over-reach is the one direction a removal must never err in
+    /// (<see cref="IPrunableMemory.PruneAsync"/>'s own remarks) and the damage is unrecoverable.</summary>
+    public static async Task No_removal_crosses_a_task_key(IMemoryGraphStore store, string key)
+    {
+        const string engine = "tenants";
+        var other = key + "-keep";
+
+        await store.UpsertAsync(Write(engine, key, "the withdrawn fact about widgets"));
+        var kept = await store.UpsertAsync(Write(engine, other, "the retained fact about widgets"));
+
+        await store.ForgetAsync(engine, key, scope: null);
+        Assert.Equal([kept], (await store.SeedAsync(engine, other, "s", null, 50)).Select(n => n.Id).ToList());
+
+        await store.PruneAsync(engine, key, scope: null, maxAgeOverStability: -1, olderThan: null);
+        Assert.Equal([kept], (await store.SeedAsync(engine, other, "s", null, 50)).Select(n => n.Id).ToList());
+    }
+
     /// <summary><b><see cref="GraphNodeWrite.Metadata"/> round-trips, through BOTH readers.</b>
     /// <para>Untested until 2026-08-26: the contract passed <c>Metadata: null</c> at every one of its call
     /// sites, so "app-owned extra data" was persisted by three backends and asserted by none. It is the one

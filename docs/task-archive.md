@@ -6952,3 +6952,33 @@ that were wrong on the way, because the reasoning is why the default moved._
 vote on ranking — on a third run across two embedding models × five languages × five shapes × 10 seeds.
 **D45 had reasoned this without a measurement**, and the item is closed not by finding the bounded-admission
 rule it was opened to find but by establishing there was no gain for a bound to protect.
+
+---
+
+## Part 100 — `taskKey` isolation, asserted as a property instead of assumed (2026-08-26)
+
+_Opened by Part 99, which named it as a gap Part 97's scorecard did not cover. Closed the same day, and it
+is the outcome to expect from a property everybody assumed and nobody had written down: **every fact passed
+on its first run.** That is coverage, not repair — and it is worth recording precisely because a green
+first run is what makes such work feel skippable._
+
+- [x] **Cross-tenant leakage had no dedicated surface.**
+  `MemoryGraphStoreContract.No_read_crosses_a_task_key` and `No_removal_crosses_a_task_key` hold the store
+  to it on all three backends (seeding with a query, without one, and with a null scope — the reading that
+  means "every scope of THIS task" and where a dropped predicate would be least visible); the engine's own
+  paths are `MemoryTaskIsolationTests`. **Every one passed on the first run**, so this was coverage rather
+  than repair — which is the outcome to expect from a property nobody had written down and everybody had
+  assumed.
+
+**What it found anyway.** Two things a passing run still taught. `IMemoryGraphStore.NeighboursAsync` applies
+no `taskKey` predicate — it takes ids and follows edges — so isolation across traversal rests entirely on
+every edge WRITER being task-scoped, which the three engine-internal linkers are and the public
+`ILinkableMemory.LinkAsync` is not. That is now pinned as behaviour and left open as a decision in
+`TASKS.md` Part 99, with `docs/memory.md` §7 telling consumers before they use `taskKey` as a tenant
+boundary.
+
+**And a test-writing lesson, caught by a vacuity guard rather than by review.** The first draft asked for
+the neighbours of EVERY node in a task at once — but `NeighboursAsync` EXCLUDES the ids it is given, so a
+fully-internal cluster comes back empty and the assertion "no neighbour is outside this task" holds over
+nothing. It passed for the wrong reason and only the `Assert.NotEmpty` guard caught it. **A guard that
+proves the fact observed something is worth more than the fact.**

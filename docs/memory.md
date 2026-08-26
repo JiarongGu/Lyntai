@@ -656,6 +656,16 @@ Each of these cost a real measurement to find.
   it unshippable.
 - **Two-character CJK words produce no index terms** — below the trigram floor, which is the deliberate
   signal to fall back to a substring scan.
+- **`taskKey` isolates every READ, and `LinkAsync` is the one way across.** No recall, expansion, subject
+  seed, semantic seed, prune or forget crosses a task — pinned on all three backends
+  (`MemoryGraphStoreContract.No_read_crosses_a_task_key`, `No_removal_crosses_a_task_key`) and end to end
+  (`MemoryTaskIsolationTests`). The engine never links across tasks by itself either: co-activation links
+  what one task-scoped recall returned, similarity links inside a per-task-and-scope vector collection, and
+  subject linking looks up the write's own task.
+  <br>**But `ILinkableMemory.LinkAsync` validates nothing about the two entries' tasks, and traversal
+  follows edges wherever they lead** — so an application that explicitly links across tasks has made those
+  entries reachable from each other's recalls. That is the API doing what it says (asserting structure the
+  library could not infer), and it is worth knowing before `taskKey` is used as a tenant boundary.
 
 ## 8. What is NOT measured
 
