@@ -27,8 +27,9 @@ internal static class SweepDoubles
     /// does not need a code change.</summary>
     internal const string ModelVariable = "LYNTAI_OLLAMA_EMBED_MODEL";
 
-    /// <summary>Environment variable naming the Ollama endpoint.</summary>
-    internal const string UrlVariable = "LYNTAI_OLLAMA_URL";
+    /// <summary>Environment variable naming the endpoint. The legacy <c>LYNTAI_OLLAMA_URL</c> still works, so
+    /// a machine already set up does not start failing because a name changed.</summary>
+    internal const string UrlVariable = "LYNTAI_LIVE_MODEL_URL";
 
     /// <summary>The model this resolves to, for a preamble to print.</summary>
     internal static string Model =>
@@ -36,7 +37,9 @@ internal static class SweepDoubles
 
     /// <summary>The endpoint this resolves to.</summary>
     internal static string BaseUrl =>
-        Environment.GetEnvironmentVariable(UrlVariable) ?? "http://localhost:11434";
+        Environment.GetEnvironmentVariable(UrlVariable)
+        ?? Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_URL")
+        ?? "http://localhost:11434";
 
     /// <summary>
     /// A cached real embedder, or <c>null</c> when no model is reachable — in which case the refusal has
@@ -53,7 +56,7 @@ internal static class SweepDoubles
     {
         var model = Model;
         var baseUrl = BaseUrl;
-        var real = new OllamaEmbedder(http, baseUrl, model);
+        var real = new OpenAiCompatibleEmbedder(http, baseUrl, model);
         if (await real.ReachableAsync()) return new CachingEmbedder(real);
 
         Console.Error.WriteLine($"{sweep}: ✗ no embedding model at {baseUrl} ({model}).");
@@ -62,7 +65,10 @@ internal static class SweepDoubles
         Console.Error.WriteLine("  taken through one were withdrawn (TASKS.md Part 69). Substituting one here");
         Console.Error.WriteLine("  would reproduce that defect silently, so this refuses to run instead.");
         Console.Error.WriteLine();
-        Console.Error.WriteLine($"  Start Ollama and `ollama pull {model}`, or set {ModelVariable}.");
+        Console.Error.WriteLine($"  Any OpenAI-compatible /v1/embeddings endpoint serves this:");
+        Console.Error.WriteLine($"    - Ollama:      ollama pull {model}");
+        Console.Error.WriteLine($"    - llama.cpp:   llama-server -m <model.gguf> --embedding");
+        Console.Error.WriteLine($"  Point it with {UrlVariable}, and name the model with {ModelVariable}.");
         return null;
     }
 
@@ -121,33 +127,48 @@ internal static class SweepDoubles
         }
     }
 
-    /// <summary>A real embedding model over Ollama's native endpoint.</summary>
+    /// <summary>
+    /// A real embedding model over the OpenAI-compatible <c>/v1/embeddings</c> route.
+    ///
+    /// <para><b>That route rather than Ollama's native one, so a sweep is not tied to a vendor.</b> Ollama
+    /// and llama.cpp's <c>llama-server</c> both serve it; only Ollama serves <c>/api/embeddings</c>. Through
+    /// 2026-08-26 this spoke the native dialect, which is why the two real-model sweeps could run against
+    /// exactly one backend — and why a machine running llama-server instead saw them refuse with "no
+    /// embedding model" while a perfectly good one was loaded.</para>
+    /// </summary>
     /// <remarks>
     /// Written here rather than reusing <c>HttpEmbedder</c> so the bench project keeps its two project
     /// references — the csproj records what pulling a third one cost the last time (a build log past Node's
     /// spawnSync buffer, reported as a failed build that had in fact succeeded).
     /// </remarks>
-    internal sealed class OllamaEmbedder(HttpClient http, string baseUrl, string model) : IEmbedder
+    internal sealed class OpenAiCompatibleEmbedder(HttpClient http, string baseUrl, string model) : IEmbedder
     {
+        /// <summary>
+        /// Probes by actually EMBEDDING something, rather than by reading a model list.
+        ///
+        /// <para><b>Stronger than the tag-list check it replaces, and portable where that was not.</b> The
+        /// old probe read Ollama's <c>/api/tags</c> and looked for the model's name — which llama-server has
+        /// no equivalent of, and which answers a weaker question anyway: a listed model can still fail to
+        /// embed. One round trip proves reachability, the model, and that a usable vector comes back, which
+        /// is the whole of what the caller needs to know before spending minutes.</para>
+        /// </summary>
         public async Task<bool> ReachableAsync()
         {
             try
             {
-                using var probe = await http.GetAsync($"{baseUrl}/api/tags");
-                if (!probe.IsSuccessStatusCode) return false;
-                var body = await probe.Content.ReadAsStringAsync();
-                // The model must actually be PULLED. A reachable Ollama with no embedding model would fail
-                // per-call, mid-run, after minutes of work.
-                return body.Contains(model.Split(':')[0], StringComparison.OrdinalIgnoreCase);
+                var probe = await EmbedAsync(["probe"]);
+                return probe.Count == 1 && probe[0].Length > 0;
             }
             catch (HttpRequestException) { return false; }
             catch (TaskCanceledException) { return false; }
+            catch (JsonException) { return false; }        // answered, but not with an embedding
+            catch (KeyNotFoundException) { return false; }
         }
 
         /// <remarks>
-        /// One request per text rather than a batch endpoint: <c>/api/embeddings</c> takes a single prompt
-        /// and is present on every Ollama version, while the batch <c>/api/embed</c> is newer. The caching
-        /// wrapper is what keeps the call count down, so there is nothing to win by being clever here.
+        /// One request per text. The route takes a batch, but the caching wrapper is what keeps the call
+        /// count down, so there is nothing to win by being clever — and one text per call keeps the response
+        /// shape identical on every backend.
         /// </remarks>
         public async Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default)
@@ -155,12 +176,12 @@ internal static class SweepDoubles
             var result = new float[texts.Count][];
             for (var i = 0; i < texts.Count; i++)
             {
-                using var response = await http.PostAsJsonAsync($"{baseUrl}/api/embeddings",
-                    new { model, prompt = texts[i] }, ct);
+                using var response = await http.PostAsJsonAsync($"{baseUrl}/v1/embeddings",
+                    new { model, input = texts[i] }, ct);
                 response.EnsureSuccessStatusCode();
 
                 using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-                var vector = json.RootElement.GetProperty("embedding");
+                var vector = json.RootElement.GetProperty("data")[0].GetProperty("embedding");
                 var one = new float[vector.GetArrayLength()];
                 var j = 0;
                 foreach (var value in vector.EnumerateArray()) one[j++] = (float)value.GetDouble();

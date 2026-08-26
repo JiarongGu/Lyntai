@@ -26,21 +26,21 @@ namespace Lyntai.Tests.Memory;
 /// limit; what generalizes is the fraction of the oracle's improvement a real judge captures. That fraction
 /// is what a consumer deciding whether to register a verifier actually needs.</para>
 ///
-/// <para><b>The model is a PARAMETER, and the ladder is the finding.</b> Measured 2026-08-13:
-/// <c>llama3.2:3b</c> captured ~60-69% of the oracle's improvement (two runs disagreed — a model is not
-/// deterministic, and one sample of a stochastic judge is not a measurement), while
-/// <c>qwen2.5-vl:7b</c> captured <b>91.4%</b> with pollution essentially at the oracle's own. Recall quality
-/// tracks judge capability, so a single model's score is a point on a curve rather than "the" number.
-/// <br/>An earlier version of this file justified measuring only the smallest model on the grounds that it
-/// was "the realistic deployment". That was an assumption dressed as a finding, and it broke this
-/// repository's own <c>model-decoupling</c> rule — which model runs is a deployment choice, never part of a
-/// feature's definition. Capable models run locally too.</para>
+/// <para><b>The model is a PARAMETER, and the ladder is the finding.</b> Recall quality tracks judge
+/// capability, so one model's score is a point on a curve rather than "the" number — and one sample of a
+/// stochastic judge is not a measurement. Which model runs is a deployment choice
+/// (<c>.claude/knowledge/model-decoupling.md</c>); the ladder itself is <c>docs/memory.md</c> §5, which is
+/// the authority and is not duplicated here.</para>
 ///
-/// <para>Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise SKIPPED,
-/// never a pass that observed nothing. Enable: <c>LYNTAI_LIVE_OLLAMA=1</c>, optionally
-/// <c>LYNTAI_OLLAMA_VERIFY_MODEL</c> (default <c>llama3.2:3b</c>, the cheapest arm — pick another to
-/// measure another point) and <c>LYNTAI_VERIFY_RESULTS</c> (an ABSOLUTE path to append the table to, for
-/// sweeping several models in one pass).</para>
+/// <para>Runs only when <c>LYNTAI_LIVE_MODEL</c> (or the legacy <c>LYNTAI_LIVE_OLLAMA</c>) is set AND a model
+/// endpoint is reachable; otherwise SKIPPED, never a pass that observed nothing. Optionally
+/// <c>LYNTAI_OLLAMA_VERIFY_MODEL</c> (default <c>gemma3:4b</c> — pick another to measure another point) and
+/// <c>LYNTAI_VERIFY_RESULTS</c> (an ABSOLUTE path to append the table to, for sweeping several models in one
+/// pass).</para>
+///
+/// <para><b>The local judge is any OpenAI-compatible endpoint</b> — <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c>
+/// plus a URL points it at llama.cpp's <c>llama-server</c>. Which is the same point the paragraph above
+/// makes about hosted models: the seam takes a judge, and where that judge runs is a deployment's business.</para>
 ///
 /// <para><b>Cost warning:</b> one model call per corpus query. The default shape issues tens of them, so a
 /// run takes minutes against a local model. That is why it is opt-in rather than merely slow-marked.</para>
@@ -53,7 +53,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     private const int Seed = 4242;
     private const int QueryLimit = 10;
 
-    private static string BaseUrl => OllamaLive.BaseUrl;
+    private static string BaseUrl => LiveModel.BaseUrl;
 
     /// <summary>The default judge. <b><c>llama3.2:3b</c> held this slot until 2026-08-15 and was retired on a
     /// measurement, not on age:</b> it FAILS the multilingual fact outright, answering <c>[1,2]</c> on the
@@ -92,9 +92,10 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
         // missing CLI surfaces as a verdict rather than as a hang. It still honours the opt-in variable,
         // because it spends real quota.
         if (UsesClaude)
-            return Environment.GetEnvironmentVariable("LYNTAI_LIVE_OLLAMA") is { Length: > 0 };
+            return Environment.GetEnvironmentVariable("LYNTAI_LIVE_MODEL") is { Length: > 0 }
+                || Environment.GetEnvironmentVariable("LYNTAI_LIVE_OLLAMA") is { Length: > 0 };
 
-        return await OllamaLive.IsAvailableAsync();
+        return await LiveModel.IsAvailableAsync();
     }
 
     /// <summary>Which backend supplies the judge. <c>ollama</c> (default) or <c>claude</c> — the latter
@@ -119,7 +120,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
                 .AddMemoryVerification(o => o.Model = ClaudeModel));
         else
             services.AddLyntai(b => b
-                .AddOllamaProvider(baseUrl: BaseUrl, defaultModel: Model)
+                .AddLiveProvider(Model)
                 .UseDefaultCandidates("ollama")
                 .AddMemoryVerification(o => o.Model = Model));
         return services.BuildServiceProvider();
@@ -283,7 +284,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     public async Task The_judge_picks_the_answering_note_in_every_language_not_only_english(
         string language, string question, string answers, string related, string opinion, string trivia)
     {
-        Skip.IfNot(await LiveAsync(), "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable");
+        Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
         var judge = sp.GetRequiredService<IMemoryVerificationPolicy>();
@@ -325,7 +326,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
     [SkippableFact]
     public async Task A_real_model_captures_a_reported_share_of_the_oracles_improvement()
     {
-        Skip.IfNot(await LiveAsync(), "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable");
+        Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
         var live = sp.GetRequiredService<IMemoryVerificationPolicy>();

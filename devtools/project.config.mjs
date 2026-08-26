@@ -737,7 +737,7 @@ export default {
     "tests/Lyntai.Tests/Memory/GraphMemoryRankingGoldenTests.cs": [63],
     "tests/Lyntai.Tests/Memory/GraphMemoryReviewLogTests.cs": [27],
     "tests/Lyntai.Tests/Memory/GraphMemoryWiringTests.cs": [46],
-    "tests/Lyntai.Tests/Memory/LlmSemanticRecallLiveTests.cs": [34],
+    "tests/Lyntai.Tests/Memory/LlmSemanticRecallLiveTests.cs": [31],
     "tests/Lyntai.Tests/Memory/LlmVerificationLiveTests.cs": [33, 28],
     "tests/Lyntai.Tests/Memory/MemoryAgePrimitiveIdentityTests.cs": [26],
     "tests/Lyntai.Tests/Memory/MemoryCjkRecallTests.cs": [38],

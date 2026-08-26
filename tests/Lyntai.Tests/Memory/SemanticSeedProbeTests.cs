@@ -50,13 +50,13 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
         }
     }
 
-    private static string BaseUrl => OllamaLive.BaseUrl;
+    private static string BaseUrl => LiveModel.BaseUrl;
 
     private static ServiceProvider Build()
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOllamaProvider(baseUrl: BaseUrl, defaultModel: "nomic-embed-text")
+            .AddLiveProvider("nomic-embed-text")
             .UseDefaultCandidates("ollama")
             .AddOpenAiCompatibleEmbedder("e", o => { o.BaseUrl = BaseUrl; o.Model = "nomic-embed-text"; }));
         return services.BuildServiceProvider();
@@ -65,7 +65,7 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
     [SkippableFact]
     public async Task Semantic_seeding_makes_a_paraphrase_a_candidate_which_ranking_can_still_lose()
     {
-        Skip.IfNot(await OllamaLive.IsAvailableAsync(), OllamaLive.SkipReason);
+        Skip.IfNot(await LiveModel.IsAvailableAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
 
@@ -120,7 +120,7 @@ public class SemanticSeedProbeTests(Xunit.Abstractions.ITestOutputHelper output)
     [SkippableFact]
     public async Task Weighting_relevance_above_recency_surfaces_the_semantic_seed()
     {
-        Skip.IfNot(await OllamaLive.IsAvailableAsync(), OllamaLive.SkipReason);
+        Skip.IfNot(await LiveModel.IsAvailableAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
         var embedder = sp.GetRequiredService<IEmbedder>();

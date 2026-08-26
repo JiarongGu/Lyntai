@@ -1,6 +1,7 @@
 using Lyntai.Llm;
 using Lyntai.Memory;
 using Lyntai.Memory.Annotation;
+using Lyntai.Tests.Live;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -21,25 +22,28 @@ namespace Lyntai.Tests.Memory;
 /// assertion on a literal would fail on a model upgrade for a reason that has nothing to do with the
 /// mechanism working.</para>
 ///
-/// <para>Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise SKIPPED,
-/// never a pass that observed nothing. Enable: <c>LYNTAI_LIVE_OLLAMA=1</c>, optionally
+/// <para>Runs only when <c>LYNTAI_LIVE_MODEL</c> (or the legacy <c>LYNTAI_LIVE_OLLAMA</c>) is set AND a model
+/// endpoint is reachable; otherwise SKIPPED, never a pass that observed nothing. Optionally
 /// <c>LYNTAI_OLLAMA_ANNOTATION_MODEL</c> (default <c>llama3.2:3b</c> — annotation runs on every write, so a
 /// small model is the realistic deployment).</para>
+///
+/// <para><b>Any OpenAI-compatible endpoint, not Ollama specifically</b> — set
+/// <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c> and a URL to run this against llama.cpp's <c>llama-server</c>.
+/// What this suite needs is a model that can annotate, and nothing in it is about a vendor's wire
+/// format.</para>
 /// </summary>
 public class LlmAnnotationLiveTests
 {
-    private static string BaseUrl => Lyntai.Tests.Live.OllamaLive.BaseUrl;
-
     private static string Model =>
         Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_ANNOTATION_MODEL") ?? "llama3.2:3b";
 
-    private static Task<bool> LiveAsync() => Lyntai.Tests.Live.OllamaLive.IsAvailableAsync();
+    private static Task<bool> LiveAsync() => LiveModel.IsAvailableAsync();
 
     private static ServiceProvider Build()
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOllamaProvider(baseUrl: BaseUrl, defaultModel: Model)
+            .AddLiveProvider(Model)
             .UseDefaultCandidates("ollama")
             .AddMemoryAnnotation(o => o.Model = Model));
         return services.BuildServiceProvider();
@@ -55,7 +59,7 @@ public class LlmAnnotationLiveTests
     public async Task A_real_model_gives_facts_about_one_entity_a_shared_subject(
         string language, string introduces, string pronoun, string shared)
     {
-        Skip.IfNot(await LiveAsync(), "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable");
+        Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
         var annotator = sp.GetRequiredService<IMemoryAnnotationPolicy>();
@@ -101,7 +105,7 @@ public class LlmAnnotationLiveTests
     [SkippableFact]
     public async Task A_chinese_fact_is_annotated_in_chinese()
     {
-        Skip.IfNot(await LiveAsync(), "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable");
+        Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
         var annotation = await sp.GetRequiredService<IMemoryAnnotationPolicy>().AnnotateAsync(

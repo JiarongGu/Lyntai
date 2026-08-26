@@ -31,38 +31,35 @@ namespace Lyntai.Tests.Memory;
 /// that mean the same and share NO index term, asserted rather than assumed — and this file supplies the
 /// missing instrument: a REAL embedding model. Both were needed; either alone still measures nothing.</para>
 ///
-/// <para><b>THE ANSWER, measured 2026-08-13, and it is not the one this file was built to find.</b> A real
-/// embedding model recovers <b>none</b> of the paraphrased facts — 0/3, the same as no embedder at all. The
-/// reason is structural: <c>GraphMemoryEngine.GatherAsync</c> seeds candidates only from
-/// <c>IMemoryGraphStore.SeedAsync</c>, a LEXICAL query, and then walks edges. The vector store is consulted
-/// at WRITE time — novelty for salience, and similarity linking — and never at recall time. <b>The graph
-/// engine has no semantic RETRIEVAL path at all</b>, so no embedder can reach a fact whose wording shares
-/// nothing with the query.</para>
+/// <para><b>THE ANSWER, measured 2026-08-13, and it is not the one this file was built to find:</b> a real
+/// embedding model recovers <b>none</b> of them — 0/3, the same as no embedder — because with
+/// <c>SemanticSeedK</c> at 0 the vector store is consulted at WRITE time only. The mechanism, and the
+/// correction it forces on Part 69's own explanation, are argued at the assertion that pins them.</para>
 ///
-/// <para>That corrects Part 69's own explanation of its finding: the embedder's cost was attributed to
-/// semantic neighbours "competing for the same bounded slots as lexical hits", and there are no semantic
-/// neighbours at recall. The cost is real but its mechanism is write-time linking and salience.</para>
+/// <para>Runs only when <c>LYNTAI_LIVE_MODEL</c> (or the legacy <c>LYNTAI_LIVE_OLLAMA</c>) is set AND a model
+/// endpoint is reachable; otherwise SKIPPED, never a pass that observed nothing.
+/// <c>LYNTAI_OLLAMA_EMBED_MODEL</c> overrides the model (default <c>nomic-embed-text</c>).</para>
 ///
-/// <para>Runs only when <c>LYNTAI_LIVE_OLLAMA</c> is set AND the endpoint is reachable; otherwise SKIPPED,
-/// never a pass that observed nothing. <c>LYNTAI_OLLAMA_EMBED_MODEL</c> overrides the model
-/// (default <c>nomic-embed-text</c>).</para></summary>
+/// <para><b>Any OpenAI-compatible endpoint</b> — <c>LYNTAI_LIVE_MODEL_FLAVOR=openai</c> plus a URL runs this
+/// against llama.cpp's <c>llama-server</c>. The embedder registration below was already backend-neutral; the
+/// gate and the chat provider were not.</para></summary>
 public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper output)
 {
-    private static string BaseUrl => OllamaLive.BaseUrl;
+    private static string BaseUrl => LiveModel.BaseUrl;
 
     private static string EmbedModel =>
         Environment.GetEnvironmentVariable("LYNTAI_OLLAMA_EMBED_MODEL") ?? "nomic-embed-text";
 
-    private static Task<bool> LiveAsync() => OllamaLive.IsAvailableAsync();
+    private static Task<bool> LiveAsync() => LiveModel.IsAvailableAsync();
 
     private static ServiceProvider Build()
     {
         var services = new ServiceCollection();
         services.AddLyntai(b => b
-            .AddOllamaProvider(baseUrl: BaseUrl, defaultModel: EmbedModel)
+            .AddLiveProvider(EmbedModel)
             .UseDefaultCandidates("ollama")
-            // The chat provider does not register an embedder — that is its own seam, and Ollama's native
-            // batched /api/embed is reached through the OpenAI-compatible registration.
+            // The chat provider does not register an embedder — that is its own seam, reached through the
+            // OpenAI-compatible registration, which every backend here serves at /v1/embeddings.
             .AddOpenAiCompatibleEmbedder("ollama-embed", o =>
             {
                 o.BaseUrl = BaseUrl;
@@ -80,7 +77,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
     [SkippableFact]
     public async Task A_real_embedder_recovers_paraphrased_facts_that_the_lexical_path_cannot_reach()
     {
-        Skip.IfNot(await LiveAsync(), "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable");
+        Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
         var embedder = sp.GetRequiredService<IEmbedder>();
@@ -130,7 +127,7 @@ public class LlmSemanticRecallLiveTests(Xunit.Abstractions.ITestOutputHelper out
     [SkippableFact]
     public async Task Semantic_seeding_makes_a_paraphrase_reachable_when_it_is_switched_on()
     {
-        Skip.IfNot(await LiveAsync(), "LYNTAI_LIVE_OLLAMA not set, or the Ollama endpoint is unreachable");
+        Skip.IfNot(await LiveAsync(), LiveModel.SkipReason);
 
         using var sp = Build();
         var embedder = sp.GetRequiredService<IEmbedder>();
