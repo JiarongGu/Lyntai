@@ -124,6 +124,43 @@ public class MemoryReRememberTests
     }
 
     [Fact]
+    public async Task A_re_remember_that_supplies_NO_headline_keeps_the_AUTHORED_one()
+    {
+        // THE THIRD INSTANCE OF ONE DEFECT, found by applying to this session's own work the rule
+        // pitfalls.md states: the round that articulates a distinction is the round most likely to violate
+        // it elsewhere. `Headline` is null-means-unstated exactly as Grade and Metadata were -- the engine
+        // DERIVES one when the caller supplies none, and the store then overwrites unconditionally.
+        //
+        // So an application that authored a headline, and later refreshes the fact without restating it,
+        // had that headline replaced by a machine-derived truncation of the content. Silently, and with no
+        // way back: the authored text is gone from the row.
+        var (engine, store) = Build();
+        const string authored = "prod DB: db-prod-1";
+        const string long_ = "the production database for the phoenix project is db-prod-1 and it is "
+            + "reachable only from the deployment subnet after the august migration completed";
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", long_, Headline: authored));
+        await engine.RememberAsync(new MemoryWrite("t", "s", long_));   // no headline restated
+
+        Assert.Equal(authored, (await OnlyNodeAsync(store)).Headline);
+    }
+
+    [Fact]
+    public async Task A_re_remember_that_DOES_supply_a_headline_replaces_it()
+    {
+        // The control that keeps the fix a distinction rather than a prohibition — correcting a headline
+        // has to keep working, exactly as promotion had to survive the grade fix.
+        var (engine, store) = Build();
+        const string long_ = "the production database for the phoenix project is db-prod-1 and it is "
+            + "reachable only from the deployment subnet after the august migration completed";
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", long_, Headline: "prod DB: db-prod-1"));
+        await engine.RememberAsync(new MemoryWrite("t", "s", long_, Headline: "prod DB: db-prod-1 (subnet only)"));
+
+        Assert.Equal("prod DB: db-prod-1 (subnet only)", (await OnlyNodeAsync(store)).Headline);
+    }
+
+    [Fact]
     public async Task A_re_remember_that_supplies_NO_metadata_keeps_what_is_stored()
     {
         // The other half of D91's rule, and the half that keeps the fix from being a new silent loss: a

@@ -117,7 +117,10 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                     // role, so without this a re-remember that did not restate the grade silently demoted
                     // an authoritative fact. See GraphNodeWrite.GradeStated.
                     Grade = write.GradeStated ? write.Grade : existing.Grade,
-                    Headline = write.Headline,
+                    // an AUTHORED headline survives a refresh that does not restate it: the engine derives
+                    // one from the content when the caller supplies none, and overwriting with that
+                    // discards the caller's own text. See GraphNodeWrite.HeadlineStated.
+                    Headline = write.HeadlineStated ? write.Headline : existing.Headline,
                     // metadata answers the same question as Signals and now the same way: an ABSENT bag is
                     // "no opinion" and keeps what is stored, a supplied one REPLACES it. Left out of this
                     // update entirely until D91, which silently ignored every correction a caller made.

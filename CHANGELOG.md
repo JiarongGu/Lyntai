@@ -14,13 +14,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Breaking
 
-- **`GraphNodeWrite` gains a trailing `bool GradeStated = true`**, which widens its constructor and its
-  `Deconstruct`. Additive for anyone constructing it by name or positionally (the default reproduces the old
+- **`GraphNodeWrite` gains two trailing flags, `bool GradeStated = true` and `bool HeadlineStated = true`**,
+  which widen its constructor and its `Deconstruct`. Additive for anyone constructing it by name or positionally (the default reproduces the old
   behaviour exactly), and a **source break only for code that positionally DECONSTRUCTS the record** —
   `var (engine, task, …) = write` now needs one more slot. A BYO `IMemoryGraphStore` that ignores the new
   member keeps the old grade-overwriting behaviour, which is the bug below; honour it to get the fix.
 
 ### Fixed
+
+- **An AUTHORED `Headline` survives a re-remember that does not restate it.** `MemoryWrite.Headline` is
+  null-means-unstated; the engine derives a truncation of the content when you supply none, and the store
+  then overwrote with it — so refreshing a fact silently replaced your own one-line summary with a
+  machine-made one. Naming a headline still applies it, so corrections are unchanged.
+  <br>Third instance of one defect this release fixes (with `Grade` and `Metadata`): **a caller's "I did not
+  say" was resolved by the engine and written to the store as though they had said it.** `docs/DECISIONS.md`
+  **D91**.
 
 - **Correcting a fact's `Metadata` on a re-remember now works.** It was WRITE-ONCE — present in every
   backend's INSERT and absent from the update — so a caller fixing a mistyped `source_ref`, or attaching

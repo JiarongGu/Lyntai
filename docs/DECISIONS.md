@@ -160,7 +160,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D88](#d88--a-subject-handle-is-readable-and-the-seed-is-on-by-default-2026-08-23) | 2026-08-23 | a subject handle is READABLE, and the seed is ON by default |
 | [D89](#d89--salience-does-not-vote-on-ranking-reciprocalrankfusionoptionssalienceweight-ships-at-0-2026-08-23) | 2026-08-23 | salience does not vote on RANKING: `ReciprocalRankFusionOptions.SalienceWeight` ships at 0 |
 | [D90](#d90--the-memory-objective-gains-four-invariants-above-its-optimization-targets-2026-08-26) | 2026-08-26 | the memory objective gains four INVARIANTS above its optimization targets |
-| [D91](#d91--metadata-follows-signals-rule-an-absent-bag-keeps-what-is-stored-a-supplied-one-replaces-it-2026-08-26) | 2026-08-26 | `Metadata` follows `Signals`' rule: an absent bag keeps what is stored, a supplied one replaces it |
+| [D91](#d91--a-callers-i-did-not-say-must-not-be-written-as-though-they-had-metadata-and-headline-2026-08-26) | 2026-08-26 | a caller's "I did not say" must not be written as though they had: Metadata, and Headline |
 
 _All 91 entries are live decisions._
 
@@ -2438,7 +2438,7 @@ obviously the intended one.
 
 ---
 
-## D91 — `Metadata` follows `Signals`' rule: an absent bag keeps what is stored, a supplied one replaces it (2026-08-26)
+## D91 — a caller's "I did not say" must not be written as though they had: Metadata, and Headline (2026-08-26)
 
 **`GraphNodeWrite.Metadata` was WRITE-ONCE, and by omission rather than by design.** It sat in every
 backend's INSERT column list and was absent from `DO UPDATE SET` — where the neighbours that are
@@ -2472,6 +2472,21 @@ thing". That convergence is gone; the derivation stays because it is right on it
 `ValidTo` is a second copy of a fact the successor already carries, and two copies drift). **A design that
 survives losing its excuse is a better one than a design that needed it** — but the excuse should not be
 quoted any more, and the record says so rather than leaving it to be re-derived.
+
+**AMENDED the same day — there was a THIRD instance, and the rule that found it is worth more than the
+fix.** `.claude/knowledge/pitfalls.md` says the round that articulates a distinction is the round most
+likely to violate it elsewhere, and prescribes grepping your own diff for the other places it applies. Doing
+that turned up `Headline`: it is null-means-unstated exactly as `Grade` and `Metadata` were, the engine
+turns null into a TRUNCATION of the content, and the store overwrote unconditionally — so an application
+that authored a headline and later refreshed the fact without restating it had its own text silently
+replaced by a machine-made one. Fixed with `GraphNodeWrite.HeadlineStated`, the same shape as
+`GradeStated`.
+
+**Three fields, one defect, and it is worth naming as one:** a caller's "I did not say" was resolved into a
+concrete value by the engine and then written to the store as though the caller HAD said it. Every one was
+silent, every one destroyed the caller's own data, and none was discoverable without reading the SQL. The
+shape to check on any future field: **does the engine resolve a caller's null into something, and does the
+store then overwrite with it?**
 
 **Taken on the evidence rather than by ruling**, after the owner had chosen to fix the parallel `Inherit`
 defect and declined three invitations to rule on this one. **Reverting is deleting one `COALESCE` per

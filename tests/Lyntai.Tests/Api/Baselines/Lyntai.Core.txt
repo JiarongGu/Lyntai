@@ -1831,10 +1831,10 @@ sealed class Lyntai.Memory.GraphNode
     ToString() : String
     VolumeAge : Double
 sealed class Lyntai.Memory.GraphNodeWrite
-    .ctor(String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, Double InitialStability, Double Advance, IReadOnlyDictionary<String,String> Metadata, MemorySignals Signals = default, Int64 ProvenanceRetrievability = 0, Int64 ProvenanceSalience = 0, Boolean GradeStated = true)
+    .ctor(String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, Double InitialStability, Double Advance, IReadOnlyDictionary<String,String> Metadata, MemorySignals Signals = default, Int64 ProvenanceRetrievability = 0, Int64 ProvenanceSalience = 0, Boolean GradeStated = true, Boolean HeadlineStated = true)
     Advance : Double
     Content : String
-    Deconstruct(String& Engine, String& TaskKey, String& Scope, String& Headline, String& Content, MemoryGrade& Grade, Double& InitialStability, Double& Advance, IReadOnlyDictionary`2& Metadata, MemorySignals& Signals, Int64& ProvenanceRetrievability, Int64& ProvenanceSalience, Boolean& GradeStated) : Void
+    Deconstruct(String& Engine, String& TaskKey, String& Scope, String& Headline, String& Content, MemoryGrade& Grade, Double& InitialStability, Double& Advance, IReadOnlyDictionary`2& Metadata, MemorySignals& Signals, Int64& ProvenanceRetrievability, Int64& ProvenanceSalience, Boolean& GradeStated, Boolean& HeadlineStated) : Void
     Engine : String
     Equals(GraphNodeWrite other) : Boolean
     Equals(Object obj) : Boolean
@@ -1842,6 +1842,7 @@ sealed class Lyntai.Memory.GraphNodeWrite
     Grade : MemoryGrade
     GradeStated : Boolean
     Headline : String
+    HeadlineStated : Boolean
     InitialStability : Double
     Metadata : IReadOnlyDictionary<String,String>
     ProvenanceRetrievability : Int64

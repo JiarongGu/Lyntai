@@ -161,7 +161,11 @@ public sealed class PostgresMemoryGraphStore(
                     @now, @position, 0, @stability, @difficulty, @ordinal, @chars, @now,
                     @provenanceRetrievability, @provenanceSalience)
             ON CONFLICT (engine, task_key, scope, content_hash)
-                DO UPDATE SET last_recalled_position = @position, headline = @headline,
+                DO UPDATE SET last_recalled_position = @position,
+                              -- an AUTHORED headline survives a refresh that does not restate it:
+                              -- the engine derives one from the content when the caller supplies
+                              -- none, and overwriting with that discards the caller's own text
+                              headline = CASE WHEN @headlineStated THEN @headline ELSE lyntai_memory_node.headline END,
                               -- only a CALLER-NAMED grade overwrites; see the SQLite twin and
                               -- GraphNodeWrite.GradeStated for why "not stated" had to stop meaning
                               -- "stated as ordinary"
@@ -188,7 +192,7 @@ public sealed class PostgresMemoryGraphStore(
             engine = write.Engine, taskKey = write.TaskKey, scope = write.Scope,
             headline = write.Headline, content = write.Content, hash, grade = (int)write.Grade,
             metadata, signals, salience, difficulty, hasDifficultySignal, now, position = totals.Position,
-            gradeStated = write.GradeStated,
+            gradeStated = write.GradeStated, headlineStated = write.HeadlineStated,
             stability = write.InitialStability, ordinal = totals.Ordinal, chars = totals.Chars,
             provenanceRetrievability = write.ProvenanceRetrievability, provenanceSalience = write.ProvenanceSalience,
         }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);

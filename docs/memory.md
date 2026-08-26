@@ -665,7 +665,8 @@ Each of these cost a real measurement to find.
   If you added a defensive "always restate the grade" to work around it, it is now belt-and-braces rather
   than load-bearing — and harmless to keep.
 - **A re-remember applies several update rules to the fields around the content**, and they are worth
-  knowing together: `Headline` is overwritten; `Grade` is overwritten only when you NAME one; `Metadata` and
+  knowing together. **The rule for everything you supply is the same: say it and it lands, leave it out and
+  what is stored survives.** `Headline` and `Grade` are overwritten only when you NAME one; `Metadata` and
   `Signals` (and salience) keep what is stored when you supply nothing and REPLACE it wholesale when you do;
   `Difficulty` changes only when the signals bag names one; and `Stability`, `provenance_retrievability` and
   `CreatedAt` are never revisited — stability is what the retention policy has learned, and a re-remember is

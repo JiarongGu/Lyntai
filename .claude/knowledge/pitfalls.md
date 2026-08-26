@@ -342,6 +342,27 @@ the tests) while being wrong. Skim before touching the relevant area.
   XML docs — and where a guess would COST something (codex reads an unrecognized subcommand as a prompt and
   spends a turn), refuse instead of guessing, and refuse instead of silently ignoring. A safety claim that
   overreaches is itself a documented-not-measured surface (`docs/DECISIONS.md` D35).
+- **When one layer RESOLVES a caller's "not stated" into a concrete value, the next layer cannot tell it
+  from a value the caller chose — and writing it back destroys their data silently.** Measured 2026-08-26,
+  **three times in one subsystem** (`docs/DECISIONS.md` **D91**, `docs/FIXES.md`).
+  `GraphMemoryEngine` turned `MemoryGrade.Inherit` into `Associative`, a null `Headline` into a truncation
+  of the content, and passed both to a store whose upsert overwrote unconditionally. So refreshing a fact
+  demoted it out of the authoritative grade, and replaced an authored headline with a machine-made one.
+  `Metadata` was the same family from the other side: the store simply ignored it, so a correction was
+  dropped.
+  <br>**Every one was silent, destroyed the caller's own data, and was undiscoverable without reading the
+  SQL** — and the fix in each case is to carry the DISTINCTION, not the resolved value: `GradeStated`,
+  `HeadlineStated`, `COALESCE(@metadata, stored)`.
+  <br>**The generalisation, and the reason this is one entry rather than three:** a default that means
+  "decide for me" is information, and resolving it early throws that information away. Ask of any field a
+  caller may omit — **does some layer turn the omission into a value, and does a later layer then persist
+  it as though it were chosen?**
+  <br>**Two of the three were found only by looking**, which is the part worth copying. The first was found
+  by asking what a re-remember overwrites; the second and third by this document's own §"Copying a rule
+  copies its assumptions" advice — *grep your own diff for the other places the distinction applies* — run
+  against the session that had just fixed the first. A rule articulated and not applied to its own author's
+  work is a rule that catches one instance.
+
 - **A NEGATIVE result cached in a process-lifetime cache is permanent, and it is the one answer that had no
   business being remembered.** Measured 2026-08-26 (`docs/FIXES.md`).
   `ProcessRunner.ResolveCommandPath` memoized `Locate(cmd) ?? cmd` into a static `ConcurrentDictionary` —

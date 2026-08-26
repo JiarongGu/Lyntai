@@ -253,7 +253,7 @@ public sealed class GraphMemoryEngine(
                 write.Metadata, signals,
                 ProvenanceRetrievability: (long)_policy.Provenance,
                 ProvenanceSalience: salienceProvenance,
-                GradeStated: stated),
+                GradeStated: stated, HeadlineStated: write.Headline is not null),
             ct).ConfigureAwait(false);
 
         await EnrichAsync(id, write, search, ct).ConfigureAwait(false);

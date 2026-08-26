@@ -1450,6 +1450,32 @@ public static class MemoryGraphStoreContract
         Assert.Equal(MemoryGrade.Authoritative, (await store.GetAsync(engine, id))!.Grade);
     }
 
+    /// <summary><b>An UNSTATED headline keeps the stored one; a stated headline overwrites it.</b> The same
+    /// rule as <see cref="GraphNodeWrite.GradeStated"/>, on the same grounds and found the same way: the
+    /// engine DERIVES a headline when the caller supplies none, so overwriting unconditionally replaced an
+    /// author's own one-line summary with a truncation of the content.
+    /// <para>Both directions, because correcting a headline has to keep working — a store that simply never
+    /// updated it would pass the first half.</para></summary>
+    public static async Task An_unstated_headline_keeps_the_stored_one_and_a_stated_one_overwrites(
+        IMemoryGraphStore store, string key)
+    {
+        const string engine = "headlines";
+        const string content = "the production database is db-prod-1 and reachable from the deploy subnet";
+
+        var id = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "prod DB", content,
+            MemoryGrade.Associative, Stability, 1, null));
+
+        // UNSTATED: the engine derived this one, so it must not displace the author's
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", content, content,
+            MemoryGrade.Associative, Stability, 1, null, HeadlineStated: false));
+        Assert.Equal("prod DB", (await store.GetAsync(engine, id))!.Headline);
+
+        // STATED: an authored correction lands
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", "prod DB (subnet only)", content,
+            MemoryGrade.Associative, Stability, 1, null));
+        Assert.Equal("prod DB (subnet only)", (await store.GetAsync(engine, id))!.Headline);
+    }
+
     /// <summary><b>No read crosses a <c>taskKey</c>.</b> The isolation every other guarantee is stated
     /// inside — "an authoritative fact is returned for a query it is relevant to" means nothing if the query
     /// can reach another tenant's scope.

@@ -146,6 +146,15 @@ public sealed record GraphNode(
 /// <para><b>A model's SUGGESTED grade counts as unstated.</b> An annotator may advise what matters and must
 /// never overrule what the application already decided, which is <c>RememberAsync</c>'s existing rule
 /// applied across time rather than only within one call.</para></param>
+/// <param name="HeadlineStated">Whether the CALLER authored <paramref name="Headline"/>, as opposed to the
+/// engine deriving one. Same rule and same reason as <paramref name="GradeStated"/>: a store applies it on
+/// an INSERT either way — it cannot derive a headline itself — and on a conflict overwrites the stored one
+/// only when this is <see langword="true"/>.
+/// <para><b>The third field to need this, which is why the two are documented as one rule.</b>
+/// <c>MemoryWrite.Headline</c> is null-means-unstated, the engine turns null into a TRUNCATION of the
+/// content, and the store then overwrote unconditionally — so an application that authored a headline and
+/// later refreshed the fact without restating it had its own text silently replaced by a machine-made one,
+/// with no way back. <c>docs/DECISIONS.md</c> <b>D91</b>.</para></param>
 /// <param name="ProvenanceSalience">Every contributing salience policy's own
 /// <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy.Provenance"/>, already OR'd (through
 /// <see cref="Lyntai.Memory.MemoryProvenance.Pack(System.Collections.Generic.IEnumerable{long})"/>) into one
@@ -157,7 +166,7 @@ public sealed record GraphNodeWrite(
     string Engine, string TaskKey, string Scope, string Headline, string Content, MemoryGrade Grade,
     double InitialStability, double Advance, IReadOnlyDictionary<string, string>? Metadata,
     MemorySignals Signals = default, long ProvenanceRetrievability = 0, long ProvenanceSalience = 0,
-    bool GradeStated = true);
+    bool GradeStated = true, bool HeadlineStated = true);
 
 /// <summary>A reinforcement to record against one node. The store stamps the current position — a recall
 /// does not advance it, so "now" is simply wherever the engine already is.
