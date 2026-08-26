@@ -1236,6 +1236,12 @@ internal static class MemoryPolicySweep
 
         public SqliteConnectionFactory Factory { get; }
 
+        /// <summary>The db file, so a study whose subject is COST can measure it on disk. Every other sweep
+        /// here reports recall quality and never needs it.
+        /// <para>NOT named <c>Path</c>: that shadows <see cref="System.IO.Path"/> for the whole class, and
+        /// the field initializer below calls <c>Path.Combine</c>.</para></summary>
+        public string DbPath => _path;
+
         public void Dispose()
         {
             using (var c = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _path }.ToString()))

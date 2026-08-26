@@ -447,12 +447,14 @@ owned outside the deployment; `DECISIONS.md` D30) /
   own prediction, and the log can only ever contain successes) — `DECISIONS.md` **D51**'s 2026-08-12
   amendment. A sensitivity curve makes no claim about the true value, so neither objection touches it. Tens of
   minutes, so out of `verify` for the same reason.
-- **Every OTHER `memory-*` command is a one-factor sweep on that same harness**, all out of `verify` for the
+- **Every OTHER `memory-*` command is a one-factor sweep**, all out of `verify` for the
   same cost reason, and all listed here because a roster naming a SUBSET is how a reader learns the roster is
   not one (the same drift `dev.mjs`'s own usage line had, fixed in 208a7ca — on
   `backup/pre-squash-2026-08-14`, D61). **The authoritative list is `node devtools/dev.mjs` with no
-  argument**, which derives it; every `memory-*` command there is a sweep, and exactly one of them
-  (`memory-sweep`, the 2×2) is not one-factor. This paragraph said "six more … three of nine" while
+  argument**, which derives it. Two of them are exceptions to the sentence above and each is exceptional in
+  a different way: `memory-sweep` (the 2×2) is not one-factor, and **`memory-scale` does not use that
+  corpus harness at all** — its subject is COST, so it generates plain entries and reports no miss or
+  pollution. This paragraph said "six more … three of nine" while
   enumerating seven of ten, then led with "Seven more" while enumerating eight — twice the same drift, which
   is why it now names no number at all:
   `memory-reinforcement` isolates law 3's
@@ -480,6 +482,15 @@ owned outside the deployment; `DECISIONS.md` D30) /
   values**, not how often salience fired, and refuses to interpret its own table when that count is 1.
   Its finding: `SalienceWeight = 0` beats the shipped `1.0` on every shape, so salience's RANKING voice is a
   net cost and **D45's argument was right without a measurement**. The default did NOT move on one run.
+  <br>**`memory-scale`** (2026-08-26) is the odd one out and says so in its own header: **its subject is
+  COST, not recall quality**, so it reports latency, throughput and bytes and has no ground truth at all.
+  It closes the blind spot `docs/memory.md` §8 concedes outright — *"nothing exceeds a few hundred
+  entries"* — which `MemoryRecallBenchmarks` did NOT already cover: that one runs 1k/10k/100k against
+  `SqliteMemoryStore`, the KEYWORD store, so the graph engine's own write and read paths were unmeasured at
+  any size. Two arms (`shipped` / `read-only`) exist to SPLIT a default recall's latency into the read and
+  the write-back it performs afterwards. It runs **sequentially** where every other sweep fans out, because
+  contention cannot bias a rate and biases a latency silently — and it reports a **hit-rate** control,
+  because a recall matching nothing is fast and a table of fast empty recalls reads as good news.
   `node devtools/dev.mjs` with no argument is the authoritative list; this section is
   a curated one and says why each entry earns its place.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.

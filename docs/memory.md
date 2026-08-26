@@ -661,8 +661,22 @@ Each of these cost a real measurement to find.
 
 Stated so nobody mistakes silence for a result.
 
-- **Scale.** Nothing exceeds a few hundred entries, single-threaded. Salience's admission priority is inert
-  in every test because no arm creates budget pressure.
+- **Scale — MEASURED 2026-08-26, and no longer the blank it was.** `node devtools/dev.mjs memory-scale`
+  runs the graph engine at 1k / 10k / 100k entries on SQLite. The headline: **write throughput does not
+  degrade** — 210–260 entries/s at every size, unchanged across 100× the store — and **recall grows
+  sub-linearly**, p50 `10.4ms → 18.5ms → 42.0ms` with p99 `77ms` at 100k. Storage is ~1 KB per entry
+  (100 MiB at 100k) and a cold first recall costs 21 → 49ms. Every cell reports a hit-rate control, and it
+  was `1.000` throughout — the latencies are real recalls, not fast misses.
+  <br>**What is still NOT measured, stated separately because the numbers above make it easy to assume
+  otherwise:** recall QUALITY at scale (that corpus has no ground truth and none of this speaks to miss or
+  pollution), concurrency (single-threaded throughout), Postgres, and any model in the loop — an embedder,
+  annotator or verifier would dominate every number here and none is wired.
+  <br>**One number the run refused to publish**, which is the honest half: the sweep splits a default
+  recall's latency into the read and the write-back it performs afterwards, and at 100k the `read-only` arm
+  measured *slower* — which it cannot be, since it does strictly less work. One cell per arm carries no
+  variance estimate, so the sweep now says "not readable" there rather than printing an impossible
+  percentage. `--repeat` is what settles it.
+- **Salience's admission priority** is inert in every test because no arm creates budget pressure.
 - **Real-world recall quality.** The corpus defines relevance lexically and is synthetic throughout.
 - **Parameter fitting.** Every `DsrOptions` constant is FSRS's published default, fitted against an external
   corpus, never against this library's own reviews — **with one exception, `ReinforceGain`, which 3.0 moved

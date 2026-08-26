@@ -72,6 +72,14 @@ if (args.Contains("--enrichment"))
 if (args.Contains("--salience-weight"))
     return await MemorySalienceWeightSweep.RunAsync(args.Contains("--languages"));
 
+// `node devtools/dev.mjs memory-scale` → --scale. The one blind spot docs/memory.md §8 concedes outright:
+// nothing in this subsystem had exceeded a few hundred entries. The ONLY sweep here whose subject is COST
+// rather than recall quality — which is also why it runs sequentially where the others fan out, since
+// contention biases a latency and cannot bias a rate.
+// `--sizes 1000,10000` overrides the 1k/10k/100k ladder, so the harness can be exercised in seconds.
+if (args.Contains("--scale"))
+    return await MemoryScaleSweep.RunAsync(args);
+
 // A `--evidence` study lived here on 2026-08-12 and was removed with the `GraphMemoryOptions.ReinforceOn`
 // seam it drove — see that option's own reverted-here note. Its FINDING survives in TASKS.md Part 64: the
 // engine's reinforcement conflates an age RESET with a stability GROWTH, and those pull in opposite

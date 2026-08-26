@@ -285,6 +285,18 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--salience-weight', ...args]);
     break;
 
+  // memory-scale — the blind spot docs/memory.md §8 concedes outright: nothing in this subsystem had
+  // exceeded a few hundred entries. MemoryRecallBenchmarks does run 1k/10k/100k and runs them against
+  // SqliteMemoryStore — the KEYWORD store — so the graph engine's own write and read paths were unmeasured
+  // at any size. The ONLY sweep here whose subject is COST rather than recall quality, which is why it says
+  // so loudly and reports no miss or pollution at all: it has no ground truth and is not the quality
+  // instrument. Runs SEQUENTIALLY where every other sweep fans out — contention cannot bias a rate and
+  // biases a latency silently.
+  case 'memory-scale':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--scale', ...args]);
+    break;
+
 
   case 'install-hooks':
     run('git', ['config', 'core.hooksPath', 'devtools/hooks']);
