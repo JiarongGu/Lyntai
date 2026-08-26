@@ -100,6 +100,25 @@ internal static class AssertionResolver
         var nodes = await store.SeedAsync(engine, taskKey, scope, query: null, limit: int.MaxValue, ct)
             .ConfigureAwait(false);
 
+        return Resolve(nodes, canonicalKey, asOf);
+    }
+
+    /// <summary>
+    /// The resolution itself, over a candidate set someone else chose — the half of
+    /// <see cref="HistoryAsync"/> that does no I/O.
+    ///
+    /// <para><b>Separated so a BOUNDED candidate set can be resolved too.</b> The method above scans the
+    /// whole scope, which no production caller can afford; what a real one has is whatever a limited read
+    /// returned. Resolving those through the identical code is the only way to attribute a wrong answer to
+    /// the RETRIEVAL rather than to the resolver — and that attribution is the whole point of measuring
+    /// it.</para>
+    /// </summary>
+    /// <param name="nodes">The candidates to resolve over.</param>
+    /// <param name="canonicalKey">The fact slot to resolve.</param>
+    /// <param name="asOf">The instant to judge validity at.</param>
+    internal static IReadOnlyList<Assertion> Resolve(
+        IReadOnlyList<GraphNode> nodes, string canonicalKey, DateTimeOffset asOf)
+    {
         var claims = nodes
             .Where(n => Read(n, Keys.CanonicalKey) == canonicalKey)
             .Select(n => (Node: n, From: Instant(n, Keys.ValidFrom), At: Instant(n, Keys.RecordedAt)))
