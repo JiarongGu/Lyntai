@@ -97,6 +97,24 @@ public class GraphSimilarityTests
     }
 
     [Fact]
+    public async Task A_failing_vector_STORE_costs_links_not_the_entry()
+    {
+        // The sibling of the embedder fact above, and a DIFFERENT link in the chain: a working embedder
+        // produces a vector and the INDEX is what refuses it. The embedder case short-circuits in
+        // SearchAsync before enrichment runs at all, so it never exercised the store's own write.
+        //
+        // "A partial projection failure cannot lose the canonical write" is the invariant, and it is the one
+        // this engine's whole best-effort posture rests on: enrichment sits ON TOP of a model-free floor.
+        var engine = Engine(new FakeEmbedder(), new WriteHostileVectorStore());
+
+        var reference = await engine.RememberAsync(new MemoryWrite("t", "s", "still stored"));
+
+        Assert.NotNull(reference.Id);
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "still"));
+        Assert.Single(recall.Items);
+    }
+
+    [Fact]
     public async Task An_unrelated_entry_is_not_linked()
     {
         // without a floor a new entry links to its k nearest however unrelated, which in a young graph
@@ -117,5 +135,25 @@ public class GraphSimilarityTests
         public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
             CancellationToken ct = default) =>
             throw new InvalidOperationException("embedding endpoint is down");
+    }
+
+    /// <summary>A vector store that SEARCHES fine and refuses to be written to — so enrichment gets past the
+    /// shared search and fails at the index, which is the half a failing embedder can never reach.</summary>
+    private sealed class WriteHostileVectorStore : IVectorStore
+    {
+        private readonly InMemoryVectorStore _inner = new();
+
+        public Task UpsertAsync(string collection, string id, float[] vector, string payload,
+            CancellationToken ct = default) =>
+            throw new InvalidOperationException("the vector store is read-only");
+
+        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
+            CancellationToken ct = default) => _inner.SearchAsync(collection, query, k, ct);
+
+        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) =>
+            _inner.DeleteAsync(collection, id, ct);
+
+        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
+            _inner.RemoveCollectionAsync(collection, ct);
     }
 }

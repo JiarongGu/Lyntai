@@ -7,6 +7,33 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-26 — a failing similarity index threw out of `PruneAsync` after the nodes were already deleted
+
+**Symptom.** With a vector store that refuses writes, `GraphMemoryEngine.PruneAsync` removed the entries
+from the graph store and then threw — so the caller got an exception instead of the count, and no way to
+tell that the prune had in fact succeeded. `IPrunableMemory.PruneAsync` documents itself as best-effort
+capacity management, where "removing fewer entries than hoped is a deferred cost rather than a defect".
+
+**Root cause.** Introduced by the fix directly above it, on the same day. That change ordered the two
+removal verbs deliberately opposite ways — a forget clears the index FIRST so a failure is retryable, a
+prune clears it AFTER because there the cheap failure is an orphan — and then gave both the same uncaught
+propagation. The ORDER was asymmetric and the ERROR HANDLING was not. The doc comment had already argued
+the asymmetry in as many words; the `try`/`catch` simply did not implement it.
+
+**Fix.** `RemoveVectorsAsync` (the prune-side cleanup, and its only two callers are prune paths) is now
+best-effort: it logs a warning naming how many entries were removed and left as orphans, and rethrows only
+`OperationCanceledException`. `ForgetVectorsAsync` is unchanged and still fails loudly, which is the whole
+point of the split.
+
+**Verification.** `MemoryRemovalCompletenessTests`, two facts written RED-first against a vector store whose
+every removal throws: a forget FAILS and leaves the nodes intact so the call is retryable (already correct),
+and a prune REPORTS its count rather than throwing (was red). `verify` 15/15, 3293 passed / 3314 total.
+
+**Introduced by.** `c458ace`, the entry below — found by reviewing what that commit documented and never
+tested, rather than by a consumer.
+
+---
+
 ## 2026-08-26 — graph memory's removal verbs never reached the similarity index, so `ForgetAsync` left the content readable
 
 **Symptom.** With an `IEmbedder` and an `IVectorStore` wired, `GraphMemoryEngine.ForgetAsync("t", "s")` —

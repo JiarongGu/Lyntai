@@ -323,6 +323,60 @@ internal sealed class ReviewLogHostileGraphStore : IMemoryGraphStore
         _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
 }
 
+/// <summary>A graph store that fails ONLY when recording SUBJECTS — the third member of this family, and
+/// the one that isolates the subject INDEX from the annotator that feeds it.
+/// <para>A failing annotator is already covered
+/// (<c>MemorySubjectLinkingTests.A_failing_annotator_still_stores_the_fact</c>) and is a different link in
+/// the chain: there the model never answers, so nothing reaches the store. Here the model answers perfectly
+/// and the projection refuses the write, which is the half that catch has never been asked about.</para></summary>
+internal sealed class SubjectHostileGraphStore : IMemoryGraphStore
+{
+    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
+
+    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
+        _inner.UpsertAsync(write, ct);
+
+    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+        string? query, int limit, CancellationToken ct = default) =>
+        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
+
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, IReadOnlyCollection<long> ids,
+        int limit, CancellationToken ct = default) => _inner.NeighboursAsync(engine, ids, limit, ct);
+
+    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
+        _inner.GetAsync(engine, id, ct);
+
+    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+        CancellationToken ct = default) => _inner.TouchAsync(engine, touches, ct);
+
+    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
+        CancellationToken ct = default) => _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
+
+    public Task<int> PruneAsync(string engine, string taskKey, string? scope, double? maxAgeOverStability,
+        TimeSpan? olderThan, CancellationToken ct = default) =>
+        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
+
+    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
+        _inner.DeleteAsync(engine, ids, ct);
+
+    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
+        _inner.ForgetAsync(engine, taskKey, scope, ct);
+
+    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+        CancellationToken ct = default) => _inner.RecordReviewsAsync(engine, reviews, cap, ct);
+
+    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
+        _inner.ReviewsAsync(engine, ct);
+
+    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+        CancellationToken ct = default) =>
+        throw new InvalidOperationException("the subject index is unavailable");
+
+    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+        string subject, int limit, CancellationToken ct = default) =>
+        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+}
+
 /// <summary>In-process <see cref="ISemanticMemory"/> whose "similarity" is substring containment, so a
 /// test needs no embedder and spends no tokens.</summary>
 internal sealed class FakeSemanticMemory : ISemanticMemory

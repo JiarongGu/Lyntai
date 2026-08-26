@@ -881,19 +881,37 @@ public sealed class GraphMemoryEngine(
         }
     }
 
-    /// <summary>Delete the vector payloads of nodes a prune removed, keyed on each node's OWN task and scope
-    /// so a scope-spanning call reaches every collection it touched.</summary>
+    /// <summary>Delete the vector payloads of nodes a PRUNE removed, keyed on each node's OWN task and scope
+    /// so a scope-spanning call reaches every collection it touched.
+    /// <para><b>BEST-EFFORT, unlike <see cref="ForgetVectorsAsync"/>, and the asymmetry runs all the way
+    /// through.</b> A prune clears the index AFTER the store, so by the time this can fail the nodes are
+    /// already gone: throwing would lose the COUNT and leave the caller unable to tell that the prune had in
+    /// fact succeeded. The honest degradation is an orphaned vector — which is precisely the state every
+    /// prune left behind before this existed — and <see cref="IPrunableMemory.PruneAsync"/> is best-effort
+    /// capacity management by contract, where "removing fewer entries than hoped is a deferred cost rather
+    /// than a defect". A FORGET is the opposite on every axis: index first, and a failure must surface.</para>
+    /// <para>Cancellation still propagates: that is the caller leaving, not a store fault.</para></summary>
     private async Task RemoveVectorsAsync(IReadOnlyList<GraphNode> removed, CancellationToken ct)
     {
         if (vectors is null || removed.Count == 0) return;
 
-        foreach (var node in removed)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            await vectors
-                .DeleteAsync(VectorCollection(node.TaskKey, node.Scope),
-                    node.Id.ToString(CultureInfo.InvariantCulture), ct)
-                .ConfigureAwait(false);
+            foreach (var node in removed)
+            {
+                ct.ThrowIfCancellationRequested();
+                await vectors
+                    .DeleteAsync(VectorCollection(node.TaskKey, node.Scope),
+                        node.Id.ToString(CultureInfo.InvariantCulture), ct)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "similarity index cleanup failed for {Engine}; {Count} entr(ies) were removed from the store "
+                + "and their vectors remain as orphans", Name, removed.Count);
         }
     }
 

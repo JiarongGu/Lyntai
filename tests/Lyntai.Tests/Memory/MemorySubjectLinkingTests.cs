@@ -145,6 +145,26 @@ public class MemorySubjectLinkingTests
         Assert.Contains(recall.Items, i => (i.Content ?? i.Headline)!.Contains("Alice", StringComparison.Ordinal));
     }
 
+    /// <summary><b>A failing subject INDEX must not fail the write either</b> — the other link in the same
+    /// chain, and the one the annotator fact above structurally cannot reach.
+    /// <para>There the model never answers, so nothing arrives at the store. Here a perfect annotator
+    /// answers and the projection refuses the write, which is the half that catch has never been asked
+    /// about. Same invariant as the similarity index's
+    /// (<c>GraphSimilarityTests.A_failing_vector_STORE_costs_links_not_the_entry</c>): a partial projection
+    /// failure costs CONNECTIONS, never the fact.</para></summary>
+    [Fact]
+    public async Task A_failing_subject_index_costs_links_not_the_entry()
+    {
+        var engine = new GraphMemoryEngine("subjects", new SubjectHostileGraphStore(),
+            agePolicies: [new PerWriteAgePolicy()], retrievability: new DsrRetrievability(),
+            annotation: new TableAnnotator(SpouseCluster()));
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", Introduces));
+
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "spouse", Limit: 10));
+        Assert.Contains(recall.Items, i => (i.Content ?? i.Headline)!.Contains("Alice", StringComparison.Ordinal));
+    }
+
     /// <summary>A suggested grade applies only when the caller did not state one — a model may advise what
     /// matters, never overrule what the application already decided.</summary>
     [Fact]

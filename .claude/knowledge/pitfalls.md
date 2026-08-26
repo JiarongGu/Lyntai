@@ -971,6 +971,16 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   pruning). And **derive a projection's address from the records being removed rather than matching a
   prefix** — `{engine}|{task}|{scope}` with a separator either field may contain means a sweep for task
   `"t"` also matches task `"t|x"`, and over-deleting is the one direction a removal must never err in.
+  <br>**Sequel the same day, in the fix itself: an asymmetry in ORDER needs the matching asymmetry in ERROR
+  HANDLING, and getting one without the other is worse than neither.** The fix ordered the two verbs
+  deliberately opposite ways and then gave both the same uncaught propagation — so a failing index threw out
+  of `PruneAsync` *after* the nodes were already deleted, losing the COUNT and leaving the caller unable to
+  tell that the prune had in fact succeeded. `IPrunableMemory` documents itself as best-effort ("removing
+  fewer entries than hoped is a deferred cost rather than a defect"), and the honest degradation there is
+  the orphan the code had just been written to avoid — which is fine, because it is exactly the state every
+  prune left behind before. The tell: **the doc comment already argued the asymmetry** ("the cheap failure
+  is an orphan rather than a residue") and the `try`/`catch` did not implement it. When you write down why
+  two paths differ, check every mechanism that expresses the difference, not just the one you were editing.
 
 ## Refactoring & namespace moves
 

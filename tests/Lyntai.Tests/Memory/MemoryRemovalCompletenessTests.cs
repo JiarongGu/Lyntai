@@ -203,6 +203,64 @@ public class MemoryRemovalCompletenessTests
         Assert.Equal(before, store.Seeds);
     }
 
+    [Fact]
+    public async Task A_failing_index_makes_a_FORGET_fail_loudly_and_leaves_the_nodes_retryable()
+    {
+        // The order's whole justification, asserted rather than left in prose. A forget clears the index
+        // FIRST, so an index outage must surface — and must leave the nodes intact, because a consent
+        // withdrawal that reported success over surviving content is the failure this exists to prevent.
+        // What the caller gets is an exception and an unchanged store, which is retryable.
+        var store = new InMemoryMemoryGraphStore();
+        var engine = Engine(new ThrowingVectorStore(), store: store);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "the recovery key is on the blue card"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => engine.ForgetAsync("t", "s"));
+
+        // nothing was half-removed: the entry is still there to be forgotten on the next attempt
+        Assert.NotEmpty(await store.SeedAsync("project/graph", "t", "s", null, 10));
+    }
+
+    [Fact]
+    public async Task A_failing_index_does_NOT_fail_a_prune_that_already_removed_the_nodes()
+    {
+        // THE MIRROR IMAGE, and the asymmetry is the point. PruneAsync is best-effort capacity management
+        // by its own contract -- "removing fewer entries than hoped is a deferred cost rather than a
+        // defect" -- and it clears the index AFTER the store, so by the time the index fails the nodes are
+        // already gone. Throwing there would lose the COUNT and leave the caller unable to tell that the
+        // prune had in fact succeeded; the honest degradation is an orphaned vector, which is exactly the
+        // state the whole store was in before any of this existed.
+        //
+        // The ORDER was asymmetric from the start and the ERROR HANDLING was not, which is the defect this
+        // fact was written to catch.
+        var store = new InMemoryMemoryGraphStore();
+        var engine = Engine(new ThrowingVectorStore(), new GraphMemoryOptions { MinRetrievability = 0.9 },
+            store);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a faint associative entry about widgets"));
+        await Crowd(engine, "t", 40);
+
+        var removed = await engine.PruneAsync("t", "s");
+
+        Assert.True(removed >= 1, $"the prune succeeded in the store and must report it; got {removed}");
+        Assert.Empty(await store.SeedAsync("project/graph", "t", "s", "faint", 10));
+    }
+
+    /// <summary>An <see cref="IVectorStore"/> whose every operation fails — a backend that is down, which is
+    /// the condition both removal verbs have to answer for and neither had been asked about.</summary>
+    private sealed class ThrowingVectorStore : IVectorStore
+    {
+        public Task UpsertAsync(string collection, string id, float[] vector, string payload,
+            CancellationToken ct = default) => Task.CompletedTask;   // the WRITE succeeds; removal is the subject
+
+        public Task<IReadOnlyList<VectorMatch>> SearchAsync(string collection, float[] query, int k,
+            CancellationToken ct = default) => Task.FromResult<IReadOnlyList<VectorMatch>>([]);
+
+        public Task DeleteAsync(string collection, string id, CancellationToken ct = default) =>
+            throw new InvalidOperationException("the vector store is unavailable");
+
+        public Task RemoveCollectionAsync(string collection, CancellationToken ct = default) =>
+            throw new InvalidOperationException("the vector store is unavailable");
+    }
+
     /// <summary>An <see cref="IVectorStore"/> that is deliberately NOT an
     /// <see cref="IListableVectorStore"/> — the BYO shape the fallback exists for.</summary>
     private sealed class UnlistableVectorStore : IVectorStore
