@@ -1416,4 +1416,75 @@ public static class MemoryGraphStoreContract
 
         Assert.Equal(0, removed);
     }
+
+    /// <summary><b><see cref="GraphNodeWrite.Metadata"/> round-trips, through BOTH readers.</b>
+    /// <para>Untested until 2026-08-26: the contract passed <c>Metadata: null</c> at every one of its call
+    /// sites, so "app-owned extra data" was persisted by three backends and asserted by none. It is the one
+    /// open-ended field a caller can put anything in, which makes it the natural carrier for a prototype —
+    /// and a prototype resting on an untested round-trip is resting on nothing.</para>
+    /// <para>Both readers, because they are different queries: <see cref="IMemoryGraphStore.GetAsync"/>
+    /// selects one row and <see cref="IMemoryGraphStore.SeedAsync"/> projects a candidate set, and a column
+    /// missing from one projection is exactly the silent null <c>storage.md</c> warns about.</para></summary>
+    public static async Task Metadata_round_trips_through_both_readers(IMemoryGraphStore store, string key)
+    {
+        const string engine = "meta";
+        var metadata = new Dictionary<string, string>
+        {
+            ["lyntai.canonical_key"] = "project:phoenix:production-database",
+            ["lyntai.valid_from"] = "2026-07-01T00:00:00Z",
+        };
+
+        var id = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s",
+            "the production database is db-prod-1", "the production database is db-prod-1",
+            MemoryGrade.Associative, Stability, 1, metadata));
+
+        var byId = await store.GetAsync(engine, id);
+        Assert.NotNull(byId!.Metadata);
+        Assert.Equal("project:phoenix:production-database", byId.Metadata!["lyntai.canonical_key"]);
+        Assert.Equal("2026-07-01T00:00:00Z", byId.Metadata["lyntai.valid_from"]);
+
+        var seeded = Assert.Single(await store.SeedAsync(engine, key, "s", "production", 10));
+        Assert.NotNull(seeded.Metadata);
+        Assert.Equal("project:phoenix:production-database", seeded.Metadata!["lyntai.canonical_key"]);
+    }
+
+    /// <summary><b><see cref="GraphNodeWrite.Metadata"/> is WRITE-ONCE: a re-remember of identical content
+    /// keeps what the first write stored.</b>
+    ///
+    /// <para><b>Recorded as DISCOVERED behaviour, not as a designed guarantee</b> — which is why this
+    /// paragraph exists rather than a confident one. All three backends agree, so it is a real contract
+    /// rather than one backend's accident; but nothing had asserted it, and the SQL says it by OMISSION:
+    /// <c>metadata</c> is in the INSERT column list and absent from <c>DO UPDATE SET</c>, where the
+    /// neighbouring fields that are deliberately absent (<c>stability</c>,
+    /// <c>provenance_retrievability</c>) each carry a comment saying so and this one does not. Whether
+    /// write-once is RIGHT is an open question; that the three backends answer it the same way is what this
+    /// fact protects.</para>
+    ///
+    /// <para><b>The consequence for anything built on this field, stated because it is not obvious:</b> a
+    /// caller cannot revise what it knows about a fact whose TEXT has not changed — closing an assertion's
+    /// validity in place is not available. A revision has to be a new entry, which is append-only by
+    /// construction and happens to be the shape an evidence ledger wants anyway.</para>
+    ///
+    /// <para>Distinct from <see cref="GraphNodeWrite.Signals"/>' rule, which keeps stored values only when
+    /// the incoming bag is EMPTY. Metadata keeps them even when the incoming bag is full. Two open-ended
+    /// dictionaries on one record with different update rules is exactly what a reader assumes is
+    /// uniform.</para></summary>
+    public static async Task Metadata_is_write_once_across_a_re_remember(IMemoryGraphStore store, string key)
+    {
+        const string engine = "meta";
+        const string content = "the production database is db-prod-1";
+
+        var first = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", content, content,
+            MemoryGrade.Associative, Stability, 1,
+            new Dictionary<string, string> { ["lyntai.valid_to"] = "open" }));
+
+        var second = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", content, content,
+            MemoryGrade.Associative, Stability, 1,
+            new Dictionary<string, string> { ["lyntai.valid_to"] = "2026-07-31T23:59:59Z" }));
+
+        Assert.Equal(first, second);   // the same row — a re-remember, not a second fact
+
+        var node = await store.GetAsync(engine, first);
+        Assert.Equal("open", node!.Metadata!["lyntai.valid_to"]);
+    }
 }
