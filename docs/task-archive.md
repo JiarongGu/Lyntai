@@ -7025,3 +7025,44 @@ across time rather than only within one call.
 the honest limit of an additive fix to a record three backends read.
 
 **Mechanism and verification: `docs/FIXES.md` 2026-08-26.**
+
+---
+
+## Part 102 — what a RE-REMEMBER overwrites, all four rules (2026-08-26)
+
+_Opened in Part 99 as the second Phase-1 gap. Closed in two steps: the four rules were pinned and
+documented, and the ONE question that raised — rather than answered — became Part 101 and was fixed._
+
+- [x] **`Silent overwrite = 0` was settled for METADATA and not for content.** `Metadata` is pinned
+  write-once across a re-remember on all three backends (Part 97, **D90**). What is NOT pinned is what a
+  re-remember does to everything else a caller supplies: `Headline` and `Grade` ARE updated by the SQLite
+  upsert's `DO UPDATE SET`, `Stability` and `provenance_retrievability` deliberately are not, and `Signals`
+  follows its own "empty means no opinion" rule. **Four different update rules on one write path, and one
+  of them is asserted.** A caller re-remembering an unchanged fact with a corrected headline has no
+  documented answer for what happens.
+  <br>**PARTIALLY CLOSED 2026-08-26** — `MemoryReRememberTests` now pins all four rules and
+  `docs/memory.md` §7 states them, so nothing here is undocumented any more. What remains open is the ONE
+  question those facts raised rather than answered, and it is the item above: whether `Inherit` on a
+  re-remember should mean "the engine's role" (today) or "whatever this entry already is".
+  <br>The other three rules look right on inspection and are now merely *asserted* rather than *argued* —
+  worth a second opinion, not a change.
+
+**CLOSED 2026-08-26.** Part 101 answered the open question (`Inherit` now inherits from the ENTRY), and
+with it the last of the four rules stopped being merely asserted. The set as it now stands, all pinned by
+`MemoryReRememberTests` and stated in `docs/memory.md` §7:
+
+| field | on a re-remember |
+|---|---|
+| `Headline` | overwritten |
+| `Grade` | overwritten only when the CALLER named one (Part 101) |
+| `Signals`, salience, its provenance | kept when the incoming bag is EMPTY — "no opinion" |
+| `Difficulty` | overwritten only when the bag NAMES a difficulty |
+| `Stability`, `provenance_retrievability`, `CreatedAt`, `Metadata` | never revisited |
+
+**The reason the set is worth stating together** rather than four separate facts: they are four different
+answers to one question on one write path, and only side by side is it visible that `Headline` and
+`Metadata` — both plain caller-supplied data, adjacent on the same record — behave oppositely. That
+asymmetry is asserted in a single test for the same reason.
+
+**Still deliberately open elsewhere:** whether `Metadata` write-once is the RIGHT answer (**D90** records
+it as unresolved). This part closes the question of what the rules ARE, not whether each is best.

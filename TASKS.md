@@ -19,7 +19,7 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**Three items are startable, all in Part 99**, and the rest need something this repository does not have (a
+**Two items are startable, both in Part 99**, and the rest need something this repository does not have (a
 key, a model download, a CLI install, a vendor pick, or a deployment's own data). That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
 two paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
@@ -372,20 +372,6 @@ the proposal. All three are startable today — no key, no model, no download._
   trusting the caller and say so louder. `docs/memory.md` §7 says so today.
   <br>The test is written so this cannot change by accident: scope traversal and it fails, forcing the
   choice into the open.
-
-- [ ] **`Silent overwrite = 0` is settled for METADATA and not for content.** `Metadata` is pinned
-  write-once across a re-remember on all three backends (Part 97, **D90**). What is NOT pinned is what a
-  re-remember does to everything else a caller supplies: `Headline` and `Grade` ARE updated by the SQLite
-  upsert's `DO UPDATE SET`, `Stability` and `provenance_retrievability` deliberately are not, and `Signals`
-  follows its own "empty means no opinion" rule. **Four different update rules on one write path, and one
-  of them is asserted.** A caller re-remembering an unchanged fact with a corrected headline has no
-  documented answer for what happens.
-  <br>**PARTIALLY CLOSED 2026-08-26** — `MemoryReRememberTests` now pins all four rules and
-  `docs/memory.md` §7 states them, so nothing here is undocumented any more. What remains open is the ONE
-  question those facts raised rather than answered, and it is the item above: whether `Inherit` on a
-  re-remember should mean "the engine's role" (today) or "whatever this entry already is".
-  <br>The other three rules look right on inspection and are now merely *asserted* rather than *argued* —
-  worth a second opinion, not a change.
 
 - [ ] **`verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted mid-run.** Observed
   twice in roughly ten `verify` runs on 2026-08-26, and **not once in any standalone `node devtools/dev.mjs
