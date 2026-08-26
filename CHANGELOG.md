@@ -12,7 +12,30 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ## Unreleased
 
+### Breaking
+
+- **`GraphNodeWrite` gains a trailing `bool GradeStated = true`**, which widens its constructor and its
+  `Deconstruct`. Additive for anyone constructing it by name or positionally (the default reproduces the old
+  behaviour exactly), and a **source break only for code that positionally DECONSTRUCTS the record** —
+  `var (engine, task, …) = write` now needs one more slot. A BYO `IMemoryGraphStore` that ignores the new
+  member keeps the old grade-overwriting behaviour, which is the bug below; honour it to get the fix.
+
 ### Fixed
+
+- **Re-remembering a fact without restating its grade no longer DEMOTES it.** `MemoryWrite.Grade` defaults
+  to `MemoryGrade.Inherit`, which resolved to the engine's role before the store ever saw it — so "the
+  caller said nothing" and "the caller said `Associative`" arrived as the same value, and refreshing a fact
+  previously marked `Authoritative` silently made it ordinary. It then lost decay-immunity, prune-immunity,
+  its reserved recall slot and untruncated content, and became prunable. Design §5.7.0's objective (1) —
+  never lose an authoritative fact, the one guarantee with no acceptable failure rate — is about precisely
+  that entry.
+  <br>**`Inherit` now inherits from the ENTRY on a re-remember** and from the engine's role only on a
+  genuine first write, where there is nothing to inherit from. Naming a grade still applies it, so both
+  promotion and deliberate demotion are unchanged; an annotator's SUGGESTED grade counts as unstated, which
+  is `RememberAsync`'s existing "a model may advise, never overrule the application" rule applied across
+  time rather than only within one call.
+  <br>If you worked around this by always restating the grade, that is now belt-and-braces and harmless to
+  keep.
 
 - **A transient PATH lookup failure no longer makes an installed CLI look absent for the life of the
   process.** `ProcessRunner` caches resolved command paths in a process-wide table, and it was caching the

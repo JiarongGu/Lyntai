@@ -656,16 +656,14 @@ Each of these cost a real measurement to find.
   it unshippable.
 - **Two-character CJK words produce no index terms** — below the trigram floor, which is the deliberate
   signal to fall back to a substring scan.
-- **Re-remembering an authoritative fact WITHOUT restating its grade downgrades it.** `MemoryWrite.Grade`
-  defaults to `MemoryGrade.Inherit`, the engine resolves that to `Associative` when no annotator says
-  otherwise, and the store overwrites the stored grade with the resolution. So an application refreshing a
-  fact it had marked authoritative — same text, no grade named — silently loses decay-immunity,
-  prune-immunity, the reserved recall slot and untruncated content.
-  <br>**Restate the grade on every write of a fact you want kept exact.** That is the whole workaround, and
-  it is one argument. The overwrite is also what makes PROMOTION work (re-remember an ordinary fact as
-  authoritative and it is upgraded), so the behaviour is not simply wrong — but "not stated" and "stated as
-  ordinary" are the same value on the wire, which is what makes the default dangerous. All three behaviours
-  are pinned in `MemoryReRememberTests`.
+- **`MemoryGrade.Inherit` on a re-remember inherits from the ENTRY, not from the engine's role.** Writing a
+  fact again without naming a grade keeps whatever grade it already had. Naming one — including naming
+  `Associative` — applies it, so promotion and deliberate demotion both still work.
+  <br>**Through 3.1.0 this demoted instead**, silently: `Inherit` resolved to the engine's role before the
+  store saw it, so "said nothing" and "said Associative" were the same value, and refreshing an
+  authoritative fact lost decay-immunity, prune-immunity, its reserved recall slot and untruncated content.
+  If you added a defensive "always restate the grade" to work around it, it is now belt-and-braces rather
+  than load-bearing — and harmless to keep.
 - **A re-remember applies FOUR different update rules to the fields around the content.** `Headline` and
   `Grade` are overwritten; `Signals` (and salience) keep what is stored when the incoming bag is empty;
   `Difficulty` changes only when the bag names one; and `Stability`, `CreatedAt` and **`Metadata`** are never

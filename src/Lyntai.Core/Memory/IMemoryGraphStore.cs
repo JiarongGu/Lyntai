@@ -130,6 +130,22 @@ public sealed record GraphNode(
 /// <see langword="long"/> — what computed <paramref name="InitialStability"/>. A store persists this only
 /// on a genuine first write, exactly like <paramref name="InitialStability"/> itself is never revisited by
 /// a plain re-remember of identical content.</param>
+/// <param name="GradeStated">Whether the CALLER named <paramref name="Grade"/>, as opposed to leaving it to
+/// be resolved. A store applies the grade on an INSERT either way, and on a conflict overwrites the stored
+/// grade only when this is <see langword="true"/> — the same "only when the caller meant it" shape
+/// <paramref name="Signals"/> and difficulty already have.
+/// <para><b>Why the distinction has to reach the store at all.</b> <see cref="MemoryGrade.Inherit"/> is
+/// <c>MemoryWrite.Grade</c>'s default and resolves to the engine's own role, so before this existed "the
+/// caller said nothing" and "the caller said Associative" arrived as the same value — and a re-remember of
+/// an authoritative fact that did not restate the grade silently demoted it, losing decay-immunity,
+/// prune-immunity, its reserved slot and untruncated content. Design §5.7.0's objective (1) and
+/// <c>docs/DECISIONS.md</c> <b>D90</b>'s invariant 2 are about precisely that entry.</para>
+/// <para><b>Defaults to <see langword="true"/></b>, which is exactly the pre-existing behaviour: a caller
+/// constructing this record by hand keeps overwriting the grade as it always did, and only the engine —
+/// which alone knows whether the application named one — passes <see langword="false"/>.</para>
+/// <para><b>A model's SUGGESTED grade counts as unstated.</b> An annotator may advise what matters and must
+/// never overrule what the application already decided, which is <c>RememberAsync</c>'s existing rule
+/// applied across time rather than only within one call.</para></param>
 /// <param name="ProvenanceSalience">Every contributing salience policy's own
 /// <see cref="Lyntai.Memory.Salience.IMemorySaliencePolicy.Provenance"/>, already OR'd (through
 /// <see cref="Lyntai.Memory.MemoryProvenance.Pack(System.Collections.Generic.IEnumerable{long})"/>) into one
@@ -140,7 +156,8 @@ public sealed record GraphNode(
 public sealed record GraphNodeWrite(
     string Engine, string TaskKey, string Scope, string Headline, string Content, MemoryGrade Grade,
     double InitialStability, double Advance, IReadOnlyDictionary<string, string>? Metadata,
-    MemorySignals Signals = default, long ProvenanceRetrievability = 0, long ProvenanceSalience = 0);
+    MemorySignals Signals = default, long ProvenanceRetrievability = 0, long ProvenanceSalience = 0,
+    bool GradeStated = true);
 
 /// <summary>A reinforcement to record against one node. The store stamps the current position — a recall
 /// does not advance it, so "now" is simply wherever the engine already is.

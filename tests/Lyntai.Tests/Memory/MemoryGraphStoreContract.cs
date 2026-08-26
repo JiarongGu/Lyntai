@@ -1417,6 +1417,39 @@ public static class MemoryGraphStoreContract
         Assert.Equal(0, removed);
     }
 
+    /// <summary><b>An UNSTATED grade keeps the stored one; a stated grade overwrites it.</b>
+    /// <para><see cref="GraphNodeWrite.GradeStated"/> exists because <c>MemoryGrade.Inherit</c> resolves to
+    /// the engine's role before it ever reaches a store, so "the caller said nothing" and "the caller said
+    /// Associative" used to arrive as the same value — and a re-remember that did not restate the grade
+    /// silently demoted an authoritative fact, against design §5.7.0's objective (1).</para>
+    /// <para><b>Both directions in one fact, because the rule is a distinction and not a prohibition.</b> A
+    /// store that simply never updated the grade would pass the first half and break promotion, which is the
+    /// capability the overwrite exists for.</para></summary>
+    public static async Task An_unstated_grade_keeps_the_stored_one_and_a_stated_one_overwrites(
+        IMemoryGraphStore store, string key)
+    {
+        const string engine = "grades";
+        const string exact = "the recovery key is on the blue card";
+
+        var id = await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", exact, exact,
+            MemoryGrade.Authoritative, Stability, 1, null));
+
+        // UNSTATED: the caller left the grade to be resolved, so the stored one stands
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", exact, exact,
+            MemoryGrade.Associative, Stability, 1, null, GradeStated: false));
+        Assert.Equal(MemoryGrade.Authoritative, (await store.GetAsync(engine, id))!.Grade);
+
+        // STATED: an explicit demotion is the caller's decision and must land
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", exact, exact,
+            MemoryGrade.Associative, Stability, 1, null, GradeStated: true));
+        Assert.Equal(MemoryGrade.Associative, (await store.GetAsync(engine, id))!.Grade);
+
+        // ...and promotion, the capability the overwrite exists for
+        await store.UpsertAsync(new GraphNodeWrite(engine, key, "s", exact, exact,
+            MemoryGrade.Authoritative, Stability, 1, null));
+        Assert.Equal(MemoryGrade.Authoritative, (await store.GetAsync(engine, id))!.Grade);
+    }
+
     /// <summary><b>No read crosses a <c>taskKey</c>.</b> The isolation every other guarantee is stated
     /// inside — "an authoritative fact is returned for a query it is relevant to" means nothing if the query
     /// can reach another tenant's scope.

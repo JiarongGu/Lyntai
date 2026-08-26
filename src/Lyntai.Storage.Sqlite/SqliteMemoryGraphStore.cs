@@ -168,7 +168,11 @@ public sealed class SqliteMemoryGraphStore(
                     @now, @position, 0, @stability, @difficulty, @ordinal, @chars, @now,
                     @provenanceRetrievability, @provenanceSalience)
             ON CONFLICT(engine, task_key, scope, content_hash)
-                DO UPDATE SET last_recalled_position = @position, grade = @grade, headline = @headline,
+                DO UPDATE SET last_recalled_position = @position, headline = @headline,
+                              -- only a CALLER-NAMED grade overwrites: MemoryGrade.Inherit resolves to
+                              -- the engine's role, so without this a re-remember that did not restate
+                              -- the grade silently demoted an authoritative fact (GraphNodeWrite.GradeStated)
+                              grade = CASE WHEN @gradeStated THEN @grade ELSE lyntai_memory_node.grade END,
                               signals = COALESCE(@signals, lyntai_memory_node.signals),
                               salience = CASE WHEN @signals IS NULL THEN lyntai_memory_node.salience ELSE @salience END,
                               -- difficulty overwrites ONLY when THIS write's bag actually names a difficulty
@@ -188,6 +192,7 @@ public sealed class SqliteMemoryGraphStore(
             engine = write.Engine, taskKey = write.TaskKey, scope = write.Scope,
             headline = write.Headline, content = write.Content, hash, grade = (int)write.Grade,
             metadata, signals, salience, difficulty, hasDifficultySignal, now, position = totals.Position,
+            gradeStated = write.GradeStated,
             stability = write.InitialStability, ordinal = totals.Ordinal, chars = totals.Chars,
             provenanceRetrievability = write.ProvenanceRetrievability, provenanceSalience = write.ProvenanceSalience,
         }, transaction: tx, cancellationToken: ct)).ConfigureAwait(false);

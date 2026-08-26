@@ -222,9 +222,14 @@ public sealed class GraphMemoryEngine(
         // at the wrong one.
         var annotated = await AnnotateAsync(write, ct).ConfigureAwait(false);
 
-        var grade = write.Grade != MemoryGrade.Inherit ? write.Grade
-            // an explicit grade always wins: a model may advise what matters, never overrule the application
-            : annotated.Grade ?? MemoryGrade.Associative;
+        // An explicit grade always wins: a model may advise what matters, never overrule the application.
+        // `stated` carries that same rule ACROSS TIME — only a caller-named grade may overwrite what is
+        // already stored, so re-remembering a fact without restating its grade no longer demotes it and an
+        // annotator's suggestion cannot overrule a decision the application made on an earlier write. The
+        // resolved value below is still what a genuine FIRST write is stored with, suggestion included;
+        // there is simply nothing to inherit from then.
+        var stated = write.Grade != MemoryGrade.Inherit;
+        var grade = stated ? write.Grade : annotated.Grade ?? MemoryGrade.Associative;
 
         // authoritative material is NEVER passed through headline derivation — a truncated exact fact is
         // confidently wrong, which is worse than having no memory at all
@@ -247,7 +252,8 @@ public sealed class GraphMemoryEngine(
                 _policy.InitialStability * Ordinary(tick.Encoding), Ordinary(tick.Position),
                 write.Metadata, signals,
                 ProvenanceRetrievability: (long)_policy.Provenance,
-                ProvenanceSalience: salienceProvenance),
+                ProvenanceSalience: salienceProvenance,
+                GradeStated: stated),
             ct).ConfigureAwait(false);
 
         await EnrichAsync(id, write, search, ct).ConfigureAwait(false);

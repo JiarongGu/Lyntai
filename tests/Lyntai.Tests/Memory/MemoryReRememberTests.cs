@@ -44,42 +44,48 @@ public class MemoryReRememberTests
     }
 
     [Fact]
-    public async Task A_re_remember_that_does_not_restate_the_grade_DOWNGRADES_an_authoritative_fact()
+    public async Task A_re_remember_that_does_not_restate_the_grade_KEEPS_the_stored_one()
     {
-        // THE SHARP EDGE, and the reason this file exists. `MemoryGrade.Inherit` is the DEFAULT on
-        // MemoryWrite, and the engine resolves it to Associative when no annotator suggests otherwise --
-        // then the store overwrites the stored grade with that resolution. So an application refreshing a
-        // fact it already marked authoritative, without restating the grade, silently loses it.
+        // THE FIX (2026-08-26). `MemoryGrade.Inherit` is the DEFAULT on MemoryWrite, and it used to resolve
+        // to Associative and then OVERWRITE the stored grade -- so an application refreshing a fact it had
+        // marked authoritative, without restating the grade, silently lost it. That cost is not cosmetic:
+        // an authoritative entry never decays, is never truncated to a headline, holds a reserved recall
+        // slot and is exempt from PruneAsync, and design section 5.7.0's objective (1) is about exactly
+        // that entry.
         //
-        // What that costs is not cosmetic: an authoritative entry never decays, is never truncated to a
-        // headline, holds a reserved recall slot and is exempt from PruneAsync. After the re-remember it has
-        // none of those, and design section 5.7.0's objective (1) -- "never lose an authoritative fact", the
-        // one guarantee with no acceptable failure rate -- is about exactly this entry.
-        //
-        // Pinned as BEHAVIOUR, not endorsed. Overwriting the grade is what makes promotion possible, and a
-        // rule that ignored the incoming grade would break that instead. The defect, if it is one, is that
-        // "not stated" and "stated as ordinary" are the same value on the wire.
+        // `Inherit` now means what it says on a re-remember: inherit what this entry already is. The
+        // engine's role still decides on a genuine FIRST write, where there is nothing to inherit from.
         var (engine, store) = Build();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Grade: MemoryGrade.Authoritative));
-        Assert.Equal(MemoryGrade.Authoritative, (await OnlyNodeAsync(store)).Grade);
-
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact));   // no grade restated
 
-        Assert.Equal(MemoryGrade.Associative, (await OnlyNodeAsync(store)).Grade);
+        Assert.Equal(MemoryGrade.Authoritative, (await OnlyNodeAsync(store)).Grade);
     }
 
     [Fact]
-    public async Task Restating_the_grade_keeps_it_which_is_the_documented_way_through()
+    public async Task Restating_the_grade_keeps_it_too()
     {
-        // The control, and the workaround an application needs today: the downgrade above is a property of
-        // the DEFAULT, not of re-remembering. State the grade and the entry survives untouched.
         var (engine, store) = Build();
 
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Grade: MemoryGrade.Authoritative));
         await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Grade: MemoryGrade.Authoritative));
 
         Assert.Equal(MemoryGrade.Authoritative, (await OnlyNodeAsync(store)).Grade);
+    }
+
+    [Fact]
+    public async Task An_EXPLICIT_associative_re_remember_still_demotes_because_the_caller_said_so()
+    {
+        // The other half of the fix, and the reason it is a distinction rather than a blanket "never touch
+        // the grade": an application that deliberately writes Associative is DEMOTING, and that has to keep
+        // working. What changed is only that "not stated" stopped meaning "stated as ordinary".
+        var (engine, store) = Build();
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Grade: MemoryGrade.Authoritative));
+        await engine.RememberAsync(new MemoryWrite("t", "s", Fact, Grade: MemoryGrade.Associative));
+
+        Assert.Equal(MemoryGrade.Associative, (await OnlyNodeAsync(store)).Grade);
     }
 
     [Fact]

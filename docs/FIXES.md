@@ -7,6 +7,43 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-26 — re-remembering a fact without restating its grade silently demoted it
+
+**Symptom.** `RememberAsync` an entry as `MemoryGrade.Authoritative`, then write the same content again
+without naming a grade — the ordinary way an application refreshes a fact — and it came back
+`Associative`. It then decayed like anything else, lost its reserved recall slot, could be truncated to a
+headline, and became eligible for `PruneAsync`. No error, no warning, and the entry still there.
+
+**Root cause.** `MemoryWrite.Grade` defaults to `MemoryGrade.Inherit`, meaning "take the engine's role".
+`GraphMemoryEngine.RememberAsync` resolved that to `Associative` (absent an annotator suggestion) *before*
+the store saw it, and every backend's upsert did `grade = @grade` unconditionally on conflict. **So "the
+caller said nothing" and "the caller said Associative" arrived as the same value**, and the store had no
+way to tell them apart.
+
+Not a store bug and not an engine bug on its own — a distinction that was destroyed in between. Design
+§5.7.0's objective (1) and **D90**'s invariant 2 are about exactly the entry it destroyed.
+
+**Fix.** `GraphNodeWrite` gains `bool GradeStated = true`; the engine passes
+`write.Grade != MemoryGrade.Inherit`; all three backends overwrite the stored grade only when it is true —
+the same "only when the caller meant it" conditional `Signals`, salience and difficulty already had, which
+is why the shape was already in the SQL beside it.
+
+`Inherit` now inherits from the ENTRY on a re-remember and from the engine's role on a genuine first write.
+An annotator's **suggested** grade counts as unstated, extending `RememberAsync`'s existing "a model may
+advise what matters, never overrule the application" across time rather than only within one call.
+
+**Verification.** `MemoryReRememberTests` (the fact that pinned the demotion was inverted, and is the RED
+test) plus
+`MemoryGraphStoreContract.An_unstated_grade_keeps_the_stored_one_and_a_stated_one_overwrites`, wired to all
+three backends and asserting **both directions in one fact** — a store that simply never updated the grade
+would pass the first half and break promotion, which is the capability the overwrite exists for.
+`verify` 15/15.
+
+**Introduced by.** The graph engine's first write path; `grade = @grade` has been unconditional since the
+column existed. Found 2026-08-26 by asking what a re-remember overwrites, not by a consumer.
+
+---
+
 ## 2026-08-26 — one transient `where.exe` failure made an installed CLI look absent for the life of the process
 
 **Symptom.** Chased from the other end: `verify`'s test step intermittently failed **exactly 9** tests — 3

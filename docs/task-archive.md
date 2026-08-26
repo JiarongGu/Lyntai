@@ -6982,3 +6982,46 @@ the neighbours of EVERY node in a task at once — but `NeighboursAsync` EXCLUDE
 fully-internal cluster comes back empty and the assertion "no neighbour is outside this task" holds over
 nothing. It passed for the wrong reason and only the `Assert.NotEmpty` guard caught it. **A guard that
 proves the fact observed something is worth more than the fact.**
+
+---
+
+## Part 101 — `MemoryGrade.Inherit` on a re-remember inherits from the ENTRY (2026-08-26)
+
+_Opened in Part 99 as a DECISION, deliberately not taken by the session that found it, and settled by the
+owner the same day: fix it. The entry below is the question as it was put; the resolution follows._
+
+- [x] **DECIDE what `MemoryGrade.Inherit` means on a RE-REMEMBER — it downgraded.** Found while
+  closing the item below, pinned by `MemoryReRememberTests`, and the sharpest thing this pass turned up.
+  `Grade` defaults to `Inherit`, the engine resolves it to `Associative` absent an annotator, and the store
+  overwrites the stored grade with that. **So refreshing an authoritative fact without restating its grade
+  silently makes it ordinary** — losing decay-immunity, prune-immunity, its reserved recall slot and
+  untruncated content, after which it decays and becomes prunable.
+  <br>**Why this is a genuine fork and not just a bug.** The overwrite is what makes PROMOTION work, and a
+  rule that ignored the incoming grade would break that. The real defect is narrower: **"not stated" and
+  "stated as ordinary" are the same value on the wire**, so the store cannot tell them apart. Fixing it
+  properly means carrying that distinction into `GraphNodeWrite` — a nullable grade or a sentinel — and
+  teaching three backends to leave the column alone, which is a contract change, not a patch.
+  <br>Against **D90**'s invariant 2 and design §5.7.0's objective (1), "the one guarantee with no acceptable
+  failure rate", this reads as a real loss. Against `MemoryWrite.Grade`'s own documented meaning it reads as
+  the API doing what it says. **That is the owner's call**; `docs/memory.md` §7 warns consumers meanwhile,
+  and all three behaviours (downgrade, restate-to-keep, promote) are pinned so any fix has to preserve the
+  third.
+
+**Resolved: `Inherit` inherits from the ENTRY on a re-remember, and from the engine's role only on a
+genuine first write.** The distinction that was missing now reaches the store as
+`GraphNodeWrite.GradeStated`, and all three backends overwrite the grade only when the caller named one —
+the same "only when the caller meant it" conditional `Signals`, salience and difficulty already had, so
+the shape was already sitting in the SQL beside it.
+
+**Both directions are pinned in one contract fact**, because the rule is a distinction and not a
+prohibition: a store that simply never updated the grade would pass the keep-it half and silently break
+PROMOTION, which is the capability the overwrite exists for. An annotator's SUGGESTED grade counts as
+unstated — `RememberAsync`'s existing "a model may advise, never overrule the application" rule, applied
+across time rather than only within one call.
+
+**Cost, stated rather than buried:** `GraphNodeWrite` gains a trailing optional member, which widens its
+`Deconstruct` — a source break for positional deconstruction only, called out under **Breaking** in
+`CHANGELOG.md`. A BYO store that ignores the new member keeps the old behaviour, which is the bug; that is
+the honest limit of an additive fix to a record three backends read.
+
+**Mechanism and verification: `docs/FIXES.md` 2026-08-26.**

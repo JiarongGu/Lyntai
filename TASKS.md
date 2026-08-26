@@ -19,7 +19,7 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**Four items are startable, all in Part 99**, and the rest need something this repository does not have (a
+**Three items are startable, all in Part 99**, and the rest need something this repository does not have (a
 key, a model download, a CLI install, a vendor pick, or a deployment's own data). That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
 two paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
@@ -372,23 +372,6 @@ the proposal. All three are startable today — no key, no model, no download._
   trusting the caller and say so louder. `docs/memory.md` §7 says so today.
   <br>The test is written so this cannot change by accident: scope traversal and it fails, forcing the
   choice into the open.
-
-- [ ] **DECIDE what `MemoryGrade.Inherit` means on a RE-REMEMBER — it currently downgrades.** Found while
-  closing the item below, pinned by `MemoryReRememberTests`, and the sharpest thing this pass turned up.
-  `Grade` defaults to `Inherit`, the engine resolves it to `Associative` absent an annotator, and the store
-  overwrites the stored grade with that. **So refreshing an authoritative fact without restating its grade
-  silently makes it ordinary** — losing decay-immunity, prune-immunity, its reserved recall slot and
-  untruncated content, after which it decays and becomes prunable.
-  <br>**Why this is a genuine fork and not just a bug.** The overwrite is what makes PROMOTION work, and a
-  rule that ignored the incoming grade would break that. The real defect is narrower: **"not stated" and
-  "stated as ordinary" are the same value on the wire**, so the store cannot tell them apart. Fixing it
-  properly means carrying that distinction into `GraphNodeWrite` — a nullable grade or a sentinel — and
-  teaching three backends to leave the column alone, which is a contract change, not a patch.
-  <br>Against **D90**'s invariant 2 and design §5.7.0's objective (1), "the one guarantee with no acceptable
-  failure rate", this reads as a real loss. Against `MemoryWrite.Grade`'s own documented meaning it reads as
-  the API doing what it says. **That is the owner's call**; `docs/memory.md` §7 warns consumers meanwhile,
-  and all three behaviours (downgrade, restate-to-keep, promote) are pinned so any fix has to preserve the
-  third.
 
 - [ ] **`Silent overwrite = 0` is settled for METADATA and not for content.** `Metadata` is pinned
   write-once across a re-remember on all three backends (Part 97, **D90**). What is NOT pinned is what a

@@ -113,7 +113,10 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                 _nodes[existing.Id] = existing with
                 {
                     LastRecalledPosition = totals.Position,
-                    Grade = write.Grade,
+                    // only a CALLER-NAMED grade overwrites — MemoryGrade.Inherit resolves to the engine's
+                    // role, so without this a re-remember that did not restate the grade silently demoted
+                    // an authoritative fact. See GraphNodeWrite.GradeStated.
+                    Grade = write.GradeStated ? write.Grade : existing.Grade,
                     Headline = write.Headline,
                     // an EMPTY incoming bag keeps what is stored — see GraphNodeWrite.Signals for why
                     // blanking here would erase a judgement on the very write meant to reinforce it
