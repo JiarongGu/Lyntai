@@ -14,6 +14,13 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`SalienceContext.SimilarCount` — how many stored entries actually resemble a write**, as opposed to
+  `ComparableCount`, which is the raw return of a search asking for `SimilarityK + 1` with no floor and
+  therefore saturates: it reports the same number for a write resembling one thing and a write resembling
+  many. The filtered count separates those, which the raw one structurally cannot.
+  <br>Bounded by `SimilarityK`, so it is a floor on density and never a census — read it as "at least this
+  many". `0` when no similarity search ran, exactly as `Novelty` already reports that case.
+
 - **`MemoryItem.Metadata` — a recall now returns what the write put in `MemoryWrite.Metadata`.** The write
   side has promised "an engine whose store cannot hold it ignores it" since it shipped and the read side said
   nothing, so metadata was **writable and unreadable**: `GraphNode.Metadata` was persisted, returned by the
@@ -39,6 +46,10 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   a floor must not read that as a failed recall. `docs/DECISIONS.md` **D93**.
 
 ### Breaking
+
+- **`SalienceContext` gains one trailing member**, widening its constructor and its `Deconstruct`. Additive
+  for construction by name or position — the default reproduces today's behaviour — and a source break only
+  for code that positionally DECONSTRUCTS it.
 
 - **`MemoryItem` and `MemoryVerificationCandidate` each gain one trailing member**, widening their
   constructors and their `Deconstruct`. Additive for anyone constructing them by name or positionally — both

@@ -12,7 +12,22 @@ namespace Lyntai.Memory.Salience;
 /// the neighbours the engine's similarity probe found. <b>Not a count of the whole scope</b>, which no
 /// engine can supply without a second query. With too few comparables, novelty carries no information and
 /// a policy should decline to judge.</param>
-public readonly record struct SalienceContext(string Engine, double Novelty, int ComparableCount);
+/// <param name="SimilarCount">How many stored entries actually RESEMBLE this write — the neighbours scoring
+/// at or above <see cref="Lyntai.Memory.GraphMemoryOptions.MinSimilarity"/>, after the same self-exclusion
+/// <paramref name="Novelty"/> uses.
+/// <para><b>Distinct from <paramref name="ComparableCount"/>, which cannot answer this.</b> That one is the
+/// raw return of a search asking for <c>SimilarityK + 1</c> with NO floor applied, so it saturates once the
+/// store holds more than <c>SimilarityK</c> and reports the same number for a write resembling one thing and
+/// a write resembling many. It answers "was there enough to judge against"; this answers "how much of it was
+/// actually close".</para>
+/// <para><b>Bounded by <c>SimilarityK</c>, so it is a floor on density and never a census.</b> A write
+/// resembling 300 stored entries reports at most <c>SimilarityK</c>, and a policy must read it as "at least
+/// this many" rather than as a count of the scope.</para>
+/// <para><c>0</c> when no similarity search ran — no embedder, no vector store, or
+/// <c>SimilarityK &lt;= 0</c>. Nothing to compare against is no information, exactly as
+/// <paramref name="Novelty"/> reports it.</para></param>
+public readonly record struct SalienceContext(
+    string Engine, double Novelty, int ComparableCount, int SimilarCount = 0);
 
 /// <summary>
 /// Which salience policies PRODUCED this entry's stored signals — read through

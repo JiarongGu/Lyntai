@@ -2302,14 +2302,15 @@ sealed class Lyntai.Memory.Salience.NeutralSaliencePolicy
     Provenance : MemorySalienceProvenance
     Signals(MemoryWrite write, SalienceContext& context) : MemorySignals
 struct Lyntai.Memory.Salience.SalienceContext
-    .ctor(String Engine, Double Novelty, Int32 ComparableCount)
+    .ctor(String Engine, Double Novelty, Int32 ComparableCount, Int32 SimilarCount = 0)
     ComparableCount : Int32
-    Deconstruct(String& Engine, Double& Novelty, Int32& ComparableCount) : Void
+    Deconstruct(String& Engine, Double& Novelty, Int32& ComparableCount, Int32& SimilarCount) : Void
     Engine : String
     Equals(Object obj) : Boolean
     Equals(SalienceContext other) : Boolean
     GetHashCode() : Int32
     Novelty : Double
+    SimilarCount : Int32
     ToString() : String
 sealed class Lyntai.Memory.Salience.SalienceOptions
     .ctor()
