@@ -351,6 +351,45 @@ Korean's ordinary shapes traded the wrong way and the conclusion was "four of fi
 default". On `nomic-embed-text` Korean accepts and **English** refuses — the refusing row moved, so it was
 never a property of a language; it is the noise floor of the pollution column at ten seeds.
 
+### And WHAT salience measures, which is a different question (`memory-importance`, 2026-08-27)
+
+The sweep above prices how LOUD salience is. `node devtools/dev.mjs memory-importance` prices what it
+MEASURES: the shipped novelty policy against a perfect importance ORACLE reading ground truth off the corpus,
+with salience-off as control, at the shipped `SalienceWeight = 0` — so it is survival (decay resistance and
+store admission) being measured, not ranking. 10 seeds × 4 shapes × 3 arms, `embeddinggemma`.
+
+**Novelty is not importance, and on the classes that matter it is worse than nothing.** Critical-rare miss:
+salience-off `0.667`, novelty `0.710`, oracle `0.474` on `diverse-noise`; `0.675` / `0.738` / `0.293` on
+`rare-critical`. The shipped policy is monotone in "unlike anything already stored", so sustained significance
+decays on that axis as it is confirmed while a one-off triviality reads as maximal — measured here as the
+novelty arm losing to registering no salience policy at all.
+
+**But the oracle's win is a REDISTRIBUTION, not an improvement** — the same shape `memory-enrichment` found
+for similarity linking, running the other way. Against novelty, per shape (miss delta, negative = oracle
+better):
+
+| shape | critical-rare | attribute | topical | all (combined) |
+|---|---|---|---|---|
+| baseline | **−0.14** | −0.12 | +0.14 | −0.03 |
+| `diverse-noise` | **−0.24** | −0.28 | +0.28 | −0.07 |
+| `templated-noise` | **−0.11** | −0.11 | +0.09 | −0.03 |
+| `rare-critical` | **−0.45** | −0.15 | +0.59 | +0.01 |
+
+The aggregate barely moves because the classes cancel. **Store admission is zero-sum**: what importance
+promotes displaces what it did not mark, and the displaced material is the frequently-queried working set.
+
+**So no importance policy ships, and the seam already supports one.** Whether "protect the rare marked thing
+at the working set's expense" is the right trade is a property of the deployment's corpus and of what its
+users would rather lose — `generic-library` rule 7's test, which the library fails by construction. Write an
+`IMemorySaliencePolicy`: it receives the whole `MemoryWrite`, so `Content` and a host-declared
+`Metadata["importance"]` are both already available, and `SalienceContext` carries the engine's novelty
+alongside for a policy that wants both.
+
+**What it does not settle.** The oracle is a CEILING, not an accuracy — no real rater is this good, so a
+strong result only says a rater is worth costing. Ranking is unswept. And the corpus has no
+low-importance-but-sometimes-relevant class: its noise is never a right answer, so routine material is priced
+as junk rather than as background, which is the softer and more common real case.
+
 **Three instrument lessons, because each nearly published a wrong answer.** A verdict reporting MISS alone
 cannot evaluate a lexicographic objective. A summary that averages the regression shape together with the
 shapes it is traded against destroys the only structure the study has. And a per-cell `accepted`/`REFUSED`
@@ -674,6 +713,13 @@ Each of these cost a real measurement to find.
   <br>**Replace, not merge**, for both bags: keys you do not restate are gone. Merging would make removing a
   key impossible. Through 3.1.0 `Metadata` was write-once instead — a correction was silently ignored
   (**D91**).
+- **`Metadata` comes BACK on `MemoryItem`, and `null` is a statement about the ENGINE.** Graph and curated
+  engines round-trip whatever you wrote; lexical and semantic return `null`, because `MemoryEntry` and a
+  vector hit have nowhere to keep it. So `null` means *this engine does not carry metadata*, never *the caller
+  wrote none* — the two are not distinguishable here, and if you need them apart, write a sentinel key.
+  Through 3.1.0 it was write-only: stored, returned by the store, and dropped at the projection (**D93**).
+  <br>It stays a `string→string` bag deliberately rather than becoming a typed kind. A kind is your
+  vocabulary, and Core stays neutral of it.
 - **`taskKey` isolates every READ, and `LinkAsync` is the one way across.** No recall, expansion, subject
   seed, semantic seed, prune or forget crosses a task — pinned on all three backends
   (`MemoryGraphStoreContract.No_read_crosses_a_task_key`, `No_removal_crosses_a_task_key`) and end to end

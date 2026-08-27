@@ -636,7 +636,7 @@ public sealed class GraphMemoryEngine(
                 // cheap; authoritative content is always present, because it is never returned truncated
                 x.Candidate.Node.Grade == MemoryGrade.Authoritative ? x.Candidate.Node.Content : null,
                 x.Candidate.Node.Grade, x.Candidate.Node.Relevance, x.Candidate.Retrievability,
-                x.Candidate.Node.Degree))
+                x.Candidate.Node.Degree, x.Candidate.Node.Metadata))
             .ToList();
 
         // MemoryQuery.CharBudget, honoured — it shipped in 2.5.0 documented as "maximum characters the caller
@@ -727,7 +727,7 @@ public sealed class GraphMemoryEngine(
             spent += cost;
             items.Add(new MemoryItem(
                 new MemoryRef(Name, n.Id.ToString(CultureInfo.InvariantCulture)),
-                n.Headline, content, n.Grade, n.Relevance, Retrievability(n), n.Degree));
+                n.Headline, content, n.Grade, n.Relevance, Retrievability(n), n.Degree, n.Metadata));
         }
 
         return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
@@ -1277,9 +1277,12 @@ public sealed class GraphMemoryEngine(
         {
             var request = new Lyntai.Memory.Verification.MemoryVerificationRequest(
                 queryText,
+                // the same Relevance the caller will see on MemoryItem, so a policy can judge from the score
+                // distribution instead of reading the text
                 [.. scored.Select(x => new Lyntai.Memory.Verification.MemoryVerificationCandidate(
                     x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture),
-                    x.Candidate.Node.Headline))]);
+                    x.Candidate.Node.Headline,
+                    x.Candidate.Node.Relevance))]);
 
             return await verification.VerifyAsync(request, ct).ConfigureAwait(false)
                    ?? Lyntai.Memory.Verification.MemoryVerification.NoOpinion;

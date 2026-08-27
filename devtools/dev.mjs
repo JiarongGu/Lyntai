@@ -285,6 +285,22 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--salience-weight', ...args]);
     break;
 
+  // memory-importance — WHAT the salience signal measures, where memory-salience-weight asked how loud it is.
+  // The shipped novelty policy against a perfect importance ORACLE, salience-off as control. D89 priced
+  // novelty and took its ranking voice to zero, which is not a finding about importance: novelty is monotone
+  // in "unlike anything already stored", so sustained significance decays on that axis exactly as it is
+  // confirmed while a one-off triviality reads as maximal. The decisive shape is `diverse-noise`, because
+  // under templated noise the second entry onward reads as FAMILIAR and the failure mode is unreachable.
+  // Ranking is held at the shipped SalienceWeight = 0, so this prices SURVIVAL — decay resistance and store
+  // admission — which is D45's actual claim for what salience means. Needs a REAL embedder for D89's reason:
+  // without one the novelty arm silently BECOMES the control and the table reads as a win.
+  // The oracle is a CEILING, never an accuracy: it reads ground truth off the corpus id, so a weak result
+  // kills the idea and a strong one only says a real rater is worth costing.
+  case 'memory-importance':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--importance', ...args]);
+    break;
+
   // memory-scale — the blind spot docs/memory.md §8 concedes outright: nothing in this subsystem had
   // exceeded a few hundred entries. MemoryRecallBenchmarks does run 1k/10k/100k and runs them against
   // SqliteMemoryStore — the KEYWORD store — so the graph engine's own write and read paths were unmeasured

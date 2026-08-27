@@ -858,6 +858,27 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Second doors
 
+- **A field accepted on WRITE and absent from the READ record is a write-only field, and every gate on earth
+  says it is fine.** Measured 2026-08-27 (**D93**). `MemoryWrite.Metadata` was accepted, persisted into
+  `GraphNode.Metadata`, returned by all three stores — and then dropped at the two lines in
+  `GraphMemoryEngine` that project a node onto `MemoryItem`. It compiled, every test passed, the data really
+  was in the database, and a consumer wanting it back had to keep a second copy of the store outside the
+  library and re-read it after every recall. Nobody noticed for four releases.
+  <br>**The tell is a pair of near-mirror records where one side carries a member the other does not** —
+  here `MemoryWrite`/`MemoryItem`, and separately `MemoryVerificationCandidate`, whose interface doc promised
+  "best-effort over a model-free floor" while giving an implementer nothing to compute a floor FROM. A
+  seam whose only possible implementation is the one already shipped is the same defect wearing a doc
+  comment.
+  <br>**The cheap detection, worth running whenever a write record grows a member:** diff the write record's
+  members against the read record's, and for each one the read side lacks, decide out loud whether that is a
+  design choice or an omission. `Signals` is a defensible omission — it is the engine's bookkeeping, not the
+  caller's. `Metadata` was not, because the caller wrote it.
+  <br>**And "the projection passes the instance through" is not a test.** `CompositeMemoryEngine` preserved
+  metadata by re-using its member's `MemoryItem` rather than rebuilding it, which is true today and is
+  exactly what a later refactor that maps items — to renormalize a score, say — would undo with every other
+  fact still green. Pin the round trip; mutating the pass-through to `i with { Metadata = null }` is a
+  two-minute check that the pin is real.
+
 - **Inserting a member ABOVE an existing one strands that one's doc onto your new member.** Measured FOUR
   times on 2026-08-16/17, by the same hand, in one session — adding a private helper before its neighbour
   left the neighbour's `<summary>` (or, twice, only its `<param>` tags) attached to the newcomer, so the

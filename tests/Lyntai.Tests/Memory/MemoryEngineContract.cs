@@ -67,6 +67,39 @@ public static class MemoryEngineContract
             $"{engine.Name} returned {recall.Items.Count} items for a Limit of 2");
     }
 
+    /// <summary>What a caller wrote in <see cref="MemoryWrite.Metadata"/> comes back on
+    /// <see cref="MemoryItem.Metadata"/> — or is explicitly absent, never silently altered.
+    /// <para><paramref name="carries"/> is the caller's declaration of which answer is correct for this
+    /// engine, and BOTH branches assert positively. An engine whose store has no metadata column asserts
+    /// null; one whose store has it asserts the round trip. Neither can pass by returning nothing, which is
+    /// what a single "null is fine" fact would have allowed for the two engines that cannot carry it.</para>
+    /// <para><b>Asked of every engine because the write side already promises it.</b>
+    /// <see cref="MemoryWrite.Metadata"/> has said "an engine whose store cannot hold it ignores it" since it
+    /// shipped, and nothing said what a READ does — so metadata was writable and unreadable, and a consumer
+    /// wanting it back had to keep a second copy outside the library.</para></summary>
+    public static async Task Metadata_written_is_returned_or_explicitly_absent(
+        IMemoryEngine engine, string key, bool carries)
+    {
+        var written = new Dictionary<string, string> { ["kind"] = "standing", ["source"] = "operator" };
+
+        await engine.RememberAsync(new MemoryWrite(key, "s", "the rollback window is thirty minutes",
+            Metadata: written));
+
+        var recall = await engine.RecallAsync(new MemoryQuery(key, "s", "rollback"));
+        var item = Assert.Single(recall.Items,
+            i => i.Headline.Contains("rollback", StringComparison.Ordinal));
+
+        if (!carries)
+        {
+            Assert.Null(item.Metadata);
+            return;
+        }
+
+        Assert.NotNull(item.Metadata);
+        Assert.Equal("standing", item.Metadata!["kind"]);
+        Assert.Equal("operator", item.Metadata["source"]);
+    }
+
     public static async Task Recall_reports_the_tier_that_ran(IMemoryEngine engine, string key)
     {
         await engine.RememberAsync(new MemoryWrite(key, "s", "tiers are reported"));

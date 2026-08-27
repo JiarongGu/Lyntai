@@ -12,7 +12,39 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ## Unreleased
 
+### Added
+
+- **`MemoryItem.Metadata` — a recall now returns what the write put in `MemoryWrite.Metadata`.** The write
+  side has promised "an engine whose store cannot hold it ignores it" since it shipped and the read side said
+  nothing, so metadata was **writable and unreadable**: `GraphNode.Metadata` was persisted, returned by the
+  store, and dropped when the engine projected it onto `MemoryItem`. A consumer wanting a kind, a source or
+  its own ordering key back had to keep a second copy outside the library.
+  <br>Graph and curated engines round-trip it; lexical and semantic return `null`, because `MemoryEntry` and a
+  vector hit have nowhere to keep it. **`null` means the engine does not carry metadata, never that the caller
+  wrote none** — write a sentinel key if you need those apart. Pinned for every engine by
+  `MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent`, which asserts the round trip where
+  it is supported and asserts `null` where it is not, so neither answer can pass vacuously.
+  `docs/DECISIONS.md` **D93**.
+
+- **`MemoryVerificationCandidate.Relevance` — a verifier can now decide abstention WITHOUT a model.**
+  `IMemoryVerificationPolicy` documents itself as "best-effort over a model-free floor", and a candidate
+  carried an id and a headline: the only route from those to *did anything answer this* is reading the text,
+  which means an LLM, and `LlmMemoryVerificationPolicy` was the one shipped implementation. The engine had
+  each candidate's score and did not pass it. A policy can now compare the top score against the rest, which
+  is arithmetic.
+  <br>**No score-floor policy ships**, deliberately: the number is a graph store's own normalized rank
+  position, explicitly backend-specific, so the threshold is a property of the deployment's embedder and
+  corpus rather than something the library can answer (`generic-library` rule 7). Prefer a RELATIVE test to an
+  absolute one. Note that an authoritative fact the query did not match reports `0` and is admitted by grade —
+  a floor must not read that as a failed recall. `docs/DECISIONS.md` **D93**.
+
 ### Breaking
+
+- **`MemoryItem` and `MemoryVerificationCandidate` each gain one trailing member**, widening their
+  constructors and their `Deconstruct`. Additive for anyone constructing them by name or positionally — both
+  defaults reproduce today's behaviour exactly — and a **source break only for code that positionally
+  DECONSTRUCTS** either record: `var (reference, headline, …) = item` now needs one more slot. The same shape
+  `GraphNodeWrite`'s two flags take below.
 
 - **`IMemoryGraphStore.NeighboursAsync` gains a `taskKey` parameter, and `ILinkableMemory.LinkAsync` now
   REFUSES a cross-task link.** A `taskKey` was the isolation boundary of every read except traversal, which
