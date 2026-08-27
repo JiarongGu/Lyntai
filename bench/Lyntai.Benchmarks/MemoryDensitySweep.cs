@@ -28,10 +28,10 @@ namespace Lyntai.Benchmarks;
 /// with many. The fake would produce a plausible table measuring word overlap, the exact defect that withdrew
 /// an earlier set of numbers (<c>TASKS.md</c> Part 69).</para>
 ///
-/// <para><b>One fixture per (language, population).</b> This is a REFUTATION instrument, not a distribution
-/// study — the question is whether the two populations separate at all, not how much noise surrounds them.
-/// <c>--languages</c> turns each language into one more paired observation feeding the pooled AUC below,
-/// rather than a repeated draw of the same one.</para>
+/// <para><b>Pooling across <c>--languages</c> is NOT independent evidence.</b> Every non-English fixture is
+/// a TRANSLATION of the same fixture-pair, and the language axis is built from structurally identical
+/// corpora on purpose (<c>docs/DECISIONS.md</c> D55) — so pooling is one comparison measured several ways,
+/// never independent draws; <see cref="PrintAuc"/> prints the effective-n caveat at run time.</para>
 /// </remarks>
 internal static class MemoryDensitySweep
 {
@@ -44,6 +44,12 @@ internal static class MemoryDensitySweep
     // The rank-sum AUC bar below which a signal is not worth building a promotion rule on. A judgement call
     // named in the brief this sweep implements, never a value read off any run.
     private const double SignalFloor = 0.65;
+
+    // Below this many observations per population, AUC can only take the values {0, 0.5, 1} and would read
+    // as a real signal when it is actually just "was the one recurrence value larger than the one correction
+    // value". Two is the smallest n where the rank-sum statistic can differ from a coin flip. Fix round 1,
+    // Important 4 — the single-language default run (n=1 per population) is exactly what this refuses.
+    private const int MinimumPairedObservations = 2;
 
     /// <summary>One population of writes: a label, the entries written BEFORE the probe, and the probe
     /// itself. <see cref="Population"/> is the statistical class (for AUC/grouping); <see cref="Label"/> is
@@ -66,9 +72,10 @@ internal static class MemoryDensitySweep
         }
     }
 
-    private sealed record Observation(CorpusLanguage Language, string Population, int SimilarCount);
-
-    private sealed record PriorCheck(CorpusLanguage Language, string Population, int Expected, int Actual);
+    /// <summary><see cref="ComparableCount"/> rides alongside <see cref="SimilarCount"/> for exactly one
+    /// reason: it is what makes C0 able to fail (fix round 1, Critical 2) — see <see cref="PrintControls"/>.
+    /// </summary>
+    private sealed record Observation(CorpusLanguage Language, string Population, int SimilarCount, int ComparableCount);
 
     public static async Task<int> RunAsync(bool acrossLanguages = false)
     {
@@ -87,7 +94,6 @@ internal static class MemoryDensitySweep
         PrintPreamble(languages);
 
         var observations = new ConcurrentBag<Observation>();
-        var priorChecks = new ConcurrentBag<PriorCheck>();
 
         async ValueTask RunOneAsync(CorpusLanguage language, Fixture fixture)
         {
@@ -96,18 +102,13 @@ internal static class MemoryDensitySweep
             var engine = new GraphMemoryEngine("density", new SqliteMemoryGraphStore(db.Factory),
                 embedder: embedder, vectors: new InMemoryVectorStore(), saliencePolicies: [salience]);
 
-            var written = 0;
             foreach (var prior in fixture.Prior)
-            {
                 await engine.RememberAsync(new MemoryWrite("t", "s", prior));
-                written++;
-            }
-            priorChecks.Add(new PriorCheck(language, fixture.Population, fixture.Prior.Count, written));
 
             salience.Seen.Clear();
             await engine.RememberAsync(new MemoryWrite("t", "s", fixture.Probe));
             var context = salience.Seen.Single();
-            observations.Add(new Observation(language, fixture.Population, context.SimilarCount));
+            observations.Add(new Observation(language, fixture.Population, context.SimilarCount, context.ComparableCount));
         }
 
         var cells = languages.SelectMany(l => BuildFixtures(l).Select(f => (Language: l, Fixture: f))).ToList();
@@ -116,7 +117,7 @@ internal static class MemoryDensitySweep
             async (item, _) => await RunOneAsync(item.Language, item.Fixture));
 
         var allObservations = observations.ToList();
-        var controlsOk = PrintControls([.. priorChecks], allObservations);
+        var controlsOk = PrintControls(allObservations);
         PrintDistribution(allObservations, languages);
         PrintAuc(allObservations, controlsOk);
         PrintNotSwept();
@@ -138,17 +139,22 @@ internal static class MemoryDensitySweep
         Console.WriteLine();
     }
 
-    /// <summary>C0: every fixture's priors actually landed — <c>SimilarCount</c> is meaningless read off an
-    /// empty store. C1: the <c>novel</c> population reports 0 everywhere it ran — if it does not, the floor
-    /// is not doing anything and the distribution table below measures nothing. Either failing withholds the
-    /// AUC verdict, though the distribution table still prints.</summary>
-    private static bool PrintControls(IReadOnlyList<PriorCheck> priorChecks, IReadOnlyList<Observation> observations)
+    /// <summary>C0: every probe actually found stored material to compare against
+    /// (<see cref="SalienceContext.ComparableCount"/> &gt; 0) — replaces a check that compared a loop counter
+    /// against the length of the loop that incremented it and could never fail (fix round 1, Critical 2). A
+    /// silent embedder/vector-store/store failure would previously have made every <c>SimilarCount</c> 0, C1
+    /// pass for the WRONG reason, and the run print "not separable" having measured nothing. This doubles as
+    /// the store-size control Critical 1 needed: a fixture whose store never fills cannot exercise the
+    /// failure a promotion rule must survive. C1: the <c>novel</c> population reports 0 everywhere it ran —
+    /// if it does not, the floor is not doing anything and the distribution table measures nothing. Either
+    /// failing withholds the AUC verdict, though the distribution table still prints.</summary>
+    private static bool PrintControls(IReadOnlyList<Observation> observations)
     {
         Console.WriteLine("Controls");
 
-        var c0 = priorChecks.Count > 0 && priorChecks.All(p => p.Actual == p.Expected);
-        Console.WriteLine($"  C0 every fixture's priors were written: " +
-            $"{priorChecks.Count(p => p.Actual == p.Expected)}/{priorChecks.Count}  {(c0 ? "ok" : "<== SUSPECT")}");
+        var c0 = observations.Count > 0 && observations.All(o => o.ComparableCount > 0);
+        Console.WriteLine($"  C0 every probe found stored material to compare against (ComparableCount > 0): " +
+            $"{observations.Count(o => o.ComparableCount > 0)}/{observations.Count}  {(c0 ? "ok" : "<== SUSPECT")}");
 
         var novel = observations.Where(o => o.Population == Novel).ToList();
         var c1 = novel.Count > 0 && novel.All(o => o.SimilarCount == 0);
@@ -189,11 +195,12 @@ internal static class MemoryDensitySweep
     }
 
     /// <summary>The separability question, by the rank-sum (Mann-Whitney U) identity: pools every language's
-    /// own correction/recurrence pair into ONE AUC rather than reporting per-language, because a single
-    /// fixture per (language, population) makes any one language's own comparison a coin flip on its own —
-    /// see the class remarks. AUC 0.5 is chance; 1.0 is perfect separation. The threshold reported alongside
-    /// is the <c>SimilarCount</c> cut that maximises sensitivity + specificity - 1 (Youden's J), read as
-    /// "correction below, recurrence at or above".</summary>
+    /// own correction/recurrence pair into ONE AUC. AUC 0.5 is chance; 1.0 is perfect separation. Withheld
+    /// below <see cref="MinimumPairedObservations"/> per population (fix round 1, Important 4 — n=1 can only
+    /// read 0, 0.5 or 1) and captioned, when it runs on more than one language, with the reminder that those
+    /// languages are TRANSLATIONS rather than independent draws (Important 3; see the class remarks). The
+    /// threshold reported alongside is the <c>SimilarCount</c> cut that maximises sensitivity + specificity -
+    /// 1 (Youden's J), read as "correction below, recurrence at or above".</summary>
     private static void PrintAuc(IReadOnlyList<Observation> observations, bool controlsOk)
     {
         Console.WriteLine("Separability: recurrence vs correction (SimilarCount)");
@@ -207,9 +214,11 @@ internal static class MemoryDensitySweep
             Console.WriteLine();
             return;
         }
-        if (recurrence.Count == 0 || correction.Count == 0)
+        if (recurrence.Count < MinimumPairedObservations || correction.Count < MinimumPairedObservations)
         {
-            Console.WriteLine("  Verdict withheld — one population has no observations to compare.");
+            Console.WriteLine($"  Verdict withheld — {recurrence.Count} recurrence / {correction.Count} correction " +
+                $"observation(s): below {MinimumPairedObservations} per population, AUC can only read 0, 0.5 or 1 " +
+                "and would not be a real signal. Run with --languages for more.");
             Console.WriteLine();
             return;
         }
@@ -219,6 +228,12 @@ internal static class MemoryDensitySweep
 
         Console.WriteLine($"  AUC = {auc:F3} over {recurrence.Count} recurrence / {correction.Count} correction " +
             "observation(s), pooled across every language this run touched.");
+        if (recurrence.Count > 1)
+        {
+            Console.WriteLine("  These are TRANSLATIONS of one fixture-pair, not independent draws (D55) — read");
+            Console.WriteLine($"  this as a robustness check across {recurrence.Count} scripts with an EFFECTIVE");
+            Console.WriteLine($"  n of 1, never as {recurrence.Count} times the evidence.");
+        }
         Console.WriteLine($"  Best threshold: SimilarCount >= {threshold} predicts recurrence " +
             $"(sensitivity {sensitivity:F2}, specificity {specificity:F2}, J = {j:F2}).");
         Console.WriteLine();
@@ -280,142 +295,143 @@ internal static class MemoryDensitySweep
     private static void PrintNotSwept()
     {
         Console.WriteLine("What this does NOT settle");
-        Console.WriteLine("  - SimilarityK = 5 bounds the count and is unmeasured, so a ceiling effect is possible.");
+        Console.WriteLine("  - SimilarityK = 5 and MinSimilarity = 0.6 bound and define the count and are both");
+        Console.WriteLine("    unmeasured (\"a starting point, not a tuned value\" — GraphMemoryOptions' own doc),");
+        Console.WriteLine("    so a ceiling effect and a floor effect are both possible.");
         Console.WriteLine("  - Fixtures are authored, which caps what an absolute number is worth.");
         Console.WriteLine("  - Separability on authored fixtures is not separability on a real corpus.");
+        Console.WriteLine("  - Every non-English fixture is this author's own best-effort text, unreviewed by a");
+        Console.WriteLine("    native speaker — and four of the five --languages arms feed the pooled AUC.");
     }
 
     private static IReadOnlyList<Fixture> BuildFixtures(CorpusLanguage language) => language switch
     {
+        CorpusLanguage.English => EnglishFixtures,
         CorpusLanguage.Chinese => ChineseFixtures,
         CorpusLanguage.Japanese => JapaneseFixtures,
         CorpusLanguage.Korean => KoreanFixtures,
         CorpusLanguage.ChineseMixed => ChineseMixedFixtures,
-        _ => EnglishFixtures,
+        // Throws rather than defaulting to English text under a foreign label — CorpusLanguage has grown
+        // before (four arms to five; fix round 1, Important 6), and a silent fallback would pool a row
+        // LABELLED with the new language whose cells were actually measured on English prose.
+        _ => throw new InvalidOperationException(
+            $"{nameof(MemoryDensitySweep)} has no authored fixtures for {language}. Add a Fixtures array for " +
+            $"it and a {nameof(BuildFixtures)} arm — do not let it fall through to English."),
     };
 
-    private static readonly Fixture[] EnglishFixtures =
+    /// <summary>Builds one language's three fixtures, sharing ONE distractor set — the <c>novel</c> priors —
+    /// across ALL of them (fix round 1, Critical 1). Before this, <c>correction</c> held a single prior, so
+    /// its own store could never exceed 1 entry and <c>SimilarCount</c> was bounded at 1 by ARITHMETIC: the
+    /// real failure a promotion rule must survive — a correction landing in a POPULATED store and picking up
+    /// spurious above-threshold neighbours — was unreachable by construction. Every population's store now
+    /// holds the same distractor material; <c>novel</c>'s own priors ARE that set, so it is not padded a
+    /// second time.</summary>
+    private static Fixture[] BuildLanguageFixtures(string correctionFact, string correctionProbe,
+        IReadOnlyList<string> recurrencePriors, string recurrenceProbe,
+        IReadOnlyList<string> novelPriors, string novelProbe) =>
     [
-        new(Correction, Correction,
-            ["the deploy key is stored in the alpha vault for the backend to read"],
-            "actually the deploy key is stored in the beta vault, not the alpha vault"),
-        new(Recurrence, Recurrence,
-            [
-                "checked the email inbox for new messages this morning",
-                "checked the email inbox for new messages at noon",
-                "checked the email inbox for new messages this afternoon",
-                "checked the email inbox for new messages before the standup",
-                "checked the email inbox for new messages after the standup",
-                "checked the email inbox for new messages before lunch",
-            ],
-            "checked the email inbox for new messages before heading home"),
-        new(Novel, Novel,
-            [
-                "the garden's tomato plants need staking before the storm arrives",
-                "quarterly tax filings are due at the end of the month",
-                "the hiking trail near the summit was closed after a storm felled trees",
-                "the new espresso machine grinds beans more evenly than the old one",
-            ],
-            "the observatory's telescope mirror was recoated last winter"),
+        new(Correction, Correction, [correctionFact, .. novelPriors], correctionProbe),
+        new(Recurrence, Recurrence, [.. recurrencePriors, .. novelPriors], recurrenceProbe),
+        new(Novel, Novel, novelPriors, novelProbe),
     ];
 
-    private static readonly Fixture[] ChineseFixtures =
-    [
-        new(Correction, Correction,
-            ["部署密钥保存在阿尔法保险库供后端服务读取"],
-            "更正一下部署密钥其实保存在贝塔保险库而不是阿尔法"),
-        new(Recurrence, Recurrence,
-            [
-                "今天早上检查了邮箱是否有新邮件",
-                "今天中午检查了邮箱是否有新邮件",
-                "今天下午检查了邮箱是否有新邮件",
-                "站会之前检查了邮箱是否有新邮件",
-                "站会之后检查了邮箱是否有新邮件",
-                "午饭之前检查了邮箱是否有新邮件",
-            ],
-            "下班之前检查了邮箱是否有新邮件"),
-        new(Novel, Novel,
-            [
-                "花园里的番茄植株需要在暴风雨来临前搭好支架",
-                "季度纳税申报表必须在月底之前提交",
-                "山顶附近的徒步小径因倒下的树木而关闭",
-                "新买的意式咖啡机磨豆比旧的更均匀",
-            ],
-            "天文台的望远镜反射镜在去年冬天重新镀膜了"),
-    ];
+    private static readonly Fixture[] EnglishFixtures = BuildLanguageFixtures(
+        "the deploy key is stored in the alpha vault for the backend to read",
+        "actually the deploy key is stored in the beta vault, not the alpha vault",
+        [
+            "checked the email inbox for new messages this morning",
+            "checked the email inbox for new messages at noon",
+            "checked the email inbox for new messages this afternoon",
+            "checked the email inbox for new messages before the standup",
+            "checked the email inbox for new messages after the standup",
+            "checked the email inbox for new messages before lunch",
+        ],
+        "checked the email inbox for new messages before heading home",
+        [
+            "the garden's tomato plants need staking before the storm arrives",
+            "quarterly tax filings are due at the end of the month",
+            "the hiking trail near the summit was closed after a storm felled trees",
+            "the new espresso machine grinds beans more evenly than the old one",
+        ],
+        "the observatory's telescope mirror was recoated last winter");
 
-    private static readonly Fixture[] JapaneseFixtures =
-    [
-        new(Correction, Correction,
-            ["デプロイ鍵はアルファ保管庫に保存されバックエンドが読み取る"],
-            "訂正するとデプロイ鍵は実はベータ保管庫に保存されておりアルファではない"),
-        new(Recurrence, Recurrence,
-            [
-                "今朝メールの受信箱を確認した",
-                "昼にメールの受信箱を確認した",
-                "午後にメールの受信箱を確認した",
-                "スタンドアップの前にメールの受信箱を確認した",
-                "スタンドアップの後にメールの受信箱を確認した",
-                "昼食の前にメールの受信箱を確認した",
-            ],
-            "退勤の前にメールの受信箱を確認した"),
-        new(Novel, Novel,
-            [
-                "庭のトマトの苗は嵐が来る前に支柱を立てる必要がある",
-                "四半期の税務申告は月末までに提出しなければならない",
-                "山頂近くの登山道は倒木のため閉鎖された",
-                "新しいエスプレッソマシンは古いものより均等に豆を挽く",
-            ],
-            "天文台の望遠鏡の鏡は去年の冬に再蒸着された"),
-    ];
+    private static readonly Fixture[] ChineseFixtures = BuildLanguageFixtures(
+        "部署密钥保存在阿尔法保险库供后端服务读取",
+        "更正一下部署密钥其实保存在贝塔保险库而不是阿尔法",
+        [
+            "今天早上检查了邮箱是否有新邮件",
+            "今天中午检查了邮箱是否有新邮件",
+            "今天下午检查了邮箱是否有新邮件",
+            "站会之前检查了邮箱是否有新邮件",
+            "站会之后检查了邮箱是否有新邮件",
+            "午饭之前检查了邮箱是否有新邮件",
+        ],
+        "下班之前检查了邮箱是否有新邮件",
+        [
+            "花园里的番茄植株需要在暴风雨来临前搭好支架",
+            "季度纳税申报表必须在月底之前提交",
+            "山顶附近的徒步小径因倒下的树木而关闭",
+            "新买的意式咖啡机磨豆比旧的更均匀",
+        ],
+        "天文台的望远镜反射镜在去年冬天重新镀膜了");
 
-    private static readonly Fixture[] KoreanFixtures =
-    [
-        new(Correction, Correction,
-            ["배포키는 알파 보관소에 저장되어 백엔드가 읽어간다"],
-            "정정하자면 배포키는 사실 베타 보관소에 저장되어 있고 알파가 아니다"),
-        new(Recurrence, Recurrence,
-            [
-                "오늘 아침 이메일 수신함을 확인했다",
-                "점심에 이메일 수신함을 확인했다",
-                "오후에 이메일 수신함을 확인했다",
-                "스탠드업 전에 이메일 수신함을 확인했다",
-                "스탠드업 후에 이메일 수신함을 확인했다",
-                "점심 전에 이메일 수신함을 확인했다",
-            ],
-            "퇴근 전에 이메일 수신함을 확인했다"),
-        new(Novel, Novel,
-            [
-                "정원의 토마토 모종은 폭풍이 오기 전에 지지대를 세워야 한다",
-                "분기별 세금 신고는 월말까지 제출해야 한다",
-                "정상 근처의 등산로는 쓰러진 나무 때문에 폐쇄되었다",
-                "새 에스프레소 머신은 예전 것보다 원두를 더 고르게 간다",
-            ],
-            "천문대의 망원경 거울은 작년 겨울에 재코팅되었다"),
-    ];
+    private static readonly Fixture[] JapaneseFixtures = BuildLanguageFixtures(
+        "デプロイ鍵はアルファ保管庫に保存されバックエンドが読み取る",
+        "訂正するとデプロイ鍵は実はベータ保管庫に保存されておりアルファではない",
+        [
+            "今朝メールの受信箱を確認した",
+            "昼にメールの受信箱を確認した",
+            "午後にメールの受信箱を確認した",
+            "スタンドアップの前にメールの受信箱を確認した",
+            "スタンドアップの後にメールの受信箱を確認した",
+            "昼食の前にメールの受信箱を確認した",
+        ],
+        "退勤の前にメールの受信箱を確認した",
+        [
+            "庭のトマトの苗は嵐が来る前に支柱を立てる必要がある",
+            "四半期の税務申告は月末までに提出しなければならない",
+            "山頂近くの登山道は倒木のため閉鎖された",
+            "新しいエスプレッソマシンは古いものより均等に豆を挽く",
+        ],
+        "天文台の望遠鏡の鏡は去年の冬に再蒸着された");
 
-    private static readonly Fixture[] ChineseMixedFixtures =
-    [
-        new(Correction, Correction,
-            ["deploy密钥保存在alpha保险库供backend服务读取"],
-            "更正一下deploy密钥其实保存在beta保险库而不是alpha"),
-        new(Recurrence, Recurrence,
-            [
-                "今天早上检查了email收件箱有没有新消息",
-                "今天中午检查了email收件箱有没有新消息",
-                "今天下午检查了email收件箱有没有新消息",
-                "standup之前检查了email收件箱有没有新消息",
-                "standup之后检查了email收件箱有没有新消息",
-                "午饭之前检查了email收件箱有没有新消息",
-            ],
-            "下班之前检查了email收件箱有没有新消息"),
-        new(Novel, Novel,
-            [
-                "花园里的tomato植株需要在storm来临前搭好支架",
-                "季度tax申报表必须在月底之前提交给finance",
-                "山顶附近的hiking小径因倒下的树木而关闭",
-                "新买的espresso咖啡机磨豆比旧的更均匀",
-            ],
-            "observatory的telescope反射镜在去年冬天重新镀膜了"),
-    ];
+    private static readonly Fixture[] KoreanFixtures = BuildLanguageFixtures(
+        "배포키는 알파 보관소에 저장되어 백엔드가 읽어간다",
+        "정정하자면 배포키는 사실 베타 보관소에 저장되어 있고 알파가 아니다",
+        [
+            "오늘 아침 이메일 수신함을 확인했다",
+            "점심에 이메일 수신함을 확인했다",
+            "오후에 이메일 수신함을 확인했다",
+            "스탠드업 전에 이메일 수신함을 확인했다",
+            "스탠드업 후에 이메일 수신함을 확인했다",
+            "점심 전에 이메일 수신함을 확인했다",
+        ],
+        "퇴근 전에 이메일 수신함을 확인했다",
+        [
+            "정원의 토마토 모종은 폭풍이 오기 전에 지지대를 세워야 한다",
+            "분기별 세금 신고는 월말까지 제출해야 한다",
+            "정상 근처의 등산로는 쓰러진 나무 때문에 폐쇄되었다",
+            "새 에스프레소 머신은 예전 것보다 원두를 더 고르게 간다",
+        ],
+        "천문대의 망원경 거울은 작년 겨울에 재코팅되었다");
+
+    private static readonly Fixture[] ChineseMixedFixtures = BuildLanguageFixtures(
+        "deploy密钥保存在alpha保险库供backend服务读取",
+        "更正一下deploy密钥其实保存在beta保险库而不是alpha",
+        [
+            "今天早上检查了email收件箱有没有新消息",
+            "今天中午检查了email收件箱有没有新消息",
+            "今天下午检查了email收件箱有没有新消息",
+            "standup之前检查了email收件箱有没有新消息",
+            "standup之后检查了email收件箱有没有新消息",
+            "午饭之前检查了email收件箱有没有新消息",
+        ],
+        "下班之前检查了email收件箱有没有新消息",
+        [
+            "花园里的tomato植株需要在storm来临前搭好支架",
+            "季度tax申报表必须在月底之前提交给finance",
+            "山顶附近的hiking小径因倒下的树木而关闭",
+            "新买的espresso咖啡机磨豆比旧的更均匀",
+        ],
+        "observatory的telescope反射镜在去年冬天重新镀膜了");
 }
