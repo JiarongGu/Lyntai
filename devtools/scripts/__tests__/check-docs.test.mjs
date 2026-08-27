@@ -55,6 +55,18 @@ describe('check-docs — regression: the three measured defects', () => {
     assert.equal((out.match(/docs\/a\.md:/g) ?? []).length, 1, 'one hit, not one per window');
   });
 
+  it('defect 1c: a claim wrapped onto an INDENTED continuation is still caught (regression)', () => {
+    // Demonstrated failure: the join kept the continuation's own leading indentation, so
+    // "available," + " " + "      not the default" carried extra spaces between "available," and "not"
+    // that the rule's single-space-anchored pattern cannot cross — the claim was invisible.
+    const { code, out } = run({
+      'docs/a.md': 'The old ranking heuristic remains available,\n'
+        + '      not the default in this release.\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /docs\/a\.md:1/);
+  });
+
   it('defect 2: CLAUDE.md and TASKS.md are IN SCOPE (three startsWith calls silently omitted both)', () => {
     for (const file of ['CLAUDE.md', 'TASKS.md']) {
       const { code, out } = run({ [file]: 'The policy is available but not the default.\n' });
@@ -211,6 +223,31 @@ describe('check-docs — the CODE tiers, comment lines only', () => {
     const { code, out } = run({ 'src/A.cs': text });
     assert.equal(code, 1);
     assert.match(out, /src\/A\.cs:4/, 'the hit must report its REAL line, not its index among comments');
+  });
+
+  it('catches a claim wrapped across two `///` lines (regression)', () => {
+    // `twoLineWindows` trims a continuation's leading INDENTATION before the join, but a comment line keeps
+    // its own `///` marker even after that trim — the marker sits between the two halves of the claim, and
+    // a pattern anchored on single-space adjacency still cannot cross it. Demonstrated failing even
+    // unindented, because the marker alone is enough to break the join.
+    const text = '/// The old ranking heuristic remains available,\n/// not the default in this release.\n';
+    const { code, out } = run({ 'src/A.cs': text });
+    assert.equal(code, 1, out);
+    assert.match(out, /src\/A\.cs:1/);
+  });
+
+  it('…and still catches it when the `///` continuation is INDENTED too', () => {
+    const text = '    /// The old ranking heuristic remains available,\n'
+      + '          /// not the default in this release.\n';
+    const { code, out } = run({ 'src/A.cs': text });
+    assert.equal(code, 1, out);
+  });
+
+  it('…and with an ordinary `//` marker, not just `///`', () => {
+    const text = '    // The old ranking heuristic remains available,\n'
+      + '          // not the default in this release.\n';
+    const { code, out } = run({ 'src/A.cs': text });
+    assert.equal(code, 1, out);
   });
 
   it('honours drift-ok on a comment line, the same escape prose uses', () => {

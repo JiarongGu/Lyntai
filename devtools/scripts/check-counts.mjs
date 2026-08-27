@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 import { IN_SCOPE, IS_SCANNED, SUPERSEDED_BANNER, liveLineCount } from './check-docs.mjs';
 import { packableProjects } from './check-packages.mjs';
-import { repoFiles } from './_repo-files.mjs';
+import { repoFiles, twoLineWindows } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = path.resolve(path.dirname(here), '..', '..');
@@ -407,9 +407,9 @@ export function checkCounts(repo, claims = COUNTED_CLAIMS, log = console.log, fi
 
     const all = text.split(/\r?\n/);
     const lines = all.slice(0, liveLineCount(file, all));
-    // Same two-line window as check-docs, and for the same measured reason: these documents wrap at ~110
+    // Same window builder check-docs uses, and for the same measured reason: these documents wrap at ~110
     // columns, so a claim can straddle a break and a line-only matcher would never see it.
-    const windows = lines.map((l, i) => (i + 1 < lines.length ? `${l} ${lines[i + 1]}` : l));
+    const windows = twoLineWindows(lines);
 
     for (const claim of claims) {
       if (truths.get(claim) < 0) continue;   // broken counter: reported once, not per occurrence

@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoFiles } from './_repo-files.mjs';
+import { repoFiles, twoLineWindows } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -120,9 +120,15 @@ export const CODE_IN_SCOPE = (path) =>
   (path.endsWith('.cs') || path.endsWith('.mjs'))
   && (path.startsWith('src/') || path.startsWith('tests/') || path.startsWith('bench/'));
 
-/** Non-comment lines blanked, so only prose is scanned and every line number stays true. */
+/**
+ * Non-comment lines blanked, so only prose is scanned and every line number stays true. A surviving
+ * comment line is reduced to its PROSE content — leading indentation AND the `//`/`///` marker both
+ * stripped — so `twoLineWindows`' join reads as continuous prose across two comment lines exactly as it
+ * does across two paragraph lines. Left in, the marker sits between the two halves of a wrapped claim and
+ * breaks the same single-space adjacency raw indentation does — the reason `twoLineWindows` itself trims.
+ */
 export const commentLinesOnly = (lines) =>
-  lines.map((l) => (l.trim().startsWith('//') ? l : ''));
+  lines.map((l) => (l.trim().startsWith('//') ? l.trim().replace(/^\/{2,3}\s*/, '') : ''));
 
 export const IN_SCOPE = (path) =>
   path === 'README.md'
@@ -202,8 +208,9 @@ export function checkDocs(repo, config, log = console.log, files = null) {
     // in CLAUDE.md, stale, while this gate reported the file clean. A two-line window is enough by
     // construction — a wrap inserts one break, and the claims these rules describe are far shorter than a
     // line. Rules are authored against prose, so the join is a SPACE: a pattern written with `[^.\n]{0,60}`
-    // still cannot run past a sentence, only past a wrap.
-    const windows = lines.map((line, i) => (i + 1 < lines.length ? `${line} ${lines[i + 1]}` : line));
+    // still cannot run past a sentence, only past a wrap. See `twoLineWindows` for why the continuation is
+    // trimmed and the first line is not.
+    const windows = twoLineWindows(lines);
 
     for (const rule of rules) {
       const re = new RegExp(rule.term, 'g');
