@@ -90,6 +90,13 @@ if (args.Contains("--importance"))
 if (args.Contains("--density"))
     return await MemoryDensitySweep.RunAsync(args.Contains("--languages"));
 
+// `node devtools/dev.mjs memory-support` → --gist-support. Which rule selects a recurring cluster's CURRENT
+// regime: the combining form over member retrievability, and whether a small generative model beats it.
+// `--screen` runs the size ladder alone on one shape, which is the arm most likely to change what the gist
+// tier ships and the cheapest to kill.
+if (args.Contains("--gist-support"))
+    return await MemoryGistSupportSweep.RunAsync(args);
+
 // `node devtools/dev.mjs memory-scale` → --scale. The one blind spot docs/memory.md §8 concedes outright:
 // nothing in this subsystem had exceeded a few hundred entries. The ONLY sweep here whose subject is COST
 // rather than recall quality — which is also why it runs sequentially where the others fan out, since

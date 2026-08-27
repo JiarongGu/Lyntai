@@ -226,4 +226,70 @@ internal static class SweepDoubles
             return result;
         }
     }
+
+    /// <summary>Environment variable naming the chat model an arm should ask.</summary>
+    internal const string ChatModelVariable = "LYNTAI_LIVE_CHAT_MODEL";
+
+    /// <summary>The chat model this resolves to.</summary>
+    internal static string ChatModel =>
+        Environment.GetEnvironmentVariable(ChatModelVariable) ?? "gemma3:4b";
+
+    /// <summary>
+    /// A real chat model over the OpenAI-compatible <c>/v1/chat/completions</c> route, or <c>null</c> when
+    /// none is reachable — in which case the refusal is already on stderr and the caller exits non-zero.
+    /// </summary>
+    internal static async Task<OpenAiCompatibleChat?> TryRealChatAsync(HttpClient http, string sweep)
+    {
+        var model = ChatModel;
+        var chat = new OpenAiCompatibleChat(http, BaseUrl, model);
+        if (await chat.ReachableAsync()) return chat;
+
+        Console.Error.WriteLine($"{sweep}: ✗ no chat model at {BaseUrl} ({model}).");
+        Console.Error.WriteLine();
+        Console.Error.WriteLine("  This arm measures what a MODEL is worth, so a scripted stand-in would");
+        Console.Error.WriteLine("  measure the stand-in. It refuses to run instead.");
+        Console.Error.WriteLine();
+        Console.Error.WriteLine("  Any OpenAI-compatible /v1/chat/completions endpoint serves this:");
+        Console.Error.WriteLine("    - llama.cpp:   llama-server -hf <user>/<model>[:quant]   (preferred)");
+        Console.Error.WriteLine($"    - Ollama:      ollama pull {model}                        (convenience only)");
+        Console.Error.WriteLine($"  Point it with {UrlVariable}, and name the model with {ChatModelVariable}.");
+        return null;
+    }
+
+    /// <summary>A real chat model over the OpenAI-compatible route, asked one question at a time.</summary>
+    internal sealed class OpenAiCompatibleChat(HttpClient http, string baseUrl, string model)
+    {
+        /// <summary>The model this instance asks, for a table to label its row with.</summary>
+        public string Model => model;
+
+        /// <summary>Probes by asking something, rather than by reading a model list — a listed model can
+        /// still fail to answer, and llama-server has no tag list at all.</summary>
+        public async Task<bool> ReachableAsync()
+        {
+            try { return await AskAsync("Reply with the single character: 1") is { Length: > 0 }; }
+            catch (HttpRequestException) { return false; }
+            catch (TaskCanceledException) { return false; }
+            catch (JsonException) { return false; }
+            catch (KeyNotFoundException) { return false; }
+        }
+
+        /// <remarks>Temperature 0 and a tiny cap: every question this asks has a one-token answer, and a
+        /// model that wants to explain itself is spending latency the seam cannot afford.</remarks>
+        public async Task<string?> AskAsync(string prompt, CancellationToken ct = default)
+        {
+            using var response = await http.PostAsJsonAsync($"{baseUrl}/v1/chat/completions",
+                new
+                {
+                    model,
+                    messages = new[] { new { role = "user", content = prompt } },
+                    temperature = 0,
+                    max_tokens = 4,
+                }, ct);
+            if (!response.IsSuccessStatusCode) return null;
+
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            return json.RootElement.GetProperty("choices")[0]
+                .GetProperty("message").GetProperty("content").GetString();
+        }
+    }
 }

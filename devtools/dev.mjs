@@ -310,6 +310,16 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--density', ...args]);
     break;
 
+  // memory-support — which rule selects a recurring cluster's CURRENT regime, for the planned gist tier.
+  // The model arms need a real chat model and EXIT rather than substituting a scripted one: an arm that
+  // measures what a model is worth cannot be measured through a stand-in. Today this runs ONLY the
+  // one-shape ladder screen (RunAsync never reads args) — the full shape grid is a later task and does
+  // not exist yet.
+  case 'memory-support':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--gist-support', ...args]);
+    break;
+
   // memory-scale — the blind spot docs/memory.md §8 concedes outright: nothing in this subsystem had
   // exceeded a few hundred entries. MemoryRecallBenchmarks does run 1k/10k/100k and runs them against
   // SqliteMemoryStore — the KEYWORD store — so the graph engine's own write and read paths were unmeasured
