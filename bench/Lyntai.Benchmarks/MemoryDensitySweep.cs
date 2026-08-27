@@ -51,6 +51,13 @@ internal static class MemoryDensitySweep
     // Important 4 — the single-language default run (n=1 per population) is exactly what this refuses.
     private const int MinimumPairedObservations = 2;
 
+    // Every fixture's Prior list is padded to exactly this many entries (fix round 2, Critical 1): SearchAsync
+    // requests SimilarityK + 1 = 6 neighbours, so any store short of that lets the STORE, not the embedder,
+    // set SimilarCount's ceiling. 10 rather than the bare minimum of 6 because recurrence already sat there
+    // (6 near-identical priors + 4 distractors) — matching it, rather than computing a per-population minimum,
+    // makes every store the SAME size, not merely each one individually "enough".
+    private const int CommonStoreSize = 10;
+
     /// <summary>One population of writes: a label, the entries written BEFORE the probe, and the probe
     /// itself. <see cref="Population"/> is the statistical class (for AUC/grouping); <see cref="Label"/> is
     /// what a table prints — identical today, kept separate so a future fixture can vary within one
@@ -72,9 +79,10 @@ internal static class MemoryDensitySweep
         }
     }
 
-    /// <summary><see cref="ComparableCount"/> rides alongside <see cref="SimilarCount"/> for exactly one
-    /// reason: it is what makes C0 able to fail (fix round 1, Critical 2) — see <see cref="PrintControls"/>.
-    /// </summary>
+    /// <summary><see cref="ComparableCount"/> rides alongside <see cref="SimilarCount"/> for two controls, not
+    /// one: C0 (fix round 1, Critical 2) checks it is nonzero, and C1 (fix round 2, Critical 1) checks it is
+    /// EQUAL across every population and language — the one that actually controls store size. See
+    /// <see cref="PrintControls"/>.</summary>
     private sealed record Observation(CorpusLanguage Language, string Population, int SimilarCount, int ComparableCount);
 
     public static async Task<int> RunAsync(bool acrossLanguages = false)
@@ -139,15 +147,21 @@ internal static class MemoryDensitySweep
         Console.WriteLine();
     }
 
-    /// <summary>C0: every probe actually found stored material to compare against
-    /// (<see cref="SalienceContext.ComparableCount"/> &gt; 0) — replaces a check that compared a loop counter
-    /// against the length of the loop that incremented it and could never fail (fix round 1, Critical 2). A
-    /// silent embedder/vector-store/store failure would previously have made every <c>SimilarCount</c> 0, C1
-    /// pass for the WRONG reason, and the run print "not separable" having measured nothing. This doubles as
-    /// the store-size control Critical 1 needed: a fixture whose store never fills cannot exercise the
-    /// failure a promotion rule must survive. C1: the <c>novel</c> population reports 0 everywhere it ran —
-    /// if it does not, the floor is not doing anything and the distribution table measures nothing. Either
-    /// failing withholds the AUC verdict, though the distribution table still prints.</summary>
+    /// <summary>Three controls, and the split between C0 and C1 is deliberate — fix round 2 found C0 alone
+    /// insufficient and a doc CLAIMING it covered the gap while nothing in the code did (its own defect, now
+    /// corrected here rather than repeated).
+    /// <para><b>C0</b>: every probe found SOME stored material (<c>ComparableCount &gt; 0</c>) — replaces a
+    /// check that compared a loop counter against the length of the loop that incremented it and could never
+    /// fail (fix round 1, Critical 2). This is a FLOOR OF ONE: it passes on a single-entry store, so on its
+    /// own it does NOT control for store size.</para>
+    /// <para><b>C1</b> is what does: every observation's <c>ComparableCount</c> is the SAME value, across
+    /// every population and every language (fix round 2, Critical 1). <c>SearchAsync</c> requests
+    /// <c>SimilarityK + 1</c> neighbours, so a store short of that count lets the STORE, not the embedder, set
+    /// <c>SimilarCount</c>'s ceiling — this is the control that would have caught <c>correction</c> sitting at
+    /// 5 stored entries while <c>recurrence</c> sat at 10, the exact confound fix round 1 left open.</para>
+    /// <para><b>C2</b>: the <c>novel</c> population reports 0 everywhere it ran — if it does not, the floor is
+    /// not doing anything and the distribution table measures nothing.</para>
+    /// Any control failing withholds the AUC verdict, though the distribution table still prints.</summary>
     private static bool PrintControls(IReadOnlyList<Observation> observations)
     {
         Console.WriteLine("Controls");
@@ -156,12 +170,19 @@ internal static class MemoryDensitySweep
         Console.WriteLine($"  C0 every probe found stored material to compare against (ComparableCount > 0): " +
             $"{observations.Count(o => o.ComparableCount > 0)}/{observations.Count}  {(c0 ? "ok" : "<== SUSPECT")}");
 
-        var novel = observations.Where(o => o.Population == Novel).ToList();
-        var c1 = novel.Count > 0 && novel.All(o => o.SimilarCount == 0);
-        Console.WriteLine($"  C1 `novel` reports 0 everywhere: " +
-            $"{novel.Count(o => o.SimilarCount == 0)}/{novel.Count}  {(c1 ? "ok" : "<== SUSPECT")}");
+        var comparableValues = observations.Select(o => o.ComparableCount).Distinct().OrderBy(v => v).ToList();
+        var c1 = comparableValues.Count == 1;
+        Console.WriteLine($"  C1 ComparableCount is equal across every population and language: " +
+            (c1
+                ? $"{comparableValues[0]} everywhere  ok"
+                : $"{comparableValues.Count} distinct value(s) ({string.Join(", ", comparableValues)})  <== SUSPECT"));
 
-        if (!c0 || !c1)
+        var novel = observations.Where(o => o.Population == Novel).ToList();
+        var c2 = novel.Count > 0 && novel.All(o => o.SimilarCount == 0);
+        Console.WriteLine($"  C2 `novel` reports 0 everywhere: " +
+            $"{novel.Count(o => o.SimilarCount == 0)}/{novel.Count}  {(c2 ? "ok" : "<== SUSPECT")}");
+
+        if (!c0 || !c1 || !c2)
         {
             Console.WriteLine();
             Console.WriteLine("  A control failed — see above. The distribution table still prints; the AUC");
@@ -169,7 +190,7 @@ internal static class MemoryDensitySweep
         }
 
         Console.WriteLine();
-        return c0 && c1;
+        return c0 && c1 && c2;
     }
 
     private static void PrintDistribution(IReadOnlyList<Observation> observations, IReadOnlyList<CorpusLanguage> languages)
@@ -319,21 +340,33 @@ internal static class MemoryDensitySweep
             $"it and a {nameof(BuildFixtures)} arm — do not let it fall through to English."),
     };
 
-    /// <summary>Builds one language's three fixtures, sharing ONE distractor set — the <c>novel</c> priors —
-    /// across ALL of them (fix round 1, Critical 1). Before this, <c>correction</c> held a single prior, so
-    /// its own store could never exceed 1 entry and <c>SimilarCount</c> was bounded at 1 by ARITHMETIC: the
-    /// real failure a promotion rule must survive — a correction landing in a POPULATED store and picking up
-    /// spurious above-threshold neighbours — was unreachable by construction. Every population's store now
-    /// holds the same distractor material; <c>novel</c>'s own priors ARE that set, so it is not padded a
-    /// second time.</summary>
+    /// <summary>Builds one language's three fixtures, padding every population's store to the SAME total
+    /// (<see cref="CommonStoreSize"/>) from one shared distractor pool — fix round 2, Critical 1. Fix round
+    /// 1 shared the pool but did not equalise totals: <c>correction</c> landed at 5 entries, <c>recurrence</c>
+    /// at 10 (its distractors, added on top of 6 already-saturating priors, were a no-op), and
+    /// <c>SimilarCount</c>'s ceiling was still set by the STORE rather than the embedder — exactly the
+    /// confound this exists to remove. <c>novel</c>'s own priors ARE the pool; <c>correction</c> and
+    /// <c>recurrence</c> draw only as much of it as their own signal-bearing priors leave short of the
+    /// common total, so the SAME material backs every population's padding.</summary>
     private static Fixture[] BuildLanguageFixtures(string correctionFact, string correctionProbe,
         IReadOnlyList<string> recurrencePriors, string recurrenceProbe,
-        IReadOnlyList<string> novelPriors, string novelProbe) =>
-    [
-        new(Correction, Correction, [correctionFact, .. novelPriors], correctionProbe),
-        new(Recurrence, Recurrence, [.. recurrencePriors, .. novelPriors], recurrenceProbe),
-        new(Novel, Novel, novelPriors, novelProbe),
-    ];
+        IReadOnlyList<string> distractorPool, string novelProbe)
+    {
+        if (distractorPool.Count != CommonStoreSize)
+            throw new ArgumentException(
+                $"the distractor pool must have exactly {CommonStoreSize} entries (had {distractorPool.Count}) " +
+                $"— it doubles as `novel`'s own priors, so a short pool would leave `novel` below {nameof(CommonStoreSize)} too.",
+                nameof(distractorPool));
+
+        return
+        [
+            new(Correction, Correction,
+                [correctionFact, .. distractorPool.Take(CommonStoreSize - 1)], correctionProbe),
+            new(Recurrence, Recurrence,
+                [.. recurrencePriors, .. distractorPool.Take(CommonStoreSize - recurrencePriors.Count)], recurrenceProbe),
+            new(Novel, Novel, distractorPool, novelProbe),
+        ];
+    }
 
     private static readonly Fixture[] EnglishFixtures = BuildLanguageFixtures(
         "the deploy key is stored in the alpha vault for the backend to read",
@@ -352,6 +385,12 @@ internal static class MemoryDensitySweep
             "quarterly tax filings are due at the end of the month",
             "the hiking trail near the summit was closed after a storm felled trees",
             "the new espresso machine grinds beans more evenly than the old one",
+            "the neighbour's cat keeps sleeping on the porch furniture",
+            "the museum's east wing reopens after the roof repair",
+            "a violin string snapped during the second movement",
+            "the bakery started selling sourdough on weekends only",
+            "the ferry schedule changes twice a year for winter",
+            "the library extended its late fees grace period",
         ],
         "the observatory's telescope mirror was recoated last winter");
 
@@ -372,6 +411,12 @@ internal static class MemoryDensitySweep
             "季度纳税申报表必须在月底之前提交",
             "山顶附近的徒步小径因倒下的树木而关闭",
             "新买的意式咖啡机磨豆比旧的更均匀",
+            "邻居的猫总是睡在门廊的家具上",
+            "博物馆东翼在屋顶修缮后重新开放",
+            "小提琴的一根弦在第二乐章断了",
+            "面包店只在周末才卖酸面包",
+            "渡轮时刻表每年冬天都会调整两次",
+            "图书馆延长了逾期还书的宽限期",
         ],
         "天文台的望远镜反射镜在去年冬天重新镀膜了");
 
@@ -392,6 +437,12 @@ internal static class MemoryDensitySweep
             "四半期の税務申告は月末までに提出しなければならない",
             "山頂近くの登山道は倒木のため閉鎖された",
             "新しいエスプレッソマシンは古いものより均等に豆を挽く",
+            "隣の猫はいつも玄関の家具の上で眠っている",
+            "博物館の東棟は屋根の修理後に再開した",
+            "第二楽章でバイオリンの弦が切れた",
+            "パン屋は週末だけサワードウを販売している",
+            "フェリーの時刻表は冬に年二回変更される",
+            "図書館は延滞料金の猶予期間を延長した",
         ],
         "天文台の望遠鏡の鏡は去年の冬に再蒸着された");
 
@@ -412,6 +463,12 @@ internal static class MemoryDensitySweep
             "분기별 세금 신고는 월말까지 제출해야 한다",
             "정상 근처의 등산로는 쓰러진 나무 때문에 폐쇄되었다",
             "새 에스프레소 머신은 예전 것보다 원두를 더 고르게 간다",
+            "이웃집 고양이는 항상 현관 가구 위에서 잔다",
+            "박물관 동쪽 별관은 지붕 수리 후 다시 문을 열었다",
+            "이악장 도중 바이올린 줄이 끊어졌다",
+            "그 빵집은 주말에만 사워도우를 판매한다",
+            "여객선 시간표는 겨울마다 두 번 바뀐다",
+            "도서관은 연체료 유예 기간을 연장했다",
         ],
         "천문대의 망원경 거울은 작년 겨울에 재코팅되었다");
 
@@ -432,6 +489,12 @@ internal static class MemoryDensitySweep
             "季度tax申报表必须在月底之前提交给finance",
             "山顶附近的hiking小径因倒下的树木而关闭",
             "新买的espresso咖啡机磨豆比旧的更均匀",
+            "邻居的cat总是睡在porch的家具上",
+            "museum东翼在roof修缮后重新开放",
+            "violin的一根弦在第二movement断了",
+            "bakery只在周末才卖sourdough",
+            "ferry时刻表每年winter都会调整两次",
+            "library延长了逾期还书的grace period",
         ],
         "observatory的telescope反射镜在去年冬天重新镀膜了");
 }
