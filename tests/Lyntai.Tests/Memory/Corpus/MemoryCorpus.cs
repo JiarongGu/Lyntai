@@ -96,13 +96,12 @@ public enum CorpusNoiseKind
 /// low-value and collectively the answer to a frequency question. <c>0</c> (the default) disables the class
 /// and leaves every corpus byte-identical.
 /// <para><b>Split into two REGIMES, phase A always the larger.</b> B is derived and FLOORED at 1
-/// (<c>Math.Max(1, RoutineCount / 3)</c>), A is the remainder — deriving A directly as
-/// <c>RoutineCount * 2 / 3</c> instead gave 4 an even 2/2 split, a silent tie a hand-picked golden shape
-/// never caught. Values below 3 cannot honour "A is larger" at all (1 inverts to all-B, 2 can only tie) and
-/// are refused. The final routine query's answer is <b>B</b> — so a generalisation built on support count
-/// alone is not merely imprecise here, it is confidently wrong, and the A entries it returns are scored as
-/// pollution. That is the whole reason this class exists rather than a simple "repeated material" one:
-/// "usually" is a claim about a RECENT frequency, and a total is not an answer.</para></param>
+/// (<c>Math.Max(1, RoutineCount / 3)</c>), and A is the remainder. Values below 3 cannot honour "A is
+/// larger" at all (1 inverts to all-B, 2 can only tie) and are refused. The final routine query's answer is
+/// <b>B</b> — so a generalisation built on support count alone is not merely imprecise here, it is
+/// confidently wrong, and the A entries it returns are scored as pollution. That is the whole reason this
+/// class exists rather than a simple "repeated material" one: "usually" is a claim about a RECENT
+/// frequency, and a total is not an answer.</para></param>
 /// <param name="RoutineSupport">How many routine entries constitute an answer to the frequency question,
 /// passed through as <see cref="CorpusQuery.SupportNeeded"/>. It is a MODELLING CHOICE with no principled
 /// value hiding in the data — deriving it from the mechanism under test would be circular.</param>
@@ -756,7 +755,9 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         // own queries just used above, belt-and-braces for a shape too thin to reach it naturally — so phase A
         // is aged deep into the discriminating band by the time this query judges it as pollution. Phase B's
         // writes then follow immediately, so IT stays fresh: this is the one guarantee in this method that
-        // targets a MINIMUM gap for one regime while keeping the other close to zero on purpose.
+        // targets a MINIMUM gap for one regime while keeping the other close to zero on purpose — a
+        // deliberate, DOCUMENTED exception to the blanket rule
+        // MemoryCorpusTests.No_reuse_query_occurs_at_age_zero states elsewhere.
         if (routineCount > 0)
         {
             TopUpTo(routinePhaseAEndWrites + CriticalRareFloorWrites);

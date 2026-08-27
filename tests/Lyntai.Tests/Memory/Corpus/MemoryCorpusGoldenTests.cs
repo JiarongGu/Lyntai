@@ -38,15 +38,8 @@ public class MemoryCorpusGoldenTests
                 case CorpusQuery q:
                     sb.Append("Q|").Append(q.Text).Append('|')
                       .Append(string.Join(",", q.RelevantIds));
-                    // SupportNeeded is included ONLY when nonzero, deliberately — not appended
-                    // unconditionally, which would suffix "|0" onto every query line ever rendered and move
-                    // every pre-existing golden, not just the row that turns this field on. `0` IS the value
-                    // every one of those queries already carries, so an unconditional append would be a
-                    // representation change with no semantic one behind it — the exact kind of hash movement
-                    // this file exists to make suspicious. This way, only a shape whose SupportNeeded is
-                    // actually nonzero (today: only the routine class) can move a hash on this field's
-                    // account, and a change that dropped it — reverting the frequency query to all-of scoring
-                    // — no longer passes every golden green.
+                    // Conditional: every pre-existing query's SupportNeeded is 0, and an unconditional
+                    // append would suffix "|0" onto every line, moving every golden that predates this field.
                     if (q.SupportNeeded != 0) sb.Append('|').Append(q.SupportNeeded);
                     sb.Append('\n');
                     break;
@@ -62,10 +55,9 @@ public class MemoryCorpusGoldenTests
 
     /// <summary>Captured 2026-08-12 from the generator as it stood BEFORE <see cref="CorpusLanguage"/>
     /// existed. Six shapes rather than one so the goldens span every opt-in axis — an axis with no golden
-    /// is an axis a future change can move silently. (Five through 2026-08-26; the sixth, "routine", was
-    /// captured 2026-08-27 and could NOT have predated the language axis — its own hash still moved once
-    /// more, in the fix round that pinned <c>SupportNeeded</c> into <see cref="Render"/> and re-banded the
-    /// class's own placement in the timeline.)</summary>
+    /// is an axis a future change can move silently. The sixth, "routine", was captured 2026-08-27 and
+    /// necessarily POSTDATES the language axis, so it pins <see cref="Render"/>'s current shape rather than
+    /// the axis's own original baseline.</summary>
     public static TheoryData<string, CorpusShape, string> Goldens() => new()
     {
         { "default", CorpusShape.Default,

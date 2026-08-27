@@ -638,6 +638,13 @@ public class MemoryCorpusTests
         // all) through well above the sweep's own high-noise value; CandidateCount spans 0 through
         // HotRounds(5) — where hot-ephemeral, not topical, becomes the corpus's structurally last-written
         // class — through well above HotRounds.
+        //
+        // KNOWN, DELIBERATE EXCEPTION: the routine class's phase-B entries sit at age 0-3 relative to the
+        // FINAL routine query, by design — that query's discriminating power is in the POLLUTION half (is
+        // phase A excluded), not the miss half (is phase B found), so phase B is written fresh on purpose
+        // (see MemoryCorpus.cs's ROUTINE, PART 2 comment). Invisible below only because every Shape here is
+        // built positionally, leaving RoutineCount at its default of 0 — adding it to this grid will fail
+        // this assertion for every routineB* id, and that failure is EXPECTED, not a regression.
         var noiseDensities = new[] { 0, 1, 2, 8, 40 };
         var candidateCounts = new[] { 0, 1, 3, 5, 10, 40 };
         var reuseRatios = new[] { 1, 10 };
@@ -931,19 +938,23 @@ public class MemoryCorpusTests
         }
     }
 
-    /// <summary><b>The direct guard for CRITICAL 1 of fix round 1: the whole premise this class exists to
-    /// test — a generalisation built on support count alone, ignoring recency, is confidently wrong — is
-    /// untestable unless phase A has genuinely AGED relative to the final query.</b> Before this round's fix,
-    /// phase A and phase B were written back-to-back with no interposed gap: at RoutineCount=9, the newest
-    /// phase-A entry measured age 3 and the oldest measured 8, both far inside the age-zero region
-    /// <see cref="No_reuse_query_occurs_at_age_zero"/> forbids elsewhere in this corpus. PROPERTY-BASED over
-    /// <see cref="Grid"/>, mirroring <see cref="Critical_rare_queries_reach_the_discriminating_bands_midpoint"/>
-    /// exactly, since the fix is the same TopUpTo-to-a-floor mechanism.</summary>
+    /// <summary>The whole premise this class exists to test — a generalisation built on support count alone,
+    /// ignoring recency, is confidently wrong — is untestable unless phase A has genuinely AGED relative to
+    /// the final query, AND stays inside the region where DSR's own curve still discriminates rather than
+    /// having collapsed to its near-zero floor. Both bounds are PROPERTY-BASED over <see cref="Grid"/>: the
+    /// floor mirrors <see cref="Critical_rare_queries_reach_the_discriminating_bands_midpoint"/>, the ceiling
+    /// mirrors <see cref="Dsr_is_not_floored_at_the_grids_largest_reached_age"/>'s own threshold. Without the
+    /// ceiling, nothing here would fail if some future change pushed phase A far enough out that DSR's curve
+    /// floors — the exact over-correction a placement fix like this one has to be checked against.</summary>
     [Fact]
     public void Routine_phase_A_reaches_the_discriminating_bands_midpoint_at_the_final_query()
     {
         const int Midpoint = 3 * AssumedInitialStability; // = CriticalRareFloorWrites, restated verbatim (3 x S)
         var lex = CorpusLexicon.For(CorpusLanguage.English);
+        // Same threshold and same curve as Dsr_is_not_floored_at_the_grids_largest_reached_age, so "aged
+        // enough to discriminate" means the same thing in both places.
+        var dsr = new DsrRetrievability();
+        double DsrR(double age) => dsr.Retrievability(new MemoryDecayState(Age: age, RecallCount: 0, Stability: 0));
 
         foreach (var baseShape in Grid())
         {
@@ -967,6 +978,12 @@ public class MemoryCorpusTests
                     + $"at the final routine query, below the discriminating band's own midpoint of {Midpoint} "
                     + $"(age/S={Midpoint / (double)AssumedInitialStability:F2}) — phase A cannot be scored as "
                     + "pollution over recency if it never aged relative to phase B");
+
+                var r = DsrR(age);
+                Assert.True(r >= 0.05,
+                    $"[{shape}] phase-A entry '{id}' reached age {age} where DSR's own retrievability is "
+                    + $"{r:F3} — collapsed into the near-zero floor, which makes phase A undifferentiable "
+                    + "pollution rather than a class an engine's ranking can actually be tested against");
             }
         }
     }
