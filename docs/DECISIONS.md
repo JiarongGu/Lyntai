@@ -2569,9 +2569,16 @@ were found by an adopting application that had to rebuild the missing half outsi
 
 `MemoryWrite.Metadata` has documented "an engine whose store cannot hold it ignores it" since it shipped. The
 READ side said nothing at all, and `GraphNode.Metadata` was persisted, returned by the store, and then dropped
-at the projection onto `MemoryItem` — two lines in `GraphMemoryEngine`, one in `RecallAsync` and one in
-`ExpandAsync`. So a consumer could write a kind, a source or an ordering key and never get it back, and the
-only recourse was keeping a second copy of the store outside the library and re-reading it after every recall.
+at the projection onto `MemoryItem` — **three lines in `GraphMemoryEngine`, one in `RecallAsync` and TWO in
+`ExpandAsync`**, which projects the entry the caller NAMED separately from its neighbours. So a consumer could
+write a kind, a source or an ordering key and never get it back, and the only recourse was keeping a second
+copy of the store outside the library and re-reading it after every recall.
+
+**This entry said "two lines" for a day, and the third was still live when it did.** A grep for
+`new MemoryItem(` finds two sites, because the named entry's projection is written target-typed as `new(...)`
+inside a collection initializer — so the fix, the changelog, this entry and three other records all inherited
+one search's blind spot. The reusable form is in `pitfalls.md` §Second doors: **count a record's call sites
+from the type, not from a search for its constructor's name.**
 
 **The alternative was a typed KIND on the item**, and it is the one to argue against, because it reads better.
 A kind is exactly the consumer's vocabulary — "standing context", "glossary", "episode" — and `generic-library`
@@ -2602,6 +2609,32 @@ diffusion accelerator and **D75** for `HoldsUserContent`. The XML doc therefore 
 RELATIVE test (top against the rest) rather than an absolute one, and warns that an authoritative fact the
 query did not match reports `0` by design (**D56**) and must not be read as a failed recall.
 
+**Corrected 2026-08-27, the same day: the MEMBER survives and the MECHANISM above does not.** The heading and
+the two paragraphs before it are kept as written, because the correction is only legible beside them.
+
+The claim that had to go is the generalisation, and it was stated in the XML doc as *"a query with no answer
+returns scores that are low and BUNCHED, so a policy comparing the top score against the rest needs no
+inference at all"*. **The AUC 0.965 above is real and is a fact about the ADOPTING APPLICATION**, whose score
+is a real cosine over a single embedder — a quantity for which "low and bunched" is a meaningful shape. This
+engine's number is not that quantity. `MemoryRelevance.ByRankPosition` is `1 - index/count`: the top row is
+**always exactly `1.0`** and the rest an evenly-spaced ramp, identical whether the query was answered
+perfectly or not at all, and a single-row page reports `1` because there is no gradient to place it on. Within
+ONE request the values are not even commensurable — a lexical rank ramp, a real cosine on a semantic seed, a
+flat `1` on graph-walk and subject seeds, and `0` for a grade-admitted non-match. So *no* arithmetic over this
+page recovers "did anything answer this"; a relative test is a heuristic over an ordering, not the floor the
+old paragraph promised.
+
+The correction also removes a contradiction the doc carried between its own paragraphs: low-and-bunched
+implied *unanswered*, while the last paragraph said a zero-scoring authoritative row must NOT be read as
+unanswered — and on the SQLite `LIKE` fallback those are the same rows, since the predicate admits
+`grade = authoritative OR <match>` and a no-match page is exactly the grade-admitted set.
+
+**The member still earns its place**, on the narrower and true argument: it is what the caller will see on
+`MemoryItem.Relevance`, a verifier was the one reader of a recall that could not see it, and withholding it
+forced every implementation to be a model. What it does NOT buy is a model-free ANSWER, and no shipped
+implementation or doc may claim one. The XML doc now states what the value is and what a policy may not
+assume about it; **D90**'s posture applies — say which of the objectives a mechanism can actually be held to.
+
 ### What both cost
 
 One trailing member each, defaulted, so construction by name or position is unaffected; `Deconstruct` gains a
@@ -2615,3 +2648,11 @@ positively: a single "null is acceptable" fact would have passed vacuously for t
 carry metadata, which is the vacuous-fixture trap `pitfalls.md` records. That is also why the relevance facts
 include one asserting the column is not a constant — a field wired to a literal satisfies an equality check on
 every row.
+
+**And a SECOND contract fact for the expansion path**, `Metadata_survives_an_EXPANSION_not_only_a_recall`,
+because the first one calls `RecallAsync` and nothing else — which is precisely why the third projection stayed
+broken through a fix that named it. It takes a second declaration, `expands`, and asserts all three states
+positively: an engine with no `IExpandableMemory` surface asserts it has none, a composite over a member that
+cannot expand asserts the documented fail-OPEN empty recall, and the graph engine asserts the round trip.
+**A read path a contract fact does not CALL is a read path that contract does not cover**, however completely
+it enumerates engines.

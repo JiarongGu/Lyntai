@@ -136,7 +136,17 @@ public sealed record GraphMemoryOptions
     /// <summary>Cosine similarity below which enrichment does not link. Without a floor a new entry links
     /// to its <see cref="SimilarityK"/> nearest neighbours however unrelated they are, which in a small or
     /// young graph means linking to nearly everything. <b>A starting point, not a tuned value</b> — chosen
-    /// against a synthetic corpus, never against production usage.</summary>
+    /// against a synthetic corpus, never against production usage.
+    /// <para><b>It has a SECOND job: it is also the floor
+    /// <see cref="Lyntai.Memory.Salience.SalienceContext.SimilarCount"/> counts against</b>, so the two move
+    /// together and cannot be tuned apart. Raising it beyond what any pair of entries reaches — a value above
+    /// <c>1</c> disables linking outright — therefore reports <c>0</c> to every registered
+    /// <c>IMemorySaliencePolicy</c> as well. That is exactly the documented way to isolate
+    /// <c>memory-enrichment</c>'s linking half from its novelty half (<c>docs/memory.md</c> §4), and it stays
+    /// correct for <c>SalienceContext.Novelty</c>, which reads the probe's top score rather than this floor.
+    /// A policy reading the COUNT, though, sees "the store resembles nothing" rather than "this signal is
+    /// off" — the two are indistinguishable through that member, so turn the recipe off before trusting
+    /// it.</para></summary>
     public double MinSimilarity
     {
         get;

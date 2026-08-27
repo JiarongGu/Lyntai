@@ -347,7 +347,14 @@ internal static class MemoryDensitySweep
     /// <c>SimilarCount</c>'s ceiling was still set by the STORE rather than the embedder — exactly the
     /// confound this exists to remove. <c>novel</c>'s own priors ARE the pool; <c>correction</c> and
     /// <c>recurrence</c> draw only as much of it as their own signal-bearing priors leave short of the
-    /// common total, so the SAME material backs every population's padding.</summary>
+    /// common total, so the SAME material backs every population's padding.
+    /// <para><b>The pool's ORDER is load-bearing, not incidental.</b> Each population takes a PREFIX of it —
+    /// <c>correction</c> the first <c>CommonStoreSize - 1</c>, <c>recurrence</c> a shorter one still — so
+    /// which entries a population never sees is decided by position alone. The last slot is reserved for the
+    /// distractor carrying the correction probe's own "something is incorrect" frame (the spreadsheet
+    /// returning a wrong total, and its translation in every language), which is exactly the entry
+    /// <c>correction</c> must not be padded with. Reordering the pool moves that entry into a store silently,
+    /// with every guard here still green.</para></summary>
     private static Fixture[] BuildLanguageFixtures(string correctionFact, string correctionProbe,
         IReadOnlyList<string> recurrencePriors, string recurrenceProbe,
         IReadOnlyList<string> distractorPool, string novelProbe)

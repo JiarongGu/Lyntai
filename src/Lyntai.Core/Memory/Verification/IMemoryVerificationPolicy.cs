@@ -48,21 +48,21 @@ public sealed record MemoryVerificationRequest(
 /// <param name="Id">The engine-local id, echoed back in <see cref="MemoryVerification.RelevantIds"/>.</param>
 /// <param name="Headline">Its one-line summary — what a caller would see without paying to expand.</param>
 /// <param name="Relevance">How well it matched, exactly as <see cref="Lyntai.Memory.MemoryItem.Relevance"/>
-/// will report it to the caller — so a policy can decide abstention from the SCORE DISTRIBUTION rather than by
-/// reading the text.
-/// <para><b>This is what makes the model-free floor in the summary above implementable.</b> A candidate
-/// carried an id and a headline, from which the only route to "did anything answer this" is reading — which
-/// means a model, and the one shipped implementation is <see cref="LlmMemoryVerificationPolicy"/>. The
-/// distribution answers the same question with arithmetic: a query with no answer returns scores that are low
-/// and BUNCHED, and a policy comparing the top score against the rest needs no inference at all.</para>
-/// <para><b>Comparable only WITHIN one request</b>, inheriting every limit
-/// <see cref="Lyntai.Memory.MemoryItem.Relevance"/> carries: a graph engine passes its store's own normalized
-/// rank position through, and that position is explicitly backend-specific. So a policy that hard-codes a
-/// threshold is reading a number whose scale it does not own — which is why no such policy ships here, and
-/// why an implementation should prefer a RELATIVE test (top against median) to an absolute one.</para>
-/// <para><b>0 for an authoritative fact the query did not match</b>, which is admitted by grade rather than by
-/// relevance and is therefore not evidence that the recall failed. A floor policy must not read a
-/// zero-scoring authoritative row as an unanswered query.</para></param>
+/// will report it to the caller — so a policy can look at the SCORE DISTRIBUTION without reading the text.
+/// <para><b>Its scale and shape are SOURCE- and backend-specific, and a policy may not assume otherwise.</b>
+/// One request mixes values from different generators: a graph store's normalized rank POSITION for a lexical
+/// hit, a real cosine for a semantic seed, a flat <c>1</c> for a graph-walk or subject seed, and the <c>0</c>
+/// below. They are ordered, not measured — comparable within one request and no further, and not even
+/// commensurable across the sources inside it.</para>
+/// <para><b>A top score of <c>1</c> is not evidence of a good match.</b> Rank position puts the best row at
+/// exactly <c>1</c> whatever the query, and a single-row result at <c>1</c> because there is no gradient to
+/// place it on — the same output for a query answered perfectly and one answered not at all. <b>An absolute
+/// floor cannot be derived from this number alone.</b> A RELATIVE test (top against the rest) is what it
+/// supports, and even that reads an ordering rather than a fit.</para>
+/// <para><b>0 for an authoritative fact the query did not match</b>, admitted by grade rather than by
+/// relevance. Those rows are indistinguishable HERE from a recall that matched nothing — on the SQLite LIKE
+/// fallback a no-match page IS the grade-admitted rows — so a policy must not read a page of zeros as a
+/// judgement that the recall failed.</para></param>
 public sealed record MemoryVerificationCandidate(string Id, string Headline, double Relevance = 0);
 
 /// <summary>Which candidates answered the query.</summary>

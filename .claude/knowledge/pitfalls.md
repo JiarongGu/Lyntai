@@ -860,10 +860,23 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 - **A field accepted on WRITE and absent from the READ record is a write-only field, and every gate on earth
   says it is fine.** Measured 2026-08-27 (**D93**). `MemoryWrite.Metadata` was accepted, persisted into
-  `GraphNode.Metadata`, returned by all three stores — and then dropped at the two lines in
+  `GraphNode.Metadata`, returned by all three stores — and then dropped at the **three** lines in
   `GraphMemoryEngine` that project a node onto `MemoryItem`. It compiled, every test passed, the data really
   was in the database, and a consumer wanting it back had to keep a second copy of the store outside the
   library and re-read it after every recall. Nobody noticed for four releases.
+  <br>**Three, and the fix found two — because a target-typed `new(...)` is invisible to a search for the
+  constructor's NAME.** `grep "new MemoryItem("` returns the two sites written longhand; the third, the entry
+  a caller NAMED in `ExpandAsync`, sits in a collection initializer where the element type is already known
+  and is written `new(reference, …)`. So the repair, the changelog entry, `DECISIONS.md`, `docs/memory.md`,
+  the XML doc and this paragraph all said "two lines" while the projection that drops the caller's OWN entry
+  was still live — one search's blind spot copied into six records, each of which reads as independent
+  confirmation. **Count a record's construction sites from the TYPE, not from its constructor's name**: the
+  compiler knows them all (rename the record, or comment out a member and read the errors), and every
+  target-typed form — `new()`, a collection initializer element, a `return new(...)`, an implicit array —
+  is unreachable by text search. The same applies to `default`-shaped and `with`-shaped writes.
+  <br>The measured consequence beyond the miss: `ExpandAsync` returned the named entry with null metadata
+  **beside neighbours that had it**, inside one `MemoryRecall` — a self-inconsistent result, which is worse
+  to debug than a uniformly missing field because it reads as data-dependent.
   <br>**The tell is a pair of near-mirror records where one side carries a member the other does not** —
   here `MemoryWrite`/`MemoryItem`, and separately `MemoryVerificationCandidate`, whose interface doc promised
   "best-effort over a model-free floor" while giving an implementer nothing to compute a floor FROM. A
@@ -878,6 +891,11 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   exactly what a later refactor that maps items — to renormalize a score, say — would undo with every other
   fact still green. Pin the round trip; mutating the pass-through to `i with { Metadata = null }` is a
   two-minute check that the pin is real.
+  <br>**And a contract fact covers the METHOD it calls, not the property it is named for.**
+  `Metadata_written_is_returned_or_explicitly_absent` runs on all five engines, which reads as exhaustive —
+  and it only calls `RecallAsync`, so the whole expansion path stayed uncovered and the third projection
+  stayed broken through the very fix that named it. When a fact asserts a property of "what a read returns",
+  enumerate the READS as deliberately as you enumerate the implementations.
 
 - **Inserting a member ABOVE an existing one strands that one's doc onto your new member.** Measured FOUR
   times on 2026-08-16/17, by the same hand, in one session — adding a private helper before its neighbour

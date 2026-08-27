@@ -111,7 +111,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3397 passed / 3418 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3402 passed / 3423 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 386/386, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
@@ -479,8 +479,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
   SURVIVAL — decay resistance and store admission — which is D45's actual claim for what salience means.
   <br>**It needed no library change, and finding that out cost a wrong turn worth recording**: a policy
   already receives the whole `MemoryWrite`, so content and caller metadata were always available.
-  `SalienceContext` carries only novelty, comparables and the engine name, and reading that record ALONE says
-  a policy can judge nothing else — which is what the seam looks like until you read the method signature.
+  `SalienceContext` carries only what the ENGINE measured — the engine name, novelty, comparables and
+  `SimilarCount` — and reading that record ALONE says a policy can judge nothing else, which is what the seam
+  looks like until you read the method signature.
   **`memory-enrichment`** (2026-08-15) answered the oldest open question in that backlog — WHY registering an
   embedder costs recall quality — and was the **first sweep to call a REAL model**, EXITING rather than
   substituting a double, because the arm it replaces was measured through a bag-of-words fake in which
@@ -489,7 +490,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
   −0.30, `attribute` −0.28, `critical-rare` **+0.68**) whose aggregate looks small only because those
   cancel, while **novelty→salience is a broad shallow cost** that turns beneficial only under high noise.
   It needed no new API — `MinSimilarity` above 1 keeps the embed and writes no edge; a neutral salience
-  policy keeps the edges and drops novelty.
+  policy keeps the edges and drops novelty. **That first recipe now also zeroes `SalienceContext.SimilarCount`**,
+  which counts against the SAME floor: a registered salience policy reads `0` on every write and cannot tell
+  that from a store nothing resembles. Novelty is unaffected — it reads the probe's top score, not the floor.
   <br>**`memory-salience-weight`** (2026-08-23) is the SECOND real-model sweep, and it needs one for a
   sharper reason than cost: without an embedder salience declines on every write, and RRF ranks by
   COMPETITION (**D82**), so a uniformly-tied signal contributes the same constant at every weight — the curve

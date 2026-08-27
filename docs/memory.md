@@ -144,6 +144,9 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
   material clustered or isolated?"** If the facts that matter most are the ones nothing else resembles, the
   linking half is working against you, and `MinSimilarity` is the knob — it is the link floor, and a value
   above `1` keeps novelty and indexing while writing no similarity edge at all.
+  <br>**That recipe also zeroes `SalienceContext.SimilarCount`**, which counts against the same floor: a
+  registered `IMemorySaliencePolicy` then reads `0` on every write and cannot tell that from a store nothing
+  resembles. Novelty is unaffected — it reads the probe's top score, not this floor.
 - **A SUBJECT is readable, not just writable.** `AddMemoryAnnotation` records what each fact is *about*;
   a recall matches its query against the handles in use and seeds the entries recorded under whichever ones
   it names, so a query for `配偶` reaches the fact whose text says `太太`. **On by default** (`SubjectSeedK`),
@@ -351,6 +354,18 @@ Korean's ordinary shapes traded the wrong way and the conclusion was "four of fi
 default". On `nomic-embed-text` Korean accepts and **English** refuses — the refusing row moved, so it was
 never a property of a language; it is the noise floor of the pollution column at ten seeds.
 
+**Three instrument lessons, because each nearly published a wrong answer.** A verdict reporting MISS alone
+cannot evaluate a lexicographic objective. A summary that averages the regression shape together with the
+shapes it is traded against destroys the only structure the study has. And a per-cell `accepted`/`REFUSED`
+computed from a quantity whose sign is unstable reads as a judgement while being a coin-flip — that verdict
+belongs on the aggregate. The first version of this sweep did all three, printed `5/5 shapes better` for
+every language, and the shipped default was changed on it before anyone read the pollution column.
+
+**The control worth copying if you build a sweep of your own:** the study reports *distinct salience values*
+(352), not how often salience fired (98.9%). Firing is presence; only distinct values are discrimination, and
+RRF ranks by competition (**D82**) — so a signal every candidate ties on contributes the same constant at
+every weight, and the curve would be flat as an artifact with every ordinary control green.
+
 ### And WHAT salience measures, which is a different question (`memory-importance`, 2026-08-27)
 
 The sweep above prices how LOUD salience is. `node devtools/dev.mjs memory-importance` prices what it
@@ -389,18 +404,6 @@ alongside for a policy that wants both.
 strong result only says a rater is worth costing. Ranking is unswept. And the corpus has no
 low-importance-but-sometimes-relevant class: its noise is never a right answer, so routine material is priced
 as junk rather than as background, which is the softer and more common real case.
-
-**Three instrument lessons, because each nearly published a wrong answer.** A verdict reporting MISS alone
-cannot evaluate a lexicographic objective. A summary that averages the regression shape together with the
-shapes it is traded against destroys the only structure the study has. And a per-cell `accepted`/`REFUSED`
-computed from a quantity whose sign is unstable reads as a judgement while being a coin-flip — that verdict
-belongs on the aggregate. The first version of this sweep did all three, printed `5/5 shapes better` for
-every language, and the shipped default was changed on it before anyone read the pollution column.
-
-**The control worth copying if you build a sweep of your own:** the study reports *distinct salience values*
-(352), not how often salience fired (98.9%). Firing is presence; only distinct values are discrimination, and
-RRF ranks by competition (**D82**) — so a signal every candidate ties on contributes the same constant at
-every weight, and the curve would be flat as an artifact with every ordinary control green.
 
 ### Does a CORRECTION separate from a RECURRENCE? (`memory-density`, 2026-08-27)
 
@@ -770,7 +773,9 @@ Each of these cost a real measurement to find.
   engines round-trip whatever you wrote; lexical and semantic return `null`, because `MemoryEntry` and a
   vector hit have nowhere to keep it. So `null` means *this engine does not carry metadata*, never *the caller
   wrote none* — the two are not distinguishable here, and if you need them apart, write a sentinel key.
-  Through 3.1.0 it was write-only: stored, returned by the store, and dropped at the projection (**D93**).
+  **A recall and an expansion answer alike**, including the entry an expansion was asked for.
+  Through 3.1.0 it was write-only: stored, returned by the store, and dropped at all three of the projections
+  onto `MemoryItem` (**D93**).
   <br>It stays a `string→string` bag deliberately rather than becoming a typed kind. A kind is your
   vocabulary, and Core stays neutral of it.
 - **`taskKey` isolates every READ, and `LinkAsync` is the one way across.** No recall, expansion, subject

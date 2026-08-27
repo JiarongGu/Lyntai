@@ -1,3 +1,4 @@
+using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Salience;
@@ -19,9 +20,10 @@ namespace Lyntai.Tests.Memory;
 /// spoken; this is the same concern one seam over.</para>
 ///
 /// <para><b>It also records the fact that made a library change unnecessary.</b> <see cref="SalienceContext"/>
-/// carries only novelty, comparables and the engine name, and reading that record alone suggests a policy can
-/// judge nothing else — which is wrong, and was briefly acted on. The write is the second parameter. An
-/// importance policy needs no new surface; whether importance should VOTE is a separate, open measurement
+/// carries only what the ENGINE measured — the engine name, novelty, comparables and
+/// <see cref="SalienceContext.SimilarCount"/> — and reading that record alone suggests a policy can judge
+/// nothing else, which is wrong and was briefly acted on. The write is the second parameter. An importance
+/// policy needs no new surface; whether importance should VOTE is a separate, open measurement
 /// (<c>memory-importance</c>), and no such policy ships.</para>
 /// </summary>
 public class MemorySalienceContextTests
@@ -30,6 +32,8 @@ public class MemorySalienceContextTests
     {
         public List<MemoryWrite> Writes { get; } = [];
 
+        public List<SalienceContext> Contexts { get; } = [];
+
         // A running policy must declare its own bit — None means "nothing computed this", and the engine
         // refuses the registration outright rather than letting provenance lie. 32-62 is the consumer range.
         public MemorySalienceProvenance Provenance => (MemorySalienceProvenance)(1L << 32);
@@ -37,8 +41,20 @@ public class MemorySalienceContextTests
         public MemorySignals Signals(MemoryWrite write, in SalienceContext context)
         {
             Writes.Add(write);
+            Contexts.Add(context);
             return MemorySignals.Empty;
         }
+    }
+
+    /// <summary>Exact cosine control. A bag-of-words fake would make novelty a function of word overlap, and
+    /// what is being pinned here is that the ENGINE's own measurement reaches the context — not that some
+    /// number does.</summary>
+    private sealed class ScriptedEmbedder(IReadOnlyDictionary<string, float[]> map) : IEmbedder
+    {
+        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyList<string> texts,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<float[]>>(
+                [.. texts.Select(t => map.TryGetValue(t, out var v) ? v : new[] { 0f, 0f, 1f })]);
     }
 
     private static async Task<CapturingSalience> WriteThrough(MemoryWrite write)
@@ -92,11 +108,38 @@ public class MemorySalienceContextTests
     {
         // The two are complementary, not alternatives: novelty is the engine's own measurement and cannot be
         // derived from the write, which is why it lives on the context rather than being left to policies.
+        // An embedder and a vector store are wired on purpose — without them `Probe` short-circuits and every
+        // context reports 0, so a fixture on the bare engine cannot fail for the reason it is named for.
+        const string prior = "the certificate rotation runs every ninety days";
+        const string novel = "a violin string snapped during the second movement";
+        const string familiar = "certificate rotation is a ninety day cycle";
         var policy = new CapturingSalience();
-        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(), saliencePolicies: [policy]);
+        var engine = new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
+            embedder: new ScriptedEmbedder(new Dictionary<string, float[]>(StringComparer.Ordinal)
+            {
+                [prior] = [1f, 0f, 0f],
+                [novel] = [0f, 1f, 0f],
+                [familiar] = [1f, 0f, 0f],
+            }),
+            vectors: new InMemoryVectorStore(),
+            saliencePolicies: [policy]);
 
-        await engine.RememberAsync(new MemoryWrite("t", "s", "a fact"));
+        await engine.RememberAsync(new MemoryWrite("t", "s", prior));
+        policy.Writes.Clear();
+        policy.Contexts.Clear();
 
-        Assert.Single(policy.Writes);
+        await engine.RememberAsync(new MemoryWrite("t", "s", novel));
+
+        Assert.Equal(novel, Assert.Single(policy.Writes).Content);
+        var context = Assert.Single(policy.Contexts);
+        Assert.Equal("e", context.Engine);
+        Assert.Equal(1, context.ComparableCount);
+        Assert.Equal(1.0, context.Novelty, precision: 6);
+
+        // and it is a MEASUREMENT rather than a constant: a write the store already holds something close to
+        // reports the other end of the range, which a hardcoded 1 would fail.
+        await engine.RememberAsync(new MemoryWrite("t", "s", familiar));
+
+        Assert.Equal(0.0, policy.Contexts[^1].Novelty, precision: 6);
     }
 }

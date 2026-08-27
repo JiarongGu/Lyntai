@@ -63,8 +63,10 @@ public sealed record MemoryQuery(
 /// <para><b>Null means the engine does not carry metadata, never that the caller wrote none</b> — the two are
 /// not distinguishable here and a consumer needing them apart should write a sentinel key. Graph and curated
 /// engines round-trip it; lexical and semantic return null, because <c>MemoryEntry</c> and a vector hit have
-/// nowhere to keep it. Pinned for every engine by
-/// <c>MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent</c>.</para>
+/// nowhere to keep it. A RECALL and an EXPANSION answer alike — the expanded entry carries whatever its
+/// neighbours do. Pinned for every engine by
+/// <c>MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent</c> and, for the expansion path
+/// the first one does not call, <c>Metadata_survives_an_EXPANSION_not_only_a_recall</c>.</para>
 /// <para>It is the same <c>string→string</c> escape hatch the write side takes, kept deliberately opaque:
 /// a kind, a source, a caller's own ordering key are all the consumer's vocabulary, and Core stays neutral of
 /// it (<c>generic-library</c> rule 3).</para></param>

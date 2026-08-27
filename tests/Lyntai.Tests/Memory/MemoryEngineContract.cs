@@ -100,6 +100,55 @@ public static class MemoryEngineContract
         Assert.Equal("operator", item.Metadata["source"]);
     }
 
+    /// <summary>The same round trip through <see cref="IExpandableMemory.ExpandAsync"/>, which
+    /// <see cref="Metadata_written_is_returned_or_explicitly_absent"/> does not reach.
+    /// <para><b>Written because the recall-only fact left a live defect green.</b> Expansion projects the
+    /// NAMED entry and its neighbours at separate call sites, and only the neighbour site was repaired: the
+    /// entry the caller asked for came back with null metadata beside neighbours that carried it, inside one
+    /// <see cref="MemoryRecall"/>. A grep for the constructor found two sites because the third is written
+    /// target-typed as <c>new(...)</c> — <c>.claude/knowledge/pitfalls.md</c> §Second doors.</para>
+    /// <para><paramref name="expands"/> is the caller's declaration that expanding an entry this engine
+    /// wrote returns that entry, and all three branches assert positively. An engine with no expansion
+    /// surface asserts it has none; a composite whose owning member cannot expand asserts the documented
+    /// fail-OPEN empty recall rather than skipping. Neither passes by quietly returning nothing.</para>
+    /// </summary>
+    public static async Task Metadata_survives_an_EXPANSION_not_only_a_recall(
+        IMemoryEngine engine, string key, bool carries, bool expands)
+    {
+        var written = new Dictionary<string, string> { ["kind"] = "standing", ["source"] = "operator" };
+
+        var reference = await engine.RememberAsync(
+            new MemoryWrite(key, "s", "the rollback window is thirty minutes", Metadata: written));
+
+        if (engine is not IExpandableMemory expandable)
+        {
+            Assert.False(expands,
+                $"{engine.Name} is declared as expanding but does not implement IExpandableMemory");
+            return;
+        }
+
+        var recall = await expandable.ExpandAsync(reference);
+
+        if (!expands)
+        {
+            Assert.Empty(recall.Items);
+            return;
+        }
+
+        var item = Assert.Single(recall.Items,
+            i => string.Equals(i.Reference.Id, reference.Id, StringComparison.Ordinal));
+
+        if (!carries)
+        {
+            Assert.Null(item.Metadata);
+            return;
+        }
+
+        Assert.NotNull(item.Metadata);
+        Assert.Equal("standing", item.Metadata!["kind"]);
+        Assert.Equal("operator", item.Metadata["source"]);
+    }
+
     public static async Task Recall_reports_the_tier_that_ran(IMemoryEngine engine, string key)
     {
         await engine.RememberAsync(new MemoryWrite(key, "s", "tiers are reported"));

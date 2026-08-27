@@ -18,32 +18,38 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
   `ComparableCount`, which is the raw return of a search asking for `SimilarityK + 1` with no floor and
   therefore saturates: it reports the same number for a write resembling one thing and a write resembling
   many. The filtered count separates those, which the raw one structurally cannot.
-  <br>Bounded by `SimilarityK`, so it is a floor on density and never a census — read it as "at least this
-  many". `0` when no similarity search ran, exactly as `Novelty` already reports that case.
+  <br>Bounded by however many neighbours that search actually returned, so it is a floor on density and never
+  a census — read it as "at least this many". Not by `SimilarityK`: the request is `SimilarityK + 1` so that a
+  re-remember can lose one to self-exclusion and still see `SimilarityK`, and a fresh write, having nothing to
+  exclude, can therefore report `SimilarityK + 1`. `0` when no similarity search ran, exactly as `Novelty`
+  already reports that case.
 
 - **`MemoryItem.Metadata` — a recall now returns what the write put in `MemoryWrite.Metadata`.** The write
   side has promised "an engine whose store cannot hold it ignores it" since it shipped and the read side said
   nothing, so metadata was **writable and unreadable**: `GraphNode.Metadata` was persisted, returned by the
-  store, and dropped when the engine projected it onto `MemoryItem`. A consumer wanting a kind, a source or
-  its own ordering key back had to keep a second copy outside the library.
+  store, and dropped at all three of the places the engine projects it onto `MemoryItem` — one in
+  `RecallAsync` and two in `ExpandAsync`, which projects the entry the caller NAMED separately from its
+  neighbours. A consumer wanting a kind, a source or its own ordering key back had to keep a second copy
+  outside the library.
   <br>Graph and curated engines round-trip it; lexical and semantic return `null`, because `MemoryEntry` and a
   vector hit have nowhere to keep it. **`null` means the engine does not carry metadata, never that the caller
-  wrote none** — write a sentinel key if you need those apart. Pinned for every engine by
-  `MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent`, which asserts the round trip where
-  it is supported and asserts `null` where it is not, so neither answer can pass vacuously.
-  `docs/DECISIONS.md` **D93**.
+  wrote none** — write a sentinel key if you need those apart. **A recall and an expansion answer alike.**
+  Pinned for every engine by `MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent`, which
+  asserts the round trip where it is supported and asserts `null` where it is not, so neither answer can pass
+  vacuously — and by `Metadata_survives_an_EXPANSION_not_only_a_recall` for the expansion path the first one
+  does not call. `docs/DECISIONS.md` **D93**.
 
-- **`MemoryVerificationCandidate.Relevance` — a verifier can now decide abstention WITHOUT a model.**
-  `IMemoryVerificationPolicy` documents itself as "best-effort over a model-free floor", and a candidate
-  carried an id and a headline: the only route from those to *did anything answer this* is reading the text,
-  which means an LLM, and `LlmMemoryVerificationPolicy` was the one shipped implementation. The engine had
-  each candidate's score and did not pass it. A policy can now compare the top score against the rest, which
-  is arithmetic.
-  <br>**No score-floor policy ships**, deliberately: the number is a graph store's own normalized rank
-  position, explicitly backend-specific, so the threshold is a property of the deployment's embedder and
-  corpus rather than something the library can answer (`generic-library` rule 7). Prefer a RELATIVE test to an
-  absolute one. Note that an authoritative fact the query did not match reports `0` and is admitted by grade —
-  a floor must not read that as a failed recall. `docs/DECISIONS.md` **D93**.
+- **`MemoryVerificationCandidate.Relevance` — a verifier is shown the score the caller will see.** A candidate
+  carried an id and a headline, so the only route from those to *did anything answer this* is reading the
+  text, which means an LLM, and `LlmMemoryVerificationPolicy` was the one shipped implementation. The engine
+  had each candidate's score and did not pass it; a policy can now read the distribution too.
+  <br>**It is not a model-free ANSWER, and nothing here claims one.** Its scale and shape are source- and
+  backend-specific: one request mixes a graph store's normalized rank POSITION, a real cosine on a semantic
+  seed, a flat `1` on a graph-walk or subject seed, and `0` for a grade-admitted non-match. Rank position puts
+  the best row at exactly `1` whatever the query, so a top score of `1` is not evidence of a good match, and
+  no absolute floor can be derived from this number alone — prefer a RELATIVE test, and read it as an ordering
+  rather than a fit. **No score-floor policy ships**: the threshold is a property of the deployment's embedder
+  and corpus (`generic-library` rule 7). `docs/DECISIONS.md` **D93**.
 
 ### Breaking
 

@@ -712,7 +712,8 @@ public sealed class GraphMemoryEngine(
         var items = new List<MemoryItem>(walked.Count + 1)
         {
             // the expanded node carries its FULL content whatever its grade — that is what expansion IS
-            new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree),
+            new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree,
+                node.Metadata),
         };
 
         // The budget bounds the NEIGHBOURS, never the entry itself: returning that entry's full content is
