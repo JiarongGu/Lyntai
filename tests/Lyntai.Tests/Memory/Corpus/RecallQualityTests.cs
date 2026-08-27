@@ -151,14 +151,18 @@ public class RecallQualityNOfTests
     }
 
     [Fact]
-    public void ONE_member_does_not_answer_a_frequency_question()
+    public void A_single_member_alone_is_credited_but_never_scores_as_a_complete_answer()
     {
-        // The owner's objection, as a fact: "on Tuesday I had noodles" is not "I usually have noodles" — one
-        // recalled member out of a threshold of three leaves the answer incomplete (a nonzero miss), the
-        // same fixture the proportional test below computes exactly: (3 - 1) / 3.
+        // The owner's objection, as a fact: "on Tuesday I had noodles" is not "I usually have noodles". This
+        // pins the BOUNDARY rather than repeating the exact fraction — that number
+        // (Below_the_threshold_misses_in_PROPORTION_to_what_is_missing computes it as (3 - 1) / 3) belongs to
+        // the sibling test, which is where a reader goes to see the arithmetic. What this test alone asserts:
+        // one member is never a complete answer (nonzero miss) and the model is proportional, not a cliff, so
+        // it is credited rather than scored as a total miss (less than 1.0).
         var quality = RecallQuality.Measure(["routine0"], Routine, limit: 10, supportNeeded: 3);
 
-        Assert.Equal(2.0 / 3.0, quality.MissRate, precision: 9);
+        Assert.True(quality.MissRate > 0.0, "one member alone must not score as a complete answer");
+        Assert.True(quality.MissRate < 1.0, "one member alone must still be credited, not scored as a total miss");
     }
 
     [Fact]
