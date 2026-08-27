@@ -940,19 +940,19 @@ public class MemoryCorpusTests
 
     /// <summary>The whole premise this class exists to test — a generalisation built on support count alone,
     /// ignoring recency, is confidently wrong — is untestable unless phase A has genuinely AGED relative to
-    /// the final query, AND stays inside the region where DSR's own curve still discriminates rather than
-    /// having collapsed to its near-zero floor. Both bounds are PROPERTY-BASED over <see cref="Grid"/>: the
-    /// floor mirrors <see cref="Critical_rare_queries_reach_the_discriminating_bands_midpoint"/>, the ceiling
-    /// mirrors <see cref="Dsr_is_not_floored_at_the_grids_largest_reached_age"/>'s own threshold. Without the
-    /// ceiling, nothing here would fail if some future change pushed phase A far enough out that DSR's curve
-    /// floors — the exact over-correction a placement fix like this one has to be checked against.</summary>
+    /// the final query, AND stays retrievable enough that an engine's ranking still has something to prefer
+    /// phase B over, rather than every candidate having faded into noise together. Both bounds are
+    /// PROPERTY-BASED over <see cref="Grid"/>: the floor mirrors
+    /// <see cref="Critical_rare_queries_reach_the_discriminating_bands_midpoint"/>; the ceiling is a MEASURED
+    /// margin below the worst retrievability this grid actually reaches (see
+    /// <see cref="MinObservedPhaseARetrievability"/>'s own comment for the measurement and the margin chosen
+    /// from it) — not <c>GraphMemoryOptions.MinRetrievability</c>, which pins a different question (the
+    /// engine's hard-DELETE floor, which recall never reads).</summary>
     [Fact]
     public void Routine_phase_A_reaches_the_discriminating_bands_midpoint_at_the_final_query()
     {
         const int Midpoint = 3 * AssumedInitialStability; // = CriticalRareFloorWrites, restated verbatim (3 x S)
         var lex = CorpusLexicon.For(CorpusLanguage.English);
-        // Same threshold and same curve as Dsr_is_not_floored_at_the_grids_largest_reached_age, so "aged
-        // enough to discriminate" means the same thing in both places.
         var dsr = new DsrRetrievability();
         double DsrR(double age) => dsr.Retrievability(new MemoryDecayState(Age: age, RecallCount: 0, Stability: 0));
 
@@ -980,13 +980,32 @@ public class MemoryCorpusTests
                     + "pollution over recency if it never aged relative to phase B");
 
                 var r = DsrR(age);
-                Assert.True(r >= 0.05,
+                Assert.True(r >= MinObservedPhaseARetrievability,
                     $"[{shape}] phase-A entry '{id}' reached age {age} where DSR's own retrievability is "
-                    + $"{r:F3} — collapsed into the near-zero floor, which makes phase A undifferentiable "
-                    + "pollution rather than a class an engine's ranking can actually be tested against");
+                    + $"{r:F3}, below {MinObservedPhaseARetrievability:F2} — phase A has drifted past this "
+                    + "grid's own measured range and is no longer competing on ranking, only on absence");
             }
         }
     }
+
+    /// <summary>The ceiling <see cref="Routine_phase_A_reaches_the_discriminating_bands_midpoint_at_the_final_query"/>
+    /// enforces on phase A's own retrievability at the final query — MEASURED, not borrowed.
+    ///
+    /// <para><b>The measurement (seed 12345, <c>RoutineCount=12</c>, DSR's default curve, over the full
+    /// 60-shape <see cref="Grid"/>):</b> phase A's retrievability at the final query ranges <b>0.1021
+    /// (age 633, the grid's widest shape) to 0.1959 (age 167, its narrowest)</b>. <c>age@r=0.05</c> — the
+    /// value this bound previously borrowed from <c>GraphMemoryOptions.MinRetrievability</c>, the engine's
+    /// hard-DELETE floor that recall never reads — is <b>2660</b>, ~4.2x past the grid's own worst case: a
+    /// regression could age phase A more than four-fold past everything this grid exercises today and this
+    /// guard would still say nothing.</para>
+    ///
+    /// <para><b>The bound.</b> <c>0.07</c> sits below the observed minimum (0.1021) by a ~31% margin and
+    /// above the unrelated delete floor (0.05) by a ~40% margin — the geometric midpoint between the two is
+    /// ≈0.0714, so this does not hug either boundary. In age terms that is ≈1354 (binary-searched against
+    /// the same curve), roughly <b>2.1x</b> the grid's own worst observed age (633): legitimate cross-shape
+    /// variation cannot trip it, and a regression has to more than double today's worst case before it
+    /// does.</para></summary>
+    private const double MinObservedPhaseARetrievability = 0.07;
 
     [Fact]
     public void Reuse_repeats_never_fire_back_to_back_a_real_write_always_interposes()
