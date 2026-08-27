@@ -484,6 +484,19 @@ owned outside the deployment; `DECISIONS.md` D30) /
   `SalienceContext` carries only what the ENGINE measured — the engine name, novelty, comparables and
   `SimilarCount` — and reading that record ALONE says a policy can judge nothing else, which is what the seam
   looks like until you read the method signature.
+  <br>**`memory-density`** (2026-08-27) is shaped as a REFUTATION rather than a study, and is the cheapest run
+  in this roster: does a CORRECTION separate from a RECURRENCE on `SalienceContext.SimilarCount` at all? A
+  correction resembles exactly ONE stored entry and a recurrence resembles MANY, so **pairwise similarity
+  cannot tell them apart** — only the count above `MinSimilarity` can. Authored fixtures and a real embedder,
+  no corpus and no tier, so a negative result would kill a whole design for the price of one run. It measured
+  a pooled AUC of **1.000** over the five writing systems against a `novel` control.
+  <br>**Read that as a FLOOR, which its own "what this does NOT settle" says outright**: `SimilarityK = 5`
+  and `MinSimilarity = 0.6` bound the count and are both unmeasured, so a ceiling AND a floor effect are
+  live, and the best threshold it reports is `SimilarityK + 1` — the SEARCH WINDOW, where `recurrence`
+  saturates — rather than a learned boundary. Separability on authored fixtures is not separability on a real
+  corpus. Its one non-obvious control is that every population's store is padded to the SAME total from one
+  shared distractor pool: short of `SimilarityK + 1` entries it is the STORE and not the embedder that caps
+  `SimilarCount`, which is a way to measure the fixture rather than the signal.
   **`memory-enrichment`** (2026-08-15) answered the oldest open question in that backlog — WHY registering an
   embedder costs recall quality — and was the **first sweep to call a REAL model**, EXITING rather than
   substituting a double, because the arm it replaces was measured through a bag-of-words fake in which
