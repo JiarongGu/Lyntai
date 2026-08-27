@@ -20,9 +20,10 @@ namespace Lyntai.Memory.Salience;
 /// store holds more than <c>SimilarityK</c> and reports the same number for a write resembling one thing and
 /// a write resembling many. It answers "was there enough to judge against"; this answers "how much of it was
 /// actually close".</para>
-/// <para><b>Bounded by <c>SimilarityK</c>, so it is a floor on density and never a census.</b> A write
-/// resembling 300 stored entries reports at most <c>SimilarityK</c>, and a policy must read it as "at least
-/// this many" rather than as a count of the scope.</para>
+/// <para><b>Bounded by however many neighbours the write's own similarity search returned, so it is a
+/// floor on density and never a census.</b> A write resembling far more than that reports only as many as
+/// were fetched, and a policy must read it as "at least this many" rather than as a count of the
+/// scope.</para>
 /// <para><c>0</c> when no similarity search ran — no embedder, no vector store, or
 /// <c>SimilarityK &lt;= 0</c>. Nothing to compare against is no information, exactly as
 /// <paramref name="Novelty"/> reports it.</para></param>

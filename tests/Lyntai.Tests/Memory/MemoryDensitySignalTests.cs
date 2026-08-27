@@ -110,6 +110,11 @@ public class MemoryDensitySignalTests
         Assert.Equal(5, recurrence.SimilarCount);
         Assert.True(recurrence.SimilarCount > correction.SimilarCount,
             "the filtered count is the only thing that separates these two");
+        // The claim the comment above makes but didn't check: both writes actually DO see the same raw
+        // search size. Without this, a regression that made ComparableCount differ between the two writes
+        // would silently invalidate the premise of the whole test.
+        Assert.Equal(9, correction.ComparableCount);
+        Assert.Equal(9, recurrence.ComparableCount);
     }
 
     [Fact]
@@ -126,6 +131,69 @@ public class MemoryDensitySignalTests
         await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
 
         Assert.Equal(0, Assert.Single(salience.Seen).SimilarCount);
+    }
+
+    [Fact]
+    public async Task It_excludes_only_the_self_match_when_a_genuinely_similar_neighbour_also_exists()
+    {
+        // The degenerate case above (self is the ONLY candidate) short-circuits to zero survivors before
+        // the threshold count ever runs, so it cannot catch a mutation that counts the self-match too. This
+        // puts a genuine neighbour alongside self so exclusion is exercised on the branch that actually
+        // computes a count: self must NOT be counted even though it also scores above the floor.
+        var map = new Dictionary<string, float[]>(StringComparer.Ordinal)
+        {
+            [Probe] = [1f, 0f, 0f],
+            ["a similar neighbour"] = [1f, 0f, 0f],
+        };
+        var (engine, salience) = Build(map);
+        await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
+        await engine.RememberAsync(new MemoryWrite("t", "s", "a similar neighbour"));
+        salience.Seen.Clear();
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
+
+        Assert.Equal(1, Assert.Single(salience.Seen).SimilarCount);
+    }
+
+    [Fact]
+    public async Task It_reads_the_configured_MinSimilarity_rather_than_a_near_one_stand_in()
+    {
+        // Every other fixture uses cosine exactly 0 or exactly 1, so a hardcoded floor near 1.0 would pass
+        // them all. This neighbour sits at ~0.65 — above this fixture's MinSimilarity (0.6) but comfortably
+        // below any plausible hardcoded near-1.0 substitute — so the test fails if the threshold parameter
+        // is ignored or replaced by a literal.
+        var map = new Dictionary<string, float[]>(StringComparer.Ordinal)
+        {
+            [Probe] = [1f, 0f, 0f],
+            ["just above the configured floor"] = [0.65f, 0.7599342f, 0f],
+        };
+        var (engine, salience) = Build(map);
+        await engine.RememberAsync(new MemoryWrite("t", "s", "just above the configured floor"));
+        salience.Seen.Clear();
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
+
+        Assert.Equal(1, Assert.Single(salience.Seen).SimilarCount);
+    }
+
+    [Fact]
+    public async Task On_a_fresh_write_the_count_can_exceed_SimilarityK()
+    {
+        // Nothing to self-exclude on a genuinely new write, so all SimilarityK + 1 fetched neighbours can
+        // survive the floor — pinning the actual reachable bound the XML doc only describes in words
+        // (SimilarityK = 8 here, 10 close neighbours stored, 9 reachable: SearchAsync always asks for
+        // SimilarityK + 1, exactly so a re-remember can lose one to self-exclusion and still see
+        // SimilarityK. A fresh write loses none, so it can reach the full request size).
+        var map = new Dictionary<string, float[]>(StringComparer.Ordinal) { [Probe] = [1f, 0f, 0f] };
+        for (var i = 0; i < 10; i++) map[$"close {i}"] = [1f, 0f, 0f];
+        var (engine, salience) = Build(map); // SimilarityK = 8
+        foreach (var text in map.Keys.Where(k => k != Probe))
+            await engine.RememberAsync(new MemoryWrite("t", "s", text));
+        salience.Seen.Clear();
+
+        await engine.RememberAsync(new MemoryWrite("t", "s", Probe));
+
+        Assert.Equal(9, Assert.Single(salience.Seen).SimilarCount);
     }
 
     [Fact]
