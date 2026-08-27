@@ -41,6 +41,19 @@ const fixedClaim = (n) => [{
   why: 'a test claim',
 }];
 
+/**
+ * A claim shaped like a REAL registry entry that anchors on single-space adjacency (`countGoldenShapes`'s
+ * own pattern does this — `pins N golden shapes`, one literal space either side). `fixedClaim` above uses
+ * `\s+`, which tolerates the extra spaces an indented continuation introduces and so cannot demonstrate the
+ * defect; this one cannot cross them, which is the point.
+ */
+const provedByClaim = (n) => [{
+  what: 'goldens proved',
+  pattern: /proved by ([\w]+) goldens/gi,
+  count: () => n,
+  why: 'a test claim requiring single-space adjacency, the shape a real registry pattern uses',
+}];
+
 describe('check-counts — parsing a written number', () => {
   it('reads digits and spelled words alike', () => {
     // Load-bearing: most counted claims in this repository are SPELLED, so a digits-only matcher would have
@@ -256,6 +269,21 @@ describe('check-counts — matching', () => {
     const { out } = run({ 'docs/a.md': 'intro line with no claim at all\nThe set is seven widgets; done.\n' }, fixedClaim(12));
     assert.equal((out.match(/says 7, tree has 12/g) ?? []).length, 1);
     assert.match(out, /docs\/a\.md:2/);
+  });
+
+  it('a STALE claim wrapped onto an INDENTED continuation is still SEEN (regression)', () => {
+    // The demonstrated failure: the join kept the continuation's own leading indentation, so
+    // "…proved by" + " " + "      seven goldens" carried extra spaces a single-space pattern cannot
+    // cross, and the stale claim was invisible — the gate printed a clean run over it. One healthy
+    // document keeps the registry entry alive (`seen > 0`) so the dead-entry rule does not mask this.
+    const { code, out } = run({
+      'docs/healthy.md': 'Byte-identical when unset, proved by six goldens captured before the axis existed.\n',
+      'docs/stale.md': 'Elsewhere the same claim says byte-identical when unset, proved by\n'
+        + '      seven goldens — an indented continuation nobody re-checked.\n',
+    }, provedByClaim(6));
+    assert.equal(code, 1, out);
+    assert.match(out, /docs\/stale\.md/);
+    assert.match(out, /says 7, tree has 6/);
   });
 
   it('`count-ok` excuses a sentence quoting a historical count', () => {

@@ -249,6 +249,21 @@ describe('check-links — a reference naming the WRONG record for a Part', () =>
     assert.match(out, /Part 53/);
   });
 
+  it('catches a Part reference that wraps onto an INDENTED continuation (regression)', () => {
+    // check-docs and check-counts share `twoLineWindows`, which trims the continuation's leading
+    // indentation before the join; this gate built its own raw join and never trimmed it, so an indented
+    // continuation (a wrap into a nested or bulleted block) rides straight into PART_PATTERN's
+    // `[^.\n]{0,24}?` gap. Enough indentation consumes the whole budget, and a misfiled reference this gate
+    // catches unindented then exits 0.
+    const { code, out } = run({
+      ...records,
+      'README.md': 'tracked in `TASKS.md`\n' + ' '.repeat(30) + '**Part 53** — and must not be revisited.\n',
+    });
+
+    assert.equal(code, 1, 'an indented wrap must be caught exactly like an unindented one');
+    assert.match(out, /Part 53/);
+  });
+
   it('counts a Part declared as a LIST ITEM, not only as a heading', () => {
     // The archive files some closed work as `- [x] **Part N — …**` rather than a heading. Reading headings
     // only made those Parts invisible to the record scan, so a correct reference to one would be reported

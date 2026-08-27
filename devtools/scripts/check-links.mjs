@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HISTORICAL, IN_SCOPE, IS_SCANNED, LIVE_PREFIX, liveLineCount } from './check-docs.mjs';
-import { repoFiles } from './_repo-files.mjs';
+import { repoFiles, twoLineWindows } from './_repo-files.mjs';
 
 const here = fileURLToPath(import.meta.url);
 const repo = join(dirname(here), '..', '..');
@@ -189,6 +189,7 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     // CHANGELOG names paths that were right on the day, which is the whole reason it is exempt at all.
     const all = text.split(/\r?\n/);
     const lines = all.slice(0, liveLineCount(file, all));
+    const windows = twoLineWindows(lines);
 
     for (const [i, line] of lines.entries()) {
       // `link-ok` — its OWN annotation, deliberately not check-docs' `drift-ok`.
@@ -211,29 +212,28 @@ export function checkLinks(repo, config, log = console.log, files = null) {
       // The Part half. A reference is wrong when the record it NAMES does not declare that Part — whether
       // the other record does (mis-filed) or neither does (gone).
       //
-      // Matched over a SOFT-JOINED two-line window, not the raw line. These documents wrap at ~110 columns
-      // and a Part reference spans a backtick, a filename and a bold marker, so it is among the likeliest
-      // claims to straddle a break — and the one live defect this gate existed for had done exactly that:
-      // the design contract's "`TASKS.md`\n**Part 40**", naming the backlog for a Part archived long ago.
-      // check-docs carries the identical window and its comment generalises the rule to "any future text
-      // gate"; this gate was written three days later and did not carry it. `line` alone stays the unit for
-      // the PATH half above, where a target is a single token and cannot wrap mid-name.
+      // Matched over `twoLineWindows` (`_repo-files.mjs`), the same window builder check-docs and
+      // check-counts use, not the raw line. These documents wrap at ~110 columns and a Part reference spans
+      // a backtick, a filename and a bold marker, so it is among the likeliest claims to straddle a break —
+      // and the one live defect this gate existed for had done exactly that: the design contract's
+      // "`TASKS.md`\n**Part 40**", naming the backlog for a Part archived long ago. `line` alone stays the
+      // unit for the PATH half above, where a target is a single token and cannot wrap mid-name.
       //
       // A match is kept only when it BEGINS in this line: one that begins in the next is seen again when
       // that line is the window's own first line, and reporting it from both would double-count every
       // reference in the file. Anchoring on the start index is exact, where deduplicating by file+part
-      // would silently collapse two genuinely distinct references into one report.
+      // would silently collapse two genuinely distinct references into one report — and it stays exact
+      // because `twoLineWindows` never trims the first line, only the continuation (see its own doc for why
+      // that asymmetry is load-bearing).
       //
       // `link-ok` on EITHER line silences the pair, because the ESCAPE unit has to match the MATCH unit.
       // With a two-line window and a one-line escape, an annotation on line i+1 — the line where a reader
       // actually SEES "Part 53" — is invisible here, so the gate fires on prose somebody deliberately
-      // annotated and the fix a maintainer reaches for is duplicating the token. check-docs carries the
-      // same rule in the same breath as its own window (`pitfalls.md`: "drift-ok on either line silences
-      // the pair"), and this gate copied the window without it.
+      // annotated and the fix a maintainer reaches for is duplicating the token.
       const next = i + 1 < lines.length ? lines[i + 1] : '';
       if (next.includes('link-ok')) continue;
 
-      const window = i + 1 < lines.length ? `${line} ${next}` : line;
+      const window = windows[i];
       for (const match of window.matchAll(PART_PATTERN)) {
         if (match.index > line.length) continue;
         const [, record, num] = match;

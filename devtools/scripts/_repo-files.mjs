@@ -39,3 +39,26 @@ export const repoFiles = (repo, tiers = []) => {
 
   return [...new Set([...list([]), ...list(['--others', '--exclude-standard'])])];
 };
+
+/**
+ * The two-line window three gates share: `check-counts` and `check-docs` join a claim across a wrap this
+ * way, and `check-links` joins its own Part-reference check the same way. A claim broken by this
+ * repository's ~110-column wrap reads as one continuous span — provided the caller hands it PROSE; a
+ * comment line's own marker is the caller's job to strip first (`check-docs`' `commentLinesOnly` does this
+ * for its code tier), because this function only knows about whitespace.
+ *
+ * The CONTINUATION's leading indentation is stripped before the join; the first line is never touched. That
+ * asymmetry is load-bearing, not a style choice: `check-counts`'s duplicate-report guard
+ * (`m.index >= line.length + 1`) and `check-links`' own (`match.index > line.length`) anchor the join
+ * boundary at the same place — the raw, untrimmed first line's own length — so trimming the continuation
+ * leaves it exactly where each guard expects it, while trimming the first line's tail would move it and
+ * mis-fire both silently. Without the trim at all, an indented continuation (a wrap into a nested or
+ * bulleted block) joins as `"…proved by" + " " + "      seven"`, and a pattern anchored on single-space
+ * adjacency never crosses the extra whitespace — the claim is invisible.
+ *
+ * @param {string[]} lines
+ * @returns {string[]} one window per input line: `lines[i]` joined to `lines[i + 1]`'s trimmed text, or
+ *   `lines[i]` unchanged for the last line.
+ */
+export const twoLineWindows = (lines) =>
+  lines.map((line, i) => (i + 1 < lines.length ? `${line} ${lines[i + 1].replace(/^\s+/, '')}` : line));
