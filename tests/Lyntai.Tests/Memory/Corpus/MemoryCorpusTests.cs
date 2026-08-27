@@ -828,6 +828,149 @@ public class MemoryCorpusTests
             + "curve question needs to keep a single entry flipping from moving a cell by more than a few percent");
     }
 
+    /// <summary>Opt-in, and the default shape is untouched — same guarantee, same reasoning as
+    /// <see cref="ExpandRatio_defaults_to_zero_and_changes_nothing"/>.</summary>
+    [Fact]
+    public void RoutineCount_defaults_to_zero_and_changes_nothing()
+    {
+        var corpus = MemoryCorpus.Generate(CorpusShape.Default, seed: 4242);
+
+        Assert.Equal(0, CorpusShape.Default.RoutineCount);
+        Assert.DoesNotContain(corpus.Steps.OfType<CorpusWrite>(),
+            w => ExtractId(w.Write.Content).StartsWith("routine", StringComparison.Ordinal));
+
+        var explicitly = MemoryCorpus.Generate(
+            new CorpusShape(ReuseRatio: 4, NoiseDensity: 8, CriticalRarity: 6, CandidateCount: 10), seed: 4242);
+        Assert.Equal(Describe(explicitly.Steps), Describe(corpus.Steps));
+    }
+
+    /// <summary>A count that cannot honour "phase A is the larger regime" is refused outright rather than
+    /// silently generating a degenerate corpus — 1 inverts to all-B, 2 can only tie.</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void RoutineCount_below_three_is_refused(int routineCount)
+    {
+        Assert.Throws<ArgumentException>(
+            () => MemoryCorpus.Generate(CorpusShape.Default with { RoutineCount = routineCount }, seed: 4242));
+    }
+
+    /// <summary>PROPERTY-BASED over a range of counts, not one hand-picked value — this file's own class doc
+    /// records this exact defect class recurring twice already from a hand-picked shape. The golden shape
+    /// used to be RoutineCount=9, an exact multiple of 3, where the OLD <c>count * 2 / 3</c> formula happened
+    /// to agree with the fixed <c>Math.Max(1, count / 3)</c> one; RoutineCount=4 did not (2/2, a tie).</summary>
+    [Fact]
+    public void Phase_A_is_the_larger_regime_for_every_legal_RoutineCount()
+    {
+        for (var routineCount = 3; routineCount <= 30; routineCount++)
+        {
+            var corpus = MemoryCorpus.Generate(CorpusShape.Default with { RoutineCount = routineCount }, seed: 4242);
+            var ids = corpus.Steps.OfType<CorpusWrite>().Select(w => ExtractId(w.Write.Content)).ToList();
+
+            var phaseACount = ids.Count(id => id.StartsWith("routineA", StringComparison.Ordinal));
+            var phaseBCount = ids.Count(id => id.StartsWith("routineB", StringComparison.Ordinal));
+
+            Assert.Equal(routineCount, phaseACount + phaseBCount);
+            Assert.True(phaseACount > phaseBCount,
+                $"RoutineCount={routineCount}: phase A ({phaseACount}) is not larger than phase B "
+                + $"({phaseBCount}) — a generalisation built on support count alone would pass by accident");
+        }
+    }
+
+    /// <summary>The property the class exists for, stated directly rather than only through the split count
+    /// above: the FINAL routine query's own relevant set is phase-B ids ONLY and names not one phase-A id —
+    /// the ground truth a support-count-only generalisation gets confidently wrong. The FIRST routine query
+    /// is the mirror image, naming phase-A ids only (there is no phase B yet to name).</summary>
+    [Fact]
+    public void The_final_routine_query_names_phase_B_only_and_never_phase_A()
+    {
+        var corpus = MemoryCorpus.Generate(CorpusShape.Default with { RoutineCount = 12 }, seed: 4242);
+        var lex = CorpusLexicon.For(CorpusLanguage.English);
+
+        var routineQueries = corpus.Steps.OfType<CorpusQuery>()
+            .Where(q => q.Text == lex.RoutineQuery())
+            .ToList();
+        Assert.Equal(2, routineQueries.Count);
+        var (first, final) = (routineQueries[0], routineQueries[1]);
+
+        Assert.Equal(8, first.RelevantIds.Count);
+        Assert.All(first.RelevantIds, id => Assert.StartsWith("routineA", id, StringComparison.Ordinal));
+
+        Assert.Equal(4, final.RelevantIds.Count);
+        Assert.All(final.RelevantIds, id => Assert.StartsWith("routineB", id, StringComparison.Ordinal));
+    }
+
+    /// <summary>Phase A's own query (the first one) must clear the discriminating band's FLOOR
+    /// (<c>HotReuseDelayWrites</c>) for every one of its ids, not merely be nonzero — mirrors
+    /// <see cref="Hot_ephemeral_in_window_queries_reach_the_discriminating_bands_floor"/>. Guards the
+    /// <c>TopUpTo</c> call <c>MemoryCorpus.Generate</c> makes right after phase A's writes.</summary>
+    [Fact]
+    public void Routine_phase_As_own_query_clears_the_discriminating_bands_floor()
+    {
+        const int Floor = 3 * AssumedInitialStability / 2; // = HotReuseDelayWrites, restated verbatim (1.5 x S)
+        var lex = CorpusLexicon.For(CorpusLanguage.English);
+
+        foreach (var baseShape in Grid())
+        {
+            var shape = baseShape with { RoutineCount = 12 };
+            var corpus = MemoryCorpus.Generate(shape, seed: 12345);
+            var steps = corpus.Steps.ToList();
+            var writeIndexById = WriteIndexById(steps);
+
+            var firstQueryIndex = steps.FindIndex(s => s is CorpusQuery q && q.Text == lex.RoutineQuery());
+            Assert.True(firstQueryIndex >= 0, $"[{shape}] no routine query found");
+            var firstQuery = (CorpusQuery)steps[firstQueryIndex];
+
+            foreach (var id in firstQuery.RelevantIds)
+            {
+                var age = InterposedWrites(steps, writeIndexById[id], firstQueryIndex);
+                Assert.True(age >= Floor,
+                    $"[{shape}] phase-A entry '{id}' reached age {age} at its own routine query, below the "
+                    + $"discriminating band's own floor of {Floor} (age/S={Floor / (double)AssumedInitialStability:F2})");
+            }
+        }
+    }
+
+    /// <summary><b>The direct guard for CRITICAL 1 of fix round 1: the whole premise this class exists to
+    /// test — a generalisation built on support count alone, ignoring recency, is confidently wrong — is
+    /// untestable unless phase A has genuinely AGED relative to the final query.</b> Before this round's fix,
+    /// phase A and phase B were written back-to-back with no interposed gap: at RoutineCount=9, the newest
+    /// phase-A entry measured age 3 and the oldest measured 8, both far inside the age-zero region
+    /// <see cref="No_reuse_query_occurs_at_age_zero"/> forbids elsewhere in this corpus. PROPERTY-BASED over
+    /// <see cref="Grid"/>, mirroring <see cref="Critical_rare_queries_reach_the_discriminating_bands_midpoint"/>
+    /// exactly, since the fix is the same TopUpTo-to-a-floor mechanism.</summary>
+    [Fact]
+    public void Routine_phase_A_reaches_the_discriminating_bands_midpoint_at_the_final_query()
+    {
+        const int Midpoint = 3 * AssumedInitialStability; // = CriticalRareFloorWrites, restated verbatim (3 x S)
+        var lex = CorpusLexicon.For(CorpusLanguage.English);
+
+        foreach (var baseShape in Grid())
+        {
+            var shape = baseShape with { RoutineCount = 12 };
+            var corpus = MemoryCorpus.Generate(shape, seed: 12345);
+            var steps = corpus.Steps.ToList();
+            var writeIndexById = WriteIndexById(steps);
+
+            var finalQueryIndex = steps.FindLastIndex(s => s is CorpusQuery q && q.Text == lex.RoutineQuery());
+            Assert.True(finalQueryIndex >= 0, $"[{shape}] no routine query found");
+
+            var phaseAIds = steps.OfType<CorpusWrite>()
+                .Select(w => ExtractId(w.Write.Content))
+                .Where(id => id.StartsWith("routineA", StringComparison.Ordinal));
+
+            foreach (var id in phaseAIds)
+            {
+                var age = InterposedWrites(steps, writeIndexById[id], finalQueryIndex);
+                Assert.True(age >= Midpoint,
+                    $"[{shape}] phase-A entry '{id}' reached age {age} (age/S={age / (double)AssumedInitialStability:F2}) "
+                    + $"at the final routine query, below the discriminating band's own midpoint of {Midpoint} "
+                    + $"(age/S={Midpoint / (double)AssumedInitialStability:F2}) — phase A cannot be scored as "
+                    + "pollution over recency if it never aged relative to phase B");
+            }
+        }
+    }
+
     [Fact]
     public void Reuse_repeats_never_fire_back_to_back_a_real_write_always_interposes()
     {

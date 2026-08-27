@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import {
-  COUNTED_CLAIMS, checkCounts, countDecisions, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates,
+  COUNTED_CLAIMS, checkCounts, countDecisions, countGoldenShapes, countGuardTests, countLanguageArms, countMemoryDomains, countMigrations, countOptionGuards, countPackages, countVerifyGates,
   parseCount,
 } from '../check-counts.mjs';
 import { makeTree, recorder, removeTree } from './_fixtures.mjs';
@@ -142,6 +142,18 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     for (const name of ['English', 'Chinese', 'Japanese', 'Korean', 'ChineseMixed'])
       assert.ok(text.includes(name), `${name} must be an arm`);
     assert.equal(n, 5, 'five arms as of 2026-08-15 — update with the enum, and the roster prose with it');
+  });
+
+  it('golden shapes counts hash literals in Goldens(), not data rows', () => {
+    // Cross-checked against the actual TheoryData rows rather than trusted as a literal: a row is a tuple
+    // whose shape varies (a named `with { ... }` versus a positional `new CorpusShape(...)`), so the hash
+    // literal is the one part every row carries in the same form.
+    const text = fs.readFileSync(
+      path.join(repo, 'tests', 'Lyntai.Tests', 'Memory', 'Corpus', 'MemoryCorpusGoldenTests.cs'), 'utf8');
+    const rows = (text.match(/^\s*\{\s*"[\w-]+",/gm) ?? []).length;
+    const n = countGoldenShapes(repo);
+    assert.equal(n, rows, 'the hash-literal count must match the actual row count');
+    assert.equal(n, 6, 'six shapes as of 2026-08-27 (five pre-dating the language axis, one for the routine class) — update with Goldens() and the "proved by N goldens" prose with it');
   });
 
   it('memory domains counts SEAMS, not sub-directories', () => {

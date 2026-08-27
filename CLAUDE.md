@@ -111,8 +111,8 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3402 passed / 3423 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 386/386, doc samples 78/78.
+Tests/e2e green: **3417 passed / 3438 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 387/387, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -427,8 +427,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
   recall-quality figure this repository published before 2026-08-12 was measured on English, space-separated
   text — the friendliest tokenization the library supports, recorded as a blind spot in design §5.7.0 and
   never measured. `MemoryCorpus` takes `CorpusShape.Language` (default `English`, **byte-identical when
-  unset** — proved by five goldens in `MemoryCorpusGoldenTests`, captured before the axis existed). Every arm
-  replays a **structurally identical** corpus — same steps, same ids, same ground truth, only the text
+  unset** — proved by **six** goldens in `MemoryCorpusGoldenTests` (five captured before the axis existed;
+  a sixth, added 2026-08-27 for the routine class, the same way — its own default leaves the corpus unchanged).
+  Every arm replays a **structurally identical** corpus — same steps, same ids, same ground truth, only the text
   differs — so a gap is the LANGUAGE and not the timeline; pinned in the corpus tests AND re-checked per cell
   at run time. Adopts nothing: the language is the consumer's, not a setting. See `DECISIONS.md` **D55**.
   <br>**The four non-English arms are not interchangeable, and that is the point of having four.** Chinese is a

@@ -230,6 +230,28 @@ export function countMemoryDomains(repo) {
 }
 
 /**
+ * Golden shapes registered in `MemoryCorpusGoldenTests.Goldens()`.
+ *
+ * Registered 2026-08-27, the day a fix round caught "five goldens" stale in three places at once (CLAUDE.md,
+ * the design contract, and `MemoryCorpus`'s own LANGUAGE-axis doc) after a sixth shape (the routine class's
+ * own golden) was added and none of the three prose copies was touched. Counts the HASH LITERALS rather than
+ * the data rows themselves: `Goldens()` is a `TheoryData` collection initializer, so a row is a tuple whose
+ * shape can vary (a named `CorpusShape.Default with { ... }` versus a positional `new CorpusShape(...)`), but
+ * every row carries exactly one 64-character hex SHA-256 — the one part of the shape that cannot be mistaken
+ * for something else in the same file.
+ */
+export function countGoldenShapes(repo) {
+  const file = path.join(repo, 'tests', 'Lyntai.Tests', 'Memory', 'Corpus', 'MemoryCorpusGoldenTests.cs');
+  if (!fs.existsSync(file)) return -1;
+  const text = fs.readFileSync(file, 'utf8');
+  const at = text.indexOf('Goldens()');
+  if (at < 0) return -1;
+  const end = text.indexOf('};', at);
+  if (end < 0) return -1;
+  return (text.slice(at, end).match(/"[0-9a-f]{64}"/g) ?? []).length;
+}
+
+/**
 /**
  * The registry. One entry per counted claim: a pattern whose first capture group is the number, the
  * function that computes the truth, and why the claim is worth gating.
@@ -319,6 +341,15 @@ export const COUNTED_CLAIMS = [
     pattern: /\bD1\s*[–—-]\s*D(\d+)/g,
     count: countDecisions,
     why: 'CLAUDE.md routes a reader to the decision log by RANGE, so a short range reads as "nothing landed after this"',
+  },
+  {
+    what: 'golden corpus shapes',
+    // Anchored on "proved by N goldens" — the claim's own shape in both places it is made. A bare
+    // `(\w+) goldens` would also match unrelated prose using the word descriptively (see the file's own
+    // "Byte-exact goldens for the ENGLISH corpus"), which names no count at all.
+    pattern: /proved by \*{0,2}([\w]+)\*{0,2} goldens/gi,
+    count: countGoldenShapes,
+    why: 'a sixth golden shape landed 2026-08-27 and "five goldens" stayed stale in three places at once until a review caught it',
   },
 ];
 

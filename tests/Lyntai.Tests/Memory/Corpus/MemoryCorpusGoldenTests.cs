@@ -37,7 +37,18 @@ public class MemoryCorpusGoldenTests
                 case CorpusWrite w: sb.Append("W|").Append(w.Write.Content).Append('\n'); break;
                 case CorpusQuery q:
                     sb.Append("Q|").Append(q.Text).Append('|')
-                      .Append(string.Join(",", q.RelevantIds)).Append('\n');
+                      .Append(string.Join(",", q.RelevantIds));
+                    // SupportNeeded is included ONLY when nonzero, deliberately — not appended
+                    // unconditionally, which would suffix "|0" onto every query line ever rendered and move
+                    // every pre-existing golden, not just the row that turns this field on. `0` IS the value
+                    // every one of those queries already carries, so an unconditional append would be a
+                    // representation change with no semantic one behind it — the exact kind of hash movement
+                    // this file exists to make suspicious. This way, only a shape whose SupportNeeded is
+                    // actually nonzero (today: only the routine class) can move a hash on this field's
+                    // account, and a change that dropped it — reverting the frequency query to all-of scoring
+                    // — no longer passes every golden green.
+                    if (q.SupportNeeded != 0) sb.Append('|').Append(q.SupportNeeded);
+                    sb.Append('\n');
                     break;
                 case CorpusExpand e: sb.Append("E|").Append(e.EntryId).Append('\n'); break;
                 default: throw new InvalidOperationException($"unhandled step {step.GetType().Name}");
@@ -50,8 +61,11 @@ public class MemoryCorpusGoldenTests
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Render(corpus)))).ToLowerInvariant();
 
     /// <summary>Captured 2026-08-12 from the generator as it stood BEFORE <see cref="CorpusLanguage"/>
-    /// existed. Five shapes rather than one so the goldens span every opt-in axis — an axis with no golden
-    /// is an axis a future change can move silently.</summary>
+    /// existed. Six shapes rather than one so the goldens span every opt-in axis — an axis with no golden
+    /// is an axis a future change can move silently. (Five through 2026-08-26; the sixth, "routine", was
+    /// captured 2026-08-27 and could NOT have predated the language axis — its own hash still moved once
+    /// more, in the fix round that pinned <c>SupportNeeded</c> into <see cref="Render"/> and re-banded the
+    /// class's own placement in the timeline.)</summary>
     public static TheoryData<string, CorpusShape, string> Goldens() => new()
     {
         { "default", CorpusShape.Default,
@@ -65,8 +79,12 @@ public class MemoryCorpusGoldenTests
             "bd0d9dd9f68535ac57dc3fbe9bd1f5d97e5c9aaf5b7e4cac97fe057fa4797099" },
         { "many-candidates", new CorpusShape(4, 8, 6, 40),
             "2f3ef4e9a5b371c1d1e5af7bf448402a794a320da2daf38cd22b727dd491e480" },
-        { "routine", CorpusShape.Default with { RoutineCount = 9 },
-            "ae1a45b18141e314368ca0e46e1cceba8669230c0b717b056e484d843f9aa609" },
+        // RoutineCount = 12 (A=8/B=4), not 9 (A=6/B=3): at 9, B's own count EQUALS RoutineSupport (3), so
+        // Measure clamps needed = min(3,3) = 3 = the whole relevant set — indistinguishable from the all-of
+        // branch every other class exercises. 12 makes B=4 > RoutineSupport, so needed = min(3,4) = 3 < 4
+        // and the FINAL query genuinely exercises the n-of-N branch too, not only the phase-A query.
+        { "routine", CorpusShape.Default with { RoutineCount = 12 },
+            "4790d658ed6376465a3c83ef4cedaba989e9c6319a4927b26ba1cfa2b1d1085b" },
     };
 
     [Theory]
