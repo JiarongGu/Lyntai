@@ -402,6 +402,59 @@ every language, and the shipped default was changed on it before anyone read the
 RRF ranks by competition (**D82**) — so a signal every candidate ties on contributes the same constant at
 every weight, and the curve would be flat as an artifact with every ordinary control green.
 
+### Does a CORRECTION separate from a RECURRENCE? (`memory-density`, 2026-08-27)
+
+Not a measurement of a shipped default — the cheapest available refutation of an idea that has not been
+built. `SalienceContext.SimilarCount` counts the stored entries that actually RESEMBLE a write: the probe's
+neighbours at or above `MinSimilarity`. A design under consideration would promote a write resembling MANY
+stored entries and leave alone one resembling exactly one, on the grounds that the first is an instance of an
+established pattern and the second is a correction. `node devtools/dev.mjs memory-density` asks only whether
+those two are distinguishable on that count at all — if they are not, nothing downstream of it can work.
+
+Authored fixtures rather than `MemoryCorpus`: a separability test needs "which population is this write from"
+and never a per-query ground truth, and the corpus has no correction class. Three populations, one probe
+each, every store padded to the same 10 entries from one shared distractor pool so the STORE cannot be what
+sets the count's ceiling. **It refuses to run without a real embedder** and exits rather than substituting a
+double, for the reason `memory-enrichment` established: a correction shares nearly every word with the fact
+it corrects, so a bag-of-words fake rates it maximally similar by construction and would print a plausible
+table measuring word overlap. Measured against `embeddinggemma-300M-Q8_0` over a local OpenAI-compatible
+`/v1/embeddings` endpoint — 120 embed calls, 2.0 s.
+
+| population | mean `SimilarCount` | min | max |
+|---|---|---|---|
+| `correction` | 1.00 | 1 | 1 |
+| `recurrence` | **6.00** | 6 | 6 |
+| `novel` | 0.00 | 0 | 0 |
+
+**Identical in all five writing systems** — English, Chinese, Japanese, Korean and mixed-script Chinese return
+those same three numbers, with the store-size control reporting `ComparableCount` equal at 6 in every cell.
+Pooled: **AUC = 1.000** over 5 recurrence / 5 correction observations, best threshold `SimilarCount >= 6` at
+sensitivity 1.00 and specificity 1.00. Those languages are TRANSLATIONS of one fixture pair (**D55**), so read
+it as a robustness check across five scripts at an EFFECTIVE n of 1, never as five times the evidence — and
+the English-only run withholds the verdict outright, because at one observation per population AUC can only
+read 0, 0.5 or 1.
+
+**Two of those numbers are ARTIFACTS of the instrument, and taking either for a finding would set a default
+wrong.**
+
+- **`recurrence` = 6 is the search WINDOW, not a cluster size.** The probe asks for `SimilarityK + 1` = 6
+  neighbours, so the count saturates there — the same 6 the control reports for `ComparableCount`. The
+  separation is real; its MAGNITUDE is not interpretable, and nothing here can tell "resembles 6" from
+  "resembles 300".
+- **The best threshold `>= 6` is that saturation point, not a learned boundary.** It is exactly
+  `SimilarityK + 1`, so the rule it implies is *promote only when the probe window is ENTIRELY full of similar
+  things* — materially stricter than "promote when density is high", and it makes `SimilarityK` the de-facto
+  promotion knob rather than any threshold option. **No default is set from this run**;
+  `memory-salience-weight`'s precedent is that a second embedder refuted the first run's reading.
+
+**What it does not settle, which is most of it.** AUC 1.000 on authored fixtures with topically distant
+distractors is a FLOOR, not evidence about a real corpus — the honest claim is that the mechanism is not
+broken and the fixtures are clean. `SimilarityK` (5) and `MinSimilarity` (0.6) bound and define the count and
+are both unmeasured — "a starting point, not a tuned value", by their own docs — so a ceiling effect and a
+floor effect are both live, and the threshold landing exactly on the window width is what makes sweeping
+`SimilarityK` the next question rather than a footnote. The four non-English fixture sets are one author's
+best-effort text, unreviewed by a native speaker, and four of the five arms feed the pooled AUC.
+
 ### Reinforcement: the signal, not the quantity
 
 Reinforcement does two separable things — resets the entry's **age**, and grows its **stability** — and they
