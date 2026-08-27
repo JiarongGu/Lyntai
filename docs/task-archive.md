@@ -6072,7 +6072,12 @@ for the wrong reason is worse still, because it looks like evidence.
 "under a second" against a 400ms deadline — green alone, and it FAILED inside a full-suite run on a loaded
 machine. That is precisely the shape `pitfalls.md` already records from `ElapsedAgePolicy`, written down in
 this repository months ago and re-read *in this same session*: a test that depends on machine load reads as
-coverage and is not. **Knowing a pitfall is not the same as not falling into it, and the gap between the two
+coverage and is not.
+<br>**CORRECTED 2026-08-27 — the attribution above is false, and was false when written.** `pitfalls.md` has
+no `ElapsedAgePolicy` entry and never had one: across every revision of that file the name occurs only inside
+the citation itself, never as an entry it could point at. The trap is real and the lesson stands — it is
+simply first recorded by the passage that cites it, not by a predecessor. Left in place rather than
+rewritten, because an archive records what was believed; the correction is the part that has to be visible. **Knowing a pitfall is not the same as not falling into it, and the gap between the two
 is about an hour.** Fixed by asserting the PROPERTY rather than timing it — probes now report their observed
 overlap, which serial execution cannot push above 1 at any speed, so the fact is both deterministic and
 stronger than the bound it replaced. The sibling deadline fact dropped its clock assertion outright: a
