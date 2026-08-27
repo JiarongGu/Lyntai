@@ -37,10 +37,37 @@ hours spent looking somewhere else.
   `i/lf w/crlf` is the ordinary checked-out file, and `w/mixed` is the defect. For an untracked file, count
   the bytes (`b.count(b'\r\n')` against `b.count(b'\n')`) — never a shell pattern containing a control
   character.
-  <br>**And know what the answer means here before repairing anything.** `core.autocrlf` is `true` with no
-  `.gitattributes`, so every blob in the index is LF whatever the working tree looks like: a file that
-  splicing left `w/mixed` is committed clean and re-checks-out uniform. The working-tree state is real but
-  local, which is exactly why a scary-looking mix is worth *diagnosing* before it is worth *fixing*.
+  <br>**And know what the answer means before repairing anything — which means MEASURING `core.autocrlf`
+  rather than assuming it.** Run `git config --show-origin --get-all core.autocrlf`. The plain form gives the
+  right effective ANSWER; what it hides is the PROVENANCE — this setting is commonly `true` at system and
+  global scope and overridden per-clone, and **the repo-local value wins**. Knowing which scope won is what
+  tells you the value is clone-local and unshared, so a teammate's clone may answer differently.
+  <br>The two answers mean nearly opposite things:
+
+  | | what the index gets | so a `w/mixed` working tree is |
+  |---|---|---|
+  | `true`, no `.gitattributes` | LF, for a file not already stored with CRLF | usually local and cosmetic |
+  | `false`, no `.gitattributes` | **the tree verbatim** | real, and it commits |
+
+  **Row 1 is not unconditional, and its exceptions are ones you meet.** `core.autocrlf=true` is defined as
+  `text=auto`, and gitattributes(5) says of that: *"If it is text and the file was not already in Git with
+  CRLF endings, line endings are converted on checkin and checkout … Otherwise, no conversion is done on
+  checkin or checkout."* So a blob already stored with CRLF stays CRLF on re-add, and binary-detected content
+  (`i/-text`) is never converted at all. Under `true` a `w/mixed` tree can still be real and can still
+  commit — which is why the per-file `i/lf` check below is the thing to trust under EITHER setting.
+
+  **This rule asserted row 1 as a fact about this repository and it was row 2**, which is
+  exactly the failure the rest of this file is about: a tool wrote CRLF, git faithfully stored CRLF, and
+  `git show --stat` read **2055 insertions / 1931 deletions** for a change whose real size was **131 / 7**
+  — the first, discarded commit of the guard-script work that landed as `37d15b4`. That commit was reset
+  away, so the figures live here rather than anywhere a reader can still run `git show` against.
+  `--ignore-cr-at-eol` and `git ls-files --eol` named it in seconds; the sentence above sent the reader the
+  other way first.
+  <br>**So state the rule, never the value.** `.git/config` is untracked, so no document here can say what a
+  given clone holds — which is why this now names the command instead. `git ls-files --eol` reading `i/lf`
+  is the property you actually want, and it is true or false per file regardless of how the config got that
+  way. **Check it before every commit that touched a file a tool rewrote** — under `false` always, and under
+  `true` too, because of row 1's exceptions above.
 
 ### Scripts and exit codes
 

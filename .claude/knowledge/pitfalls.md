@@ -1147,9 +1147,13 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   is visible in the output before any diff is read — the corrected run touched 15.
   <br>Related but distinct from the CRLF entry above, which the same session also hit: splicing `\n`-joined
   lines into CRLF files left three of them mixed, and `git diff` says only *"LF will be replaced by CRLF"*,
-  which reads like routine autocrlf noise. Detect by codepoint and normalise deliberately; `core.autocrlf`
-  is `true` here, so the working-tree convention is CRLF and a uniformly-LF file is not "fine because git
-  normalises" — it is a file the next editor may re-save as mixed.
+  which reads like routine autocrlf noise. Detect by codepoint and normalise deliberately.
+  <br>**This bullet used to justify that with "`core.autocrlf` is `true` here, so the working-tree convention
+  is CRLF" — measure it before believing it, and the reason was backwards anyway.** `windows-machine.md`
+  §Text and encoding carries the measurement and the diagnostic; the short version is that this setting is
+  routinely `true` at system and global scope and overridden per-clone, and the repo-local value wins. Where
+  it is `false` git converts NOTHING, so there is no enforced convention to lean on and a mixed file simply
+  commits mixed — which makes "normalise deliberately" more load-bearing, not less. Corrected 2026-08-27.
 
 ## Testing
 
@@ -1178,9 +1182,13 @@ benched tenant, an unbounded engine or a render nobody cancelled.
     id validation while reporting the classification defect it was hunting. It would have been "confirmed"
     without ever exercising the code under test — and then "fixed", and still red.
   - **Timing what you could OBSERVE.** A concurrency fact asserted three stalled probes finish "under a
-    second" against a 400ms deadline — green alone, failed inside a full-suite run. Same shape as the
-    `ElapsedAgePolicy` entry above, written down here long before and re-read the same session, which is the
-    honest lesson: **knowing a pitfall is not the same as not falling into it.**
+    second" against a 400ms deadline — green alone, failed inside a full-suite run.
+    <br>**This bullet used to cite "the `ElapsedAgePolicy` entry above" as the prior record of the same
+    shape. There is no such entry, and there never was** — across every revision of this file the name
+    occurs only inside the citation itself, never as an entry it could point at. The lesson it was offered
+    as evidence for still holds, and it is the one the entry ABOVE this one carries: **the half that gets
+    recorded is the half that was READ, and here what was recorded was a pointer to nothing.**
+    Corrected 2026-08-27.
     <br>**The fix generalizes: assert the PROPERTY, not the clock.** Concurrency is observable — have the
     fakes record their peak overlap, which serial execution cannot push above 1 at any speed. That is both
     deterministic and a stronger claim than any elapsed bound. And where a bound's failure mode is a HANG
