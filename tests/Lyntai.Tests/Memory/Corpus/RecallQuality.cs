@@ -63,14 +63,28 @@ public readonly record struct RecallQuality(double MissRate, double PollutionRat
     /// relevant at one step and not at a later one.</param>
     /// <param name="limit">The query's own requested count — the window pollution is measured against.
     /// </param>
-    public static RecallQuality Measure(IReadOnlyList<string> recalled, IReadOnlyList<string> relevant, int limit)
+    /// <param name="supportNeeded">How many of <paramref name="relevant"/> constitute an ANSWER, for a query
+    /// whose truth is a FREQUENCY rather than a fact. <c>0</c> (the default) is the strict all-of scoring
+    /// every other class uses and every published figure was measured under.
+    /// <para><b>Why a threshold rather than any-of.</b> "What do you usually eat" is not answered by one
+    /// episode — that says "on Tuesday I had noodles", not "I usually have noodles" — and it cannot be
+    /// answered by all 300 either, since no window holds them. Both ends score a constant; the threshold is
+    /// the only setting under which the metric can move.</para>
+    /// <para>Clamped to <c>relevant.Count</c>: a fixture asking for more support than exists must not make
+    /// its own query unanswerable, because that fixture bug would read as a system failure.</para></param>
+    public static RecallQuality Measure(
+        IReadOnlyList<string> recalled, IReadOnlyList<string> relevant, int limit, int supportNeeded = 0)
     {
         var relevantSet = new HashSet<string>(relevant, StringComparer.Ordinal);
         var recalledSet = new HashSet<string>(recalled, StringComparer.Ordinal);
 
-        var missRate = relevantSet.Count == 0
-            ? 0.0
-            : relevantSet.Count(id => !recalledSet.Contains(id)) / (double)relevantSet.Count;
+        var found = relevantSet.Count(recalledSet.Contains);
+        // 0 means "all of them", which is the shipped convention; anything else is clamped to what exists.
+        var needed = supportNeeded <= 0
+            ? relevantSet.Count
+            : Math.Min(supportNeeded, relevantSet.Count);
+
+        var missRate = needed == 0 ? 0.0 : Math.Max(0, needed - found) / (double)needed;
 
         var pollutionRate = limit <= 0
             ? 0.0

@@ -129,7 +129,10 @@ public sealed record CorpusWrite(MemoryWrite Write) : CorpusStep;
 /// <param name="Text">The recall query text.</param>
 /// <param name="RelevantIds">The entry ids relevant to this query, as of this step. Empty is a legitimate
 /// value — for example a hot-ephemeral entry looked up again after its window has closed.</param>
-public sealed record CorpusQuery(string Text, IReadOnlyList<string> RelevantIds) : CorpusStep;
+/// <param name="SupportNeeded">How many of <paramref name="RelevantIds"/> constitute an answer. <c>0</c> —
+/// every existing class — means all of them. Non-zero only for a query whose truth is a frequency; see
+/// <see cref="RecallQuality.Measure"/>.</param>
+public sealed record CorpusQuery(string Text, IReadOnlyList<string> RelevantIds, int SupportNeeded = 0) : CorpusStep;
 
 /// <summary>
 /// An expansion step: the consumer OPENED this entry after seeing it in a recall — the deliberate act
