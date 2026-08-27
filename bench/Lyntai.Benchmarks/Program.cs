@@ -84,6 +84,12 @@ if (args.Contains("--salience-weight"))
 if (args.Contains("--importance"))
     return await MemoryImportanceSweep.RunAsync(args.Contains("--languages"));
 
+// `node devtools/dev.mjs memory-density` → --density. Whether a CORRECTION and a RECURRENCE separate on
+// SalienceContext.SimilarCount at all. This is the cheapest possible refutation of the gist tier: if they
+// do not separate here, on authored fixtures with a real embedder, nothing downstream can work.
+if (args.Contains("--density"))
+    return await MemoryDensitySweep.RunAsync(args.Contains("--languages"));
+
 // `node devtools/dev.mjs memory-scale` → --scale. The one blind spot docs/memory.md §8 concedes outright:
 // nothing in this subsystem had exceeded a few hundred entries. The ONLY sweep here whose subject is COST
 // rather than recall quality — which is also why it runs sequentially where the others fan out, since

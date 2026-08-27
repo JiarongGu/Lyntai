@@ -301,6 +301,15 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--importance', ...args]);
     break;
 
+  // memory-density — do a CORRECTION and a RECURRENCE separate on SalienceContext.SimilarCount? The gist
+  // tier's promotion rule rests entirely on that separation, and this is the cheapest way to refute it:
+  // authored fixtures, a real embedder, no corpus and no tier. A `novel` population is the control, because
+  // a signal that returns a high number for everything looks excellent on recurrence alone.
+  case 'memory-density':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--density', ...args]);
+    break;
+
   // memory-scale — the blind spot docs/memory.md §8 concedes outright: nothing in this subsystem had
   // exceeded a few hundred entries. MemoryRecallBenchmarks does run 1k/10k/100k and runs them against
   // SqliteMemoryStore — the KEYWORD store — so the graph engine's own write and read paths were unmeasured
