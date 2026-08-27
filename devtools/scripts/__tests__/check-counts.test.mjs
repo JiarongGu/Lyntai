@@ -153,7 +153,7 @@ describe('check-counts — the counters, pinned against the real tree', () => {
     const rows = (text.match(/^\s*\{\s*"[\w-]+",/gm) ?? []).length;
     const n = countGoldenShapes(repo);
     assert.equal(n, rows, 'the hash-literal count must match the actual row count');
-    assert.equal(n, 6, 'six shapes as of 2026-08-27 (five pre-dating the language axis, one for the routine class) — update with Goldens() and the "proved by N goldens" prose with it');
+    assert.equal(n, 6, 'six shapes as of 2026-08-27 (five pre-dating the language axis, one for the routine class) — update with Goldens() and the "pins N golden shapes" prose with it');
   });
 
   it('memory domains counts SEAMS, not sub-directories', () => {

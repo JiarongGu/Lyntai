@@ -7,43 +7,42 @@ namespace Lyntai.Tests.Memory.Corpus;
 /// are fractions of a FIXED reference rather than of whatever <c>recalled</c> happened to contain, so a
 /// number from one corpus shape means the same thing as the same number from a different one — the whole
 /// point of a sweep table that compares columns.
-/// <para><b>Miss rate</b> — the fraction of the declared-relevant set absent from the recalled ids.
-/// Forgetting too aggressive, or a candidate's rank weight too low to surface it at all.</para>
-/// <para><b>Pollution rate</b> — the fraction of the <c>limit</c>-sized window occupied by ids outside the
-/// relevant set. Rank weight too high, or too indiscriminate.</para>
-/// <para><b>The four awkward cases — decided and documented here, because the choice shifts every arm's
-/// number in the sweep this instrument feeds (Task 3), not just the one test case that exercises it:</b>
-/// </para>
+/// <para><b>Miss rate</b> — the fraction of the support an ANSWER needs that is absent from the recalled
+/// ids: the whole declared-relevant set, or the <c>supportNeeded</c> threshold where a query's truth is a
+/// frequency. <b>Pollution rate</b> — the fraction of the <c>limit</c>-sized window occupied by ids
+/// outside the relevant set, which <c>supportNeeded</c> does not touch.</para>
+/// <para><b>Four awkward cases are decided here, because the choice shifts every arm's number in the sweep
+/// this instrument feeds — not just the one test case that exercises it:</b></para>
 /// <list type="bullet">
-/// <item><b>The relevant set is larger than <c>limit</c>.</b> Miss rate cannot reach 0 no matter how good
-/// the policy is — the page physically cannot hold every relevant entry. The best case (every recalled
-/// slot filled with a relevant entry) still floors at <c>(|relevant| - limit) / |relevant|</c>. A reader of
-/// the sweep table must read a near-floor miss rate in a large-<c>CandidateCount</c> arm as "as good as
-/// this corpus shape allows," not as a failing policy — the corpus property set the floor, not the arm.
-/// </item>
+/// <item><b>The relevant set is larger than <c>limit</c>.</b> The page cannot physically hold every
+/// relevant entry, so miss rate floors at <c>max(0, needed - limit) / needed</c> — which is
+/// <c>(|relevant| - limit) / |relevant|</c> under the default all-of scoring, and <b>0</b> whenever
+/// <c>supportNeeded</c> fits inside the page, as the routine class's first query does. A reader of the
+/// sweep table must read a near-floor miss rate in a large-<c>CandidateCount</c> arm as "as good as this
+/// corpus shape allows", not as a failing policy, and must never compare two columns whose floors were
+/// set by different thresholds.</item>
 /// <item><b>The relevant set is smaller than <c>limit</c>.</b> A real recall engine ranks-and-cuts at
 /// <c>limit</c>: whenever the store holds at least <c>limit</c> candidates (the normal case in this
 /// harness's sweep), the returned page fills to <c>limit</c> regardless of how few of those candidates are
 /// actually relevant. The slots beyond <c>|relevant|</c> are then unavoidably non-relevant, and this
 /// instrument counts every one of them as pollution — deliberately: they ARE ids outside the relevant set
-/// occupying a returned slot, exactly what pollution rate is defined to measure. The consequence a reader
-/// must know: a pollution rate near the floor <c>(limit - |relevant|) / limit</c> for a query with a small
-/// relevant set (critical-rare's two-query ground truth against a wide <c>limit</c>, for instance) reflects
-/// the corpus shape, not the policy — the mirror image of the miss-rate floor above.</item>
-/// <item><b>Empty recall.</b> Nothing came back. Every relevant id is missed (<c>MissRate = 1</c> whenever
-/// <c>relevant</c> is non-empty) and nothing occupies any slot, so nothing can be pollution
+/// occupying a returned slot. So a pollution rate near the floor <c>(limit - |relevant|) / limit</c>
+/// reflects the corpus shape, not the policy — the mirror image of the miss-rate floor above.</item>
+/// <item><b>Empty recall.</b> Nothing came back. Every needed id is missed (<c>MissRate = 1</c> whenever
+/// anything was needed) and nothing occupies any slot, so nothing can be pollution
 /// (<c>PollutionRate = 0</c>) — no division by zero, because pollution's denominator is <c>limit</c>, never
 /// the (possibly empty) recalled count.</item>
 /// <item><b>Empty relevant set.</b> Nothing was ever declared relevant to this query — the corpus's
 /// hot-ephemeral class reaches this legitimately once a round's window has closed. There is nothing to
-/// miss, so <c>MissRate = 0</c> by convention rather than an undefined <c>0/0</c>. Every recalled id is
-/// then, by definition, outside the (empty) relevant set — pollution is simply "anything returned at all"
-/// — so <c>PollutionRate</c> is NOT suppressed to 0 the way <c>MissRate</c> is; the two conventions are
+/// miss, so <c>MissRate = 0</c> by convention rather than an undefined <c>0/0</c>, and that holds however
+/// much support was asked for. Every recalled id is then, by definition, outside the (empty) relevant set,
+/// so <c>PollutionRate</c> is NOT suppressed to 0 the way <c>MissRate</c> is; the two conventions are
 /// asymmetric on purpose.</item>
 /// </list>
 /// </summary>
-/// <param name="MissRate">Fraction of <c>relevant</c> absent from <c>recalled</c>, in [0, 1]. 0 when
-/// <c>relevant</c> is empty (nothing to miss).</param>
+/// <param name="MissRate">Fraction of the support an answer needs that is absent from <c>recalled</c>, in
+/// [0, 1] — the whole relevant set unless <c>supportNeeded</c> named a smaller threshold. 0 when nothing
+/// was needed.</param>
 /// <param name="PollutionRate">Fraction of the <c>limit</c>-sized window occupied by ids outside
 /// <c>relevant</c>, in [0, 1]. 0 when <c>limit</c> is non-positive (no window to occupy).</param>
 public readonly record struct RecallQuality(double MissRate, double PollutionRate)

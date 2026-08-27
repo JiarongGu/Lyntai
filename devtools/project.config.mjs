@@ -731,7 +731,7 @@ export default {
     "devtools/scripts/check-version-bump.mjs": [30],
     "src/Lyntai.Core/Memory/IMemoryGraphStore.cs": [31],
     "tests/Lyntai.Tests/Memory/Corpus/MemoryCorpus.cs": [88, 35, 27],
-    "tests/Lyntai.Tests/Memory/Corpus/RecallQuality.cs": [42],
+    "tests/Lyntai.Tests/Memory/Corpus/RecallQuality.cs": [40],
     "tests/Lyntai.Tests/Memory/DsrPathologyTests.cs": [41],
     "tests/Lyntai.Tests/Memory/GraphMemoryEngineTests.cs": [30, 26],
     "tests/Lyntai.Tests/Memory/GraphMemoryRankingGoldenTests.cs": [63],

@@ -242,7 +242,7 @@ public class MemoryCorpusTests
             [.. c.Steps.Select(s => s switch
             {
                 // ids only — the text is exactly what is allowed to differ
-                CorpusWrite w => $"W:{w.Write.Content.Split(' ')[1]}",
+                CorpusWrite w => $"W:{ExtractId(w.Write.Content)}",
                 CorpusQuery q => $"Q:{string.Join(",", q.RelevantIds)}",
                 CorpusExpand e => $"E:{e.EntryId}",
                 _ => throw new InvalidOperationException($"unhandled step {s.GetType().Name}"),
@@ -640,8 +640,10 @@ public class MemoryCorpusTests
         // HotRounds(5) — where hot-ephemeral, not topical, becomes the corpus's structurally last-written
         // class — through well above HotRounds.
         //
-        // KNOWN, DELIBERATE EXCEPTION: the routine class's phase-B entries sit at age 0-3 relative to the
-        // FINAL routine query, by design — that query's discriminating power is in the POLLUTION half (is
+        // KNOWN, DELIBERATE EXCEPTION: the routine class's phase-B entries are written consecutively right
+        // before the FINAL routine query, so they sit at ages 0 through |phase B| - 1 relative to it — a
+        // range that widens with RoutineCount, never a fixed one. By design: that query's discriminating
+        // power is in the POLLUTION half (is
         // phase A excluded), not the miss half (is phase B found), so phase B is written fresh on purpose
         // (see MemoryCorpus.cs's ROUTINE, PART 2 comment). Invisible below only because every Shape here is
         // built positionally, leaving RoutineCount at its default of 0 — adding it to this grid will fail
@@ -861,6 +863,25 @@ public class MemoryCorpusTests
     {
         Assert.Throws<ArgumentException>(
             () => MemoryCorpus.Generate(CorpusShape.Default with { RoutineCount = routineCount }, seed: 4242));
+    }
+
+    /// <summary>The sibling refusal, closing the asymmetry: a support below 2 is not a smaller threshold but
+    /// a DIFFERENT metric — 0 or less is all-of scoring, 1 is any-of, under which one phase-B hit is a
+    /// perfect answer. Silently accepting either would report a fixture bug as a measurement.
+    /// <para>Inert while the class is off, so the default shape (which carries a support and no count) is
+    /// unaffected — pinned here rather than assumed, since the guard would otherwise be reachable by every
+    /// corpus in the repository.</para></summary>
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void RoutineSupport_below_two_is_refused_only_while_the_class_is_on(int routineSupport)
+    {
+        Assert.Throws<ArgumentException>(() => MemoryCorpus.Generate(
+            CorpusShape.Default with { RoutineCount = 12, RoutineSupport = routineSupport }, seed: 4242));
+
+        var off = MemoryCorpus.Generate(CorpusShape.Default with { RoutineSupport = routineSupport }, seed: 4242);
+        Assert.Equal(Describe(MemoryCorpus.Generate(CorpusShape.Default, seed: 4242).Steps), Describe(off.Steps));
     }
 
     /// <summary>PROPERTY-BASED over a range of counts, not one hand-picked value — this file's own class doc

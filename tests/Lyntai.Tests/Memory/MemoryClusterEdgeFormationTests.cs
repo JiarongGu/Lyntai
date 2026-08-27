@@ -52,8 +52,8 @@ public class MemoryClusterEdgeFormationTests
             {
                 case CorpusWrite w:
                     var memRef = await engine.RememberAsync(w.Write);
-                    // "{leading} {id} …" — the corpus's own convention, in either language
-                    if (w.Write.Content.Split(' ')[1].StartsWith("attribute", StringComparison.Ordinal))
+                    if (MemoryCorpusTestAccess.IdOf(w.Write.Content)
+                        .StartsWith("attribute", StringComparison.Ordinal))
                         clusterNodeIds.Add(long.Parse(memRef.Id, System.Globalization.CultureInfo.InvariantCulture));
                     break;
 

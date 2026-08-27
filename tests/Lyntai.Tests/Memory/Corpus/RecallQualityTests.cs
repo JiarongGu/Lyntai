@@ -208,4 +208,19 @@ public class RecallQualityNOfTests
 
         Assert.Equal(0.0, quality.MissRate, precision: 9);
     }
+
+    [Fact]
+    public void An_EMPTY_relevant_set_needs_no_support_however_much_was_asked_for()
+    {
+        // The other end of the same clamp, and the one that scores PERFECTLY while looking like a result:
+        // relevant = {} clamps needed to 0, so miss = 0 for any recall at all — including the empty one
+        // below, which returned nothing. That is the all-of branch's own empty-set convention (nothing was
+        // ever relevant, so nothing can be missed) and the threshold must not change it into 3/3 = 1.0.
+        // Pinned because CorpusQuery blesses an empty RelevantIds, so a future class whose relevant set can
+        // close — the hot-ephemeral shape — could set SupportNeeded on a step that reaches here.
+        var quality = RecallQuality.Measure(recalled: [], relevant: [], limit: 5, supportNeeded: 3);
+
+        Assert.Equal(0.0, quality.MissRate, precision: 9);
+        Assert.Equal(0.0, quality.PollutionRate, precision: 9);
+    }
 }

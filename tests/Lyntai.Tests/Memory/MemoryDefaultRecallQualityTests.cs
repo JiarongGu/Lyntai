@@ -88,8 +88,7 @@ public class MemoryDefaultRecallQualityTests
             {
                 case CorpusWrite w:
                     var memRef = await engine.RememberAsync(w.Write);
-                    // every corpus entry's content starts "item {id} …" (MemoryCorpus's own convention)
-                    refToCorpusId[memRef.Id] = w.Write.Content.Split(' ', 3)[1];
+                    refToCorpusId[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     break;
 
                 case CorpusQuery q:
@@ -98,7 +97,9 @@ public class MemoryDefaultRecallQualityTests
                     var recalledIds = recall.Items
                         .Select(i => refToCorpusId.TryGetValue(i.Reference.Id, out var cid) ? cid : i.Reference.Id)
                         .ToList();
-                    qualities.Add(RecallQuality.Measure(recalledIds, q.RelevantIds, limit));
+                    // q.SupportNeeded, not the default: a frequency query's answer is n OF its relevant set,
+                    // and dropping it here would silently score that class by strict all-of instead.
+                    qualities.Add(RecallQuality.Measure(recalledIds, q.RelevantIds, limit, q.SupportNeeded));
                     break;
             }
         }

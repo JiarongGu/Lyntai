@@ -194,7 +194,7 @@ public class LlmVerificationLiveTests(Xunit.Abstractions.ITestOutputHelper outpu
             {
                 case CorpusWrite w:
                     var memRef = await engine.RememberAsync(w.Write);
-                    var corpusId = w.Write.Content.Split(' ')[1];
+                    var corpusId = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     byCorpusId[corpusId] = memRef.Id;
                     byRef[memRef.Id] = corpusId;
                     break;

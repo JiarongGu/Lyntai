@@ -453,7 +453,9 @@ internal static class MemoryPolicySweep
                     var recalledIds = recall.Items
                         .Select(i => refToCorpusId.TryGetValue(i.Reference.Id, out var cid) ? cid : i.Reference.Id)
                         .ToList();
-                    var quality = RecallQuality.Measure(recalledIds, q.RelevantIds, limit);
+                    // q.SupportNeeded, not the default: a frequency query's answer is n OF its relevant set,
+                    // and dropping it here would silently score that class by strict all-of instead.
+                    var quality = RecallQuality.Measure(recalledIds, q.RelevantIds, limit, q.SupportNeeded);
 
                     var cls = ClassifyQuery(q);
                     if (!byClass.TryGetValue(cls, out var list)) byClass[cls] = list = [];
@@ -515,19 +517,30 @@ internal static class MemoryPolicySweep
     /// so the first Chinese sweep reported no attribute class at all, and a reader would have taken its
     /// absence for "not exercised" rather than "mislabelled". The other three tests match on the corpus's
     /// ASCII IDS (<c>critical</c>, <c>hot</c>, <c>topic</c>), which are language-independent by design, so
-    /// they need no such routing.</para></summary>
+    /// they need no such routing.</para>
+    /// <para><b>The two ROUTINE queries are separate classes, not one.</b> The frequency question is asked
+    /// twice with IDENTICAL text, and the two ground truths are opposite — phase A at the first, phase B
+    /// alone at the last. Pooling them would average away exactly the contrast the class exists to
+    /// show.</para></summary>
     internal static string ClassifyQuery(CorpusQuery q) =>
         // objective (1): the probe matches no authoritative entry, so its relevant set is the giveaway —
         // classified by GROUND TRUTH rather than by wording, because the wording deliberately says nothing
-        // about what it must return
-        q.RelevantIds.Count > 0 && q.RelevantIds.All(id => id.StartsWith("authoritative", StringComparison.Ordinal))
-            ? "authoritative (grade-admitted)"
+        // about what it must return. The routine pair below is classified the same way for the other reason:
+        // its wording is the same at both ends, so only the ground truth can tell them apart.
+        GroundTruthIsAll(q, "authoritative") ? "authoritative (grade-admitted)"
+        : GroundTruthIsAll(q, "routineA") ? "routine (phase A)"
+        : GroundTruthIsAll(q, "routineB") ? "routine (after the regime change)"
         : IsAnyAttributeCue(q.Text) ? "attribute (subject cue)"
         : q.Text.Contains("critical", StringComparison.Ordinal) ? "critical-rare"
         : q.Text.Contains("hot", StringComparison.Ordinal)
             ? (q.RelevantIds.Count > 0 ? "hot-ephemeral (in-window)" : "hot-ephemeral (stale)")
         : q.Text.Contains("topic", StringComparison.Ordinal) ? "topical"
         : "other";
+
+    /// <summary>A query whose whole ground truth comes from one id family. Language-independent by
+    /// construction: the corpus's ids stay ASCII in every lexicon while its wording does not.</summary>
+    private static bool GroundTruthIsAll(CorpusQuery q, string idPrefix) =>
+        q.RelevantIds.Count > 0 && q.RelevantIds.All(id => id.StartsWith(idPrefix, StringComparison.Ordinal));
 
     /// <summary>An attribute cue in ANY generated language. Asks each lexicon rather than hard-coding a
     /// wording, so adding a language cannot silently drop a class out of every report.</summary>
@@ -544,7 +557,11 @@ internal static class MemoryPolicySweep
         ["hot-ephemeral (in-window)"] = 3,
         ["hot-ephemeral (stale)"] = 4,
         ["topical"] = 5,
-        ["other"] = 6,
+        // the frequency pair, in timeline order — the second is the discriminating one, where the correct
+        // answer is phase B alone and phase A scores as pollution (see CorpusShape.RoutineCount)
+        ["routine (phase A)"] = 6,
+        ["routine (after the regime change)"] = 7,
+        ["other"] = 8,
     };
 
     /// <summary>Pure corpus arithmetic — no engine involved, and (per <see cref="MemoryCorpus"/>'s own doc)
