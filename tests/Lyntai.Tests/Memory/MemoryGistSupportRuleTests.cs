@@ -22,11 +22,14 @@ namespace Lyntai.Tests.Memory;
 /// selects B (correct): a genuine disagreement. rawA=8, rawB=4 in both arms; every weighted figure above is
 /// read the instant BEFORE the corpus's final query, which would otherwise reinforce all of phase B to a
 /// degenerate retrievability of exactly 1 and hide the real spread.</para>
-/// <para><b>Weighted support is not a clean recency measure.</b> Phase A splits into two co-activation
-/// groups from an earlier recall's own top ranks (<c>ConnectionBoost</c> raises their effective stability
-/// despite identical raw age) - the same class of ranker-fed-back-into-storage effect
-/// <c>DsrOptions.ReinforceGain = 0</c> (D54) removed from the stability axis directly, still open here.
-/// Weighted support mixes recency, accumulated graph connectedness and recency of last recall.</para>
+/// <para><b>Phase B outranks phase A per-member in BOTH arms</b> - the SUM only flips to B once
+/// mean(rB)/mean(rA) clears the corpus's fixed cardinality ratio |A|/|B|=2 (stepped 5.60, burst
+/// only 1.23): burst damping compresses the range rather than making the rule wrong.</para>
+/// <para><b>Which members get a connection boost is itself a function of PACING.</b> Stepped's
+/// phase-A spread comes from <c>ConnectionBoost</c> alone (clique A5/A6/A7) - the same
+/// ranker-fed-back-into-storage class <c>DsrOptions.ReinforceGain = 0</c> (D54) removed from
+/// stability directly. Burst's spread is dominated by write-time ENCODING instead (stability
+/// handicapped ~17x by burst position) with a DIFFERENT clique, A0/A1/A2 - see the task report.</para>
 /// </summary>
 public class MemoryGistSupportRuleTests
 {
