@@ -92,11 +92,35 @@ public enum CorpusNoiseKind
 /// <para><b>Defaults to <c>0</c>, and that default is load-bearing.</b> Every corpus generated before this
 /// axis existed must stay byte-identical, or every published measurement moves at once and none of them
 /// would be comparable across the boundary. A study that wants expansions opts in explicitly.</para></param>
+/// <param name="RoutineCount">How many RECURRING entries the corpus carries — material that is individually
+/// low-value and collectively the answer to a frequency question. <c>0</c> (the default) disables the class
+/// and leaves every corpus byte-identical.
+/// <para><b>Split into two REGIMES, phase A always the larger.</b> B is derived and FLOORED at 1
+/// (<c>Math.Max(1, RoutineCount / 3)</c>), and A is the remainder. Values below 3 cannot honour "A is
+/// larger" at all (1 inverts to all-B, 2 can only tie) and are refused. The final routine query's answer is
+/// <b>B</b> — so a generalisation built on support count alone is not merely imprecise here, it is
+/// confidently wrong, and the A entries it returns are scored as pollution. That is the whole reason this
+/// class exists rather than a simple "repeated material" one: "usually" is a claim about a RECENT
+/// frequency, and a total is not an answer.</para></param>
+/// <param name="RoutineSupport">How many routine entries constitute an answer to the frequency question,
+/// passed through as <see cref="CorpusQuery.SupportNeeded"/>. It is a MODELLING CHOICE with no principled
+/// value hiding in the data — deriving it from the mechanism under test would be circular.
+/// <para><b>Below 2 is refused while the class is on</b>, for the reason <paramref name="RoutineCount"/>
+/// refuses 1 and 2: those are not smaller settings, they are different metrics. Zero or less IS all-of
+/// scoring — the strict branch this class exists to escape — and 1 is any-of, under which a single
+/// phase-B hit scores a perfect answer, the reading <see cref="RecallQuality.Measure"/> is written to
+/// reject.</para>
+/// <para>At the top end it CLAMPS instead of failing: a value at or above the smaller regime's own size
+/// scores that query by all-of again, because <c>Measure</c> clamps to the relevant set. That is
+/// legitimate rather than a bug — phase B floors at 1 entry, so refusing it would outlaw the smallest
+/// legal <paramref name="RoutineCount"/>s — and it means an arm can silently stop exercising the n-of
+/// branch, which is why the golden shape picks a count where it does not.</para></param>
 public readonly record struct CorpusShape(
     int ReuseRatio, int NoiseDensity, int CriticalRarity, int CandidateCount, int ExpandRatio = 0,
     int AttributeCount = 0, AttributeCueKind AttributeCue = AttributeCueKind.Discriminative,
     CorpusLanguage Language = CorpusLanguage.English, int AuthoritativeCount = 0,
-    CorpusNoiseKind NoiseKind = CorpusNoiseKind.Templated, int HeadlineOnlyCount = 0)
+    CorpusNoiseKind NoiseKind = CorpusNoiseKind.Templated, int HeadlineOnlyCount = 0,
+    int RoutineCount = 0, int RoutineSupport = 3)
 {
     /// <summary>A middling shape: small enough to run in CI, large enough that every class and every
     /// parameter has room to show its effect. <c>ExpandRatio</c> stays <c>0</c> here so the default shape —
@@ -129,7 +153,10 @@ public sealed record CorpusWrite(MemoryWrite Write) : CorpusStep;
 /// <param name="Text">The recall query text.</param>
 /// <param name="RelevantIds">The entry ids relevant to this query, as of this step. Empty is a legitimate
 /// value — for example a hot-ephemeral entry looked up again after its window has closed.</param>
-public sealed record CorpusQuery(string Text, IReadOnlyList<string> RelevantIds) : CorpusStep;
+/// <param name="SupportNeeded">How many of <paramref name="RelevantIds"/> constitute an answer. <c>0</c> —
+/// every existing class — means all of them. Non-zero only for a query whose truth is a frequency; see
+/// <see cref="RecallQuality.Measure"/>.</param>
+public sealed record CorpusQuery(string Text, IReadOnlyList<string> RelevantIds, int SupportNeeded = 0) : CorpusStep;
 
 /// <summary>
 /// An expansion step: the consumer OPENED this entry after seeing it in a recall — the deliberate act
@@ -233,8 +260,8 @@ public sealed record CorpusExpand(string EntryId) : CorpusStep;
 /// </para>
 /// <para><b>LANGUAGE is an axis (2026-08-12).</b> <see cref="CorpusShape.Language"/> selects the
 /// <see cref="CorpusLexicon"/> every template and every reader comes from; it defaults to
-/// <see cref="CorpusLanguage.English"/> and is byte-identical when unset, proved by five goldens in
-/// <c>MemoryCorpusGoldenTests</c> that were captured before the axis existed. It was added because the class
+/// <see cref="CorpusLanguage.English"/> and is byte-identical when unset — proved by the goldens in
+/// <c>MemoryCorpusGoldenTests</c> that PREDATE this axis and did not move. It was added because the class
 /// doc above could describe this corpus as an instrument while every number it produced came from the
 /// friendliest tokenization the library supports — and looking at that directly found a real defect in CJK
 /// retrieval, not merely a favourable condition (<c>docs/DECISIONS.md</c> D55).
@@ -339,6 +366,28 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         var attributeCount = Math.Clamp(shape.AttributeCount, 0, 3);   // three distinct subjects are defined
         var authoritativeCount = Math.Max(0, shape.AuthoritativeCount);
         var headlineOnlyCount = Math.Max(0, shape.HeadlineOnlyCount);
+        var routineCount = Math.Max(0, shape.RoutineCount);
+        // NOT clamped, unlike every dial above it: clamping a nonzero support into range would turn an
+        // out-of-range value into a DIFFERENT metric (0 is all-of, 1 is any-of) and report it as a result.
+        var routineSupport = shape.RoutineSupport;
+        // A count below 3 cannot honour "phase A is the larger regime" at all: floor(1/3)=0 forces the
+        // 1-entry case to be ALL phase B (inverted), and 2 can only split 1/1 (a tie, not a majority). Refused
+        // outright — a fixture bug reported as a system result is worse than a fixture that fails loudly. See
+        // this class's own CorpusShape.RoutineCount doc for why A must be larger.
+        if (routineCount is > 0 and < 3)
+            throw new ArgumentException(
+                $"{nameof(CorpusShape.RoutineCount)} must be 0 or >= 3 — a smaller nonzero value cannot keep "
+                + $"phase A the larger regime (was {routineCount}).", nameof(shape));
+        if (routineCount > 0 && routineSupport < 2)
+            throw new ArgumentException(
+                $"{nameof(CorpusShape.RoutineSupport)} must be >= 2 while the routine class is on — 0 or "
+                + $"less is all-of scoring and 1 is any-of, and neither of those is a frequency (was "
+                + $"{routineSupport}).", nameof(shape));
+        // Derive B and FLOOR it, rather than deriving A directly: A = count - B keeps A the larger share for
+        // EVERY legal count, including 4 — `count * 2 / 3` (the formula this replaces) gave 4 an even 2/2
+        // split, a silent tie a hand-picked golden shape (9, an exact multiple of 3) never exercised.
+        var routineBCount = routineCount == 0 ? 0 : Math.Max(1, routineCount / 3);
+        var routineACount = routineCount - routineBCount;
         var attributeCue = shape.AttributeCue;
         // every template AND every reader for this corpus's own invariants — see CorpusLexicon. Hoisted out
         // of `shape` like every other dial here, because `shape` is an `in` parameter and cannot be captured.
@@ -468,6 +517,44 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
             // Content is PADDING: a real entry that competes for a slot, and whose template shares no term
             // with the marker. Using a queried class instead would let content matching answer the probe.
             Write(lex.Padding(id, Filler(lex, rng)), headline: $"{lex.HeadlineMarker} {id}");
+        }
+
+        // ROUTINE, PART 1 — phase A's writes, EARLY, and its own query. RoutineCount entries split into two
+        // REGIMES — phase A (the larger, first share) and phase B (the smaller, last share, see the
+        // routineACount/routineBCount derivation above). The frequency query fires twice: once here, once at
+        // the very end (PART 2, below, beside the corpus's other end-of-timeline probes) — its answer is
+        // phase B ONLY at that point, with phase A now pollution. A generalisation built on total support
+        // rather than RECENCY answers that second query the wrong way. See CorpusShape.RoutineCount's own doc
+        // for the full argument.
+        //
+        // Split across two places in this method — rather than one contained block, as the first version of
+        // this class was — because its two queries need very different ages. This one only needs to clear
+        // the discriminating band's own FLOOR (HotReuseDelayWrites) so it is never the age-zero lookup
+        // MemoryCorpusTests.No_reuse_query_occurs_at_age_zero forbids; the FINAL query needs phase A aged deep
+        // into the band while phase B stays fresh, which is a property of WHERE in the timeline phase B's
+        // writes and that query sit, not of this one.
+        //
+        // Guarded behind RoutineCount > 0, exactly like AuthoritativeCount/HeadlineOnlyCount, so the default
+        // corpus emits nothing and stays byte-identical.
+        var routinePhaseAIds = new List<string>(routineACount);
+        var routinePhaseAEndWrites = 0;
+        if (routineCount > 0)
+        {
+            for (var i = 0; i < routineACount; i++)
+            {
+                var id = $"routineA{i}";
+                routinePhaseAIds.Add(id);
+                Write(lex.Routine(id, 0, Filler(lex, rng)));
+            }
+
+            routinePhaseAEndWrites = writesSoFar;
+            TopUpTo(writesSoFar + HotReuseDelayWrites);
+
+            // Constructed directly rather than through the Query(...) local helper: that helper's signature
+            // is `(string text, params string[] relevant)`, and params must be the LAST parameter, so
+            // SupportNeeded cannot be appended after it without either reordering every existing call site or
+            // adding a second overload purely for this one class.
+            steps.Add(new CorpusQuery(lex.RoutineQuery(), [.. routinePhaseAIds], routineSupport));
         }
 
         // Critical-rare: written once, EARLY. Its ground-truth query is appended at the very end of this
@@ -677,6 +764,30 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         {
             Query(lex.CriticalLookup(id), id);
             Query(lex.CriticalRecall(id), id);
+        }
+
+        // ROUTINE, PART 2 — phase B's writes and the FINAL query, placed with the corpus's other
+        // end-of-timeline probes rather than immediately after PART 1 above. TOP UP FIRST, to
+        // CriticalRareFloorWrites past phase A's own last write — the same midpoint guarantee critical-rare's
+        // own queries just used above, belt-and-braces for a shape too thin to reach it naturally — so phase A
+        // is aged deep into the discriminating band by the time this query judges it as pollution. Phase B's
+        // writes then follow immediately, so IT stays fresh: this is the one guarantee in this method that
+        // targets a MINIMUM gap for one regime while keeping the other close to zero on purpose — a
+        // deliberate, DOCUMENTED exception to the blanket rule
+        // MemoryCorpusTests.No_reuse_query_occurs_at_age_zero states elsewhere.
+        if (routineCount > 0)
+        {
+            TopUpTo(routinePhaseAEndWrites + CriticalRareFloorWrites);
+
+            var routinePhaseBIds = new List<string>(routineBCount);
+            for (var i = 0; i < routineBCount; i++)
+            {
+                var id = $"routineB{i}";
+                routinePhaseBIds.Add(id);
+                Write(lex.Routine(id, 1, Filler(lex, rng)));
+            }
+
+            steps.Add(new CorpusQuery(lex.RoutineQuery(), [.. routinePhaseBIds], routineSupport));
         }
 
         // The objective-(1) probe, LAST of all: a query that matches no authoritative entry, with every

@@ -37,7 +37,11 @@ public class MemoryCorpusGoldenTests
                 case CorpusWrite w: sb.Append("W|").Append(w.Write.Content).Append('\n'); break;
                 case CorpusQuery q:
                     sb.Append("Q|").Append(q.Text).Append('|')
-                      .Append(string.Join(",", q.RelevantIds)).Append('\n');
+                      .Append(string.Join(",", q.RelevantIds));
+                    // Conditional: every pre-existing query's SupportNeeded is 0, and an unconditional
+                    // append would suffix "|0" onto every line, moving every golden that predates this field.
+                    if (q.SupportNeeded != 0) sb.Append('|').Append(q.SupportNeeded);
+                    sb.Append('\n');
                     break;
                 case CorpusExpand e: sb.Append("E|").Append(e.EntryId).Append('\n'); break;
                 default: throw new InvalidOperationException($"unhandled step {step.GetType().Name}");
@@ -50,8 +54,10 @@ public class MemoryCorpusGoldenTests
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Render(corpus)))).ToLowerInvariant();
 
     /// <summary>Captured 2026-08-12 from the generator as it stood BEFORE <see cref="CorpusLanguage"/>
-    /// existed. Five shapes rather than one so the goldens span every opt-in axis — an axis with no golden
-    /// is an axis a future change can move silently.</summary>
+    /// existed. Six shapes rather than one so the goldens span every opt-in axis — an axis with no golden
+    /// is an axis a future change can move silently. The sixth, "routine", was captured 2026-08-27 and
+    /// necessarily POSTDATES the language axis, so it pins <see cref="Render"/>'s current shape rather than
+    /// the axis's own original baseline.</summary>
     public static TheoryData<string, CorpusShape, string> Goldens() => new()
     {
         { "default", CorpusShape.Default,
@@ -65,6 +71,12 @@ public class MemoryCorpusGoldenTests
             "bd0d9dd9f68535ac57dc3fbe9bd1f5d97e5c9aaf5b7e4cac97fe057fa4797099" },
         { "many-candidates", new CorpusShape(4, 8, 6, 40),
             "2f3ef4e9a5b371c1d1e5af7bf448402a794a320da2daf38cd22b727dd491e480" },
+        // RoutineCount = 12 (A=8/B=4), not 9 (A=6/B=3): at 9, B's own count EQUALS RoutineSupport (3), so
+        // Measure clamps needed = min(3,3) = 3 = the whole relevant set — indistinguishable from the all-of
+        // branch every other class exercises. 12 makes B=4 > RoutineSupport, so needed = min(3,4) = 3 < 4
+        // and the FINAL query genuinely exercises the n-of-N branch too, not only the phase-A query.
+        { "routine", CorpusShape.Default with { RoutineCount = 12 },
+            "4790d658ed6376465a3c83ef4cedaba989e9c6319a4927b26ba1cfa2b1d1085b" },
     };
 
     [Theory]

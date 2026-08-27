@@ -70,7 +70,7 @@ public sealed class MemoryReinforcementActTests
             {
                 case CorpusWrite w:
                     var memRef = await engine.RememberAsync(w.Write);
-                    var corpusId = w.Write.Content.Split(' ')[1];
+                    var corpusId = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     byCorpusId[corpusId] = memRef.Id;
                     byRef[memRef.Id] = corpusId;
                     break;
@@ -259,7 +259,7 @@ public sealed class MemoryReinforcementActTests
             {
                 case CorpusWrite w:
                     var memRef = await engine.RememberAsync(w.Write);
-                    byRef[memRef.Id] = w.Write.Content.Split(' ')[1];
+                    byRef[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     break;
 
                 case CorpusQuery q:

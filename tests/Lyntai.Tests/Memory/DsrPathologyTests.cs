@@ -365,7 +365,7 @@ public class DsrPathologyTests
             {
                 case CorpusWrite w:
                     var memRef = await engine.RememberAsync(w.Write);
-                    corpusIdToRef[w.Write.Content.Split(' ', 3)[1]] = memRef.Id;
+                    corpusIdToRef[MemoryCorpusTestAccess.IdOf(w.Write.Content)] = memRef.Id;
                     break;
                 case CorpusQuery q:
                     var recall = await engine.RecallAsync(

@@ -230,6 +230,33 @@ export function countMemoryDomains(repo) {
 }
 
 /**
+ * Golden shapes registered in `MemoryCorpusGoldenTests.Goldens()`.
+ *
+ * Registered 2026-08-27, after a sixth shape (the routine class's own golden) landed and "five goldens" went
+ * stale in every document quoting it. Counts the HASH LITERALS rather than the data rows themselves:
+ * `Goldens()` is a `TheoryData` collection initializer, so a row is a tuple whose shape can vary (a named
+ * `CorpusShape.Default with { ... }` versus a positional `new CorpusShape(...)`), but every row carries
+ * exactly one 64-character hex SHA-256 — the one part of the shape that cannot be mistaken for something
+ * else in the same file.
+ *
+ * It gates the TOTAL, which is the only quantity it can compute — and the prose was rewritten to state a
+ * total rather than lean on it for a SUBSET claim. "Byte-identical when unset, proved by N goldens" is
+ * provable only by the goldens captured before the language axis, so binding it to the total would have
+ * forced the number further wrong on the next golden added for any unrelated axis. TWO maintained documents
+ * now carry the total (CLAUDE.md and the design contract); `MemoryCorpus`'s own copy of the sentence states
+ * the proof and names no number, which is what keeps this gate's `.md`-only scope honest there.
+ */
+export function countGoldenShapes(repo) {
+  const file = path.join(repo, 'tests', 'Lyntai.Tests', 'Memory', 'Corpus', 'MemoryCorpusGoldenTests.cs');
+  if (!fs.existsSync(file)) return -1;
+  const text = fs.readFileSync(file, 'utf8');
+  const at = text.indexOf('Goldens()');
+  if (at < 0) return -1;
+  const end = text.indexOf('};', at);
+  if (end < 0) return -1;
+  return (text.slice(at, end).match(/"[0-9a-f]{64}"/g) ?? []).length;
+}
+
 /**
  * The registry. One entry per counted claim: a pattern whose first capture group is the number, the
  * function that computes the truth, and why the claim is worth gating.
@@ -319,6 +346,16 @@ export const COUNTED_CLAIMS = [
     pattern: /\bD1\s*[–—-]\s*D(\d+)/g,
     count: countDecisions,
     why: 'CLAUDE.md routes a reader to the decision log by RANGE, so a short range reads as "nothing landed after this"',
+  },
+  {
+    what: 'golden corpus shapes',
+    // Anchored on "pins N golden shapes" — the TOTAL, which is what the counter computes. Deliberately not
+    // the older "proved by N goldens": that sentence is a claim about the pre-language-axis SUBSET, so
+    // gating it against the total made the two disagree by construction. A bare `(\w+) goldens` would also
+    // match prose using the word descriptively, which names no count at all.
+    pattern: /pins \*{0,2}([\w]+)\*{0,2} golden shapes/gi,
+    count: countGoldenShapes,
+    why: 'a sixth golden shape landed 2026-08-27 and "five goldens" stayed stale in every document quoting the total',
   },
 ];
 

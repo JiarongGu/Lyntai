@@ -59,7 +59,7 @@ public class MemoryAuthoritativeSurvivalTests
             {
                 case CorpusWrite w:
                     var memRef = await engine.RememberAsync(w.Write);
-                    byRef[memRef.Id] = w.Write.Content.Split(' ')[1];
+                    byRef[memRef.Id] = MemoryCorpusTestAccess.IdOf(w.Write.Content);
                     break;
 
                 case CorpusQuery q:
@@ -107,7 +107,7 @@ public class MemoryAuthoritativeSurvivalTests
                 case CorpusWrite w:
                     // the ONE difference from the fact above: the grade is dropped
                     var plain = w.Write with { Grade = MemoryGrade.Inherit };
-                    byRef[(await engine.RememberAsync(plain)).Id] = plain.Content.Split(' ')[1];
+                    byRef[(await engine.RememberAsync(plain)).Id] = MemoryCorpusTestAccess.IdOf(plain.Content);
                     break;
 
                 case CorpusQuery q:

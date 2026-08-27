@@ -129,3 +129,98 @@ public class RecallQualityTests
         Assert.Equal(1.0, q.PollutionRate, precision: 9);
     }
 }
+
+/// <summary>
+/// Pins <see cref="RecallQuality.Measure"/>'s <c>supportNeeded</c> parameter — the n-of scoring a FREQUENCY
+/// question needs, since neither one episode nor the full relevant set can answer "what do I usually eat".
+/// </summary>
+public class RecallQualityNOfTests
+{
+    private static readonly string[] Routine =
+        ["routine0", "routine1", "routine2", "routine3", "routine4", "routine5"];
+
+    [Fact]
+    public void SupportNeeded_zero_is_the_STRICT_behaviour_that_shipped()
+    {
+        // The default must reproduce all-of scoring exactly, or every published figure moves.
+        var strict = RecallQuality.Measure(["routine0", "routine1"], Routine, limit: 10);
+        var explicitly = RecallQuality.Measure(["routine0", "routine1"], Routine, limit: 10, supportNeeded: 0);
+
+        Assert.Equal(4.0 / 6.0, strict.MissRate, precision: 9);
+        Assert.Equal(strict, explicitly);
+    }
+
+    [Fact]
+    public void A_single_member_alone_is_credited_but_never_scores_as_a_complete_answer()
+    {
+        // The owner's objection, as a fact: "on Tuesday I had noodles" is not "I usually have noodles". This
+        // pins the BOUNDARY rather than repeating the exact fraction — that number
+        // (Below_the_threshold_misses_in_PROPORTION_to_what_is_missing computes it as (3 - 1) / 3) belongs to
+        // the sibling test, which is where a reader goes to see the arithmetic. What this test alone asserts:
+        // one member is never a complete answer (nonzero miss) and the model is proportional, not a cliff, so
+        // it is credited rather than scored as a total miss (less than 1.0).
+        var quality = RecallQuality.Measure(["routine0"], Routine, limit: 10, supportNeeded: 3);
+
+        Assert.True(quality.MissRate > 0.0, "one member alone must not score as a complete answer");
+        Assert.True(quality.MissRate < 1.0, "one member alone must still be credited, not scored as a total miss");
+    }
+
+    [Fact]
+    public void ENOUGH_members_answer_it_completely()
+    {
+        // Reaching the threshold is a full answer, not a partial one — the question was "what do you
+        // usually eat", and three observations of the same routine answer it. Returning more adds nothing.
+        var atThreshold = RecallQuality.Measure(["routine0", "routine1", "routine2"], Routine, limit: 10, supportNeeded: 3);
+        var beyond = RecallQuality.Measure(["routine0", "routine1", "routine2", "routine3"], Routine, limit: 10, supportNeeded: 3);
+
+        Assert.Equal(0.0, atThreshold.MissRate, precision: 9);
+        Assert.Equal(0.0, beyond.MissRate, precision: 9);
+    }
+
+    [Fact]
+    public void Below_the_threshold_misses_in_PROPORTION_to_what_is_missing()
+    {
+        // Not a cliff. Two of three needed is a better answer than one of three, and a metric that could not
+        // say so would rank a nearly-sufficient recall with a useless one.
+        var one = RecallQuality.Measure(["routine0"], Routine, limit: 10, supportNeeded: 3);
+        var two = RecallQuality.Measure(["routine0", "routine1"], Routine, limit: 10, supportNeeded: 3);
+
+        Assert.Equal(2.0 / 3.0, one.MissRate, precision: 9);
+        Assert.Equal(1.0 / 3.0, two.MissRate, precision: 9);
+    }
+
+    [Fact]
+    public void Pollution_is_unchanged_by_the_threshold()
+    {
+        // SupportNeeded says how much of the relevant set constitutes an ANSWER. It says nothing about what
+        // may occupy the window, so the pollution convention is untouched.
+        var quality = RecallQuality.Measure(["routine0", "noise7"], Routine, limit: 4, supportNeeded: 3);
+
+        Assert.Equal(1.0 / 4.0, quality.PollutionRate, precision: 9);
+    }
+
+    [Fact]
+    public void A_threshold_larger_than_the_relevant_set_is_clamped_to_it()
+    {
+        // A caller asking for more support than exists must not make the query unanswerable — that would be a
+        // fixture bug scoring as a system failure, which is the expensive direction.
+        var quality = RecallQuality.Measure(Routine, Routine, limit: 10, supportNeeded: 99);
+
+        Assert.Equal(0.0, quality.MissRate, precision: 9);
+    }
+
+    [Fact]
+    public void An_EMPTY_relevant_set_needs_no_support_however_much_was_asked_for()
+    {
+        // The other end of the same clamp, and the one that scores PERFECTLY while looking like a result:
+        // relevant = {} clamps needed to 0, so miss = 0 for any recall at all — including the empty one
+        // below, which returned nothing. That is the all-of branch's own empty-set convention (nothing was
+        // ever relevant, so nothing can be missed) and the threshold must not change it into 3/3 = 1.0.
+        // Pinned because CorpusQuery blesses an empty RelevantIds, so a future class whose relevant set can
+        // close — the hot-ephemeral shape — could set SupportNeeded on a step that reaches here.
+        var quality = RecallQuality.Measure(recalled: [], relevant: [], limit: 5, supportNeeded: 3);
+
+        Assert.Equal(0.0, quality.MissRate, precision: 9);
+        Assert.Equal(0.0, quality.PollutionRate, precision: 9);
+    }
+}
