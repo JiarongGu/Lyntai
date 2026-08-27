@@ -23,6 +23,23 @@ public enum AttributeCueKind
     SharesCommonTokens,
 }
 
+/// <summary>Which regime the routine class's FINAL query declares correct.
+/// <para><see cref="Recent"/> is the assistant reading — "usually" means lately, so the newer, smaller phase
+/// B answers. <see cref="Standing"/> is the audit reading of the SAME timeline — "usually" means overall, so
+/// the older, larger phase A answers. Both are legitimate deployment models, which is why the corpus can
+/// state either and neither is a default the library holds.</para>
+/// <para><b>Recent is the default and is byte-identical to the corpus before this axis existed.</b>
+/// Standing exists so a rule that merely tracks RECENCY can fail: under Recent alone every such rule scores
+/// perfectly by construction.</para></summary>
+public enum RoutineAnswer
+{
+    /// <summary>The newer, smaller regime (phase B) answers the final query.</summary>
+    Recent = 0,
+
+    /// <summary>The older, larger regime (phase A) answers the final query.</summary>
+    Standing = 1,
+}
+
 /// <summary>How this corpus writes its noise entries.</summary>
 public enum CorpusNoiseKind
 {
@@ -115,12 +132,17 @@ public enum CorpusNoiseKind
 /// legitimate rather than a bug — phase B floors at 1 entry, so refusing it would outlaw the smallest
 /// legal <paramref name="RoutineCount"/>s — and it means an arm can silently stop exercising the n-of
 /// branch, which is why the golden shape picks a count where it does not.</para></param>
+/// <param name="RoutineAnswer">Which regime the routine class's FINAL query declares correct — see
+/// <see cref="Lyntai.Tests.Memory.Corpus.RoutineAnswer"/>. <c>Recent</c> (the default) names phase B, the
+/// newer and smaller regime — byte-identical to the corpus before this axis existed. <c>Standing</c> names
+/// phase A instead, the audit reading of the SAME timeline, so a rule that merely tracks recency can be made
+/// to fail.</param>
 public readonly record struct CorpusShape(
     int ReuseRatio, int NoiseDensity, int CriticalRarity, int CandidateCount, int ExpandRatio = 0,
     int AttributeCount = 0, AttributeCueKind AttributeCue = AttributeCueKind.Discriminative,
     CorpusLanguage Language = CorpusLanguage.English, int AuthoritativeCount = 0,
     CorpusNoiseKind NoiseKind = CorpusNoiseKind.Templated, int HeadlineOnlyCount = 0,
-    int RoutineCount = 0, int RoutineSupport = 3)
+    int RoutineCount = 0, int RoutineSupport = 3, RoutineAnswer RoutineAnswer = RoutineAnswer.Recent)
 {
     /// <summary>A middling shape: small enough to run in CI, large enough that every class and every
     /// parameter has room to show its effect. <c>ExpandRatio</c> stays <c>0</c> here so the default shape —
@@ -787,7 +809,12 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
                 Write(lex.Routine(id, 1, Filler(lex, rng)));
             }
 
-            steps.Add(new CorpusQuery(lex.RoutineQuery(), [.. routinePhaseBIds], routineSupport));
+            // The declared answer, not the timeline. Standing names phase A - the same entries, already
+            // written and already aged - so the two arms differ in ground truth alone.
+            var finalAnswer = shape.RoutineAnswer == RoutineAnswer.Standing
+                ? routinePhaseAIds
+                : routinePhaseBIds;
+            steps.Add(new CorpusQuery(lex.RoutineQuery(), [.. finalAnswer], routineSupport));
         }
 
         // The objective-(1) probe, LAST of all: a query that matches no authoritative entry, with every

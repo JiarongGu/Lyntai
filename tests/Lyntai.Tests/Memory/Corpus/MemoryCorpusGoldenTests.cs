@@ -50,14 +50,14 @@ public class MemoryCorpusGoldenTests
         return sb.ToString();
     }
 
-    private static string Hash(MemoryCorpus corpus) =>
+    internal static string Hash(MemoryCorpus corpus) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Render(corpus)))).ToLowerInvariant();
 
     /// <summary>Captured 2026-08-12 from the generator as it stood BEFORE <see cref="CorpusLanguage"/>
-    /// existed. Six shapes rather than one so the goldens span every opt-in axis — an axis with no golden
-    /// is an axis a future change can move silently. The sixth, "routine", was captured 2026-08-27 and
-    /// necessarily POSTDATES the language axis, so it pins <see cref="Render"/>'s current shape rather than
-    /// the axis's own original baseline.</summary>
+    /// existed. Seven shapes rather than one so the goldens span every opt-in axis — an axis with no golden
+    /// is an axis a future change can move silently. The sixth, "routine", was captured 2026-08-27 and the
+    /// seventh, "routine-standing", 2026-08-28 — both necessarily POSTDATE the language axis, so they pin
+    /// <see cref="Render"/>'s current shape rather than the axis's own original baseline.</summary>
     public static TheoryData<string, CorpusShape, string> Goldens() => new()
     {
         { "default", CorpusShape.Default,
@@ -77,6 +77,11 @@ public class MemoryCorpusGoldenTests
         // and the FINAL query genuinely exercises the n-of-N branch too, not only the phase-A query.
         { "routine", CorpusShape.Default with { RoutineCount = 12 },
             "4790d658ed6376465a3c83ef4cedaba989e9c6319a4927b26ba1cfa2b1d1085b" },
+        // Standing declares phase A correct at the final query. Same writes as "routine", so only the
+        // rendered ground truth differs - which is exactly what this golden pins.
+        { "routine-standing",
+            CorpusShape.Default with { RoutineCount = 12, RoutineAnswer = RoutineAnswer.Standing },
+            "c81033eb87e249b12d46d03141558b076f24bcf43d3058a8e1d1b43427af2060" },
     };
 
     [Theory]

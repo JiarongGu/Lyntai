@@ -111,7 +111,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3424 passed / 3445 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3429 passed / 3450 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 401/401, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
@@ -428,8 +428,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
   text — the friendliest tokenization the library supports, recorded as a blind spot in design §5.7.0 and
   never measured. `MemoryCorpus` takes `CorpusShape.Language` (default `English`, **byte-identical when
   unset** — proved by the goldens in `MemoryCorpusGoldenTests` that were captured BEFORE the axis existed
-  and did not move when it landed; that file now pins **six** golden shapes in all, the sixth for the
-  routine class, which postdates the axis and so pins only its own shape).
+  and did not move when it landed; that file now pins **seven** golden shapes in all, the sixth for the
+  routine class and the seventh for its STANDING answer arm, both of which postdate the axis and so pin
+  only their own shape).
   Every arm replays a **structurally identical** corpus — same steps, same ids, same ground truth, only the text
   differs — so a gap is the LANGUAGE and not the timeline; pinned in the corpus tests AND re-checked per cell
   at run time. Adopts nothing: the language is the consumer's, not a setting. See `DECISIONS.md` **D55**.

@@ -1029,6 +1029,55 @@ public class MemoryCorpusTests
     /// does.</para></summary>
     private const double MinObservedPhaseARetrievability = 0.07;
 
+    // ---- RoutineAnswer: the inverted-answer arm (2026-08-28) ----
+
+    /// <summary>The default arm is unchanged, and the new one is genuinely DIFFERENT — both halves, because
+    /// an arm that silently fell back to the default would pass the first alone.</summary>
+    [Fact]
+    public void RoutineAnswer_Standing_names_phase_A_at_the_final_query()
+    {
+        var shape = CorpusShape.Default with { RoutineCount = 12, RoutineAnswer = RoutineAnswer.Standing };
+        var corpus = MemoryCorpus.Generate(shape, seed: 4242);
+        var lex = CorpusLexicon.For(CorpusLanguage.English);
+
+        var final = corpus.Steps.OfType<CorpusQuery>().Last(q => q.Text == lex.RoutineQuery());
+        Assert.NotEmpty(final.RelevantIds);
+        Assert.All(final.RelevantIds, id => Assert.StartsWith("routineA", id, StringComparison.Ordinal));
+    }
+
+    /// <summary>The two arms must DISAGREE about the final query while agreeing about everything else —
+    /// same writes, same ids, same order. A gap between them is then the declared answer and nothing else.</summary>
+    [Fact]
+    public void The_two_routine_answer_arms_share_a_timeline_and_differ_only_in_the_final_answer()
+    {
+        var recent = MemoryCorpus.Generate(
+            CorpusShape.Default with { RoutineCount = 12 }, seed: 4242);
+        var standing = MemoryCorpus.Generate(
+            CorpusShape.Default with { RoutineCount = 12, RoutineAnswer = RoutineAnswer.Standing }, seed: 4242);
+
+        Assert.Equal(
+            recent.Steps.OfType<CorpusWrite>().Select(w => w.Write.Content),
+            standing.Steps.OfType<CorpusWrite>().Select(w => w.Write.Content));
+
+        var lex = CorpusLexicon.For(CorpusLanguage.English);
+        var a = recent.Steps.OfType<CorpusQuery>().Last(q => q.Text == lex.RoutineQuery());
+        var b = standing.Steps.OfType<CorpusQuery>().Last(q => q.Text == lex.RoutineQuery());
+        Assert.NotEqual(a.RelevantIds, b.RelevantIds);
+    }
+
+    /// <summary>Byte-identity at the default: the axis must move nothing until it is asked for.</summary>
+    [Fact]
+    public void RoutineAnswer_defaults_to_Recent_and_changes_nothing()
+    {
+        Assert.Equal(RoutineAnswer.Recent, CorpusShape.Default.RoutineAnswer);
+        Assert.Equal(
+            MemoryCorpusGoldenTests.Hash(MemoryCorpus.Generate(
+                CorpusShape.Default with { RoutineCount = 12 }, seed: 12345)),
+            MemoryCorpusGoldenTests.Hash(MemoryCorpus.Generate(
+                CorpusShape.Default with { RoutineCount = 12, RoutineAnswer = RoutineAnswer.Recent },
+                seed: 12345)));
+    }
+
     [Fact]
     public void Reuse_repeats_never_fire_back_to_back_a_real_write_always_interposes()
     {
