@@ -19,8 +19,9 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**One item is open in Part 99**, and the rest need something this repository does not have (a
-key, a model download, a CLI install, a vendor pick, or a deployment's own data). That is stated first
+**Two items are startable — one in Part 99 and one in Part 104**, and the rest need something this
+repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
+data). That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
 two paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
 startable work inside, and this one has been wrong that way twice.
@@ -400,6 +401,35 @@ the proposal. All three are startable today — no key, no model, no download._
   reproduced on demand, so the fix is unconfirmed as the CURE. **If the nine recur, this was not it** — and
   that is the only evidence that can close this. Watch for it; do not close it by observing green runs,
   which is what the line above already says and is now doubly true.
+
+## Part 104 — gist support: RAW support is refuted, so the planned two-armed seam does not survive (2026-08-27)
+
+_Opened by the gist-support instrument, `tests/Lyntai.Tests/Memory/MemoryGistSupportRuleTests.cs`. It was
+built to choose between two candidate support rules for the planned gist tier — `raw = count(members)`
+against `weighted = sum(retrievability(member))` — on a corpus class where the larger, older regime is the
+WRONG answer, and the plan was to ship both behind a seam and let a deployment pick. It answered, and the
+answer removes the choice the seam was for._
+
+- [ ] **Re-plan the gist tier's support rule around ONE candidate, not a two-armed seam.** `rawA = 8 >
+  rawB = 4` in **both** arms while the corpus declares phase B correct, so **raw support is refuted with no
+  pacing dependence at all** — it picks the wrong regime whether the writes are bursty or spaced. A seam
+  exists so a deployment can choose between options that could each be right somewhere, and nothing measured
+  here shows raw is right anywhere. Weighted is the only candidate left standing, and it is not confirmed
+  either: it selects correctly in the spaced arm only.
+
+  **The flip condition, derived rather than fitted:** `sumB > sumA` exactly when
+  `mean(rB)/mean(rA) > |A|/|B|`. That cardinality ratio is NOT a constant — `MemoryCorpus` derives phase B
+  as `max(1, RoutineCount/3)`, so it is 2 only at multiples of 3 and reaches **4.0 at RoutineCount = 5**.
+  The spaced arm's 5.60 clears even that worst case (1.40x of headroom, not the 2.80x a fixed 2 implies);
+  the real-clock arm's 1.23 clears no legal ratio at all.
+
+  **What the next measurement owes, because this one does not carry it.** The per-member ordering claim is
+  prose rather than an assertion. It is ONE shape (`CorpusShape.Default`, whose `ReuseRatio` of 4 is outside
+  the 60-shape grid the routine class's own preconditions are proved over) at ONE seed, and the
+  co-activation clique was observed to differ BETWEEN arms at that same seed — so seed stability may not be
+  assumed here. And the real-clock arm is a fact about an in-process replay rather than about a deployment
+  (`.claude/knowledge/pitfalls.md` §Testing), so it bounds nothing a consumer would see.
+  Startable today — no key, no model download, no install.
 
 ---
 
