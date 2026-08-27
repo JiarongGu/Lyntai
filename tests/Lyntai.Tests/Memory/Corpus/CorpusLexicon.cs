@@ -66,6 +66,10 @@ public enum CorpusLanguage
 /// entry" to "can this harness parse Chinese". Real Chinese text carries ASCII identifiers constantly, so
 /// the mix is realistic; what matters is that everything AROUND the id is a single spaceless run, which is
 /// what forces the trigram path.</para>
+///
+/// <para><b>The routine class's non-English text is this author's own best-effort translation, unreviewed
+/// by a native speaker</b> — the same disclosure <c>MemoryDensitySweep</c> carries for its own
+/// author-written fixtures.</para>
 /// </summary>
 internal abstract class CorpusLexicon
 {
@@ -119,6 +123,10 @@ internal abstract class CorpusLexicon
     public abstract string Noise(string id, string filler);
     public abstract string Padding(string id, string filler);
 
+    /// <summary>One instance of a recurring routine. <paramref name="regime"/> selects WHICH routine — the
+    /// two must be mutually distinguishable, because the corpus asks which one is current.</summary>
+    public abstract string Routine(string id, int regime, string filler);
+
     /// <summary>Content words with nothing to do with any other class, drawn from to build TEXTUALLY DIVERSE
     /// junk. Deliberately large and mutually unrelated: the point is that two noise entries built from it
     /// share as little as possible, which is exactly what <see cref="Noise"/> cannot do.</summary>
@@ -156,6 +164,11 @@ internal abstract class CorpusLexicon
     public abstract string HotStale(string id);
     public abstract string CriticalLookup(string id);
     public abstract string CriticalRecall(string id);
+
+    /// <summary>The frequency question — "what do I usually …". It must name the ACTIVITY and never either
+    /// routine's own distinguishing token, or the cue would contain its own answer and the class would
+    /// collapse into an ordinary lookup.</summary>
+    public abstract string RoutineQuery();
 
     /// <summary>Statement/cue pairs that mean the same thing and share NO index term.
     ///
@@ -266,6 +279,11 @@ internal abstract class CorpusLexicon
         public override string Padding(string id, string filler) =>
             $"padding {id} was {filler} written only to interpose age and is never queried";
 
+        public override string Routine(string id, int regime, string filler) =>
+            regime == 0
+                ? $"item {id} had noodles for lunch again, {filler}"
+                : $"item {id} had a salad for lunch again, {filler}";
+
         /// <summary>English is the easy case: whole-word terms, so two synonyms share nothing at all.</summary>
         public override IReadOnlyList<(string Statement, string Cue)> ParaphrasePairs =>
         [
@@ -291,6 +309,8 @@ internal abstract class CorpusLexicon
         public override string HotStale(string id) => $"item {id} focus stale";
         public override string CriticalLookup(string id) => $"item {id} lookup";
         public override string CriticalRecall(string id) => $"what happened to {id}";
+
+        public override string RoutineQuery() => "what do I usually have for lunch";
 
         public override string DiscriminativeCue(string subject) => $"{subject} recallcue";
         public override string CommonTokenCue(string subject) => $"remind me about the {subject} recallcue";
@@ -370,6 +390,14 @@ internal abstract class CorpusLexicon
         public override string Padding(string id, string filler) =>
             $"填充 {id} 仅{filler}用于插入间隔从来不会被查询";
 
+        /// <summary>面条 noodles (regime 0) / 沙拉 salad (regime 1) — two food words sharing no character
+        /// with each other or with <see cref="RoutineQuery"/>, so the query cannot match either one even by
+        /// trigram accident.</summary>
+        public override string Routine(string id, int regime, string filler) =>
+            regime == 0
+                ? $"记录条目 {id} 又{filler}吃了面条当作午餐"
+                : $"记录条目 {id} 又{filler}吃了沙拉当作午餐";
+
         /// <summary>Harder than English: Chinese expands into trigrams, so a synonym pair must share no
         /// three-character window either. Written with disjoint characters throughout for that reason.</summary>
         public override IReadOnlyList<(string Statement, string Cue)> ParaphrasePairs =>
@@ -406,6 +434,10 @@ internal abstract class CorpusLexicon
         // it would be swallowed by the trigram expansion and stop being matchable as a whole id, which would
         // quietly turn this from "look this entry up" into "look up some overlapping characters".
         public override string CriticalRecall(string id) => $"{id} 后来怎么样了";
+
+        /// <summary>Shares no character with 面条 (noodles) or 沙拉 (salad) — see <see cref="Routine"/>.
+        /// </summary>
+        public override string RoutineQuery() => "我通常午餐吃什么";
 
         /// <summary>Subject plus a marker that appears nowhere else — the Chinese counterpart of
         /// "{subject} recallcue".
@@ -509,6 +541,15 @@ internal abstract class CorpusLexicon
         public override string Padding(string id, string filler) =>
             $"填充 {id} 仅{filler}用于插入间隔从来不会被查询";
 
+        /// <summary>The distinguishing tokens are the untranslated English loanwords "noodles"/"salad",
+        /// matching the rest of this lexicon's habit of leaving a technical/foreign term in Latin script —
+        /// and, like <see cref="ChineseLexicon.Routine"/>, sharing no character with
+        /// <see cref="RoutineQuery"/>.</summary>
+        public override string Routine(string id, int regime, string filler) =>
+            regime == 0
+                ? $"记录条目 {id} 又{filler}吃了noodles当作lunch"
+                : $"记录条目 {id} 又{filler}吃了salad当作lunch";
+
         /// <summary>Mixed like the rest of this lexicon — the statement carries Latin inside the Han run,
         /// so the pair also exercises run segmentation rather than only the Han path.</summary>
         public override IReadOnlyList<(string Statement, string Cue)> ParaphrasePairs =>
@@ -538,6 +579,10 @@ internal abstract class CorpusLexicon
         public override string HotStale(string id) => $"记录条目 {id} 关注已过期";
         public override string CriticalLookup(string id) => $"记录条目 {id} 查询";
         public override string CriticalRecall(string id) => $"{id} 后来怎么样了";
+
+        /// <summary>Carries the English "lunch" like the rest of this lexicon, but neither "noodles" nor
+        /// "salad" — see <see cref="Routine"/>.</summary>
+        public override string RoutineQuery() => "我通常lunch吃什么";
 
         public override string DiscriminativeCue(string subject) => $"我的{subject}回忆线索";
 
@@ -616,6 +661,13 @@ internal abstract class CorpusLexicon
         public override string Padding(string id, string filler) =>
             $"詰め物 {id} は{filler}間隔を挿入するためだけに書かれ照会されない";
 
+        /// <summary>蕎麦 soba/noodles (regime 0, kanji) and サラダ salad (regime 1, katakana loanword) share
+        /// no character with each other or with <see cref="RoutineQuery"/>.</summary>
+        public override string Routine(string id, int regime, string filler) =>
+            regime == 0
+                ? $"記録項目 {id} は{filler}昼食に蕎麦を食べた"
+                : $"記録項目 {id} は{filler}昼食にサラダを食べた";
+
         /// <summary>Kanji-led for the same reason the junk list is: a kana-heavy pair would collide on
         /// kana's small inventory and measure the tokenizer's known weak spot rather than the retrieval
         /// question.</summary>
@@ -648,6 +700,10 @@ internal abstract class CorpusLexicon
         // the id stays its own space-delimited token — inside a spaceless run the trigram expansion would
         // swallow it and it would stop being matchable as a whole id
         public override string CriticalRecall(string id) => $"{id} はその後どうなったか";
+
+        /// <summary>Shares no character with 蕎麦 (soba/noodles) or サラダ (salad) — see
+        /// <see cref="Routine"/>.</summary>
+        public override string RoutineQuery() => "私はいつも昼食に何を食べますか";
 
         /// <summary>The cue carries 私の{subject}, for the same reason the Chinese one does: the content says
         /// 私の{subject}は, so 私の配 / の配偶 / 配偶者 are trigrams the query and the content genuinely share.
@@ -735,6 +791,13 @@ internal abstract class CorpusLexicon
         public override string Padding(string id, string filler) =>
             $"채움 {id} 는 {filler} 간격을 넣기 위해서만 기록되며 조회되지 않는다";
 
+        /// <summary>국수 noodles (regime 0) and 샐러드 salad (regime 1) share no syllable with each other or
+        /// with <see cref="RoutineQuery"/>.</summary>
+        public override string Routine(string id, int regime, string filler) =>
+            regime == 0
+                ? $"기록항목 {id} 는 {filler} 또 점심으로 국수를 먹었다"
+                : $"기록항목 {id} 는 {filler} 또 점심으로 샐러드를 먹었다";
+
         /// <summary>Korean writes spaces, but Hangul is still expanded into grams, so a pair must avoid a
         /// shared three-syllable window as well as a shared word.</summary>
         public override IReadOnlyList<(string Statement, string Cue)> ParaphrasePairs =>
@@ -767,6 +830,10 @@ internal abstract class CorpusLexicon
         public override string HotStale(string id) => $"기록항목 {id} 관심만료";
         public override string CriticalLookup(string id) => $"기록항목 {id} 조회";
         public override string CriticalRecall(string id) => $"{id} 는 그 후 어떻게 되었나";
+
+        /// <summary>Shares no syllable with 국수 (noodles) or 샐러드 (salad) — see <see cref="Routine"/>.
+        /// </summary>
+        public override string RoutineQuery() => "나는 점심에 보통 무엇을 먹나요";
 
         /// <summary>The subject carries its topic particle exactly as the content does (배우자는), so the
         /// shared trigrams are 배우자 and 우자는 — the agglutinative case this arm exists to exercise.</summary>

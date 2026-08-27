@@ -92,11 +92,23 @@ public enum CorpusNoiseKind
 /// <para><b>Defaults to <c>0</c>, and that default is load-bearing.</b> Every corpus generated before this
 /// axis existed must stay byte-identical, or every published measurement moves at once and none of them
 /// would be comparable across the boundary. A study that wants expansions opts in explicitly.</para></param>
+/// <param name="RoutineCount">How many RECURRING entries the corpus carries — material that is individually
+/// low-value and collectively the answer to a frequency question. <c>0</c> (the default) disables the class
+/// and leaves every corpus byte-identical.
+/// <para><b>Split into two REGIMES, the first larger.</b> The first two thirds are routine A, the last third
+/// routine B, and the final routine query's answer is <b>B</b> — so a generalisation built on support count
+/// alone is not merely imprecise here, it is confidently wrong, and the A entries it returns are scored as
+/// pollution. That is the whole reason this class exists rather than a simple "repeated material" one:
+/// "usually" is a claim about a RECENT frequency, and a total is not an answer.</para></param>
+/// <param name="RoutineSupport">How many routine entries constitute an answer to the frequency question,
+/// passed through as <see cref="CorpusQuery.SupportNeeded"/>. It is a MODELLING CHOICE with no principled
+/// value hiding in the data — deriving it from the mechanism under test would be circular.</param>
 public readonly record struct CorpusShape(
     int ReuseRatio, int NoiseDensity, int CriticalRarity, int CandidateCount, int ExpandRatio = 0,
     int AttributeCount = 0, AttributeCueKind AttributeCue = AttributeCueKind.Discriminative,
     CorpusLanguage Language = CorpusLanguage.English, int AuthoritativeCount = 0,
-    CorpusNoiseKind NoiseKind = CorpusNoiseKind.Templated, int HeadlineOnlyCount = 0)
+    CorpusNoiseKind NoiseKind = CorpusNoiseKind.Templated, int HeadlineOnlyCount = 0,
+    int RoutineCount = 0, int RoutineSupport = 3)
 {
     /// <summary>A middling shape: small enough to run in CI, large enough that every class and every
     /// parameter has room to show its effect. <c>ExpandRatio</c> stays <c>0</c> here so the default shape —
@@ -342,6 +354,8 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         var attributeCount = Math.Clamp(shape.AttributeCount, 0, 3);   // three distinct subjects are defined
         var authoritativeCount = Math.Max(0, shape.AuthoritativeCount);
         var headlineOnlyCount = Math.Max(0, shape.HeadlineOnlyCount);
+        var routineCount = Math.Max(0, shape.RoutineCount);
+        var routineSupport = Math.Max(0, shape.RoutineSupport);
         var attributeCue = shape.AttributeCue;
         // every template AND every reader for this corpus's own invariants — see CorpusLexicon. Hoisted out
         // of `shape` like every other dial here, because `shape` is an `in` parameter and cannot be captured.
@@ -471,6 +485,45 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
             // Content is PADDING: a real entry that competes for a slot, and whose template shares no term
             // with the marker. Using a queried class instead would let content matching answer the probe.
             Write(lex.Padding(id, Filler(lex, rng)), headline: $"{lex.HeadlineMarker} {id}");
+        }
+
+        // ROUTINE: RoutineCount entries split into two REGIMES — phase A (the first two thirds, and
+        // deliberately the LARGER share) and phase B (the last third). The frequency query fires twice: once
+        // right after phase A finishes (its answer is phase A, the only material written so far), once right
+        // after phase B finishes (its answer is phase B ONLY — phase A is now pollution). A generalisation
+        // built on total support rather than RECENCY answers both queries the wrong way. See
+        // CorpusShape.RoutineCount's own doc for the full argument.
+        //
+        // Guarded behind RoutineCount > 0, exactly like AuthoritativeCount/HeadlineOnlyCount, so the default
+        // corpus emits nothing and stays byte-identical.
+        if (routineCount > 0)
+        {
+            var phaseACount = routineCount * 2 / 3;
+            var phaseBCount = routineCount - phaseACount;
+
+            var phaseAIds = new List<string>(phaseACount);
+            for (var i = 0; i < phaseACount; i++)
+            {
+                var id = $"routineA{i}";
+                phaseAIds.Add(id);
+                Write(lex.Routine(id, 0, Filler(lex, rng)));
+            }
+
+            // Constructed directly rather than through the Query(...) local helper: that helper's signature
+            // is `(string text, params string[] relevant)`, and params must be the LAST parameter, so
+            // SupportNeeded cannot be appended after it without either reordering every existing call site or
+            // adding a second overload purely for this one class.
+            steps.Add(new CorpusQuery(lex.RoutineQuery(), [.. phaseAIds], routineSupport));
+
+            var phaseBIds = new List<string>(phaseBCount);
+            for (var i = 0; i < phaseBCount; i++)
+            {
+                var id = $"routineB{i}";
+                phaseBIds.Add(id);
+                Write(lex.Routine(id, 1, Filler(lex, rng)));
+            }
+
+            steps.Add(new CorpusQuery(lex.RoutineQuery(), [.. phaseBIds], routineSupport));
         }
 
         // Critical-rare: written once, EARLY. Its ground-truth query is appended at the very end of this

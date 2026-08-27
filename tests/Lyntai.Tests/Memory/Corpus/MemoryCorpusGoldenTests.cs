@@ -65,6 +65,8 @@ public class MemoryCorpusGoldenTests
             "bd0d9dd9f68535ac57dc3fbe9bd1f5d97e5c9aaf5b7e4cac97fe057fa4797099" },
         { "many-candidates", new CorpusShape(4, 8, 6, 40),
             "2f3ef4e9a5b371c1d1e5af7bf448402a794a320da2daf38cd22b727dd491e480" },
+        { "routine", CorpusShape.Default with { RoutineCount = 9 },
+            "ae1a45b18141e314368ca0e46e1cceba8669230c0b717b056e484d843f9aa609" },
     };
 
     [Theory]
