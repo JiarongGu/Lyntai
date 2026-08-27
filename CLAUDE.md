@@ -26,8 +26,8 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D92**. The two groups worth knowing before you touch anything:
-**D83–D92 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D93**. The two groups worth knowing before you touch anything:
+**D83–D93 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
@@ -41,7 +41,8 @@ contract (**D71**), the forget/prune split with `IMemoryRemovalPolicy` (**D72**)
 as a heartbeated slot table (**D73**), the guard-parity split — forced in FORCE, accidental in SIGNAL
 (**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
-overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91** and **D92**.
+overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91**,
+**D92** and **D93**.
 
 **Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
 because it is not the three older memory surfaces: named engines resolved by name like `IHttpClientFactory`
@@ -110,7 +111,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3376 passed / 3397 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3402 passed / 3423 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 386/386, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
@@ -468,6 +469,19 @@ owned outside the deployment; `DECISIONS.md` D30) /
   any model's accuracy. **`memory-verification`** (2026-08-15) is the same stance for the judge seam and is
   the FIRST measurement of what a model in the loop is worth — every other figure here is model-free — and
   **`memory-fan`** is the axis that measured ACT-R's fan effect and REFUSED it (**D62**).
+  <br>**`memory-importance`** (2026-08-27) is the pair to `memory-salience-weight` and asks the other half of
+  its question: that one priced how LOUD salience is, this one prices WHAT IT MEASURES — the shipped novelty
+  policy against a perfect importance ORACLE, salience-off as control. **D89 is not a finding about
+  importance**: novelty is monotone in "unlike anything already stored", so sustained significance decays on
+  that axis exactly as it is confirmed while a one-off triviality reads as maximal. Its decisive shape is
+  `diverse-noise`, because under templated noise the second entry onward reads as FAMILIAR and the failure
+  mode is unreachable by construction. Ranking is held at the shipped `SalienceWeight = 0`, so it prices
+  SURVIVAL — decay resistance and store admission — which is D45's actual claim for what salience means.
+  <br>**It needed no library change, and finding that out cost a wrong turn worth recording**: a policy
+  already receives the whole `MemoryWrite`, so content and caller metadata were always available.
+  `SalienceContext` carries only what the ENGINE measured — the engine name, novelty, comparables and
+  `SimilarCount` — and reading that record ALONE says a policy can judge nothing else, which is what the seam
+  looks like until you read the method signature.
   **`memory-enrichment`** (2026-08-15) answered the oldest open question in that backlog — WHY registering an
   embedder costs recall quality — and was the **first sweep to call a REAL model**, EXITING rather than
   substituting a double, because the arm it replaces was measured through a bag-of-words fake in which
@@ -476,7 +490,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
   −0.30, `attribute` −0.28, `critical-rare` **+0.68**) whose aggregate looks small only because those
   cancel, while **novelty→salience is a broad shallow cost** that turns beneficial only under high noise.
   It needed no new API — `MinSimilarity` above 1 keeps the embed and writes no edge; a neutral salience
-  policy keeps the edges and drops novelty.
+  policy keeps the edges and drops novelty. **That first recipe now also zeroes `SalienceContext.SimilarCount`**,
+  which counts against the SAME floor: a registered salience policy reads `0` on every write and cannot tell
+  that from a store nothing resembles. Novelty is unaffected — it reads the probe's top score, not the floor.
   <br>**`memory-salience-weight`** (2026-08-23) is the SECOND real-model sweep, and it needs one for a
   sharper reason than cost: without an embedder salience declines on every write, and RRF ranks by
   COMPETITION (**D82**), so a uniformly-tied signal contributes the same constant at every weight — the curve

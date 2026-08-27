@@ -162,8 +162,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D90](#d90--the-memory-objective-gains-four-invariants-above-its-optimization-targets-2026-08-26) | 2026-08-26 | the memory objective gains four INVARIANTS above its optimization targets |
 | [D91](#d91--a-callers-i-did-not-say-must-not-be-written-as-though-they-had-metadata-and-headline-2026-08-26) | 2026-08-26 | a caller's "I did not say" must not be written as though they had: Metadata, and Headline |
 | [D92](#d92--a-taskkey-is-a-real-boundary-traversal-is-scoped-to-it-and-a-cross-task-link-is-refused-2026-08-26) | 2026-08-26 | a `taskKey` is a REAL boundary: traversal is scoped to it, and a cross-task link is refused |
+| [D93](#d93--what-a-recall-returns-is-widened-twice-metadata-comes-back-and-a-verifier-is-shown-scores-2026-08-27) | 2026-08-27 | what a recall RETURNS is widened twice: metadata comes back, and a verifier is shown scores |
 
-_All 92 entries are live decisions._
+_All 93 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2558,3 +2559,100 @@ in its own data, which is `library-api-design`'s standing answer to an app-speci
 **Pinned from both sides** — the refusal, and a fact that writes a cross-task edge *through the store*
 (bypassing the engine) to prove the walk still will not follow it. That second one is what would catch a
 future change that relaxed the scoping while leaving the refusal in place.
+
+## D93 — what a recall RETURNS is widened twice: metadata comes back, and a verifier is shown scores (2026-08-27)
+
+**Two members, one shape of defect: the engine held something the caller needed and did not pass it on.** Both
+were found by an adopting application that had to rebuild the missing half outside the library.
+
+### `MemoryItem.Metadata` — metadata was writable and unreadable
+
+`MemoryWrite.Metadata` has documented "an engine whose store cannot hold it ignores it" since it shipped. The
+READ side said nothing at all, and `GraphNode.Metadata` was persisted, returned by the store, and then dropped
+at the projection onto `MemoryItem` — **three lines in `GraphMemoryEngine`, one in `RecallAsync` and TWO in
+`ExpandAsync`**, which projects the entry the caller NAMED separately from its neighbours. So a consumer could
+write a kind, a source or an ordering key and never get it back, and the only recourse was keeping a second
+copy of the store outside the library and re-reading it after every recall.
+
+**This entry said "two lines" for a day, and the third was still live when it did.** A grep for
+`new MemoryItem(` finds two sites, because the named entry's projection is written target-typed as `new(...)`
+inside a collection initializer — so the fix, the changelog, this entry and three other records all inherited
+one search's blind spot. The reusable form is in `pitfalls.md` §Second doors: **count a record's call sites
+from the type, not from a search for its constructor's name.**
+
+**The alternative was a typed KIND on the item**, and it is the one to argue against, because it reads better.
+A kind is exactly the consumer's vocabulary — "standing context", "glossary", "episode" — and `generic-library`
+rule 3 says the stringly-typed escape hatch is what keeps Core neutral of it. The write side had already made
+that choice; this makes the two sides agree rather than inventing a second model.
+
+**Null means the ENGINE does not carry metadata, never that the caller wrote none.** The two are not
+distinguishable through this member and deliberately so: adding a "was any written" flag would put a second
+question on a field that exists to be opaque. A consumer needing them apart writes a sentinel key.
+
+### `MemoryVerificationCandidate.Relevance` — the model-free floor was undocumented and unimplementable
+
+`IMemoryVerificationPolicy` describes itself as "best-effort over a model-free floor", and a candidate carried
+an `Id` and a `Headline`. From those the only route to *did anything answer this* is reading the text, so the
+seam's sole shipped implementation is `LlmMemoryVerificationPolicy` and every other implementation would have
+been one too. The engine computed each candidate's relevance and threw it away on the way to the judge.
+
+**The instrument that made this concrete.** An adopting application measured both routes on its own corpus: an
+LLM judge promoted the right answer **0 of 6** times, at 181 ms warm and **5409 ms cold** — cold being what a
+sporadic hook actually pays — while a score-only signal separated *answerable* from *unanswerable* queries at
+**AUC 0.965** (top score) and **0.932** (score variance) over 39 substantive and 28 contentless prompts.
+
+**No score-floor policy ships, and that is rule 7, not laziness.** A graph engine passes its store's own
+normalized rank position through and `IMemoryGraphStore.SeedAsync` makes that position explicitly
+backend-specific, so the number's scale belongs to the deployment's embedder and corpus. A library-chosen
+threshold would be the library answering a question only the host can — the shape **D68** records for the
+diffusion accelerator and **D75** for `HoldsUserContent`. The XML doc therefore steers an implementer to a
+RELATIVE test (top against the rest) rather than an absolute one, and warns that an authoritative fact the
+query did not match reports `0` by design (**D56**) and must not be read as a failed recall.
+
+**Corrected 2026-08-27, the same day: the MEMBER survives and the MECHANISM above does not.** The heading and
+the two paragraphs before it are kept as written, because the correction is only legible beside them.
+
+The claim that had to go is the generalisation, and it was stated in the XML doc as *"a query with no answer
+returns scores that are low and BUNCHED, so a policy comparing the top score against the rest needs no
+inference at all"*. **The AUC 0.965 above is real and is a fact about the ADOPTING APPLICATION**, whose score
+is a real cosine over a single embedder — a quantity for which "low and bunched" is a meaningful shape. This
+engine's number is not that quantity. `MemoryRelevance.ByRankPosition` is `1 - index/count`: the top row is
+**always exactly `1.0`** and the rest an evenly-spaced ramp, identical whether the query was answered
+perfectly or not at all, and a single-row page reports `1` because there is no gradient to place it on. Within
+ONE request the values are not even commensurable — a lexical rank ramp, a real cosine on a semantic seed, a
+flat `1` on graph-walk and subject seeds, and `0` for a grade-admitted non-match. So *no* arithmetic over this
+page recovers "did anything answer this"; a relative test is a heuristic over an ordering, not the floor the
+old paragraph promised.
+
+The correction also removes a contradiction the doc carried between its own paragraphs: low-and-bunched
+implied *unanswered*, while the last paragraph said a zero-scoring authoritative row must NOT be read as
+unanswered — and on the SQLite `LIKE` fallback those are the same rows, since the predicate admits
+`grade = authoritative OR <match>` and a no-match page is exactly the grade-admitted set.
+
+**The member still earns its place**, on the narrower and true argument: it is what the caller will see on
+`MemoryItem.Relevance`, a verifier was the one reader of a recall that could not see it, and withholding it
+forced every implementation to be a model. What it does NOT buy is a model-free ANSWER, and no shipped
+implementation or doc may claim one. The XML doc now states what the value is and what a policy may not
+assume about it; **D90**'s posture applies — say which of the objectives a mechanism can actually be held to.
+
+### What both cost
+
+One trailing member each, defaulted, so construction by name or position is unaffected; `Deconstruct` gains a
+slot, which is a source break only for positional deconstruction — the same shape `GraphNodeWrite` took, and
+permitted in a minor by **D18** while every consumer is first-party.
+
+**Pinned as a CONTRACT fact, not per engine.** `MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent`
+runs on all five engines and takes the caller's declaration of which answer is right for that engine, asserting
+the round trip where the store has a column and asserting `null` where it does not. Both branches assert
+positively: a single "null is acceptable" fact would have passed vacuously for the two engines that cannot
+carry metadata, which is the vacuous-fixture trap `pitfalls.md` records. That is also why the relevance facts
+include one asserting the column is not a constant — a field wired to a literal satisfies an equality check on
+every row.
+
+**And a SECOND contract fact for the expansion path**, `Metadata_survives_an_EXPANSION_not_only_a_recall`,
+because the first one calls `RecallAsync` and nothing else — which is precisely why the third projection stayed
+broken through a fix that named it. It takes a second declaration, `expands`, and asserts all three states
+positively: an engine with no `IExpandableMemory` surface asserts it has none, a composite over a member that
+cannot expand asserts the documented fail-OPEN empty recall, and the graph engine asserts the round trip.
+**A read path a contract fact does not CALL is a read path that contract does not cover**, however completely
+it enumerates engines.

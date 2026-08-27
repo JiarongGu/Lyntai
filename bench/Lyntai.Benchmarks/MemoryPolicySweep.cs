@@ -483,7 +483,12 @@ internal static class MemoryPolicySweep
         return new ReplayResult(byClass, observedOrder);
     }
 
-    private static string ExtractCorpusId(string content)
+    /// <summary>The corpus id embedded in an entry's own content — the only link between what a corpus
+    /// DECLARED relevant and what an engine returned.
+    /// <para>Internal rather than private because a second sweep needs the same mapping, and a second copy of
+    /// a parsing rule is how two of them drift; <c>pitfalls.md</c> records that shape under a helper whose
+    /// fourth reader spelled the read out itself and got it wrong.</para></summary>
+    internal static string ExtractCorpusId(string content)
     {
         var parts = content.Split(' ', 3);
         return parts.Length >= 2 ? parts[1] : content;

@@ -47,7 +47,23 @@ public sealed record MemoryVerificationRequest(
 /// <summary>One thing being judged.</summary>
 /// <param name="Id">The engine-local id, echoed back in <see cref="MemoryVerification.RelevantIds"/>.</param>
 /// <param name="Headline">Its one-line summary — what a caller would see without paying to expand.</param>
-public sealed record MemoryVerificationCandidate(string Id, string Headline);
+/// <param name="Relevance">How well it matched, exactly as <see cref="Lyntai.Memory.MemoryItem.Relevance"/>
+/// will report it to the caller — so a policy can look at the SCORE DISTRIBUTION without reading the text.
+/// <para><b>Its scale and shape are SOURCE- and backend-specific, and a policy may not assume otherwise.</b>
+/// One request mixes values from different generators: a graph store's normalized rank POSITION for a lexical
+/// hit, a real cosine for a semantic seed, a flat <c>1</c> for a graph-walk or subject seed, and the <c>0</c>
+/// below. They are ordered, not measured — comparable within one request and no further, and not even
+/// commensurable across the sources inside it.</para>
+/// <para><b>A top score of <c>1</c> is not evidence of a good match.</b> Rank position puts the best row at
+/// exactly <c>1</c> whatever the query, and a single-row result at <c>1</c> because there is no gradient to
+/// place it on — the same output for a query answered perfectly and one answered not at all. <b>An absolute
+/// floor cannot be derived from this number alone.</b> A RELATIVE test (top against the rest) is what it
+/// supports, and even that reads an ordering rather than a fit.</para>
+/// <para><b>0 for an authoritative fact the query did not match</b>, admitted by grade rather than by
+/// relevance. Those rows are indistinguishable HERE from a recall that matched nothing — on the SQLite LIKE
+/// fallback a no-match page IS the grade-admitted rows — so a policy must not read a page of zeros as a
+/// judgement that the recall failed.</para></param>
+public sealed record MemoryVerificationCandidate(string Id, string Headline, double Relevance = 0);
 
 /// <summary>Which candidates answered the query.</summary>
 /// <param name="RelevantIds">The ids that did. An id not listed is judged NOT to have answered — which is

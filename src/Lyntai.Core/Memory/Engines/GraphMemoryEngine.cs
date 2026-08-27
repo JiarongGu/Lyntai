@@ -245,7 +245,7 @@ public sealed class GraphMemoryEngine(
         // vector store there is nothing to compare against, so nothing is judged or linked — the honest
         // answer, not a degraded one.
         var search = await SearchAsync(write, ct).ConfigureAwait(false);
-        var (signals, salienceProvenance) = CollectSignals(write, Probe(write, search));
+        var (signals, salienceProvenance) = CollectSignals(write, Probe(write, search, _options.MinSimilarity));
 
         var id = await store.UpsertAsync(
             new GraphNodeWrite(Name, write.TaskKey, write.Scope, headline, write.Content, grade,
@@ -395,17 +395,20 @@ public sealed class GraphMemoryEngine(
     /// <para><b>No search, or nothing left after self-exclusion, reports novelty 0 with zero comparables —
     /// not 1.</b> Nothing to compare against is no information, not "unlike everything," which is the
     /// precise failure <see cref="SalienceOptions.MinimumComparables"/> exists to prevent, and it would
-    /// arrive by the one route that guard cannot see.</para></summary>
-    private static (double Novelty, int Comparables) Probe(MemoryWrite write,
-        (float[] Vector, IReadOnlyList<VectorMatch> Near)? search)
+    /// arrive by the one route that guard cannot see.</para>
+    /// <para>The THIRD member is the same neighbour list counted against a floor: how many actually
+    /// resemble this write, where the second is merely how many there were.</para></summary>
+    private static (double Novelty, int Comparables, int Similar) Probe(MemoryWrite write,
+        (float[] Vector, IReadOnlyList<VectorMatch> Near)? search, double minSimilarity)
     {
-        if (search is null) return (0, 0);
+        if (search is null) return (0, 0, 0);
         var survivors = search.Value.Near
             .Where(m => !string.Equals(m.Payload, write.Content, StringComparison.Ordinal))
             .ToList();
         return survivors.Count == 0
-            ? (0, 0)
-            : (Math.Clamp(1 - survivors[0].Score, 0, 1), survivors.Count);
+            ? (0, 0, 0)
+            : (Math.Clamp(1 - survivors[0].Score, 0, 1), survivors.Count,
+               survivors.Count(m => m.Score >= minSimilarity));
     }
 
     /// <summary>Collect signals from every registered salience policy, treating each one's own failure as "no
@@ -418,9 +421,9 @@ public sealed class GraphMemoryEngine(
     /// and its own bit is excluded here — crediting it would claim this entry's signals reflect a judgement
     /// that never actually happened (design doc §5.7).</para></summary>
     private (MemorySignals Signals, long Provenance) CollectSignals(MemoryWrite write,
-        (double Novelty, int Comparables) probe)
+        (double Novelty, int Comparables, int Similar) probe)
     {
-        var context = new SalienceContext(Name, probe.Novelty, probe.Comparables);
+        var context = new SalienceContext(Name, probe.Novelty, probe.Comparables, probe.Similar);
         var results = new List<MemorySignals>(_saliencePolicies.Count);
         var contributions = new List<long>(_saliencePolicies.Count);
         foreach (var policy in _saliencePolicies)
@@ -636,7 +639,7 @@ public sealed class GraphMemoryEngine(
                 // cheap; authoritative content is always present, because it is never returned truncated
                 x.Candidate.Node.Grade == MemoryGrade.Authoritative ? x.Candidate.Node.Content : null,
                 x.Candidate.Node.Grade, x.Candidate.Node.Relevance, x.Candidate.Retrievability,
-                x.Candidate.Node.Degree))
+                x.Candidate.Node.Degree, x.Candidate.Node.Metadata))
             .ToList();
 
         // MemoryQuery.CharBudget, honoured — it shipped in 2.5.0 documented as "maximum characters the caller
@@ -709,7 +712,8 @@ public sealed class GraphMemoryEngine(
         var items = new List<MemoryItem>(walked.Count + 1)
         {
             // the expanded node carries its FULL content whatever its grade — that is what expansion IS
-            new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree),
+            new(reference, node.Headline, node.Content, node.Grade, 1, Retrievability(node), node.Degree,
+                node.Metadata),
         };
 
         // The budget bounds the NEIGHBOURS, never the entry itself: returning that entry's full content is
@@ -727,7 +731,7 @@ public sealed class GraphMemoryEngine(
             spent += cost;
             items.Add(new MemoryItem(
                 new MemoryRef(Name, n.Id.ToString(CultureInfo.InvariantCulture)),
-                n.Headline, content, n.Grade, n.Relevance, Retrievability(n), n.Degree));
+                n.Headline, content, n.Grade, n.Relevance, Retrievability(n), n.Degree, n.Metadata));
         }
 
         return new MemoryRecall(items, MemorySources.Graph | (Enriches ? MemorySources.Similarity : 0));
@@ -1277,9 +1281,12 @@ public sealed class GraphMemoryEngine(
         {
             var request = new Lyntai.Memory.Verification.MemoryVerificationRequest(
                 queryText,
+                // the same Relevance the caller will see on MemoryItem, so a policy can judge from the score
+                // distribution instead of reading the text
                 [.. scored.Select(x => new Lyntai.Memory.Verification.MemoryVerificationCandidate(
                     x.Candidate.Node.Id.ToString(CultureInfo.InvariantCulture),
-                    x.Candidate.Node.Headline))]);
+                    x.Candidate.Node.Headline,
+                    x.Candidate.Node.Relevance))]);
 
             return await verification.VerifyAsync(request, ct).ConfigureAwait(false)
                    ?? Lyntai.Memory.Verification.MemoryVerification.NoOpinion;

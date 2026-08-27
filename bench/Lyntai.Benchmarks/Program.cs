@@ -72,6 +72,24 @@ if (args.Contains("--enrichment"))
 if (args.Contains("--salience-weight"))
     return await MemorySalienceWeightSweep.RunAsync(args.Contains("--languages"));
 
+// `node devtools/dev.mjs memory-importance` → --importance. WHAT the salience signal measures, rather than
+// how loud it is: the shipped novelty policy against a perfect importance ORACLE, with salience-off as the
+// control. D89 priced novelty and took its ranking voice to zero; that is not a finding about importance,
+// and the two come apart precisely where it matters — novelty is monotone in "unlike anything already
+// stored", so sustained significance DECAYS on that axis as it is confirmed while a one-off triviality reads
+// as maximal. Ranking stays at the shipped SalienceWeight = 0, so this prices SURVIVAL (decay resistance +
+// store admission), which is D45's actual claim for what salience means.
+// Needs a real embedder, and for D89's reason: without one the novelty arm silently becomes the
+// salience-off arm and the table reads as "importance wins" having measured nothing.
+if (args.Contains("--importance"))
+    return await MemoryImportanceSweep.RunAsync(args.Contains("--languages"));
+
+// `node devtools/dev.mjs memory-density` → --density. Whether a CORRECTION and a RECURRENCE separate on
+// SalienceContext.SimilarCount at all. This is the cheapest possible refutation of the gist tier: if they
+// do not separate here, on authored fixtures with a real embedder, nothing downstream can work.
+if (args.Contains("--density"))
+    return await MemoryDensitySweep.RunAsync(args.Contains("--languages"));
+
 // `node devtools/dev.mjs memory-scale` → --scale. The one blind spot docs/memory.md §8 concedes outright:
 // nothing in this subsystem had exceeded a few hundred entries. The ONLY sweep here whose subject is COST
 // rather than recall quality — which is also why it runs sequentially where the others fan out, since

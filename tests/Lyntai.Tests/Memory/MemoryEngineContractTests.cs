@@ -16,6 +16,11 @@ public class LexicalEngineContractTests
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
+    // MemoryEntry has no metadata column
+    [Fact] public Task Metadata_round_trip() =>
+        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: false);
+    [Fact] public Task Metadata_on_expansion() =>
+        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
 }
 
 public class SemanticEngineContractTests
@@ -31,6 +36,11 @@ public class SemanticEngineContractTests
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
+    // a vector hit carries content and a score, nothing else
+    [Fact] public Task Metadata_round_trip() =>
+        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: false);
+    [Fact] public Task Metadata_on_expansion() =>
+        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
 }
 
 public class GraphEngineContractTests
@@ -47,6 +57,12 @@ public class GraphEngineContractTests
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
+    // GraphNode.Metadata is persisted and already returned by the store
+    [Fact] public Task Metadata_round_trip() =>
+        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: true);
+    // the ONE engine that genuinely expands, and the site the recall-only fact could not see
+    [Fact] public Task Metadata_on_expansion() =>
+        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: true, expands: true);
 }
 
 public class CompositeEngineContractTests
@@ -66,6 +82,29 @@ public class CompositeEngineContractTests
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
+    // an Inherit write routes to the FIRST member, which is lexical here
+    [Fact] public Task Metadata_round_trip() =>
+        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: false);
+    // a composite always implements IExpandableMemory; a lexical owner makes it fail OPEN
+    [Fact] public Task Metadata_on_expansion() =>
+        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
+
+    [Fact]
+    public async Task A_blend_does_not_STRIP_metadata_from_a_member_that_carries_it()
+    {
+        // The contract fact above asserts null for this blend, which is right and is NOT this property: it
+        // holds because the first member is lexical, so it would pass just as well if the composite discarded
+        // metadata outright. A composite today re-uses the member's MemoryItem instance rather than rebuilding
+        // it, so this survives by construction — and "by construction" is precisely what a later refactor
+        // that maps items (to renormalize Relevance, say) would quietly undo, with every other fact green.
+        var blend = new CompositeMemoryEngine("blend",
+        [
+            new CuratedMemoryEngine("blend/cur", new FakeCuratedStore(), kind: "glossary"),
+            new LexicalMemoryEngine("blend/lex", new FakeMemoryStore()),
+        ]);
+
+        await MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(blend, "k11", carries: true);
+    }
 }
 
 public class CuratedEngineContractTests
@@ -81,6 +120,11 @@ public class CuratedEngineContractTests
     [Fact] public Task Empty_query() => MemoryEngineContract.An_empty_query_does_not_throw(New(), "k7");
     [Fact] public Task Cancellation() => MemoryEngineContract.Cancellation_propagates(New(), "k8");
     [Fact] public Task Honours_limit() => MemoryEngineContract.A_recall_returns_at_most_the_limit(New(), "k9");
+    // CuratedMemory.Metadata is persisted
+    [Fact] public Task Metadata_round_trip() =>
+        MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: true);
+    [Fact] public Task Metadata_on_expansion() =>
+        MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: true, expands: false);
 
     [Fact]
     public async Task A_query_less_recall_returns_only_this_engines_kind_and_honours_the_limit()

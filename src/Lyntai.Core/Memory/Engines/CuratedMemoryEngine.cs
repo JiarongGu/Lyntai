@@ -115,7 +115,7 @@ public sealed class CuratedMemoryEngine(
                 if (resolved == MemoryGrade.Inherit) resolved = MemoryGrade.Authoritative;
                 items.Add(new MemoryItem(
                     new MemoryRef(Name, entry.Id.ToString(CultureInfo.InvariantCulture)),
-                    entry.Content, entry.Content, resolved, 1, 1, 0));
+                    entry.Content, entry.Content, resolved, 1, 1, 0, entry.Metadata));
             }
 
             return new MemoryRecall(items, MemorySources.Curated);

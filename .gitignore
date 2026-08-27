@@ -25,6 +25,10 @@ devtools/screenshots/
 # Private sensitive-pattern tokens (loaded by check-sensitive at runtime; never tracked)
 local/
 
+# Subagent-driven-development scratch: one directory per plan, holding its ledger, task briefs, implementer
+# reports and review packages. Working state for a run in progress, never the record — git history is that.
+.superpowers/
+
 # OS / editor
 .DS_Store
 Thumbs.db

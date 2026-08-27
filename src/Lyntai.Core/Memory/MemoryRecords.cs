@@ -59,6 +59,17 @@ public sealed record MemoryQuery(
 /// <param name="Retrievability">How well remembered it is, 0..1. An engine with no decay model reports
 /// 1.</param>
 /// <param name="Degree">How many other entries it is linked to. An engine with no graph reports 0.</param>
+/// <param name="Metadata">Whatever the caller put in <see cref="MemoryWrite.Metadata"/>, or null.
+/// <para><b>Null means the engine does not carry metadata, never that the caller wrote none</b> — the two are
+/// not distinguishable here and a consumer needing them apart should write a sentinel key. Graph and curated
+/// engines round-trip it; lexical and semantic return null, because <c>MemoryEntry</c> and a vector hit have
+/// nowhere to keep it. A RECALL and an EXPANSION answer alike — the expanded entry carries whatever its
+/// neighbours do. Pinned for every engine by
+/// <c>MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent</c> and, for the expansion path
+/// the first one does not call, <c>Metadata_survives_an_EXPANSION_not_only_a_recall</c>.</para>
+/// <para>It is the same <c>string→string</c> escape hatch the write side takes, kept deliberately opaque:
+/// a kind, a source, a caller's own ordering key are all the consumer's vocabulary, and Core stays neutral of
+/// it (<c>generic-library</c> rule 3).</para></param>
 public sealed record MemoryItem(
     MemoryRef Reference,
     string Headline,
@@ -66,7 +77,8 @@ public sealed record MemoryItem(
     MemoryGrade Grade,
     double Relevance,
     double Retrievability,
-    int Degree);
+    int Degree,
+    IReadOnlyDictionary<string, string>? Metadata = null);
 
 /// <summary>The result of a recall, with the tiers that actually ran.</summary>
 /// <param name="Items">Hits, most relevant first.</param>

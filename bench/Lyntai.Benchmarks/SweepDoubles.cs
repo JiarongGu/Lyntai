@@ -85,9 +85,14 @@ internal static class SweepDoubles
     /// when the ratio is 0 or 1 — see <c>.claude/knowledge/pitfalls.md</c>, which records this trap being
     /// walked into deliberately and caught only by asking what the arms actually differed in.</para>
     /// </summary>
-    internal sealed class CountingSaliencePolicy : IMemorySaliencePolicy
+    /// <param name="inner">The policy being counted; null takes the shipped
+    /// <see cref="StructuralSaliencePolicy"/>, which is what every sweep predating <c>memory-importance</c>
+    /// measured. A study whose ARMS are different policies wraps each one, so the same definition of
+    /// "salient" and "distinct" applies to all of them — two counters disagreeing about that produce two
+    /// believable tables, which is the whole reason this class was hoisted here.</param>
+    internal sealed class CountingSaliencePolicy(IMemorySaliencePolicy? inner = null) : IMemorySaliencePolicy
     {
-        private readonly StructuralSaliencePolicy _inner = new();
+        private readonly IMemorySaliencePolicy _inner = inner ?? new StructuralSaliencePolicy();
         private readonly ConcurrentDictionary<double, byte> _values = new();
         private int _salient;
         private int _judged;

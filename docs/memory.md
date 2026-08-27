@@ -144,6 +144,9 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
   material clustered or isolated?"** If the facts that matter most are the ones nothing else resembles, the
   linking half is working against you, and `MinSimilarity` is the knob — it is the link floor, and a value
   above `1` keeps novelty and indexing while writing no similarity edge at all.
+  <br>**That recipe also zeroes `SalienceContext.SimilarCount`**, which counts against the same floor: a
+  registered `IMemorySaliencePolicy` then reads `0` on every write and cannot tell that from a store nothing
+  resembles. Novelty is unaffected — it reads the probe's top score, not this floor.
 - **A SUBJECT is readable, not just writable.** `AddMemoryAnnotation` records what each fact is *about*;
   a recall matches its query against the handles in use and seeds the entries recorded under whichever ones
   it names, so a query for `配偶` reaches the fact whose text says `太太`. **On by default** (`SubjectSeedK`),
@@ -362,6 +365,98 @@ every language, and the shipped default was changed on it before anyone read the
 (352), not how often salience fired (98.9%). Firing is presence; only distinct values are discrimination, and
 RRF ranks by competition (**D82**) — so a signal every candidate ties on contributes the same constant at
 every weight, and the curve would be flat as an artifact with every ordinary control green.
+
+### And WHAT salience measures, which is a different question (`memory-importance`, 2026-08-27)
+
+The sweep above prices how LOUD salience is. `node devtools/dev.mjs memory-importance` prices what it
+MEASURES: the shipped novelty policy against a perfect importance ORACLE reading ground truth off the corpus,
+with salience-off as control, at the shipped `SalienceWeight = 0` — so it is survival (decay resistance and
+store admission) being measured, not ranking. 10 seeds × 4 shapes × 3 arms, `embeddinggemma`.
+
+**Novelty is not importance, and on the classes that matter it is worse than nothing.** Critical-rare miss:
+salience-off `0.667`, novelty `0.710`, oracle `0.474` on `diverse-noise`; `0.675` / `0.738` / `0.293` on
+`rare-critical`. The shipped policy is monotone in "unlike anything already stored", so sustained significance
+decays on that axis as it is confirmed while a one-off triviality reads as maximal — measured here as the
+novelty arm losing to registering no salience policy at all.
+
+**But the oracle's win is a REDISTRIBUTION, not an improvement** — the same shape `memory-enrichment` found
+for similarity linking, running the other way. Against novelty, per shape (miss delta, negative = oracle
+better):
+
+| shape | critical-rare | attribute | topical | all (combined) |
+|---|---|---|---|---|
+| baseline | **−0.14** | −0.12 | +0.14 | −0.03 |
+| `diverse-noise` | **−0.24** | −0.28 | +0.28 | −0.07 |
+| `templated-noise` | **−0.11** | −0.11 | +0.09 | −0.03 |
+| `rare-critical` | **−0.45** | −0.15 | +0.59 | +0.01 |
+
+The aggregate barely moves because the classes cancel. **Store admission is zero-sum**: what importance
+promotes displaces what it did not mark, and the displaced material is the frequently-queried working set.
+
+**So no importance policy ships, and the seam already supports one.** Whether "protect the rare marked thing
+at the working set's expense" is the right trade is a property of the deployment's corpus and of what its
+users would rather lose — `generic-library` rule 7's test, which the library fails by construction. Write an
+`IMemorySaliencePolicy`: it receives the whole `MemoryWrite`, so `Content` and a host-declared
+`Metadata["importance"]` are both already available, and `SalienceContext` carries the engine's novelty
+alongside for a policy that wants both.
+
+**What it does not settle.** The oracle is a CEILING, not an accuracy — no real rater is this good, so a
+strong result only says a rater is worth costing. Ranking is unswept. And the corpus has no
+low-importance-but-sometimes-relevant class: its noise is never a right answer, so routine material is priced
+as junk rather than as background, which is the softer and more common real case.
+
+### Does a CORRECTION separate from a RECURRENCE? (`memory-density`, 2026-08-27)
+
+Not a measurement of a shipped default — the cheapest available refutation of an idea that has not been
+built. `SalienceContext.SimilarCount` counts the stored entries that actually RESEMBLE a write: the probe's
+neighbours at or above `MinSimilarity`. A design under consideration would promote a write resembling MANY
+stored entries and leave alone one resembling exactly one, on the grounds that the first is an instance of an
+established pattern and the second is a correction. `node devtools/dev.mjs memory-density` asks only whether
+those two are distinguishable on that count at all — if they are not, nothing downstream of it can work.
+
+Authored fixtures rather than `MemoryCorpus`: a separability test needs "which population is this write from"
+and never a per-query ground truth, and the corpus has no correction class. Three populations, one probe
+each, every store padded to the same 10 entries from one shared distractor pool so the STORE cannot be what
+sets the count's ceiling. **It refuses to run without a real embedder** and exits rather than substituting a
+double, for the reason `memory-enrichment` established: a correction shares nearly every word with the fact
+it corrects, so a bag-of-words fake rates it maximally similar by construction and would print a plausible
+table measuring word overlap. Measured against `embeddinggemma-300M-Q8_0` over a local OpenAI-compatible
+`/v1/embeddings` endpoint — 120 embed calls, 2.0 s.
+
+| population | mean `SimilarCount` | min | max |
+|---|---|---|---|
+| `correction` | 1.00 | 1 | 1 |
+| `recurrence` | **6.00** | 6 | 6 |
+| `novel` | 0.00 | 0 | 0 |
+
+**Identical in all five writing systems** — English, Chinese, Japanese, Korean and mixed-script Chinese return
+those same three numbers, with the store-size control reporting `ComparableCount` equal at 6 in every cell.
+Pooled: **AUC = 1.000** over 5 recurrence / 5 correction observations, best threshold `SimilarCount >= 6` at
+sensitivity 1.00 and specificity 1.00. Those languages are TRANSLATIONS of one fixture pair (**D55**), so read
+it as a robustness check across five scripts at an EFFECTIVE n of 1, never as five times the evidence — and
+the English-only run withholds the verdict outright, because at one observation per population AUC can only
+read 0, 0.5 or 1.
+
+**Two of those numbers are ARTIFACTS of the instrument, and taking either for a finding would set a default
+wrong.**
+
+- **`recurrence` = 6 is the search WINDOW, not a cluster size.** The probe asks for `SimilarityK + 1` = 6
+  neighbours, so the count saturates there — the same 6 the control reports for `ComparableCount`. The
+  separation is real; its MAGNITUDE is not interpretable, and nothing here can tell "resembles 6" from
+  "resembles 300".
+- **The best threshold `>= 6` is that saturation point, not a learned boundary.** It is exactly
+  `SimilarityK + 1`, so the rule it implies is *promote only when the probe window is ENTIRELY full of similar
+  things* — materially stricter than "promote when density is high", and it makes `SimilarityK` the de-facto
+  promotion knob rather than any threshold option. **No default is set from this run**;
+  `memory-salience-weight`'s precedent is that a second embedder refuted the first run's reading.
+
+**What it does not settle, which is most of it.** AUC 1.000 on authored fixtures with topically distant
+distractors is a FLOOR, not evidence about a real corpus — the honest claim is that the mechanism is not
+broken and the fixtures are clean. `SimilarityK` (5) and `MinSimilarity` (0.6) bound and define the count and
+are both unmeasured — "a starting point, not a tuned value", by their own docs — so a ceiling effect and a
+floor effect are both live, and the threshold landing exactly on the window width is what makes sweeping
+`SimilarityK` the next question rather than a footnote. The four non-English fixture sets are one author's
+best-effort text, unreviewed by a native speaker, and four of the five arms feed the pooled AUC.
 
 ### Reinforcement: the signal, not the quantity
 
@@ -674,6 +769,15 @@ Each of these cost a real measurement to find.
   <br>**Replace, not merge**, for both bags: keys you do not restate are gone. Merging would make removing a
   key impossible. Through 3.1.0 `Metadata` was write-once instead — a correction was silently ignored
   (**D91**).
+- **`Metadata` comes BACK on `MemoryItem`, and `null` is a statement about the ENGINE.** Graph and curated
+  engines round-trip whatever you wrote; lexical and semantic return `null`, because `MemoryEntry` and a
+  vector hit have nowhere to keep it. So `null` means *this engine does not carry metadata*, never *the caller
+  wrote none* — the two are not distinguishable here, and if you need them apart, write a sentinel key.
+  **A recall and an expansion answer alike**, including the entry an expansion was asked for.
+  Through 3.1.0 it was write-only: stored, returned by the store, and dropped at all three of the projections
+  onto `MemoryItem` (**D93**).
+  <br>It stays a `string→string` bag deliberately rather than becoming a typed kind. A kind is your
+  vocabulary, and Core stays neutral of it.
 - **`taskKey` isolates every READ, and `LinkAsync` is the one way across.** No recall, expansion, subject
   seed, semantic seed, prune or forget crosses a task — pinned on all three backends
   (`MemoryGraphStoreContract.No_read_crosses_a_task_key`, `No_removal_crosses_a_task_key`) and end to end

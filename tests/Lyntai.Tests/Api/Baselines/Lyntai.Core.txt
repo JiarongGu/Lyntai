@@ -2026,15 +2026,16 @@ enum Lyntai.Memory.MemoryGrades
     None : MemoryGrades const
     value__ : Int32
 sealed class Lyntai.Memory.MemoryItem
-    .ctor(MemoryRef Reference, String Headline, String Content, MemoryGrade Grade, Double Relevance, Double Retrievability, Int32 Degree)
+    .ctor(MemoryRef Reference, String Headline, String Content, MemoryGrade Grade, Double Relevance, Double Retrievability, Int32 Degree, IReadOnlyDictionary<String,String> Metadata = null)
     Content : String
-    Deconstruct(MemoryRef& Reference, String& Headline, String& Content, MemoryGrade& Grade, Double& Relevance, Double& Retrievability, Int32& Degree) : Void
+    Deconstruct(MemoryRef& Reference, String& Headline, String& Content, MemoryGrade& Grade, Double& Relevance, Double& Retrievability, Int32& Degree, IReadOnlyDictionary`2& Metadata) : Void
     Degree : Int32
     Equals(MemoryItem other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Grade : MemoryGrade
     Headline : String
+    Metadata : IReadOnlyDictionary<String,String>
     Reference : MemoryRef
     Relevance : Double
     Retrievability : Double
@@ -2301,14 +2302,15 @@ sealed class Lyntai.Memory.Salience.NeutralSaliencePolicy
     Provenance : MemorySalienceProvenance
     Signals(MemoryWrite write, SalienceContext& context) : MemorySignals
 struct Lyntai.Memory.Salience.SalienceContext
-    .ctor(String Engine, Double Novelty, Int32 ComparableCount)
+    .ctor(String Engine, Double Novelty, Int32 ComparableCount, Int32 SimilarCount = 0)
     ComparableCount : Int32
-    Deconstruct(String& Engine, Double& Novelty, Int32& ComparableCount) : Void
+    Deconstruct(String& Engine, Double& Novelty, Int32& ComparableCount, Int32& SimilarCount) : Void
     Engine : String
     Equals(Object obj) : Boolean
     Equals(SalienceContext other) : Boolean
     GetHashCode() : Int32
     Novelty : Double
+    SimilarCount : Int32
     ToString() : String
 sealed class Lyntai.Memory.Salience.SalienceOptions
     .ctor()
@@ -2371,13 +2373,14 @@ sealed class Lyntai.Memory.Verification.MemoryVerification
     static NoOpinion : MemoryVerification
     static NothingRelevant : MemoryVerification
 sealed class Lyntai.Memory.Verification.MemoryVerificationCandidate
-    .ctor(String Id, String Headline)
-    Deconstruct(String& Id, String& Headline) : Void
+    .ctor(String Id, String Headline, Double Relevance = 0)
+    Deconstruct(String& Id, String& Headline, Double& Relevance) : Void
     Equals(MemoryVerificationCandidate other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Headline : String
     Id : String
+    Relevance : Double
     ToString() : String
 sealed class Lyntai.Memory.Verification.MemoryVerificationRequest
     .ctor(String Query, IReadOnlyList<MemoryVerificationCandidate> Candidates)
