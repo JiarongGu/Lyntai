@@ -127,6 +127,11 @@ internal abstract class CorpusLexicon
     /// two must be mutually distinguishable, because the corpus asks which one is current.</summary>
     public abstract string Routine(string id, int regime, string filler);
 
+    /// <summary>The single word <see cref="Routine"/> embeds for <paramref name="regime"/> — English:
+    /// <c>"noodles"</c> / <c>"salad"</c> — exposed on its own so a test can assert
+    /// <see cref="RoutineQuery"/> names neither, without re-deriving the word from written content.</summary>
+    public abstract string RoutineToken(int regime);
+
     /// <summary>Content words with nothing to do with any other class, drawn from to build TEXTUALLY DIVERSE
     /// junk. Deliberately large and mutually unrelated: the point is that two noise entries built from it
     /// share as little as possible, which is exactly what <see cref="Noise"/> cannot do.</summary>
@@ -284,6 +289,8 @@ internal abstract class CorpusLexicon
                 ? $"item {id} had noodles for lunch again, {filler}"
                 : $"item {id} had a salad for lunch again, {filler}";
 
+        public override string RoutineToken(int regime) => regime == 0 ? "noodles" : "salad";
+
         /// <summary>English is the easy case: whole-word terms, so two synonyms share nothing at all.</summary>
         public override IReadOnlyList<(string Statement, string Cue)> ParaphrasePairs =>
         [
@@ -397,6 +404,8 @@ internal abstract class CorpusLexicon
             regime == 0
                 ? $"记录条目 {id} 又{filler}吃了面条当作午餐"
                 : $"记录条目 {id} 又{filler}吃了沙拉当作午餐";
+
+        public override string RoutineToken(int regime) => regime == 0 ? "面条" : "沙拉";
 
         /// <summary>Harder than English: Chinese expands into trigrams, so a synonym pair must share no
         /// three-character window either. Written with disjoint characters throughout for that reason.</summary>
@@ -550,6 +559,8 @@ internal abstract class CorpusLexicon
                 ? $"记录条目 {id} 又{filler}吃了noodles当作lunch"
                 : $"记录条目 {id} 又{filler}吃了salad当作lunch";
 
+        public override string RoutineToken(int regime) => regime == 0 ? "noodles" : "salad";
+
         /// <summary>Mixed like the rest of this lexicon — the statement carries Latin inside the Han run,
         /// so the pair also exercises run segmentation rather than only the Han path.</summary>
         public override IReadOnlyList<(string Statement, string Cue)> ParaphrasePairs =>
@@ -667,6 +678,8 @@ internal abstract class CorpusLexicon
             regime == 0
                 ? $"記録項目 {id} は{filler}昼食に蕎麦を食べた"
                 : $"記録項目 {id} は{filler}昼食にサラダを食べた";
+
+        public override string RoutineToken(int regime) => regime == 0 ? "蕎麦" : "サラダ";
 
         /// <summary>Kanji-led for the same reason the junk list is: a kana-heavy pair would collide on
         /// kana's small inventory and measure the tokenizer's known weak spot rather than the retrieval
@@ -797,6 +810,8 @@ internal abstract class CorpusLexicon
             regime == 0
                 ? $"기록항목 {id} 는 {filler} 또 점심으로 국수를 먹었다"
                 : $"기록항목 {id} 는 {filler} 또 점심으로 샐러드를 먹었다";
+
+        public override string RoutineToken(int regime) => regime == 0 ? "국수" : "샐러드";
 
         /// <summary>Korean writes spaces, but Hangul is still expanded into grams, so a pair must avoid a
         /// shared three-syllable window as well as a shared word.</summary>

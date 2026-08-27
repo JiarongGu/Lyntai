@@ -34,10 +34,11 @@ public class MemoryCorpusTests
     // "topic1" with "topic10" or "critical1" with "critical10".
     private static bool Mentions(string text, string id) => text.Contains($" {id} ", StringComparison.Ordinal);
 
-    // Every corpus entry's content starts "item {id} …" (see MemoryCorpus's own doc), so the id is always
-    // the second space-delimited token. Mirrors MemoryPolicySweep.ExtractCorpusId deliberately — two
-    // independent readers of the same convention, not because either derives from the other.
-    private static string ExtractId(string content) => content.Split(' ')[1];
+    // Delegates to the one shared reader for this assembly (MemoryCorpusTestAccess.IdOf), so this file and
+    // MemoryRoutineClassTests.cs never carry two copies of the same parsing rule. MemoryPolicySweep.ExtractCorpusId
+    // in the bench project reads the same convention independently — that duplication stays, deliberately,
+    // since it cannot reach this assembly's helper at all (see MemoryCorpusTestAccess's own doc).
+    private static string ExtractId(string content) => MemoryCorpusTestAccess.IdOf(content);
 
     // ---- AttributeCount: the subject-cued attribute cluster (2026-08-12) ----
 
