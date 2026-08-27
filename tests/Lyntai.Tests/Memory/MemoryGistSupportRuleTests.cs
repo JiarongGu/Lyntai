@@ -12,24 +12,25 @@ namespace Lyntai.Tests.Memory;
 /// Two candidate rules compete - raw = count(members) vs. weighted = sum(retrievability(member)) - and
 /// <see cref="CorpusShape.RoutineCount"/> exists specifically to separate them: phase A (8 members, OLDER)
 /// vs. phase B (4 members, NEWER), with the corpus itself declaring phase B correct.
-/// <para><b>Whether the rules disagree depends on WRITE PACING</b>, stated as an explicit fixture
-/// assumption per arm rather than left implicit. Both drive the SHIPPED <see cref="BurstDampenedAgePolicy"/>:
-/// a REAL wall clock folds this ~300-write replay into one 5-second burst, measured at
-/// weightedA=6.474743 (range [0.729565,0.923434]) vs weightedB=3.974655 (range [0.987381,1.0]) - raw AND
-/// weighted both select phase A, the WRONG regime. An explicit clock stepped 10s/write (over the burst
-/// window) degenerates the same policy to per-write ticks, measured at weightedA=1.301059 (range
-/// [0.156079,0.173555]) vs weightedB=3.640018 (range [0.830455,1.0]) - raw still selects A, weighted now
-/// selects B (correct): a genuine disagreement. rawA=8, rawB=4 in both arms; every weighted figure above is
+/// <para><b>Whether the rules disagree depends on WRITE PACING</b>, stated as an explicit fixture assumption
+/// per arm. Both drive the SHIPPED <see cref="BurstDampenedAgePolicy"/>. A REAL wall clock folds this
+/// 305-write replay into ONE 5-second burst - a property of an in-process replay of a modelled timeline and
+/// NOT of any deployment (<c>.claude/knowledge/pitfalls.md</c> §Testing) - measured at weightedA=6.474743
+/// (range [0.729565,0.923434]) vs weightedB=3.974655 (range [0.987381,1.0]): raw AND weighted both select
+/// phase A, the regime the corpus declares wrong. An explicit clock stepped 10s/write (over the burst
+/// window) degenerates the same policy to per-write ticks, measured at weightedA=1.301059
+/// (range [0.156079,0.173555]) vs weightedB=3.640018 (range [0.830455,1.0]) - raw still selects A, weighted
+/// now selects B (correct): a genuine disagreement. rawA=8, rawB=4 in BOTH arms; every weighted figure is
 /// read the instant BEFORE the corpus's final query, which would otherwise reinforce all of phase B to a
 /// degenerate retrievability of exactly 1 and hide the real spread.</para>
-/// <para><b>Phase B outranks phase A per-member in BOTH arms</b> - the SUM only flips to B once
-/// mean(rB)/mean(rA) clears the corpus's fixed cardinality ratio |A|/|B|=2 (stepped 5.60, burst
-/// only 1.23): burst damping compresses the range rather than making the rule wrong.</para>
-/// <para><b>Which members get a connection boost is itself a function of PACING.</b> Stepped's
-/// phase-A spread comes from <c>ConnectionBoost</c> alone (clique A5/A6/A7) - the same
-/// ranker-fed-back-into-storage class <c>DsrOptions.ReinforceGain = 0</c> (D54) removed from
-/// stability directly. Burst's spread is dominated by write-time ENCODING instead (stability
-/// handicapped ~17x by burst position) with a DIFFERENT clique, A0/A1/A2 - see the task report.</para>
+/// <para><b>Phase B outranks phase A per-member in both arms</b> - prose here, not asserted. The SUM flips
+/// to B only once mean(rB)/mean(rA) clears |A|/|B|, which is NOT a constant: phase B is
+/// <c>max(1, RoutineCount/3)</c>, so the ratio is 2 only at multiples of 3 and reaches 4.0 at
+/// RoutineCount=5. Stepped's 5.60 clears even that worst case - 1.40x of headroom, not the 2.80x a fixed 2
+/// implies - and burst's 1.23 clears no legal ratio at all. This shape IS a multiple of 3, the value where
+/// RoutineCount=9 once hid the routine split's own defect, so do not generalise a constant off it.
+/// <b>Scope: ONE shape, ONE seed</b> - <c>ReuseRatio 4</c>, outside the 60-shape grid the routine class's
+/// preconditions are proved over, and the co-activation clique differs BETWEEN arms at the same seed.</para>
 /// </summary>
 public class MemoryGistSupportRuleTests
 {
@@ -52,16 +53,18 @@ public class MemoryGistSupportRuleTests
         var firstWrite = corpus.Steps.OfType<CorpusWrite>().First().Write;
 
         // The corpus's own declared answer, restated directly against THIS corpus instance.
-        // MemoryCorpusTests.The_final_routine_query_names_phase_B_only_and_never_phase_A pins the same
-        // fact more strongly (property-based, over every legal RoutineCount).
+        // MemoryCorpusTests.The_final_routine_query_names_phase_B_only_and_never_phase_A pins the same fact
+        // and is no broader: a single [Fact] at RoutineCount=12, on its own seed. The property-based test
+        // beside it (Phase_A_is_the_larger_regime_for_every_legal_RoutineCount) pins the SPLIT, not this.
         var finalRoutineQuery = corpus.Steps.OfType<CorpusQuery>()
             .Last(q => q.RelevantIds.Any(id => id.StartsWith("routine", StringComparison.Ordinal)));
         Assert.All(finalRoutineQuery.RelevantIds,
             id => Assert.StartsWith("routineB", id, StringComparison.Ordinal));
 
-        // ARM 1 - the SHIPPED default policy, driven by a REAL wall clock: GraphMemoryEngine's own
-        // default age policy is BurstDampenedAgePolicy, and this replay's ~300 writes complete in well
-        // under its own 5-second burst window, so everything after the first write folds into one burst.
+        // ARM 1 - the SHIPPED default policy, driven by a REAL wall clock: GraphMemoryEngine's own default
+        // age policy is BurstDampenedAgePolicy, and this replay's 305 writes and 147 recalls complete in
+        // about half a second - well inside its own 5-second burst window, so everything after the first
+        // write folds into ONE burst and the damping arbitrates within a single bulk ingest.
         var burst = await RunArmAsync(corpus, firstWrite, finalRoutineQuery, new BurstDampenedAgePolicy());
 
         // ARM 2 - the SAME shipped policy, driven by an EXPLICIT clock stepped 10 seconds per write, so
@@ -86,8 +89,10 @@ public class MemoryGistSupportRuleTests
         var b = burst.BeforeFinalQuery;
         var s = stepped.BeforeFinalQuery;
 
-        // Under the literal shipped default (real clock): raw AND weighted both select phase A, which the
-        // corpus declares WRONG. They AGREE, on the wrong answer - recorded as the finding it is.
+        // Under a REAL clock: raw AND weighted both select phase A, which the corpus declares WRONG - they
+        // AGREE, on the wrong answer. A fact about an in-process replay of a modelled timeline, NOT about a
+        // configuration a deployment could choose: the whole replay lands inside one burst window, so the
+        // damping arbitrates within a single bulk ingest instead of protecting anything written before it.
         Assert.True(b.RawA > b.RawB, $"burst raw: A={b.RawA} B={b.RawB}");
         Assert.True(b.WeightedA > b.WeightedB,
             $"burst weighted: A={b.WeightedA:F6} (n={b.RawA}, range={RangeText(b.PhaseA)}) "

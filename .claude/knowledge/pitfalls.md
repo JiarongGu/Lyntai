@@ -1222,6 +1222,27 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   a variant with (a) goldens on the ORIGINAL captured before the axis exists, (b) an assertion that the
   variant genuinely DIFFERS, and (c) an assertion that the property the instrument depends on still holds in
   the variant — all three, because each catches a different way of quietly measuring nothing.
+- **A wall-clock burst-detection policy replayed IN-PROCESS measures the fixture's replay SPEED, not a
+  deployment regime — so its arm is not "the shipped default", however faithfully the default is
+  registered.** Found 2026-08-27 by `tests/Lyntai.Tests/Memory/MemoryGistSupportRuleTests.cs`.
+  `BurstDampenedAgePolicy` is `GraphMemoryEngine`'s default age policy and it reads a REAL clock: writes
+  closer together than its 5-second window are one burst, and the policy exists to protect material written
+  BEFORE a burst from being aged by it. A corpus replay of **305 writes and 147 recalls against the InMemory
+  store finishes in about half a second** (0.48–0.50 s across runs on this machine), so the ENTIRE corpus is
+  one burst, `n` reaches 305 for a reason no deployment shares, and the damping ends up arbitrating WITHIN a
+  single bulk ingest — a relationship its own contract was never written to judge.
+  <br>**The distortion is large and it is not uniform**, which is what makes the arm's output look like a
+  result rather than an artifact. `Stability` runs 20.0 down to 7.071 across the older phase purely by
+  position in the unbroken burst, against the newer phase's own ~1.145; and which members earn a
+  `ConnectionBoost` changes between a real clock and a stepped one at the SAME seed, so even the
+  co-activation structure is a function of how fast the host ran. A per-member spread read off that arm is
+  write-time ENCODING wearing recency's clothes.
+  <br>**So give the clock its own arm and state the pacing as a fixture assumption** — an injected clock
+  stepped over the burst window is one arm, the real clock is a different and faster-than-any-deployment
+  one — rather than registering the shipped policy and calling whatever falls out "the default's behaviour".
+  And never report a finding about the LIBRARY from an arm whose distinguishing input is the test host's
+  speed: say what the number is a fact about. Same family as the instrument rule above — an instrument is
+  code that nothing else validates, and a policy that reads a clock quietly makes the host one of its inputs.
 - **Microsoft.Data.Sqlite completes its "async" methods SYNCHRONOUSLY, so two awaited store calls issued
   from one thread are sequential by construction — and a concurrency test over them measures nothing.**
   Measured 2026-08-17: an overlap test called `Task.WhenAll(store.ReportStepAsync(a…), store.ReportStepAsync(b…))`
