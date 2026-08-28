@@ -25,11 +25,22 @@ if (args.Contains("--bounded"))
 
 // `node devtools/dev.mjs memory-salience` → --salience. Salience ships ON and has never been measured once;
 // every prior study asserted its absence as a control. See MemorySalienceSweep.
-// `--ceiling` swaps the on/off pair for a MaxSalience ladder (Off, Max1..Max4) on two shapes — the
-// bounded-admission question TASKS.md Part 65 asks, which is a NUMBER on SalienceOptions rather than a
-// mechanism. Same sweep, same pairing, so the two modes stay comparable.
+// Two optional ladders swap the on/off pair for a one-factor sweep of a SalienceOptions constant, on two
+// shapes. `--ceiling` varies MaxSalience and found it to be a switch rather than a dial; `--novelty` varies
+// NoveltyWeight, which is therefore the only knob that can scale salience at all. Same sweep, same pairing,
+// so every mode stays comparable — TASKS.md Part 65.
 if (args.Contains("--salience"))
-    return await MemorySalienceSweep.RunAsync(ceiling: args.Contains("--ceiling"));
+    return await MemorySalienceSweep.RunAsync(
+        args.Contains("--ceiling") ? MemorySalienceSweep.CeilingLadder
+        : args.Contains("--novelty") ? MemorySalienceSweep.NoveltyLadder
+        : null);
+
+// `node devtools/dev.mjs memory-locomo` → --locomo. The benchmark the field publishes against and this
+// repository had no number for. An absolute score is NOT comparable to a published one (different reader
+// model); the ARM DIFFERENCE is, because every arm answers the same questions with the same reader. See
+// MemoryLocomoBench and docs/memory.md §5.
+if (args.Contains("--locomo"))
+    return await MemoryLocomoBench.RunAsync(args);
 
 // `node devtools/dev.mjs memory-language` → --language. Every recall figure this repository publishes was
 // measured on English, space-separated text; this measures the same corpus in Chinese. See

@@ -273,9 +273,11 @@ internal static class SweepDoubles
             catch (KeyNotFoundException) { return false; }
         }
 
-        /// <remarks>Temperature 0 and a tiny cap: every question this asks has a one-token answer, and a
-        /// model that wants to explain itself is spending latency the seam cannot afford.</remarks>
-        public async Task<string?> AskAsync(string prompt, CancellationToken ct = default)
+        /// <remarks>Temperature 0, and a tiny cap by DEFAULT: every question the policy sweeps ask has a
+        /// one-token answer, and a model that wants to explain itself is spending latency the seam cannot
+        /// afford. <paramref name="maxTokens"/> raises it for a caller that genuinely needs a phrase — the
+        /// LoCoMo reader wants a few words — and the default is unchanged so no existing arm moves.</remarks>
+        public async Task<string?> AskAsync(string prompt, CancellationToken ct = default, int maxTokens = 4)
         {
             using var response = await http.PostAsJsonAsync($"{baseUrl}/v1/chat/completions",
                 new
@@ -283,7 +285,7 @@ internal static class SweepDoubles
                     model,
                     messages = new[] { new { role = "user", content = prompt } },
                     temperature = 0,
-                    max_tokens = 4,
+                    max_tokens = maxTokens,
                 }, ct);
             if (!response.IsSuccessStatusCode) return null;
 

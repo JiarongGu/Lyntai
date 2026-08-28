@@ -216,6 +216,17 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--salience', ...args]);
     break;
 
+  // memory-locomo — the FIELD's benchmark rather than this repository's own corpus. Every recall number
+  // here is measured on a synthetic instrument that says outright it is not a claim about your data, so
+  // nothing could be ranked against Mem0/Zep/Letta in either direction. This closes that, with the honest
+  // caveat printed in its own preamble: the absolute score depends on the local reader model, so only the
+  // ARM DIFFERENCE (lyntai vs plain vector search vs full-context) transfers. Needs the dataset — the
+  // command prints the one-line curl when it is missing.
+  case 'memory-locomo':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--locomo', ...args]);
+    break;
+
   // memory-language — the same corpus in Chinese. Every recall-quality figure this repository publishes was
   // measured on English, space-separated text: the friendliest tokenization the library supports, recorded
   // as a blind spot in design §5.7.0 and never measured. The two arms replay STRUCTURALLY IDENTICAL corpora

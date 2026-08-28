@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Globalization;
 
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
@@ -61,7 +60,10 @@ internal static class MemorySalienceSweep
 
     private sealed record Row(int Seed, string Shape, string Class, string Arm, double MissRate, double PollutionRate);
 
-    public static async Task<int> RunAsync(bool ceiling = false)
+    internal const string CeilingLadder = "ceiling";
+    internal const string NoveltyLadder = "novelty";
+
+    public static async Task<int> RunAsync(string? ladder = null)
     {
         // REFUSES rather than substitutes, 2026-08-28, the same discipline `memory-salience-weight` and
         // `memory-enrichment` already carry. Salience reads NOVELTY, which the engine derives from a
@@ -110,19 +112,38 @@ internal static class MemorySalienceSweep
         // self-check on that reading of the clamp rather than an assertion about it.
         var armOptions = new Dictionary<string, SalienceOptions?>(StringComparer.Ordinal);
         string[] arms;
-        if (ceiling)
+        // Two shapes rather than six on either ladder: the arm count multiplies the run, and these are the
+        // reference and the shape Part 65 is actually about. Every class still reports, `attribute` included.
+        Shape[] LadderShapes() => [.. shapes.Where(s => s.Label is "baseline" or "many-candidates")];
+
+        switch (ladder)
         {
-            arms = [OffLabel, "Max1", "Max2", "Max3", "Max4"];
-            foreach (var arm in arms.Skip(1))
-                armOptions[arm] = new SalienceOptions { MaxSalience = double.Parse(arm[3..], CultureInfo.InvariantCulture) };
-            // Two shapes rather than six: the ladder multiplies the arm count, and these are the reference
-            // and the shape Part 65 is actually about. Every class still reports, `attribute` included.
-            shapes = [.. shapes.Where(s => s.Label is "baseline" or "many-candidates")];
-        }
-        else
-        {
-            arms = [OffLabel, OnLabel];
-            armOptions[OnLabel] = null;   // null = the SHIPPED defaults, so this path is unchanged
+            case CeilingLadder:
+                arms = [OffLabel, "Max1", "Max2", "Max3", "Max4"];
+                foreach (var (label, max) in new[] { ("Max1", 1.0), ("Max2", 2.0), ("Max3", 3.0), ("Max4", 4.0) })
+                    armOptions[label] = new SalienceOptions { MaxSalience = max };
+                shapes = LadderShapes();
+                break;
+
+            // The MAGNITUDE ladder. `MaxSalience` turned out to be a switch (see above), so `NoveltyWeight`
+            // is the only knob that can scale salience at all — and it is likewise documented "Unmeasured".
+            //
+            // `NW-1.5` is the sharp arm and it tests a DOCUMENTED CLAIM rather than a value: the option's own
+            // doc says "a negative weight legitimately inverts the effect", but the policy computes
+            // `Math.Clamp(1 + w * novelty, 1, MaxSalience)` and that lower bound is 1, so a negative weight
+            // can only floor to neutral. If it is inert, the doc is wrong and the arm is what shows it.
+            // `NW0` is the ordinary self-check, expected to equal Off for the same clamp reason.
+            case NoveltyLadder:
+                arms = [OffLabel, "NW-1.5", "NW0", "NW1.5", "NW3"];
+                foreach (var (label, w) in new[] { ("NW-1.5", -1.5), ("NW0", 0.0), ("NW1.5", 1.5), ("NW3", 3.0) })
+                    armOptions[label] = new SalienceOptions { NoveltyWeight = w };
+                shapes = LadderShapes();
+                break;
+
+            default:
+                arms = [OffLabel, OnLabel];
+                armOptions[OnLabel] = null;   // null = the SHIPPED defaults, so this path is unchanged
+                break;
         }
 
         PrintPreamble(shapes, arms);

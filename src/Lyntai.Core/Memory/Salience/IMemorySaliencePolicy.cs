@@ -128,8 +128,17 @@ public sealed record SalienceOptions
         }
     }
 
-    /// <summary>How steeply novelty raises salience, as <c>1 + factor × novelty</c>. <b>Unmeasured</b>.
-    /// <para>Finiteness only — a negative weight legitimately inverts the effect, so the guard rejects just
+    /// <summary>How steeply novelty raises salience, as <c>1 + factor × novelty</c>. It is the only knob
+    /// that scales salience's magnitude: <see cref="MaxSalience"/> cannot, because at its own default it
+    /// sits above the reachable range and never binds.
+    /// <para><b>A negative weight is INERT, not inverting.</b> <c>StructuralSaliencePolicy</c> computes
+    /// <c>Math.Clamp(1 + factor × novelty, 1, MaxSalience)</c>, and that lower bound is 1 — so for any
+    /// novelty above zero a negative factor floors to the neutral value and the policy returns no signal at
+    /// all. This paragraph claimed the opposite ("a negative weight legitimately inverts the effect") until
+    /// 2026-08-29, when an arm of <c>memory-salience --novelty</c> came back byte-identical to the
+    /// weight-zero arm and to salience-off. Inverting the SIGN of the preference needs a different policy,
+    /// not a negative weight here.</para>
+    /// <para>The guard is finiteness only, and it rejects just
     /// <see cref="double.NaN"/> and the infinities. It was the ONE unguarded field of this record while both
     /// its siblings validated: <c>StructuralSaliencePolicy</c> feeds it to
     /// <see cref="Math.Clamp(double,double,double)"/>, which PROPAGATES <c>NaN</c> rather than clamping it,

@@ -423,8 +423,28 @@ REGISTERING a retention policy — the controls report `Max1 retention policies:
 That is the measured form of an option-level neutral: at that ceiling the clamp makes
 `StructuralSaliencePolicy` return `MemorySignals.Empty`, so the DI collection and
 `NormalizeSaliencePolicies`' "empty does NOT mean off" contract are both untouched while the effect is gone.
-<br>**So bounding salience's magnitude is `NoveltyWeight`'s job, not `MaxSalience`'s** — and it is likewise
-documented "Unmeasured". `MaxSalience` offers exactly two reachable behaviours, full and off.
+<br>**So bounding salience's magnitude is `NoveltyWeight`'s job, not `MaxSalience`'s.** `MaxSalience` offers
+exactly two reachable behaviours, full and off.
+
+**And `NoveltyWeight` IS a real dial, measured the same way** (`memory-salience --novelty`, same 30 seeds ×
+2 shapes, `nomic-embed-text`). Every prediction stated before the run held:
+
+| arm vs Off | baseline combined | many-candidates combined | attribute (baseline) |
+|---|---|---|---|
+| `NW-1.5` | +0.0016 [−0.0066, 0.0097] | −0.0085 [−0.0253, 0.0083] | +0.0104 |
+| `NW0` | *identical to `NW-1.5`* | *identical* | *identical* |
+| `NW1.5` (shipped) | +0.0375 * | +0.0786 * | +0.2178 * |
+| `NW3` | +0.0363 * | **+0.0954 \*** | **+0.2619 \*** |
+
+**Turning the dial UP makes recall worse**, monotonically where it matters: many-candidates +0.0786 → +0.0954
+and the attribute class +0.2178 → +0.2619. `NW1.5` reproduces the standalone run's cells exactly, which is
+the control that says the ladder measures the same thing.
+<br>**`NW-1.5` is byte-identical to `NW0`, and that refuted a shipped DOC rather than a value.**
+`SalienceOptions.NoveltyWeight` claimed "a negative weight legitimately inverts the effect"; it cannot,
+because `Math.Clamp(1 + w × novelty, 1, MaxSalience)` floors at 1, so any negative weight returns the neutral
+value and no signal. The doc was corrected on 2026-08-29. Inverting the preference needs a different policy,
+not a negative weight — which matters, because "prefer the FAMILIAR" is exactly the hypothesis the attribute
+column above invites, and this knob cannot express it.
 
 **What it does NOT settle, and the caveat did not weaken with a real embedder.** The corpus's noise is
 TEMPLATED, so the second noise entry onward reads as familiar under *any* embedder — the novelty-inversion
@@ -434,6 +454,101 @@ it. `SalienceOptions`' own constants are also unswept, which matters more than i
 `StructuralSaliencePolicy` return `MemorySignals.Empty` while remaining registered — an option-level neutral
 that changes no DI registration. A bound on what salience may displace is therefore a VALUE, not a mechanism
 somebody still has to design.
+
+### The first number against the FIELD's benchmark (`memory-locomo`, 2026-08-29)
+
+`node devtools/dev.mjs memory-locomo --retrieval --n 200` — LoCoMo, 10 conversations, 5882 turns ingested
+per arm, 200 questions stratified over the four scored categories (5 is the adversarial class the published
+protocol excludes). **The metric is MODEL-FREE**: LoCoMo names the evidence turn for each question by
+dialogue id, so this scores whether the recalled set CONTAINS it. No reader, no judge, so neither can be
+blamed or credited.
+
+| arm | multi-hop | temporal | open-domain | single-hop | overall | items/q |
+|---|---|---|---|---|---|---|
+| `lyntai` (shipped defaults) | 13.5% | 14.3% | 8.3% | 9.2% | **11.0%** | 20.0 |
+| `lyntai+sem` (`SemanticSeedK = 20`) | 10.8% | 16.7% | 8.3% | 9.2% | **11.0%** | 20.0 |
+| `lyntai+rel` (+ `RetrievabilityWeight = 0`) | 13.5% | 23.8% | 16.7% | 25.7% | **22.5%** | 20.0 |
+| `vector` (plain cosine, same embedder, same k) | 81.1% | 81.0% | 58.3% | 82.6% | **80.5%** | 20.0 |
+
+**The shipped default retrieves the evidence 11% of the time where plain cosine gets 80%.** Every arm
+returned a full 20 items, so this is not a filter — it is ranking the wrong 20. The mechanism is visible in
+a single dumped question whose evidence is `D1:4, D6:8`: `lyntai` returns `D19`, `D14`, `D19` — the newest
+turns — while `vector` returns `D1:5`, `D1:3`, the oldest session. `RelevanceWeight` and
+`RetrievabilityWeight` both ship at **1**, so a recall ranks how-reachable equally with how-relevant. That
+is right when recent material is likelier wanted and exactly wrong for a benchmark whose questions are
+spread evenly over the whole history.
+
+**This is the blind spot §7 concedes, reached from outside.** The synthetic corpus cannot see it: its
+relevance is recency-correlated by construction, so the two signals never disagree there. LoCoMo makes them
+disagree on purpose.
+
+**`SemanticSeedK` changed NOTHING, and that is unexplained rather than concluded.** Turning it to 20 moved
+the overall figure by 0.0 points. The seed path lists collections under `{engine}|{taskKey}|` and takes the
+top-k by cosine, which should approximate the `vector` arm; it does not. Either it is not reaching the
+vectors in this configuration or its candidates are swamped before ranking. **No claim is made about which**
+— `TASKS.md` carries it as an open item with this measurement attached.
+
+**Two harness defects were caught before publishing, and both would have produced a wrong headline.** The
+first run benchmarked `SemanticSeedK = 0` against a cosine baseline, which is measuring a misconfiguration —
+the complaint one vendor levelled at another's published LoCoMo table. The second was worse: the arms shared
+a store, and **a recall reinforces what it returns**, so adding a fourth arm moved `lyntai` from 10.0% to
+5.5% with the seed and data unchanged. Same-seed drift is the tell. Each arm now ingests into a pristine
+store; `MemoryReinforcementEffects.None` would have isolated them more cheaply and was rejected because its
+own doc calls it the worst arm for recall quality, which would bias the comparison toward this library.
+<br>**The control that says the fix worked is a REPEAT**: two independent runs of the isolated harness are
+byte-identical in all sixteen cells. Same-seed reproducibility is exactly the property contamination
+destroyed, so it is the property worth checking — and it is cheap, which is the argument for running it
+rather than reasoning that the stores are now separate.
+
+**What this is NOT.** It is not a ranking against Mem0, Zep or Letta: the QA half needs a reader model, the
+published numbers use a frontier one, and the reader sets the ceiling far more than the memory layer does.
+It is one benchmark, one embedder, 200 of 1540 questions. What it IS, is the first evidence from outside
+this repository's own instrument, and it disagrees with that instrument.
+
+### How these choices sit against the published field (surveyed 2026-08-29)
+
+*A literature pass, not a measurement. Every claim below is attributed, because none of it was run here —
+and no number in this document is comparable to a number in any of those papers, for the reason the last
+point gives.*
+
+**Where this engine is an outlier, and it is deliberate.** A 2026 survey of autonomous-agent memory
+([arXiv:2603.07670](https://arxiv.org/html/2603.07670v1)) finds decay modelled with a curve at all in only
+one surveyed system — MemoryBank, using the **Ebbinghaus exponential** — and reports no system using FSRS or
+a power law. `DsrRetrievability` is FSRS's power law (**D49**), so the shipped default here is a form the
+survey does not record anyone else shipping. The same survey lists principled forgetting as an open problem.
+
+**Age as INTERFERENCE appears to have no counterpart at all.** That survey describes elapsed wall-clock time
+throughout — MemGPT and Generative Agents both decay exponentially over elapsed time — and records nothing
+measuring age in intervening writes. **D40** is therefore an unshared bet rather than a variant of a common
+one, which cuts both ways: nobody else's results transfer to it, and its own results transfer to nobody.
+
+**On importance scoring the field says yes, and the disagreement is narrower than it looks.** Park et al.'s
+Generative Agents score `recency + importance + relevance` with all weights 1, and their ablation degrades
+without importance; the survey calls it "a substantial improvement over pure cosine similarity" while noting
+it risks "self-reinforcing error". **That is not the same measurement as ours**: they scored believability of
+behaviour, this scores recall miss. The newest work is the closer comparison —
+[arXiv:2606.12945](https://arxiv.org/abs/2606.12945) (LongMemEval) argues similarity and recency are *"both
+mis-specified for the forgetting decision, which is made at consolidation time before the future query is
+known"*, and replaces them with **seven** cognitively-grounded factors under learned weights, retaining
+**0.770** of critical evidence against **0.657** for uniform weights and **0.368** for recency.
+<br>**Read together with the salience result above, the two agree about the diagnosis and differ about the
+cure.** A static, write-time, single-signal importance is what both find wanting; that paper's answer is more
+factors with learned weights, while this engine currently ships one factor (novelty) at a fixed weight — and
+measures it costing miss. **One of their seven factors is usage history, which this engine already records
+and salience does not read** (`GraphMemoryOptions.LogReviews`, `Reinforce`, `MemoryReviewWrite.Verified`).
+That is the cheapest available improvement and it needs no new seam: `IMemorySaliencePolicy` is where a
+different value function plugs in, with no registration change (**D45**, **D47**).
+
+**Burial over deletion aligns, and the forget/prune split is ahead of the surveyed norm.** The survey finds
+deprioritization common but eviction-triggered, names "selective forgetting" an open challenge, and reports
+only MemoryAgentBench testing forgetting explicitly. **D41** (burial, never deletion), **D72**'s
+capability split and **D90**'s completeness invariant are stronger commitments than it records elsewhere.
+
+**The honest gap, and it is the one that matters: there is no shared benchmark number.** The field publishes
+against **LoCoMo**, **LongMemEval** and **BEAM**; this document publishes against a synthetic corpus whose
+own header calls it *"a comparison instrument, not a claim about your data"*. So nothing here can be ranked
+against Mem0, Zep, Letta or any other system, in either direction — including favourably. Closing that means
+running one of those suites, which is a piece of work nobody here has done.
 
 ### And WHAT salience measures, which is a different question (`memory-importance`, 2026-08-27)
 

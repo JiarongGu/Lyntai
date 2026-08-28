@@ -19,8 +19,10 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**Two items are startable: Part 65's `many-candidates` paired sweep, and the 3D-backend survey inside
-Part 33 / GEN7.** The rest need something this
+**The startable set: Part 109's `SemanticSeedK` investigation and its QA half, Part 65's `many-candidates`
+paired sweep, and the 3D-backend survey inside Part 33 / GEN7.** Part 109 is the one to read first — it
+holds the only measurement here taken on an instrument this repository did not build, and it disagrees with
+the one it did. The rest need something this
 repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
 data). **Part 99 is a WATCH item and not startable work** — its fix is already pinned by a test with a
 positive control, so nothing in it is codeable and only RECURRENCE can close it. That is stated first
@@ -472,6 +474,41 @@ left is one item, and its blocker is a DECISION rather than the data it used to 
   <br>So there is no constant to adopt, and the open question is what the tier should compute INSTEAD:
   a rule with no constant threshold, a corpus that can test `mean` (phase B off the ceiling at the
   snapshot — a corpus change, not a sweep argument), or a tier that reports N and declines to select.
+
+## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
+
+_Opened by `docs/task-archive.md` Part 110. `node devtools/dev.mjs memory-locomo --retrieval` is the first
+measurement this repository has taken on an instrument it did not build: evidence-hit@20, model-free, 200
+LoCoMo questions. Shipped defaults **11.0%**, plain cosine **80.5%**, same embedder and same k. Tables and
+the two harness defects that had to be fixed first are `docs/memory.md` §5._
+
+- [ ] **`SemanticSeedK` moved the number by 0.0 points, and nobody knows why.** Setting it to 20 — with an
+  embedder and a vector store registered, and the engine embedding every write — left evidence-hit@20
+  identical at 11.0%. The seed path lists collections under `{engine}|{taskKey}|` and takes the top-k by
+  cosine, which ought to approximate the `vector` arm's 80.5%; it does not. Either it is not reaching the
+  vectors in this configuration, or its candidates are swamped before ranking, or the option does less than
+  its own doc implies. **Startable today** — no key, no download, and the instrument already exists; the
+  first step is a control printing how many vectors the store actually holds after ingestion and how many
+  seeded candidates enter the pool.
+  <br>**Do not close this by reasoning about the code.** Two hypotheses were already refuted that way this
+  session (a misconfigured `SemanticSeedK`, then cross-arm contamination), and both were only settled by
+  measurement.
+
+- [ ] **DECIDE whether the ranking defaults should move, and this is a decision rather than a bug.**
+  `RelevanceWeight` and `RetrievabilityWeight` both ship at `1`, so a recall ranks how-reachable equally
+  with how-relevant. Setting retrievability to 0 doubles evidence-hit (11.0% → 22.5%) and is still far
+  under cosine, so it is **not** a fix on its own — but it does show the seam reaching the workload.
+  <br>The honest framing: this engine is built for a workload where recent material is likelier wanted, and
+  LoCoMo is deliberately not that workload. Whether the DEFAULT should serve the general case or the
+  designed-for case is exactly the `generic-library` rule-7 argument test — *could two honest applications
+  answer this differently* — and the answer is plainly yes. So it needs a ruling, not a measurement.
+
+- [ ] **Run the QA half, and more of it.** The model-free metric is the trustworthy one, but the accuracy
+  table is what the field publishes. It needs a reader model, its absolute value is not comparable to a
+  published number, and only the ARM DIFFERENCE transfers. 200 of 1540 questions were sampled; the full set
+  and a second embedder are both cheap. **LongMemEval** is the other suite worth adding — Zep prefers it,
+  and it tests knowledge updates and temporal reasoning, which is where an engine with a real decay model
+  should have something to say.
 
 ---
 

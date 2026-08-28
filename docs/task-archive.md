@@ -1205,3 +1205,36 @@ did NOT move" on both clocks, which is true of the ARGMAX while the per-rung dis
 A control comparing pooled verdicts cannot see a split that cancels in the pool.
 
 - **Sweep `RoutineCount`, because the question is about cardinality and the run held it at 12.**
+
+## Part 110 — the first measurement on an instrument this repository did not build (2026-08-29)
+
+✅ done 2026-08-29 — `node devtools/dev.mjs memory-locomo` ingests LoCoMo (10 conversations, 5882 turns) and
+scores **evidence-hit@k, model-free**: the benchmark names the evidence turn by dialogue id, so it is
+checkable with no reader and no judge. Result on 200 stratified questions: shipped defaults **11.0%**,
+`SemanticSeedK = 20` **11.0%**, `+ RetrievabilityWeight = 0` **22.5%**, plain cosine at the same k
+**80.5%**. Every arm returned a full 20 items, so it is ranking the wrong 20, not filtering. Tables and
+scope in `docs/memory.md` §5; what is left open is `TASKS.md` Part 109.
+
+**The finding is that this engine's ranking defaults are built for a workload LoCoMo deliberately is not.**
+`RelevanceWeight` and `RetrievabilityWeight` both ship at 1, so a recall weighs how-reachable equally with
+how-relevant; LoCoMo spreads its questions evenly over the whole history, so recency is actively wrong
+there. The synthetic corpus cannot see this because its relevance is recency-correlated by construction —
+the two signals never disagree in it.
+
+**Two harness defects were caught BEFORE publishing, and each would have produced a wrong headline.** The
+first arm ran `SemanticSeedK = 0` — the shipped default, which recalls lexically — against a cosine
+baseline, which is benchmarking a misconfiguration rather than a system. The second was sharper: the arms
+shared a store, and **a recall reinforces what it returns**, so adding a fourth arm moved `lyntai` from
+10.0% to 5.5% with the seed and the data unchanged. Same-seed drift is the tell that arms are not
+independent. Each arm now ingests into a pristine store; `MemoryReinforcementEffects.None` would have been
+cheaper and was refused because its own doc calls it the worst arm for recall quality, so it would have
+biased the comparison toward this library.
+
+**Also landed in the same pass:** a literature comparison against the 2026 field (`docs/memory.md` §5) —
+only MemoryBank models decay with a curve at all and nobody surveyed uses FSRS or a power law; nothing
+surveyed measures age in interference rather than elapsed time; and the newest work reaches this session's
+own salience conclusion from the other direction, calling static single-signal importance "mis-specified"
+and replacing it with seven learned-weight factors, one of which is usage history that this engine already
+records and salience does not read.
+
+- **Build a LoCoMo harness so this library has a number against the field's own benchmark.**
