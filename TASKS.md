@@ -19,12 +19,16 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**Two items are startable — one each in Part 99 and Part 105**, and the rest need something this
+**Three items are startable: Part 105's cardinality sweep, Part 65's `many-candidates` paired sweep, and
+the 3D-backend survey inside Part 33 / GEN7.** The rest need something this
 repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
-data). That is stated first
+data). **Part 99 is a WATCH item and not startable work** — its fix is already pinned by a test with a
+positive control, so nothing in it is codeable and only RECURRENCE can close it. That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
 two paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
-startable work inside, and this one has been wrong that way twice.
+startable work inside, and this one has now been wrong that way three times — most recently on 2026-08-28,
+when it named Part 99 (which is codeable by nobody) while omitting `many-candidates`, whose own sub-bullet
+had read **NO LONGER BLOCKED** for five days, and GEN7's survey.
 
 _This banner named `Part 65 / many-candidates` as the one startable item until 2026-08-26, and that item had
 said "CLOSED as **D89**" inside itself since 2026-08-23 — so the file's own summary was steering readers at
@@ -45,18 +49,24 @@ and it was allowed to grow here twice.
   2026-08-21 re-check read the tree and never asked the machine, so Part 65's `many-candidates` stayed
   labelled blocked on "a real embedding model" while one sat pulled on this machine.
 
-**Every blocker below was re-checked on 2026-08-23.** Five held against the tree: `codex` is still absent
-from PATH; `GenerationKinds.Model3d` still has no provider; the twelve unverified-surface markers are still
-in the generation backends (3 `unverified`, 6 `not measured`, 3 `documented-not-measured` — which is where
-that count comes from, and why one grep never finds it); `OpenAiHttp.InBandError` is unchanged. One did NOT
-hold: Ollama is installed here with **`embeddinggemma`** pulled, so `many-candidates` needs a measurement
-budget rather than a dependency.
+**Every blocker below was re-checked on 2026-08-28, each against its own KIND** — the environment ones by
+querying the machine, the tree ones by reading the tree. All held. The ENVIRONMENT: `codex` is absent from
+PATH *and* from the npm global root, and **no vendor key is set** in the environment (so GEN-VERIFY, GEN6
+and Part 75 all stand). Ollama is up with `nomic-embed-text`, `embeddinggemma:300m` and `gemma3:4b`, which
+is what keeps `many-candidates` unblocked. The TREE: `GenerationKinds.Model3d` is still a bare constant in
+Core that no provider declares, and `OpenAiHttp.InBandError` is unchanged.
+<br>**The re-check changed no blocker and still moved the banner**, which is the point of doing it by kind:
+what was wrong was not a blocker but the file's own summary of which items they gate.
 
 Blocked, and on what:
 - **Part 33 / GEN-VERIFY** — a real fal.ai key, and a ~1.7 GB model download for one `sd-cli` render.
 - **Part 33 / GEN6 (streaming TTS)** — a vendor pick and a key. Shipping it unmeasured is the exact mistake
   GEN-VERIFY exists to correct.
-- **Part 33 / GEN7 (pipelines)** — a 3D backend survey; the pipeline's FIRST stage has no backend at all.
+- **Part 33 / GEN7 (pipelines)** — the pipeline's FIRST stage has no backend at all: `GenerationKinds.Model3d`
+  is a bare constant no provider declares (re-checked 2026-08-28). **The SURVEY inside it is startable and is
+  the critical path** — mesh vs turntable stills, since only the latter chains into today's video backends.
+  It needs no key, no install and no download, and its answer decides whether a 3D stage can feed the rest at
+  all. Listing this Part as blocked without saying that is the Part 33 mistake repeating itself.
 - **Part 41 / CLI12** — codex's tool-step item names need a real turn **that runs tools**. Two blockers, and
   the second was only discovered on 2026-08-11 when the owner authorized the first: it spends tokens (the
   owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
@@ -65,9 +75,12 @@ Blocked, and on what:
 - **Part 105 / build the gist tier** — a DECISION nobody has taken (which support rule it computes), blocked
   in turn on DATA the cardinality sweep in the same Part has to produce. **Not an environment blocker**:
   nothing needs installing, and re-checking it means reading that sweep's output, not the tree.
-- **Part 65 holds TWO items with DIFFERENT blockers, and listing one of them here is how the other read as
-  startable** (corrected 2026-08-21 — the caveat above, applied to this file's own banner).
-  - *subject drift* — a measurement budget: a RATE across models, not an anecdote.
+- **Part 65 holds TWO items with DIFFERENT blockers, and only ONE of them is blocked** — listing the Part
+  here is how the other read as blocked in turn (corrected 2026-08-21, and again 2026-08-28 in the banner).
+  - *subject drift* — **still blocked, and the honest kind is a model DOWNLOAD, not a budget.** It needs a
+    RATE across models rather than an anecdote, and this machine holds exactly one chat model
+    (`gemma3:4b`), so "across models" is unreachable without pulling more. The line below said "a
+    measurement budget" until 2026-08-28, which reads as startable.
   - *`many-candidates`* — **NO LONGER BLOCKED (2026-08-23); it needs a measurement budget, not an
     environment.** It was blocked on a real embedding model, because salience reads NOVELTY, novelty needs an
     embedder, and without one `StructuralSaliencePolicy` declines on every write — so any sweep of a salience
@@ -362,8 +375,12 @@ being looked for._
 _It opened holding the two Phase-1 gaps. One of those (cross-tenant isolation) closed the same day as
 **Part 100** and left a DECISION behind it; the flake below arrived from watching `verify` rather than from
 the proposal. **One item is left open here** — the rest closed into the archive, and this line said "all
-three are startable" until 2026-08-28, after two of them had gone. It is startable today: no key, no model,
-no download._
+three are startable" until 2026-08-28, after two of them had gone._
+
+_**It is a WATCH item, not startable work, and the banner counted it as startable until 2026-08-28.** The
+suspected cause is fixed AND pinned — `ProcessRunnerTests.A_FAILED_path_lookup_is_not_cached_so_one_transient_locator_failure_is_not_permanent`,
+which carries a positive control so it cannot pass on an implementation that simply caches nothing. So
+there is nothing here to code: what remains is evidence only recurrence can supply._
 
 - [ ] **`verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted mid-run.** Observed
   twice in roughly ten `verify` runs on 2026-08-26, and **not once in any standalone `node devtools/dev.mjs
