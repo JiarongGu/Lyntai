@@ -7121,3 +7121,83 @@ the parameter — leaving `@taskKey` unbound. Two contract facts failed on Postg
 other two backends, which is the cross-backend suite doing precisely the job it exists for. **A scripted
 edit across near-identical files is not a safe edit**; the twin that differs in one identifier is where it
 lands.
+
+## Part 104 — gist support: RAW support is refuted, so the planned two-armed seam does not survive (2026-08-27, closed 2026-08-28)
+
+**Outcome:** re-planned, and the answer was that there is nothing to plan a seam around — support was two
+quantities under one name, so `IMemorySupportPolicy` is never written (`docs/DECISIONS.md` **D94**).
+
+_Opened by the gist-support instrument, `tests/Lyntai.Tests/Memory/MemoryGistSupportRuleTests.cs`. It was
+built to choose between two candidate support rules for the planned gist tier — `raw = count(members)`
+against `weighted = sum(retrievability(member))` — on a corpus class where the larger, older regime is the
+WRONG answer, and the plan was to ship both behind a seam and let a deployment pick. It answered, and the
+answer removes the choice the seam was for._
+
+- [x] **Re-plan the gist tier's support rule around ONE candidate, not a two-armed seam.** `rawA = 8 >
+  rawB = 4` in **both** arms while the corpus declares phase B correct, so **raw support is refuted with no
+  pacing dependence at all** — it picks the wrong regime whether the writes are bursty or spaced. A seam
+  exists so a deployment can choose between options that could each be right somewhere, and nothing measured
+  here shows raw is right anywhere. Weighted is the only candidate left standing, and it is not confirmed
+  either: it selects correctly in the spaced arm only.
+
+  **The flip condition, derived rather than fitted:** `sumB > sumA` exactly when
+  `mean(rB)/mean(rA) > |A|/|B|`. That cardinality ratio is NOT a constant — `MemoryCorpus` derives phase B
+  as `max(1, RoutineCount/3)`, so it is 2 only at multiples of 3 and reaches **4.0 at RoutineCount = 5**.
+  The spaced arm's 5.60 clears even that worst case (1.40x of headroom, not the 2.80x a fixed 2 implies);
+  the real-clock arm's 1.23 clears no legal ratio at all.
+
+  **What the next measurement owes, because this one does not carry it.** The per-member ordering claim is
+  prose rather than an assertion. It is ONE shape (`CorpusShape.Default`, whose `ReuseRatio` of 4 is outside
+  the 60-shape grid the routine class's own preconditions are proved over) at ONE seed, and the
+  co-activation clique was observed to differ BETWEEN arms at that same seed — so seed stability may not be
+  assumed here. And the real-clock arm is a fact about an in-process replay rather than about a deployment
+  (`.claude/knowledge/pitfalls.md` §Testing), so it bounds nothing a consumer would see.
+  Startable today — no key, no model download, no install.
+
+### How it closed
+
+**The item's own conclusion was over-reached, and correcting it is what produced the answer.** "Raw picks the
+older regime and the older regime is wrong here" is not evidence that raw is wrong anywhere:
+`generic-library` rule 7 is an ARGUMENT test — *could two honest applications answer this differently* — and
+the routine corpus IS one of those two applications, declaring the recent regime correct because its query is
+a personal-assistant question. An audit host would call the older regime correct on the same bytes. So raw is
+the wrong DEFAULT for one deployment model, and the seam dissolves on the argument rather than on the number.
+**D94** carries the split that replaced it.
+
+**Every debt the item listed was paid.** The per-member ordering claim is now ASSERTED, in the strong form
+(min of B against max of A) on both arms. The real-clock arm was replaced with an injected 100 ms/write clock
+— and reproduces the figures it replaced to six decimal places, so the substitution fixed the number's
+provenance without moving it. The one shape and one seed became a **600-replay** sweep
+(`node devtools/dev.mjs memory-support`; 60 shapes × 5 seeds × 2 injected clocks), whose tables are
+`docs/memory.md` §5.
+
+**And one artifact was built that no debt named — `CorpusShape.RoutineAnswer`.** It generates the identical
+routine writes while declaring the STANDING regime correct, which is the second answer arm, and it is what
+makes a rule that merely tracks recency refutable here instead of automatically right. It is also the artifact
+that produced the decision: seeing the same bytes carry two defensible answers is the argument **D94** turns
+on — that the corpus ENCODES the assistant deployment model rather than settling anything about raw support.
+
+**What the sweep found is narrower than the item expected, and one line of it is not a finding at all.**
+`sum` INVERTS with pacing (300/300 each way), so it cannot ship as the rule unless pacing is in its contract;
+the only pacing-independent `count@θ` thresholds are the DEGENERATE ones (θ = 0.1 answers phase A always and
+θ = 0.9 phase B always, so each scores 0.000 on one of the two answer arms and neither is a rule — and θ = 0.1
+is the raw count on this grid, which is where raw's own pacing-independence reappears) while every θ that
+could DISCRIMINATE inverts; and **`mean` is untestable on this corpus** — phase B is
+snapshotted having never been recalled, at the ceiling, so `mean(B) ≥ mean(A)` is a theorem about the fixture
+rather than a measurement. The `ConnectionBoost = 0` control moved no verdict while demonstrably moving
+phase A's readings, so **none of the finding is the graph's contribution to the rule's INPUT** — and no
+further: the control re-reads the same stored states, so the engine-side half of **D54**'s feedback class
+(the ranker's own effect on stored `Stability`) would need a second 600-replay run with the control curve
+inside `GraphMemoryEngine`, which was not done. A model arm returned exactly the recency reading and bought
+nothing over a constant *prefer the newer regime* — against a prompt that names the recency ordering, which
+scopes it.
+
+**What it did NOT close, and it is the axis the question is about:** `RoutineCount` was fixed at 12 across all
+600 replays, so every cell sits at ratio 2 while the ratio reaches 4.0 at `RoutineCount = 5`. That is
+**Part 105**.
+
+**The most durable finding was about the write-up rather than the measurement.** The code was correct
+throughout — 44 result rows byte-identical across four independent executions — while five review rounds
+fixed the prose ABOUT the numbers, in two distinguishable kinds (four provenance defects, one
+summary-statistic defect). `.claude/knowledge/pitfalls.md` §Environment / tooling carries it, including why
+`check-docs`, `check-counts` and `check-links` are structurally blind to that class.

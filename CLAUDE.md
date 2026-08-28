@@ -26,8 +26,8 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D93**. The two groups worth knowing before you touch anything:
-**D83–D93 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D94**. The two groups worth knowing before you touch anything:
+**D83–D94 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
@@ -42,7 +42,7 @@ as a heartbeated slot table (**D73**), the guard-parity split — forced in FORC
 (**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
 overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91**,
-**D92** and **D93**.
+**D92**, **D93** and **D94**.
 
 **Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
 because it is not the three older memory surfaces: named engines resolved by name like `IHttpClientFactory`
@@ -111,7 +111,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3424 passed / 3445 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3429 passed / 3450 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 401/401, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
@@ -428,8 +428,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
   text — the friendliest tokenization the library supports, recorded as a blind spot in design §5.7.0 and
   never measured. `MemoryCorpus` takes `CorpusShape.Language` (default `English`, **byte-identical when
   unset** — proved by the goldens in `MemoryCorpusGoldenTests` that were captured BEFORE the axis existed
-  and did not move when it landed; that file now pins **six** golden shapes in all, the sixth for the
-  routine class, which postdates the axis and so pins only its own shape).
+  and did not move when it landed; that file now pins **seven** golden shapes in all, the sixth for the
+  routine class and the seventh for its STANDING answer arm, both of which postdate the axis and so pin
+  only their own shape).
   Every arm replays a **structurally identical** corpus — same steps, same ids, same ground truth, only the text
   differs — so a gap is the LANGUAGE and not the timeline; pinned in the corpus tests AND re-checked per cell
   at run time. Adopts nothing: the language is the consumer's, not a setting. See `DECISIONS.md` **D55**.
@@ -456,10 +457,13 @@ owned outside the deployment; `DECISIONS.md` D30) /
   same cost reason, and all listed here because a roster naming a SUBSET is how a reader learns the roster is
   not one (the same drift `dev.mjs`'s own usage line had, fixed in 208a7ca — on
   `backup/pre-squash-2026-08-14`, D61). **The authoritative list is `node devtools/dev.mjs` with no
-  argument**, which derives it. Two of them are exceptions to the sentence above and each is exceptional in
-  a different way: `memory-sweep` (the 2×2) is not one-factor, and **`memory-scale` does not use that
+  argument**, which derives it. Three of them are exceptions to the sentence above and each is exceptional in
+  a different way: `memory-sweep` (the 2×2) is not one-factor; **`memory-scale` does not use that
   corpus harness at all** — its subject is COST, so it generates plain entries and reports no miss or
-  pollution. This paragraph said "six more … three of nine" while
+  pollution; and **`memory-support` is not one-factor either** — it crosses rule × θ × clock ×
+  `ConnectionBoost` curve, carries a second `--screen` mode for the model ladder, and has an additive model
+  arm that prints an explicit SKIPPED line rather than a silent cap (`docs/memory.md` §5, **D94**).
+  This paragraph said "six more … three of nine" while
   enumerating seven of ten, then led with "Seven more" while enumerating eight — twice the same drift, which
   is why it now names no number at all:
   `memory-reinforcement` isolates law 3's

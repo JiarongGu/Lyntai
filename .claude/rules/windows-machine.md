@@ -83,7 +83,13 @@ hours spent looking somewhere else.
 
 - **Never kill a shared runtime by process name.** A browser or framework runtime that your app embeds is
   usually the same one other applications embed; killing it by name takes them with it. Kill your own
-  process and let it take its children.
+  process and let it take its children — by **PID**, recorded when you started it.
+  <br>**This rule was written down and violated anyway, 2026-08-28.** A measurement run finished with
+  `taskkill //F //IM llama-server.exe` and took down a *second* instance on another port — a sibling tool's
+  embedding server, which nothing in the run had started and nothing in the run was waiting on. It was
+  restarted and verified healthy, and the cost was only minutes; the point is that the reach of `//IM` is the
+  IMAGE, so it is never scoped to your work. **A local model server is exactly the shared runtime this rule
+  is about**, even though it does not look like a browser: one binary, many tenants, one port each.
 - **Copy and move preserve the modification time.** A file restored that way can be *older* than the
   artifact built from the version you were replacing, so an incremental build silently keeps using the
   old artifact — a stale PASS, which is the dangerous direction. Undo a change with the same tool that

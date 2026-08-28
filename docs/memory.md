@@ -458,6 +458,120 @@ floor effect are both live, and the threshold landing exactly on the window widt
 `SimilarityK` the next question rather than a footnote. The four non-English fixture sets are one author's
 best-effort text, unreviewed by a native speaker, and four of the five arms feed the pooled AUC.
 
+### Which regime a generalisation should assert (`memory-support`, 2026-08-28)
+
+`node devtools/dev.mjs memory-support` is the instrument for a tier that is **not built**: a "gist" over
+recurring entries has to say which pattern it asserts when the recurring material has two regimes — an older,
+larger one and a newer, smaller one. **D94** records what it settled about that tier's shape (support is two
+quantities, so no policy seam ships); this is what it measured.
+
+600 replays = 60 shapes × 5 seeds × 2 **injected** clocks. `bulk` steps 100 ms per write, inside
+`BurstDampenedAgePolicy`'s own 5-second window, so the whole import arbitrates within one burst; `spaced`
+steps 10 s, outside it, so every write starts its own burst. **No wall clock is read anywhere**, which is what
+makes bulk ingest a modelled regime rather than a fact about how fast the host ran. Every shape carries
+`RoutineCount = 12`, so phase A has 8 members and phase B has 4. The corpus is generated twice — once
+declaring the recent regime correct and once the standing one — so a rule that merely tracks recency is
+refutable instead of automatically right.
+
+| rule | bulk (100 ms/write) | spaced (10 s/write) |
+|---|---|---|
+| `sum` — Σ r(m) | phase A, 300/300 | **phase B, 300/300** |
+| `mean` — Σ r(m)/n | **NOT A RESULT** — phase B, 300/300 | **NOT A RESULT** — phase B, 300/300 |
+| `count@θ`, θ = 0.1 | phase A, 300/300 | phase A, 300/300 |
+| `count@θ`, θ = 0.2 | phase A, 300/300 | phase B 250 · A 50 |
+| `count@θ`, θ = 0.3 … 0.6 | phase A, 300/300 | phase B, 300/300 |
+| `count@θ`, θ = 0.7 | phase A 290 · tie 10 | phase B, 300/300 |
+| `count@θ`, θ = 0.8 | **tie 115** · B 125 · A 60 | phase B, 300/300 |
+| `count@θ`, θ = 0.9 | phase B, 300/300 | phase B, 300/300 |
+
+**The `mean` row is marked because it is entailed by the fixture rather than measured** — see below before
+quoting either cell. Every other row is a measurement.
+
+**`sum` INVERTS with pacing, and that is the headline.** It picks the older regime under bulk and the newer
+one under spaced, 300/300 each way — so it cannot ship as *the* rule unless a deployment's write pacing is
+part of its contract. **And the only pacing-independent `count@θ` thresholds are the DEGENERATE ones**:
+θ = 0.1 sits below phase A's floor (min r(A) = 0.602 bulk / 0.102 spaced), while θ = 0.9 sits high INSIDE its
+bulk band (max r(A) = 0.942, or 0.903 under `ConnectionBoost = 0` — the table below) — high enough that at
+most 3 of phase A's 8 members clear it, against phase B's constant 4. Each therefore answers the same regime
+on all 600 replays, and a constant is right on one answer arm and wrong on the other, which is what makes it
+useless as a rule (θ = 0.1 scores 0.000 on the recent arm, θ = 0.9 scores 0.000 on the standing arm). **Every θ that could DISCRIMINATE inverts with pacing**: the transition sits between
+0.7 and 0.9 under bulk and between 0.1 and 0.3 under spaced.
+<br>θ = 0.1 is also the RAW count on this grid — every one of the 12 members clears it on both clocks
+(min r(B) = 0.983 / 0.830) — so `count@0.1` returns (8, 4) on every replay, and it inherits raw's
+pacing-independence together with raw's wrongness for the assistant host. That equivalence is MEASURED here
+rather than structural: the spaced floor sits at 0.102 against a threshold of 0.1. **D94** carries what the
+pair of them means for the seam.
+<br>**The two degeneracies are not the same KIND of degenerate**, and the difference is what the next sweep
+turns on: θ = 0.1 is cardinality-INVARIANT — every member clears it, so `count@0.1` is exactly (|A|, |B|) at
+any size — while θ = 0.9 is an ORDER STATISTIC, (≤ 3, 4) here, that flips the moment |A| grows enough for a
+4th member to clear it. Cardinality is the axis `TASKS.md` Part 105 holds open, so the invariance at 0.1 must
+not be read into 0.9.
+
+**`mean` is not tested by this table, and reading its two `phase B` cells as a result would be wrong.** At the
+snapshot, phase B has never been recalled and was written immediately before, so it sits at the retrievability
+ceiling:
+
+| clock | curve | phase A (2400 members) | phase B (1200 members) | every B ≥ every A |
+|---|---|---|---|---|
+| bulk | default | min 0.602 · max **0.942** | min **0.983** · max 1.000 | 300/300 |
+| bulk | `ConnectionBoost = 0` | min 0.602 · max **0.903** | min **0.983** · max 1.000 | 300/300 |
+| spaced | default | min 0.102 · max **0.258** | min **0.830** · max 1.000 | 300/300 |
+| spaced | `ConnectionBoost = 0` | min 0.102 · max **0.215** | min **0.830** · max 1.000 | 300/300 |
+
+Retrievability is capped at 1, so `mean(B) ≥ mean(A)` follows **by definition** — a one-line theorem about the
+fixture that 600 replays did not test. Testing `mean` needs a corpus where phase B is off the ceiling at the
+snapshot. `sum` and `count` are untouched by that argument because they do not normalize by size: eight
+members can outweigh four even when every one of them reads lower.
+
+**The `ConnectionBoost = 0` control moved no verdict, and it is not vacuous.** Turning the term off shifts
+`max r(A)` on both clocks (the table above; the spaced move, 0.043, is the larger) while `min r(A)` moves on
+neither — the boost lifts the most-connected members and leaves the least-connected alone, which is what a
+connection term should do. So **none of the finding is the graph's contribution to the rule's INPUT**.
+<br>**That is the whole of what the control establishes, and it is narrower than "D54's feedback class is
+excluded".** It re-reads the *same stored states* with the term off, so it removes the connection term from
+the rule's input and does not re-rank. A member's stability recording that it once landed in a recall's top
+five — the ranker's own contribution to stored `Stability`, which is what **D54** names — would need a second
+600-replay run with the control curve *inside* `GraphMemoryEngine`. **That run was not done**, so the
+engine-side half is untested rather than cleared.
+
+**A model in the loop bought nothing here.** `ggml-org/gemma-3-4b-it-GGUF`, served by `llama-server` on a
+local OpenAI-compatible endpoint, answered 300 counterbalanced pairs (600 calls) with **zero order
+disagreements** and returned exactly the recency reading, agreeing with `mean` on all 300. Scope that: **the
+prompt NAMES the recency ordering** ("more recent" / "older"), so a model obeying the label scores the same
+without reading an entry, and counterbalancing rules out position bias, not label-following.
+
+**The ladder that selected that single rung is the more transferable result** — `node devtools/dev.mjs
+memory-support --screen`, measured 2026-08-28 through `llama-server` for every rung so the transport is held
+constant, on `RoutineCount = 12`, seed 12345, all four rungs run and none skipped. **The command screens ONE
+rung per invocation** — it resolves a single model from `LYNTAI_LIVE_CHAT_MODEL` and prints one verdict line
+— so the table below is four separate runs against four `llama-server` instances rather than one command's
+output:
+
+| rung | A-first | B-first | verdict |
+|---|---|---|---|
+| gemma-3 270m it | earlier | later | pure "answer option 1" bias — **out** |
+| gemma-3 1b it | later | earlier | pure "answer option 2" bias — **out** |
+| **gemma-3 4b it** (reference) | later | later | content-driven — **survives** |
+| Llama-3.2 1B Instruct Q4_K_M (control, size held) | earlier | later | same direction as the 270m rung — **out** |
+
+**The generation control did not fire.** Both 1B-class rungs fail by pure position bias, each in its own
+direction, so **the floor for this shape sits strictly between 1B and 4B parameters rather than at a family
+boundary within 1B**. Counterbalancing is what caught it: gemma-3 1b was correct in the A-first order alone.
+One shape, one machine, and a 4B ceiling — a flat ladder here would say small is ENOUGH for this task, never
+that larger would not have been better.
+
+**The limit that matters most, stated first rather than last: cardinality was held constant.**
+`RoutineCount = 12` on all 600 replays, so every cell sits at |A|/|B| = 2, while the split
+(`max(1, RoutineCount/3)`) reaches 4.0 at `RoutineCount = 5`. A rule that clears ratio 2 need not clear 4, and
+cardinality is the axis the question is about. Also: English throughout, `RecallLimit = 10` unswept, and the
+saturation is structural rather than a sample-size artefact. **THREE cells in the table above are not
+unanimous** — bulk θ = 0.7 (A 290 · tie 10), bulk θ = 0.8 (tie 115 · B 125 · A 60) and spaced θ = 0.2
+(B 250 · A 50) — and the mechanism is that phase B contributes a constant 4, so a cell is unanimous unless θ
+lands inside phase A's narrow band between its 4th- and 5th-largest member. Only the two bulk cells are also
+unstable across SEEDS (θ = 0.7 at 55/60 shapes, θ = 0.8 at 40/60); the spaced θ = 0.2 split is seed-stable and
+divides the shape grid instead, which is a different failure of unanimity that reads identically in a picks
+column.
+
 ### Reinforcement: the signal, not the quantity
 
 Reinforcement does two separable things — resets the entry's **age**, and grows its **stability** — and they

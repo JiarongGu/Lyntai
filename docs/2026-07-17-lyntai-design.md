@@ -436,8 +436,9 @@ blind spots are known and load-bearing — a null result on any of them means *u
   Japanese and Korean**. `CorpusShape.Language` selects the `CorpusLexicon` every template and every reader
   comes from; English is the default and is byte-identical when unset, proved by the goldens captured
   BEFORE the axis existed, which did not move when it landed; `MemoryCorpusGoldenTests` now
-  pins **six** golden shapes in all, the sixth added for the routine class after the axis and so pinning
-  only its own shape. `node devtools/dev.mjs memory-language` measures each arm against English on structurally
+  pins **seven** golden shapes in all, the sixth added for the routine class and the seventh for its
+  STANDING answer arm, both after the axis and so pinning only their own shape. `node devtools/dev.mjs
+  memory-language` measures each arm against English on structurally
   identical timelines — same steps, same ids, same ground truth, only the text differing — so a gap is the
   language rather than the corpus. **The sentence above no longer describes the instrument, only the figures
   published before that date**, which remain English-measured and should be read that way.

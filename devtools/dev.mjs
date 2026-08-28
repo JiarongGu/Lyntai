@@ -310,6 +310,19 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--density', ...args]);
     break;
 
+  // memory-support — which rule selects a recurring cluster's CURRENT regime, for the planned gist tier.
+  // The default is the full sweep: the corpus grid x seeds x both pacing regimes, scored against BOTH
+  // declared answers, so a rule that merely tracks recency can be refuted rather than winning by
+  // construction. Its MECHANICAL arms are model-free and always run; the model arm is additive and says
+  // so when it is skipped. `--screen` is the size ladder alone, on one shape, and EXITS rather than
+  // substituting a scripted stand-in: an arm measuring what a model is worth cannot use a double. It screens
+  // ONE rung per invocation — one model from LYNTAI_LIVE_CHAT_MODEL, one verdict line — so a published
+  // ladder is that many separate runs, never one command's output.
+  case 'memory-support':
+    if (!config.benchProject) { console.log('no bench project configured'); break; }
+    run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--gist-support', ...args]);
+    break;
+
   // memory-scale — the blind spot docs/memory.md §8 concedes outright: nothing in this subsystem had
   // exceeded a few hundred entries. MemoryRecallBenchmarks does run 1k/10k/100k and runs them against
   // SqliteMemoryStore — the KEYWORD store — so the graph engine's own write and read paths were unmeasured
