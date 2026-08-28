@@ -26,8 +26,8 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D96**. The two groups worth knowing before you touch anything:
-**D83–D96 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D97**. The two groups worth knowing before you touch anything:
+**D83–D97 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
@@ -35,7 +35,9 @@ read
 them before assuming a memory registration that resolves is a memory registration that runs, or that a NAMED
 `ILlmClient` can reach the backends it names (**D87**). **D95** and **D96** are the odd ones out in that
 group — neither touches a library surface: one declares the repository's line endings (`* text=auto eol=lf`),
-the other puts a length ratchet on the entries of this very list.
+the other puts a length ratchet on the entries of this very list. **D97** is the one to read before touching
+ranking: a candidate nobody scored used to report the MAXIMUM relevance and outrank everything that was
+scored, and `GraphNode.Matched` is what lets a policy tell "scored zero" from "never asked".
 <br>**D67–D82** are the ones a session most often holds
 stale assumptions about, because they landed after the pre-freeze review: the generation stream door
 (**D67**), the accelerator-derived diffusion ceiling (**D68**), unmeasured generation mappings becoming host
@@ -45,7 +47,7 @@ as a heartbeated slot table (**D73**), the guard-parity split — forced in FORC
 (**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
 overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91**,
-**D92**, **D93** and **D94**.
+**D92**, **D93**, **D94** and **D97**.
 
 **Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
 because it is not the three older memory surfaces: named engines resolved by name like `IHttpClientFactory`
@@ -114,7 +116,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3429 passed / 3450 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3432 passed / 3453 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 434/434, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,

@@ -166,8 +166,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D94](#d94--support-is-two-quantities-under-one-name-so-the-gist-tier-ships-no-support-seam-2026-08-28) | 2026-08-28 | "support" is TWO quantities under one name, so the gist tier ships no support seam |
 | [D95](#d95--the-repository-is-lf-declared-in-a-tracked-gitattributes-2026-08-28) | 2026-08-28 | the repository is LF, declared in a tracked `.gitattributes` |
 | [D96](#d96--the-decision-record-gets-a-length-ratchet-not-the-archives-compression-2026-08-28) | 2026-08-28 | the decision record gets a length ratchet, not the archive's compression |
+| [D97](#d97--a-candidate-nobody-asked-about-carries-matched-because-neither-relevance-value-is-right-2026-08-29) | 2026-08-29 | a candidate nobody asked about carries `Matched`, because neither relevance value is right |
 
-_All 96 entries are live decisions._
+_All 97 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2720,3 +2721,38 @@ what `CLAUDE.md` routes a reader to. No regex separates "this entry said two lin
 
 **Paying an entry down** moves MEASUREMENT narrative to the design record that owns it and AMENDMENT
 narrative to git history, keeping the decision, the alternatives, and what it constrains.
+
+## D97 — a candidate nobody asked about carries `Matched`, because neither relevance value is right (2026-08-29)
+
+**`GraphNode` gains `bool? Matched` (default `true`).** A read that scores relevance sets it; a read that
+does not — a graph walk, a fetch by id, a query-less enumeration — reports `Relevance 0` with `Matched
+null`, and `MultiplicativeRankingPolicy` then omits the relevance factor rather than multiplying by it.
+
+**The defect it fixes was a literal.** Both row projections materialized every node with `Relevance = 1`,
+the MAXIMUM, and only `SeedAsync` overwrote it — so every walked or by-id candidate outranked everything
+that had actually been scored. Measured on LoCoMo (`docs/memory.md` §5), evidence-hit@20:
+
+| | shipped | fixed |
+|---|---|---|
+| defaults | 11.0% | **31.0%** |
+| `SemanticSeedK = 20` | 11.0% | **36.0%** |
+| + `RetrievabilityWeight = 0` | 22.5% | **63.5%** |
+
+`SemanticSeedK` becomes worth **+5.0 points** where it was worth exactly 0.0 — a real 0.785 cosine could
+never beat a fabricated 1.000, so the option was unreachable rather than weak.
+
+**The rejected alternatives, and the first one was tried and measured.** Reporting `0` alone gets the same
+retrieval numbers and **deletes graph traversal**: a multiplicative policy scores a product, so a zero
+annihilates the candidate instead of ranking it low — `GraphMemoryRankingGoldenTests`' walked entries
+vanished from the result rather than moving down it. Making `Relevance` nullable says the same thing and
+breaks every consumer. Leaving it alone keeps a measured 3× on the table.
+
+**The default is `true` rather than `null`, and that direction was chosen by a failing test.** `null` as the
+default silently stripped the relevance factor from every hand-constructed node, including any BYO store
+that never heard of the member; two multiplicative tests caught it. `true` preserves the prior contract
+exactly, so the new behaviour is opt-in by the one party that knows — the store.
+
+**RRF is deliberately unchanged.** It sums reciprocal ranks, so an unmatched candidate placing last on one
+of three signals already means "no relevance evidence"; every figure above was measured with it. The change
+is narrower than the naive fix in a second way too: seeded nodes are untouched, so **D82**'s competition
+argument and the "model-free ranking has no headroom" finding both still hold.

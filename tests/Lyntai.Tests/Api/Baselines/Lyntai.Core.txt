@@ -1795,13 +1795,13 @@ sealed class Lyntai.Memory.GraphNeighbour
     Node : GraphNode
     ToString() : String
 sealed class Lyntai.Memory.GraphNode
-    .ctor(Int64 Id, String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, DateTimeOffset CreatedAt, Int32 RecallCount, Double Stability, Double Age, Double Relevance, Int32 Degree, IReadOnlyDictionary<String,String> Metadata, Double Strength = 0, Double StrengthAge = 0, MemorySignals Signals = default, Double OrdinalAge = 0, Double VolumeAge = 0, Double ElapsedAge = 0, Int64 ProvenanceRetrievability = 0, Int64 ProvenanceSalience = 0, Double Difficulty = 5, Double StrengthOrdinalAge = 0, Double StrengthVolumeAge = 0, Double StrengthElapsedAge = 0)
+    .ctor(Int64 Id, String Engine, String TaskKey, String Scope, String Headline, String Content, MemoryGrade Grade, DateTimeOffset CreatedAt, Int32 RecallCount, Double Stability, Double Age, Double Relevance, Int32 Degree, IReadOnlyDictionary<String,String> Metadata, Double Strength = 0, Double StrengthAge = 0, MemorySignals Signals = default, Double OrdinalAge = 0, Double VolumeAge = 0, Double ElapsedAge = 0, Int64 ProvenanceRetrievability = 0, Int64 ProvenanceSalience = 0, Double Difficulty = 5, Double StrengthOrdinalAge = 0, Double StrengthVolumeAge = 0, Double StrengthElapsedAge = 0, Nullable<Boolean> Matched = true)
     Age : Double
     AgeSample : MemoryAgeSample
     Content : String
     CreatedAt : DateTimeOffset
     DecayState : MemoryDecayState
-    Deconstruct(Int64& Id, String& Engine, String& TaskKey, String& Scope, String& Headline, String& Content, MemoryGrade& Grade, DateTimeOffset& CreatedAt, Int32& RecallCount, Double& Stability, Double& Age, Double& Relevance, Int32& Degree, IReadOnlyDictionary`2& Metadata, Double& Strength, Double& StrengthAge, MemorySignals& Signals, Double& OrdinalAge, Double& VolumeAge, Double& ElapsedAge, Int64& ProvenanceRetrievability, Int64& ProvenanceSalience, Double& Difficulty, Double& StrengthOrdinalAge, Double& StrengthVolumeAge, Double& StrengthElapsedAge) : Void
+    Deconstruct(Int64& Id, String& Engine, String& TaskKey, String& Scope, String& Headline, String& Content, MemoryGrade& Grade, DateTimeOffset& CreatedAt, Int32& RecallCount, Double& Stability, Double& Age, Double& Relevance, Int32& Degree, IReadOnlyDictionary`2& Metadata, Double& Strength, Double& StrengthAge, MemorySignals& Signals, Double& OrdinalAge, Double& VolumeAge, Double& ElapsedAge, Int64& ProvenanceRetrievability, Int64& ProvenanceSalience, Double& Difficulty, Double& StrengthOrdinalAge, Double& StrengthVolumeAge, Double& StrengthElapsedAge, Nullable`1& Matched) : Void
     Degree : Int32
     Difficulty : Double
     ElapsedAge : Double
@@ -1812,6 +1812,7 @@ sealed class Lyntai.Memory.GraphNode
     Grade : MemoryGrade
     Headline : String
     Id : Int64
+    Matched : Nullable<Boolean>
     Metadata : IReadOnlyDictionary<String,String>
     OrdinalAge : Double
     ProvenanceRetrievability : Int64

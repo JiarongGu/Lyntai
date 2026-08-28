@@ -37,6 +37,22 @@ namespace Lyntai.Memory;
 /// (higher is better, within one seed, from one backend) are contractual — see
 /// <see cref="IMemoryGraphStore.SeedAsync"/> on where an admitted-but-non-matching authoritative node
 /// lands.</param>
+/// <param name="Matched">Whether the read that produced this node ASKED a relevance question of it at all —
+/// <c>true</c>/<c>false</c> from a seed, and <c>null</c> from a read that never asked: a graph walk, a fetch
+/// by id, a query-less enumeration. It is the third state <see cref="Relevance"/> alone cannot carry, and it
+/// exists because both available doubles are wrong for an unasked candidate.
+/// <para><b>Why a ranking policy must read it</b> (<c>docs/DECISIONS.md</c> D97). A fabricated <c>1</c> makes
+/// an unscored candidate beat every scored one — measured on LoCoMo as evidence-hit@20 of 11.0% against
+/// 80.5% for plain cosine. A fabricated <c>0</c> is worse in a different direction: a multiplicative policy
+/// zeroes the whole product, so the candidate is DELETED rather than ranked low, and graph traversal stops
+/// returning anything. <c>null</c> says "no relevance evidence", which is a policy's cue to rank this
+/// candidate on its other signals rather than to score or discard it on a number nobody measured.</para>
+/// <para><b>It defaults to <c>true</c>, not <c>null</c>, and that direction is deliberate.</b> The default
+/// has to preserve the pre-D97 contract — a node's <see cref="Relevance"/> is taken at face value — so a
+/// hand-built node, or a BYO store that never heard of this member, behaves exactly as it does today. Only
+/// a read that positively knows it did not ask sets <c>null</c>, which is the opt-in. Defaulting to
+/// <c>null</c> was tried first and inverted the hazard: every hand-constructed node silently lost its
+/// relevance factor.</para></param>
 /// <param name="Degree">How many edges it has.</param>
 /// <param name="Metadata">App-owned extra data, or null.</param>
 /// <param name="Strength">The summed RAW weight of its edges — how embedded in the graph it is. A store
@@ -82,7 +98,8 @@ public sealed record GraphNode(
     double Strength = 0, double StrengthAge = 0, MemorySignals Signals = default,
     double OrdinalAge = 0, double VolumeAge = 0, double ElapsedAge = 0,
     long ProvenanceRetrievability = 0, long ProvenanceSalience = 0, double Difficulty = 5,
-    double StrengthOrdinalAge = 0, double StrengthVolumeAge = 0, double StrengthElapsedAge = 0)
+    double StrengthOrdinalAge = 0, double StrengthVolumeAge = 0, double StrengthElapsedAge = 0,
+    bool? Matched = true)
 {
     /// <summary>This node's decay bookkeeping, for an <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy"/>.
     /// <para>Carries <see cref="Age"/> — the store's own, single, <c>Advance</c>-driven view — unchanged by

@@ -139,7 +139,14 @@ public sealed class MultiplicativeRankingPolicy(MultiplicativeRankingOptions? op
             var boost = _options.SalienceRankWeight <= 0
                 ? 1
                 : 1 + _options.SalienceRankWeight * Math.Log(salience);
-            var score = c.Node.Relevance * c.Retrievability * boost * Math.Pow(_options.HopAttenuation, c.Hop);
+            // A candidate nobody asked a relevance question of contributes NO relevance factor — 1, the
+            // multiplicative identity — rather than its unearned score. Both alternatives are defects this
+            // repository measured (D97): the stores used to report a fabricated 1 here, which let an
+            // unscored candidate beat every scored one, and reporting 0 instead ANNIHILATES it, because a
+            // zero factor deletes the product rather than ranking it low. A graph walk's own signal is
+            // HopAttenuation below, which still applies — this omission neither credits nor destroys it.
+            var relevance = c.Node.Matched is null ? 1 : c.Node.Relevance;
+            var score = relevance * c.Retrievability * boost * Math.Pow(_options.HopAttenuation, c.Hop);
             // THE POST-HOC GUARD, and the input filter above genuinely cannot do its job: Relevance = 1e308
             // and Retrievability = 1e308 both pass `double.IsFinite` and multiply to +Infinity, and
             // SalienceRankWeight (validated finite and >= 0, deliberately unbounded above) overflows `boost`

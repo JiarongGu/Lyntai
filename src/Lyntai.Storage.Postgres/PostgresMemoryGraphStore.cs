@@ -587,8 +587,16 @@ public sealed class PostgresMemoryGraphStore(
         // MemoryRelevance.ByRankPosition is the ONE rule, shared with the SQLite twin, including its contract
         // clause: a row admitted by GRADE that the query never matched reports 0. Only the substring query
         // selects `Matched`; elsewhere it is null ("not asked") and the plain gradient applies.
-        return [.. rows.Select((row, i) =>
-            row.ToNode(encodedAt) with { Relevance = MemoryRelevance.ByRankPosition(i, rows.Count, row.Matched) })];
+        // Matched is set here and only here, for the same reason Relevance is: reaching this helper MEANS a
+        // relevance gradient was computed, so this read asked the question. `row.Matched ?? true` keeps the
+        // substring query's explicit false and treats every other scored read as a match — including a
+        // query-less enumeration, where everything matches by definition. Every path that does NOT score
+        // keeps ToNode's null, which is what a ranking policy reads as "no relevance evidence" (D97).
+        return [.. rows.Select((row, i) => row.ToNode(encodedAt) with
+        {
+            Relevance = MemoryRelevance.ByRankPosition(i, rows.Count, row.Matched),
+            Matched = row.Matched ?? true,
+        })];
     }
 
     /// <summary>This backend's half of a review row: the thirteen shared columns come from

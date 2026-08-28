@@ -1238,3 +1238,35 @@ and replacing it with seven learned-weight factors, one of which is usage histor
 records and salience does not read.
 
 - **Build a LoCoMo harness so this library has a number against the field's own benchmark.**
+
+## Part 111 — a candidate nobody scored used to outrank every candidate that was (2026-08-29)
+
+✅ done 2026-08-29 — **D97**. Both row projections materialized every node with `Relevance = 1`, the
+MAXIMUM, and only `SeedAsync` overwrote it — so every graph-walk candidate, and every semantic or subject
+seed fetched by id, outranked everything that had actually been scored. `GraphNode` now carries
+`bool? Matched` (default `true`); an unscored read reports `Relevance 0` with `Matched null`, and
+`MultiplicativeRankingPolicy` omits the relevance factor rather than multiplying by it.
+
+**Measured on LoCoMo** (`docs/memory.md` §5), evidence-hit@20: defaults **11.0% → 31.0%**, `SemanticSeedK`
+**11.0% → 36.0%**, `+ RetrievabilityWeight = 0` **22.5% → 63.5%**, with the cosine control unmoved at 80.5%.
+`SemanticSeedK` becomes worth **+5.0 points** where it was worth exactly 0.0 — a real 0.785 cosine could
+never beat a fabricated 1.000, so the option was unreachable rather than weak.
+
+**The obvious fix was tried first and REFUSED, which is the part worth carrying.** Reporting `0` alone gets
+byte-identical retrieval numbers and deletes graph traversal: a multiplicative policy scores a product, so a
+zero annihilates a candidate instead of ranking it low, and `GraphMemoryRankingGoldenTests`' walked entries
+vanished from the result rather than moving down it. It also broke a recorded finding — the "model-free
+ranking has no headroom" conclusion, whose indistinguishability turned out to be an artifact of relevance
+being a constant. D97 keeps both green because it is narrower: seeded nodes are untouched.
+
+**The default is `true` rather than `null`, and a failing test chose that direction.** `null` as the default
+silently stripped the relevance factor from every hand-constructed node, including any BYO store unaware of
+the member; two multiplicative tests caught it within one run.
+
+**Five hypotheses were refuted by reading the code before a control found this** — a misconfigured
+`SemanticSeedK`, cross-arm contamination, unstored vectors, a wrong collection name, unparseable ids. The
+control that settled it printed one line: 369 of 369 vectors stored, collection name right, top-20 returned,
+all ids parsing. The seeds arrived and lost. `pitfalls.md` carries the reusable form — an incommensurable
+score moves a result by *exactly* zero, where a merely weak one moves it a little.
+
+- **Why does `SemanticSeedK` change nothing, and what should an unmeasured relevance be?**

@@ -192,7 +192,13 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                 // Relevance is "how well it matched the QUERY", so a node admitted by GRADE that the query
                 // never matched reports 0 — see IMemoryGraphStore.SeedAsync. With no query, Matches is true
                 // for everything and this store's flat 1 is unchanged.
-                .Select(n => ToNode(n, totals) with { Relevance = Matches(n, query, terms) ? 1 : 0 })
+                // Matched rides beside it: this read asked, so it may answer. Every other read leaves
+                // ToNode's null, which a ranking policy reads as "no relevance evidence" (D97).
+                .Select(n => ToNode(n, totals) with
+                {
+                    Relevance = Matches(n, query, terms) ? 1 : 0,
+                    Matched = Matches(n, query, terms),
+                })
                 .ToList();
             return Task.FromResult<IReadOnlyList<GraphNode>>(hits);
         }
@@ -527,7 +533,10 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
         return new GraphNode(
             row.Id, row.Engine, row.TaskKey, row.Scope, row.Headline, row.Content, row.Grade,
             row.CreatedAt, row.RecallCount, row.Stability, totals.Position - row.LastRecalledPosition,
-            1, edges.Count, row.Metadata,
+            // Relevance 0 with Matched null — "nobody asked". SeedAsync overwrites both; a graph walk or a
+            // fetch by id does not, and must not claim a score it never earned (D97). It reported 1 here
+            // until 2026-08-29, identically to the SQL twin's own projection.
+            0, edges.Count, row.Metadata,
             edges.Sum(e => e.Weight),
             edges.Count == 0 ? 0 : totals.Position - edges.Max(e => e.StrengthenedPosition),
             row.Signals,
@@ -544,6 +553,7 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
             StrengthVolumeAge: edges.Count == 0 ? 0 : totals.Chars - edges.Max(e => e.StrengthenedChars),
             StrengthElapsedAge: edges.Count == 0
                 ? 0
-                : (totals.EncodedAt - edges.Max(e => e.StrengthenedAt)).TotalDays);
+                : (totals.EncodedAt - edges.Max(e => e.StrengthenedAt)).TotalDays,
+            Matched: null);
     }
 }

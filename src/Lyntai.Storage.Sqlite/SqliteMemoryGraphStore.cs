@@ -358,10 +358,17 @@ public sealed class SqliteMemoryGraphStore(
         [
             // renormalized over the MATCHES alone — they are what was ranked — through the same shared rule
             // QueryAsync uses, so the two paths cannot report the same row differently
-            .. kept.Select((node, i) => node with { Relevance = MemoryRelevance.ByRankPosition(i, kept.Count) }),
+            // Matched rides beside Relevance on both branches: this is the one read that DID ask, so it is
+            // the one read that may answer. Every other path leaves the projection's null (D97).
+            .. kept.Select((node, i) => node with
+            {
+                Relevance = MemoryRelevance.ByRankPosition(i, kept.Count),
+                Matched = true,
+            }),
             .. unmatched.Take(keepExact).Select(node => node with
             {
                 Relevance = MemoryRelevance.ByRankPosition(0, 1, matched: false),
+                Matched = false,
             }),
         ];
     }

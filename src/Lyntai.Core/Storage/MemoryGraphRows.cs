@@ -61,13 +61,19 @@ public class MemoryNodeRow
     /// node with no edges has no strengthening to date and reports <c>0</c> — matching the <c>COALESCE</c>
     /// the ordinal and volume marks apply in SQL.</para>
     ///
-    /// <para><see cref="GraphNode.Relevance"/> is deliberately NOT set here. It is the caller's own rank
+    /// <para><see cref="GraphNode.Relevance"/> is deliberately NOT scored here. It is the caller's own rank
     /// position, and it goes through <see cref="MemoryRelevance.ByRankPosition"/> at the query site where
-    /// that position is known.</para></summary>
+    /// that position is known. This projection therefore reports <c>0</c> with
+    /// <see cref="GraphNode.Matched"/> <c>null</c> — "nobody asked" — and a seed overwrites both.
+    /// <para><b>It reported <c>1</c> until 2026-08-29, which is the whole of D97.</b> Every read that is not
+    /// a seed — a graph walk, a fetch by id for a semantic or subject seed — therefore handed back the
+    /// MAXIMUM relevance, so an unscored candidate outranked every scored one. The pairing matters: dropping
+    /// to <c>0</c> without <see cref="GraphNode.Matched"/> beside it deletes those candidates under a
+    /// multiplicative policy instead of merely ranking them low.</para></para></summary>
     /// <param name="encodedAt">Where the engine's own elapsed-time primitive currently stands.</param>
     public GraphNode ToNode(DateTimeOffset encodedAt) => new(
         Id, Engine, TaskKey, Scope, Headline, Content, (MemoryGrade)Grade,
-        CreatedAt, RecallCount, Stability, Age, 1, Degree,
+        CreatedAt, RecallCount, Stability, Age, 0, Degree,
         CuratedMetadataJson.Deserialize(Metadata), Strength, StrengthAge,
         MemorySignalsJson.Deserialize(Signals),
         OrdinalAge: OrdinalAge, VolumeAge: VolumeAge,
@@ -75,7 +81,8 @@ public class MemoryNodeRow
         ProvenanceRetrievability: ProvenanceRetrievability, ProvenanceSalience: ProvenanceSalience,
         Difficulty: Difficulty,
         StrengthOrdinalAge: StrengthOrdinalAge, StrengthVolumeAge: StrengthVolumeAge,
-        StrengthElapsedAge: StrengthenedAt is { } at ? (encodedAt - at).TotalDays : 0);
+        StrengthElapsedAge: StrengthenedAt is { } at ? (encodedAt - at).TotalDays : 0,
+        Matched: null);
 }
 
 /// <summary>The connecting edge's half of a neighbour row — settable properties, matching

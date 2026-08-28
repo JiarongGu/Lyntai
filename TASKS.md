@@ -19,10 +19,10 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**The startable set: Part 109's `SemanticSeedK` investigation and its QA half, Part 65's `many-candidates`
+**The startable set: Part 109's ranking-default decision and its QA half, Part 65's `many-candidates`
 paired sweep, and the 3D-backend survey inside Part 33 / GEN7.** Part 109 is the one to read first — it
-holds the only measurement here taken on an instrument this repository did not build, and it disagrees with
-the one it did. The rest need something this
+holds the only measurements here taken on an instrument this repository did not build, and the first of
+them has already been acted on (**D97**). The rest need something this
 repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
 data). **Part 99 is a WATCH item and not startable work** — its fix is already pinned by a test with a
 positive control, so nothing in it is codeable and only RECURRENCE can close it. That is stated first
@@ -477,65 +477,18 @@ left is one item, and its blocker is a DECISION rather than the data it used to 
 
 ## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
 
-_Opened by `docs/task-archive.md` Part 110. `node devtools/dev.mjs memory-locomo --retrieval` is the first
-measurement this repository has taken on an instrument it did not build: evidence-hit@20, model-free, 200
-LoCoMo questions. Shipped defaults **11.0%**, plain cosine **80.5%**, same embedder and same k. Tables and
-the two harness defects that had to be fixed first are `docs/memory.md` §5._
-
-- [ ] **DECIDE what an UNMEASURED relevance is, because the field cannot express one and both available
-  values are wrong.** *(The "why" half CLOSED 2026-08-29 and the ROOT CAUSE was found and measured the same
-  day; `docs/memory.md` §5 and `pitfalls.md` carry both. What is left is a design decision with library
-  surface, which is why it is still open.)*
-  <br>**The root cause is a literal.** `MemoryNodeRow.ToNode` — and its InMemory twin — materialize every
-  row with `Relevance = 1`, the MAXIMUM. `SeedAsync` overwrites it with a real score; `NeighboursAsync` and
-  `GetAsync` do not. So every graph-walk candidate, and every semantic or subject seed fetched by id, claims
-  a perfect relevance it never earned and outranks everything that did. The doc directly above the line says
-  `Relevance` is "deliberately NOT set here", which was the intent — the value chosen is the most harmful
-  one available.
-  <br>**Setting it to 0 was tried and MEASURED** (`memory-locomo --retrieval --n 200`, both backends
-  changed, whole suite run):
-
-  | arm | before | after |
-  |---|---|---|
-  | `lyntai` (defaults) | 11.0% | **31.0%** |
-  | `lyntai+sem` | 11.0% | **36.0%** |
-  | `lyntai+rel` | 22.5% | **63.5%** |
-  | `vector` (control, untouched) | 80.5% | 80.5% |
-
-  `SemanticSeedK` becomes worth +5.0 points where it was worth exactly 0.0 — the option was unreachable, not
-  weak. **But 0 is ALSO wrong, and a golden caught it**: `MultiplicativeRankingPolicy` scores a PRODUCT of
-  relevance and retrievability, so a 0 annihilates the candidate rather than ranking it low. The hop-1 and
-  hop-2 entries did not move down the golden's expected order — they VANISHED from the result. Under a
-  shipped ranking policy that deletes graph traversal outright.
-  <br>**It also overturns a recorded finding, which is a second reason it needs a ruling.**
-  `MemoryVerifiedReinforcementTests` asserts RRF and Multiplicative are indistinguishable and concludes
-  "model-free policy choice has no headroom left on this corpus, so 'swap the ranker' is not an available
-  fix". With relevance informative they diverge (pollution 0.333 against 0.351, RRF better). That conclusion
-  was an artifact of relevance being a CONSTANT — with no signal, every ranker degenerates to the same order.
-  <br>**So the decision is what a candidate whose relevance was never measured should report**, and neither
-  available value works: `1` beats every real score, `0` is fatal under a multiplicative policy. Candidates
-  include separating "unmatched" from "scored zero" on `GraphNode` (surface change), exempting hop > 0 from
-  the product, or giving the walk its own RRF input and leaving relevance alone. **D56's precedent matters
-  here**: a grade-admitted entry reports relevance 0 and is re-admitted by the engine rather than ranked, so
-  the library already has one answer to "admitted without being matched" — and it is not a relevance value.
-  <br>The control settled the mechanism: every vector is stored (369 of 369), the collection name matches,
-  the search returns a full k and every id parses — the seeds reach the pool and are added at hop 0. They
-  then lose, because the pool is saturated with **flat `1.000`** relevance while the best cosine in the whole
-  collection enters at **0.785**. An incommensurable score is sorted below the other scale's floor every
-  time, which is why the knob moves the number by exactly 0.0 rather than a little.
-  <br>**The open question is what a seeded candidate's `Relevance` should MEAN**, and it is a decision rather
-  than a fix: normalise the scales to a common footing, rank the semantic signal as its own RRF input rather
-  than by a shared relevance field, or leave it and document that seeding needs a ranking policy that reads
-  cosine. **D93** already records the incommensurability and rules out computing an ANSWER from it; this adds
-  a second casualty and is the case for acting on it.
-  <br>**Do not close this by reasoning about the code.** Five hypotheses were refuted that way this session —
-  a misconfigured `SemanticSeedK`, cross-arm contamination, unstored vectors, a wrong collection name, and
-  unparseable ids. Every one looked right on the page.
+_Opened by `docs/task-archive.md` Part 110; the first item CLOSED as **D97** (`docs/task-archive.md`
+Part 111). `node devtools/dev.mjs memory-locomo --retrieval` is the first measurement this repository has
+taken on an instrument it did not build: evidence-hit@20, model-free, 200 LoCoMo questions. Defaults went
+**11.0% → 31.0%** on D97 and plain cosine is **80.5%** at the same k, so a real gap remains. Tables and the
+two harness defects that had to be fixed first are `docs/memory.md` §5._
 
 - [ ] **DECIDE whether the ranking defaults should move, and this is a decision rather than a bug.**
   `RelevanceWeight` and `RetrievabilityWeight` both ship at `1`, so a recall ranks how-reachable equally
   with how-relevant. Setting retrievability to 0 doubles evidence-hit (11.0% → 22.5%) and is still far
-  under cosine, so it is **not** a fix on its own — but it does show the seam reaching the workload.
+  under cosine, so it is **not** a fix on its own — but it does show the seam reaching the workload. **D97
+  has since raised every arm** (defaults 31.0%, `+rel` 63.5%), so the residual gap is smaller than the
+  numbers this item was filed with and the question is unchanged.
   <br>The honest framing: this engine is built for a workload where recent material is likelier wanted, and
   LoCoMo is deliberately not that workload. Whether the DEFAULT should serve the general case or the
   designed-for case is exactly the `generic-library` rule-7 argument test — *could two honest applications
