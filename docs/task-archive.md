@@ -7201,3 +7201,79 @@ throughout — 44 result rows byte-identical across four independent executions 
 fixed the prose ABOUT the numbers, in two distinguishable kinds (four provenance defects, one
 summary-statistic defect). `.claude/knowledge/pitfalls.md` §Environment / tooling carries it, including why
 `check-docs`, `check-counts` and `check-links` are structurally blind to that class.
+
+## Part 107 — a maintained document cites a section that does not exist, and no gate can see it (2026-08-28)
+
+_Found by the final whole-branch review of the gist-support work. The typo is trivial; it is filed for the
+GATE question behind it, which is not._
+
+- [x] **`docs/memory.md` has no `## 8`, and SEVEN citations across six files name one.** Its headings run
+  `## 7` straight to `## 9` because **`## 8. What is NOT measured` was folded into `## 7. Things that will
+  surprise you`** (`58162a8`) and §9/§10 were left un-renumbered — the hole is a merge's residue, not a typo.
+  The citations: `CLAUDE.md`, `devtools/dev.mjs`, `docs/task-archive.md`, `docs/superpowers/INDEX.md` (as the
+  RANGE `§7–8`, and twice on the next line), plus two in the bench tier — `MemoryScaleSweep.cs` and
+  `Program.cs`. The PROSE each carries is accurate — the blind spot was real and `memory-scale` closed it —
+  so what is wrong is the pointer, not the claim.
+  <br>**This entry said "four places" until 2026-08-28, and that is the instructive half**: a `§8` scan
+  written from the hits a reader happened to see missed the range form, a second hit on a line already
+  counted, and the whole bench tier. **A defect filed from a partial scan under-scopes its own fix** — which
+  is also the case FOR the gate question below, since a person doing this by grep is what just failed.
+  <br>**Repointing is the fix; renumbering is the trap.** Nothing cites §9 or §10, so closing the hole by
+  renumbering is free on the outbound side — and it would silently aim all seven existing `§8` citations at
+  `## 9. Recipes`.
+  <br>**The half worth filing: `check-links` verifies that a PATH exists, never that a SECTION does.**
+  Whether an anchor check earns its keep is the real question, and the honest prior is discouraging:
+  `pitfalls.md` records an all-paths existence check returning ~45 hits and zero defects, and a heading gets
+  renamed for good reasons.
+
+✅ done 2026-08-28 — Both halves closed. All seven citations repointed to §7 (`CLAUDE.md`, `devtools/dev.mjs`,
+`docs/task-archive.md`, `docs/superpowers/INDEX.md` ×2, `bench/Lyntai.Benchmarks/{Program,MemoryScaleSweep}.cs`),
+and the numbering hole deliberately LEFT — see below. The gate question was **measured, then answered yes**:
+`check-links` grew a third half (`ANCHOR_PATTERN`, `declaredAnchors`, `unresolvedAnchor`), 13 new guard-script
+tests, 401 → 416.
+
+**The wording was repointed with the pointer, which is the part a mechanical fix would have missed.** §7's
+Scale bullet now opens *"MEASURED 2026-08-26, and no longer the blank it was"*, so a citation reading "the
+blind spot §7 concedes outright" in the present tense would have been false the moment it landed. The
+quoted text the old citations carried — *"nothing exceeds a few hundred entries"* — no longer appears in §7
+at all, so keeping the quote and moving the number would have produced a new dead pointer inside the repair.
+`docs/memory.md` §5's *"no arm exceeds a few hundred entries"* is a DIFFERENT claim (the corpus's size, still
+true) and was deliberately not repointed to.
+
+**The hole between §7 and §9 stays open on purpose.** Renumbering is outbound-safe — nothing cites §9 or §10
+— but it would make every pre-existing `§8` reference outside this repository (an untracked record, a sibling
+app, a reader's own notes) resolve SILENTLY to "Recipes" instead of dangling visibly. A gap is detectable; a
+wrong resolution is not.
+
+**The gate was measured before it was built, because the prior said not to build it.** A throwaway probe over
+the pre-fix tree: **100 citations** in the unambiguous form, **12 flagged, 8 real defects**, and every false
+positive inside the historical archive that `check-docs` already exempts. That is the opposite of the ~45
+hits / zero defects result `pitfalls.md` records for the all-paths check, and it is why this one shipped.
+Two design consequences came straight out of that run rather than from taste: a **bold bullet lead** counts
+as an anchor (`` `task-lifecycle.md` §Keep the summary honest `` names one, and it was the only recurring
+false positive), and **every end of a RANGE is a claim** — `§7–8` is invisible to a `§8` grep and resolves
+under a first-number-only rule, so that one citation escaped both the human pass that filed this Part and the
+first probe written to measure it.
+
+**Two MORE defects of the same class turned up, and the second is the argument for the gate.** `pitfalls.md`
+and `docs/FIXES.md` both cited `TASKS.md` §Startable — a heading removed when those items closed into Part 87
+— and the `docs/FIXES.md` one **wraps across two lines**, so the line-at-a-time probe missed it entirely and
+only the shipped gate caught it, on its first real-tree run, because it inherits `twoLineWindows` from the
+Part half. The four remaining `§Startable` citations sit in `docs/task-archive.md` and were LEFT: an archive
+is accurate by using its own day's wording.
+
+**The section half is not narrowed to `docs/` the way the path half is**, and the reason is that the path
+half's narrowing does not transfer: it exists because source files get renamed for legitimate reasons, which
+cannot apply to a citation whose target is a `.md` by construction. Measured: of the **42** §-citations the
+code tiers carry, only **13** name `docs/` — a narrowed rule would check under a third of them.
+
+**Mutation-checked, per the rule that a guard whose failure mode is a false PASS cannot be validated by
+running it.** Three mutations — the anchor check disabled, only the first end of a range checked, bold bullet
+leads not indexed — each killed by its own intended test.
+
+**Two files were normalized to LF in passing**, which is Part 106's hazard caught live rather than a scope
+creep: editing three lines of `docs/superpowers/INDEX.md` produced a **172-line** raw diff against a 4-line
+real one, and `docs/FIXES.md` the same. Both are `i/lf` in the index and were `w/crlf` in the tree.
+
+`verify`: all 15 gates green (twice), tests 3429/3450 with 21 skipped, e2e 3/3, guard-script tests 416/416,
+`check-links` reporting 45 maintained docs + 726 code files and **79 §-citations checked**.

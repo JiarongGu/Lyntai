@@ -103,6 +103,82 @@ export const declaredParts = (text) => {
  * report every reference to it as dangling. Same root cause as check-sensitive's and check-docs' own,
  * measured 2026-08-11 (TASKS.md Part 60).
  */
+/**
+ * A citation naming a SECTION of a document: `` `docs/memory.md` §7 ``, `<c>pitfalls.md</c> §Storage`,
+ * `docs/d.md` §5–7 (an ILLUSTRATION of the range shape, never a file here). link-ok
+ *
+ * The THIRD way an inbound reference rots, and neither half above can see it — the path resolves, the
+ * record is right, and the §N names a heading that is not there. Measured 2026-08-28 (TASKS.md Part 107):
+ * `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` while §9/§10 were left
+ * un-renumbered, and SEVEN citations across six files kept naming a section that had stopped existing.
+ *
+ * ONLY the unambiguous form — the filename, an optional closing delimiter, then the §. Anything looser
+ * mis-attributes: `` `pitfalls.md` (§Second doors) `` and `design §7` both sit within a few words of an
+ * UNRELATED filename, and a gate that guesses the target is a gate that names the wrong file. The
+ * measurement started with a 40-character window and every one of its false targets came from that.
+ *
+ * A RANGE is captured whole because every end of one is a separate claim. `docs/superpowers/INDEX.md`
+ * cited `§7–8`: a scan for "§8" does not match it and a scan reading only the first number resolves it, so
+ * that citation survived both the human pass that filed Part 107 and the first probe written to measure it.
+ */
+export const ANCHOR_PATTERN =
+  /([A-Za-z0-9_./¡-￿-]*\.md)(?:<\/c>|`)?\s*§\s*(\d+(?:\.\d+)*[a-z]?(?:\s*[–—-]\s*\d+(?:\.\d+)*[a-z]?)?|[A-Z][A-Za-z-]*(?:\s+[a-z][A-Za-z-]*){0,4})/g;
+
+/**
+ * The anchors a document declares: every heading's numeric label and its text, plus BOLD BULLET LEADS.
+ *
+ * The bullets are not generosity. `task-lifecycle.md` §Keep the summary honest names a bolded bullet
+ * rather than a heading — a reader Ctrl-Fs it and finds it at once — and it was the ONLY recurring false
+ * positive the measurement produced over the whole tree. Indexing them takes the named half to zero.
+ */
+export const declaredAnchors = (text) => {
+  const nums = new Set();
+  const names = [];
+  for (const line of text.split(/\r?\n/)) {
+    const heading = /^#{1,6}\s+(.*)$/.exec(line);
+    if (heading) {
+      const label = heading[1].replace(/[*`]/g, '').trim();
+      names.push(label.toLowerCase());
+      const n = /^(\d+(?:\.\d+)*[a-z]?)(?:[.)\s]|$)/.exec(label);
+      if (n) nums.add(n[1].toLowerCase());
+      continue;
+    }
+    const bullet = /^\s*[-*]\s+\*\*(.+?)\*\*/.exec(line);
+    if (bullet) names.push(bullet[1].replace(/[.`]/g, '').trim().toLowerCase());
+  }
+  return { nums, names };
+};
+
+/**
+ * The end of a citation that names nothing, or `null` when it resolves.
+ *
+ * A NUMERIC citation resolves against a label or a deeper one it prefixes (`§5.7` covers `### 5.7.0`).
+ * A NAMED one resolves against any leading WORD-PREFIX of the token, because a named citation has no
+ * closing delimiter and runs straight into the sentence after it — `§Storage records three incidents`.
+ * Without the prefix rule every named citation in the tree reports, which is the crying-wolf failure
+ * `retiredTerms`' own comments warn about.
+ */
+export const unresolvedAnchor = (anchors, token) => {
+  const t = token.trim().toLowerCase().replace(/[.,;:)\]]+$/, '');
+  if (!t) return null;
+  if (/^\d/.test(t)) {
+    for (const end of t.split(/\s*[–—-]\s*/)) {
+      const e = end.trim();
+      if (!e) continue;
+      if (anchors.nums.has(e)) continue;
+      if ([...anchors.nums].some((n) => n.startsWith(e + '.'))) continue;
+      return e;
+    }
+    return null;
+  }
+  const words = t.split(/\s+/);
+  for (let k = words.length; k >= 1; k--) {
+    const prefix = words.slice(0, k).join(' ');
+    if (anchors.names.some((n) => n.startsWith(prefix))) return null;
+  }
+  return t;
+};
+
 export const trackedFiles = (repo) => repoFiles(repo);
 
 /**
@@ -171,6 +247,56 @@ export function checkLinks(repo, config, log = console.log, files = null) {
   const allowed = new Map(allowances.map((a) => [a.file, { ...a, used: 0 }]));
   const hits = [];
   const misfiled = [];
+  const deadAnchors = [];
+  let anchorsChecked = 0;
+
+  // A citation names a document, usually by BARE BASENAME (`` `pitfalls.md` §Storage ``). Resolving one to
+  // exactly one tracked file is the whole admission test: a basename matching two files — or none — is a
+  // guess, and PART_PATTERN's rule applies unchanged, that only a reference naming a resolvable record
+  // makes a checkable claim.
+  const byBasename = new Map();
+  for (const f of tracked) {
+    if (!f.endsWith('.md')) continue;
+    const base = f.replace(/^.*\//, '');
+    if (!byBasename.has(base)) byBasename.set(base, []);
+    byBasename.get(base).push(f);
+  }
+  const resolveDoc = (name) => {
+    if (name.startsWith('local/')) return null;         // untracked by design
+    if (onDisk.has(name)) return name;
+    const candidates = byBasename.get(name.replace(/^.*\//, '')) ?? [];
+    return candidates.length === 1 ? candidates[0] : null;
+  };
+
+  // Read each cited document once. An unreadable target yields `null` and is SKIPPED rather than reported:
+  // we have no basis to call its sections missing, and failing there would report the citing file for a
+  // fault in the cited one.
+  const anchorCache = new Map();
+  const anchorsFor = (target) => {
+    if (!anchorCache.has(target)) {
+      let parsed = null;
+      try { parsed = declaredAnchors(readFileSync(join(repo, target), 'utf8')); } catch { parsed = null; }
+      anchorCache.set(target, parsed);
+    }
+    return anchorCache.get(target);
+  };
+
+  // `beginsWithin` carries the two-line window's rule: a match starting in the CONTINUATION is seen again
+  // when that line is the window's own first line, so counting it from both would double-report it.
+  const scanAnchors = (file, lineNo, text, beginsWithin = Infinity) => {
+    for (const match of text.matchAll(ANCHOR_PATTERN)) {
+      if (match.index > beginsWithin) continue;
+      const [, name, token] = match;
+      const target = resolveDoc(name);
+      if (!target) continue;
+      const anchors = anchorsFor(target);
+      if (!anchors) continue;
+      anchorsChecked++;
+      const dead = unresolvedAnchor(anchors, token);
+      if (dead === null) continue;
+      deadAnchors.push({ file, line: lineNo, target, anchor: dead, text: text.trim() });
+    }
+  };
 
   // Read once, up front: the Part half compares every reference against BOTH records, so scanning the
   // records lazily per hit would re-read them for each one. A record that is not tracked yields an empty
@@ -250,6 +376,11 @@ export function checkLinks(repo, config, log = console.log, files = null) {
           text: line.trim(),
         });
       }
+
+      // The SECTION half, over the same window and by the same rules — these documents wrap at ~110
+      // columns and a citation spans a backtick, a filename and a `§`, so it straddles a break as readily
+      // as a Part reference does.
+      scanAnchors(file, i + 1, window, line.length);
     }
   }
 
@@ -268,6 +399,12 @@ export function checkLinks(repo, config, log = console.log, files = null) {
         if (onDisk.has(target)) continue;
         hits.push({ file, line: i + 1, target, text: line.trim() });
       }
+
+      // The SECTION half is NOT narrowed to `docs/` the way the path half is. That narrowing exists
+      // because source files are renamed for legitimate reasons and a comment describing the old shape is
+      // correct — an argument that cannot apply here, since an anchor citation names a `.md` by
+      // construction. Three of the seven measured dead citations lived in this tier.
+      scanAnchors(file, i + 1, line);
     }
   }
 
@@ -275,11 +412,11 @@ export function checkLinks(repo, config, log = console.log, files = null) {
   // exclusion nobody can see expiring is an exclusion that rots into a permanent hole.
   const dead = [...allowed.values()].filter((a) => a.used === 0);
 
-  if (hits.length === 0 && dead.length === 0 && misfiled.length === 0) {
-    // Both counts are reported, so a filter that silently stopped matching one tier is visible in the
+  if (hits.length === 0 && dead.length === 0 && misfiled.length === 0 && deadAnchors.length === 0) {
+    // Every count is reported, so a filter that silently stopped matching one tier is visible in the
     // GREEN line rather than only in a failure that never comes.
     log(`check-links: ${docs.length} maintained doc(s) + ${code.length} code file(s) — every in-repo `
-      + `reference resolves ✓`
+      + `reference resolves ✓ (${anchorsChecked} §-citation(s) checked)`
       + (allowances.length ? ` (${allowances.length} allowance(s), all still needed)` : ''));
     return 0;
   }
@@ -314,6 +451,22 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     log('  that does not hold the answer, and ARCHIVING a task is what turns a right one into a wrong one —');
     log('  so repoint inbound references in the same change that moves the task. If a line deliberately');
     log('  quotes an old reference as it was written, put `link-ok` on it.');
+  }
+
+  if (deadAnchors.length > 0) {
+    log(`\ncheck-links: ✗ ${deadAnchors.length} citation(s) naming a SECTION that does not exist\n`);
+    for (const a of deadAnchors) {
+      const excerpt = a.text.length > 96 ? a.text.slice(0, 93) + '...' : a.text;
+      log(`  ${a.file}:${a.line}  says ${a.target} §${a.anchor} — that document declares no such section`);
+      log(`      ${excerpt}`);
+    }
+    log('');
+    log('  A section that was RENUMBERED or FOLDED INTO another leaves every citation to it pointing at');
+    log('  nothing, and no path check can see it — the file resolves, only the § does not. Repoint the');
+    log('  citation at the section that now holds the text, and repoint the WORDING with it: a heading that');
+    log('  used to concede something may now record it as settled. Renumbering the target instead is the');
+    log('  trap — it makes existing citations resolve SILENTLY to the wrong section. If a line deliberately');
+    log('  quotes a citation as it was written, put `link-ok` on it.');
   }
 
   if (dead.length > 0) {

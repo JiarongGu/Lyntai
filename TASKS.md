@@ -431,6 +431,17 @@ what kind._
   <br>Startable today — no key, no model download, no install. The model arm is optional and additive: it
   prints an explicit SKIPPED line when no chat model answers, and on this question it returned exactly the
   recency reading against a prompt that names the recency ordering.
+  <br>**Two things about the INSTRUMENT, found by the final review and deliberately not fixed** — both are
+  invisible until they bite, and whoever adds the axis is the person who will meet them.
+  `MemoryGistSupportSweep.Grid()` **restates** the 60-shape grid that `MemoryCorpusTests` holds privately —
+  same three arrays, same `CriticalRarity = 6` — and nothing gates the two against each other, so the
+  sweep's claim to run the grid the corpus invariants are proved over goes silently false the day the test's
+  grid moves. Hoisting the arrays into `MemoryCorpus.cs`, already `<Compile Include>`-linked into bench,
+  would fix it once for both readers. Second: the `After` snapshot is taken after **all** steps rather than
+  immediately after the final routine query, which is equivalent ONLY because `Grid()` leaves
+  `AuthoritativeCount` and `HeadlineOnlyCount` at `0` so that query is genuinely last. A shape turning
+  either on silently changes what the 2-of-44 snapshot-point diagnostic measures, and nothing would report
+  it.
 
 - [ ] **Build the gist tier.** **BLOCKED on a DECISION nobody has taken** — which support rule it computes —
   and that decision is blocked in turn on DATA the item above has to produce. **D94** settled the tier's
@@ -451,7 +462,8 @@ is one a session meets by tripping over it. The fix is a repository decision nob
   `i/lf w/crlf`: on 2026-08-28 `git ls-files --eol | awk '{print $1, $2}' | sort | uniq -c` read about **four
   in five** tracked files that way, plus a handful of `i/lf w/mixed` (659 and 3 of 830 that day — a snapshot
   of the WORKING TREE, which drops by one every time somebody repairs a file, which is why `pitfalls.md`
-  publishes the ratio and not the count). Git's stat cache hides it until a file is touched, so **editing any
+  publishes the ratio and not the count; it read **656** later the same day, after Part 107 repaired three
+  files it had to edit). Git's stat cache hides it until a file is touched, so **editing any
   of those files surfaces the whole file as changed and commits it as CRLF** — `core.autocrlf` is `false` at
   REPO scope, so the index gets the tree verbatim.
   <br>**The repo-scope setting is the reason this is a task rather than a note.** It lives in `.git/config`,
