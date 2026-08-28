@@ -16,6 +16,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Lyntai.Core\Lyntai.Core.csproj" />
     <ProjectReference Include="..\..\src\Lyntai.Storage.Sqlite\Lyntai.Storage.Sqlite.csproj" />
+    <!-- MemoryGistSupportSweep runs ~600 replays, and a fresh migrated SQLite database per replay is what
+         makes memory-sweep slow by design. This study reads GraphNode.DecayState off an ENUMERATION rather
+         than measuring ranking, so the in-process store is sufficient (pitfalls.md asks for SQLite when the
+         subject IS ranking). Zero-dependency and Core-only, so it adds nothing to the build graph — the
+         footprint that matters here, given what the comment below records about build-log size. -->
+    <ProjectReference Include="..\..\src\Lyntai.Storage.InMemory\Lyntai.Storage.InMemory.csproj" />
   </ItemGroup>
 
   <ItemGroup>

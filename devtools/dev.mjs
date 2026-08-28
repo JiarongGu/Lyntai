@@ -311,10 +311,11 @@ switch (cmd) {
     break;
 
   // memory-support — which rule selects a recurring cluster's CURRENT regime, for the planned gist tier.
-  // The model arms need a real chat model and EXIT rather than substituting a scripted one: an arm that
-  // measures what a model is worth cannot be measured through a stand-in. Today this runs ONLY the
-  // one-shape ladder screen (RunAsync never reads args) — the full shape grid is a later task and does
-  // not exist yet.
+  // The default is the full sweep: the corpus grid x seeds x both pacing regimes, scored against BOTH
+  // declared answers, so a rule that merely tracks recency can be refuted rather than winning by
+  // construction. Its MECHANICAL arms are model-free and always run; the model arm is additive and says
+  // so when it is skipped. `--screen` is the size ladder alone, on one shape, and EXITS rather than
+  // substituting a scripted stand-in: an arm measuring what a model is worth cannot use a double.
   case 'memory-support':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--gist-support', ...args]);
