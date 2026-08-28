@@ -560,10 +560,63 @@ byte-identical in all sixteen cells. Same-seed reproducibility is exactly the pr
 destroyed, so it is the property worth checking — and it is cheap, which is the argument for running it
 rather than reasoning that the stores are now separate.
 
-**What this is NOT.** It is not a ranking against Mem0, Zep or Letta: the QA half needs a reader model, the
-published numbers use a frontier one, and the reader sets the ceiling far more than the memory layer does.
-It is one benchmark, one embedder, 200 of 1540 questions. What it IS, is the first evidence from outside
-this repository's own instrument, and it disagrees with that instrument.
+**What this is NOT — and the first reading of it here was wrong about this.** It is not a ranking against
+Mem0, Zep or Letta: the QA half needs a reader model, the published numbers use a frontier one, and the
+reader sets the ceiling far more than the memory layer does. It is one benchmark, one embedder, 200 of 1540
+questions.
+
+**More importantly, `vector` is a PERFECT ARCHIVE and this engine is deliberately not one.** Plain cosine
+never decays, never buries, and keeps every turn equally retrievable forever. LoCoMo distributes its
+questions uniformly over months of history, so it rewards exactly that and penalises forgetting. **A
+once-mentioned January turn that was never referred to again is, by design §5.7.0's own objective,
+correctly buried** — and §5.7.0 optimises miss and pollution under invariants about authoritative facts and
+conflicts, none of which this benchmark measures. Reading 31% against 80.5% as "worse" imports the field's
+objective and judges this design by it.
+
+**So `RetrievabilityWeight = 0` is not a target configuration, and an arm using it is not a goal to climb
+toward.** That setting measures this engine with its defining feature switched off; whatever score it
+reaches says only that a disabled decay model behaves like a vector index. Optimising toward it would end
+with a vector store wearing a graph engine's name.
+
+**The narrower claim that DOES survive, and it is the one worth acting on.** "We deliberately do not return
+that" is defensible; "we returned twenty items and they were the wrong twenty" is not. The evidence was
+stored, embedded and reachable, and the engine spent its slots elsewhere — which is why D97, found through
+this benchmark, was a real defect on any philosophy and stands independently of it.
+
+**The residual gap is the DESIGN, and a second ladder proves it rather than assuming it** (`memory-locomo
+--retrieval --n 200`, every arm keeping retrievability at its shipped default):
+
+| arm | evidence-hit@20 |
+|---|---|
+| `lyntai` | 31.0% |
+| `+sem` (`SemanticSeedK = 20`) | **36.0%** |
+| `+sem+hop0` (`HopWeight = 0`) | 11.5% |
+| `+sem80` (`SemanticSeedK = 80`) | 30.0% |
+| `+sem80+hop0` | 17.5% |
+| `vector` | 80.5% |
+
+Both misallocation hypotheses are refuted, and in the opposite direction. **Graph traversal is carrying the
+arm, not stealing slots** — `HopWeight = 0` costs 24.5 points. And MORE semantic seeds make it WORSE
+(36.0 → 30.0), which is **D82** behaving as documented: RRF ranks by competition, so widening one signal
+re-ranks every candidate within it.
+
+**The pool provably contains the evidence, so this is not a seeding problem either.** The `+sem80` arm seeds
+the top-80 by cosine, which contains cosine's top-20 by construction, and that top-20 holds the evidence
+80.5% of the time. So the candidate pool holds it at least 80.5% of the time and the arm returns it 30.0% of
+the time: **roughly fifty points are lost ranking candidates that were present**. The signal demoting them is
+retrievability — old, mentioned once, never reinforced. That is the decay model doing its job, not
+misallocating slots.
+
+**So the boundary is located.** D97 was the defect, worth about twenty points and independent of any
+philosophy. What remains is the design: every knob that closes it turns forgetting down, and the two that
+leave forgetting alone both made things worse.
+
+**What LoCoMo is FOR here: a differential instrument, not a scoreboard.** It stresses the archival axis the
+synthetic corpus cannot, which is precisely why it exposed a defect 3429 tests were blind to. The benchmark
+that would test THIS design's claims is one where forgetting is supposed to HELP — superseded facts,
+knowledge updates, distractors that should be suppressed. **LongMemEval's knowledge-update and temporal
+categories** are the closer fit, and on those a working decay model should beat a flat archive rather than
+apologise to it.
 
 ### How these choices sit against the published field (surveyed 2026-08-29)
 

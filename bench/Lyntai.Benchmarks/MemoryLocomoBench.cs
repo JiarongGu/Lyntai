@@ -76,8 +76,8 @@ internal static class MemoryLocomoBench
         var dump = args.Contains("--dump");
         var probed = false;
         string[] arms = wantFull
-            ? ["lyntai", "lyntai+sem", "lyntai+rel", "vector", "full"]
-            : ["lyntai", "lyntai+sem", "lyntai+rel", "vector"];
+            ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "vector", "full"]
+            : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "vector"];
 
         var (conversations, questions) = Load(path);
         var sampled = Stratify(questions, take);
@@ -104,12 +104,26 @@ internal static class MemoryLocomoBench
             // configuration nobody ships and whose own doc calls it the worst arm for recall quality - so
             // the cost of a fresh ingestion per arm is paid instead. Embeddings are cached across arms, so
             // what is actually repeated is the SQLite and graph work.
+            // EVERY ARM HERE KEEPS RETRIEVABILITY ON, and that is the point rather than an oversight.
+            // `RetrievabilityWeight = 0` measures this engine with its defining feature switched off, so
+            // any score it reaches says only that a disabled decay model behaves like a vector index.
+            // Burying old unreinforced material is what this library is FOR (design §5.7.0); the defect
+            // worth chasing is narrower — when a recall does spend its 20 slots, it should spend them on
+            // the best 20 by its own objective.
+            //
+            // So each arm turns one knob that is arguably a MISALLOCATION rather than a philosophy:
+            // `hop0` asks whether a graph-walk candidate should earn rank credit equal to a relevance
+            // signal, and `sem80` whether 20 semantic seeds are simply outnumbered in a pool of
+            // `RecallLimit x CandidateMultiplier` = 80 candidates competing for 20 places.
             var configs = new (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking)[]
             {
                 ("lyntai", null, null),
-                ("lyntai+sem", new GraphMemoryOptions { SemanticSeedK = RecallLimit }, null),
-                ("lyntai+rel", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 })),
+                ("+sem", new GraphMemoryOptions { SemanticSeedK = RecallLimit }, null),
+                ("+sem+hop0", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 })),
+                ("+sem80", new GraphMemoryOptions { SemanticSeedK = 80 }, null),
+                ("+sem80+hop0", new GraphMemoryOptions { SemanticSeedK = 80 },
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 })),
             };
 
             // The dia_id rides along in the CONTENT so an evidence hit is checkable without a model. It is

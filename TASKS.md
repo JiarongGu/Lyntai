@@ -483,16 +483,21 @@ taken on an instrument it did not build: evidence-hit@20, model-free, 200 LoCoMo
 **11.0% → 31.0%** on D97 and plain cosine is **80.5%** at the same k, so a real gap remains. Tables and the
 two harness defects that had to be fixed first are `docs/memory.md` §5._
 
-- [ ] **DECIDE whether the ranking defaults should move, and this is a decision rather than a bug.**
-  `RelevanceWeight` and `RetrievabilityWeight` both ship at `1`, so a recall ranks how-reachable equally
-  with how-relevant. Setting retrievability to 0 doubles evidence-hit (11.0% → 22.5%) and is still far
-  under cosine, so it is **not** a fix on its own — but it does show the seam reaching the workload. **D97
-  has since raised every arm** (defaults 31.0%, `+rel` 63.5%), so the residual gap is smaller than the
-  numbers this item was filed with and the question is unchanged.
-  <br>The honest framing: this engine is built for a workload where recent material is likelier wanted, and
-  LoCoMo is deliberately not that workload. Whether the DEFAULT should serve the general case or the
-  designed-for case is exactly the `generic-library` rule-7 argument test — *could two honest applications
-  answer this differently* — and the answer is plainly yes. So it needs a ruling, not a measurement.
+- [ ] **Spend the twenty slots better, WITHOUT turning off forgetting.** *(Reframed 2026-08-29 — the
+  earlier wording treated cosine's 80.5% as a target, which is wrong.)*
+  <br>**`RetrievabilityWeight = 0` is not a goal.** It measures this engine with its defining feature
+  disabled, so its 63.5% says only that a disabled decay model behaves like a vector index. Burying old
+  unreinforced material is what design §5.7.0 asks for, and LoCoMo penalises it by construction — a
+  once-mentioned January turn nobody referred to again is correctly buried.
+  <br>**The live defect is narrower and philosophy-independent**: when a recall DOES spend its 20 slots, it
+  should spend them on the best 20 by its own objective. D97 was one instance and is fixed. What remains is
+  whether the other rank inputs misallocate: does a graph-walk candidate deserve rank credit equal to a
+  relevance signal (`HopWeight`), and are 20 semantic seeds simply outnumbered in a pool of
+  `RecallLimit × CandidateMultiplier` = 80 (`SemanticSeedK`)? Both are measurable with forgetting left ON,
+  which is the only way the answer means anything.
+  <br>**If that ladder plateaus, the problem is SEEDING rather than ranking** — the evidence may never enter
+  the candidate pool, in which case no ranking knob can recover it and `CandidateMultiplier` is the subject.
+  Measure pool membership before tuning another weight.
 
 - [ ] **Run the QA half, and more of it.** The model-free metric is the trustworthy one, but the accuracy
   table is what the field publishes. It needs a reader model, its absolute value is not comparable to a
