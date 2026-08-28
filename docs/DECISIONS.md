@@ -165,8 +165,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D93](#d93--what-a-recall-returns-is-widened-twice-metadata-comes-back-and-a-verifier-is-shown-scores-2026-08-27) | 2026-08-27 | what a recall RETURNS is widened twice: metadata comes back, and a verifier is shown scores |
 | [D94](#d94--support-is-two-quantities-under-one-name-so-the-gist-tier-ships-no-support-seam-2026-08-28) | 2026-08-28 | "support" is TWO quantities under one name, so the gist tier ships no support seam |
 | [D95](#d95--the-repository-is-lf-declared-in-a-tracked-gitattributes-2026-08-28) | 2026-08-28 | the repository is LF, declared in a tracked `.gitattributes` |
+| [D96](#d96--the-decision-record-gets-a-length-ratchet-not-the-archives-compression-2026-08-28) | 2026-08-28 | the decision record gets a length ratchet, not the archive's compression |
 
-_All 95 entries are live decisions._
+_All 96 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2802,3 +2803,38 @@ neither clearly.
 
 **No public surface, no package, no consumer-visible change.** `.claude/rules/repo-mechanics.md` carries the
 binding and `.claude/rules/windows-machine.md` the general rule; `docs/task-archive.md` Part 106 is the task.
+
+## D96 — the decision record gets a length ratchet, not the archive's compression (2026-08-28)
+
+**`check-decisions` fails when an entry in this file exceeds 35 non-blank body lines**, with the 21 entries
+already over that frozen in `decisionLengthAllowances` so the numbers can only come down.
+
+**The measurement.** Mean non-blank lines per entry: **11.6** over the first 31 entries, **14.2** over the
+next 32, **38.5** over the last 32 — a 3.3× growth in what one decision costs a reader, in the record
+`CLAUDE.md` routes every session to by RANGE. Neither the entry count nor data explains it: the last third
+holds 40 table rows and 19 lines carrying a figure, in 1556 lines. It is prose, in two shapes — amendment
+narrative written in place, and several decisions stacked under one number (D93 carries about thirteen).
+
+**The rejected alternatives.**
+
+| | why not |
+|---|---|
+| another RULE | `persist-working-state.md` already answered the FIRST version of this — 23 entries in two days, six announcing a work session in their own title — with a rule. It held on entry COUNT and did nothing about LENGTH, and a written rule that is still violated is a missing gate |
+| the archive's COMPRESSION | `docs/task-archive.md` was cut 84% because a finished Part's full text belongs in git history. A decision's reasoning IS its payload; compressing it deletes what this record is for |
+| splitting by DOMAIN | 23 entries are memory-domain by title, but a second file fragments the log and breaks every `D<n>` citation's single home |
+
+**The limit is 35 because the median entry is 16 and the third quartile is 35** — an entry at twice the
+typical length is carrying something that is not the decision, and 35 non-blank lines is still room for the
+decision, its alternatives, and what it constrains.
+
+**No escape token, deliberately.** `check-comments` has `comment-ok` for a block no reader would want
+shorter, such as a table. No entry here has that shape, and an allowance is a visible ratcheted number where
+an escape removes the subject from measurement entirely.
+
+**The obvious second check is deliberately absent.** Meta-commentary is what makes these entries long, and
+`code-commentary.md` calls it always-wrong — for a COMMENT. Here an amendment is often the point: D51's is
+what `CLAUDE.md` routes a reader to. No regex separates "this entry said two lines for a day" from "amended
+2026-08-12: the observable now exists", so length is the honest instrument and the author chooses the cut.
+
+**Paying an entry down** moves MEASUREMENT narrative to the design record that owns it and AMENDMENT
+narrative to git history, keeping the decision, the alternatives, and what it constrains.

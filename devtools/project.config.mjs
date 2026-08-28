@@ -678,6 +678,54 @@ export default {
   ],
 
   /**
+   * DECISION-ENTRY DEBT — one entry per `docs/DECISIONS.md` decision whose NON-BLANK body still exceeds
+   * `check-decisions`' own MAX_ENTRY, recorded at its CURRENT length so the number can only come down.
+   *
+   * WHY THIS EXISTS. Measured 2026-08-28: mean non-blank lines per entry went 11.6 (D1–D31) → 14.2
+   * (D32–D63) → 38.5 (D64–D95), a 3.3x growth in what one decision costs a reader, in the file `CLAUDE.md`
+   * routes every session to by RANGE. Not the entry COUNT and not data — across D64–D95 there are 40 table
+   * rows and 19 lines carrying a measured figure in 1556 lines. It is prose: amendment narrative written in
+   * place, and several decisions stacked under one number.
+   *
+   * WHY A RATCHET AND NOT A THRESHOLD, and it is the same argument `commentBlockAllowances` makes below:
+   * 21 entries were already over the limit when the gate landed (251 lines above it), so a plain threshold
+   * would have had to be switched off on day one. An allowance is a DEBT, not a permission — an allowance
+   * looser than the entry needs FAILS, and so does one at or below the limit, which is simply rot.
+   *
+   * TO PAY ONE DOWN: move MEASUREMENT narrative to the design record that owns it (untracked, under
+   * `local/superpowers/`) and AMENDMENT narrative to git history, keeping the decision, the alternatives,
+   * and what it constrains. **This is NOT the archive's compression** — a decision's reasoning is its
+   * payload, and `persist-working-state.md` says that without the reason someone reverses it later and
+   * rediscovers the problem. Deleting an entry from this ledger is the goal, not an edge case.
+   *
+   * There is deliberately NO escape token — see `check-decisions.mjs` for why an allowance is the only way
+   * out.
+   */
+  decisionLengthAllowances: {
+    D63: 39,
+    D64: 36,
+    D66: 49,
+    D67: 40,
+    D69: 36,
+    D70: 38,
+    D71: 38,
+    D72: 57,
+    D73: 56,
+    D74: 36,
+    D76: 42,
+    D77: 52,
+    D78: 38,
+    D85: 44,
+    D86: 42,
+    D89: 37,
+    D90: 51,
+    D91: 60,
+    D93: 77,
+    D94: 64,
+    D95: 54,
+  },
+
+  /**
    * COMMENT-BLOCK DEBT — one entry per file whose worst contiguous comment block still exceeds
    * `check-comments`' own MAX_BLOCK, recorded at its CURRENT worst so the number can only come down.
    *
@@ -723,7 +771,10 @@ export default {
     "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [35],
     "bench/Lyntai.Benchmarks/MemorySpacingSweep.cs": [38],
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
-    "devtools/dev.mjs": [31],
+    // 31 → 32 on 2026-08-28: this block is the USAGE BANNER, a one-line-per-command table, so registering
+    // `check-decisions` grows it by exactly one. The ratchet permits raising a number deliberately; what it
+    // forbids is a number drifting up unnoticed, which is why this note exists rather than a silent bump.
+    "devtools/dev.mjs": [32],
     "devtools/nuget-unlist.mjs": [28],
     "devtools/scripts/check-api-vocabulary.mjs": [34],
     "devtools/scripts/check-comments.mjs": [41],

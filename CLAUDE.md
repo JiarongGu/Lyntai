@@ -26,15 +26,16 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D95**. The two groups worth knowing before you touch anything:
-**D83–D95 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D96**. The two groups worth knowing before you touch anything:
+**D83–D96 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
 read
 them before assuming a memory registration that resolves is a memory registration that runs, or that a NAMED
-`ILlmClient` can reach the backends it names (**D87**). **D95** is the odd one out in that group: it touches
-no library surface at all, and declares the repository's line endings (`* text=auto eol=lf`).
+`ILlmClient` can reach the backends it names (**D87**). **D95** and **D96** are the odd ones out in that
+group — neither touches a library surface: one declares the repository's line endings (`* text=auto eol=lf`),
+the other puts a length ratchet on the entries of this very list.
 <br>**D67–D82** are the ones a session most often holds
 stale assumptions about, because they landed after the pre-freeze review: the generation stream door
 (**D67**), the accelerator-derived diffusion ceiling (**D68**), unmeasured generation mappings becoming host
@@ -105,7 +106,7 @@ silently break; the reasoning is in the decision named beside it.
     working.** Guarded by `MemoryAuthoritativeSurvivalTests` plus a control requiring the same facts to be
     LOST without the grade.
 
-**The packaging rules are gated, not remembered** — `verify` runs fifteen checks. `check-warnings` (a warning
+**The packaging rules are gated, not remembered** — `verify` runs sixteen checks. `check-warnings` (a warning
 in a published project fails the build, because an unfailed IL2026 is a FALSE trim promise), `check-packages`
 (a package must be registered in all nine registries — a missing `ApiSurfaceTests` entry means no API gate at
 all), `check-bundle` (the bundle's dependency closure cannot grow without a decision), `check-docs` (a doc
@@ -114,7 +115,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3429 passed / 3450 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 416/416, doc samples 78/78.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 434/434, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -238,9 +239,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
 
 ## Dev loop
 
-- **`node devtools/dev.mjs verify`** — the "am I done?" gate, fifteen checks stopping at the first failure:
+- **`node devtools/dev.mjs verify`** — the "am I done?" gate, sixteen checks stopping at the first failure:
   **guard tests** → build → warnings → packages → bundle → **encoding** → **docs** → **links** →
-  **counts** → **comments** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
+  **counts** → **comments** → **decisions** → **api vocabulary** → **samples** → test → e2e → leak scan. The summary line is DERIVED from
   the step list, so a gate added without updating prose still names itself. Run before
   claiming a change is complete. The guard tests run FIRST on purpose: nothing below that gate can be
   trusted if the gates themselves are broken.
@@ -398,6 +399,21 @@ owned outside the deployment; `DECISIONS.md` D30) /
   Paying one down means moving the design argument to the record that owns it and keeping the RULE plus a
   pointer; deleting the entry is the goal, not an edge case. Line escape is **`comment-ok`** on a block's
   first line, deliberately not `drift-ok`.
+- `node devtools/dev.mjs check-decisions` — **fail if a `docs/DECISIONS.md` entry outgrows the decision**
+  (part of `verify`). The second length ratchet, pointed at the record rather than the code. Measured
+  2026-08-28: mean non-blank lines per entry went **11.6** across the log's first third → **14.2** across
+  the second → **38.5** across the last, a 3.3× growth in the file this one routes every session to BY
+  RANGE. Not the entry count and not data — that last third holds 40 table rows and 19 lines carrying a
+  figure, in 1556 lines. It is
+  prose: amendment narrative written in place, and several decisions stacked under one number.
+  `persist-working-state.md` had already recorded the FIRST version of this and answered it with a rule;
+  that rule held on entry COUNT and did nothing about LENGTH, which is the argument for a gate.
+  **It is NOT the archive's compression** — a decision's reasoning is its payload, so the gate bounds an
+  entry and never asks for one to be summarized away. Paying one down moves MEASUREMENT narrative to the
+  design record that owns it and AMENDMENT narrative to git history. Limit **35** non-blank lines (median
+  16, p75 35); 21 entries were already over it, so it is a ratchet like `check-comments` —
+  `decisionLengthAllowances`, where an allowance looser than the entry needs FAILS. **No escape token**,
+  deliberately: an allowance is a visible ratcheted number and is the only way out.
 - `node devtools/dev.mjs check-api-vocabulary` — **fail if the FROZEN public surface reintroduces a name a
   decision retired** (part of `verify`, beside `check-docs`). The two are twins: one asks whether the PROSE
   still says what a decision settled, the other asks it of the SURFACE. It exists because the API baseline

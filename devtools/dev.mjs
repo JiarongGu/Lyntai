@@ -7,6 +7,7 @@
 //   node devtools/dev.mjs check-encoding   - FAIL if a tracked text file contains MOJIBAKE (mangled UTF-8)
 //   node devtools/dev.mjs check-counts     - FAIL if a COUNT written in prose disagrees with the tree
 //   node devtools/dev.mjs check-comments   - FAIL if a comment block outgrows what it explains
+//   node devtools/dev.mjs check-decisions  - FAIL if a DECISIONS.md entry outgrows the decision
 //   node devtools/dev.mjs check-api-vocabulary
 //                                          - FAIL if a committed API baseline still spells a retired name
 //   node devtools/dev.mjs check-samples [--list]
@@ -552,6 +553,16 @@ switch (cmd) {
     break;
   }
 
+  // The other length ratchet, and the same discipline pointed at the decision record instead of the code:
+  // an entry that outgrows the decision has stopped being one. Registry: `decisionLengthAllowances` in
+  // project.config.mjs (an allowance looser than the entry needs fails, and so does one at or below the
+  // limit). There is deliberately NO line escape — the allowance is the only way out, because unlike a
+  // comment no entry here has the "a reader would not want this shorter" shape `comment-ok` exists for.
+  case 'check-decisions': {
+    run('node', [path.join(repo, 'devtools', 'scripts', 'check-decisions.mjs'), ...args]);
+    break;
+  }
+
   // FAIL when a tracked text file contains mojibake — UTF-8 decoded as another codepage and written back.
   //
   // A gate rather than a rule because the rule already existed and was still broken THREE TIMES in one
@@ -631,7 +642,8 @@ switch (cmd) {
     // file and while the edit that caused it is still the last thing that happened.
     const steps = [['test-devtools', []], ['build', []], ['check-warnings', []], ['check-packages', []],
       ['check-bundle', []], ['check-encoding', []], ['check-docs', []], ['check-links', []],
-      ['check-counts', []], ['check-comments', []], ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
+      ['check-counts', []], ['check-comments', []], ['check-decisions', []],
+      ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
     let failed = null;
     for (const [step, extra] of steps) {
