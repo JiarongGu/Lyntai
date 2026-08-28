@@ -521,8 +521,8 @@ owned outside the deployment; `DECISIONS.md` D30) /
   net cost and **D45's argument was right without a measurement**. The default did NOT move on one run.
   <br>**`memory-scale`** (2026-08-26) is the odd one out and says so in its own header: **its subject is
   COST, not recall quality**, so it reports latency, throughput and bytes and has no ground truth at all.
-  It closes the blind spot `docs/memory.md` §8 concedes outright — *"nothing exceeds a few hundred
-  entries"* — which `MemoryRecallBenchmarks` did NOT already cover: that one runs 1k/10k/100k against
+  It closes the blind spot `docs/memory.md` §7 conceded outright — nothing exceeded a few hundred
+  entries — which `MemoryRecallBenchmarks` did NOT already cover: that one runs 1k/10k/100k against
   `SqliteMemoryStore`, the KEYWORD store, so the graph engine's own write and read paths were unmeasured at
   any size. Two arms (`shipped` / `read-only`) exist to SPLIT a default recall's latency into the read and
   the write-back it performs afterwards. It runs **sequentially** where every other sweep fans out, because

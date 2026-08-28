@@ -9,8 +9,8 @@ using Microsoft.Data.Sqlite;
 namespace Lyntai.Benchmarks;
 
 /// <summary>
-/// One factor: how many entries the store holds. The blind spot <c>docs/memory.md</c> §8 concedes in as
-/// many words — <i>"Scale. Nothing exceeds a few hundred entries, single-threaded."</i>
+/// One factor: how many entries the store holds. The blind spot <c>docs/memory.md</c> §7 CONCEDED in as
+/// many words — <i>"Scale. Nothing exceeds a few hundred entries, single-threaded."</i> — until this ran.
 ///
 /// <para><b>Why the existing benchmark does not already cover this.</b>
 /// <see cref="MemoryRecallBenchmarks"/> does run 1k/10k/100k rows, and it runs them against

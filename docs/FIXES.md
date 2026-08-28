@@ -432,8 +432,8 @@ missing credential, so a deployment one config line from working benches itself 
 ("typed status wins over body text"). ComfyUI then hardcoded `GenerationVerdict.Failed`; fal called
 `FromErrorText`, which reads a `"401: …"` status line as ordinary prose and also answers `Failed`.
 
-**Why nothing caught it, and the interesting half.** The divergence was already WRITTEN DOWN, in `TASKS.md`
-§Startable — and its description was wrong. It recorded ComfyUI as hardcoding `Failed` "while
+**Why nothing caught it, and the interesting half.** The divergence was already WRITTEN DOWN, in `TASKS.md`'s
+then-`Startable` section (closed as `docs/task-archive.md` Part 87) — and its description was wrong. It recorded ComfyUI as hardcoding `Failed` "while
 `FalQueueProvider` routes the same class of failure through `GenerationVerdictClassifier`", i.e. fal was
 believed correct. Nobody had run it. This is the second time in two days that a claim recorded in a
 maintained file, by someone who had read the code, turned out false when measured.

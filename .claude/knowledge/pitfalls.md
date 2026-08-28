@@ -1223,7 +1223,8 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 ## Testing
 
 - **A finding that is WRITTEN DOWN is not a finding that was VERIFIED, and this repository keeps treating
-  the two as the same.** Twice in two days (2026-08-17): `TASKS.md` §Startable recorded a divergence as
+  the two as the same.** Twice in two days (2026-08-17): `TASKS.md`'s then-`Startable` section (closed as
+  `docs/task-archive.md` Part 87) recorded a divergence as
   "ComfyUI hardcodes `Failed` while `FalQueueProvider` routes the same class through
   `GenerationVerdictClassifier`" — so fal was believed correct, and the item was filed as coverage work
   rather than a bug fix. Measured with the first contract test that reached it: **fal reports `Failed` too**,

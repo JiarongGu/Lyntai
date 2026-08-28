@@ -6834,7 +6834,7 @@ changed**._
   `Ordinary_evidence_is_buried_but_not_deleted`, and `Projection_rebuild_restores_every_ledger_assertion`.
   Two gaps remain and are in `TASKS.md` rather than claimed here.
 
-- [x] **`memory-scale`** (`5ce9667`) — the blind spot `docs/memory.md` §8 conceded outright. Write
+- [x] **`memory-scale`** (`5ce9667`) — the blind spot `docs/memory.md` §7 conceded outright. Write
   throughput is FLAT across 100× (210–260/s at 1k, 10k and 100k), recall p50 `10.4 → 42.0ms`, ~1 KB/entry.
   `MemoryRecallBenchmarks` did not already cover it: that runs against the KEYWORD store. **It refuses to
   publish a number it cannot support** — the arm decomposition came out NEGATIVE at 100k, which is variance
