@@ -618,6 +618,37 @@ knowledge updates, distractors that should be suppressed. **LongMemEval's knowle
 categories** are the closer fit, and on those a working decay model should beat a flat archive rather than
 apologise to it.
 
+### The benchmark where forgetting WINS (`memory-longmemeval`, 2026-08-29)
+
+LoCoMo rewards a perfect archive and penalises decay by construction. This is the opposite shape and the
+one this design actually claims: **LongMemEval's knowledge-update class**, 70 questions, each carrying an
+earlier session stating a fact and a later one REVISING it. Both sit in the store, both are textually
+similar, and the flagged turns say which is which. So the score is not "can you find it" but **"do you
+prefer the CURRENT value over the superseded one"** — a claim a decay model makes and a flat index has no
+mechanism to make. Model-free, `k = 10`, `nomic-embed-text`.
+
+| arm | prefers current | current@k | stale@k | decidable |
+|---|---|---|---|---|
+| `lyntai` | **96.9%** (63/65) | **90.0%** | **54.3%** | 65 |
+| `vector` | 47.1% (32/68) | 84.3% | 95.7% | 68 |
+
+**Plain cosine is at chance**, which is what "no mechanism" looks like when it is measured rather than
+asserted: it returns the superseded fact 95.7% of the time and picks between the two about half the time.
+This engine prefers the current one **twice as often**.
+
+**Two controls stop that being an artifact, and both matter.** `prefers current` is scored only over
+questions where the arm returned at least one of the pair, so retrieving NEITHER cannot score a vacuous
+100% — and the `decidable` counts are comparable (65 against 68). More decisively, **`current@k` is HIGHER
+for this engine while `stale@k` is far lower**: it returns the current fact more often *and* the superseded
+one less often. That is discrimination, not a recall collapse dressed as precision.
+
+**Read the two benchmarks together, because neither is the whole picture.** On LoCoMo, which asks for
+arbitrary old material, a flat archive wins 80.5% to 31.0%. On knowledge updates, where old material has
+been superseded and should be suppressed, this engine wins 96.9% to 47.1%. **The same mechanism produces
+both numbers.** A library that scored well on both would be one that had stopped forgetting — and the
+honest summary is not "better" or "worse" but that decay is a bet about which of those two workloads a
+deployment has.
+
 ### How these choices sit against the published field (surveyed 2026-08-29)
 
 *A literature pass, not a measurement. Every claim below is attributed, because none of it was run here —

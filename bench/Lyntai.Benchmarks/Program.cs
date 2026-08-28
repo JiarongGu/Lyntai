@@ -42,6 +42,13 @@ if (args.Contains("--salience"))
 if (args.Contains("--locomo"))
     return await MemoryLocomoBench.RunAsync(args);
 
+// `node devtools/dev.mjs memory-longmemeval` → --longmemeval. The benchmark where forgetting is supposed
+// to HELP: a knowledge-update question carries an earlier fact and a later revision, so the score is whether
+// the memory PREFERS the current one — a claim a decay model makes and a flat index cannot. LoCoMo is the
+// opposite shape and penalises decay by construction. See MemoryLongMemEvalBench and docs/memory.md §5.
+if (args.Contains("--longmemeval"))
+    return await MemoryLongMemEvalBench.RunAsync(args);
+
 // `node devtools/dev.mjs memory-language` → --language. Every recall figure this repository publishes was
 // measured on English, space-separated text; this measures the same corpus in Chinese. See
 // MemoryLanguageSweep and docs/DECISIONS.md D55.

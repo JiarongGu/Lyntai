@@ -499,6 +499,17 @@ two harness defects that had to be fixed first are `docs/memory.md` §5._
   the candidate pool, in which case no ranking knob can recover it and `CandidateMultiplier` is the subject.
   Measure pool membership before tuning another weight.
 
+- [ ] **Extend `memory-longmemeval` past the knowledge-update class.** The class where forgetting is
+  supposed to help is now measured and this engine wins it decisively — prefers-current **96.9%** against
+  cosine's **47.1%**, with higher current@k and lower stale@k, so it is discrimination rather than a recall
+  collapse (`docs/memory.md` §5). What is NOT measured is the rest of the suite: **temporal-reasoning (133
+  questions)** is the obvious next class and the harness already loads it — `Load` filters to
+  `knowledge-update` in one line. Startable today; the dataset is a curl and the metric is model-free.
+  <br>**The oracle variant is the honest caveat.** It carries only the evidence sessions, so there are no
+  distractors and the two facts compete with nothing else. `longmemeval_s_cleaned.json` puts them in a
+  ~115k-token haystack, which is the harder and more realistic test — and the one where a decay model's
+  suppression could start costing recall rather than buying precision.
+
 - [ ] **Run the QA half, and more of it.** The model-free metric is the trustworthy one, but the accuracy
   table is what the field publishes. It needs a reader model, its absolute value is not comparable to a
   published number, and only the ARM DIFFERENCE transfers. 200 of 1540 questions were sampled; the full set
