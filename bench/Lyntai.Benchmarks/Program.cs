@@ -93,7 +93,7 @@ if (args.Contains("--density"))
 // `node devtools/dev.mjs memory-support` → --gist-support. Which rule selects a recurring cluster's CURRENT
 // regime: the combining form over member retrievability, and whether a small generative model beats it.
 // `--screen` runs the size ladder alone on one shape, which is the arm most likely to change what the gist
-// tier ships and the cheapest to kill.
+// tier ships and the cheapest to kill. ONE rung per invocation: a published ladder is that many runs.
 if (args.Contains("--gist-support"))
     return await MemoryGistSupportSweep.RunAsync(args);
 

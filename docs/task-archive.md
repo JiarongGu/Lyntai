@@ -7171,9 +7171,18 @@ provenance without moving it. The one shape and one seed became a **600-replay**
 (`node devtools/dev.mjs memory-support`; 60 shapes × 5 seeds × 2 injected clocks), whose tables are
 `docs/memory.md` §5.
 
+**And one artifact was built that no debt named — `CorpusShape.RoutineAnswer`.** It generates the identical
+routine writes while declaring the STANDING regime correct, which is the second answer arm, and it is what
+makes a rule that merely tracks recency refutable here instead of automatically right. It is also the artifact
+that produced the decision: seeing the same bytes carry two defensible answers is the argument **D94** turns
+on — that the corpus ENCODES the assistant deployment model rather than settling anything about raw support.
+
 **What the sweep found is narrower than the item expected, and one line of it is not a finding at all.**
 `sum` INVERTS with pacing (300/300 each way), so it cannot ship as the rule unless pacing is in its contract;
-no `count@θ` threshold is pacing-independent; and **`mean` is untestable on this corpus** — phase B is
+the only pacing-independent `count@θ` thresholds are the DEGENERATE ones (θ = 0.1 answers phase A always and
+θ = 0.9 phase B always, so each scores 0.000 on one of the two answer arms and neither is a rule — and θ = 0.1
+is the raw count on this grid, which is where raw's own pacing-independence reappears) while every θ that
+could DISCRIMINATE inverts; and **`mean` is untestable on this corpus** — phase B is
 snapshotted having never been recalled, at the ceiling, so `mean(B) ≥ mean(A)` is a theorem about the fixture
 rather than a measurement. The `ConnectionBoost = 0` control moved no verdict while demonstrably moving
 phase A's readings, so **none of the finding is the graph's contribution to the rule's INPUT** — and no

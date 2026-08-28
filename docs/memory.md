@@ -489,8 +489,23 @@ quoting either cell. Every other row is a measurement.
 
 **`sum` INVERTS with pacing, and that is the headline.** It picks the older regime under bulk and the newer
 one under spaced, 300/300 each way — so it cannot ship as *the* rule unless a deployment's write pacing is
-part of its contract. **And no θ is pacing-independent**: the transition sits between 0.7 and 0.9 under bulk
-and between 0.1 and 0.3 under spaced.
+part of its contract. **And the only pacing-independent `count@θ` thresholds are the DEGENERATE ones**:
+θ = 0.1 sits below phase A's floor (min r(A) = 0.602 bulk / 0.102 spaced), while θ = 0.9 sits high INSIDE its
+bulk band (max r(A) = 0.942, or 0.903 under `ConnectionBoost = 0` — the table below) — high enough that at
+most 3 of phase A's 8 members clear it, against phase B's constant 4. Each therefore answers the same regime
+on all 600 replays, and a constant is right on one answer arm and wrong on the other, which is what makes it
+useless as a rule (θ = 0.1 scores 0.000 on the recent arm, θ = 0.9 scores 0.000 on the standing arm). **Every θ that could DISCRIMINATE inverts with pacing**: the transition sits between
+0.7 and 0.9 under bulk and between 0.1 and 0.3 under spaced.
+<br>θ = 0.1 is also the RAW count on this grid — every one of the 12 members clears it on both clocks
+(min r(B) = 0.983 / 0.830) — so `count@0.1` returns (8, 4) on every replay, and it inherits raw's
+pacing-independence together with raw's wrongness for the assistant host. That equivalence is MEASURED here
+rather than structural: the spaced floor sits at 0.102 against a threshold of 0.1. **D94** carries what the
+pair of them means for the seam.
+<br>**The two degeneracies are not the same KIND of degenerate**, and the difference is what the next sweep
+turns on: θ = 0.1 is cardinality-INVARIANT — every member clears it, so `count@0.1` is exactly (|A|, |B|) at
+any size — while θ = 0.9 is an ORDER STATISTIC, (≤ 3, 4) here, that flips the moment |A| grows enough for a
+4th member to clear it. Cardinality is the axis `TASKS.md` Part 105 holds open, so the invariance at 0.1 must
+not be read into 0.9.
 
 **`mean` is not tested by this table, and reading its two `phase B` cells as a result would be wrong.** At the
 snapshot, phase B has never been recalled and was written immediately before, so it sits at the retrievability
@@ -512,7 +527,7 @@ members can outweigh four even when every one of them reads lower.
 `max r(A)` on both clocks (the table above; the spaced move, 0.043, is the larger) while `min r(A)` moves on
 neither — the boost lifts the most-connected members and leaves the least-connected alone, which is what a
 connection term should do. So **none of the finding is the graph's contribution to the rule's INPUT**.
-<br>**That is the whole of what the control establishes, and it is narrower than "**D54**'s feedback class is
+<br>**That is the whole of what the control establishes, and it is narrower than "D54's feedback class is
 excluded".** It re-reads the *same stored states* with the term off, so it removes the connection term from
 the rule's input and does not re-rank. A member's stability recording that it once landed in a recall's top
 five — the ranker's own contribution to stored `Stability`, which is what **D54** names — would need a second
@@ -527,7 +542,10 @@ without reading an entry, and counterbalancing rules out position bias, not labe
 
 **The ladder that selected that single rung is the more transferable result** — `node devtools/dev.mjs
 memory-support --screen`, measured 2026-08-28 through `llama-server` for every rung so the transport is held
-constant, on `RoutineCount = 12`, seed 12345, all four rungs run and none skipped:
+constant, on `RoutineCount = 12`, seed 12345, all four rungs run and none skipped. **The command screens ONE
+rung per invocation** — it resolves a single model from `LYNTAI_LIVE_CHAT_MODEL` and prints one verdict line
+— so the table below is four separate runs against four `llama-server` instances rather than one command's
+output:
 
 | rung | A-first | B-first | verdict |
 |---|---|---|---|
@@ -546,9 +564,13 @@ that larger would not have been better.
 `RoutineCount = 12` on all 600 replays, so every cell sits at |A|/|B| = 2, while the split
 (`max(1, RoutineCount/3)`) reaches 4.0 at `RoutineCount = 5`. A rule that clears ratio 2 need not clear 4, and
 cardinality is the axis the question is about. Also: English throughout, `RecallLimit = 10` unswept, and the
-saturation (every cell 300/300 or 0/300 except θ = 0.8) is structural rather than a sample-size artefact —
-phase B contributes a constant 4, so a cell is unanimous unless θ lands inside phase A's narrow band between
-its 4th- and 5th-largest member.
+saturation is structural rather than a sample-size artefact. **THREE cells in the table above are not
+unanimous** — bulk θ = 0.7 (A 290 · tie 10), bulk θ = 0.8 (tie 115 · B 125 · A 60) and spaced θ = 0.2
+(B 250 · A 50) — and the mechanism is that phase B contributes a constant 4, so a cell is unanimous unless θ
+lands inside phase A's narrow band between its 4th- and 5th-largest member. Only the two bulk cells are also
+unstable across SEEDS (θ = 0.7 at 55/60 shapes, θ = 0.8 at 40/60); the spaced θ = 0.2 split is seed-stable and
+divides the shape grid instead, which is a different failure of unanimity that reads identically in a picks
+column.
 
 ### Reinforcement: the signal, not the quantity
 

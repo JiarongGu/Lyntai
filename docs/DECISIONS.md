@@ -2684,6 +2684,8 @@ default.
 **Why the measurement could not settle that alternative, which is the part worth carrying.** The obvious
 reading of the instrument is that raw is refuted: `rawA = 8 > rawB = 4` under both pacings while the corpus
 declares the newer, smaller regime correct, so raw picks the wrong regime with no pacing dependence at all.
+**That pacing-independence is real and it reappears in the sweep below as `count@0.1`**, which is the same
+quantity on this grid — see the threshold bullet, which is where the two readings are reconciled.
 That does not license retiring the seam, because **`generic-library` rule 7 is an ARGUMENT test — *could two
 honest applications answer this differently* — and no measurement taken on a fixture that ENCODES one of those
 applications can decide it.** The routine corpus is exactly that fixture: its query is *"what do I usually
@@ -2698,8 +2700,22 @@ memory-support`, 600 replays = 60 shapes × 5 seeds × 2 injected clocks; the ta
 - **`sum` INVERTS with pacing** — phase A under bulk, phase B under spaced, 300/300 each way. It is a real
   measurement and it disqualifies `sum` as *the* rule unless the deployment's write pacing is part of its
   contract, which nothing here can put there.
-- **No `count@θ` threshold is pacing-independent.** The transition sits between θ 0.7 and 0.9 under bulk and
-  between 0.1 and 0.3 under spaced. There is no θ that selects the same regime under both.
+- **The only pacing-independent `count@θ` thresholds are the DEGENERATE ones, and every θ that could
+  DISCRIMINATE inverts with pacing.** θ = 0.1 answers phase A on all 600 replays and θ = 0.9 answers phase B
+  on all 600, for DIFFERENT reasons: 0.1 sits below phase A's floor, while 0.9 sits high INSIDE its bulk band
+  — max r(A) = 0.942 there, and 0.903 under `ConnectionBoost = 0` (`docs/memory.md` §5's band table) — high
+  enough that at most 3 of phase A's 8 members clear it against phase B's constant 4. Either way a constant is
+  right on one answer arm and wrong on the other, so neither is a rule: θ = 0.1 scores 0.000 on the recent
+  arm, θ = 0.9 scores 0.000 on the standing arm. Between them the transition sits between θ 0.7 and 0.9 under
+  bulk and between 0.1 and 0.3 under spaced.
+  <br>**θ = 0.1 is where this meets the raw reading above, and on this grid the two are the same quantity.**
+  Every one of the 12 members clears 0.1 on both clocks (min r(A) = 0.602 bulk / 0.102 spaced, min r(B) =
+  0.983 / 0.830), so `count@0.1` returns (8, 4) on every replay: it IS the raw count here, which is why it
+  inherits raw's pacing-independence and raw's wrongness for the assistant host together. The equivalence is
+  MEASURED on this grid rather than structural — the spaced floor sits at 0.102 against a threshold of 0.1.
+  <br>**The two degeneracies differ in KIND, which is what the cardinality limit below turns on.** θ = 0.1 is
+  cardinality-INVARIANT: every member clears it, so `count@0.1` is exactly (|A|, |B|) at any size. θ = 0.9 is
+  an ORDER STATISTIC — (≤ 3, 4) here — and flips as soon as |A| grows enough for a 4th member to clear it.
 - **`mean` is UNTESTABLE on this corpus, and that is a statement about the fixture rather than a result.**
   Phase B is snapshotted having never been recalled, at min retrievability 0.983 (bulk) / 0.830 (spaced)
   against a cap of 1, so `mean(B)` sits at the ceiling and `mean(A) <= 1` follows by definition. Testing it

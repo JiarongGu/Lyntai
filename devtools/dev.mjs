@@ -315,7 +315,9 @@ switch (cmd) {
   // declared answers, so a rule that merely tracks recency can be refuted rather than winning by
   // construction. Its MECHANICAL arms are model-free and always run; the model arm is additive and says
   // so when it is skipped. `--screen` is the size ladder alone, on one shape, and EXITS rather than
-  // substituting a scripted stand-in: an arm measuring what a model is worth cannot use a double.
+  // substituting a scripted stand-in: an arm measuring what a model is worth cannot use a double. It screens
+  // ONE rung per invocation — one model from LYNTAI_LIVE_CHAT_MODEL, one verdict line — so a published
+  // ladder is that many separate runs, never one command's output.
   case 'memory-support':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--gist-support', ...args]);

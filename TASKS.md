@@ -19,7 +19,7 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**Two items are startable — one in Part 99 and one in Part 105**, and the rest need something this
+**Three items are startable — one each in Part 99, Part 105 and Part 106**, and the rest need something this
 repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
 data). That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
@@ -422,11 +422,12 @@ what kind._
   `MemoryGistSupportSweep`'s grid; the corpus already accepts the shape.
   <br>**What a result would have to survive to be worth adopting**, all learned from the run that is done:
   `sum` INVERTS with pacing (older regime under bulk, newer under spaced, 300/300 each way), so a
-  cardinality finding that holds on one clock and not the other settles nothing; no `count@θ` threshold is
-  pacing-independent either; and **`mean` is untestable on this corpus at all** — phase B is snapshotted
-  having never been recalled, at the retrievability ceiling, so `mean(B) ≥ mean(A)` is a theorem about the
-  fixture. Testing `mean` needs phase B off the ceiling at the snapshot, which is a corpus change rather than
-  a sweep argument.
+  cardinality finding that holds on one clock and not the other settles nothing; the only pacing-independent
+  `count@θ` thresholds are the DEGENERATE ones (θ = 0.1 always answers phase A, θ = 0.9 always phase B, each
+  scoring 0.000 on one of the two answer arms) while every θ that could DISCRIMINATE inverts too; and
+  **`mean` is untestable on this corpus at all** — phase B is snapshotted having never been recalled, at the
+  retrievability ceiling, so `mean(B) ≥ mean(A)` is a theorem about the fixture. Testing `mean` needs phase B
+  off the ceiling at the snapshot, which is a corpus change rather than a sweep argument.
   <br>Startable today — no key, no model download, no install. The model arm is optional and additive: it
   prints an explicit SKIPPED line when no chat model answers, and on this question it returned exactly the
   recency reading against a prompt that names the recency ordering.
@@ -434,10 +435,37 @@ what kind._
 - [ ] **Build the gist tier.** **BLOCKED on a DECISION nobody has taken** — which support rule it computes —
   and that decision is blocked in turn on DATA the item above has to produce. **D94** settled the tier's
   SHAPE (no seam) and `docs/memory.md` §5 says which rules were refuted and which were never tested, but no
-  rule is adopted and none can be until the cardinality sweep runs: `sum` inverts with pacing, no `count@θ`
-  is pacing-independent, and `mean` is untestable on the corpus as it stands. **Re-check this against the
-  sweep's output, not against the tree** — a decision blocker is refuted by the measurement that decides it
-  (`task-lifecycle.md`).
+  rule is adopted and none can be until the cardinality sweep runs: `sum` inverts with pacing, every
+  DISCRIMINATING `count@θ` inverts with it (the two thresholds that do not are degenerate constants, each
+  wrong on one of the two answer arms), and `mean` is untestable on the corpus as it stands. **Re-check this
+  against the sweep's output, not against the tree** — a decision blocker is refuted by the measurement that
+  decides it (`task-lifecycle.md`).
+
+## Part 106 — the working tree is CRLF against an LF index, and nothing in the repo says so (2026-08-28)
+
+_A standing hazard, not an incident. It is written up in `.claude/knowledge/pitfalls.md` and
+`.claude/rules/windows-machine.md` — both read-before-extending documents — and a hazard that lives only there
+is one a session meets by tripping over it. The fix is a repository decision nobody has taken._
+
+- [ ] **Decide the line-ending convention and commit it as `.gitattributes`.** Most of this working tree is
+  `i/lf w/crlf`: on 2026-08-28 `git ls-files --eol | awk '{print $1, $2}' | sort | uniq -c` read about **four
+  in five** tracked files that way, plus a handful of `i/lf w/mixed` (659 and 3 of 830 that day — a snapshot
+  of the WORKING TREE, which drops by one every time somebody repairs a file, which is why `pitfalls.md`
+  publishes the ratio and not the count). Git's stat cache hides it until a file is touched, so **editing any
+  of those files surfaces the whole file as changed and commits it as CRLF** — `core.autocrlf` is `false` at
+  REPO scope, so the index gets the tree verbatim.
+  <br>**The repo-scope setting is the reason this is a task rather than a note.** It lives in `.git/config`,
+  which is untracked, so it protects nothing in anybody else's clone and cannot be reviewed; there is **no
+  `.gitattributes`**, which is the one fix that does travel. A teammate cloning under a `true` at global scope
+  gets different behaviour from the same bytes.
+  <br>**It has bitten twice on one branch** — a 1267 / 1063 diff for a real 204-line change, and a 100-line
+  diff for a 6-line csproj addition. Both were caught by comparing `git diff --stat` against
+  `git diff --ignore-cr-at-eol --stat`, by a person, after the fact.
+  <br>**The work is small and the decision is not**: a `* text=auto` (or an explicit per-type equivalent) plus
+  ONE renormalize commit that rewrites most of the tree. That commit buries anything landing beside it, which
+  is why it was deliberately not taken on a measurement branch — it wants its own change, its own review, and
+  a `git log --follow` note that it is mechanical.
+  <br>Startable today — no key, no model download, no install, no service.
 
 ---
 

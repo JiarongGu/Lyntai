@@ -29,11 +29,11 @@ namespace Lyntai.Benchmarks;
 /// <para><b>Measured 2026-08-28: 600 replays, every control held, no rule won both arms.</b> <c>sum</c>
 /// INVERTS with pacing — phase A under bulk, phase B under spaced, 300/300 each way — which is real, because
 /// it turns on whether mean r(A) sits above or below 0.5 and the burst damping is what decides that. The
-/// theta curve LOCATES phase A's band rather than ranking rules: bulk holds phase A to 0.6, ties at 0.7,
-/// splits at 0.8 (the only cell unstable across seeds) and flips to B at 0.9; spaced holds phase A at 0.1
-/// alone and is phase B from 0.3 up. The <c>ConnectionBoost=0</c> control moved no cell on either clock.
-/// gemma-3 4b it answered phase B on 300/300 pairs with ZERO order disagreements — position-invariant, and
-/// exactly the recency reading, though the prompt LABELS which option is more recent.</para>
+/// theta curve LOCATES phase A's band rather than ranking rules: bulk holds A through 0.6, keeps A 290/300
+/// at 0.7, splits three ways at 0.8, flips to B at 0.9; spaced holds A at 0.1, splits 250B/50A at 0.2 and is
+/// B from 0.3 up. THREE cells are non-unanimous; only bulk's two are seed-split (55/60, 40/60 shapes).
+/// <c>ConnectionBoost=0</c> moved no cell on either clock. gemma-3 4b it answered phase B on 300/300 pairs
+/// with ZERO order disagreements — the recency reading, though the prompt LABELS which option is recent.</para>
 /// </summary>
 internal static class MemoryGistSupportSweep
 {
@@ -54,6 +54,9 @@ internal static class MemoryGistSupportSweep
     /// <para><b>Position is COUNTERBALANCED and a rung must win both orders.</b> A small model asked to pick
     /// between two labelled options has a position bias, and a rung that always answers "2" scores 50% while
     /// looking like a partial success.</para>
+    /// <para><b>ONE rung per invocation.</b> The model is whatever <c>SweepDoubles.ChatModel</c> resolves
+    /// (<c>LYNTAI_LIVE_CHAT_MODEL</c>), and this method prints ONE verdict line — so the four-rung ladder
+    /// below is four separate runs against four servers, and no single command produces that table.</para>
     /// <para><b>Measured 2026-08-28, llama-server, <c>RoutineCount=12</c>, seed 12345 — all four rungs run,
     /// none NOT TESTED.</b> gemma-3 270m it: A-first EARLIER, B-first LATER — a pure "always answer option 1"
     /// bias, does NOT survive. gemma-3 1b it: A-first LATER, B-first EARLIER — a pure "always answer option
@@ -246,7 +249,18 @@ internal static class MemoryGistSupportSweep
 
     /// <summary>Scores one rule over one clock's replays against BOTH declared answers. Accuracy is measured
     /// against the answer each corpus actually DECLARED, never against a hard-coded phase — which is what
-    /// lets <see cref="ReportImpossibleWins"/> catch two arms wired to the same ground truth.</summary>
+    /// lets <see cref="ReportImpossibleWins"/> catch two arms wired to the same ground truth.
+    /// <para><b>On THIS grid the two accuracy columns are the pick columns transposed — arithmetically, not
+    /// approximately.</b> The standing corpus is GENERATED but never replayed; C4 holds 600/600 so the two
+    /// declared answers differ and neither ties, C5 holds 600/600 so both regimes are fully enumerated, and
+    /// <see cref="RoutineAnswer.Recent"/> names phase B. Every cell therefore carries
+    /// <c>RecentDeclared = PhaseB</c> and <c>StandingDeclared = PhaseA</c>, which makes
+    /// <c>RecentAccuracy == PicksB/n</c> and <c>StandingAccuracy == PicksA/n</c>. Read "recent 1.000 /
+    /// standing 0.000" as ONE measurement stated twice, never as two.</para>
+    /// <para><b>The standing ARM still earns its keep even though the standing COLUMN is redundant.</b> The
+    /// corpus axis is what shows the same writes carrying two defensible answers — the argument the gist
+    /// tier's shape turns on — and it is what <see cref="ReportImpossibleWins"/> checks against. Dropping the
+    /// arm to remove a duplicated column would drop the control with it.</para></summary>
     private static ArmScore Score(string rule, IReadOnlyList<Cell> cells, Func<StateSnapshot, Pick> select)
     {
         var picks = cells.Select(c => (c.Shape, Pick: select(c.Before), c.RecentDeclared, c.StandingDeclared)).ToList();
