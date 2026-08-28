@@ -508,11 +508,38 @@ graph-walk and subject seeds" — and it is the first measurement of what that c
 that no ANSWER may be computed from the value; this adds that the mixed scale also defeats the seeding
 feature itself.
 
-**What that does and does not settle.** It explains the arm and it does not fix it: making the scales
-commensurable is a design change (`docs/DECISIONS.md` would own it), and this run says nothing about which
-form it should take. It also does not explain the whole 11% → 80% gap — `lyntai+rel` reaches only 22.5% with
-retrievability weighted out entirely, so the ranking's recency preference and this scale defect are two
-separate costs, and only the second is now understood.
+**The ROOT CAUSE is a literal, found the same day.** `MemoryNodeRow.ToNode` — and its InMemory twin —
+materialize every row with `Relevance = 1`, the maximum. `SeedAsync` overwrites it with a real score;
+`NeighboursAsync` and `GetAsync` do not. So every graph-walk candidate and every seed fetched by id claims a
+perfect relevance it never earned, and outranks everything that did. That is why the pool reads flat 1.000,
+why a 0.785 cosine loses, and why the knob moves the number by exactly zero.
+
+**Setting it to 0 was tried, and it is the strongest single lever measured on this engine:**
+
+| arm | before | after |
+|---|---|---|
+| `lyntai` (defaults) | 11.0% | **31.0%** |
+| `lyntai+sem` | 11.0% | **36.0%** |
+| `lyntai+rel` | 22.5% | **63.5%** |
+| `vector` (control, engine untouched) | 80.5% | 80.5% |
+
+The control's being byte-identical is what says the harness did not move underneath. `SemanticSeedK` becomes
+worth **+5.0 points** where it was worth exactly 0.0 — it was unreachable, not weak. **That also revises the
+"two separate costs" reading above**: much of what looked like a recency preference was this literal, since
+relevance-only ranking still put unscored neighbours first.
+
+**And 0 is ALSO wrong, which is why nothing shipped.** `MultiplicativeRankingPolicy` scores a PRODUCT of
+relevance and retrievability, so a 0 annihilates a candidate rather than ranking it low: in
+`GraphMemoryRankingGoldenTests` the hop-1 and hop-2 entries did not move down the expected order, they
+VANISHED from the result. Under a shipped policy that deletes graph traversal. The field cannot express "not
+measured" at all — `1` beats every real score and `0` is fatal — so the fix is a design decision and
+`TASKS.md` Part 109 carries it with this measurement attached.
+
+**One recorded conclusion is overturned by the same experiment.** `MemoryVerifiedReinforcementTests` asserts
+the two shipped model-free rankers are indistinguishable and concludes "model-free policy choice has no
+headroom left on this corpus". With relevance informative they diverge — pollution 0.333 against 0.351, RRF
+ahead. That indistinguishability was an artifact of relevance being a constant: with no signal, every ranker
+degenerates to the same order.
 
 **Two harness defects were caught before publishing, and both would have produced a wrong headline.** The
 first run benchmarked `SemanticSeedK = 0` against a cosine baseline, which is measuring a misconfiguration —

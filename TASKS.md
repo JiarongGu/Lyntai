@@ -482,9 +482,42 @@ measurement this repository has taken on an instrument it did not build: evidenc
 LoCoMo questions. Shipped defaults **11.0%**, plain cosine **80.5%**, same embedder and same k. Tables and
 the two harness defects that had to be fixed first are `docs/memory.md` §5._
 
-- [ ] **DECIDE how a seeded candidate is scored, because `SemanticSeedK` currently cannot win.** *(The
-  "why" half of this item CLOSED 2026-08-29 — `docs/memory.md` §5 and `pitfalls.md` carry the measurement.
-  What is left is the design question it exposed.)*
+- [ ] **DECIDE what an UNMEASURED relevance is, because the field cannot express one and both available
+  values are wrong.** *(The "why" half CLOSED 2026-08-29 and the ROOT CAUSE was found and measured the same
+  day; `docs/memory.md` §5 and `pitfalls.md` carry both. What is left is a design decision with library
+  surface, which is why it is still open.)*
+  <br>**The root cause is a literal.** `MemoryNodeRow.ToNode` — and its InMemory twin — materialize every
+  row with `Relevance = 1`, the MAXIMUM. `SeedAsync` overwrites it with a real score; `NeighboursAsync` and
+  `GetAsync` do not. So every graph-walk candidate, and every semantic or subject seed fetched by id, claims
+  a perfect relevance it never earned and outranks everything that did. The doc directly above the line says
+  `Relevance` is "deliberately NOT set here", which was the intent — the value chosen is the most harmful
+  one available.
+  <br>**Setting it to 0 was tried and MEASURED** (`memory-locomo --retrieval --n 200`, both backends
+  changed, whole suite run):
+
+  | arm | before | after |
+  |---|---|---|
+  | `lyntai` (defaults) | 11.0% | **31.0%** |
+  | `lyntai+sem` | 11.0% | **36.0%** |
+  | `lyntai+rel` | 22.5% | **63.5%** |
+  | `vector` (control, untouched) | 80.5% | 80.5% |
+
+  `SemanticSeedK` becomes worth +5.0 points where it was worth exactly 0.0 — the option was unreachable, not
+  weak. **But 0 is ALSO wrong, and a golden caught it**: `MultiplicativeRankingPolicy` scores a PRODUCT of
+  relevance and retrievability, so a 0 annihilates the candidate rather than ranking it low. The hop-1 and
+  hop-2 entries did not move down the golden's expected order — they VANISHED from the result. Under a
+  shipped ranking policy that deletes graph traversal outright.
+  <br>**It also overturns a recorded finding, which is a second reason it needs a ruling.**
+  `MemoryVerifiedReinforcementTests` asserts RRF and Multiplicative are indistinguishable and concludes
+  "model-free policy choice has no headroom left on this corpus, so 'swap the ranker' is not an available
+  fix". With relevance informative they diverge (pollution 0.333 against 0.351, RRF better). That conclusion
+  was an artifact of relevance being a CONSTANT — with no signal, every ranker degenerates to the same order.
+  <br>**So the decision is what a candidate whose relevance was never measured should report**, and neither
+  available value works: `1` beats every real score, `0` is fatal under a multiplicative policy. Candidates
+  include separating "unmatched" from "scored zero" on `GraphNode` (surface change), exempting hop > 0 from
+  the product, or giving the walk its own RRF input and leaving relevance alone. **D56's precedent matters
+  here**: a grade-admitted entry reports relevance 0 and is re-admitted by the engine rather than ranked, so
+  the library already has one answer to "admitted without being matched" — and it is not a relevance value.
   <br>The control settled the mechanism: every vector is stored (369 of 369), the collection name matches,
   the search returns a full k and every id parses — the seeds reach the pool and are added at hop 0. They
   then lose, because the pool is saturated with **flat `1.000`** relevance while the best cosine in the whole
