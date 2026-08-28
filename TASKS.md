@@ -19,15 +19,22 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**The startable set: Part 109's ranking-default decision and its QA half, Part 65's `NoveltyWeight` sweep,
-and the 3D-backend survey inside Part 33 / GEN7.** Part 109 is the one to read first — it holds the only
-measurements here taken on an instrument this repository did not build, and two of them have already closed
-(**D97**, and Part 112's haystack run). Part 65's entry named the `many-candidates` *paired* sweep until
-2026-08-29, and that sweep had run on 2026-08-28 — its own text says so, and says the remaining knob is
-`NoveltyWeight`. The rest need something this
-repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
-data). **Part 99 is a WATCH item and not startable work** — its fix is already pinned by a test with a
-positive control, so nothing in it is codeable and only RECURRENCE can close it. That is stated first
+**The startable set is TWO items: Part 109's QA half, and the 3D-backend survey inside Part 33 / GEN7.**
+Each is a `- [ ]` you could open today — which is the test this banner failed twice on 2026-08-29, so apply
+it literally: **if the banner names something that is not an open checkbox below, the banner is wrong.**
+Both names it carried that day were sweeps that had already run, with their write-ups sitting in
+`docs/memory.md` §5 while the banner advertised them.
+<br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
+its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
+not work somebody can start — the same reason Part 105 sits under Blocked. Everything measurable in it has
+been measured.
+<br>Part 109 is still the Part to read first — it holds the only measurements here taken on an instrument
+this repository did not build — but three of its four items have now closed (**D97**, Part 112's haystack
+run, Part 113's ranking ladder), and what is left needs a reader model rather than a design. The rest of
+this file needs something this repository does not have (a key, a model download, a CLI install, a vendor
+pick, or a deployment's own data). **Part 99 is a WATCH item and not startable work** — its fix is already
+pinned by a test with a positive control, so nothing in it is codeable and only RECURRENCE can close it.
+That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
 two paragraphs down before trusting any "blocked" label here**: a banner that over-claims blockage hides
 startable work inside, and this one has now been wrong that way three times — most recently on 2026-08-28,
@@ -39,11 +46,18 @@ said "CLOSED as **D89**" inside itself since 2026-08-23 — so the file's own su
 work that was finished. It is `docs/task-archive.md` Part 98 now. **A stale banner is worse than a stale
 entry**: the entry is one item, the banner is the answer to the question the file exists for._
 
-_**And it happened again with the same Part, three days later** (corrected 2026-08-29): the banner named the
-`many-candidates` PAIRED SWEEP, which had run on 2026-08-28 and is written up inside that very item. Same
-failure, same entry, one revision apart — so the lesson is not "re-read Part 65" but that **an item amended
-in place does not amend the banner**, and the amendment is exactly when the banner goes stale. Re-read the
-banner against every item you touch, in the same change._
+_**Then twice more on 2026-08-29, and the second one is the instructive half.** The banner still named the
+`many-candidates` PAIRED SWEEP, which had run the day before and is written up inside that very item. That
+was corrected — to **`NoveltyWeight`**, which had ALSO already run, in the same commit as the sweep it
+replaced. So the correction repeated the defect it was fixing, and shipped: the fix was made by re-reading
+the item's own prose, and that prose named the next knob without saying it had already been turned._
+
+_**Four instances, one mechanism: an item amended IN PLACE does not amend the banner, and the amendment is
+exactly when the banner goes stale.** Re-reading the entry is not enough, because the entry is what went
+stale. **Check the instrument instead** — `docs/memory.md` §5 or the archive will say whether the thing you
+are about to advertise has already run — and re-read the banner against every item you touch, in the same
+change. `.claude/knowledge/pitfalls.md` carries the rest, including why the three obvious gates for this
+each catch one instance in four._
 
 **The pattern to expect: the next startable item arrives from a CONSUMER, not from this list.** Every
 same-day burst of work since 3.0 came in that way, and the archive has each one. This banner does not
@@ -93,14 +107,14 @@ Blocked, and on what:
     RATE across models rather than an anecdote, and this machine holds exactly one chat model
     (`gemma3:4b`), so "across models" is unreachable without pulling more. The line below said "a
     measurement budget" until 2026-08-28, which reads as startable.
-  - *`many-candidates`* — **NO LONGER BLOCKED (2026-08-23); it needs a measurement budget, not an
-    environment.** It was blocked on a real embedding model, because salience reads NOVELTY, novelty needs an
-    embedder, and without one `StructuralSaliencePolicy` declines on every write — so any sweep of a salience
-    bound is flat by construction, and `FakeEmbedder` cannot stand in (Part 69 withdrew the numbers taken
-    through it). **`embeddinggemma` is pulled on this machine**, so that dependency — the same one
-    `memory-enrichment` carries, and the same reason it exits rather than faking one — is satisfied. The item
-    stays open because the WORK is open: designing the bounded-admission rule off a single-seed replay would
-    be the over-fitting D49 refused, so it needs the paired sweep, which is tens of minutes per arm.
+  - *the `MaxSalience` defaults question* — **blocked on a DECISION, not on an environment.** This slot used
+    to hold `many-candidates`, which was blocked on a real embedding model (salience reads NOVELTY, and
+    without an embedder `StructuralSaliencePolicy` declines on every write, so any sweep of a salience bound
+    is flat by construction — and `FakeEmbedder` cannot stand in, Part 69 having withdrawn the numbers taken
+    through one). That cleared when `embeddinggemma` was pulled here; the paired sweep ran on 2026-08-28 and
+    the `--ceiling` and `--novelty` ladders on 2026-08-29. Everything measurable has now been measured and
+    the stale XML doc is fixed, so what is left is one question for the owner: two shipped defaults make one
+    of them inert — keep them?
 - **Part 56 / FSRS-B** — a deployment's own logged reviews. The observable now exists; the data does not,
   and this repository cannot invent it without repeating the mistake D49 refused.
 - **Part 75** — two or three real aggregators to measure an in-band `code` against. Reading it unmeasured is
@@ -325,14 +339,29 @@ SWITCH, not a dial: `Max2`, `Max3` and `Max4` are identical in every cell, becau
 unclamped value cannot exceed **2.5** and the shipped `MaxSalience = 4` can never bind. The self-check held:
 `Max1` is indistinguishable from `Off` on all four cells while still registering a retention policy, which is
 the measured form of an option-level neutral.
-<br>**So the remaining one-factor sweep is `NoveltyWeight`, not `MaxSalience`** — it is the only knob that can
-scale salience's magnitude, and its own XML doc also says "Unmeasured". Same shape, no library change, no
-registration change. **Whether any default then MOVES is the owner's call, not the sweep's**: the cost is
-embedder-dependent by ~2.5× and `high-noise` reverses sign between the two embedders, so no single figure is
-*the* cost.
-<br>**A separate, smaller finding worth acting on independently:** `MaxSalience`'s default of 4 is dead
-configuration — unreachable given `NoveltyWeight`'s own default caps the value at 2.5. Two options whose
-defaults make one of them inert is worth a look on its own terms, whatever the sweep decides._
+<br>**The `NoveltyWeight` sweep that this note named as the remaining one RAN the same day** (`memory-salience
+--novelty`, 30 seeds × 2 shapes; `docs/memory.md` §5). It is a real dial where `MaxSalience` is a switch, and
+turning it UP makes recall worse monotonically where it matters (`many-candidates` +0.0786 → +0.0954). It
+also refuted a shipped XML claim rather than a value: a NEGATIVE weight is inert, not inverting, because the
+clamp floors at 1 — corrected in `SalienceOptions` on 2026-08-29. **Whether any default MOVES is still the
+owner's call, not a sweep's**: the cost is embedder-dependent by ~2.5× and `high-noise` reverses sign between
+the two embedders, so no single figure is *the* cost. **Nothing in this note is startable work any more; the
+one live thread it left is the item below.**_
+
+- [ ] **Two option defaults, and one makes the other inert.** `SalienceOptions.MaxSalience` defaults to 4,
+  and `StructuralSaliencePolicy` computes `Clamp(1 + NoveltyWeight × novelty, 1, MaxSalience)` with
+  `NoveltyWeight = 1.5` and `novelty ∈ [0,1]` — so the reachable maximum is **2.5** and the shipped ceiling
+  can never bind. Measured, not inferred: `Max2`, `Max3` and `Max4` are byte-identical in every cell of
+  `memory-salience --ceiling`.
+  <br>_**The DOC half closed 2026-08-29** and is not what remains. `MaxSalience`'s own XML read
+  "**Unmeasured** — a starting point" after the ladder that measured it, and never said that at the shipped
+  `NoveltyWeight` it cannot bind — so a consumer hovering the member got neither fact, and XML docs SHIP
+  (`pitfalls.md` records that family). The containment argument was documented on `NoveltyWeight`, i.e. on
+  the wrong member. Both now carry what their runs found._
+  <br>**What is left is a DECISION nobody has taken: should those two defaults ship as they are?** Moving
+  `MaxSalience` is NOT a no-op in general — it is one on this corpus only because `NoveltyWeight` is 1.5, and
+  a consumer who raises that would feel a lowered ceiling. So this is the same shape as Part 105: measured,
+  documented, and waiting on somebody choosing. It is listed under Blocked for that reason.
 
 ---
 
@@ -492,21 +521,10 @@ model-free, 200 LoCoMo questions. Defaults went **11.0% → 31.0%** on D97 and p
 same k, so a real gap remains. Tables and the two harness defects that had to be fixed first are
 `docs/memory.md` §5._
 
-- [ ] **Spend the twenty slots better, WITHOUT turning off forgetting.** *(Reframed 2026-08-29 — the
-  earlier wording treated cosine's 80.5% as a target, which is wrong.)*
-  <br>**`RetrievabilityWeight = 0` is not a goal.** It measures this engine with its defining feature
-  disabled, so its 63.5% says only that a disabled decay model behaves like a vector index. Burying old
-  unreinforced material is what design §5.7.0 asks for, and LoCoMo penalises it by construction — a
-  once-mentioned January turn nobody referred to again is correctly buried.
-  <br>**The live defect is narrower and philosophy-independent**: when a recall DOES spend its 20 slots, it
-  should spend them on the best 20 by its own objective. D97 was one instance and is fixed. What remains is
-  whether the other rank inputs misallocate: does a graph-walk candidate deserve rank credit equal to a
-  relevance signal (`HopWeight`), and are 20 semantic seeds simply outnumbered in a pool of
-  `RecallLimit × CandidateMultiplier` = 80 (`SemanticSeedK`)? Both are measurable with forgetting left ON,
-  which is the only way the answer means anything.
-  <br>**If that ladder plateaus, the problem is SEEDING rather than ranking** — the evidence may never enter
-  the candidate pool, in which case no ranking knob can recover it and `CandidateMultiplier` is the subject.
-  Measure pool membership before tuning another weight.
+_**The ranking half of this Part is CLOSED — `docs/task-archive.md` Part 113.** The ladder it asked for ran
+in the same commit that reframed the item, and refuted both misallocation hypotheses plus the pre-committed
+seeding fallback: `HopWeight = 0` costs 24.5 points (traversal carries the arm), more semantic seeds make it
+worse, and the pool provably contains the evidence. The residual gap is the design, not a defect._
 
 - [ ] **Run the QA half, and more of it.** The model-free metric is the trustworthy one, but the accuracy
   table is what the field publishes. It needs a reader model, its absolute value is not comparable to a

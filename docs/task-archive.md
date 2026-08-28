@@ -1316,3 +1316,39 @@ here has done" after two of them had run. The surviving half of that claim — t
 metric is not comparable to published QA accuracy — is now stated on its own.
 
 - **Extend `memory-longmemeval` past the knowledge-update class.**
+
+## Part 113 — the twenty slots are spent on the right candidates; the gap is the DESIGN (2026-08-29)
+
+✅ done 2026-08-29 — closed by the second LoCoMo ladder, which shipped in the same commit that reframed the
+item and was then left open in `TASKS.md` for a day. Tables in `docs/memory.md` §5. Every arm holds
+`RetrievabilityWeight` at its shipped default, so nothing here measures the engine with forgetting switched
+off:
+
+| arm | evidence-hit@20 |
+|---|---|
+| `lyntai` | 31.0% |
+| `+sem` (`SemanticSeedK = 20`) | **36.0%** |
+| `+sem+hop0` (`HopWeight = 0`) | 11.5% |
+| `+sem80` (`SemanticSeedK = 80`) | 30.0% |
+| `+sem80+hop0` | 17.5% |
+| `vector` | 80.5% |
+
+**Both misallocation hypotheses are refuted, in the opposite direction to the guess.** Graph traversal is
+CARRYING the arm rather than stealing slots — `HopWeight = 0` costs 24.5 points. And more semantic seeds make
+it WORSE (36.0 → 30.0), which is **D82** behaving as documented: RRF ranks by competition, so widening one
+signal re-ranks every candidate within it.
+
+**The pre-committed fallback is refuted too, and by construction rather than by another run.** The item said a
+plateau would mean the evidence never enters the candidate pool. It does: `+sem80` seeds the top-80 by
+cosine, which CONTAINS cosine's top-20 by construction, and that top-20 holds the evidence 80.5% of the time.
+So the pool holds it at least 80.5% of the time while the arm returns it 30.0% — about fifty points lost
+ranking candidates that were present. Worth naming precisely: pool membership was settled by a containment
+argument over the same embedder and index, not by instrumenting the pool.
+
+**So the boundary is located, and that is the deliverable.** D97 was the defect — philosophy-independent,
+worth about twenty points, and fixed. What remains is the DESIGN: the signal demoting those candidates is
+retrievability (old, mentioned once, never reinforced), every knob that closes the gap turns forgetting down,
+and the two that leave forgetting alone both made things worse. LoCoMo's role here is a **differential
+instrument, not a scoreboard**.
+
+- **Spend the twenty slots better, WITHOUT turning off forgetting.**

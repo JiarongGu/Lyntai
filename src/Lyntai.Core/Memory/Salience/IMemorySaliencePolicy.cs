@@ -112,8 +112,14 @@ public sealed record SalienceOptions
     /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.CandidateCutoff"/> by exactly this, so a salience policy reporting
     /// more than the retention policy declares would make the cutoff too narrow — and that cutoff's only consumer is
     /// <see cref="IMemoryGraphStore.PruneAsync"/>, which DELETES, so the entries it fails to cover are
-    /// permanently destroyed while the modulated curve still rated them retrievable. <b>Unmeasured</b> — a
-    /// starting point.
+    /// permanently destroyed while the modulated curve still rated them retrievable.
+    /// <para><b>At the shipped defaults this ceiling never binds.</b> <c>StructuralSaliencePolicy</c>
+    /// computes <c>Clamp(1 + NoveltyWeight × novelty, 1, MaxSalience)</c> with novelty in [0,1], so the
+    /// default <see cref="NoveltyWeight"/> of 1.5 puts the reachable maximum at <b>2.5</b> and this default
+    /// of 4 sits outside it — a ceiling ladder measured 2, 3 and 4 as identical in every cell. At the
+    /// shipped weight it is therefore a SWITCH rather than a dial: <c>1</c> makes the policy report nothing
+    /// while it stays registered, and anything from 2.5 up behaves as 4. Raising
+    /// <see cref="NoveltyWeight"/> makes it bind; that is the knob which scales magnitude.</para>
     /// <para>Must be at least 1: a bound below the neutral value is not a smaller ceiling, it is a
     /// contradiction, and it would otherwise surface as an <c>ArgumentException</c> from a clamp deep in the
     /// recall path rather than at the line that configured it.</para></summary>

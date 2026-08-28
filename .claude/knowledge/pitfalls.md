@@ -182,6 +182,29 @@ the tests) while being wrong. Skim before touching the relevant area.
   "the work is done" and "the work is on the remote" as two separate claims — the second is the only one a
   release can act on. (Recorded as a decision until 2026-08-14, which was the wrong home: nobody CHOSE this
   behaviour, it was discovered — so it lives here rather than in the decision record.)
+- **A backlog item amended IN PLACE does not amend the summary that points at it, and the amendment is
+  exactly when the summary goes stale.** `TASKS.md`'s startable-set banner has now advertised finished work
+  **four** times (2026-08-26, 2026-08-28, and twice on 2026-08-29). The mechanism is the same every time and
+  it is not carelessness: a session runs a sweep, writes the result into the item's own prose, and the item
+  is where the banner's claim came from — so the banner is stale the moment the item improves, and re-reading
+  the item is exactly the check that fails, because the item is what changed.
+  <br>**The 2026-08-29 pair is the proof, because the second was a CORRECTION of the first and repeated it.**
+  The banner named a `many-candidates` paired sweep that had run the day before; the fix re-read Part 65's
+  prose, found the sentence "the remaining one-factor sweep is `NoveltyWeight`", and advertised that instead
+  — and `NoveltyWeight` had also already run, in the very commit that added the sentence. It was committed
+  and every gate was green. **So the check is not "re-read the entry", it is "ask the INSTRUMENT"**:
+  `docs/memory.md` §5 and `docs/task-archive.md` record what has actually run, and neither is written by the
+  person amending the backlog.
+  <br>**Do not build the obvious gate — this one is the shape that cannot be tightened.** Three forms were
+  considered against the four real instances. Scanning open `- [ ]` items for a self-closing phrase
+  ("CLOSED as", "LANDED", "RAN on") catches one of four and fires on legitimate prose, because items here
+  correctly report a closed HALF of themselves (*"the OVERFLOW half of this item is closed"*, *"the BLOCKING
+  half is gone"*). Requiring every Part named in the banner to own an open, unblocked `- [ ]` also catches
+  one of four. Deriving the banner mechanically loses the judgement it exists to carry (*"Part 99 is a WATCH
+  item and not startable work"* is not computable from a checkbox). That is the *"false positives are
+  legitimate authorial choices"* shape recorded above for the existence-check gate: **reach for a registry or
+  a habit, not a corpus scan, when "wrong" depends on intent.** The habit is the one sentence above — check
+  the instrument, and re-read the banner against every item you touch, in the same change.
 - **NuGet never re-extracts a package version it already has in the global cache**, so packing under a FIXED
   throwaway version (`consumer-smoke`'s `9.9.9-smoke`) tests the packages only ONCE — every later run restores
   the first run's copies from `~/.nuget/packages/` and reports success about code it never compiled against.

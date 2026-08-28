@@ -453,11 +453,16 @@ column above invites, and this knob cannot express it.
 **What it does NOT settle, and the caveat did not weaken with a real embedder.** The corpus's noise is
 TEMPLATED, so the second noise entry onward reads as familiar under *any* embedder — the novelty-inversion
 concern stays unreachable by construction, and `memory-importance`'s `diverse-noise` shape is what reaches
-it. `SalienceOptions`' own constants are also unswept, which matters more than it used to: **`MaxSalience`
-(4) and `NoveltyWeight` are both documented "Unmeasured" in their own XML**, and `MaxSalience = 1` makes
-`StructuralSaliencePolicy` return `MemorySignals.Empty` while remaining registered — an option-level neutral
-that changes no DI registration. A bound on what salience may displace is therefore a VALUE, not a mechanism
-somebody still has to design.
+it. `MinimumComparables` is still unswept and still documented "Unmeasured" in its own XML. **`MaxSalience`
+and `NoveltyWeight` no longer are** — both ladders above are their measurement, and both XML docs were
+corrected on 2026-08-29 to carry what those runs found rather than the "a starting point" they shipped with.
+`MaxSalience = 1` makes `StructuralSaliencePolicy` return `MemorySignals.Empty` while remaining registered —
+an option-level neutral that changes no DI registration. A bound on what salience may displace is therefore
+a VALUE, not a mechanism somebody still has to design.
+<br>**What the ceiling ladder leaves for someone to DECIDE rather than measure**: `MaxSalience`'s default of
+4 is unreachable at `NoveltyWeight`'s own default, so two shipped defaults make one of them inert. Lowering
+it is a no-op *on this corpus* and not in general — a consumer who raises `NoveltyWeight` would feel it —
+which is why it is an owner's call and sits in `TASKS.md` Part 65 rather than being quietly changed here.
 
 ### The first number against the FIELD's benchmark (`memory-locomo`, 2026-08-29)
 
