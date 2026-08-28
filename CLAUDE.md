@@ -26,8 +26,8 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D93**. The two groups worth knowing before you touch anything:
-**D83–D93 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D94**. The two groups worth knowing before you touch anything:
+**D83–D94 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
@@ -42,7 +42,7 @@ as a heartbeated slot table (**D73**), the guard-parity split — forced in FORC
 (**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
 overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91**,
-**D92** and **D93**.
+**D92**, **D93** and **D94**.
 
 **Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
 because it is not the three older memory surfaces: named engines resolved by name like `IHttpClientFactory`
@@ -457,10 +457,13 @@ owned outside the deployment; `DECISIONS.md` D30) /
   same cost reason, and all listed here because a roster naming a SUBSET is how a reader learns the roster is
   not one (the same drift `dev.mjs`'s own usage line had, fixed in 208a7ca — on
   `backup/pre-squash-2026-08-14`, D61). **The authoritative list is `node devtools/dev.mjs` with no
-  argument**, which derives it. Two of them are exceptions to the sentence above and each is exceptional in
-  a different way: `memory-sweep` (the 2×2) is not one-factor, and **`memory-scale` does not use that
+  argument**, which derives it. Three of them are exceptions to the sentence above and each is exceptional in
+  a different way: `memory-sweep` (the 2×2) is not one-factor; **`memory-scale` does not use that
   corpus harness at all** — its subject is COST, so it generates plain entries and reports no miss or
-  pollution. This paragraph said "six more … three of nine" while
+  pollution; and **`memory-support` is not one-factor either** — it crosses rule × θ × clock ×
+  `ConnectionBoost` curve, carries a second `--screen` mode for the model ladder, and has an additive model
+  arm that prints an explicit SKIPPED line rather than a silent cap (`docs/memory.md` §5, **D94**).
+  This paragraph said "six more … three of nine" while
   enumerating seven of ten, then led with "Seven more" while enumerating eight — twice the same drift, which
   is why it now names no number at all:
   `memory-reinforcement` isolates law 3's

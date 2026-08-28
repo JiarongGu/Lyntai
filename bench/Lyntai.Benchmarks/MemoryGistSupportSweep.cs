@@ -82,8 +82,10 @@ internal static class MemoryGistSupportSweep
         var warm = await AskAsync(chat, query, phaseA, phaseB, bFirst: false);
         var swapped = await AskAsync(chat, query, phaseA, phaseB, bFirst: true);
 
-        Console.WriteLine($"  A-first  -> answered {Describe(warm)}   (correct: the LATER option)");
-        Console.WriteLine($"  B-first  -> answered {Describe(swapped)}   (correct: the LATER option)");
+        // "regime", never "option": a regime is what Describe() prints and what the pass condition tests,
+        // while an "option" is a POSITION in the prompt and flips between the two orders.
+        Console.WriteLine($"  A-first  -> answered {Describe(warm)}   (correct: the LATER regime)");
+        Console.WriteLine($"  B-first  -> answered {Describe(swapped)}   (correct: the LATER regime)");
         Console.WriteLine();
 
         var passed = warm is Verdict.Later && swapped is Verdict.Later;

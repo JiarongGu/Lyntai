@@ -12,25 +12,16 @@ namespace Lyntai.Tests.Memory;
 /// Two candidate rules compete - raw = count(members) vs. weighted = sum(retrievability(member)) - and
 /// <see cref="CorpusShape.RoutineCount"/> exists specifically to separate them: phase A (8 members, OLDER)
 /// vs. phase B (4 members, NEWER), with the corpus itself declaring phase B correct.
-/// <para><b>Whether the rules disagree depends on WRITE PACING</b>, stated as an explicit fixture assumption
-/// per arm. Both drive the SHIPPED <see cref="BurstDampenedAgePolicy"/>. A REAL wall clock folds this
-/// 305-write replay into ONE 5-second burst - a property of an in-process replay of a modelled timeline and
-/// NOT of any deployment (<c>.claude/knowledge/pitfalls.md</c> §Testing) - measured at weightedA=6.474743
-/// (range [0.729565,0.923434]) vs weightedB=3.974655 (range [0.987381,1.0]): raw AND weighted both select
-/// phase A, the regime the corpus declares wrong. An explicit clock stepped 10s/write (over the burst
-/// window) degenerates the same policy to per-write ticks, measured at weightedA=1.301059
-/// (range [0.156079,0.173555]) vs weightedB=3.640018 (range [0.830455,1.0]) - raw still selects A, weighted
-/// now selects B (correct): a genuine disagreement. rawA=8, rawB=4 in BOTH arms; every weighted figure is
-/// read the instant BEFORE the corpus's final query, which would otherwise reinforce all of phase B to a
-/// degenerate retrievability of exactly 1 and hide the real spread.</para>
-/// <para><b>Phase B outranks phase A per-member in both arms</b> - prose here, not asserted. The SUM flips
-/// to B only once mean(rB)/mean(rA) clears |A|/|B|, which is NOT a constant: phase B is
-/// <c>max(1, RoutineCount/3)</c>, so the ratio is 2 only at multiples of 3 and reaches 4.0 at
-/// RoutineCount=5. Stepped's 5.60 clears even that worst case - 1.40x of headroom, not the 2.80x a fixed 2
-/// implies - and burst's 1.23 clears no legal ratio at all. This shape IS a multiple of 3, the value where
-/// RoutineCount=9 once hid the routine split's own defect, so do not generalise a constant off it.
-/// <b>Scope: ONE shape, ONE seed</b> - <c>ReuseRatio 4</c>, outside the 60-shape grid the routine class's
-/// preconditions are proved over, and the co-activation clique differs BETWEEN arms at the same seed.</para>
+/// <para><b>Phase B outranks phase A per-member in both arms</b> - ASSERTED below in the strong form, min
+/// of B against max of A, rather than described. That is what makes the SUM's verdict a question about
+/// CARDINALITY alone: it flips to B only once mean(rB)/mean(rA) clears |A|/|B|, which is NOT a constant -
+/// phase B is <c>max(1, RoutineCount/3)</c>, so the ratio is 2 only at multiples of 3 and reaches 4.0 at
+/// RoutineCount=5. This shape IS a multiple of 3, the value where RoutineCount=9 once hid the routine
+/// split's own defect, so do not generalise a constant off it.</para>
+/// <para><b>Scope: ONE shape, ONE seed</b> - <c>ReuseRatio 4</c>, outside the 60-shape grid the routine
+/// class's preconditions are proved over, and the co-activation clique differs BETWEEN arms at the same
+/// seed. That grid is swept by <c>node devtools/dev.mjs memory-support</c>; what it measured, and what it
+/// could not, is <c>docs/memory.md</c> §5.</para>
 /// </summary>
 public class MemoryGistSupportRuleTests
 {
@@ -46,6 +37,21 @@ public class MemoryGistSupportRuleTests
         public double WeightedB => PhaseB.Sum();
     }
 
+    /// <summary>Raw and weighted support over the same corpus under two write pacings.
+    /// <para><b>Both arms state their pacing as an INJECTED clock</b> - no wall clock is read anywhere in
+    /// this test, so no figure here is a fact about how fast this machine ran the replay
+    /// (<c>.claude/knowledge/pitfalls.md</c> §Testing). Both drive the SHIPPED
+    /// <see cref="BurstDampenedAgePolicy"/>: <c>bulk</c> steps 100ms per write, inside that policy's own
+    /// 5-second window, so the whole import arbitrates within ONE burst; <c>spaced</c> steps 10s per write,
+    /// outside it, so every write starts its own burst and the damping degenerates to per-write ticks. The
+    /// bulk arm replaced one driven by the real clock and reproduces it to six decimal places, so the
+    /// substitution fixed the figure's PROVENANCE without moving the figure.</para>
+    /// <para>rawA=8 &gt; rawB=4 in BOTH arms, so raw selects phase A either way - the regime the corpus
+    /// declares wrong. Weighted AGREES with raw under bulk and DISAGREES under spaced, selecting phase B.
+    /// Every weighted figure is read the instant BEFORE the corpus's final query, which would otherwise
+    /// reinforce all of phase B to a degenerate retrievability of exactly 1 and hide the real spread; both
+    /// sums, both counts and both ranges sit in the assertion messages, so a regression prints the
+    /// measurement rather than only PASS/FAIL.</para></summary>
     [Fact]
     public async Task Raw_and_weighted_support_may_agree_or_disagree_depending_on_write_pacing()
     {
@@ -61,20 +67,10 @@ public class MemoryGistSupportRuleTests
         Assert.All(finalRoutineQuery.RelevantIds,
             id => Assert.StartsWith("routineB", id, StringComparison.Ordinal));
 
-        // ARM 1 - the SHIPPED default policy, driven by a REAL wall clock: GraphMemoryEngine's own default
-        // age policy is BurstDampenedAgePolicy, and this replay's 305 writes and 147 recalls complete in
-        // about half a second - well inside its own 5-second burst window, so everything after the first
-        // write folds into ONE burst and the damping arbitrates within a single bulk ingest.
-        var burst = await RunArmAsync(corpus, firstWrite, finalRoutineQuery, new BurstDampenedAgePolicy());
-
-        // ARM 2 - the SAME shipped policy, driven by an EXPLICIT clock stepped 10 seconds per write, so
-        // every write starts its own burst and the damping degenerates to its own inner per-write policy.
-        // This states the pacing assumption directly in the fixture instead of silently substituting a
-        // different policy.
-        var steppedNow = DateTimeOffset.UnixEpoch;
-        var stepped = await RunArmAsync(corpus, firstWrite, finalRoutineQuery,
-            new BurstDampenedAgePolicy(clock: () => steppedNow),
-            onWrite: () => steppedNow += TimeSpan.FromSeconds(10));
+        // The step IS the arm, and it is the only thing that differs between the two: same shipped policy,
+        // same corpus, same seed. 100ms sits inside the burst window and 10s sits outside it.
+        var burst = await RunArmAsync(corpus, firstWrite, finalRoutineQuery, TimeSpan.FromMilliseconds(100));
+        var stepped = await RunArmAsync(corpus, firstWrite, finalRoutineQuery, TimeSpan.FromSeconds(10));
 
         // Both arms: the enumeration taken AFTER the full replay (including the final query) is
         // DEGENERATE for weightedB - the final query recalls and thereby reinforces all four phase-B
@@ -83,36 +79,53 @@ public class MemoryGistSupportRuleTests
         Assert.Equal(burst.AfterFullReplay.RawB, burst.AfterFullReplay.WeightedB, precision: 6);
         Assert.Equal(stepped.AfterFullReplay.RawB, stepped.AfterFullReplay.WeightedB, precision: 6);
 
-        // The BEFORE-final-query snapshot is the robust figure and the one both verdicts below are based
-        // on - both sums, both counts and both ranges sit in the assertion messages so a regression prints
-        // the measurement, not just PASS/FAIL.
+        // The BEFORE-final-query snapshot is the robust figure and the one every verdict below reads.
         var b = burst.BeforeFinalQuery;
         var s = stepped.BeforeFinalQuery;
 
-        // Under a REAL clock: raw AND weighted both select phase A, which the corpus declares WRONG - they
-        // AGREE, on the wrong answer. A fact about an in-process replay of a modelled timeline, NOT about a
-        // configuration a deployment could choose: the whole replay lands inside one burst window, so the
-        // damping arbitrates within a single bulk ingest instead of protecting anything written before it.
-        Assert.True(b.RawA > b.RawB, $"burst raw: A={b.RawA} B={b.RawB}");
+        // Under BULK pacing: raw AND weighted both select phase A, which the corpus declares WRONG - they
+        // AGREE, on the wrong answer. The whole import lands inside one burst window, so the damping
+        // arbitrates within a single bulk ingest instead of protecting anything written before it.
+        Assert.True(b.RawA > b.RawB, $"bulk raw: A={b.RawA} B={b.RawB}");
         Assert.True(b.WeightedA > b.WeightedB,
-            $"burst weighted: A={b.WeightedA:F6} (n={b.RawA}, range={RangeText(b.PhaseA)}) "
+            $"bulk weighted: A={b.WeightedA:F6} (n={b.RawA}, range={RangeText(b.PhaseA)}) "
             + $"B={b.WeightedB:F6} (n={b.RawB}, range={RangeText(b.PhaseB)})");
 
-        // Under an explicitly spaced clock (>= 5s between writes, stated in the fixture): raw still
-        // selects phase A, but weighted now selects phase B, the corpus's correct answer. Disagreement.
-        Assert.True(s.RawA > s.RawB, $"stepped raw: A={s.RawA} B={s.RawB}");
+        // Under SPACED pacing (>= 5s between writes): raw still selects phase A, but weighted now selects
+        // phase B, the corpus's correct answer. Disagreement.
+        Assert.True(s.RawA > s.RawB, $"spaced raw: A={s.RawA} B={s.RawB}");
         Assert.True(s.WeightedB > s.WeightedA,
-            $"stepped weighted: A={s.WeightedA:F6} (n={s.RawA}, range={RangeText(s.PhaseA)}) "
+            $"spaced weighted: A={s.WeightedA:F6} (n={s.RawA}, range={RangeText(s.PhaseA)}) "
             + $"B={s.WeightedB:F6} (n={s.RawB}, range={RangeText(s.PhaseB)})");
+
+        // Asserted rather than described: "phase B outranks phase A per-member" was prose, and prose rots.
+        // Min of B against max of A is the strong form - no member of either regime overlaps - and it is
+        // what makes the sum's flip a question about CARDINALITY alone rather than about which regime is
+        // better remembered. It holds under both pacings; only the sum's verdict moves between them.
+        Assert.True(Outranks(b), $"bulk per-member: A={RangeText(b.PhaseA)} B={RangeText(b.PhaseB)}");
+        Assert.True(Outranks(s), $"spaced per-member: A={RangeText(s.PhaseA)} B={RangeText(s.PhaseB)}");
     }
 
+    // The emptiness guard is load-bearing for the same reason RangeText's is: Assert.True evaluates its
+    // message eagerly, and an empty bucket would throw out of Min()/Max() before the assertion reported.
+    private static bool Outranks(RegimeSnapshot snapshot) =>
+        snapshot.PhaseA.Count > 0 && snapshot.PhaseB.Count > 0
+        && snapshot.PhaseB.Min() > snapshot.PhaseA.Max();
+
+    /// <summary>Replays the whole corpus on a clock stepped <paramref name="perWrite"/> before every write,
+    /// and returns both snapshots. The step is the arm: it decides whether consecutive writes fall inside
+    /// <see cref="BurstDampenedAgePolicy"/>'s window or start fresh bursts.</summary>
     private static async Task<(RegimeSnapshot BeforeFinalQuery, RegimeSnapshot AfterFullReplay)> RunArmAsync(
-        MemoryCorpus corpus, MemoryWrite firstWrite, CorpusQuery finalRoutineQuery,
-        IMemoryAgePolicy agePolicy, Action? onWrite = null)
+        MemoryCorpus corpus, MemoryWrite firstWrite, CorpusQuery finalRoutineQuery, TimeSpan perWrite)
     {
-        var store = new InMemoryMemoryGraphStore();
+        // One `now` behind three readers, so the wall clock is unreachable from this replay. The engine's own
+        // clock is passed for completeness only - it is read by PruneAsync, which this replay never calls.
+        var now = DateTimeOffset.UnixEpoch;
+        Func<DateTimeOffset> clock = () => now;
+        var store = new InMemoryMemoryGraphStore(clock);
         const string engineName = "gist-support";
-        var engine = new GraphMemoryEngine(engineName, store, agePolicies: [agePolicy]);
+        var engine = new GraphMemoryEngine(engineName, store,
+            agePolicies: [new BurstDampenedAgePolicy(clock: clock)], clock: clock);
         RegimeSnapshot? beforeFinalQuery = null;
 
         // IN TIMELINE ORDER - writes and queries interleaved, exactly as MemoryCorpus's own ordering
@@ -124,7 +137,7 @@ public class MemoryGistSupportRuleTests
             switch (step)
             {
                 case CorpusWrite w:
-                    onWrite?.Invoke();
+                    now += perWrite;
                     await engine.RememberAsync(w.Write);
                     break;
 

@@ -19,7 +19,7 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**Two items are startable — one in Part 99 and one in Part 104**, and the rest need something this
+**Two items are startable — one in Part 99 and one in Part 105**, and the rest need something this
 repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
 data). That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
@@ -62,6 +62,9 @@ Blocked, and on what:
   owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
   PATH, not in the npm global root, not in any usual location. The 2026-08-04 capture (0.146.0) came from an
   install that is gone. So this needs a REINSTALL plus a turn, not just a go-ahead.
+- **Part 105 / build the gist tier** — a DECISION nobody has taken (which support rule it computes), blocked
+  in turn on DATA the cardinality sweep in the same Part has to produce. **Not an environment blocker**:
+  nothing needs installing, and re-checking it means reading that sweep's output, not the tree.
 - **Part 65 holds TWO items with DIFFERENT blockers, and listing one of them here is how the other read as
   startable** (corrected 2026-08-21 — the caveat above, applied to this file's own banner).
   - *subject drift* — a measurement budget: a RATE across models, not an anecdote.
@@ -358,7 +361,9 @@ being looked for._
 
 _It opened holding the two Phase-1 gaps. One of those (cross-tenant isolation) closed the same day as
 **Part 100** and left a DECISION behind it; the flake below arrived from watching `verify` rather than from
-the proposal. All three are startable today — no key, no model, no download._
+the proposal. **One item is left open here** — the rest closed into the archive, and this line said "all
+three are startable" until 2026-08-28, after two of them had gone. It is startable today: no key, no model,
+no download._
 
 - [ ] **`verify`'s test step intermittently fails EXACTLY 9 tests, and once aborted mid-run.** Observed
   twice in roughly ten `verify` runs on 2026-08-26, and **not once in any standalone `node devtools/dev.mjs
@@ -402,34 +407,37 @@ the proposal. All three are startable today — no key, no model, no download._
   that is the only evidence that can close this. Watch for it; do not close it by observing green runs,
   which is what the line above already says and is now doubly true.
 
-## Part 104 — gist support: RAW support is refuted, so the planned two-armed seam does not survive (2026-08-27)
+## Part 105 — gist support: the CARDINALITY axis the sweep held constant (2026-08-28)
 
-_Opened by the gist-support instrument, `tests/Lyntai.Tests/Memory/MemoryGistSupportRuleTests.cs`. It was
-built to choose between two candidate support rules for the planned gist tier — `raw = count(members)`
-against `weighted = sum(retrievability(member))` — on a corpus class where the larger, older regime is the
-WRONG answer, and the plan was to ship both behind a seam and let a deployment pick. It answered, and the
-answer removes the choice the seam was for._
+_What Part 104 left open. The support seam itself is settled — `docs/DECISIONS.md` **D94**, no
+`IMemorySupportPolicy` — and the 600-replay sweep is built (`node devtools/dev.mjs memory-support`, tables in
+`docs/memory.md` §5). **The first item below is startable; the second is blocked on the first**, and says on
+what kind._
 
-- [ ] **Re-plan the gist tier's support rule around ONE candidate, not a two-armed seam.** `rawA = 8 >
-  rawB = 4` in **both** arms while the corpus declares phase B correct, so **raw support is refuted with no
-  pacing dependence at all** — it picks the wrong regime whether the writes are bursty or spaced. A seam
-  exists so a deployment can choose between options that could each be right somewhere, and nothing measured
-  here shows raw is right anywhere. Weighted is the only candidate left standing, and it is not confirmed
-  either: it selects correctly in the spaced arm only.
+- [ ] **Sweep `RoutineCount`, because the question is about cardinality and the run held it at 12.** All 600
+  replays sit at |A|/|B| = 2. The split is `max(1, RoutineCount/3)`, so the ratio is 2 only at multiples of 3
+  and reaches **4.0 at `RoutineCount = 5`** — and `sum` flips to the newer regime exactly when
+  `mean(rB)/mean(rA)` clears |A|/|B|, so the ratio is the denominator of the only model-free finding the
+  sweep produced. **A rule that clears ratio 2 need not clear 4.** Adding the axis is a fourth loop in
+  `MemoryGistSupportSweep`'s grid; the corpus already accepts the shape.
+  <br>**What a result would have to survive to be worth adopting**, all learned from the run that is done:
+  `sum` INVERTS with pacing (older regime under bulk, newer under spaced, 300/300 each way), so a
+  cardinality finding that holds on one clock and not the other settles nothing; no `count@θ` threshold is
+  pacing-independent either; and **`mean` is untestable on this corpus at all** — phase B is snapshotted
+  having never been recalled, at the retrievability ceiling, so `mean(B) ≥ mean(A)` is a theorem about the
+  fixture. Testing `mean` needs phase B off the ceiling at the snapshot, which is a corpus change rather than
+  a sweep argument.
+  <br>Startable today — no key, no model download, no install. The model arm is optional and additive: it
+  prints an explicit SKIPPED line when no chat model answers, and on this question it returned exactly the
+  recency reading against a prompt that names the recency ordering.
 
-  **The flip condition, derived rather than fitted:** `sumB > sumA` exactly when
-  `mean(rB)/mean(rA) > |A|/|B|`. That cardinality ratio is NOT a constant — `MemoryCorpus` derives phase B
-  as `max(1, RoutineCount/3)`, so it is 2 only at multiples of 3 and reaches **4.0 at RoutineCount = 5**.
-  The spaced arm's 5.60 clears even that worst case (1.40x of headroom, not the 2.80x a fixed 2 implies);
-  the real-clock arm's 1.23 clears no legal ratio at all.
-
-  **What the next measurement owes, because this one does not carry it.** The per-member ordering claim is
-  prose rather than an assertion. It is ONE shape (`CorpusShape.Default`, whose `ReuseRatio` of 4 is outside
-  the 60-shape grid the routine class's own preconditions are proved over) at ONE seed, and the
-  co-activation clique was observed to differ BETWEEN arms at that same seed — so seed stability may not be
-  assumed here. And the real-clock arm is a fact about an in-process replay rather than about a deployment
-  (`.claude/knowledge/pitfalls.md` §Testing), so it bounds nothing a consumer would see.
-  Startable today — no key, no model download, no install.
+- [ ] **Build the gist tier.** **BLOCKED on a DECISION nobody has taken** — which support rule it computes —
+  and that decision is blocked in turn on DATA the item above has to produce. **D94** settled the tier's
+  SHAPE (no seam) and `docs/memory.md` §5 says which rules were refuted and which were never tested, but no
+  rule is adopted and none can be until the cardinality sweep runs: `sum` inverts with pacing, no `count@θ`
+  is pacing-independent, and `mean` is untestable on the corpus as it stands. **Re-check this against the
+  sweep's output, not against the tree** — a decision blocker is refuted by the measurement that decides it
+  (`task-lifecycle.md`).
 
 ---
 

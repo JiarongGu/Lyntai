@@ -213,6 +213,22 @@ the tests) while being wrong. Skim before touching the relevant area.
   *"LF will be replaced by CRLF the next time Git touches it"* — a warning that reads like routine
   autocrlf noise — and the content diff looks perfect. Measured 2026-08-11 inserting 28 `compile-skip`
   markers. Detect and repair with a codepoint check (`s.replace(/(?<!\r)\n/g, '\r\n')`), never by eye.
+- **Most of this working tree is CRLF against an LF index, git's stat cache hides it, and editing any of
+  those files surfaces the WHOLE file as changed — and commits it as CRLF.** Standing hazard: run
+  `git ls-files --eol | awk '{print $1, $2}' | sort | uniq -c` and read the ratio — on 2026-08-28 it was
+  **about four in five tracked files** `i/lf w/crlf`, plus a handful of `i/lf w/mixed`. **The absolute count
+  is deliberately not published here, because it is a property of the WORKING TREE at a moment and drops by
+  one every time somebody repairs a file** — measuring it twice in one session, before and after that
+  session's own repairs, already gave two different numbers. Nothing reports it until a file is touched,
+  because git compares size and mtime before content. And **`core.autocrlf` is `false` at REPO scope** — `git config
+  --show-origin --get-all core.autocrlf` shows it overriding `true` at both system and global scope, and the
+  repo-local value wins — so the index gets the tree verbatim and a flipped file COMMITS as CRLF.
+  <br>It bit twice on one branch: a **1267 / 1063** diff for a real 204-line change, and a **100-line** diff
+  for a 6-line csproj addition. Both were caught by comparing `git diff --stat` against
+  `git diff --ignore-cr-at-eol --stat` — **do that after every edit**, then confirm with `git ls-files --eol`
+  that the file reads `w/lf`. Repair with a bytes replace (`b.replace(b'\r\n', b'\n')`), never with a
+  PowerShell round-trip (`windows-machine.md` §Text and encoding). Note that a TOOL can flip a file you did
+  not hand-edit: `dev.mjs decisions-index` rewrote `docs/DECISIONS.md` as CRLF in the same session.
 - **`check-warnings` reports "build FAILED" for a build that SUCCEEDED once the build log outgrows Node's
   1 MiB `spawnSync` buffer.** Measured 2026-08-09 adding the memory policy sweep: a single
   `ProjectReference` from `bench/Lyntai.Benchmarks` to `Lyntai.Tests` dragged Postgres, Testcontainers, MCP,
@@ -247,6 +263,55 @@ the tests) while being wrong. Skim before touching the relevant area.
   `devtools/scripts/release-notes.mjs`, tested by `test-devtools`, with the workflow a thin caller — and
   the rule pinned by a test over the REAL commit log, as a property ("no breaking commit lands in Other")
   rather than a count, since a count there fails on the next commit.
+- **The defects in a measurement write-up are almost never in the MEASUREMENT — they are in the prose about
+  it, and every text gate is structurally blind to them.** Measured 2026-08-28 over one sweep's report, which
+  took **five review rounds**. The code was correct throughout: all 44 result rows byte-identical across four
+  independent executions, including captures taken BEFORE the first fix round. What kept failing was the
+  sentences around the numbers. They fail in **three distinguishable kinds** — two in that report, and a third
+  found while writing this entry — and collapsing them into one is itself a mistake this write-up made twice.
+  <br>**Kind 1, provenance: asserting where a number came from instead of checking.** Four instances, and the
+  object moved every time while the failure did not.
+  · `CLAUDE.md`'s test trio quoted from the session's **auto-loaded context** rather than read from the file —
+    auto-loaded context is a snapshot taken before the branch's base commit, not live state, and the number on
+    disk was already correct.
+  · A retrievability band row **copied from its neighbouring row**, with a false interpretation then built on
+    it — the sentence it supported claimed a band "does not move" when it moves *more* than the one cited as
+    proof.
+  · *"12.7 s on a cold build"* — an in-process figure taken on a **warm** build; nothing in the exercise ever
+    measured a cold one.
+  · An independent reviewer's own figures **attributed to the wrong clock** (wall clock, when they were
+    in-process readings), which also manufactured an agreement that does not hold — against the correct row
+    they sit outside the range, so the sentence read as corroboration while being the opposite.
+  <br>**Kind 2, summary statistic: reporting an extremum as a central value.** One instance: 6.8 s published as
+  the run time when it was the **minimum** of a distribution spanning 6.8–12.7 s on the same host.
+  <br>**Kind 3, restatement: a paraphrase of a number is a NEW number, and here the arithmetic was simply
+  never done.** One instance, from the round that wrote this entry: `37 ms → 8 905 ms` (an adopting
+  application's own reported per-query figures, not reproducible here) was de-quantified into *"three orders
+  of magnitude"*, read off the figures' SHAPE rather than divided — it is 240×, so just over **two**.
+  Provenance was never in doubt; the source was correct and on the page. **The aggravating condition
+  is what generalises: de-quantifying a passage removes the reader's ability to check whatever quantitative
+  token SURVIVES it**, so the survivor needs more scrutiny than the figures taken out, not less.
+  <br>**Three rules, and they are not the same rule.** (1) *If a number appears, name the command AND the
+  conditions that produced it — and if you cannot, do not write it.* Naming the command alone is necessary and
+  insufficient: a number can be genuinely produced by a command and still be attributed to the wrong one.
+  (2) *Never report an extremum as a central value — give the spread*, and say which instrument produced it
+  when more than one is in play (an in-process stopwatch and a wall clock differ here by a startup cost that is
+  a property of the host, not of the tooling). (3) *A paraphrase, a rounding or an order-of-magnitude
+  restatement is a new number — do the arithmetic rather than reading the figures' shape.*
+  <br>**`check-docs`, `check-counts` and `check-links` cannot see any of this**, and not because they are weak:
+  the document lived outside the tree they scan, and a count going stale retires no vocabulary and dangles no
+  path, so the sentence stays grammatical, plausible and wrong. **Review was the only gate**, which is why the
+  finding is filed here rather than as a gate request.
+  <br>**The strongest evidence that the trap is real is that writing it up kept producing fresh instances —
+  first in the write-up, then in the rounds correcting the write-up.** The same session asserted *"zero code
+  defects"* — contradicted by a genuine latent crash its own record documents being fixed in round 2 — and
+  twice collapsed that report's five defects into a single kind; a later round asserted a GATE'S SCOPE without
+  reading the gate; the CRLF counts in the entry above were published from a measurement taken before that
+  same session's own repairs; and Kind 3 above was introduced by the very round that removed the figures it
+  misparaphrased. **No running total is given, deliberately**: it moved every round, and a stale count is what
+  teaches a reader to stop comparing. A subagent declined to publish the controller's figures because it could
+  not source them, **and was right**; that refusal is the behaviour to copy. If you are about to write a
+  number you did not just produce, the correct move is to say you cannot source it.
 
 ## LLM / router (details in `llm-and-router.md`)
 

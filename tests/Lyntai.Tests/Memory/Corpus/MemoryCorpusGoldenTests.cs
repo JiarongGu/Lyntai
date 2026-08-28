@@ -54,10 +54,14 @@ public class MemoryCorpusGoldenTests
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Render(corpus)))).ToLowerInvariant();
 
     /// <summary>Captured 2026-08-12 from the generator as it stood BEFORE <see cref="CorpusLanguage"/>
-    /// existed. Seven shapes rather than one so the goldens span every opt-in axis — an axis with no golden
-    /// is an axis a future change can move silently. The sixth, "routine", was captured 2026-08-27 and the
-    /// seventh, "routine-standing", 2026-08-28 — both necessarily POSTDATE the language axis, so they pin
-    /// <see cref="Render"/>'s current shape rather than the axis's own original baseline.</summary>
+    /// existed. This method pins seven golden shapes rather than one, so they span every opt-in axis — an
+    /// axis with no golden is an axis a future change can move silently. <b>That phrasing matches the form
+    /// <c>check-counts</c> gates in the two maintained documents carrying this total, but it does NOT put
+    /// this file under the gate: <c>check-counts</c> scans <c>.md</c> only.</b> The number here is prose, and
+    /// prose a reader has to move by hand when a golden is added. The sixth, "routine", was captured
+    /// 2026-08-27 and the seventh, "routine-standing", 2026-08-28 — both necessarily POSTDATE the language
+    /// axis, so they pin <see cref="Render"/>'s current shape rather than the axis's own original
+    /// baseline.</summary>
     public static TheoryData<string, CorpusShape, string> Goldens() => new()
     {
         { "default", CorpusShape.Default,
