@@ -1270,3 +1270,49 @@ all ids parsing. The seeds arrived and lost. `pitfalls.md` carries the reusable 
 score moves a result by *exactly* zero, where a merely weak one moves it a little.
 
 - **Why does `SemanticSeedK` change nothing, and what should an unmeasured relevance be?**
+
+## Part 112 — the haystack run, and the cheap variant was biased BOTH ways (2026-08-29)
+
+✅ done 2026-08-29 — `node devtools/dev.mjs memory-longmemeval --haystack` reads `longmemeval_s` instead of
+the oracle file, putting the same questions among ~490 turns of distractors. Both classes ran in FULL — 70
+knowledge-update (34,242 turns per arm) and 132 temporal-reasoning (64,911) — so nothing is sampled and the
+`--n`/`--seed` sampling built for it went unused. Tables in `docs/memory.md` §5.
+
+**The knowledge-update win survives, at +40.0 against the oracle's +49.8.** What moved is suppression rather
+than retrieval: `current@k` fell 2.9 points for this engine and 2.9 for cosine — identically — while
+`stale@k` rose 8.6. The distractors cost it the ability to *bury* the superseded fact, not to find the
+current one.
+
+**The temporal result REVERSED, and that is the finding.** −4.6 on the oracle becomes **+3.8** on the
+haystack. Distractors cost cosine 20.5 points of all-evidence recall and cost this engine 12.1: where there
+is finally something to suppress, suppressing it stops being a cost even in the class built to penalise it.
+Read as "the cost is gone" rather than "this engine wins temporal" — +3.8 on 132 questions is five questions.
+What carries it is that all three columns agree and the other two move further (any-evidence +7.6, per-turn
++4.3).
+
+**So the oracle is not a cheap unbiased proxy — it is biased per class, and the sign is not predictable.**
+The caveat that filed this item guessed the bias flattered both classes. It flattered knowledge-update by 9.8
+points of arm gap and **penalised** temporal by 8.4, enough to invert the sign. The mechanism is one number
+nobody had looked at: at `k = 10` over ~25 turns the oracle returns **40% of the store**, so it barely tests
+retrieval at all, where the haystack's ~490 turns make the same `k` a 2% slice.
+
+**A latent harness defect the haystack exposed, and it would have been silent.** The loader took the current
+value from the latest-DATED session. Every oracle session is an evidence session, so that was right by
+accident; in the haystack the last-dated session is a distractor nearly every time, so the rule found no
+current turn and would have dropped the whole class — an empty run rather than a wrong number, which is the
+cheap direction only because nothing else read it. It now takes the latest dated session that *carries* a
+flagged turn.
+
+**Two controls, because either half could have been the harness.** Re-running both oracle classes under the
+new loader reproduces **byte-identically on all fourteen cells**, so the fix moved no published number. And
+the variants provably ask the same questions: each preamble prints a fingerprint of its sampled ids, and they
+match across variants (`D860F77A3D9E` knowledge-update, `773FB41E0E5A` temporal), which is what lets an
+oracle row be read against a haystack row line by line.
+
+**Two documents were stale before this pass and are fixed in it**, both in `docs/memory.md`: §5's preamble
+said "everything below is on this repository's own deterministic corpus" while three sections below it are
+the field's data, and the literature survey still said running a shared suite was "a piece of work nobody
+here has done" after two of them had run. The surviving half of that claim — that a model-free retrieval
+metric is not comparable to published QA accuracy — is now stated on its own.
+
+- **Extend `memory-longmemeval` past the knowledge-update class.**

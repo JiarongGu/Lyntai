@@ -19,10 +19,12 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**The startable set: Part 109's ranking-default decision and its QA half, Part 65's `many-candidates`
-paired sweep, and the 3D-backend survey inside Part 33 / GEN7.** Part 109 is the one to read first — it
-holds the only measurements here taken on an instrument this repository did not build, and the first of
-them has already been acted on (**D97**). The rest need something this
+**The startable set: Part 109's ranking-default decision and its QA half, Part 65's `NoveltyWeight` sweep,
+and the 3D-backend survey inside Part 33 / GEN7.** Part 109 is the one to read first — it holds the only
+measurements here taken on an instrument this repository did not build, and two of them have already closed
+(**D97**, and Part 112's haystack run). Part 65's entry named the `many-candidates` *paired* sweep until
+2026-08-29, and that sweep had run on 2026-08-28 — its own text says so, and says the remaining knob is
+`NoveltyWeight`. The rest need something this
 repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
 data). **Part 99 is a WATCH item and not startable work** — its fix is already pinned by a test with a
 positive control, so nothing in it is codeable and only RECURRENCE can close it. That is stated first
@@ -36,6 +38,12 @@ _This banner named `Part 65 / many-candidates` as the one startable item until 2
 said "CLOSED as **D89**" inside itself since 2026-08-23 — so the file's own summary was steering readers at
 work that was finished. It is `docs/task-archive.md` Part 98 now. **A stale banner is worse than a stale
 entry**: the entry is one item, the banner is the answer to the question the file exists for._
+
+_**And it happened again with the same Part, three days later** (corrected 2026-08-29): the banner named the
+`many-candidates` PAIRED SWEEP, which had run on 2026-08-28 and is written up inside that very item. Same
+failure, same entry, one revision apart — so the lesson is not "re-read Part 65" but that **an item amended
+in place does not amend the banner**, and the amendment is exactly when the banner goes stale. Re-read the
+banner against every item you touch, in the same change._
 
 **The pattern to expect: the next startable item arrives from a CONSUMER, not from this list.** Every
 same-day burst of work since 3.0 came in that way, and the archive has each one. This banner does not
@@ -478,10 +486,11 @@ left is one item, and its blocker is a DECISION rather than the data it used to 
 ## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
 
 _Opened by `docs/task-archive.md` Part 110; the first item CLOSED as **D97** (`docs/task-archive.md`
-Part 111). `node devtools/dev.mjs memory-locomo --retrieval` is the first measurement this repository has
-taken on an instrument it did not build: evidence-hit@20, model-free, 200 LoCoMo questions. Defaults went
-**11.0% → 31.0%** on D97 and plain cosine is **80.5%** at the same k, so a real gap remains. Tables and the
-two harness defects that had to be fixed first are `docs/memory.md` §5._
+Part 111) and the LongMemEval half closed as **Part 112**. `node devtools/dev.mjs memory-locomo --retrieval`
+is the first measurement this repository has taken on an instrument it did not build: evidence-hit@20,
+model-free, 200 LoCoMo questions. Defaults went **11.0% → 31.0%** on D97 and plain cosine is **80.5%** at the
+same k, so a real gap remains. Tables and the two harness defects that had to be fixed first are
+`docs/memory.md` §5._
 
 - [ ] **Spend the twenty slots better, WITHOUT turning off forgetting.** *(Reframed 2026-08-29 — the
   earlier wording treated cosine's 80.5% as a target, which is wrong.)*
@@ -499,28 +508,18 @@ two harness defects that had to be fixed first are `docs/memory.md` §5._
   the candidate pool, in which case no ranking knob can recover it and `CandidateMultiplier` is the subject.
   Measure pool membership before tuning another weight.
 
-- [ ] **Extend `memory-longmemeval` past the knowledge-update class.** The class where forgetting is
-  supposed to help is now measured and this engine wins it decisively — prefers-current **96.9%** against
-  cosine's **47.1%**, with higher current@k and lower stale@k, so it is discrimination rather than a recall
-  collapse (`docs/memory.md` §5). What is NOT measured is the rest of the suite: **temporal-reasoning (133
-  questions)** is the obvious next class and the harness already loads it — `Load` filters to
-  `knowledge-update` in one line. Startable today; the dataset is a curl and the metric is model-free.
-  *(The temporal-reasoning class LANDED 2026-08-29 — `--temporal`, 132 questions, and it cost 4.6 points as
-  predicted. What is left of this item is the haystack variant.)*
-  <br>**The oracle variant is the honest caveat, and it cuts against the GOOD news hardest.** It carries only
-  the evidence sessions — two to six per question — so decay has almost nothing to bury, which flatters the
-  temporal number and may flatter the knowledge-update one too. `longmemeval_s_cleaned.json` puts the same
-  questions in a ~115k-token haystack. **That is the run that decides whether the +49.8 survives contact with
-  distractors**, and it is the single most informative measurement left anywhere in this backlog.
-  <br>Cost is the reason it has not run: ~500 questions x ~115k tokens of ingestion, against the oracle's
-  minutes. Sampling the class is legitimate if the sample is seeded and stated.
-
 - [ ] **Run the QA half, and more of it.** The model-free metric is the trustworthy one, but the accuracy
   table is what the field publishes. It needs a reader model, its absolute value is not comparable to a
-  published number, and only the ARM DIFFERENCE transfers. 200 of 1540 questions were sampled; the full set
-  and a second embedder are both cheap. **LongMemEval** is the other suite worth adding — Zep prefers it,
-  and it tests knowledge updates and temporal reasoning, which is where an engine with a real decay model
-  should have something to say.
+  published number, and only the ARM DIFFERENCE transfers. 200 of 1540 LoCoMo questions were sampled; the
+  full set and a second embedder are both cheap.
+  <br>*(**LongMemEval is no longer part of this item** — it landed 2026-08-29 in both variants,
+  `docs/task-archive.md` Part 112. What it left behind is scope rather than a gap: two of its six classes are
+  measured, and `multi-session` (133 questions), the three single-session classes and `BEAM` are untouched.
+  None of them is obviously the next one to run, which is why this stays a QA-half item and not a
+  class-coverage one.)*
+  <br>**Take the haystack finding into the QA half when it runs.** The oracle variant is biased per class and
+  the sign is not predictable in advance, so a QA table taken on the oracle would inherit that bias silently.
+  Run it on `--haystack`, at ~40× the ingestion cost per question.
 
 ---
 

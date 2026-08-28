@@ -571,6 +571,18 @@ owned outside the deployment; `DECISIONS.md` D30) /
   because a recall matching nothing is fast and a table of fast empty recalls reads as good news.
   `node devtools/dev.mjs` with no argument is the authoritative list; this section is
   a curated one and says why each entry earns its place.
+- **`memory-locomo` and `memory-longmemeval` are NOT sweeps and belong to a different family** — they are
+  the FIELD's benchmarks, measured on data this repository did not build, and they are named here because
+  the paragraph above says outright that a roster listing a subset teaches a reader the roster is not one.
+  Both are model-free (the dataset names the evidence turn, so no reader and no judge can be credited or
+  blamed), both need a dataset the command prints a `curl` for, and neither is in `verify`.
+  <br>**They answer opposite questions, which is why both exist.** LoCoMo spreads its questions uniformly
+  over months of history, so it rewards a perfect archive and penalises forgetting BY CONSTRUCTION — it is a
+  differential instrument rather than a scoreboard, and it earned its place by exposing **D97**, which 3429
+  tests were blind to. `memory-longmemeval` is the shape this design actually claims: prefer a revised fact
+  over the one it superseded. **Run it with `--haystack`.** The oracle variant returns 40% of its store at
+  `k = 10`, so it barely tests retrieval — and it is biased per class in a direction nobody predicted
+  correctly (`docs/task-archive.md` Part 112), which is exactly why a cheap variant is not a safe default.
 - `node devtools/dev.mjs pack` — `dotnet pack` the libraries → `publish/packages/`.
 - `node devtools/dev.mjs consumer-smoke` — **the release gate**: packs every package to a scratch feed under a
   throwaway version, then restores + builds + runs a fresh console app against the PACKAGES (not project

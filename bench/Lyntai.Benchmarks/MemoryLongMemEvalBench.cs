@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 using Lyntai.Embeddings;
@@ -25,11 +27,19 @@ namespace Lyntai.Benchmarks;
 ///
 /// <para>Model-free throughout, for the reason the LoCoMo harness gives: no reader and no judge, so neither
 /// can be credited or blamed.</para>
+///
+/// <para><b>Two variants, and the difference between them is the measurement.</b> The oracle file carries
+/// only the evidence sessions — two to six per question — so decay has almost nothing to bury.
+/// <c>--haystack</c> puts the same questions among ~490 turns of distractors. The question ids are identical
+/// in both files, so a seeded <c>--n</c> sample selects the same questions in each, and the digest printed in
+/// the preamble is what proves a pair of runs is paired.</para>
 /// </summary>
 internal static class MemoryLongMemEvalBench
 {
     internal const string DataVariable = "LYNTAI_LME_PATH";
+    internal const string HaystackVariable = "LYNTAI_LME_S_PATH";
     private const int RecallLimit = 10;
+    private const int DefaultSeed = 20260829;
     private const string Task = "lme";
     private const string Scope = "session";
 
@@ -47,16 +57,22 @@ internal static class MemoryLongMemEvalBench
 
     public static async Task<int> RunAsync(string[] args)
     {
-        var path = Environment.GetEnvironmentVariable(DataVariable)
-            ?? Path.Combine("devtools", "_bench-data", "lme_oracle.json");
+        var haystack = args.Contains("--haystack");
+        var (path, file, remote, variable) = haystack
+            ? (Environment.GetEnvironmentVariable(HaystackVariable)
+                ?? Path.Combine("devtools", "_bench-data", "lme_s.json"),
+                "lme_s.json", "longmemeval_s_cleaned.json", HaystackVariable)
+            : (Environment.GetEnvironmentVariable(DataVariable)
+                ?? Path.Combine("devtools", "_bench-data", "lme_oracle.json"),
+                "lme_oracle.json", "longmemeval_oracle.json", DataVariable);
         if (!File.Exists(path))
         {
             Console.Error.WriteLine($"memory-longmemeval: dataset not found at '{path}'.");
-            Console.Error.WriteLine("  Download it and re-run:");
-            Console.Error.WriteLine("    curl -sSL -o devtools/_bench-data/lme_oracle.json \\");
+            Console.Error.WriteLine($"  Download it ({(haystack ? "277 MB" : "15 MB")}) and re-run:");
+            Console.Error.WriteLine($"    curl -sSL -o devtools/_bench-data/{file} \\");
             Console.Error.WriteLine("      https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-                + "resolve/main/longmemeval_oracle.json");
-            Console.Error.WriteLine($"  Or point {DataVariable} at a copy.");
+                + $"resolve/main/{remote}");
+            Console.Error.WriteLine($"  Or point {variable} at a copy.");
             return 1;
         }
 
@@ -78,8 +94,10 @@ internal static class MemoryLongMemEvalBench
             return 1;
         }
 
+        var seed = ArgValue(args, "--seed") is { } s && int.TryParse(s, out var chosen) ? chosen : DefaultSeed;
         var take = ArgValue(args, "--n") is { } n && int.TryParse(n, out var parsed) ? parsed : questions.Count;
-        var sampled = questions.Take(take).ToList();
+        var sampled = Sample(questions, take, seed);
+        var turns = sampled.Sum(q => q.Turns.Count);
 
         if (temporal)
         {
@@ -90,9 +108,7 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("questions need BOTH. So the metric is all-evidence recall, and the suppression");
             Console.WriteLine("that won the other class is expected to COST here. That is the trade, measured.");
             Console.WriteLine();
-            Console.WriteLine($"Questions: {sampled.Count} temporal-reasoning   k = {RecallLimit}   "
-                + $"embedder {SweepDoubles.Model}   model-free");
-            Console.WriteLine();
+            Preamble(sampled, questions.Count, turns, haystack, seed, "temporal-reasoning");
             await RunTemporalAsync(sampled, embedder);
             return 0;
         }
@@ -104,9 +120,7 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("answer' is not the test - preferring the CURRENT one over the superseded one is.");
         Console.WriteLine("That is the claim a decay model makes and a flat index cannot.");
         Console.WriteLine();
-        Console.WriteLine($"Questions: {sampled.Count} knowledge-update   k = {RecallLimit}   "
-            + $"embedder {SweepDoubles.Model}   model-free");
-        Console.WriteLine();
+        Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
 
         var stopwatch = Stopwatch.StartNew();
         string[] arms = ["lyntai", "vector"];
@@ -115,8 +129,10 @@ internal static class MemoryLongMemEvalBench
         var prefers = new Dictionary<string, int>();
         var decidable = new Dictionary<string, int>();
 
+        var done = 0;
         foreach (var q in sampled)
         {
+            Progress(++done, sampled.Count);
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
             var engine = new GraphMemoryEngine("lme", store, embedder: embedder,
@@ -183,8 +199,10 @@ internal static class MemoryLongMemEvalBench
         var evidenceTotal = 0;
         var evidenceFound = new Dictionary<string, int>();
 
+        var done = 0;
         foreach (var q in sampled)
         {
+            Progress(++done, sampled.Count);
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
             var engine = new GraphMemoryEngine("lme", store, embedder: embedder,
@@ -253,11 +271,14 @@ internal static class MemoryLongMemEvalBench
         return na == 0 || nb == 0 ? 0 : dot / (Math.Sqrt(na) * Math.Sqrt(nb));
     }
 
-    /// <summary>Knowledge-update questions only, and only those whose two sessions BOTH carry a flagged
-    /// answer turn — the discriminating shape. The later session by date holds the current value.</summary>
+    /// <summary>One class, and for knowledge-update only the questions whose evidence spans two dated
+    /// sessions — the discriminating shape. Distractor sessions are loaded like any other: they are what the
+    /// haystack variant is for.</summary>
     private static List<Question> Load(string path, string wantType, bool temporal)
     {
-        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        // Bytes, not text: the haystack file is 277 MB, and reading it as a string doubles that before the
+        // document is even built.
+        using var doc = JsonDocument.Parse(File.ReadAllBytes(path).AsMemory());
         var result = new List<Question>();
 
         foreach (var q in doc.RootElement.EnumerateArray())
@@ -282,16 +303,68 @@ internal static class MemoryLongMemEvalBench
                     t.GetProperty("content").GetString() ?? "",
                     t.TryGetProperty("has_answer", out var h) && h.ValueKind == JsonValueKind.True)));
 
-            var lastSession = ordered[^1].Index;
-            var current = turns.Where(t => t.HasAnswer && t.Session == lastSession).ToList();
-            var stale = turns.Where(t => t.HasAnswer && t.Session != lastSession).ToList();
+            // The current value sits in the latest-dated session that CARRIES a flagged turn, never simply in
+            // the latest session. In the oracle the two coincide because every session is an evidence session;
+            // in the haystack the last-dated session is a distractor nearly every time, so reading it would
+            // find no current turn and drop the whole class. `turns` is already in date order.
             var evidence = turns.Where(t => t.HasAnswer).ToList();
+            var lastEvidence = evidence.Count == 0 ? -1 : evidence[^1].Session;
+            var current = evidence.Where(t => t.Session == lastEvidence).ToList();
+            var stale = evidence.Where(t => t.Session != lastEvidence).ToList();
             if (temporal ? evidence.Count == 0 : current.Count == 0 || stale.Count == 0) continue;
 
             result.Add(new Question(q.GetProperty("question_id").GetString() ?? "",
                 q.GetProperty("question").GetString() ?? "", wantType, turns, current, stale, evidence));
         }
         return result;
+    }
+
+    /// <summary>What makes one run comparable to another: which variant ran, how much of the class was
+    /// sampled, the seed, and a fingerprint of the sampled ids. Two runs printing the same digest asked the
+    /// same questions, which is the whole basis for reading an oracle table against a haystack one.</summary>
+    private static void Preamble(List<Question> sampled, int pool, int turns, bool haystack, int seed, string cls)
+    {
+        Console.WriteLine($"Variant:   {(haystack
+            ? "haystack — the evidence sits among distractor sessions"
+            : "oracle — evidence sessions only, nothing to bury")}");
+        Console.WriteLine($"Questions: {sampled.Count} of {pool} {cls}   seed {seed}   sample {Digest(sampled)}");
+        Console.WriteLine($"Ingested:  {turns} turns per arm, {(double)turns / sampled.Count:F0} per question   "
+            + $"k = {RecallLimit}   embedder {SweepDoubles.Model}   model-free");
+        Console.WriteLine();
+    }
+
+    /// <summary>A live count on stderr, because the haystack variant ingests ~490 turns per question and runs
+    /// for the better part of an hour — long enough that a silent process is indistinguishable from a hung
+    /// one. Suppressed when stderr is redirected, so a captured run's file holds the table and nothing
+    /// else.</summary>
+    private static void Progress(int done, int total)
+    {
+        if (Console.IsErrorRedirected) return;
+        Console.Error.Write($"\r  ingesting: question {done}/{total}   ");
+        if (done == total) Console.Error.WriteLine();
+    }
+
+    /// <summary>A stable fingerprint of the sampled ids, printed instead of the ids because the only question
+    /// a reader has is whether two runs sampled the same set.</summary>
+    private static string Digest(List<Question> sampled) => Convert.ToHexString(
+        SHA256.HashData(Encoding.UTF8.GetBytes(string.Join(',', sampled.Select(q => q.Id)))))[..12];
+
+    /// <summary>A seeded sample of the class. The pool is sorted by question id first, and the ids are
+    /// IDENTICAL in the oracle and haystack files — so one seed and count select the same questions from
+    /// either, which is what lets the two tables be read against each other. Taking the whole class skips the
+    /// shuffle rather than special-casing it.</summary>
+    private static List<Question> Sample(List<Question> pool, int take, int seed)
+    {
+        var ordered = pool.OrderBy(q => q.Id, StringComparer.Ordinal).ToList();
+        if (take >= ordered.Count) return ordered;
+
+        var rng = new Random(seed);
+        for (var i = ordered.Count - 1; i > 0; i--)
+        {
+            var j = rng.Next(i + 1);
+            (ordered[i], ordered[j]) = (ordered[j], ordered[i]);
+        }
+        return ordered.Take(take).OrderBy(q => q.Id, StringComparer.Ordinal).ToList();
     }
 
     private static string? ArgValue(string[] args, string name)

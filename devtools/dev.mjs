@@ -225,7 +225,9 @@ switch (cmd) {
   // memory-longmemeval — the complement to memory-locomo. LoCoMo rewards a perfect archive and penalises
   // forgetting by construction; this measures the class where forgetting should WIN, by scoring whether a
   // recall prefers a revised fact over the one it superseded. Model-free, and needs the dataset — the
-  // command prints the one-line curl when it is missing.
+  // command prints the one-line curl when it is missing. `--temporal` is the cost side, and `--haystack`
+  // buries the same questions in ~490 turns of distractors: a seeded `--n` sample picks the same question
+  // ids from either file, so the two runs pair and the printed digest is what proves it.
   case 'memory-longmemeval':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--longmemeval', ...args]);

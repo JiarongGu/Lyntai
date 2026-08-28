@@ -159,9 +159,13 @@ Two properties of that pipeline are easy to get wrong and are worth stating:
 
 ## 5. What was measured, and what it says
 
-Everything below is on this repository's own deterministic corpus, replayed against a live engine. It is a
-**comparison instrument**, not a claim about your data: relevance in it is defined lexically, the shapes are
-synthetic, and no arm exceeds a few hundred entries.
+Most of what follows is on this repository's own deterministic corpus, replayed against a live engine. It is
+a **comparison instrument**, not a claim about your data: relevance in it is defined lexically, the shapes
+are synthetic, and no arm exceeds a few hundred entries.
+
+**The exceptions are the three sections measured on the FIELD's data** — LoCoMo and LongMemEval's two
+classes. Those carry their own corpus, their own ground truth and their own caveats, which is the whole
+reason they are worth running; each says so where it starts.
 
 ### The dominant defect is RANKING
 
@@ -627,52 +631,103 @@ similar, and the flagged turns say which is which. So the score is not "can you 
 prefer the CURRENT value over the superseded one"** — a claim a decay model makes and a flat index has no
 mechanism to make. Model-free, `k = 10`, `nomic-embed-text`.
 
-| arm | prefers current | current@k | stale@k | decidable |
-|---|---|---|---|---|
-| `lyntai` | **96.9%** (63/65) | **90.0%** | **54.3%** | 65 |
-| `vector` | 47.1% (32/68) | 84.3% | 95.7% | 68 |
+**Two variants, and the pair is the measurement.** `memory-longmemeval` reads the oracle file, whose haystack
+holds only the evidence sessions (~25 turns per question); `--haystack` reads `longmemeval_s`, which puts the
+same questions among ~490 turns of distractors (34k and 65k turns ingested per arm, per class). Both classes
+ran in full — 70 knowledge-update and 132 temporal-reasoning — so nothing here is sampled.
 
-**Plain cosine is at chance**, which is what "no mechanism" looks like when it is measured rather than
-asserted: it returns the superseded fact 95.7% of the time and picks between the two about half the time.
-This engine prefers the current one **twice as often**.
+| arm | variant | prefers current | current@k | stale@k | decidable |
+|---|---|---|---|---|---|
+| `lyntai` | oracle | **96.9%** (63/65) | 90.0% | 54.3% | 65 |
+| `lyntai` | haystack | **86.4%** (57/66) | 87.1% | 62.9% | 66 |
+| `vector` | oracle | 47.1% (32/68) | 84.3% | 95.7% | 68 |
+| `vector` | haystack | 46.4% (32/69) | 81.4% | 88.6% | 69 |
 
-**Two controls stop that being an artifact, and both matter.** `prefers current` is scored only over
-questions where the arm returned at least one of the pair, so retrieving NEITHER cannot score a vacuous
-100% — and the `decidable` counts are comparable (65 against 68). More decisively, **`current@k` is HIGHER
-for this engine while `stale@k` is far lower**: it returns the current fact more often *and* the superseded
-one less often. That is discrimination, not a recall collapse dressed as precision.
+**Plain cosine is at chance in BOTH variants**, which is what "no mechanism" looks like when it is measured
+rather than asserted: it returns the superseded fact 95.7% of the time (88.6% with distractors) and picks
+between the two about half the time either way. This engine prefers the current one roughly **twice as
+often**.
+
+**The haystack rows are the same 70 questions among ~490 turns of distractors** — the run the caveat below
+used to be waiting on. The lead narrows from **+49.8 to +40.0** and the finding holds. What moved is
+suppression, not retrieval: `current@k` falls 2.9 points for this engine and 2.9 for cosine — identically —
+while `stale@k` rises 8.6, so the distractors cost it the ability to *bury* the superseded fact rather than
+the ability to find the current one.
+
+**Two controls stop that being an artifact, and both hold in both variants.** `prefers current` is scored
+only over questions where the arm returned at least one of the pair, so retrieving NEITHER cannot score a
+vacuous 100% — and the `decidable` counts are comparable (65 against 68 on the oracle, 66 against 69 on the
+haystack). More decisively, **`current@k` is HIGHER for this engine while `stale@k` is far lower**: it
+returns the current fact more often *and* the superseded one less often. That is discrimination, not a
+recall collapse dressed as precision.
 
 **The COST side, measured on purpose rather than left to be discovered** (`memory-longmemeval --temporal`,
 132 temporal-reasoning questions). That class is not more of the same: *"what was the FIRST issue after the
 service"* wants the EARLIER fact, and most questions need BOTH — so the suppression that wins knowledge-update
 should hurt here, and the metric is all-evidence recall rather than preference.
 
-| arm | all evidence@k | any evidence@k | evidence turns |
-|---|---|---|---|
-| `lyntai` | 59.8% | 84.1% | 66.0% |
-| `vector` | **64.4%** | **90.9%** | **72.2%** |
+| arm | variant | all evidence@k | any evidence@k | evidence turns |
+|---|---|---|---|---|
+| `lyntai` | oracle | 59.8% | 84.1% | 66.0% |
+| `lyntai` | haystack | **47.7%** | **82.6%** | **61.8%** |
+| `vector` | oracle | **64.4%** | **90.9%** | **72.2%** |
+| `vector` | haystack | 43.9% | 75.0% | 57.5% |
 
-It does hurt, by **4.6 points** — predicted in advance from the mechanism, and small beside what the same
-mechanism buys.
+**On the oracle it hurts by 4.6 points, exactly as predicted from the mechanism. On the haystack the sign
+REVERSES**, to **+3.8**. Distractors cost cosine 20.5 points of all-evidence recall and cost this engine
+12.1 — so where there is finally something to suppress, suppressing it stops being a cost even in the class
+built to penalise it.
 
-**The three numbers together are the finding, and no one of them is.**
+**Read that as "the cost is gone", not as "this engine wins temporal".** +3.8 on 132 questions is five
+questions, which is not a result to lean on by itself. What makes it worth stating is that all three columns
+move the same way and the other two move further: any-evidence@k is +7.6 (ten questions) and the per-turn
+rate +4.3. A single column flipping would be noise; three agreeing is the same mechanism showing up three
+ways.
+
+**The three numbers together are the finding, and no one of them is** (haystack throughout — see below for
+why the oracle figures are not the ones to quote):
 
 | workload | what it asks | `lyntai` | `vector` | delta |
 |---|---|---|---|---|
 | LoCoMo | retrieve arbitrary old material | 31.0% | 80.5% | **−49.5** |
-| LongMemEval temporal | need the old fact AND the new | 59.8% | 64.4% | **−4.6** |
-| LongMemEval knowledge-update | prefer the new over the superseded | **96.9%** | 47.1% | **+49.8** |
+| LongMemEval temporal | need the old fact AND the new | **47.7%** | 43.9% | **+3.8** |
+| LongMemEval knowledge-update | prefer the new over the superseded | **86.4%** | 46.4% | **+40.0** |
 
-**One mechanism produces all three.** Suppressing superseded material is nearly free where both facts are
-wanted (−4.6), decisive where the old one is wrong (+49.8), and expensive only where nothing should have
-been forgotten at all (−49.5). A library scoring well on all three would be one that had stopped forgetting.
-So the honest summary is not "better" or "worse": **decay is a bet about which of those workloads a
-deployment has**, and these are its measured odds.
+**One mechanism produces all three.** Suppressing superseded material is no longer a cost where both facts
+are wanted (+3.8, five questions), decisive where the old one is wrong (+40.0), and expensive only where the
+workload is to retrieve arbitrary old material nobody has referred to since (−49.5). A library scoring well on all three
+would be one that had stopped forgetting. So the honest summary is not "better" or "worse": **decay is a bet
+about which of those workloads a deployment has**, and these are its measured odds.
 
-**The caveat that bounds all three, stated because it cuts against the good news too.** These LongMemEval
-figures come from the ORACLE variant, whose haystack holds only the evidence sessions — two to six of them.
-Decay has almost nothing to bury there, which flatters the temporal number and may flatter the update one.
-`longmemeval_s` puts the same questions in a ~115k-token haystack; `TASKS.md` Part 109 carries it.
+**The caveat that used to bound all three is DISCHARGED, and it was wrong in a way worth keeping.** It said
+the oracle variant — whose haystack holds only the evidence sessions, two to six of them — has almost
+nothing to bury, so it "flatters the temporal number and may flatter the update one". Measured in the same
+unit — the gap between the arms — it flattered the update one by **9.8** points and **penalised** the
+temporal one by **8.4**, which is the opposite direction and enough to invert the sign. So the oracle is not
+a cheap unbiased proxy for the haystack: it is biased, differently per class, and the bias is not signable
+in advance.
+
+**Its mechanism is visible in one number nobody had looked at: at `k = 10` over ~25 turns, the oracle
+returns ~40% of the store.** That is barely a retrieval test at all — most of the corpus comes back whatever
+the ranking does — whereas the haystack's ~490 turns make the same `k` a 2% slice. So the oracle measures
+something closer to *is it in the store* than *did you rank it top-ten*, and which arm that favours depends
+on the class rather than on the ranker: it favoured this engine on knowledge-update and cosine on temporal.
+That is why the bias could not have been signed in advance, and why it had to be run rather than reasoned
+about.
+
+**Two controls, because both halves of this could have been the harness.** The oracle arms were re-run under
+the loader that reads the haystack and reproduce **byte-identically** on all fourteen cells, so the change
+moved no published number. And each class's two variants ingest the **same question ids**, proven rather than
+assumed: the sample fingerprint printed in each preamble matches across variants (`D860F77A3D9E` for
+knowledge-update, `773FB41E0E5A` for temporal), which is what makes an oracle row and a haystack row
+comparable line by line.
+
+**The harness defect the haystack exposed, recorded because it would have been silent.** The loader took the
+current value from the latest-DATED session. In the oracle every session is an evidence session, so that is
+right by accident; in the haystack the last-dated session is a distractor nearly every time, so the rule
+found no current turn and would have dropped the entire class — reporting an empty run rather than a wrong
+number, which is the cheap direction only because nothing else depended on it. It now takes the latest dated
+session that *carries* a flagged turn, which is what the oracle numbers above prove is a no-op there.
 
 ### How these choices sit against the published field (surveyed 2026-08-29)
 
@@ -713,11 +768,14 @@ deprioritization common but eviction-triggered, names "selective forgetting" an 
 only MemoryAgentBench testing forgetting explicitly. **D41** (burial, never deletion), **D72**'s
 capability split and **D90**'s completeness invariant are stronger commitments than it records elsewhere.
 
-**The honest gap, and it is the one that matters: there is no shared benchmark number.** The field publishes
-against **LoCoMo**, **LongMemEval** and **BEAM**; this document publishes against a synthetic corpus whose
-own header calls it *"a comparison instrument, not a claim about your data"*. So nothing here can be ranked
-against Mem0, Zep, Letta or any other system, in either direction — including favourably. Closing that means
-running one of those suites, which is a piece of work nobody here has done.
+**The honest gap, and it is the one that matters: there is still no COMPARABLE benchmark number.** The field
+publishes against **LoCoMo**, **LongMemEval** and **BEAM**. Two of those have now run here — both above, both
+in full — so the "we have never touched a shared suite" version of this gap is closed. What is not closed is
+comparability: those figures are **model-free retrieval** metrics against a plain-cosine control on this
+machine's embedder, while the field publishes end-to-end QA accuracy read by a frontier model, and the reader
+sets that ceiling far more than the memory layer does. So nothing here can be ranked against Mem0, Zep or
+Letta in either direction — including favourably — and closing that needs the QA half, which `TASKS.md`
+Part 109 carries.
 
 ### And WHAT salience measures, which is a different question (`memory-importance`, 2026-08-27)
 
