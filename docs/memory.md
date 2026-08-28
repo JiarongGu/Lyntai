@@ -402,6 +402,30 @@ under BOTH embedders (up to +0.266 / +0.138). Salience is worst at the case it w
 anything already stored" — a different quantity, and the one whose numbers Part 69 withdrew. Its two
 siblings already refused; this one did not.
 
+**`MaxSalience` is a SWITCH, not a dial, and its shipped default is dead configuration** (`memory-salience
+--ceiling`, 30 seeds × 2 shapes × 5 arms, `nomic-embed-text`). The ladder was run because `MaxSalience` looked
+like the bounded-admission lever Part 65 wanted. It is not:
+
+| arm vs Off | baseline combined | many-candidates combined |
+|---|---|---|
+| `Max1` | +0.0016 [−0.0066, 0.0097] | −0.0085 [−0.0253, 0.0083] |
+| `Max2` | +0.0375 * | +0.0786 * |
+| `Max3` | +0.0375 * | +0.0786 * |
+| `Max4` | +0.0375 * | +0.0786 * |
+
+**`Max2`, `Max3` and `Max4` are identical in every cell**, so the ceiling never binds at 2 — and the reason
+is arithmetic: salience is `Clamp(1 + NoveltyWeight × novelty, 1, MaxSalience)` with `novelty ∈ [0,1]` and
+`NoveltyWeight = 1.5`, so the unclamped value cannot exceed **2.5**. The shipped `MaxSalience = 4` therefore
+sits outside the reachable range and can never bind at all; the identity of the three arms further says no
+write on this corpus reached even 2, i.e. novelty stayed at or below `(2−1)/1.5 ≈ 0.667`.
+<br>**`Max1` is indistinguishable from Off on all four cells** (every interval includes zero) while still
+REGISTERING a retention policy — the controls report `Max1 retention policies: 1` against `SalienceOff: 0`.
+That is the measured form of an option-level neutral: at that ceiling the clamp makes
+`StructuralSaliencePolicy` return `MemorySignals.Empty`, so the DI collection and
+`NormalizeSaliencePolicies`' "empty does NOT mean off" contract are both untouched while the effect is gone.
+<br>**So bounding salience's magnitude is `NoveltyWeight`'s job, not `MaxSalience`'s** — and it is likewise
+documented "Unmeasured". `MaxSalience` offers exactly two reachable behaviours, full and off.
+
 **What it does NOT settle, and the caveat did not weaken with a real embedder.** The corpus's noise is
 TEMPLATED, so the second noise entry onward reads as familiar under *any* embedder — the novelty-inversion
 concern stays unreachable by construction, and `memory-importance`'s `diverse-noise` shape is what reaches

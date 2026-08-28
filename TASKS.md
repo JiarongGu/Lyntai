@@ -309,12 +309,20 @@ makes `StructuralSaliencePolicy` return `MemorySignals.Empty`, i.e. an option-le
 registration sites untouched — the DI collection in `MemoryEngineRegistration` and
 `GraphMemoryEngine.NormalizeSaliencePolicies`' "empty does NOT mean off" contract. That is **D89**'s exact
 shape: move a documented-but-unmeasured constant, change no registration.
-<br>**So what is left is a one-factor sweep of `MaxSalience` over [1, 4]**, arms `Off / Max1 / Max2 / Max3 /
-Max4`, with `Max1 ≡ Off` as a self-check on the clamp reading. It needs no library change: both shipping
-policies already take `SalienceOptions`, and `SweepDoubles.CountingSaliencePolicy` already takes an inner
-policy. **Whether the default should then MOVE is the owner's call, not the sweep's** — the magnitude is
-embedder-dependent by ~2.5× and `high-noise` reverses sign between the two, so no single figure is *the*
-cost._
+<br>**That sweep RAN the same day (`memory-salience --ceiling`) and refuted the guess.** `MaxSalience` is a
+SWITCH, not a dial: `Max2`, `Max3` and `Max4` are identical in every cell, because salience is
+`Clamp(1 + NoveltyWeight × novelty, 1, MaxSalience)` with `NoveltyWeight = 1.5` and `novelty ∈ [0,1]`, so the
+unclamped value cannot exceed **2.5** and the shipped `MaxSalience = 4` can never bind. The self-check held:
+`Max1` is indistinguishable from `Off` on all four cells while still registering a retention policy, which is
+the measured form of an option-level neutral.
+<br>**So the remaining one-factor sweep is `NoveltyWeight`, not `MaxSalience`** — it is the only knob that can
+scale salience's magnitude, and its own XML doc also says "Unmeasured". Same shape, no library change, no
+registration change. **Whether any default then MOVES is the owner's call, not the sweep's**: the cost is
+embedder-dependent by ~2.5× and `high-noise` reverses sign between the two embedders, so no single figure is
+*the* cost.
+<br>**A separate, smaller finding worth acting on independently:** `MaxSalience`'s default of 4 is dead
+configuration — unreachable given `NoveltyWeight`'s own default caps the value at 2.5. Two options whose
+defaults make one of them inert is worth a look on its own terms, whatever the sweep decides._
 
 ---
 

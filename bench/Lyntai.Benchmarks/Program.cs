@@ -25,8 +25,11 @@ if (args.Contains("--bounded"))
 
 // `node devtools/dev.mjs memory-salience` → --salience. Salience ships ON and has never been measured once;
 // every prior study asserted its absence as a control. See MemorySalienceSweep.
+// `--ceiling` swaps the on/off pair for a MaxSalience ladder (Off, Max1..Max4) on two shapes — the
+// bounded-admission question TASKS.md Part 65 asks, which is a NUMBER on SalienceOptions rather than a
+// mechanism. Same sweep, same pairing, so the two modes stay comparable.
 if (args.Contains("--salience"))
-    return await MemorySalienceSweep.RunAsync();
+    return await MemorySalienceSweep.RunAsync(ceiling: args.Contains("--ceiling"));
 
 // `node devtools/dev.mjs memory-language` → --language. Every recall figure this repository publishes was
 // measured on English, space-separated text; this measures the same corpus in Chinese. See

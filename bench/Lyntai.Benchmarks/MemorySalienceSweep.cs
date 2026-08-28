@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
@@ -60,7 +61,7 @@ internal static class MemorySalienceSweep
 
     private sealed record Row(int Seed, string Shape, string Class, string Arm, double MissRate, double PollutionRate);
 
-    public static async Task<int> RunAsync()
+    public static async Task<int> RunAsync(bool ceiling = false)
     {
         // REFUSES rather than substitutes, 2026-08-28, the same discipline `memory-salience-weight` and
         // `memory-enrichment` already carry. Salience reads NOVELTY, which the engine derives from a
@@ -98,7 +99,32 @@ internal static class MemorySalienceSweep
             new("rare-critical", baseline with { CriticalRarity = 12 }),
         };
 
-        string[] arms = [OffLabel, OnLabel];
+        // The CEILING ladder, added 2026-08-28. `SalienceOptions.MaxSalience` is the ceiling on reported
+        // salience and therefore on BOTH consumers that ship ON — `ModulatedRetrievability` widens
+        // `CandidateCutoff` by exactly it — and its own XML doc says "Unmeasured — a starting point". So the
+        // "bounded-admission rule" `TASKS.md` Part 65 asks someone to design is this NUMBER, and sweeping it
+        // needs no library change and no registration change: at `MaxSalience = 1` the clamp makes
+        // StructuralSaliencePolicy return MemorySignals.Empty while it stays registered.
+        //
+        // `Max1` is therefore expected to equal `Off`, and that is the point of keeping the Off arm: it is a
+        // self-check on that reading of the clamp rather than an assertion about it.
+        var armOptions = new Dictionary<string, SalienceOptions?>(StringComparer.Ordinal);
+        string[] arms;
+        if (ceiling)
+        {
+            arms = [OffLabel, "Max1", "Max2", "Max3", "Max4"];
+            foreach (var arm in arms.Skip(1))
+                armOptions[arm] = new SalienceOptions { MaxSalience = double.Parse(arm[3..], CultureInfo.InvariantCulture) };
+            // Two shapes rather than six: the ladder multiplies the arm count, and these are the reference
+            // and the shape Part 65 is actually about. Every class still reports, `attribute` included.
+            shapes = [.. shapes.Where(s => s.Label is "baseline" or "many-candidates")];
+        }
+        else
+        {
+            arms = [OffLabel, OnLabel];
+            armOptions[OnLabel] = null;   // null = the SHIPPED defaults, so this path is unchanged
+        }
+
         PrintPreamble(shapes, arms);
 
         var corpusCache = new ConcurrentDictionary<(int Seed, string ShapeLabel), MemoryCorpus>();
@@ -113,15 +139,18 @@ internal static class MemorySalienceSweep
                 key => MemoryCorpus.Generate(shape.Value, key.Seed));
             var declaredOrder = corpus.Steps.Select(MemoryPolicySweep.CorpusStepMarker).ToList();
 
-            var on = arm == OnLabel;
+            var on = arm != OffLabel;
+            var armOpts = on ? armOptions[arm] : null;
             // Both arms enrich identically — same embedder INSTANCE, same vector store shape — so the
             // difference below is salience and not "the engine performed a vector search".
             var embedder = sharedEmbedder;
             var vectors = new InMemoryVectorStore();
 
-            var counting = on ? new SweepDoubles.CountingSaliencePolicy() : null;
+            var counting = on
+                ? new SweepDoubles.CountingSaliencePolicy(new StructuralSaliencePolicy(armOpts))
+                : null;
             IReadOnlyList<IMemoryRetentionPolicy> retention =
-                on ? [new SalienceRetentionPolicy()] : [];
+                on ? [new SalienceRetentionPolicy(armOpts)] : [];
 
             using var db = new MemoryPolicySweep.SweepDb();
             var store = new SqliteMemoryGraphStore(db.Factory);
@@ -155,7 +184,8 @@ internal static class MemorySalienceSweep
 
         PrintControls(retentionCounts.ToList(), judged.ToList(), orderChecks.ToList());
         PrintTable(rows.ToList(), shapes, arms);
-        PrintVerdict(rows.ToList(), shapes);
+        foreach (var treatment in arms.Skip(1))
+            PrintVerdict(rows.ToList(), shapes, treatment);
 
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s over {seeds.Count} seed(s), " +
@@ -242,10 +272,11 @@ internal static class MemorySalienceSweep
         }
     }
 
-    private static void PrintVerdict(IReadOnlyList<Row> rows, IReadOnlyList<Shape> shapes)
+    private static void PrintVerdict(IReadOnlyList<Row> rows, IReadOnlyList<Shape> shapes,
+        string treatment = OnLabel)
     {
         Console.WriteLine();
-        Console.WriteLine($"=== Paired MissRate difference, {OnLabel} vs {OffLabel} (negative = salience helps) ===");
+        Console.WriteLine($"=== Paired MissRate difference, {treatment} vs {OffLabel} (negative = salience helps) ===");
         Console.WriteLine($"{"Shape",-16} {"Class",-24} {"Δ miss",9} {"95% CI",22}");
 
         var shapeOrder = shapes.Select((s, i) => (s.Label, i)).ToDictionary(x => x.Label, x => x.i, StringComparer.Ordinal);
@@ -261,8 +292,8 @@ internal static class MemorySalienceSweep
             var bySeed = cell.GroupBy(r => r.Seed)
                 .ToDictionary(g => g.Key, g => g.ToDictionary(r => r.Arm, r => r.MissRate, StringComparer.Ordinal));
             var diffs = bySeed.Values
-                .Where(a => a.ContainsKey(OnLabel) && a.ContainsKey(OffLabel))
-                .Select(a => a[OnLabel] - a[OffLabel]).ToList();
+                .Where(a => a.ContainsKey(treatment) && a.ContainsKey(OffLabel))
+                .Select(a => a[treatment] - a[OffLabel]).ToList();
             if (diffs.Count == 0) continue;
 
             var ci = MemoryPolicySweep.Ci95(diffs);
