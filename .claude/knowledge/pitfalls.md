@@ -313,6 +313,36 @@ the tests) while being wrong. Skim before touching the relevant area.
   not source them, **and was right**; that refusal is the behaviour to copy. If you are about to write a
   number you did not just produce, the correct move is to say you cannot source it.
 
+- **A defect filed from a PARTIAL SCAN under-scopes its own fix, and the filing reads as authoritative.**
+  Measured 2026-08-28 (archive Part 107). A backlog entry recorded that `docs/memory.md` §8 had been folded  link-ok
+  away and that **four** places still cited it, naming all four with `file:line` precision. The real number
+  was **seven across six files**: the entry's `§8` scan missed the RANGE form (`§7–8` — the token is there,
+  the string is not), a second hit on a line it had already counted, and both bench-tier files. Acting on
+  the entry as written would have left three live dead citations behind a task marked done.
+  <br>**The tell is precision without provenance.** Four exact `file:line` references look like the output
+  of a tool and were in fact the hits a reader happened to see; nothing in the entry said which command
+  produced them, so nothing invited re-running it. **Record the query beside the count** — a count whose
+  scan is written down can be re-run and disagreed with, and one that is not can only be believed.
+  <br>The generalisation is the one this file already carries from the other direction: a written-down
+  finding is not a verified one. Here the finding was true and its SCOPE was wrong, which is worse, because
+  a wrong scope survives the fix that was supposed to close it.
+
+- **Verify a guarantee by IMPORTING the authoritative function, never by reimplementing it in the checker.**
+  Same day, while compressing `docs/task-archive.md`. The compression had to preserve every Part number the
+  rest of the repository cites, because `check-links` resolves each inbound `` `docs/task-archive.md` Part N ``
+  against that file and eliding one turns the reference into "in NEITHER record" — silently, for every
+  reference at once. The verification reimplemented "which Parts does this file declare" as
+  `/^#{2,3} Part (\d+)/` and reported **two Parts lost**. Both were fine: `declaredParts` in
+  `check-links.mjs` also accepts a bullet declaration (`- [x] **Part 41 — …**`), which is how Part 40 is
+  written, and Part 64 is a `### Part 64` sub-entry. **The checker was wrong, not the output.**
+  <br>Importing the real function turned 19/21 into 21/21 with no change to the data. A reimplementation is
+  a second definition of the same rule, and it drifts in whichever direction its author forgot — here
+  toward a FALSE ALARM, which is the lucky direction; the same mistake in a permissive direction passes a
+  broken compression as safe. `check-links` itself already carries this lesson for scope predicates
+  ("imported rather than restated… two copies of that question drift the moment a document is archived").
+  <br>**Both mistakes above are the same shape** — a scan that answers a narrower question than the one
+  being asked, while reading as though it answered the whole one.
+
 ## LLM / router (details in `llm-and-router.md`)
 
 - **A timeout as a single `CancelAfter` over a whole call** — a wall clock that kills a slow-but-alive

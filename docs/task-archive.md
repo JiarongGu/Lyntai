@@ -17,20 +17,6 @@
 > is current: open work is [`../TASKS.md`](../TASKS.md), releases are `../CHANGELOG.md`, and the test/gate
 > totals are whatever `node devtools/dev.mjs verify` prints today.
 >
-> **COMPRESSED 2026-08-28, from 7,280 lines to ~1,150.** Each Part keeps its heading and its authored
-> summary — the `✅ done` or `**Outcome**` paragraph where one exists, otherwise the titles of the items it
-> closed, otherwise its lead paragraph. **No Part was dropped and no Part is empty**: all 102 headings
-> survive, and so does every Part number declared as a `### Part N` sub-entry or a bullet, because
-> `check-links` resolves every inbound `` `docs/task-archive.md` Part N `` reference against this file and
-> eliding one would silently turn it into "in NEITHER record".
-> <br>**The full text of every entry is in git history** (`git log -p -- docs/task-archive.md`), which is
-> where it belongs: this file is read by Ctrl-F for one Part, never linearly, and at 611 KB it had become
-> the largest document in the repository by a wide margin. What a compressed entry loses is the reasoning
-> narrative; what it keeps is what the Part was and what closed — which is what
-> `.claude/rules/persist-working-state.md` says the archive is FOR. **A conclusion that must outlive its
-> Part belongs in `docs/DECISIONS.md`, `pitfalls.md` or the design contract, not here** — that routing rule
-> already existed, and this compression is what makes ignoring it visibly lossy.
->
 > _(Original header preserved below for the record.)_
 
 ---
@@ -271,29 +257,29 @@ tuning — is overwhelmingly consumed by THIS flow, so cortex can't move onto Ly
 
 ## Part 7 — App-owned storage: use your own table, no duplication (2026-07-19)
 
-- **P1 · Configurable KV key prefix on the cortex stores — should-have (adoption)** — 07-19 — `keyPrefix` ctor arg on both stores + `LyntaiOptions.PromptKeyPrefix`/`ModelKeyPrefix`; `KeyPrefix` const → `DefaultKeyPrefix` + instance p...
-- **P2 · Generic conversation store — a typed event stream, not just role/text chat — should-have (generic capability)** — 07-20 — `ChatMessage` gains `Kind`/`Payload` (Role/Content kept as aliases); `ChatThread` gains opaque `Metadata` + `SetThreadMetadataAsync`; messa...
-- **P3 · App-owned storage — REDESIGNED per the design principle — should-have (adoption)** — 07-20 - **Design correction (user, 2026-07-20):** the original P3 premise (point Lyntai's SQL at the app's OWN `chat_session`/`chat_event` tables v...
+- **P1 · Configurable KV key prefix on the cortex stores — should-have (adoption)** — `keyPrefix` ctor arg on both stores + `LyntaiOptions.PromptKeyPrefix`/`ModelKeyPrefix`; `KeyPrefix` const → `DefaultKeyPrefix` + instance property;...
+- **P2 · Generic conversation store — a typed event stream, not just role/text chat — should-have (generic capability)** — `ChatMessage` gains `Kind`/`Payload` (Role/Content kept as aliases); `ChatThread` gains opaque `Metadata` + `SetThreadMetadataAsync`; message colum...
+- **P3 · App-owned storage — REDESIGNED per the design principle — should-have (adoption)**
 
 ## Part 8 — "Generic + sustainable" review sweep (2026-07-19)
 
-- **R1 · "Plug your own impl" is broken for storage + the README claim is false** — 07-20 — Sqlite+Postgres domain stores now `TryAddSingleton` (match InMemory); pre-registered app impl wins; README claim now true; AddEmbeddings au...
-- **R2 · Guards don't cover the agent tool loop** — 07-20 — `IGuardRail.InspectToolCallAsync`/`InspectToolResultAsync` (default methods reusing existing guards); `ToolLoop` gates each call's args + o...
-- **R3 · Response-gate `Replace` only rewrites `Text`, leaving `ToolCalls`/`Detail`** — 07-20 — response Replace now clears `ToolCalls`+`Detail` too (GuardedLlmClient + rail re-threading); replacement is the whole sanitized reply. - `G...
-- **R4 · Trace subsystem is orphaned from the agent flows** — 07-20 — chosen: document `ITraceService` as the BYO/app-driven persisted-trace API; OTel Activity spans are the automatic path. Clarified in `ITrac...
-- **R5 · Cross-backend parity is under-verified (Postgres false-green + missing shared contracts)** — 07-20 — `[SkippableFact]`+`Skip.IfNot` (Xunit.SkippableFact) so Postgres tests SKIP visibly, not false-green; extracted KeyValue/Conversation/Memor...
-- **R6 · SQLite memory dedup is non-atomic (data-integrity divergence)** — 07-20 — added `UNIQUE(task_key, scope, content)` (`ux_lyntai_memory_dedup`, replaces the non-unique prefix index) + `INSERT … ON CONFLICT DO UPDATE...
-- **R7 · README/CHANGELOG version drift (ships in every nupkg)** — 07-20 — README Status refreshed to v0.28.5; agent-session moved from Unreleased → `## 0.28.5`; added `dev.mjs doctor` pack-guard (README Status ver...
-- **R8 · Verdict classifier is English/regex-biased + not extensible; `ContextWindowExceeded` unreachable on typed-exception paths** — 07-20 — `FromException` scans the inner-exception chain (typed "too long" → ContextWindowExceeded); added `AddErrorTextMatcher` consumer seam (disp...
+- **R1 · "Plug your own impl" is broken for storage + the README claim is false** — Sqlite+Postgres domain stores now `TryAddSingleton` (match InMemory); pre-registered app impl wins; README claim now true; AddEmbeddings audited (e...
+- **R2 · Guards don't cover the agent tool loop** — `IGuardRail.InspectToolCallAsync`/`InspectToolResultAsync` (default methods reusing existing guards); `ToolLoop` gates each call's args + observati...
+- **R3 · Response-gate `Replace` only rewrites `Text`, leaving `ToolCalls`/`Detail`** — response Replace now clears `ToolCalls`+`Detail` too (GuardedLlmClient + rail re-threading); replacement is the whole sanitized reply. - `Guards/Gu...
+- **R4 · Trace subsystem is orphaned from the agent flows** — chosen: document `ITraceService` as the BYO/app-driven persisted-trace API; OTel Activity spans are the automatic path. Clarified in `ITraceService...
+- **R5 · Cross-backend parity is under-verified (Postgres false-green + missing shared contracts)** — `[SkippableFact]`+`Skip.IfNot` (Xunit.SkippableFact) so Postgres tests SKIP visibly, not false-green; extracted KeyValue/Conversation/Memory/Trace/...
+- **R6 · SQLite memory dedup is non-atomic (data-integrity divergence)** — added `UNIQUE(task_key, scope, content)` (`ux_lyntai_memory_dedup`, replaces the non-unique prefix index) + `INSERT … ON CONFLICT DO UPDATE` (match...
+- **R7 · README/CHANGELOG version drift (ships in every nupkg)** — README Status refreshed to v0.28.5; agent-session moved from Unreleased → `## 0.28.5`; added `dev.mjs doctor` pack-guard (README Status version mus...
+- **R8 · Verdict classifier is English/regex-biased + not extensible; `ContextWindowExceeded` unreachable on typed-exception paths** — `FromException` scans the inner-exception chain (typed "too long" → ContextWindowExceeded); added `AddErrorTextMatcher` consumer seam (disposable,...
 - ...and 13 more closed items (full text in git history).
 
 ## Part 9 — Feature/module toggles: enable only what you use (2026-07-20)
 
-- **F1 · Feature toggle model + gated registration + selective migration — should-have** — 07-20 — `[Flags] StorageFeature` (9 domains + All); `UseSqliteStorage`/`UsePostgresStorage(…, features)` gate registration per feature AND migrate...
+- **F1 · Feature toggle model + gated registration + selective migration — should-have** — `[Flags] StorageFeature` (9 domains + All); `UseSqliteStorage`/`UsePostgresStorage(…, features)` gate registration per feature AND migrate only sel...
 
 ## Part 10 — Actor/mailbox model for durable jobs (2026-07-20)
 
-- **A1 · Ordered single-owner-per-key durable jobs (actor mailboxes) — should-have** — 07-20 — `JobSpec`/`IJobQueue.EnqueueAsync` gain an optional `partitionKey`. Jobs sharing a `(lane, partitionKey)` run **one-at-a-time in FIFO (enqu...
+- **A1 · Ordered single-owner-per-key durable jobs (actor mailboxes) — should-have** — `JobSpec`/`IJobQueue.EnqueueAsync` gain an optional `partitionKey`. Jobs sharing a `(lane, partitionKey)` run **one-at-a-time in FIFO (enqueue) ord...
 
 ## Part 11 — Consumer-driven gaps: Gatherlight conversation-store adoption (2026-07-20)
 
@@ -365,12 +351,12 @@ source-compatible; a BYO `IProcessRunner` must add it to its override (the three
 
 ## Part 19 — agent-manager desktop adoption + curated-memory papercuts (CM1/CM2/CLI1/TL1/TL2/PR1)
 
-- **CM1 — dedup-on-add for `ICuratedMemoryStore.AddAsync`.** — 07-26 — Added `dedup` (default false) to `ICuratedMemoryStore.AddAsync`. When true the add is idempotent on the (kind, content, task, scope) identi...
-- **CM2 — `scope` filter on `ICuratedMemoryStore.ListAsync`.** — 07-26 — Added a strict-equality `scope` filter to `ListAsync` (before `limit`; null = no filter, unchanged). Across all three backends. TDD: `Curat...
-- **CLI1 — headless "skip all permissions" for `ClaudeAgentSession`.** — 07-26 — Added an opt-in `SkipAllPermissions` bool to `ClaudeAgentOptions`. When set, `ClaudeAgentArgs.Build` emits `--dangerously-skip-permissions`...
-- **TL1 — surface token usage on `ToolLoopResult`.** — 07-26 — Added nullable `ToolLoopResult.Usage` (init property, like `LlmReply.ToolCalls`). The loop aggregates every front-door reply's `LlmUsage` (...
-- **TL2 — live progress from `IToolLoop`.** — 07-26 — Added `IToolLoop.StreamAsync(req, maxIterations?, ct)` yielding `AgentStreamEvent`s (ToolCall/ToolResult per round-trip, assistant TextDelt...
-- **PR1 — default `IProcessRunner`: Windows launcher-shim resolution + forced UTF-8.** — 07-26 — On inspection the default `ProcessRunner` ALREADY forced BOM-less UTF-8 on all three streams and resolved `.cmd`/`.exe` shims; the real rem...
+- **CM1 — dedup-on-add for `ICuratedMemoryStore.AddAsync`.** — Added `dedup` (default false) to `ICuratedMemoryStore.AddAsync`. When true the add is idempotent on the (kind, content, task, scope) identity: retu...
+- **CM2 — `scope` filter on `ICuratedMemoryStore.ListAsync`.** — Added a strict-equality `scope` filter to `ListAsync` (before `limit`; null = no filter, unchanged). Across all three backends. TDD: `CuratedMemory...
+- **CLI1 — headless "skip all permissions" for `ClaudeAgentSession`.** — Added an opt-in `SkipAllPermissions` bool to `ClaudeAgentOptions`. When set, `ClaudeAgentArgs.Build` emits `--dangerously-skip-permissions` and sup...
+- **TL1 — surface token usage on `ToolLoopResult`.** — Added nullable `ToolLoopResult.Usage` (init property, like `LlmReply.ToolCalls`). The loop aggregates every front-door reply's `LlmUsage` (summed i...
+- **TL2 — live progress from `IToolLoop`.** — Added `IToolLoop.StreamAsync(req, maxIterations?, ct)` yielding `AgentStreamEvent`s (ToolCall/ToolResult per round-trip, assistant TextDelta(s), a...
+- **PR1 — default `IProcessRunner`: Windows launcher-shim resolution + forced UTF-8.** — On inspection the default `ProcessRunner` ALREADY forced BOM-less UTF-8 on all three streams and resolved `.cmd`/`.exe` shims; the real remaining g...
 
 ## Part 20 — Whole-library foundation-hardening pass (2026-07-26)
 
@@ -398,31 +384,31 @@ additive read paths (`IKeyValueStore.ListKeysAsync`, `IJobQueue.GetAsync`/`ListA
 `AddScorer(factory)`/`AddEmbeddings<T>`), an ApiSurface renderer upgrade
 (sealed/abstract/static/required) with all 11 baselines regenerated deliberately, and a real
 
-- **P3 — Azure OpenAI preset endpoint shape.** — 07-26 — Outcome: verified against Azure's current `/openai/v1` (v1 GA API) docs; `ProviderDetect.AzureOpenAi` flavor (detects `*.openai.azure.com`)...
-- **L8 — async `IUsageTracker`.** — 07-26 — Outcome: `RecordAsync`/`TotalAsync`/`ResetAsync` (`ValueTask`) across all 3 backends + `BudgetedLlmClient`; per-consumer totals aggregate c...
+- **P3 — Azure OpenAI preset endpoint shape.** — Outcome: verified against Azure's current `/openai/v1` (v1 GA API) docs; `ProviderDetect.AzureOpenAi` flavor (detects `*.openai.azure.com`), bare-r...
+- **L8 — async `IUsageTracker`.** — Outcome: `RecordAsync`/`TotalAsync`/`ResetAsync` (`ValueTask`) across all 3 backends + `BudgetedLlmClient`; per-consumer totals aggregate case-inse...
 
 ## Part 22 — Curated-memory as a searchable, metadata-carrying catalog (CMEM3–CMEM6)
 
-- **CMEM3 — optional `Title` on `CuratedMemory`.** — 07-27 — Outcome: `CuratedMemory.Title` (trailing optional record param), `AddAsync` `title` param placed AFTER `dedup` so no pre-existing positiona...
-- **CMEM4 — keyword `SearchAsync` on `ICuratedMemoryStore`.** — 07-27 — Outcome: `SearchAsync(query, kind?, taskKey?, scope?, enabledOnly?, limit?)` matching CONTENT + TITLE with the ListAsync-family strict filt...
-- **CMEM5 — `kind` on `ICuratedMemoryStore.UpdateAsync`.** — 07-27 — Outcome: `UpdateAsync` gains a trailing optional `kind` param (placed AFTER `title`, before `ct`, so no pre-existing positional call site s...
-- **CMEM6 — generic `Metadata` field + relational query index; fold & drop `Source`/`Title`.** — 07-27 — Outcome: `CuratedMemory` drops `Source`/`Title`, gains `IReadOnlyDictionary<string,string>? Metadata`; `AddAsync`/`UpdateAsync` drop the `s...
+- **CMEM3 — optional `Title` on `CuratedMemory`.** — Outcome: `CuratedMemory.Title` (trailing optional record param), `AddAsync` `title` param placed AFTER `dedup` so no pre-existing positional call s...
+- **CMEM4 — keyword `SearchAsync` on `ICuratedMemoryStore`.** — Outcome: `SearchAsync(query, kind?, taskKey?, scope?, enabledOnly?, limit?)` matching CONTENT + TITLE with the ListAsync-family strict filters (ena...
+- **CMEM5 — `kind` on `ICuratedMemoryStore.UpdateAsync`.** — Outcome: `UpdateAsync` gains a trailing optional `kind` param (placed AFTER `title`, before `ct`, so no pre-existing positional call site silently...
+- **CMEM6 — generic `Metadata` field + relational query index; fold & drop `Source`/`Title`.** — Outcome: `CuratedMemory` drops `Source`/`Title`, gains `IReadOnlyDictionary<string,string>? Metadata`; `AddAsync`/`UpdateAsync` drop the `source`/`...
 
 ## Part 23 — Deferred-findings burn-down (post-sign-off maintenance)
 
-- **I14 — bound `StreamLinesAsync`'s stderr capture** — 07-27 — Outcome: `ReadTailAsync` (rolling 500-char StringBuilder window, chunked reads, completes on child EOF like `ReadToEndAsync` did) replaces...
-- **L10/L11 — rate-limiter half-live options claim + `LlmVerdictClassifier` custom-matcher lock/copy-per-call** — 07-27 — Outcome: **L10** — `TokenBucketRateLimiter` options are now FULLY live (matching `HasEffectiveLimit`'s documented claim): rate/burst are pe...
-- **S3 — shared cap-evict SQL for the memory stores.** — 07-27 — Outcome: `MemoryEviction.CapEvictSql(mode)` in Core returns the one statement; both stores' `CapEvictAsync` collapse to a Dapper one-liner...
-- **S11 — drop the `(object?)x ?? DBNull.Value` dance in the Postgres stores** — 07-27 — Outcome: all 20 sites (PostgresCuratedMemoryStore + PostgresMemoryStore) now bind typed nullable members directly — Dapper infers the DbTyp...
-- **T14 — de-flake the two wall-clock-coupled tests** — 07-27 — Outcome: the abandonment test now POLLS to a 15s deadline for the heartbeat file to hold its size across two consecutive 300ms windows (≥5...
-- **T5 — mid-stream CALLER-cancellation tests** — 07-27 — Outcome: **T5** — router pin (cancel after the first committed chunk → OCE propagates, no fabricated terminal Error, zero fallback calls; `...
-- **T4 remnants — Postgres coverage:** — 07-27 — Outcome: `Fail_with_retry_requeues_available_later` lane-parameterized and routed through the `JobPg` runner (timestamptz retry math now ex...
+- **I14 — bound `StreamLinesAsync`'s stderr capture** — Outcome: `ReadTailAsync` (rolling 500-char StringBuilder window, chunked reads, completes on child EOF like `ReadToEndAsync` did) replaces the unbo...
+- **L10/L11 — rate-limiter half-live options claim + `LlmVerdictClassifier` custom-matcher lock/copy-per-call** — Outcome: **L10** — `TokenBucketRateLimiter` options are now FULLY live (matching `HasEffectiveLimit`'s documented claim): rate/burst are per-acquir...
+- **S3 — shared cap-evict SQL for the memory stores.** — Outcome: `MemoryEviction.CapEvictSql(mode)` in Core returns the one statement; both stores' `CapEvictAsync` collapse to a Dapper one-liner executin...
+- **S11 — drop the `(object?)x ?? DBNull.Value` dance in the Postgres stores** — Outcome: all 20 sites (PostgresCuratedMemoryStore + PostgresMemoryStore) now bind typed nullable members directly — Dapper infers the DbType from t...
+- **T14 — de-flake the two wall-clock-coupled tests** — Outcome: the abandonment test now POLLS to a 15s deadline for the heartbeat file to hold its size across two consecutive 300ms windows (≥5 missed b...
+- **T5 — mid-stream CALLER-cancellation tests** — Outcome: **T5** — router pin (cancel after the first committed chunk → OCE propagates, no fabricated terminal Error, zero fallback calls; `FakeLlmP...
+- **T4 remnants — Postgres coverage:** — Outcome: `Fail_with_retry_requeues_available_later` lane-parameterized and routed through the `JobPg` runner (timestamptz retry math now exercised)...
 - **S8 — move the remaining 4 Row-DTO pairs (trace/score/prompt-version/usage) to Core**
 - ...and 3 more closed items (full text in git history).
 
 ## Part 24 — Built-in embedder for the OpenAI-compatible provider (2026-07-27)
 
-- **EMB1 — ship an `IEmbedder` over an OpenAI-compatible `/v1/embeddings` endpoint.** — 07-27 — Outcome: `HttpEmbedder` + `OpenAiCompatibleEmbedderOptions` + `builder.AddOpenAiCompatibleEmbedder(id, cfg, httpClient?)` in `Lyntai.Provid...
+- **EMB1 — ship an `IEmbedder` over an OpenAI-compatible `/v1/embeddings` endpoint.** — Outcome: `HttpEmbedder` + `OpenAiCompatibleEmbedderOptions` + `builder.AddOpenAiCompatibleEmbedder(id, cfg, httpClient?)` in `Lyntai.Providers.Open...
 
 ## Part 26 — Generalize the MCP tool-hosting seam (2026-07-29)
 
@@ -437,10 +423,10 @@ Docs: the 1.0 sign-off decisions (git history), CHANGELOG header amendment and a
 **Breaking** entry with a migration diff, README (generic host + worked custom-dialect example), AOT.md,
 ROADMAP, CLAUDE.md, both design docs, and `.claude/knowledge/extending-lyntai.md` gained a fifth
 
-- **MCPH1 — extract `Lyntai.Tools.Mcp.Hosting`** — 07-29 — **Outcome:** `src/Lyntai.Tools.Mcp.Hosting/` with `McpToolHost`, `ToolFunction`, `McpToolHostProvisioner`, `McpToolHostOptions`, `AddMcpToo...
-- **MCPH2 — `IMcpCliDialect` seam** — 07-29 — **Outcome:** `IMcpCliDialect` + `McpEndpoint` + `McpCliContext` in **Core** (`Lyntai.Agents`). Core placement is load-bearing — it lets a p...
-- **MCPH3 — claude dialect into the PROVIDER package; the add-on package removed.** — 07-29 — **Outcome:** `ClaudeCliMcpDialect` ships in `Lyntai.Providers.ClaudeCli` (owner's call) at **zero new dependencies** — it is JSON + strings...
-- **MCPH4 — keyed `ICliToolProvisioner` resolution** — 07-29 — **Outcome:** `AddMcpToolHost` registers keyed on `IMcpCliDialect.ProviderId`, with the first registration also taking the unkeyed slot as f...
+- **MCPH1 — extract `Lyntai.Tools.Mcp.Hosting`** — **Outcome:** `src/Lyntai.Tools.Mcp.Hosting/` with `McpToolHost`, `ToolFunction`, `McpToolHostProvisioner`, `McpToolHostOptions`, `AddMcpToolHost(di...
+- **MCPH2 — `IMcpCliDialect` seam** — **Outcome:** `IMcpCliDialect` + `McpEndpoint` + `McpCliContext` in **Core** (`Lyntai.Agents`). Core placement is load-bearing — it lets a provider...
+- **MCPH3 — claude dialect into the PROVIDER package; the add-on package removed.** — **Outcome:** `ClaudeCliMcpDialect` ships in `Lyntai.Providers.ClaudeCli` (owner's call) at **zero new dependencies** — it is JSON + strings over Co...
+- **MCPH4 — keyed `ICliToolProvisioner` resolution** — **Outcome:** `AddMcpToolHost` registers keyed on `IMcpCliDialect.ProviderId`, with the first registration also taking the unkeyed slot as fallback;...
 
 ## Part 27 — Backend version & upgrade awareness (2026-07-30)
 
@@ -456,7 +442,7 @@ generalizes beyond CLIs (a server version endpoint, a local runtime naming its l
 `ClaudeCommand` seams, neutral cwd, no stdin; parsing is `ClaudeVersionLine` (internal, source-gen regex).
 
 - **CLI2 — Claude CLI version/model probe**
-- **CLI3 — CLI self-update seam** — 07-30 — **Outcome:** shipped as a **Core capability pair with the claude CLI as first implementer**, not as adapter-only methods (mid-task steer: "...
+- **CLI3 — CLI self-update seam**
 
 ## Part 28 — Provider probe/update CLI spawn on Windows (2026-07-30)
 
@@ -471,7 +457,7 @@ caller-supplied/`CLAUDE_CMD` path pointing straight at the shim, which bypasses 
 spawn threw Win32 193. Fix: `ResolveLauncher` now swaps a non-exec'able launcher for its spawnable **sibling**
 (`.cmd`/`.bat`/`.exe`/`.com`, then `.ps1` via the existing PowerShell host), probing siblings only for paths
 
-- **CLI2 — probe/update spawn the RAW resolved command → fail on a Windows npm/nvm shim** — 07-30 — **Outcome:** fixed **one layer below where it was filed**. The report's premise (probe/ update spawn differently from a completion) doesn't...
+- **CLI2 — probe/update spawn the RAW resolved command → fail on a Windows npm/nvm shim**
 
 ## Part 29 — Turn-free backend AUTH + pinned self-install (2026-08-04)
 
@@ -487,7 +473,7 @@ same split `ProviderUpdateResult` already uses. Answers to the task's two explic
 docs: `LoginAsync` **blocks** until the flow finishes/fails, bounded by a 10-minute budget applied to BOTH
 
 - **CLI3 — a turn-free AUTH seam for the CLI provider (`IProviderAuth`), completing the pair CLI1 started.**
-- **CLI4 — let `IProviderUpdater` (or `IProviderInstallation`) drive the backend's own PINNED install.** — 08-04 — **Outcome:** two more Core capabilities with the claude CLI as first implementer, following Part 27's pattern exactly. **CLI3:** `IProvider...
+- **CLI4 — let `IProviderUpdater` (or `IProviderInstallation`) drive the backend's own PINNED install.**
 
 ## Part 30 — Version-authorship guard (2026-08-04)
 
@@ -502,7 +488,7 @@ is *supposed* to be ahead of the newest tag; wiring it into `verify` would have 
 is `devtools/scripts/check-version-bump.mjs` + a second line in `devtools/hooks/pre-commit` (now `|| exit 1`
 per guard so the first failure stops the commit), also exposed as `dev.mjs check-version`. **One deviation
 
-- **REL1 — guard the version against hand-edits (`src/Directory.Build.props`, `devtools/hooks/pre-commit`).** — 08-04 — **Outcome:** both layers ported, env var renamed to **`LYNTAI_RELEASE=1`**, and both sabotage-verified HERE (hand-bumped `VersionPrefix` →...
+- **REL1 — guard the version against hand-edits (`src/Directory.Build.props`, `devtools/hooks/pre-commit`).**
 
 ## Part 31 — Generalize the CLI provider seam + a second CLI backend (2026-08-04)
 
@@ -517,7 +503,7 @@ byte-identical assertions) rather than left as aliases. 21 engine tests drive th
 `FakeCliDialect`, so they can't pass by accident via claude's behaviour. Recorded as `docs/DECISIONS.md` — the `CliProviderEngine`-plus-dialect rule.
 
 - **CLI5 — extract the shared spawned-CLI logic behind a per-CLI dialect seam, and prove it with a second backend.**
-- **CLI6 — support a PORTABLE CLI (an app-bundled binary), not just a global install.** — 08-04 — **Outcome:** `CliProviderEngine` + `ICliProviderDialect` / `CliProviderDialectBase` / `CliOutputEvent` / `CliPromptDelivery` / `CliCommand`...
+- **CLI6 — support a PORTABLE CLI (an app-bundled binary), not just a global install.**
 
 ## Part 32 — Generation platform + a coherent package graph (2026-08-04)
 
@@ -532,7 +518,7 @@ the **operation id exposed** so a paid render survives a process restart and com
 Two further findings: aggregators serve 1,000+ models across image/video/audio/**3D** behind ONE queue API, so
 routing selects **backend + model** (`GenerationCandidate`) rather than one-provider-per-model; and capability
 
-- **MED1 — a generation domain as a Lyntai platform** — 08-04 (Plans 1–2 + the restructure; Plans 3–7 remain open) — **Outcome:** research changed the contract before any code was written, and that is th...
+- **MED1 — a generation domain as a Lyntai platform**
 
 ## Part 33 — Generation backends: local engine, durable renders, first remote queue (2026-08-04)
 
@@ -550,8 +536,8 @@ one wall clock that would kill a healthy slow render.
 - **GEN3 — local subprocess backend**
 - **GEN4 — async video composed with `Lyntai.Jobs`**
 - **GEN6 (tool/MCP bridge half)**
-- **GEN5 — governance/telemetry parity for generation** — 08-04 — **Outcome:** `LocalDiffusionProvider` runs stable-diffusion.cpp locally — no key, no network, no content policy in the path, which is what...
-- **GEN11 — the `Add*` shims' infinite HTTP timeout rests on a per-call deadline that does not exist.** — 08-05 — **Outcome:** the premise was verified before it was fixed (`TimeoutSeconds` was read by nothing but the durable-job payload's own serialize...
+- **GEN5 — governance/telemetry parity for generation**
+- **GEN11 — the `Add*` shims' infinite HTTP timeout rests on a per-call deadline that does not exist.**
 
 ## Part 35 — the 2.0.1 release hardening + a packaging policy with gates (2026-08-04)
 
@@ -567,7 +553,7 @@ pins left by the ASP.NET removal.
 - **A pre-release audit of the shipped artifact, not the repo.**
 - **A bundle membership policy (the bundle dependency budget) + a dependency-budget gate.**
 - **Granularity settled (the many-small-packages shape) + an inventory gate + a package scaffolder.**
-- **The media backends split out (the release-cadence package split) and generation marked EXPERIMENTAL.** — 08-04 — **Outcome:** the audit found six real defects, and the most serious was self-inflicted: `Lyntai.Providers.Default` stamped `IsTrimmable` in...
+- **The media backends split out (the release-cadence package split) and generation marked EXPERIMENTAL.**
 
 ## Part 36 — generation ergonomics: the misbinding trap and the missing wiring (2026-08-04)
 
@@ -580,7 +566,7 @@ transposition being fixed, and a wrong type is a compile error where a wrong str
 in `docs/DECISIONS.md` — the named-factories rule.
 
 - **GEN10 — `GenerationInput`'s ctor order is a silent-misbinding trap; give `Role` a safer path.**
-- **generation backend wiring helpers** — 08-04 — **Outcome:** ten static factories on `GenerationInput` (`Init`/`FirstFrame`/`Reference`/ `Voice`, each with a bytes and a `System.Uri` over...
+- **generation backend wiring helpers**
 
 ## Part 37 — provider lifetime: a pool keyed on the configuration, for externally-owned settings (2026-08-05)
 
@@ -595,7 +581,7 @@ fields — so pooling instances alone would have changed nothing. `DeadHostTrack
 owns it, and both routers snapshot their provider set at construction, so a consumer wanting a different
 backend per call rebuilds the router and *that* is what destroys the cooldown. The unit that has to be
 
-- **GEN12 — own the provider POOL: keep one instance per configuration and deprecate it when the configuration changes.** — 08-05 — **Outcome:** `Lyntai.Lifecycle` in Core — `IProviderIdentity` (now the shared base of both provider seams), `ProviderKey` + its named-contr...
+- **GEN12 — own the provider POOL: keep one instance per configuration and deprecate it when the configuration changes.**
 
 ## Part 34 — findings from the pre-2.0.1 consumer smoke (2026-08-04)
 
@@ -603,13 +589,13 @@ backend per call rebuilds the router and *that* is what destroys the cooldown. T
 
 ## Part 25 — post-1.0 additive ergonomics from the 1.0 API review (2026-08-05)
 
-- **verdict helpers** — 08-05 — Outcome: shipped as `LlmVerdictExtensions.IsOk()` / `IsTransient()` on the ENUM rather than as per-verdict methods on `LlmReply`. Two reaso...
-- **`AddMcpTools` convenience overload** — 08-05 — Outcome: both. `AddMcpTools(params ITool[])` sits beside the sequence overload and delegates to it (an array argument binds to the params o...
-- **agent-event contract** — 08-05 — Outcome: **no code change; the item was stale on both halves.** `FilePathOf` already reads `file_path` → `notebook_path` → `path` in that o...
+- **verdict helpers** — Outcome: shipped as `LlmVerdictExtensions.IsOk()` / `IsTransient()` on the ENUM rather than as per-verdict methods on `LlmReply`. Two reasons, both...
+- **`AddMcpTools` convenience overload** — Outcome: both. `AddMcpTools(params ITool[])` sits beside the sequence overload and delegates to it (an array argument binds to the params overload...
+- **agent-event contract** — Outcome: **no code change; the item was stale on both halves.** `FilePathOf` already reads `file_path` → `notebook_path` → `path` in that order, wi...
 - **curated-memory ergonomics**
-- **member/type XML docs** — 08-05 — Outcome: `ExtensionsAiProvider` gained `<param>` docs for all four constructor slots (notably that `id` is a LABEL for one configured clien...
-- **async migration entry points** — 08-05 — Outcome: shipped on both backends, deliberately **narrow and documented as such** (`docs/DECISIONS.md` — the honest `MigrateUpAsync` scope)...
-- **semantic-memory wiring helper** — 08-05 — Outcome: shipped as `b.AddSemanticMemory(…)` in **Core**, not as a storage-package composite (`docs/DECISIONS.md` — the named semantic-memo...
+- **member/type XML docs** — Outcome: `ExtensionsAiProvider` gained `<param>` docs for all four constructor slots (notably that `id` is a LABEL for one configured client, not a...
+- **async migration entry points** — Outcome: shipped on both backends, deliberately **narrow and documented as such** (`docs/DECISIONS.md` — the honest `MigrateUpAsync` scope). Fluent...
+- **semantic-memory wiring helper** — Outcome: shipped as `b.AddSemanticMemory(…)` in **Core**, not as a storage-package composite (`docs/DECISIONS.md` — the named semantic-memory regis...
 
 ## Part 39 — `CodexAgentSession`: the agent-session shape is not claude-only (2026-08-05)
 
@@ -650,7 +636,7 @@ classified the stderr chatter — `Failed` / "exit 1: Reading prompt from stdin.
 and the `AuthFailed` verdict that benches the host. The engine now parses first and lets the backend's own
 account win, with the exit code kept as context; a non-zero exit with no in-band failure is unchanged. Same
 
-- **CLI15 — a measured `turn.failed` shape, filed as EVIDENCE for the failure half of the mapping.** — 08-05 — **Answered on the first arm, because the second turned out to be false.** Three of the four claims were already handled and are now pinned...
+- **CLI15 — a measured `turn.failed` shape, filed as EVIDENCE for the failure half of the mapping.**
 
 ## Part 44 — an agent session can only be given the app's own tools if the backend is claude (2026-08-05)
 
@@ -665,7 +651,7 @@ identically and none can land past the `-` where codex would read it as prompt t
 **Every backend detail was measured turn-free before it was written** — `codex mcp list`/`get` with the
 overrides applied (both CLIs are installed here), and claude's document shape read back through
 
-- **CLI14 — an `IAgentSession` has no way to be pointed at the app's own MCP servers unless it is `ClaudeAgentSession`.** — 08-05 — **The NEUTRAL arm, at the owner's direction**, and a sibling type rather than growing `McpEndpoint` (which describes the loopback host *Lyn...
+- **CLI14 — an `IAgentSession` has no way to be pointed at the app's own MCP servers unless it is `ClaudeAgentSession`.**
 
 ## Part 46 — MEM1: a named memory-engine seam (2026-08-08)
 
@@ -708,7 +694,7 @@ so a consumer's own registration always wins) instead of hardcoding the formula;
 `HopAttenuation`, `RelativeFloor`, `SalienceRankWeight` — moved off `GraphMemoryOptions` onto the policy's own
 `MultiplicativeRankingOptions`, each now construction-guarded (previously silently accepted any value).
 
-- **A ranking POLICY seam, not a single hardcoded formula constant.** — 08-09 (memory-ranking-seam plan, Tasks 1–4 — Task 4, reciprocal rank fusion, this domain's second implementation, shipped the same day as `Reciproc...
+- **A ranking POLICY seam, not a single hardcoded formula constant.**
 
 ## Part 54 (item 1 of 5) — measure the two forgetting curves against a real corpus (2026-08-09)
 
@@ -723,7 +709,7 @@ and would have flattened the whole interference axis for a fast in-process repla
 `PerWriteClock`, the same substitution `MemoryDecaySimulationTests` uses for the same reason). **The
 measurement is real and controlled, but the RESULT on the curve question is an honest null, not a
 
-- **DSR1 — measure the two curves against a real corpus** — 08-09 (`feat/memory-corpus-harness`, Tasks 1–4 — the corpus-harness plan) — **Outcome:** a deterministic corpus (`tests/Lyntai.Tests/Memory/Corpus/...
+- **DSR1 — measure the two curves against a real corpus**
 
 ## Part 55 — memory ranking × forgetting policy measurement: findings recorded, no default changed (2026-08-09)
 
@@ -753,7 +739,7 @@ own recalibrated constants, INCLUDING mean reversion (dropping it, as a first dr
 `difficulty` column with its OWN precedence, not salience's: an explicit write-time signal NAMING difficulty
 wins (not merely a non-empty bag, which a fix-round review caught resetting a tracked value via an unrelated
 
-- **FSRS-A — per-review DIFFICULTY updates.** — 08-10 (`feat/fsrs-properly`, Task 2, fix round 1) — **Outcome:** `MemoryDecayState`/`GraphNode`/ `GraphTouch` gain a `Difficulty` member (additive-...
+- **FSRS-A — per-review DIFFICULTY updates.**
 
 ## Part 58 — RELEASE GATE: the memory subsystem's Postgres leg was unexercised for two sessions (2026-08-11) — CLOSED
 
@@ -773,7 +759,7 @@ over fixture repositories in both tree and staged mode — every value synthesiz
 one fix and that one test goes red, confirmed for all three); **check-version-bump** (13 — every rule over
 exact diff text plus a real staged fixture, and the `LYNTAI_RELEASE=1` hatch); **check-packages** (17 — one
 
-- **Nothing tests `devtools/scripts/`.** — 08-11 (`feat/close-gate-gaps`) — **Outcome:** `node --test` (no dependency, nothing added to any `package.json`), 62 tests in `devtools/scripts/__t...
+- **Nothing tests `devtools/scripts/`.**
 
 ## Part 61 — no gate can see a stale PARAMETER NAME, and parameter names are frozen public API (2026-08-11)
 
@@ -784,7 +770,7 @@ check-api-vocabulary` and into `verify` directly after `check-docs` — the two 
 together, one asking whether the PROSE still says what a decision settled and one asking it of the frozen
 public SURFACE.
 
-- **Nothing checks whether a public parameter name still matches the vocabulary its own decision settled.** — 08-11 (`feat/close-gate-gaps`) — **Outcome:** `devtools/scripts/check-api-vocabulary.mjs`, a new gate scanning the committed API baselines (`tests/...
+- **Nothing checks whether a public parameter name still matches the vocabulary its own decision settled.**
 
 ## Part 59 — no gate compiles the code samples in our own documentation (2026-08-11)
 
@@ -795,7 +781,7 @@ surface, `check-samples` on the code a consumer copies. **Default-ON** — a blo
 opts out; an opt-IN marker would make coverage whatever someone remembered to tag, which is the "checklist
 in someone's head" failure `dotnet-package-layout.md` already names.
 
-- **Nothing verifies that a documented code sample compiles.** — 08-11 (`feat/close-gate-gaps`) — **Outcome:** `devtools/scripts/check-samples.mjs`, wired as `node devtools/dev.mjs check-samples [--list]` and int...
+- **Nothing verifies that a documented code sample compiles.**
 
 ## Part 63 — `tests/` still speaks the vocabulary the `IMemory<Domain>Policy` naming shape retired, and one rename made it self-contradictory (2026-08-11)
 
@@ -805,7 +791,7 @@ they are three declarations with nine call sites), **all 7 helper types**, and *
 lines**. `212 insertions, 212 deletions` — exactly balanced, which is the arithmetic signature of a pure
 rename: no line was added or removed, only rewritten.
 
-- **Sweep `tests/` for the retired salience/retention vocabulary.** — 08-11 (`feat/close-gate-gaps`) — **Outcome:** swept across 16 files. **33 test method names** (the filed estimate of 38 counted the three shared `M...
+- **Sweep `tests/` for the retired salience/retention vocabulary.**
 
 ## Part 54 (items DSR3 and DSR5 of 5) — the unguarded half of `DsrOptions`, and a per-engine forgetting curve (2026-08-11)
 
@@ -814,7 +800,7 @@ rename: no line was added or removed, only rewritten.
 leg ran for real).
 
 - **DSR3 — `MaxStability` is the one option path to a permanently PERSISTED poisoned stability.**
-- **DSR5 — per-engine forgetting-policy selection is impossible.** — 08-11 (`feat/dsr-guards-and-per-engine-curve`) — **Outcome:** both closed; 38 new test cases, `verify` green on all eleven gates (2431 passed / 0 f...
+- **DSR5 — per-engine forgetting-policy selection is impossible.**
 
 ## Part 54 (items DSR2 and DSR4 of 5) — a ceiling that CUT instead of capping, and the untested connection axis (2026-08-11)
 
@@ -823,7 +809,7 @@ fact widened and one pathology fact inverted, `verify` green on all eleven gates
 **9 skipped** / 2447 total, e2e 3/3 — 9 skips, so the Postgres leg ran for real).
 
 - **DSR2 — `Reinforce` can SHORTEN a memory whose stored stability exceeds `MaxStability`**
-- **DSR4 — `Reinforce`'s connection/`Strength` axis is untested.** — 08-11 (`feat/dsr2-and-dsr4`) — **Outcome:** both closed; 7 new facts plus one existing contract fact widened and one pathology fact inverted, `veri...
+- **DSR4 — `Reinforce`'s connection/`Strength` axis is untested.**
 
 ## Part 53 (item 3 of 3) — a ranking score could overflow to `+Infinity` from FINITE inputs (2026-08-11)
 
@@ -832,7 +818,7 @@ computed rather than to what went into it, in **three** policies rather than the
 overflowed score now drops its own candidate and nobody else's, and `best`/`floor` are computed over a set
 that is finite by enforcement.
 
-- **A ranking score can still overflow to `+Infinity` from FINITE inputs, and both policies' docs over-claim that it cannot.** — 08-11 — **Outcome:** a post-hoc `double.IsFinite(score)` filter, applied where the score is computed rather than to what went into it, in **three**...
+- **A ranking score can still overflow to `+Infinity` from FINITE inputs, and both policies' docs over-claim that it cannot.**
 
 ## Part 63 (residue item 1 of 2) — the 19 fixture STRING LITERALS the vocabulary sweep left behind (2026-08-11)
 
@@ -844,7 +830,7 @@ already read *"a half-judged entry must order LEVEL with an unjudged one"* three
 `reappraised fact` → `rejudged fact` (6, which also carries the two `a reappraised fact` sites),
 `a half-appraised note` → `a half-judged note` (2), `an appraised row` → `a judged row` (2).
 
-- **19 fixture STRING LITERALS in `tests/` still say `appraisal`/`appraised`.** — 08-11 — **Outcome:** all 19 moved, content and assertion in the same edit, into the vocabulary the surrounding prose had **already** been swept to:...
+- **19 fixture STRING LITERALS in `tests/` still say `appraisal`/`appraised`.**
 
 ## Part 63 (residue, `src/` sites) — the 12 `apprais*` comment and XML-doc sites (2026-08-11)
 
@@ -859,7 +845,7 @@ age policy"*, and the scattered prose sites moved with them. One test method ren
 `Damping_composes_over_whichever_clock_was_chosen` → `..._whichever_age_policy_was_chosen`; checked for
 quotes elsewhere first and found none in any tracked file.
 
-- **`clock` still names AGE POLICIES in `tests/` prose and locals** — 08-11 — **Outcome:** **42** `clock` occurrences moved across 7 files (39 changed lines). `MemoryAgePolicyTests.cs`'s locals became `policy` (every...
+- **`clock` still names AGE POLICIES in `tests/` prose and locals**
 
 ## Part 56 (item 3 of 3) — the measuring corpus's own filler competed with the entries it was measuring (2026-08-11)
 
@@ -869,18 +855,18 @@ itself named and the one its own parenthesis preferred. `MemoryCorpus.WriteFille
 in the measuring instrument, not in the product, and changing the library's tokenizer to accommodate a test
 corpus would have been the tail wagging the dog.
 
-- **A handful of early corpus entries are never recalled at all for any of their own relevant queries — outranked by the corpus's own filler padding, a corpus/ranking interaction shared by BOTH curves.** — 08-11 — **Outcome:** taken as the **test-corpus** fix, the second of the two options the item itself named and the one its own parenthesis preferre...
+- **A handful of early corpus entries are never recalled at all for any of their own relevant queries — outranked by the corpus's own filler padding, a corpus/ranking interaction sh...**
 
 ## Part 67 — the multilingual memory work: four languages measured, the cluster gap closed, and objective (1) found broken (2026-08-13)
 
-- **CLOSED 2026-08-12 — the corpus has a LANGUAGE axis and Chinese is measured, not just pinned.** — 08-13 — `CorpusLanguage` + `CorpusLexicon` (templates AND readers together, so a language cannot be half-added); `memory-language` sweep; goldens p...
-- **CLOSED 2026-08-13 — two-character CJK terms are matched on the substring path, two-phase.** — 08-13 — most Chinese words are two characters, so this is the common case, not a corner. The first two cost measurements were both wrong (a 20k tab...
-- **CLOSED 2026-08-13 — Japanese was fixed by SCRIPT-RUN SEGMENTATION, with no model involved.** — 08-13 — `SearchTerms.ScriptRuns` + `ScriptProfile`; digits and punctuation are neutral so `第3轮` and `重复0` do not shatter. Superseded the two entrie...
-- **Superseded — the record of what was measured before the segmentation fix:** — 08-13 — the options considered at the time (morphological segmentation, a longer kana n-gram, or documenting the loss) were ALL wrong; the cause wa...
-- **Superseded — JAPANESE IS A RANKING FAILURE, NOT A GATHER FAILURE, and the cluster case is the exact opposite (2026-08-13).** — 08-13 — the cluster half held and drove the annotation work. **The Japanese half was MISLEADING and that is why it is kept**: it was a correct meas...
-- **CLOSED — co-activation cannot link an entity cluster, in either language, and "strengthening" it was a trap (2026-08-13).** — 08-13 — the option the owner had CHOSEN ("strengthen co-activation") was shown unable to work before any of it was built, and that was reported rat...
-- **CLOSED — the graph's contribution does not transfer to Chinese (2026-08-12).** — 08-13 — the leading hypothesis recorded at the time (co-activation windows crowded out by a wider Chinese candidate set) was WRONG: the edge census...
-- **CLOSED 2026-08-13 — SUBJECT ANNOTATION TAKES CLUSTER RECALL TO ZERO IN CHINESE.** — 08-13 — `IMemoryAnnotationPolicy` + `LlmMemoryAnnotationPolicy` + `AddMemoryAnnotation` + `UseGraph(annotation:)`, over a durable subject index (`R...
+- **CLOSED 2026-08-12 — the corpus has a LANGUAGE axis and Chinese is measured, not just pinned.** — `CorpusLanguage` + `CorpusLexicon` (templates AND readers together, so a language cannot be half-added); `memory-language` sweep; goldens prove Eng...
+- **CLOSED 2026-08-13 — two-character CJK terms are matched on the substring path, two-phase.** — most Chinese words are two characters, so this is the common case, not a corner. The first two cost measurements were both wrong (a 20k table too s...
+- **CLOSED 2026-08-13 — Japanese was fixed by SCRIPT-RUN SEGMENTATION, with no model involved.** — `SearchTerms.ScriptRuns` + `ScriptProfile`; digits and punctuation are neutral so `第3轮` and `重复0` do not shatter. Superseded the two entries below,...
+- **Superseded — the record of what was measured before the segmentation fix:** — the options considered at the time (morphological segmentation, a longer kana n-gram, or documenting the loss) were ALL wrong; the cause was upstre...
+- **Superseded — JAPANESE IS A RANKING FAILURE, NOT A GATHER FAILURE, and the cluster case is the exact opposite (2026-08-13).** — the cluster half held and drove the annotation work. **The Japanese half was MISLEADING and that is why it is kept**: it was a correct measurement...
+- **CLOSED — co-activation cannot link an entity cluster, in either language, and "strengthening" it was a trap (2026-08-13).** — the option the owner had CHOSEN ("strengthen co-activation") was shown unable to work before any of it was built, and that was reported rather than...
+- **CLOSED — the graph's contribution does not transfer to Chinese (2026-08-12).** — the leading hypothesis recorded at the time (co-activation windows crowded out by a wider Chinese candidate set) was WRONG: the edge census showed...
+- **CLOSED 2026-08-13 — SUBJECT ANNOTATION TAKES CLUSTER RECALL TO ZERO IN CHINESE.** — `IMemoryAnnotationPolicy` + `LlmMemoryAnnotationPolicy` + `AddMemoryAnnotation` + `UseGraph(annotation:)`, over a durable subject index (`RecordSub...
 - ...and 4 more closed items (full text in git history).
 
 ## Part 68 — the final pre-freeze research sweep: closing what 3.0 must not defer (2026-08-13)
@@ -896,7 +882,7 @@ beats the default on BOTH miss and pollution in BOTH growth configurations (0.44
 with growth on; 0.4214/0.2301 vs 0.5357/0.3331 with the shipped growth-free setting). `both` and `recall
 only` land in the same place, so essentially all of the shipped configuration's cost comes from reinforcing
 
-- **`consumer-smoke` is still untested** — 08-13 — closed by disagreeing with half of its own reasoning. "The thing worth testing IS the minutes-long process" is true of the PROCESS and fals...
+- **`consumer-smoke` is still untested**
 - **Part 53** — 's remaining items — memory retention (Plan 2): salience's ranking effect is still UNMEASURED (2026-08-09)
 - **Part 64** — reinforcement may be NET-HARMFUL to recall quality, and nothing currently rules it out (2026-08-12)
 - **Part 66** — what the 3.0 pre-freeze sweep left open (2026-08-12)
@@ -1079,14 +1065,14 @@ merge writes run-to-run arbitrariness into what a recall returns (**D86**, amend
 ✅ done 2026-08-23 — **Outcome: the adopter's option (1) taken, but on a wider rule than they proposed, plus
 their option (2) for the case no rule can derive** (`docs/DECISIONS.md` **D87**).
 
-- **`AddLlmClient(name, c => c.UseProviders("x"))` is unusable whenever `UseDefaultCandidates` pins ids that are not in `x`.** — 08-23 — **Outcome: the adopter's option (1) taken, but on a wider rule than they proposed, plus their option (2) for the case no rule can derive**...
+- **`AddLlmClient(name, c => c.UseProviders("x"))` is unusable whenever `UseDefaultCandidates` pins ids that are not in `x`.**
 
 ## Part 94 — FROM AN ADOPTER: subject handles are WRITE-ONLY — recorded, paid for, and reachable by no recall (2026-08-22)
 
 ✅ done 2026-08-23 — **Outcome: taken as filed, including the part the report was most careful about — the
 default is NOT 0** (`docs/DECISIONS.md` **D88**).
 
-- **Nothing in the engine ever searches a subject.** — 08-23 — **Outcome: taken as filed, including the part the report was most careful about — the default is NOT 0** (`docs/DECISIONS.md` **D88**). `Gr...
+- **Nothing in the engine ever searches a subject.**
 
 ## Part 95 — FROM AN ADOPTER: with `VerificationFilters` off, what a verdict DOES to the ranking is undocumented and easy to get backwards (2026-08-22, corrected 2026-08-23)
 
@@ -1094,14 +1080,14 @@ default is NOT 0** (`docs/DECISIONS.md` **D88**).
 mechanism, which is the finding worth keeping.**
 
 - **Say what a verdict does when `VerificationFilters` is false**
-- **A benchmarking note worth shipping, because recall MUTATES.** — 08-23 — **Outcome: both items documented — and the CORRECTED report was still wrong about the mechanism, which is the finding worth keeping.** The...
+- **A benchmarking note worth shipping, because recall MUTATES.**
 
 ## Part 96 — six gates are blind to a file that is not yet committed (2026-08-23)
 
 ✅ done 2026-08-23 — **Outcome: closed by hoisting, and the Part's own inventory was wrong in a way worth
 recording.**
 
-- **Give the remaining gates the same file list.** — 08-23 — **Outcome: closed by hoisting, and the Part's own inventory was wrong in a way worth recording.** `devtools/scripts/_repo-files.mjs` export...
+- **Give the remaining gates the same file list.**
 
 ## Part 97 — the memory proposal, assessed then executed: Phase 1 closed, Phase 2 measured, three defects found (2026-08-26)
 
@@ -1158,4 +1144,4 @@ and the numbering hole deliberately LEFT — see below. The gate question was **
 `check-links` grew a third half (`ANCHOR_PATTERN`, `declaredAnchors`, `unresolvedAnchor`), 13 new guard-script
 tests, 401 → 416.
 
-- **`docs/memory.md` has no `## 8`, and SEVEN citations across six files name one.** — 08-28 — Both halves closed. All seven citations repointed to §7 (`CLAUDE.md`, `devtools/dev.mjs`, `docs/task-archive.md`, `docs/superpowers/INDEX.m...
+- **`docs/memory.md` has no `## 8`, and SEVEN citations across six files name one.**
