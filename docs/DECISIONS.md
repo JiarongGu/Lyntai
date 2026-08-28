@@ -2629,20 +2629,20 @@ replays = 60 shapes × 5 seeds × 2 injected clocks).
   be *the* rule unless a deployment's write pacing is part of its contract, which nothing here can put there.
 - **Only the DEGENERATE `count@θ` thresholds are pacing-independent**, and each scores 0.000 on one of the
   two answer arms, so neither is a rule; every θ that could DISCRIMINATE inverts. On this grid θ = 0.1 IS the
-  raw count, which is where this meets the raw reading above — and the two degeneracies differ in KIND, 0.1
-  being cardinality-invariant where 0.9 is an order statistic, which is what the limit below turns on.
+  raw count, which is where this meets the raw reading above.
 - **`mean` is UNTESTABLE on this corpus** — phase B is snapshotted at the retrievability ceiling, so
   `mean(B) ≥ mean(A)` is a theorem about the fixture rather than a result.
 - **A model in the loop bought nothing**, and the scope is the reason: the prompt NAMES the recency
   ordering, so a model merely obeying the label scores the same.
 
-**The honest limit, stated because the question is about cardinality and this run held it constant.**
-`RoutineCount` is fixed at 12 across all 600 replays, so every cell sits at |A|/|B| = 2, while the ratio
-reaches 4.0 at `RoutineCount = 5`. A rule that clears ratio 2 need not clear 4.
+**The cardinality limit is MEASURED as of 2026-08-28, and it removes the last candidate.** Swept over rungs
+3/5/8/12, **θ = 0.9's pacing-independence turns out to be an artefact of `RoutineCount = 12`** — it walks
+tie → A → B → B across |A|/|B|, the order-statistic behaviour predicted above — while **θ = 0.1 is invariant
+on both axes** and is the raw count, wrong for the assistant host. `docs/memory.md` §5 has the tables.
 
-**So no combining form is adopted and no default is set.** The tier is not built yet; what this settles is
-that it has no seam to build, and that whichever rule it eventually uses has to be chosen against a
-cardinality sweep this run did not do. `TASKS.md` carries what is left open.
+**So no combining form is adopted and no default is set** — a measured negative now, not an open question:
+no θ is both pacing- and cardinality-independent. The tier has no seam to build and no constant to adopt;
+`TASKS.md` carries what is left.
 
 ## D95 — the repository is LF, declared in a tracked `.gitattributes` (2026-08-28)
 

@@ -1174,3 +1174,34 @@ prose that had already been written. D95 carries the measured versions; the reus
 `pitfalls.md`.
 
 - **Decide the line-ending convention and commit it as `.gitattributes`.**
+
+## Part 108 — gist support: the cardinality axis, and the threshold it refuted (2026-08-28)
+
+✅ done 2026-08-28 — `RoutineCount` is now a fourth axis on `MemoryGistSupportSweep`'s grid: **2400 replays**
+(60 shapes × 4 rungs × 5 seeds × 2 injected clocks), all seven controls holding 2400/2400. Rungs 3/5/8/12 give
+|A|/|B| of 2.00/4.00/3.00/2.00, with **two rungs at ratio 2.00 and different sizes** so a moving result is
+attributable to the ratio rather than to |A| growing. Tables in `docs/memory.md` §5; **D94**'s "honest limit"
+paragraph is now a measured result.
+
+**The finding is negative and it removes the last candidate.** D94 named θ = 0.1 and θ = 0.9 as the two
+degenerate-but-pacing-independent thresholds; cardinality splits them. **θ = 0.1 is invariant on both axes**
+(phase A on all 2400 replays, both clocks, both curves) and is the raw count, which the corpus declares wrong
+for the assistant host. **θ = 0.9 is not invariant** — it walks tie → A → B → B across the ratio, the
+order-statistic behaviour D94 predicted and could not test. `count@0.8` flips too, which re-reads the
+`tie 115` cell the 600-replay run had called merely non-unanimous as a cardinality boundary. `ConnectionBoost
+= 0` isolates the mechanism: θ = 0.9 is B 300/300 at every rung with the boost off, so the connection term
+lifting phase A's most-connected members over 0.9 is what creates the dependence.
+
+**A control caught the axis before the axis caught anything**, which is the instrument half worth carrying.
+C5 asserted "both regimes fully enumerated (8/4)" — the `RoutineCount = 12` split as a LITERAL — so the first
+run failed it on 1800 of 2400 cells and refused to publish. It was asserting the very constant the new axis
+exists to vary; it is now a function of each cell's own shape (**D60**'s rule). Both instrument defects the
+Part named were fixed too: the 60-shape grid is hoisted to `CorpusGrid` in `MemoryCorpus.cs` so the sweep and
+`MemoryCorpusTests` share ONE definition, and the `After` snapshot now brackets the final routine query
+exactly rather than being taken once the timeline runs out.
+
+**And a pooled control nearly hid the whole finding**: the `ConnectionBoost = 0` comparison reports "verdict
+did NOT move" on both clocks, which is true of the ARGMAX while the per-rung distributions differ completely.
+A control comparing pooled verdicts cannot see a split that cancels in the pool.
+
+- **Sweep `RoutineCount`, because the question is about cardinality and the run held it at 12.**

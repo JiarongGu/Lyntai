@@ -1282,6 +1282,19 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Testing
 
+- **A control that compares POOLED verdicts cannot see a split that cancels in the pool, and it reports
+  "no change" while doing it.** Measured 2026-08-28 (`docs/task-archive.md` Part 108). The gist sweep's
+  `ConnectionBoost = 0` control printed *"verdict did NOT move — every rule selects the same regime under
+  both curves"* on both clocks. True of the ARGMAX, and false of everything underneath: with the boost on,
+  `count@0.9` reads tie/A/B/B across the four cardinality rungs; with it off, B/B/B/B. The pooled winner
+  agreed because the disagreements cancelled. **A control is only as fine-grained as the axis it groups
+  by** — if the experiment gained an axis, the control has to gain it too, or it silently starts averaging
+  over the thing being measured.
+  <br>**Its loud sibling is the good direction and arrived in the same run**: a control asserting a LITERAL
+  the new axis varies (`both regimes fully enumerated (8/4)` — the `RoutineCount = 12` split) failed on 1800
+  of 2400 cells and refused to publish the table. That is the failure you want; it is a function now
+  (**D60**). The pair is worth remembering together, because the same edit produced both and only one of
+  them announced itself.
 - **A read path a contract fact does not CALL is a read path that contract does not cover, however
   completely it enumerates implementations.** Measured 2026-08-27 (`docs/DECISIONS.md` D93): a metadata
   round-trip fact ran on all five memory engines and still missed a third broken projection, because it

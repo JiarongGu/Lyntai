@@ -682,17 +682,15 @@ public class MemoryCorpusTests
     // this file rather than each guard quietly picking its own subset (the defect this whole retarget was asked
     // to close for good — TASKS.md Part 55 / the DSR-default falsification plan's Task 1 brief, "That defect has
     // recurred twice in this file already").
-    private static readonly int[] GridNoiseDensities = [0, 1, 2, 8, 40];
-    private static readonly int[] GridCandidateCounts = [0, 1, 3, 5, 10, 40];
-    private static readonly int[] GridReuseRatios = [1, 10];
+    //
+    // HOISTED to CorpusGrid 2026-08-28: MemoryGistSupportSweep restated these same three arrays, with nothing
+    // gating the copies against each other. Same defect, one level up.
+    private static readonly int[] GridNoiseDensities = CorpusGrid.NoiseDensities;
+    private static readonly int[] GridCandidateCounts = CorpusGrid.CandidateCounts;
+    private static readonly int[] GridReuseRatios = CorpusGrid.ReuseRatios;
 
-    private static IEnumerable<Shape> Grid(int criticalRarity = 6)
-    {
-        foreach (var noiseDensity in GridNoiseDensities)
-        foreach (var candidateCount in GridCandidateCounts)
-        foreach (var reuseRatio in GridReuseRatios)
-            yield return new Shape(reuseRatio, noiseDensity, criticalRarity, candidateCount);
-    }
+    private static IEnumerable<Shape> Grid(int criticalRarity = CorpusGrid.DefaultCriticalRarity) =>
+        CorpusGrid.Shapes(criticalRarity);
 
     // DsrOptions.InitialStability defaults this to 20 (as did the deleted HalfLifeOptions.InitialStability,
     // at the time both existed) — see MemoryCorpus's own AssumedInitialStability, the same documented assumption

@@ -117,26 +117,40 @@ internal static class MemoryGistSupportSweep
 
     /// <summary>One replay, plus everything a control needs read back from what actually ran.</summary>
     private sealed record Cell(
-        string Clock, string Shape, int Seed, Pick RecentDeclared, Pick StandingDeclared,
+        string Clock, string Shape, int Seed, int RoutineCount, Pick RecentDeclared, Pick StandingDeclared,
         StateSnapshot Before, StateSnapshot After, bool OrderOk, bool PolicyClockOk, bool StoreClockOk,
         bool DiffersOnlyInDeclaredAnswer);
 
-    private static readonly int[] GridNoiseDensities = [0, 1, 2, 8, 40];
-    private static readonly int[] GridCandidateCounts = [0, 1, 3, 5, 10, 40];
-    private static readonly int[] GridReuseRatios = [1, 10];
-    private const int GridCriticalRarity = 6;
+    /// <summary>
+    /// The CARDINALITY axis, added 2026-08-28 — the question `TASKS.md` Part 105 opened, and the one the
+    /// first 600-replay run held constant at 12.
+    /// <para>B is <c>Math.Max(1, RoutineCount / 3)</c> and A is the remainder, so |A|/|B| is 2 only at
+    /// multiples of 3 and reaches <b>4.0 at 5</b>. These four rungs give ratios 2.0, 4.0, 3.0, 2.0 — and the
+    /// two ratio-2.0 rungs sit at different SIZES (3 and 12) deliberately, because without them a result that
+    /// moves across this axis cannot be attributed to the RATIO rather than to |A| simply growing.</para>
+    /// <para><b><c>RoutineSupport</c>'s all-of clamp does not reach this sweep</b>, stated because
+    /// <c>CorpusShape.RoutineSupport</c> warns that an arm can silently stop exercising the n-of branch: at
+    /// 3, 5 and 8 the default support of 3 is at or above |B|, so <c>RecallQuality.Measure</c> WOULD score
+    /// those queries by all-of. This sweep never calls it — it scores retrievability snapshots and reads the
+    /// declared answer off <c>RelevantIds</c> — so the clamp changes nothing here.</para>
+    /// </summary>
+    private static readonly int[] GridRoutineCounts = [3, 5, 8, 12];
 
-    /// <summary>The corpus grid this repository's own corpus invariants are proved over, restated here rather
-    /// than reached for: <c>MemoryCorpusTests</c>'s grid is private to the test assembly, which this project
-    /// links files from rather than referencing. Every shape carries the routine class.</summary>
+    /// <summary>The 60 shapes of <see cref="CorpusGrid"/> crossed with <see cref="GridRoutineCounts"/>. The
+    /// base grid is SHARED with <c>MemoryCorpusTests</c> rather than restated here, so this sweep's claim to
+    /// run the grid the corpus invariants are proved over cannot go quietly false when either side moves.
+    /// </summary>
     private static IEnumerable<(string Label, CorpusShape Shape)> Grid()
     {
-        foreach (var noise in GridNoiseDensities)
-        foreach (var candidates in GridCandidateCounts)
-        foreach (var reuse in GridReuseRatios)
-            yield return ($"n{noise}/c{candidates}/r{reuse}",
-                new CorpusShape(reuse, noise, GridCriticalRarity, candidates) with { RoutineCount = Routines });
+        foreach (var shape in CorpusGrid.Shapes())
+        foreach (var routines in GridRoutineCounts)
+            yield return ($"n{shape.NoiseDensity}/c{shape.CandidateCount}/r{shape.ReuseRatio}/k{routines}",
+                shape with { RoutineCount = routines });
     }
+
+    /// <summary>|A| and |B| for a routine count, from the corpus's own rule rather than a second copy of the
+    /// arithmetic — <see cref="CorpusShape.RoutineRegimes"/>.</summary>
+    private static (int A, int B) Regimes(int routineCount) => CorpusShape.RoutineRegimes(routineCount);
 
     private static readonly ClockArm[] Clocks =
     [
@@ -198,6 +212,7 @@ internal static class MemoryGistSupportSweep
 
                 var replay = await ReplayAsync(recent, item.clock.Step);
                 cells.Add(new Cell(item.clock.Label, item.shape.Label, item.seed,
+                    item.shape.Shape.RoutineCount,
                     DeclaredOf(recent), DeclaredOf(standing), replay.Before, replay.After,
                     replay.OrderOk, replay.PolicyClockOk, replay.StoreClockOk,
                     DiffersOnlyInDeclaredAnswer(recent, standing)));
@@ -222,6 +237,7 @@ internal static class MemoryGistSupportSweep
                 scored[curveLabel] = table;
                 PrintRetrievabilityBands(clock, curveLabel, forClock, curve);
                 PrintArmTable(clock, curveLabel, table);
+                PrintCardinalityTable(clock, curveLabel, forClock, rules, curve);
                 loud |= ReportImpossibleWins(clock.Label, curveLabel, table);
             }
             moved.Add(CompareCurves(clock.Label, scored["default"], scored["ConnectionBoost=0"]));
@@ -251,8 +267,9 @@ internal static class MemoryGistSupportSweep
     /// against the answer each corpus actually DECLARED, never against a hard-coded phase — which is what
     /// lets <see cref="ReportImpossibleWins"/> catch two arms wired to the same ground truth.
     /// <para><b>On THIS grid the two accuracy columns are the pick columns transposed — arithmetically, not
-    /// approximately.</b> The standing corpus is GENERATED but never replayed; C4 holds 600/600 so the two
-    /// declared answers differ and neither ties, C5 holds 600/600 so both regimes are fully enumerated, and
+    /// approximately.</b> The standing corpus is GENERATED but never replayed; C4 holds on EVERY cell so the
+    /// two declared answers differ and neither ties, C5 holds on every cell so both regimes are fully
+    /// enumerated (stated as a relation rather than a count, which the cardinality axis quadrupled), and
     /// <see cref="RoutineAnswer.Recent"/> names phase B. Every cell therefore carries
     /// <c>RecentDeclared = PhaseB</c> and <c>StandingDeclared = PhaseA</c>, which makes
     /// <c>RecentAccuracy == PicksB/n</c> and <c>StandingAccuracy == PicksA/n</c>. Read "recent 1.000 /
@@ -318,6 +335,11 @@ internal static class MemoryGistSupportSweep
 
         var observed = new StringBuilder();
         StateSnapshot? before = null;
+        // Both snapshots bracket the FINAL ROUTINE QUERY specifically, rather than `after` being taken once
+        // the timeline has run out. Those were equivalent only because `Grid()` left AuthoritativeCount and
+        // HeadlineOnlyCount at 0, which made that query genuinely last — a shape turning either on would have
+        // silently changed what the After-vs-Before diagnostic measures, and nothing would have reported it.
+        StateSnapshot? after = null;
 
         foreach (var s in corpus.Steps)
         {
@@ -330,12 +352,17 @@ internal static class MemoryGistSupportSweep
                     break;
 
                 case CorpusQuery q:
+                {
                     observed.Append('Q');
-                    if (ReferenceEquals(q, finalRoutineQuery))
+                    var isFinalRoutine = ReferenceEquals(q, finalRoutineQuery);
+                    if (isFinalRoutine)
                         before = await SnapshotAsync(store, engineName, firstWrite, writeCount);
                     await engine.RecallAsync(
                         new MemoryQuery(firstWrite.TaskKey, firstWrite.Scope, q.Text, Limit: RecallLimit));
+                    if (isFinalRoutine)
+                        after = await SnapshotAsync(store, engineName, firstWrite, writeCount);
                     break;
+                }
 
                 case CorpusExpand:
                     observed.Append('X');
@@ -349,8 +376,7 @@ internal static class MemoryGistSupportSweep
         }
 
         var declared = string.Concat(corpus.Steps.Select(MemoryPolicySweep.CorpusStepMarker));
-        var after = await SnapshotAsync(store, engineName, firstWrite, writeCount);
-        return new ReplayResult(before!, after, observed.ToString() == declared,
+        return new ReplayResult(before!, after!, observed.ToString() == declared,
             policyReads == writeCount, storeReads >= writeCount);
     }
 
@@ -472,8 +498,12 @@ internal static class MemoryGistSupportSweep
     private static void PrintFullPreamble(int shapeCount, IReadOnlyList<int> seeds, IReadOnlyList<Rule> rules)
     {
         Console.WriteLine("=== memory-support: which rule selects a recurring cluster's CURRENT regime ===");
-        Console.WriteLine($"Shapes: {shapeCount} (NoiseDensity x CandidateCount x ReuseRatio), each with " +
-            $"RoutineCount={Routines}");
+        Console.WriteLine($"Shapes: {shapeCount} (NoiseDensity x CandidateCount x ReuseRatio x RoutineCount)");
+        Console.WriteLine("RoutineCount rungs: " + string.Join(", ", GridRoutineCounts.Select(k =>
+        {
+            var (a, b) = Regimes(k);
+            return $"{k} -> |A|/|B| = {a}/{b} = {(double)a / b:F2}";
+        })));
         Console.WriteLine($"Seeds: {seeds[0]}..{seeds[^1]} ({seeds.Count})   Clocks: {Clocks.Length}   " +
             $"=> {shapeCount * seeds.Count * Clocks.Length} replays");
         Console.WriteLine($"Rules: {string.Join(", ", rules.Select(r => r.Label))}");
@@ -538,6 +568,42 @@ internal static class MemoryGistSupportSweep
         }
     }
 
+    /// <summary>The cardinality axis, scored per rung — the question this sweep held constant until
+    /// 2026-08-28. A rule that answers the declared regime at |A|/|B| = 2 need not answer it at 4.
+    /// <para>Printed per CLOCK and per CURVE rather than pooled, because <c>sum</c> already inverts with
+    /// pacing: a cardinality row averaged over both clocks would combine two opposite results into one
+    /// meaningless number, which is the reading this table exists to make impossible.</para></summary>
+    private static void PrintCardinalityTable(ClockArm clock, string curve, IReadOnlyList<Cell> forClock,
+        IReadOnlyList<Rule> rules, DsrRetrievability curveImpl)
+    {
+        Console.WriteLine($"--- clock={clock.Label}   curve={curve}   by RoutineCount (|A|/|B|) ---");
+        Console.Write($"{"Rule",-12}");
+        foreach (var k in GridRoutineCounts)
+        {
+            var (a, b) = Regimes(k);
+            Console.Write($"  {$"k={k} {a}/{b}={(double)a / b:F2}",-18}");
+        }
+        Console.WriteLine();
+        Console.WriteLine(new string('-', 12 + (GridRoutineCounts.Length * 20)));
+
+        foreach (var rule in rules)
+        {
+            Console.Write($"{rule.Label,-12}");
+            foreach (var k in GridRoutineCounts)
+            {
+                var rung = forClock.Where(c => c.RoutineCount == k).ToList();
+                var s = Score(rule.Label, rung, sn => Select(rule, sn, curveImpl));
+                var n = s.PicksA + s.PicksB + s.Ties;
+                var (label, hits) = s.PicksA >= s.PicksB && s.PicksA >= s.Ties ? ("A", s.PicksA)
+                    : s.PicksB >= s.Ties ? ("B", s.PicksB)
+                    : ("tie", s.Ties);
+                Console.Write($"  {$"{label} {hits}/{n}",-18}");
+            }
+            Console.WriteLine();
+        }
+        Console.WriteLine();
+    }
+
     private static void PrintArmTable(ClockArm clock, string curve, IReadOnlyList<ArmScore> table)
     {
         Console.WriteLine($"--- clock={clock.Label}   curve={curve} ---");
@@ -598,7 +664,16 @@ internal static class MemoryGistSupportSweep
         var identical = cells.Count(c => c.DiffersOnlyInDeclaredAnswer);
         var differ = cells.Count(c => c.RecentDeclared != c.StandingDeclared
             && c.RecentDeclared != Pick.Tie && c.StandingDeclared != Pick.Tie);
-        var populated = cells.Count(c => c.Before.A.Count == 8 && c.Before.B.Count == 4);
+        // C5 is a FUNCTION of the cell's own shape, not the literal 8/4 it was until 2026-08-28. That literal
+        // was the RoutineCount=12 split, so the moment the cardinality axis landed the control failed on
+        // 1800 of 2400 cells and correctly refused to publish the table — it was asserting the constant the
+        // new axis exists to vary. `DECISIONS.md` D60 is the general form: a cross-arm rule is a function,
+        // never a sentence.
+        var populated = cells.Count(c =>
+        {
+            var (a, b) = Regimes(c.RoutineCount);
+            return c.Before.A.Count == a && c.Before.B.Count == b;
+        });
         var pinnedB = cells.Count(c => c.After.B.Count > 0 && c.After.B.All(s => s.Age <= 0));
         var touchedA = cells.Count(c => c.After.A.Any(s => s.Age <= 0));
 
@@ -609,7 +684,7 @@ internal static class MemoryGistSupportSweep
         Console.WriteLine($"  C2 store read the injected clock          {storeClock}/{cells.Count}");
         Console.WriteLine($"  C3 arms differ ONLY in declared answer    {identical}/{cells.Count}");
         Console.WriteLine($"  C4 the two declared answers DIFFER        {differ}/{cells.Count}");
-        Console.WriteLine($"  C5 both regimes fully enumerated (8/4)    {populated}/{cells.Count}");
+        Console.WriteLine($"  C5 both regimes fully enumerated (per k)  {populated}/{cells.Count}");
         Console.WriteLine("  C0 CANNOT fail against today's replay loop - it appends one marker per step in");
         Console.WriteLine("  order and throws on an unknown case, so observed==declared is structural. It is");
         Console.WriteLine("  free insurance against a future edit that batches or skips, not evidence today.");

@@ -560,10 +560,8 @@ boundary within 1B**. Counterbalancing is what caught it: gemma-3 1b was correct
 One shape, one machine, and a 4B ceiling — a flat ladder here would say small is ENOUGH for this task, never
 that larger would not have been better.
 
-**The limit that matters most, stated first rather than last: cardinality was held constant.**
-`RoutineCount = 12` on all 600 replays, so every cell sits at |A|/|B| = 2, while the split
-(`max(1, RoutineCount/3)`) reaches 4.0 at `RoutineCount = 5`. A rule that clears ratio 2 need not clear 4, and
-cardinality is the axis the question is about. Also: English throughout, `RecallLimit = 10` unswept, and the
+**The limit that mattered most is now CLOSED — cardinality was swept on 2026-08-28.** See the next
+subsection. The rest still stand: English throughout, `RecallLimit = 10` unswept, and the
 saturation is structural rather than a sample-size artefact. **THREE cells in the table above are not
 unanimous** — bulk θ = 0.7 (A 290 · tie 10), bulk θ = 0.8 (tie 115 · B 125 · A 60) and spaced θ = 0.2
 (B 250 · A 50) — and the mechanism is that phase B contributes a constant 4, so a cell is unanimous unless θ
@@ -571,6 +569,52 @@ lands inside phase A's narrow band between its 4th- and 5th-largest member. Only
 unstable across SEEDS (θ = 0.7 at 55/60 shapes, θ = 0.8 at 40/60); the spaced θ = 0.2 split is seed-stable and
 divides the shape grid instead, which is a different failure of unanimity that reads identically in a picks
 column.
+
+#### Cardinality: the axis that run held constant (2026-08-28)
+
+`node devtools/dev.mjs memory-support`, **2400 replays** = 60 shapes × **4 `RoutineCount` rungs** × 5 seeds ×
+2 injected clocks. All seven controls held on 2400/2400. The rungs are 3, 5, 8 and 12, giving |A|/|B| of
+2.00, 4.00, 3.00 and 2.00 — **the two ratio-2.00 rungs sit at different SIZES deliberately**, so a result
+that moves across the axis can be attributed to the RATIO rather than to |A| simply growing.
+
+| bulk / default | k=3 (2/1) | k=5 (4/1) | k=8 (6/2) | k=12 (8/4) |
+|---|---|---|---|---|
+| `sum` | A 300/300 | A 300/300 | A 300/300 | A 300/300 |
+| `mean` | *NOT A RESULT* | *NOT A RESULT* | *NOT A RESULT* | *NOT A RESULT* |
+| `count@0.1` | A 300/300 | A 300/300 | A 300/300 | A 300/300 |
+| `count@0.7` | A 300/300 | A 300/300 | A 300/300 | A 290/300 |
+| `count@0.8` | A 295/300 | A 300/300 | A 278/300 | **B 125/300** |
+| `count@0.9` | **tie 185/300** | **A 175/300** | **B 160/300** | B 300/300 |
+
+**The headline: θ = 0.9's pacing-independence was an ARTEFACT of `RoutineCount = 12`.** The 600-replay run
+named θ = 0.1 and θ = 0.9 as the two degenerate thresholds answering one regime on every replay; cardinality
+splits them. **θ = 0.1 is genuinely invariant** — phase A on all 2400 replays, both clocks, both curves —
+because every member clears it, so it is exactly (|A|, |B|) and |A| > |B| holds by construction. **θ = 0.9 is
+not**: it walks tie → A → B → B across the ratio. That is the order-statistic behaviour the earlier run
+predicted and could not test, now measured.
+
+**`count@0.8` flips too, and it re-reads a cell the earlier run called merely non-unanimous.** Its
+`tie 115 · B 125 · A 60` at k=12 is not sampling noise: at every smaller rung the same threshold answers A
+almost unanimously, so k=12 sits on a boundary this axis walks straight through.
+
+**The mechanism is the connection term, isolated by the control**: under `ConnectionBoost = 0`, θ = 0.9 is
+B 300/300 at EVERY rung on both clocks. The flip exists only with the boost on, which lifts phase A's
+most-connected members over 0.9 once A is large enough to have any.
+
+**`sum` stays pacing-dependent and is now also mildly cardinality-sensitive** — spaced/default reads
+B 280/300 at k=5 against 300/300 at every other rung. **`mean` is still untestable here**, for the ceiling
+reason above; its four identical cells are a property of the fixture, not a measurement.
+
+**So no threshold is BOTH pacing-independent and cardinality-independent, and the one invariant threshold is
+the raw count.** θ = 0.1 survives both axes and is the audit reading, which this corpus declares wrong for
+the assistant host. **D94** refused a support seam on the argument; this closes the measurement question it
+left open, and it closes it negatively — there is no constant θ to adopt.
+
+**An instrument lesson, because it nearly hid the finding.** The pooled `ConnectionBoost = 0` control reports
+*"verdict did NOT move — every rule selects the same regime under both curves"* on both clocks. That is true
+of the ARGMAX while the per-rung distributions differ completely (θ = 0.9 default: tie/A/B/B; boost off:
+B/B/B/B). **A control comparing pooled verdicts cannot see a split that cancels in the pool** — which is why
+the per-rung table is printed per clock AND per curve rather than summarised.
 
 ### Reinforcement: the signal, not the quantity
 

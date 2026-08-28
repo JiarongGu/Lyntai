@@ -148,6 +148,54 @@ public readonly record struct CorpusShape(
     /// parameter has room to show its effect. <c>ExpandRatio</c> stays <c>0</c> here so the default shape —
     /// which every existing measurement is pinned against — is unchanged.</summary>
     public static CorpusShape Default { get; } = new(ReuseRatio: 4, NoiseDensity: 8, CriticalRarity: 6, CandidateCount: 10);
+
+    /// <summary>The routine class's regime split — B floored at 1, A the remainder — as the ONE definition.
+    /// The corpus builder calls it, and so does any reader that needs |A| and |B| without generating a
+    /// corpus; a second copy of this arithmetic is how the two silently disagree about what a ratio was.
+    /// </summary>
+    public static (int A, int B) RoutineRegimes(int routineCount)
+    {
+        var count = Math.Max(0, routineCount);
+        var b = count == 0 ? 0 : Math.Max(1, count / 3);
+        return (count - b, b);
+    }
+}
+
+/// <summary>
+/// The 60-shape property grid this repository's corpus invariants are proved over, and the ONE definition of
+/// it.
+/// <para><b>It lived twice until 2026-08-28</b> — privately in <c>MemoryCorpusTests</c> and restated in
+/// <c>MemoryGistSupportSweep</c>, with nothing gating the two against each other. A sweep claiming to run
+/// "the grid the corpus invariants are proved over" therefore went silently false the day either copy moved.
+/// <c>MemoryCorpusTests</c> already records the same defect one level down — guards each picking their own
+/// subset, which "recurred twice in this file already" — so this is that argument applied across the
+/// assembly boundary rather than a new rule.</para>
+/// <para>It lives HERE because <c>bench</c> links this file rather than referencing the test assembly, so
+/// this is the only place both consumers can reach.</para>
+/// </summary>
+public static class CorpusGrid
+{
+    /// <summary>0 exercises the no-noise degenerate, 40 the swamped one.</summary>
+    public static readonly int[] NoiseDensities = [0, 1, 2, 8, 40];
+
+    /// <summary>0 through the dense 40, where salience's admission cost shows up.</summary>
+    public static readonly int[] CandidateCounts = [0, 1, 3, 5, 10, 40];
+
+    /// <summary>1 is a new subject per write; 10 is heavy reuse.</summary>
+    public static readonly int[] ReuseRatios = [1, 10];
+
+    /// <summary>The rarity every grid shape carries.</summary>
+    public const int DefaultCriticalRarity = 6;
+
+    /// <summary>The 60 shapes, in the nesting order both consumers have always enumerated them in — moving
+    /// it would renumber every shape label already published against this grid.</summary>
+    public static IEnumerable<CorpusShape> Shapes(int criticalRarity = DefaultCriticalRarity)
+    {
+        foreach (var noiseDensity in NoiseDensities)
+        foreach (var candidateCount in CandidateCounts)
+        foreach (var reuseRatio in ReuseRatios)
+            yield return new CorpusShape(reuseRatio, noiseDensity, criticalRarity, candidateCount);
+    }
 }
 
 /// <summary>One step in a <see cref="MemoryCorpus"/>'s timeline — a <see cref="CorpusWrite"/>, a
@@ -408,8 +456,7 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
         // Derive B and FLOOR it, rather than deriving A directly: A = count - B keeps A the larger share for
         // EVERY legal count, including 4 — `count * 2 / 3` (the formula this replaces) gave 4 an even 2/2
         // split, a silent tie a hand-picked golden shape (9, an exact multiple of 3) never exercised.
-        var routineBCount = routineCount == 0 ? 0 : Math.Max(1, routineCount / 3);
-        var routineACount = routineCount - routineBCount;
+        var (routineACount, routineBCount) = CorpusShape.RoutineRegimes(routineCount);
         var attributeCue = shape.AttributeCue;
         // every template AND every reader for this corpus's own invariants — see CorpusLexicon. Hoisted out
         // of `shape` like every other dial here, because `shape` is an `in` parameter and cannot be captured.

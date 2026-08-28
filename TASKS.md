@@ -19,8 +19,8 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**Three items are startable: Part 105's cardinality sweep, Part 65's `many-candidates` paired sweep, and
-the 3D-backend survey inside Part 33 / GEN7.** The rest need something this
+**Two items are startable: Part 65's `many-candidates` paired sweep, and the 3D-backend survey inside
+Part 33 / GEN7.** The rest need something this
 repository does not have (a key, a model download, a CLI install, a vendor pick, or a deployment's own
 data). **Part 99 is a WATCH item and not startable work** — its fix is already pinned by a test with a
 positive control, so nothing in it is codeable and only RECURRENCE can close it. That is stated first
@@ -72,9 +72,11 @@ Blocked, and on what:
   owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
   PATH, not in the npm global root, not in any usual location. The 2026-08-04 capture (0.146.0) came from an
   install that is gone. So this needs a REINSTALL plus a turn, not just a go-ahead.
-- **Part 105 / build the gist tier** — a DECISION nobody has taken (which support rule it computes), blocked
-  in turn on DATA the cardinality sweep in the same Part has to produce. **Not an environment blocker**:
-  nothing needs installing, and re-checking it means reading that sweep's output, not the tree.
+- **Part 105 / build the gist tier** — a DECISION nobody has taken: which support rule it computes.
+  **The DATA half of this blocker is DISCHARGED (2026-08-28)** — the cardinality sweep ran, and it answered
+  negatively: no θ is both pacing- and cardinality-independent, and the one invariant threshold is the raw
+  count. So the decision is no longer waiting on a measurement; it is waiting on somebody choosing what the
+  tier computes when no constant is defensible. **Not an environment blocker.**
 - **Part 65 holds TWO items with DIFFERENT blockers, and only ONE of them is blocked** — listing the Part
   here is how the other read as blocked in turn (corrected 2026-08-21, and again 2026-08-28 in the banner).
   - *subject drift* — **still blocked, and the honest kind is a model DOWNLOAD, not a budget.** It needs a
@@ -427,47 +429,22 @@ there is nothing here to code: what remains is evidence only recurrence can supp
 ## Part 105 — gist support: the CARDINALITY axis the sweep held constant (2026-08-28)
 
 _What Part 104 left open. The support seam itself is settled — `docs/DECISIONS.md` **D94**, no
-`IMemorySupportPolicy` — and the 600-replay sweep is built (`node devtools/dev.mjs memory-support`, tables in
-`docs/memory.md` §5). **The first item below is startable; the second is blocked on the first**, and says on
-what kind._
+`IMemorySupportPolicy` — and the sweep is built (`node devtools/dev.mjs memory-support`, tables in
+`docs/memory.md` §5). **The cardinality axis closed 2026-08-28 — `docs/task-archive.md` Part 108.** What is
+left is one item, and its blocker is a DECISION rather than the data it used to wait on._
 
-- [ ] **Sweep `RoutineCount`, because the question is about cardinality and the run held it at 12.** All 600
-  replays sit at |A|/|B| = 2. The split is `max(1, RoutineCount/3)`, so the ratio is 2 only at multiples of 3
-  and reaches **4.0 at `RoutineCount = 5`** — and `sum` flips to the newer regime exactly when
-  `mean(rB)/mean(rA)` clears |A|/|B|, so the ratio is the denominator of the only model-free finding the
-  sweep produced. **A rule that clears ratio 2 need not clear 4.** Adding the axis is a fourth loop in
-  `MemoryGistSupportSweep`'s grid; the corpus already accepts the shape.
-  <br>**What a result would have to survive to be worth adopting**, all learned from the run that is done:
-  `sum` INVERTS with pacing (older regime under bulk, newer under spaced, 300/300 each way), so a
-  cardinality finding that holds on one clock and not the other settles nothing; the only pacing-independent
-  `count@θ` thresholds are the DEGENERATE ones (θ = 0.1 always answers phase A, θ = 0.9 always phase B, each
-  scoring 0.000 on one of the two answer arms) while every θ that could DISCRIMINATE inverts too; and
-  **`mean` is untestable on this corpus at all** — phase B is snapshotted having never been recalled, at the
-  retrievability ceiling, so `mean(B) ≥ mean(A)` is a theorem about the fixture. Testing `mean` needs phase B
-  off the ceiling at the snapshot, which is a corpus change rather than a sweep argument.
-  <br>Startable today — no key, no model download, no install. The model arm is optional and additive: it
-  prints an explicit SKIPPED line when no chat model answers, and on this question it returned exactly the
-  recency reading against a prompt that names the recency ordering.
-  <br>**Two things about the INSTRUMENT, found by the final review and deliberately not fixed** — both are
-  invisible until they bite, and whoever adds the axis is the person who will meet them.
-  `MemoryGistSupportSweep.Grid()` **restates** the 60-shape grid that `MemoryCorpusTests` holds privately —
-  same three arrays, same `CriticalRarity = 6` — and nothing gates the two against each other, so the
-  sweep's claim to run the grid the corpus invariants are proved over goes silently false the day the test's
-  grid moves. Hoisting the arrays into `MemoryCorpus.cs`, already `<Compile Include>`-linked into bench,
-  would fix it once for both readers. Second: the `After` snapshot is taken after **all** steps rather than
-  immediately after the final routine query, which is equivalent ONLY because `Grid()` leaves
-  `AuthoritativeCount` and `HeadlineOnlyCount` at `0` so that query is genuinely last. A shape turning
-  either on silently changes what the 2-of-44 snapshot-point diagnostic measures, and nothing would report
-  it.
-
-- [ ] **Build the gist tier.** **BLOCKED on a DECISION nobody has taken** — which support rule it computes —
-  and that decision is blocked in turn on DATA the item above has to produce. **D94** settled the tier's
-  SHAPE (no seam) and `docs/memory.md` §5 says which rules were refuted and which were never tested, but no
-  rule is adopted and none can be until the cardinality sweep runs: `sum` inverts with pacing, every
-  DISCRIMINATING `count@θ` inverts with it (the two thresholds that do not are degenerate constants, each
-  wrong on one of the two answer arms), and `mean` is untestable on the corpus as it stands. **Re-check this
-  against the sweep's output, not against the tree** — a decision blocker is refuted by the measurement that
-  decides it (`task-lifecycle.md`).
+- [ ] **Build the gist tier.** **BLOCKED on a DECISION nobody has taken** — which support rule it computes.
+  **D94** settled the tier's SHAPE (no seam), and the measurement half is now DONE rather than pending:
+  `docs/memory.md` §5 carries both sweeps.
+  <br>**The measurement came back negative, which is what makes this a decision rather than more work.**
+  `sum` inverts with pacing. Every DISCRIMINATING `count@θ` inverts with it. Of the two thresholds that
+  looked pacing-independent, **θ = 0.9 turned out to be an artefact of `RoutineCount = 12`** — it walks
+  tie → A → B → B across |A|/|B| — leaving **θ = 0.1 as the only rule invariant on both axes, and it is the
+  raw count**, which this corpus declares wrong for the assistant host. `mean` remains untestable on the
+  corpus as it stands (phase B is snapshotted at the retrievability ceiling).
+  <br>So there is no constant to adopt, and the open question is what the tier should compute INSTEAD:
+  a rule with no constant threshold, a corpus that can test `mean` (phase B off the ceiling at the
+  snapshot — a corpus change, not a sweep argument), or a tier that reports N and declines to select.
 
 ---
 
