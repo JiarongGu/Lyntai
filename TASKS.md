@@ -293,9 +293,28 @@ shipped default). So the item is no longer "a shipped default with a cost and no
 default with a measured cost and a one-line opt-out. Pinned by
 `MemorySalienceInversionTests.The_many_candidates_cost_of_salience_is_bounded_on_the_current_engine`, whose
 bounds are regression guards at the measured values rather than targets.
-<br>**What remains genuinely open** is the bounded-admission RULE — a rule that keeps salience's gains on the
-other five shapes while capping what it may displace when the candidate set is dense. Designing that off a
-single-seed replay would be the over-fitting D49 refused; it needs the paired sweep._
+<br>**The paired sweep RAN on 2026-08-28, twice, through two real embedders** (`docs/memory.md` §5). It
+settles two things and reframes the item.
+<br>**One: the premise of "a bounded-admission RULE" was wrong.** That wording asked for a rule keeping
+"salience's gains on the other five shapes". **There are no gains on the other five** — combined Δ miss is
+positive and significant on all six shapes under `nomic-embed-text` and on five of six under
+`embeddinggemma:300m`. `many-candidates` is the largest cell under the first (+0.0786) and among the largest
+under the second (+0.0374), so the cost this item was filed about is real and replicates; what does not
+exist is the gain it was supposed to be traded against.
+<br>**Two: the rule is a NUMBER that already ships, not a mechanism to design.**
+`SalienceOptions.MaxSalience` (default 4) is the ceiling on reported salience and therefore on both
+consumers that ship ON — `ModulatedRetrievability` widens `CandidateCutoff` by exactly it. Its own XML doc
+says **"Unmeasured — a starting point"**, and so does `NoveltyWeight`'s. At `MaxSalience = 1` the clamp
+makes `StructuralSaliencePolicy` return `MemorySignals.Empty`, i.e. an option-level neutral that leaves both
+registration sites untouched — the DI collection in `MemoryEngineRegistration` and
+`GraphMemoryEngine.NormalizeSaliencePolicies`' "empty does NOT mean off" contract. That is **D89**'s exact
+shape: move a documented-but-unmeasured constant, change no registration.
+<br>**So what is left is a one-factor sweep of `MaxSalience` over [1, 4]**, arms `Off / Max1 / Max2 / Max3 /
+Max4`, with `Max1 ≡ Off` as a self-check on the clamp reading. It needs no library change: both shipping
+policies already take `SalienceOptions`, and `SweepDoubles.CountingSaliencePolicy` already takes an inner
+policy. **Whether the default should then MOVE is the owner's call, not the sweep's** — the magnitude is
+embedder-dependent by ~2.5× and `high-noise` reverses sign between the two, so no single figure is *the*
+cost._
 
 ---
 

@@ -28,23 +28,22 @@ namespace Lyntai.Benchmarks;
 /// ON for two of its three consumers (decay resistance and store admission priority; only the rank boost is
 /// opt-in, per <c>docs/DECISIONS.md</c> D45).</para>
 ///
-/// <para><b>The blocker on file was wrong, and cheaply so.</b> Part 53 recorded this as needing "a real
-/// corpus … not codeable from here". <see cref="FakeEmbedder"/> is a deterministic feature-hashed
-/// bag-of-words embedder that has been in the tree the whole time, and <see cref="InMemoryVectorStore"/>
-/// ships in Core. Both arms below therefore get the identical embedder and vector store — enrichment,
-/// similarity linking and the extra embed cost are held CONSTANT — and the only thing that varies is whether
-/// anything judges salience and whether anything acts on it.</para>
+/// <para><b>It runs against a REAL embedder and refuses without one (2026-08-28)</b> — salience reads
+/// NOVELTY, which a bag-of-words fake turns into a different quantity; <c>docs/memory.md</c> §5 carries the
+/// argument and the two-embedder readings. Both arms get the IDENTICAL shared, caching embedder instance and
+/// a vector store, so enrichment is held CONSTANT and only salience varies.</para>
 ///
 /// <para><b>Two arms, and the OFF arm is not simply "no policies".</b> Both arms enrich identically; the ON
 /// arm additionally registers <see cref="StructuralSaliencePolicy"/> (so writes are judged) and
-/// <see cref="SalienceRetentionPolicy"/> (so the judgement lengthens a half-life). Holding enrichment
-/// constant is what makes the difference attributable to salience rather than to the engine doing a vector
-/// search at all.</para>
+/// <see cref="SalienceRetentionPolicy"/> (so the judgement lengthens a half-life).</para>
 ///
 /// <para><b>What this can and cannot settle.</b> It measures salience's NET effect on this corpus. It does
 /// NOT test the concern that novelty inverts on noisy input — this corpus's noise is TEMPLATED
 /// (<c>"item noise{n} was {filler} mentioned once and never again"</c>), sharing a skeleton with every other
-/// class, so under bag-of-words novelty the second noise entry onward reads as FAMILIAR rather than novel.
+/// class, so the second noise entry onward reads as FAMILIAR rather than novel. <b>A real embedder does not
+/// lift this</b> — near-identical templated text is near-identical vectors under any embedder — so the
+/// failure mode is unreachable by construction here, and <c>memory-importance</c>'s <c>diverse-noise</c>
+/// shape is what reaches it.
 /// The corpus models noise as semantically irrelevant; that concern is about textually diverse junk, and
 /// testing it needs a new corpus axis rather than an embedder. Stated here so a null result is not misread
 /// as clearing the design question.</para>
@@ -63,6 +62,17 @@ internal static class MemorySalienceSweep
 
     public static async Task<int> RunAsync()
     {
+        // REFUSES rather than substitutes, 2026-08-28, the same discipline `memory-salience-weight` and
+        // `memory-enrichment` already carry. Salience reads NOVELTY, which the engine derives from a
+        // similarity search — so through `FakeEmbedder`, a feature-hashed bag of words, "unlike anything
+        // already stored" degenerates into "shares few words with anything already stored". That is a
+        // different quantity, and `docs/task-archive.md` Part 69 withdrew the numbers taken through it.
+        // One embedder is shared across every replay and CACHES, so the arms see identical vectors and the
+        // cost is one embed per distinct text rather than one per replay.
+        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+        var sharedEmbedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-salience");
+        if (sharedEmbedder is null) return 1;
+
         var stopwatch = Stopwatch.StartNew();
         var agePolicy = new PerWriteAgePolicy();
         var graphOptions = new GraphMemoryOptions();
@@ -104,9 +114,9 @@ internal static class MemorySalienceSweep
             var declaredOrder = corpus.Steps.Select(MemoryPolicySweep.CorpusStepMarker).ToList();
 
             var on = arm == OnLabel;
-            // Both arms enrich identically — same embedder, same vector store — so the difference below is
-            // salience and not "the engine performed a vector search".
-            var embedder = new FakeEmbedder();
+            // Both arms enrich identically — same embedder INSTANCE, same vector store shape — so the
+            // difference below is salience and not "the engine performed a vector search".
+            var embedder = sharedEmbedder;
             var vectors = new InMemoryVectorStore();
 
             var counting = on ? new SweepDoubles.CountingSaliencePolicy() : null;
@@ -157,8 +167,8 @@ internal static class MemorySalienceSweep
         Console.WriteLine("  - SalienceOptions' own constants (NoveltyWeight, MaxSalience, MinimumComparables).");
         Console.WriteLine("  - Whether novelty INVERTS on noisy input. This corpus's noise is templated, so a");
         Console.WriteLine("    null result here does NOT clear that concern — see the class doc.");
-        Console.WriteLine("  - Embedder realism: FakeEmbedder is feature-hashed bag-of-words, so 'novelty'");
-        Console.WriteLine("    here is lexical rather than semantic.");
+        Console.WriteLine($"  - Embedder realism is no longer a caveat: novelty is measured through the REAL");
+        Console.WriteLine($"    {SweepDoubles.Model}, not a bag-of-words fake (changed 2026-08-28).");
         return 0;
     }
 
@@ -174,8 +184,8 @@ internal static class MemorySalienceSweep
         Console.WriteLine("only thing that varies is whether anything judges salience and acts on it.");
         Console.WriteLine();
         Console.WriteLine("WHAT THIS CANNOT SETTLE: whether novelty INVERTS on noisy input. This corpus's");
-        Console.WriteLine("noise is TEMPLATED, so under bag-of-words novelty it reads as familiar rather than");
-        Console.WriteLine("novel. A null result here does NOT clear that design concern.");
+        Console.WriteLine("noise is TEMPLATED, so it reads as familiar rather than novel under ANY embedder -");
+        Console.WriteLine("a real one does not lift this. A null result here does NOT clear that concern.");
         Console.WriteLine();
         Console.WriteLine($"Base seed: {BaseSeed}, seeds: {SeedCount}, query limit: {QueryLimit}");
         Console.WriteLine($"Arms ({arms.Count}): {string.Join(", ", arms)}");

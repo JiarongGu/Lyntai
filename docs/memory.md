@@ -366,6 +366,51 @@ every language, and the shipped default was changed on it before anyone read the
 RRF ranks by competition (**D82**) — so a signal every candidate ties on contributes the same constant at
 every weight, and the curve would be flat as an artifact with every ordinary control green.
 
+### And salience's OTHER two consumers cost miss as well (`memory-salience`, 2026-08-28)
+
+D89 measured the RANKING voice and shipped it at 0. This measures what is left — **retention and store
+admission, the two consumers that actually ship ON** — with the rank boost already at its shipped 0, so the
+two studies do not overlap. `node devtools/dev.mjs memory-salience`, 30 seeds × 6 shapes × 2 arms, paired
+per (seed, shape), run **twice against two real embedders**: positive Δ means salience makes recall worse.
+
+| shape | `nomic-embed-text` | `embeddinggemma:300m` |
+|---|---|---|
+| baseline | +0.0375 * | +0.0117 * |
+| low-reuse | +0.0489 * | +0.0313 * |
+| high-reuse | +0.0240 * | +0.0044 * |
+| high-noise | +0.0188 * | **−0.0251 \*** |
+| many-candidates | **+0.0786 \*** | +0.0374 * |
+| rare-critical | +0.0223 * | +0.0321 * |
+| **mean combined Δ miss** | **+0.0384** | **+0.0153** |
+
+`*` = the 95% paired interval excludes zero; 15 of 36 cells significant in each run.
+
+**The direction replicates and the magnitude does not.** Five of six shapes are positive under both
+embedders, so "salience costs miss through retention and admission" is not one embedder's artefact — but the
+means differ by ~2.5× and **`high-noise` reverses sign**, so no single figure should be quoted as *the* cost.
+That is D89's own lesson holding: it required a second embedder because the first run's reading did not
+survive one. Here the second moderated the reading instead of refuting it.
+
+**The sharpest cell is the class salience exists for.** `attribute (subject cue)` — a cluster stated once and
+thereafter referred to obliquely, which is precisely "does not fade away" — is hurt on five of six shapes
+under BOTH embedders (up to +0.266 / +0.138). Salience is worst at the case it was built for.
+
+**It is not uniformly harmful**: `critical-rare` improves significantly on the shapes that stress rarity.
+
+**This runs through a REAL embedder and refuses without one, changed 2026-08-28.** It previously built a
+`FakeEmbedder` per replay, so "unlike anything already stored" was measured as "shares few words with
+anything already stored" — a different quantity, and the one whose numbers Part 69 withdrew. Its two
+siblings already refused; this one did not.
+
+**What it does NOT settle, and the caveat did not weaken with a real embedder.** The corpus's noise is
+TEMPLATED, so the second noise entry onward reads as familiar under *any* embedder — the novelty-inversion
+concern stays unreachable by construction, and `memory-importance`'s `diverse-noise` shape is what reaches
+it. `SalienceOptions`' own constants are also unswept, which matters more than it used to: **`MaxSalience`
+(4) and `NoveltyWeight` are both documented "Unmeasured" in their own XML**, and `MaxSalience = 1` makes
+`StructuralSaliencePolicy` return `MemorySignals.Empty` while remaining registered — an option-level neutral
+that changes no DI registration. A bound on what salience may displace is therefore a VALUE, not a mechanism
+somebody still has to design.
+
 ### And WHAT salience measures, which is a different question (`memory-importance`, 2026-08-27)
 
 The sweep above prices how LOUD salience is. `node devtools/dev.mjs memory-importance` prices what it

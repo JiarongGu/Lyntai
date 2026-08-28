@@ -375,6 +375,12 @@ public sealed class MemorySalienceInversionTests
         // Bounds are regression guards on the shipped default at its measured value, not targets. A
         // dense-candidate deployment that does not want this trade now has a supported lever —
         // NeutralSaliencePolicy — which did not exist when the cost was first recorded.
+        //
+        // SUPERSEDED AS A MEASUREMENT (not as a guard) 2026-08-28: `memory-salience` now runs 30 paired
+        // seeds through two REAL embedders, and docs/memory.md section 5 carries both. The figures above
+        // predate D89, so they were taken while SalienceWeight was 1 and the ranking voice was still in
+        // play. This assertion stays an UPPER BOUND and both new readings sit well inside it — which is
+        // also why it could not have detected that the value moved.
         Assert.True(on.Miss - off.Miss <= 0.15,
             $"the many-candidates miss cost of salience has grown past its measured +0.0808:\n{table}");
         Assert.True(on.Pollution - off.Pollution <= 0.25,
