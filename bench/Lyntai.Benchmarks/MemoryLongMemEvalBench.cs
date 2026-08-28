@@ -43,7 +43,7 @@ internal static class MemoryLongMemEvalBench
     }
 
     private sealed record Question(string Id, string Text, string Type, IReadOnlyList<Turn> Turns,
-        IReadOnlyList<Turn> Current, IReadOnlyList<Turn> Stale);
+        IReadOnlyList<Turn> Current, IReadOnlyList<Turn> Stale, IReadOnlyList<Turn> Evidence);
 
     public static async Task<int> RunAsync(string[] args)
     {
@@ -64,16 +64,38 @@ internal static class MemoryLongMemEvalBench
         var embedder = await SweepDoubles.TryRealEmbedderAsync(http, "memory-longmemeval");
         if (embedder is null) return 1;
 
-        var questions = Load(path);
+        // `--temporal` is the COUNTER-TEST to the knowledge-update class, not more of the same. Temporal
+        // reasoning asks things like "what was the FIRST issue after the service", so the answer is often
+        // the EARLIER fact and preferring the current one would be wrong. It needs BOTH facts present, which
+        // is exactly what the suppression that wins knowledge-update should cost. Different question,
+        // different metric: all-evidence recall rather than preference.
+        var temporal = args.Contains("--temporal");
+        var questions = Load(path, temporal ? "temporal-reasoning" : "knowledge-update", temporal);
         if (questions.Count == 0)
         {
-            Console.Error.WriteLine("memory-longmemeval: no knowledge-update question survived loading — "
-                + "every one needs two dated sessions with flagged answer turns.");
+            Console.Error.WriteLine("memory-longmemeval: no question survived loading — a knowledge-update "
+                + "needs two dated sessions with flagged answer turns; a temporal one needs any.");
             return 1;
         }
 
         var take = ArgValue(args, "--n") is { } n && int.TryParse(n, out var parsed) ? parsed : questions.Count;
         var sampled = questions.Take(take).ToList();
+
+        if (temporal)
+        {
+            Console.WriteLine("=== LongMemEval temporal-reasoning: the COST side of the same bet ===");
+            Console.WriteLine();
+            Console.WriteLine("Knowledge-update rewards suppressing a superseded fact. This class does not:");
+            Console.WriteLine("'what was the FIRST issue after the service' wants the EARLIER fact, and most");
+            Console.WriteLine("questions need BOTH. So the metric is all-evidence recall, and the suppression");
+            Console.WriteLine("that won the other class is expected to COST here. That is the trade, measured.");
+            Console.WriteLine();
+            Console.WriteLine($"Questions: {sampled.Count} temporal-reasoning   k = {RecallLimit}   "
+                + $"embedder {SweepDoubles.Model}   model-free");
+            Console.WriteLine();
+            await RunTemporalAsync(sampled, embedder);
+            return 0;
+        }
 
         Console.WriteLine("=== LongMemEval knowledge-update: does the memory PREFER the current fact? ===");
         Console.WriteLine();
@@ -149,6 +171,65 @@ internal static class MemoryLongMemEvalBench
         return 0;
     }
 
+    /// <summary>All-evidence recall. A temporal question usually needs EVERY flagged turn — "the first issue
+    /// after the service" is unanswerable from the later fact alone — so partial recall is a miss, and the
+    /// any-evidence column beside it shows how much of the gap is partial rather than total.</summary>
+    private static async Task RunTemporalAsync(List<Question> sampled, SweepDoubles.CachingEmbedder embedder)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        string[] arms = ["lyntai", "vector"];
+        var all = new Dictionary<string, int>();
+        var any = new Dictionary<string, int>();
+        var evidenceTotal = 0;
+        var evidenceFound = new Dictionary<string, int>();
+
+        foreach (var q in sampled)
+        {
+            using var db = new MemoryPolicySweep.SweepDb();
+            var store = new SqliteMemoryGraphStore(db.Factory);
+            var engine = new GraphMemoryEngine("lme", store, embedder: embedder,
+                vectors: new InMemoryVectorStore());
+
+            var index = new List<(string Text, float[] Vector)>();
+            foreach (var t in q.Turns)
+            {
+                var content = $"{t.Tag} {t.Text}";
+                await engine.RememberAsync(new MemoryWrite(Task, Scope, content));
+                index.Add((content, await embedder.EmbedAsync(content)));
+            }
+
+            var lyntai = (await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit)))
+                .Items.Select(i => i.Content ?? i.Headline).ToList();
+            var vector = (await TopKAsync(embedder, index, q.Text, RecallLimit)).ToList();
+            evidenceTotal += q.Evidence.Count;
+
+            foreach (var (arm, got) in new[] { ("lyntai", lyntai), ("vector", vector) })
+            {
+                var hits = q.Evidence.Count(t => got.Any(g => g.Contains(t.Tag, StringComparison.Ordinal)));
+                evidenceFound[arm] = evidenceFound.GetValueOrDefault(arm) + hits;
+                if (hits == q.Evidence.Count) all[arm] = all.GetValueOrDefault(arm) + 1;
+                if (hits > 0) any[arm] = any.GetValueOrDefault(arm) + 1;
+            }
+        }
+
+        Console.WriteLine($"{"Arm",-10} {"all evidence@k",16} {"any evidence@k",16} {"evidence turns",16}");
+        Console.WriteLine(new string('-', 62));
+        foreach (var arm in arms)
+            Console.WriteLine($"{arm,-10} "
+                + $"{$"{(double)all.GetValueOrDefault(arm) / sampled.Count:P1}",16} "
+                + $"{$"{(double)any.GetValueOrDefault(arm) / sampled.Count:P1}",16} "
+                + $"{$"{(double)evidenceFound.GetValueOrDefault(arm) / evidenceTotal:P1}",16}");
+
+        Console.WriteLine();
+        Console.WriteLine("  'all evidence@k' is the one that matters: a temporal question usually needs every");
+        Console.WriteLine("  flagged turn, so retrieving one of two answers nothing. 'evidence turns' is the");
+        Console.WriteLine("  per-turn rate, which separates 'missed one question badly' from 'missed a little");
+        Console.WriteLine("  everywhere'.");
+        Console.WriteLine();
+        Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+    }
+
     private static int FirstIndexOf(List<string> got, IReadOnlyList<Turn> wanted)
     {
         for (var i = 0; i < got.Count; i++)
@@ -174,18 +255,18 @@ internal static class MemoryLongMemEvalBench
 
     /// <summary>Knowledge-update questions only, and only those whose two sessions BOTH carry a flagged
     /// answer turn — the discriminating shape. The later session by date holds the current value.</summary>
-    private static List<Question> Load(string path)
+    private static List<Question> Load(string path, string wantType, bool temporal)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         var result = new List<Question>();
 
         foreach (var q in doc.RootElement.EnumerateArray())
         {
-            if (q.GetProperty("question_type").GetString() != "knowledge-update") continue;
+            if (q.GetProperty("question_type").GetString() != wantType) continue;
 
             var sessions = q.GetProperty("haystack_sessions");
             var dates = q.GetProperty("haystack_dates").EnumerateArray().Select(d => d.GetString() ?? "").ToList();
-            if (sessions.GetArrayLength() < 2) continue;
+            if (sessions.GetArrayLength() < (temporal ? 1 : 2)) continue;
 
             // Order by the session's own date string. LongMemEval's format sorts lexicographically because
             // it is yyyy/MM/dd — which is why this needs no date parsing and no culture.
@@ -204,10 +285,11 @@ internal static class MemoryLongMemEvalBench
             var lastSession = ordered[^1].Index;
             var current = turns.Where(t => t.HasAnswer && t.Session == lastSession).ToList();
             var stale = turns.Where(t => t.HasAnswer && t.Session != lastSession).ToList();
-            if (current.Count == 0 || stale.Count == 0) continue;
+            var evidence = turns.Where(t => t.HasAnswer).ToList();
+            if (temporal ? evidence.Count == 0 : current.Count == 0 || stale.Count == 0) continue;
 
             result.Add(new Question(q.GetProperty("question_id").GetString() ?? "",
-                q.GetProperty("question").GetString() ?? "", "knowledge-update", turns, current, stale));
+                q.GetProperty("question").GetString() ?? "", wantType, turns, current, stale, evidence));
         }
         return result;
     }

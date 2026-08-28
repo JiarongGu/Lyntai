@@ -642,12 +642,37 @@ questions where the arm returned at least one of the pair, so retrieving NEITHER
 for this engine while `stale@k` is far lower**: it returns the current fact more often *and* the superseded
 one less often. That is discrimination, not a recall collapse dressed as precision.
 
-**Read the two benchmarks together, because neither is the whole picture.** On LoCoMo, which asks for
-arbitrary old material, a flat archive wins 80.5% to 31.0%. On knowledge updates, where old material has
-been superseded and should be suppressed, this engine wins 96.9% to 47.1%. **The same mechanism produces
-both numbers.** A library that scored well on both would be one that had stopped forgetting — and the
-honest summary is not "better" or "worse" but that decay is a bet about which of those two workloads a
-deployment has.
+**The COST side, measured on purpose rather than left to be discovered** (`memory-longmemeval --temporal`,
+132 temporal-reasoning questions). That class is not more of the same: *"what was the FIRST issue after the
+service"* wants the EARLIER fact, and most questions need BOTH — so the suppression that wins knowledge-update
+should hurt here, and the metric is all-evidence recall rather than preference.
+
+| arm | all evidence@k | any evidence@k | evidence turns |
+|---|---|---|---|
+| `lyntai` | 59.8% | 84.1% | 66.0% |
+| `vector` | **64.4%** | **90.9%** | **72.2%** |
+
+It does hurt, by **4.6 points** — predicted in advance from the mechanism, and small beside what the same
+mechanism buys.
+
+**The three numbers together are the finding, and no one of them is.**
+
+| workload | what it asks | `lyntai` | `vector` | delta |
+|---|---|---|---|---|
+| LoCoMo | retrieve arbitrary old material | 31.0% | 80.5% | **−49.5** |
+| LongMemEval temporal | need the old fact AND the new | 59.8% | 64.4% | **−4.6** |
+| LongMemEval knowledge-update | prefer the new over the superseded | **96.9%** | 47.1% | **+49.8** |
+
+**One mechanism produces all three.** Suppressing superseded material is nearly free where both facts are
+wanted (−4.6), decisive where the old one is wrong (+49.8), and expensive only where nothing should have
+been forgotten at all (−49.5). A library scoring well on all three would be one that had stopped forgetting.
+So the honest summary is not "better" or "worse": **decay is a bet about which of those workloads a
+deployment has**, and these are its measured odds.
+
+**The caveat that bounds all three, stated because it cuts against the good news too.** These LongMemEval
+figures come from the ORACLE variant, whose haystack holds only the evidence sessions — two to six of them.
+Decay has almost nothing to bury there, which flatters the temporal number and may flatter the update one.
+`longmemeval_s` puts the same questions in a ~115k-token haystack; `TASKS.md` Part 109 carries it.
 
 ### How these choices sit against the published field (surveyed 2026-08-29)
 

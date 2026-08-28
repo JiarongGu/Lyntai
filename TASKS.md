@@ -505,10 +505,15 @@ two harness defects that had to be fixed first are `docs/memory.md` §5._
   collapse (`docs/memory.md` §5). What is NOT measured is the rest of the suite: **temporal-reasoning (133
   questions)** is the obvious next class and the harness already loads it — `Load` filters to
   `knowledge-update` in one line. Startable today; the dataset is a curl and the metric is model-free.
-  <br>**The oracle variant is the honest caveat.** It carries only the evidence sessions, so there are no
-  distractors and the two facts compete with nothing else. `longmemeval_s_cleaned.json` puts them in a
-  ~115k-token haystack, which is the harder and more realistic test — and the one where a decay model's
-  suppression could start costing recall rather than buying precision.
+  *(The temporal-reasoning class LANDED 2026-08-29 — `--temporal`, 132 questions, and it cost 4.6 points as
+  predicted. What is left of this item is the haystack variant.)*
+  <br>**The oracle variant is the honest caveat, and it cuts against the GOOD news hardest.** It carries only
+  the evidence sessions — two to six per question — so decay has almost nothing to bury, which flatters the
+  temporal number and may flatter the knowledge-update one too. `longmemeval_s_cleaned.json` puts the same
+  questions in a ~115k-token haystack. **That is the run that decides whether the +49.8 survives contact with
+  distractors**, and it is the single most informative measurement left anywhere in this backlog.
+  <br>Cost is the reason it has not run: ~500 questions x ~115k tokens of ingestion, against the oracle's
+  minutes. Sampling the class is legitimate if the sample is seeded and stated.
 
 - [ ] **Run the QA half, and more of it.** The model-free metric is the trustworthy one, but the accuracy
   table is what the field publishes. It needs a reader model, its absolute value is not comparable to a
