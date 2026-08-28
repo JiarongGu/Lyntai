@@ -141,8 +141,10 @@ reader can compare, and a count that no longer matches a green run teaches them 
   in the generation backends, and the standing maintenance policies.
 - `CHANGELOG.md` — per-release detail; breaking changes called out.
 - `docs/DECISIONS.md` — the rationale log, in the present tense: what each decision IS today. Contiguous
-  `D1..Dn`, no stubs. **Numbers were reassigned 2026-08-14**, so a `D<n>` in older git history means a
-  different entry.
+  `D1..Dn` — a number is never reclaimed, so an entry that stops being its own decision becomes a **stub**
+  naming where its content went (merged into another entry, or relocated to the record that owns it), which
+  keeps every inbound `D<n>` resolving; see its own §How to read it. **Numbers were reassigned 2026-08-14**,
+  so a `D<n>` in older git history means a different entry. Entry length is gated — **D96**.
 - `README.md` — the consuming story (install, `AddLyntai`, the add-ons, semantics).
 - `TASKS.md` — the **active** backlog (open tasks only); `docs/task-archive.md` — the completed-task
   history (the frozen implementation plan + closed backlogs). See the `task-lifecycle.md` rule.

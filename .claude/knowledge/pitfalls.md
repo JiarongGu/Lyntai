@@ -1282,6 +1282,15 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Testing
 
+- **A read path a contract fact does not CALL is a read path that contract does not cover, however
+  completely it enumerates implementations.** Measured 2026-08-27 (`docs/DECISIONS.md` D93): a metadata
+  round-trip fact ran on all five memory engines and still missed a third broken projection, because it
+  called `RecallAsync` and nothing else — `ExpandAsync` projects the entry the caller NAMED separately from
+  its neighbours, and no amount of engine coverage reaches a method the fact never invokes. **Coverage of
+  IMPLEMENTATIONS reads as coverage and is the axis that is easy to count; coverage of ENTRY POINTS is the
+  one that was missing.** The fix is a second fact per read path, each asserting positively — including the
+  negative branches, since a single "null is acceptable" assertion passes vacuously for every implementation
+  that cannot carry the value at all.
 - **A finding that is WRITTEN DOWN is not a finding that was VERIFIED, and this repository keeps treating
   the two as the same.** Twice in two days (2026-08-17): `TASKS.md`'s then-`Startable` section (closed as
   `docs/task-archive.md` Part 87) recorded a divergence as

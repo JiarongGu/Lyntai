@@ -1640,14 +1640,12 @@ VERB needs.
 **2. `IMemoryRemovalPolicy` decides which members a removal visits** — a seam, asked per member AND per kind
 (`Forget` / `Prune`). A member the policy excludes is SKIPPED instead of refusing the whole verb.
 
-**AMENDED the same day it landed, and the correction is the more interesting half.** The first version was
-`IMemoryEngine.HoldsUserContent`, a `bool` on the engine with `CuratedMemoryEngine` answering false. The
-owner's objection — *"isn't that should be a policy based or manually updatable"* — was right, and it is the
-one this repository already had a rule for: **eligibility is a DEPLOYMENT question**, and the library cannot
-know the answer. One application's glossary is operator boilerplate; another's holds preferences the user
-typed. A compile-time property states a fact about the HOST inside a type the host did not write, which is
-exactly the shape `.claude/knowledge/model-decoupling.md` exists to prevent. It was also the odd one out in a
-subsystem whose every other variable is an `IMemory*Policy` — seven of them, all DI-registered.
+**The rejected alternative is a `bool` on the engine** — `IMemoryEngine.HoldsUserContent`, with
+`CuratedMemoryEngine` answering false. It is wrong because **eligibility is a DEPLOYMENT question** the
+library cannot answer: one application's glossary is operator boilerplate, another's holds preferences the
+user typed. A compile-time property states a fact about the HOST inside a type the host did not write, the
+shape `.claude/knowledge/model-decoupling.md` exists to prevent — and it was the odd one out in a subsystem
+whose every other variable is an `IMemory*Policy`, seven of them, all DI-registered.
 
 **The seam is asked per KIND, which the boolean could not do at all.** A host can legitimately keep a
 glossary out of an automatic prune and include it in an explicit consent withdrawal, or the reverse. That
@@ -1728,19 +1726,15 @@ throttling the fleet until they expire). A process that dies releases nothing �
 and returns to the pool. Release is fenced by worker id, so a worker whose slot already expired and was
 retaken cannot free its successor's.
 
-**The slot lease is SHORT and HEARTBEATED, which is a correction to this entry's first draft.** That draft
-expired a slot on `JobOptions.Lease`, reasoning that reusing the job's own rule beat inventing a second
-expiry concept. The owner's objection killed it: *"instead of a long hard expiry time for the slot, we can
-have a shorter one and let the working job processor keep update its time"*. One expiry cannot serve two
-questions — how fast a dead worker is detected, and how long live work may take. Tuned long enough for a job
-that runs for hours, a crash throttles the deployment for hours; tuned short enough to recover promptly,
-that same job loses its slot while still running. `JobOptions.SlotLease` (30s) now measures ONLY "how long
-since we last heard from you", a live runner renews every third of it, and a job may run as long as it likes.
+**The slot lease is SHORT and HEARTBEATED**, because one expiry cannot serve two questions — how fast a dead
+worker is detected, and how long live work may take. Tuned long enough for a job that runs for hours, a crash
+throttles the deployment for hours; tuned short enough to recover promptly, that same job loses its slot
+while still running. So `JobOptions.SlotLease` (30s) measures ONLY "how long since we last heard from you", a
+live runner renews every third of it, and a job may run as long as it likes.
 
-**And renewal is not a new concept here, which is what makes the correction clearly right rather than merely
-different.** A job's own claim already works this way: `JobStoreSql.SetCheckpoint` refreshes `claimed_at`, so
-checkpointing is already a heartbeat. The first draft's "same rule as the job" was therefore the
-*inconsistent* choice — it copied the job's TIMEOUT while ignoring the job's RENEWAL.
+**Reusing `JobOptions.Lease` is the rejected alternative**, and it is *inconsistent* rather than merely
+coarse: a job's own claim is already heartbeated — `JobStoreSql.SetCheckpoint` refreshes `claimed_at` — so
+taking the job's TIMEOUT while ignoring the job's RENEWAL copies half a pattern that was already here.
 
 `HeartbeatSlotsAsync` renews by WORKER rather than by slot, so one statement covers every job a runner has in
 flight and the cost does not grow with the batch. It is fenced the same way release is: it touches only rows
@@ -2377,69 +2371,35 @@ signal is known to track relevance.
 
 ## D90 — the memory objective gains four INVARIANTS above its optimization targets (2026-08-26)
 
-**Design §5.7.0 states a four-line lexicographic objective and it is not enough to judge the work the
-memory proposal asks for.** Its lines are *never lose an authoritative fact*, *minimise `MissRate`*, *do not
-increase `PollutionRate`*, *keep the first load cheap*. Nothing there says what a change may do to
-**evidence**, to **conflicting claims**, or to **a fact that was true last month** — so a temporal or
-supersession measurement produces numbers with no target to check them against, which is precisely the
-failure §5.7.0 was written to end.
+**Design §5.7.0's four-line lexicographic objective is not enough to judge the work the memory proposal
+asks for.** It says nothing about what a change may do to **evidence**, to **conflicting claims**, or to **a
+fact that was true last month** — so a temporal or supersession measurement produces numbers with no target
+to check them against, which is precisely the failure §5.7.0 was written to end.
 
-**The correction is NOT to extend the lexicographic list to seven lines**, which is how the proposal states
-it. Lexicographic ordering means *a change improving a lower line while breaking a higher one is a
+**The rejected alternative is to extend the lexicographic list to seven lines**, which is how the proposal
+states it. Lexicographic ordering means *a change improving a lower line while breaking a higher one is a
 regression* — it presumes the lines are things you TRADE. The four additions are not: each is an absolute
 with no acceptable failure rate, and "we lost less evidence than we gained in recall" is not a sentence this
-library should be able to form. They are therefore stated as INVARIANTS, in the tier §5.7.0 already reserves
-for the guarantee it had one of.
+library should be able to form. They are therefore INVARIANTS, in the tier §5.7.0 already reserved for the
+guarantee it had one of, and §5.7.0's original line 1 becomes invariant 2, widened. **The four are stated in
+the design contract and deliberately not restated here** — one home, so they cannot drift.
 
-### The invariants — a change breaking one is rejected whatever its numbers say
+**Scope — which the shipped engine can be held to TODAY, said because an objective naming guarantees the
+code does not provide misleads every reader of it.** Invariants 1 and 2 are LIVE and asserted
+(`MemoryRemovalCompletenessTests`, `MemoryBurialNotDeletionTests`, `MemoryAuthoritativeSurvivalTests`).
+Invariants 3 and 4 bind FUTURE work and make no claim about the base engine: a `MemoryWrite` carries no
+valid-time and nothing supersedes anything, so the engine can neither violate nor satisfy them. What they
+govern is whatever is built ON that data — a resolver, a supersession feature, an application storing
+validity in `MemoryWrite.Metadata`. The prototype in `tests/Lyntai.Tests/Memory/Prototype/` is the first
+such thing and is held to them.
 
-1. **An explicit deletion COMPLETES.** `ForgetAsync` is a user withdrawing their own data; it must reach
-   every projection, not only the store that owns the row (**D72**, and the defect that proved it was not
-   free — `docs/FIXES.md` 2026-08-26).
-2. **No authoritative fact is lost, and no canonical evidence is silently lost.** §5.7.0's original line 1,
-   widened: decay may bury anything and remove nothing, and only an explicit caller act deletes.
-3. **Nothing is silently overwritten, and no conflict is hidden.** A second claim about the same thing is
-   evidence, not a correction to be applied quietly.
-4. **Current and historical facts resolve correctly by time** — *for any feature that offers a temporal
-   answer at all*. See the scope note below, which is the load-bearing half of this line.
+**The consequence worth naming: those two lines are what make Phase 2 measurable, and also what forbids the
+cheapest way to pass it.** "Newest wins" resolves every conflict and satisfies no line here; a resolver that
+picks silently has broken invariant 3 however good its accuracy looks.
 
-### The objective — what optimization actually moves, still lexicographic
-
-5. **Minimise `MissRate`.** The primary number, unchanged.
-6. **Do not increase `PollutionRate`**, not co-equal with (5), unchanged.
-7. **Keep the first load cheap** — headlines not content, one bounded query, no background job — and then
-   latency, cost and storage.
-
-### Scope: which of these the shipped engine can be held to TODAY
-
-**Stated because an objective naming guarantees the code does not provide misleads every reader of it, and
-that is a worse failure than having no line at all.**
-
-Invariants 1 and 2 are LIVE and asserted: `MemoryRemovalCompletenessTests`, `MemoryBurialNotDeletionTests`,
-`MemoryAuthoritativeSurvivalTests`.
-
-**Invariants 3 and 4 bind FUTURE work and make no claim about the base engine, which offers no temporal or
-conflict concept at all.** A `MemoryWrite` has no valid-time and the engine has no notion of one claim
-superseding another, so the engine cannot violate them and does not satisfy them — they are vacuous here by
-construction. What they govern is anything built ON that data: a resolver, a supersession feature, an
-application storing validity in `MemoryWrite.Metadata`. The prototype in
-`tests/Lyntai.Tests/Memory/Prototype/` is the first such thing and is held to them.
-
-**The consequence worth naming: these two lines are what make Phase 2 of the proposal measurable, and they
-are also what forbids the cheapest way to pass it.** "Newest wins" resolves every conflict and satisfies no
-line here; a resolver that picks silently has broken invariant 3 however good its accuracy looks.
-
-### What this does not do
-
-It does not add a metric. Miss and pollution remain the only two numbers this subsystem optimises, and the
-four invariants are pass/fail conditions on a change rather than quantities to improve — so no existing
-measurement, sweep or default is revisited by this entry, and none of the recall-quality figures on record
-changes meaning.
-
-**Deliberately unresolved: whether `Metadata`'s write-once behaviour is the right answer.** All three
-backends agree and the facts pin it, and invariant 3 is the reason it is worth re-reading rather than
-assumed — a field that cannot be revised is one way to guarantee no silent overwrite, and it is not
-obviously the intended one.
+**It adds no metric.** Miss and pollution remain the only two numbers this subsystem optimises, and the
+invariants are pass/fail conditions on a change rather than quantities to improve — so no measurement, sweep
+or default on record is revisited, and no recall-quality figure changes meaning.
 
 ---
 
@@ -2470,21 +2430,17 @@ defect's mirror image.
 `CuratedMetadataJson.Serialize` returns null for null-or-empty — so unlike the grade fix this needed no new
 member, only the `COALESCE` that was missing.
 
-**What it costs, stated because it was a real finding and is now historical.** The prototype resolver in
-`tests/Lyntai.Tests/Memory/Prototype/` derived an assertion's `ValidTo` from its successor's start and
-reported that as FORCED by write-once — "the store's constraint and an append-only ledger are the same
-thing". That convergence is gone; the derivation stays because it is right on its own terms (a stored
-`ValidTo` is a second copy of a fact the successor already carries, and two copies drift). **A design that
-survives losing its excuse is a better one than a design that needed it** — but the excuse should not be
-quoted any more, and the record says so rather than leaving it to be re-derived.
+**One knock-on:** the prototype resolver in `tests/Lyntai.Tests/Memory/Prototype/` derived an assertion's
+`ValidTo` from its successor's start and reported that as FORCED by write-once. The derivation stays — it is
+right on its own terms, since a stored `ValidTo` is a second copy of a fact the successor already carries —
+but write-once may no longer be quoted as its reason.
 
-**AMENDED the same day — there was a THIRD instance, and the rule that found it is worth more than the
-fix.** `.claude/knowledge/pitfalls.md` says the round that articulates a distinction is the round most
-likely to violate it elsewhere, and prescribes grepping your own diff for the other places it applies. Doing
-that turned up `Headline`: it is null-means-unstated exactly as `Grade` and `Metadata` were, the engine
-turns null into a TRUNCATION of the content, and the store overwrote unconditionally — so an application
-that authored a headline and later refreshed the fact without restating it had its own text silently
-replaced by a machine-made one. Fixed with `GraphNodeWrite.HeadlineStated`, the same shape as
+**`Headline` is the third instance**, found by grepping this fix's own diff for the other places the
+distinction applies (`.claude/knowledge/pitfalls.md`: the round that articulates a distinction is the round
+most likely to violate it elsewhere). It is null-means-unstated exactly as `Grade` and `Metadata` were, the
+engine turns null into a TRUNCATION of the content, and the store overwrote unconditionally — so an
+application that authored a headline and later refreshed the fact without restating it had its own text
+silently replaced by a machine-made one. Fixed with `GraphNodeWrite.HeadlineStated`, the shape of
 `GradeStated`.
 
 **Three fields, one defect, and it is worth naming as one:** a caller's "I did not say" was resolved into a
@@ -2512,9 +2468,8 @@ layer resolve an omission" — that is ordinary and often right. It is **"does t
 overwrite something the CALLER authored"**. Grade, headline and metadata were the caller's own; a TTL and a
 retention default are not.
 
-**Taken on the evidence rather than by ruling**, after the owner had chosen to fix the parallel `Inherit`
-defect and declined three invitations to rule on this one. **Reverting is deleting one `COALESCE` per
-backend**; the contract fact names both directions, so a revert fails loudly rather than drifting.
+**Reverting is deleting one `COALESCE` per backend**; the contract fact names both directions, so a revert
+fails loudly rather than drifting.
 
 ---
 
@@ -2575,13 +2530,8 @@ READ side said nothing at all, and `GraphNode.Metadata` was persisted, returned 
 at the projection onto `MemoryItem` — **three lines in `GraphMemoryEngine`, one in `RecallAsync` and TWO in
 `ExpandAsync`**, which projects the entry the caller NAMED separately from its neighbours. So a consumer could
 write a kind, a source or an ordering key and never get it back, and the only recourse was keeping a second
-copy of the store outside the library and re-reading it after every recall.
-
-**This entry said "two lines" for a day, and the third was still live when it did.** A grep for
-`new MemoryItem(` finds two sites, because the named entry's projection is written target-typed as `new(...)`
-inside a collection initializer — so the fix, the changelog, this entry and three other records all inherited
-one search's blind spot. The reusable form is in `pitfalls.md` §Second doors: **count a record's call sites
-from the type, not from a search for its constructor's name.**
+copy of the store outside the library and re-reading it after every recall. (A search for `new MemoryItem(`
+finds only two of the three — the third is target-typed; `pitfalls.md` §Second doors.)
 
 **The alternative was a typed KIND on the item**, and it is the one to argue against, because it reads better.
 A kind is exactly the consumer's vocabulary — "standing context", "glossary", "episode" — and `generic-library`
@@ -2599,44 +2549,27 @@ an `Id` and a `Headline`. From those the only route to *did anything answer this
 seam's sole shipped implementation is `LlmMemoryVerificationPolicy` and every other implementation would have
 been one too. The engine computed each candidate's relevance and threw it away on the way to the judge.
 
-**The instrument that made this concrete.** An adopting application measured both routes on its own corpus: an
-LLM judge promoted the right answer **0 of 6** times, at 181 ms warm and **5409 ms cold** — cold being what a
-sporadic hook actually pays — while a score-only signal separated *answerable* from *unanswerable* queries at
-**AUC 0.965** (top score) and **0.932** (score variance) over 39 substantive and 28 contentless prompts.
-
 **No score-floor policy ships, and that is rule 7, not laziness.** A graph engine passes its store's own
 normalized rank position through and `IMemoryGraphStore.SeedAsync` makes that position explicitly
 backend-specific, so the number's scale belongs to the deployment's embedder and corpus. A library-chosen
 threshold would be the library answering a question only the host can — the shape **D68** records for the
-diffusion accelerator and **D75** for `HoldsUserContent`. The XML doc therefore steers an implementer to a
-RELATIVE test (top against the rest) rather than an absolute one, and warns that an authoritative fact the
-query did not match reports `0` by design (**D56**) and must not be read as a failed recall.
+diffusion accelerator and **D75** for `HoldsUserContent`.
 
-**Corrected 2026-08-27, the same day: the MEMBER survives and the MECHANISM above does not.** The heading and
-the two paragraphs before it are kept as written, because the correction is only legible beside them.
-
-The claim that had to go is the generalisation, and it was stated in the XML doc as *"a query with no answer
-returns scores that are low and BUNCHED, so a policy comparing the top score against the rest needs no
-inference at all"*. **The AUC 0.965 above is real and is a fact about the ADOPTING APPLICATION**, whose score
-is a real cosine over a single embedder — a quantity for which "low and bunched" is a meaningful shape. This
-engine's number is not that quantity. `MemoryRelevance.ByRankPosition` is `1 - index/count`: the top row is
-**always exactly `1.0`** and the rest an evenly-spaced ramp, identical whether the query was answered
-perfectly or not at all, and a single-row page reports `1` because there is no gradient to place it on. Within
-ONE request the values are not even commensurable — a lexical rank ramp, a real cosine on a semantic seed, a
-flat `1` on graph-walk and subject seeds, and `0` for a grade-admitted non-match. So *no* arithmetic over this
-page recovers "did anything answer this"; a relative test is a heuristic over an ordering, not the floor the
-old paragraph promised.
-
-The correction also removes a contradiction the doc carried between its own paragraphs: low-and-bunched
-implied *unanswered*, while the last paragraph said a zero-scoring authoritative row must NOT be read as
-unanswered — and on the SQLite `LIKE` fallback those are the same rows, since the predicate admits
-`grade = authoritative OR <match>` and a no-match page is exactly the grade-admitted set.
+**And no model-free ANSWER may be claimed from the value either**, by a shipped implementation or a doc.
+`MemoryRelevance.ByRankPosition` is `1 - index/count`: the top row is **always exactly `1.0`** and the rest
+an evenly-spaced ramp, identical whether the query was answered perfectly or not at all, and a single-row
+page reports `1` because there is no gradient to place it on. Within ONE request the values are not even
+commensurable — a lexical rank ramp, a real cosine on a semantic seed, a flat `1` on graph-walk and subject
+seeds, and `0` for a grade-admitted non-match, which by **D56** must not be read as a failed recall. So no
+arithmetic over this page recovers "did anything answer this", and the XML doc steers an implementer to a
+RELATIVE test while saying it is a heuristic over an ordering, not a floor. An adopting application measured
+**AUC 0.965** for a score-only signal against an LLM judge that promoted the right answer 0 of 6 times; that
+figure is real and is a fact about ITS cosine over one embedder, which is not this quantity.
 
 **The member still earns its place**, on the narrower and true argument: it is what the caller will see on
 `MemoryItem.Relevance`, a verifier was the one reader of a recall that could not see it, and withholding it
-forced every implementation to be a model. What it does NOT buy is a model-free ANSWER, and no shipped
-implementation or doc may claim one. The XML doc now states what the value is and what a policy may not
-assume about it; **D90**'s posture applies — say which of the objectives a mechanism can actually be held to.
+forced every implementation to be a model. **D90**'s posture applies — say which of the objectives a
+mechanism can actually be held to.
 
 ### What both cost
 
@@ -2644,21 +2577,13 @@ One trailing member each, defaulted, so construction by name or position is unaf
 slot, which is a source break only for positional deconstruction — the same shape `GraphNodeWrite` took, and
 permitted in a minor by **D18** while every consumer is first-party.
 
-**Pinned as a CONTRACT fact, not per engine.** `MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent`
-runs on all five engines and takes the caller's declaration of which answer is right for that engine, asserting
-the round trip where the store has a column and asserting `null` where it does not. Both branches assert
-positively: a single "null is acceptable" fact would have passed vacuously for the two engines that cannot
-carry metadata, which is the vacuous-fixture trap `pitfalls.md` records. That is also why the relevance facts
-include one asserting the column is not a constant — a field wired to a literal satisfies an equality check on
-every row.
-
-**And a SECOND contract fact for the expansion path**, `Metadata_survives_an_EXPANSION_not_only_a_recall`,
-because the first one calls `RecallAsync` and nothing else — which is precisely why the third projection stayed
-broken through a fix that named it. It takes a second declaration, `expands`, and asserts all three states
-positively: an engine with no `IExpandableMemory` surface asserts it has none, a composite over a member that
-cannot expand asserts the documented fail-OPEN empty recall, and the graph engine asserts the round trip.
-**A read path a contract fact does not CALL is a read path that contract does not cover**, however completely
-it enumerates engines.
+**Pinned as CONTRACT facts, not per engine**, across all five engines, each taking the caller's declaration
+of which answer is right for that engine and asserting BOTH branches positively — a single "null is
+acceptable" fact would pass vacuously for the two engines that cannot carry metadata. For the same reason a
+relevance fact asserts the column is not a constant, since a field wired to a literal satisfies an equality
+check on every row. A SECOND fact covers the expansion path, because the first calls `RecallAsync` and
+nothing else, which is exactly why the third projection survived a fix that named it — the reusable form is
+`pitfalls.md` §Testing.
 
 ## D94 — "support" is TWO quantities under one name, so the gist tier ships no support seam (2026-08-28)
 
@@ -2696,36 +2621,20 @@ call the older regime correct on the same bytes, and this corpus cannot say othe
 is narrower and stronger: raw is the wrong DEFAULT for one deployment model, and the seam dissolves on the
 argument rather than on the number.
 
-**What the sweep then measured, and what it must not be quoted as saying** (`node devtools/dev.mjs
-memory-support`, 600 replays = 60 shapes × 5 seeds × 2 injected clocks; the tables are `docs/memory.md` §5):
+**What the sweep measured, one line each.** The tables, the retrievability bands and the full reading are
+`docs/memory.md` §5 and are deliberately not restated here (`node devtools/dev.mjs memory-support`, 600
+replays = 60 shapes × 5 seeds × 2 injected clocks).
 
-- **`sum` INVERTS with pacing** — phase A under bulk, phase B under spaced, 300/300 each way. It is a real
-  measurement and it disqualifies `sum` as *the* rule unless the deployment's write pacing is part of its
-  contract, which nothing here can put there.
-- **The only pacing-independent `count@θ` thresholds are the DEGENERATE ones, and every θ that could
-  DISCRIMINATE inverts with pacing.** θ = 0.1 answers phase A on all 600 replays and θ = 0.9 answers phase B
-  on all 600, for DIFFERENT reasons: 0.1 sits below phase A's floor, while 0.9 sits high INSIDE its bulk band
-  — max r(A) = 0.942 there, and 0.903 under `ConnectionBoost = 0` (`docs/memory.md` §5's band table) — high
-  enough that at most 3 of phase A's 8 members clear it against phase B's constant 4. Either way a constant is
-  right on one answer arm and wrong on the other, so neither is a rule: θ = 0.1 scores 0.000 on the recent
-  arm, θ = 0.9 scores 0.000 on the standing arm. Between them the transition sits between θ 0.7 and 0.9 under
-  bulk and between 0.1 and 0.3 under spaced.
-  <br>**θ = 0.1 is where this meets the raw reading above, and on this grid the two are the same quantity.**
-  Every one of the 12 members clears 0.1 on both clocks (min r(A) = 0.602 bulk / 0.102 spaced, min r(B) =
-  0.983 / 0.830), so `count@0.1` returns (8, 4) on every replay: it IS the raw count here, which is why it
-  inherits raw's pacing-independence and raw's wrongness for the assistant host together. The equivalence is
-  MEASURED on this grid rather than structural — the spaced floor sits at 0.102 against a threshold of 0.1.
-  <br>**The two degeneracies differ in KIND, which is what the cardinality limit below turns on.** θ = 0.1 is
-  cardinality-INVARIANT: every member clears it, so `count@0.1` is exactly (|A|, |B|) at any size. θ = 0.9 is
-  an ORDER STATISTIC — (≤ 3, 4) here — and flips as soon as |A| grows enough for a 4th member to clear it.
-- **`mean` is UNTESTABLE on this corpus, and that is a statement about the fixture rather than a result.**
-  Phase B is snapshotted having never been recalled, at min retrievability 0.983 (bulk) / 0.830 (spaced)
-  against a cap of 1, so `mean(B)` sits at the ceiling and `mean(A) <= 1` follows by definition. Testing it
-  needs phase B off the ceiling at the snapshot.
-- **A model in the loop bought nothing here.** One rung — the only one that survived a counterbalanced ladder
-  — returned exactly the recency reading over 300 counterbalanced pairs with zero order disagreements. Scope
-  it: **the prompt NAMES the recency ordering**, so a model obeying the label scores the same, and
-  counterbalancing rules out position bias and not label-following.
+- **`sum` INVERTS with pacing** — phase A under bulk, phase B under spaced, 300/300 each way — so it cannot
+  be *the* rule unless a deployment's write pacing is part of its contract, which nothing here can put there.
+- **Only the DEGENERATE `count@θ` thresholds are pacing-independent**, and each scores 0.000 on one of the
+  two answer arms, so neither is a rule; every θ that could DISCRIMINATE inverts. On this grid θ = 0.1 IS the
+  raw count, which is where this meets the raw reading above — and the two degeneracies differ in KIND, 0.1
+  being cardinality-invariant where 0.9 is an order statistic, which is what the limit below turns on.
+- **`mean` is UNTESTABLE on this corpus** — phase B is snapshotted at the retrievability ceiling, so
+  `mean(B) ≥ mean(A)` is a theorem about the fixture rather than a result.
+- **A model in the loop bought nothing**, and the scope is the reason: the prompt NAMES the recency
+  ordering, so a model merely obeying the label scores the same.
 
 **The honest limit, stated because the question is about cardinality and this run held it constant.**
 `RoutineCount` is fixed at 12 across all 600 replays, so every cell sits at |A|/|B| = 2, while the ratio
@@ -2738,76 +2647,49 @@ cardinality sweep this run did not do. `TASKS.md` carries what is left open.
 ## D95 — the repository is LF, declared in a tracked `.gitattributes` (2026-08-28)
 
 **`.gitattributes` contains `* text=auto eol=lf`, so line endings are LF in the index AND in the working
-tree, on every clone and every platform.** `git ls-files --eol` reads `i/lf w/lf` on every tracked file;
-a `w/crlf` line is now an anomaly rather than the norm.
+tree, on every clone and every platform.** `git ls-files --eol` reads `i/lf w/lf` on every tracked file.
 
 **This is a decision rather than a note because the alternative was live and unshared.** `core.autocrlf`
-was `false` at repo scope — overriding `true` at both system and global scope, and the repo-local value
-wins — so the index took the working tree verbatim and a CRLF file committed as CRLF. That setting lives in
-`.git/config`, which is untracked: it protected nothing in anybody else's clone, could not be reviewed, and
-a teammate cloning under a global `true` got different behaviour from the same bytes. **A `.gitattributes`
-is the only line-ending declaration that travels**, which is the whole reason this is a tracked file.
-
-The cost of not having one was measured twice on one branch: a **1267 / 1063** diff for a real 204-line
-change, and a **100-line** diff for a 6-line `.csproj` addition. Git's stat cache hid the state until a file
-was touched, so both were caught by a person comparing `git diff --stat` against
-`git diff --ignore-cr-at-eol --stat`, after the fact.
+was `false` at repo scope — overriding `true` at system and global — so the index took the working tree
+verbatim and a CRLF file committed as CRLF. That setting lives in the untracked `.git/config`: it protected
+nothing in anybody else's clone, could not be reviewed, and a teammate cloning under a global `true` got
+different behaviour from the same bytes. **A `.gitattributes` is the only line-ending declaration that
+travels.** The cost of not having one, measured twice on one branch: a **1267 / 1063** diff for a real
+204-line change and a **100-line** diff for a 6-line `.csproj` addition, both caught by a person after the
+fact, because git's stat cache hides the state until a file is touched.
 
 **The rejected alternatives.**
 
-| | what it fixes | why not |
-|---|---|---|
-| `* text=auto` alone | the index and the diffs | **measured, not assumed**: checked out under `core.autocrlf=true` it gives a CRLF working tree where `eol=lf` gives LF. So the result still depends on each clone's untracked config, which is the thing this entry exists to end. On *this* clone the two coincide, because `core.autocrlf` is `false` here — which is exactly why the comparison had to be run against the other value |
-| an explicit per-type list (`*.cs text eol=lf`, …) | the same, more legibly | it is a list that goes stale silently — a file type nobody added a line for gets no attribute and reverts to the old behaviour. `text=auto` covers the unknown case by detecting content |
-| leaving it to `core.autocrlf` | nothing that travels | per-clone, untracked, unreviewable — the state this entry ends |
+| | why not |
+|---|---|
+| `* text=auto` alone | **measured**: under `core.autocrlf=true` it checks out CRLF where `eol=lf` checks out LF, so the working tree still depends on each clone's untracked config — the thing this entry ends. The two coincide on *this* clone, which is exactly why the comparison had to be run against the other value |
+| an explicit per-type list | a list that goes stale silently: a type nobody added a line for gets no attribute and reverts. `text=auto` covers the unknown case by detecting content |
+| leaving it to `core.autocrlf` | per-clone, untracked, unreviewable |
 
-**A second, quieter trap goes with it**: splicing `\n`-joined lines into a CRLF file leaves the inserted
-lines lone-LF, and git reports only *"LF will be replaced by CRLF"*, which reads like routine `autocrlf`
-noise. That trap needs a CRLF working tree, so it is closed wherever the tree is LF — and `eol=lf` is what
-makes that true on **every** clone rather than only on one whose config happens to agree.
+**It also closes the splice trap** — `\n`-joined lines spliced into a CRLF file are left lone-LF while git
+reports only routine-looking `autocrlf` noise (`.claude/knowledge/pitfalls.md`). That needs a CRLF working
+tree, so `eol=lf` closes it on every clone rather than only where the config happens to agree.
 
-**There was no renormalize commit, and that overturned this task's own premise.** It had been deferred off a
-measurement branch because a renormalize *"rewrites most of the tree"* and would bury anything landing beside
-it. Measured instead: **every tracked file already read `i/lf`** — the index was uniformly LF and no tracked
-file is binary — so with the attributes in place `git add --renormalize .` staged **zero** files. The commit
-is one new file. Only the working tree needed refreshing, and that is not a commit.
+**There was no renormalize commit, and that overturned the task's premise.** It had been deferred because a
+renormalize *"rewrites most of the tree"* and buries anything landing beside it. Measured: every tracked file
+already read `i/lf` and none is binary, so `git add --renormalize .` staged **zero** files. Only the working
+tree needed refreshing, and that is not a commit.
 
-**Two mechanisms worth keeping, because both cost a wrong first attempt.** `git checkout-index -a -f` is a
-silent **no-op** on a file the index's stat cache considers up to date: `-f` governs overwriting a file that
-DIFFERS rather than re-materializing one that matches, so nothing was written and no error was reported.
-Deleting the file first makes it write, and it writes LF — which is how the behaviour was pinned down. The
-refresh that works is git's own documented pair, `git rm --cached -r .` then `git reset --hard`, which
-empties the index so every path is re-materialized under the new attributes.
+**Deliberately NOT gated — the exception to *a rule that is still violated is a missing gate*.** Git itself
+enforces the half that matters: a CRLF or mixed working file is normalized on checkin, so it cannot reach the
+index, inflate a diff, or differ between clones. The residual is a tool writing CRLF into the working tree,
+which stays local and is one command from visible (`git ls-files --eol`, anything but `w/lf`). Its measured
+two-state behaviour is in `.claude/rules/windows-machine.md` and the repair recipe in
+`.claude/rules/repo-mechanics.md`; fold it into `check-encoding` only if it recurs, since that gate's subject
+is mojibake and one answering two questions reports neither clearly.
 
-**Deliberately NOT gated, and this is the exception to *a rule that is still violated is a missing gate*.**
-Every other prose or packaging rule here needed a guard because nothing else could see a violation. The half
-that matters is now enforced by git itself: a CRLF or mixed working file is normalized on checkin, so it can
-no longer reach the index, inflate a diff, or differ between clones.
-
-**The residual, MEASURED rather than reasoned about — because two plausible readings of it were both wrong.**
-A tool can still write CRLF into the working tree (`dev.mjs decisions-index` has). That file **cannot reach
-the index**: `git add` warns *"CRLF will be replaced by LF"*, stages it, and the staged diff is EMPTY,
-because the clean filter normalizes it to the blob already there. What it does in the WORKING tree has two
-states, and only the first is self-announcing:
-
-| state of the file | `git status` | `git checkout -- <file>` |
-|---|---|---|
-| freshly written — the stat cache is busted | reports ` M` | **repairs it** |
-| after anything refreshes the stat cache (a `git add`, say) | clean | **skips it** — it stays CRLF until deleted and re-checked-out |
-
-**So `git status` is the gate for the first state and nothing is for the second**, which is why this stops
-here rather than growing a guard: the cost cannot reach history, it cannot reach a consumer, and
-`git ls-files --eol` reporting anything but `w/lf` names it in one command. Fold it into `check-encoding`
-only if it actually recurs — that gate's subject is mojibake, and a gate answering two questions reports
-neither clearly.
-
-**No public surface, no package, no consumer-visible change.** `.claude/rules/repo-mechanics.md` carries the
-binding and `.claude/rules/windows-machine.md` the general rule; `docs/task-archive.md` Part 106 is the task.
+**No public surface, no package, no consumer-visible change.** `docs/task-archive.md` Part 106 is the task.
 
 ## D96 — the decision record gets a length ratchet, not the archive's compression (2026-08-28)
 
-**`check-decisions` fails when an entry in this file exceeds 35 non-blank body lines**, with the 21 entries
-already over that frozen in `decisionLengthAllowances` so the numbers can only come down.
+**`check-decisions` fails when an entry in this file exceeds 35 non-blank body lines**, with every entry
+already over it frozen in `decisionLengthAllowances` so the numbers can only come down. (21 entries were
+over when it landed; the ledger's current size is whatever the gate prints, deliberately not quoted here.)
 
 **The measurement.** Mean non-blank lines per entry: **11.6** over the first 31 entries, **14.2** over the
 next 32, **38.5** over the last 32 — a 3.3× growth in what one decision costs a reader, in the record
