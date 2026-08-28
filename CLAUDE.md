@@ -26,14 +26,16 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D94**. The two groups worth knowing before you touch anything:
-**D83–D94 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D95**. The two groups worth knowing before you touch anything:
+**D83–D95 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
 read
 them before assuming a memory registration that resolves is a memory registration that runs, or that a NAMED
-`ILlmClient` can reach the backends it names (**D87**). **D67–D82** are the ones a session most often holds
+`ILlmClient` can reach the backends it names (**D87**). **D95** is the odd one out in that group: it touches
+no library surface at all, and declares the repository's line endings (`* text=auto eol=lf`).
+<br>**D67–D82** are the ones a session most often holds
 stale assumptions about, because they landed after the pre-freeze review: the generation stream door
 (**D67**), the accelerator-derived diffusion ceiling (**D68**), unmeasured generation mappings becoming host
 OPTIONS (**D69**), the withdrawal of the generation SemVer exemption (**D70**), tool calls on the streaming

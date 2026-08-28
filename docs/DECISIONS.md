@@ -164,8 +164,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D92](#d92--a-taskkey-is-a-real-boundary-traversal-is-scoped-to-it-and-a-cross-task-link-is-refused-2026-08-26) | 2026-08-26 | a `taskKey` is a REAL boundary: traversal is scoped to it, and a cross-task link is refused |
 | [D93](#d93--what-a-recall-returns-is-widened-twice-metadata-comes-back-and-a-verifier-is-shown-scores-2026-08-27) | 2026-08-27 | what a recall RETURNS is widened twice: metadata comes back, and a verifier is shown scores |
 | [D94](#d94--support-is-two-quantities-under-one-name-so-the-gist-tier-ships-no-support-seam-2026-08-28) | 2026-08-28 | "support" is TWO quantities under one name, so the gist tier ships no support seam |
+| [D95](#d95--the-repository-is-lf-declared-in-a-tracked-gitattributes-2026-08-28) | 2026-08-28 | the repository is LF, declared in a tracked `.gitattributes` |
 
-_All 94 entries are live decisions._
+_All 95 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2732,3 +2733,72 @@ reaches 4.0 at `RoutineCount = 5`. A rule that clears ratio 2 need not clear 4.
 **So no combining form is adopted and no default is set.** The tier is not built yet; what this settles is
 that it has no seam to build, and that whichever rule it eventually uses has to be chosen against a
 cardinality sweep this run did not do. `TASKS.md` carries what is left open.
+
+## D95 — the repository is LF, declared in a tracked `.gitattributes` (2026-08-28)
+
+**`.gitattributes` contains `* text=auto eol=lf`, so line endings are LF in the index AND in the working
+tree, on every clone and every platform.** `git ls-files --eol` reads `i/lf w/lf` on every tracked file;
+a `w/crlf` line is now an anomaly rather than the norm.
+
+**This is a decision rather than a note because the alternative was live and unshared.** `core.autocrlf`
+was `false` at repo scope — overriding `true` at both system and global scope, and the repo-local value
+wins — so the index took the working tree verbatim and a CRLF file committed as CRLF. That setting lives in
+`.git/config`, which is untracked: it protected nothing in anybody else's clone, could not be reviewed, and
+a teammate cloning under a global `true` got different behaviour from the same bytes. **A `.gitattributes`
+is the only line-ending declaration that travels**, which is the whole reason this is a tracked file.
+
+The cost of not having one was measured twice on one branch: a **1267 / 1063** diff for a real 204-line
+change, and a **100-line** diff for a 6-line `.csproj` addition. Git's stat cache hid the state until a file
+was touched, so both were caught by a person comparing `git diff --stat` against
+`git diff --ignore-cr-at-eol --stat`, after the fact.
+
+**The rejected alternatives.**
+
+| | what it fixes | why not |
+|---|---|---|
+| `* text=auto` alone | the index and the diffs | **measured, not assumed**: checked out under `core.autocrlf=true` it gives a CRLF working tree where `eol=lf` gives LF. So the result still depends on each clone's untracked config, which is the thing this entry exists to end. On *this* clone the two coincide, because `core.autocrlf` is `false` here — which is exactly why the comparison had to be run against the other value |
+| an explicit per-type list (`*.cs text eol=lf`, …) | the same, more legibly | it is a list that goes stale silently — a file type nobody added a line for gets no attribute and reverts to the old behaviour. `text=auto` covers the unknown case by detecting content |
+| leaving it to `core.autocrlf` | nothing that travels | per-clone, untracked, unreviewable — the state this entry ends |
+
+**A second, quieter trap goes with it**: splicing `\n`-joined lines into a CRLF file leaves the inserted
+lines lone-LF, and git reports only *"LF will be replaced by CRLF"*, which reads like routine `autocrlf`
+noise. That trap needs a CRLF working tree, so it is closed wherever the tree is LF — and `eol=lf` is what
+makes that true on **every** clone rather than only on one whose config happens to agree.
+
+**There was no renormalize commit, and that overturned this task's own premise.** It had been deferred off a
+measurement branch because a renormalize *"rewrites most of the tree"* and would bury anything landing beside
+it. Measured instead: **every tracked file already read `i/lf`** — the index was uniformly LF and no tracked
+file is binary — so with the attributes in place `git add --renormalize .` staged **zero** files. The commit
+is one new file. Only the working tree needed refreshing, and that is not a commit.
+
+**Two mechanisms worth keeping, because both cost a wrong first attempt.** `git checkout-index -a -f` is a
+silent **no-op** on a file the index's stat cache considers up to date: `-f` governs overwriting a file that
+DIFFERS rather than re-materializing one that matches, so nothing was written and no error was reported.
+Deleting the file first makes it write, and it writes LF — which is how the behaviour was pinned down. The
+refresh that works is git's own documented pair, `git rm --cached -r .` then `git reset --hard`, which
+empties the index so every path is re-materialized under the new attributes.
+
+**Deliberately NOT gated, and this is the exception to *a rule that is still violated is a missing gate*.**
+Every other prose or packaging rule here needed a guard because nothing else could see a violation. The half
+that matters is now enforced by git itself: a CRLF or mixed working file is normalized on checkin, so it can
+no longer reach the index, inflate a diff, or differ between clones.
+
+**The residual, MEASURED rather than reasoned about — because two plausible readings of it were both wrong.**
+A tool can still write CRLF into the working tree (`dev.mjs decisions-index` has). That file **cannot reach
+the index**: `git add` warns *"CRLF will be replaced by LF"*, stages it, and the staged diff is EMPTY,
+because the clean filter normalizes it to the blob already there. What it does in the WORKING tree has two
+states, and only the first is self-announcing:
+
+| state of the file | `git status` | `git checkout -- <file>` |
+|---|---|---|
+| freshly written — the stat cache is busted | reports ` M` | **repairs it** |
+| after anything refreshes the stat cache (a `git add`, say) | clean | **skips it** — it stays CRLF until deleted and re-checked-out |
+
+**So `git status` is the gate for the first state and nothing is for the second**, which is why this stops
+here rather than growing a guard: the cost cannot reach history, it cannot reach a consumer, and
+`git ls-files --eol` reporting anything but `w/lf` names it in one command. Fold it into `check-encoding`
+only if it actually recurs — that gate's subject is mojibake, and a gate answering two questions reports
+neither clearly.
+
+**No public surface, no package, no consumer-visible change.** `.claude/rules/repo-mechanics.md` carries the
+binding and `.claude/rules/windows-machine.md` the general rule; `docs/task-archive.md` Part 106 is the task.

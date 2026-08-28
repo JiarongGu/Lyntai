@@ -250,6 +250,13 @@ the next change. Say "the row type", "the request record", "the wire type". Entr
 
 - Scratch, probes, and dumps go under the gitignored `devtools/_*` (for example the e2e harness's
   `devtools/_e2e-*` data directories). Reusable tooling goes in `devtools/`, tracked.
+- **Line endings are LF, declared in the tracked `.gitattributes` (`* text=auto eol=lf`;
+  `docs/DECISIONS.md` D95)** — in the index AND in the working tree. `git ls-files --eol` reads
+  `i/lf w/lf` on every tracked file, so any other line is a finding; repair it with a bytes replace
+  (`b.replace(b'\r\n', b'\n')`), never a PowerShell round-trip. The attribute **overrides**
+  `core.autocrlf`, so this clone's untracked config no longer decides anything — which is the point of
+  having one. If an attribute ever changes, refresh the tree with `git rm --cached -r .` then
+  `git reset --hard`: `git checkout-index -a -f` is a silent no-op on files git considers up to date.
 - **This machine's console is GBK.** Write files with the file-writing tools — in a script,
   `fs.writeFileSync` or an explicit `-Encoding utf8`, which on PowerShell 5 adds a BOM, so write BOM-less
   UTF-8 deliberately wherever the reader is BOM-sensitive. Never build file content by echoing it through

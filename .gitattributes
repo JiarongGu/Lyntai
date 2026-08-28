@@ -1,0 +1,8 @@
+# The repository is LF — in the index and in the working tree. See docs/DECISIONS.md D95.
+#
+# `text=auto` lets git detect a binary by content, so one added later is left alone.
+# `eol=lf` is the half that does the work, and it is NOT redundant with `text=auto`: measured against a
+# clone with `core.autocrlf=true`, `text=auto` alone checks out CRLF and this line checks out LF. The
+# attribute beats the config — which is the point, since the config is untracked and differs per clone.
+
+* text=auto eol=lf

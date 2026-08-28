@@ -33,15 +33,21 @@ hours spent looking somewhere else.
   matches every line — a pure-LF three-line file reports three CRLF lines, and its `-cv` twin reports zero
   LF-only lines. **It cannot fail**, so it reads as a clean result on files it never examined. Measured
   2026-08-26, after it was used to certify a dozen files across one session; all of them were LF.
-  **Use `git ls-files --eol`**, which is built for this and names the state outright:
-  `i/lf w/crlf` is the ordinary checked-out file, and `w/mixed` is the defect. For an untracked file, count
-  the bytes (`b.count(b'\r\n')` against `b.count(b'\n')`) — never a shell pattern containing a control
-  character.
-  <br>**And know what the answer means before repairing anything — which means MEASURING `core.autocrlf`
-  rather than assuming it.** Run `git config --show-origin --get-all core.autocrlf`. The plain form gives the
-  right effective ANSWER; what it hides is the PROVENANCE — this setting is commonly `true` at system and
-  global scope and overridden per-clone, and **the repo-local value wins**. Knowing which scope won is what
-  tells you the value is clone-local and unshared, so a teammate's clone may answer differently.
+  **Use `git ls-files --eol`**, which is built for this and names the state outright, per file: `w/lf` is a
+  working-tree file that agrees with an LF index, `w/crlf` is one that does not, and `w/mixed` is the defect.
+  For an untracked file, count the bytes (`b.count(b'\r\n')` against `b.count(b'\n')`) — never a shell
+  pattern containing a control character.
+  <br>**Ask the ATTRIBUTE before the config, because the attribute wins.** A `.gitattributes` `text`/`eol`
+  setting overrides `core.autocrlf` entirely, so `git check-attr text eol -- <path>` is the question that
+  decides what happens to a file, and `core.autocrlf` only decides where no attribute applies. Look for a
+  tracked `.gitattributes` first: it is the same answer in every clone, which is exactly what the config is
+  not. **This repository declares one** — `* text=auto eol=lf`, `docs/DECISIONS.md` **D95** — so the whole
+  investigation below is what to do in a repository that does *not*.
+  <br>**Where nothing declares a convention, MEASURE `core.autocrlf` rather than assuming it.** Run
+  `git config --show-origin --get-all core.autocrlf`. The plain form gives the right effective ANSWER; what
+  it hides is the PROVENANCE — this setting is commonly `true` at system and global scope and overridden
+  per-clone, and **the repo-local value wins**. Knowing which scope won is what tells you the value is
+  clone-local and unshared, so a teammate's clone may answer differently.
   <br>The two answers mean nearly opposite things:
 
   | | what the index gets | so a `w/mixed` working tree is |
@@ -63,11 +69,22 @@ hours spent looking somewhere else.
   away, so the figures live here rather than anywhere a reader can still run `git show` against.
   `--ignore-cr-at-eol` and `git ls-files --eol` named it in seconds; the sentence above sent the reader the
   other way first.
-  <br>**So state the rule, never the value.** `.git/config` is untracked, so no document here can say what a
-  given clone holds — which is why this now names the command instead. `git ls-files --eol` reading `i/lf`
-  is the property you actually want, and it is true or false per file regardless of how the config got that
-  way. **Check it before every commit that touched a file a tool rewrote** — under `false` always, and under
-  `true` too, because of row 1's exceptions above.
+  <br>**So state the rule, never the value — and better, DECLARE the rule so there is no value to state.**
+  `.git/config` is untracked, so no document here can say what a given clone holds, which is why this names
+  the commands instead. A tracked `.gitattributes` is the only line-ending declaration that travels, and
+  adding one turns this whole bullet from a per-clone investigation into a property you can assert: under
+  `* text=auto eol=lf`, `git ls-files --eol` reads `i/lf w/lf` on every file and any other line is a finding.
+  <br>**What declaring it buys, and what it does not.** It makes the COMMIT safe unconditionally — a CRLF or
+  mixed working file is normalized to LF on checkin, so it can no longer reach the index or inflate a diff,
+  and the `--ignore-cr-at-eol` comparison stops being a pre-commit ritual. It does **not** stop a tool
+  writing CRLF into the working tree (`dev.mjs decisions-index` did exactly that), and what happens next
+  turns on the stat cache: **freshly written**, the file shows as ` M` and `git checkout -- <file>` repairs
+  it; **once anything has refreshed the cache** (a `git add`), status goes clean and checkout SKIPS it, so
+  it stays CRLF until deleted and re-checked-out. Either way it cannot reach the index — the clean filter
+  normalizes it and the staged diff is empty. Repair it deliberately whenever `git ls-files --eol` reports
+  anything but `w/lf`.
+  <br>**Where nothing is declared, check `git ls-files --eol` before every commit that touched a file a tool
+  rewrote** — under `false` always, and under `true` too, because of row 1's exceptions above.
 
 ### Scripts and exit codes
 

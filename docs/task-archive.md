@@ -1145,3 +1145,32 @@ and the numbering hole deliberately LEFT — see below. The gate question was **
 tests, 401 → 416.
 
 - **`docs/memory.md` has no `## 8`, and SEVEN citations across six files name one.**
+
+## Part 106 — the working tree is CRLF against an LF index, and nothing in the repo says so (2026-08-28)
+
+✅ done 2026-08-28 — The convention is declared in a tracked `.gitattributes` (`* text=auto eol=lf`,
+`docs/DECISIONS.md` **D95**) and the working tree refreshed: `git ls-files --eol` went from 656 `i/lf w/crlf`
+/ 171 `w/lf` / 3 `w/mixed` to **830 of 830 `i/lf w/lf`**. **The renormalize commit this entry planned around
+does not exist.** Every tracked file already read `i/lf` and none is binary, so with the attributes in place
+`git add --renormalize .` staged ZERO files — the commit is one new file, and only the working tree needed
+refreshing, which is not a commit. That measurement removed the entry's own stated reason for deferral ("it
+wants its own change… that commit buries anything landing beside it"). Three CRLF passages moved from
+standing hazard to closed (`pitfalls.md` ×3, plus `windows-machine.md`, `repo-mechanics.md` and
+`RULES_INDEX.md` ×2), a fourth `pitfalls.md` entry was added for the trap below, and the `archive-task`
+skill was corrected to the compressed-archive convention it still contradicted.
+
+**Four claims about git's behaviour were written into the records from inference and then refuted by
+running one command each** — believed first, measured second:
+
+| believed | measured |
+|---|---|
+| `git checkout-index -a -f` rewrites an up-to-date file | it is a silent **no-op**; delete the file first and it writes |
+| a stray CRLF working file is invisible to `git status` | it reports ` M` |
+| it never heals on `git checkout --` | it heals **while the stat cache is busted**; after a `git add` it is skipped and persists |
+| `eol=lf` is redundant with `text=auto` here | it is not — under `core.autocrlf=true` they check out CRLF and LF respectively, which is the decision's actual justification |
+
+**Every one was plausible, cheap to test, and wrong**, and three of the four were caught only by re-reading
+prose that had already been written. D95 carries the measured versions; the reusable form is in
+`pitfalls.md`.
+
+- **Decide the line-ending convention and commit it as `.gitattributes`.**

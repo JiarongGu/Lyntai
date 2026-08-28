@@ -213,22 +213,48 @@ the tests) while being wrong. Skim before touching the relevant area.
   *"LF will be replaced by CRLF the next time Git touches it"* — a warning that reads like routine
   autocrlf noise — and the content diff looks perfect. Measured 2026-08-11 inserting 28 `compile-skip`
   markers. Detect and repair with a codepoint check (`s.replace(/(?<!\r)\n/g, '\r\n')`), never by eye.
-- **Most of this working tree is CRLF against an LF index, git's stat cache hides it, and editing any of
-  those files surfaces the WHOLE file as changed — and commits it as CRLF.** Standing hazard: run
-  `git ls-files --eol | awk '{print $1, $2}' | sort | uniq -c` and read the ratio — on 2026-08-28 it was
-  **about four in five tracked files** `i/lf w/crlf`, plus a handful of `i/lf w/mixed`. **The absolute count
-  is deliberately not published here, because it is a property of the WORKING TREE at a moment and drops by
-  one every time somebody repairs a file** — measuring it twice in one session, before and after that
-  session's own repairs, already gave two different numbers. Nothing reports it until a file is touched,
-  because git compares size and mtime before content. And **`core.autocrlf` is `false` at REPO scope** — `git config
-  --show-origin --get-all core.autocrlf` shows it overriding `true` at both system and global scope, and the
-  repo-local value wins — so the index gets the tree verbatim and a flipped file COMMITS as CRLF.
-  <br>It bit twice on one branch: a **1267 / 1063** diff for a real 204-line change, and a **100-line** diff
-  for a 6-line csproj addition. Both were caught by comparing `git diff --stat` against
-  `git diff --ignore-cr-at-eol --stat` — **do that after every edit**, then confirm with `git ls-files --eol`
-  that the file reads `w/lf`. Repair with a bytes replace (`b.replace(b'\r\n', b'\n')`), never with a
-  PowerShell round-trip (`windows-machine.md` §Text and encoding). Note that a TOOL can flip a file you did
-  not hand-edit: `dev.mjs decisions-index` rewrote `docs/DECISIONS.md` as CRLF in the same session.
+  <br>**Unreachable on a tracked file here since 2026-08-28**: the working tree is LF (`docs/DECISIONS.md`
+  D95), so there is no `\r` left to strand. It still applies to an untracked file, to one a tool has written
+  as CRLF since the last checkout, and in any repository that has not declared a convention.
+- **A working tree that is CRLF against an LF index inflates every diff, and git's stat cache hides it until
+  a file is touched.** **CLOSED here on 2026-08-28** by a tracked `.gitattributes` (`* text=auto eol=lf`,
+  `docs/DECISIONS.md` D95): checkin normalization means a CRLF or mixed working file can no longer reach the
+  index, and `git ls-files --eol` now reads `i/lf w/lf` on every tracked file. The entry stays because the
+  trap is invisible by construction and recurs in any repository that has not declared a convention.
+  <br>**What it looked like here.** About four in five tracked files read `i/lf w/crlf`, plus a handful of
+  `i/lf w/mixed`, and nothing reported it — git compares size and mtime before content, so the state
+  surfaced only when a file was touched, and then the WHOLE file surfaced as changed. `core.autocrlf` was
+  `false` at REPO scope, overriding `true` at both system and global scope, so the index took the tree
+  verbatim and a flipped file COMMITTED as CRLF. It bit twice on one branch: a **1267 / 1063** diff for a
+  real 204-line change, and a **100-line** diff for a 6-line csproj addition, both caught by a person after
+  the fact.
+  <br>**The figure above is a ratio because the count was wrong once.** An earlier version of this entry
+  published absolute numbers measured before that same session's own repairs, and they did not reproduce —
+  the count is a property of the WORKING TREE at a moment and drops by one every time somebody repairs a
+  file.
+  <br>**Where no convention is declared, the check is `git diff --stat` against
+  `git diff --ignore-cr-at-eol --stat` after every edit**, then `git ls-files --eol` to confirm `w/lf`.
+  Repair with a bytes replace (`b.replace(b'\r\n', b'\n')`), never with a PowerShell round-trip
+  (`windows-machine.md` §Text and encoding). A TOOL can flip a file you did not hand-edit — `dev.mjs
+  decisions-index` rewrote `docs/DECISIONS.md` as CRLF in one session — which under a declared convention
+  costs a locally-mixed file rather than a bad commit.
+- **A claim about what a COMMAND does is testable in seconds, and guessing it is how four wrong sentences
+  reached a decision record in one sitting.** Measured 2026-08-28 while declaring the line-ending convention
+  (`docs/task-archive.md` Part 106, `docs/DECISIONS.md` D95). All four were plausible, all four were about
+  git's own behaviour, and each fell to a single command: `checkout-index -a -f` does **not** rewrite an
+  up-to-date file; a stray CRLF file **is** reported by `git status`; it **does** survive `git checkout --`,
+  but only once a `git add` has refreshed the stat cache, and not before; and `eol=lf` is **not** redundant
+  with `text=auto` — under `core.autocrlf=true` they check out CRLF and LF respectively, which turned out to
+  be the decision's actual justification rather than a detail.
+  <br>**The tell is the sentence shape**: *"`-f` forces …"*, *"git would see it as unchanged"*, *"so it
+  heals on the next checkout"* — a claim about observable behaviour, in the present tense, that no command
+  in the transcript produced. Three of the four were caught by re-reading prose already written, not by any
+  gate. **Reading the manual is not the fix**: two of the four are consistent with a fast reading of
+  `gitattributes(5)` and still wrong in context, because the behaviour depends on state the page does not
+  know about (here, a per-clone config and the stat cache). Run the command against the state you actually
+  have. This is the mechanism-shaped sibling of the numeric-provenance entry below, and it is filed
+  separately because the remedy differs: that one says *name where the number came from*, this one says
+  *the claim is an experiment, so run it*.
 - **`check-warnings` reports "build FAILED" for a build that SUCCEEDED once the build log outgrows Node's
   1 MiB `spawnSync` buffer.** Measured 2026-08-09 adding the memory policy sweep: a single
   `ProjectReference` from `bench/Lyntai.Benchmarks` to `Lyntai.Tests` dragged Postgres, Testcontainers, MCP,
@@ -1249,6 +1275,10 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   routinely `true` at system and global scope and overridden per-clone, and the repo-local value wins. Where
   it is `false` git converts NOTHING, so there is no enforced convention to lean on and a mixed file simply
   commits mixed — which makes "normalise deliberately" more load-bearing, not less. Corrected 2026-08-27.
+  <br>**And superseded here on 2026-08-28**, which is the durable answer to the whole paragraph: a tracked
+  `.gitattributes` (`docs/DECISIONS.md` D95) overrides `core.autocrlf` outright, so a mixed file normalizes
+  on checkin and there is no per-clone value left to measure. The advice above is what to do where nobody
+  has declared one.
 
 ## Testing
 
