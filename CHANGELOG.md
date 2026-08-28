@@ -82,6 +82,17 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Fixed
 
+- **Documentation citations that named a section which no longer exists.** `docs/memory.md`'s
+  `## 8. What is NOT measured` was folded into `## 7` with §9/§10 left un-renumbered, and seven citations
+  across six files kept pointing at it; two more named a `TASKS.md` heading removed when its items were
+  archived. All repointed, with the WORDING repointed too — §7 now records the scale blind spot as measured
+  rather than conceding it.
+  <br>**`check-links` grew a third half so this class cannot recur**: it already asked whether a PATH exists
+  and whether a Part reference names the right record, and now asks whether a `§N` names a heading that is
+  there. Built only after measuring — 100 citations over the pre-fix tree, 12 flagged, 8 real defects, every
+  false positive inside the historical archive — because the prior from an earlier all-paths check was ~45
+  hits and zero defects. `docs/task-archive.md` Part 107.
+
 - **An AUTHORED `Headline` survives a re-remember that does not restate it.** `MemoryWrite.Headline` is
   null-means-unstated; the engine derives a truncation of the content when you supply none, and the store
   then overwrote with it — so refreshing a fact silently replaced your own one-line summary with a

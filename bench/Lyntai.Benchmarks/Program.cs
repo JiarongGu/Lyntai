@@ -97,7 +97,7 @@ if (args.Contains("--density"))
 if (args.Contains("--gist-support"))
     return await MemoryGistSupportSweep.RunAsync(args);
 
-// `node devtools/dev.mjs memory-scale` → --scale. The one blind spot docs/memory.md §8 concedes outright:
+// `node devtools/dev.mjs memory-scale` → --scale. The one blind spot docs/memory.md §7 conceded outright:
 // nothing in this subsystem had exceeded a few hundred entries. The ONLY sweep here whose subject is COST
 // rather than recall quality — which is also why it runs sequentially where the others fan out, since
 // contention biases a latency and cannot bias a rate.

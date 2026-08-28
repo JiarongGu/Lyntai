@@ -112,7 +112,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3429 passed / 3450 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 401/401, doc samples 78/78.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 416/416, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -288,13 +288,26 @@ owned outside the deployment; `DECISIONS.md` D30) /
   (README ×3, the design contract, `DECISIONS.md` ×2) plus two in `CHANGELOG.md`'s live `## Unreleased`
   prefix. Every gate reported clean; a reader found them. **A written-down rule that is still violated is a
   missing gate**, the same reasoning that produced `check-encoding`.
-  It checks a reference **two ways**, because there are two ways one rots. The path half asks whether the
+  It checks a reference **three ways**, because there are three ways one rots. The path half asks whether the
   target still exists. The **Part half** asks whether a reference naming a task record (`` `TASKS.md` <!-- link-ok: an ILLUSTRATION of the shape, not a claim about where Part 53 lives -->
   Part 53 ``) names the record that actually holds it — the path resolves and the Part exists, in the OTHER
   file, so nothing else can see it. **Archiving a task is what breaks these**, silently, for every inbound
   reference; five were live on 2026-08-14, in `CHANGELOG.md`'s Unreleased prefix and `docs/FIXES.md`. A bare
   `Part 53` with no record named is deliberately ignored — only a reference that NAMES one makes a checkable
   claim.
+  <br>The **section half** (added 2026-08-28, Part 107) asks whether a `` `docs/memory.md` §7 `` names a
+  heading that is there — the path resolves, the record is right, and only the `§` is dead. **Renumbering or
+  FOLDING a section is what breaks these**: `docs/memory.md`'s `## 8. What is NOT measured` was folded into
+  `## 7` with §9/§10 left un-renumbered, and seven citations across six files kept naming it, in `CLAUDE.md`,
+  `dev.mjs`, the archive, the superpowers INDEX and two bench files. **It was MEASURED before it was built**,
+  because the honest prior was discouraging (`pitfalls.md` records an all-paths existence check returning ~45
+  hits and zero defects): over the pre-fix tree, 100 citations in the unambiguous form, 12 flagged, **8 real
+  defects** and every false positive inside the historical archive. Two design consequences, both from that
+  run — a **bold bullet lead** counts as an anchor (`` `task-lifecycle.md` §Keep the summary honest `` names
+  one, and it was the only recurring false positive), and **every end of a RANGE is a claim**, since `§7–8`
+  is invisible to a `§8` grep and resolves under a first-number-only rule. That range form escaped both the
+  human pass that filed Part 107 and the first probe written to measure it. **Repointing is the fix and
+  renumbering is the trap** — renumbering makes an existing citation resolve silently to the wrong section.
   **It now scans the CODE tiers too** (Part 72, decided 2026-08-15), but narrower than the prose scan on two
   axes: **comment lines only** (a path in a string literal is data the program uses, not a reference a reader
   follows) and **`docs/` targets only** (source files are renamed for legitimate reasons — `pitfalls.md`
@@ -304,6 +317,12 @@ owned outside the deployment; `DECISIONS.md` D30) /
   an XML-only rule catches 6, and all 3 it misses were in ordinary `//` comments and all 3 were real. Its
   hypothesis had been that `//` comments are where false positives live; every false positive was in fact a
   guard script naming a FIXTURE, which is what `link-ok` is for. Cost: **six annotations, once.**
+  <br>**The `docs/`-only narrowing is the PATH half's alone**, and the section half deliberately does not
+  take it: that narrowing exists because source files get renamed for good reasons, an argument that cannot
+  apply to a citation whose target is a `.md` by construction. Three of the seven measured dead citations
+  lived in the code tiers, and the narrowing would cost most of the tier's coverage: of the **42**
+  §-citations those files carry, only **13** name `docs/` — the rest name `pitfalls.md` or another
+  `.claude/` document, usually by bare basename.
   **EXISTENCE only, never line numbers** — a `file.cs:123` reference rots on the next edit for entirely
   legitimate reasons, and `pitfalls.md` records line numbers rotting twice and being deleted in favour of
   names; gating them would fail every refactor for no defect. `local/**` is skipped (untracked by design).
@@ -521,8 +540,8 @@ owned outside the deployment; `DECISIONS.md` D30) /
   net cost and **D45's argument was right without a measurement**. The default did NOT move on one run.
   <br>**`memory-scale`** (2026-08-26) is the odd one out and says so in its own header: **its subject is
   COST, not recall quality**, so it reports latency, throughput and bytes and has no ground truth at all.
-  It closes the blind spot `docs/memory.md` §8 concedes outright — *"nothing exceeds a few hundred
-  entries"* — which `MemoryRecallBenchmarks` did NOT already cover: that one runs 1k/10k/100k against
+  It closes the blind spot `docs/memory.md` §7 conceded outright — nothing exceeded a few hundred
+  entries — which `MemoryRecallBenchmarks` did NOT already cover: that one runs 1k/10k/100k against
   `SqliteMemoryStore`, the KEYWORD store, so the graph engine's own write and read paths were unmeasured at
   any size. Two arms (`shipped` / `read-only`) exist to SPLIT a default recall's latency into the read and
   the write-back it performs afterwards. It runs **sequentially** where every other sweep fans out, because

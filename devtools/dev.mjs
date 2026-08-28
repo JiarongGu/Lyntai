@@ -323,7 +323,7 @@ switch (cmd) {
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--gist-support', ...args]);
     break;
 
-  // memory-scale — the blind spot docs/memory.md §8 concedes outright: nothing in this subsystem had
+  // memory-scale — the blind spot docs/memory.md §7 conceded outright: nothing in this subsystem had
   // exceeded a few hundred entries. MemoryRecallBenchmarks does run 1k/10k/100k and runs them against
   // SqliteMemoryStore — the KEYWORD store — so the graph engine's own write and read paths were unmeasured
   // at any size. The ONLY sweep here whose subject is COST rather than recall quality, which is why it says

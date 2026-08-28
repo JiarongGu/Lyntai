@@ -13,7 +13,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { PATH_PATTERN, checkLinks, trackedFiles } from '../check-links.mjs';
+import { PATH_PATTERN, checkLinks, declaredAnchors, trackedFiles } from '../check-links.mjs';
 import { git, makeRepo, makeTree, recorder, removeTree } from './_fixtures.mjs';
 
 const noAllowances = { staleReferenceAllowances: [] };
@@ -420,6 +420,159 @@ describe('check-links — the CODE tiers (Part 72)', () => {
   });
 });
 
+describe('check-links — a reference naming a SECTION that does not exist', () => {
+  // The THIRD way an inbound reference rots, and neither half above can see it: the path resolves, the
+  // record is right, and the §N names a heading that is not there. Measured 2026-08-28 (TASKS.md Part 107):
+  // `docs/memory.md`'s `## 8. What is NOT measured` was folded into `## 7` and §9/§10 were left
+  // un-renumbered, so SEVEN citations across six files pointed at a section that had stopped existing —
+  // in CLAUDE.md, dev.mjs, the archive, the superpowers INDEX and two bench files. Every gate stayed green
+  // and a reader found them, which is the same shape that produced check-docs, check-counts and
+  // check-comments.
+  //
+  // The prior in Part 107 was discouraging — pitfalls.md records an all-paths existence check returning
+  // ~45 hits and zero defects — so this was MEASURED before it was built: over the pre-fix tree, 100
+  // citations in the unambiguous form, 12 flagged, 8 of them real defects and every false positive inside
+  // the historical archive. That is the opposite result, which is why the gate exists.
+  const memory = { 'docs/memory.md': '# memory\n\n## 7. Things that will surprise you\n\n## 9. Recipes\n' };
+
+  it('catches a citation to a section that is not in the target document', () => {
+    const { code, out } = run({ ...memory, 'CLAUDE.md': 'the blind spot `docs/memory.md` §8 concedes.\n' });
+
+    assert.equal(code, 1, 'a §N naming no heading must fail');
+    assert.match(out, /CLAUDE\.md:1/);
+    assert.match(out, /§8/);
+  });
+
+  it('accepts the same citation once it is repointed at the section that holds it', () => {
+    const { code, out } = run({ ...memory, 'CLAUDE.md': 'the blind spot `docs/memory.md` §7 conceded.\n' });
+    assert.equal(code, 0, out);
+  });
+
+  it('catches the RANGE form, whose second end is the half a grep misses', () => {
+    // `docs/superpowers/INDEX.md` cited `§7–8`. A scan for "§8" does not match it and a scan that reads
+    // only the first number resolves it — so this exact citation survived BOTH the human pass that filed
+    // Part 107 and the first probe written to measure it. Every end of a range is a claim.
+    const { code, out } = run({ ...memory, 'CLAUDE.md': 'conclusions live in `docs/memory.md` §7–8 today.\n' });
+
+    assert.equal(code, 1, 'the dead end of a range must fail as loudly as a bare citation');
+    assert.match(out, /§8/);
+  });
+
+  it('a range whose ends both resolve passes', () => {
+    const { code, out } = run({
+      'docs/d.md': '# d\n\n## 5. one\n\n## 6. two\n\n## 7. three\n',
+      'CLAUDE.md': 'see `docs/d.md` §5–7.\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('resolves a DOTTED citation against a deeper heading — §5.7 covers `### 5.7.0`', () => {
+    const { code, out } = run({
+      'docs/design.md': '# design\n\n### 5.7.0 The memory contract\n',
+      'CLAUDE.md': 'the contract is `docs/design.md` §5.7.\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('resolves a NAMED anchor, including one that runs on into the prose after it', () => {
+    // A named citation has no closing delimiter — `pitfalls.md` §Storage records **three** incidents` runs
+    // straight into the sentence. Matching any leading word-prefix of the token is what makes the named
+    // half usable at all; without it every named citation in the tree reports.
+    const { code, out } = run({
+      '.claude/knowledge/pitfalls.md': '# pitfalls\n\n## Storage\n',
+      'docs/DECISIONS.md': '`pitfalls.md` §Storage records three measured drift incidents in this area.\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('resolves a citation to a BOLD BULLET LEAD, the one false-positive class the measurement found', () => {
+    // `task-lifecycle.md` §Keep the summary honest names a bolded bullet, not a heading — a reader Ctrl-Fs
+    // it and finds it immediately. Indexing bold bullet leads as anchors is what takes the named half to
+    // zero false positives on the real tree; without it this is the gate's only recurring noise.
+    const { code, out } = run({
+      '.claude/rules/task-lifecycle.md': '# lifecycle\n\n## How to apply\n\n- **Keep the summary honest.** If the top claims done...\n',
+      'docs/task-archive.md': 'x\n',
+      'README.md': '`task-lifecycle.md` §Keep the summary honest is the rule that was already written.\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('a HISTORICAL record is exempt — its sections were right on its own day', () => {
+    // The archive holds four citations to `TASKS.md` §Startable, a heading removed when those items closed.
+    // Rewriting them would falsify the record; check-docs grants the same exemption for the same reason.
+    const { code, out } = run({
+      'TASKS.md': '# backlog\n\n## Active backlog\n',
+      'docs/task-archive.md': 'now in `TASKS.md` §Startable: a shared contract test.\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('honours `link-ok`, the same annotation both other halves use', () => {
+    const { code, out } = run({
+      ...memory,
+      'CLAUDE.md': 'quoted as written — `docs/memory.md` §8 <!-- link-ok: the dead citation itself -->\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('is silent about a target it cannot resolve to exactly one tracked file', () => {
+    // Only a citation that names a resolvable document makes a checkable claim. A basename matching two
+    // tracked files, or none, is guessing — and a gate that guesses reports the wrong file.
+    const { code, out } = run({
+      'docs/a/notes.md': '# a\n\n## 1. one\n',
+      'docs/b/notes.md': '# b\n\n## 1. one\n',
+      'README.md': 'see `notes.md` §9 for the rest.\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('skips a `local/` target, untracked by design', () => {
+    const { code, out } = run({
+      'README.md': 'the record is `local/superpowers/specs/gist.md` §5.\n',
+    });
+    assert.equal(code, 0, out);
+  });
+
+  it('catches a dead section cited from a CODE comment', () => {
+    // Three of the seven measured citations lived in code — `devtools/dev.mjs`, and two bench files. The
+    // path half narrows the code tier to `docs/` targets because source files are renamed for good reasons;
+    // that argument does not apply here, because an anchor citation names a `.md` by construction.
+    const { code, out } = run({
+      ...memory,
+      'README.md': 'intro\n',
+      'bench/Lyntai.Benchmarks/MemoryScaleSweep.cs': '/// The blind spot <c>docs/memory.md</c> §8 concedes.\npublic class S;\n',
+    });
+    assert.equal(code, 1, out);
+    assert.match(out, /MemoryScaleSweep\.cs:1/);
+  });
+
+  it('does not scan a NON-comment line in code — a string literal is data', () => {
+    const { code, out } = run({
+      ...memory,
+      'README.md': 'intro\n',
+      'src/Lyntai.Core/Thing.cs': 'var s = "docs/memory.md §8";\n',
+    });
+    assert.equal(code, 0, out);
+  });
+});
+
+describe('check-links — declaredAnchors', () => {
+  it('reads numeric labels, heading text and bold bullet leads', () => {
+    const a = declaredAnchors('# T\n\n## 2b. Lifetime\n\n### 5.7.0 Contract\n\n- **Keep it honest.** rest\n');
+
+    assert.ok(a.nums.has('2b'), 'a suffixed number is a label');
+    assert.ok(a.nums.has('5.7.0'));
+    assert.ok(a.names.includes('2b. lifetime'));
+    assert.ok(a.names.includes('keep it honest'), 'a bold bullet lead is addressable');
+  });
+
+  it('is empty for a document with no headings, so every citation to it reports', () => {
+    const a = declaredAnchors('just prose, no headings at all\n');
+    assert.equal(a.nums.size, 0);
+    assert.equal(a.names.length, 0);
+  });
+});
+
 describe('check-links — the code tier is actually covered on the real tree', () => {
   it('scans a substantial number of code files, and says so on a PASSING run', async () => {
     // This stands in for the fail-closed guard the code half deliberately does not have (see the note in
@@ -440,5 +593,12 @@ describe('check-links — the code tier is actually covered on the real tree', (
     // reader at the harness instead of at the document. This test's claim is only that the tier is scanned.
     const scanned = Number((log.text().match(/\+ (\d+) code file\(s\)/) ?? [])[1]);
     assert.ok(scanned > 100, `expected the code tier to be covered; the run reported ${scanned}`);
+
+    // The same claim for the SECTION half, and it needs its own pin: the anchor scan can stop matching
+    // without the code-file count moving at all — a filename pattern that quietly stops resolving targets
+    // reports zero citations and still prints a tick. Measured 2026-08-28: 79 across the maintained docs
+    // and the code tiers.
+    const cited = Number((log.text().match(/(\d+) §-citation\(s\) checked/) ?? [])[1]);
+    assert.ok(cited > 40, `expected §-citations to be checked; the run reported ${cited}`);
   });
 });
