@@ -482,11 +482,37 @@ spread evenly over the whole history.
 relevance is recency-correlated by construction, so the two signals never disagree there. LoCoMo makes them
 disagree on purpose.
 
-**`SemanticSeedK` changed NOTHING, and that is unexplained rather than concluded.** Turning it to 20 moved
-the overall figure by 0.0 points. The seed path lists collections under `{engine}|{taskKey}|` and takes the
-top-k by cosine, which should approximate the `vector` arm; it does not. Either it is not reaching the
-vectors in this configuration or its candidates are swamped before ranking. **No claim is made about which**
-— `TASKS.md` carries it as an open item with this measurement attached.
+**`SemanticSeedK` changed NOTHING, and the reason is that it CANNOT — measured, not inferred.** Turning it
+to 20 moved the overall figure by 0.0 points. Four plumbing explanations were ruled out by a control that
+reads back what actually ran:
+
+```
+CONTROL lyntai+sem/conv-30: collections=1 [locomo|conv-30|session] vectors=369 of 369 turns;
+                            semantic top-20 returned 20, ids parse as long: 20
+```
+
+Every vector is stored, the collection name matches, the search returns a full k, and every id parses — so
+the seeds do reach `GatherAsync` and are added at hop 0 with their cosine as `Relevance`. They then lose the
+ranking, and the two scales side by side say why:
+
+```
+returned Relevance : 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000, 1.000
+semantic  cosines  : 0.785, 0.664, 0.630, 0.622, 0.622, 0.619, 0.618, 0.618
+```
+
+**The pool is saturated with flat-1.000 relevance and the best semantic seed in the whole collection enters
+at 0.785.** A cosine cannot outrank a flat 1 however much more relevant it is, so the seed is structurally
+unable to surface anything — which is why the knob reads as inert rather than weak. **This is exactly the
+incommensurability D93 records** — "a lexical rank ramp, a real cosine on a semantic seed, a flat `1` on
+graph-walk and subject seeds" — and it is the first measurement of what that costs. D93 drew the conclusion
+that no ANSWER may be computed from the value; this adds that the mixed scale also defeats the seeding
+feature itself.
+
+**What that does and does not settle.** It explains the arm and it does not fix it: making the scales
+commensurable is a design change (`docs/DECISIONS.md` would own it), and this run says nothing about which
+form it should take. It also does not explain the whole 11% → 80% gap — `lyntai+rel` reaches only 22.5% with
+retrievability weighted out entirely, so the ranking's recency preference and this scale defect are two
+separate costs, and only the second is now understood.
 
 **Two harness defects were caught before publishing, and both would have produced a wrong headline.** The
 first run benchmarked `SemanticSeedK = 0` against a cosine baseline, which is measuring a misconfiguration —

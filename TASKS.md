@@ -482,17 +482,22 @@ measurement this repository has taken on an instrument it did not build: evidenc
 LoCoMo questions. Shipped defaults **11.0%**, plain cosine **80.5%**, same embedder and same k. Tables and
 the two harness defects that had to be fixed first are `docs/memory.md` §5._
 
-- [ ] **`SemanticSeedK` moved the number by 0.0 points, and nobody knows why.** Setting it to 20 — with an
-  embedder and a vector store registered, and the engine embedding every write — left evidence-hit@20
-  identical at 11.0%. The seed path lists collections under `{engine}|{taskKey}|` and takes the top-k by
-  cosine, which ought to approximate the `vector` arm's 80.5%; it does not. Either it is not reaching the
-  vectors in this configuration, or its candidates are swamped before ranking, or the option does less than
-  its own doc implies. **Startable today** — no key, no download, and the instrument already exists; the
-  first step is a control printing how many vectors the store actually holds after ingestion and how many
-  seeded candidates enter the pool.
-  <br>**Do not close this by reasoning about the code.** Two hypotheses were already refuted that way this
-  session (a misconfigured `SemanticSeedK`, then cross-arm contamination), and both were only settled by
-  measurement.
+- [ ] **DECIDE how a seeded candidate is scored, because `SemanticSeedK` currently cannot win.** *(The
+  "why" half of this item CLOSED 2026-08-29 — `docs/memory.md` §5 and `pitfalls.md` carry the measurement.
+  What is left is the design question it exposed.)*
+  <br>The control settled the mechanism: every vector is stored (369 of 369), the collection name matches,
+  the search returns a full k and every id parses — the seeds reach the pool and are added at hop 0. They
+  then lose, because the pool is saturated with **flat `1.000`** relevance while the best cosine in the whole
+  collection enters at **0.785**. An incommensurable score is sorted below the other scale's floor every
+  time, which is why the knob moves the number by exactly 0.0 rather than a little.
+  <br>**The open question is what a seeded candidate's `Relevance` should MEAN**, and it is a decision rather
+  than a fix: normalise the scales to a common footing, rank the semantic signal as its own RRF input rather
+  than by a shared relevance field, or leave it and document that seeding needs a ranking policy that reads
+  cosine. **D93** already records the incommensurability and rules out computing an ANSWER from it; this adds
+  a second casualty and is the case for acting on it.
+  <br>**Do not close this by reasoning about the code.** Five hypotheses were refuted that way this session —
+  a misconfigured `SemanticSeedK`, cross-arm contamination, unstored vectors, a wrong collection name, and
+  unparseable ids. Every one looked right on the page.
 
 - [ ] **DECIDE whether the ranking defaults should move, and this is a decision rather than a bug.**
   `RelevanceWeight` and `RetrievabilityWeight` both ship at `1`, so a recall ranks how-reachable equally

@@ -74,6 +74,7 @@ internal static class MemoryLocomoBench
         // conflates — and it does so with no reader and no judge, so neither can be blamed or credited.
         var retrievalOnly = args.Contains("--retrieval");
         var dump = args.Contains("--dump");
+        var probed = false;
         string[] arms = wantFull
             ? ["lyntai", "lyntai+sem", "lyntai+rel", "vector", "full"]
             : ["lyntai", "lyntai+sem", "lyntai+rel", "vector"];
@@ -128,6 +129,35 @@ internal static class MemoryLocomoBench
 
                 foreach (var text in texts)
                     await engine.RememberAsync(new MemoryWrite(convId, "session", text));
+
+                // CONTROL, added for TASKS.md Part 109: SemanticSeedK = 20 moved evidence-hit by 0.0 points
+                // and the read path looks correct on inspection, so the question is whether the vectors are
+                // there and whether a search finds them. Reading it back from what actually ran is the only
+                // way to tell an option that does nothing from an option that is never reached.
+                if (options?.SemanticSeedK > 0 && !probed)
+                {
+                    probed = true;
+                    var collection = $"locomo|{convId}|session";
+                    var probeVector = await embedder.EmbedAsync(mine[0].Text);
+                    var all = await vectors.SearchAsync(collection, probeVector, 100_000);
+                    var topK = await vectors.SearchAsync(collection, probeVector, RecallLimit);
+                    var collections = await vectors.ListCollectionsAsync($"locomo|{convId}|");
+                    Console.WriteLine($"  CONTROL {arm}/{convId}: collections={collections.Count} "
+                        + $"[{string.Join(",", collections)}] vectors={all.Count} of {texts.Count} turns; "
+                        + $"semantic top-{RecallLimit} returned {topK.Count}, "
+                        + $"ids parse as long: {topK.Count(m => long.TryParse(m.Id, out _))}");
+
+                    // The two RELEVANCE SCALES, side by side. D93 records that within one recall these are
+                    // not commensurable — a lexical rank ramp, a real cosine on a semantic seed, a flat 1 on
+                    // a graph walk — and that is the standing hypothesis for why seeding changes nothing:
+                    // a cosine of 0.6 cannot outrank a rank-ramp 1.0 however much more relevant it is.
+                    var probeRecall = await engine.RecallAsync(
+                        new MemoryQuery(convId, "session", mine[0].Text, Limit: RecallLimit));
+                    Console.WriteLine("    returned Relevance : "
+                        + string.Join(", ", probeRecall.Items.Take(8).Select(i => i.Relevance.ToString("F3"))));
+                    Console.WriteLine("    semantic  cosines  : "
+                        + string.Join(", ", topK.Take(8).Select(m => m.Score.ToString("F3"))));
+                }
 
                 foreach (var q in mine)
                     recalled[(arm, q.Text)] = (await engine.RecallAsync(
