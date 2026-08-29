@@ -56,9 +56,10 @@ overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, 
 returns HEADLINES — associative content is withheld until an expansion asks for it, which is what makes the
 first load cheap — and `ExpandAsync` reinforces what it walks. So a one-shot metric is blind to the mode the
 engine is built for, and **every recall-quality figure published before that date scores one shot**. Measured:
-on LongMemEval knowledge-update, shot 1 returns the current fact and not the superseded one 40.0% of the time
-on 1,165 characters against plain cosine's 16.0% on 9,769. The useful shot count is a property of the
-QUESTION, so it is not a constant, and no default moved.
+on LongMemEval knowledge-update, shot 1 returns the current fact and not the superseded one 31.4% of the time
+on 1,169 characters against plain cosine's 10.0% on 10,387 (all 70 questions; the 25-question sample this
+line quoted until 2026-08-29 read 40.0% against 16.0% — a lower LEVEL, a higher RATIO). The useful shot
+count is a property of the QUESTION, so it is not a constant, and no default moved.
 <br>**"Search wants two shots" was withdrawn on 2026-08-29** (D100's own amendment, `docs/task-archive.md`
 Part 118): LoCoMo questions shared a store, and isolating them flattened the shot curve from +6.0/+0.5 to
 **+1.5/+1.0** on a shot 1 that was 24.5 points too low. **Every LoCoMo figure in `docs/memory.md` moved by

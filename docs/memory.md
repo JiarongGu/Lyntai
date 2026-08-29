@@ -830,23 +830,30 @@ what makes the first load cheap"*, and `ExpandAsync` reinforces what it walks be
 direction is exactly what should make that direction more retrievable next time"*. A one-shot benchmark is
 structurally blind to both. `--shots` measures the walk instead, model-free.
 
-**On the workload this design claims — LongMemEval knowledge-update, haystack variant, 25 questions.**
+**On the workload this design claims — LongMemEval knowledge-update, haystack variant, ALL 70 questions**
+(2026-08-29; it was a 25-question sample until then, and the right-hand column is what that sample said).
 `clean` is the column that matters: the context holds the CURRENT fact and **not** the one it superseded,
 which is what a reader's answer actually depends on. A context carrying both hands the model the
 contradiction to resolve, which is the work this layer exists to do for it.
 
-| arm | clean | current@k | stale@k | items/q | chars/q |
-|---|---|---|---|---|---|
-| `shot-1` | **40.0%** | 84.0% | 56.0% | 10.0 | **1,165** |
-| `shot-2` | 36.0% | 88.0% | 60.0% | 19.4 | 5,208 |
-| `shot-3` | 36.0% | 88.0% | 60.0% | 19.9 | 8,122 |
-| `vector` | 16.0% | 84.0% | 84.0% | 10.0 | 9,769 |
-| `vector-20` | 4.0% | 96.0% | 96.0% | 20.0 | 20,737 |
+| arm | clean | current@k | stale@k | items/q | chars/q | `clean` at n=25 |
+|---|---|---|---|---|---|---|
+| `shot-1` | **31.4%** | 87.1% | 62.9% | 10.0 | **1,169** | 40.0% |
+| `shot-2` | 28.6% | 88.6% | 65.7% | 19.4 | 5,236 | 36.0% |
+| `shot-3` | 28.6% | 88.6% | 65.7% | 19.9 | 8,286 | 36.0% |
+| `vector` | 10.0% | 81.4% | 88.6% | 10.0 | 10,387 | 16.0% |
+| `vector-20` | 4.3% | 95.7% | 95.7% | 20.0 | 21,735 | 4.0% |
 
-**One shot delivers a clean context 2.5× as often as cosine on one-eighth the characters** — 40.0% at 1,165
-against 16.0% at 9,769. Cosine at k=20 reaches the current fact 96% of the time and reaches the superseded
-one just as often, which is the failure mode a decay model exists to prevent, priced: it costs 20,737
-characters to hand a reader both answers.
+**One shot delivers a clean context 3.1× as often as cosine on one-ninth the characters** — 31.4% at 1,169
+against 10.0% at 10,387. Cosine at k=20 reaches the current fact 95.7% of the time and reaches the
+superseded one just as often, which is the failure mode a decay model exists to prevent, priced: it costs
+21,735 characters to hand a reader both answers.
+
+**The full sample moved the LEVEL down and the RATIO up, and both directions are worth stating.** Every
+`clean` figure fell by 6–9 points against the 25-question sample, so that sample was optimistic and any
+absolute taken from it was too high. But cosine fell further (16.0 → 10.0), so the multiple this design is
+actually claimed on went **2.5× → 3.1×**. The shape is unchanged: shot 1 is the best `clean` context, extra
+shots cost it, and shot 3 is indistinguishable from shot 2 on every column while adding 3,050 characters.
 
 **But the shot curve ran the wrong way, and that was a real defect.** `clean` FELL as the walk went deeper
 while `stale@k` climbed, because `EdgeHalfLife` decays the EDGE and nothing consulted the ENTRY — so
@@ -855,6 +862,52 @@ expansion resurrected exactly what recall had buried. **D98** adds
 `stale@k` back at 56.0%, for 4 points of `current@k`. **An ordering weight was tried first and measured
 moving nothing** — ordering only matters when the caller's budget binds, and at 15.9 items against a budget
 of 20 it did not.
+<br>_Those floor figures are the **25-question** sample and have not been re-run at 70; the fall they
+correct is −2.8 points on the full sample against −4.0 on the sample, so the defect is the same shape and
+smaller than it looked. Sweeping the floor across workloads is `TASKS.md` Part 116._
+
+**The class where expansion actually PAYS, and it is the one that had no shot curve at all**
+(`memory-longmemeval --shots --temporal --haystack`, all 132 questions, 2026-08-29). Temporal reasoning
+usually needs EVERY flagged turn — "the first issue after the service" is unanswerable from the later fact
+alone — so the metric is all-evidence recall, and the failure mode of a small first load is holding one turn
+of two. That is precisely what a second shot is for:
+
+| arm | all evidence@k | any evidence@k | evidence turns | items/q | chars/q |
+|---|---|---|---|---|---|
+| `shot-1` | 48.5% | 82.6% | 62.2% | 10.0 | **1,173** |
+| `shot-2` | **53.0%** | 84.8% | 65.6% | 19.6 | 5,383 |
+| `shot-3` | 53.0% | 84.8% | 65.6% | 19.9 | 8,114 |
+| `vector` | 43.9% | 75.0% | 57.5% | 10.0 | 10,778 |
+| `vector-20` | **65.2%** | 84.1% | 73.7% | 20.0 | 21,759 |
+
+**Shot 2 is worth +4.5 points here, against +1.5 on LoCoMo and −2.8 on knowledge-update** — the only
+workload measured where walking clearly buys something, and the mechanism is the one the class is built on.
+**Shot 3 is worth exactly nothing**: identical on every column while adding 2,731 characters. That is the
+third class in a row where the third shot is inert, so *"expand until the budget runs out"* is not the
+lesson — *"expand once"* is.
+
+**The honest counterweight, and it is the same shape as LoCoMo's.** Size-matched cosine wins this column
+outright: `vector-20` reaches 65.2% where three shots reach 53.0%, at 2.7× the characters. All-evidence
+recall is an ARCHIVE metric, so a workload that wants every turn rewards keeping everything — exactly what
+§5's LoCoMo discussion says about the archival axis, arriving here from a second direction.
+
+**The oracle variant overstates the gain by 2.7×**, which is Part 112's finding recurring on a third
+question: on the oracle, shot 2 is worth **+12.2** (59.8% → 72.0%) rather than +4.5. Quote the haystack.
+
+**The haystack has a reproducibility floor of ONE QUESTION on the graph arms, and it was measured rather
+than assumed.** The identical run repeated reads `shot-1` 47.7% / `shot-2` 52.3% / `shot-3` 52.3% — every
+graph arm exactly 0.8 points (one question in 132) below the table above, while **both vector arms are
+byte-identical across both runs** and `any evidence@k` does not move at all. The graph arm fuses three
+signals over ~490 candidates and so carries far more near-ties than a cosine top-10; the vector arms being
+stable is what says this is the ranking's own sensitivity and not the harness, the sample (digest
+`773FB41E0E5A`) or the embedder (64,905 misses both times).
+
+**So read the LEVELS to about a point and the DELTAS as they stand.** Shot 2 is worth **+4.5 and +4.6** on
+the two runs — six times the floor, and the finding — while the 0.0 between shots 2 and 3 sits inside it and
+should be read as "no measurable gain", not as "exactly none". The ORACLE has no such floor: `shot-1` and
+the plain `--temporal` arm agree there to the decimal (59.8% / 84.1% / 66.0%), which is what pinned this to
+near-ties rather than to a code difference — the same two paths differed by one question on the haystack,
+and the repeat then landed on the plain arm's own 47.7%.
 
 **On a SEARCH workload the curve runs the other way, which is why the shot count is a question and not a
 constant.** LoCoMo, 200 questions, evidence-hit. **Re-measured 2026-08-29 under per-question isolation**

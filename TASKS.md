@@ -587,8 +587,15 @@ top-k. The instruments exist — `node devtools/dev.mjs memory-locomo --shots` a
 `memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory.md` §5.
 Closed alongside it: **D98** (expansion had no vote from forgetting) and **D99** (co-activation is one store
 call). The session that produced all three is `docs/task-archive.md` Parts 112–115.
-<br>**This Part held five items; the write-back collapse closed as `docs/task-archive.md` Part 117**
-(**D101** — the whole write-back is one store call now, not just the co-activation half D99 did)._
+<br>**This Part held five items and now holds three.** The write-back collapse closed as
+`docs/task-archive.md` **Part 117** (**D101** — the whole write-back is one store call, not just the
+co-activation half D99 did), the LoCoMo contamination as **Part 118**, and two thirds of the shot-curve item
+as **Part 119**.
+<br>**Read this before trusting any number below.** Those two measurement passes moved published figures
+three times: every LoCoMo arm by 20–25 points, D100's *"search wants two shots"* withdrawn outright, and
+knowledge-update's level down 6–9 points off a small sample. **None was a library defect — all three were
+the instrument.** So treat the remaining measurement items as RE-measurements: they were scoped against
+figures that have since moved._
 
 - [ ] **The library has no n-shot SURFACE, and that is the gap D100 exposes.** `RecallAsync` is one shot and
   `ExpandAsync` takes one reference, so every consumer that wants the mode this engine is designed for
@@ -605,8 +612,17 @@ call). The session that produced all three is `docs/task-archive.md` Parts 112�
   cost 4 points of current-fact hit rate — one class, one variant, 25 questions. The floor is a
   RETRIEVABILITY, so its right value depends on the decay curve's shape and not on the workload alone.
 
-- [ ] **Extend the shot curve past what was sampled.** Knowledge-update haystack ran 25 of 70; the temporal
-  class and LongMemEval's four unmeasured classes have no shot curve at all. Cheap and model-free.
+- [ ] **Give LongMemEval's four remaining classes a shot curve.** `multi-session` (133 questions) and the
+  three single-session classes have none. **This is no longer "cheap and model-free" work** — the two classes
+  that have curves each needed a metric that matches what the class ASKS (preference for the current fact;
+  all-evidence recall), and the remaining four have neither defined nor obviously shared. Deciding what a
+  shot BUYS on a single-session question is the task; running it afterwards is the easy half.
+  <br>_**The other two thirds of this item closed 2026-08-29** (`docs/task-archive.md` Part 119):
+  knowledge-update went from a 25-question sample to all 70, and the temporal class got the first shot curve
+  it has ever had, on both variants._
+  <br>**Read the reproducibility caveat in `docs/memory.md` §5 before adding a fifth curve**: a haystack
+  figure is reproducible to about ONE question, not to a tenth of a point, and the oracle overstates the
+  multi-shot gain by 2.7× on the class where that was checked.
 
 
 ---

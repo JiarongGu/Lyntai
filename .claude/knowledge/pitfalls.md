@@ -1350,6 +1350,28 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   Stash the fix, run, restore — the same positive-control discipline `pitfalls.md` already demands of a cache
   fix, applied to a measurement harness.
 
+- **When two arms that are the SAME OPERATION disagree, you have found either a code difference or your
+  noise floor — and the two are told apart by cheap experiments, not by reading the diff.** Measured
+  2026-08-29 (`docs/task-archive.md` Part 119). A new `shot-1` arm read 48.5% where the existing `lyntai`
+  arm read 47.7% on LongMemEval temporal-haystack: same sample digest, same embedder miss count, same 132
+  questions. Reading the code found only one difference (an explicit options object) and it was provably
+  inert — `options ?? new GraphMemoryOptions()` makes it identical to passing none — so the diff said
+  "equivalent" while the numbers said otherwise.
+  <br>**Two experiments settled it, in increasing cost.** First, run the pair on the variant with FEWER
+  near-ties: on the oracle (25 turns/question) the two paths agreed to the decimal, which already says the
+  code is equivalent and the disagreement is a property of the harder corpus. Then repeat the identical
+  haystack run: every graph arm moved exactly 0.8 points — one question in 132 — and the repeat landed on
+  the other arm's own 47.7%.
+  <br>**The control that localises it is the arm that CANNOT be affected.** Both `vector` arms were
+  byte-identical across every run while the graph arms moved, so the variation is the ranking's own
+  sensitivity to near-ties — a fusion over ~490 candidates — and not the sample, the embedder or the
+  harness. An arm that structurally cannot vary is worth keeping in a table for exactly this reason; it is
+  the same control that made the LoCoMo isolation fix readable one entry above.
+  <br>**The rule: a benchmark's reproducibility is a property of the ARM, not of the benchmark**, so measure
+  it per arm before quoting a figure to a tenth of a point. Here the levels are good to about a point and
+  the DELTAS are stable across runs (+4.5 and +4.6), which is why a difference six times the floor is a
+  finding and a 0.0 inside it is "no measurable gain" rather than "exactly none".
+
 - **A candidate scored on a DIFFERENT SCALE than the pool it joins cannot win, however relevant it is — and
   the feature that added it then reads as inert rather than as broken.** Measured 2026-08-29
   (`docs/task-archive.md` Part 110). `GraphMemoryOptions.SemanticSeedK` adds semantically-similar entries to

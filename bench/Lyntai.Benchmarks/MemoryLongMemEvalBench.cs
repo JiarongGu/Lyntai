@@ -40,6 +40,11 @@ internal static class MemoryLongMemEvalBench
     internal const string DataVariable = "LYNTAI_LME_PATH";
     internal const string HaystackVariable = "LYNTAI_LME_S_PATH";
     private const int RecallLimit = 10;
+
+    /// <summary>The multi-shot walk's two bounds, at CLASS scope because both shot curves and the walk they
+    /// share read them — a per-method copy is how "shot 2" starts meaning two different things.</summary>
+    private const int ShotBudget = 2 * RecallLimit;
+    private const int ExpandSeeds = 3;
     private const int DefaultSeed = 20260829;
     private const string Task = "lme";
     private const string Scope = "session";
@@ -105,6 +110,8 @@ internal static class MemoryLongMemEvalBench
         var sampled = Sample(questions, take, seed);
         var turns = sampled.Sum(q => q.Turns.Count);
 
+        var expandFloor = ArgValue(args, "--expand-floor") is { } f && double.TryParse(f, out var ef) ? ef : 0;
+
         if (temporal)
         {
             Console.WriteLine("=== LongMemEval temporal-reasoning: the COST side of the same bet ===");
@@ -114,8 +121,16 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("questions need BOTH. So the metric is all-evidence recall, and the suppression");
             Console.WriteLine("that won the other class is expected to COST here. That is the trade, measured.");
             Console.WriteLine();
+            if (args.Contains("--shots"))
+            {
+                Console.WriteLine("--shots asks what EXPANDING buys on that class. If a walk is worth anything");
+                Console.WriteLine("on any workload it should be worth it here: the failure mode is a first load");
+                Console.WriteLine("holding one flagged turn of two, which is exactly what a second shot is for.");
+                Console.WriteLine();
+            }
             Preamble(sampled, questions.Count, turns, haystack, seed, "temporal-reasoning");
-            await RunTemporalAsync(sampled, embedder);
+            if (args.Contains("--shots")) await RunTemporalShotsAsync(sampled, embedder, expandFloor);
+            else await RunTemporalAsync(sampled, embedder);
             return 0;
         }
 
@@ -129,8 +144,7 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine("what 'clean' scores, and it is the metric a smaller context is supposed to buy.");
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
-            await RunShotsAsync(sampled, embedder,
-                ArgValue(args, "--expand-floor") is { } fl && double.TryParse(fl, out var ef) ? ef : 0);
+            await RunShotsAsync(sampled, embedder, expandFloor);
             return 0;
         }
 
@@ -233,8 +247,6 @@ internal static class MemoryLongMemEvalBench
     private static async Task RunShotsAsync(List<Question> sampled, SweepDoubles.CachingEmbedder embedder,
         double expandFloor)
     {
-        const int ShotBudget = 2 * RecallLimit;
-        const int ExpandSeeds = 3;
         var stopwatch = Stopwatch.StartNew();
         string[] arms = ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"];
         var cur = new Dictionary<string, int>();
@@ -275,42 +287,7 @@ internal static class MemoryLongMemEvalBench
                 millis[arm] = millis.GetValueOrDefault(arm) + ms;
             }
 
-            var clock = Stopwatch.StartNew();
-            var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit));
-            var text = new Dictionary<string, string>(StringComparer.Ordinal);
-            var order = new List<string>();
-            var frontier = new List<MemoryItem>();
-
-            void Hold(MemoryItem item)
-            {
-                var body = item.Content ?? item.Headline;
-                if (text.TryGetValue(item.Reference.Id, out var held))
-                {
-                    if (body.Length > held.Length) text[item.Reference.Id] = body;
-                    return;
-                }
-                if (order.Count >= ShotBudget) return;
-                text[item.Reference.Id] = body;
-                order.Add(item.Reference.Id);
-                frontier.Add(item);
-            }
-
-            foreach (var item in recall.Items) Hold(item);
-            Score("shot-1", [.. order.Select(id => text[id])], clock.Elapsed.TotalMilliseconds);
-
-            for (var shot = 2; shot <= 3; shot++)
-            {
-                var seeds = frontier.Take(ExpandSeeds).ToList();
-                frontier = [];
-                foreach (var s in seeds)
-                    foreach (var near in (await engine.ExpandAsync(s.Reference, hops: 1)).Items)
-                        // The floor is the ENGINE's (GraphMemoryOptions.ExpansionRetrievabilityFloor), not
-                        // this harness's. It was prototyped here first — MemoryItem already carries
-                        // Retrievability — and reproducing the prototype's number through the shipped option
-                        // is what says the option does what the prototype did.
-                        Hold(near);
-                Score($"shot-{shot}", [.. order.Select(id => text[id])], clock.Elapsed.TotalMilliseconds);
-            }
+            await WalkAsync(engine, q.Text, (shot, body, ms) => Score($"shot-{shot}", body, ms));
 
             foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
             {
@@ -337,6 +314,133 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine("  'ms/q' is memory-layer time only, and the vector arms are an in-memory brute force");
         Console.WriteLine("  with no persistence and no write-back - so that column compares a database against");
         Console.WriteLine("  an array, not two retrieval strategies.");
+        Console.WriteLine();
+        Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+    }
+
+    /// <summary>The n-shot walk itself: recall, then expand the best few of what the PREVIOUS shot newly
+    /// surfaced, calling <paramref name="score"/> after each shot with the cumulative context.
+    /// <para><b>Shared by both shot curves on purpose.</b> Two classes scoring different metrics over the
+    /// same walk must not each own a copy of it, or "shot 2" quietly means two things — and this loop is
+    /// already written a second time in <c>MemoryLocomoBench</c>, which is the tell <c>TASKS.md</c> Part 116
+    /// cites for the library having no n-shot surface.</para>
+    /// <para>Shots 2 and 3 come from ONE walk because three is a strict superset of two, so the arms stay
+    /// exactly nested and any difference between them is the extra shot and nothing else. A recall returns
+    /// HEADLINES for associative entries, so a shot both DISCOVERS entries and UPGRADES ones already held to
+    /// their full content — deduping by id alone would throw the upgrade away, which is the whole payload of
+    /// expanding something you already have.</para></summary>
+    private static async Task WalkAsync(GraphMemoryEngine engine, string question,
+        Action<int, IReadOnlyList<string>, double> score)
+    {
+        var clock = Stopwatch.StartNew();
+        var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, question, Limit: RecallLimit));
+        var text = new Dictionary<string, string>(StringComparer.Ordinal);
+        var order = new List<string>();
+        var frontier = new List<MemoryItem>();
+
+        void Hold(MemoryItem item)
+        {
+            var body = item.Content ?? item.Headline;
+            if (text.TryGetValue(item.Reference.Id, out var held))
+            {
+                if (body.Length > held.Length) text[item.Reference.Id] = body;
+                return;
+            }
+            if (order.Count >= ShotBudget) return;
+            text[item.Reference.Id] = body;
+            order.Add(item.Reference.Id);
+            frontier.Add(item);
+        }
+
+        foreach (var item in recall.Items) Hold(item);
+        score(1, [.. order.Select(id => text[id])], clock.Elapsed.TotalMilliseconds);
+
+        for (var shot = 2; shot <= 3; shot++)
+        {
+            var seeds = frontier.Take(ExpandSeeds).ToList();
+            frontier = [];
+            foreach (var s in seeds)
+                foreach (var near in (await engine.ExpandAsync(s.Reference, hops: 1)).Items)
+                    // The floor is the ENGINE's (GraphMemoryOptions.ExpansionRetrievabilityFloor), not this
+                    // harness's. It was prototyped here first — MemoryItem already carries Retrievability —
+                    // and reproducing the prototype's number through the shipped option is what says the
+                    // option does what the prototype did.
+                    Hold(near);
+            score(shot, [.. order.Select(id => text[id])], clock.Elapsed.TotalMilliseconds);
+        }
+    }
+
+    /// <summary>The temporal class's shot curve — the same walk as <see cref="RunShotsAsync"/> scored the
+    /// other way round. Knowledge-update wants the superseded fact GONE; this class usually needs every
+    /// flagged turn, so the question a shot answers here is whether expanding RECOVERS evidence the first
+    /// load missed. That is the one workload where more shots should help most, and it had no curve at
+    /// all.</summary>
+    private static async Task RunTemporalShotsAsync(List<Question> sampled,
+        SweepDoubles.CachingEmbedder embedder, double expandFloor)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        string[] arms = ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"];
+        var all = new Dictionary<string, int>();
+        var any = new Dictionary<string, int>();
+        var found = new Dictionary<string, int>();
+        var items = new Dictionary<string, int>();
+        var chars = new Dictionary<string, long>();
+        var evidenceTotal = 0;
+        var done = 0;
+
+        foreach (var q in sampled)
+        {
+            Progress(++done, sampled.Count);
+            using var db = new MemoryPolicySweep.SweepDb();
+            var store = new SqliteMemoryGraphStore(db.Factory);
+            var engine = new GraphMemoryEngine("lme", store,
+                options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
+                embedder: embedder, vectors: new InMemoryVectorStore());
+
+            var index = new List<(string Text, float[] Vector)>();
+            foreach (var t in q.Turns)
+            {
+                var content = $"{t.Tag} {t.Text}";
+                await engine.RememberAsync(new MemoryWrite(Task, Scope, content));
+                index.Add((content, await embedder.EmbedAsync(content)));
+            }
+            await embedder.EmbedAsync(q.Text);   // warm the query embed so no arm pays for it alone
+            evidenceTotal += q.Evidence.Count;
+
+            void Score(string arm, IReadOnlyList<string> body)
+            {
+                var hits = q.Evidence.Count(t => body.Any(b => b.Contains(t.Tag, StringComparison.Ordinal)));
+                found[arm] = found.GetValueOrDefault(arm) + hits;
+                if (hits == q.Evidence.Count) all[arm] = all.GetValueOrDefault(arm) + 1;
+                if (hits > 0) any[arm] = any.GetValueOrDefault(arm) + 1;
+                items[arm] = items.GetValueOrDefault(arm) + body.Count;
+                chars[arm] = chars.GetValueOrDefault(arm) + body.Sum(b => b.Length);
+            }
+
+            await WalkAsync(engine, q.Text, (shot, body, _) => Score($"shot-{shot}", body));
+
+            foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
+                Score(arm, (await TopKAsync(embedder, index, q.Text, k)).ToList());
+        }
+
+        var n = sampled.Count;
+        Console.WriteLine($"{"Arm",-12} {"all evidence@k",16} {"any evidence@k",16} {"evidence turns",16} "
+            + $"{"items/q",9} {"chars/q",9}");
+        Console.WriteLine(new string('-', 84));
+        foreach (var arm in arms)
+            Console.WriteLine($"{arm,-12} "
+                + $"{$"{(double)all.GetValueOrDefault(arm) / n:P1}",16} "
+                + $"{$"{(double)any.GetValueOrDefault(arm) / n:P1}",16} "
+                + $"{$"{(double)found.GetValueOrDefault(arm) / evidenceTotal:P1}",16} "
+                + $"{(double)items.GetValueOrDefault(arm) / n,9:F1} "
+                + $"{(double)chars.GetValueOrDefault(arm) / n,9:F0}");
+
+        Console.WriteLine();
+        Console.WriteLine("  'all evidence@k' is the one that matters: a temporal question usually needs every");
+        Console.WriteLine("  flagged turn, so retrieving one of two answers nothing. If expansion is worth");
+        Console.WriteLine("  anything on any workload it should be worth it HERE, where the first load missing");
+        Console.WriteLine("  one turn of two is the whole failure mode.");
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");

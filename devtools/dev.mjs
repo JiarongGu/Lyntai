@@ -228,6 +228,9 @@ switch (cmd) {
   // command prints the one-line curl when it is missing. `--temporal` is the cost side, and `--haystack`
   // buries the same questions in ~490 turns of distractors: a seeded `--n` sample picks the same question
   // ids from either file, so the two runs pair and the printed digest is what proves it.
+  // `--shots` measures the n-shot WALK rather than one top-k, and combines with `--temporal`: the two
+  // classes score the SAME walk by opposite metrics — preference for the current fact, against
+  // all-evidence recall — which is why the walk itself is one shared function rather than one per class.
   case 'memory-longmemeval':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--longmemeval', ...args]);

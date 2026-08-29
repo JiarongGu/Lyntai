@@ -1502,3 +1502,46 @@ share the contaminated regime, so their DELTA stands and both now say so. The QA
 — it needs a reader, and widening it is `TASKS.md` Part 109.
 
 - **Fix LoCoMo's cross-question contamination before widening any LoCoMo number.**
+
+## Part 119 — the shot curve, extended: the class where expanding pays, and the one where it never did (2026-08-29)
+
+✅ done 2026-08-29 — two thirds of `TASKS.md` Part 116's shot-curve item. **Knowledge-update went from a
+25-question sample to all 70**, and **the temporal class got the first shot curve it has ever had**, on both
+variants. Tables in `docs/memory.md` §5. The remaining third — LongMemEval's four other classes — is
+re-scoped rather than closed: each needs a metric matching what that class ASKS, which is design work and
+not a run.
+
+**The full knowledge-update sample moved the LEVEL down and the RATIO up.** Every `clean` figure fell 6–9
+points against the 25-question sample, so that sample was optimistic and any absolute from it was too high;
+but cosine fell further (16.0 → 10.0), so the multiple **D100** actually argues went **2.5× → 3.1×** —
+31.4% clean on 1,169 characters against cosine's 10.0% on 10,387. The shape is unchanged.
+
+**The temporal class is the only workload measured where walking clearly pays: shot 2 is worth +4.5 points**
+of all-evidence recall, against +1.5 on LoCoMo and −2.8 on knowledge-update. The mechanism is the one the
+class is built on — a temporal question usually needs EVERY flagged turn, so the failure mode of a small
+first load is holding one of two. **The honest counterweight is in the table beside it**: size-matched
+cosine wins that column outright (65.2% against 53.0%) at 2.7× the characters, because all-evidence recall
+is an ARCHIVE metric and rewards keeping everything — LoCoMo's axis reached from a second direction.
+
+**Shot 3 is worth nothing, and that is now three classes in a row.** Identical to shot 2 on every column
+while adding 2,731 characters. *"Expand until the budget runs out"* is not the lesson; *"expand once"* is.
+**And the ORACLE overstates the multi-shot gain by 2.7×** (+12.2 against +4.5) — Part 112's finding that the
+cheap variant is biased in unpredictable directions, recurring on a third question.
+
+**A one-question disagreement was chased rather than published, and became a measurement.** The new
+`shot-1` read 48.5% where the existing `lyntai` arm read 47.7% on the same sample. The code diff said
+equivalent (the one difference, an explicit options object, is inert under `options ?? new
+GraphMemoryOptions()`), the ORACLE agreed to the decimal, and repeating the identical haystack run moved
+every graph arm exactly 0.8 points onto the other arm's own 47.7% — while **both vector arms stayed
+byte-identical throughout**. So the haystack carries a reproducibility floor of ONE QUESTION on the graph
+arms, the deltas are stable across runs (+4.5 / +4.6), and the levels are good to about a point.
+`.claude/knowledge/pitfalls.md` §Testing carries the general form.
+
+**One refactor, proven neutral before it was trusted.** Both curves score the SAME walk by opposite metrics,
+so `WalkAsync` was extracted rather than written a third time — Part 116 cites that duplication as the tell
+for the library having no n-shot surface. Equivalence was shown the way the LoCoMo control was: stash, run,
+restore, re-run — byte-identical on every quality and size column across all five arms. Reading the
+extracted code back also caught a compile error before any build, `ShotBudget`/`ExpandSeeds` having been
+method-locals invisible to the shared walk.
+
+- **Extend the shot curve past what was sampled.**

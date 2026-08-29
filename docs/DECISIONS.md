@@ -2774,6 +2774,9 @@ a recall would correctly bury a superseded fact and an expansion of its neighbou
 back — forgetting governed recall and had no vote in the walk. Measured on LongMemEval's knowledge-update
 class (`docs/memory.md` §5): a context holding the current value and NOT the superseded one fell 40.0% →
 36.0% as the walk went deeper, while `stale@k` climbed 56.0% → 60.0%.
+<br>_Every figure in this entry is the **25-question** sample. Re-measured on all 70 (2026-08-29) the same
+fall reads 31.4% → 28.6% with `stale@k` 62.9% → 65.7%: the defect is the same shape and about a third
+smaller. The floor's own cells have not been re-run at 70._
 
 **An ORDERING weight was implemented first, measured, and withdrawn.** Scaling the walk order by
 retrievability moved every cell by exactly zero, because ordering can only matter when the caller's budget
@@ -2831,8 +2834,10 @@ structurally blind to both halves. The design intent is a small first load that 
 with detail bought per-entry by expanding — not a big context assembled up front.
 
 **What measurement settled** (`docs/memory.md` §5). On LongMemEval knowledge-update, shot 1 returns a clean
-context — the current fact and not the superseded one — 40.0% of the time on 1,165 characters, against
-cosine's 16.0% on 9,769: **2.5× the precision on an eighth of the context**.
+context — the current fact and not the superseded one — **31.4%** of the time on 1,169 characters, against
+cosine's **10.0%** on 10,387: **3.1× the precision on a ninth of the context**. _(Re-measured 2026-08-29 on
+all 70 questions; the 25-question sample this entry first quoted read 40.0% against 16.0%, so the LEVEL was
+optimistic while the RATIO it argues went 2.5× → 3.1×.)_
 
 **AMENDED 2026-08-29 — the LoCoMo half of the original evidence was a harness artefact and is withdrawn.**
 This entry read *"on LoCoMo, a SEARCH workload, shot 2 is worth +6.0 points where shot 3 is worth +0.5, so
