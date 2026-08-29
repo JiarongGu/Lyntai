@@ -172,6 +172,37 @@ public sealed record GraphMemoryOptions
         init => field = MemoryOption.Require(value, MemoryOptionRange.Finite, nameof(GraphMemoryOptions), Disables);
     } = 100;
 
+    /// <summary>The retrievability a NEIGHBOUR must still have to be walked to. <c>0</c> — the shipped
+    /// default — admits every neighbour, which is what every release through 3.0.2 did.
+    ///
+    /// <para><b>Why it exists.</b> <see cref="EdgeHalfLife"/> decays the EDGE; nothing consulted the ENTRY on
+    /// this path, so a recall could bury a superseded fact and an expansion of its neighbour handed that fact
+    /// straight back — forgetting governed recall and had no vote in traversal. Measured on LongMemEval's
+    /// knowledge-update class: a context holding the current value and NOT the superseded one fell from 40.0%
+    /// to 36.0% as the walk went deeper, and a floor of 0.8 holds it flat at 40.0% instead.</para>
+    ///
+    /// <para><b>It EXCLUDES, and ordering was tried first and measured doing nothing.</b> Weighting the walk
+    /// order by retrievability cannot help unless the caller's budget binds, and in the measured case it did
+    /// not — everything the walk found fitted, so the position it found it in was irrelevant. A floor is the
+    /// smaller surface that actually moves the number.</para>
+    ///
+    /// <para><b>It never hides the entry the caller NAMED.</b> The seed of an expansion is returned whatever
+    /// its retrievability — asking to expand something buried must still return it, and only the walk OUT
+    /// from it is filtered. Nor does it delete anything (<b>D41</b>): a floored neighbour stays stored and
+    /// stays reachable by a recall that scores it.</para>
+    ///
+    /// <para><b>It costs recall, so it is off by default.</b> The same measurement lost 4 points of
+    /// current-fact hit rate buying those 4 points of precision. Which side a deployment wants is a property
+    /// of its workload, not of this library.</para></summary>
+    /// <exception cref="ArgumentOutOfRangeException">Set outside [0, 1] or to a non-finite value.</exception>
+    public double ExpansionRetrievabilityFloor
+    {
+        get;
+        init => field = MemoryOption.Require(value, MemoryOptionRange.Closed(0, 1), nameof(GraphMemoryOptions),
+            "retrievability is a probability in [0,1], so a floor outside it either admits everything or "
+            + "nothing regardless of what the forgetting curve says");
+    }
+
     /// <summary>Why the three knobs above take <see cref="MemoryOptionRange.Finite"/> and no domain beyond
     /// it. Shared as one constant because they share one failure mode; the guard itself is shared with every
     /// other memory options record through <see cref="MemoryOption"/>.

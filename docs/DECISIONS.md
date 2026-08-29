@@ -167,8 +167,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D95](#d95--the-repository-is-lf-declared-in-a-tracked-gitattributes-2026-08-28) | 2026-08-28 | the repository is LF, declared in a tracked `.gitattributes` |
 | [D96](#d96--the-decision-record-gets-a-length-ratchet-not-the-archives-compression-2026-08-28) | 2026-08-28 | the decision record gets a length ratchet, not the archive's compression |
 | [D97](#d97--a-candidate-nobody-asked-about-carries-matched-because-neither-relevance-value-is-right-2026-08-29) | 2026-08-29 | a candidate nobody asked about carries `Matched`, because neither relevance value is right |
+| [D98](#d98--forgetting-gets-a-vote-in-traversal-and-it-is-a-floor-rather-than-a-weight-2026-08-29) | 2026-08-29 | forgetting gets a vote in TRAVERSAL, and it is a floor rather than a weight |
 
-_All 97 entries are live decisions._
+_All 98 entries are live decisions._
 
 <!-- index:end -->
 
@@ -1962,7 +1963,7 @@ the two backends 23 → 5, every survivor one of the exceptions named above.
 
 **The decision.** One function guards every option domain in the memory subsystem:
 `MemoryOption.Require(value, MemoryOptionRange, owner, why)` is the sole `ArgumentOutOfRangeException` guard
-at all 32 sites across six files. It replaced 31 hand-rolled copies across five when it landed —
+at all 33 sites across six files. It replaced 31 hand-rolled copies across five when it landed —
 `DsrOptions`, `GraphMemoryOptions` and the three ranking options records — and every option guarded since has
 gone through it, `SalienceOptions.NoveltyWeight` first. `MemoryOptionRange` both TESTS the value and DESCRIBES itself, so the message's domain phrase and
 the comparison that rejected the caller come from one place. Both types are `internal`.
@@ -2756,3 +2757,30 @@ exactly, so the new behaviour is opt-in by the one party that knows — the stor
 of three signals already means "no relevance evidence"; every figure above was measured with it. The change
 is narrower than the naive fix in a second way too: seeded nodes are untouched, so **D82**'s competition
 argument and the "model-free ranking has no headroom" finding both still hold.
+
+## D98 — forgetting gets a vote in TRAVERSAL, and it is a floor rather than a weight (2026-08-29)
+
+`GraphMemoryOptions.ExpansionRetrievabilityFloor` — the retrievability a neighbour must still have to be
+walked to. Default `0`, which admits everything and is what every release through 3.0.2 did.
+
+**The gap it closes.** `EdgeHalfLife` decays the EDGE; nothing consulted the ENTRY on the traversal path. So
+a recall would correctly bury a superseded fact and an expansion of its neighbour handed that fact straight
+back — forgetting governed recall and had no vote in the walk. Measured on LongMemEval's knowledge-update
+class (`docs/memory.md` §5): a context holding the current value and NOT the superseded one fell 40.0% →
+36.0% as the walk went deeper, while `stale@k` climbed 56.0% → 60.0%.
+
+**An ORDERING weight was implemented first, measured, and withdrawn.** Scaling the walk order by
+retrievability moved every cell by exactly zero, because ordering can only matter when the caller's budget
+binds and in the measured case it did not — 15.9 items against a budget of 20, so everything the walk found
+fitted and the position it was found in was irrelevant. The floor holds the curve flat at 40.0% through all
+three shots. A knob whose measured effect on the case that motivated it is zero has not earned public
+surface, so the weight did not ship.
+
+**It excludes rather than deletes, and never hides the entry the caller NAMED.** A floored neighbour stays
+stored and stays reachable by any recall that scores it, so **D41**'s burial-not-deletion is untouched; and
+the seed of an expansion is returned whatever its retrievability, because asking to expand something buried
+must still return it. Only the walk OUT from a seed is filtered.
+
+**Default `0`, because it buys precision with recall.** The same run lost 4 points of current-fact hit rate
+for its 4 points of clean context. Which side a deployment wants is a property of its workload — the same
+reason `SemanticSeedK` ships off — and one class of one benchmark does not settle it for everyone.

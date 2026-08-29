@@ -217,6 +217,61 @@ public class GraphMemoryEngineTests
             "co-activation did not link the items returned together"));
     }
 
+    /// <summary>The fixture both tests below share: a hub linked to a BURIED entry and a live one, where the
+    /// buried entry deliberately holds the heavier edge — so edge weight alone keeps it and only
+    /// retrievability can drop it.</summary>
+    private static async Task<MemoryRef> Superseded(GraphMemoryEngine engine)
+    {
+        var stale = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy target is the alpha host"));
+        await Crowd(engine, 200);
+        var hub = await engine.RememberAsync(new MemoryWrite("t", "s", "deploy notes for the service"));
+        var current = await engine.RememberAsync(new MemoryWrite("t", "s", "the deploy target is the beta host"));
+        await engine.LinkAsync(hub, stale, weight: 1.0);
+        await engine.LinkAsync(hub, current, weight: 0.5);
+        return hub;
+    }
+
+    [Fact]
+    public async Task Expansion_walks_to_a_BURIED_neighbour_by_default_so_forgetting_has_no_vote_in_traversal()
+    {
+        // The control, and the defect it describes is measured: EdgeHalfLife decays the EDGE and nothing
+        // consulted the ENTRY, so a recall buries a superseded fact and an expansion hands it straight back.
+        // On LongMemEval's knowledge-update class that cost 4 points of clean context per extra shot.
+        var engine = Engine();
+
+        var walked = (await engine.ExpandAsync(await Superseded(engine))).Items.Skip(1).ToList();
+
+        Assert.Contains(walked, i => i.Headline.Contains("alpha", StringComparison.Ordinal));
+        Assert.Contains(walked, i => i.Headline.Contains("beta", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_retrievability_floor_stops_expansion_resurrecting_what_recall_buried()
+    {
+        // Same fixture, one option. The buried entry holds the HEAVIER edge, so this cannot pass on edge
+        // weight or on the id tiebreak — only the floor drops it.
+        var engine = Engine(new GraphMemoryOptions { ExpansionRetrievabilityFloor = 0.8 });
+
+        var walked = (await engine.ExpandAsync(await Superseded(engine))).Items.Skip(1).ToList();
+
+        Assert.DoesNotContain(walked, i => i.Headline.Contains("alpha", StringComparison.Ordinal));
+        Assert.Contains(walked, i => i.Headline.Contains("beta", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_floor_never_hides_the_entry_the_caller_NAMED_however_buried_it_is()
+    {
+        // Asking to expand something buried must still return it: the floor filters the walk OUT from a seed,
+        // never the seed. Without this an entry could become unreachable by the one call that names it.
+        var engine = Engine(new GraphMemoryOptions { ExpansionRetrievabilityFloor = 0.99 });
+        var buried = await engine.RememberAsync(new MemoryWrite("t", "s", "an old note about widgets"));
+        await Crowd(engine, 300);
+
+        var expanded = await engine.ExpandAsync(buried);
+
+        Assert.Contains("an old note about widgets", expanded.Items[0].Content!, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Expansion_returns_the_neighbours_of_what_it_expanded()
     {

@@ -119,6 +119,21 @@ internal static class MemoryLongMemEvalBench
             return 0;
         }
 
+        if (args.Contains("--shots"))
+        {
+            Console.WriteLine("=== What each SHOT buys on the workload this design is FOR ===");
+            Console.WriteLine();
+            Console.WriteLine("LoCoMo asks for arbitrary old material and a perfect archive wins it by");
+            Console.WriteLine("construction. This class asks the opposite: one fact was REVISED, so the context");
+            Console.WriteLine("a reader gets should hold the current value and NOT the superseded one. That is");
+            Console.WriteLine("what 'clean' scores, and it is the metric a smaller context is supposed to buy.");
+            Console.WriteLine();
+            Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
+            await RunShotsAsync(sampled, embedder,
+                ArgValue(args, "--expand-floor") is { } fl && double.TryParse(fl, out var ef) ? ef : 0);
+            return 0;
+        }
+
         if (ranks)
         {
             Console.WriteLine("=== Where the current and stale facts sit in the candidate pool ===");
@@ -206,6 +221,125 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
         return 0;
+    }
+
+    /// <summary>
+    /// The per-shot curve on the class where suppression is supposed to pay. <b>'clean' is the column that
+    /// matters</b>: the context holds the current fact and NOT the one it superseded, which is what a reader
+    /// actually consumes — <c>current@k</c> alone rewards a context that also carries the wrong answer.
+    /// <para>Every question gets a pristine store, so unlike the LoCoMo harness there is no cross-question
+    /// reinforcement to confound the shots.</para>
+    /// </summary>
+    private static async Task RunShotsAsync(List<Question> sampled, SweepDoubles.CachingEmbedder embedder,
+        double expandFloor)
+    {
+        const int ShotBudget = 2 * RecallLimit;
+        const int ExpandSeeds = 3;
+        var stopwatch = Stopwatch.StartNew();
+        string[] arms = ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}"];
+        var cur = new Dictionary<string, int>();
+        var sta = new Dictionary<string, int>();
+        var clean = new Dictionary<string, int>();
+        var items = new Dictionary<string, int>();
+        var chars = new Dictionary<string, long>();
+        var millis = new Dictionary<string, double>();
+        var done = 0;
+
+        foreach (var q in sampled)
+        {
+            Progress(++done, sampled.Count);
+            using var db = new MemoryPolicySweep.SweepDb();
+            var store = new SqliteMemoryGraphStore(db.Factory);
+            var engine = new GraphMemoryEngine("lme", store,
+                options: new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor },
+                embedder: embedder, vectors: new InMemoryVectorStore());
+
+            var index = new List<(string Text, float[] Vector)>();
+            foreach (var t in q.Turns)
+            {
+                var content = $"{t.Tag} {t.Text}";
+                await engine.RememberAsync(new MemoryWrite(Task, Scope, content));
+                index.Add((content, await embedder.EmbedAsync(content)));
+            }
+            await embedder.EmbedAsync(q.Text);   // warm the query embed so no arm pays for it alone
+
+            void Score(string arm, IReadOnlyList<string> body, double ms)
+            {
+                var hasCurrent = q.Current.Any(t => body.Any(b => b.Contains(t.Tag, StringComparison.Ordinal)));
+                var hasStale = q.Stale.Any(t => body.Any(b => b.Contains(t.Tag, StringComparison.Ordinal)));
+                if (hasCurrent) cur[arm] = cur.GetValueOrDefault(arm) + 1;
+                if (hasStale) sta[arm] = sta.GetValueOrDefault(arm) + 1;
+                if (hasCurrent && !hasStale) clean[arm] = clean.GetValueOrDefault(arm) + 1;
+                items[arm] = items.GetValueOrDefault(arm) + body.Count;
+                chars[arm] = chars.GetValueOrDefault(arm) + body.Sum(b => b.Length);
+                millis[arm] = millis.GetValueOrDefault(arm) + ms;
+            }
+
+            var clock = Stopwatch.StartNew();
+            var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit));
+            var text = new Dictionary<string, string>(StringComparer.Ordinal);
+            var order = new List<string>();
+            var frontier = new List<MemoryItem>();
+
+            void Hold(MemoryItem item)
+            {
+                var body = item.Content ?? item.Headline;
+                if (text.TryGetValue(item.Reference.Id, out var held))
+                {
+                    if (body.Length > held.Length) text[item.Reference.Id] = body;
+                    return;
+                }
+                if (order.Count >= ShotBudget) return;
+                text[item.Reference.Id] = body;
+                order.Add(item.Reference.Id);
+                frontier.Add(item);
+            }
+
+            foreach (var item in recall.Items) Hold(item);
+            Score("shot-1", [.. order.Select(id => text[id])], clock.Elapsed.TotalMilliseconds);
+
+            for (var shot = 2; shot <= 3; shot++)
+            {
+                var seeds = frontier.Take(ExpandSeeds).ToList();
+                frontier = [];
+                foreach (var s in seeds)
+                    foreach (var near in (await engine.ExpandAsync(s.Reference, hops: 1)).Items)
+                        // The floor is the ENGINE's (GraphMemoryOptions.ExpansionRetrievabilityFloor), not
+                        // this harness's. It was prototyped here first — MemoryItem already carries
+                        // Retrievability — and reproducing the prototype's number through the shipped option
+                        // is what says the option does what the prototype did.
+                        Hold(near);
+                Score($"shot-{shot}", [.. order.Select(id => text[id])], clock.Elapsed.TotalMilliseconds);
+            }
+
+            foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
+            {
+                var vclock = Stopwatch.StartNew();
+                var got = (await TopKAsync(embedder, index, q.Text, k)).ToList();
+                Score(arm, got, vclock.Elapsed.TotalMilliseconds);
+            }
+        }
+
+        var n = sampled.Count;
+        Console.WriteLine($"{"Arm",-12} {"clean",10} {"current@k",11} {"stale@k",10} {"items/q",9} "
+            + $"{"chars/q",9} {"ms/q",8}");
+        Console.WriteLine(new string('-', 74));
+        foreach (var arm in arms)
+            Console.WriteLine($"{arm,-12} {(double)clean.GetValueOrDefault(arm) / n,10:P1} "
+                + $"{(double)cur.GetValueOrDefault(arm) / n,11:P1} {(double)sta.GetValueOrDefault(arm) / n,10:P1} "
+                + $"{(double)items.GetValueOrDefault(arm) / n,9:F1} {(double)chars.GetValueOrDefault(arm) / n,9:F0} "
+                + $"{millis.GetValueOrDefault(arm) / n,8:F1}");
+
+        Console.WriteLine();
+        Console.WriteLine("  'clean' = the context holds the CURRENT fact and not the superseded one. It is the");
+        Console.WriteLine("  one a reader's answer actually depends on: a context carrying both hands the model");
+        Console.WriteLine("  the contradiction to resolve, which is the work this layer exists to do for it.");
+        Console.WriteLine("  'ms/q' is memory-layer time only, and the vector arms are an in-memory brute force");
+        Console.WriteLine("  with no persistence and no write-back - so that column compares a database against");
+        Console.WriteLine("  an array, not two retrieval strategies.");
+        Console.WriteLine();
+        Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
     }
 
     /// <summary>Reports where the pair lands on each ranking signal, and what that position is WORTH under

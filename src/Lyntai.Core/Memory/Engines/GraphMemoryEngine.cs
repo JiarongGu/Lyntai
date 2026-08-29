@@ -700,6 +700,10 @@ public sealed class GraphMemoryEngine(
             foreach (var neighbour in next.OrderByDescending(EffectiveEdgeWeight).ThenByDescending(n => n.Node.Id))
             {
                 if (!seen.Add(neighbour.Node.Id)) continue;
+                // Forgetting gets a vote in TRAVERSAL, not only in recall. Off at the shipped default, so
+                // this is the identity filter unless a deployment asks for it — see the option's own doc.
+                if (_options.ExpansionRetrievabilityFloor > 0
+                    && Retrievability(neighbour.Node) < _options.ExpansionRetrievabilityFloor) continue;
                 walked.Add(neighbour);
                 frontier.Add(neighbour.Node.Id);
             }

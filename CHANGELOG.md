@@ -14,6 +14,15 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`GraphMemoryOptions.ExpansionRetrievabilityFloor` — the retrievability a neighbour must still have to be
+  walked to** (`docs/DECISIONS.md` **D98**). Default `0`, which admits every neighbour and is what every
+  release through 3.0.2 did, so nothing changes unless a deployment asks. `EdgeHalfLife` decays the EDGE and
+  nothing consulted the ENTRY on that path, so a recall could bury a superseded fact and an expansion of its
+  neighbour handed it straight back. It EXCLUDES from the walk rather than deleting, and never filters the
+  entry the caller named — only the walk out from it. Measured on LongMemEval's knowledge-update class: a
+  context holding the current value and not the superseded one held flat at 40.0% across three shots instead
+  of falling to 36.0%, at a cost of 4 points of current-fact hit rate.
+
 - **`SalienceContext.SimilarCount` — how many stored entries actually resemble a write**, as opposed to
   `ComparableCount`, which is the raw return of a search asking for `SimilarityK + 1` with no floor and
   therefore saturates: it reports the same number for a write resembling one thing and a write resembling

@@ -1763,6 +1763,7 @@ sealed class Lyntai.Memory.GraphMemoryOptions
     Equals(GraphMemoryOptions other) : Boolean
     Equals(Object obj) : Boolean
     ExpandCharBudget : Nullable<Int32>
+    ExpansionRetrievabilityFloor : Double
     GetHashCode() : Int32
     HeadlineChars : Int32
     Hops : Int32

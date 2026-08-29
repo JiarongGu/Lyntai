@@ -800,6 +800,65 @@ would move them all, in a direction this says nothing about. 60 is Cormack, Clar
 value for fusing IR result lists, which is a different problem from fusing decay against relevance. **This is
 an argument for sweeping `K` properly, not for changing a default**; `TASKS.md` Part 109 carries it.
 
+### The mode this engine is FOR: shots, not one-shot (2026-08-29)
+
+Every number above scores a SINGLE top-k, and that is not how this engine is meant to be read. It says so
+itself: a recall returns **headlines** because *"associative content is withheld until expansion — that is
+what makes the first load cheap"*, and `ExpandAsync` reinforces what it walks because *"digging in one
+direction is exactly what should make that direction more retrievable next time"*. A one-shot benchmark is
+structurally blind to both. `--shots` measures the walk instead, model-free.
+
+**On the workload this design claims — LongMemEval knowledge-update, haystack variant, 25 questions.**
+`clean` is the column that matters: the context holds the CURRENT fact and **not** the one it superseded,
+which is what a reader's answer actually depends on. A context carrying both hands the model the
+contradiction to resolve, which is the work this layer exists to do for it.
+
+| arm | clean | current@k | stale@k | items/q | chars/q |
+|---|---|---|---|---|---|
+| `shot-1` | **40.0%** | 84.0% | 56.0% | 10.0 | **1,165** |
+| `shot-2` | 36.0% | 88.0% | 60.0% | 19.4 | 5,208 |
+| `shot-3` | 36.0% | 88.0% | 60.0% | 19.9 | 8,122 |
+| `vector` | 16.0% | 84.0% | 84.0% | 10.0 | 9,769 |
+| `vector-20` | 4.0% | 96.0% | 96.0% | 20.0 | 20,737 |
+
+**One shot delivers a clean context 2.5× as often as cosine on one-eighth the characters** — 40.0% at 1,165
+against 16.0% at 9,769. Cosine at k=20 reaches the current fact 96% of the time and reaches the superseded
+one just as often, which is the failure mode a decay model exists to prevent, priced: it costs 20,737
+characters to hand a reader both answers.
+
+**But the shot curve ran the wrong way, and that was a real defect.** `clean` FELL as the walk went deeper
+while `stale@k` climbed, because `EdgeHalfLife` decays the EDGE and nothing consulted the ENTRY — so
+expansion resurrected exactly what recall had buried. **D98** adds
+`GraphMemoryOptions.ExpansionRetrievabilityFloor` and holds the curve flat at 40.0% / 40.0% / 40.0% with
+`stale@k` back at 56.0%, for 4 points of `current@k`. **An ordering weight was tried first and measured
+moving nothing** — ordering only matters when the caller's budget binds, and at 15.9 items against a budget
+of 20 it did not.
+
+**On a SEARCH workload the curve runs the other way, which is why the shot count is a question and not a
+constant.** LoCoMo, 200 questions, evidence-hit:
+
+| arm | evidence-hit | items/q | chars/q | ms/q | hit / 1k chars |
+|---|---|---|---|---|---|
+| `shot-1` | 30.0% | 20.0 | 2,252 | 186.4 | 0.133 |
+| `shot-2` | **36.0%** | 36.4 | 4,273 | 208.1 | 0.084 |
+| `shot-3` | 36.5% | 40.0 | 4,860 | 228.7 | 0.075 |
+| `vector` | 80.5% | 20.0 | 3,522 | 1.4 | **0.229** |
+| `full` | 100% | 590.1 | 98,886 | — | 0.010 |
+
+**Shot 2 is where the value is: +6.0 points against shot 3's +0.5.** So *"find me something"* wants two
+shots and *"which value is current"* wants one — the optimum is a property of the question, not a default.
+`ExpandSeeds` was ruled out as the constraint rather than assumed: at 20 seeds instead of 3 the arm finds
+the same 36.0% for 36% more characters, so the ceiling is what the graph is connected to.
+
+**Three things in these tables are honest limits rather than results.** The `full` arm exceeds this reader's
+window — measured by needle probe, a passcode at the top of the prompt survives 85,508 characters and does
+not survive 109,908 — so its QA row is a floor. `ms/q` compares a SQLite-backed store against an in-memory
+array with no persistence and no write-back, and it is cold-start dominated at one store per question;
+`memory-scale`'s steady-state p50 is 10.4ms at 1k, and 75% of that is the write-back. And LoCoMo questions
+within a conversation share a store, so a recall reinforces what the next question reads — `shot-1` moved
+30.0% → 28.0% between two runs differing only in how much a LATER shot expanded, which is only reachable
+that way. It affects every LoCoMo figure in this document.
+
 ### How these choices sit against the published field (surveyed 2026-08-29)
 
 *A literature pass, not a measurement. Every claim below is attributed, because none of it was run here —

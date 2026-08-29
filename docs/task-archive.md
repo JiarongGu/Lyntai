@@ -1389,3 +1389,37 @@ what makes it comparable to the published table.
 one benchmark is not a mandate to move a published constant.
 
 - *(No backlog entry — this came from a measurement, not a plan.)*
+
+## Part 115 — the QA half, the shot curve, and a defect where forgetting had no vote (2026-08-29)
+
+✅ done 2026-08-29 — the QA half of `TASKS.md` Part 109 ran, and it grew a second half nobody had asked for
+because the first one measured the wrong mode. Tables in `docs/memory.md` §5.
+
+**The QA half, on Mem0's own benchmark.** LoCoMo, 100 questions, local reader, token-F1 primary and the LLM
+judge beside it: `lyntai` 20.3%, `lyntai-2shot` 22.5%, `vector` 45.8%, `vector-40` 49.8%. Grading is now
+MODEL-FREE first — a model is not better at exact comparison, and this judge is the same 4B model that wrote
+the answer. The judge is uniformly more generous (36.0% against 20.3%) and preserves the ordering, so it
+changes no conclusion.
+
+**The reframing: a single top-k is not the mode this engine is built for.** A recall returns HEADLINES
+because associative content is withheld until expansion, and `ExpandAsync` reinforces what it walks. So
+`--shots` measures the walk. On LongMemEval knowledge-update (haystack) shot-1 delivers a clean context
+**40.0% of the time on 1,165 characters** against cosine's **16.0% on 9,769** — 2.5× the precision at
+one-eighth the context, which is the design's own claim measured on the field's data.
+
+**The defect that found (D98).** `clean` FELL as the walk went deeper (40.0 → 36.0) while `stale@k` climbed:
+`EdgeHalfLife` decays the EDGE and nothing consulted the ENTRY, so expansion resurrected what recall buried.
+`ExpansionRetrievabilityFloor` holds it flat at 40.0% across all three shots. **An ordering weight shipped
+first in draft, measured zero, and was withdrawn before commit** — ordering cannot matter unless the
+caller's budget binds, and it did not.
+
+**The shot optimum is a property of the QUESTION.** Search wants two shots (LoCoMo +6.0 at shot 2 against
++0.5 at shot 3); resolution wants one. That is the useful half of a negative result.
+
+**Four harness defects found, each of which would have published a wrong number**: the `full` ceiling arm
+exceeds the reader's window (needle-probed at 85,508 good / 109,908 bad), the walk deduped by id and threw
+away the headline→content upgrade that IS the payload of expanding, `ExpandSeeds` was an unmeasured
+arbitrary cap (ruled out — 20 seeds finds the same 36.0%), and LoCoMo questions within a conversation share
+a store so a recall reinforces what the next question reads. The last is filed rather than fixed.
+
+- **Run the QA half, and more of it.**

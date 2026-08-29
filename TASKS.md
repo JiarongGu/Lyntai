@@ -545,10 +545,22 @@ worse, and the pool provably contains the evidence. The residual gap is the desi
   Its own bound is already measured: past K = 120 the haystack pays 16.7 points of `current@k` while the
   oracle shows nothing, so a ladder read on the cheap variant alone would call K = 1000 free.
 
-- [ ] **Run the QA half, and more of it.** The model-free metric is the trustworthy one, but the accuracy
-  table is what the field publishes. It needs a reader model, its absolute value is not comparable to a
-  published number, and only the ARM DIFFERENCE transfers. 200 of 1540 LoCoMo questions were sampled; the
-  full set and a second embedder are both cheap.
+_**The QA half RAN — `docs/task-archive.md` Part 115.** LoCoMo, 100 questions, token-F1 primary with the LLM
+judge beside it, plus a `--shots` diagnostic for the multi-shot mode the one-shot tables could not see. It
+found **D98** and four harness defects. What is left of the item is below: more of it, not the first of
+it._
+
+- [ ] **Widen the QA half: the full question set, a second embedder, a second reader.** 100 of 1540 LoCoMo
+  questions ran, on one local reader whose window the `full` arm exceeds. The absolute values are not
+  comparable to a published number and only the ARM DIFFERENCE transfers, so what widening buys is
+  confidence in the differences rather than a rankable score.
+  <br>**Fix the cross-question contamination first, or the widened numbers inherit it.** LoCoMo questions
+  within a conversation share a store and a recall reinforces what the next question reads: `shot-1` moved
+  30.0% → 28.0% between two runs differing only in how much a LATER shot expanded. A per-question store is
+  the clean fix and is affordable by copying the migrated SQLite file rather than re-ingesting.
+  <br>**And sweep `ExpansionRetrievabilityFloor` while doing it** (**D98**). It ships at `0` on one class of
+  one benchmark; 0.8 held the shot curve flat there and cost 4 points of current-fact hit rate. Whether any
+  default moves is the owner's call, and it needs more than one workload.
   <br>*(**LongMemEval is no longer part of this item** — it landed 2026-08-29 in both variants,
   `docs/task-archive.md` Part 112. What it left behind is scope rather than a gap: two of its six classes are
   measured, and `multi-session` (133 questions), the three single-session classes and `BEAM` are untouched.
