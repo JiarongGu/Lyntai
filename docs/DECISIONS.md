@@ -2744,6 +2744,9 @@ that had actually been scored. Measured on LoCoMo (`docs/memory.md` §5), eviden
 
 `SemanticSeedK` becomes worth **+5.0 points** where it was worth exactly 0.0 — a real 0.785 cosine could
 never beat a fabricated 1.000, so the option was unreachable rather than weak.
+<br>_Both columns predate the per-question isolation fix (`docs/task-archive.md` **Part 118**), which moved
+every LoCoMo engine arm up 20–25 points; isolated, `defaults` reads 54.5% rather than 31.0%. The DELTA this
+table argues is a within-regime comparison and is unaffected — the defect and its size stand._
 
 **The rejected alternatives, and the first one was tried and measured.** Reporting `0` alone gets the same
 retrieval numbers and **deletes graph traversal**: a multiplicative policy scores a product, so a zero
@@ -2829,9 +2832,19 @@ with detail bought per-entry by expanding — not a big context assembled up fro
 
 **What measurement settled** (`docs/memory.md` §5). On LongMemEval knowledge-update, shot 1 returns a clean
 context — the current fact and not the superseded one — 40.0% of the time on 1,165 characters, against
-cosine's 16.0% on 9,769: **2.5× the precision on an eighth of the context**. On LoCoMo, a SEARCH workload,
-shot 2 is worth +6.0 points where shot 3 is worth +0.5. So the useful shot count is a property of the
-QUESTION — resolution wants one, search wants two — and is not a constant to pick.
+cosine's 16.0% on 9,769: **2.5× the precision on an eighth of the context**.
+
+**AMENDED 2026-08-29 — the LoCoMo half of the original evidence was a harness artefact and is withdrawn.**
+This entry read *"on LoCoMo, a SEARCH workload, shot 2 is worth +6.0 points where shot 3 is worth +0.5, so
+the useful shot count is a property of the QUESTION — resolution wants one, search wants two"*. LoCoMo
+questions within a conversation shared a store, and isolating them (**Part 118**) flattens that curve to
+**+1.5 and +1.0** on a shot 1 that was itself 24.5 points too low. *Search wants two shots* is therefore
+unsupported, and no measurement here now shows expansion buying much on a search workload.
+<br>**The decision stands on its other leg**, which is why it is amended rather than reversed: the engine
+withholds associative content until an expansion asks for it, so a one-shot metric cannot see the mode it is
+built for whatever the curve turns out to be. Evaluating as a walk is what makes the shot curve VISIBLE —
+and a visible flat curve is a result, not a reason to stop looking. That the shot count is not a constant is
+now carried by knowledge-update alone.
 
 **What stays OPEN, deliberately.** That 2-shot is the expected shape for most adopting applications is the
 owner's working position, not a measured default: it holds on search and does not on resolution, and no

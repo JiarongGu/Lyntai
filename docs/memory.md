@@ -532,6 +532,12 @@ why a 0.785 cosine loses, and why the knob moves the number by exactly zero.
 | `lyntai+rel` | 22.5% | **63.5%** |
 | `vector` (control, engine untouched) | 80.5% | 80.5% |
 
+_**Both columns predate the per-question isolation fix** (Part 118), so read the DELTA and not the levels:
+the isolated `lyntai` is 54.5%, not 31.0%. Every arm here shared a store across questions, so both columns
+carry the same offset and the within-regime comparison this table exists to make is unaffected. It is left
+as measured rather than restated, because re-running it would need a `RetrievabilityWeight` ladder the
+shipped harness no longer has._
+
 The control's being byte-identical is what says the harness did not move underneath. `SemanticSeedK` becomes
 worth **+5.0 points** where it was worth exactly 0.0 — it was unreachable, not weak. **That also revises the
 "two separate costs" reading above**: much of what looked like a recency preference was this literal, since
@@ -593,32 +599,44 @@ stored, embedded and reachable, and the engine spent its slots elsewhere — whi
 this benchmark, was a real defect on any philosophy and stands independently of it.
 
 **The residual gap is the DESIGN, and a second ladder proves it rather than assuming it** (`memory-locomo
---retrieval --n 200`, every arm keeping retrievability at its shipped default):
+--retrieval --n 200`, every arm keeping retrievability at its shipped default). **Re-measured 2026-08-29
+after the per-question isolation fix** (`docs/task-archive.md` Part 118) — the right-hand column is what this
+table said before it, kept because the gap between the columns is itself the finding:
 
-| arm | evidence-hit@20 |
-|---|---|
-| `lyntai` | 31.0% |
-| `+sem` (`SemanticSeedK = 20`) | **36.0%** |
-| `+sem+hop0` (`HopWeight = 0`) | 11.5% |
-| `+sem80` (`SemanticSeedK = 80`) | 30.0% |
-| `+sem80+hop0` | 17.5% |
-| `vector` | 80.5% |
+| arm | evidence-hit@20 | as first published (questions shared a store) |
+|---|---|---|
+| `lyntai` | **54.5%** | 31.0% |
+| `+sem` (`SemanticSeedK = 20`) | **57.5%** | 36.0% |
+| `+sem+hop0` (`HopWeight = 0`) | 31.5% | 11.5% |
+| `+sem80` (`SemanticSeedK = 80`) | 55.0% | 30.0% |
+| `+sem80+hop0` | 41.0% | 17.5% |
+| `vector` | 80.5% | 80.5% |
 
-Both misallocation hypotheses are refuted, and in the opposite direction. **Graph traversal is carrying the
-arm, not stealing slots** — `HopWeight = 0` costs 24.5 points. And MORE semantic seeds make it WORSE
-(36.0 → 30.0), which is **D82** behaving as documented: RRF ranks by competition, so widening one signal
-re-ranks every candidate within it.
+**`vector` is the control that makes the other five readable.** It never touches the graph store — plain
+cosine over the same embedder — so isolation could not move it, and it did not move by a tenth of a point
+across a 22-minute re-run. Every engine arm gained 20–25 points; the arm that structurally could not gain,
+did not.
+
+Both misallocation hypotheses are still refuted, and in the same direction. **Graph traversal is carrying
+the arm, not stealing slots** — `HopWeight = 0` costs **23.0 points** (24.5 before isolation). And MORE
+semantic seeds still make it WORSE (57.5 → 55.0), which is **D82** behaving as documented: RRF ranks by
+competition, so widening one signal re-ranks every candidate within it. The effect is **−2.5 points** where
+the contaminated run read −6.0, so isolation shrank it without reversing it.
 
 **The pool provably contains the evidence, so this is not a seeding problem either.** The `+sem80` arm seeds
 the top-80 by cosine, which contains cosine's top-20 by construction, and that top-20 holds the evidence
-80.5% of the time. So the candidate pool holds it at least 80.5% of the time and the arm returns it 30.0% of
-the time: **roughly fifty points are lost ranking candidates that were present**. The signal demoting them is
-retrievability — old, mentioned once, never reinforced. That is the decay model doing its job, not
-misallocating slots.
+80.5% of the time. So the candidate pool holds it at least 80.5% of the time and the arm returns it 55.0% of
+the time: **roughly twenty-five points are lost ranking candidates that were present** — half what the
+contaminated run reported. The signal demoting them is retrievability — old, mentioned once, never
+reinforced. That is the decay model doing its job, not misallocating slots.
 
 **So the boundary is located.** D97 was the defect, worth about twenty points and independent of any
 philosophy. What remains is the design: every knob that closes it turns forgetting down, and the two that
 leave forgetting alone both made things worse.
+<br>**A second twenty-odd points turned out to be the INSTRUMENT, not the design.** The isolation fix moved
+`lyntai` 31.0 → 54.5 without touching the library at all, so the gap this section set out to explain was
+roughly half harness. What survives is every comparison made WITHIN a regime — which is all of the
+reasoning above, because each hypothesis was tested by an arm difference rather than by an absolute.
 
 **What LoCoMo is FOR here: a differential instrument, not a scoreboard.** It stresses the archival axis the
 synthetic corpus cannot, which is precisely why it exposed a defect 3429 tests were blind to. The benchmark
@@ -694,13 +712,17 @@ why the oracle figures are not the ones to quote):
 
 | workload | what it asks | `lyntai` | `vector` | delta |
 |---|---|---|---|---|
-| LoCoMo | retrieve arbitrary old material | 31.0% | 80.5% | **−49.5** |
+| LoCoMo | retrieve arbitrary old material | 54.5% | 80.5% | **−26.0** |
 | LongMemEval temporal | need the old fact AND the new | **47.7%** | 43.9% | **+3.8** |
 | LongMemEval knowledge-update | prefer the new over the superseded | **86.4%** | 46.4% | **+40.0** |
 
+_The LoCoMo row was **−49.5** until 2026-08-29, on a run whose questions shared a store; it is the isolated
+figure now (Part 118). The two LongMemEval rows are unaffected — that harness already built one store per
+question, which is how the LoCoMo defect was recognised as a defect rather than as a property of the data._
+
 **One mechanism produces all three.** Suppressing superseded material is no longer a cost where both facts
 are wanted (+3.8, five questions), decisive where the old one is wrong (+40.0), and expensive only where the
-workload is to retrieve arbitrary old material nobody has referred to since (−49.5). A library scoring well on all three
+workload is to retrieve arbitrary old material nobody has referred to since (−26.0). A library scoring well on all three
 would be one that had stopped forgetting. So the honest summary is not "better" or "worse": **decay is a bet
 about which of those workloads a deployment has**, and these are its measured odds.
 
@@ -835,29 +857,43 @@ moving nothing** — ordering only matters when the caller's budget binds, and a
 of 20 it did not.
 
 **On a SEARCH workload the curve runs the other way, which is why the shot count is a question and not a
-constant.** LoCoMo, 200 questions, evidence-hit:
+constant.** LoCoMo, 200 questions, evidence-hit. **Re-measured 2026-08-29 under per-question isolation**
+(`docs/task-archive.md` Part 118); the right-hand column is what this table said before it:
 
-| arm | evidence-hit | items/q | chars/q | ms/q | hit / 1k chars |
-|---|---|---|---|---|---|
-| `shot-1` | 30.0% | 20.0 | 2,252 | 186.4 | 0.133 |
-| `shot-2` | **36.0%** | 36.4 | 4,273 | 208.1 | 0.084 |
-| `shot-3` | 36.5% | 40.0 | 4,860 | 228.7 | 0.075 |
-| `vector` | 80.5% | 20.0 | 3,522 | 1.4 | **0.229** |
-| `full` | 100% | 590.1 | 98,886 | — | 0.010 |
+| arm | evidence-hit | items/q | chars/q | ms/q | hit / 1k chars | pre-isolation |
+|---|---|---|---|---|---|---|
+| `shot-1` | 54.5% | 20.0 | 2,264 | 202.9 | **0.241** | 30.0% |
+| `shot-2` | 56.0% | 35.9 | 4,246 | 224.3 | 0.132 | 36.0% |
+| `shot-3` | **57.0%** | 39.9 | 4,855 | 243.5 | 0.117 | 36.5% |
+| `vector` | 80.5% | 20.0 | 3,522 | 1.2 | 0.229 | 80.5% |
+| `vector-40` | 86.0% | 40.0 | 6,885 | 1.1 | 0.125 | — |
+| `full` | 100% | 590.1 | 98,886 | — | 0.010 | 100% |
 
-**Shot 2 is where the value is: +6.0 points against shot 3's +0.5.** So *"find me something"* wants two
-shots and *"which value is current"* wants one — the optimum is a property of the question, not a default.
-`ExpandSeeds` was ruled out as the constraint rather than assumed: at 20 seeds instead of 3 the arm finds
-the same 36.0% for 36% more characters, so the ceiling is what the graph is connected to.
+**The multi-shot gain was mostly the contamination, and this is the correction that costs a published
+claim.** Isolated, shot 2 is worth **+1.5** and shot 3 another **+1.0** — a nearly flat curve — where the
+shared-store run read +6.0 and +0.5. The mechanism is visible once stated: a shared store let earlier
+questions' expansions reinforce elsewhere, which DEPRESSED shot 1, and later shots then recovered ground
+that was never lost in an isolated run. So *"search wants two shots"* is **no longer supported by this
+measurement**; see **D100**, amended.
+<br>Two internal checks say the re-measurement is sound. `shot-1` reads 54.5%, the same figure the retrieval
+ladder's `lyntai` arm reports from a wholly separate run — they are the same operation, so agreeing to the
+tenth is the cross-check. And `vector` is byte-identical at 80.5% / 3,522 chars, as it must be.
+<br>`ExpandSeeds` was ruled out as the constraint rather than assumed, and that survives isolation: at 20
+seeds instead of 3 the three-shot arm finds the same share (65.4% both times on the 25-question control), so
+the ceiling is what the graph is connected to rather than how many seeds are expanded.
 
 **Three things in these tables are honest limits rather than results.** The `full` arm exceeds this reader's
 window — measured by needle probe, a passcode at the top of the prompt survives 85,508 characters and does
 not survive 109,908 — so its QA row is a floor. `ms/q` compares a SQLite-backed store against an in-memory
 array with no persistence and no write-back, and it is cold-start dominated at one store per question;
-`memory-scale`'s steady-state p50 is 10.4ms at 1k, and ~80% of that was the write-back when it was measured — where **D99** then cut a recall's co-activation from ten store round-trips to one and **D101** cut the whole write-back from three store calls to one, neither of them resolvable by the instrument (its 10k p50 spans 8.9–11.2ms across runs of identical code, so no latency claim is made for either). And LoCoMo questions
-within a conversation share a store, so a recall reinforces what the next question reads — `shot-1` moved
-30.0% → 28.0% between two runs differing only in how much a LATER shot expanded, which is only reachable
-that way. It affects every LoCoMo figure in this document.
+`memory-scale`'s steady-state p50 is 10.4ms at 1k, and ~80% of that was the write-back when it was measured — where **D99** then cut a recall's co-activation from ten store round-trips to one and **D101** cut the whole write-back from three store calls to one, neither of them resolvable by the instrument (its 10k p50 spans 8.9–11.2ms across runs of identical code, so no latency claim is made for either). And the third limit is **FIXED as of
+2026-08-29** rather than outstanding: LoCoMo questions within a conversation used to share a store, so a
+recall reinforced what the next question read. Each question now runs against a private byte-copy of the
+ingested store (`docs/task-archive.md` Part 118), and `vector` — which never touches the graph store — is
+byte-identical across the change, which is what says the re-measurement moved the engine and not the
+harness. **The effect was five times what filing it had suggested**: `shot-1` was reported moving 30.0% →
+28.0%, and the isolated control puts it at 65.4% against 53.8% on the same pair of runs. Every LoCoMo
+figure in this document is either re-measured or marked with the regime it was taken in.
 
 ### How these choices sit against the published field (surveyed 2026-08-29)
 

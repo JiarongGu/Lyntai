@@ -25,14 +25,14 @@ published before that day scores one shot, which measures a vector index wearing
 116 carries what that opens, and the biggest item in it is that **the library has no n-shot surface** —
 every consumer wanting the mode this engine is designed for hand-rolls the loop.
 
-**The startable set is SEVEN items: Part 116's four, Part 109's `K` sweep and its QA half, and the
+**The startable set is SIX items: Part 116's three, Part 109's `K` sweep and its QA half, and the
 3D-backend survey inside Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>_Part 116 held five until the write-back collapse landed as `docs/task-archive.md` Part 117 — this count
-is edited in the same change as the item, which is the habit `pitfalls.md` prescribes after four stale
-banners._
+<br>_Part 116 held five until the write-back collapse landed as `docs/task-archive.md` Part 117 and the LoCoMo
+isolation fix as Part 118 — this count is edited in the same change as the item, which is the habit
+`pitfalls.md` prescribes after four stale banners._
 <br>**Part 109's `K` sweep is the one to read after 116**: `K` turns out to select a REGIME (excellence on
 one signal at low K, balance across all of them at high K), it was never swept, and the one class measured
 says the shipped 60 is on the wrong side of free. Three of that Part's four items have now closed (**D97**,
@@ -528,12 +528,16 @@ Part 111) and the LongMemEval half closed as **Part 112**. `node devtools/dev.mj
 is the first measurement this repository has taken on an instrument it did not build: evidence-hit@20,
 model-free, 200 LoCoMo questions. Defaults went **11.0% → 31.0%** on D97 and plain cosine is **80.5%** at the
 same k, so a real gap remains. Tables and the two harness defects that had to be fixed first are
-`docs/memory.md` §5._
+`docs/memory.md` §5.
+<br>**A THIRD harness defect landed 2026-08-29 (`docs/task-archive.md` Part 118) and moved every figure in
+this paragraph**: questions shared a store, and isolating them puts defaults at **54.5%**, not 31.0%. Cosine
+is unchanged at 80.5% — it never touches the graph store — so the gap is **−26.0** rather than −49.5._
 
 _**The ranking half of this Part is CLOSED — `docs/task-archive.md` Part 113.** The ladder it asked for ran
 in the same commit that reframed the item, and refuted both misallocation hypotheses plus the pre-committed
-seeding fallback: `HopWeight = 0` costs 24.5 points (traversal carries the arm), more semantic seeds make it
-worse, and the pool provably contains the evidence. The residual gap is the design, not a defect._
+seeding fallback: `HopWeight = 0` costs 23.0 points on the isolated re-run and 24.5 before it (either way,
+traversal carries the arm), more semantic seeds make it worse, and the pool provably contains the evidence.
+The residual gap is the design, not a defect._
 
 - [ ] **Sweep `ReciprocalRankFusionOptions.K` across workloads — it selects a REGIME, and nobody knew.**
   `memory-longmemeval --ranks` (`docs/memory.md` §5) found the mechanism behind the haystack's rising
@@ -559,10 +563,11 @@ it._
   questions ran, on one local reader whose window the `full` arm exceeds. The absolute values are not
   comparable to a published number and only the ARM DIFFERENCE transfers, so what widening buys is
   confidence in the differences rather than a rankable score.
-  <br>**Fix the cross-question contamination first, or the widened numbers inherit it.** LoCoMo questions
-  within a conversation share a store and a recall reinforces what the next question reads: `shot-1` moved
-  30.0% → 28.0% between two runs differing only in how much a LATER shot expanded. A per-question store is
-  the clean fix and is affordable by copying the migrated SQLite file rather than re-ingesting.
+  <br>_**The cross-question contamination this item named as a precondition is FIXED** (2026-08-29,
+  `docs/task-archive.md` Part 118): every question now runs against a private byte-copy of the ingested
+  store, so a widened run no longer inherits it. **The QA half itself has NOT been re-run** — it needs a
+  reader — so its numbers (`docs/task-archive.md` Part 115) were taken under contamination, and widening now
+  means re-measuring rather than adding to them._
   <br>**And sweep `ExpansionRetrievabilityFloor` while doing it** (**D98**). It ships at `0` on one class of
   one benchmark; 0.8 held the shot curve flat there and cost 4 points of current-fact hit rate. Whether any
   default moves is the owner's call, and it needs more than one workload.
@@ -603,10 +608,6 @@ call). The session that produced all three is `docs/task-archive.md` Parts 112�
 - [ ] **Extend the shot curve past what was sampled.** Knowledge-update haystack ran 25 of 70; the temporal
   class and LongMemEval's four unmeasured classes have no shot curve at all. Cheap and model-free.
 
-- [ ] **Fix LoCoMo's cross-question contamination before widening any LoCoMo number.** Questions within a
-  conversation share a store and a recall reinforces what the next one reads: `shot-1` moved 30.0% → 28.0%
-  between two runs differing only in how much a LATER shot expanded. Copying the migrated SQLite file per
-  question is affordable where re-ingesting is not. It affects every LoCoMo figure in `docs/memory.md`.
 
 ---
 

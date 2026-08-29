@@ -1461,3 +1461,44 @@ snapshot, exactly as `LinkManyAsync` already meant it — the parts still commit
 precisely what the review log going last relies on.
 
 - **Collapse the recall write-back into ONE store call.**
+
+## Part 118 — LoCoMo's questions shared a store, and it was worth 20-25 points (2026-08-29)
+
+✅ done 2026-08-29 — `TASKS.md` Part 116's contamination item. LoCoMo ran every question of a conversation
+against one store, and this engine WRITES on every read: a recall reinforces what it returned and
+`ExpandAsync` reinforces what it walks, so question N read a graph questions 1..N−1 had already dug through.
+Each question now runs against a private byte-copy of the ingested store — `SweepDb.Clone()`, ingest once
+into a template nothing reads. **No library change**; `MemoryLongMemEvalBench` already built one store per
+question, which is how this was recognisable as a defect rather than as a property of the data.
+
+**The positive control is the finding, not the fix.** Two runs differing ONLY in `--seeds` — how much a
+LATER shot expands — must leave `shot-1` untouched, because shot 1 is the same query against the same corpus
+either way. Pre-fix it read **65.4% at `--seeds 3` and 53.8% at `--seeds 20`**; post-fix, 65.4% both times.
+The old code had to fail that check or it would only be evidence the number was stable, so the fix was
+stashed and the pair re-run against it.
+
+**Every LoCoMo figure moved 20-25 points, and `vector` did not move at all.** The retrieval ladder went
+`lyntai` 31.0 → **54.5**, `+sem` 36.0 → 57.5, `+sem+hop0` 11.5 → 31.5, `+sem80` 30.0 → 55.0,
+`+sem80+hop0` 17.5 → 41.0 — while `vector`, which never touches the graph store, was byte-identical at
+80.5% across a 22-minute re-run. An arm that structurally could not gain did not gain, which is what makes
+the other five readable as isolation rather than drift. The gap to cosine is **−26.0**, not −49.5.
+
+**It cost a published claim, and that is the honest headline.** **D100** argued the useful shot count is a
+property of the question, citing LoCoMo shot 2 at +6.0 against shot 3's +0.5. Isolated, the curve is
+**+1.5 and +1.0** on a shot 1 that was 24.5 points too low: a shared store DEPRESSED shot 1, and later
+shots recovered ground that was never lost. *"Search wants two shots"* is withdrawn; D100 stands on its
+other leg (a one-shot metric cannot see a mode that withholds content until asked), amended in place.
+
+**Two cross-checks that the re-measurement is sound.** `shot-1` reads 54.5% and the retrieval ladder's
+`lyntai` arm reads 54.5% from a wholly separate run — they are the same operation. And the clone control
+counts rows in the copy per conversation (`419 of 419`), because a lossy clone presents as a recall-quality
+regression rather than as a broken harness. The WAL is the trap there: a byte copy taken while the
+write-ahead log still holds committed rows is a silently partial database, so `Clone()` checkpoints first
+and copies a surviving `-wal` too. `.claude/knowledge/pitfalls.md` §Testing carries the general form.
+
+**What is NOT re-measured, stated rather than implied.** The D97 before/after tables in `docs/memory.md` and
+`DECISIONS.md` D97 need a `RetrievabilityWeight` ladder the shipped harness no longer has; both columns
+share the contaminated regime, so their DELTA stands and both now say so. The QA half was not re-run at all
+— it needs a reader, and widening it is `TASKS.md` Part 109.
+
+- **Fix LoCoMo's cross-question contamination before widening any LoCoMo number.**

@@ -153,6 +153,10 @@ internal static class MemoryLocomoBench
             var mine = sampled.Where(q => q.ConvId == convId).ToList();
             if (mine.Count == 0) continue;
 
+            // Per CONVERSATION, not once per run: a control that checks one of ten while reading as "the
+            // clone works" is the partial scan this repository files under precision-without-provenance.
+            var cloneChecked = false;
+
             // ONE PRISTINE STORE PER ARM, and this is a correctness requirement rather than tidiness.
             // A recall REINFORCES what it returns, so three arms sharing a store would each mutate the decay
             // state the next one reads. That is not hypothetical: it moved this table's own numbers between
@@ -207,14 +211,27 @@ internal static class MemoryLocomoBench
             var recalled = new Dictionary<(string Arm, string Question), List<string>>();
             foreach (var (arm, options, ranking) in configs)
             {
-                using var db = new MemoryPolicySweep.SweepDb();
-                var store = new SqliteMemoryGraphStore(db.Factory);
+                // INGESTED ONCE into a template nothing reads, then CLONED per question. A recall reinforces
+                // what it returned and ExpandAsync reinforces what it walks, so questions sharing one store
+                // are not independent trials — `shot-1` moved 30.0% to 28.0% between two runs differing only
+                // in how much a LATER shot expanded. Copying a migrated file is what makes a per-question
+                // store affordable where re-ingesting every question is not.
+                using var template = new MemoryPolicySweep.SweepDb();
                 var vectors = new InMemoryVectorStore();
-                var engine = new GraphMemoryEngine("locomo", store, options: options,
+                var ingest = new GraphMemoryEngine("locomo",
+                    new SqliteMemoryGraphStore(template.Factory), options: options,
                     embedder: embedder, vectors: vectors, ranking: ranking);
 
                 foreach (var text in texts)
-                    await engine.RememberAsync(new MemoryWrite(convId, "session", text));
+                    await ingest.RememberAsync(new MemoryWrite(convId, "session", text));
+
+                // The vector store is deliberately SHARED across questions: RememberAsync is the only thing
+                // that writes it, so it is read-only once ingestion is done, and re-embedding per question
+                // would cost more than the rest of the study. The graph store is the one that mutates on
+                // READ, and it is the one being cloned.
+                GraphMemoryEngine Fresh(MemoryPolicySweep.SweepDb clone) =>
+                    new("locomo", new SqliteMemoryGraphStore(clone.Factory), options: options,
+                        embedder: embedder, vectors: vectors, ranking: ranking);
 
                 // CONTROL, added for TASKS.md Part 109: SemanticSeedK = 20 moved evidence-hit by 0.0 points
                 // and the read path looks correct on inspection, so the question is whether the vectors are
@@ -223,6 +240,10 @@ internal static class MemoryLocomoBench
                 if (options?.SemanticSeedK > 0 && !probed)
                 {
                     probed = true;
+                    // on its own clone: the probe issues a real recall, and a recall reinforces — running it
+                    // against the template would hand every question below a store it had already read
+                    using var probeDb = template.Clone();
+                    var engine = Fresh(probeDb);
                     var collection = $"locomo|{convId}|session";
                     var probeVector = await embedder.EmbedAsync(mine[0].Text);
                     var all = await vectors.SearchAsync(collection, probeVector, 100_000);
@@ -247,6 +268,24 @@ internal static class MemoryLocomoBench
 
                 foreach (var q in mine)
                 {
+                    // A PRIVATE copy of the ingested store, so this question reads what ingestion left and
+                    // not what the previous question reinforced. Cloned before the clock starts: the copy is
+                    // harness cost and the ms column prices retrieval.
+                    using var qdb = template.Clone();
+                    var engine = Fresh(qdb);
+
+                    // CONTROL, once per conversation: a clone that silently lost rows would present as a
+                    // recall-quality regression rather than as a broken harness, which is the direction that
+                    // gets published. Counted from the store, not assumed from the copy having succeeded.
+                    if (!cloneChecked)
+                    {
+                        cloneChecked = true;
+                        var present = await new SqliteMemoryGraphStore(qdb.Factory)
+                            .SeedAsync("locomo", convId, "session", null, texts.Count + 16);
+                        Console.WriteLine($"  CONTROL clone/{convId}: {present.Count} of {texts.Count} "
+                            + "ingested turns present in the per-question copy");
+                    }
+
                     var clock = Stopwatch.StartNew();
                     var recall = await engine.RecallAsync(
                         new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit));

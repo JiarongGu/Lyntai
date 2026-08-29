@@ -1256,7 +1256,42 @@ internal static class MemoryPolicySweep
             Factory = new SqliteConnectionFactory(_path);
         }
 
+        // The clone path: copy an already-migrated file instead of migrating a new one. Private because a
+        // caller must come through Clone(), which checkpoints first — a copy taken while the write-ahead log
+        // still holds committed rows is a SILENTLY PARTIAL database, not a failure.
+        private SweepDb(SweepDb template)
+        {
+            File.Copy(template._path, _path);
+            // -wal is copied when it survives the checkpoint, so the clone replays whatever did not fold in;
+            // -shm is deliberately NOT copied, being rebuilt from the wal on open.
+            var wal = template._path + "-wal";
+            if (File.Exists(wal) && new FileInfo(wal).Length > 0) File.Copy(wal, _path + "-wal");
+            Factory = new SqliteConnectionFactory(_path);
+        }
+
         public SqliteConnectionFactory Factory { get; }
+
+        /// <summary>A byte copy of this db, migrated and populated, as an independent database.
+        /// <para><b>Why a study wants one.</b> A recall MUTATES the store — it reinforces what it returned,
+        /// and <c>ExpandAsync</c> reinforces what it walks — so a question run against a store an earlier
+        /// question already read is not measuring the same store. Cloning a migrated file is what makes a
+        /// per-question store affordable where re-ingesting is not.</para></summary>
+        public SweepDb Clone()
+        {
+            Checkpoint();
+            return new SweepDb(this);
+        }
+
+        /// <summary>Fold the write-ahead log back into the main file so a byte copy of it is complete.
+        /// TRUNCATE cannot always finish while another connection holds a read snapshot, which is why
+        /// <see cref="Clone"/> copies a surviving <c>-wal</c> too rather than trusting this alone.</summary>
+        public void Checkpoint()
+        {
+            using var conn = Factory.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE)";
+            cmd.ExecuteNonQuery();
+        }
 
         /// <summary>The db file, so a study whose subject is COST can measure it on disk. Every other sweep
         /// here reports recall quality and never needs it.

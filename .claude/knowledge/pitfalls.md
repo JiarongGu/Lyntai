@@ -1320,6 +1320,36 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Testing
 
+- **A benchmark whose store MUTATES on read has non-independent trials, and the contamination presents as a
+  RESULT rather than as a bug.** Measured 2026-08-29 (`docs/task-archive.md` Part 118). LoCoMo questions
+  within a conversation shared one store, and this engine writes on every read — a recall reinforces what it
+  returned, `ExpandAsync` reinforces what it walks — so question N read a graph that questions 1..N−1 had
+  already dug through. Nothing errored, every arm looked plausible, and the numbers went into `docs/memory.md`.
+  <br>**The tell is a figure moving that logically CANNOT depend on what was varied**, and it is the whole
+  diagnostic. Evidence-hit for `shot-1` — the FIRST recall, before any expansion happens — read **65.4%** at
+  `--seeds 3` and **53.8%** at `--seeds 20`, an 11.6-point swing caused entirely by how much a LATER shot
+  expanded. Shot 1 is the same query against the same ingested corpus in both runs; the only channel by which
+  a later shot can reach it is the store. A real effect cannot travel backwards, so a number that moves
+  anyway is measuring leakage.
+  <br>The item had been filed off a 2-point observation (30.0% → 28.0%) and the real magnitude was **five
+  times that**, which is the ordinary shape: a leak's size depends on how hard the *other* arm digs, so
+  whatever you happened to notice is a lower bound.
+  <br>**The fix is a per-trial store, and cloning a migrated file is what makes it affordable** — ingest once
+  into a template nothing reads, then byte-copy it per question. Re-ingesting per question costs the whole
+  study; copying costs milliseconds. The VECTOR store is deliberately left shared, and the rule that decides
+  it is *which component mutates on read*: vectors are written only by `RememberAsync`, so they are read-only
+  once ingestion ends, while the graph store is the one being isolated.
+  <br>**Two traps inside the fix.** A byte copy taken while SQLite's write-ahead log still holds committed
+  rows is a **silently partial** database — checkpoint first, and copy a surviving `-wal` too, since
+  `TRUNCATE` cannot always finish while another connection holds a read snapshot. And a clone that lost rows
+  presents as a *recall-quality regression*, not as a broken harness, which is the direction that gets
+  published — so count the rows in the clone and print it (`419 of 419`) rather than trusting that the copy
+  succeeded.
+  <br>**The control has to fail on the old code**, or it is only evidence that the number is stable. Re-run
+  the identical pair against the pre-fix harness: it read 65.4 / 53.8 where the fixed one reads 65.4 / 65.4.
+  Stash the fix, run, restore — the same positive-control discipline `pitfalls.md` already demands of a cache
+  fix, applied to a measurement harness.
+
 - **A candidate scored on a DIFFERENT SCALE than the pool it joins cannot win, however relevant it is — and
   the feature that added it then reads as inert rather than as broken.** Measured 2026-08-29
   (`docs/task-archive.md` Part 110). `GraphMemoryOptions.SemanticSeedK` adds semantically-similar entries to

@@ -58,7 +58,12 @@ first load cheap — and `ExpandAsync` reinforces what it walks. So a one-shot m
 engine is built for, and **every recall-quality figure published before that date scores one shot**. Measured:
 on LongMemEval knowledge-update, shot 1 returns the current fact and not the superseded one 40.0% of the time
 on 1,165 characters against plain cosine's 16.0% on 9,769. The useful shot count is a property of the
-QUESTION — resolution wants one, search wants two — so it is not a constant, and no default moved.
+QUESTION, so it is not a constant, and no default moved.
+<br>**"Search wants two shots" was withdrawn on 2026-08-29** (D100's own amendment, `docs/task-archive.md`
+Part 118): LoCoMo questions shared a store, and isolating them flattened the shot curve from +6.0/+0.5 to
+**+1.5/+1.0** on a shot 1 that was 24.5 points too low. **Every LoCoMo figure in `docs/memory.md` moved by
+20–25 points** while `vector` — which never touches the graph store — did not move at all. Read a LoCoMo
+number there for the regime it names.
 `TASKS.md` **Part 116** is the live work.
 
 **Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
