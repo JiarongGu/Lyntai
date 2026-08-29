@@ -169,8 +169,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D97](#d97--a-candidate-nobody-asked-about-carries-matched-because-neither-relevance-value-is-right-2026-08-29) | 2026-08-29 | a candidate nobody asked about carries `Matched`, because neither relevance value is right |
 | [D98](#d98--forgetting-gets-a-vote-in-traversal-and-it-is-a-floor-rather-than-a-weight-2026-08-29) | 2026-08-29 | forgetting gets a vote in TRAVERSAL, and it is a floor rather than a weight |
 | [D99](#d99--a-batched-link-with-a-default-body-and-a-speedup-the-instrument-could-not-see-2026-08-29) | 2026-08-29 | a batched link, with a default body, and a speedup the instrument could not see |
+| [D100](#d100--the-n-shot-walk-is-the-mode-this-engine-is-evaluated-in-not-a-single-top-k-2026-08-29) | 2026-08-29 | the n-shot WALK is the mode this engine is evaluated in, not a single top-k |
 
-_All 99 entries are live decisions._
+_All 100 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2812,3 +2813,32 @@ A round-trip count is checkable where a millisecond is not.
 a 1k recall's p50, because touches, review rows and edges are still three separate store calls and each
 opens its own connection. Collapsing those three into one is the next lever, and it is a larger contract
 change than this one.
+
+## D100 — the n-shot WALK is the mode this engine is evaluated in, not a single top-k (2026-08-29)
+
+**The decision, and it is the owner's.** Recall quality for the graph engine is measured across a walk —
+shot 1, shot 2, shot 3 — rather than as one top-k. Everything published before 2026-08-29 scored a single
+recall, and that measures a vector index wearing a graph engine's name.
+
+**Why it is not merely a benchmark preference.** The engine already behaves this way and said so before
+anyone measured it: a recall returns HEADLINES because *"associative content is withheld until expansion —
+that is what makes the first load cheap"*, and `ExpandAsync` reinforces what it walks because *"digging in
+one direction is exactly what should make that direction more retrievable next time"*. A one-shot metric is
+structurally blind to both halves. The design intent is a small first load that says what is RELATED,
+with detail bought per-entry by expanding — not a big context assembled up front.
+
+**What measurement settled** (`docs/memory.md` §5). On LongMemEval knowledge-update, shot 1 returns a clean
+context — the current fact and not the superseded one — 40.0% of the time on 1,165 characters, against
+cosine's 16.0% on 9,769: **2.5× the precision on an eighth of the context**. On LoCoMo, a SEARCH workload,
+shot 2 is worth +6.0 points where shot 3 is worth +0.5. So the useful shot count is a property of the
+QUESTION — resolution wants one, search wants two — and is not a constant to pick.
+
+**What stays OPEN, deliberately.** That 2-shot is the expected shape for most adopting applications is the
+owner's working position, not a measured default: it holds on search and does not on resolution, and no
+default moves on one class of one benchmark. `ExpansionRetrievabilityFloor` (**D98**) ships at `0` for the
+same reason.
+
+**What reversing would cost.** Nothing in the library depends on this — it is a stance about what to
+measure, and the shipped surface is unchanged. The cost is in the records: `docs/memory.md` §5 would have
+to re-caveat its one-shot tables as primary, and the harnesses' `--shots` modes would become dead weight.
+Reversal is cheap today and gets dearer if a shot-aware recall API is built on top of it.

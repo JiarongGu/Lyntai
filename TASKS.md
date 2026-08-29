@@ -19,24 +19,26 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**The startable set is THREE items: Part 109's `K` sweep and its QA half, and the 3D-backend survey inside
-Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this banner failed twice on
-2026-08-29, so apply it literally: **if the banner names something that is not an open checkbox below, the
-banner is wrong.** Both names it carried that day were sweeps that had already run, with their write-ups
-sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>**The `K` sweep is the one to read first**, because it is the only item here that arrived from a
-measurement rather than from a plan: `K` turns out to select a REGIME (excellence on one signal at low K,
-balance across all of them at high K), it was never swept, and the one class measured says the shipped 60 is
-on the wrong side of free.
+**READ `## Part 116` FIRST — it is the handover.** `docs/DECISIONS.md` **D100** changed what this engine is
+evaluated as during the 2026-08-29 session: an n-shot WALK, not a single top-k. Every recall-quality number
+published before that day scores one shot, which measures a vector index wearing a graph engine's name. Part
+116 carries what that opens, and the biggest item in it is that **the library has no n-shot surface** —
+every consumer wanting the mode this engine is designed for hand-rolls the loop.
+
+**The startable set is EIGHT items: Part 116's five, Part 109's `K` sweep and its QA half, and the
+3D-backend survey inside Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this
+banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
+open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
+with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
+<br>**Part 109's `K` sweep is the one to read after 116**: `K` turns out to select a REGIME (excellence on
+one signal at low K, balance across all of them at high K), it was never swept, and the one class measured
+says the shipped 60 is on the wrong side of free. Three of that Part's four items have now closed (**D97**,
+Part 112's haystack run, Part 113's ranking ladder).
 <br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
 its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
 not work somebody can start — the same reason Part 105 sits under Blocked. Everything measurable in it has
-been measured.
-<br>Part 109 is still the Part to read first — it holds the only measurements here taken on an instrument
-this repository did not build — but three of its four items have now closed (**D97**, Part 112's haystack
-run, Part 113's ranking ladder), and what is left needs a reader model rather than a design. The rest of
-this file needs something this repository does not have (a key, a model download, a CLI install, a vendor
-pick, or a deployment's own data). **Part 99 is a WATCH item and not startable work** — its fix is already
+been measured. The rest of this file needs something this repository does not have (a key, a model download,
+a CLI install, a vendor pick, or a deployment's own data). **Part 99 is a WATCH item and not startable work** — its fix is already
 pinned by a test with a positive control, so nothing in it is codeable and only RECURRENCE can close it.
 That is stated first
 rather than buried, because it is the answer to the question the file exists to answer. **Read the caveat
@@ -569,6 +571,44 @@ it._
   <br>**Take the haystack finding into the QA half when it runs.** The oracle variant is biased per class and
   the sign is not predictable in advance, so a QA table taken on the oracle would inherit that bias silently.
   Run it on `--haystack`, at ~40× the ingestion cost per question.
+
+## Part 116 — the n-shot WALK: what D100 opens, and the surface it does not have yet (2026-08-29)
+
+_**Start here.** `docs/DECISIONS.md` **D100** changed what this engine is evaluated as: a walk, not a single
+top-k. The instruments exist — `node devtools/dev.mjs memory-locomo --shots` and
+`memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory.md` §5.
+Closed alongside it: **D98** (expansion had no vote from forgetting) and **D99** (co-activation is one store
+call). The session that produced all three is `docs/task-archive.md` Parts 112–115._
+
+- [ ] **The library has no n-shot SURFACE, and that is the gap D100 exposes.** `RecallAsync` is one shot and
+  `ExpandAsync` takes one reference, so every consumer that wants the mode this engine is designed for
+  hand-rolls recall → pick seeds → expand → merge → cap, and gets the seed-picking and the budget wrong in
+  its own way. The bench harnesses wrote that loop twice, differently, which is the tell.
+  <br>**What has to be decided before it is designed**: whether a walk is a new engine method, an option on
+  `MemoryQuery`, or stays the caller's loop with only guidance shipped. Note the third is a real answer —
+  `IMemoryEngine` is a BYO seam and a walk is composition, not storage.
+  <br>**Do NOT infer the shot count from this session.** Search wanted two shots and resolution wanted one;
+  a surface that hard-codes either is wrong, and the measurement says the caller must be able to say.
+
+- [ ] **Sweep `ExpansionRetrievabilityFloor` across workloads before any default moves** (**D98**). It ships
+  at `0`. At `0.8` it held the knowledge-update shot curve flat at 40.0% instead of falling to 36.0%, and
+  cost 4 points of current-fact hit rate — one class, one variant, 25 questions. The floor is a
+  RETRIEVABILITY, so its right value depends on the decay curve's shape and not on the workload alone.
+
+- [ ] **Extend the shot curve past what was sampled.** Knowledge-update haystack ran 25 of 70; the temporal
+  class and LongMemEval's four unmeasured classes have no shot curve at all. Cheap and model-free.
+
+- [ ] **Collapse the recall write-back into ONE store call** (**D99**'s closing note). Touches, review rows
+  and co-activation edges are three separate calls and each opens its own connection; the write-back is
+  still ~80% of a 1k recall's p50. D99 did the third of those and could not measure the win.
+  <br>**Read `pitfalls.md` on measuring the instrument's noise first.** `memory-scale`'s 10k p50 spans
+  8.9–11.2ms across runs of identical code, so a before/after pair run once will report a result that is not
+  there. Repeat the AFTER arm, and prefer a countable claim (round trips) to a millisecond one.
+
+- [ ] **Fix LoCoMo's cross-question contamination before widening any LoCoMo number.** Questions within a
+  conversation share a store and a recall reinforces what the next one reads: `shot-1` moved 30.0% → 28.0%
+  between two runs differing only in how much a LATER shot expanded. Copying the migrated SQLite file per
+  question is affordable where re-ingesting is not. It affects every LoCoMo figure in `docs/memory.md`.
 
 ---
 

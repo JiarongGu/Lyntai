@@ -26,8 +26,8 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D99**. The two groups worth knowing before you touch anything:
-**D83–D99 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D100**. The two groups worth knowing before you touch anything:
+**D83–D100 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
@@ -51,6 +51,15 @@ as a heartbeated slot table (**D73**), the guard-parity split — forced in FORC
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
 overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91**,
 **D92**, **D93**, **D94**, **D97** and **D98**.
+
+**The memory engine is evaluated as an n-shot WALK, not a single top-k** (**D100**, 2026-08-29). A recall
+returns HEADLINES — associative content is withheld until an expansion asks for it, which is what makes the
+first load cheap — and `ExpandAsync` reinforces what it walks. So a one-shot metric is blind to the mode the
+engine is built for, and **every recall-quality figure published before that date scores one shot**. Measured:
+on LongMemEval knowledge-update, shot 1 returns the current fact and not the superseded one 40.0% of the time
+on 1,165 characters against plain cosine's 16.0% on 9,769. The useful shot count is a property of the
+QUESTION — resolution wants one, search wants two — so it is not a constant, and no default moved.
+`TASKS.md` **Part 116** is the live work.
 
 **Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
 because it is not the three older memory surfaces: named engines resolved by name like `IHttpClientFactory`
