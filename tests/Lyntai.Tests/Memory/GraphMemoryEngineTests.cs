@@ -252,6 +252,31 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
+    public async Task A_recalls_whole_write_back_reaches_the_store_as_ONE_call_not_three()
+    {
+        // The touch, the co-activation edges and the review-log rows were three calls, and on a relational
+        // store each opened its own connection. Same countable-claim reasoning as the fact above, one level
+        // up: `memory-scale` cannot resolve what this buys above its own run-to-run spread, so what is
+        // checkable is that three calls became one.
+        var store = new WriteBackCountingGraphStore();
+        var engine = new GraphMemoryEngine("project/graph", store, agePolicies: [new PerWriteAgePolicy()]);
+        for (var i = 0; i < 6; i++)
+            await engine.RememberAsync(new MemoryWrite("t", "s", $"the deploy gate runs check number {i}"));
+
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "deploy gate check"));
+
+        Assert.True(recall.Items.Count >= 2, $"needs hits to write anything back, got {recall.Items.Count}");
+        Assert.Equal(1, store.WriteBacks);
+        Assert.Equal(0, store.DirectTouches);
+        Assert.Equal(0, store.DirectBatchedLinks);
+        Assert.Equal(0, store.DirectReviewWrites);
+
+        // and the review log LAST, which is what keeps a broken one from costing the other two — the
+        // isolation ReinforceAsync used to buy with a second catch around the log write
+        Assert.Equal(["touch", "edges", "reviews"], store.Order);
+    }
+
+    [Fact]
     public async Task Expansion_walks_to_a_BURIED_neighbour_by_default_so_forgetting_has_no_vote_in_traversal()
     {
         // The control, and the defect it describes is measured: EdgeHalfLife decays the EDGE and nothing

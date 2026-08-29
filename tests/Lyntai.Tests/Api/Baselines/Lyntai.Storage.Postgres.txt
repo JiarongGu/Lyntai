@@ -96,6 +96,7 @@ sealed class Lyntai.Storage.Postgres.PostgresMemoryGraphStore
     SeedAsync(String engine, String taskKey, String scope, String query, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
     TouchAsync(String engine, IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) : Task
     UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) : Task<Int64>
+    WriteBackAsync(String engine, GraphWriteBack work, CancellationToken ct = default) : Task
 sealed class Lyntai.Storage.Postgres.PostgresMemoryStore
     .ctor(IDbConnectionFactory factory, LyntaiOptions options, ILogger<PostgresMemoryStore> logger = null, Func<DateTimeOffset> clock = null)
     ForgetAsync(String taskKey, String scope = null, CancellationToken ct = default) : Task

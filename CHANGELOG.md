@@ -14,6 +14,21 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`IMemoryGraphStore.WriteBackAsync` — a recall's whole write-back as ONE store call** (`docs/DECISIONS.md`
+  **D101**), with `GraphWriteBack` carrying the touch, the co-activation edges and the review-log rows
+  together. **It has a default body** running the three existing members in that order, so a BYO store keeps
+  compiling and keeps behaving identically; the SQLite and Postgres stores override it to open one connection
+  and read the position totals once. Those three calls previously cost three connection opens and two totals
+  reads per recall. **No latency claim is made** — as with `LinkManyAsync` the guarantee is a round-trip
+  COUNT: a test counts what the store asks its connection factory for and pins it at one, having read three
+  before the override existed. (The totals read is a code fact, not a counted one — nothing observes it.)
+  <br>**The review log is written LAST, and that order is contract.** It is the part a caller may lose
+  (`RecordReviewsAsync` is best-effort), so writing it after the touch and the edges is what keeps a broken
+  log from costing either — previously bought with a second `try/catch` inside the engine, which is now gone.
+  An implementation must not reorder it. The one visible consequence: the warning logged when a write-back
+  fails no longer claims the recall returned "without learning", which was false whenever a later part was
+  the one that failed.
+
 - **`IMemoryGraphStore.LinkManyAsync` — write several edges as one unit of work** (`docs/DECISIONS.md`
   **D99**), with `GraphEdgeWrite` carrying one edge's arguments. **It has a default body** that loops
   `LinkAsync`, so a BYO store keeps compiling and keeps behaving identically; the SQLite and Postgres stores

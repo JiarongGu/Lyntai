@@ -25,11 +25,14 @@ published before that day scores one shot, which measures a vector index wearing
 116 carries what that opens, and the biggest item in it is that **the library has no n-shot surface** —
 every consumer wanting the mode this engine is designed for hand-rolls the loop.
 
-**The startable set is EIGHT items: Part 116's five, Part 109's `K` sweep and its QA half, and the
+**The startable set is SEVEN items: Part 116's four, Part 109's `K` sweep and its QA half, and the
 3D-backend survey inside Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
+<br>_Part 116 held five until the write-back collapse landed as `docs/task-archive.md` Part 117 — this count
+is edited in the same change as the item, which is the habit `pitfalls.md` prescribes after four stale
+banners._
 <br>**Part 109's `K` sweep is the one to read after 116**: `K` turns out to select a REGIME (excellence on
 one signal at low K, balance across all of them at high K), it was never swept, and the one class measured
 says the shipped 60 is on the wrong side of free. Three of that Part's four items have now closed (**D97**,
@@ -578,7 +581,9 @@ _**Start here.** `docs/DECISIONS.md` **D100** changed what this engine is evalua
 top-k. The instruments exist — `node devtools/dev.mjs memory-locomo --shots` and
 `memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory.md` §5.
 Closed alongside it: **D98** (expansion had no vote from forgetting) and **D99** (co-activation is one store
-call). The session that produced all three is `docs/task-archive.md` Parts 112–115._
+call). The session that produced all three is `docs/task-archive.md` Parts 112–115.
+<br>**This Part held five items; the write-back collapse closed as `docs/task-archive.md` Part 117**
+(**D101** — the whole write-back is one store call now, not just the co-activation half D99 did)._
 
 - [ ] **The library has no n-shot SURFACE, and that is the gap D100 exposes.** `RecallAsync` is one shot and
   `ExpandAsync` takes one reference, so every consumer that wants the mode this engine is designed for
@@ -597,13 +602,6 @@ call). The session that produced all three is `docs/task-archive.md` Parts 112�
 
 - [ ] **Extend the shot curve past what was sampled.** Knowledge-update haystack ran 25 of 70; the temporal
   class and LongMemEval's four unmeasured classes have no shot curve at all. Cheap and model-free.
-
-- [ ] **Collapse the recall write-back into ONE store call** (**D99**'s closing note). Touches, review rows
-  and co-activation edges are three separate calls and each opens its own connection; the write-back is
-  still ~80% of a 1k recall's p50. D99 did the third of those and could not measure the win.
-  <br>**Read `pitfalls.md` on measuring the instrument's noise first.** `memory-scale`'s 10k p50 spans
-  8.9–11.2ms across runs of identical code, so a before/after pair run once will report a result that is not
-  there. Repeat the AFTER arm, and prefer a countable claim (round trips) to a millisecond one.
 
 - [ ] **Fix LoCoMo's cross-question contamination before widening any LoCoMo number.** Questions within a
   conversation share a store and a recall reinforces what the next one reads: `shot-1` moved 30.0% → 28.0%

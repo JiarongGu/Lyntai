@@ -442,10 +442,17 @@ public sealed class SqliteMemoryGraphStore(
         if (touches.Count == 0) return;
 
         await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
+        await TouchAsync(conn, engine, touches, totals, ct).ConfigureAwait(false);
+    }
+
+    // The statement itself, over a connection and a totals snapshot the caller owns — so the single-member
+    // path and WriteBackAsync run identically and cannot drift into two spellings of one write.
+    private static Task TouchAsync(IDbConnection conn, string engine,
+        IReadOnlyCollection<GraphTouch> touches, MemoryPositionRow totals, CancellationToken ct) =>
         // a recall does NOT advance the position or any of the three primitives — it stamps the touched
         // node's own snapshot to wherever the engine already is, on every scale at once
-        var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
-        await conn.ExecuteAsync(new CommandDefinition("""
+        conn.ExecuteAsync(new CommandDefinition("""
             UPDATE lyntai_memory_node
             SET last_recalled_position = @position, stability = @Stability, difficulty = @Difficulty,
                 provenance_retrievability = @ProvenanceRetrievability,
@@ -458,8 +465,7 @@ public sealed class SqliteMemoryGraphStore(
                 position = totals.Position, ordinal = totals.Ordinal, chars = totals.Chars,
                 encodedAt = totals.EncodedAt,
             }),
-            cancellationToken: ct)).ConfigureAwait(false);
-    }
+            cancellationToken: ct));
 
     /// <inheritdoc />
     public async Task LinkAsync(string engine, long from, long to, string? kind, double weight,
@@ -491,6 +497,14 @@ public sealed class SqliteMemoryGraphStore(
         // was strengthened by the SAME retrieval, so stamping them at one position is more correct than
         // letting ten reads drift apart, not merely faster.
         var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
+        await LinkManyAsync(conn, edges, totals, ct).ConfigureAwait(false);
+    }
+
+    // As with TouchAsync above: the loop over a caller-owned connection and snapshot, so WriteBackAsync
+    // reuses it rather than restating it.
+    private static async Task LinkManyAsync(IDbConnection conn, IReadOnlyList<GraphEdgeWrite> edges,
+        MemoryPositionRow totals, CancellationToken ct)
+    {
         foreach (var e in edges)
         {
             ct.ThrowIfCancellationRequested();
@@ -499,6 +513,32 @@ public sealed class SqliteMemoryGraphStore(
             if (e.Symmetric)
                 await StrengthenAsync(conn, e.To, e.From, e.Kind ?? "", e.Weight, totals, ct).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>The whole write-back on ONE connection and ONE position-totals read, where the three
+    /// separate calls paid three opens and two reads. Each part's SQL is the same statement its own member
+    /// runs — the saving is the fixed costs, never the writes.</summary>
+    public async Task WriteBackAsync(string engine, GraphWriteBack work, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        ct.ThrowIfCancellationRequested();
+        if (work.Touches.Count == 0 && work.Edges.Count == 0 && work.Reviews.Count == 0) return;
+
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // Scoped rather than hoisted: these two are the only parts that read the position, so a
+        // reviews-only write-back pays for no totals read at all.
+        if (work.Touches.Count > 0 || work.Edges.Count > 0)
+        {
+            var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
+            if (work.Touches.Count > 0)
+                await TouchAsync(conn, engine, work.Touches, totals, ct).ConfigureAwait(false);
+            if (work.Edges.Count > 0)
+                await LinkManyAsync(conn, work.Edges, totals, ct).ConfigureAwait(false);
+        }
+
+        // LAST by contract — see IMemoryGraphStore.WriteBackAsync: a broken log must cost neither of the above
+        if (work.Reviews.Count > 0)
+            await RecordReviewsAsync(conn, engine, work.Reviews, work.ReviewLogCap, ct).ConfigureAwait(false);
     }
 
     // Stamps all FOUR strengthening marks together — the Advance-driven position and the three
@@ -568,9 +608,18 @@ public sealed class SqliteMemoryGraphStore(
         ct.ThrowIfCancellationRequested();
         if (reviews.Count == 0) return;
 
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        await RecordReviewsAsync(conn, engine, reviews, cap, ct).ConfigureAwait(false);
+    }
+
+    // The insert plus its paced trim, over a caller-owned connection. The pacing counter is INSTANCE state,
+    // so routing both paths through here is what keeps one store's trim cadence single — two copies of the
+    // AddOrUpdate would each advance it and trim twice as often as MemoryReviewLogPacing intends.
+    private async Task RecordReviewsAsync(IDbConnection conn, string engine,
+        IReadOnlyCollection<MemoryReviewWrite> reviews, int cap, CancellationToken ct)
+    {
         var effectiveCap = Math.Max(0, cap);
         var now = _clock();
-        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
         await conn.ExecuteAsync(new CommandDefinition(MemoryGraphSql.InsertReview,
             reviews.Select(r => new
             {

@@ -1423,3 +1423,41 @@ arbitrary cap (ruled out — 20 seeds finds the same 36.0%), and LoCoMo question
 a store so a recall reinforces what the next question reads. The last is filed rather than fixed.
 
 - **Run the QA half, and more of it.**
+
+## Part 117 — the write-back is one store call, and the review log moved to the end (2026-08-29)
+
+✅ done 2026-08-29 — `TASKS.md` Part 116's write-back item, opened by **D99**'s own closing note. The touch,
+the co-activation edges and the review-log rows were three store calls, and on a relational store each
+opened its own connection: `IMemoryGraphStore.WriteBackAsync` takes all three as one, with a default body
+running the existing members so a BYO store loses nothing. `docs/DECISIONS.md` **D101**.
+
+**Reported as a COUNT, which is the point.** Connection opens went **3 → 1**, measured by a counting
+`IDbConnectionFactory` decorator wrapped around the real one — the "before" is not an estimate, it is the
+same test failing at exactly 3 before the override existed. The position-totals read went 2 → 1 as well,
+but nothing observes that, so it is recorded as a code fact rather than a measured one; conflating the two
+is the provenance mistake `pitfalls.md` files under Kind 1. No millisecond is quoted at all: that same
+document records this repository publishing a 19% "improvement" from `memory-scale` that was noise, on this
+very write-back.
+
+**The ordering turned out to be the real finding, and an existing test is what proved it.** The engine
+carried a second `try/catch` around the review-log write, and
+`A_broken_review_log_costs_neither_the_hits_the_learning_nor_co_activation` documents — from its own live
+mutation check — exactly why: the log sat BETWEEN the touch and the co-activation loop, so a log failure
+skipped the edges. Moving the log LAST makes that isolation structural instead of conditional, and the
+catch is gone. That test passed unchanged, which is what a positive control is for.
+
+**One behaviour change, deliberate.** The surviving warning said a failed write-back returned hits "without
+learning". That was false whenever a later part failed — the earlier parts had already committed — and is
+now "partly or wholly unrecorded". Nothing asserted on either string.
+
+**Two contract facts, so all three backends are held to it**, discovered by reflection rather than
+registered: the combined path writes what the three separate calls would, and an empty part is skipped
+rather than written as a no-op — the second because the engine turns each of its own switches off by
+handing an EMPTY part, and a store that stamped an age on an empty touch list would reset an age the caller
+asked to hold still.
+
+**What it does NOT do:** no transaction. "One unit of work" here means one connection and one totals
+snapshot, exactly as `LinkManyAsync` already meant it — the parts still commit independently, which is
+precisely what the review log going last relies on.
+
+- **Collapse the recall write-back into ONE store call.**

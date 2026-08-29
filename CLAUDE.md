@@ -26,8 +26,8 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D100**. The two groups worth knowing before you touch anything:
-**D83–D100 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D101**. The two groups worth knowing before you touch anything:
+**D83–D101 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
@@ -50,7 +50,7 @@ as a heartbeated slot table (**D73**), the guard-parity split — forced in FORC
 (**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
 overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91**,
-**D92**, **D93**, **D94**, **D97** and **D98**.
+**D92**, **D93**, **D94**, **D97**, **D98**, **D99**, **D100** and **D101**.
 
 **The memory engine is evaluated as an n-shot WALK, not a single top-k** (**D100**, 2026-08-29). A recall
 returns HEADLINES — associative content is withheld until an expansion asks for it, which is what makes the
@@ -100,10 +100,12 @@ silently break; the reasoning is in the decision named beside it.
    parameters can be fitted later; nothing reads that log at runtime.
 8. **`IMemoryGraphStore` has FIVE required members with no default body** — `DeleteAsync`,
    `RecordReviewsAsync`, `ReviewsAsync`, `RecordSubjectsAsync`, `NodesBySubjectAsync` — so a BYO store must
-   implement all five. **TWO members carry a default body**, and the difference between them matters:
+   implement all five. **THREE members carry a default body**, and the difference between them matters:
    `KnownSubjectsAsync` defaults to an empty list, so a BYO store silently gets no subject seeding
-   (**D88**); `LinkManyAsync` defaults to looping `LinkAsync`, so a BYO store loses no behaviour at all and
-   is merely no faster (**D99**).
+   (**D88**); `LinkManyAsync` (**D99**) and `WriteBackAsync` (**D101**) default to the calls the engine used
+   to make inline, so a BYO store loses no behaviour at all and is merely no faster. **`WriteBackAsync`
+   carries an ORDER as contract** — the review log last, so a broken log cannot cost the touch or the edges
+   — and an override that reorders it is wrong however fast it is.
 9. **All THREE age axes speak one unit** (**D52**). An edge carries the same three primitives a node does
    (`StrengthOrdinalAge`/`StrengthVolumeAge`/`StrengthElapsedAge` + `StrengthAgeSample` on `GraphNode`, and
    the same plus `EdgeAgeSample` on `GraphNeighbour`), so `StrengthAge` is swap-safe and `PruneAsync`'s
@@ -130,7 +132,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3439 passed / 3460 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3447 passed / 3468 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 434/434, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,

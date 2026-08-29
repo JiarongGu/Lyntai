@@ -1,5 +1,6 @@
 using Dapper;
 using Lyntai.Memory;
+using Lyntai.Storage;
 using Lyntai.Storage.Sqlite;
 using Lyntai.Tests.Fakes;
 using Lyntai.Tests.Storage;
@@ -26,6 +27,66 @@ public class SqliteMemoryGraphStoreTests : IDisposable
     [MemberData(nameof(MemoryGraphStoreFacts.Names), MemberType = typeof(MemoryGraphStoreFacts))]
     public Task Contract(string fact) =>
         MemoryGraphStoreFacts.RunAsync(fact, clock => new SqliteMemoryGraphStore(_db.Factory, clock: clock), fact);
+
+    /// <summary>The write-back's whole point, stated as the thing it is: a COUNT of connection opens. Three
+    /// separate calls opened three connections and read the position totals twice; the combined path opens
+    /// one and reads them once.
+    /// <para>Countable rather than timed on purpose — <c>memory-scale</c>'s 10k p50 spans 8.9–11.2ms across
+    /// runs of identical code, so a before/after latency pair here would report noise
+    /// (<c>.claude/knowledge/pitfalls.md</c>). A connection open is a real cost on this backend: the factory
+    /// applies three pragmas to each one.</para></summary>
+    [Fact]
+    public async Task The_whole_write_back_opens_ONE_connection()
+    {
+        var counting = new ConnectionCountingFactory(_db.Factory);
+        IMemoryGraphStore store = new SqliteMemoryGraphStore(counting);
+        var a = await store.UpsertAsync(Node("alpha"));
+        var b = await store.UpsertAsync(Node("beta"));
+
+        counting.Opens = 0;   // the two upserts above are setup, not the subject
+        await store.WriteBackAsync("e", new GraphWriteBack(
+            [new GraphTouch(a, Stability: 9), new GraphTouch(b, Stability: 9)],
+            [new GraphEdgeWrite(a, b, null, 1, Symmetric: true)],
+            [Review(a), Review(b)],
+            ReviewLogCap: 100));
+
+        Assert.Equal(1, counting.Opens);
+
+        // and it actually WROTE all three parts — a path that opens one connection by doing nothing would
+        // pass the count above, which is the failure mode a bare round-trip assertion invites
+        Assert.Equal(2, (await store.ReviewsAsync("e")).Count);
+        var node = await store.GetAsync("e", a);
+        Assert.NotNull(node);
+        Assert.Equal(9, node.Stability);
+        Assert.True(node.Degree > 0, "the co-activation edge was not written");
+
+        static GraphNodeWrite Node(string text) =>
+            new("e", "wb", "s", text, text, MemoryGrade.Associative, 7, 1, null);
+
+        static MemoryReviewWrite Review(long id) =>
+            new(id, Guid.NewGuid(), PreAge: 1, PreStability: 7, PreDifficulty: 5, PreStrength: 0,
+                PreStrengthAge: 0, Grade: 3, PostStability: 9, PostDifficulty: 5);
+    }
+
+    /// <summary>Counts what the store asks the factory for. A decorator rather than a counter inside
+    /// <see cref="SqliteConnectionFactory"/>, so the thing being measured is the store's behaviour and not a
+    /// field the store could be written to satisfy.</summary>
+    private sealed class ConnectionCountingFactory(IDbConnectionFactory inner) : IDbConnectionFactory
+    {
+        public int Opens { get; set; }
+
+        public System.Data.Common.DbConnection Open()
+        {
+            Opens++;
+            return inner.Open();
+        }
+
+        public async Task<System.Data.Common.DbConnection> OpenAsync(CancellationToken ct = default)
+        {
+            Opens++;
+            return await inner.OpenAsync(ct);
+        }
+    }
 
     // SQLite has no BOOLEAN: this one exercises the hand-written 1/0/NULL mapping at the call site, which
     // is where a tri-state silently collapses to two.

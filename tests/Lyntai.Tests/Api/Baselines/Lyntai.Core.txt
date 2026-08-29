@@ -1876,6 +1876,17 @@ struct Lyntai.Memory.GraphTouch
     ProvenanceRetrievability : Int64
     Stability : Double
     ToString() : String
+sealed class Lyntai.Memory.GraphWriteBack
+    .ctor(IReadOnlyCollection<GraphTouch> Touches, IReadOnlyList<GraphEdgeWrite> Edges, IReadOnlyCollection<MemoryReviewWrite> Reviews, Int32 ReviewLogCap)
+    Deconstruct(IReadOnlyCollection`1& Touches, IReadOnlyList`1& Edges, IReadOnlyCollection`1& Reviews, Int32& ReviewLogCap) : Void
+    Edges : IReadOnlyList<GraphEdgeWrite>
+    Equals(GraphWriteBack other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    ReviewLogCap : Int32
+    Reviews : IReadOnlyCollection<MemoryReviewWrite>
+    ToString() : String
+    Touches : IReadOnlyCollection<GraphTouch>
 interface Lyntai.Memory.IExpandableMemory
     ExpandAsync(MemoryRef reference, Int32 hops = 1, Nullable<Int32> charBudget = null, CancellationToken ct = default) : Task<MemoryRecall>
 interface Lyntai.Memory.IForgettableMemory
@@ -1910,6 +1921,7 @@ interface Lyntai.Memory.IMemoryGraphStore
     SeedAsync(String engine, String taskKey, String scope, String query, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<GraphNode>>
     TouchAsync(String engine, IReadOnlyCollection<GraphTouch> touches, CancellationToken ct = default) : Task
     UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) : Task<Int64>
+    WriteBackAsync(String engine, GraphWriteBack work, CancellationToken ct = default) : Task
 interface Lyntai.Memory.IMemoryRemovalPolicy
     Includes(IMemoryEngine member, MemoryRemovalKind kind) : Boolean
 interface Lyntai.Memory.IPrunableMemory

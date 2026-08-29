@@ -133,6 +133,19 @@ public sealed record GraphNode(
 public readonly record struct GraphEdgeWrite(
     long From, long To, string? Kind = null, double Weight = 1, bool Symmetric = false);
 
+/// <summary>Everything one recall writes back, for <see cref="IMemoryGraphStore.WriteBackAsync"/>. Each part
+/// carries exactly the arguments its own member takes, so the combined path can make no promise the three
+/// separate ones do not. Any part may be empty; an empty one is skipped rather than written as a no-op.</summary>
+/// <param name="Touches">The reinforcements, as <see cref="IMemoryGraphStore.TouchAsync"/> takes them.</param>
+/// <param name="Edges">The co-activation edges, as <see cref="IMemoryGraphStore.LinkManyAsync"/> takes them.</param>
+/// <param name="Reviews">The rows to log, as <see cref="IMemoryGraphStore.RecordReviewsAsync"/> takes them.</param>
+/// <param name="ReviewLogCap">That member's own cap; unused when <paramref name="Reviews"/> is empty.</param>
+public sealed record GraphWriteBack(
+    IReadOnlyCollection<GraphTouch> Touches,
+    IReadOnlyList<GraphEdgeWrite> Edges,
+    IReadOnlyCollection<MemoryReviewWrite> Reviews,
+    int ReviewLogCap);
+
 /// <summary>A node to store. Identity is (<paramref name="Engine"/>, <paramref name="TaskKey"/>,
 /// <paramref name="Scope"/>, <paramref name="Content"/>) — storing identical content refreshes rather than
 /// duplicating, matching every other memory surface in the library.</summary>
@@ -452,6 +465,38 @@ public interface IMemoryGraphStore
         ArgumentNullException.ThrowIfNull(edges);
         foreach (var e in edges)
             await LinkAsync(engine, e.From, e.To, e.Kind, e.Weight, e.Symmetric, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>The whole of one recall's write-back as a single call — the touch, the co-activation edges
+    /// and the review-log rows — each part keeping its own member's semantics exactly.
+    ///
+    /// <para><b>Why it exists, measured.</b> These were three calls, and on a relational store each opened
+    /// its own connection and re-read the position totals: three opens and two totals reads per recall,
+    /// where one of each is enough. On <c>memory-scale</c> the write-back is <b>75% of a 1k recall's p50</b>.
+    /// A relational store overrides this to pay those fixed costs once; see <c>docs/DECISIONS.md</c> D101.</para>
+    ///
+    /// <para><b>The review log is written LAST, and that order is contract rather than convenience.</b> It is
+    /// the one part a caller treats as losable (<see cref="RecordReviewsAsync"/>), so writing it after the
+    /// touch and the edges is what stops a broken log costing either — the isolation the engine used to buy
+    /// with a second <c>catch</c>. An implementation must not reorder it, and anything added to this
+    /// write-back belongs BEFORE it.</para>
+    ///
+    /// <para><b>It has a DEFAULT BODY on purpose</b>, exactly as <see cref="LinkManyAsync"/> does: the body
+    /// below is what the engine used to do inline, so a store that ignores this is correct and merely no
+    /// faster. Overriding is an optimization, never a contract.</para>
+    ///
+    /// <para>Best-effort as a whole, by <see cref="TouchAsync"/>'s contract: a caller treats a failure here
+    /// as "no learning", never as "no memory".</para></summary>
+    /// <param name="engine">The owning engine's name.</param>
+    /// <param name="work">The three payloads, any of which may be empty.</param>
+    /// <param name="ct">Cancellation.</param>
+    async Task WriteBackAsync(string engine, GraphWriteBack work, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        if (work.Touches.Count > 0) await TouchAsync(engine, work.Touches, ct).ConfigureAwait(false);
+        if (work.Edges.Count > 0) await LinkManyAsync(engine, work.Edges, ct).ConfigureAwait(false);
+        if (work.Reviews.Count > 0)
+            await RecordReviewsAsync(engine, work.Reviews, work.ReviewLogCap, ct).ConfigureAwait(false);
     }
 
     /// <summary>Remove nodes, returning how many were removed. AUTHORITATIVE nodes are never eligible for

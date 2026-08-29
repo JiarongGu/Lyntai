@@ -170,8 +170,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D98](#d98--forgetting-gets-a-vote-in-traversal-and-it-is-a-floor-rather-than-a-weight-2026-08-29) | 2026-08-29 | forgetting gets a vote in TRAVERSAL, and it is a floor rather than a weight |
 | [D99](#d99--a-batched-link-with-a-default-body-and-a-speedup-the-instrument-could-not-see-2026-08-29) | 2026-08-29 | a batched link, with a default body, and a speedup the instrument could not see |
 | [D100](#d100--the-n-shot-walk-is-the-mode-this-engine-is-evaluated-in-not-a-single-top-k-2026-08-29) | 2026-08-29 | the n-shot WALK is the mode this engine is evaluated in, not a single top-k |
+| [D101](#d101--a-recalls-write-back-is-one-store-call-and-the-review-log-goes-last-2026-08-29) | 2026-08-29 | a recall's write-back is ONE store call, and the review log goes LAST |
 
-_All 100 entries are live decisions._
+_All 101 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2809,10 +2810,9 @@ noise at five runs per cell. So no latency claim is made anywhere, and the guard
 `A_recall_writes_its_co_activation_set_as_ONE_store_call_not_one_per_pair` pins ten calls becoming one.
 A round-trip count is checkable where a millisecond is not.
 
-**Which leaves the write-back still dominant, and that is recorded rather than implied.** It remains ~80% of
-a 1k recall's p50, because touches, review rows and edges are still three separate store calls and each
-opens its own connection. Collapsing those three into one is the next lever, and it is a larger contract
-change than this one.
+**Which left the write-back still dominant** — ~80% of a 1k recall's p50, because touches, review rows and
+edges were still three separate store calls each opening its own connection. That was the next lever and it
+was taken: **D101**.
 
 ## D100 — the n-shot WALK is the mode this engine is evaluated in, not a single top-k (2026-08-29)
 
@@ -2842,3 +2842,35 @@ same reason.
 measure, and the shipped surface is unchanged. The cost is in the records: `docs/memory.md` §5 would have
 to re-caveat its one-shot tables as primary, and the harnesses' `--shots` modes would become dead weight.
 Reversal is cheap today and gets dearer if a shot-aware recall API is built on top of it.
+
+## D101 — a recall's write-back is ONE store call, and the review log goes LAST (2026-08-29)
+
+**The decision.** `IMemoryGraphStore.WriteBackAsync` takes a recall's whole write-back — the touch, the
+co-activation edges and the review-log rows — as one call. It carries a **default body** running the three
+existing members in that order, so a BYO store loses no behaviour and is merely no faster; the two
+relational stores override it. The same shape as **D99**, one level up.
+
+**What it buys, counted rather than timed.** Connection opens per recall write-back go **3 → 1**, and that
+one is MEASURED: `SqliteMemoryGraphStoreTests.The_whole_write_back_opens_ONE_connection` counts what the
+store asks a decorated `IDbConnectionFactory` for, and read exactly 3 before the override existed. The
+position-totals read goes 2 → 1 as well, but that is a fact read off the code rather than a counted one —
+no seam observes it — and is stated here as the smaller, unpinned half. No latency claim is made at all:
+`memory-scale`'s 10k p50 spans 8.9–11.2ms across runs of identical code, which is D99's own lesson.
+
+**The ordering is the load-bearing half, and it replaced a `catch`.** The engine used to wrap the review-log
+write in its own `try/catch` because the log sat BETWEEN the touch and the co-activation loop, so a broken
+log skipped the edges entirely —
+`GraphMemoryReviewLogTests.A_broken_review_log_costs_neither_the_hits_the_learning_nor_co_activation` was
+mutation-checked against exactly that. Writing the log LAST makes the isolation structural: the two writes
+that matter have already committed by the time it runs. So the contract states the log is last and anything
+added to the write-back belongs before it, and the second catch is gone.
+
+**The alternative, and why it lost.** Merge only the touch and the edges, leaving `RecordReviewsAsync`
+separate. That keeps the distinct *"review log write failed"* warning and costs one connection open per
+recall. Rejected because the warning was the cheaper thing to give up: the surviving line now says learning
+is "partly or wholly unrecorded", which is true at every failure point, where the old *"returning hits
+without learning"* was false whenever a later part failed.
+
+**What reversing would cost.** The member is additive and defaulted, so reverting the speed half is deleting
+two overrides. The ORDER is not free to reverse: putting the log back between the touch and the edges
+re-opens the defect the test above pins.

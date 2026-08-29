@@ -489,6 +489,108 @@ internal sealed class FakeCuratedStore : ICuratedMemoryStore
     }
 }
 
+/// <summary>Counts how a recall's whole write-back reaches the store: as ONE combined call, or as the three
+/// separate ones it replaced. The same countable-claim reasoning as <see cref="LinkCountingGraphStore"/> one
+/// level up — a round-trip count is checkable where the latency it buys sits inside the instrument's noise.
+/// <para>It records the ORDER too, because the review log going LAST is contract (a broken log must cost
+/// neither the touch nor the edges) and nothing else would catch a reordering.</para></summary>
+internal sealed class WriteBackCountingGraphStore : IMemoryGraphStore
+{
+    // typed as the INTERFACE: LinkManyAsync is a default-body member, so the in-process store does not
+    // declare it and only an interface-typed reference can reach it
+    private readonly IMemoryGraphStore _inner = new Lyntai.Storage.InMemory.InMemoryMemoryGraphStore();
+
+    public int WriteBacks { get; private set; }
+    public int DirectTouches { get; private set; }
+    public int DirectBatchedLinks { get; private set; }
+    public int DirectReviewWrites { get; private set; }
+    public List<string> Order { get; } = [];
+
+    // Overridden rather than left to the interface's default body, which would call the three members below
+    // and make the combined path indistinguishable from the three calls it replaced.
+    public async Task WriteBackAsync(string engine, GraphWriteBack work, CancellationToken ct = default)
+    {
+        WriteBacks++;
+        if (work.Touches.Count > 0)
+        {
+            Order.Add("touch");
+            await _inner.TouchAsync(engine, work.Touches, ct);
+        }
+
+        if (work.Edges.Count > 0)
+        {
+            Order.Add("edges");
+            await _inner.LinkManyAsync(engine, work.Edges, ct);
+        }
+
+        if (work.Reviews.Count > 0)
+        {
+            Order.Add("reviews");
+            await _inner.RecordReviewsAsync(engine, work.Reviews, work.ReviewLogCap, ct);
+        }
+    }
+
+    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+        CancellationToken ct = default)
+    {
+        DirectTouches++;
+        return _inner.TouchAsync(engine, touches, ct);
+    }
+
+    public Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges,
+        CancellationToken ct = default)
+    {
+        DirectBatchedLinks++;
+        return _inner.LinkManyAsync(engine, edges, ct);
+    }
+
+    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+        CancellationToken ct = default)
+    {
+        DirectReviewWrites++;
+        return _inner.RecordReviewsAsync(engine, reviews, cap, ct);
+    }
+
+    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
+        _inner.UpsertAsync(write, ct);
+
+    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+        string? query, int limit, CancellationToken ct = default) =>
+        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
+
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
+        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
+        _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
+
+    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
+        _inner.GetAsync(engine, id, ct);
+
+    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
+        CancellationToken ct = default) =>
+        _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
+
+    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
+        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
+        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
+
+    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
+        _inner.DeleteAsync(engine, ids, ct);
+
+    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
+        _inner.ForgetAsync(engine, taskKey, scope, ct);
+
+    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
+        _inner.ReviewsAsync(engine, ct);
+
+    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+        CancellationToken ct = default) =>
+        _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
+
+    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+        string subject, int limit, CancellationToken ct = default) =>
+        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+}
+
 /// <summary>Counts how a recall's co-activation reaches the store: as ONE batched call or as N single ones.
 /// <para>It exists because the change it guards is a ROUND-TRIP count, and the repository's own latency
 /// instrument could not resolve that change above its run-to-run noise — <c>memory-scale</c>'s 10k p50 spans

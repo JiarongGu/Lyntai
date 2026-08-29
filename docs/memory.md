@@ -854,7 +854,7 @@ the same 36.0% for 36% more characters, so the ceiling is what the graph is conn
 window — measured by needle probe, a passcode at the top of the prompt survives 85,508 characters and does
 not survive 109,908 — so its QA row is a floor. `ms/q` compares a SQLite-backed store against an in-memory
 array with no persistence and no write-back, and it is cold-start dominated at one store per question;
-`memory-scale`'s steady-state p50 is 10.4ms at 1k, and ~80% of that is the write-back — where **D99** cut a recall's co-activation from ten store round-trips to one without the instrument being able to resolve the difference (its 10k p50 spans 8.9–11.2ms across runs of identical code, so no latency claim is made for it). And LoCoMo questions
+`memory-scale`'s steady-state p50 is 10.4ms at 1k, and ~80% of that was the write-back when it was measured — where **D99** then cut a recall's co-activation from ten store round-trips to one and **D101** cut the whole write-back from three store calls to one, neither of them resolvable by the instrument (its 10k p50 spans 8.9–11.2ms across runs of identical code, so no latency claim is made for either). And LoCoMo questions
 within a conversation share a store, so a recall reinforces what the next question reads — `shot-1` moved
 30.0% → 28.0% between two runs differing only in how much a LATER shot expanded, which is only reachable
 that way. It affects every LoCoMo figure in this document.
@@ -1503,6 +1503,11 @@ Each of these cost a real measurement to find.
   the read path grows faster than the learning does, and learning's *share* falls as the store grows even
   though its absolute cost barely moves. A deployment that does not need it can turn it off
   (`ReinforceOn = None`, `CoActivationCap = 0`, `LogReviews = false`) and recall roughly halves.
+  <br>**Those two percentages PREDATE `docs/DECISIONS.md` D101** and are left as measured rather than
+  restated. D101 collapsed the write-back's three store calls into one — 3 connection opens and 2
+  position-totals reads became 1 and 1 — so the share is expected to have fallen, and *expected* is as far
+  as this document goes: nothing re-ran the sweep, and this instrument's own noise (below) is why a
+  before/after pair taken once would not have settled it either. The claim D101 does make is a COUNT.
   <br>**The first run could not support that claim and said so**, which is the half worth keeping: at one
   cell per arm the 100k comparison came out NEGATIVE — `read-only` measured slower, which it cannot be —
   so the sweep printed "not readable" rather than an impossible percentage. Repeats fixed it. **The same

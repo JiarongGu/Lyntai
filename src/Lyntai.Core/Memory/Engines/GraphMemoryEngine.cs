@@ -1408,42 +1408,33 @@ public sealed class GraphMemoryEngine(
                     (long)_policy.Provenance, verdict?.Invoke(n)));
             }
 
-            // `None` skips the call outright rather than writing a no-op touch: the store cannot be asked to
-            // hold the age still, so a touch with everything else suppressed would STILL reset it.
-            if (touches.Count > 0 && resetAge)
-                await store.TouchAsync(Name, touches, ct).ConfigureAwait(false);
-
-            if (_options.LogReviews && reviews.Count > 0)
-            {
-                try
-                {
-                    await store.RecordReviewsAsync(Name, reviews, _options.ReviewLogCap, ct)
-                        .ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "review log write failed for {Engine}; continuing without a logged row", Name);
-                }
-            }
-
-            // ONE unit of work for the whole co-activation set. At the shipped cap of 5 this is C(5,2) = ten
-            // edges, and writing them one at a time cost a connection open and a position-totals read EACH —
-            // 81% of a 1k recall's p50 on `memory-scale`. A store that does not override `LinkManyAsync`
-            // gets exactly this loop back through its default body, so nothing depends on the override.
+            // The co-activation set: every pair among the top CoActivationCap hits, C(5,2) = ten edges at
+            // the shipped cap.
             var top = nodes.Take(Math.Max(0, _options.CoActivationCap)).Select(n => n.Id).ToList();
             var edges = new List<GraphEdgeWrite>(top.Count * (top.Count - 1) / 2);
             for (var i = 0; i < top.Count; i++)
                 for (var j = i + 1; j < top.Count; j++)
                     edges.Add(new GraphEdgeWrite(top[i], top[j], null, 1, Symmetric: true));
-            if (edges.Count > 0) await store.LinkManyAsync(Name, edges, ct).ConfigureAwait(false);
+
+            // ONE unit of work for the whole write-back, where the three parts used to be three calls each
+            // opening its own connection (`docs/DECISIONS.md` D101). Each switch is applied by handing an
+            // EMPTY part, never by reordering: `None` must not write a no-op touch, because the store cannot
+            // be asked to hold the age still and a touch with everything else suppressed would STILL reset
+            // it. The review log goes last, which is the store contract's own guarantee and is what keeps a
+            // broken log from costing the touch or the edges.
+            var writeBack = new GraphWriteBack(resetAge ? touches : [], edges,
+                _options.LogReviews ? reviews : [], _options.ReviewLogCap);
+            if (writeBack.Touches.Count > 0 || writeBack.Edges.Count > 0 || writeBack.Reviews.Count > 0)
+                await store.WriteBackAsync(Name, writeBack, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
+            // "partly or wholly" is the honest wording: the write-back's parts commit in order, so a failure
+            // in a later one leaves the earlier ones landed.
             _logger.LogWarning(ex,
-                "graph reinforcement failed for {Engine}; returning hits without learning", Name);
+                "graph write-back failed for {Engine}; returning hits, learning partly or wholly unrecorded",
+                Name);
         }
     }
 }

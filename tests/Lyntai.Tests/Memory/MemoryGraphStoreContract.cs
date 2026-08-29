@@ -1044,6 +1044,77 @@ public static class MemoryGraphStoreContract
         Assert.Contains(await store.NeighboursAsync("e", key, [b], 10), n => n.Node.Id == a);  // symmetric
     }
 
+    /// <summary>The combined write-back must be indistinguishable from the three calls it replaces — the
+    /// same argument as <see cref="Linking_many_writes_what_linking_one_at_a_time_would"/> one level up. A
+    /// store that overrides <see cref="IMemoryGraphStore.WriteBackAsync"/> to share one connection is the
+    /// whole reason this exists; the default body IS the three calls, so on InMemory it is a tautology and
+    /// on the two relational stores it is the regression guard for their own SQL.
+    /// <para>It pins the ORDER too, which is contract rather than convenience: the review log goes LAST, so
+    /// a store that reordered it would let a broken log cost the touch and the edges.</para></summary>
+    public static async Task Writing_back_writes_what_the_three_separate_calls_would(
+        IMemoryGraphStore store, string key)
+    {
+        var a = await store.UpsertAsync(Write("e", key, "alpha"));
+        var b = await store.UpsertAsync(Write("e", key, "beta"));
+        await Crowd(store, "e", key, 3);   // so the touch has an age to reset
+
+        await store.WriteBackAsync("e", new GraphWriteBack(
+            [new GraphTouch(a, 10.5, 0x2, 6.25)],
+            [new GraphEdgeWrite(a, b, null, 1, Symmetric: true)],
+            [new MemoryReviewWrite(a, Guid.NewGuid(), PreAge: 3, PreStability: Stability, PreDifficulty: 5,
+                PreStrength: 0, PreStrengthAge: 0, Grade: 3, PostStability: 10.5, PostDifficulty: 6.25)],
+            ReviewLogCap: 100));
+
+        // the touch, asserted exactly as Touch_records_reinforcement and its two siblings do
+        var node = await store.GetAsync("e", a);
+        Assert.NotNull(node);
+        Assert.Equal(10.5, node!.Stability, precision: 6);
+        Assert.Equal(6.25, node.Difficulty, precision: 6);
+        Assert.Equal(0x2, node.ProvenanceRetrievability);
+        Assert.Equal(1, node.RecallCount);
+        Assert.Equal(0, node.Age);
+
+        // the edge, symmetric exactly as LinkManyAsync writes it
+        Assert.Contains(await store.NeighboursAsync("e", key, [a], 10), n => n.Node.Id == b);
+        Assert.Contains(await store.NeighboursAsync("e", key, [b], 10), n => n.Node.Id == a);
+
+        // and the log. Filtered by node rather than asserted as the engine's whole log: the review table is
+        // keyed by ENGINE, and Postgres runs every fact against ONE database where SQLite gets a fresh one
+        // per case — so "the only row" is true on two backends and not on the third.
+        var review = Assert.Single(await store.ReviewsAsync("e"), r => r.NodeId == a);
+        Assert.Equal(3, review.Grade);
+    }
+
+    /// <summary>Every part is optional, and an empty one is skipped rather than written as a no-op — the
+    /// engine turns each of its own switches off by handing an EMPTY part, so a store that treated an empty
+    /// touch list as "touch nothing, but still stamp" would reset an age the caller asked to hold still.
+    /// <para>Reviews-only is the interesting arm on a relational store: it is the one shape that needs no
+    /// position read at all.</para></summary>
+    public static async Task Writing_back_skips_the_parts_that_are_empty(IMemoryGraphStore store, string key)
+    {
+        var id = await store.UpsertAsync(Write("e", key, "untouched"));
+        await Crowd(store, "e", key, 3);
+        var before = await store.GetAsync("e", id);
+
+        await store.WriteBackAsync("e", new GraphWriteBack([], [],
+            [new MemoryReviewWrite(id, Guid.NewGuid(), PreAge: 3, PreStability: Stability, PreDifficulty: 5,
+                PreStrength: 0, PreStrengthAge: 0, Grade: null, PostStability: Stability, PostDifficulty: 5)],
+            ReviewLogCap: 100));
+
+        var after = await store.GetAsync("e", id);
+        Assert.NotNull(before);
+        Assert.NotNull(after);
+        Assert.Equal(before!.Age, after!.Age, precision: 6);        // no touch: the age was NOT reset
+        Assert.Equal(0, after.RecallCount);
+        Assert.Equal(0, after.Degree);                              // no edges
+        // the log part DID run — filtered by node for the reason the fact above records
+        Assert.Single(await store.ReviewsAsync("e"), r => r.NodeId == id);
+
+        // and the empty-everything case reaches the store without writing anything
+        await store.WriteBackAsync("e", new GraphWriteBack([], [], [], ReviewLogCap: 100));
+        Assert.Single(await store.ReviewsAsync("e"), r => r.NodeId == id);
+    }
+
     public static async Task An_edge_ages_as_the_memory_moves_on(IMemoryGraphStore store, string key)
     {
         var a = await store.UpsertAsync(Write("e", key, "alpha"));
