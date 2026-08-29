@@ -34,6 +34,41 @@ internal static class MemoryLocomoBench
     private static readonly int[] ScoredCategories = [1, 2, 3, 4];
 
     private const int RecallLimit = 20;
+
+    /// <summary>
+    /// The multi-shot arm's name and shape. <b>A single top-k is not the mode this engine is built for.</b>
+    /// Its entries are a MAP: <c>ExpandAsync</c> walks edges out from what a recall returned, and — in its
+    /// own words — "expanding a node reinforces it … digging in one direction is exactly what should make
+    /// that direction more retrievable next time". A one-shot benchmark cannot see any of that, so measuring
+    /// only one-shot measures a vector index wearing a graph engine's name.
+    /// <para><b>The budget and the size-matched control are what keep it honest.</b> Three shots return more
+    /// text than one, and more context alone raises a reader's score, so the arm is capped at
+    /// <see cref="ShotBudget"/> items and cosine is run at BOTH sizes. Beating <c>vector</c> while feeding
+    /// twice its context proves nothing; beating <c>vector-40</c> is the claim.</para>
+    /// </summary>
+    private const string TwoShot = "lyntai-2shot";
+    private const string ThreeShot = "lyntai-3shot";
+    private const int ShotBudget = 2 * RecallLimit;
+    /// <summary>How many of the previous shot's entries a shot buys the detail on. <b>It is a harness
+    /// parameter, not a property of the engine</b>, and it binds hard: at 3 against a 20-entry first load,
+    /// a two-shot arm upgrades 15% of what it holds and the rest stays a headline. Sweep it with
+    /// <c>--seeds</c> before reading a multi-shot arm as the design's ceiling.</summary>
+    private static int expandSeeds = 3;
+
+    /// <summary>
+    /// The largest context confirmed to reach this machine's reader INTACT, and the reason the
+    /// <c>full</c> arm carries a warning rather than a crown.
+    /// <para>Measured by needle probe rather than assumed: a passcode at the very top of the prompt was
+    /// still recoverable at 85,508 characters and was not at 109,908, so somewhere between them the head is
+    /// dropped. The <c>full</c> arm feeds ~107,000, which is inside that gap — <b>its score is a FLOOR, not
+    /// the ceiling the arm is named for</b>, and reading it as "even the whole conversation does badly" is
+    /// the wrong conclusion.</para>
+    /// <para>It is a property of the DEPLOYMENT's reader, never of this library: the chat seam speaks
+    /// OpenAI-compatible HTTP and cannot portably ask for a window, and a server may truncate silently. Set
+    /// <c>LYNTAI_READER_WINDOW_CHARS</c> where a run has a bigger one.</para>
+    /// </summary>
+    private static int ReaderWindowChars =>
+        int.TryParse(Environment.GetEnvironmentVariable("LYNTAI_READER_WINDOW_CHARS"), out var v) ? v : 85_000;
     private const int Seed = 12345;
 
     private static readonly string[] CategoryNames =
@@ -63,7 +98,13 @@ internal static class MemoryLocomoBench
         if (embedder is null) return 1;
         // The retrieval diagnostic needs no reader at all, so it does not demand one — a machine with an
         // embedder but no chat model can still run the half that measures the memory layer.
-        var needsReader = !args.Contains("--retrieval");
+        // `--shots` is the diagnostic for what this engine is actually FOR: a first load that is small and
+        // only related, then expansion that buys the detail. It needs no reader — evidence-hit per shot is
+        // the model-free form of "did shot 2 find the memory shot 1 only pointed at" — and it prices each
+        // shot in items, characters and milliseconds, because a cheaper context is the point rather than a
+        // side effect.
+        var shotsOnly = args.Contains("--shots");
+        var needsReader = !args.Contains("--retrieval") && !shotsOnly;
         var chat = needsReader ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo") : null;
         if (needsReader && chat is null) return 1;
 
@@ -74,22 +115,38 @@ internal static class MemoryLocomoBench
         // conflates — and it does so with no reader and no judge, so neither can be blamed or credited.
         var retrievalOnly = args.Contains("--retrieval");
         var dump = args.Contains("--dump");
+        // The judge doubles the model calls, and it is the half this run trusts least. `--no-judge` keeps
+        // the model-free grades and drops it.
+        var judged = !args.Contains("--no-judge");
+        if (ArgValue(args, "--seeds") is { } sd && int.TryParse(sd, out var seedCount)) expandSeeds = seedCount;
         var probed = false;
-        string[] arms = wantFull
-            ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "vector", "full"]
-            : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "vector"];
+        // The QA arms are a DIFFERENT question from the retrieval ladder's, so they are a different list.
+        // The ladder varies ranking knobs against a model-free metric; QA asks what a reader can do with
+        // what came back, and its arms are the retrieval MODES — one shot, three shots, and cosine at both
+        // sizes. Reusing the ladder here would spend five reader passes measuring ranking knobs.
+        string[] arms = shotsOnly
+            ? ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}", "full"]
+            : retrievalOnly
+                ? wantFull
+                    ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "vector", "full"]
+                    : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "vector"]
+                : ["lyntai", TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
         var sampled = Stratify(questions, take);
 
         PrintPreamble(chat?.Model ?? "(none - retrieval only)", embedder,
-            conversations.Count, questions.Count, sampled.Count, arms, retrievalOnly);
+            conversations.Count, questions.Count, sampled.Count, arms, retrievalOnly || shotsOnly);
 
         var stopwatch = Stopwatch.StartNew();
         var correct = new Dictionary<(string Arm, int Category), int>();
         var asked = new Dictionary<(string Arm, int Category), int>();
         var unknown = new Dictionary<string, int>();
         var returned = new Dictionary<string, int>();
+        var f1 = new Dictionary<(string Arm, int Category), double>();
+        var exact = new Dictionary<(string Arm, int Category), int>();
+        var chars = new Dictionary<string, long>();
+        var millis = new Dictionary<string, double>();
 
         foreach (var (convId, turns) in conversations)
         {
@@ -115,8 +172,18 @@ internal static class MemoryLocomoBench
             // `hop0` asks whether a graph-walk candidate should earn rank credit equal to a relevance
             // signal, and `sem80` whether 20 semantic seeds are simply outnumbered in a pool of
             // `RecallLimit x CandidateMultiplier` = 80 candidates competing for 20 places.
-            var configs = new (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking)[]
-            {
+            // In QA mode the ladder is not the subject, so only the two engine-backed MODES are ingested —
+            // and they get separate stores for the reason the paragraph above gives, which applies with
+            // extra force here: ExpandAsync reinforces what it walks, so a three-shot arm sharing a store
+            // would hand the one-shot arm a graph it had already dug through.
+            var configs = retrievalOnly
+                ? Ladder()
+                : shotsOnly
+                    ? [(ThreeShot, null, null)]
+                    : [("lyntai", null, null), (ThreeShot, null, null)];
+
+            (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking)[] Ladder() =>
+            [
                 ("lyntai", null, null),
                 ("+sem", new GraphMemoryOptions { SemanticSeedK = RecallLimit }, null),
                 ("+sem+hop0", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
@@ -124,13 +191,18 @@ internal static class MemoryLocomoBench
                 ("+sem80", new GraphMemoryOptions { SemanticSeedK = 80 }, null),
                 ("+sem80+hop0", new GraphMemoryOptions { SemanticSeedK = 80 },
                     new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 })),
-            };
+            ];
 
             // The dia_id rides along in the CONTENT so an evidence hit is checkable without a model. It is
             // in the text every arm reads, so none is advantaged.
             var texts = turns.Select(t => $"[{t.Date}] ({t.DiaId}) {t.Speaker}: {t.Text}").ToList();
             var vectorIndex = new List<(string Text, float[] Vector)>();
             foreach (var text in texts) vectorIndex.Add((text, await embedder.EmbedAsync(text)));
+
+            // Warm the QUERY embeddings before anything is timed. The embedder cache is shared across arms,
+            // so whichever arm ran first would otherwise pay for every embed and the ms column would be
+            // measuring arm ORDER rather than retrieval work.
+            if (shotsOnly) foreach (var q in mine) await embedder.EmbedAsync(q.Text);
 
             var recalled = new Dictionary<(string Arm, string Question), List<string>>();
             foreach (var (arm, options, ranking) in configs)
@@ -174,9 +246,112 @@ internal static class MemoryLocomoBench
                 }
 
                 foreach (var q in mine)
-                    recalled[(arm, q.Text)] = (await engine.RecallAsync(
-                        new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit)))
-                        .Items.Select(i => i.Content ?? i.Headline).ToList();
+                {
+                    var clock = Stopwatch.StartNew();
+                    var recall = await engine.RecallAsync(
+                        new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit));
+                    if (arm != ThreeShot)
+                    {
+                        recalled[(arm, q.Text)] = recall.Items.Select(i => i.Content ?? i.Headline).ToList();
+                        continue;
+                    }
+
+                    // SHOTS 2 AND 3: walk outward from what shot 1 returned, then from what that turned up.
+                    // Each shot expands the best few of the entries the PREVIOUS one newly surfaced, which is
+                    // what "more detail when you think harder" is in graph terms — and it is not free, so the
+                    // budget caps it and the context-cost column prices whatever it spends.
+                    // A recall returns HEADLINES for associative entries — "associative content is withheld
+                    // until expansion — that is what makes the first load cheap", in the engine's own words.
+                    // So a shot does two things, and a set of ids cannot express both: it discovers new
+                    // entries, AND it UPGRADES an entry already held from its headline to its full content.
+                    // Deduping by id alone silently throws the upgrade away, which is the whole payload of
+                    // expanding something you already have.
+                    var text = new Dictionary<string, string>(StringComparer.Ordinal);
+                    var order = new List<string>();
+                    var frontier = new List<MemoryItem>();
+
+                    void Hold(MemoryItem item)
+                    {
+                        var body = item.Content ?? item.Headline;
+                        if (text.TryGetValue(item.Reference.Id, out var held))
+                        {
+                            if (body.Length > held.Length) text[item.Reference.Id] = body;
+                            return;
+                        }
+                        if (order.Count >= ShotBudget) return;
+                        text[item.Reference.Id] = body;
+                        order.Add(item.Reference.Id);
+                        frontier.Add(item);
+                    }
+
+                    foreach (var item in recall.Items) Hold(item);
+                    Snapshot(1);
+
+                    // Two shots and three come from ONE walk, because three is a strict superset of two.
+                    // Snapshotting mid-walk keeps them exactly nested — any difference between the arms is
+                    // the extra shot and nothing else — and costs one ingestion rather than two.
+                    for (var shot = 2; shot <= 3; shot++)
+                    {
+                        var seeds = frontier.Take(expandSeeds).ToList();
+                        frontier = [];
+                        foreach (var seed in seeds)
+                            foreach (var near in (await engine.ExpandAsync(seed.Reference, hops: 1)).Items)
+                                Hold(near);
+                        Snapshot(shot);
+                        if (!shotsOnly)
+                            recalled[(shot == 2 ? TwoShot : ThreeShot, q.Text)] = [.. order.Select(id => text[id])];
+                    }
+
+                    // Each shot is priced where it happens: cumulative items, characters and elapsed time,
+                    // plus whether the evidence has arrived YET. That last one is the model-free form of
+                    // "shot 1 finds something related, shot 2 finds the thing".
+                    void Snapshot(int shot)
+                    {
+                        if (!shotsOnly) return;
+                        var name = $"shot-{shot}";
+                        var body = order.Select(id => text[id]).ToList();
+                        recalled[(name, q.Text)] = body;
+                        if (q.Evidence.Count == 0) return;
+                        var key = (name, q.Category);
+                        asked[key] = asked.GetValueOrDefault(key) + 1;
+                        returned[name] = returned.GetValueOrDefault(name) + body.Count;
+                        chars[name] = chars.GetValueOrDefault(name) + body.Sum(b => b.Length);
+                        millis[name] = millis.GetValueOrDefault(name) + clock.Elapsed.TotalMilliseconds;
+                        if (q.Evidence.Any(e => body.Any(g => g.Contains($"({e})", StringComparison.Ordinal))))
+                            correct[key] = correct.GetValueOrDefault(key) + 1;
+                    }
+                }
+            }
+
+            if (shotsOnly)
+            {
+                // The controls, priced the same way: cosine at both sizes, and the whole conversation. `full`
+                // holds the evidence by construction, so its 100% is a definition rather than a result — it
+                // is here for its COST columns, which are the point of the comparison.
+                foreach (var q in mine.Where(q => q.Evidence.Count > 0))
+                {
+                    foreach (var (arm, k) in new[] { ("vector", RecallLimit), ($"vector-{ShotBudget}", ShotBudget) })
+                    {
+                        var clock = Stopwatch.StartNew();
+                        var got = (await TopKAsync(embedder, vectorIndex, q.Text, k)).ToList();
+                        millis[arm] = millis.GetValueOrDefault(arm) + clock.Elapsed.TotalMilliseconds;
+                        var key = (arm, q.Category);
+                        asked[key] = asked.GetValueOrDefault(key) + 1;
+                        returned[arm] = returned.GetValueOrDefault(arm) + got.Count;
+                        chars[arm] = chars.GetValueOrDefault(arm) + got.Sum(g => g.Length);
+                        if (q.Evidence.Any(e => got.Any(g => g.Contains($"({e})", StringComparison.Ordinal))))
+                            correct[key] = correct.GetValueOrDefault(key) + 1;
+                    }
+
+                    var fullKey = ("full", q.Category);
+                    asked[fullKey] = asked.GetValueOrDefault(fullKey) + 1;
+                    correct[fullKey] = correct.GetValueOrDefault(fullKey) + 1;
+                    returned["full"] = returned.GetValueOrDefault("full") + texts.Count;
+                    chars["full"] = chars.GetValueOrDefault("full") + texts.Sum(t => t.Length);
+                }
+                Console.WriteLine($"  {convId}: {turns.Count} turns ingested, "
+                    + $"{mine.Count(q => q.Evidence.Count > 0)} question(s) walked");
+                continue;
             }
 
             if (retrievalOnly)
@@ -207,19 +382,38 @@ internal static class MemoryLocomoBench
                     // Every `lyntai*` arm reads the set its own pristine-store engine already produced
                     // above, so the QA table and the retrieval table are scoring the SAME recalls rather
                     // than two independently-drawn ones.
-                    var context = arm switch
+                    IReadOnlyList<string> pieces = arm switch
                     {
-                        "vector" => string.Join("\n", await TopKAsync(embedder, vectorIndex, q.Text, RecallLimit)),
-                        "full" => string.Join("\n", texts),
-                        _ => string.Join("\n", recalled[(arm, q.Text)]),
+                        "vector" => [.. await TopKAsync(embedder, vectorIndex, q.Text, RecallLimit)],
+                        _ when arm == $"vector-{ShotBudget}" =>
+                            [.. await TopKAsync(embedder, vectorIndex, q.Text, ShotBudget)],
+                        "full" => texts,
+                        _ => recalled[(arm, q.Text)],
                     };
+                    var context = string.Join("\n", pieces);
+                    returned[arm] = returned.GetValueOrDefault(arm) + pieces.Count;
 
                     var hypothesis = (await chat!.AskAsync(AnswerPrompt(context, q.Text), maxTokens: 48))?.Trim() ?? "";
                     var key = (arm, q.Category);
                     asked[key] = asked.GetValueOrDefault(key) + 1;
+                    // What the arm SPENT. A three-shot arm returns more text than a one-shot one, and more
+                    // context raises any reader's score, so an accuracy column read without this one cannot
+                    // tell a better memory from a bigger one.
+                    chars[arm] = chars.GetValueOrDefault(arm) + context.Length;
                     if (hypothesis.Length == 0 || hypothesis.StartsWith("unknown", StringComparison.OrdinalIgnoreCase))
+                    {
                         unknown[arm] = unknown.GetValueOrDefault(arm) + 1;
-                    else if (await JudgeAsync(chat, q, hypothesis))
+                        continue;
+                    }
+
+                    // The MODEL-FREE grade is primary and the judge sits beside it, not above it. A model is
+                    // not better at exact comparison (`model-decoupling.md`), and this judge is the same 4B
+                    // model that wrote the answer — so token-F1 against the gold string is the number to
+                    // trust, and the judge's job is to catch a right answer worded differently.
+                    f1[key] = f1.GetValueOrDefault(key) + TokenF1(hypothesis, q.Gold);
+                    if (Normalize(hypothesis).SequenceEqual(Normalize(q.Gold)))
+                        exact[key] = exact.GetValueOrDefault(key) + 1;
+                    if (judged && await JudgeAsync(chat, q, hypothesis))
                         correct[key] = correct.GetValueOrDefault(key) + 1;
                 }
             }
@@ -227,7 +421,8 @@ internal static class MemoryLocomoBench
             Console.WriteLine($"  {convId}: {turns.Count} turns ingested, {mine.Count} question(s) asked");
         }
 
-        PrintResults(arms, correct, asked, unknown, returned, retrievalOnly);
+        if (shotsOnly) PrintShots(arms, correct, asked, returned, chars, millis);
+        else PrintResults(arms, correct, asked, unknown, returned, retrievalOnly, f1, exact, chars, judged);
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
@@ -264,6 +459,31 @@ internal static class MemoryLocomoBench
          Question: {question}
          Answer:
          """;
+
+    /// <summary>SQuAD's answer normalization — lowercase, drop punctuation and the articles — so "The Bahamas"
+    /// and "bahamas" are one string. It is what makes a model-free grade possible over a model's prose.</summary>
+    private static string[] Normalize(string s) =>
+        new string([.. s.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : ' ')])
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w is not ("a" or "an" or "the"))
+            .ToArray();
+
+    /// <summary>Token overlap F1 against the gold answer — the standard extractive-QA measure, and the one
+    /// number here no model produced. It is reported as the PRIMARY grade for that reason: this machine's
+    /// judge is the same small model that wrote the answer, and a self-grading reader is generous to its own
+    /// phrasing.</summary>
+    private static double TokenF1(string hypothesis, string gold)
+    {
+        var h = Normalize(hypothesis);
+        var g = Normalize(gold);
+        if (h.Length == 0 || g.Length == 0) return h.Length == g.Length ? 1 : 0;
+
+        var pool = g.ToList();
+        var shared = h.Count(w => pool.Remove(w));
+        if (shared == 0) return 0;
+        double precision = (double)shared / h.Length, recall = (double)shared / g.Length;
+        return 2 * precision * recall / (precision + recall);
+    }
 
     /// <summary>Grades a hypothesis against the gold answer with the SAME model that answered. That is a
     /// known weakness and is disclosed in the preamble rather than hidden: a self-grading reader can be
@@ -379,34 +599,77 @@ internal static class MemoryLocomoBench
         Console.WriteLine();
     }
 
+    /// <summary>What each shot BUYS against what it COSTS. The rate alone would say a bigger context is a
+    /// better memory, so every accuracy column here has its price beside it and the last column divides one
+    /// by the other.</summary>
+    private static void PrintShots(IReadOnlyList<string> arms,
+        Dictionary<(string, int), int> correct, Dictionary<(string, int), int> asked,
+        Dictionary<string, int> returned, Dictionary<string, long> chars, Dictionary<string, double> millis)
+    {
+        Console.WriteLine();
+        Console.WriteLine("=== What each SHOT buys, and what it costs (no model in the loop) ===");
+        Console.WriteLine();
+        Console.WriteLine("A recall returns HEADLINES - the engine withholds associative content until an");
+        Console.WriteLine("expansion asks for it, which is what makes the first load cheap. So shot 1 is an");
+        Console.WriteLine("index of what is related, and shots 2-3 buy the detail on whatever looked worth it.");
+        Console.WriteLine();
+        Console.WriteLine($"{"Arm",-12} {"evidence-hit",13} {"items/q",9} {"chars/q",9} {"ms/q",8} {"hit / 1k chars",15}");
+        Console.WriteLine(new string('-', 70));
+
+        foreach (var arm in arms)
+        {
+            var ask = ScoredCategories.Sum(c => asked.GetValueOrDefault((arm, c)));
+            if (ask == 0) continue;
+            var rate = (double)ScoredCategories.Sum(c => correct.GetValueOrDefault((arm, c))) / ask;
+            var perQuestion = (double)chars.GetValueOrDefault(arm) / ask;
+            Console.WriteLine($"{arm,-12} {rate,13:P1} "
+                + $"{(double)returned.GetValueOrDefault(arm) / ask,9:F1} {perQuestion,9:F0} "
+                + $"{(millis.TryGetValue(arm, out var ms) ? $"{ms / ask:F1}" : "-"),8} "
+                + $"{(perQuestion > 0 ? rate / (perQuestion / 1000) : 0),15:F3}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("  'full' is 100% BY CONSTRUCTION - it holds every turn, so its hit rate is a");
+        Console.WriteLine("  definition rather than a result. It is in the table for its cost columns, which");
+        Console.WriteLine("  are what a design that refuses to blow up the context is measured against.");
+        Console.WriteLine($"  `vector-{ShotBudget}` is the SIZE-MATCHED control: beating `vector` while feeding");
+        Console.WriteLine("  twice its context proves nothing, so cosine is run at both sizes.");
+        Console.WriteLine("  'ms/q' is memory-layer time only - no reader. Query embeddings are warmed before");
+        Console.WriteLine("  any arm is timed, so this column is retrieval work rather than arm ORDER.");
+    }
+
     private static void PrintResults(IReadOnlyList<string> arms,
         Dictionary<(string, int), int> correct, Dictionary<(string, int), int> asked,
-        Dictionary<string, int> unknown, Dictionary<string, int> returned, bool retrievalOnly)
+        Dictionary<string, int> unknown, Dictionary<string, int> returned, bool retrievalOnly,
+        Dictionary<(string, int), double> f1, Dictionary<(string, int), int> exact,
+        Dictionary<string, long> chars, bool judged)
     {
         Console.WriteLine();
         Console.WriteLine(retrievalOnly
             ? "=== evidence-hit@k by arm and category (no model in the loop) ==="
-            : "=== Accuracy by arm and category (LLM-judged against the gold answer) ===");
-        Console.Write($"{"Arm",-10}");
+            : "=== token-F1 by arm and category (MODEL-FREE grading of a model's answer) ===");
+        Console.Write($"{"Arm",-14}");
         foreach (var c in ScoredCategories) Console.Write($"  {CategoryNames[c],-14}");
         Console.WriteLine($"  {"overall",-10} {(retrievalOnly ? "items/q" : "unknown"),8}");
-        Console.WriteLine(new string('-', 10 + (ScoredCategories.Length * 16) + 22));
+        Console.WriteLine(new string('-', 14 + (ScoredCategories.Length * 16) + 22));
 
         foreach (var arm in arms)
         {
-            Console.Write($"{arm,-10}");
-            int hit = 0, ask = 0;
+            Console.Write($"{arm,-14}");
+            double hit = 0;
+            var ask = 0;
             foreach (var c in ScoredCategories)
             {
                 var a = asked.GetValueOrDefault((arm, c));
-                var k = correct.GetValueOrDefault((arm, c));
+                var k = retrievalOnly ? correct.GetValueOrDefault((arm, c)) : f1.GetValueOrDefault((arm, c));
                 hit += k; ask += a;
-                Console.Write($"  {(a == 0 ? "-" : $"{(double)k / a:P1} ({k}/{a})"),-14}");
+                Console.Write($"  {(a == 0 ? "-" : retrievalOnly
+                    ? $"{k / a:P1} ({k}/{a})" : $"{k / a:P1}"),-14}");
             }
             var trailer = retrievalOnly
                 ? (ask == 0 ? "-" : $"{(double)returned.GetValueOrDefault(arm) / ask:F1}")
                 : unknown.GetValueOrDefault(arm).ToString();
-            Console.Write($"  {(ask == 0 ? "-" : $"{(double)hit / ask:P1}"),-10} {trailer,8}");
+            Console.Write($"  {(ask == 0 ? "-" : $"{hit / ask:P1}"),-10} {trailer,8}");
             Console.WriteLine();
         }
 
@@ -416,12 +679,52 @@ internal static class MemoryLocomoBench
             Console.WriteLine("  'items/q' is how many entries the arm actually RETURNED per question. An arm");
             Console.WriteLine("  well under k is not losing on ranking - it is being filtered before ranking,");
             Console.WriteLine("  which is a different defect and one this column exists to expose.");
+            return;
         }
-        else
+
+        // WHAT EACH ARM SPENT, beside what it scored. Without this a reader cannot tell a better memory from
+        // a bigger one: three shots return more text than one, and more context lifts any reader.
+        Console.WriteLine($"{"Arm",-14} {"token-F1",10} {"exact",10} {(judged ? "judge" : "judge(off)"),10} "
+            + $"{"unknown",8} {"items/q",8} {"chars/q",9}");
+        Console.WriteLine(new string('-', 76));
+        foreach (var arm in arms)
         {
-            Console.WriteLine("  'unknown' counts answers where the reader said the excerpts did not contain one.");
-            Console.WriteLine("  A HIGH unknown count on an arm is a retrieval failure, not a reasoning failure -");
-            Console.WriteLine("  which is the distinction this table exists to draw.");
+            var ask = ScoredCategories.Sum(c => asked.GetValueOrDefault((arm, c)));
+            if (ask == 0) continue;
+            var em = ScoredCategories.Sum(c => exact.GetValueOrDefault((arm, c)));
+            var jd = ScoredCategories.Sum(c => correct.GetValueOrDefault((arm, c)));
+            Console.WriteLine($"{arm,-14} "
+                + $"{ScoredCategories.Sum(c => f1.GetValueOrDefault((arm, c))) / ask,10:P1} "
+                + $"{(double)em / ask,10:P1} {(judged ? $"{(double)jd / ask:P1}" : "-"),10} "
+                + $"{unknown.GetValueOrDefault(arm),8} "
+                + $"{(double)returned.GetValueOrDefault(arm) / ask,8:F1} "
+                + $"{(double)chars.GetValueOrDefault(arm) / ask,9:F0}");
         }
+
+        Console.WriteLine();
+        Console.WriteLine("  'token-F1' is the PRIMARY column and no model produced it - it is overlap against");
+        Console.WriteLine("  the gold string. 'judge' is the same small model that wrote the answer, so it is");
+        Console.WriteLine("  reported beside F1 rather than instead of it: a self-grader is generous to its own");
+        Console.WriteLine("  phrasing, and the two disagreeing is information rather than a defect.");
+        Console.WriteLine("  'unknown' counts answers where the reader said the excerpts contained none - a HIGH");
+        Console.WriteLine("  count is a retrieval failure, not a reasoning one.");
+        Console.WriteLine("  'chars/q' is the context each arm SPENT. Read every accuracy column against it;");
+        Console.WriteLine($"  `vector-{ShotBudget}` exists so the multi-shot arms face a size-matched control.");
+
+        // An arm whose context does not FIT is not a weak arm, and a table that cannot tell the difference
+        // invites exactly the wrong conclusion — that retrieval barely matters because even the whole
+        // conversation scored badly.
+        var over = arms.Where(a =>
+        {
+            var ask = ScoredCategories.Sum(c => asked.GetValueOrDefault((a, c)));
+            return ask > 0 && (double)chars.GetValueOrDefault(a) / ask > ReaderWindowChars;
+        }).ToList();
+        if (over.Count == 0) return;
+
+        Console.WriteLine();
+        Console.WriteLine($"  ! {string.Join(", ", over)} feeds more than this reader can hold "
+            + $"({ReaderWindowChars} chars, measured by needle probe - see ReaderWindowChars).");
+        Console.WriteLine("    The head of the prompt is dropped, so that row is a FLOOR and not a ceiling.");
+        Console.WriteLine("    Do NOT read it as 'even full context does badly'.");
     }
 }
