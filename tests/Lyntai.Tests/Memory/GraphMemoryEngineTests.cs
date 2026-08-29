@@ -232,6 +232,26 @@ public class GraphMemoryEngineTests
     }
 
     [Fact]
+    public async Task A_recall_writes_its_co_activation_set_as_ONE_store_call_not_one_per_pair()
+    {
+        // At CoActivationCap = 5 a recall links C(5,2) = 10 pairs, and each LinkAsync on a relational store
+        // opens its own connection AND re-reads the position totals. This pins the round-trip COUNT rather
+        // than a latency, because `memory-scale` cannot resolve the change above its own noise: its 10k p50
+        // spans 8.9-11.2ms across runs of identical code. What is checkable here is that ten calls became one.
+        var store = new LinkCountingGraphStore();
+        var engine = new GraphMemoryEngine("project/graph", store, agePolicies: [new PerWriteAgePolicy()]);
+        for (var i = 0; i < 6; i++)
+            await engine.RememberAsync(new MemoryWrite("t", "s", $"the deploy gate runs check number {i}"));
+
+        var recall = await engine.RecallAsync(new MemoryQuery("t", "s", "deploy gate check"));
+
+        Assert.True(recall.Items.Count >= 5, $"needs 5+ hits to link a full set, got {recall.Items.Count}");
+        Assert.Equal(0, store.SingleLinks);
+        Assert.Equal(1, store.BatchedLinks);
+        Assert.Equal(10, store.EdgesWritten);   // C(5,2), the cap's own arithmetic
+    }
+
+    [Fact]
     public async Task Expansion_walks_to_a_BURIED_neighbour_by_default_so_forgetting_has_no_vote_in_traversal()
     {
         // The control, and the defect it describes is measured: EdgeHalfLife decays the EDGE and nothing

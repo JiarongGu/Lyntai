@@ -1428,11 +1428,16 @@ public sealed class GraphMemoryEngine(
                 }
             }
 
+            // ONE unit of work for the whole co-activation set. At the shipped cap of 5 this is C(5,2) = ten
+            // edges, and writing them one at a time cost a connection open and a position-totals read EACH —
+            // 81% of a 1k recall's p50 on `memory-scale`. A store that does not override `LinkManyAsync`
+            // gets exactly this loop back through its default body, so nothing depends on the override.
             var top = nodes.Take(Math.Max(0, _options.CoActivationCap)).Select(n => n.Id).ToList();
+            var edges = new List<GraphEdgeWrite>(top.Count * (top.Count - 1) / 2);
             for (var i = 0; i < top.Count; i++)
                 for (var j = i + 1; j < top.Count; j++)
-                    await store.LinkAsync(Name, top[i], top[j], null, 1, symmetric: true, ct)
-                        .ConfigureAwait(false);
+                    edges.Add(new GraphEdgeWrite(top[i], top[j], null, 1, Symmetric: true));
+            if (edges.Count > 0) await store.LinkManyAsync(Name, edges, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)

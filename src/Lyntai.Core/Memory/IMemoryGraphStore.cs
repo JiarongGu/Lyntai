@@ -122,6 +122,17 @@ public sealed record GraphNode(
         new(StrengthOrdinalAge, StrengthVolumeAge, StrengthElapsedAge);
 }
 
+/// <summary>One edge for <see cref="IMemoryGraphStore.LinkManyAsync"/>, carrying exactly
+/// <see cref="IMemoryGraphStore.LinkAsync"/>'s per-edge arguments so the batched path can make no promise
+/// the single one does not.</summary>
+/// <param name="From">Source node id.</param>
+/// <param name="To">Target node id.</param>
+/// <param name="Kind">Optional relation name; null is an untyped association.</param>
+/// <param name="Weight">How much to add to the edge.</param>
+/// <param name="Symmetric">Write the reverse edge too.</param>
+public readonly record struct GraphEdgeWrite(
+    long From, long To, string? Kind = null, double Weight = 1, bool Symmetric = false);
+
 /// <summary>A node to store. Identity is (<paramref name="Engine"/>, <paramref name="TaskKey"/>,
 /// <paramref name="Scope"/>, <paramref name="Content"/>) — storing identical content refreshes rather than
 /// duplicating, matching every other memory surface in the library.</summary>
@@ -415,6 +426,33 @@ public interface IMemoryGraphStore
     /// <param name="ct">Cancellation.</param>
     Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
         CancellationToken ct = default);
+
+    /// <summary>Write several edges as ONE unit of work, with <see cref="LinkAsync"/>'s semantics per edge.
+    ///
+    /// <para><b>Why it exists, measured.</b> A recall writes co-activation edges between the top
+    /// <see cref="GraphMemoryOptions.CoActivationCap"/> hits — C(5,2) = ten edges at the shipped cap — and
+    /// doing that through <see cref="LinkAsync"/> costs ten connection opens and ten position-totals reads
+    /// for twenty upserts. On <c>memory-scale</c> the whole write-back was <b>81% of a 1k recall's p50</b>.
+    /// A relational store overrides this to pay the fixed costs once.</para>
+    ///
+    /// <para><b>It has a DEFAULT BODY on purpose.</b> Every other member added to this interface since 3.0
+    /// was required, and a BYO store must not break for a performance change it gains nothing from — the
+    /// loop below is exactly what the engine used to do inline, so a store that ignores this is correct and
+    /// merely no faster. Overriding is an optimization, never a contract.</para>
+    ///
+    /// <para><b>Order is not significant and duplicates are additive</b>, matching
+    /// <see cref="LinkAsync"/>: two writes of the same pair strengthen it twice, whether they arrive in one
+    /// call or two.</para></summary>
+    /// <param name="engine">The owning engine's name.</param>
+    /// <param name="edges">The edges to write; an empty list is a no-op.</param>
+    /// <param name="ct">Cancellation.</param>
+    async Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(edges);
+        foreach (var e in edges)
+            await LinkAsync(engine, e.From, e.To, e.Kind, e.Weight, e.Symmetric, ct).ConfigureAwait(false);
+    }
 
     /// <summary>Remove nodes, returning how many were removed. AUTHORITATIVE nodes are never eligible for
     /// <paramref name="maxAgeOverStability"/> — their retrievability is fixed at 1.</summary>

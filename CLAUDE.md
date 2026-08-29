@@ -26,8 +26,8 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D98**. The two groups worth knowing before you touch anything:
-**D83–D98 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D99**. The two groups worth knowing before you touch anything:
+**D83–D99 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
@@ -91,8 +91,10 @@ silently break; the reasoning is in the decision named beside it.
    parameters can be fitted later; nothing reads that log at runtime.
 8. **`IMemoryGraphStore` has FIVE required members with no default body** — `DeleteAsync`,
    `RecordReviewsAsync`, `ReviewsAsync`, `RecordSubjectsAsync`, `NodesBySubjectAsync` — so a BYO store must
-   implement all five. `KnownSubjectsAsync` is the one exception and defaults to an empty list, which means a
-   BYO store silently gets no subject seeding (**D88**).
+   implement all five. **TWO members carry a default body**, and the difference between them matters:
+   `KnownSubjectsAsync` defaults to an empty list, so a BYO store silently gets no subject seeding
+   (**D88**); `LinkManyAsync` defaults to looping `LinkAsync`, so a BYO store loses no behaviour at all and
+   is merely no faster (**D99**).
 9. **All THREE age axes speak one unit** (**D52**). An edge carries the same three primitives a node does
    (`StrengthOrdinalAge`/`StrengthVolumeAge`/`StrengthElapsedAge` + `StrengthAgeSample` on `GraphNode`, and
    the same plus `EdgeAgeSample` on `GraphNeighbour`), so `StrengthAge` is swap-safe and `PruneAsync`'s
@@ -119,7 +121,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3435 passed / 3456 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3439 passed / 3460 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 434/434, doc samples 78/78.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,

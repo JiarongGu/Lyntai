@@ -14,6 +14,14 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`IMemoryGraphStore.LinkManyAsync` — write several edges as one unit of work** (`docs/DECISIONS.md`
+  **D99**), with `GraphEdgeWrite` carrying one edge's arguments. **It has a default body** that loops
+  `LinkAsync`, so a BYO store keeps compiling and keeps behaving identically; the SQLite and Postgres stores
+  override it to open one connection and read the position totals once. A recall links its top hits pairwise
+  — ten edges at the shipped `CoActivationCap` — which previously cost ten connection opens and ten totals
+  reads. **No latency claim is made**: `memory-scale` cannot resolve the change above its own run-to-run
+  noise, so the guarantee is a round-trip COUNT and a test pins it.
+
 - **`GraphMemoryOptions.ExpansionRetrievabilityFloor` — the retrievability a neighbour must still have to be
   walked to** (`docs/DECISIONS.md` **D98**). Default `0`, which admits every neighbour and is what every
   release through 3.0.2 did, so nothing changes unless a deployment asks. `EdgeHalfLife` decays the EDGE and

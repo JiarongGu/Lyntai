@@ -475,6 +475,32 @@ public sealed class SqliteMemoryGraphStore(
             await StrengthenAsync(conn, to, from, kind ?? "", weight, totals, ct).ConfigureAwait(false);
     }
 
+    /// <summary>The batched form: ONE connection and ONE position-totals read for every edge, where the
+    /// single-edge path pays both per call. A recall writes ten co-activation edges at the shipped cap, so
+    /// this is the difference between ten round-trips and one — see the interface member's own doc for the
+    /// measurement that motivated it.</summary>
+    public async Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(edges);
+        ct.ThrowIfCancellationRequested();
+        if (edges.Count == 0) return;
+
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // ONE snapshot for the whole batch, which is the point: every edge in a recall's co-activation set
+        // was strengthened by the SAME retrieval, so stamping them at one position is more correct than
+        // letting ten reads drift apart, not merely faster.
+        var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
+        foreach (var e in edges)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (e.From == e.To) continue;   // a self-edge is never useful and would skew Degree
+            await StrengthenAsync(conn, e.From, e.To, e.Kind ?? "", e.Weight, totals, ct).ConfigureAwait(false);
+            if (e.Symmetric)
+                await StrengthenAsync(conn, e.To, e.From, e.Kind ?? "", e.Weight, totals, ct).ConfigureAwait(false);
+        }
+    }
+
     // Stamps all FOUR strengthening marks together — the Advance-driven position and the three
     // policy-independent primitives beside it, from one totals snapshot, so they can never disagree about
     // when this edge was last strengthened.

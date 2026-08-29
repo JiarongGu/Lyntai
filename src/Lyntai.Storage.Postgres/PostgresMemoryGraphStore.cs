@@ -391,6 +391,32 @@ public sealed class PostgresMemoryGraphStore(
             await StrengthenAsync(conn, to, from, kind ?? "", weight, totals, ct).ConfigureAwait(false);
     }
 
+    /// <summary>The batched form: ONE connection and ONE position-totals read for every edge, where the
+    /// single-edge path pays both per call. A recall writes ten co-activation edges at the shipped cap, so
+    /// this is the difference between ten round-trips and one — see the interface member's own doc for the
+    /// measurement that motivated it.</summary>
+    public async Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(edges);
+        ct.ThrowIfCancellationRequested();
+        if (edges.Count == 0) return;
+
+        await using var conn = await factory.OpenAsync(ct).ConfigureAwait(false);
+        // ONE snapshot for the whole batch, which is the point: every edge in a recall's co-activation set
+        // was strengthened by the SAME retrieval, so stamping them at one position is more correct than
+        // letting ten reads drift apart, not merely faster.
+        var totals = await TotalsAsync(conn, engine, ct).ConfigureAwait(false);
+        foreach (var e in edges)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (e.From == e.To) continue;   // a self-edge is never useful and would skew Degree
+            await StrengthenAsync(conn, e.From, e.To, e.Kind ?? "", e.Weight, totals, ct).ConfigureAwait(false);
+            if (e.Symmetric)
+                await StrengthenAsync(conn, e.To, e.From, e.Kind ?? "", e.Weight, totals, ct).ConfigureAwait(false);
+        }
+    }
+
     // Postgres requires the table reference in the DO UPDATE SET expression, where SQLite takes a bare
     // column — one of the dialect differences that make sharing this text impossible.
     // Stamps all FOUR strengthening marks from one totals snapshot, exactly as the SQLite twin does.

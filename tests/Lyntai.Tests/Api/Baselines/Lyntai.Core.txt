@@ -1749,6 +1749,18 @@ enum Lyntai.Memory.Forgetting.MemoryRetrievabilityProvenance
     HalfLife : MemoryRetrievabilityProvenance const
     None : MemoryRetrievabilityProvenance const
     value__ : Int64
+struct Lyntai.Memory.GraphEdgeWrite
+    .ctor(Int64 From, Int64 To, String Kind = null, Double Weight = 1, Boolean Symmetric = false)
+    Deconstruct(Int64& From, Int64& To, String& Kind, Double& Weight, Boolean& Symmetric) : Void
+    Equals(GraphEdgeWrite other) : Boolean
+    Equals(Object obj) : Boolean
+    From : Int64
+    GetHashCode() : Int32
+    Kind : String
+    Symmetric : Boolean
+    To : Int64
+    ToString() : String
+    Weight : Double
 sealed class Lyntai.Memory.GraphMemoryOptions
     .ctor()
     AnnotationContext : Int32
@@ -1888,6 +1900,7 @@ interface Lyntai.Memory.IMemoryGraphStore
     GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>
     KnownSubjectsAsync(String engine, String taskKey, String scope, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     LinkAsync(String engine, Int64 from, Int64 to, String kind, Double weight, Boolean symmetric, CancellationToken ct = default) : Task
+    LinkManyAsync(String engine, IReadOnlyList<GraphEdgeWrite> edges, CancellationToken ct = default) : Task
     NeighboursAsync(String engine, String taskKey, IReadOnlyCollection<Int64> ids, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<GraphNeighbour>>
     NodesBySubjectAsync(String engine, String taskKey, String scope, String subject, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<Int64>>
     PruneAsync(String engine, String taskKey, String scope, Nullable<Double> maxAgeOverStability, Nullable<TimeSpan> olderThan, CancellationToken ct = default) : Task<Int32>

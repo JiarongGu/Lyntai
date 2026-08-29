@@ -168,8 +168,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D96](#d96--the-decision-record-gets-a-length-ratchet-not-the-archives-compression-2026-08-28) | 2026-08-28 | the decision record gets a length ratchet, not the archive's compression |
 | [D97](#d97--a-candidate-nobody-asked-about-carries-matched-because-neither-relevance-value-is-right-2026-08-29) | 2026-08-29 | a candidate nobody asked about carries `Matched`, because neither relevance value is right |
 | [D98](#d98--forgetting-gets-a-vote-in-traversal-and-it-is-a-floor-rather-than-a-weight-2026-08-29) | 2026-08-29 | forgetting gets a vote in TRAVERSAL, and it is a floor rather than a weight |
+| [D99](#d99--a-batched-link-with-a-default-body-and-a-speedup-the-instrument-could-not-see-2026-08-29) | 2026-08-29 | a batched link, with a default body, and a speedup the instrument could not see |
 
-_All 98 entries are live decisions._
+_All 99 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2784,3 +2785,30 @@ must still return it. Only the walk OUT from a seed is filtered.
 **Default `0`, because it buys precision with recall.** The same run lost 4 points of current-fact hit rate
 for its 4 points of clean context. Which side a deployment wants is a property of its workload — the same
 reason `SemanticSeedK` ships off — and one class of one benchmark does not settle it for everyone.
+
+## D99 — a batched link, with a default body, and a speedup the instrument could not see (2026-08-29)
+
+`IMemoryGraphStore.LinkManyAsync` writes several edges as one unit of work. The shipped relational stores
+override it to open one connection and read the position totals once; the interface's own body loops
+`LinkAsync`, which is exactly what the engine used to do inline.
+
+**What it replaces.** A recall links its top `CoActivationCap` hits pairwise — C(5,2) = ten edges at the
+shipped cap — and every `LinkAsync` on a relational store opened its own connection AND re-read the position
+totals. Ten connection opens and ten totals reads for twenty upserts, per recall.
+
+**A DEFAULT BODY rather than a required member.** Every other member added to this interface since 3.0 was
+required, and `CLAUDE.md`'s invariant 8 counts them. A store outside this repository must not break for a
+performance change it gains nothing from — and unlike `KnownSubjectsAsync`, whose default costs a BYO store
+a FEATURE (no subject seeding, **D88**), this one costs it nothing but speed. Overriding is an optimization,
+never a contract.
+
+**The honest part: `memory-scale` could not resolve the improvement.** Its 10k p50 read 11.0ms before,
+8.9ms after, and 11.2ms on a second identical run — the change is smaller than the instrument's run-to-run
+noise at five runs per cell. So no latency claim is made anywhere, and the guard is a COUNT instead:
+`A_recall_writes_its_co_activation_set_as_ONE_store_call_not_one_per_pair` pins ten calls becoming one.
+A round-trip count is checkable where a millisecond is not.
+
+**Which leaves the write-back still dominant, and that is recorded rather than implied.** It remains ~80% of
+a 1k recall's p50, because touches, review rows and edges are still three separate store calls and each
+opens its own connection. Collapsing those three into one is the next lever, and it is a larger contract
+change than this one.

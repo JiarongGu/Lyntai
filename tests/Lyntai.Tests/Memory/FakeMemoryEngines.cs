@@ -488,3 +488,79 @@ internal sealed class FakeCuratedStore : ICuratedMemoryStore
         return Task.FromResult<IReadOnlyList<CuratedMemory>>([.. hits]);
     }
 }
+
+/// <summary>Counts how a recall's co-activation reaches the store: as ONE batched call or as N single ones.
+/// <para>It exists because the change it guards is a ROUND-TRIP count, and the repository's own latency
+/// instrument could not resolve that change above its run-to-run noise — <c>memory-scale</c>'s 10k p50 spans
+/// 8.9–11.2ms across runs of identical code. A countable claim is checkable where a timing one is not.</para>
+/// </summary>
+internal sealed class LinkCountingGraphStore : IMemoryGraphStore
+{
+    private readonly Lyntai.Storage.InMemory.InMemoryMemoryGraphStore _inner = new();
+
+    public int SingleLinks { get; private set; }
+    public int BatchedLinks { get; private set; }
+    public int EdgesWritten { get; private set; }
+
+    public Task LinkAsync(string engine, long from, long to, string? kind, double weight, bool symmetric,
+        CancellationToken ct = default)
+    {
+        SingleLinks++;
+        EdgesWritten++;
+        return _inner.LinkAsync(engine, from, to, kind, weight, symmetric, ct);
+    }
+
+    // Overridden rather than left to the interface's default body, which would loop LinkAsync and make the
+    // two counters indistinguishable — the whole point is telling one call from ten.
+    public async Task LinkManyAsync(string engine, IReadOnlyList<GraphEdgeWrite> edges,
+        CancellationToken ct = default)
+    {
+        BatchedLinks++;
+        EdgesWritten += edges.Count;
+        foreach (var e in edges)
+            await _inner.LinkAsync(engine, e.From, e.To, e.Kind, e.Weight, e.Symmetric, ct);
+    }
+
+    public Task<long> UpsertAsync(GraphNodeWrite write, CancellationToken ct = default) =>
+        _inner.UpsertAsync(write, ct);
+
+    public Task<IReadOnlyList<GraphNode>> SeedAsync(string engine, string taskKey, string? scope,
+        string? query, int limit, CancellationToken ct = default) =>
+        _inner.SeedAsync(engine, taskKey, scope, query, limit, ct);
+
+    public Task<IReadOnlyList<GraphNeighbour>> NeighboursAsync(string engine, string taskKey,
+        IReadOnlyCollection<long> ids, int limit, CancellationToken ct = default) =>
+        _inner.NeighboursAsync(engine, taskKey, ids, limit, ct);
+
+    public Task<GraphNode?> GetAsync(string engine, long id, CancellationToken ct = default) =>
+        _inner.GetAsync(engine, id, ct);
+
+    public Task TouchAsync(string engine, IReadOnlyCollection<GraphTouch> touches,
+        CancellationToken ct = default) =>
+        _inner.TouchAsync(engine, touches, ct);
+
+    public Task<int> PruneAsync(string engine, string taskKey, string? scope,
+        double? maxAgeOverStability, TimeSpan? olderThan, CancellationToken ct = default) =>
+        _inner.PruneAsync(engine, taskKey, scope, maxAgeOverStability, olderThan, ct);
+
+    public Task<int> DeleteAsync(string engine, IReadOnlyCollection<long> ids, CancellationToken ct = default) =>
+        _inner.DeleteAsync(engine, ids, ct);
+
+    public Task ForgetAsync(string engine, string taskKey, string? scope, CancellationToken ct = default) =>
+        _inner.ForgetAsync(engine, taskKey, scope, ct);
+
+    public Task RecordReviewsAsync(string engine, IReadOnlyCollection<MemoryReviewWrite> reviews, int cap,
+        CancellationToken ct = default) =>
+        _inner.RecordReviewsAsync(engine, reviews, cap, ct);
+
+    public Task<IReadOnlyList<MemoryReview>> ReviewsAsync(string engine, CancellationToken ct = default) =>
+        _inner.ReviewsAsync(engine, ct);
+
+    public Task RecordSubjectsAsync(string engine, long nodeId, IReadOnlyCollection<string> subjects,
+        CancellationToken ct = default) =>
+        _inner.RecordSubjectsAsync(engine, nodeId, subjects, ct);
+
+    public Task<IReadOnlyList<long>> NodesBySubjectAsync(string engine, string taskKey, string? scope,
+        string subject, int limit, CancellationToken ct = default) =>
+        _inner.NodesBySubjectAsync(engine, taskKey, scope, subject, limit, ct);
+}

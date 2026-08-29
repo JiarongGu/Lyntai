@@ -854,7 +854,7 @@ the same 36.0% for 36% more characters, so the ceiling is what the graph is conn
 window — measured by needle probe, a passcode at the top of the prompt survives 85,508 characters and does
 not survive 109,908 — so its QA row is a floor. `ms/q` compares a SQLite-backed store against an in-memory
 array with no persistence and no write-back, and it is cold-start dominated at one store per question;
-`memory-scale`'s steady-state p50 is 10.4ms at 1k, and 75% of that is the write-back. And LoCoMo questions
+`memory-scale`'s steady-state p50 is 10.4ms at 1k, and ~80% of that is the write-back — where **D99** cut a recall's co-activation from ten store round-trips to one without the instrument being able to resolve the difference (its 10k p50 spans 8.9–11.2ms across runs of identical code, so no latency claim is made for it). And LoCoMo questions
 within a conversation share a store, so a recall reinforces what the next question reads — `shot-1` moved
 30.0% → 28.0% between two runs differing only in how much a LATER shot expanded, which is only reachable
 that way. It affects every LoCoMo figure in this document.

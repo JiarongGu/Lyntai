@@ -86,6 +86,7 @@ sealed class Lyntai.Storage.Postgres.PostgresMemoryGraphStore
     GetAsync(String engine, Int64 id, CancellationToken ct = default) : Task<GraphNode>
     KnownSubjectsAsync(String engine, String taskKey, String scope, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<String>>
     LinkAsync(String engine, Int64 from, Int64 to, String kind, Double weight, Boolean symmetric, CancellationToken ct = default) : Task
+    LinkManyAsync(String engine, IReadOnlyList<GraphEdgeWrite> edges, CancellationToken ct = default) : Task
     NeighboursAsync(String engine, String taskKey, IReadOnlyCollection<Int64> ids, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<GraphNeighbour>>
     NodesBySubjectAsync(String engine, String taskKey, String scope, String subject, Int32 limit, CancellationToken ct = default) : Task<IReadOnlyList<Int64>>
     PruneAsync(String engine, String taskKey, String scope, Nullable<Double> maxAgeOverStability, Nullable<TimeSpan> olderThan, CancellationToken ct = default) : Task<Int32>

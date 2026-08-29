@@ -205,6 +205,21 @@ the tests) while being wrong. Skim before touching the relevant area.
   legitimate authorial choices"* shape recorded above for the existence-check gate: **reach for a registry or
   a habit, not a corpus scan, when "wrong" depends on intent.** The habit is the one sentence above — check
   the instrument, and re-read the banner against every item you touch, in the same change.
+- **Before optimizing against a latency number, measure the INSTRUMENT's noise — a p50 that moves less than
+  its own run-to-run spread has told you nothing.** Measured 2026-08-29 on `memory-scale`: a recall's
+  co-activation write went from ten store round-trips to one (**D99**), the 10k p50 read `11.0ms` before and
+  `8.9ms` after, and a second run of the *identical post-change code* read `11.2ms`. The "19% improvement"
+  was noise, and it would have been published as a result by anyone who ran the before/after pair once —
+  which is the normal way to run a before/after pair.
+  <br>**The cheap defence is a repeat of the AFTER arm, not a bigger sample.** One extra run costs the same
+  as the one already planned and bounds the noise directly; chasing significance with more repetitions costs
+  far more and answers a question nobody asked. This repository already uses that move elsewhere and for the
+  same reason — the LoCoMo isolation fix was confirmed by two byte-identical runs rather than by reasoning
+  that the stores were now separate.
+  <br>**Then convert the claim to something countable if you can.** The change here really did replace ten
+  round-trips with one; that is a fact about the code, checkable by a test that counts calls, and it stays
+  true on a machine whose milliseconds differ. A COUNT is gate-able where a millisecond is not — which is
+  the same reasoning `check-counts` rests on, applied to a benchmark instead of to prose.
 - **NuGet never re-extracts a package version it already has in the global cache**, so packing under a FIXED
   throwaway version (`consumer-smoke`'s `9.9.9-smoke`) tests the packages only ONCE — every later run restores
   the first run's copies from `~/.nuget/packages/` and reports success about code it never compiled against.

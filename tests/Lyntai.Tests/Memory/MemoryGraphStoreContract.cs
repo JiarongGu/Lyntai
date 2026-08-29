@@ -1018,6 +1018,32 @@ public static class MemoryGraphStoreContract
         Assert.Equal(2, neighbours[0].EdgeWeight, precision: 6);
     }
 
+    /// <summary>The batched path must be indistinguishable from the loop it replaces. A store that overrides
+    /// <see cref="IMemoryGraphStore.LinkManyAsync"/> for speed is the whole reason this exists — the default
+    /// body IS the loop, so on InMemory this is a tautology and on the two relational stores it is the
+    /// regression guard for their own SQL.</summary>
+    public static async Task Linking_many_writes_what_linking_one_at_a_time_would(IMemoryGraphStore store, string key)
+    {
+        var a = await store.UpsertAsync(Write("e", key, "alpha"));
+        var b = await store.UpsertAsync(Write("e", key, "beta"));
+        var c = await store.UpsertAsync(Write("e", key, "gamma"));
+
+        await store.LinkManyAsync("e", [
+            new GraphEdgeWrite(a, b, null, 1, Symmetric: true),
+            new GraphEdgeWrite(a, c, null, 1, Symmetric: true),
+            new GraphEdgeWrite(b, c, null, 1, Symmetric: true),
+            new GraphEdgeWrite(a, a, null, 1, Symmetric: true),   // self-edge: dropped, never stored
+            new GraphEdgeWrite(a, b, null, 1, Symmetric: true),   // duplicate: additive, exactly as LinkAsync
+        ]);
+
+        var neighbours = await store.NeighboursAsync("e", key, [a], 10);
+
+        Assert.Equal(2, neighbours.Count);                       // b and c, and no self-edge
+        Assert.Equal(2, neighbours.Single(n => n.Node.Id == b).EdgeWeight, precision: 6);
+        Assert.Equal(1, neighbours.Single(n => n.Node.Id == c).EdgeWeight, precision: 6);
+        Assert.Contains(await store.NeighboursAsync("e", key, [b], 10), n => n.Node.Id == a);  // symmetric
+    }
+
     public static async Task An_edge_ages_as_the_memory_moves_on(IMemoryGraphStore store, string key)
     {
         var a = await store.UpsertAsync(Write("e", key, "alpha"));
