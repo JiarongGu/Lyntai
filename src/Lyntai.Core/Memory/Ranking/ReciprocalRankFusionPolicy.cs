@@ -23,6 +23,11 @@ public sealed record ReciprocalRankFusionOptions
     /// stay within a narrow band of each other (a <c>100/61 ≈ 1.639×</c> spread — see
     /// <see cref="ReciprocalRankFusionPolicy"/>'s remarks on why <see cref="RelativeFloor"/> defaults to 0
     /// because of it), rather than the near-total dominance a small constant would hand the top rank.
+    /// <para><b>It selects a REGIME, not a sharpness, and the two ends want different things.</b> At a small
+    /// <c>K</c> a candidate that is top-few on ONE signal outscores one that is merely good on all of them.
+    /// As <c>K</c> grows the curve flattens toward <c>(1/K)(1 − rank/K)</c>, so the order tends to the SUM of
+    /// ranks — Borda count — which rewards the opposite. Tune it for which of those a workload wants; a
+    /// larger value is not "more of" a smaller one.</para>
     /// <para><b>Must be FINITE and <c>&gt; 0</c>.</b> At <c>K = 0</c> the curve stops being Cormack et al.'s
     /// measured one at all — rank 1 scores exactly <c>1</c> per signal while rank 2 already halves to
     /// <c>0.5</c>, the deliberate flattening gone. A NEGATIVE <c>K</c> is worse than merely a different curve:

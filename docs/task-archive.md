@@ -1352,3 +1352,40 @@ and the two that leave forgetting alone both made things worse. LoCoMo's role he
 instrument, not a scoreboard**.
 
 - **Spend the twenty slots better, WITHOUT turning off forgetting.**
+
+## Part 114 — the decay model got BETTER under distractors and the fusion threw it away (2026-08-29)
+
+✅ done 2026-08-29 — chasing the one row of Part 112's table that did not fit: `stale@k` ROSE (54.3 → 62.9)
+while twenty times more candidates competed for the same ten slots. `memory-longmemeval --ranks` installs a
+probe `IMemoryRankingPolicy` that observes the candidate pool and delegates the real ranking untouched.
+**No library change** — `MemoryCandidate` already exposes `Retrievability`, `Hop` and the whole pool, which
+is the seam doing its job. Tables in `docs/memory.md` §5.
+
+**The answer inverts the question.** Under distractors the decay model separates the pair **3.6× better** by
+value (0.0347 → 0.1235) and **2.6× better** by rank (10 → 26 positions) — and the score separation RRF
+actually sums fell **29%** (0.00179 → 0.00127). `1/(K + rank)` is convex, so the same gap is worth far less
+at ranks 74/102 than at 10/20, and distractors written after the current fact push both there. **The loss is
+in the fusion, not the forgetting**, which is the opposite of what a decay-model regression would look like.
+
+**`K` selects a REGIME, and the intuitive fix is backwards.** A lower K — a steeper curve — makes suppression
+monotonically WORSE in both variants, because at low K being top-few on ONE signal beats being mediocre on
+the rest, and the stale fact is relevance rank 4. At high K the order tends to the SUM of ranks (Borda), which
+rewards being good on all of them. K = 120 costs nothing measurable on `current@k` in either variant and cuts
+`stale@k` ~12 points.
+
+**The haystack is what BOUNDS the lever, and the oracle would have hidden it.** Past 120 the variants
+disagree: the oracle saturates harmlessly at 32% through K = 1000, while the haystack pays **−16.7 points of
+`current@k` at K = 300**. Read on the cheap variant alone, K = 1000 looks free. Part 112's finding, recurring
+on a second question.
+
+**Two controls, and the first caught a defect that would have shipped a wrong table.** The offline replica
+must reproduce the SHIPPED policy's own top-10 — it agrees 25/25 (oracle) and 24/24 (haystack). It did not at
+first: `MemoryRankingContract.Finish` breaks score ties by DESCENDING id, so the newer entry wins, and a
+replica breaking them ascending moved the shipped row by 4 points while looking entirely plausible. Second,
+the ladder's K = 60 row reproduces the arm's own numbers on the same sample exactly (92.0% / 44.0%), which is
+what makes it comparable to the published table.
+
+**Left open as `TASKS.md` Part 109**: `K` is global, every LoCoMo figure was measured at 60, and one class of
+one benchmark is not a mandate to move a published constant.
+
+- *(No backlog entry — this came from a measurement, not a plan.)*

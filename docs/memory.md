@@ -734,6 +734,72 @@ found no current turn and would have dropped the entire class — reporting an e
 number, which is the cheap direction only because nothing else depended on it. It now takes the latest dated
 session that *carries* a flagged turn, which is what the oracle numbers above prove is a no-op there.
 
+### Why suppression weakened under distractors — the loss is in the FUSION (`memory-longmemeval --ranks`, 2026-08-29)
+
+One row of the haystack table does not fit the story it tells: `stale@k` **rose**, 54.3 → 62.9, while twenty
+times more candidates competed for the same ten slots. More competition should crowd the superseded fact
+out. `--ranks` installs a probe `IMemoryRankingPolicy` that observes the candidate pool and delegates the
+real ranking untouched — so it describes the run that produced the table rather than a reconstruction of it.
+Same 25 questions in both variants (sample digest `9694C9D71534`).
+
+| | oracle | haystack |
+|---|---|---|
+| pool size (median) | 24 | 112 |
+| relevance rank — current / stale | 2 / 4 | 3 / 4 |
+| retrievability rank — current / stale | 10 / 20 | 74 / 102.5 |
+| retrievability VALUE — current / stale | 0.9440 / 0.9062 | 0.8556 / 0.7206 |
+| RRF contribution gap, from relevance | 0.00024 | 0.00024 |
+| RRF contribution gap, from retrievability | **0.00179** | **0.00127** |
+
+**The decay model did not weaken. It improved, and the fusion discarded the improvement.** The value gap
+between the two facts grew **3.6×** (0.0347 → 0.1235) and the rank gap grew **2.6×** (10 → 26 positions) —
+and the score separation RRF actually sums fell **29%**. The reason is arithmetic: `1/(K + rank)` is convex,
+so a gap between ranks 10 and 20 is worth far more than the same gap between 74 and 102. Distractors written
+after the current fact push BOTH into the flat region, where the signal that tells them apart stops being
+paid for. Relevance is unmoved at 0.00024 either way, because the pair are the two most query-similar entries
+in the store whatever its size.
+
+**So the obvious fix is a lower `K` — a steeper curve — and the ladder refutes it.** Scored offline from the
+same candidate set, which is not a shortcut: re-running per K would need a fresh store each time, because a
+recall reinforces what it returns and would contaminate every later arm (**Part 110**). RRF at another K is a
+pure function of ranks already in hand.
+
+| K | oracle current@k | oracle stale@k | haystack current@k | haystack stale@k |
+|---|---|---|---|---|
+| 1 | 88.0% | 72.0% | 91.7% | 79.2% |
+| 3 | 88.0% | 68.0% | 91.7% | 79.2% |
+| 10 | 92.0% | 64.0% | 91.7% | 75.0% |
+| 30 | 92.0% | 52.0% | 87.5% | 75.0% |
+| **60 (shipped)** | 92.0% | 44.0% | 87.5% | 54.2% |
+| 120 | 92.0% | **32.0%** | 87.5% | **41.7%** |
+| 300 | 92.0% | 32.0% | 70.8% | 16.7% |
+| 1000 | 92.0% | 32.0% | 66.7% | 8.3% |
+
+**Lowering K makes suppression worse, monotonically, in both variants** — because `K` selects a REGIME, not a
+sharpness. At low K, being top-few on *one* signal outweighs being mediocre on the rest, and the stale fact
+is relevance rank 4. At high K the curve flattens toward `(1/K)(1 − r/K)`, so the order tends to the SUM of
+ranks — Borda count — which rewards a candidate that is good on every signal.
+
+**The lever therefore runs upward, and the haystack is what bounds it.** K = 120 costs nothing measurable on
+`current@k` in either variant and cuts `stale@k` by ~12 points in both. Past that the two variants disagree:
+the oracle saturates harmlessly at 32% forever, while the haystack starts paying real recall — **−16.7 points
+of `current@k` at K = 300**. Read on the oracle alone, K = 1000 looks free. That is the same bias this
+document records one section above, now caught on a second question.
+
+**Two controls, and the first caught a real defect.** The ladder's replica of the scoring must reproduce the
+SHIPPED policy's own top-10, or it is a table about a formula this library does not run: it agrees on
+**25/25** oracle and **24/24** haystack recalls. It did not at first — `MemoryRankingContract.Finish` breaks
+score ties by **descending** id, so the newer entry wins a tie, and a replica that broke them ascending moved
+the shipped row by 4 points while looking entirely plausible. Second, the ladder's K = 60 row reproduces the
+ARM's own measured numbers on the same sample **exactly** (92.0% / 44.0%), which is what makes it comparable
+to the published table at all.
+
+**What this does not settle, and it is most of it.** One class of one benchmark, 25 questions, one embedder.
+`K` is a GLOBAL ranking constant — every LoCoMo figure in this document was measured at 60, and moving it
+would move them all, in a direction this says nothing about. 60 is Cormack, Clarke & Buettcher's published
+value for fusing IR result lists, which is a different problem from fusing decay against relevance. **This is
+an argument for sweeping `K` properly, not for changing a default**; `TASKS.md` Part 109 carries it.
+
 ### How these choices sit against the published field (surveyed 2026-08-29)
 
 *A literature pass, not a measurement. Every claim below is attributed, because none of it was run here —

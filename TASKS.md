@@ -19,11 +19,15 @@ _**The archive is where closed work lives** — `docs/task-archive.md`, one Part
 this file does not summarize it. `CHANGELOG.md` is the release-facing log, and everything before 3.0 is
 history rather than context (`repo-mechanics.md`)._
 
-**The startable set is TWO items: Part 109's QA half, and the 3D-backend survey inside Part 33 / GEN7.**
-Each is a `- [ ]` you could open today — which is the test this banner failed twice on 2026-08-29, so apply
-it literally: **if the banner names something that is not an open checkbox below, the banner is wrong.**
-Both names it carried that day were sweeps that had already run, with their write-ups sitting in
-`docs/memory.md` §5 while the banner advertised them.
+**The startable set is THREE items: Part 109's `K` sweep and its QA half, and the 3D-backend survey inside
+Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this banner failed twice on
+2026-08-29, so apply it literally: **if the banner names something that is not an open checkbox below, the
+banner is wrong.** Both names it carried that day were sweeps that had already run, with their write-ups
+sitting in `docs/memory.md` §5 while the banner advertised them.
+<br>**The `K` sweep is the one to read first**, because it is the only item here that arrived from a
+measurement rather than from a plan: `K` turns out to select a REGIME (excellence on one signal at low K,
+balance across all of them at high K), it was never swept, and the one class measured says the shipped 60 is
+on the wrong side of free.
 <br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
 its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
 not work somebody can start — the same reason Part 105 sits under Blocked. Everything measurable in it has
@@ -525,6 +529,21 @@ _**The ranking half of this Part is CLOSED — `docs/task-archive.md` Part 113.*
 in the same commit that reframed the item, and refuted both misallocation hypotheses plus the pre-committed
 seeding fallback: `HopWeight = 0` costs 24.5 points (traversal carries the arm), more semantic seeds make it
 worse, and the pool provably contains the evidence. The residual gap is the design, not a defect._
+
+- [ ] **Sweep `ReciprocalRankFusionOptions.K` across workloads — it selects a REGIME, and nobody knew.**
+  `memory-longmemeval --ranks` (`docs/memory.md` §5) found the mechanism behind the haystack's rising
+  `stale@k`: the decay model separates the pair 3.6× BETTER under distractors, and RRF discards the
+  improvement because `1/(K + rank)` is convex and both facts sink into its flat region. On that class,
+  **K = 120 costs nothing measurable on `current@k` in either variant and cuts `stale@k` by ~12 points**.
+  <br>**What makes this a sweep and not a default change**: `K` is global. Every LoCoMo figure in that
+  document was measured at 60, and the direction there is unknown — the same knob that suppresses a
+  superseded fact could easily cost evidence-hit on a workload that wants old material. The suite to run is
+  `memory-locomo --retrieval` at the same ladder, beside the two LongMemEval classes; 60 is Cormack, Clarke &
+  Buettcher's published value for fusing IR result lists, which is not the problem being solved here.
+  <br>**Startable today** — the ladder is built, scores offline from one ingestion, and validates itself
+  against the shipped policy (25/25 and 24/24). It needs a LoCoMo-side equivalent and a decision afterwards.
+  Its own bound is already measured: past K = 120 the haystack pays 16.7 points of `current@k` while the
+  oracle shows nothing, so a ladder read on the cheap variant alone would call K = 1000 free.
 
 - [ ] **Run the QA half, and more of it.** The model-free metric is the trustworthy one, but the accuracy
   table is what the field publishes. It needs a reader model, its absolute value is not comparable to a

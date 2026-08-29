@@ -6,6 +6,7 @@ using System.Text.Json;
 using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
+using Lyntai.Memory.Ranking;
 using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Benchmarks;
@@ -85,7 +86,12 @@ internal static class MemoryLongMemEvalBench
         // the EARLIER fact and preferring the current one would be wrong. It needs BOTH facts present, which
         // is exactly what the suppression that wins knowledge-update should cost. Different question,
         // different metric: all-evidence recall rather than preference.
-        var temporal = args.Contains("--temporal");
+        // `--ranks` is a DIAGNOSTIC, not an arm: it asks WHERE in the candidate pool the two facts sit,
+        // because the haystack table shows stale@k RISING (54.3 → 62.9) while twenty times more candidates
+        // compete for the same ten slots. More competition should crowd the superseded fact out. It needs
+        // the knowledge-update pair, so it overrides `--temporal` rather than combining with it.
+        var ranks = args.Contains("--ranks");
+        var temporal = args.Contains("--temporal") && !ranks;
         var questions = Load(path, temporal ? "temporal-reasoning" : "knowledge-update", temporal);
         if (questions.Count == 0)
         {
@@ -110,6 +116,21 @@ internal static class MemoryLongMemEvalBench
             Console.WriteLine();
             Preamble(sampled, questions.Count, turns, haystack, seed, "temporal-reasoning");
             await RunTemporalAsync(sampled, embedder);
+            return 0;
+        }
+
+        if (ranks)
+        {
+            Console.WriteLine("=== Where the current and stale facts sit in the candidate pool ===");
+            Console.WriteLine();
+            Console.WriteLine("RRF scores a candidate as the sum over signals of w / (K + rank), K = 60. That");
+            Console.WriteLine("curve is CONVEX in rank, so the same rank gap is worth far less deep in the list");
+            Console.WriteLine("than near the top. If distractors push both facts down the retrievability order,");
+            Console.WriteLine("the signal that separates them quietly stops paying - which is a prediction, and");
+            Console.WriteLine("the contribution columns below are what tests it.");
+            Console.WriteLine();
+            Preamble(sampled, questions.Count, turns, haystack, seed, "knowledge-update");
+            await RunRanksAsync(sampled, embedder);
             return 0;
         }
 
@@ -185,6 +206,88 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
         return 0;
+    }
+
+    /// <summary>Reports where the pair lands on each ranking signal, and what that position is WORTH under
+    /// RRF's own curve. The rank gap and the contribution gap are separate columns on purpose: a gap that
+    /// holds while its contribution collapses is the whole hypothesis, and one number cannot show it.</summary>
+    private static async Task RunRanksAsync(List<Question> sampled, SweepDoubles.CachingEmbedder embedder)
+    {
+        const double K = 60;   // ReciprocalRankFusionOptions.K's shipped default.
+        var stopwatch = Stopwatch.StartNew();
+        var rows = new List<(int Pool, int RelCur, int RelSta, int RetCur, int RetSta, double RCur, double RSta)>();
+        var missing = 0;
+        var done = 0;
+        var curAtK = new int[RankProbe.Ladder.Length];
+        var staAtK = new int[RankProbe.Ladder.Length];
+        int agreed = 0, compared = 0;
+
+        foreach (var q in sampled)
+        {
+            Progress(++done, sampled.Count);
+            using var db = new MemoryPolicySweep.SweepDb();
+            var store = new SqliteMemoryGraphStore(db.Factory);
+            var probe = new RankProbe(new ReciprocalRankFusionPolicy()) { Current = q.Current, Stale = q.Stale };
+            var engine = new GraphMemoryEngine("lme", store, embedder: embedder,
+                vectors: new InMemoryVectorStore(), ranking: probe);
+
+            foreach (var t in q.Turns)
+                await engine.RememberAsync(new MemoryWrite(Task, Scope, $"{t.Tag} {t.Text}"));
+            await engine.RecallAsync(new MemoryQuery(Task, Scope, q.Text, Limit: RecallLimit));
+
+            if (probe.Seen.Count == 0) { missing++; continue; }
+            rows.Add(probe.Seen[^1]);
+            for (var k = 0; k < curAtK.Length; k++) { curAtK[k] += probe.CurrentAtK[k]; staAtK[k] += probe.StaleAtK[k]; }
+            agreed += probe.Agreed;
+            compared += probe.Compared;
+        }
+
+        Console.WriteLine($"{"",-22} {"current",12} {"stale",12} {"gap",12}");
+        Console.WriteLine(new string('-', 62));
+        Console.WriteLine($"{"relevance rank",-22} {Med(rows, r => r.RelCur),12:F1} "
+            + $"{Med(rows, r => r.RelSta),12:F1} {Med(rows, r => r.RelSta - r.RelCur),12:F1}");
+        Console.WriteLine($"{"retrievability rank",-22} {Med(rows, r => r.RetCur),12:F1} "
+            + $"{Med(rows, r => r.RetSta),12:F1} {Med(rows, r => r.RetSta - r.RetCur),12:F1}");
+        Console.WriteLine($"{"retrievability value",-22} {Med(rows, r => r.RCur),12:F4} "
+            + $"{Med(rows, r => r.RSta),12:F4} {Med(rows, r => r.RCur - r.RSta),12:F4}");
+        Console.WriteLine();
+        Console.WriteLine($"{"RRF contribution",-22} {"current",12} {"stale",12} {"gap",12}");
+        Console.WriteLine(new string('-', 62));
+        Console.WriteLine($"{"  from relevance",-22} {Med(rows, r => 1 / (K + r.RelCur)),12:F5} "
+            + $"{Med(rows, r => 1 / (K + r.RelSta)),12:F5} "
+            + $"{Med(rows, r => 1 / (K + r.RelCur) - 1 / (K + r.RelSta)),12:F5}");
+        Console.WriteLine($"{"  from retrievability",-22} {Med(rows, r => 1 / (K + r.RetCur)),12:F5} "
+            + $"{Med(rows, r => 1 / (K + r.RetSta)),12:F5} "
+            + $"{Med(rows, r => 1 / (K + r.RetCur) - 1 / (K + r.RetSta)),12:F5}");
+        Console.WriteLine();
+        Console.WriteLine($"{"K",-8} {"current@k",12} {"stale@k",12}   (same pool, same ranks, scored offline)");
+        Console.WriteLine(new string('-', 62));
+        for (var k = 0; k < RankProbe.Ladder.Length; k++)
+            Console.WriteLine($"{RankProbe.Ladder[k],-8:F0} {(double)curAtK[k] / rows.Count,12:P1} "
+                + $"{(double)staAtK[k] / rows.Count,12:P1}{(RankProbe.Ladder[k] == 60 ? "   <- shipped" : "")}");
+
+        Console.WriteLine();
+        Console.WriteLine($"  CONTROL: the K=60 row reproduces the SHIPPED policy's own top-{RecallLimit} on "
+            + $"{agreed}/{compared} recalls.");
+        Console.WriteLine("  Anything below 100% means the replica is not the formula this library runs, and");
+        Console.WriteLine("  the ladder above is a table about something else.");
+        Console.WriteLine();
+        Console.WriteLine($"  Pool size (median): {Med(rows, r => r.Pool):F0}   scored on {rows.Count} "
+            + $"question(s); {missing} had one of the pair outside the pool entirely.");
+        Console.WriteLine("  A POSITIVE gap favours the current fact. 'rank' gaps count positions, so bigger");
+        Console.WriteLine("  is better separation; 'contribution' gaps are what RRF actually adds up, and they");
+        Console.WriteLine("  are the ones that decide the order.");
+        Console.WriteLine();
+        Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
+            + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
+    }
+
+    private static double Med<T>(List<T> rows, Func<T, double> of)
+    {
+        if (rows.Count == 0) return double.NaN;
+        var sorted = rows.Select(of).OrderBy(x => x).ToList();
+        var mid = sorted.Count / 2;
+        return sorted.Count % 2 == 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
     }
 
     /// <summary>All-evidence recall. A temporal question usually needs EVERY flagged turn — "the first issue
@@ -317,6 +420,115 @@ internal static class MemoryLongMemEvalBench
                 q.GetProperty("question").GetString() ?? "", wantType, turns, current, stale, evidence));
         }
         return result;
+    }
+
+    /// <summary>
+    /// Observes one recall's candidate pool and delegates the actual ranking untouched — so the arm it runs
+    /// in is the SHIPPED arm, and the numbers it prints describe the run that produced the table rather than
+    /// a reconstruction of it.
+    ///
+    /// <para><b>Ranks are competition ranks</b> (<c>1 + |strictly better|</c>) because ties are the norm
+    /// here, not the exception: every walked candidate reports <c>Relevance 0</c> with <c>Matched null</c>
+    /// (<b>D97</b>), so a positional rank would depend on sort order among equals and mean nothing.</para>
+    /// </summary>
+    private sealed class RankProbe(IMemoryRankingPolicy inner) : IMemoryRankingPolicy
+    {
+        internal IReadOnlyList<Turn> Current { get; set; } = [];
+        internal IReadOnlyList<Turn> Stale { get; set; } = [];
+        internal List<(int Pool, int RelCur, int RelSta, int RetCur, int RetSta, double RCur, double RSta)>
+            Seen { get; } = [];
+
+        /// <summary>The K values the ladder scores; 60 is the shipped default and doubles as the CONTROL.
+        /// <para>It runs UPWARD as well as down because the downward half refuted the obvious reading. As
+        /// K → ∞, <c>1/(K+r) ≈ (1/K)(1 − r/K)</c>, so the order tends to the SUM OF RANKS — Borda count.
+        /// Low K is the opposite regime: being top-few on one signal outweighs being mediocre on the
+        /// rest.</para></summary>
+        internal static readonly double[] Ladder = [1, 3, 10, 30, 60, 120, 300, 1000];
+
+        internal int[] CurrentAtK { get; } = new int[Ladder.Length];
+        internal int[] StaleAtK { get; } = new int[Ladder.Length];
+        internal int Agreed { get; private set; }
+        internal int Compared { get; private set; }
+
+        public IReadOnlyList<RankedMemory> Rank(
+            IReadOnlyList<MemoryCandidate> candidates, in MemoryRankingContext context)
+        {
+            var result = inner.Rank(candidates, context);
+
+            // Mirror MemoryRankingContract.Rankable: a non-finite Relevance or Retrievability is dropped
+            // BEFORE positions are computed, so ranking over the unfiltered set would shift every position
+            // below the dropped candidate.
+            var pool = candidates
+                .Where(x => double.IsFinite(x.Node.Relevance) && double.IsFinite(x.Retrievability)).ToList();
+            var cur = Find(pool, Current);
+            var sta = Find(pool, Stale);
+            if (cur is not { } c || sta is not { } s) return result;
+
+            Seen.Add((pool.Count,
+                Rank(pool, x => x.Node.Relevance, c.Node.Relevance),
+                Rank(pool, x => x.Node.Relevance, s.Node.Relevance),
+                Rank(pool, x => x.Retrievability, c.Retrievability),
+                Rank(pool, x => x.Retrievability, s.Retrievability),
+                c.Retrievability, s.Retrievability));
+
+            // The K ladder is scored OFFLINE from this one candidate set, which is not a shortcut but the
+            // only clean way to do it: re-running the arm per K would need a fresh store per K, because a
+            // recall reinforces what it returns and that contaminates every later arm (`docs/task-archive.md`
+            // Part 110). RRF at another K is a pure function of ranks already in hand, so nothing is lost.
+            var rel = Positions(pool, x => x.Node.Relevance, false);
+            var ret = Positions(pool, x => x.Retrievability, false);
+            var hop = Positions(pool, x => x.Hop, true);
+            for (var k = 0; k < Ladder.Length; k++)
+            {
+                var top = Enumerate(pool, rel, ret, hop, Ladder[k], context.Limit);
+                if (top.Any(i => Has(pool[i], Current))) CurrentAtK[k]++;
+                if (top.Any(i => Has(pool[i], Stale))) StaleAtK[k]++;
+
+                // CONTROL: at the shipped K this replica must reproduce the real policy's own top-N, or the
+                // ladder above is a table about a formula this library does not run.
+                if (Ladder[k] != 60) continue;
+                Compared++;
+                var real = result.Take(context.Limit).Select(r => r.Candidate.Node.Id).OrderBy(x => x);
+                if (top.Select(i => pool[i].Node.Id).OrderBy(x => x).SequenceEqual(real)) Agreed++;
+            }
+            return result;
+        }
+
+        /// <summary>The tiebreak is DESCENDING id, matching <c>MemoryRankingContract.Finish</c> — so on a
+        /// score tie the newer entry wins. Getting this backwards cost one recall of control agreement, which
+        /// is the whole reason the control exists.</summary>
+        private static List<int> Enumerate(IReadOnlyList<MemoryCandidate> all,
+            int[] rel, int[] ret, int[] hop, double k, int limit) =>
+            [.. Enumerable.Range(0, all.Count)
+                .OrderByDescending(i => 1 / (k + rel[i]) + 1 / (k + ret[i]) + 1 / (k + hop[i]))
+                .ThenByDescending(i => all[i].Node.Id)
+                .Take(limit)];
+
+        /// <summary>Competition ranking, matching <c>ReciprocalRankFusionPolicy.RankPositions</c>: every
+        /// member of a tie block takes the block's first position.</summary>
+        private static int[] Positions(IReadOnlyList<MemoryCandidate> all,
+            Func<MemoryCandidate, double> of, bool ascending)
+        {
+            var v = all.Select(of).ToArray();
+            var r = new int[v.Length];
+            for (var i = 0; i < v.Length; i++)
+                r[i] = 1 + v.Count(x => ascending ? x < v[i] : x > v[i]);
+            return r;
+        }
+
+        private static bool Has(MemoryCandidate c, IReadOnlyList<Turn> wanted)
+            => wanted.Any(t => c.Node.Content.Contains(t.Tag, StringComparison.Ordinal));
+
+        private static int Rank(IReadOnlyList<MemoryCandidate> all, Func<MemoryCandidate, double> of, double v)
+            => 1 + all.Count(x => of(x) > v);
+
+        private static MemoryCandidate? Find(IReadOnlyList<MemoryCandidate> all, IReadOnlyList<Turn> wanted)
+        {
+            foreach (var c in all)
+                if (wanted.Any(t => c.Node.Content.Contains(t.Tag, StringComparison.Ordinal)))
+                    return c;
+            return null;
+        }
     }
 
     /// <summary>What makes one run comparable to another: which variant ran, how much of the class was
