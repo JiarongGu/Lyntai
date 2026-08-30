@@ -720,7 +720,7 @@ export default {
     D89: 37,
     D91: 55,
     D93: 52,
-    D94: 48,
+    D94: 41,
   },
 
   /**
@@ -766,7 +766,7 @@ export default {
     "bench/Lyntai.Benchmarks/MemoryLanguageSweep.cs": [41],
     "bench/Lyntai.Benchmarks/MemoryPolicySweep.cs": [79],
     "bench/Lyntai.Benchmarks/MemoryReinforcementSweep.cs": [33],
-    "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [34],
+    "bench/Lyntai.Benchmarks/MemorySalienceSweep.cs": [33],
     "bench/Lyntai.Benchmarks/MemorySpacingSweep.cs": [38],
     "bench/Lyntai.Benchmarks/MemoryVerificationSweep.cs": [27],
     // 31 → 32 on 2026-08-28: this block is the USAGE BANNER, a one-line-per-command table, so registering

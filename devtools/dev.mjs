@@ -209,9 +209,14 @@ switch (cmd) {
 
   // memory-salience — salience ships ON for two of its three consumers (decay resistance, store admission)
   // and has never been measured ONCE: MemoryPolicySweep's C1 control asserts its absence, and novelty needs
-  // an embedder + vector store no harness supplied. Both arms here get FakeEmbedder + InMemoryVectorStore so
-  // enrichment is held constant and only salience varies. It cannot settle whether novelty INVERTS on noisy
-  // input — this corpus's noise is templated, so it reads as familiar rather than novel. TASKS.md Part 53.
+  // an embedder + vector store no harness supplied. Both arms get the SAME REAL embedder instance and a
+  // vector store, so enrichment is held constant and only salience varies — it REFUSES without one, because
+  // a bag-of-words fake measures word overlap rather than novelty (the numbers taken through one were
+  // withdrawn, TASKS.md Part 69). It cannot settle whether novelty INVERTS on noisy input — this corpus's
+  // noise is templated, so it reads as familiar rather than novel. TASKS.md Part 53.
+  // `--ceiling` sweeps MaxSalience (a switch, not a dial); `--novelty` sweeps NoveltyWeight over all six
+  // shapes, which is the ladder that prices a shipped default rather than asking whether a knob does
+  // anything.
   case 'memory-salience':
     if (!config.benchProject) { console.log('no bench project configured'); break; }
     run('dotnet', ['run', '-c', 'Release', '--project', config.benchProject, '--', '--salience', ...args]);

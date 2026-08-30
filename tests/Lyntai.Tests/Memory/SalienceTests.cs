@@ -50,6 +50,29 @@ public class SalienceTests
     }
 
     [Fact]
+    public void A_negative_novelty_weight_is_INERT_rather_than_inverting()
+    {
+        // `SalienceOptions.NoveltyWeight` claimed "a negative weight legitimately inverts the effect" until
+        // 2026-08-29, when a bench arm came back byte-identical to the weight-zero arm. It cannot invert:
+        // the policy clamps to [1, MaxSalience], so any negative weight floors at the neutral value and the
+        // bag comes back EMPTY. Pinned here rather than measured, because it is arithmetic — a 30-seed
+        // paired sweep is an expensive way to observe a clamp, and a corrected doc with no gate behind it
+        // is one edit from being wrong again.
+        var inverting = new StructuralSaliencePolicy(new SalienceOptions { NoveltyWeight = -1.5 });
+        var scaling = new StructuralSaliencePolicy(new SalienceOptions { NoveltyWeight = 1.5 });
+
+        foreach (var novelty in new[] { 0.01, 0.5, 1d })
+        {
+            var context = new SalienceContext("e", novelty, ComparableCount: 50);
+
+            // the assertion that matters: nothing is written, so no consumer can read an inverted preference
+            Assert.Equal(0, inverting.Signals(Write(), context).Count);
+            // ...and the control, without which the test would also pass on a policy that judges NOTHING
+            Assert.Equal(1, scaling.Signals(Write(), context).Count);
+        }
+    }
+
+    [Fact]
     public void An_engine_with_too_few_comparables_judges_at_the_neutral_value()
     {
         // with almost nothing stored, "novel" carries no information — everything is novel — so a first

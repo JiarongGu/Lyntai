@@ -54,14 +54,14 @@ public class MemoryCorpusGoldenTests
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Render(corpus)))).ToLowerInvariant();
 
     /// <summary>Captured 2026-08-12 from the generator as it stood BEFORE <see cref="CorpusLanguage"/>
-    /// existed. This method pins seven golden shapes rather than one, so they span every opt-in axis — an
+    /// existed. This method pins eight golden shapes rather than one, so they span every opt-in axis — an
     /// axis with no golden is an axis a future change can move silently. <b>That phrasing matches the form
     /// <c>check-counts</c> gates in the two maintained documents carrying this total, but it does NOT put
     /// this file under the gate: <c>check-counts</c> scans <c>.md</c> only.</b> The number here is prose, and
     /// prose a reader has to move by hand when a golden is added. The sixth, "routine", was captured
-    /// 2026-08-27 and the seventh, "routine-standing", 2026-08-28 — both necessarily POSTDATE the language
-    /// axis, so they pin <see cref="Render"/>'s current shape rather than the axis's own original
-    /// baseline.</summary>
+    /// 2026-08-27, the seventh, "routine-standing", 2026-08-28 and the eighth, "routine-settled",
+    /// 2026-08-30 — all necessarily POSTDATE the language axis, so they pin <see cref="Render"/>'s current
+    /// shape rather than the axis's own original baseline.</summary>
     public static TheoryData<string, CorpusShape, string> Goldens() => new()
     {
         { "default", CorpusShape.Default,
@@ -86,6 +86,13 @@ public class MemoryCorpusGoldenTests
         { "routine-standing",
             CorpusShape.Default with { RoutineCount = 12, RoutineAnswer = RoutineAnswer.Standing },
             "c81033eb87e249b12d46d03141558b076f24bcf43d3058a8e1d1b43427af2060" },
+        // The settle gap, captured 2026-08-30. Unlike its two siblings this one moves WRITES rather than
+        // rendered ground truth, so it is the routine axis whose golden can drift without any query changing
+        // - which is the case for pinning it. 120 is an arbitrary operating point well past the corpus's own
+        // band constants; what it pins is that a gap of N stays a gap of N.
+        { "routine-settled",
+            CorpusShape.Default with { RoutineCount = 12, RoutineSettleWrites = 120 },
+            "af980ae4e7868220a4b9f8d57d0caf28be191b26132f638c131126ce19f0643a" },
     };
 
     [Theory]

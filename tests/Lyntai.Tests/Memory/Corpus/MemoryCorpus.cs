@@ -137,12 +137,29 @@ public enum CorpusNoiseKind
 /// newer and smaller regime — byte-identical to the corpus before this axis existed. <c>Standing</c> names
 /// phase A instead, the audit reading of the SAME timeline, so a rule that merely tracks recency can be made
 /// to fail.</param>
+/// <param name="RoutineSettleWrites">How many filler writes interpose between phase B's last write and the
+/// FINAL routine query. <c>0</c> (the default) keeps every corpus byte-identical.
+/// <para><b>It exists to make the <c>mean</c> support rule TESTABLE, which at <c>0</c> it is not.</b> With no
+/// gap, phase B is written immediately before that query and has never been recalled, so every B member sits
+/// at or above every A member on every replay — and <c>mean(B) &gt;= mean(A)</c> then follows from that
+/// domination rather than from anything a rule did. 600 replays reported <c>mean</c> picking phase B and
+/// tested nothing; <c>sum</c> and <c>count</c> were unaffected because they do not normalize by size, so
+/// phase A's larger membership can still outweigh B's.</para>
+/// <para><b>What it models is a query that does not arrive the instant the newer regime stops being
+/// written</b> — which is the ordinary case, not a contrived one. It does NOT make the older regime correct:
+/// the declared answer is <see cref="Lyntai.Tests.Memory.Corpus.RoutineAnswer"/>'s job and is unchanged, so a
+/// rule that flips to phase A here flips on the corpus's own ground truth and is scored wrong for it.</para>
+/// <para><b>Its effect is a property of the CLOCK a replay injects, not of this count alone.</b> The gap is
+/// denominated in WRITES, and what a write costs in retrievability is whatever the harness's pacing and age
+/// policy make it — under burst damping a gap inside one window ages almost nothing. A study using this must
+/// report where the two regimes actually LAND rather than assuming a gap separated them.</para></param>
 public readonly record struct CorpusShape(
     int ReuseRatio, int NoiseDensity, int CriticalRarity, int CandidateCount, int ExpandRatio = 0,
     int AttributeCount = 0, AttributeCueKind AttributeCue = AttributeCueKind.Discriminative,
     CorpusLanguage Language = CorpusLanguage.English, int AuthoritativeCount = 0,
     CorpusNoiseKind NoiseKind = CorpusNoiseKind.Templated, int HeadlineOnlyCount = 0,
-    int RoutineCount = 0, int RoutineSupport = 3, RoutineAnswer RoutineAnswer = RoutineAnswer.Recent)
+    int RoutineCount = 0, int RoutineSupport = 3, RoutineAnswer RoutineAnswer = RoutineAnswer.Recent,
+    int RoutineSettleWrites = 0)
 {
     /// <summary>A middling shape: small enough to run in CI, large enough that every class and every
     /// parameter has room to show its effect. <c>ExpandRatio</c> stays <c>0</c> here so the default shape —
@@ -453,6 +470,20 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
                 $"{nameof(CorpusShape.RoutineSupport)} must be >= 2 while the routine class is on — 0 or "
                 + $"less is all-of scoring and 1 is any-of, and neither of those is a frequency (was "
                 + $"{routineSupport}).", nameof(shape));
+        // REFUSED rather than ignored, unlike the clamped dials above. A settle gap with no routine class to
+        // separate produces a corpus byte-identical to one that never asked for it, so an arm sweeping this
+        // axis would report a flat curve while measuring nothing — the failure `RoutineSupport`'s own doc
+        // warns about one paragraph up, in its silent form rather than its clamped one.
+        var routineSettleWrites = shape.RoutineSettleWrites;
+        if (routineSettleWrites != 0 && routineCount == 0)
+            throw new ArgumentException(
+                $"{nameof(CorpusShape.RoutineSettleWrites)} does nothing without the routine class — it "
+                + $"separates phase B's writes from the final routine query, and there is neither (was "
+                + $"{routineSettleWrites}).", nameof(shape));
+        if (routineSettleWrites < 0)
+            throw new ArgumentException(
+                $"{nameof(CorpusShape.RoutineSettleWrites)} is a gap in writes and cannot be negative (was "
+                + $"{routineSettleWrites}).", nameof(shape));
         // Derive B and FLOOR it, rather than deriving A directly: A = count - B keeps A the larger share for
         // EVERY legal count, including 4 — `count * 2 / 3` (the formula this replaces) gave 4 an even 2/2
         // split, a silent tie a hand-picked golden shape (9, an exact multiple of 3) never exercised.
@@ -856,8 +887,16 @@ public sealed record MemoryCorpus(IReadOnlyList<CorpusStep> Steps)
                 Write(lex.Routine(id, 1, Filler(lex, rng)));
             }
 
+            // The SETTLE gap, if one was asked for: filler writes between phase B's last write and the query
+            // that judges it, so B is no longer at the retrievability ceiling when a rule reads it. At the
+            // default 0 this call is a no-op and the timeline is byte-identical - `TopUpTo` pads only up to
+            // its target, and the target is where the corpus already is.
+            TopUpTo(writesSoFar + routineSettleWrites);
+
             // The declared answer, not the timeline. Standing names phase A - the same entries, already
-            // written and already aged - so the two arms differ in ground truth alone.
+            // written and already aged - so the two arms differ in ground truth alone. The settle gap above
+            // does not touch this: it ages phase B without promoting phase A's claim, so a rule that flips
+            // under a gap flips against ground truth that did not move.
             var finalAnswer = shape.RoutineAnswer == RoutineAnswer.Standing
                 ? routinePhaseAIds
                 : routinePhaseBIds;

@@ -20,20 +20,18 @@ namespace Lyntai.Benchmarks;
 /// <para><b>A rule scoring perfectly on BOTH answer arms is a BUG REPORT, not a winner.</b> The two arms
 /// declare contradictory answers over identical writes — <see cref="RoutineAnswer.Recent"/> names phase B and
 /// <see cref="RoutineAnswer.Standing"/> names phase A — so nothing can honestly win both.</para>
-/// <para><b><c>mean</c> is NOT a finding, and reading it as one is the trap this run prints a retrievability
-/// band to prevent.</b> At the snapshot phase B has never been recalled and was written immediately before,
-/// so every B member sits at or above every A member on all 600 replays. Retrievability is capped at 1, so
-/// <c>mean(B) &gt;= mean(A)</c> then holds BY DEFINITION: <c>mean</c> cannot select phase A on this corpus,
-/// and 600 replays did not test it. <c>sum</c> and <c>count</c> do not normalize by size, so phase A's eight
-/// members can outweigh phase B's four — those arms are real measurements.</para>
-/// <para><b>Measured 2026-08-28: 600 replays, every control held, no rule won both arms.</b> <c>sum</c>
-/// INVERTS with pacing — phase A under bulk, phase B under spaced, 300/300 each way — which is real, because
-/// it turns on whether mean r(A) sits above or below 0.5 and the burst damping is what decides that. The
-/// theta curve LOCATES phase A's band rather than ranking rules: bulk holds A through 0.6, keeps A 290/300
-/// at 0.7, splits three ways at 0.8, flips to B at 0.9; spaced holds A at 0.1, splits 250B/50A at 0.2 and is
-/// B from 0.3 up. THREE cells are non-unanimous; only bulk's two are seed-split (55/60, 40/60 shapes).
-/// <c>ConnectionBoost=0</c> moved no cell on either clock. gemma-3 4b it answered phase B on 300/300 pairs
-/// with ZERO order disagreements — the recency reading, though the prompt LABELS which option is recent.</para>
+/// <para><b><c>mean</c> is a finding only where phase B does NOT dominate phase A element-wise</b>, and at
+/// <c>--settle 0</c> it always does: B is judged the instant it stops being written, so <c>mean(B) &gt;=
+/// mean(A)</c> follows from the fixture rather than from a rule. <c>--settle N</c> (2026-08-30) interposes N
+/// filler writes before that query so B is judged after ageing; the declared answer does not move, so a flip
+/// to phase A is a flip against ground truth that stayed put. <b>Whether a given N broke the domination is
+/// MEASURED and printed in each band block</b> — a write's cost depends on the injected clock, so read that
+/// line rather than the argument. <c>sum</c> and <c>count</c> never normalize by size and are real
+/// measurements at any gap.</para>
+/// <para><b>What it has measured is <c>docs/memory.md</c> §5</b>, which is where the tables live and where
+/// they stay current — the headline being that no <c>count@θ</c> is both pacing- and cardinality-independent,
+/// so there is no constant for the tier to adopt. This block had a copy of those figures until 2026-08-30,
+/// and it had already gone stale: it said 600 replays after the cardinality axis made it 2400.</para>
 /// </summary>
 internal static class MemoryGistSupportSweep
 {
@@ -140,12 +138,31 @@ internal static class MemoryGistSupportSweep
     /// base grid is SHARED with <c>MemoryCorpusTests</c> rather than restated here, so this sweep's claim to
     /// run the grid the corpus invariants are proved over cannot go quietly false when either side moves.
     /// </summary>
-    private static IEnumerable<(string Label, CorpusShape Shape)> Grid()
+    /// <param name="settle">Filler writes between phase B's last write and the query that judges it
+    /// (<c>CorpusShape.RoutineSettleWrites</c>). <c>0</c> reproduces every published cell.</param>
+    private static IEnumerable<(string Label, CorpusShape Shape)> Grid(int settle)
     {
         foreach (var shape in CorpusGrid.Shapes())
         foreach (var routines in GridRoutineCounts)
             yield return ($"n{shape.NoiseDensity}/c{shape.CandidateCount}/r{shape.ReuseRatio}/k{routines}",
-                shape with { RoutineCount = routines });
+                shape with { RoutineCount = routines, RoutineSettleWrites = settle });
+    }
+
+    /// <summary>
+    /// Reads <c>--settle N</c>, the gap that makes <c>mean</c> testable at all.
+    ///
+    /// <para><b>Why it is an argument rather than a new default.</b> Every cell this sweep has published was
+    /// taken at <c>0</c>, and a corpus change that moved them silently would invalidate them without anyone
+    /// reading a different number — the failure <c>MemoryCorpusGoldenTests</c> exists to make impossible.
+    /// So the gap is opt-in, and a run that does not ask for one is the run already on record.</para>
+    /// </summary>
+    private static int SettleFrom(string[] args)
+    {
+        var at = Array.IndexOf(args, "--settle");
+        if (at < 0) return 0;
+        if (at + 1 >= args.Length || !int.TryParse(args[at + 1], out var settle) || settle < 0)
+            throw new ArgumentException("--settle takes a non-negative write count, e.g. `--settle 120`.");
+        return settle;
     }
 
     /// <summary>|A| and |B| for a routine count, from the corpus's own rule rather than a second copy of the
@@ -194,11 +211,12 @@ internal static class MemoryGistSupportSweep
     private static async Task<int> RunFullAsync(string[] args)
     {
         var stopwatch = Stopwatch.StartNew();
-        var shapes = Grid().ToList();
+        var settle = SettleFrom(args);
+        var shapes = Grid(settle).ToList();
         var seeds = Enumerable.Range(0, SeedCount).Select(i => Seed + i).ToList();
         var rules = Rules();
 
-        PrintFullPreamble(shapes.Count, seeds, rules);
+        PrintFullPreamble(shapes.Count, seeds, rules, settle);
 
         var cells = new ConcurrentBag<Cell>();
         await Parallel.ForEachAsync(
@@ -495,10 +513,19 @@ internal static class MemoryGistSupportSweep
 
     // ---------------------------------------------------------------- reporting
 
-    private static void PrintFullPreamble(int shapeCount, IReadOnlyList<int> seeds, IReadOnlyList<Rule> rules)
+    private static void PrintFullPreamble(int shapeCount, IReadOnlyList<int> seeds, IReadOnlyList<Rule> rules,
+        int settle)
     {
         Console.WriteLine("=== memory-support: which rule selects a recurring cluster's CURRENT regime ===");
         Console.WriteLine($"Shapes: {shapeCount} (NoiseDensity x CandidateCount x ReuseRatio x RoutineCount)");
+        Console.WriteLine(settle == 0
+            ? "Settle gap: 0 writes (--settle N to add one) - phase B is judged the instant it stops being\n"
+              + "  written, which is the regime every published cell was taken under AND the reason `mean` is\n"
+              + "  untestable: B dominates A element-wise, so mean(B) >= mean(A) holds without a rule acting."
+            : $"Settle gap: {settle} writes between phase B's last write and the query that judges it.\n"
+              + "  This is NOT the published corpus - every cell below is a different measurement from the\n"
+              + "  ones on record, and the domination line in each band block is what says whether the gap\n"
+              + "  bought anything. The declared answer did not move; only phase B's age did.");
         Console.WriteLine("RoutineCount rungs: " + string.Join(", ", GridRoutineCounts.Select(k =>
         {
             var (a, b) = Regimes(k);
@@ -543,11 +570,16 @@ internal static class MemoryGistSupportSweep
         Print("phase A", a);
         Print("phase B", b);
         Console.WriteLine($"every phase-B member >= every phase-A member on {dominated}/{cells.Count} replays.");
-        if (dominated == cells.Count)
-            Console.WriteLine("  => r is CAPPED at 1, so mean(B) >= mean(A) holds BY DEFINITION here: `mean` "
-                + "cannot select\n     phase A, and this instrument does not test it. `sum`/`count` do not "
-                + "normalize by size, so\n     phase A's 8 members can still outweigh phase B's 4 - those "
-                + "arms remain real measurements.");
+        Console.WriteLine(dominated == cells.Count
+            ? "  => B DOMINATES A element-wise on every replay, so mean(B) >= mean(A) holds BY DEFINITION "
+              + "here:\n     `mean` cannot select phase A and this instrument does not test it. Add a gap "
+              + "(`--settle N`) to\n     age phase B off the ceiling and make it testable. `sum`/`count` do "
+              + "not normalize by size, so\n     phase A's larger membership can still outweigh B's - those "
+              + "arms remain real measurements."
+            : $"  => B does NOT dominate A on {cells.Count - dominated}/{cells.Count} replays, so `mean` CAN "
+              + "select phase A here and its\n     row is a measurement rather than a restatement of the "
+              + "fixture. Read it on those replays'\n     terms: the arm is only as tested as the "
+              + "non-dominated fraction is large.");
         Console.WriteLine();
 
         // Every aggregate is guarded, not just `means`. These bands print BEFORE the controls that would

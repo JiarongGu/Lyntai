@@ -7,6 +7,50 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-30 — `memory-salience`'s OFF arm was never off, so its whole table measured one consumer
+
+**Symptom.** `node devtools/dev.mjs memory-salience` (and both its ladders) reports a paired difference
+against an arm labelled `SalienceOff`. Nothing failed, every control was green, and the tables have been
+quoted in `docs/memory.md` §5 and cited by `TASKS.md` Part 65 since 2026-08-28. The defect surfaced only
+when the `--novelty` ladder was widened from two corpus shapes to six on 2026-08-30: the `NW0` arm — which
+provably emits no salience at all, `0/51330` writes judged and 0 distinct values — came back
+**significantly worse** than `SalienceOff` on `high-reuse` (+0.0401 [0.0145, 0.0656]) and `high-noise`
+(+0.0493 [0.0280, 0.0707]). Two arms that both emit nothing cannot differ by more than the entire spread of
+the arms they were being used to rank.
+
+**Root cause.** The off arm passed `saliencePolicies: null`, and
+`GraphMemoryEngine.NormalizeSaliencePolicies` substitutes a fresh shipped `StructuralSaliencePolicy` for a
+null OR empty collection — the deliberate "empty does NOT mean off" contract, which `TASKS.md` Part 65
+states in as many words ("registering an empty collection does NOT — that takes the shipped default"). So
+the off arm judged every write at the shipped `NoveltyWeight = 1.5` and wrote the salience signal that store
+admission reads. What actually differed between the arms was the **retention policy alone**, with salience's
+admission consumer ON in both — while the sweep's own preamble, its class doc and `docs/memory.md` all
+describe it as measuring "retention and store admission, the two consumers that actually ship ON".
+Wrong from this sweep's first run; never a regression.
+
+**This is the second time the trap bit, and the first time is why `NeutralSaliencePolicy` exists.**
+`MemorySalienceInversionTests` records it: *"The first three-arm run here asserted the control judged nothing
+salient and got 255 — the 'control' was a second copy of the treatment"*, and concludes that a trap costing a
+measurement its control belongs fixed in the library. By 2026-08-30 the rule was written in four places —
+that type, the test `An_empty_policy_collection_leaves_salience_ON_and_only_the_neutral_policy_turns_it_off`,
+`TASKS.md` Part 65 verbatim, and two sibling sweeps that build their off arm correctly
+(`MemoryEnrichmentSweep`, `MemoryImportanceSweep`) — and a harness written after all of them still got it
+wrong. **What differed was the control, not the knowledge:** the test tier reports `SalientWrites` per arm
+and asserts the control's is zero, so it caught its version in one run; the sweep counted salient writes on
+treatment arms only, so its off arm contributed no row and nothing could be non-zero.
+
+**Fix.** The off arm registers `NeutralSaliencePolicy` explicitly, and EVERY arm — off included — is wrapped
+in the counting double, so "salient" and "distinct" mean the same thing in every row of the controls
+(`bench/Lyntai.Benchmarks/MemorySalienceSweep.cs`). The ladder additionally re-pairs each rung against its
+TIED rung rather than against off, because holding registration constant is the contrast a ladder claims to
+draw; both contrasts print, since the vs-off table is where a confound of this kind is visible at all.
+
+**Verify.** A positive control that throws: the off arm must have been **consulted** (`Judged > 0`) AND have
+declined every write (`Salient == 0`). Asserting `Salient == 0` alone would pass on an arm that was never
+asked — which is precisely the shape that shipped, since the old off arm was not wrapped and contributed no
+row at all. The figures in `docs/memory.md` §5 taken through the old arm are marked rather than deleted;
+they measure retention, which is a real quantity, just not the one they are labelled with.
+
 ## 2026-08-30 — ComfyUI promised the router it took inputs, then dropped them
 
 **Symptom.** Hand `ComfyUiProvider` a `GenerationRequest` carrying a `GenerationInput` — a chained first
