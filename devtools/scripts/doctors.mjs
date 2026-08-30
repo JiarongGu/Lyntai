@@ -55,6 +55,84 @@ export function packDoctor({
   return false;
 }
 
+/** The `**Released: vX.Y.Z (YYYY-MM-DD)**` claim CLAUDE.md opens its `## Current state` with. */
+export const releasedClaimOf = (claude) => {
+  const m = claude.match(/\*\*Released:\s*v(\d+\.\d+\.\d+)\s*\((\d{4}-\d{2}-\d{2})\)/);
+  return m ? { version: m[1], date: m[2] } : null;
+};
+
+/** The date on a CHANGELOG `## X.Y.Z` heading, or null when the version has no section yet. */
+export const releaseDateOf = (changelog, version) => {
+  const esc = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const head = new RegExp(`^## ${esc}(?:[ \t]|$)`);
+  const line = changelog.split('\n').map((l) => l.trimEnd()).find((l) => head.test(l));
+  // A titled release carries the date in parentheses at the END, a plain one right after the dash, so the
+  // LAST date on the line is the release date under both shapes changelog-doctor produces.
+  const dates = line?.match(/\d{4}-\d{2}-\d{2}/g);
+  return dates ? dates[dates.length - 1] : null;
+};
+
+/**
+ * claude-doctor: hold CLAUDE.md's `**Released: vX.Y.Z (DATE)**` to VersionPrefix and to the CHANGELOG
+ * heading for that version.
+ *
+ * Measured 2026-08-30: it read v3.0.0 (2026-08-17) for a whole release while VersionPrefix, the newest tag
+ * and README's `## Status` all read 3.1.0 (2026-08-23). The other two doctors check those three against each
+ * other and CLAUDE.md is in neither — so the one copy auto-loaded into every session was the one copy
+ * nothing held to the others.
+ *
+ * CHECK ONLY, deliberately: pack-doctor may `--fix` because the release pipeline SYNCS a README that ships
+ * inside every package, whereas this line carries a date and prose around it, and the neighbouring comment
+ * on `doctor` already records why a version is restored by hand rather than rewritten.
+ */
+export function claudeDoctor({
+  repo = process.cwd(),
+  version,
+  log = console.log,
+  error = console.error,
+  read = null,
+  readChangelog = null,
+} = {}) {
+  const claude = (read ?? (() => readFileSync(join(repo, 'CLAUDE.md'), 'utf8')))();
+  const claim = releasedClaimOf(claude);
+
+  // Fail-closed: a check that found nothing to check must never print a tick, or deleting the sentence
+  // silently disables the gate.
+  if (!claim) {
+    error('claude-doctor: no "**Released: vX.Y.Z (YYYY-MM-DD)**" claim in CLAUDE.md — it is the first thing '
+      + 'a session reads about what shipped, so it is not optional. Restore it in `## Current state`.');
+    return false;
+  }
+
+  if (claim.version !== version) {
+    error(`claude-doctor: CLAUDE.md's released version (${claim.version}) != VersionPrefix (${version}) — `
+      + `update the "**Released:**" claim in \`## Current state\`.\n  The history boundary in the paragraph `
+      + 'below it is a RULE, not this number: do not advance it to match.');
+    return false;
+  }
+
+  const changelog = (readChangelog ?? (() => readFileSync(join(repo, 'CHANGELOG.md'), 'utf8')))();
+  const dated = releaseDateOf(changelog, version);
+
+  // The release workflow bumps VersionPrefix before stamping `## Unreleased`, so a missing heading is a
+  // normal window rather than drift — and a doctor that is red during every release is one people skip.
+  if (dated === null) {
+    log(`claude-doctor: CLAUDE.md announces v${version}, and there is no "## ${version}" heading in `
+      + 'CHANGELOG.md yet — date not checked ✓');
+    return true;
+  }
+
+  if (claim.date !== dated) {
+    error(`claude-doctor: CLAUDE.md's release date (${claim.date}) != CHANGELOG's ${version} heading `
+      + `(${dated}) — the version was corrected and the date left behind, which reads as synced.`);
+    return false;
+  }
+
+  log(`claude-doctor: CLAUDE.md announces v${claim.version} (${claim.date}), matching VersionPrefix and `
+    + 'the CHANGELOG ✓');
+  return true;
+}
+
 /** The newest `v*` tag by version order, or null when the checkout has none (a shallow CI clone, a fork). */
 export const newestReleaseTag = (repo, spawn = spawnSync) => {
   const r = spawn('git', ['tag', '--list', 'v*', '--sort=-v:refname'], { cwd: repo, encoding: 'utf8', shell: false });

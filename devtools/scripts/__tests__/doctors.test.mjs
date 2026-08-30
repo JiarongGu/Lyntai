@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  changelogDoctor, newestReleaseTag, packDoctor, statusVersionOf, unreleasedHeading, versionDoctor,
+  changelogDoctor, claudeDoctor, newestReleaseTag, packDoctor, releaseDateOf, releasedClaimOf,
+  statusVersionOf, unreleasedHeading, versionDoctor,
 } from '../doctors.mjs';
 import { recorder } from './_fixtures.mjs';
 
@@ -79,6 +80,95 @@ describe('pack-doctor — the README headline version', () => {
     assert.equal(ok, true);
     assert.equal(written, bare, 'nothing actually changed');
     assert.match(out, /synced README "## Status" version \(none\) → v2\.6\.0/);
+  });
+});
+
+describe('claude-doctor — the released version CLAUDE.md announces', () => {
+  // Measured 2026-08-30: CLAUDE.md said "Released: v3.0.0 (2026-08-17)" while VersionPrefix, the newest tag
+  // and README's `## Status` all read 3.1.0 (2026-08-23) — for a whole release. `doctor` checks those three
+  // against each other and CLAUDE.md is in none of them, so the ONE copy auto-loaded into every session was
+  // the one copy nothing held to the others.
+  const CLAUDE = [
+    '# CLAUDE.md — Lyntai',
+    '',
+    '## Current state',
+    '',
+    '**Released: v3.1.0 (2026-08-23).** Twelve packages; frozen since 1.0.',
+    '',
+    '**Everything before 3.0 is HISTORY** — a boundary that does NOT track the release above.',
+    '',
+  ].join('\n');
+
+  const CHANGELOG = [
+    '# Changelog',
+    '',
+    '## Unreleased',
+    '',
+    '## 3.1.0 — 2026-08-23',
+    '',
+    '## 3.0.1 — the memory seams two adopters had to work around (2026-08-21)',
+    '',
+  ].join('\n');
+
+  const run = (claude, opts = {}) => {
+    const log = recorder();
+    const ok = claudeDoctor({
+      log, error: log, read: () => claude, readChangelog: () => CHANGELOG, ...opts,
+    });
+    return { ok, out: log.text() };
+  };
+
+  it('reads the version and date out of the Released claim', () => {
+    assert.deepEqual(releasedClaimOf(CLAUDE), { version: '3.1.0', date: '2026-08-23' });
+    assert.equal(releasedClaimOf('# X\n\nno claim here\n'), null);
+  });
+
+  it('takes the release date from the CHANGELOG heading, in BOTH of its shapes', () => {
+    // A titled release puts the date in parentheses at the END; a plain one puts it after the dash. Reading
+    // only the first shape would silently skip the date check on every titled release.
+    assert.equal(releaseDateOf(CHANGELOG, '3.1.0'), '2026-08-23');
+    assert.equal(releaseDateOf(CHANGELOG, '3.0.1'), '2026-08-21');
+    assert.equal(releaseDateOf(CHANGELOG, '9.9.9'), null);
+  });
+
+  it('passes when the version and the date both agree with the tree', () => {
+    const { ok, out } = run(CLAUDE, { version: '3.1.0' });
+    assert.equal(ok, true);
+    assert.match(out, /CLAUDE\.md announces v3\.1\.0 \(2026-08-23\)/);
+  });
+
+  it('FAILS on a stale version, naming both — the measured defect', () => {
+    const stale = CLAUDE.replace('v3.1.0 (2026-08-23)', 'v3.0.0 (2026-08-17)');
+    const { ok, out } = run(stale, { version: '3.1.0' });
+    assert.equal(ok, false);
+    assert.match(out, /\(3\.0\.0\) != VersionPrefix \(3\.1\.0\)/);
+  });
+
+  it('FAILS on a right version with a WRONG date, which a version-only check would pass', () => {
+    // The half a naive fix produces: bump the version, leave the date. It then LOOKS synced, which is worse
+    // than the original drift because nothing invites a second look.
+    const wrongDate = CLAUDE.replace('(2026-08-23)', '(2026-08-17)');
+    const { ok, out } = run(wrongDate, { version: '3.1.0' });
+    assert.equal(ok, false);
+    assert.match(out, /date \(2026-08-17\) != CHANGELOG's 3\.1\.0 heading \(2026-08-23\)/);
+  });
+
+  it('FAILS when the claim is absent, rather than passing vacuously', () => {
+    // Fail-closed, the rule every scanner here carries: a check that found nothing to check must never
+    // print a tick, or deleting the sentence silently disables the gate.
+    const { ok, out } = run('# CLAUDE.md\n\nno released claim at all\n', { version: '3.1.0' });
+    assert.equal(ok, false);
+    assert.match(out, /no "\*\*Released: vX\.Y\.Z \(YYYY-MM-DD\)\*\*" claim/);
+  });
+
+  it('checks the version but SKIPS the date mid-release, when the CHANGELOG is not yet stamped', () => {
+    // The release workflow bumps VersionPrefix before stamping `## Unreleased`. Failing on the missing
+    // heading would make this doctor red for a window that is entirely normal, and a gate that is red
+    // during releases is a gate people learn to skip.
+    const next = CLAUDE.replace('v3.1.0 (2026-08-23)', 'v3.2.0 (2026-08-30)');
+    const { ok, out } = run(next, { version: '3.2.0' });
+    assert.equal(ok, true);
+    assert.match(out, /no "## 3\.2\.0" heading in CHANGELOG\.md yet — date not checked/);
   });
 });
 

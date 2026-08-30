@@ -37,7 +37,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import config from './project.config.mjs';
-import { changelogDoctor, packDoctor, versionDoctor } from './scripts/doctors.mjs';
+import { changelogDoctor, claudeDoctor, packDoctor, versionDoctor } from './scripts/doctors.mjs';
 import { fingerprintDrift, fingerprintTree } from './scripts/_tree-fingerprint.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -380,12 +380,14 @@ switch (cmd) {
     break;
 
   case 'doctor': {
-    // both checks always run (no short-circuit) so drift is reported in one pass. `--fix` syncs the README
-    // headline; it deliberately does NOT "fix" the version — a hand-authored version is the problem, not
-    // the symptom, so it is restored by hand or by letting the release workflow bump it.
+    // all three checks always run (no short-circuit) so drift is reported in one pass. `--fix` syncs the
+    // README headline; it deliberately does NOT "fix" the version — a hand-authored version is the problem,
+    // not the symptom, so it is restored by hand or by letting the release workflow bump it. claude-doctor
+    // is check-only for the same reason, one document further out.
     const readmeOk = packDoctor({ repo, version: config.version, fix: args.includes('--fix') });
+    const claudeOk = claudeDoctor({ repo, version: config.version });
     const versionOk = versionDoctor({ repo, version: config.version });
-    process.exitCode = readmeOk && versionOk ? 0 : 1;
+    process.exitCode = readmeOk && claudeOk && versionOk ? 0 : 1;
     break;
   }
 

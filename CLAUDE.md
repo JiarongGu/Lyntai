@@ -147,7 +147,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3495 passed / 3516 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 450/450, doc samples 80/80.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 457/457, doc samples 80/80.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -636,9 +636,16 @@ owned outside the deployment; `DECISIONS.md` D30) /
   references). The only check that exercises what actually ships — nuspecs, dependency groups, symbol packages,
   the bundle restore. Minutes, so deliberately NOT in `verify`; run before a release or after touching packaging.
 - `node devtools/dev.mjs check-sensitive [--tree]` — leak scan.
-- `node devtools/dev.mjs doctor [--fix]` — README `## Status` version ↔ `VersionPrefix`, and `VersionPrefix`
-  ↔ the newest `v*` tag (**never hand-edit the version** — see `repo-mechanics.md` §Never hand-edit the
-  version / `DECISIONS.md` D19).
+- `node devtools/dev.mjs doctor [--fix]` — THREE version checks, all reported in one pass: README `## Status`
+  ↔ `VersionPrefix`, **CLAUDE.md's `**Released:**` claim ↔ `VersionPrefix` and ↔ the CHANGELOG heading's
+  date**, and `VersionPrefix` ↔ the newest `v*` tag (**never hand-edit the version** — see
+  `repo-mechanics.md` §Never hand-edit the version / `DECISIONS.md` D19).
+  <br>The middle one was added 2026-08-30, after this file announced **v3.0.0** for a whole release while the
+  other two agreed on 3.1.0: they check each other and CLAUDE.md was in neither, so the one copy auto-loaded
+  into every session was the one nothing held. It checks the DATE too, because the half-fix — bump the
+  version, leave the date — reads as synced. Check-only, and deliberately NOT in `verify`: the release
+  workflow bumps `VersionPrefix` before anything stamps the CHANGELOG, and a gate that is red during every
+  release is one people learn to skip.
 - `node devtools/dev.mjs check-version` — the pre-commit version-authorship guard, run by hand.
 - `node devtools/dev.mjs decisions-index [--check]` — regenerate the index table at the top of
   `docs/DECISIONS.md` from its own headings. **Run it after adding a `D<n>` entry** (`--check` reports
