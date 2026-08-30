@@ -17,11 +17,12 @@ run traces, task-scoped memory) and DI wiring (`AddLyntai(...)`).
 
 ## Current state
 
-**Released: v3.0.0 (2026-08-17).** Twelve packages; public API frozen under SemVer 2.0 since 1.0, **with no
+**Released: v3.1.0 (2026-08-23).** Twelve packages; public API frozen under SemVer 2.0 since 1.0, **with no
 carve-out** — the one that existed (the `Lyntai.Generation` PACKAGE, from 2.0.1) was withdrawn in 3.0,
 `docs/DECISIONS.md` **D70**.
 
-**Everything before 3.0 is HISTORY, not context.** `CHANGELOG.md` logs it and that is the only place it needs
+**Everything before 3.0 is HISTORY, not context** — a boundary that is deliberately 3.0 and does NOT track
+the current release, so do not advance it when the version above moves. `CHANGELOG.md` logs it and that is the only place it needs
 to exist — nothing is deployed on a pre-3.0 version, so a session never has to reason about what a
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
