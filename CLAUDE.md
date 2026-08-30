@@ -278,6 +278,13 @@ owned outside the deployment; `DECISIONS.md` D30) /
   the step list, so a gate added without updating prose still names itself. Run before
   claiming a change is complete. The guard tests run FIRST on purpose: nothing below that gate can be
   trusted if the gates themselves are broken.
+  <br>**It also fails if the TREE CHANGED while it ran** — content-hashed before and after
+  (`scripts/_tree-fingerprint.mjs`), every moved file named, the green summary suppressed and a non-zero
+  exit. A verdict is only about the bytes the gates read, so an edit mid-run makes the whole report describe
+  a tree that no longer exists, green line included. **So start it and keep your hands off the tree**; if
+  you need to keep working, re-run it at the end. Added 2026-08-30 after that produced two false greens in
+  one session. **And never read its exit code through a pipe** — `| tail` reports TAIL's status, which
+  showed `exit code 0` for the very run that proved this guard red (`pitfalls.md` §Environment / tooling).
 - `node devtools/dev.mjs build` — build the solution.
 - `node devtools/dev.mjs check-packages` — **fail if a package is missing from any registry it needs** (part of
   `verify`). The NINE, in the order the gate checks them: `packableProjects`, the solution, the csproj's
