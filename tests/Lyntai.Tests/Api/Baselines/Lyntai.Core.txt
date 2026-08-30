@@ -728,6 +728,22 @@ enum Lyntai.Generation.Routing.GenerationFallbackAction
     PenalizeAndAdvance : GenerationFallbackAction const
     Surface : GenerationFallbackAction const
     value__ : Int32
+static class Lyntai.Generation.Routing.GenerationPipeline
+    static RunPipelineAsync(IGenerationRouter router, IReadOnlyList<GenerationStage> stages, CancellationToken ct = default) : Task<GenerationPipelineResult>
+sealed class Lyntai.Generation.Routing.GenerationPipelineResult
+    .ctor(IReadOnlyList<GenerationResult> Stages, Nullable<Int32> FailedAt, GenerationUsage Usage)
+    Artifacts : IReadOnlyList<GenerationArtifact>
+    Deconstruct(IReadOnlyList`1& Stages, Nullable`1& FailedAt, GenerationUsage& Usage) : Void
+    Detail : String
+    Equals(GenerationPipelineResult other) : Boolean
+    Equals(Object obj) : Boolean
+    FailedAt : Nullable<Int32>
+    GetHashCode() : Int32
+    IsOk : Boolean
+    Stages : IReadOnlyList<GenerationResult>
+    ToString() : String
+    Usage : GenerationUsage
+    Verdict : GenerationVerdict
 sealed class Lyntai.Generation.Routing.GenerationRouter
     .ctor(IEnumerable<IGenerationProvider> providers, GenerationRoutingPolicy policy = null, DeadHostTracker deadHosts = null, Func<IGenerationProvider,Nullable<ProviderKey>> configuration = null, IProviderAdmission admission = null)
     GenerateAsync(IReadOnlyList<GenerationCandidate> candidates, GenerationRequest request, CancellationToken ct = default) : Task<GenerationResult>
@@ -742,6 +758,17 @@ sealed class Lyntai.Generation.Routing.GenerationRoutingPolicy
     ActionFor(GenerationVerdict verdict) : GenerationFallbackAction
     ExemptSoleCandidate : Boolean
     On(GenerationVerdict verdict, GenerationFallbackAction action) : GenerationRoutingPolicy
+sealed class Lyntai.Generation.Routing.GenerationStage
+    .ctor(GenerationRequest Request, IReadOnlyList<GenerationCandidate> Candidates)
+    Candidates : IReadOnlyList<GenerationCandidate>
+    Deconstruct(GenerationRequest& Request, IReadOnlyList`1& Candidates) : Void
+    Equals(GenerationStage other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    InputRole : String
+    Request : GenerationRequest
+    SelectInput : Func<GenerationResult,IEnumerable<GenerationArtifact>>
+    ToString() : String
 sealed class Lyntai.Generation.Routing.GenerationSubmission
     .ctor(String ProviderId, GenerationOperation Operation)
     Deconstruct(String& ProviderId, GenerationOperation& Operation) : Void
