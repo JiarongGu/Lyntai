@@ -372,8 +372,19 @@ every weight, and the curve would be flat as an artifact with every ordinary con
 
 ### And salience's OTHER two consumers cost miss as well (`memory-salience`, 2026-08-28)
 
-D89 measured the RANKING voice and shipped it at 0. This measures what is left — **retention and store
-admission, the two consumers that actually ship ON** — with the rank boost already at its shipped 0, so the
+> **CORRECTION 2026-08-30 — every figure in this subsection and the two ladders below measures RETENTION
+> ALONE, not "retention and store admission".** The arm labelled `SalienceOff` passed
+> `saliencePolicies: null`, and `GraphMemoryEngine.NormalizeSaliencePolicies` substitutes the shipped
+> `StructuralSaliencePolicy` for a null or empty collection ("empty does NOT mean off"). So the control arm
+> judged every write at the shipped `NoveltyWeight` and wrote the signal **store admission reads** — the
+> admission consumer was live in BOTH arms and cancels out of every paired difference here. The numbers are
+> real and reproduce; the LABEL was wrong. `docs/FIXES.md` carries the incident and `pitfalls.md` the
+> general trap. Read every Δ below as "what registering a retention policy costs", and note that the
+> lexicographic verdict was also computed on miss alone until the same day.
+
+D89 measured the RANKING voice and shipped it at 0. This measures what is left — retention and store
+admission, the two consumers that actually ship ON (**but see the correction above: it separated only
+retention**) — with the rank boost already at its shipped 0, so the
 two studies do not overlap. `node devtools/dev.mjs memory-salience`, 30 seeds × 6 shapes × 2 arms, paired
 per (seed, shape), run **twice against two real embedders**: positive Δ means salience makes recall worse.
 
@@ -463,6 +474,70 @@ a VALUE, not a mechanism somebody still has to design.
 4 is unreachable at `NoveltyWeight`'s own default, so two shipped defaults make one of them inert. Lowering
 it is a no-op *on this corpus* and not in general — a consumer who raises `NoveltyWeight` would feel it —
 which is why it is an owner's call and sits in `TASKS.md` Part 65 rather than being quietly changed here.
+
+### The same ladder against an off arm that is actually OFF (`memory-salience --novelty`, 2026-08-30)
+
+Everything above compares against a control that still ran the shipped salience policy (the correction at the
+head of this section). This is the re-measurement: `NeutralSaliencePolicy` in the off arm, **all six corpus
+shapes** rather than two, rungs bracketing the decision, 30 seeds, `nomic-embed-text`, 1080 replays.
+
+**The harness is DETERMINISTIC, and this run proves it rather than assuming it.** `NW0` — the clamp's own
+neutral — comes back **exactly `0.0000` against the off arm on every cell of every shape, both metrics, with
+zero-width intervals**. Under the old control the same arm read +0.0401 and +0.0493 on two shapes. So the
+run-to-run noise floor for an identical configuration is zero, every nonzero figure below is a property of
+the configuration, and the confound is fully accounted for.
+
+| arm vs Off | baseline | low-reuse | high-reuse | high-noise | many-candidates | rare-critical | **mean** |
+|---|---|---|---|---|---|---|---|
+| `NW0` (neutral) | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | **0.0000** |
+| `NW0.5` | −0.0072 | +0.0164 * | **−0.0374 \*** | **−0.0947 \*** | +0.0452 * | +0.0083 | **−0.0116** |
+| `NW1` | +0.0065 | +0.0284 * | −0.0341 * | **−0.0973 \*** | +0.0811 * | +0.0212 | **+0.0010** |
+| `NW1.5` (shipped) | +0.0089 | +0.0281 * | −0.0235 | **−0.0931 \*** | +0.0751 * | +0.0151 | **+0.0018** |
+| `NW3` | +0.0116 | +0.0456 * | −0.0148 | **−0.1213 \*** | +0.1192 * | +0.0315 * | **+0.0120** |
+
+`*` = the 95% paired interval excludes zero. Positive Δ miss means salience makes recall worse.
+
+**The shipped weight is roughly FREE, not a cost.** `NW1.5` reads +0.0018 miss and +0.0012 pollution against
+a genuine off arm, where the contaminated pair reported +0.0384. That is not a correction of one number: the
+old figure is the cost of the RETENTION consumer alone, and against a real off arm retention's cost is very
+nearly cancelled by what store admission buys.
+
+**Where it is bought and where it is paid is the actual finding**, and the mean hides it. Salience helps
+enormously on `high-noise` (−0.09 to −0.12, significant at every weight) and on `high-reuse`; it costs on
+`many-candidates` (+0.045 to +0.119, monotone in the weight) and on `low-reuse`. `high-noise` reverses sign
+against the old table's +0.0188 — that table measured retention, which hurts there, while admission helps
+there by more.
+
+**Read the `high-noise` column with the templated-noise caveat, because it now carries the result.** That
+shape's noise shares a skeleton with every other class, so "novelty separates junk" is measured under the one
+condition this corpus cannot express faithfully. The dominant cell is the one most exposed to the known blind
+spot, which is a reason to weight it less, not more.
+
+**The second embedder was run, and the WINNER did not survive it** (`embeddinggemma:300m`, same 30 seeds ×
+6 shapes × 6 arms, same corrected off arm; `NW0` is exactly `0.0000` there too, so determinism holds on both):
+
+| arm vs Off | `nomic-embed-text` | `embeddinggemma:300m` |
+|---|---|---|
+| `NW0.5` | **−0.0116** / −0.0042 | −0.0146 / −0.0059 |
+| `NW1` | +0.0010 / −0.0005 | −0.0121 / −0.0043 |
+| `NW1.5` (shipped) | +0.0018 / +0.0012 | −0.0125 / −0.0040 |
+| `NW3` | +0.0120 / −0.0022 | **−0.0303** / **−0.0285** |
+
+(miss / pollution, mean combined.) **The two embedders pick opposite ends of the ladder** — `NW0.5` under one
+and `NW3` under the other — so this measurement does not identify a best weight, and D89's precedent applies
+exactly as written: it required a second embedder because the first reading did not survive one, and here it
+did not either.
+
+**What DOES survive both, and it is the part worth keeping.** `high-noise` is where salience pays, at every
+weight, under both embedders, significantly and by a lot (−0.09 to −0.12) — the largest and most consistent
+cell in the study. And **the shipped weight is not a net cost under either**: +0.0018 (≈ free) against
+−0.0125 (helps). Meanwhile `many-candidates` — the regression `TASKS.md` Part 65 exists for — is significant
+under `nomic` (+0.0751) and **not significant** under `embeddinggemma` (+0.0171), which is the ~2.5× embedder
+sensitivity the earlier table warned about, now visible on a correct instrument.
+
+**No default moved, and this run is a reason not to move one rather than a failure to decide.** The ladder
+was widened and re-based specifically to price a default; what it found is that the price depends on the
+embedder more than on the knob.
 
 ### The first number against the FIELD's benchmark (`memory-locomo`, 2026-08-29)
 
@@ -1098,6 +1173,24 @@ sets that ceiling far more than the memory layer does. So nothing here can be ra
 Letta in either direction — including favourably — and closing that needs the QA half, which `TASKS.md`
 Part 109 carries.
 
+**On CONSOLIDATION the field puts the abstraction at ENCODING, and this engine was looking for it at
+retrieval** (surveyed 2026-08-31, for the gist tier). Supersession is not inferred anywhere that solves it:
+**Zep/Graphiti** carry bi-temporal edges and *invalidate rather than delete* a superseded fact, and **Mem0**
+has a model decide ADD/UPDATE/DELETE/NOOP as the fact arrives. Both use information only the WRITER has. The
+survey above reports the problem otherwise unresolved and prescribes *"contradiction detection (flag
+conflicts for resolution)"* — flag, not resolve — while naming *"reflection grounding: requiring the agent to
+cite specific episodic evidence for each reflection"* as a mitigation with theoretical rather than empirical
+adoption. **That is why every read-time rule inverted here**: the information distinguishing the regimes was
+never recorded, which design §5.7.0's own invariant 4 already says (vacuous for the base engine, because a
+`MemoryWrite` carries no valid-time).
+<br>**The cognitive literature the word "gist" is borrowed from says the same thing and adds a warning.**
+Fuzzy-trace theory's *parallel storage* principle holds that verbatim and gist are encoded in parallel and
+names *"gist is extracted from verbatim memory"* a popular misconception; its *opponent processes* principle
+holds that **gist supports false memory while verbatim suppresses it**, gist being the more durable trace. So
+an abstraction that outlives its members is the documented mechanism of confabulation — which makes keeping
+it tied to reachable members (**D41** buries, never deletes) the countermeasure rather than a nicety. Full
+record and sources: the untracked `local/superpowers/specs/2026-08-31-gist-tier-field-research.md`.
+
 ### And WHAT salience measures, which is a different question (`memory-importance`, 2026-08-27)
 
 The sweep above prices how LOUD salience is. `node devtools/dev.mjs memory-importance` prices what it
@@ -1341,6 +1434,54 @@ reason above; its four identical cells are a property of the fixture, not a meas
 the raw count.** θ = 0.1 survives both axes and is the audit reading, which this corpus declares wrong for
 the assistant host. **D94** refused a support seam on the argument; this closes the measurement question it
 left open, and it closes it negatively — there is no constant θ to adopt.
+
+#### `mean` was never a candidate — the FIXTURE was holding it still (2026-08-30)
+
+Both runs above marked `mean` *NOT A RESULT*: phase B is judged the instant it stops being written, so it
+sits at the retrievability ceiling, every B member dominates every A member on 100% of replays, and
+`mean(B) >= mean(A)` follows from that domination rather than from a rule. `CorpusShape.RoutineSettleWrites`
+(`--settle N`) interposes filler writes between phase B's last write and the query that judges it, which is
+what finally tests it. `node devtools/dev.mjs memory-support --skip-model --settle N`, 2400 replays per
+value, ~20s each.
+
+**The gap works on ONE clock, which is itself the first result.** Domination (every B member ≥ every A
+member), per clock, default curve:
+
+| settle | 0 | 30 | 60 | 120 | 240 | 480 |
+|---|---|---|---|---|---|---|
+| `bulk` | 1200/1200 | 106/1200 | **0/1200** | 0/1200 | 0/1200 | 0/1200 |
+| `spaced` | 1200/1200 | 1200/1200 | 1200/1200 | 1200/1200 | 1200/1200 | 1200/1200 |
+
+Under `bulk` phase A sits at 0.60–0.94 and phase B decays into that band by 60 writes. Under `spaced` phase A
+is already at 0.10–0.26, so no gap tried brings B down to it — **`mean` stays untestable on that clock at
+every value swept**, and the tables above remain the last word there.
+
+**Where it IS testable, `mean` inverts with the gap** (`bulk`, default curve, picks per `RoutineCount` rung):
+
+| settle | k=3 | k=5 | k=8 | k=12 |
+|---|---|---|---|---|
+| 0 | B 300/300 | B 300/300 | B 300/300 | B 300/300 |
+| 60 | A 290/300 | A 267/300 | A 174/300 | B 210/300 |
+| 120 | A 300/300 | A 300/300 | A 290/300 | A 265/300 |
+| 240 | A 300/300 | A 300/300 | A 300/300 | A 300/300 |
+
+It walks from "always B" to "always A" as the gap grows, and passes through a **cardinality-dependent** band
+on the way — at settle 60 it answers A/A/A/B across the rungs under the default curve and A/A/B/B under
+`ConnectionBoost = 0`, so it is sensitive to both new axes and the transition is not a graph-term artefact.
+At settle 120 under `bulk`, **every rule in the table answers phase A**, so all of them are wrong on the
+declared `Recent` answer; under `spaced` at the same gap, θ ≥ 0.3 degenerates to `tie 300/300` because both
+regimes have decayed below the threshold. All pass/fail controls held on every run, and `--settle 0`
+reproduces the published cardinality table cell for cell.
+
+**So the negative result is now COMPLETE rather than partial.** `sum` inverts with pacing, discriminating
+`count@θ` inverts with pacing, `count@0.8`/`count@0.9` invert with cardinality, and `mean` — the one arm
+never tested — inverts with recency-of-the-newer-regime. Every combining form over member retrievability is
+a readout of the corpus's own timing rather than of support, which is what normalizing by size predicts:
+mean retrievability is monotone in recency and discards the support count entirely.
+<br>**Of `TASKS.md` Part 105's three candidates this leaves the third.** Testing `mean` was the second, and
+it killed it; a rule with no constant threshold was the first, and `sum` and `mean` are both exactly that and
+both invert. What survives is **a tier that reports N and declines to select a regime** — no combining form
+here is invariant to axes a deployment does not control.
 
 **An instrument lesson, because it nearly hid the finding.** The pooled `ConnectionBoost = 0` control reports
 *"verdict did NOT move — every rule selects the same regime under both curves"* on both clocks. That is true

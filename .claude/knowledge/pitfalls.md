@@ -961,6 +961,40 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   Register* block that owns it. `RegisterProviderLifetime` is all `TryAdd` deliberately for the mirror-image
   reason: everything it seeds is meant to lose to a host or a `Use*` call.
 
+- **A seam whose EMPTY registration means "take the default" has no off switch, and the arm you build to
+  turn it off is the shipped behaviour wearing an OFF label.** Measured 2026-08-30 (`docs/FIXES.md`).
+  `GraphMemoryEngine.NormalizeSaliencePolicies` substitutes a fresh `StructuralSaliencePolicy` for a null or
+  empty collection — deliberate, documented, and the reason `NeutralSaliencePolicy` exists at all.
+  `MemorySalienceSweep` nevertheless built its control arm as `saliencePolicies: null`, so **the arm labelled
+  `SalienceOff` ran the shipped policy at the shipped weight** for the whole life of the sweep. Its tables
+  compared retention-on against retention-off with salience's *admission* consumer live in both arms, while
+  the sweep's preamble, its class doc and `docs/memory.md` all described it as measuring both consumers.
+  <br>**Nothing in the harness could have caught it.** The build is green, every existing control is green,
+  the arms carry different options objects, and the numbers are plausible in both sign and magnitude.
+  <br>**And it is the SECOND time this exact trap bit, which is the part worth carrying.** The first was in
+  the test tier, and it is written up inside `MemorySalienceInversionTests`: *"The first three-arm run here
+  asserted the control judged nothing salient and got 255 — the 'control' was a second copy of the
+  treatment."* That incident is why `NeutralSaliencePolicy` exists at all; its own note says a trap that
+  costs a measurement its control belongs fixed in the library rather than in one file. By 2026-08-30 the
+  rule was written down in **four** places — that type, a test pinning it
+  (`An_empty_policy_collection_leaves_salience_ON_and_only_the_neutral_policy_turns_it_off`), `TASKS.md` Part
+  65 verbatim ("registering an empty collection does NOT — that takes the shipped default"), and two sibling
+  sweeps doing it correctly — and a harness written afterwards still did it wrong.
+  <br>**What separated the two incidents was not knowledge, it was the CONTROL.** The test tier caught its
+  version in one run because it reports `SalientWrites` per arm and asserts the control's is zero; the bench
+  sweep counted salient writes only on its treatment arms, so its off arm contributed no row and there was
+  nothing to be non-zero. **Writing the rule down again is not the fix — porting the control is.**
+  <br>**What exposed it was widening the study, not checking it.** The confound was invisible on the two
+  corpus shapes the ladders ran; going to six put a provably-silent arm significantly *worse* than "off" on
+  two new shapes, by more than the entire spread of the arms being ranked. **A control arm that differs from
+  a treatment by more than the treatments differ from each other is reporting a confound, not a result** —
+  that comparison costs nothing and is worth making on any ladder.
+  <br>**The general rule: for any seam with a default-on fallback, the off arm must be an explicit neutral
+  IMPLEMENTATION, and a control must assert it was CONSULTED and DECLINED.** Asserting "the signal is
+  absent" is not enough — absence is exactly what a never-registered policy also produces, and it is what
+  the broken arm reported. This is the same shape as the `MemoryEngineBuilder` entry above ("assert the
+  policy was CONSULTED, not that recall still worked"), arrived at from the instrument side.
+
 ## Copying a rule copies its assumptions
 
 - **A rule moved from where it was true to where it is not — the shape behind three of the four regressions

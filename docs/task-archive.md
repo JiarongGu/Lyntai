@@ -1824,3 +1824,36 @@ here, so the sentence stays grammatical, plausible and wrong. **When a decision 
 claim, not the file you were reading.**
 
 - GEN7a — the pipeline runner at `image → video`, the half the survey unblocked
+
+## Part 127 — the salience defaults: measured on both embedders, and neither default moved (2026-08-30)
+
+✅ done 2026-08-30 — `TASKS.md` Part 65's "two option defaults, and one makes the other inert". The owner
+was asked whether `SalienceOptions.MaxSalience` (4) and `NoveltyWeight` (1.5) should stay and answered
+**measure it**, so the question stopped being a decision and became a ladder. Tables in `docs/memory.md` §5.
+**Outcome: both defaults stay**, and the reason is that the two real embedders pick OPPOSITE ends of the
+ladder — `NW0.5` under `nomic-embed-text`, `NW3` under `embeddinggemma:300m` — so no best weight exists to
+adopt. That is `docs/DECISIONS.md` D89's own precedent holding a second time: it required a second embedder
+because the first reading did not survive one, and this one did not either.
+
+**The instrument had to be repaired twice before it could answer, and the second repair is the finding.**
+The verdict reported Δ miss ALONE, which is the defect `pitfalls.md` records this file's sibling paying for
+with a reverted default; it now reports pollution beside it and evaluates §5.7.0's lexicographic order. And
+**the `SalienceOff` arm was never off** — it passed `saliencePolicies: null`, which
+`GraphMemoryEngine.NormalizeSaliencePolicies` turns back into the shipped policy, so every table this sweep
+ever published compared retention-on against retention-off with salience's ADMISSION consumer live in both
+arms. `docs/FIXES.md` carries the incident, `.claude/knowledge/pitfalls.md` the general rule.
+
+**What the corrected run establishes, beyond the defaults question.** The harness is DETERMINISTIC — the
+clamp's own neutral rung reads exactly `0.0000` against the off arm on every cell of every shape, both
+metrics, zero-width intervals, on both embedders — so the run-to-run noise floor for an identical
+configuration is zero and no separate repeat was needed. `high-noise` is where salience pays (−0.09 to −0.12
+at every weight, significant under both), the shipped weight is not a net cost under either (+0.0018 against
+−0.0125), and `many-candidates` — the regression Part 65 exists for — is significant under one embedder and
+not the other. **Read the `high-noise` column against the templated-noise caveat**: the cell now carrying the
+result is the one most exposed to the corpus's known blind spot.
+
+**It was widening the study that exposed the confound, not checking it.** Both earlier ladders ran two corpus
+shapes; at six, a provably-silent arm came back significantly worse than "off" on two new shapes, by more
+than the spread of the arms being ranked.
+
+- Two option defaults, and one makes the other inert

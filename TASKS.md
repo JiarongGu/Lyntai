@@ -27,29 +27,48 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is TWO items: Part 116's one and Part 109's QA half.** Each is a `- [ ]` you could open
+**The startable set is THREE items: Part 116's one, Part 109's QA half, and Part 105's gist tier.** Each is a
+`- [ ]` you could open
 today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>_It held THREE until 2026-08-30, when GEN7a — the `image → video` pipeline runner Part 124 had just put
-here — was built and closed as `docs/task-archive.md` **Part 126**. Both remaining items are measurement._
+<br>_It held THREE on 2026-08-30 before GEN7a closed as `docs/task-archive.md` **Part 126**, dropping it to
+two; **Part 105 joined later the same day**, when the corpus fix the owner asked for refuted `mean` and left
+that item with a design to build rather than a fork nobody could choose between. The first two are
+measurement; Part 105 is the only one that is code._
 
 **HANDOVER (2026-08-30, end of session): the next session's direction is MEMORY OPTIMIZATION**, at the
-owner's request. Read this before picking anything up, because the bottleneck is not work — it is three
-questions only the owner can answer, and a session that starts measuring will hit all three inside an hour.
+owner's request. It named three questions as the bottleneck. **They were put to the owner on 2026-08-30 and
+the answer converted two of them from decisions into MEASUREMENTS**, which is why the first two now name an
+instrument instead of a fork: the owner asked for the best value to be found rather than chosen. The third
+was decided outright.
 
-1. **`SalienceOptions.MaxSalience` and `NoveltyWeight` — do the two shipped defaults stay?** (Part 65, under
-   Blocked.) Everything measurable HAS been measured: `MaxSalience` is a switch rather than a dial and at
-   `NoveltyWeight = 1.5` it can never bind, so the shipped `4` is inert on this corpus. Moving it is not a
-   no-op in general, which is exactly why it is a decision and not a sweep.
-2. **What does the gist tier COMPUTE?** (Part 105, under Blocked.) The measurement came back negative — no θ
-   is both pacing- and cardinality-independent, and the one invariant rule is the raw count, which the corpus
-   declares wrong for the assistant host. The three candidates are named in the item; none is obviously right.
-3. **Does `ExpansionRetrievabilityFloor` move off `0`?** (Inside Part 109's open QA item, so this one rides
-   along with startable work rather than blocking it.) **D98** shipped it at `0` on one class of one
-   benchmark; `0.8` held the shot curve flat there and cost 4 points of current-fact hit rate. It needs more
-   than one workload before anything moves.
+1. ~~**`SalienceOptions.MaxSalience` and `NoveltyWeight` — do the two shipped defaults stay?**~~ **ANSWERED
+   2026-08-30 by measurement: YES, both stay.** `MaxSalience` is a switch rather than a dial and at
+   `NoveltyWeight = 1.5` it can never bind, so the shipped `4` is inert on this corpus; moving it is not a
+   no-op in general. **Owner's answer: measure it** — so the ladder was widened to all six shapes with rungs
+   across the decision region, and run on BOTH embedders. **They pick opposite ends** (`NW0.5` vs `NW3`), so
+   no best weight exists to adopt, and the shipped weight is not a net cost under either. Two instrument
+   defects were fixed to get there: the verdict reported Δ miss ALONE (the defect `pitfalls.md` records its
+   sibling paying for), and the `SalienceOff` arm was never off (`docs/FIXES.md`).
+2. ~~**What does the gist tier COMPUTE?**~~ **ANSWERED 2026-08-30 by measurement, and Part 105 is UNBLOCKED.**
+   The owner's answer was "fix the corpus and run it" — the second of the item's three candidates, since
+   `mean` had never been tested (phase B is judged at the retrievability ceiling, so its result was the
+   fixture's, not a rule's). `CorpusShape.RoutineSettleWrites` ages it off that ceiling (`--settle N`,
+   opt-in and byte-identical at `0`, which the goldens prove rather than assert), and **`mean` inverts with
+   the gap** — from "always B" to "always A", through a cardinality-dependent band, under both curves. Every
+   combining form is now refuted on some axis a deployment does not control, which leaves the item's THIRD
+   candidate: a tier that reports N and declines to select.
+3. ~~**Does `ExpansionRetrievabilityFloor` move off `0`?**~~ **ANSWERED 2026-08-30 by the owner: it stays at
+   `0`.** Recorded here rather than deleted because the question's own framing was stale when it was asked —
+   it said "it needs more than one workload before anything moves" and quoted a cost of 4 points, both of
+   which Part 123 had already superseded THAT DAY (two workloads; +2.8 `clean` for −1.5 `current@k`, the doc
+   having overstated the cost by 2.7×). The decision is the one Part 123 itself reached on the measurement:
+   the value that BINDS is a property of how decayed a store is, not of the workload — 0.5 excludes nothing
+   on a freshly ingested one — so there is no constant to adopt and a knob that costs any recall is one a
+   deployment opts into. **This is the fourth instance of the banner-vs-item drift `pitfalls.md` records**,
+   in its rarer direction: the item did not change under the banner, the ARCHIVE did.
 
 **And the standing trap for whoever measures next, because it has now cost three published figure sets:**
 every recall-quality number is a property of the INSTRUMENT until proven otherwise. Part 118 (shared stores),
@@ -145,25 +164,20 @@ Blocked, and on what:
   owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
   PATH, not in the npm global root, not in any usual location. The 2026-08-04 capture (0.146.0) came from an
   install that is gone. So this needs a REINSTALL plus a turn, not just a go-ahead.
-- **Part 105 / build the gist tier** — a DECISION nobody has taken: which support rule it computes.
-  **The DATA half of this blocker is DISCHARGED (2026-08-28)** — the cardinality sweep ran, and it answered
-  negatively: no θ is both pacing- and cardinality-independent, and the one invariant threshold is the raw
-  count. So the decision is no longer waiting on a measurement; it is waiting on somebody choosing what the
-  tier computes when no constant is defensible. **Not an environment blocker.**
-- **Part 65 holds TWO items with DIFFERENT blockers, and only ONE of them is blocked** — listing the Part
-  here is how the other read as blocked in turn (corrected 2026-08-21, and again 2026-08-28 in the banner).
-  - *subject drift* — **still blocked, and the honest kind is a model DOWNLOAD, not a budget.** It needs a
-    RATE across models rather than an anecdote, and this machine holds exactly one chat model
-    (`gemma3:4b`), so "across models" is unreachable without pulling more. The line below said "a
-    measurement budget" until 2026-08-28, which reads as startable.
-  - *the `MaxSalience` defaults question* — **blocked on a DECISION, not on an environment.** This slot used
-    to hold `many-candidates`, which was blocked on a real embedding model (salience reads NOVELTY, and
-    without an embedder `StructuralSaliencePolicy` declines on every write, so any sweep of a salience bound
-    is flat by construction — and `FakeEmbedder` cannot stand in, Part 69 having withdrawn the numbers taken
-    through one). That cleared when `embeddinggemma` was pulled here; the paired sweep ran on 2026-08-28 and
-    the `--ceiling` and `--novelty` ladders on 2026-08-29. Everything measurable has now been measured and
-    the stale XML doc is fixed, so what is left is one question for the owner: two shipped defaults make one
-    of them inert — keep them?
+- ~~**Part 105 / build the gist tier**~~ — **UNBLOCKED 2026-08-30.** It waited on a DECISION (which support
+  rule the tier computes) that nobody could take because the candidate list held an untested arm. The owner's
+  answer was to fix the corpus and measure, `CorpusShape.RoutineSettleWrites` did that, and `mean` — the
+  untested one — inverts with the gap. With every combining form now refuted on some axis a deployment does
+  not control, the item's own third candidate (report N, decline to select) is what is left standing, so
+  there is a design to build rather than a fork to choose. The Part is startable; see it for what remains.
+- **Part 65 / subject drift** — **a model DOWNLOAD, not a budget.** It needs a RATE across models rather than
+  an anecdote, and this machine holds exactly one chat model (`gemma3:4b`), so "across models" is unreachable
+  without pulling more. This line said "a measurement budget" until 2026-08-28, which reads as startable.
+  <br>_The Part held TWO items with different blockers until 2026-08-30, and listing it whole is how the
+  unblocked one read as blocked in turn (corrected 2026-08-21, and again 2026-08-28 in the banner). The other
+  — the `MaxSalience` defaults question — was blocked on a DECISION rather than an environment, and closed as
+  `docs/task-archive.md` **Part 127** when the owner asked for it to be measured instead of chosen. **So this
+  Part now holds one item and one blocker**, which is what the entry above states directly._
 - **Part 56 / FSRS-B** — a deployment's own logged reviews. The observable now exists; the data does not,
   and this repository cannot invent it without repeating the mistake D49 refused.
 - **Part 75** — two or three real aggregators to measure an in-band `code` against. Reading it unmeasured is
@@ -413,23 +427,16 @@ turning it UP makes recall worse monotonically where it matters (`many-candidate
 also refuted a shipped XML claim rather than a value: a NEGATIVE weight is inert, not inverting, because the
 clamp floors at 1 — corrected in `SalienceOptions` on 2026-08-29. **Whether any default MOVES is still the
 owner's call, not a sweep's**: the cost is embedder-dependent by ~2.5× and `high-noise` reverses sign between
-the two embedders, so no single figure is *the* cost. **Nothing in this note is startable work any more; the
-one live thread it left is the item below.**_
+the two embedders, so no single figure is *the* cost. **Nothing in this note is startable work any more**,
+and the one live thread it left — the defaults question — closed on 2026-08-30 (see below)._
 
-- [ ] **Two option defaults, and one makes the other inert.** `SalienceOptions.MaxSalience` defaults to 4,
-  and `StructuralSaliencePolicy` computes `Clamp(1 + NoveltyWeight × novelty, 1, MaxSalience)` with
-  `NoveltyWeight = 1.5` and `novelty ∈ [0,1]` — so the reachable maximum is **2.5** and the shipped ceiling
-  can never bind. Measured, not inferred: `Max2`, `Max3` and `Max4` are byte-identical in every cell of
-  `memory-salience --ceiling`.
-  <br>_**The DOC half closed 2026-08-29** and is not what remains. `MaxSalience`'s own XML read
-  "**Unmeasured** — a starting point" after the ladder that measured it, and never said that at the shipped
-  `NoveltyWeight` it cannot bind — so a consumer hovering the member got neither fact, and XML docs SHIP
-  (`pitfalls.md` records that family). The containment argument was documented on `NoveltyWeight`, i.e. on
-  the wrong member. Both now carry what their runs found._
-  <br>**What is left is a DECISION nobody has taken: should those two defaults ship as they are?** Moving
-  `MaxSalience` is NOT a no-op in general — it is one on this corpus only because `NoveltyWeight` is 1.5, and
-  a consumer who raises that would feel a lowered ceiling. So this is the same shape as Part 105: measured,
-  documented, and waiting on somebody choosing. It is listed under Blocked for that reason.
+_**The defaults question CLOSED 2026-08-30** as `docs/task-archive.md` **Part 127**: measured on both
+embedders at the owner's direction, they pick opposite ends of the ladder (`NW0.5` under `nomic-embed-text`,
+`NW3` under `embeddinggemma:300m`), so no best weight exists and neither default moved. Getting there fixed
+two instrument defects — a verdict that read miss alone, and an off arm that was never off
+(`docs/FIXES.md`). **Every "salience costs recall" figure quoted above was taken through that off arm**, so
+it prices RETENTION with admission live in both arms; the between-rung comparisons survive untouched because
+every rung shared that same baseline. `docs/memory.md` §5 carries the correction and the re-measurement._
 
 ---
 
@@ -567,18 +574,25 @@ _What Part 104 left open. The support seam itself is settled — `docs/DECISIONS
 `docs/memory.md` §5). **The cardinality axis closed 2026-08-28 — `docs/task-archive.md` Part 108.** What is
 left is one item, and its blocker is a DECISION rather than the data it used to wait on._
 
-- [ ] **Build the gist tier.** **BLOCKED on a DECISION nobody has taken** — which support rule it computes.
-  **D94** settled the tier's SHAPE (no seam), and the measurement half is now DONE rather than pending:
-  `docs/memory.md` §5 carries both sweeps.
-  <br>**The measurement came back negative, which is what makes this a decision rather than more work.**
+- [ ] **Build the gist tier.** **D94** settled the tier's SHAPE (no seam); what it computes was the open
+  question, and `docs/memory.md` §5 now carries three sweeps rather than two.
+  <br>**The measurement came back negative, and the 2026-08-30 run completed the negative.**
   `sum` inverts with pacing. Every DISCRIMINATING `count@θ` inverts with it. Of the two thresholds that
   looked pacing-independent, **θ = 0.9 turned out to be an artefact of `RoutineCount = 12`** — it walks
   tie → A → B → B across |A|/|B| — leaving **θ = 0.1 as the only rule invariant on both axes, and it is the
-  raw count**, which this corpus declares wrong for the assistant host. `mean` remains untestable on the
-  corpus as it stands (phase B is snapshotted at the retrievability ceiling).
-  <br>So there is no constant to adopt, and the open question is what the tier should compute INSTEAD:
-  a rule with no constant threshold, a corpus that can test `mean` (phase B off the ceiling at the
-  snapshot — a corpus change, not a sweep argument), or a tier that reports N and declines to select.
+  raw count**, which this corpus declares wrong for the assistant host.
+  <br>**`mean` is now tested and is not a candidate either.** It was untestable because phase B is judged at
+  the retrievability ceiling, so `mean(B) >= mean(A)` held by domination rather than by any rule;
+  `CorpusShape.RoutineSettleWrites` ages it off that ceiling. Where the gap bites (`bulk` from 60 writes;
+  `spaced` never does, at any value swept) `mean` walks from "always B" to "always A" as the gap grows,
+  through a cardinality-dependent band, under both curves. **At settle 120 under `bulk` every rule in the
+  table answers phase A** — all of them wrong on the declared answer.
+  <br>**So of the three candidates this item listed, the measurement leaves the third.** Testing `mean` was
+  the second and it killed it; "a rule with no constant threshold" was the first, and `sum` and `mean` are
+  both exactly that and both invert. What survives is **a tier that reports N and declines to select** — no
+  combining form over member retrievability is invariant to axes a deployment does not control. That is a
+  design somebody can now build rather than a fork nobody could choose between, so this is **no longer
+  blocked**; what remains is the tier's own surface.
 
 ## Part 109 — LoCoMo says the shipped ranking defaults lose to plain cosine on a uniform-history workload (2026-08-29)
 
@@ -612,9 +626,13 @@ it._
   store, so a widened run no longer inherits it. **The QA half itself has NOT been re-run** — it needs a
   reader — so its numbers (`docs/task-archive.md` Part 115) were taken under contamination, and widening now
   means re-measuring rather than adding to them._
-  <br>**And sweep `ExpansionRetrievabilityFloor` while doing it** (**D98**). It ships at `0` on one class of
-  one benchmark; 0.8 held the shot curve flat there and cost 4 points of current-fact hit rate. Whether any
-  default moves is the owner's call, and it needs more than one workload.
+  <br>_**`ExpansionRetrievabilityFloor` is no longer part of this item.** It was swept across both workloads
+  on 2026-08-30 (`docs/task-archive.md` **Part 123**), and the owner settled it the same day: the default
+  stays at `0`. This line said it "needs more than one workload" and quoted a cost of 4 points — the
+  25-question figures — after the run that superseded both; at full sample the trade is +2.8 points of
+  `clean` for −1.5 of `current@k`, and `GraphMemoryOptions.ExpansionRetrievabilityFloor`'s own XML doc has
+  carried the corrected pair since that run. A QA pass may still report the floor as a column; it is not a
+  default this item decides._
   <br>*(**LongMemEval is no longer part of this item** — it landed 2026-08-29 in both variants,
   `docs/task-archive.md` Part 112. What it left behind is scope rather than a gap: two of its six classes are
   measured, and `multi-session` (133 questions), the three single-session classes and `BEAM` are untouched.

@@ -115,7 +115,7 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D43](#d43--a-document-that-has-finished-its-purpose-is-archived-out-of-docs-2026-08-08) | 2026-08-08 | a document that has finished its purpose is ARCHIVED out of `docs/` |
 | [D44](#d44--the-feed-presents-201-only-2026-08-08) | 2026-08-08 | the feed presents 2.0.1+ only |
 | [D45](#d45--salience-is-decay-resistance-and-store-admission-priority-rank-priority-defaults-off-2026-08-09) | 2026-08-09 | salience is decay resistance AND store ADMISSION priority; RANK priority defaults OFF |
-| [D46](#d46--memory-retention-is-four-domains-with-one-policy-seam-each-placed-by-ownership-2026-08-09) | 2026-08-09 | memory retention is four DOMAINS with one policy seam each, placed by OWNERSHIP |
+| [D46](#d46--a-memory-domain-is-a-sub-namespace-holding-one-seam-placed-by-ownership-2026-08-09) | 2026-08-09 | a memory domain is a sub-namespace holding ONE seam, placed by OWNERSHIP |
 | [D47](#d47--every-memory-policy-seam-takes-one-naming-shape-imemorydomainpolicy-2026-08-10) | 2026-08-10 | every memory policy seam takes ONE naming shape, `IMemory<Domain>Policy` |
 | [D48](#d48--a-seam-is-singular-or-plural-depending-on-whether-its-implementations-read-the-same-aspect-2026-08-10) | 2026-08-10 | a seam is SINGULAR or PLURAL depending on whether its implementations read the same aspect |
 | [D49](#d49--dsrretrievability-is-the-default-forgetting-curve-and-it-is-the-only-one-2026-08-10) | 2026-08-10 | `DsrRetrievability` is the default forgetting curve, and it is the ONLY one |
@@ -849,11 +849,24 @@ The first two are what "does not fade away" means. The third is a stronger and s
 admission — which is unconditional — already delivers what salience promises without it. The rank mechanism
 itself is unchanged and one option away; only the default moved.
 
-## D46 — memory retention is four DOMAINS with one policy seam each, placed by OWNERSHIP (2026-08-09)
+## D46 — a memory domain is a sub-namespace holding ONE seam, placed by OWNERSHIP (2026-08-09)
 `Lyntai.Memory` had become a flat namespace carrying unrelated varying rules. Each becomes its own
 sub-namespace holding one seam, its implementations **and its options**. Placement is by ownership, not by
 consumption: a type a sibling domain merely depends on stays with its owner, and `MemoryDecayState` — the
-one type no domain owns, being the state they all read — is the only thing that belongs at the root.
+one type no domain owns, being the state they all read — is the only DOMAIN-shaped type left at the root.
+
+**Scoped to domain-owned types, and this sentence said "the only thing that belongs at the root" until
+2026-08-31.** Read literally that is false: ~40 types sit at the root and most correctly do, because they
+are the subsystem's CONTRACT rather than any domain's — `IMemoryEngine`, `MemoryWrite`, `MemoryQuery`,
+`MemoryRecall`, `IMemoryGraphStore`, the engines, the vector store. What the rule forbids at the root is a
+*policy domain's* seam, implementations or options. Stated precisely because the loose form invites a
+reviewer to file everything at the root as a violation.
+
+**The RULE is what this decision fixes, never the count.** It said "four DOMAINS" in its own title until
+2026-08-31; there were seven by then, and `decisions-index` renders titles, so the stale number appeared in
+the index table too. `CLAUDE.md`'s namespace map is where the live roster belongs — it had already drifted
+once itself ("this list said five until 2026-08-15"), which is the argument for keeping a count in exactly
+one place rather than restating it in a title nothing gates.
 
 **It is a pure rename and nothing else.** No method body, constant, signature or documentation word changed
 meaning; the whole change is where the types live. That is what made it safe to take in one pass, and it is
@@ -866,6 +879,14 @@ and that name is why this could not wait for the next domain to expose the incon
 it was actively describing the wrong model. Retired names are fenced by `retiredTerms` and
 `retiredApiNames` so nothing reintroduces them; implementations whose own names embedded a retired word
 renamed with it.
+
+**The shape does NOT mean "this is a memory DOMAIN", and reading it that way costs a wrong refactor.**
+A domain policy varies a rule `GraphMemoryEngine` applies per ENTRY — the seven in `CLAUDE.md`'s namespace
+map. `IMemoryRemovalPolicy` wears the same name and is not one: it varies which MEMBERS of a blend a removal
+visits, is consulted by `CompositeMemoryEngine`, and therefore belongs beside the composite at the root
+rather than in a domain folder of its own. Recorded 2026-08-31 after an audit filed its root placement as a
+D46 violation on the strength of the name alone, and nearly moved it — a breaking change for no benefit.
+**Read what a policy governs, never what it is called.**
 
 **What is deliberately NOT renamed, because the retired word was never in these names:**
 `ModulatedRetrievability` (the word is `Modulation`, the surviving namespace and domain concept — the class
@@ -2627,28 +2648,19 @@ call the older regime correct on the same bytes, and this corpus cannot say othe
 is narrower and stronger: raw is the wrong DEFAULT for one deployment model, and the seam dissolves on the
 argument rather than on the number.
 
-**What the sweep measured, one line each.** The tables, the retrievability bands and the full reading are
-`docs/memory.md` §5 and are deliberately not restated here (`node devtools/dev.mjs memory-support`, 600
-replays = 60 shapes × 5 seeds × 2 injected clocks).
+**What the sweep measured is `docs/memory.md` §5** — tables, retrievability bands and the full reading, from
+`node devtools/dev.mjs memory-support`. **Every combining form over member retrievability inverts on some
+axis a deployment does not control**: `sum` and every DISCRIMINATING `count@θ` on write pacing,
+`count@0.8`/`count@0.9` on cardinality, and `mean` on how long ago the newer regime was written. The only
+threshold invariant on all of them is `count@0.1`, which on this grid IS the raw count — where this meets the
+raw reading above, and wrong for the assistant host. A model in the loop bought nothing, and the scope is the
+reason: the prompt NAMES the recency ordering, so a model merely obeying the label scores the same.
+<br>`mean` was the last candidate and was untestable until 2026-08-30 — phase B sat at the retrievability
+ceiling, making `mean(B) ≥ mean(A)` a theorem about the fixture rather than a result — until
+`CorpusShape.RoutineSettleWrites` aged it off.
 
-- **`sum` INVERTS with pacing** — phase A under bulk, phase B under spaced, 300/300 each way — so it cannot
-  be *the* rule unless a deployment's write pacing is part of its contract, which nothing here can put there.
-- **Only the DEGENERATE `count@θ` thresholds are pacing-independent**, and each scores 0.000 on one of the
-  two answer arms, so neither is a rule; every θ that could DISCRIMINATE inverts. On this grid θ = 0.1 IS the
-  raw count, which is where this meets the raw reading above.
-- **`mean` is UNTESTABLE on this corpus** — phase B is snapshotted at the retrievability ceiling, so
-  `mean(B) ≥ mean(A)` is a theorem about the fixture rather than a result.
-- **A model in the loop bought nothing**, and the scope is the reason: the prompt NAMES the recency
-  ordering, so a model merely obeying the label scores the same.
-
-**The cardinality limit is MEASURED as of 2026-08-28, and it removes the last candidate.** Swept over rungs
-3/5/8/12, **θ = 0.9's pacing-independence turns out to be an artefact of `RoutineCount = 12`** — it walks
-tie → A → B → B across |A|/|B|, the order-statistic behaviour predicted above — while **θ = 0.1 is invariant
-on both axes** and is the raw count, wrong for the assistant host. `docs/memory.md` §5 has the tables.
-
-**So no combining form is adopted and no default is set** — a measured negative now, not an open question:
-no θ is both pacing- and cardinality-independent. The tier has no seam to build and no constant to adopt;
-`TASKS.md` carries what is left.
+**So no combining form is adopted and no default is set** — a measured negative, not an open question. The
+tier has no seam to build and no constant to adopt; what that leaves it able to report is `TASKS.md` Part 105.
 
 ## D95 — the repository is LF, declared in a tracked `.gitattributes` (2026-08-28)
 

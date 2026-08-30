@@ -112,9 +112,13 @@ silently break; the reasoning is in the decision named beside it.
    deriving a grade from retrievability-at-recall. **Neutral is `5`, not `1`**: `1` is FSRS's floor, which
    pins the axis at the clamp so it can never vary. Reviews are logged (`GraphMemoryOptions.LogReviews`) so
    parameters can be fitted later; nothing reads that log at runtime.
-8. **`IMemoryGraphStore` has FIVE required members with no default body** — `DeleteAsync`,
-   `RecordReviewsAsync`, `ReviewsAsync`, `RecordSubjectsAsync`, `NodesBySubjectAsync` — so a BYO store must
-   implement all five. **THREE members carry a default body**, and the difference between them matters:
+8. **`IMemoryGraphStore` has THIRTEEN required members**, of which the FIVE this major added took no default
+   body deliberately — `DeleteAsync`, `RecordReviewsAsync`, `ReviewsAsync`, `RecordSubjectsAsync`,
+   `NodesBySubjectAsync`. This line said "has FIVE required members" until 2026-08-31, dropping the
+   qualifier **D67** carries ("the choice `IMemoryGraphStore`'s five members took *in this major*") and
+   restating it as a total — which misleads precisely the reader it addresses, since a BYO store author
+   reads "implement all five" and meets thirteen. **THREE members carry a default body**, and the difference
+   between them matters:
    `KnownSubjectsAsync` defaults to an empty list, so a BYO store silently gets no subject seeding
    (**D88**); `LinkManyAsync` (**D99**) and `WriteBackAsync` (**D101**) default to the calls the engine used
    to make inline, so a BYO store loses no behaviour at all and is merely no faster. **`WriteBackAsync`
@@ -146,7 +150,7 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3495 passed / 3516 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+Tests/e2e green: **3504 passed / 3525 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
 real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 457/457, doc samples 80/80.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
@@ -516,9 +520,9 @@ owned outside the deployment; `DECISIONS.md` D30) /
   text — the friendliest tokenization the library supports, recorded as a blind spot in design §5.7.0 and
   never measured. `MemoryCorpus` takes `CorpusShape.Language` (default `English`, **byte-identical when
   unset** — proved by the goldens in `MemoryCorpusGoldenTests` that were captured BEFORE the axis existed
-  and did not move when it landed; that file now pins **seven** golden shapes in all, the sixth for the
-  routine class and the seventh for its STANDING answer arm, both of which postdate the axis and so pin
-  only their own shape).
+  and did not move when it landed; that file now pins **eight** golden shapes in all, the sixth for the
+  routine class, the seventh for its STANDING answer arm and the eighth for its SETTLE gap, all of which
+  postdate the axis and so pin only their own shape).
   Every arm replays a **structurally identical** corpus — same steps, same ids, same ground truth, only the text
   differs — so a gap is the LANGUAGE and not the timeline; pinned in the corpus tests AND re-checked per cell
   at run time. Adopts nothing: the language is the consumer's, not a setting. See `DECISIONS.md` **D55**.

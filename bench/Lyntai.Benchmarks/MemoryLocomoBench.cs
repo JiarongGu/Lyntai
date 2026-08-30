@@ -6,6 +6,7 @@ using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;
+using Lyntai.Memory.Verification;
 using Lyntai.Storage.Sqlite;
 
 namespace Lyntai.Benchmarks;
@@ -142,8 +143,10 @@ internal static class MemoryLocomoBench
             ? ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}", "full"]
             : retrievalOnly
                 ? wantFull
-                    ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "vector", "full"]
-                    : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "vector"]
+                    ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
+                        "+rel-only", "vector", "full"]
+                    : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
+                        "+rel-only", "vector"]
                 : ["lyntai", TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
@@ -205,26 +208,69 @@ internal static class MemoryLocomoBench
             // and they get separate stores for the reason the paragraph above gives, which applies with
             // extra force here: ExpandAsync reinforces what it walks, so a three-shot arm sharing a store
             // would hand the one-shot arm a graph it had already dug through.
-            var configs = ranksOnly
-                ? [("lyntai", null, rankProbe)]
+            (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
+                IMemoryVerificationPolicy? Verification)[] configs = ranksOnly
+                ? [("lyntai", null, rankProbe, null)]
                 : retrievalOnly
                 ? Ladder()
                 : shotsOnly
                     // The explicit options object is INERT at floor 0 — the engine's own fallback is
                     // `options ?? new GraphMemoryOptions()` — so an unswept run is byte-identical to one
                     // that never passed one, which archive Part 119 measured rather than assumed.
-                    ? [(ThreeShot, new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, null)]
-                    : [("lyntai", null, null), (ThreeShot, null, null)];
+                    ? [(ThreeShot, new GraphMemoryOptions { ExpansionRetrievabilityFloor = expandFloor }, null, null)]
+                    : [("lyntai", null, null, null), (ThreeShot, null, null, null)];
 
-            (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking)[] Ladder() =>
+            (string Arm, GraphMemoryOptions? Options, IMemoryRankingPolicy? Ranking,
+                IMemoryVerificationPolicy? Verification)[] Ladder() =>
             [
-                ("lyntai", null, null),
-                ("+sem", new GraphMemoryOptions { SemanticSeedK = RecallLimit }, null),
+                ("lyntai", null, null, null),
+                ("+sem", new GraphMemoryOptions { SemanticSeedK = RecallLimit }, null, null),
                 ("+sem+hop0", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 })),
-                ("+sem80", new GraphMemoryOptions { SemanticSeedK = 80 }, null),
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 }), null),
+                ("+sem80", new GraphMemoryOptions { SemanticSeedK = 80 }, null, null),
                 ("+sem80+hop0", new GraphMemoryOptions { SemanticSeedK = 80 },
-                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 })),
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { HopWeight = 0 }), null),
+
+                // Added 2026-08-31 to SPLIT the -26 gap against `vector`, which the ladder above could not:
+                // every arm in it keeps RetrievabilityWeight at its shipped 1, so forgetting votes on the
+                // ordering in all of them and none of them can say whether it is the deficit.
+                //
+                // `+forget0` removes exactly that vote. LoCoMo asks about months of history UNIFORMLY, so it
+                // rewards a perfect archive and penalises forgetting BY CONSTRUCTION — this arm prices how
+                // much of the gap is that construction rather than a ranking defect.
+                ("+forget0", null,
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
+                    null),
+
+                // The VERDICT arms, added 2026-08-31. D59 decomposed this subsystem's misses and found 100%
+                // reachable-but-outranked and 0% unreachable, naming `IMemoryVerificationPolicy` — a judge
+                // applied BEFORE the cut, so a buried answer is PROMOTED — as the fix. Neither field
+                // benchmark had ever wired that seam: `grep -c` returned 0 in both, so every LoCoMo figure
+                // on record was taken with the largest known lever switched off.
+                //
+                // `+oracle` is the CEILING, not a score. A perfect judge endorses exactly the evidence
+                // LoCoMo names, so this measures whether the evidence is within `VerificationDepth` of the
+                // candidate pool at all — D59's "reachable-but-outranked" question asked of THIS workload.
+                // If a perfect judge cannot close the gap, no real model will, and that is worth knowing
+                // before spending a model run. It is the same stance `memory-annotation` takes with a
+                // perfect annotator.
+                //
+                // Built on `+forget0` rather than the defaults because that is the measured best engine
+                // configuration (60.0% against 54.5%), so the judge is priced on top of what already works
+                // rather than against a baseline we know is beaten.
+                ("+forget0+oracle", null,
+                    new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
+                    new EvidenceOracleVerifier(mine.ToDictionary(q => q.Text, q => q.Evidence.ToHashSet()))),
+
+                // The BRIDGE arm, and the one that decides where to look next. Relevance alone through the
+                // engine's own pipeline (salience already ships at 0, D89), so it scores the same quantity
+                // `vector` does and differs only in WHICH CANDIDATES reached the ranker.
+                //   - lands near `vector`  => the pool is fine and the WEIGHTS carry the gap;
+                //   - stays far below      => the pool/seeding is the deficit and no weight can fix it.
+                // Part 113 established the pool CONTAINS the evidence; it did not establish at what depth,
+                // and those two readings need different work.
+                ("+rel-only", null, new ReciprocalRankFusionPolicy(
+                    new ReciprocalRankFusionOptions { RetrievabilityWeight = 0, HopWeight = 0 }), null),
             ];
 
             // The dia_id rides along in the CONTENT so an evidence hit is checkable without a model. It is
@@ -239,7 +285,7 @@ internal static class MemoryLocomoBench
             if (shotsOnly) foreach (var q in mine) await embedder.EmbedAsync(q.Text);
 
             var recalled = new Dictionary<(string Arm, string Question), List<string>>();
-            foreach (var (arm, options, ranking) in configs)
+            foreach (var (arm, options, ranking, verification) in configs)
             {
                 // INGESTED ONCE into a template nothing reads, then CLONED per question. A recall reinforces
                 // what it returned and ExpandAsync reinforces what it walks, so questions sharing one store
@@ -250,7 +296,7 @@ internal static class MemoryLocomoBench
                 var vectors = new InMemoryVectorStore();
                 var ingest = new GraphMemoryEngine("locomo",
                     new SqliteMemoryGraphStore(template.Factory), options: options,
-                    embedder: embedder, vectors: vectors, ranking: ranking);
+                    embedder: embedder, vectors: vectors, ranking: ranking, verification: verification);
 
                 foreach (var text in texts)
                     await ingest.RememberAsync(new MemoryWrite(convId, "session", text));
@@ -261,7 +307,7 @@ internal static class MemoryLocomoBench
                 // READ, and it is the one being cloned.
                 GraphMemoryEngine Fresh(MemoryPolicySweep.SweepDb clone) =>
                     new("locomo", new SqliteMemoryGraphStore(clone.Factory), options: options,
-                        embedder: embedder, vectors: vectors, ranking: ranking);
+                        embedder: embedder, vectors: vectors, ranking: ranking, verification: verification);
 
                 // CONTROL, added for TASKS.md Part 109: SemanticSeedK = 20 moved evidence-hit by 0.0 points
                 // and the read path looks correct on inspection, so the question is whether the vectors are
@@ -893,5 +939,44 @@ internal static class MemoryLocomoBench
             + $"({ReaderWindowChars} chars, measured by needle probe - see ReaderWindowChars).");
         Console.WriteLine("    The head of the prompt is dropped, so that row is a FLOOR and not a ceiling.");
         Console.WriteLine("    Do NOT read it as 'even full context does badly'.");
+    }
+
+    /// <summary>
+    /// A PERFECT judge: it endorses exactly the turns LoCoMo names as evidence, and nothing else.
+    ///
+    /// <para><b>It measures a CEILING, not a score</b>, and the distinction is the whole reason it runs
+    /// first. <c>IMemoryVerificationPolicy</c> promotes endorsed candidates ahead of the caller's limit, so
+    /// with a perfect judge this arm answers one question: <b>is the evidence inside
+    /// <c>VerificationDepth</c> of the candidate pool at all?</b> That is D59's "reachable-but-outranked"
+    /// decomposition asked of THIS workload. If a perfect judge cannot close the gap to <c>vector</c>, no
+    /// real model will, and the model run is not worth spending — the same stance
+    /// <c>memory-annotation</c> takes with a perfect annotator.</para>
+    ///
+    /// <para><b>What it therefore does NOT say:</b> nothing about any real judge's accuracy. A gap that
+    /// closes here is an upper bound a model then has to earn.</para>
+    /// </summary>
+    /// <param name="evidenceByQuery">Question text to the dia_ids LoCoMo declares as its evidence.</param>
+    private sealed class EvidenceOracleVerifier(IReadOnlyDictionary<string, HashSet<string>> evidenceByQuery)
+        : IMemoryVerificationPolicy
+    {
+        public Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
+            CancellationToken ct = default)
+        {
+            if (!evidenceByQuery.TryGetValue(request.Query, out var evidence))
+                return Task.FromResult(MemoryVerification.NoOpinion);
+
+            // The dia_id rides along in the CONTENT as "(dia_id)" — the same token the evidence-hit metric
+            // matches on, so the oracle and the score agree about what evidence IS by construction.
+            var ids = request.Candidates
+                .Where(c => evidence.Any(e =>
+                    c.Headline.Contains($"({e})", StringComparison.Ordinal)))
+                .Select(c => c.Id)
+                .ToList();
+
+            // A genuine "none of these answered it" is a real verdict and must NOT be reported as
+            // NoOpinion — the engine treats those differently, and collapsing them is the defect
+            // MemoryVerification's own docs warn about.
+            return Task.FromResult(new MemoryVerification(ids));
+        }
     }
 }
