@@ -1130,8 +1130,40 @@ force the others to lie:
 
 An async render exposes its **operation id**, so it survives a process restart and composes with
 `Lyntai.Jobs`; if your backend delivers by webhook, your app owns the endpoint and calls
-`FetchAsync(operationId)` when it fires. Chaining is first-class — `artifact.ToInput(role)` feeds one stage's
-output into the next (3d → image → video).
+`FetchAsync(operationId)` when it fires.
+
+**Chaining is first-class**, and `RunPipelineAsync` runs a chain for you: ordered stages, each stage's
+artifact fed into the next through `artifact.ToInput(role)`. Every stage carries its own candidates and
+routes independently, so the image leg and the video leg need not be the same vendor:
+
+<!-- compile-given: GenerationRequest image;
+     GenerationRequest video; -->
+```csharp
+var result = await router.RunPipelineAsync(
+[
+    new GenerationStage(image, [new GenerationCandidate("openai-images")]),
+    new GenerationStage(video, [new GenerationCandidate("fal")])
+    {
+        InputRole = GenerationInputRoles.FirstFrame,        // what the still IS to the video backend
+    },
+]);
+
+if (!result.IsOk)
+{
+    // nothing is ever re-run, so the still stage 1 already paid for is still here
+    var stills = result.Stages[0].Artifacts;
+}
+```
+
+Every stage is an ordinary routed call, so spend caps, throttling and dead-host cooldown govern a pipeline
+exactly as they govern one render. A stage that cannot identify a single artifact to chain **refuses**
+(`Unsupported`) rather than guessing — a media type cannot be branched on, and "the first `image/*`" picks a
+texture atlas on a mesh backend; `GenerationStage.SelectInput` is where you state your own rule.
+
+**`3d → image → video` is not one of the chains you can build**, and the reason is worth knowing before you
+try: no image or video backend accepts a mesh, so that first edge is a *rasterization* rather than a
+generation and this platform performs none. `GenerationKinds.Model3d` exists so a backend serving it needs no
+contract change.
 
 Every backend answers **"are you usable?"** without generating anything (`ProbeAsync`), so a setup screen
 never has to pay for a test image. The `generate_backends` tool asks all of them **concurrently, under one

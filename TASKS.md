@@ -27,11 +27,13 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is THREE items: Part 116's one, Part 109's QA half, and
-GEN7a — the `image → video` pipeline runner inside Part 33.** Each is a `- [ ]` you could open today — which is the test this
+**The startable set is TWO items: Part 116's one and Part 109's QA half.** Each is a `- [ ]` you could open
+today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
+<br>_It held THREE until 2026-08-30, when GEN7a — the `image → video` pipeline runner Part 124 had just put
+here — was built and closed as `docs/task-archive.md` **Part 126**. Both remaining items are measurement._
 <br>_Part 116 held five until Parts 117–121 took three of them outright and two thirds of a fourth; the
 naming pass it gained on 2026-08-30 was filed BLOCKED and closed the same day, so it never counted toward
 the startable set. Both numbers are edited in the same change as the item, which is the habit `pitfalls.md`
@@ -47,7 +49,8 @@ overturned its own premise rather than picking one of its two options: a mesh ca
 here, and no 3D backend produces a turntable — so `3d → image → video` is not buildable at all, and the 3D
 stage's real blocker is a RASTERIZER that does not belong in this library. **It replaced itself in the
 startable set with GEN7a**, the `image → video` runner, which is GEN7's whole design minus the stage that
-has no backend. It also found two OUTPUT-stage defects, both FIXED the same day as **Part 125** — a
+has no backend — **and GEN7a was built and CLOSED the same day** as `docs/task-archive.md` **Part 126**. It
+also found two OUTPUT-stage defects, both FIXED that day as **Part 125** — a
 capability ComfyUI declared and never implemented, and a false XML doc that shipped.
 <br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
 its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
@@ -112,8 +115,9 @@ Blocked, and on what:
   here RAN on 2026-08-30** (`docs/task-archive.md` Part 124): a mesh cannot chain and no 3D backend produces
   a turntable, so `3d → image → video` is not buildable and the 3D STAGE is what stays blocked — on a
   RASTERIZER, which is not a generation backend and does not belong in this library. **What that unblocked
-  is the runner at `image → video`**, startable and listed as its own item under Part 33. Listing this Part
-  as blocked without saying that is the Part 33 mistake repeating itself.
+  was the runner at `image → video`, and that was built and closed the same day** (GEN7a,
+  `docs/task-archive.md` Part 126) — so what remains blocked here is the 3D STAGE alone, not the runner.
+  Listing this Part as blocked without saying which half is the Part 33 mistake repeating itself.
 - **Part 41 / CLI12** — codex's tool-step item names need a real turn **that runs tools**. Two blockers, and
   the second was only discovered on 2026-08-11 when the owner authorized the first: it spends tokens (the
   owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
@@ -229,10 +233,11 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   chain. **So `3d → image → video` corresponds to no buildable chain today, and the chain that IS buildable
   (`image → orbital views → video`) has no 3D stage in it.** The 3d→image edge is not a generation at all —
   it is a RASTERIZATION, which no vendor on this platform performs.
-  <br>**What remains startable is the runner, at `image → video`** — both stages have real backends, and the
-  chaining primitive plus the role vocabulary already work (fal maps `GenerationInputRoles.FirstFrame` to
-  `image_url`). A stage is a stage, so the runner's shape does not change if a 3D stage is added later; that
-  is what makes this an unblocking rather than a narrowing. A rasterizer stage is the only thing that makes a
+  <br>**What that unblocked was the runner at `image → video`, and it SHIPPED on 2026-08-30** as GEN7a
+  (`docs/task-archive.md` Part 126): `router.RunPipelineAsync(stages)`, ordered stages chaining through
+  `GenerationArtifact.ToInput(role)`. A stage is a stage, so **adding a 3D stage later needs no change to the
+  runner** — which is what made building it an unblocking rather than a narrowing. What is left of GEN7 is
+  therefore the 3D STAGE alone. A rasterizer is the only thing that makes a
   mesh chain and it belongs to an application with a renderer, never inside a library whose core promise is a
   small dependency footprint (`dotnet-package-layout.md` §Package boundaries).
   <br>**Two defects on the OUTPUT stage were found while establishing that, and both are FIXED**
@@ -242,22 +247,6 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   <br>_Desk survey: read from published API pages, never called. That is the tier GEN-VERIFY exists to
   distrust, so the SHAPES transfer and no individual field name is confirmed — nothing in it licenses
   deleting an unverified marker._
-
-- [ ] **GEN7a — the pipeline runner at `image → video`, the half the survey unblocked.** Ordered stages
-  feeding `artifact.ToInput(role)` forward, with per-stage candidates and per-stage failure semantics —
-  GEN7's whole design minus the stage that has no backend. Startable: needs no key, no install and no
-  download, since both stages have real backends and the role vocabulary already maps
-  (`GenerationInputRoles.FirstFrame` → fal's `image_url`).
-  <br>_**The two output-stage defects that would have gated this are already FIXED**
-  (`docs/task-archive.md` Part 125), so the runner starts on a sound output stage: ComfyUI no longer claims
-  an input capability it never implemented, and every HTTP backend is now held to
-  `GenerationProviderContract.A_handed_input_is_consumed_or_refused`. Worth knowing rather than re-deriving:
-  **ComfyUI cannot be a chained stage's target at all** — its init image is a node the caller authored — so
-  a two-stage `image → video` run resolves to fal for the video leg unless the host wires the graph itself._
-  <br>**Two traps for the runner's own design, both from the survey.** An artifact's `MediaType` cannot be
-  branched on — Hunyuan3D reports a GLB as `application/octet-stream` — and picking "the first `image/*`
-  artifact" is wrong, because a mesh backend's `image/png` artifacts are UV texture atlases rather than
-  views. A stage that cannot identify a chainable artifact must REFUSE, never fall back.
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a

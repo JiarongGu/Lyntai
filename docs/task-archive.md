@@ -1783,3 +1783,44 @@ inferred from a grep that showed the method BODY without its signature — and t
 `TASKS.md` before the compiler rejected it in a test. `check-links` cannot see it: a C# member named in
 prose is not a path, a Part or a `§`. **A member name quoted in prose has no gate at all**, so read the
 declaration rather than the body before citing one.
+
+## Part 126 — GEN7a: the pipeline runner, at the half of GEN7 that is buildable (2026-08-30)
+
+✅ done 2026-08-30 — `router.RunPipelineAsync(stages)` in `Lyntai.Generation.Routing`
+(`src/Lyntai.Core/Generation/Routing/GenerationPipeline.cs`): ordered stages, each feeding the next through
+`GenerationArtifact.ToInput(role)`, per-stage candidates, per-stage failure semantics. Three public types
+(`GenerationStage`, `GenerationPipelineResult`, `GenerationPipeline`), 18 facts, nothing added to
+`IGenerationRouter`. Opened by Part 124, which replaced GEN7 in the startable set with this.
+
+**It composes the router rather than the providers, and that is the load-bearing choice.** Every stage is an
+ordinary `GenerateAsync`, so spend caps, throttling and dead-host cooldown govern a pipeline exactly as they
+govern one render — `pitfalls.md` §Second doors is the reason it is a FACT and not a sentence:
+`A_spend_cap_binds_BETWEEN_stages_because_the_runner_drives_the_ROUTER_not_a_backend` drives a real
+`BudgetedGenerationRouter` and fails the day anyone moves the runner below the seam. Mutation-checked by
+removing the decorator; it failed, and alone.
+
+**Chaining is one-or-refuse, and the refusal is the design.** Exactly one artifact chains automatically;
+zero or several REFUSE with `Unsupported` **without calling a backend**, naming the count and the fix.
+Part 124 ruled out both cleverer rules — a media type cannot be branched on (a GLB reports
+`application/octet-stream`) and "the first `image/*`" picks a UV texture atlas — and the failure costs are
+asymmetric: a refusal is a message, a wrong pick is a plausible billed render of the wrong thing, which is
+the Part 125 shape. `GenerationStage.SelectInput` is where a caller states their own rule, and a delegate
+that throws PROPAGATES rather than being reported as a capability gap. `InputRole` is the caller's too — the
+same PNG is a first frame to one backend and an init image to another.
+
+**Nothing is ever re-run**, so a later stage's failure keeps what earlier stages paid for:
+`GenerationPipelineResult.Stages` holds every stage that ran including the failed one, and the fact asserts
+a CALL COUNT rather than describing the intent. Chained inputs are APPENDED, so a caller's own style
+reference survives, and `with` leaves their `GenerationRequest` unmutated.
+
+**Two settings throw rather than being ignored** — `InputRole`/`SelectInput` on the first stage, which
+chains from nothing, and an empty stage list. A setting nothing reads is the Part 125 defect in miniature.
+
+**It also found the README asserting a chain that does not exist.** *"`artifact.ToInput(role)` feeds one
+stage's output into the next (3d → image → video)"* survived Part 124 and Part 125 — which had corrected the
+identical claim in `GenerationKinds.Model3d`'s shipped XML doc — because the fix was made where the defect
+was FOUND rather than everywhere the claim lived. `check-docs` cannot see it: no decision retired a word
+here, so the sentence stays grammatical, plausible and wrong. **When a decision falsifies a claim, grep the
+claim, not the file you were reading.**
+
+- GEN7a — the pipeline runner at `image → video`, the half the survey unblocked

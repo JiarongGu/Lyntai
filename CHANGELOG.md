@@ -14,6 +14,24 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`RunPipelineAsync` — ordered generation stages, each feeding the next.** An extension over
+  `IGenerationRouter` running `GenerationStage`s in order and chaining each one's artifact into the next
+  through `GenerationArtifact.ToInput(role)`. Every stage carries its OWN candidates and routes
+  independently, because an image backend and a video backend are rarely the same vendor.
+  <br>**Nothing was added to `IGenerationRouter`** — every stage is an ordinary routed call, which is what
+  keeps spend caps, throttling and dead-host cooldown governing a pipeline exactly as they govern one render.
+  A test pins that a cost cap reached by stage 1 refuses stage 2.
+  <br>**A stage that cannot identify a single artifact to chain REFUSES** (`Unsupported`, without calling a
+  backend) rather than guessing. There is deliberately no cleverer default: a media type cannot be branched
+  on — a mesh backend reports a GLB as `application/octet-stream` — and "the first `image/*`" picks a UV
+  texture atlas, which chains, renders, and is wrong. `GenerationStage.SelectInput` is where a caller who has
+  a rule states it, and `InputRole` is theirs too, since the same PNG is a first frame to one backend and an
+  init image to another.
+  <br>**Nothing is ever re-run**, so a failure at a later stage keeps what earlier stages already paid for:
+  `GenerationPipelineResult.Stages` holds every stage that ran, including the one that failed, and
+  `FailedAt` says which. Retry WITHIN a stage stays the router's fallback across that stage's candidates.
+  Chained inputs are APPENDED to a stage's own `Inputs`, so a style reference the caller attached survives,
+  and the caller's `GenerationRequest` is never mutated.
 - **`WalkAsync` — the n-shot walk, as a surface rather than a loop every consumer writes.** An extension over
   `IMemoryEngine` yielding `IAsyncEnumerable<MemoryWalkStep>`: a recall, then expansions outward from what it
   turned up. **Your `break` is the stop condition**, because how far a walk is worth taking is a property of
