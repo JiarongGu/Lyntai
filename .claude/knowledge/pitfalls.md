@@ -1041,6 +1041,28 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   articulates a rule is the round most likely to violate it elsewhere, because attention is on the sentence
   rather than on the code.
 
+- **ADDING a second way to configure something that already has one is where double-application comes from —
+  not from decorators being decorators.** Measured 2026-08-31. `GraphMemoryEngine` gained
+  `retentionPolicies` so retention could arrive as its own registered collection (D48's shape); retention had
+  always arrived pre-wrapped in a hand-built `ModulatedRetrievability` passed as `retrievability:`. Supplying
+  BOTH then wrapped an already-wrapped curve and applied retention TWICE, multiplying stability twice over,
+  silently — and an entry outliving what any retention policy declared breaks `CandidateCutoff`'s superset
+  guarantee, whose only consumer DELETES.
+  <br>**The first proposed fix was to make `ModulatedRetrievability` internal**, which would have made the
+  combination unreachable and left the author believing an ambiguity had been tidied rather than a data-loss
+  path closed. It was rejected on the owner's rule — *a policy replaceable by injection belongs on the
+  surface so other services can route on it* — which is the same standard `DsrRetrievability`,
+  `SalienceRetentionPolicy` and `MultiplicativeRankingPolicy` already meet. **Hiding a type to remove an
+  ambiguity fixes the wrong thing**, and here it would have hidden the bug with it.
+  <br>**A sweep for siblings found none, and the NEGATIVE result is the useful half.** Nesting
+  `ModulatedRetrievability` is safe (`CandidateCutoff` composes multiplicatively, so it tracks the true
+  factor); the LLM front door is idempotent per decorator order and says why ("two rate limiters in series
+  would double-charge permits"); the generation routers are factory-composed and applied once; the two
+  `Composite*` types nest on purpose. **Every pre-existing decorator has exactly ONE application path.** So
+  the rule is not "audit decorators" — it is: **when you add a configuration route, ask what the existing
+  route was, and whether both can be supplied at once.** Report the collision at wiring time (**D85**) rather
+  than picking one silently; either silent choice is a value the caller never asked for.
+
 - **A doc that enumerates what a feature does NOT do, without ever stating what it DOES, is read as
   "nothing" — and the reader who reaches that conclusion turns the feature off.** Measured 2026-08-22/23,
   twice over the same sentence. `IMemoryVerificationPolicy`'s summary said a verifier *"only narrows what a

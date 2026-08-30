@@ -1003,6 +1003,31 @@ internal static class MemoryLocomoBench
     /// <para><b>What it therefore does NOT say:</b> nothing about any real judge's accuracy. A gap that
     /// closes here is an upper bound a model then has to earn.</para>
     /// </summary>
+    /// <param name="evidenceByQuery">Question text to the dia_ids LoCoMo declares as its evidence.</param>
+    private sealed class EvidenceOracleVerifier(IReadOnlyDictionary<string, HashSet<string>> evidenceByQuery)
+        : IMemoryVerificationPolicy
+    {
+        public Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
+            CancellationToken ct = default)
+        {
+            if (!evidenceByQuery.TryGetValue(request.Query, out var evidence))
+                return Task.FromResult(MemoryVerification.NoOpinion);
+
+            // The dia_id rides along in the CONTENT as "(dia_id)" — the same token the evidence-hit metric
+            // matches on, so the oracle and the score agree about what evidence IS by construction.
+            var ids = request.Candidates
+                .Where(c => evidence.Any(e =>
+                    c.Headline.Contains($"({e})", StringComparison.Ordinal)))
+                .Select(c => c.Id)
+                .ToList();
+
+            // A genuine "none of these answered it" is a real verdict and must NOT be reported as
+            // NoOpinion — the engine treats those differently, and collapsing them is the defect
+            // MemoryVerification's own docs warn about.
+            return Task.FromResult(new MemoryVerification(ids));
+        }
+    }
+
     /// <summary>
     /// Routes the SHIPPED <c>LlmMemoryVerificationPolicy</c> at this machine's local chat model.
     ///
@@ -1054,31 +1079,6 @@ internal static class MemoryLocomoBench
             public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
                 throw new NotSupportedException(
                     "the bench client backs a verification judge, which does not stream");
-        }
-    }
-
-    /// <param name="evidenceByQuery">Question text to the dia_ids LoCoMo declares as its evidence.</param>
-    private sealed class EvidenceOracleVerifier(IReadOnlyDictionary<string, HashSet<string>> evidenceByQuery)
-        : IMemoryVerificationPolicy
-    {
-        public Task<MemoryVerification> VerifyAsync(MemoryVerificationRequest request,
-            CancellationToken ct = default)
-        {
-            if (!evidenceByQuery.TryGetValue(request.Query, out var evidence))
-                return Task.FromResult(MemoryVerification.NoOpinion);
-
-            // The dia_id rides along in the CONTENT as "(dia_id)" — the same token the evidence-hit metric
-            // matches on, so the oracle and the score agree about what evidence IS by construction.
-            var ids = request.Candidates
-                .Where(c => evidence.Any(e =>
-                    c.Headline.Contains($"({e})", StringComparison.Ordinal)))
-                .Select(c => c.Id)
-                .ToList();
-
-            // A genuine "none of these answered it" is a real verdict and must NOT be reported as
-            // NoOpinion — the engine treats those differently, and collapsing them is the defect
-            // MemoryVerification's own docs warn about.
-            return Task.FromResult(new MemoryVerification(ids));
         }
     }
 }

@@ -139,12 +139,6 @@ public sealed class GraphMemoryEngine(
     private static readonly IReadOnlyDictionary<string, IMemoryRankingPolicy> EmptyNamedRanking =
         new Dictionary<string, IMemoryRankingPolicy>(StringComparer.Ordinal);
 
-    /// <summary>Null or empty takes a single burst-damped per-write age policy — the engine's default.
-    /// <para><b>Rejects a second <see cref="MemoryAgeKind.Accumulating"/> policy.</b> The
-    /// store's position accumulator is ONE number; two path-dependent quantities cannot share it without one
-    /// silently overwriting or blending into the other, and a silent sum is exactly the quiet wrongness this
-    /// domain refuses everywhere else (see <see cref="RememberAsync"/>'s own remarks on why only an
-    /// Accumulating tick's Position ever reaches the accumulator).</para></summary>
     /// <summary>
     /// Wraps the curve in the engine's own retention modulation — the ENGINE composing a plural domain it
     /// owns, exactly as it does for age and salience.
@@ -187,6 +181,12 @@ public sealed class GraphMemoryEngine(
         return new ModulatedRetrievability(inner, list, composition);
     }
 
+    /// <summary>Null or empty takes a single burst-damped per-write age policy — the engine's default.
+    /// <para><b>Rejects a second <see cref="MemoryAgeKind.Accumulating"/> policy.</b> The
+    /// store's position accumulator is ONE number; two path-dependent quantities cannot share it without one
+    /// silently overwriting or blending into the other, and a silent sum is exactly the quiet wrongness this
+    /// domain refuses everywhere else (see <see cref="RememberAsync"/>'s own remarks on why only an
+    /// Accumulating tick's Position ever reaches the accumulator).</para></summary>
     private static IReadOnlyList<IMemoryAgePolicy> NormalizeAgePolicies(
         IEnumerable<IMemoryAgePolicy>? agePolicies)
     {
