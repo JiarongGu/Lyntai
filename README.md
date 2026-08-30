@@ -439,6 +439,24 @@ var detail = await ((IExpandableMemory)memory).ExpandAsync(recall.Items[0].Refer
 // full content of that entry, plus its neighbours' headlines
 ```
 
+A **walk** is that pair repeated — recall, then expand what looked worth it, then expand whatever *that*
+turned up. It is the mode this engine is built for, since a recall deliberately returns headlines and detail
+is bought per entry. Your `break` is the stop condition, because how far it is worth going is a property of
+the question rather than a constant:
+
+```csharp
+await foreach (var step in engine.WalkAsync(new MemoryQuery("proj", "code", "gate", Limit: 20)))
+{
+    Console.WriteLine($"step {step.Ordinal}: {step.Discovered.Count} new, {step.Upgraded} upgraded");
+    if (step.Items.Count >= 30) break;   // you decide how far to go
+}
+```
+
+`step.Items` is everything held so far, merged: an entry already held as a headline is **upgraded** in place
+when a later step expands it, which is the whole payload of expanding something you already have. The walk
+composes `RecallAsync` and `ExpandAsync` and adds nothing to either, so an engine that cannot expand yields
+exactly one step rather than failing — and the sequence is finite whether or not you break.
+
 **How forgetting works — and it is not the clock.** Decay is measured in *what has happened in that
 memory*, not in elapsed time. Each engine keeps a position that advances when something is written to it,
 and an entry's age is how far that position has moved since the entry was last used. So **a memory nobody

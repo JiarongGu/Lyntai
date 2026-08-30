@@ -26,8 +26,8 @@ to exist — nothing is deployed on a pre-3.0 version, so a session never has to
 2.x release did, reconstruct an upgrade path, or justify a design by what an older release preserved. Read
 the current code and the records below.
 
-The reasoning is `docs/DECISIONS.md`, **D1–D101**. The two groups worth knowing before you touch anything:
-**D83–D101 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
+The reasoning is `docs/DECISIONS.md`, **D1–D102**. The two groups worth knowing before you touch anything:
+**D83–D102 are post-3.0** — mostly additive, every one from a seam an adopting application had to work around
 or a default nobody had measured (**D89** moves `SalienceWeight` to 0: salience does not vote on ranking;
 **D90** puts four INVARIANTS above the memory objective's optimization targets, and says which two of them
 the base engine can be held to today) —
@@ -50,12 +50,16 @@ as a heartbeated slot table (**D73**), the guard-parity split — forced in FORC
 (**D75**), the two relational memory-graph stores sharing their materialization (**D77**, **D80**, **D81**),
 and RRF ranking by COMPETITION so an uninformative signal contributes nothing (**D82**). The memory subsystem
 overall is **D39–D41**, **D45–D63**, **D72**, **D76–D79**, **D83–D86**, **D88**, **D89**, **D90**, **D91**,
-**D92**, **D93**, **D94**, **D97**, **D98**, **D99**, **D100** and **D101**.
+**D92**, **D93**, **D94**, **D97**, **D98**, **D99**, **D100**, **D101** and **D102**.
 
 **The memory engine is evaluated as an n-shot WALK, not a single top-k** (**D100**, 2026-08-29). A recall
 returns HEADLINES — associative content is withheld until an expansion asks for it, which is what makes the
 first load cheap — and `ExpandAsync` reinforces what it walks. So a one-shot metric is blind to the mode the
-engine is built for, and **every recall-quality figure published before that date scores one shot**. Measured:
+engine is built for, and **every recall-quality figure published before that date scores one shot**.
+<br>**`MemoryWalk.WalkAsync` ships that walk as a SURFACE** (**D102**, 2026-08-30): an extension over the two
+seams, yielding a step at a time so the caller's `break` is the stop condition — depth is a property of the
+question. It adds nothing to `IMemoryEngine`, and its public names are provisional until Part 116's naming
+pass lands. Measured:
 on LongMemEval knowledge-update, shot 1 returns the current fact and not the superseded one 31.4% of the time
 on 1,169 characters against plain cosine's 10.0% on 10,387 (all 70 questions; the 25-question sample this
 line quoted until 2026-08-29 read 40.0% against 16.0% — a lower LEVEL, a higher RATIO). The useful shot
@@ -138,8 +142,8 @@ using vocabulary a decision retired fails the build — the prose counterpart to
 plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app against the PACKAGES).
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
-Tests/e2e green: **3447 passed / 3468 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 434/434, doc samples 78/78.
+Tests/e2e green: **3471 passed / 3492 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 434/434, doc samples 79/79.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above

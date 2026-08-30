@@ -2202,6 +2202,30 @@ static class Lyntai.Memory.MemorySubject
     static Normalize(String subject) : String
 static class Lyntai.Memory.MemoryToolScope
     static Use(String taskKey, String scope = null) : IDisposable
+static class Lyntai.Memory.MemoryWalk
+    static WalkAsync(IMemoryEngine engine, MemoryQuery query, MemoryWalkOptions options = null, CancellationToken ct = default) : IAsyncEnumerable<MemoryWalkStep>
+sealed class Lyntai.Memory.MemoryWalkOptions
+    .ctor()
+    Equals(MemoryWalkOptions other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Hops : Int32
+    MaxEntries : Nullable<Int32>
+    SeedsPerStep : Int32
+    SelectSeeds : Func<MemoryWalkStep,IEnumerable<MemoryItem>>
+    ToString() : String
+sealed class Lyntai.Memory.MemoryWalkStep
+    .ctor(Int32 Ordinal, IReadOnlyList<MemoryItem> Items, IReadOnlyList<MemoryItem> Discovered, Int32 Upgraded, MemorySources Ran)
+    Deconstruct(Int32& Ordinal, IReadOnlyList`1& Items, IReadOnlyList`1& Discovered, Int32& Upgraded, MemorySources& Ran) : Void
+    Discovered : IReadOnlyList<MemoryItem>
+    Equals(MemoryWalkStep other) : Boolean
+    Equals(Object obj) : Boolean
+    GetHashCode() : Int32
+    Items : IReadOnlyList<MemoryItem>
+    Ordinal : Int32
+    Ran : MemorySources
+    ToString() : String
+    Upgraded : Int32
 sealed class Lyntai.Memory.MemoryWrite
     .ctor(String TaskKey, String Scope, String Content, String Headline = null, MemoryGrade Grade = MemoryGrade.Inherit, IReadOnlyDictionary<String,String> Metadata = null)
     Content : String

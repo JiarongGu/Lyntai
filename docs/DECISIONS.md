@@ -171,8 +171,9 @@ new decision overturns an old one, rewrite the old entry as a stub pointing here
 | [D99](#d99--a-batched-link-with-a-default-body-and-a-speedup-the-instrument-could-not-see-2026-08-29) | 2026-08-29 | a batched link, with a default body, and a speedup the instrument could not see |
 | [D100](#d100--the-n-shot-walk-is-the-mode-this-engine-is-evaluated-in-not-a-single-top-k-2026-08-29) | 2026-08-29 | the n-shot WALK is the mode this engine is evaluated in, not a single top-k |
 | [D101](#d101--a-recalls-write-back-is-one-store-call-and-the-review-log-goes-last-2026-08-29) | 2026-08-29 | a recall's write-back is ONE store call, and the review log goes LAST |
+| [D102](#d102--the-n-shot-walk-is-an-extension-over-the-existing-seams-not-a-new-engine-member-2026-08-30) | 2026-08-30 | the n-shot walk is an EXTENSION over the existing seams, not a new engine member |
 
-_All 101 entries are live decisions._
+_All 102 entries are live decisions._
 
 <!-- index:end -->
 
@@ -2892,3 +2893,42 @@ without learning"* was false whenever a later part failed.
 **What reversing would cost.** The member is additive and defaulted, so reverting the speed half is deleting
 two overrides. The ORDER is not free to reverse: putting the log back between the touch and the edges
 re-opens the defect the test above pins.
+
+## D102 — the n-shot walk is an EXTENSION over the existing seams, not a new engine member (2026-08-30)
+
+**The decision.** `MemoryWalk.WalkAsync` is a static extension on `IMemoryEngine` returning
+`IAsyncEnumerable<MemoryWalkStep>`. Nothing is added to `IMemoryEngine`, `IExpandableMemory`, `MemoryQuery`
+or `MemoryItem`. It composes `RecallAsync` and `ExpandAsync` the way `MemoryComposition` composes a recall
+and a rendering. Closes the gap **D100** exposed: every consumer wanting the mode this engine is designed
+for hand-rolled the loop, and this repository's own two benchmark harnesses had written it twice.
+
+**Why not an engine member.** An `IWalkableMemory` would be a real seam a BYO store could implement
+server-side — and a **second door** onto recall+expand, the family `pitfalls.md` §Second doors records
+being bitten by repeatedly, with every implementor then owing the merge rule. An option on `MemoryQuery`
+is smaller still and loses more: `MemoryRecall` has no per-step structure, so each step's cost becomes
+invisible, and a field on plain serialized query data would silently change what a recall COSTS and MUTATES
+on the engines that ignore it. Shipping only guidance was a real option and lost to one fact — the merge is
+a rule two independent write-ups got right only by copying each other.
+
+**Why pull-based.** D100 found the useful depth is a property of the QUESTION, and only a pull shape lets
+the caller decide *after seeing step 1*. The sequence is finite regardless: a step that moves nothing ends
+it, and `MaxEntries` bounds what may be held. That bound DERIVES — twice what step 1 returned — rather than
+asserting a constant nobody measured.
+
+**The unit is a `step`; `hop` was unavailable.** `ExpandAsync(hops:)` already means edge distance inside one
+expansion, and one word on two units in one options chain is the collision `MemoryCompositionOptions`
+documents having shipped once. The benchmarks keep saying "shot": those strings are published data.
+
+**The merge is the payload, and it carries two rules the harnesses got wrong or nearly wrong.** Identity is
+the whole `MemoryRef`, never the id alone — a composite's members may each own id `"1"`. And the
+headline→content upgrade is SEMANTIC, not by length: an authored headline can outrun its content. Nothing
+is re-ranked across steps, because an expanded neighbour's `Relevance` comes from a read that never asked
+one (**D97**) and `MemoryItem` does not carry `Matched` to say so.
+
+**What is deliberately NOT public.** The merge accumulator stays internal. `MemoryComposition.Render` could
+be exposed as a second half because it is pure; an accumulator is mutable state, and `SelectSeeds` already
+covers the variation that exists. Exposing it later is additive; removing it later is not.
+
+**What reversing would cost.** Nothing depends on it — deleting the file restores the previous surface
+exactly, since no existing type changed. The names are provisional pending the pass tracked in `TASKS.md`
+Part 116, and that pass must land before this ships: every one is then a permanent SemVer promise (**D70**).

@@ -1320,6 +1320,37 @@ benched tenant, an unbounded engine or a render nobody cancelled.
 
 ## Testing
 
+- **A rule only the NON-DEFAULT path can break has no test, and the mutation check run through the default
+  reports it as dead code.** Measured 2026-08-30 building `MemoryWalk` (`docs/task-archive.md` Part 120).
+  The walk is finite for two independent reasons: the default seed selector eventually returns nothing, AND
+  a step that discovers and upgrades nothing ends it. Deleting the second guard failed **no test** — every
+  fact used the default selector, which hits the first guard first — so the rule that actually makes the
+  sequence finite for a caller-supplied `SelectSeeds` was uncovered, and the evidence said to delete it.
+  <br>**The tell is a guard whose removal changes nothing, in code that has a seam.** That reads as "this is
+  redundant" and is in fact "no test takes the path where it matters". The question to ask of any
+  belt-and-braces guard is not *"does a test fail without it?"* but **"which caller reaches this one FIRST,
+  and does any test look like that caller?"** Here the adversarial caller is one line —
+  `SelectSeeds = s => s.Items`, a selector that never empties.
+  <br>**Bound the loop inside the TEST, not only in the code under test.** A missing termination guard makes
+  the honest test hang, and a hanging test is a worse signal than a failing one — it looks like an
+  environment problem and it blocks the suite. Collect into a list, `break` past a generous ceiling, and
+  assert the count came in under it; the regression then fails in milliseconds.
+
+- **Refactoring a measurement harness can change a DENOMINATOR rather than a result, and every rate moves
+  while retrieval is untouched.** Same day, in the same work. The pre-refactor LoCoMo loop ran shots 2 and 3
+  **unconditionally**, re-snapshotting an unchanged context when the frontier was empty; the library's walk
+  ENDS instead when a step moves nothing. Behaviourally better, and it would have silently dropped those
+  rows — so `asked`, `returned` and `chars` would have lost their shot-2/shot-3 entries and every published
+  rate would have shifted for a harness reason wearing a result's clothes.
+  <br>**When you replace an unconditional loop with one that can terminate early, ask what the dropped
+  iterations were CONTRIBUTING** — a row in a tally counts even when its content is identical to the last
+  one. Restoring it is three lines and the alternative is an unexplainable delta.
+  <br>The general defence is the one this file already prescribes for latency, applied to quality: **run the
+  before arm.** Stash only the harness file, run, restore, re-run. Here every published cell reproduced
+  exactly across LongMemEval (oracle and haystack), LoCoMo `--shots` and all six arms of the retrieval
+  ladder — which is a far stronger claim than "the tests pass", and it is what turned a plausible refactor
+  into a verified one.
+
 - **A benchmark whose store MUTATES on read has non-independent trials, and the contamination presents as a
   RESULT rather than as a bug.** Measured 2026-08-29 (`docs/task-archive.md` Part 118). LoCoMo questions
   within a conversation shared one store, and this engine writes on every read — a recall reinforces what it

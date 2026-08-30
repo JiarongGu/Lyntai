@@ -830,6 +830,11 @@ what makes the first load cheap"*, and `ExpandAsync` reinforces what it walks be
 direction is exactly what should make that direction more retrievable next time"*. A one-shot benchmark is
 structurally blind to both. `--shots` measures the walk instead, model-free.
 
+_The LIBRARY surface calls one of these a **step** (`MemoryWalkStep`, reached through `WalkAsync`). The
+benchmark arms below keep saying **shot**, deliberately: those strings are the published data every table
+here is compared against, and renaming them would break comparison with figures already in circulation.
+"Shot" is not wrong for a measurement — it is only wrong for an API._
+
 **On the workload this design claims — LongMemEval knowledge-update, haystack variant, ALL 70 questions**
 (2026-08-29; it was a 25-question sample until then, and the right-hand column is what that sample said).
 `clean` is the column that matters: the context holds the CURRENT fact and **not** the one it superseded,

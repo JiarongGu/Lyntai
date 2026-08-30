@@ -172,6 +172,23 @@ public static class MemoryEngineContract
             engine.RememberAsync(new MemoryWrite(key, "s", "graded write", Grade: unsupported)));
     }
 
+    /// <summary>A walk over ANY engine yields at least one step and never throws.
+    /// <para>Asked of every engine because <c>WalkAsync</c> composes two seams and only one of them is
+    /// mandatory: an engine that is not <see cref="IExpandableMemory"/> must degrade to a single step rather
+    /// than failing, which is how every other recall-shaped read here behaves. A fact that asserted this of
+    /// the graph engine alone would say nothing about the four that cannot expand.</para></summary>
+    public static async Task A_walk_yields_at_least_one_step_and_never_throws(IMemoryEngine engine, string key)
+    {
+        await engine.RememberAsync(new MemoryWrite(key, "s", "the rollback window is thirty minutes"));
+
+        var steps = new List<MemoryWalkStep>();
+        await foreach (var step in engine.WalkAsync(new MemoryQuery(key, "s", "rollback"))) steps.Add(step);
+
+        Assert.NotEmpty(steps);
+        // ordinals are contiguous from 1, so a caller can index a shot curve by them
+        Assert.Equal(Enumerable.Range(1, steps.Count), steps.Select(s => s.Ordinal));
+    }
+
     public static async Task An_inherited_grade_resolves_and_is_never_returned_as_Inherit(
         IMemoryEngine engine, string key)
     {

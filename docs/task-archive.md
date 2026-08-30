@@ -1544,4 +1544,45 @@ restore, re-run — byte-identical on every quality and size column across all f
 extracted code back also caught a compile error before any build, `ShotBudget`/`ExpandSeeds` having been
 method-locals invisible to the shared walk.
 
+## Part 120 — the n-shot walk is a SURFACE now, and both harnesses drive it (2026-08-30)
+
+✅ done 2026-08-30 — `TASKS.md` Part 116's first item, the one its banner called the biggest thing **D100**
+opened. `MemoryWalk.WalkAsync` is a static extension on `IMemoryEngine` yielding
+`IAsyncEnumerable<MemoryWalkStep>`; **nothing was added to `IMemoryEngine`, `IExpandableMemory`,
+`MemoryQuery` or `MemoryItem`**. The reasoning, the three rejected surfaces and what reversing costs are
+**D102**.
+
+**The verification was the point, and it is stronger than "the tests pass".** Both harnesses were moved onto
+the surface and every published table re-run. **Every cell reproduced exactly** — LongMemEval haystack
+knowledge-update (31.4 / 28.6 / 28.6 `clean`, 1,169 / 5,236 / 8,286 chars), LoCoMo `--shots` (54.5 / 56.0 /
+57.0, and every `hit / 1k chars` ratio), and all six arms of the LoCoMo retrieval ladder (54.5 / 57.5 / 31.5
+/ 55.0 / 41.0 / 80.5) including every per-category fraction. The oracle class was additionally run as a true
+before/after by stashing only the bench file — identical down to the same 1,662 embedder calls and 1,828
+cache hits — and the after arm was run twice, so the instrument is known deterministic here rather than
+merely agreeing once.
+
+**Two rules in the merge are corrections rather than ports.** Identity is the whole `MemoryRef`, where both
+harnesses keyed on `Reference.Id` alone and got away with it only by running one engine — on a composite,
+two members may each own id `"1"`. And the headline→content upgrade is SEMANTIC (`Content` arrived where
+none was held) rather than the harnesses' `body.Length >` proxy, which differs wherever an authored headline
+outruns its content. Both are pinned by facts that were **mutation-checked**: keying on the id alone, and
+restoring the length proxy, each fail exactly one fact and nothing else.
+
+**Three defects found that the plan did not predict, and the middle one is the instructive one.**
+<br>**(1) The planned termination mutation check was untestable as written.** Deleting the "a step that
+moved nothing ends the walk" guard failed NO test — the `seeds.Count == 0` guard carries termination for the
+DEFAULT selector, so the rule that actually makes the sequence finite had no coverage at all. A caller-
+supplied selector can hand back seeds forever, which is now `A_selector_that_never_returns_empty_still_
+terminates`, bounded inside the TEST so a regression fails instead of hanging.
+<br>**(2) The LoCoMo refactor changed a DENOMINATOR, not a retrieval.** The old loop ran shots 2 and 3
+unconditionally and re-snapshotted an unchanged context; a walk that ends early would have silently dropped
+those rows, moving every rate for a harness reason wearing a result's clothes. Filled explicitly. This is
+the one that would have published a wrong number.
+<br>**(3) `check-samples` caught its own baseline going stale** (`CLAUDE.md` 78 → 79 doc samples), and the
+first README annotation was redundant: `check-samples.mjs` already pre-declares `IMemoryEngine engine`.
+
+**What is deliberately NOT done.** The merge accumulator stays internal (D102 says what would change that),
+and the public NAMES are provisional — the pass is open in `TASKS.md` Part 116 and must land before this
+ships, since each one is then a permanent SemVer promise.
+
 - **Extend the shot curve past what was sampled.**

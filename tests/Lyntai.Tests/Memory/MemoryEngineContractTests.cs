@@ -21,6 +21,7 @@ public class LexicalEngineContractTests
         MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: false);
     [Fact] public Task Metadata_on_expansion() =>
         MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
+    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
 }
 
 public class SemanticEngineContractTests
@@ -41,6 +42,7 @@ public class SemanticEngineContractTests
         MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: false);
     [Fact] public Task Metadata_on_expansion() =>
         MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
+    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
 }
 
 public class GraphEngineContractTests
@@ -63,6 +65,8 @@ public class GraphEngineContractTests
     // the ONE engine that genuinely expands, and the site the recall-only fact could not see
     [Fact] public Task Metadata_on_expansion() =>
         MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: true, expands: true);
+    // ...and therefore the one whose walk takes more than a single step
+    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
 }
 
 public class CompositeEngineContractTests
@@ -88,6 +92,7 @@ public class CompositeEngineContractTests
     // a composite always implements IExpandableMemory; a lexical owner makes it fail OPEN
     [Fact] public Task Metadata_on_expansion() =>
         MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: false, expands: false);
+    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
 
     [Fact]
     public async Task A_blend_does_not_STRIP_metadata_from_a_member_that_carries_it()
@@ -125,6 +130,7 @@ public class CuratedEngineContractTests
         MemoryEngineContract.Metadata_written_is_returned_or_explicitly_absent(New(), "k10", carries: true);
     [Fact] public Task Metadata_on_expansion() =>
         MemoryEngineContract.Metadata_survives_an_EXPANSION_not_only_a_recall(New(), "k12", carries: true, expands: false);
+    [Fact] public Task Walks() => MemoryEngineContract.A_walk_yields_at_least_one_step_and_never_throws(New(), "k13");
 
     [Fact]
     public async Task A_query_less_recall_returns_only_this_engines_kind_and_honours_the_limit()

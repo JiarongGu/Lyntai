@@ -287,69 +287,62 @@ internal static class MemoryLocomoBench
                     }
 
                     var clock = Stopwatch.StartNew();
-                    var recall = await engine.RecallAsync(
-                        new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit));
-                    if (arm != ThreeShot)
-                    {
-                        recalled[(arm, q.Text)] = recall.Items.Select(i => i.Content ?? i.Headline).ToList();
-                        continue;
-                    }
-
-                    // SHOTS 2 AND 3: walk outward from what shot 1 returned, then from what that turned up.
-                    // Each shot expands the best few of the entries the PREVIOUS one newly surfaced, which is
-                    // what "more detail when you think harder" is in graph terms — and it is not free, so the
-                    // budget caps it and the context-cost column prices whatever it spends.
-                    // A recall returns HEADLINES for associative entries — "associative content is withheld
-                    // until expansion — that is what makes the first load cheap", in the engine's own words.
-                    // So a shot does two things, and a set of ids cannot express both: it discovers new
-                    // entries, AND it UPGRADES an entry already held from its headline to its full content.
-                    // Deduping by id alone silently throws the upgrade away, which is the whole payload of
-                    // expanding something you already have.
-                    var text = new Dictionary<string, string>(StringComparer.Ordinal);
-                    var order = new List<string>();
-                    var frontier = new List<MemoryItem>();
-
-                    void Hold(MemoryItem item)
-                    {
-                        var body = item.Content ?? item.Headline;
-                        if (text.TryGetValue(item.Reference.Id, out var held))
-                        {
-                            if (body.Length > held.Length) text[item.Reference.Id] = body;
-                            return;
-                        }
-                        if (order.Count >= ShotBudget) return;
-                        text[item.Reference.Id] = body;
-                        order.Add(item.Reference.Id);
-                        frontier.Add(item);
-                    }
-
-                    foreach (var item in recall.Items) Hold(item);
-                    Snapshot(1);
 
                     // Two shots and three come from ONE walk, because three is a strict superset of two.
                     // Snapshotting mid-walk keeps them exactly nested — any difference between the arms is
                     // the extra shot and nothing else — and costs one ingestion rather than two.
-                    for (var shot = 2; shot <= 3; shot++)
+                    // MaxEntries is passed EXPLICITLY: the library derives twice what step 1 returned, which
+                    // equals ShotBudget only when a question's recall fills its limit, so leaving it null
+                    // would shrink the bound on short recalls and move published figures for no defect.
+                    var walkOptions = new MemoryWalkOptions
                     {
-                        var seeds = frontier.Take(expandSeeds).ToList();
-                        frontier = [];
-                        foreach (var seed in seeds)
-                            foreach (var near in (await engine.ExpandAsync(seed.Reference, hops: 1)).Items)
-                                Hold(near);
-                        Snapshot(shot);
-                        if (!shotsOnly)
-                            recalled[(shot == 2 ? TwoShot : ThreeShot, q.Text)] = [.. order.Select(id => text[id])];
+                        SeedsPerStep = expandSeeds,
+                        Hops = 1,
+                        MaxEntries = ShotBudget,
+                    };
+
+                    List<string> context = [];
+                    var reached = 0;
+
+                    await foreach (var step in engine.WalkAsync(
+                        new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit), walkOptions))
+                    {
+                        context = [.. step.Items.Select(i => i.Content ?? i.Headline)];
+
+                        // the single-shot arms take step 1 and stop; only ThreeShot walks
+                        if (arm != ThreeShot)
+                        {
+                            recalled[(arm, q.Text)] = context;
+                            break;
+                        }
+
+                        reached = step.Ordinal;
+                        Snapshot(step.Ordinal, context);
+                        if (!shotsOnly && step.Ordinal is 2 or 3)
+                            recalled[(step.Ordinal == 2 ? TwoShot : ThreeShot, q.Text)] = context;
+                        if (step.Ordinal >= 3) break;
                     }
+
+                    // A walk ENDS when a step moves nothing, where the pre-surface loop ran shots 2 and 3
+                    // unconditionally and re-snapshotted the unchanged context. Filling the gap keeps that:
+                    // dropping a row would change the DENOMINATOR of every rate below rather than the
+                    // retrieval, which is a harness difference wearing a result's clothes.
+                    if (arm == ThreeShot)
+                        for (var shot = reached + 1; shot <= 3; shot++)
+                        {
+                            Snapshot(shot, context);
+                            if (!shotsOnly)
+                                recalled[(shot == 2 ? TwoShot : ThreeShot, q.Text)] = context;
+                        }
 
                     // Each shot is priced where it happens: cumulative items, characters and elapsed time,
                     // plus whether the evidence has arrived YET. That last one is the model-free form of
                     // "shot 1 finds something related, shot 2 finds the thing".
-                    void Snapshot(int shot)
+                    void Snapshot(int shot, IReadOnlyList<string> body)
                     {
                         if (!shotsOnly) return;
                         var name = $"shot-{shot}";
-                        var body = order.Select(id => text[id]).ToList();
-                        recalled[(name, q.Text)] = body;
+                        recalled[(name, q.Text)] = [.. body];
                         if (q.Evidence.Count == 0) return;
                         var key = (name, q.Category);
                         asked[key] = asked.GetValueOrDefault(key) + 1;

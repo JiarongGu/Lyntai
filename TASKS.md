@@ -22,17 +22,19 @@ history rather than context (`repo-mechanics.md`)._
 **READ `## Part 116` FIRST — it is the handover.** `docs/DECISIONS.md` **D100** changed what this engine is
 evaluated as during the 2026-08-29 session: an n-shot WALK, not a single top-k. Every recall-quality number
 published before that day scores one shot, which measures a vector index wearing a graph engine's name. Part
-116 carries what that opens, and the biggest item in it is that **the library has no n-shot surface** —
-every consumer wanting the mode this engine is designed for hand-rolls the loop.
+116 carries what that opens. **Its biggest item — the library having no n-shot surface — CLOSED on
+2026-08-30** as `docs/task-archive.md` **Part 120** / **D102**: `MemoryWalk.WalkAsync` ships the walk as an
+extension over the two seams that already existed, and both bench harnesses now drive it. What is left in
+the Part is measurement, plus the naming pass that surface owes.
 
-**The startable set is SIX items: Part 116's three, Part 109's `K` sweep and its QA half, and the
+**The startable set is FIVE items: Part 116's two, Part 109's `K` sweep and its QA half, and the
 3D-backend survey inside Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>_Part 116 held five until the write-back collapse landed as `docs/task-archive.md` Part 117 and the LoCoMo
-isolation fix as Part 118 — this count is edited in the same change as the item, which is the habit
-`pitfalls.md` prescribes after four stale banners._
+<br>_Part 116 held five until Parts 117–120 took four of them, and gained the walk-surface naming pass on
+2026-08-30 — which is BLOCKED, so it moves the Part's total and not the startable count. Both numbers are
+edited in the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
 <br>**Part 109's `K` sweep is the one to read after 116**: `K` turns out to select a REGIME (excellence on
 one signal at low K, balance across all of them at high K), it was never swept, and the one class measured
 says the shipped 60 is on the wrong side of free. Three of that Part's four items have now closed (**D97**,
@@ -130,6 +132,9 @@ Blocked, and on what:
   the documented-not-measured trap GEN-VERIFY exists to correct. (The rest of Part 75 has closed; this line
   exists because a Part whose blocker is unlisted reads as startable, which is how Part 33 hid two
   startable items — see the caveat above.)
+- **Part 116 / the walk-surface naming pass** — blocked on the **TREE**: `MemoryWalk` does not exist yet, so
+  there are no names to pass over. Added 2026-08-30 and therefore NOT part of the 2026-08-28 re-check above;
+  it is refuted by reading the tree, never by asking the machine.
 
 ## Part 33 — generation platform: remaining backends + composition
 
@@ -587,25 +592,17 @@ top-k. The instruments exist — `node devtools/dev.mjs memory-locomo --shots` a
 `memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory.md` §5.
 Closed alongside it: **D98** (expansion had no vote from forgetting) and **D99** (co-activation is one store
 call). The session that produced all three is `docs/task-archive.md` Parts 112–115.
-<br>**This Part held five items and now holds three.** The write-back collapse closed as
-`docs/task-archive.md` **Part 117** (**D101** — the whole write-back is one store call, not just the
-co-activation half D99 did), the LoCoMo contamination as **Part 118**, and two thirds of the shot-curve item
-as **Part 119**.
+<br>**This Part held five items and now holds three — two startable and one blocked.** The write-back collapse
+closed as `docs/task-archive.md` **Part 117** (**D101** — the whole write-back is one store call, not just
+the co-activation half D99 did), the LoCoMo contamination as **Part 118**, two thirds of the shot-curve item
+as **Part 119**, and **the n-shot SURFACE itself as Part 120** (**D102** — `MemoryWalk.WalkAsync`, an
+extension over the two seams that already existed, with both harnesses moved onto it and every published
+table reproduced cell for cell). The blocked one is the naming pass that surface owes.
 <br>**Read this before trusting any number below.** Those two measurement passes moved published figures
 three times: every LoCoMo arm by 20–25 points, D100's *"search wants two shots"* withdrawn outright, and
 knowledge-update's level down 6–9 points off a small sample. **None was a library defect — all three were
 the instrument.** So treat the remaining measurement items as RE-measurements: they were scoped against
 figures that have since moved._
-
-- [ ] **The library has no n-shot SURFACE, and that is the gap D100 exposes.** `RecallAsync` is one shot and
-  `ExpandAsync` takes one reference, so every consumer that wants the mode this engine is designed for
-  hand-rolls recall → pick seeds → expand → merge → cap, and gets the seed-picking and the budget wrong in
-  its own way. The bench harnesses wrote that loop twice, differently, which is the tell.
-  <br>**What has to be decided before it is designed**: whether a walk is a new engine method, an option on
-  `MemoryQuery`, or stays the caller's loop with only guidance shipped. Note the third is a real answer —
-  `IMemoryEngine` is a BYO seam and a walk is composition, not storage.
-  <br>**Do NOT infer the shot count from this session.** Search wanted two shots and resolution wanted one;
-  a surface that hard-codes either is wrong, and the measurement says the caller must be able to say.
 
 - [ ] **Sweep `ExpansionRetrievabilityFloor` across workloads before any default moves** (**D98**). It ships
   at `0`. At `0.8` it held the knowledge-update shot curve flat at 40.0% instead of falling to 36.0%, and
@@ -623,6 +620,17 @@ figures that have since moved._
   <br>**Read the reproducibility caveat in `docs/memory.md` §5 before adding a fifth curve**: a haystack
   figure is reproducible to about ONE question, not to a tenth of a point, and the oracle overstates the
   multi-shot gain by 2.7× on the class where that was checked.
+
+- [ ] **Name the walk surface as library API, not as the concept it was designed from.** **BLOCKED on the
+  TREE** — `MemoryWalk` does not exist yet, so there are no names to pass over; refuted by reading the tree.
+  <br>The design agreed on 2026-08-30 (`local/superpowers/specs/2026-08-30-memory-walk-design.md`) fixed the
+  SHAPE and left the names provisional on the owner's call: they were chosen while reasoning about the
+  mechanism, so several read as concept or measurement vocabulary rather than as the established suffix
+  vocabulary `.claude/rules/dotnet-package-layout.md` §Naming prescribes. The likely movers are `Discovered`,
+  `Upgraded`, `SeedsPerStep` and `MaxEntries`; `Hops` (matches `ExpandAsync`), `Ran` (matches
+  `MemoryRecall`) and `*Options` have precedent here and should not.
+  <br>**Do it before the surface is public, not after.** Every one of those names becomes a permanent SemVer
+  promise the moment it ships, and there is no carve-out any more (**D70**).
 
 
 ---

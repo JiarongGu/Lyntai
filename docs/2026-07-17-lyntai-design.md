@@ -516,6 +516,23 @@ public interface IMemoryEngine {
   member at its OWN role. A member no write can reach under the current routing, and a model-backed policy
   registered where no member consults one, are both reported when the engine is built: a registration that
   resolves and can never run is the failure this whole seam keeps producing.
+- **The n-shot WALK is COMPOSITION over two of those capabilities, never a third one** (**D102**). A recall
+  returns headlines and `ExpandAsync` buys detail per entry, so the mode this engine is designed for is a
+  walk (**D100**) — and until it had a surface every consumer hand-rolled `recall → seed → expand → merge →
+  cap`, including this repository's own two benchmark harnesses, which wrote it twice.
+  `MemoryWalk.WalkAsync` is that loop as a static extension over `IMemoryEngine`, yielding
+  `IAsyncEnumerable<MemoryWalkStep>`. **Nothing was added to `IMemoryEngine`, `IExpandableMemory`,
+  `MemoryQuery` or `MemoryItem`**, and an engine that is not expandable yields exactly one step rather than
+  failing — the same fail-open posture every recall-shaped read here takes. It is deliberately not an engine
+  member: a walk is composition, and a second door onto recall+expand would make every BYO store owe the
+  merge rule.
+  <br>**The caller's `break` is the stop condition**, because depth is a property of the QUESTION rather than
+  a constant; the sequence is finite regardless, since a step that moves nothing ends it and `MaxEntries`
+  bounds what may be held. **The merge is the part a hand-rolled loop gets wrong**: a step both DISCOVERS
+  entries and UPGRADES held ones from a headline to full content, so identity is the whole `MemoryRef` — a
+  blend's members may each own the same id — and an arriving `Content` replaces a held null, never merely a
+  longer string, which an authored headline can be. Nothing is re-ranked across steps, because an expanded
+  neighbour's `Relevance` comes from a read that never asked one (**D97**).
 - **Grades are what let this beat a human memory rather than imitate one.** `MemoryGrade.Authoritative`
   material is allocated from a reserved character budget *before* any associative content is admitted, is
   never truncated to a headline, and renders in its own labelled section. Associative recall must never crowd

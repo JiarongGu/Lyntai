@@ -319,55 +319,30 @@ internal static class MemoryLongMemEvalBench
             + $"embedder {embedder.Misses} call(s), {embedder.Hits} cache hit(s).");
     }
 
-    /// <summary>The n-shot walk itself: recall, then expand the best few of what the PREVIOUS shot newly
-    /// surfaced, calling <paramref name="score"/> after each shot with the cumulative context.
-    /// <para><b>Shared by both shot curves on purpose.</b> Two classes scoring different metrics over the
-    /// same walk must not each own a copy of it, or "shot 2" quietly means two things — and this loop is
-    /// already written a second time in <c>MemoryLocomoBench</c>, which is the tell <c>TASKS.md</c> Part 116
-    /// cites for the library having no n-shot surface.</para>
+    /// <summary>Scores the library's walk: <c>MemoryWalk.WalkAsync</c> is the loop, and this calls
+    /// <paramref name="score"/> after each step with the cumulative context.
+    /// <para><b>Shared by both shot curves on purpose</b>, so "shot 2" cannot quietly mean two things. The
+    /// loop itself used to live here AND in <c>MemoryLocomoBench</c>, which is the duplication
+    /// <c>TASKS.md</c> Part 116 cited when it asked for this surface.</para>
     /// <para>Shots 2 and 3 come from ONE walk because three is a strict superset of two, so the arms stay
-    /// exactly nested and any difference between them is the extra shot and nothing else. A recall returns
-    /// HEADLINES for associative entries, so a shot both DISCOVERS entries and UPGRADES ones already held to
-    /// their full content — deduping by id alone would throw the upgrade away, which is the whole payload of
-    /// expanding something you already have.</para></summary>
+    /// exactly nested and any difference between them is the extra shot and nothing else.</para>
+    /// <para><b><c>MaxEntries</c> is passed EXPLICITLY.</b> The library derives twice what step 1 returned,
+    /// which equals <c>ShotBudget</c> only when a question's recall fills its limit — leaving it null would
+    /// shrink the bound on short recalls and move published figures for a reason that is not a defect. The
+    /// expansion floor is the ENGINE's (<c>GraphMemoryOptions.ExpansionRetrievabilityFloor</c>), not this
+    /// harness's.</para></summary>
     private static async Task WalkAsync(GraphMemoryEngine engine, string question,
         Action<int, IReadOnlyList<string>, double> score)
     {
         var clock = Stopwatch.StartNew();
-        var recall = await engine.RecallAsync(new MemoryQuery(Task, Scope, question, Limit: RecallLimit));
-        var text = new Dictionary<string, string>(StringComparer.Ordinal);
-        var order = new List<string>();
-        var frontier = new List<MemoryItem>();
+        var options = new MemoryWalkOptions { SeedsPerStep = ExpandSeeds, Hops = 1, MaxEntries = ShotBudget };
 
-        void Hold(MemoryItem item)
+        await foreach (var step in engine.WalkAsync(
+            new MemoryQuery(Task, Scope, question, Limit: RecallLimit), options))
         {
-            var body = item.Content ?? item.Headline;
-            if (text.TryGetValue(item.Reference.Id, out var held))
-            {
-                if (body.Length > held.Length) text[item.Reference.Id] = body;
-                return;
-            }
-            if (order.Count >= ShotBudget) return;
-            text[item.Reference.Id] = body;
-            order.Add(item.Reference.Id);
-            frontier.Add(item);
-        }
-
-        foreach (var item in recall.Items) Hold(item);
-        score(1, [.. order.Select(id => text[id])], clock.Elapsed.TotalMilliseconds);
-
-        for (var shot = 2; shot <= 3; shot++)
-        {
-            var seeds = frontier.Take(ExpandSeeds).ToList();
-            frontier = [];
-            foreach (var s in seeds)
-                foreach (var near in (await engine.ExpandAsync(s.Reference, hops: 1)).Items)
-                    // The floor is the ENGINE's (GraphMemoryOptions.ExpansionRetrievabilityFloor), not this
-                    // harness's. It was prototyped here first — MemoryItem already carries Retrievability —
-                    // and reproducing the prototype's number through the shipped option is what says the
-                    // option does what the prototype did.
-                    Hold(near);
-            score(shot, [.. order.Select(id => text[id])], clock.Elapsed.TotalMilliseconds);
+            score(step.Ordinal, [.. step.Items.Select(i => i.Content ?? i.Headline)],
+                clock.Elapsed.TotalMilliseconds);
+            if (step.Ordinal >= 3) break;   // this harness's curve is three shots, as published
         }
     }
 

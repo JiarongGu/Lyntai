@@ -14,6 +14,23 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Added
 
+- **`WalkAsync` — the n-shot walk, as a surface rather than a loop every consumer writes.** An extension over
+  `IMemoryEngine` yielding `IAsyncEnumerable<MemoryWalkStep>`: a recall, then expansions outward from what it
+  turned up. **Your `break` is the stop condition**, because how far a walk is worth taking is a property of
+  the question rather than a constant — and the sequence is finite whether or not you break, since a step
+  that moves nothing ends it and `MemoryWalkOptions.MaxEntries` bounds what it may hold.
+  <br>**Nothing was added to `IMemoryEngine`, `IExpandableMemory`, `MemoryQuery` or `MemoryItem`** — it
+  composes the two seams that already existed, the way `MemoryComposition` composes a recall and a rendering.
+  An engine that is not `IExpandableMemory` yields exactly one step rather than failing, and a faulting recall
+  still yields step 1 reporting `MemorySources.None`.
+  <br>**The merge is the payload.** A step both DISCOVERS entries and UPGRADES held ones from a headline to
+  full content, so `MemoryWalkStep` reports both — a count of new entries alone cannot see the upgrade, which
+  is the whole point of expanding something you already hold. Identity is the entry's whole `MemoryRef`, so a
+  composite's members may each own the same id.
+  <br>`MemoryWalkOptions.SelectSeeds` replaces the default selection outright, count included; the default
+  takes the newly-discovered entries in arrival order, capped at `SeedsPerStep`. It deliberately does not
+  order by `MemoryItem.Relevance` — an expanded neighbour carries a relevance from a read that never asked
+  one (**D97**).
 - **`IMemoryGraphStore.WriteBackAsync` — a recall's whole write-back as ONE store call** (`docs/DECISIONS.md`
   **D101**), with `GraphWriteBack` carrying the touch, the co-activation edges and the review-log rows
   together. **It has a default body** running the three existing members in that order, so a BYO store keeps
