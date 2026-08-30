@@ -158,15 +158,33 @@ public sealed class GraphMemoryEngine(
     /// <para><b>No policies means no wrapper</b>, so an engine that was never given retention is byte-identical
     /// to one built before this parameter existed — the wrapper is exactly <c>inner</c> when its collection is
     /// empty, but skipping it keeps that a property of construction rather than of the decorator.</para>
+    ///
+    /// <para><b><see cref="ModulatedRetrievability"/> stays PUBLIC and composing one yourself stays
+    /// supported</b> — it implements a public seam, and a consumer with their own curve, or one not using
+    /// this engine at all, has a legitimate reason to build one. What is refused is the single combination
+    /// that cannot be intended: an already-modulated curve PLUS retention policies, which would apply
+    /// modulation twice and multiply stability twice over. The entry would then outlive what any retention
+    /// policy declared, breaking <see cref="IMemoryRetrievabilityPolicy.CandidateCutoff"/>'s superset
+    /// guarantee — and that cutoff's only consumer DELETES. Reported at WIRING time (<b>D85</b>) rather than
+    /// silently preferring one, because either silent choice is a stability figure nobody asked for.</para>
     /// </summary>
+    /// <exception cref="ArgumentException">An already-modulated curve is supplied alongside retention
+    /// policies.</exception>
     private static IMemoryRetrievabilityPolicy Modulate(IMemoryRetrievabilityPolicy inner,
         IEnumerable<IMemoryRetentionPolicy>? retentionPolicies,
         IMemoryRetentionCompositionPolicy? composition)
     {
         var list = retentionPolicies?.ToList() ?? [];
-        return list.Count == 0 && composition is null
-            ? inner
-            : new ModulatedRetrievability(inner, list, composition);
+        if (list.Count == 0 && composition is null) return inner;
+
+        if (inner is ModulatedRetrievability)
+            throw new ArgumentException(
+                $"'{nameof(retrievability)}' is already a {nameof(ModulatedRetrievability)} and "
+                + $"'{nameof(retentionPolicies)}' was also supplied, which would apply retention TWICE and "
+                + "multiply stability twice over. Pass the inner curve with the policies, or the wrapped "
+                + "curve alone.", nameof(retentionPolicies));
+
+        return new ModulatedRetrievability(inner, list, composition);
     }
 
     private static IReadOnlyList<IMemoryAgePolicy> NormalizeAgePolicies(

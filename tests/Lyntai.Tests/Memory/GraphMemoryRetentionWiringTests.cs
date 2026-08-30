@@ -70,6 +70,43 @@ public class GraphMemoryRetentionWiringTests
             $"retention did not reach the engine: {retainedItem.Retrievability} vs {plainItem.Retrievability}");
     }
 
+    /// <summary>
+    /// Supplying BOTH a pre-modulated curve and retention policies is refused at construction, not applied
+    /// twice.
+    ///
+    /// <para><b>ModulatedRetrievability stays PUBLIC</b>, because it implements a public seam and a consumer
+    /// composing their own curve — or not using this engine at all — has a legitimate reason to build one.
+    /// Hiding a type to remove an ambiguity fixes the wrong thing. What is refused is the one combination
+    /// that cannot be meant: modulation applied twice multiplies stability twice, and the entry would then
+    /// outlive what any retention policy declared, breaking
+    /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.CandidateCutoff"/>'s superset
+    /// guarantee — whose only consumer DELETES.</para>
+    ///
+    /// <para>Reported at WIRING time (<c>docs/DECISIONS.md</c> D85's idiom) rather than silently preferring
+    /// one, because either silent choice is a stability figure the caller did not ask for.</para>
+    /// </summary>
+    [Fact]
+    public void Supplying_a_pre_modulated_curve_AND_retention_policies_is_refused()
+    {
+        var preWrapped = new ModulatedRetrievability(
+            new Lyntai.Memory.Forgetting.DsrRetrievability(), [new FixedRetentionPolicy(2)]);
+
+        var ex = Assert.Throws<ArgumentException>(() => new GraphMemoryEngine("e",
+            new InMemoryMemoryGraphStore(),
+            retrievability: preWrapped,
+            retentionPolicies: [new FixedRetentionPolicy(3)]));
+
+        Assert.Contains("twice", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A pre-modulated curve ALONE is still accepted — that is the composition route the seam's
+    /// publicness exists for, and only the double-application is refused.</summary>
+    [Fact]
+    public void A_pre_modulated_curve_on_its_own_is_still_accepted() =>
+        Assert.NotNull(new GraphMemoryEngine("e", new InMemoryMemoryGraphStore(),
+            retrievability: new ModulatedRetrievability(
+                new Lyntai.Memory.Forgetting.DsrRetrievability(), [new FixedRetentionPolicy(2)])));
+
     /// <summary>The composition policy is the engine's too, so several coexisting retention dimensions
     /// combine by a rule the caller can replace — the second half of what D48 calls a plural domain, and the
     /// half a decorator-only path made reachable exclusively through a constructor overload.</summary>
