@@ -6,6 +6,7 @@ using Lyntai.Embeddings;
 using Lyntai.Memory;
 using Lyntai.Memory.Engines;
 using Lyntai.Memory.Ranking;
+using Lyntai.Llm;
 using Lyntai.Memory.Verification;
 using Lyntai.Storage.Sqlite;
 
@@ -116,6 +117,17 @@ internal static class MemoryLocomoBench
         var chat = needsReader ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo") : null;
         if (needsReader && chat is null) return 1;
 
+        // The VERIFICATION judge is a different model role from the reader above, and it is wanted on the
+        // model-free retrieval ladder where no reader is. D59 named a judge that PROMOTES before the cut as
+        // this subsystem's fix and neither field benchmark had ever wired the seam; the ladder now prices it
+        // against its own oracle ceiling.
+        //
+        // ADDITIVE and DISCLOSED, never a gate: the mechanical arms are model-free and run in full whether or
+        // not a judge answers, and a run that silently dropped the arm would read as having measured it.
+        var judgeChat = args.Contains("--retrieval") && !args.Contains("--no-judge")
+            ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo judge")
+            : null;
+
         var take = ArgValue(args, "--n") is { } n && int.TryParse(n, out var parsed) ? parsed : 200;
         var wantFull = args.Contains("--full");
         // `--retrieval` is the MODEL-FREE diagnostic: does the recalled set contain the evidence turn
@@ -144,9 +156,11 @@ internal static class MemoryLocomoBench
             : retrievalOnly
                 ? wantFull
                     ? ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
-                        "+rel-only", "vector", "full"]
+                        .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
+                        "+sem+mult", "+sem80+mult", "+rel-only", "vector", "full"]
                     : ["lyntai", "+sem", "+sem+hop0", "+sem80", "+sem80+hop0", "+forget0", "+forget0+oracle",
-                        "+rel-only", "vector"]
+                        .. judgeChat is null ? Array.Empty<string>() : ["+forget0+judge"],
+                        "+sem+mult", "+sem80+mult", "+rel-only", "vector"]
                 : ["lyntai", TwoShot, ThreeShot, "vector", $"vector-{ShotBudget}", "full"];
 
         var (conversations, questions) = Load(path);
@@ -261,6 +275,40 @@ internal static class MemoryLocomoBench
                 ("+forget0+oracle", null,
                     new ReciprocalRankFusionPolicy(new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
                     new EvidenceOracleVerifier(mine.ToDictionary(q => q.Text, q => q.Evidence.ToHashSet()))),
+
+                // The REAL judge, beside its own ceiling. `+oracle` says how much promotion could recover;
+                // this says how much a model actually does, and the gap between them is the model's error
+                // rather than the mechanism's limit. Skipped when no chat model answers — the arm measures
+                // what a MODEL is worth, so a scripted stand-in would measure the stand-in.
+                .. judgeChat is null
+                    ? Array.Empty<(string, GraphMemoryOptions?, IMemoryRankingPolicy?, IMemoryVerificationPolicy?)>()
+                    : [("+forget0+judge", null,
+                        new ReciprocalRankFusionPolicy(
+                            new ReciprocalRankFusionOptions { RetrievabilityWeight = 0 }),
+                        new LlmMemoryVerificationPolicy(new BenchClientFactory(judgeChat)))],
+
+                // The FORMULA arms, added 2026-08-31, and they test the reading that makes the judge an
+                // add-on rather than a rescue. `vector` is PURE tier-2 — one embedder, cosine, no graph, no
+                // judge — and it scores 80.5%, above this engine WITH a perfect judge at 77.5%. A plain
+                // formula beating formula-plus-oracle says the deficit is in the formula tier, not the model
+                // tier, which is the shape `model-decoupling.md` warns about: a model becoming the floor
+                // rather than the ceiling.
+                //
+                // Two mechanisms are suspected and each arm isolates one.
+                //   - `SemanticSeedK` DEFAULTS TO 0, so the shipped engine embeds every write and then
+                //     retrieves lexically, consulting none of it on read. `+sem` already showed turning it
+                //     on is worth only 3 points, which is the puzzle these arms exist to explain.
+                //   - RRF fuses RANKS (D82, "ranks by COMPETITION"), so a cosine of 0.742 against 0.713
+                //     collapses to "1st against 8th" and the size of the difference — the whole signal on a
+                //     semantic-matching workload — is discarded by construction. That is what RRF IS, not a
+                //     defect in it; the question is whether it is the right fuser HERE.
+                //
+                // `MultiplicativeRankingPolicy` preserves magnitude, ships, and `CLAUDE.md` calls it one
+                // line to restore. It has never been run against this benchmark.
+                ("+sem+mult", new GraphMemoryOptions { SemanticSeedK = RecallLimit },
+                    new MultiplicativeRankingPolicy(), null),
+                ("+sem80+mult", new GraphMemoryOptions { SemanticSeedK = 80 },
+                    new MultiplicativeRankingPolicy(), null),
 
                 // The BRIDGE arm, and the one that decides where to look next. Relevance alone through the
                 // engine's own pipeline (salience already ships at 0, D89), so it scores the same quantity
@@ -955,6 +1003,60 @@ internal static class MemoryLocomoBench
     /// <para><b>What it therefore does NOT say:</b> nothing about any real judge's accuracy. A gap that
     /// closes here is an upper bound a model then has to earn.</para>
     /// </summary>
+    /// <summary>
+    /// Routes the SHIPPED <c>LlmMemoryVerificationPolicy</c> at this machine's local chat model.
+    ///
+    /// <para><b>Deliberately not a judge written here.</b> The question is what the seam a deployment would
+    /// actually switch on is worth — so the arm has to exercise the shipped prompt, the shipped parsing, the
+    /// shipped depth handling and the shipped fail-open behaviour. A bench-local judge would measure a prompt
+    /// invented for the bench, and would flatter or damn the feature for reasons no consumer inherits.</para>
+    ///
+    /// <para>Both members return the same client because the bench registers exactly one; a policy asking for
+    /// a NAMED client gets it rather than a <c>KeyNotFoundException</c>, which would fail the arm open and
+    /// look like a judge that endorsed nothing.</para>
+    /// </summary>
+    private sealed class BenchClientFactory(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClientFactory
+    {
+        private readonly BenchClient _client = new(chat);
+
+        public ILlmClient Get(string name) => _client;
+
+        public ILlmClient Get() => _client;
+
+        public bool TryGet(string name, out ILlmClient client)
+        {
+            client = _client;
+            return true;
+        }
+
+        public IReadOnlyList<string> Names => ["bench"];
+
+        private sealed class BenchClient(SweepDoubles.OpenAiCompatibleChat chat) : ILlmClient
+        {
+            public async Task<LlmReply> CompleteAsync(LlmRequest req, CancellationToken ct = default)
+            {
+                // The judge's whole prompt is one user turn; join defensively in case that changes, rather
+                // than indexing [0] and silently dropping a system message the policy started sending.
+                var prompt = string.Join("\n", req.Messages.Select(m => m.Content));
+
+                // Room for a list of ids. The policy's own parser decides what a valid answer is; a cap so
+                // tight that a correct answer is truncated would be measured as the judge being wrong.
+                var text = await chat.AskAsync(prompt, ct, maxTokens: 256).ConfigureAwait(false);
+
+                return text is null
+                    ? new LlmReply("", LlmVerdict.Failed, Detail: "bench chat returned nothing")
+                    : new LlmReply(text, LlmVerdict.Ok);
+            }
+
+            /// <summary>The verification policy never streams — it asks one bounded question and parses the
+            /// whole answer. Throwing rather than returning an empty sequence is deliberate: a silent empty
+            /// stream would let a future caller believe it had read something.</summary>
+            public IAsyncEnumerable<LlmChunk> StreamAsync(LlmRequest req, CancellationToken ct = default) =>
+                throw new NotSupportedException(
+                    "the bench client backs a verification judge, which does not stream");
+        }
+    }
+
     /// <param name="evidenceByQuery">Question text to the dia_ids LoCoMo declares as its evidence.</param>
     private sealed class EvidenceOracleVerifier(IReadOnlyDictionary<string, HashSet<string>> evidenceByQuery)
         : IMemoryVerificationPolicy
