@@ -34,6 +34,28 @@ open checkbox below, the banner is wrong.** Both names it carried that day were 
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
 <br>_It held THREE until 2026-08-30, when GEN7a — the `image → video` pipeline runner Part 124 had just put
 here — was built and closed as `docs/task-archive.md` **Part 126**. Both remaining items are measurement._
+
+**HANDOVER (2026-08-30, end of session): the next session's direction is MEMORY OPTIMIZATION**, at the
+owner's request. Read this before picking anything up, because the bottleneck is not work — it is three
+questions only the owner can answer, and a session that starts measuring will hit all three inside an hour.
+
+1. **`SalienceOptions.MaxSalience` and `NoveltyWeight` — do the two shipped defaults stay?** (Part 65, under
+   Blocked.) Everything measurable HAS been measured: `MaxSalience` is a switch rather than a dial and at
+   `NoveltyWeight = 1.5` it can never bind, so the shipped `4` is inert on this corpus. Moving it is not a
+   no-op in general, which is exactly why it is a decision and not a sweep.
+2. **What does the gist tier COMPUTE?** (Part 105, under Blocked.) The measurement came back negative — no θ
+   is both pacing- and cardinality-independent, and the one invariant rule is the raw count, which the corpus
+   declares wrong for the assistant host. The three candidates are named in the item; none is obviously right.
+3. **Does `ExpansionRetrievabilityFloor` move off `0`?** (Inside Part 109's open QA item, so this one rides
+   along with startable work rather than blocking it.) **D98** shipped it at `0` on one class of one
+   benchmark; `0.8` held the shot curve flat there and cost 4 points of current-fact hit rate. It needs more
+   than one workload before anything moves.
+
+**And the standing trap for whoever measures next, because it has now cost three published figure sets:**
+every recall-quality number is a property of the INSTRUMENT until proven otherwise. Part 118 (shared stores),
+Part 119 (a near-tie noise floor of ~1 point) and D100's own withdrawn *"search wants two shots"* were all
+harness, not library. Before believing a delta, run the arm that structurally CANNOT move — `vector` never
+touches the graph store — and repeat the after arm rather than reasoning about it.
 <br>_Part 116 held five until Parts 117–121 took three of them outright and two thirds of a fourth; the
 naming pass it gained on 2026-08-30 was filed BLOCKED and closed the same day, so it never counted toward
 the startable set. Both numbers are edited in the same change as the item, which is the habit `pitfalls.md`
