@@ -3,6 +3,7 @@ using Lyntai.Embeddings;
 using Lyntai.Memory.Annotation;
 using Lyntai.Memory.Forgetting;
 using Lyntai.Memory.Interference;
+using Lyntai.Memory.Modulation;
 using Lyntai.Memory.Ranking;
 using Lyntai.Memory.Salience;
 using Microsoft.Extensions.Logging;
@@ -104,12 +105,15 @@ public sealed class GraphMemoryEngine(
     IReadOnlyDictionary<string, IMemoryRankingPolicy>? namedRankingPolicies = null,
     Func<DateTimeOffset>? clock = null,
     Lyntai.Memory.Annotation.IMemoryAnnotationPolicy? annotation = null,
-    Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null)
+    Lyntai.Memory.Verification.IMemoryVerificationPolicy? verification = null,
+    IEnumerable<IMemoryRetentionPolicy>? retentionPolicies = null,
+    IMemoryRetentionCompositionPolicy? retentionComposition = null)
     : IMemoryEngine, IExpandableMemory, ILinkableMemory, IForgettableMemory
 {
     private readonly GraphMemoryOptions _options = options ?? new GraphMemoryOptions();
     private readonly IMemoryRetrievabilityPolicy _policy =
-        ValidatedRetrievability(retrievability ?? new DsrRetrievability());
+        ValidatedRetrievability(Modulate(retrievability ?? new DsrRetrievability(),
+            retentionPolicies, retentionComposition));
     private readonly IReadOnlyList<IMemoryAgePolicy> _agePolicies = NormalizeAgePolicies(agePolicies);
     private readonly IMemoryAgeCompositionPolicy _ageComposition = ageComposition ?? new SummedAgeCompositionPolicy();
     private readonly ILogger _logger = logger ?? NullLogger<GraphMemoryEngine>.Instance;
@@ -141,6 +145,30 @@ public sealed class GraphMemoryEngine(
     /// silently overwriting or blending into the other, and a silent sum is exactly the quiet wrongness this
     /// domain refuses everywhere else (see <see cref="RememberAsync"/>'s own remarks on why only an
     /// Accumulating tick's Position ever reaches the accumulator).</para></summary>
+    /// <summary>
+    /// Wraps the curve in the engine's own retention modulation — the ENGINE composing a plural domain it
+    /// owns, exactly as it does for age and salience.
+    ///
+    /// <para><b>Retention used to arrive pre-wrapped inside the <c>retrievability</c> argument</b>, so a
+    /// DI-built engine applied it and a hand-built one silently did not unless its author knew to construct a
+    /// <see cref="ModulatedRetrievability"/>. Every bench sweep hand-builds. <c>docs/DECISIONS.md</c> D48
+    /// calls retention a plural domain; a plural domain reaching the engine through ANOTHER domain's
+    /// constructor is a modelling error however convenient it is.</para>
+    ///
+    /// <para><b>No policies means no wrapper</b>, so an engine that was never given retention is byte-identical
+    /// to one built before this parameter existed — the wrapper is exactly <c>inner</c> when its collection is
+    /// empty, but skipping it keeps that a property of construction rather than of the decorator.</para>
+    /// </summary>
+    private static IMemoryRetrievabilityPolicy Modulate(IMemoryRetrievabilityPolicy inner,
+        IEnumerable<IMemoryRetentionPolicy>? retentionPolicies,
+        IMemoryRetentionCompositionPolicy? composition)
+    {
+        var list = retentionPolicies?.ToList() ?? [];
+        return list.Count == 0 && composition is null
+            ? inner
+            : new ModulatedRetrievability(inner, list, composition);
+    }
+
     private static IReadOnlyList<IMemoryAgePolicy> NormalizeAgePolicies(
         IEnumerable<IMemoryAgePolicy>? agePolicies)
     {

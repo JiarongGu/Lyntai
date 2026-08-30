@@ -201,14 +201,12 @@ public sealed class MemoryEngineBuilder
             // PER-ENGINE selection (docs/DECISIONS.md D50), substituted at the INNER resolution exactly the
             // way `ranking` below substitutes at its own: an explicit `policy` argument is THIS engine's own
             // curve and wins outright, and `?? `'s short-circuit means GetRequiredService is not even
-            // consulted then. Passing it here rather than as the engine's `policy:` keeps the modulation
-            // wrapper on BOTH paths — a consumer selecting a curve is choosing a curve, not opting out of
-            // the retention policies every other graph engine gets. `retrievability: null` therefore resolves
-            // exactly as it did before this parameter existed.
-            retrievability: new ModulatedRetrievability(
-                retrievability ?? sp.GetRequiredService<IMemoryRetrievabilityPolicy>(),
-                sp.GetServices<IMemoryRetentionPolicy>(),
-                sp.GetService<IMemoryRetentionCompositionPolicy>()),
+            // consulted then. A consumer selecting a curve is choosing a curve, not opting out of the
+            // retention policies every other graph engine gets — which is now the ENGINE's guarantee rather
+            // than this call site's, since retention reaches it as its own registered collection.
+            retrievability: retrievability ?? sp.GetRequiredService<IMemoryRetrievabilityPolicy>(),
+            retentionPolicies: sp.GetServices<IMemoryRetentionPolicy>(),
+            retentionComposition: sp.GetService<IMemoryRetentionCompositionPolicy>(),
             // age is a DI collection too: registering an
             // IMemoryAgePolicy adds a coexisting age dimension, never replaces the engine's own default
             // (a burst-damped per-write age policy) — GetServices returns empty when nothing is registered, and
