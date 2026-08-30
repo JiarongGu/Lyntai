@@ -1695,4 +1695,50 @@ byte-identically, which is what licenses reading a 0.5-point move there as one r
 taken on the haystack arm, whose reproducibility this repository elsewhere puts at about one question — so
 its +2.8 is a shape, not a decimal.
 
-- **Extend the shot curve past what was sampled.**
+## Part 124 — the 3D survey: neither option was on the menu (2026-08-30)
+
+✅ done 2026-08-30 — `TASKS.md` Part 33 / GEN7's survey item, the one the banner had carried as a startable
+critical path. It asked **mesh vs turntable stills, since only the latter chains into today's video
+backends**. **Both options turned out not to exist as posed**, which is the second time in two days a
+backlog item's own premise is what the work overturned (Part 122 was the first). Working record:
+`local/superpowers/specs/2026-08-30-3d-backend-survey.md`.
+
+**A DESK survey, and the caveat is load-bearing.** Every vendor fact was read from a published API page,
+never called — the tier GEN-VERIFY exists to distrust. The item was scoped that way deliberately ("no key,
+no install, no download"), so the SHAPES transfer and no individual field name is confirmed. Nothing here
+licenses deleting an unverified marker.
+
+**The answer.** The dominant 3D family returns a mesh and nothing renderable (Hunyuan3D v2: `model_mesh`
+alone; Hyper3D Rodin: `model_mesh.url` plus `textures[]`). A minority adds a **single preview `thumbnail`**
+(Meshy v6) — one fixed view, not a turntable. Turntable output belongs to a **different model family**
+(SV3D-class orbital synthesis), which is **image→views** and therefore does not occupy a 3D stage's place in
+a chain. So `3d → image → video` corresponds to no buildable chain, and the chain that IS buildable
+(`image → orbital views → video`) contains no 3D stage. **The 3d→image edge is not a generation at all — it
+is a RASTERIZATION**, which no vendor on this platform performs, and a rasterizer belongs to an application
+with a renderer rather than to a library whose core promise is a small dependency footprint.
+
+**Two traps a runner would have walked into, and neither is visible from the contract.** A mesh backend's
+only `image/*` artifacts are **UV texture atlases** (Rodin's `textures[]`, `content_type: image/png`) — a
+flattened skin, not a view — so "pick the first `image/*` artifact" chains something that renders fine and
+is completely wrong, the same silent-plausible class `FalQueueProvider` carries a comment about having
+shipped once. And **MediaType cannot be branched on**: Hunyuan3D reports its GLB as
+`application/octet-stream`, so the type is opaque exactly where the decision matters. A stage that cannot
+identify a chainable artifact must REFUSE rather than fall back.
+
+**Two defects found on the OUTPUT stage, both recorded and NEITHER fixed.**
+
+- **`ComfyUiProvider` declares `SupportsInputs = true` and never reads `request.Inputs`** — the identifier
+  occurs once in the file, in the declaration. `GenerationCapabilities.CanServe` uses the flag as an
+  ADMISSION filter (`request.Inputs.Count > 0 && !SupportsInputs`), so it is a promise to the router that
+  the backend consumes inputs: the router will select ComfyUI for an image→video request carrying a first
+  frame, and the frame is dropped in silence. fal fixed this exact bug on its own side and left the
+  reasoning in a comment. The flag buys ComfyUI nothing even charitably — a caller who bakes the image into
+  the workflow graph sends no `Inputs`, and `CanServe` only filters when there are some.
+- **`GenerationKinds.Model3d`'s XML doc is false and it SHIPS** — *"Chains into `Image` and then `Video`"*
+  is untrue for the entire mesh family. Same tier as `MaxSalience` keeping *"Unmeasured"* after the ladder
+  that measured it (Part 123, the same day).
+
+**What it opened.** **GEN7a**, the pipeline runner at `image → video` — GEN7's whole design minus the stage
+that has no backend, startable with no key or download, and carrying the two defects above as
+fix-first prerequisites. The survey replaced itself in the startable set rather than shrinking it, and
+GEN7's own blocker was restated: what stays blocked is the 3D STAGE, on a rasterizer, not the runner.

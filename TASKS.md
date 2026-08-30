@@ -27,8 +27,8 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is THREE items: Part 116's one, Part 109's QA half, and the
-3D-backend survey inside Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this
+**The startable set is THREE items: Part 116's one, Part 109's QA half, and
+GEN7a — the `image → video` pipeline runner inside Part 33.** Each is a `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
@@ -42,6 +42,12 @@ wide and one sample thin. LoCoMo pays 4.5 points of evidence-hit going to K = 12
 haystack pays 6.0 points of `current@k` where the 25-question sample said 0.0. **60 is a priced compromise,
 and no default moved** — what is left of that Part is its QA half alone. Its other three items closed
 earlier (**D97**, Part 112's haystack run, Part 113's ranking ladder).
+<br>**The 3D-backend survey CLOSED 2026-08-30** as `docs/task-archive.md` **Part 124**, and like Part 122 it
+overturned its own premise rather than picking one of its two options: a mesh cannot chain into any backend
+here, and no 3D backend produces a turntable — so `3d → image → video` is not buildable at all, and the 3D
+stage's real blocker is a RASTERIZER that does not belong in this library. **It replaced itself in the
+startable set with GEN7a**, the `image → video` runner, which is GEN7's whole design minus the stage that
+has no backend. It also found two OUTPUT-stage defects that gate that runner and are not fixed.
 <br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
 its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
 not work somebody can start — the same reason Part 105 sits under Blocked. Everything measurable in it has
@@ -101,10 +107,12 @@ Blocked, and on what:
 - **Part 33 / GEN6 (streaming TTS)** — a vendor pick and a key. Shipping it unmeasured is the exact mistake
   GEN-VERIFY exists to correct.
 - **Part 33 / GEN7 (pipelines)** — the pipeline's FIRST stage has no backend at all: `GenerationKinds.Model3d`
-  is a bare constant no provider declares (re-checked 2026-08-28). **The SURVEY inside it is startable and is
-  the critical path** — mesh vs turntable stills, since only the latter chains into today's video backends.
-  It needs no key, no install and no download, and its answer decides whether a 3D stage can feed the rest at
-  all. Listing this Part as blocked without saying that is the Part 33 mistake repeating itself.
+  is a bare constant no provider declares (re-checked 2026-08-28). **The survey that was the critical path
+  here RAN on 2026-08-30** (`docs/task-archive.md` Part 124): a mesh cannot chain and no 3D backend produces
+  a turntable, so `3d → image → video` is not buildable and the 3D STAGE is what stays blocked — on a
+  RASTERIZER, which is not a generation backend and does not belong in this library. **What that unblocked
+  is the runner at `image → video`**, startable and listed as its own item under Part 33. Listing this Part
+  as blocked without saying that is the Part 33 mistake repeating itself.
 - **Part 41 / CLI12** — codex's tool-step item names need a real turn **that runs tools**. Two blockers, and
   the second was only discovered on 2026-08-11 when the owner authorized the first: it spends tokens (the
   owner's call, and they said yes), **and the codex CLI is not installed on this machine at all** — not on
@@ -212,9 +220,43 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   original wording hid.
   Both video backends also still carry unverified-surface markers — precisely what GEN-VERIFY covers — so
   "real" in the measured sense is not yet true of the output stage either.
-  The 3D-backend survey stays a prerequisite and is now the critical path: **mesh vs turntable stills, where
-  only the latter chains into today's video backends.** That question decides whether a 3D stage can feed the
-  rest at all, so it must be answered before the runner's shape, not alongside it.
+  **The survey RAN on 2026-08-30 (`docs/task-archive.md` Part 124) and its answer is that neither option was
+  on the menu.** It asked mesh vs turntable stills; the dominant 3D family returns a **mesh and nothing
+  renderable** (Hunyuan3D, Rodin), a minority adds a **single preview thumbnail** (Meshy) which is one fixed
+  view rather than a turntable, and **turntable output belongs to a different model family altogether**
+  (SV3D-class orbital synthesis), which is **image→views** and so does not occupy a 3D stage's place in the
+  chain. **So `3d → image → video` corresponds to no buildable chain today, and the chain that IS buildable
+  (`image → orbital views → video`) has no 3D stage in it.** The 3d→image edge is not a generation at all —
+  it is a RASTERIZATION, which no vendor on this platform performs.
+  <br>**What remains startable is the runner, at `image → video`** — both stages have real backends, and the
+  chaining primitive plus the role vocabulary already work (fal maps `GenerationInputRoles.FirstFrame` to
+  `image_url`). A stage is a stage, so the runner's shape does not change if a 3D stage is added later; that
+  is what makes this an unblocking rather than a narrowing. A rasterizer stage is the only thing that makes a
+  mesh chain and it belongs to an application with a renderer, never inside a library whose core promise is a
+  small dependency footprint (`dotnet-package-layout.md` §Package boundaries).
+  <br>**Two defects on the OUTPUT stage were found while establishing that, and they gate the runner
+  independently of the 3D question** — `ComfyUiProvider` declaring `SupportsInputs = true` while never
+  reading `request.Inputs`, and `GenerationKinds.Model3d`'s shipped XML doc claiming a chain that does not
+  exist. Both are recorded in Part 124 and neither is fixed.
+  <br>_Desk survey: read from published API pages, never called. That is the tier GEN-VERIFY exists to
+  distrust, so the SHAPES transfer and no individual field name is confirmed — nothing in it licenses
+  deleting an unverified marker._
+
+- [ ] **GEN7a — the pipeline runner at `image → video`, the half the survey unblocked.** Ordered stages
+  feeding `artifact.ToInput(role)` forward, with per-stage candidates and per-stage failure semantics —
+  GEN7's whole design minus the stage that has no backend. Startable: needs no key, no install and no
+  download, since both stages have real backends and the role vocabulary already maps
+  (`GenerationInputRoles.FirstFrame` → fal's `image_url`).
+  <br>**Fix the two output-stage defects FIRST, or the runner inherits them** (`docs/task-archive.md`
+  Part 124). `ComfyUiProvider` declares `SupportsInputs = true` and never reads `request.Inputs`, and
+  `GenerationCapabilities.CanServe` treats that flag as an ADMISSION filter — so the router will hand a
+  chained first frame to ComfyUI and the frame is dropped in silence, which is exactly the billed
+  text-to-video failure `FalQueueProvider` carries a comment about having shipped once. A pipeline runner
+  turns that from one wrong call into a wrong STAGE whose output feeds everything downstream.
+  <br>**Two traps for the runner's own design, both from the survey.** An artifact's `MediaType` cannot be
+  branched on — Hunyuan3D reports a GLB as `application/octet-stream` — and picking "the first `image/*`
+  artifact" is wrong, because a mesh backend's `image/png` artifacts are UV texture atlases rather than
+  views. A stage that cannot identify a chainable artifact must REFUSE, never fall back.
 
 > Add new tasks here as checklist items with an `id` and a short `file:line` where known. Group related
 > tasks under a `## Part N — <theme>` heading. Move an item to the archive when it lands — don't leave a
