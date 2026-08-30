@@ -47,7 +47,8 @@ overturned its own premise rather than picking one of its two options: a mesh ca
 here, and no 3D backend produces a turntable — so `3d → image → video` is not buildable at all, and the 3D
 stage's real blocker is a RASTERIZER that does not belong in this library. **It replaced itself in the
 startable set with GEN7a**, the `image → video` runner, which is GEN7's whole design minus the stage that
-has no backend. It also found two OUTPUT-stage defects that gate that runner and are not fixed.
+has no backend. It also found two OUTPUT-stage defects, both FIXED the same day as **Part 125** — a
+capability ComfyUI declared and never implemented, and a false XML doc that shipped.
 <br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
 its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
 not work somebody can start — the same reason Part 105 sits under Blocked. Everything measurable in it has
@@ -234,10 +235,10 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   is what makes this an unblocking rather than a narrowing. A rasterizer stage is the only thing that makes a
   mesh chain and it belongs to an application with a renderer, never inside a library whose core promise is a
   small dependency footprint (`dotnet-package-layout.md` §Package boundaries).
-  <br>**Two defects on the OUTPUT stage were found while establishing that, and they gate the runner
-  independently of the 3D question** — `ComfyUiProvider` declaring `SupportsInputs = true` while never
+  <br>**Two defects on the OUTPUT stage were found while establishing that, and both are FIXED**
+  (`docs/task-archive.md` Part 125) — `ComfyUiProvider` declaring `SupportsInputs = true` while never
   reading `request.Inputs`, and `GenerationKinds.Model3d`'s shipped XML doc claiming a chain that does not
-  exist. Both are recorded in Part 124 and neither is fixed.
+  exist. So they no longer gate the runner below.
   <br>_Desk survey: read from published API pages, never called. That is the tier GEN-VERIFY exists to
   distrust, so the SHAPES transfer and no individual field name is confirmed — nothing in it licenses
   deleting an unverified marker._
@@ -247,12 +248,12 @@ was the third such surface — a consuming app measured it 2026-08-04 and it is 
   GEN7's whole design minus the stage that has no backend. Startable: needs no key, no install and no
   download, since both stages have real backends and the role vocabulary already maps
   (`GenerationInputRoles.FirstFrame` → fal's `image_url`).
-  <br>**Fix the two output-stage defects FIRST, or the runner inherits them** (`docs/task-archive.md`
-  Part 124). `ComfyUiProvider` declares `SupportsInputs = true` and never reads `request.Inputs`, and
-  `GenerationCapabilities.CanServe` treats that flag as an ADMISSION filter — so the router will hand a
-  chained first frame to ComfyUI and the frame is dropped in silence, which is exactly the billed
-  text-to-video failure `FalQueueProvider` carries a comment about having shipped once. A pipeline runner
-  turns that from one wrong call into a wrong STAGE whose output feeds everything downstream.
+  <br>_**The two output-stage defects that would have gated this are already FIXED**
+  (`docs/task-archive.md` Part 125), so the runner starts on a sound output stage: ComfyUI no longer claims
+  an input capability it never implemented, and every HTTP backend is now held to
+  `GenerationProviderContract.A_handed_input_is_consumed_or_refused`. Worth knowing rather than re-deriving:
+  **ComfyUI cannot be a chained stage's target at all** — its init image is a node the caller authored — so
+  a two-stage `image → video` run resolves to fal for the video leg unless the host wires the graph itself._
   <br>**Two traps for the runner's own design, both from the survey.** An artifact's `MediaType` cannot be
   branched on — Hunyuan3D reports a GLB as `application/octet-stream` — and picking "the first `image/*`
   artifact" is wrong, because a mesh backend's `image/png` artifacts are UV texture atlases rather than

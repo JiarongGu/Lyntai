@@ -124,7 +124,9 @@ public sealed class ComfyUiProvider(
     {
         Kinds = options.Kinds,
         Deliveries = [GenerationDelivery.Job],
-        SupportsInputs = true,   // a workflow can take an init image; the graph decides how
+        // NOT SupportsInputs: a graph takes its init image from a node the CALLER authored, and the platform
+        // cannot know which node that is — so GenerationRequest.Inputs has nowhere to go. Declaring it is an
+        // admission promise (GenerationCapabilities.Supports) that the submit path below cannot keep.
     };
 
     /// <summary>Reads server info — free, and it answers "is it up, and which build?" without generating.
@@ -181,6 +183,14 @@ public sealed class ComfyUiProvider(
     {
         if (string.IsNullOrWhiteSpace(options.BaseUrl))
             return Failed("no BaseUrl configured");
+
+        // Refuse rather than drop. The router will not route an input-carrying request here (SupportsInputs
+        // is not declared), but a caller holding the provider directly can still reach this — and a dropped
+        // input runs the graph as authored, which bills a render nobody asked for and looks plausible.
+        if (request.Inputs.Count > 0)
+            return Failed("ComfyUI takes an init image from a node inside the workflow graph, so there is "
+                + "nowhere to put GenerationInput — reference the image from the graph in "
+                + $"Options[\"{options.WorkflowOption}\"] instead");
 
         if (request.Option(options.WorkflowOption) is not { Length: > 0 } workflowJson)
             return Failed($"ComfyUI needs a workflow graph in Options[\"{options.WorkflowOption}\"] — " +

@@ -1725,20 +1725,61 @@ shipped once. And **MediaType cannot be branched on**: Hunyuan3D reports its GLB
 `application/octet-stream`, so the type is opaque exactly where the decision matters. A stage that cannot
 identify a chainable artifact must REFUSE rather than fall back.
 
-**Two defects found on the OUTPUT stage, both recorded and NEITHER fixed.**
+**Two defects found on the OUTPUT stage, recorded here and FIXED the same day as Part 125.**
 
 - **`ComfyUiProvider` declares `SupportsInputs = true` and never reads `request.Inputs`** — the identifier
-  occurs once in the file, in the declaration. `GenerationCapabilities.CanServe` uses the flag as an
+  occurs once in the file, in the declaration. `GenerationCapabilities.Supports` uses the flag as an
   ADMISSION filter (`request.Inputs.Count > 0 && !SupportsInputs`), so it is a promise to the router that
   the backend consumes inputs: the router will select ComfyUI for an image→video request carrying a first
   frame, and the frame is dropped in silence. fal fixed this exact bug on its own side and left the
   reasoning in a comment. The flag buys ComfyUI nothing even charitably — a caller who bakes the image into
-  the workflow graph sends no `Inputs`, and `CanServe` only filters when there are some.
+  the workflow graph sends no `Inputs`, and `Supports` only filters when there are some.
 - **`GenerationKinds.Model3d`'s XML doc is false and it SHIPS** — *"Chains into `Image` and then `Video`"*
   is untrue for the entire mesh family. Same tier as `MaxSalience` keeping *"Unmeasured"* after the ladder
   that measured it (Part 123, the same day).
 
 **What it opened.** **GEN7a**, the pipeline runner at `image → video` — GEN7's whole design minus the stage
-that has no backend, startable with no key or download, and carrying the two defects above as
-fix-first prerequisites. The survey replaced itself in the startable set rather than shrinking it, and
-GEN7's own blocker was restated: what stays blocked is the 3D STAGE, on a rasterizer, not the runner.
+that has no backend, startable with no key or download. The survey replaced itself in the startable set
+rather than shrinking it, and GEN7's own blocker was restated: what stays blocked is the 3D STAGE, on a
+rasterizer, not the runner.
+
+## Part 125 — the capability nothing implemented, and the contract fact that now catches it (2026-08-30)
+
+✅ done 2026-08-30 — the two output-stage defects Part 124 found, both fixed. `docs/FIXES.md` carries the
+incident and `.claude/knowledge/pitfalls.md` §Second doors the reusable rule.
+
+**`ComfyUiProvider` declared `SupportsInputs = true` and never read `request.Inputs`** — one occurrence of
+the identifier in the file, the declaration. The flag is an ADMISSION filter
+(`GenerationCapabilities.Supports`), so declaring it does not describe the backend, it makes the router
+SELECT it for input-carrying work it cannot do: the input was dropped, the graph ran as authored, and the
+render came back plausible and billed. Wrong since `a0efbe6` (2026-08-04), the commit that added the
+backend — never a regression. **It survived 26 days after the identical bug was found and fixed in
+`FalQueueProvider`**, whose comment records the same billed-and-plausible outcome, because that cure was
+written as one provider's comment rather than as a shared fact.
+
+**The fix is the honest capability plus a refusal, and the flag bought nothing even charitably.**
+`SupportsInputs` is no longer declared, so `Supports` filters the backend out and the router goes
+elsewhere; `SubmitCoreAsync` refuses an input that arrives anyway, which is reachable by a caller holding
+the provider directly, and posts nothing so bills nothing. A caller who references the image from the graph
+— every correct ComfyUI caller — sends no `Inputs` at all, and the filter only applies when there are some,
+so `true` was unnecessary for the path that works and harmful on the path that did not.
+
+**The guard went into the CONTRACT rather than the provider, which is the transferable part.** Four
+backends honoured this and one did not: precisely the shape a shared contract fact catches and a
+per-backend test never will. `GenerationProviderContract.A_handed_input_is_consumed_or_refused` hands every
+HTTP backend an input carrying a marker and asserts it was either consumed or refused before the call,
+never quietly discarded — sending nothing is honest, sending a request without the input is the defect.
+**Written against the unfixed tree it failed for ComfyUI alone and passed for the other three**, which is
+what makes it a fact rather than a restatement of the bug. It sits beside
+`Its_declared_deliveries_are_backed_by_the_interfaces_it_implements`, which was already doing this for
+delivery modes — and whose existence suggested the inputs axis to nobody for 26 days.
+
+**`GenerationKinds.Model3d`'s XML doc claimed a chain that does not exist** and shipped. Corrected to state
+what Part 124 established, including the texture-atlas trap. No code depended on it.
+
+**One correction worth recording, because it reached two committed records before it was caught.** The
+admission filter is `GenerationCapabilities.Supports`; this session wrote it as `CanServe` throughout —
+inferred from a grep that showed the method BODY without its signature — and that name reached Part 124 and
+`TASKS.md` before the compiler rejected it in a test. `check-links` cannot see it: a C# member named in
+prose is not a path, a Part or a `§`. **A member name quoted in prose has no gate at all**, so read the
+declaration rather than the body before citing one.

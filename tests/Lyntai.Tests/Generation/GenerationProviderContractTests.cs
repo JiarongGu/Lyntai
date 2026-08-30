@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 
 using Lyntai.Generation;
 using Lyntai.Generation.Providers;
@@ -81,6 +82,30 @@ public abstract class HttpGenerationProviderContractFacts : GenerationProviderCo
 
         await GenerationProviderContract.Caller_cancellation_propagates_rather_than_becoming_a_verdict(
             provider, Ask());
+    }
+
+    /// <summary><b>A backend that declares it takes inputs must not silently drop one.</b> Driven through
+    /// whichever door the backend actually serves, because the job-only backends are exactly where a chained
+    /// artifact arrives. The response is deliberately junk — what is under test is the request that was SENT,
+    /// not what came back, so no backend needs its own success shape scripted here.</summary>
+    [Fact]
+    public async Task A_declared_input_capability_is_honoured()
+    {
+        var http = new StubHttpHandler();
+        http.Enqueue(HttpStatusCode.OK, "{}");
+        var provider = New(http);
+        if (!provider.Capabilities.SupportsInputs) return;
+
+        var marker = Encoding.ASCII.GetBytes("LYNTAI-INPUT-MARKER-7F3A");
+        var ask = Ask() with { Inputs = [GenerationInput.FirstFrame(marker, "image/png")] };
+
+        if (provider.Capabilities.Deliveries.Contains(GenerationDelivery.Inline))
+            await provider.GenerateAsync(ask);
+        else if (provider is IGenerationJobProvider jobs)
+            await jobs.SubmitAsync(ask);
+
+        GenerationProviderContract.A_handed_input_is_consumed_or_refused(
+            provider.Id, [.. http.Requests.Select(r => r.Body)], marker);
     }
 
     /// <summary>The INLINE door classifies a 401.</summary>

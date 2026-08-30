@@ -7,6 +7,45 @@ to `.claude/knowledge/pitfalls.md`; the release-facing line goes to `CHANGELOG.m
 
 ---
 
+## 2026-08-30 — ComfyUI promised the router it took inputs, then dropped them
+
+**Symptom.** Hand `ComfyUiProvider` a `GenerationRequest` carrying a `GenerationInput` — a chained first
+frame, an init image — and the render runs as if you had passed none. No error, no warning, nothing in the
+result saying the image was discarded. The graph executes exactly as authored, so the output comes back
+plausible and is simply not what was asked for. Found while surveying whether a 3D stage could feed the
+video backends (`docs/task-archive.md` Part 124), not from a report.
+
+**Root cause.** The backend declared `SupportsInputs = true` and never read `request.Inputs` — the
+identifier occurred exactly once in the file, in the declaration. **The flag is not advisory:**
+`GenerationCapabilities.Supports` uses it as an ADMISSION filter
+(`if (request.Inputs.Count > 0 && !SupportsInputs) return false;`), so declaring it is a promise to the
+router that this backend consumes inputs, and the router acts on it by SELECTING this backend for
+input-carrying work. The submit path substitutes the prompt into the graph and posts it; there is no
+branch that could have consumed an input, because a ComfyUI init image is a node the caller authored and
+the platform cannot know which node that is. Introduced by `a0efbe6` (2026-08-04), the commit that added
+the backend — never a regression, wrong from the first line.
+
+`FalQueueProvider` had the same defect on its own side and fixed it, leaving the reasoning in a comment:
+dropping a bytes-only input "submitted — and billed — a text-to-video render against a caller who asked
+for image→video, and the result looked plausible". ComfyUI kept it for 26 days after fal's cure was in the
+tree, because nothing generalised the cure.
+
+**Fix.** Stop declaring the capability, and refuse rather than drop. `SupportsInputs` is no longer set
+(`src/Lyntai.Generation/ComfyUiProvider.cs`), so `Supports` filters the backend out of input-carrying
+requests and the router routes elsewhere; and `SubmitCoreAsync` now returns a `Failed` operation naming the
+workflow-graph route if an input arrives anyway, which is reachable by a caller holding the provider
+directly and bypassing the router. Nothing is posted, so nothing is billed. The flag bought the backend
+nothing even charitably: a caller who bakes the image into the graph sends no `Inputs` at all, and
+`Supports` only filters when there are some.
+
+**Verify.** A new backend-agnostic contract fact —
+`GenerationProviderContract.A_handed_input_is_consumed_or_refused`, wired into
+`HttpGenerationProviderContractFacts` so every HTTP backend takes it. It hands the provider an input whose
+bytes carry a marker and asserts that either nothing was sent (a refusal) or the marker appears in what was
+sent, in raw or base64 form. On the unfixed tree it failed for ComfyUI alone — **1 failed, 3 passed**, so
+OpenAI, Automatic1111 and fal already honoured it and the fact isolates the defect rather than describing
+it. Plus two per-backend tests pinning the honest capability and the refusal. 35 passed after the fix.
+
 ## 2026-08-26 — a corrected `Metadata` bag was silently ignored on a re-remember
 
 **Symptom.** Write a fact with `Metadata`, then write the same content again with a corrected bag — a fixed

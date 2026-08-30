@@ -49,6 +49,38 @@ public class ComfyUiProviderTests
     }
 
     [Fact]
+    public void It_does_not_declare_SupportsInputs_because_the_graph_owns_the_init_image()
+    {
+        // SupportsInputs is an ADMISSION filter in GenerationCapabilities.Supports, so declaring it promises
+        // the router this backend reads GenerationRequest.Inputs. It cannot: the init image is a node the
+        // caller authored and the platform cannot know which one.
+        var (provider, _) = Provider();
+
+        Assert.False(provider.Capabilities.SupportsInputs);
+        Assert.False(provider.Capabilities.Supports(
+            Ask() with { Inputs = [GenerationInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")] },
+            GenerationDelivery.Job));
+    }
+
+    [Fact]
+    public async Task An_input_is_refused_rather_than_dropped_so_a_chained_frame_cannot_vanish()
+    {
+        // a caller holding the provider directly bypasses the router's capability filter. Dropping the input
+        // here runs the graph as authored — a text-to-video render billed against a caller who asked for
+        // image→video, coming back plausible. The same shape FalQueueProvider refuses a bytes-only input for.
+        var (provider, http) = Provider();
+
+        var operation = await provider.SubmitAsync(Ask() with
+        {
+            Inputs = [GenerationInput.FirstFrame(new byte[] { 1, 2, 3 }, "image/png")],
+        });
+
+        Assert.Equal(GenerationOperationStatus.Failed, operation.Status);
+        Assert.Contains("workflow graph", operation.Detail);
+        Assert.Empty(http.Requests);          // nothing was submitted, so nothing was billed
+    }
+
+    [Fact]
     public async Task Inline_generation_is_declined_because_this_backend_is_a_job_backend()
     {
         // the base seam must answer honestly rather than hiding a poll loop

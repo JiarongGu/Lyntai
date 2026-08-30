@@ -1220,6 +1220,31 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   is an orphan rather than a residue") and the `try`/`catch` did not implement it. When you write down why
   two paths differ, check every mechanism that expresses the difference, not just the one you were editing.
 
+- **A capability FLAG is a promise, and a flag nothing implements is a silent wrong answer rather than a
+  missing feature.** Measured 2026-08-30 (`docs/FIXES.md`, `docs/task-archive.md` Part 124).
+  `ComfyUiProvider` declared `SupportsInputs = true` and never read `request.Inputs` — the identifier
+  occurred once in the whole file, in the declaration. **What makes this expensive is that the flag is an
+  ADMISSION filter**: `GenerationCapabilities.Supports` returns false for an input-carrying request when the
+  flag is unset, so declaring it does not merely describe the backend, it makes the router *choose* it for
+  exactly the work it cannot do. The input was dropped, the graph ran as authored, and the render came back
+  plausible and billed. Wrong from the commit that added the backend; it survived 26 days after the
+  identical bug was found and fixed in a sibling backend, because the cure was written as one provider's
+  comment instead of as a shared fact.
+  <br>**The tell: grep the flag's own subject.** If a backend declares it consumes X, `X` should appear more
+  than once in the file — once to declare, at least once to read. One occurrence means the declaration is
+  the only thing that knows about it. This is cheaper than any reasoning about behaviour and it is the whole
+  detection.
+  <br>**And the fix belongs in the CONTRACT, not the provider.** Four backends already honoured this and one
+  did not, which is precisely the shape a shared contract fact catches and a per-backend test never will —
+  `GenerationProviderContract.A_handed_input_is_consumed_or_refused` now hands every HTTP backend an input
+  and asserts it was either used or refused, never quietly discarded. Written against the unfixed tree it
+  failed for one backend and passed for three, which is what makes it a real fact rather than a restatement
+  of the bug. **A declaration/implementation pair is a second door**, so the rule generalises: whenever a
+  capability, delivery mode or supported-kind list is DECLARED, something must assert the code path behind
+  it exists — the sibling fact
+  `Its_declared_deliveries_are_backed_by_the_interfaces_it_implements` was already doing this for delivery
+  modes and its existence did not suggest the inputs axis to anyone.
+
 ## Refactoring & namespace moves
 
 - **A compiler error list is not the authoritative site-list for a rename or move — it misses silently in

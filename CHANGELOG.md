@@ -131,6 +131,29 @@ consequence is relaxed. Strict SemVer resumes as soon as any third party depends
 
 ### Fixed
 
+- **ComfyUI told the router it accepted input media and then discarded it.** `ComfyUiProvider` declared
+  `GenerationCapabilities.SupportsInputs` while never reading `GenerationRequest.Inputs`. That flag is an
+  admission filter — `GenerationCapabilities.Supports` excludes a backend from input-carrying requests when
+  it is unset — so declaring it made the router **select** ComfyUI for exactly the work it could not do: a
+  chained first frame or init image was dropped, the workflow ran as authored, and the render came back
+  plausible and billed with nothing indicating the image had been ignored.
+  <br>**The backend no longer declares the capability**, so the router routes such requests elsewhere, and a
+  caller holding the provider directly now gets a `Failed` operation naming the workflow-graph route instead
+  of a silent drop — nothing is posted, so nothing is billed. **This is a behaviour change for one case
+  only:** a request that carried `Inputs` and previously produced a wrong render now fails fast or routes to
+  another backend. A ComfyUI caller who references the image from the graph itself is unaffected, which is
+  every correct caller — such a request carries no `Inputs`, and the filter only applies when it does.
+  <br>Guarded by a new backend-agnostic contract fact, so the class cannot return on any backend: every HTTP
+  backend is now handed an input and must either use it or refuse. Written against the unfixed tree it
+  failed for ComfyUI alone and passed for OpenAI, Automatic1111 and fal. `docs/FIXES.md`,
+  `docs/task-archive.md` Part 124.
+
+- **`GenerationKinds.Model3d` documented a chain that does not exist.** Its XML doc claimed a 3D asset
+  "chains into `Image` and then `Video`". No image or video backend accepts a mesh, so the 3d→image edge is
+  a rasterization rather than a generation and this platform performs none — and a mesh backend's own
+  `image/*` artifacts are usually UV texture atlases, which chain mechanically and render as a flattened
+  skin. The doc now says so. Surveyed in `docs/task-archive.md` Part 124; no code depended on the claim.
+
 - **Documentation citations that named a section which no longer exists.** `docs/memory.md`'s
   `## 8. What is NOT measured` was folded into `## 7` with §9/§10 left un-renumbered, and seven citations
   across six files kept pointing at it; two more named a `TASKS.md` heading removed when its items were

@@ -16,8 +16,12 @@ public static class GenerationKinds
     /// <summary>Speech, music or sound effects.</summary>
     public const string Audio = "audio";
 
-    /// <summary>A 3D asset (mesh/scene). Chains into <see cref="Image"/> and then <see cref="Video"/> — see
-    /// <see cref="GenerationArtifact.ToInput"/>.</summary>
+    /// <summary>A 3D asset (mesh/scene). <b>No shipped backend declares this kind, and a mesh does NOT chain
+    /// into <see cref="Image"/> or <see cref="Video"/>:</b> no image or video backend accepts a mesh, so the
+    /// 3d→image edge is a RASTERIZATION rather than a generation, and this platform performs none. A mesh
+    /// backend's own <c>image/*</c> artifacts are usually UV texture atlases — a flattened skin, not a view of
+    /// the object — so chaining one through <see cref="GenerationArtifact.ToInput"/> renders fine and is
+    /// wrong. The kind is declared so a backend serving it needs no contract change.</summary>
     public const string Model3d = "3d";
 }
 

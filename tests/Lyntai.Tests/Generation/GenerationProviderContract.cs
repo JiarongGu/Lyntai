@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 
 using Lyntai.Generation;
 
@@ -116,6 +117,35 @@ public static class GenerationProviderContract
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => provider.GenerateAsync(ask, cancelled.Token));
+    }
+
+    /// <summary><b>A declared INPUT capability must be backed by code that CONSUMES it.</b> The sibling of
+    /// <see cref="Its_declared_deliveries_are_backed_by_the_interfaces_it_implements"/>, one axis over:
+    /// <see cref="GenerationCapabilities.SupportsInputs"/> is not advisory, because
+    /// <see cref="GenerationCapabilities.Supports"/> uses it as an ADMISSION filter. Declaring it is a promise
+    /// to the router that this backend reads <see cref="GenerationRequest.Inputs"/>, so a backend that
+    /// declares it and ignores them is handed the chained artifact and drops it in silence.
+    /// <para>Two answers are acceptable and one is not. SENDING NOTHING is honest — that is a refusal, and
+    /// <c>FalQueueProvider</c> refuses a bytes-only input exactly this way. Sending a request that carries the
+    /// input is honest. Sending a request that does NOT carry it is the defect: the render is billed, the
+    /// result comes back plausible, and nothing in it says the caller's image was discarded.</para>
+    /// <para>A backend declaring <c>false</c> is out of scope here and guarded by <c>Supports</c> instead —
+    /// the router never routes it an input-carrying request in the first place.</para></summary>
+    public static void A_handed_input_is_consumed_or_refused(
+        string providerId, IReadOnlyCollection<string> sentBodies, byte[] marker)
+    {
+        if (sentBodies.Count == 0) return;   // refused before spending anything
+
+        var raw = Encoding.ASCII.GetString(marker);
+        var encoded = Convert.ToBase64String(marker);
+
+        Assert.True(
+            sentBodies.Any(body => body.Contains(raw, StringComparison.Ordinal)
+                || body.Contains(encoded, StringComparison.Ordinal)),
+            $"{providerId} declares SupportsInputs and SENT a request for one carrying an input, but neither "
+            + "the input's bytes nor their base64 appear in what it sent — the input was silently dropped. "
+            + "Either consume it or refuse before the call; dropping it bills a render the caller did not ask "
+            + "for and returns a plausible-looking wrong result.");
     }
 
     /// <summary>A 401 response, for the auth facts above.</summary>
