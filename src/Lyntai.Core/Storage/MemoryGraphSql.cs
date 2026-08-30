@@ -88,7 +88,7 @@ public static class MemoryGraphSql
              pre_strength_age, grade, post_stability, post_difficulty, provenance_retrievability,
              verified)
         VALUES (@engine, @NodeId, @batchId, @now, @PreAge, @PreStability, @PreDifficulty, @PreStrength,
-                @PreStrengthAge, @Grade, @PostStability, @PostDifficulty, @ProvenanceRetrievability,
+                @PreStrengthAge, @ReviewGrade, @PostStability, @PostDifficulty, @ProvenanceRetrievability,
                 @Verified)
         """;
 

@@ -75,7 +75,7 @@ public class OutcomeSignalTests
 
         await store.RecordReviewsAsync(Engine,
             [new MemoryReviewWrite(id, Guid.NewGuid(), PreAge: 0, PreStability: 0, PreDifficulty: 0,
-                PreStrength: 0, PreStrengthAge: 0, Grade: null, PostStability: 0, PostDifficulty: 0,
+                PreStrength: 0, PreStrengthAge: 0, ReviewGrade: null, PostStability: 0, PostDifficulty: 0,
                 Verified: false)],
             cap: 1000);
 
@@ -102,11 +102,11 @@ public class OutcomeSignalTests
         await store.RecordReviewsAsync(Engine,
         [
             // a judge REJECTED this returned entry
-            new MemoryReviewWrite(a, batch, 1, 7, 5, 0, 0, Grade: 3, PostStability: 7, PostDifficulty: 5,
+            new MemoryReviewWrite(a, batch, 1, 7, 5, 0, 0, ReviewGrade: 3, PostStability: 7, PostDifficulty: 5,
                 Verified: false),
             // an application reports it EXPECTED this one and never saw it — the only column that can carry
             // a negative is the same one, and the curve fields are meaningless here
-            new MemoryReviewWrite(b, batch, 0, 0, 0, 0, 0, Grade: null, PostStability: 0, PostDifficulty: 0,
+            new MemoryReviewWrite(b, batch, 0, 0, 0, 0, 0, ReviewGrade: null, PostStability: 0, PostDifficulty: 0,
                 Verified: false),
         ], cap: 1000);
 
@@ -115,9 +115,9 @@ public class OutcomeSignalTests
 
         // Both are Verified == false, and no column says which kind of false it is.
         //
-        // A null Grade is not the discriminator it looks like: MemoryReviewWrite.Grade documents null as a
+        // A null ReviewGrade is not the discriminator it looks like: MemoryReviewWrite.ReviewGrade documents null as a
         // legitimate value for a GENUINE review — the same-position/session-burst branch, where no
-        // grade-driven update ran — so reading "Grade is null" as "this was not a review" would misread
+        // grade-driven update ran — so reading "ReviewGrade is null" as "this was not a review" would misread
         // real rows. The zeroed curve columns are a legal state too, for a review of a brand-new entry.
         // Every candidate discriminator is a convention the schema does not carry.
         Assert.All(rows, r => Assert.False(r.Verified));

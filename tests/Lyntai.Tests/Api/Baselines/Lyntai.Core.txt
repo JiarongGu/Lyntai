@@ -2152,15 +2152,14 @@ enum Lyntai.Memory.MemoryRemovalKind
     Prune : MemoryRemovalKind const
     value__ : Int32
 sealed class Lyntai.Memory.MemoryReview
-    .ctor(Int64 Id, String Engine, Int64 NodeId, Guid BatchId, DateTimeOffset CreatedAt, Double PreAge, Double PreStability, Double PreDifficulty, Double PreStrength, Double PreStrengthAge, Nullable<Double> Grade, Double PostStability, Double PostDifficulty, Int64 ProvenanceRetrievability, Nullable<Boolean> Verified = null)
+    .ctor(Int64 Id, String Engine, Int64 NodeId, Guid BatchId, DateTimeOffset CreatedAt, Double PreAge, Double PreStability, Double PreDifficulty, Double PreStrength, Double PreStrengthAge, Nullable<Double> ReviewGrade, Double PostStability, Double PostDifficulty, Int64 ProvenanceRetrievability, Nullable<Boolean> Verified = null)
     BatchId : Guid
     CreatedAt : DateTimeOffset
-    Deconstruct(Int64& Id, String& Engine, Int64& NodeId, Guid& BatchId, DateTimeOffset& CreatedAt, Double& PreAge, Double& PreStability, Double& PreDifficulty, Double& PreStrength, Double& PreStrengthAge, Nullable`1& Grade, Double& PostStability, Double& PostDifficulty, Int64& ProvenanceRetrievability, Nullable`1& Verified) : Void
+    Deconstruct(Int64& Id, String& Engine, Int64& NodeId, Guid& BatchId, DateTimeOffset& CreatedAt, Double& PreAge, Double& PreStability, Double& PreDifficulty, Double& PreStrength, Double& PreStrengthAge, Nullable`1& ReviewGrade, Double& PostStability, Double& PostDifficulty, Int64& ProvenanceRetrievability, Nullable`1& Verified) : Void
     Engine : String
     Equals(MemoryReview other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    Grade : Nullable<Double>
     Id : Int64
     NodeId : Int64
     PostDifficulty : Double
@@ -2171,19 +2170,19 @@ sealed class Lyntai.Memory.MemoryReview
     PreStrength : Double
     PreStrengthAge : Double
     ProvenanceRetrievability : Int64
+    ReviewGrade : Nullable<Double>
     ToString() : String
     Verified : Nullable<Boolean>
 static class Lyntai.Memory.MemoryReviewLogPacing
     static CrossesBoundary(Int64 before, Int32 written, Int32 cap) : Boolean
     static TrimInterval(Int32 cap) : Int32
 sealed class Lyntai.Memory.MemoryReviewWrite
-    .ctor(Int64 NodeId, Guid BatchId, Double PreAge, Double PreStability, Double PreDifficulty, Double PreStrength, Double PreStrengthAge, Nullable<Double> Grade, Double PostStability, Double PostDifficulty, Int64 ProvenanceRetrievability = 0, Nullable<Boolean> Verified = null)
+    .ctor(Int64 NodeId, Guid BatchId, Double PreAge, Double PreStability, Double PreDifficulty, Double PreStrength, Double PreStrengthAge, Nullable<Double> ReviewGrade, Double PostStability, Double PostDifficulty, Int64 ProvenanceRetrievability = 0, Nullable<Boolean> Verified = null)
     BatchId : Guid
-    Deconstruct(Int64& NodeId, Guid& BatchId, Double& PreAge, Double& PreStability, Double& PreDifficulty, Double& PreStrength, Double& PreStrengthAge, Nullable`1& Grade, Double& PostStability, Double& PostDifficulty, Int64& ProvenanceRetrievability, Nullable`1& Verified) : Void
+    Deconstruct(Int64& NodeId, Guid& BatchId, Double& PreAge, Double& PreStability, Double& PreDifficulty, Double& PreStrength, Double& PreStrengthAge, Nullable`1& ReviewGrade, Double& PostStability, Double& PostDifficulty, Int64& ProvenanceRetrievability, Nullable`1& Verified) : Void
     Equals(MemoryReviewWrite other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
-    Grade : Nullable<Double>
     NodeId : Int64
     PostDifficulty : Double
     PostStability : Double
@@ -2193,6 +2192,7 @@ sealed class Lyntai.Memory.MemoryReviewWrite
     PreStrength : Double
     PreStrengthAge : Double
     ProvenanceRetrievability : Int64
+    ReviewGrade : Nullable<Double>
     ToString() : String
     Verified : Nullable<Boolean>
 struct Lyntai.Memory.MemorySignals
@@ -2933,7 +2933,6 @@ class Lyntai.Storage.MemoryReviewRow
     BatchId : String
     CreatedAt : DateTimeOffset
     Engine : String
-    Grade : Nullable<Double>
     Id : Int64
     NodeId : Int64
     PostDifficulty : Double
@@ -2944,6 +2943,7 @@ class Lyntai.Storage.MemoryReviewRow
     PreStrength : Double
     PreStrengthAge : Double
     ProvenanceRetrievability : Int64
+    ReviewGrade : Nullable<Double>
     ToReview(Nullable<Boolean> verified) : MemoryReview
 sealed class Lyntai.Storage.PromptVersion
     .ctor(String Name, Int32 Version, String Template, String Author, DateTimeOffset CreatedAt, Boolean IsActive)

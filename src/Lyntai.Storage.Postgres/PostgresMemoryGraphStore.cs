@@ -515,7 +515,7 @@ public sealed class PostgresMemoryGraphStore(
             reviews.Select(r => new
             {
                 engine, now, r.NodeId, batchId = r.BatchId.ToString(), r.PreAge, r.PreStability,
-                r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.Grade, r.PostStability, r.PostDifficulty,
+                r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.ReviewGrade, r.PostStability, r.PostDifficulty,
                 r.ProvenanceRetrievability, r.Verified,
             }),
             cancellationToken: ct)).ConfigureAwait(false);
@@ -564,7 +564,7 @@ public sealed class PostgresMemoryGraphStore(
             SELECT id AS "Id", engine AS "Engine", node_id AS "NodeId", batch_id AS "BatchId",
                    created_at AS "CreatedAt", pre_age AS "PreAge", pre_stability AS "PreStability",
                    pre_difficulty AS "PreDifficulty", pre_strength AS "PreStrength",
-                   pre_strength_age AS "PreStrengthAge", grade AS "Grade",
+                   pre_strength_age AS "PreStrengthAge", grade AS "ReviewGrade",
                    post_stability AS "PostStability", post_difficulty AS "PostDifficulty",
                    provenance_retrievability AS "ProvenanceRetrievability",
                    verified AS "Verified"

@@ -1317,7 +1317,7 @@ public sealed class GraphMemoryEngine(
     /// needs <see cref="GraphTouch"/> widened before this line can reach it.</para>
     /// <para><b>The review log is DATA, never a decision.</b> No line in this class reads
     /// <see cref="IMemoryGraphStore.ReviewsAsync"/>, so nothing logged can feed back into retrievability,
-    /// ranking or pruning. <see cref="MemoryReviewWrite.Grade"/> is
+    /// ranking or pruning. <see cref="MemoryReviewWrite.ReviewGrade"/> is
     /// <see cref="IMemoryRetrievabilityPolicy.DerivedGrade"/>'s return on the SAME <c>pre</c> state handed to
     /// <see cref="IMemoryRetrievabilityPolicy.Reinforce"/>, never re-derived afterward.</para>
     /// <para>One <see cref="Guid"/> per call, shared across every node it touches, so a fitter can tell a

@@ -624,7 +624,7 @@ public sealed class SqliteMemoryGraphStore(
             reviews.Select(r => new
             {
                 engine, now, r.NodeId, batchId = r.BatchId.ToString(), r.PreAge, r.PreStability,
-                r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.Grade, r.PostStability, r.PostDifficulty,
+                r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.ReviewGrade, r.PostStability, r.PostDifficulty,
                 r.ProvenanceRetrievability,
                 // a nullable bool must reach SQLite as 1/0/NULL — the three states are load-bearing, so
                 // this is written out rather than left to the mapper's default handling
@@ -654,7 +654,7 @@ public sealed class SqliteMemoryGraphStore(
                    created_at AS CreatedAt,
                    CAST(pre_age AS REAL) AS PreAge, CAST(pre_stability AS REAL) AS PreStability,
                    CAST(pre_difficulty AS REAL) AS PreDifficulty, CAST(pre_strength AS REAL) AS PreStrength,
-                   CAST(pre_strength_age AS REAL) AS PreStrengthAge, CAST(grade AS REAL) AS Grade,
+                   CAST(pre_strength_age AS REAL) AS PreStrengthAge, CAST(grade AS REAL) AS ReviewGrade,
                    CAST(post_stability AS REAL) AS PostStability,
                    CAST(post_difficulty AS REAL) AS PostDifficulty,
                    provenance_retrievability AS ProvenanceRetrievability,

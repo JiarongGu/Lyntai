@@ -65,7 +65,7 @@ public class SqliteMemoryGraphStoreTests : IDisposable
 
         static MemoryReviewWrite Review(long id) =>
             new(id, Guid.NewGuid(), PreAge: 1, PreStability: 7, PreDifficulty: 5, PreStrength: 0,
-                PreStrengthAge: 0, Grade: 3, PostStability: 9, PostDifficulty: 5);
+                PreStrengthAge: 0, ReviewGrade: 3, PostStability: 9, PostDifficulty: 5);
     }
 
     /// <summary>Counts what the store asks the factory for. A decorator rather than a counter inside

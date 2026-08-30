@@ -1062,7 +1062,7 @@ public static class MemoryGraphStoreContract
             [new GraphTouch(a, 10.5, 0x2, 6.25)],
             [new GraphEdgeWrite(a, b, null, 1, Symmetric: true)],
             [new MemoryReviewWrite(a, Guid.NewGuid(), PreAge: 3, PreStability: Stability, PreDifficulty: 5,
-                PreStrength: 0, PreStrengthAge: 0, Grade: 3, PostStability: 10.5, PostDifficulty: 6.25)],
+                PreStrength: 0, PreStrengthAge: 0, ReviewGrade: 3, PostStability: 10.5, PostDifficulty: 6.25)],
             ReviewLogCap: 100));
 
         // the touch, asserted exactly as Touch_records_reinforcement and its two siblings do
@@ -1082,7 +1082,7 @@ public static class MemoryGraphStoreContract
         // keyed by ENGINE, and Postgres runs every fact against ONE database where SQLite gets a fresh one
         // per case — so "the only row" is true on two backends and not on the third.
         var review = Assert.Single(await store.ReviewsAsync("e"), r => r.NodeId == a);
-        Assert.Equal(3, review.Grade);
+        Assert.Equal(3, review.ReviewGrade);
     }
 
     /// <summary>Every part is optional, and an empty one is skipped rather than written as a no-op — the
@@ -1098,7 +1098,7 @@ public static class MemoryGraphStoreContract
 
         await store.WriteBackAsync("e", new GraphWriteBack([], [],
             [new MemoryReviewWrite(id, Guid.NewGuid(), PreAge: 3, PreStability: Stability, PreDifficulty: 5,
-                PreStrength: 0, PreStrengthAge: 0, Grade: null, PostStability: Stability, PostDifficulty: 5)],
+                PreStrength: 0, PreStrengthAge: 0, ReviewGrade: null, PostStability: Stability, PostDifficulty: 5)],
             ReviewLogCap: 100));
 
         var after = await store.GetAsync("e", id);
@@ -1387,10 +1387,10 @@ public static class MemoryGraphStoreContract
         var id = await store.UpsertAsync(Write(key, "t", "reviewed"));
         var batch = Guid.NewGuid();
         var graded = new MemoryReviewWrite(id, batch, PreAge: 12, PreStability: 20, PreDifficulty: 3,
-            PreStrength: 5, PreStrengthAge: 2, Grade: 3.5, PostStability: 22, PostDifficulty: 3.2,
+            PreStrength: 5, PreStrengthAge: 2, ReviewGrade: 3.5, PostStability: 22, PostDifficulty: 3.2,
             ProvenanceRetrievability: 0x2);
         var ungraded = new MemoryReviewWrite(id, batch, PreAge: 0, PreStability: 22, PreDifficulty: 3.2,
-            PreStrength: 0, PreStrengthAge: 0, Grade: null, PostStability: 22, PostDifficulty: 3.2,
+            PreStrength: 0, PreStrengthAge: 0, ReviewGrade: null, PostStability: 22, PostDifficulty: 3.2,
             ProvenanceRetrievability: 0x2);
 
         await store.RecordReviewsAsync(key, [graded, ungraded], cap: 100);
@@ -1406,14 +1406,14 @@ public static class MemoryGraphStoreContract
         Assert.Equal(3, first.PreDifficulty, 9);
         Assert.Equal(5, first.PreStrength, 9);
         Assert.Equal(2, first.PreStrengthAge, 9);
-        Assert.NotNull(first.Grade);
-        Assert.Equal(3.5, first.Grade!.Value, 9);
+        Assert.NotNull(first.ReviewGrade);
+        Assert.Equal(3.5, first.ReviewGrade!.Value, 9);
         Assert.Equal(22, first.PostStability, 9);
         Assert.Equal(3.2, first.PostDifficulty, 9);
         Assert.Equal(0x2, first.ProvenanceRetrievability);
         // the second row's own null grade — the one honest way to record "no grade-driven update happened
         // this reinforcement" (see IMemoryRetrievabilityPolicy.DerivedGrade's own remarks)
-        Assert.Null(rows[1].Grade);
+        Assert.Null(rows[1].ReviewGrade);
     }
 
     /// <summary><b>All THREE states of <c>verified</c> survive the round trip on every backend</b> —
@@ -1436,7 +1436,7 @@ public static class MemoryGraphStoreContract
         var id = await store.UpsertAsync(Write(key, "t", "judged"));
         var batch = Guid.NewGuid();
         MemoryReviewWrite Row(bool? verified) => new(id, batch, PreAge: 1, PreStability: 20,
-            PreDifficulty: 3, PreStrength: 0, PreStrengthAge: 0, Grade: 3, PostStability: 20,
+            PreDifficulty: 3, PreStrength: 0, PreStrengthAge: 0, ReviewGrade: 3, PostStability: 20,
             PostDifficulty: 3, ProvenanceRetrievability: 0x2, Verified: verified);
 
         await store.RecordReviewsAsync(key, [Row(true), Row(false), Row(null)], cap: 100);
@@ -1472,7 +1472,7 @@ public static class MemoryGraphStoreContract
         for (var i = 0; i < 10; i++)
         {
             var review = new MemoryReviewWrite(NodeId: i, BatchId: Guid.NewGuid(), PreAge: i,
-                PreStability: 20, PreDifficulty: 1, PreStrength: 0, PreStrengthAge: 0, Grade: null,
+                PreStability: 20, PreDifficulty: 1, PreStrength: 0, PreStrengthAge: 0, ReviewGrade: null,
                 PostStability: 20, PostDifficulty: 1);
             await store.RecordReviewsAsync(key, [review], cap);
         }

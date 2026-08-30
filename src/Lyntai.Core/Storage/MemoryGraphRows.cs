@@ -143,7 +143,7 @@ public class MemoryReviewRow
     public double PreDifficulty { get; set; }
     public double PreStrength { get; set; }
     public double PreStrengthAge { get; set; }
-    public double? Grade { get; set; }
+    public double? ReviewGrade { get; set; }
     public double PostStability { get; set; }
     public double PostDifficulty { get; set; }
     public long ProvenanceRetrievability { get; set; }
@@ -153,6 +153,6 @@ public class MemoryReviewRow
     /// is an observed failure and <c>null</c> is no judgement, never the same thing.</param>
     public MemoryReview ToReview(bool? verified) => new(
         Id, Engine, NodeId, Guid.Parse(BatchId), CreatedAt, PreAge, PreStability, PreDifficulty,
-        PreStrength, PreStrengthAge, Grade, PostStability, PostDifficulty, ProvenanceRetrievability,
+        PreStrength, PreStrengthAge, ReviewGrade, PostStability, PostDifficulty, ProvenanceRetrievability,
         verified);
 }

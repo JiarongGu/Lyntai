@@ -74,7 +74,7 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
     /// assigned id and timestamp, matching <see cref="MemoryReview"/>'s own shape.</summary>
     private sealed record ReviewRow(
         long Id, string Engine, long NodeId, Guid BatchId, DateTimeOffset CreatedAt, double PreAge,
-        double PreStability, double PreDifficulty, double PreStrength, double PreStrengthAge, double? Grade,
+        double PreStability, double PreDifficulty, double PreStrength, double PreStrengthAge, double? ReviewGrade,
         double PostStability, double PostDifficulty, long ProvenanceRetrievability, bool? Verified);
 
     /// <summary>One engine's current state on every scale a store tracks: the legacy, <c>Advance</c>-driven
@@ -397,7 +397,7 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
             {
                 var id = _nextReview++;
                 _reviews[id] = new ReviewRow(id, engine, r.NodeId, r.BatchId, now, r.PreAge, r.PreStability,
-                    r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.Grade, r.PostStability,
+                    r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.ReviewGrade, r.PostStability,
                     r.PostDifficulty, r.ProvenanceRetrievability, r.Verified);
             }
 
@@ -429,7 +429,7 @@ public sealed class InMemoryMemoryGraphStore(Func<DateTimeOffset>? clock = null)
                 .Where(r => r.Engine == engine)
                 .OrderBy(r => r.Id)
                 .Select(r => new MemoryReview(r.Id, r.Engine, r.NodeId, r.BatchId, r.CreatedAt, r.PreAge,
-                    r.PreStability, r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.Grade,
+                    r.PreStability, r.PreDifficulty, r.PreStrength, r.PreStrengthAge, r.ReviewGrade,
                     r.PostStability, r.PostDifficulty, r.ProvenanceRetrievability, r.Verified))
                 .ToList();
             return Task.FromResult<IReadOnlyList<MemoryReview>>(rows);

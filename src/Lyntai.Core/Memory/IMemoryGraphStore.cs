@@ -279,11 +279,18 @@ public sealed record GraphNeighbour(GraphNode Node, double EdgeWeight, double Ed
 /// <param name="PreStrength">Its connection strength immediately before this reinforcement.</param>
 /// <param name="PreStrengthAge">How stale that connection strength was immediately before this
 /// reinforcement.</param>
-/// <param name="Grade">The grade actually used to update difficulty this time —
+/// <param name="ReviewGrade">FSRS's review RATING — the grade actually used to update difficulty this time,
 /// <see cref="Lyntai.Memory.Forgetting.IMemoryRetrievabilityPolicy.DerivedGrade"/>'s own return, verbatim,
 /// never re-derived from the state alone. Null when no grade-driven update happened at all (that member's
 /// own remarks explain both reasons null can mean), which is why this column is the one deliberate exception
-/// to this schema's usual <c>NOT NULL</c> convention — see the migration's own doc comment.</param>
+/// to this schema's usual <c>NOT NULL</c> convention — see the migration's own doc comment.
+/// <para><b>Named <c>ReviewGrade</c> rather than <c>Grade</c> since 2026-08-31, and the qualifier is
+/// load-bearing.</b> <see cref="MemoryWrite.Grade"/>, <see cref="GraphNode.Grade"/> and
+/// <see cref="MemoryItem.Grade"/> all carry <see cref="MemoryGrade"/> — associative or authoritative — in
+/// this same namespace. One identifier meaning two unrelated things is the shape <b>D66</b> records costing
+/// real data (<c>AuthoritativeReserve</c> read as slots when it meant characters). The type system separates
+/// them at a call site; prose, the API surface and anyone fitting <c>DsrOptions</c> against this log had
+/// nothing to go on.</para></param>
 /// <param name="PostStability">Its stability immediately after this reinforcement.</param>
 /// <param name="PostDifficulty">Its difficulty immediately after this reinforcement.</param>
 /// <param name="ProvenanceRetrievability">The policy that computed this reinforcement — the same value
@@ -304,7 +311,7 @@ public sealed record GraphNeighbour(GraphNode Node, double EdgeWeight, double Ed
 /// failures.</para></param>
 public sealed record MemoryReviewWrite(
     long NodeId, Guid BatchId, double PreAge, double PreStability, double PreDifficulty, double PreStrength,
-    double PreStrengthAge, double? Grade, double PostStability, double PostDifficulty,
+    double PreStrengthAge, double? ReviewGrade, double PostStability, double PostDifficulty,
     long ProvenanceRetrievability = 0, bool? Verified = null);
 
 /// <summary>One logged reinforcement, as stored — <see cref="MemoryReviewWrite"/> plus what the store
@@ -320,7 +327,7 @@ public sealed record MemoryReviewWrite(
 /// <param name="PreDifficulty"><inheritdoc cref="MemoryReviewWrite.PreDifficulty" path="/summary"/></param>
 /// <param name="PreStrength"><inheritdoc cref="MemoryReviewWrite.PreStrength" path="/summary"/></param>
 /// <param name="PreStrengthAge"><inheritdoc cref="MemoryReviewWrite.PreStrengthAge" path="/summary"/></param>
-/// <param name="Grade"><inheritdoc cref="MemoryReviewWrite.Grade" path="/summary"/></param>
+/// <param name="ReviewGrade"><inheritdoc cref="MemoryReviewWrite.ReviewGrade" path="/summary"/></param>
 /// <param name="PostStability"><inheritdoc cref="MemoryReviewWrite.PostStability" path="/summary"/></param>
 /// <param name="PostDifficulty"><inheritdoc cref="MemoryReviewWrite.PostDifficulty" path="/summary"/></param>
 /// <param name="ProvenanceRetrievability">
@@ -328,7 +335,8 @@ public sealed record MemoryReviewWrite(
 /// <param name="Verified"><inheritdoc cref="MemoryReviewWrite.Verified" path="/summary"/></param>
 public sealed record MemoryReview(
     long Id, string Engine, long NodeId, Guid BatchId, DateTimeOffset CreatedAt, double PreAge,
-    double PreStability, double PreDifficulty, double PreStrength, double PreStrengthAge, double? Grade,
+    double PreStability, double PreDifficulty, double PreStrength, double PreStrengthAge,
+    double? ReviewGrade,
     double PostStability, double PostDifficulty, long ProvenanceRetrievability, bool? Verified = null);
 
 /// <summary>

@@ -94,8 +94,8 @@ public class GraphMemoryReviewLogTests
         var preState = new MemoryDecayState(Age: crowd, RecallCount: 0, Stability: 20);
         var expectedGrade = 2 + 2 * policy.Retrievability(preState);
 
-        Assert.NotNull(row.Grade);
-        Assert.Equal(expectedGrade, row.Grade!.Value, precision: 6);
+        Assert.NotNull(row.ReviewGrade);
+        Assert.Equal(expectedGrade, row.ReviewGrade!.Value, precision: 6);
 
         // and the post columns are the state Reinforce actually returned, never shortened
         var expectedPost = policy.Reinforce(preState);
@@ -105,7 +105,7 @@ public class GraphMemoryReviewLogTests
 
     /// <summary>A same-position review (no intervening write — an immediate re-recall) is the one case
     /// <see cref="DsrRetrievability.Reinforce"/> itself skips the grade-driven update for (the Δt=0 branch,
-    /// fix round 1 I1). The log must say so honestly: <c>Grade</c> null, not a synthetic "Easy" value a
+    /// fix round 1 I1). The log must say so honestly: <c>ReviewGrade</c> null, not a synthetic "Easy" value a
     /// naive re-derivation from <c>r=1</c> would produce.</summary>
     [Fact]
     public async Task A_session_burst_with_no_intervening_write_logs_a_null_grade()
@@ -121,7 +121,7 @@ public class GraphMemoryReviewLogTests
 
         var rows = await store.ReviewsAsync("e");
         Assert.Equal(2, rows.Count);
-        Assert.All(rows, r => Assert.Null(r.Grade));
+        Assert.All(rows, r => Assert.Null(r.ReviewGrade));
     }
 
     /// <summary>Requirement 3 of the task brief, and the one to prove hardest: DATA, not a decision. Two
@@ -177,7 +177,7 @@ public class GraphMemoryReviewLogTests
                 // wildly divergent from anything either entry's real state could ever produce — if recall
                 // or pruning read this table at all, these numbers would have to move the result below
                 MemoryReviewWrite Bogus(long id) => new(id, Guid.NewGuid(), PreAge: 999_999,
-                    PreStability: 0.0001, PreDifficulty: 10, PreStrength: 500, PreStrengthAge: 500, Grade: 2,
+                    PreStability: 0.0001, PreDifficulty: 10, PreStrength: 500, PreStrengthAge: 500, ReviewGrade: 2,
                     PostStability: 0.0001, PostDifficulty: 10);
                 var refId = long.Parse(reference.Id, CultureInfo.InvariantCulture);
                 var targetId = long.Parse(pruneTarget.Id, CultureInfo.InvariantCulture);
