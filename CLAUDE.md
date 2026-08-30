@@ -146,7 +146,7 @@ plus `consumer-smoke` outside `verify` (pack, then restore/build/run a fresh app
 Adding a package is `node devtools/dev.mjs new-package <Lyntai.X>`.
 
 Tests/e2e green: **3477 passed / 3498 total, 21 skipped** (live-backend only — Ollama, MCP, a real CLI, a
-real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 434/434, doc samples 79/79.
+real annotating/judging model, a real embedder), e2e 3/3, guard-script tests 450/450, doc samples 79/79.
 **A skip count WELL above 21 means Docker is down and the whole
 Postgres leg is silently unexercised** — start it and re-run before believing a green suite (archive Part 58,
 which caught a missing table exactly that way; it happened again on 2026-08-12, which is why the count above
@@ -324,7 +324,7 @@ owned outside the deployment; `DECISIONS.md` D30) /
   (README ×3, the design contract, `DECISIONS.md` ×2) plus two in `CHANGELOG.md`'s live `## Unreleased`
   prefix. Every gate reported clean; a reader found them. **A written-down rule that is still violated is a
   missing gate**, the same reasoning that produced `check-encoding`.
-  It checks a reference **three ways**, because there are three ways one rots. The path half asks whether the
+  It checks a reference **four ways**, because there are four ways one rots. The path half asks whether the
   target still exists. The **Part half** asks whether a reference naming a task record (`` `TASKS.md` <!-- link-ok: an ILLUSTRATION of the shape, not a claim about where Part 53 lives -->
   Part 53 ``) names the record that actually holds it — the path resolves and the Part exists, in the OTHER
   file, so nothing else can see it. **Archiving a task is what breaks these**, silently, for every inbound
@@ -344,7 +344,17 @@ owned outside the deployment; `DECISIONS.md` D30) /
   is invisible to a `§8` grep and resolves under a first-number-only rule. That range form escaped both the
   human pass that filed Part 107 and the first probe written to measure it. **Repointing is the fix and
   renumbering is the trap** — renumbering makes an existing citation resolve silently to the wrong section.
-  **It now scans the CODE tiers too** (Part 72, decided 2026-08-15), but narrower than the prose scan on two
+  <br>The **member half** (added 2026-08-30) asks whether a `` `Type.Member` `` citation — or a `see cref`
+  naming one — points at an identifier that EXISTS. The other three are structurally blind to it: the path
+  resolves, the record is right, the § is there, and only the member name is invented. It was measured the
+  same way and the numbers are the best of the four: **770 citations, ONE flag**, and zero in the code tier,
+  which is why that tier is included un-narrowed. Two design consequences, both forced by a run — the LEFT
+  side must be a type this repository DECLARES (which drops `Lyntai.Bundle`, a package id, by principle
+  rather than by an exclusion list, at the stated cost of never checking a BCL member), and the vocabulary is
+  harvested from code with **comments STRIPPED**, because an index built from prose lets a citation
+  AUTHORIZE ITSELF: write `Type.Nonexistent` in a `//` comment and the name joins the vocabulary, after which
+  nothing can ever flag it. That second one was caught by the gate's own test, not by review.
+  <br>**It now scans the CODE tiers too** (Part 72, decided 2026-08-15), but narrower than the prose scan on two
   axes: **comment lines only** (a path in a string literal is data the program uses, not a reference a reader
   follows) and **`docs/` targets only** (source files are renamed for legitimate reasons — `pitfalls.md`
   records an all-paths existence check returning ~45 hits and zero defects — while a moved DOCUMENT is the

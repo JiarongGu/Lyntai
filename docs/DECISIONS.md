@@ -1646,7 +1646,7 @@ VERB needs.
 **2. `IMemoryRemovalPolicy` decides which members a removal visits** — a seam, asked per member AND per kind
 (`Forget` / `Prune`). A member the policy excludes is SKIPPED instead of refusing the whole verb.
 
-**The rejected alternative is a `bool` on the engine** — `IMemoryEngine.HoldsUserContent`, with
+**The rejected alternative is a `bool` on the engine** — `IMemoryEngine.HoldsUserContent`, with <!-- link-ok: the rejected member never existed -->
 `CuratedMemoryEngine` answering false. It is wrong because **eligibility is a DEPLOYMENT question** the
 library cannot answer: one application's glossary is operator boilerplate, another's holds preferences the
 user typed. A compile-time property states a fact about the HOST inside a type the host did not write, the

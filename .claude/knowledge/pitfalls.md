@@ -11,6 +11,24 @@ the tests) while being wrong. Skim before touching the relevant area.
 
 ## Environment / tooling
 
+- **`verify` answers a question about the bytes it READ, so editing anything while it runs makes its whole
+  report — the green summary included — describe a tree that no longer exists.** Measured 2026-08-30, twice
+  in one session: docs were edited during two separate runs, so the prose gates' verdicts covered an
+  indeterminate mix of before and after, and one of those runs also predated six new tests it therefore
+  never executed. Both times the only thing that noticed was the author remembering, which is not a
+  mechanism. **This is a false PASS**, the direction everything else here is built to avoid.
+  <br>**Gated since**: `verify` content-hashes the tree before and after (`scripts/_tree-fingerprint.mjs`),
+  names every file that moved, suppresses the green line and exits non-zero. Proven on the red path, not
+  just written — an induced mid-run edit produced the failure and exit code 1.
+  <br>**The habit the gate does not replace: start `verify` and then keep your hands off the tree.** If you
+  need to keep working, work somewhere else and re-run it at the end — a re-run is five minutes, and a green
+  line you have to reason about is worth nothing. Two cheaper checks that do NOT work: an mtime comparison
+  (fires on a byte-identical rewrite, so it cries wolf and gets ignored) and `git status` (blind to a change
+  within an already-dirty file, which is the normal state of a tree being verified).
+  <br>**And never read an exit code through a pipe.** `node dev.mjs verify | tail -20` reports *tail's*
+  status, so a failing verify looks like a clean one — the notification for the very run that proved this
+  gate said `exit code 0` while the output said `✗`. Redirect to a file and echo `$?`, or check `PIPESTATUS`.
+
 - **This machine's console is GBK/CP936.** Writing UTF-8 through it (PowerShell `Set-Content`/`Out-File`
   without `-Encoding utf8`, `echo >`, a shell heredoc) **double-encodes and lossily corrupts** non-ASCII
   content — it once mangled every `灵台`/`—`/`§` in `TASKS.md` irreversibly. **Always write files with
@@ -1219,6 +1237,21 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   prune left behind before. The tell: **the doc comment already argued the asymmetry** ("the cheap failure
   is an orphan rather than a residue") and the `try`/`catch` did not implement it. When you write down why
   two paths differ, check every mechanism that expresses the difference, not just the one you were editing.
+
+- **A grep with context shows you a method's BODY, and inferring its NAME from the lines around it is how a
+  member that does not exist gets into prose.** Measured 2026-08-30: a `-C 4` hit displayed
+  `if (request.Inputs.Count > 0 && !SupportsInputs) return false;` with the signature just above the window,
+  and the method was cited as `GenerationCapabilities.CanServe` <!-- link-ok: the WRONG name, quoted --> in an archive Part and in `TASKS.md` — two
+  commits — before an unrelated test failed to compile. The real name is `Supports`.
+  <br>**Read the DECLARATION before citing a member**, not the body: one `Read` at the right offset, or
+  `grep -n "\(public\|internal\).*MemberName"`. A body tells you what a method does and never what it is
+  called.
+  <br>**Why nothing caught it, which is the transferable half.** `check-links` had three halves — path, Part,
+  section — and a member name is none of them; `check-docs` only knows vocabulary a decision RETIRED, and
+  `CanServe` was never a word here to retire; the compiler sees `///` crefs and not `//` comments or
+  markdown. **A member name quoted in prose had no gate at all.** It has one now (`check-links`' fourth
+  half), and the general lesson survives it: when you write an identifier into prose, you are making a
+  checkable claim in a place nothing was checking.
 
 - **A capability FLAG is a promise, and a flag nothing implements is a silent wrong answer rather than a
   missing feature.** Measured 2026-08-30 (`docs/FIXES.md`, `docs/task-archive.md` Part 124).

@@ -602,3 +602,87 @@ describe('check-links — the code tier is actually covered on the real tree', (
     assert.ok(cited > 40, `expected §-citations to be checked; the run reported ${cited}`);
   });
 });
+
+describe('check-links — a citation naming a MEMBER that does not exist', () => {
+  // The fourth half, and the only one whose subject no other gate can see: a member name in prose is not a
+  // path, not a Part and not a section, and only a `///` cref reaches the compiler. Measured 2026-08-30 —
+  // `GenerationCapabilities.CanServe` was inferred from a grep that printed the method BODY without its
+  // signature and reached TWO commits.
+  const withType = (extra = {}) => ({
+    'src/Thing.cs': 'public sealed class GenerationCapabilities { public bool Supports() => true; }\n',
+    ...extra,
+  });
+
+  it('catches the measured defect: a member that appears in no .cs file', () => {
+    const { code, out } = run(withType({
+      'TASKS.md': '`GenerationCapabilities.CanServe` treats that flag as an admission filter.\n',
+    }));
+
+    assert.equal(code, 1);
+    assert.match(out, /naming a MEMBER that does not exist/);
+    assert.match(out, /GenerationCapabilities\.CanServe/);
+  });
+
+  it('accepts a member that DOES exist — the positive control', () => {
+    // Without this the suite passes on an implementation that flags every citation, which fails safe and
+    // would be switched off within a day.
+    const { code } = run(withType({
+      'TASKS.md': '`GenerationCapabilities.Supports` treats that flag as an admission filter.\n',
+    }));
+
+    assert.equal(code, 0);
+  });
+
+  it('ignores a citation whose LEFT side is not a type we declare — the precision knob', () => {
+    // `Lyntai.Bundle` is a package id, not a member access. Requiring the left side to be a declared type
+    // drops that whole class by principle rather than by an exclusion list.
+    const { code } = run(withType({ 'TASKS.md': 'The `Lyntai.Bundle` package forces every dependency.\n' }));
+
+    assert.equal(code, 0);
+  });
+
+  it('reads a `see cref` too, since only a /// cref is compiler-checked', () => {
+    const { code, out } = run(withType({
+      'docs/DECISIONS.md': 'It is <see cref="GenerationCapabilities.CanServe"/> that admits it.\n',
+    }));
+
+    assert.equal(code, 1);
+    assert.match(out, /GenerationCapabilities\.CanServe/);
+  });
+
+  it('honours `link-ok` for a deliberately-named REJECTED alternative', () => {
+    // persist-working-state.md explicitly asks for rejected alternatives to be recorded, so naming a member
+    // that never existed is a first-class use rather than an error.
+    const { code } = run(withType({
+      'docs/DECISIONS.md': 'The rejected `GenerationCapabilities.CanServe`. <!-- link-ok: never existed -->\n',
+    }));
+
+    assert.equal(code, 0);
+  });
+
+  it('does NOT accept `drift-ok` — one token must not silence two unrelated gates', () => {
+    const { code } = run(withType({
+      'docs/DECISIONS.md': 'The rejected `GenerationCapabilities.CanServe`. <!-- drift-ok: retired -->\n',
+    }));
+
+    assert.equal(code, 1);
+  });
+
+  it('catches a dead member cited from a CODE comment, where zero false positives were measured', () => {
+    const { code, out } = run(withType({
+      'src/Other.cs': '// admission runs through GenerationCapabilities.CanServe first\n'
+        + '// wrapped: `GenerationCapabilities.CanServe` is the filter\n',
+    }));
+
+    assert.equal(code, 1);
+    assert.match(out, /src\/Other\.cs/);
+  });
+
+  it('does not scan a NON-comment code line — a string literal is data, not a citation', () => {
+    const { code } = run(withType({
+      'src/Other.cs': 'var help = "see `GenerationCapabilities.CanServe`";\n',
+    }));
+
+    assert.equal(code, 0);
+  });
+});

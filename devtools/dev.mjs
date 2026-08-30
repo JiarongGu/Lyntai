@@ -38,6 +38,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import config from './project.config.mjs';
 import { changelogDoctor, packDoctor, versionDoctor } from './scripts/doctors.mjs';
+import { fingerprintDrift, fingerprintTree } from './scripts/_tree-fingerprint.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const [cmd, ...args] = process.argv.slice(2);
@@ -673,17 +674,34 @@ switch (cmd) {
       ['check-counts', []], ['check-comments', []], ['check-decisions', []],
       ['check-api-vocabulary', []], ['check-samples', []], ['test', []], ['e2e', []],
       ['check-sensitive', ['--tree']]];
+    // Fingerprinted before and after: every line below describes the tree as it was HERE, so a file edited
+    // while the gates run makes the whole report — the green summary included — a statement about a tree
+    // that no longer exists. See `scripts/_tree-fingerprint.mjs` for why that is a false PASS rather than an
+    // inconvenience, and why it is content-hashed rather than timed.
+    const treeBefore = fingerprintTree(repo);
     let failed = null;
     for (const [step, extra] of steps) {
       console.log(`\n=== verify: ${step} ===`);
       const r = spawnSync('node', [path.join(repo, 'devtools', 'dev.mjs'), step, ...extra], { stdio: 'inherit', cwd: repo });
       if (r.status !== 0) { failed = step; process.exitCode = r.status ?? 1; break; }
     }
+    const drift = fingerprintDrift(treeBefore, fingerprintTree(repo));
+
     if (failed) console.error(`\nverify: ✗ FAILED at ${failed}`);
     // Derived from `steps`, never hand-listed: the previous version was a literal and silently stopped
     // naming every gate the moment one was added — a summary that under-reports what ran is the same class
     // of quiet inaccuracy the gates themselves exist to prevent.
-    else console.log(`\nverify: ✓ all ${steps.length} gates green (${steps.map(([s]) => s).join(' · ')})`);
+    //
+    // Guarded by `!drift.length` so the green line and a moved tree can never be printed together: a reader
+    // who sees the green summary at all must be able to trust it without reading further.
+    else if (!drift.length) console.log(`\nverify: ✓ all ${steps.length} gates green (${steps.map(([s]) => s).join(' · ')})`);
+
+    if (drift.length) {
+      console.error(`\nverify: ✗ THE TREE CHANGED WHILE VERIFY WAS RUNNING — this result describes neither `
+        + `the tree it started on nor the one on disk now. Re-run it on a tree that holds still.`);
+      for (const line of drift) console.error(`  ${line}`);
+      process.exitCode ||= 1;
+    }
     break;
   }
 

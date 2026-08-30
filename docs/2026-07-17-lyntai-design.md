@@ -1008,7 +1008,7 @@ these later without breaking changes.
 > deployment-configured app is unaffected.
 > **§7:** pre-release migration changes fold into the owning unreleased migration; released migrations
 > are frozen (D9); selective migration is FluentMigrator-tag-driven per `StorageFeature` (D12).
-> **v0.30 pre-1.0 breaks:** `ChatResult.BlockReason`→`Detail`; `IRateLimiter` cancellation propagates;
+> **v0.30 pre-1.0 breaks:** `ChatResult.BlockReason`→`Detail`; `IRateLimiter` cancellation propagates; <!-- link-ok: a rename record NAMES the retired member -->
 > `IUsageTracker` fully async; tracker totals aggregate across consumer casings.
 
 > **Amendment (2026-08-17): the 3.0 contract changes, and where each is stated in full.** The memory ones are

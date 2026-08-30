@@ -73,6 +73,50 @@ export const PART_PATTERN =
   /`?(TASKS\.md|(?:docs\/)?task-archive\.md)`?[^.\n]{0,24}?\bPart (\d+)/g;
 
 /**
+ * A citation naming a TYPE and one of its MEMBERS: `` `GenerationCapabilities.Supports` ``, or the same
+ * pair inside a `<see cref="...">`.
+ *
+ * The FOURTH way an inbound reference rots, and the other three are all blind to it — the path resolves,
+ * the record is right, the § exists, and only the member name is invented. Measured 2026-08-30: a session
+ * inferred `GenerationCapabilities.CanServe` from a grep that printed the method BODY without its  link-ok
+ * signature, and the name reached TWO commits before a compiler error in an unrelated test exposed it.
+ * `CanServe` appears in zero `.cs` files. Nothing else could have caught it: a member name in prose is not
+ * a path, not a Part and not a section, and only a `///` cref is checked by the compiler.
+ */
+export const MEMBER_PATTERN = /`([A-Z][A-Za-z0-9]*)\.([A-Z][A-Za-z0-9]*)`/g;
+
+/** The same claim in XML-doc form, where only `///` crefs are compiler-checked — `//` and `*` are not. */
+export const MEMBER_CREF_PATTERN = /<(?:see|seealso) cref="(?:[TPMF]:)?([A-Z][A-Za-z0-9]*)\.([A-Z][A-Za-z0-9]*)"/g;
+
+/**
+ * The C# vocabulary a member citation is checked against: every declared type name, and every identifier
+ * that appears anywhere in the `.cs` tree.
+ *
+ * REQUIRING THE LEFT SIDE TO BE A TYPE WE DECLARE is the precision knob, and it was chosen by measurement
+ * rather than caution. Without it, `Lyntai.Bundle` — a package id, not a member access — is reported as a
+ * dangling member. With it, 770 citations across the docs and code tiers produce exactly ONE flag, and that
+ * one is a deliberately-named rejected alternative (what `link-ok` is for).
+ *
+ * The cost is stated rather than hidden: a BCL type's members are never checked, because `StringComparison`
+ * is not declared here. That is the same trade the path half makes by scanning `docs/` targets only.
+ */
+export const csharpVocabulary = (texts) => {
+  const known = new Set();
+  const types = new Set();
+  for (const text of texts) {
+    // COMMENTS ARE STRIPPED FIRST, and this is the difference between a gate and a no-op. The index answers
+    // "does this member exist?", so harvesting it from prose lets a citation AUTHORIZE ITSELF: write
+    // `Type.Nonexistent` in a `//` comment and `Nonexistent` joins the vocabulary, after which neither that
+    // comment nor any document naming it can ever be flagged. Caught by this gate's own code-tier test,
+    // which failed on exactly that self-reference.
+    const code = text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/.*$/gm, ' ');
+    for (const m of code.matchAll(/\b[A-Za-z_]\w*\b/g)) known.add(m[0]);
+    for (const m of code.matchAll(/\b(?:class|interface|record|struct|enum)\s+([A-Z]\w*)/g)) types.add(m[1]);
+  }
+  return { known, types };
+};
+
+/**
  * Part numbers declared in a task record.
  *
  * THREE shapes, because this record uses three. `##` and `###` headings are the common ones (the archive
@@ -192,6 +236,22 @@ export function checkLinks(repo, config, log = console.log, files = null) {
   const tracked = files ?? trackedFiles(repo);
   const onDisk = new Set(tracked);
   const allowances = config.staleReferenceAllowances ?? [];
+
+  // The MEMBER half's vocabulary, read from the same tracked listing everything else uses.
+  const { known: knownIdents, types: knownTypes } = csharpVocabulary(
+    tracked.filter((f) => f.endsWith('.cs')).map((f) => {
+      try { return readFileSync(join(repo, f), 'utf8'); } catch { return ''; }
+    }));
+  const deadMembers = [];
+  const scanMembers = (file, lineNo, text) => {
+    if (text.includes('link-ok')) return;
+    for (const re of [MEMBER_PATTERN, MEMBER_CREF_PATTERN]) {
+      for (const [, type, member] of text.matchAll(re)) {
+        if (!knownTypes.has(type) || knownIdents.has(member)) continue;
+        deadMembers.push({ file, line: lineNo, type, member, text: text.trim() });
+      }
+    }
+  };
 
   const docs = tracked
     .filter((f) => f.endsWith('.md'))
@@ -381,6 +441,11 @@ export function checkLinks(repo, config, log = console.log, files = null) {
       // columns and a citation spans a backtick, a filename and a `§`, so it straddles a break as readily
       // as a Part reference does.
       scanAnchors(file, i + 1, window, line.length);
+
+      // The MEMBER half reads the RAW line, not the window: a citation lives inside backticks or a cref
+      // attribute, neither of which an author breaks across a wrap (it would stop rendering as code), and
+      // scanning the join would report every hit on the following line a second time.
+      scanMembers(file, i + 1, line);
     }
   }
 
@@ -405,6 +470,10 @@ export function checkLinks(repo, config, log = console.log, files = null) {
       // correct — an argument that cannot apply here, since an anchor citation names a `.md` by
       // construction. Three of the seven measured dead citations lived in this tier.
       scanAnchors(file, i + 1, line);
+
+      // The MEMBER half runs on the code tier too, and unlike the path half it is NOT narrowed further:
+      // measured at 485 citations and ZERO false positives there, so the tier is free to include.
+      scanMembers(file, i + 1, line);
     }
   }
 
@@ -412,7 +481,8 @@ export function checkLinks(repo, config, log = console.log, files = null) {
   // exclusion nobody can see expiring is an exclusion that rots into a permanent hole.
   const dead = [...allowed.values()].filter((a) => a.used === 0);
 
-  if (hits.length === 0 && dead.length === 0 && misfiled.length === 0 && deadAnchors.length === 0) {
+  if (hits.length === 0 && dead.length === 0 && misfiled.length === 0 && deadAnchors.length === 0
+    && deadMembers.length === 0) {
     // Every count is reported, so a filter that silently stopped matching one tier is visible in the
     // GREEN line rather than only in a failure that never comes.
     log(`check-links: ${docs.length} maintained doc(s) + ${code.length} code file(s) — every in-repo `
@@ -467,6 +537,22 @@ export function checkLinks(repo, config, log = console.log, files = null) {
     log('  used to concede something may now record it as settled. Renumbering the target instead is the');
     log('  trap — it makes existing citations resolve SILENTLY to the wrong section. If a line deliberately');
     log('  quotes a citation as it was written, put `link-ok` on it.');
+  }
+
+  if (deadMembers.length > 0) {
+    log(`\ncheck-links: ✗ ${deadMembers.length} citation(s) naming a MEMBER that does not exist\n`);
+    for (const m of deadMembers) {
+      const excerpt = m.text.length > 96 ? m.text.slice(0, 93) + '...' : m.text;
+      log(`  ${m.file}:${m.line}  says ${m.type}.${m.member} — no such identifier in any .cs file`);
+      log(`      ${excerpt}`);
+    }
+    log('');
+    log('  A member name in prose is checked by NOTHING else — it is not a path, not a Part, not a section,');
+    log('  and only a `///` cref is seen by the compiler. The measured way to get one wrong is to read a');
+    log('  grep that printed a method BODY and infer the name from the lines around it; read the');
+    log('  DECLARATION instead. If a line deliberately names a member that never existed — a REJECTED');
+    log('  alternative, which `persist-working-state.md` explicitly asks you to record — put `link-ok` on');
+    log('  it, NOT `drift-ok`.');
   }
 
   if (dead.length > 0) {

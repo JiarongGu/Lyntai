@@ -234,7 +234,7 @@ export default {
       //
       // `Eviction` is NOT listed, and deliberately: it is an ordinary English word that a future member
       // could legitimately carry, and whole-identifier matching would fire on any of them. What was retired
-      // is the SPECIFIC property `MemoryEvictionPolicy.Eviction`, which stuttered against its own type —
+      // is the SPECIFIC property `MemoryEvictionPolicy.Eviction`, which stuttered against its own type —  link-ok
       // and a rule that cannot express "this member on this type" should not pretend to by banning the word.
       names: ['MemoryRetentionPolicy'],
       use: '`MemoryEvictionPolicy` (and `LyntaiOptions.MemoryEviction`, `ConfigureMemory(p => p.Mode = …)`)',

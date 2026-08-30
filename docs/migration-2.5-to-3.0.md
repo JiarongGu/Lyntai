@@ -187,8 +187,8 @@ rename like the rest — do them in one pass.
 | Was | Is now |
 |---|---|
 | `Lyntai.Storage.MemoryRetentionPolicy` | `Lyntai.Storage.MemoryEvictionPolicy` | <!-- drift-ok: the migration table -->
-| `LyntaiOptions.MemoryRetention` | `LyntaiOptions.MemoryEviction` | <!-- drift-ok: the migration table -->
-| `MemoryEvictionPolicy.Eviction` | `MemoryEvictionPolicy.Mode` |
+| `LyntaiOptions.MemoryRetention` | `LyntaiOptions.MemoryEviction` | <!-- drift-ok: the migration table --><!-- link-ok: a rename table NAMES the retired member -->
+| `MemoryEvictionPolicy.Eviction` | `MemoryEvictionPolicy.Mode` |<!-- link-ok: a rename table NAMES the retired member -->
 
 Nothing else about it changed: same presets (`Default`, `Manual`, `CountCap`, `TimeToLive`, `SizeBudget`,
 `Composite`), same defaults (a 500-entry per-scope FIFO cap), same `LYNTAI_MEMORY_*` environment variables,
@@ -877,7 +877,7 @@ Mechanical, and a compile error names every site — which is why it is last. No
 | `MemoryCompositionOptions.AuthoritativeReserve` | `.AuthoritativeCharacters` | you construct that options record |
 | `GraphMemoryEngine(policy:)` / `UseGraph(policy:)` | `retrievability:` | you pass the curve by NAME |
 | `CuratedMemorySections(task:)` | `taskKey:` | you pass that argument by name |
-| `MemoryProvenance.EnsureEachBitIsSingleRealAndUnique` | `.ValidateProvenanceBits` | you implement a provenance-declaring policy |   <!-- drift-ok: a rename table NAMES the retired spelling -->
+| `MemoryProvenance.EnsureEachBitIsSingleRealAndUnique` | `.ValidateProvenanceBits` | you implement a provenance-declaring policy |   <!-- drift-ok: a rename table NAMES the retired spelling --><!-- link-ok: a rename table NAMES the retired member -->
 | `IMemoryRetentionCompositionPolicy.Compose` | `.StabilityFactor` | you implement a retention composition |   <!-- drift-ok: a rename table NAMES the retired spelling -->
 | `IMemorySalienceCompositionPolicy.Compose` | `.Signals` | you implement a salience composition |   <!-- drift-ok: a rename table NAMES the retired spelling -->
 | `SummedAgeComposition`, `MultiplicativeRetentionComposition`, `MaximalSalienceComposition` | the same names + `Policy` | you name one of the shipped composition policies |   <!-- drift-ok: a rename table NAMES the retired spelling -->
@@ -1087,7 +1087,7 @@ Four errors, all four traceable to Step 1 and Step 4 above — nothing else in t
    code names
    them (Step 1). Do this first — every later fix references the new names.
 2. **Rename the storage type too, if you bound the keyword store's size**: `MemoryRetentionPolicy` → <!-- drift-ok: the checklist step IS the rename -->
-   `MemoryEvictionPolicy`, `LyntaiOptions.MemoryRetention` → `.MemoryEviction`, and the policy's `Eviction` <!-- drift-ok: as above -->
+   `MemoryEvictionPolicy`, `LyntaiOptions.MemoryRetention` → `.MemoryEviction`, and the policy's `Eviction` <!-- drift-ok: as above --><!-- link-ok: as above -->
    property → `Mode`. Same namespace, same presets, same behaviour (Step 1). Skip if you never configured it.
 3. **Fix signatures** on anything you implement: `Reinforce` returns `MemoryDecayState`, built with
    `with` and never rebuilt from scratch; add `Provenance` — a real, single, unique bit, or the engine

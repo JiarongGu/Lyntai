@@ -62,7 +62,7 @@ When a task says "app X wants Y," run it through this before writing code:
    <br>**This is the rule that catches the SELF-INFLICTED case, which is why it is separate from the five
    above.** Every one of those starts "a consumer asked for X"; this one fires when nobody asked and the
    shape was invented while designing. Measured 2026-08-16 (`docs/DECISIONS.md` **D75**, amending D72):
-   `IMemoryEngine.HoldsUserContent` was a `bool` on the engine declaring whether its content was the user's
+   `IMemoryEngine.HoldsUserContent` was a `bool` on the engine declaring whether its content was the user's <!-- link-ok: a REJECTED alternative; it never existed -->
    to withdraw — and one application's curated glossary is operator boilerplate while another's holds
    preferences the user typed. The property stated a fact about the HOST inside a type the host did not
    write. It became `IMemoryRemovalPolicy`, and the seam then expressed something the boolean could not say at

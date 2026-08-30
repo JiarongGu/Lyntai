@@ -30,6 +30,13 @@ item was closed — that a checked-off line never carried anyway.
 - **Keep the summary honest.** If the top of the backlog claims everything is done, that must be true.
   Never leave a stale "all done" banner over open items, nor open items under a "done" banner.
 - Picking up work you cannot finish now? Leave it open in the backlog. That is exactly what it is for.
+- **And never let an ALWAYS-LOADED file summarize the backlog.** The banner is amended in place every time
+  an item moves, so any copy of it goes stale at exactly that moment — and a copy in `CLAUDE.md` is the
+  worst case, because it is re-read at the start of every session while the file it duplicates is not. The
+  auto-loaded file should ROUTE ("read the banner") and state only what cannot rot; it must not carry the
+  count of open items or the list of them. Caught 2026-08-30 while fixing a stale banner reference — the fix
+  itself enumerated the three startable items into `CLAUDE.md`, reproducing the defect one level up.
+
 - **Never let the backlog SUMMARIZE the archive.** A running tally of what closed is the same accumulation
   as ticking items in place, one level up: it grows without bound, it answers a question the archive already
   answers, and it pushes the open items further down the file. Keep only what a reader needs to judge what

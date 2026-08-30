@@ -187,6 +187,15 @@ with that entry rather than leaving an empty file. Three homes, three jobs, so n
 Keep this binding here rather than in `.claude/skills/fix-log/SKILL.md`: the skill states the
 procedure, and which file it writes to is this repository's concern.
 
+**The entry shape is the FILE's, not the skill's.** `docs/FIXES.md` uses bolded prose paragraphs —
+**Symptom / Root cause / Fix / Verify** — and carries **no `Commit:` field**: the commit that INTRODUCED the
+bug is named inline in the root cause (which is the half worth having), and the commit that fixed it is one
+`git log` away. The skill's template shows a bulleted form with a trailing `**Commit:** <hash>`; following it
+literally in 2026-08-30 produced a `**Commit:** pending` that matched nothing else in the file and that
+nobody would ever have gone back to fill. **Read the newest existing entry and mirror it** — the same
+`pattern-finder` rule that applies to code applies to records, and a skill is a general procedure while the
+file in front of you is this repository's actual convention.
+
 ## Package layout — the binding for the general rule
 
 `dotnet-package-layout` states the boundaries; here they resolve to concrete names.
