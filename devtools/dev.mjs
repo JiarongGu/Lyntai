@@ -221,7 +221,10 @@ switch (cmd) {
   // nothing could be ranked against Mem0/Zep/Letta in either direction. This closes that, with the honest
   // caveat printed in its own preamble: the absolute score depends on the local reader model, so only the
   // ARM DIFFERENCE (lyntai vs plain vector search vs full-context) transfers. Needs the dataset — the
-  // command prints the one-line curl when it is missing.
+  // command prints the one-line curl when it is missing. `--ranks` is the K ladder on THIS workload: RRF's
+  // K is global, so a value that suppresses a superseded fact on LongMemEval has to be priced on a SEARCH
+  // workload too, and the two ladders share one scoring replica (`RankLadder`) so "K = 60" cannot mean two
+  // things.
   // memory-longmemeval — the complement to memory-locomo. LoCoMo rewards a perfect archive and penalises
   // forgetting by construction; this measures the class where forgetting should WIN, by scoring whether a
   // recall prefers a revised fact over the one it superseded. Model-free, and needs the dataset — the

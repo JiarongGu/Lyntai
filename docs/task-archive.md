@@ -1618,4 +1618,41 @@ corrupted them — the renames were scoped to `step.Ordinal`/`s.Ordinal` per fil
 sample, `CHANGELOG` Unreleased, D102, design contract §5.7, `pitfalls.md`) were found by grepping the
 identifiers, and the same grep correctly left the five pre-existing `MaxEntries` alone.
 
+## Part 122 — the `K` sweep: a compromise, not a default nobody looked at (2026-08-30)
+
+✅ done 2026-08-30 — `TASKS.md` Part 109's `K` sweep. Built `node devtools/dev.mjs memory-locomo --ranks`,
+the LoCoMo-side ladder that item asked for, and ran it beside a re-run of the LongMemEval haystack ladder at
+full sample. Tables in `docs/memory.md` §5. **No default moved, and the item's own premise is what the
+measurement overturned.**
+
+**The premise was that K = 120 is free, and BOTH halves of it failed.** LoCoMo is a search workload — it
+wants old material found rather than suppressed — and 60 → 120 costs it **4.5 points** of evidence-hit,
+monotonically, with no threshold effect. Separately, re-running the knowledge-update ladder on all 70
+questions rather than the 25 it was first measured on shows 60 → 120 also costing **6.0 points** of
+`current@k`, where the small sample reported 0.0. So *"free"* was one workload wide AND one sample thin, and
+`docs/memory.md`'s claim to that effect is amended in place rather than deleted, because the amendment is
+the finding.
+
+**What replaces it: 60 is a priced compromise.** Every step in either direction helps one metric and hurts
+another — up buys suppression and pays in recall on both benchmarks, down buys recall and gives the
+suppression back. There is no K that is free on both, which is exactly what "K selects a REGIME" predicts
+and nobody had measured on more than one regime.
+
+**The sharper result is that `K` is not where the LoCoMo gap is.** 32 of 200 questions had no evidence in
+the candidate pool at all, so the pool's ceiling is 84.0% against a shipped 54.5% — the fusion loses **29.5
+points of material it already held**, and the best K recovers **4.5** of them. Part 109's residual gap is
+therefore not a fusion constant; it is seeding for a sixth of it and ranking SHAPE for the rest.
+
+**One replica, not two, and proven neutral before it was trusted.** The RRF scoring the two ladders share is
+now `bench/Lyntai.Benchmarks/RankLadder.cs` — the same argument Part 119 made for `WalkAsync`, and a
+sharper one here, because a second copy could get the descending-id tiebreak or the competition-rank
+definition wrong in only one ladder and still look right. Equivalence was shown the way every refactor in
+this sequence has been: stash, run, restore, re-run — the LongMemEval ladder reproduced **byte-identically
+on all eight rows**, both controls included.
+
+**Controls.** LoCoMo's replica reproduces the shipped policy's top-20 on **200/200** recalls and its K = 60
+row reads the `lyntai` arm's own published 54.5% to the decimal; the haystack ladder's control is 66/66.
+The first attempt at the harness died on a `KeyNotFoundException` rather than scoring nothing quietly — an
+early `continue` skipped a dictionary a later scoring path read — which is the loud direction.
+
 - **Extend the shot curve past what was sampled.**

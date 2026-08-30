@@ -104,7 +104,14 @@ internal static class MemoryLocomoBench
         // shot in items, characters and milliseconds, because a cheaper context is the point rather than a
         // side effect.
         var shotsOnly = args.Contains("--shots");
-        var needsReader = !args.Contains("--retrieval") && !shotsOnly;
+        // `--ranks` is the LoCoMo half of `TASKS.md` Part 109. `ReciprocalRankFusionOptions.K` is GLOBAL, and
+        // the LongMemEval ladder found K = 120 cuts `stale@k` by ~12 points there for nothing measurable. But
+        // K selects a REGIME rather than a sharpness, and this is the opposite workload — a SEARCH one that
+        // wants old material FOUND rather than suppressed — so the direction here is not predictable from
+        // that class and has to be measured. Model-free, and scored offline from one ingestion for the reason
+        // `RankLadder` gives.
+        var ranksOnly = args.Contains("--ranks");
+        var needsReader = !args.Contains("--retrieval") && !shotsOnly && !ranksOnly;
         var chat = needsReader ? await SweepDoubles.TryRealChatAsync(http, "memory-locomo") : null;
         if (needsReader && chat is null) return 1;
 
@@ -124,7 +131,9 @@ internal static class MemoryLocomoBench
         // The ladder varies ranking knobs against a model-free metric; QA asks what a reader can do with
         // what came back, and its arms are the retrieval MODES — one shot, three shots, and cosine at both
         // sizes. Reusing the ladder here would spend five reader passes measuring ranking knobs.
-        string[] arms = shotsOnly
+        string[] arms = ranksOnly
+            ? ["ranks"]
+            : shotsOnly
             ? ["shot-1", "shot-2", "shot-3", "vector", $"vector-{ShotBudget}", "full"]
             : retrievalOnly
                 ? wantFull
@@ -136,7 +145,7 @@ internal static class MemoryLocomoBench
         var sampled = Stratify(questions, take);
 
         PrintPreamble(chat?.Model ?? "(none - retrieval only)", embedder,
-            conversations.Count, questions.Count, sampled.Count, arms, retrievalOnly || shotsOnly);
+            conversations.Count, questions.Count, sampled.Count, arms, retrievalOnly || shotsOnly || ranksOnly);
 
         var stopwatch = Stopwatch.StartNew();
         var correct = new Dictionary<(string Arm, int Category), int>();
@@ -147,6 +156,11 @@ internal static class MemoryLocomoBench
         var exact = new Dictionary<(string Arm, int Category), int>();
         var chars = new Dictionary<string, long>();
         var millis = new Dictionary<string, double>();
+
+        // ONE probe across every conversation, because the ladder's rates are over the whole sample. It is
+        // installed as the shipped arm's ranking policy and delegates untouched, so it describes the run that
+        // produced the published `lyntai` row rather than a reconstruction of it.
+        var rankProbe = new EvidenceRankProbe(new ReciprocalRankFusionPolicy());
 
         foreach (var (convId, turns) in conversations)
         {
@@ -180,7 +194,9 @@ internal static class MemoryLocomoBench
             // and they get separate stores for the reason the paragraph above gives, which applies with
             // extra force here: ExpandAsync reinforces what it walks, so a three-shot arm sharing a store
             // would hand the one-shot arm a graph it had already dug through.
-            var configs = retrievalOnly
+            var configs = ranksOnly
+                ? [("lyntai", null, rankProbe)]
+                : retrievalOnly
                 ? Ladder()
                 : shotsOnly
                     ? [(ThreeShot, null, null)]
@@ -286,6 +302,17 @@ internal static class MemoryLocomoBench
                             + "ingested turns present in the per-question copy");
                     }
 
+                    // The K ladder needs ONE recall per question and nothing else: the probe observes the pool
+                    // that recall produced and scores every K over it offline. Evidence is handed to the
+                    // probe rather than checked here, so the metric sits beside the ranks it is scoring.
+                    if (ranksOnly)
+                    {
+                        rankProbe.Evidence = q.Evidence;
+                        await engine.RecallAsync(
+                            new MemoryQuery(convId, "session", q.Text, Limit: RecallLimit));
+                        continue;
+                    }
+
                     var clock = Stopwatch.StartNew();
 
                     // Two shots and three come from ONE walk, because three is a strict superset of two.
@@ -386,6 +413,16 @@ internal static class MemoryLocomoBench
                 continue;
             }
 
+            if (ranksOnly)
+            {
+                // The probe accumulated everything while those recalls ran. There is no per-arm set to score
+                // here, because this mode's "arms" are values of K rather than configurations — one recall
+                // produces the pool, and every K is scored over it offline.
+                Console.WriteLine($"  {convId}: {turns.Count} turns ingested, "
+                    + $"{mine.Count(q => q.Evidence.Count > 0)} question(s) ranked");
+                continue;
+            }
+
             if (retrievalOnly)
             {
                 foreach (var q in mine.Where(q => q.Evidence.Count > 0))
@@ -453,7 +490,8 @@ internal static class MemoryLocomoBench
             Console.WriteLine($"  {convId}: {turns.Count} turns ingested, {mine.Count} question(s) asked");
         }
 
-        if (shotsOnly) PrintShots(arms, correct, asked, returned, chars, millis);
+        if (ranksOnly) PrintRanks(rankProbe);
+        else if (shotsOnly) PrintShots(arms, correct, asked, returned, chars, millis);
         else PrintResults(arms, correct, asked, unknown, returned, retrievalOnly, f1, exact, chars, judged);
         Console.WriteLine();
         Console.WriteLine($"Wall clock: {stopwatch.Elapsed.TotalSeconds:F1}s   "
@@ -629,6 +667,89 @@ internal static class MemoryLocomoBench
         Console.WriteLine("The grader is the SAME model that answered, which can be generous to its own");
         Console.WriteLine("phrasing. Stated rather than hidden; a second grader is the obvious next control.");
         Console.WriteLine();
+    }
+
+    /// <summary>Observes the candidate pool a recall saw and scores the K ladder over it, delegating the real
+    /// ranking untouched — so the arm it sits in IS the shipped arm, and the numbers describe the run that
+    /// produced the published `lyntai` row rather than a reconstruction of it.
+    /// <para>The metric is LoCoMo's own: does the top-k hold a turn the dataset names as evidence? The dia id
+    /// rides in the content, so no reader and no judge is involved.</para></summary>
+    private sealed class EvidenceRankProbe(IMemoryRankingPolicy inner) : IMemoryRankingPolicy
+    {
+        private readonly List<int> _pools = [];
+
+        internal IReadOnlyList<string> Evidence { get; set; } = [];
+
+        internal int[] HitAtK { get; } = new int[RankLadder.K.Length];
+
+        internal int Scored { get; private set; }
+
+        internal int Unreachable { get; private set; }
+
+        internal int Agreed { get; private set; }
+
+        internal int Compared { get; private set; }
+
+        internal int MedianPool => _pools.Count == 0 ? 0 : _pools.Order().ElementAt(_pools.Count / 2);
+
+        public IReadOnlyList<RankedMemory> Rank(
+            IReadOnlyList<MemoryCandidate> candidates, in MemoryRankingContext context)
+        {
+            var result = inner.Rank(candidates, context);
+            if (Evidence.Count == 0) return result;
+
+            var ladder = new RankLadder(candidates);
+            _pools.Add(ladder.Pool.Count);
+            Scored++;
+
+            // Counted, not excluded. A question whose evidence never entered the pool is a SEEDING failure
+            // rather than a fusion one — but dropping it would flatter every K by the same amount and break
+            // the one thing that makes this table comparable to the published row, which is that the shipped
+            // K reproduces it over the same denominator.
+            if (!ladder.Pool.Any(Holds)) Unreachable++;
+
+            for (var k = 0; k < RankLadder.K.Length; k++)
+            {
+                var top = ladder.TopAt(RankLadder.K[k], context.Limit);
+                if (top.Any(Holds)) HitAtK[k]++;
+
+                if (RankLadder.K[k] != RankLadder.Shipped) continue;
+                Compared++;
+                if (RankLadder.AgreesWithShipped(top, result, context.Limit)) Agreed++;
+            }
+            return result;
+        }
+
+        private bool Holds(MemoryCandidate c) =>
+            Evidence.Any(e => c.Node.Content.Contains($"({e})", StringComparison.Ordinal));
+    }
+
+    /// <summary>The K ladder, and the two controls that decide whether it is a table about the formula this
+    /// library actually runs.</summary>
+    private static void PrintRanks(EvidenceRankProbe probe)
+    {
+        var scored = Math.Max(1, probe.Scored);
+        Console.WriteLine();
+        Console.WriteLine($"{"K",-8} {"evidence-hit",14}   (same pool, same ranks, scored offline)");
+        Console.WriteLine(new string('-', 62));
+        for (var k = 0; k < RankLadder.K.Length; k++)
+            Console.WriteLine($"{RankLadder.K[k],-8:F0} {(double)probe.HitAtK[k] / scored,14:P1}"
+                + (RankLadder.K[k] == RankLadder.Shipped ? "   <- shipped" : ""));
+
+        Console.WriteLine();
+        Console.WriteLine($"  CONTROL 1: the K={RankLadder.Shipped:F0} row reproduces the SHIPPED policy's own "
+            + $"top-{RecallLimit} on {probe.Agreed}/{probe.Compared} recalls.");
+        Console.WriteLine("  Anything below 100% means the replica is not the formula this library runs, and");
+        Console.WriteLine("  the ladder above is a table about something else.");
+        Console.WriteLine();
+        Console.WriteLine("  CONTROL 2: that same row IS this run's `lyntai` arm, so it must match the");
+        Console.WriteLine("  published retrieval figure for the same sample. If it does not, the ladder is not");
+        Console.WriteLine("  comparable to the table it is meant to extend.");
+        Console.WriteLine();
+        Console.WriteLine($"  Scored {probe.Scored} question(s) carrying evidence; {probe.Unreachable} had no");
+        Console.WriteLine("  evidence in the candidate pool at all. Those stay in the DENOMINATOR on purpose:");
+        Console.WriteLine("  they are a seeding failure rather than a fusion one, and dropping them would");
+        Console.WriteLine($"  flatter every K equally. Pool size (median): {probe.MedianPool}.");
     }
 
     /// <summary>What each shot BUYS against what it COSTS. The rate alone would say a bigger context is a

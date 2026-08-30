@@ -27,7 +27,7 @@ published before that day scores one shot, which measures a vector index wearing
 extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
 closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
-**The startable set is FIVE items: Part 116's two, Part 109's `K` sweep and its QA half, and the
+**The startable set is FOUR items: Part 116's two, Part 109's QA half, and the
 3D-backend survey inside Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
@@ -36,10 +36,12 @@ with their write-ups sitting in `docs/memory.md` §5 while the banner advertised
 naming pass it gained on 2026-08-30 was filed BLOCKED and closed the same day, so it never counted toward
 the startable set. Both numbers are edited in the same change as the item, which is the habit `pitfalls.md`
 prescribes after four stale banners._
-<br>**Part 109's `K` sweep is the one to read after 116**: `K` turns out to select a REGIME (excellence on
-one signal at low K, balance across all of them at high K), it was never swept, and the one class measured
-says the shipped 60 is on the wrong side of free. Three of that Part's four items have now closed (**D97**,
-Part 112's haystack run, Part 113's ranking ladder).
+<br>**Part 109's `K` sweep CLOSED 2026-08-30** as `docs/task-archive.md` **Part 122**, and it overturned its
+own premise: `K` does select a REGIME, but "the shipped 60 is on the wrong side of free" was one workload
+wide and one sample thin. LoCoMo pays 4.5 points of evidence-hit going to K = 120, and the full 70-question
+haystack pays 6.0 points of `current@k` where the 25-question sample said 0.0. **60 is a priced compromise,
+and no default moved** — what is left of that Part is its QA half alone. Its other three items closed
+earlier (**D97**, Part 112's haystack run, Part 113's ranking ladder).
 <br>**Part 65 was in this list for an hour and is not any more**, which is the second half of the same test:
 its remaining half turned out to be a DECISION (`MaxSalience`'s default), and a decision nobody has taken is
 not work somebody can start — the same reason Part 105 sits under Blocked. Everything measurable in it has
@@ -541,21 +543,6 @@ in the same commit that reframed the item, and refuted both misallocation hypoth
 seeding fallback: `HopWeight = 0` costs 23.0 points on the isolated re-run and 24.5 before it (either way,
 traversal carries the arm), more semantic seeds make it worse, and the pool provably contains the evidence.
 The residual gap is the design, not a defect._
-
-- [ ] **Sweep `ReciprocalRankFusionOptions.K` across workloads — it selects a REGIME, and nobody knew.**
-  `memory-longmemeval --ranks` (`docs/memory.md` §5) found the mechanism behind the haystack's rising
-  `stale@k`: the decay model separates the pair 3.6× BETTER under distractors, and RRF discards the
-  improvement because `1/(K + rank)` is convex and both facts sink into its flat region. On that class,
-  **K = 120 costs nothing measurable on `current@k` in either variant and cuts `stale@k` by ~12 points**.
-  <br>**What makes this a sweep and not a default change**: `K` is global. Every LoCoMo figure in that
-  document was measured at 60, and the direction there is unknown — the same knob that suppresses a
-  superseded fact could easily cost evidence-hit on a workload that wants old material. The suite to run is
-  `memory-locomo --retrieval` at the same ladder, beside the two LongMemEval classes; 60 is Cormack, Clarke &
-  Buettcher's published value for fusing IR result lists, which is not the problem being solved here.
-  <br>**Startable today** — the ladder is built, scores offline from one ingestion, and validates itself
-  against the shipped policy (25/25 and 24/24). It needs a LoCoMo-side equivalent and a decision afterwards.
-  Its own bound is already measured: past K = 120 the haystack pays 16.7 points of `current@k` while the
-  oracle shows nothing, so a ladder read on the cheap variant alone would call K = 1000 free.
 
 _**The QA half RAN — `docs/task-archive.md` Part 115.** LoCoMo, 100 questions, token-F1 primary with the LLM
 judge beside it, plus a `--shots` diagnostic for the multi-shot mode the one-shot tables could not see. It

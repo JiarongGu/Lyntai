@@ -807,6 +807,11 @@ ranks — Borda count — which rewards a candidate that is good on every signal
 the oracle saturates harmlessly at 32% forever, while the haystack starts paying real recall — **−16.7 points
 of `current@k` at K = 300**. Read on the oracle alone, K = 1000 looks free. That is the same bias this
 document records one section above, now caught on a second question.
+<br>**AMENDED 2026-08-30 — "K = 120 costs nothing measurable" was a 25-QUESTION artifact and is withdrawn.**
+Re-run on all 70 (below), the haystack pays **6.0 points** of `current@k` going 60 → 120, where the sample
+said 0.0. The direction of the `stale@k` gain survives and is larger; what does not survive is *free*. The
+sample was the only thing that changed, which is the sharpest available demonstration that a 25-question
+haystack figure is reproducible to about one question and not to a tenth of a point.
 
 **Two controls, and the first caught a real defect.** The ladder's replica of the scoring must reproduce the
 SHIPPED policy's own top-10, or it is a table about a formula this library does not run: it agrees on
@@ -820,7 +825,55 @@ to the published table at all.
 `K` is a GLOBAL ranking constant — every LoCoMo figure in this document was measured at 60, and moving it
 would move them all, in a direction this says nothing about. 60 is Cormack, Clarke & Buettcher's published
 value for fusing IR result lists, which is a different problem from fusing decay against relevance. **This is
-an argument for sweeping `K` properly, not for changing a default**; `TASKS.md` Part 109 carries it.
+an argument for sweeping `K` properly, not for changing a default**; `TASKS.md` Part 109 carried it, and the
+section below is that sweep.
+
+### `K` is a COMPROMISE, and the two benchmarks pull opposite ways (`memory-locomo --ranks`, 2026-08-30)
+
+The ladder above read as *"the shipped 60 is on the wrong side of free"* — K = 120 bought suppression for
+nothing. **That was one workload wide, and both halves of it have now failed.** LoCoMo is a SEARCH
+benchmark, which wants old material FOUND rather than suppressed, and raising `K` costs it monotonically;
+and on the full 70-question haystack, K = 120 is not free on knowledge-update either.
+
+Both ladders are model-free, scored offline from one ingestion over the pool the shipped arm actually saw.
+LoCoMo: 200 questions, seed 12345, the sample every LoCoMo table here uses. LongMemEval: knowledge-update
+haystack, all 70, seed 20260829.
+
+| K | LoCoMo evidence-hit ↑ | LME `current@k` ↑ | LME `stale@k` ↓ |
+|---|---|---|---|
+| 1 | **59.0%** | 92.4% | 81.8% |
+| 3 | 59.0% | 92.4% | 81.8% |
+| 10 | 59.0% | 92.4% | 80.3% |
+| 30 | 57.5% | 90.9% | 80.3% |
+| **60 (shipped)** | 54.5% | 92.4% | 65.2% |
+| 120 | 50.0% | 86.4% | 48.5% |
+| 300 | 40.5% | 80.3% | 22.7% |
+| 1000 | 33.0% | 74.2% | **9.1%** |
+
+**Every step that helps one metric hurts another, and the shipped value sits between them.** 60 → 120 buys
+16.7 points of suppression and costs **4.5** of LoCoMo evidence-hit *and* **6.0** of `current@k`. 60 → 10
+buys 4.5 points of evidence-hit at no `current@k` cost and gives back **15.1** points of suppression. There
+is no K that is free on both benchmarks, so 60 is not an unexamined default — it is a **compromise nobody
+had priced until now**.
+
+**Two controls on the LoCoMo side, both green.** The replica reproduces the shipped policy's own top-20 on
+**200/200** recalls; anything under 100% would make this a table about a formula the library does not run.
+And the K = 60 row reads **54.5%**, the `lyntai` arm's own published retrieval figure to the decimal, which
+is what makes this an extension of that table rather than a separate measurement. The haystack ladder's
+control is **66/66**.
+
+**`K` is not where the LoCoMo gap is, and the pool says so.** 32 of the 200 questions had no evidence in the
+candidate pool at all — a SEEDING failure no ranking constant can reach — so the pool's ceiling is **84.0%**
+while the shipped ranking returns **54.5%**. The fusion therefore loses **29.5 points of material it already
+held**, and the best K on the ladder recovers **4.5** of them, about a sixth. That is the quantified form of
+this document's existing claim that the evidence was stored, embedded and reachable while the engine spent
+its slots elsewhere. It also frames the cosine comparison: `vector`'s 80.5% sits just under that 84%
+ceiling, so cosine is close to saturating what the pool contains.
+
+**What this does not settle.** The three columns come from two instruments and are not commensurable as
+LEVELS — only each column's shape transfers. One embedder throughout. The two harnesses also count
+differently: LoCoMo keeps a pool-unreachable question in the denominator (so the ladder stays comparable to
+its published row), while LongMemEval excludes one whose pair is outside the pool, 4 of 70 here.
 
 ### The mode this engine is FOR: shots, not one-shot (2026-08-29)
 

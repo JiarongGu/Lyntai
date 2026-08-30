@@ -431,8 +431,8 @@ internal static class MemoryLongMemEvalBench
         var rows = new List<(int Pool, int RelCur, int RelSta, int RetCur, int RetSta, double RCur, double RSta)>();
         var missing = 0;
         var done = 0;
-        var curAtK = new int[RankProbe.Ladder.Length];
-        var staAtK = new int[RankProbe.Ladder.Length];
+        var curAtK = new int[RankLadder.K.Length];
+        var staAtK = new int[RankLadder.K.Length];
         int agreed = 0, compared = 0;
 
         foreach (var q in sampled)
@@ -475,9 +475,9 @@ internal static class MemoryLongMemEvalBench
         Console.WriteLine();
         Console.WriteLine($"{"K",-8} {"current@k",12} {"stale@k",12}   (same pool, same ranks, scored offline)");
         Console.WriteLine(new string('-', 62));
-        for (var k = 0; k < RankProbe.Ladder.Length; k++)
-            Console.WriteLine($"{RankProbe.Ladder[k],-8:F0} {(double)curAtK[k] / rows.Count,12:P1} "
-                + $"{(double)staAtK[k] / rows.Count,12:P1}{(RankProbe.Ladder[k] == 60 ? "   <- shipped" : "")}");
+        for (var k = 0; k < RankLadder.K.Length; k++)
+            Console.WriteLine($"{RankLadder.K[k],-8:F0} {(double)curAtK[k] / rows.Count,12:P1} "
+                + $"{(double)staAtK[k] / rows.Count,12:P1}{(RankLadder.K[k] == 60 ? "   <- shipped" : "")}");
 
         Console.WriteLine();
         Console.WriteLine($"  CONTROL: the K=60 row reproduces the SHIPPED policy's own top-{RecallLimit} on "
@@ -651,15 +651,8 @@ internal static class MemoryLongMemEvalBench
         internal List<(int Pool, int RelCur, int RelSta, int RetCur, int RetSta, double RCur, double RSta)>
             Seen { get; } = [];
 
-        /// <summary>The K values the ladder scores; 60 is the shipped default and doubles as the CONTROL.
-        /// <para>It runs UPWARD as well as down because the downward half refuted the obvious reading. As
-        /// K → ∞, <c>1/(K+r) ≈ (1/K)(1 − r/K)</c>, so the order tends to the SUM OF RANKS — Borda count.
-        /// Low K is the opposite regime: being top-few on one signal outweighs being mediocre on the
-        /// rest.</para></summary>
-        internal static readonly double[] Ladder = [1, 3, 10, 30, 60, 120, 300, 1000];
-
-        internal int[] CurrentAtK { get; } = new int[Ladder.Length];
-        internal int[] StaleAtK { get; } = new int[Ladder.Length];
+        internal int[] CurrentAtK { get; } = new int[RankLadder.K.Length];
+        internal int[] StaleAtK { get; } = new int[RankLadder.K.Length];
         internal int Agreed { get; private set; }
         internal int Compared { get; private set; }
 
@@ -668,65 +661,30 @@ internal static class MemoryLongMemEvalBench
         {
             var result = inner.Rank(candidates, context);
 
-            // Mirror MemoryRankingContract.Rankable: a non-finite Relevance or Retrievability is dropped
-            // BEFORE positions are computed, so ranking over the unfiltered set would shift every position
-            // below the dropped candidate.
-            var pool = candidates
-                .Where(x => double.IsFinite(x.Node.Relevance) && double.IsFinite(x.Retrievability)).ToList();
+            var ladder = new RankLadder(candidates);
+            var pool = ladder.Pool;
             var cur = Find(pool, Current);
             var sta = Find(pool, Stale);
             if (cur is not { } c || sta is not { } s) return result;
 
             Seen.Add((pool.Count,
-                Rank(pool, x => x.Node.Relevance, c.Node.Relevance),
-                Rank(pool, x => x.Node.Relevance, s.Node.Relevance),
-                Rank(pool, x => x.Retrievability, c.Retrievability),
-                Rank(pool, x => x.Retrievability, s.Retrievability),
+                RankLadder.RankOf(pool, x => x.Node.Relevance, c.Node.Relevance),
+                RankLadder.RankOf(pool, x => x.Node.Relevance, s.Node.Relevance),
+                RankLadder.RankOf(pool, x => x.Retrievability, c.Retrievability),
+                RankLadder.RankOf(pool, x => x.Retrievability, s.Retrievability),
                 c.Retrievability, s.Retrievability));
 
-            // The K ladder is scored OFFLINE from this one candidate set, which is not a shortcut but the
-            // only clean way to do it: re-running the arm per K would need a fresh store per K, because a
-            // recall reinforces what it returns and that contaminates every later arm (`docs/task-archive.md`
-            // Part 110). RRF at another K is a pure function of ranks already in hand, so nothing is lost.
-            var rel = Positions(pool, x => x.Node.Relevance, false);
-            var ret = Positions(pool, x => x.Retrievability, false);
-            var hop = Positions(pool, x => x.Hop, true);
-            for (var k = 0; k < Ladder.Length; k++)
+            for (var k = 0; k < RankLadder.K.Length; k++)
             {
-                var top = Enumerate(pool, rel, ret, hop, Ladder[k], context.Limit);
-                if (top.Any(i => Has(pool[i], Current))) CurrentAtK[k]++;
-                if (top.Any(i => Has(pool[i], Stale))) StaleAtK[k]++;
+                var top = ladder.TopAt(RankLadder.K[k], context.Limit);
+                if (top.Any(x => Has(x, Current))) CurrentAtK[k]++;
+                if (top.Any(x => Has(x, Stale))) StaleAtK[k]++;
 
-                // CONTROL: at the shipped K this replica must reproduce the real policy's own top-N, or the
-                // ladder above is a table about a formula this library does not run.
-                if (Ladder[k] != 60) continue;
+                if (RankLadder.K[k] != RankLadder.Shipped) continue;
                 Compared++;
-                var real = result.Take(context.Limit).Select(r => r.Candidate.Node.Id).OrderBy(x => x);
-                if (top.Select(i => pool[i].Node.Id).OrderBy(x => x).SequenceEqual(real)) Agreed++;
+                if (RankLadder.AgreesWithShipped(top, result, context.Limit)) Agreed++;
             }
             return result;
-        }
-
-        /// <summary>The tiebreak is DESCENDING id, matching <c>MemoryRankingContract.Finish</c> — so on a
-        /// score tie the newer entry wins. Getting this backwards cost one recall of control agreement, which
-        /// is the whole reason the control exists.</summary>
-        private static List<int> Enumerate(IReadOnlyList<MemoryCandidate> all,
-            int[] rel, int[] ret, int[] hop, double k, int limit) =>
-            [.. Enumerable.Range(0, all.Count)
-                .OrderByDescending(i => 1 / (k + rel[i]) + 1 / (k + ret[i]) + 1 / (k + hop[i]))
-                .ThenByDescending(i => all[i].Node.Id)
-                .Take(limit)];
-
-        /// <summary>Competition ranking, matching <c>ReciprocalRankFusionPolicy.RankPositions</c>: every
-        /// member of a tie block takes the block's first position.</summary>
-        private static int[] Positions(IReadOnlyList<MemoryCandidate> all,
-            Func<MemoryCandidate, double> of, bool ascending)
-        {
-            var v = all.Select(of).ToArray();
-            var r = new int[v.Length];
-            for (var i = 0; i < v.Length; i++)
-                r[i] = 1 + v.Count(x => ascending ? x < v[i] : x > v[i]);
-            return r;
         }
 
         private static bool Has(MemoryCandidate c, IReadOnlyList<Turn> wanted)
