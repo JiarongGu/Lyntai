@@ -1581,8 +1581,41 @@ the one that would have published a wrong number.
 <br>**(3) `check-samples` caught its own baseline going stale** (`CLAUDE.md` 78 → 79 doc samples), and the
 first README annotation was redundant: `check-samples.mjs` already pre-declares `IMemoryEngine engine`.
 
-**What is deliberately NOT done.** The merge accumulator stays internal (D102 says what would change that),
-and the public NAMES are provisional — the pass is open in `TASKS.md` Part 116 and must land before this
-ships, since each one is then a permanent SemVer promise.
+**What is deliberately NOT done.** The merge accumulator stays internal (D102 says what would change that).
+The public NAMES were provisional when this landed and were settled the same day — Part 121.
+
+## Part 121 — the walk's names, passed before the surface shipped (2026-08-30)
+
+✅ done 2026-08-30 — `TASKS.md` Part 116's naming item, filed the previous day and **unblocked by Part 120
+itself**: its blocker was the TREE (`MemoryWalk` did not exist, so there were no names to pass over), which
+is the kind of blocker a commit discharges. Five renames, against
+`.claude/rules/dotnet-package-layout.md` §Naming.
+
+| was | now | why |
+|---|---|---|
+| `MemoryWalkStep.Ordinal` | `Number` | `Ordinal` reads as `StringComparison.Ordinal`, which is about comparison rather than position |
+| `MemoryWalkStep.Discovered` | `NewItems` | pairs with `Items`; "discovered" is walk-mechanics vocabulary, not a domain noun |
+| `MemoryWalkStep.Upgraded` | `UpgradedCount` | a past participle returning an `int` |
+| `MemoryWalkOptions.MaxEntries` | `MaxItems` | see below — this is the one with a real argument |
+| `MemoryWalkOptions.SelectSeeds` | `SeedSelector` | noun form for a delegate property, matching .NET's `*Selector`; **not** `*Policy`, which here means a DI seam |
+
+**`MaxEntries` is the interesting one, and the argument got STRONGER while checking it.** The rename was
+first proposed only for local consistency — it bounds `Items`, and nothing else on the surface said
+"entries". Grepping the tree then showed `MaxEntries` is already spent on STORE CAPACITY in five places
+(`CacheOptions`, `MemoryEvictionPolicy`, `BoundedProviderPool`, both response caches). A walk's bound is a
+per-call context limit, not a store's size, so reusing the word is the `AuthoritativeReserve` shape
+`MemoryCompositionOptions` documents having shipped once: one identifier, two meanings, both reachable from
+one options chain.
+
+**What did NOT move, each on a precedent rather than a preference:** `Items` and `Ran` mirror
+`MemoryRecall`; `Hops` mirrors `ExpandAsync(hops:)`; `SeedsPerStep` keeps "seed", already this library's
+word (`SemanticSeedK`, `SubjectSeedK`); `MemoryWalk`/`MemoryWalkOptions` mirror
+`MemoryComposition`/`MemoryCompositionOptions`.
+
+**The compiler is the site-list for C# and NOT for prose, which is where the rename could have rotted.**
+`StringComparison.Ordinal` appears in three of the four code files touched, so a blanket replace would have
+corrupted them — the renames were scoped to `step.Ordinal`/`s.Ordinal` per file. The prose sites (README
+sample, `CHANGELOG` Unreleased, D102, design contract §5.7, `pitfalls.md`) were found by grepping the
+identifiers, and the same grep correctly left the five pre-existing `MaxEntries` alone.
 
 - **Extend the shot curve past what was sampled.**

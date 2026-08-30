@@ -2210,22 +2210,22 @@ sealed class Lyntai.Memory.MemoryWalkOptions
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Hops : Int32
-    MaxEntries : Nullable<Int32>
+    MaxItems : Nullable<Int32>
+    SeedSelector : Func<MemoryWalkStep,IEnumerable<MemoryItem>>
     SeedsPerStep : Int32
-    SelectSeeds : Func<MemoryWalkStep,IEnumerable<MemoryItem>>
     ToString() : String
 sealed class Lyntai.Memory.MemoryWalkStep
-    .ctor(Int32 Ordinal, IReadOnlyList<MemoryItem> Items, IReadOnlyList<MemoryItem> Discovered, Int32 Upgraded, MemorySources Ran)
-    Deconstruct(Int32& Ordinal, IReadOnlyList`1& Items, IReadOnlyList`1& Discovered, Int32& Upgraded, MemorySources& Ran) : Void
-    Discovered : IReadOnlyList<MemoryItem>
+    .ctor(Int32 Number, IReadOnlyList<MemoryItem> Items, IReadOnlyList<MemoryItem> NewItems, Int32 UpgradedCount, MemorySources Ran)
+    Deconstruct(Int32& Number, IReadOnlyList`1& Items, IReadOnlyList`1& NewItems, Int32& UpgradedCount, MemorySources& Ran) : Void
     Equals(MemoryWalkStep other) : Boolean
     Equals(Object obj) : Boolean
     GetHashCode() : Int32
     Items : IReadOnlyList<MemoryItem>
-    Ordinal : Int32
+    NewItems : IReadOnlyList<MemoryItem>
+    Number : Int32
     Ran : MemorySources
     ToString() : String
-    Upgraded : Int32
+    UpgradedCount : Int32
 sealed class Lyntai.Memory.MemoryWrite
     .ctor(String TaskKey, String Scope, String Content, String Headline = null, MemoryGrade Grade = MemoryGrade.Inherit, IReadOnlyDictionary<String,String> Metadata = null)
     Content : String

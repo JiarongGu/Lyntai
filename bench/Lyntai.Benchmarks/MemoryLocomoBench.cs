@@ -298,7 +298,7 @@ internal static class MemoryLocomoBench
                     {
                         SeedsPerStep = expandSeeds,
                         Hops = 1,
-                        MaxEntries = ShotBudget,
+                        MaxItems = ShotBudget,
                     };
 
                     List<string> context = [];
@@ -316,11 +316,11 @@ internal static class MemoryLocomoBench
                             break;
                         }
 
-                        reached = step.Ordinal;
-                        Snapshot(step.Ordinal, context);
-                        if (!shotsOnly && step.Ordinal is 2 or 3)
-                            recalled[(step.Ordinal == 2 ? TwoShot : ThreeShot, q.Text)] = context;
-                        if (step.Ordinal >= 3) break;
+                        reached = step.Number;
+                        Snapshot(step.Number, context);
+                        if (!shotsOnly && step.Number is 2 or 3)
+                            recalled[(step.Number == 2 ? TwoShot : ThreeShot, q.Text)] = context;
+                        if (step.Number >= 3) break;
                     }
 
                     // A walk ENDS when a step moves nothing, where the pre-surface loop ran shots 2 and 3

@@ -1325,12 +1325,12 @@ benched tenant, an unbounded engine or a render nobody cancelled.
   The walk is finite for two independent reasons: the default seed selector eventually returns nothing, AND
   a step that discovers and upgrades nothing ends it. Deleting the second guard failed **no test** — every
   fact used the default selector, which hits the first guard first — so the rule that actually makes the
-  sequence finite for a caller-supplied `SelectSeeds` was uncovered, and the evidence said to delete it.
+  sequence finite for a caller-supplied `SeedSelector` was uncovered, and the evidence said to delete it.
   <br>**The tell is a guard whose removal changes nothing, in code that has a seam.** That reads as "this is
   redundant" and is in fact "no test takes the path where it matters". The question to ask of any
   belt-and-braces guard is not *"does a test fail without it?"* but **"which caller reaches this one FIRST,
   and does any test look like that caller?"** Here the adversarial caller is one line —
-  `SelectSeeds = s => s.Items`, a selector that never empties.
+  `SeedSelector = s => s.Items`, a selector that never empties.
   <br>**Bound the loop inside the TEST, not only in the code under test.** A missing termination guard makes
   the honest test hang, and a hanging test is a worse signal than a failing one — it looks like an
   environment problem and it blocks the suite. Collect into a list, `break` past a generous ceiling, and

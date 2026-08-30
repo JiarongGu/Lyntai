@@ -2912,7 +2912,7 @@ a rule two independent write-ups got right only by copying each other.
 
 **Why pull-based.** D100 found the useful depth is a property of the QUESTION, and only a pull shape lets
 the caller decide *after seeing step 1*. The sequence is finite regardless: a step that moves nothing ends
-it, and `MaxEntries` bounds what may be held. That bound DERIVES — twice what step 1 returned — rather than
+it, and `MaxItems` bounds what may be held. That bound DERIVES — twice what step 1 returned — rather than
 asserting a constant nobody measured.
 
 **The unit is a `step`; `hop` was unavailable.** `ExpandAsync(hops:)` already means edge distance inside one
@@ -2926,9 +2926,14 @@ is re-ranked across steps, because an expanded neighbour's `Relevance` comes fro
 one (**D97**) and `MemoryItem` does not carry `Matched` to say so.
 
 **What is deliberately NOT public.** The merge accumulator stays internal. `MemoryComposition.Render` could
-be exposed as a second half because it is pure; an accumulator is mutable state, and `SelectSeeds` already
+be exposed as a second half because it is pure; an accumulator is mutable state, and `SeedSelector` already
 covers the variation that exists. Exposing it later is additive; removing it later is not.
 
 **What reversing would cost.** Nothing depends on it — deleting the file restores the previous surface
-exactly, since no existing type changed. The names are provisional pending the pass tracked in `TASKS.md`
-Part 116, and that pass must land before this ships: every one is then a permanent SemVer promise (**D70**).
+exactly, since no existing type changed.
+
+**The naming pass ran before anything shipped**, which is the only window in which it is free (**D70**):
+`Ordinal` → `Number`, `Discovered` → `NewItems`, `Upgraded` → `UpgradedCount`, `SelectSeeds` →
+`SeedSelector`, and `MaxEntries` → `MaxItems` — that last because this repository already spends
+`MaxEntries` on STORE capacity (`CacheOptions`, `MemoryEvictionPolicy`, `BoundedProviderPool`) while a walk
+bounds a returned context, which is the `AuthoritativeReserve` collision again.

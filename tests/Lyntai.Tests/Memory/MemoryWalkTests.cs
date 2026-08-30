@@ -33,8 +33,8 @@ public class MemoryWalkMergeTests
         state.BeginStep();
         state.Hold(Item("a", "1", "the headline", "the full content of the entry"));
 
-        Assert.Equal(1, state.Upgraded);
-        Assert.Empty(state.Discovered);
+        Assert.Equal(1, state.UpgradedCount);
+        Assert.Empty(state.NewItems);
         var only = Assert.Single(state.Items);
         Assert.Equal("the full content of the entry", only.Content);
     }
@@ -51,7 +51,7 @@ public class MemoryWalkMergeTests
         state.BeginStep();
         state.Hold(Item("a", "1", "a very long authored headline indeed", null));
 
-        Assert.Equal(0, state.Upgraded);
+        Assert.Equal(0, state.UpgradedCount);
         Assert.Equal("short body", Assert.Single(state.Items).Content);
     }
 
@@ -68,8 +68,8 @@ public class MemoryWalkMergeTests
         state.Hold(Item("a", "1", "first", "the first entry in full"));
 
         Assert.Equal(2, state.Items.Count);
-        Assert.Empty(state.Discovered);
-        Assert.Equal(1, state.Upgraded);
+        Assert.Empty(state.NewItems);
+        Assert.Equal(1, state.UpgradedCount);
         Assert.Equal("the first entry in full", state.Items[0].Content);
     }
 
@@ -105,9 +105,9 @@ public class MemoryWalkFirstStepTests
         var steps = await engine.WalkAsync(new MemoryQuery("t", "s", "pipeline")).ToListAsync();
 
         Assert.NotEmpty(steps);
-        Assert.Equal(1, steps[0].Ordinal);
-        Assert.Equal(0, steps[0].Upgraded);
-        Assert.Equal(steps[0].Items.Count, steps[0].Discovered.Count);
+        Assert.Equal(1, steps[0].Number);
+        Assert.Equal(0, steps[0].UpgradedCount);
+        Assert.Equal(steps[0].Items.Count, steps[0].NewItems.Count);
         Assert.True(steps[0].Ran.HasFlag(MemorySources.Graph));
     }
 
@@ -225,7 +225,7 @@ public class MemoryWalkExpansionTests
 
         var steps = await engine.WalkAsync(new MemoryQuery("t", "s", "pipeline", Limit: 1)).ToListAsync();
 
-        Assert.Contains(steps, s => s.Upgraded > 0);
+        Assert.Contains(steps, s => s.UpgradedCount > 0);
         Assert.Contains(steps[^1].Items, i => i.Content is not null);
     }
 
@@ -240,8 +240,8 @@ public class MemoryWalkExpansionTests
         Assert.NotEmpty(steps);
         // Asserted over ALL steps past the first, not just the last: a no-op step in the middle is the same
         // defect, and a last-step-only check cannot see it.
-        Assert.All(steps.Skip(1), s => Assert.True(s.Discovered.Count > 0 || s.Upgraded > 0,
-            $"step {s.Ordinal} moved nothing and should not have been yielded"));
+        Assert.All(steps.Skip(1), s => Assert.True(s.NewItems.Count > 0 || s.UpgradedCount > 0,
+            $"step {s.Number} moved nothing and should not have been yielded"));
     }
 
     [Fact]
@@ -254,12 +254,12 @@ public class MemoryWalkExpansionTests
         // step 1 returned 1 item, so the derived bound is 2 — not a constant, and not the 3 available
         Assert.Single(steps[0].Items);
         Assert.All(steps, s => Assert.True(s.Items.Count <= 2,
-            $"step {s.Ordinal} held {s.Items.Count}, above the derived bound of 2"));
+            $"step {s.Number} held {s.Items.Count}, above the derived bound of 2"));
         Assert.Equal(2, steps[^1].Items.Count);   // it really did fill it, so the bound is what stopped it
     }
 
     [Fact]
-    public async Task MaxEntries_overrides_the_derived_bound()
+    public async Task MaxItems_overrides_the_derived_bound()
     {
         // step 1 returns 3 hubs, so the DERIVED bound would be 6 and all three leaves would fit
         var derived = await (await StarAsync())
@@ -268,7 +268,7 @@ public class MemoryWalkExpansionTests
 
         var bounded = await (await StarAsync())
             .WalkAsync(new MemoryQuery("t", "s", "pipeline", Limit: 3),
-                new MemoryWalkOptions { MaxEntries = 4 }).ToListAsync();
+                new MemoryWalkOptions { MaxItems = 4 }).ToListAsync();
 
         Assert.All(bounded, s => Assert.True(s.Items.Count <= 4));
         Assert.Equal(4, bounded[^1].Items.Count);
@@ -283,10 +283,10 @@ public class MemoryWalkExpansionTests
             new MemoryWalkOptions { SeedsPerStep = 3 }).ToListAsync();
 
         // one seed reaches one leaf; three seeds reach three. Both start from the same three hubs.
-        Assert.Equal(3, one[0].Discovered.Count);
-        Assert.Equal(3, three[0].Discovered.Count);
-        Assert.Single(one[1].Discovered);
-        Assert.Equal(3, three[1].Discovered.Count);
+        Assert.Equal(3, one[0].NewItems.Count);
+        Assert.Equal(3, three[0].NewItems.Count);
+        Assert.Single(one[1].NewItems);
+        Assert.Equal(3, three[1].NewItems.Count);
     }
 
     [Fact]
@@ -299,7 +299,7 @@ public class MemoryWalkExpansionTests
 
         var steps = new List<MemoryWalkStep>();
         await foreach (var step in engine.WalkAsync(new MemoryQuery("t", "s", "pipeline", Limit: 3),
-            new MemoryWalkOptions { SelectSeeds = s => s.Items }))
+            new MemoryWalkOptions { SeedSelector = s => s.Items }))
         {
             steps.Add(step);
             if (steps.Count > 20) break;   // bounds the TEST, so a non-terminating walk fails instead of hanging
@@ -309,17 +309,17 @@ public class MemoryWalkExpansionTests
     }
 
     [Fact]
-    public async Task SelectSeeds_replaces_the_default_outright_INCLUDING_its_count()
+    public async Task SeedSelector_replaces_the_default_outright_INCLUDING_its_count()
     {
         // SeedsPerStep = 1 would truncate to one seed if it applied. It must not: a supplied selector is
         // authoritative, so this walk expands all three hubs and reaches all three leaves.
         var engine = await StarAsync();
 
         var steps = await engine.WalkAsync(new MemoryQuery("t", "s", "pipeline", Limit: 3),
-            new MemoryWalkOptions { SeedsPerStep = 1, SelectSeeds = step => step.Discovered })
+            new MemoryWalkOptions { SeedsPerStep = 1, SeedSelector = step => step.NewItems })
             .ToListAsync();
 
-        Assert.Equal(3, steps[1].Discovered.Count);
+        Assert.Equal(3, steps[1].NewItems.Count);
     }
 
     [Fact]
@@ -329,7 +329,7 @@ public class MemoryWalkExpansionTests
         var consulted = new List<int>();
 
         var steps = await engine.WalkAsync(new MemoryQuery("t", "s", "pipeline", Limit: 3),
-            new MemoryWalkOptions { SelectSeeds = step => { consulted.Add(step.Ordinal); return []; } })
+            new MemoryWalkOptions { SeedSelector = step => { consulted.Add(step.Number); return []; } })
             .ToListAsync();
 
         Assert.Single(steps);

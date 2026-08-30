@@ -6,7 +6,7 @@ namespace Lyntai.Memory;
 public sealed record MemoryWalkOptions
 {
     /// <summary>How many of a step's new arrivals the DEFAULT selector expands. Configures
-    /// <see cref="SelectSeeds"/>'s default and nothing else — a caller supplying their own bounds it
+    /// <see cref="SeedSelector"/>'s default and nothing else — a caller supplying their own bounds it
     /// themselves.</summary>
     public int SeedsPerStep { get; init; } = 3;
 
@@ -19,7 +19,7 @@ public sealed record MemoryWalkOptions
     /// rather than asserting a constant nobody measured.
     /// <para>It is what makes the sequence FINITE: once it is reached nothing new can be discovered, so the
     /// walk ends whether or not the caller breaks.</para></summary>
-    public int? MaxEntries { get; init; }
+    public int? MaxItems { get; init; }
 
     /// <summary>Which entries a step expands. Null takes the newly-discovered ones in arrival order, capped
     /// at <see cref="SeedsPerStep"/>.
@@ -29,23 +29,23 @@ public sealed record MemoryWalkOptions
     /// relevance from a read that never asked one; <c>docs/DECISIONS.md</c> D97 is why that matters.
     /// <see cref="MemoryItem.Retrievability"/> and <see cref="MemoryItem.Degree"/> are meaningful.</para>
     /// </summary>
-    public Func<MemoryWalkStep, IEnumerable<MemoryItem>>? SelectSeeds { get; init; }
+    public Func<MemoryWalkStep, IEnumerable<MemoryItem>>? SeedSelector { get; init; }
 }
 
 /// <summary>One step of a walk: what is held after it, and what it changed.</summary>
-/// <param name="Ordinal">1 is the recall; 2 and up are expansions.</param>
+/// <param name="Number">1 is the recall; 2 and up are expansions.</param>
 /// <param name="Items">Everything held so far, merged and capped, in arrival order.</param>
-/// <param name="Discovered">What THIS step newly held — the default seed set for the next one.</param>
-/// <param name="Upgraded">How many already-held entries this step raised from a headline to full content.
+/// <param name="NewItems">What THIS step newly held — the default seed set for the next one.</param>
+/// <param name="UpgradedCount">How many already-held entries this step raised from a headline to full content.
 /// A recall returns headlines, so upgrading is half of what a step buys and a count of new entries alone
 /// cannot see it.</param>
 /// <param name="Ran">Which tiers produced this step, so an empty tier stays distinguishable from an absent
 /// one.</param>
 public sealed record MemoryWalkStep(
-    int Ordinal,
+    int Number,
     IReadOnlyList<MemoryItem> Items,
-    IReadOnlyList<MemoryItem> Discovered,
-    int Upgraded,
+    IReadOnlyList<MemoryItem> NewItems,
+    int UpgradedCount,
     MemorySources Ran);
 
 /// <summary>Walks an engine: a recall, then expansions outward from what it turned up — the mode a graph
@@ -58,7 +58,7 @@ public static class MemoryWalk
     /// <summary>Walk <paramref name="engine"/>, yielding one step per round.
     /// <para>The caller's <c>break</c> is the stop condition, because the useful depth is a property of the
     /// QUESTION rather than a constant (<c>docs/DECISIONS.md</c> D100). The sequence is FINITE either way —
-    /// it ends when a step moves nothing, or when <see cref="MemoryWalkOptions.MaxEntries"/> is reached — so
+    /// it ends when a step moves nothing, or when <see cref="MemoryWalkOptions.MaxItems"/> is reached — so
     /// an <c>await foreach</c> with no break terminates on its own.</para>
     /// <para><b>Fails open</b>, like every recall-shaped read here. The first step is ALWAYS yielded, empty
     /// and reporting <see cref="MemorySources.None"/> when the recall faults. A later step that faults is
@@ -99,17 +99,17 @@ public static class MemoryWalk
 
         // Derived, not chosen: twice what the first step actually returned reproduces the benchmark
         // harnesses' `2 * RecallLimit` whenever step 1 fills its limit, and invents no constant.
-        var state = new MemoryWalkState(opts.MaxEntries ?? recall.Items.Count * 2);
+        var state = new MemoryWalkState(opts.MaxItems ?? recall.Items.Count * 2);
 
         state.BeginStep();
         foreach (var item in recall.Items) state.Hold(item);
-        var step = new MemoryWalkStep(1, [.. state.Items], [.. state.Discovered], state.Upgraded, recall.Ran);
+        var step = new MemoryWalkStep(1, [.. state.Items], [.. state.NewItems], state.UpgradedCount, recall.Ran);
         yield return step;
 
         if (engine is not IExpandableMemory expandable) yield break;
-        var select = opts.SelectSeeds ?? (s => s.Discovered.Take(opts.SeedsPerStep));
+        var select = opts.SeedSelector ?? (s => s.NewItems.Take(opts.SeedsPerStep));
 
-        for (var ordinal = 2; ; ordinal++)
+        for (var number = 2; ; number++)
         {
             var seeds = select(step).ToList();
             if (seeds.Count == 0) yield break;
@@ -139,12 +139,12 @@ public static class MemoryWalk
                 foreach (var item in near.Items) state.Hold(item);
             }
 
-            // A half-built step would misreport Discovered in the one direction a caller cannot detect, so
+            // A half-built step would misreport NewItems in the one direction a caller cannot detect, so
             // the last GOOD step stands instead.
             if (faulted) yield break;
 
-            step = new MemoryWalkStep(ordinal, [.. state.Items], [.. state.Discovered], state.Upgraded, ran);
-            if (step.Discovered.Count == 0 && step.Upgraded == 0) yield break;
+            step = new MemoryWalkStep(number, [.. state.Items], [.. state.NewItems], state.UpgradedCount, ran);
+            if (step.NewItems.Count == 0 && step.UpgradedCount == 0) yield break;
             yield return step;
         }
     }
@@ -158,20 +158,20 @@ internal sealed class MemoryWalkState(int maxEntries)
 {
     private readonly Dictionary<MemoryRef, int> _at = [];
     private readonly List<MemoryItem> _held = [];
-    private readonly List<MemoryItem> _discovered = [];
+    private readonly List<MemoryItem> _new = [];
 
     public IReadOnlyList<MemoryItem> Items => _held;
 
-    public IReadOnlyList<MemoryItem> Discovered => _discovered;
+    public IReadOnlyList<MemoryItem> NewItems => _new;
 
-    public int Upgraded { get; private set; }
+    public int UpgradedCount { get; private set; }
 
     /// <summary>Start a step's bookkeeping. <see cref="Items"/> accumulates across steps;
-    /// <see cref="Discovered"/> and <see cref="Upgraded"/> describe one step only.</summary>
+    /// <see cref="NewItems"/> and <see cref="UpgradedCount"/> describe one step only.</summary>
     public void BeginStep()
     {
-        _discovered.Clear();
-        Upgraded = 0;
+        _new.Clear();
+        UpgradedCount = 0;
     }
 
     public void Hold(MemoryItem item)
@@ -184,7 +184,7 @@ internal sealed class MemoryWalkState(int maxEntries)
             if (_held[at].Content is null && item.Content is not null)
             {
                 _held[at] = item;
-                Upgraded++;
+                UpgradedCount++;
             }
             return;
         }
@@ -192,6 +192,6 @@ internal sealed class MemoryWalkState(int maxEntries)
         if (_held.Count >= maxEntries) return;   // gates DISCOVERIES only; the branch above already returned
         _at[item.Reference] = _held.Count;
         _held.Add(item);
-        _discovered.Add(item);
+        _new.Add(item);
     }
 }

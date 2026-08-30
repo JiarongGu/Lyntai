@@ -186,7 +186,7 @@ public static class MemoryEngineContract
 
         Assert.NotEmpty(steps);
         // ordinals are contiguous from 1, so a caller can index a shot curve by them
-        Assert.Equal(Enumerable.Range(1, steps.Count), steps.Select(s => s.Ordinal));
+        Assert.Equal(Enumerable.Range(1, steps.Count), steps.Select(s => s.Number));
     }
 
     public static async Task An_inherited_grade_resolves_and_is_never_returned_as_Inherit(

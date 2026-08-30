@@ -447,7 +447,7 @@ the question rather than a constant:
 ```csharp
 await foreach (var step in engine.WalkAsync(new MemoryQuery("proj", "code", "gate", Limit: 20)))
 {
-    Console.WriteLine($"step {step.Ordinal}: {step.Discovered.Count} new, {step.Upgraded} upgraded");
+    Console.WriteLine($"step {step.Number}: {step.NewItems.Count} new, {step.UpgradedCount} upgraded");
     if (step.Items.Count >= 30) break;   // you decide how far to go
 }
 ```

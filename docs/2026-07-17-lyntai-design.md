@@ -527,7 +527,7 @@ public interface IMemoryEngine {
   member: a walk is composition, and a second door onto recall+expand would make every BYO store owe the
   merge rule.
   <br>**The caller's `break` is the stop condition**, because depth is a property of the QUESTION rather than
-  a constant; the sequence is finite regardless, since a step that moves nothing ends it and `MaxEntries`
+  a constant; the sequence is finite regardless, since a step that moves nothing ends it and `MaxItems`
   bounds what may be held. **The merge is the part a hand-rolled loop gets wrong**: a step both DISCOVERS
   entries and UPGRADES held ones from a headline to full content, so identity is the whole `MemoryRef` — a
   blend's members may each own the same id — and an arriving `Content` replaces a held null, never merely a

@@ -24,17 +24,18 @@ evaluated as during the 2026-08-29 session: an n-shot WALK, not a single top-k. 
 published before that day scores one shot, which measures a vector index wearing a graph engine's name. Part
 116 carries what that opens. **Its biggest item — the library having no n-shot surface — CLOSED on
 2026-08-30** as `docs/task-archive.md` **Part 120** / **D102**: `MemoryWalk.WalkAsync` ships the walk as an
-extension over the two seams that already existed, and both bench harnesses now drive it. What is left in
-the Part is measurement, plus the naming pass that surface owes.
+extension over the two seams that already existed, and both bench harnesses now drive it. Its naming pass
+closed the same day as **Part 121**, so **what is left in the Part is measurement and nothing else.**
 
 **The startable set is FIVE items: Part 116's two, Part 109's `K` sweep and its QA half, and the
 3D-backend survey inside Part 33 / GEN7.** Each is a `- [ ]` you could open today — which is the test this
 banner failed twice on 2026-08-29, so apply it literally: **if the banner names something that is not an
 open checkbox below, the banner is wrong.** Both names it carried that day were sweeps that had already run,
 with their write-ups sitting in `docs/memory.md` §5 while the banner advertised them.
-<br>_Part 116 held five until Parts 117–120 took four of them, and gained the walk-surface naming pass on
-2026-08-30 — which is BLOCKED, so it moves the Part's total and not the startable count. Both numbers are
-edited in the same change as the item, which is the habit `pitfalls.md` prescribes after four stale banners._
+<br>_Part 116 held five until Parts 117–121 took three of them outright and two thirds of a fourth; the
+naming pass it gained on 2026-08-30 was filed BLOCKED and closed the same day, so it never counted toward
+the startable set. Both numbers are edited in the same change as the item, which is the habit `pitfalls.md`
+prescribes after four stale banners._
 <br>**Part 109's `K` sweep is the one to read after 116**: `K` turns out to select a REGIME (excellence on
 one signal at low K, balance across all of them at high K), it was never swept, and the one class measured
 says the shipped 60 is on the wrong side of free. Three of that Part's four items have now closed (**D97**,
@@ -132,9 +133,6 @@ Blocked, and on what:
   the documented-not-measured trap GEN-VERIFY exists to correct. (The rest of Part 75 has closed; this line
   exists because a Part whose blocker is unlisted reads as startable, which is how Part 33 hid two
   startable items — see the caveat above.)
-- **Part 116 / the walk-surface naming pass** — blocked on the **TREE**: `MemoryWalk` does not exist yet, so
-  there are no names to pass over. Added 2026-08-30 and therefore NOT part of the 2026-08-28 re-check above;
-  it is refuted by reading the tree, never by asking the machine.
 
 ## Part 33 — generation platform: remaining backends + composition
 
@@ -592,12 +590,13 @@ top-k. The instruments exist — `node devtools/dev.mjs memory-locomo --shots` a
 `memory-longmemeval --shots [--haystack] [--expand-floor w]` — and the tables are `docs/memory.md` §5.
 Closed alongside it: **D98** (expansion had no vote from forgetting) and **D99** (co-activation is one store
 call). The session that produced all three is `docs/task-archive.md` Parts 112–115.
-<br>**This Part held five items and now holds three — two startable and one blocked.** The write-back collapse
-closed as `docs/task-archive.md` **Part 117** (**D101** — the whole write-back is one store call, not just
-the co-activation half D99 did), the LoCoMo contamination as **Part 118**, two thirds of the shot-curve item
-as **Part 119**, and **the n-shot SURFACE itself as Part 120** (**D102** — `MemoryWalk.WalkAsync`, an
-extension over the two seams that already existed, with both harnesses moved onto it and every published
-table reproduced cell for cell). The blocked one is the naming pass that surface owes.
+<br>**This Part held five items and now holds two, both startable and both measurement.** The write-back
+collapse closed as `docs/task-archive.md` **Part 117** (**D101** — the whole write-back is one store call,
+not just the co-activation half D99 did), the LoCoMo contamination as **Part 118**, two thirds of the
+shot-curve item as **Part 119**, **the n-shot SURFACE itself as Part 120** (**D102** —
+`MemoryWalk.WalkAsync`, an extension over the two seams that already existed, with both harnesses moved onto
+it and every published table reproduced cell for cell), and **its naming pass as Part 121** — filed blocked
+on the TREE and unblocked by Part 120's own commit, which is the kind of blocker a commit discharges.
 <br>**Read this before trusting any number below.** Those two measurement passes moved published figures
 three times: every LoCoMo arm by 20–25 points, D100's *"search wants two shots"* withdrawn outright, and
 knowledge-update's level down 6–9 points off a small sample. **None was a library defect — all three were
@@ -620,18 +619,6 @@ figures that have since moved._
   <br>**Read the reproducibility caveat in `docs/memory.md` §5 before adding a fifth curve**: a haystack
   figure is reproducible to about ONE question, not to a tenth of a point, and the oracle overstates the
   multi-shot gain by 2.7× on the class where that was checked.
-
-- [ ] **Name the walk surface as library API, not as the concept it was designed from.** **BLOCKED on the
-  TREE** — `MemoryWalk` does not exist yet, so there are no names to pass over; refuted by reading the tree.
-  <br>The design agreed on 2026-08-30 (`local/superpowers/specs/2026-08-30-memory-walk-design.md`) fixed the
-  SHAPE and left the names provisional on the owner's call: they were chosen while reasoning about the
-  mechanism, so several read as concept or measurement vocabulary rather than as the established suffix
-  vocabulary `.claude/rules/dotnet-package-layout.md` §Naming prescribes. The likely movers are `Discovered`,
-  `Upgraded`, `SeedsPerStep` and `MaxEntries`; `Hops` (matches `ExpandAsync`), `Ran` (matches
-  `MemoryRecall`) and `*Options` have precedent here and should not.
-  <br>**Do it before the surface is public, not after.** Every one of those names becomes a permanent SemVer
-  promise the moment it ships, and there is no carve-out any more (**D70**).
-
 
 ---
 

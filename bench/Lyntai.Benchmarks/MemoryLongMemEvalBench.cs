@@ -335,14 +335,14 @@ internal static class MemoryLongMemEvalBench
         Action<int, IReadOnlyList<string>, double> score)
     {
         var clock = Stopwatch.StartNew();
-        var options = new MemoryWalkOptions { SeedsPerStep = ExpandSeeds, Hops = 1, MaxEntries = ShotBudget };
+        var options = new MemoryWalkOptions { SeedsPerStep = ExpandSeeds, Hops = 1, MaxItems = ShotBudget };
 
         await foreach (var step in engine.WalkAsync(
             new MemoryQuery(Task, Scope, question, Limit: RecallLimit), options))
         {
-            score(step.Ordinal, [.. step.Items.Select(i => i.Content ?? i.Headline)],
+            score(step.Number, [.. step.Items.Select(i => i.Content ?? i.Headline)],
                 clock.Elapsed.TotalMilliseconds);
-            if (step.Ordinal >= 3) break;   // this harness's curve is three shots, as published
+            if (step.Number >= 3) break;   // this harness's curve is three shots, as published
         }
     }
 
