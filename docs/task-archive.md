@@ -1584,6 +1584,12 @@ first README annotation was redundant: `check-samples.mjs` already pre-declares 
 **What is deliberately NOT done.** The merge accumulator stays internal (D102 says what would change that).
 The public NAMES were provisional when this landed and were settled the same day — Part 121.
 
+**The working records** are `local/superpowers/specs/2026-08-30-memory-walk-design.md` and
+`local/superpowers/plans/2026-08-30-memory-walk.md` — untracked by design (**D43**), so they exist on one
+machine and in no history. Everything in them that had to outlive this version is already in D102, design
+§5.7, `pitfalls.md` and these two Parts; they get their `docs/superpowers/INDEX.md` row when the work
+SHIPS, which is that file's own rule.
+
 ## Part 121 — the walk's names, passed before the surface shipped (2026-08-30)
 
 ✅ done 2026-08-30 — `TASKS.md` Part 116's naming item, filed the previous day and **unblocked by Part 120

@@ -58,8 +58,8 @@ first load cheap — and `ExpandAsync` reinforces what it walks. So a one-shot m
 engine is built for, and **every recall-quality figure published before that date scores one shot**.
 <br>**`MemoryWalk.WalkAsync` ships that walk as a SURFACE** (**D102**, 2026-08-30): an extension over the two
 seams, yielding a step at a time so the caller's `break` is the stop condition — depth is a property of the
-question. It adds nothing to `IMemoryEngine`, and its public names are provisional until Part 116's naming
-pass lands. Measured:
+question. It adds nothing to `IMemoryEngine`, and its public names are SETTLED — the naming pass landed the
+same day, five renames (`docs/task-archive.md` **Part 121**). Measured:
 on LongMemEval knowledge-update, shot 1 returns the current fact and not the superseded one 31.4% of the time
 on 1,169 characters against plain cosine's 10.0% on 10,387 (all 70 questions; the 25-question sample this
 line quoted until 2026-08-29 read 40.0% against 16.0% — a lower LEVEL, a higher RATIO). The useful shot
@@ -69,7 +69,10 @@ Part 118): LoCoMo questions shared a store, and isolating them flattened the sho
 **+1.5/+1.0** on a shot 1 that was 24.5 points too low. **Every LoCoMo figure in `docs/memory.md` moved by
 20–25 points** while `vector` — which never touches the graph store — did not move at all. Read a LoCoMo
 number there for the regime it names.
-`TASKS.md` **Part 116** is the live work.
+**`TASKS.md`'s own banner is the live work — read it rather than any Part named here.** Part 116 was the
+2026-08-29 handover, and 2026-08-30 closed most of it (`docs/task-archive.md` **Parts 117–121** and **Part
+123**), so it is no longer "the" live work and the startable set is no longer one Part. Deliberately no
+count and no list: this line is auto-loaded, and a banner it duplicates is one amended in place.
 
 **Long-term memory is the newest subsystem** and the one a session is most likely to reason about wrongly,
 because it is not the three older memory surfaces: named engines resolved by name like `IHttpClientFactory`
